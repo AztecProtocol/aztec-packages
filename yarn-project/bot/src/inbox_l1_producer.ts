@@ -4,7 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { Hex } from 'viem';
+import { type Hex, TransactionReceiptNotFoundError } from 'viem';
 
 import {
   type L1ToL2MessageBatchMismatch,
@@ -103,9 +103,15 @@ export class ViemInboxL1Producer implements InboxL1Producer {
   }
 
   public async getBatchOutcome(txHash: string): Promise<L1ToL2MessageBatchReceipt | undefined> {
-    const receipt = await this.l1Client.getTransactionReceipt({ hash: txHash as Hex }).catch(() => undefined);
-    if (!receipt) {
-      return undefined;
+    try {
+      await this.l1Client.getTransactionReceipt({ hash: txHash as Hex });
+    } catch (err) {
+      // Only the node saying it has no such receipt means the batch is still pending. Any other failure is the
+      // transport's, and reporting it as pending would abandon a batch that did mine.
+      if (err instanceof TransactionReceiptNotFoundError) {
+        return undefined;
+      }
+      throw err;
     }
     return await awaitL1ToL2MessageBatch({
       l1Client: this.l1Client,

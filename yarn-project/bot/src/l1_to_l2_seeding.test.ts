@@ -1,7 +1,10 @@
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { type SentInboxMessage, validateL1ToL2MessageBatchBuckets } from './l1_to_l2_seeding.js';
+import { BlockNotFoundError } from 'viem';
+
+import { type SentInboxMessage, isL1BlockCanonical, validateL1ToL2MessageBatchBuckets } from './l1_to_l2_seeding.js';
 
 /** Capacity used by these cases. Small on purpose, so a batch can fill several buckets without hundreds of rows. */
 const CAPACITY = 4;
@@ -119,5 +122,31 @@ describe('validateL1ToL2MessageBatchBuckets', () => {
     const verdict = validateL1ToL2MessageBatchBuckets({ messages, bucketTotals, bucketCapacity: CAPACITY });
 
     expect(verdict).toMatchObject({ outcome: 'indeterminate', detail: expect.stringContaining('bucket 7') });
+  });
+});
+
+describe('isL1BlockCanonical', () => {
+  const blockHash = `0x${'ab'.repeat(32)}`;
+
+  /** The canonicality check only reads a block by number, so a stub of that one action is enough. */
+  const clientWhose = (getBlock: () => Promise<{ hash: string }>) =>
+    ({ getBlock }) as unknown as ExtendedViemWalletClient;
+
+  it('accepts a height that still carries the receipt block hash', async () => {
+    const client = clientWhose(() => Promise.resolve({ hash: blockHash.toUpperCase() }));
+
+    await expect(isL1BlockCanonical(client, 7n, blockHash)).resolves.toBe(true);
+  });
+
+  it('rejects a height whose block no longer exists', async () => {
+    const client = clientWhose(() => Promise.reject(new BlockNotFoundError({ blockNumber: 7n })));
+
+    await expect(isL1BlockCanonical(client, 7n, blockHash)).resolves.toBe(false);
+  });
+
+  it('propagates a transport failure rather than reporting the block as reorged', async () => {
+    const client = clientWhose(() => Promise.reject(new Error('socket hang up')));
+
+    await expect(isL1BlockCanonical(client, 7n, blockHash)).rejects.toThrow('socket hang up');
   });
 });

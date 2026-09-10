@@ -147,6 +147,8 @@ export const InboxBatchRecordSchema = z.object({
   sender: hexString.optional(),
   failureReason: z.enum(InboxBotReasons).optional(),
   exportedStages: z.array(z.enum(InboxBotStages)).default([]),
+  /** Whether the batch's outcome, size and gas were exported, so resolving its receipt again does not repeat them. */
+  resultExported: z.boolean().default(false),
   /** When the batch's unknown-message probe ran, so a restart does not repeat it. */
   unknownMessageProbedAt: timestampMs.optional(),
   /** When the batch's replay probe resolved, so a restart does not repeat it. */
@@ -360,7 +362,7 @@ export class InboxStore {
     batchId: string,
     receipt: InboxBatchReceiptInput,
     outcomes: InboxMessageOutcome[],
-  ): Promise<InboxBatchRecord> {
+  ): Promise<{ batch: InboxBatchRecord; failed: InboxMessageRecord[] }> {
     const minedAt = this.dateProvider.now();
     return await this.store.transactionAsync(async () => {
       const batch = await this.requireBatch(batchId);
@@ -377,8 +379,28 @@ export class InboxStore {
         sender: outcomes[0]?.sender,
       };
       await this.batches.set(batchId, JSON.stringify(updated));
+      const failed: InboxMessageRecord[] = [];
       for (const outcome of outcomes) {
         const message = await this.requireMessage(outcome.messageId);
+        if (isTerminalInboxMessageState(message.state)) {
+          continue;
+        }
+        if (message.state !== 'awaiting_l1') {
+          // A message that already has a consumption attempt against the previous receipt cannot take on a new
+          // identity: the attempt was built against the old one. An identity that did not move is left alone.
+          if (message.msgHash === outcome.msgHash) {
+            continue;
+          }
+          const reorged: InboxMessageRecord = {
+            ...message,
+            state: 'failed',
+            failedAt: minedAt,
+            failureReason: 'reorg',
+          };
+          await this.moveMessage(message, reorged);
+          failed.push(reorged);
+          continue;
+        }
         await this.writeMessage({
           ...message,
           minedAt,
@@ -388,7 +410,7 @@ export class InboxStore {
           sender: outcome.sender,
         });
       }
-      return updated;
+      return { batch: updated, failed };
     });
   }
 
@@ -439,6 +461,28 @@ export class InboxStore {
     });
   }
 
+  /**
+   * Moves a message to a new state only while it is still in one of the states the caller read it in, and returns
+   * undefined without writing anything otherwise. Retention, a timeout and a consumption attempt all mutate the
+   * same record from different clocks, and a blind write-back would resurrect a record that has already resolved.
+   */
+  public async transitionMessageFrom(
+    messageId: string,
+    from: InboxMessageState[],
+    to: InboxMessageState,
+    patch: InboxMessagePatch = {},
+  ): Promise<InboxMessageRecord | undefined> {
+    return await this.store.transactionAsync(async () => {
+      const message = await this.requireMessage(messageId);
+      if (!from.includes(message.state)) {
+        return undefined;
+      }
+      const updated: InboxMessageRecord = { ...message, ...patch, state: to };
+      await this.moveMessage(message, updated);
+      return updated;
+    });
+  }
+
   /** Records that the given milestones and stage latencies have been exported, so a restart does not repeat them. */
   public async markExported(
     messageId: string,
@@ -454,13 +498,17 @@ export class InboxStore {
     });
   }
 
-  /** Records that a batch-level stage latency has been exported. */
-  public async markBatchExported(batchId: string, stages: InboxBotStage[]): Promise<void> {
+  /** Records that a batch's stage latencies, or its one-off outcome sample, have been exported. */
+  public async markBatchExported(batchId: string, args: { stages?: InboxBotStage[]; result?: boolean }): Promise<void> {
     await this.store.transactionAsync(async () => {
       const batch = await this.requireBatch(batchId);
       await this.batches.set(
         batchId,
-        JSON.stringify({ ...batch, exportedStages: [...new Set([...batch.exportedStages, ...stages])] }),
+        JSON.stringify({
+          ...batch,
+          exportedStages: [...new Set([...batch.exportedStages, ...(args.stages ?? [])])],
+          resultExported: batch.resultExported || args.result === true,
+        }),
       );
     });
   }
@@ -476,7 +524,13 @@ export class InboxStore {
       const invalidated: InboxMessageRecord[] = [];
       for (const messageId of batch.messageIds) {
         const message = await this.requireMessage(messageId);
-        if (isTerminalInboxMessageState(message.state) || message.l2TxHash !== undefined) {
+        // A message being prepared has no transaction hash yet, but its attempt is already building against the
+        // identity this receipt assigned it, so it is left alone just like one that has already been sent.
+        if (
+          isTerminalInboxMessageState(message.state) ||
+          message.l2TxHash !== undefined ||
+          message.state === 'preparing'
+        ) {
           continue;
         }
         const updated: InboxMessageRecord = {
@@ -691,10 +745,13 @@ export class InboxStore {
 
     return await this.store.transactionAsync(async () => {
       let removed = 0;
+      // The saturation schedule names the batch it is waiting on; deleting that record would leave the run in
+      // flight with nothing left to resolve it against.
+      const inFlightBatchId = (await this.getSchedule())?.inFlightBatchId;
       const batchIds = new Set(terminal.filter(m => removable.has(m.messageId)).map(m => m.batchId));
       for (const batchId of batchIds) {
         const batch = await this.getBatch(batchId);
-        if (!batch || !batch.messageIds.every(id => removable.has(id))) {
+        if (!batch || batchId === inFlightBatchId || !batch.messageIds.every(id => removable.has(id))) {
           continue;
         }
         for (const messageId of batch.messageIds) {

@@ -90,7 +90,7 @@ describe('InboxStore', () => {
       const { batch, messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent(), intent()] });
       const outcomes = outcomesFor(messages.map(m => m.messageId));
 
-      const mined = await store.recordBatchMined(batch.batchId, receipt, outcomes);
+      const { batch: mined } = await store.recordBatchMined(batch.batchId, receipt, outcomes);
 
       expect(mined).toMatchObject({
         state: 'mined',
@@ -135,6 +135,29 @@ describe('InboxStore', () => {
     });
   });
 
+  describe('recordBatchMined', () => {
+    it('fails a message in flight whose identity the re-mined receipt changed', async () => {
+      const { batch, messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent(), intent()] });
+      const outcomes = outcomesFor(messages.map(m => m.messageId));
+      await store.recordBatchMined(batch.batchId, receipt, outcomes);
+      await store.transitionMessage(messages[0].messageId, 'sent', { l2TxHash: '0xl2a' });
+      await store.transitionMessage(messages[1].messageId, 'sent', { l2TxHash: '0xl2b' });
+
+      const remined = await store.recordBatchMined(batch.batchId, receipt, [
+        { ...outcomes[0], msgHash: Fr.random().toString(), globalLeafIndex: 90n },
+        outcomes[1],
+      ]);
+
+      expect(remined.failed.map(m => m.messageId)).toEqual([messages[0].messageId]);
+      expect(await store.getMessage(messages[0].messageId)).toMatchObject({
+        state: 'failed',
+        failureReason: 'reorg',
+        globalLeafIndex: '10',
+      });
+      expect(await store.getMessage(messages[1].messageId)).toMatchObject({ state: 'sent', globalLeafIndex: '11' });
+    });
+  });
+
   describe('transitionMessage', () => {
     it('moves the message between state indexes', async () => {
       const { messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent(), intent()] });
@@ -144,6 +167,33 @@ describe('InboxStore', () => {
       expect((await store.getMessagesByState('awaiting_l1')).map(m => m.messageId)).toEqual([messages[1].messageId]);
       expect((await store.getMessagesByState('observed')).map(m => m.messageId)).toEqual([messages[0].messageId]);
       expect(await store.countActiveMessages()).toEqual(2);
+    });
+  });
+
+  describe('transitionMessageFrom', () => {
+    it('applies the transition when the message is in one of the expected states', async () => {
+      const { messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent()] });
+
+      const updated = await store.transitionMessageFrom(messages[0].messageId, ['awaiting_l1'], 'observed', {
+        observedAt: 7,
+      });
+
+      expect(updated).toMatchObject({ state: 'observed', observedAt: 7 });
+      expect(await store.getMessage(messages[0].messageId)).toMatchObject({ state: 'observed' });
+    });
+
+    it('writes nothing when the message moved on underneath the caller', async () => {
+      const { messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent()] });
+      await store.transitionMessage(messages[0].messageId, 'timed_out', { timedOutAt: 3 });
+
+      const updated = await store.transitionMessageFrom(messages[0].messageId, ['preparing'], 'sent', {
+        l2TxHash: '0xl2',
+      });
+
+      expect(updated).toBeUndefined();
+      const stored = await store.getMessage(messages[0].messageId);
+      expect(stored).toMatchObject({ state: 'timed_out' });
+      expect(stored!.l2TxHash).toBeUndefined();
     });
   });
 
@@ -161,6 +211,19 @@ describe('InboxStore', () => {
       expect(first.globalLeafIndex).toBeUndefined();
       expect(second).toMatchObject({ state: 'sent', l2TxHash: '0xl2' });
       expect(second.globalLeafIndex).toEqual('11');
+    });
+
+    it('keeps a message whose consumption attempt is being prepared', async () => {
+      const { batch, messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent()] });
+      await store.recordBatchMined(batch.batchId, receipt, outcomesFor(messages.map(m => m.messageId)));
+      await store.transitionMessage(messages[0].messageId, 'preparing');
+
+      await store.invalidateDerivedState(batch.batchId);
+
+      expect(await store.getMessage(messages[0].messageId)).toMatchObject({
+        state: 'preparing',
+        globalLeafIndex: '10',
+      });
     });
   });
 
@@ -217,6 +280,22 @@ describe('InboxStore', () => {
     it('keeps a batch whose messages have not all reached a terminal state', async () => {
       const { batch, messages } = await store.reserveBatch({ scenario: 'normal', intents: [intent(), intent()] });
       await store.transitionMessage(messages[0].messageId, 'completed', {});
+      dateProvider.advanceTime(600);
+
+      expect(await store.pruneTerminalRecords({ maxAgeMs: 60_000, maxRecords: 100 })).toEqual(0);
+      expect(await store.getBatch(batch.batchId)).toBeDefined();
+    });
+
+    it('keeps the batch the saturation schedule still has in flight', async () => {
+      const { batch, messages } = await store.reserveBatch({ scenario: 'saturation', intents: [intent()] });
+      await store.transitionMessage(messages[0].messageId, 'completed', {});
+      await store.setSchedule({
+        enabled: true,
+        nextDueAt: 0,
+        runInFlight: true,
+        inFlightBatchId: batch.batchId,
+        consecutiveFailures: 0,
+      });
       dateProvider.advanceTime(600);
 
       expect(await store.pruneTerminalRecords({ maxAgeMs: 60_000, maxRecords: 100 })).toEqual(0);

@@ -421,10 +421,17 @@ export class InboxBot implements BotLifecycle {
    * Produces one atomic batch. The intent is durable before anything is broadcast and the claimed nonce and
    * transaction hash are durable before the outcome is known, so a crash at any point leaves a record that
    * {@link reconcileUnresolvedBatches} can resolve without ever resending.
+   *
+   * @param onReserved - Runs once the batch is durable and before anything is broadcast, so a caller that owns
+   * the batch can persist that claim while the submission is still certain to be its own.
    */
-  private produceBatch(scenario: InboxBotScenario, count: number): Promise<InboxBatchRecord | undefined> {
+  private produceBatch(
+    scenario: InboxBotScenario,
+    count: number,
+    onReserved?: (batch: InboxBatchRecord) => Promise<void>,
+  ): Promise<InboxBatchRecord | undefined> {
     return execInSpan(this.metrics.tracer, 'InboxBot.produceBatch', span =>
-      this.produceBatchInSpan(span, scenario, count),
+      this.produceBatchInSpan(span, scenario, count, onReserved),
     );
   }
 
@@ -432,6 +439,7 @@ export class InboxBot implements BotLifecycle {
     span: Span,
     scenario: InboxBotScenario,
     count: number,
+    onReserved?: (batch: InboxBatchRecord) => Promise<void>,
   ): Promise<InboxBatchRecord | undefined> {
     span.setAttribute(Attributes.BOT_INBOX_SCENARIO, scenario);
     const intents = await generateL1ToL2MessageIntents(count);
@@ -448,6 +456,7 @@ export class InboxBot implements BotLifecycle {
     });
     // Ids are span-only: they identify a single batch and would blow up the cardinality of any metric label.
     span.setAttribute(INBOX_BATCH_ID_SPAN_ATTRIBUTE, batch.batchId);
+    await onReserved?.(batch);
 
     const submittedAt = this.dateProvider.now();
     let receipt: L1ToL2MessageBatchReceipt;
@@ -529,7 +538,7 @@ export class InboxBot implements BotLifecycle {
     }
     await this.recordCheck('event_integrity', 'passed', { batchId });
 
-    const mined = await this.store.recordBatchMined(
+    const { batch: mined, failed } = await this.store.recordBatchMined(
       batchId,
       {
         l1TxHash: receipt.txHash,
@@ -552,6 +561,9 @@ export class InboxBot implements BotLifecycle {
     await this.checkBucketRollover(mined, receipt);
     for (const message of await this.store.getBatchMessages(batchId)) {
       await this.recordMessageMilestone(message, 'sent');
+    }
+    for (const message of failed) {
+      await this.recordMessageMilestone(message, 'failed');
     }
     return mined;
   }
@@ -775,49 +787,94 @@ export class InboxBot implements BotLifecycle {
 
     const submittedAt = now;
     this.recordSaturationRun('started', {});
-    const batch = await this.produceBatch('saturation', MAX_INBOX_MESSAGES_PER_BATCH);
+    // The run is owned from the moment its batch is durable, before anything is broadcast: a crash during the L1
+    // wait then leaves a batch the schedule already knows about, rather than an orphan it would follow with a
+    // second full-bucket send once reconciliation adopted the first.
+    let batchId: string | undefined;
+    await this.produceBatch('saturation', MAX_INBOX_MESSAGES_PER_BATCH, async batch => {
+      batchId = batch.batchId;
+      await this.store.updateSchedule({ runInFlight: true, inFlightBatchId: batch.batchId });
+    });
 
+    const batch = batchId === undefined ? undefined : await this.store.getBatch(batchId);
     if (batch?.state === 'mined') {
       // The schedule advances on successful L1 issuance, from the submission time rather than from the previous
       // due time, so downtime is never followed by a burst of catch-up runs.
       await this.store.updateSchedule({
         nextDueAt: submittedAt + this.config.inboxSaturationIntervalSeconds * 1000,
-        runInFlight: true,
-        inFlightBatchId: batch.batchId,
         consecutiveFailures: 0,
         retryAfterAt: undefined,
       });
-    } else {
-      const consecutiveFailures = schedule.consecutiveFailures + 1;
-      await this.store.updateSchedule({
-        consecutiveFailures,
-        retryAfterAt: now + this.saturationRetryDelayMs(consecutiveFailures),
-      });
-      this.recordSaturationRun('failed', { consecutiveFailures });
+    } else if (batch === undefined || batch.state === 'failed') {
+      await this.failSaturationRun(schedule.consecutiveFailures, { batchId });
     }
+    // A batch whose L1 outcome is still uncertain keeps the run in flight, for reconciliation to resolve.
     return true;
   }
 
+  /** Gives up on a saturation run that did not issue, backing off before the schedule may try again. */
+  private async failSaturationRun(previousFailures: number, context: object): Promise<void> {
+    const consecutiveFailures = previousFailures + 1;
+    await this.store.updateSchedule({
+      runInFlight: false,
+      inFlightBatchId: undefined,
+      consecutiveFailures,
+      retryAfterAt: this.dateProvider.now() + this.saturationRetryDelayMs(consecutiveFailures),
+    });
+    this.recordSaturationRun('failed', { ...context, consecutiveFailures });
+  }
+
   /**
-   * Closes out a saturation run once every one of its messages has reached a terminal state. Only a run in which
-   * every message was consumed counts as a success.
+   * Closes out a saturation run once its batch has an L1 outcome and every one of its messages has reached a
+   * terminal state. Only a run in which every message was consumed counts as a success.
    */
   private async resolveSaturationRun(): Promise<void> {
     const schedule = await this.store.getSchedule();
     if (!schedule?.runInFlight || !schedule.inFlightBatchId) {
       return;
     }
-    const messages = await this.store.getBatchMessages(schedule.inFlightBatchId);
-    if (messages.length === 0 || messages.some(message => !isTerminalInboxMessageState(message.state))) {
+    const batchId = schedule.inFlightBatchId;
+    const batch = await this.store.getBatch(batchId);
+    const messages = await this.store.getBatchMessages(batchId);
+    if (batch === undefined || messages.length === 0) {
+      // Nothing is left to resolve the run against, so it is closed instead of holding the schedule for good.
+      await this.store.updateSchedule({ runInFlight: false, inFlightBatchId: undefined });
+      this.recordSaturationRun('failed', { batchId, detail: 'the batch record no longer exists' });
+      return;
+    }
+    if (batch.state === 'reserved' || batch.state === 'submitted') {
+      return;
+    }
+    if (batch.state === 'failed') {
+      await this.failSaturationRun(schedule.consecutiveFailures, { batchId, detail: batch.failureReason });
+      return;
+    }
+    if (batch.submittedAt !== undefined && schedule.nextDueAt <= batch.submittedAt) {
+      // Reconciliation mined the batch rather than the step that started it, so the schedule has yet to be moved
+      // past this run's submission.
+      await this.store.updateSchedule({
+        nextDueAt: batch.submittedAt + this.config.inboxSaturationIntervalSeconds * 1000,
+        consecutiveFailures: 0,
+        retryAfterAt: undefined,
+      });
+    }
+    if (messages.some(message => !isTerminalInboxMessageState(message.state))) {
+      return;
+    }
+    if (batch.replayProbedAt === undefined) {
+      // The replay probe only starts once every message is terminal, and it runs on a slower clock than this, so
+      // the run waits for its verdict rather than closing without it. The wait is bounded: the probe scan either
+      // records a result or gives up once the batch is older than the message timeout, and retention leaves the
+      // batch a run still holds in place.
       return;
     }
 
     // A run only succeeded if every message was consumed *and* every check the run carried passed, including the
-    // bucket layout check. A check that never resolved leaves the run short of a success rather than passing by
-    // default, so `lastSuccessAt` always means the whole run was verified.
-    const batch = await this.store.getBatch(schedule.inFlightBatchId);
+    // bucket layout and replay probes. A check that never resolved leaves the run short of a success rather than
+    // passing by default, so `lastSuccessAt` always means the whole run was verified.
     const consumed = messages.every(message => message.state === 'completed');
-    const checked = batch !== undefined && batch.failedChecks.length === 0 && batch.bucketProbedAt !== undefined;
+    const checked =
+      batch.failedChecks.length === 0 && batch.bucketProbedAt !== undefined && batch.replayProbedAt !== undefined;
     const succeeded = consumed && checked;
     await this.store.updateSchedule({
       runInFlight: false,
@@ -825,10 +882,11 @@ export class InboxBot implements BotLifecycle {
       lastSuccessAt: succeeded ? this.dateProvider.now() : schedule.lastSuccessAt,
     });
     this.recordSaturationRun(succeeded ? 'success' : 'failed', {
-      batchId: schedule.inFlightBatchId,
+      batchId,
       consumed,
-      failedChecks: batch?.failedChecks,
-      bucketChecked: batch?.bucketProbedAt !== undefined,
+      failedChecks: batch.failedChecks,
+      bucketChecked: batch.bucketProbedAt !== undefined,
+      replayChecked: batch.replayProbedAt !== undefined,
     });
   }
 
@@ -1136,9 +1194,13 @@ export class InboxBot implements BotLifecycle {
    *
    * Every candidate is re-read first: observation, readiness and receipt polling all move messages within the
    * same poll, and only a message that is still waiting for its one attempt may be dispatched.
+   *
+   * `maxPendingTxs` gates the L2 submissions this makes, the way it gates the other bots through `BotRunner`; the
+   * node is asked only once a message is actually about to be dispatched.
    */
   private async dispatchAttempts(candidates: InboxMessageRecord[]): Promise<void> {
     const seen = new Set<string>();
+    let pendingChecked = false;
     for (const candidate of candidates) {
       if (seen.has(candidate.messageId) || this.attemptsInFlight.has(candidate.messageId)) {
         continue;
@@ -1157,6 +1219,17 @@ export class InboxBot implements BotLifecycle {
       }
       if (this.attemptsInFlight.size >= MAX_CONCURRENT_CONSUMPTION_ATTEMPTS) {
         return;
+      }
+      if (!pendingChecked && this.config.maxPendingTxs > 0) {
+        pendingChecked = true;
+        const pendingTxCount = await this.node.getPendingTxCount();
+        if (pendingTxCount >= this.config.maxPendingTxs) {
+          this.log.debug(`Not dispatching inbox consumption attempts, the node is at its pending transaction cap`, {
+            pendingTxCount,
+            maxPendingTxs: this.config.maxPendingTxs,
+          });
+          return;
+        }
       }
       const job = this.runConsumptionAttempt(message)
         .catch(err => this.registerConsumptionFailure(err))
@@ -1183,7 +1256,18 @@ export class InboxBot implements BotLifecycle {
   }
 
   private async runConsumptionAttemptInSpan(message: InboxMessageRecord): Promise<void> {
-    const preparing = await this.store.transitionMessage(message.messageId, 'preparing');
+    const preparing = await this.store.transitionMessageFrom(
+      message.messageId,
+      ['observed', 'awaiting_anchor'],
+      'preparing',
+    );
+    if (!preparing) {
+      this.log.debug(`Skipping an inbox consumption attempt for a message that already moved on`, {
+        messageId: message.messageId,
+        batchId: message.batchId,
+      });
+      return;
+    }
     const request: InboxConsumptionRequest = {
       mode: preparing.mode,
       content: Fr.fromHexString(preparing.content),
@@ -1201,10 +1285,21 @@ export class InboxBot implements BotLifecycle {
     }
 
     this.recordSimulation('accepted', preparing);
-    const sent = await this.store.transitionMessage(preparing.messageId, 'sent', {
+    const sent = await this.store.transitionMessageFrom(preparing.messageId, ['preparing'], 'sent', {
       l2TxHash: txHash.toString(),
       attempts: preparing.attempts + 1,
     });
+    if (!sent) {
+      // The message resolved while the attempt was in flight, most likely by timing out. Its outcome stands, but
+      // the transaction is recorded so a consumption it may still perform can be traced back to it.
+      await this.store.patchMessage(preparing.messageId, { l2TxHash: txHash.toString() });
+      this.log.warn(`Inbox consumption transaction was sent for a message that had already resolved`, {
+        messageId: preparing.messageId,
+        batchId: preparing.batchId,
+        txHash: txHash.toString(),
+      });
+      return;
+    }
     this.log.verbose(`Sent inbox consumption transaction`, {
       messageId: sent.messageId,
       batchId: sent.batchId,
@@ -1272,7 +1367,7 @@ export class InboxBot implements BotLifecycle {
       // else. It retries on the next poll, does not spend an attempt, and never counts against the bot's health.
       this.recordSimulation('not_ready', message);
       this.log.debug(`Inbox message is not consumable yet`, { messageId: message.messageId, mode: message.mode });
-      await this.store.transitionMessage(message.messageId, waiting);
+      await this.store.transitionMessageFrom(message.messageId, ['preparing'], waiting);
       return;
     }
 
@@ -1299,14 +1394,16 @@ export class InboxBot implements BotLifecycle {
 
     const terminal = reason === 'invalid_consumption' || reason === 'l2_drop' || attempts >= MAX_CONSUMPTION_ATTEMPTS;
     if (terminal) {
-      const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+      const failed = await this.store.transitionMessageFrom(message.messageId, ['preparing'], 'failed', {
         attempts,
         failedAt: this.dateProvider.now(),
         failureReason: reason,
       });
-      await this.recordMessageMilestone(failed, 'failed');
+      if (failed) {
+        await this.recordMessageMilestone(failed, 'failed');
+      }
     } else {
-      await this.store.transitionMessage(message.messageId, waiting, { attempts });
+      await this.store.transitionMessageFrom(message.messageId, ['preparing'], waiting, { attempts });
     }
     if (reason === 'rpc') {
       this.registerConsumptionFailure(err);
@@ -1348,15 +1445,17 @@ export class InboxBot implements BotLifecycle {
       attempts: message.attempts,
     });
     if (message.attempts >= MAX_CONSUMPTION_ATTEMPTS) {
-      const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+      const failed = await this.store.transitionMessageFrom(message.messageId, ['sent'], 'failed', {
         failedAt: this.dateProvider.now(),
         failureReason: 'l2_drop',
       });
-      await this.recordMessageMilestone(failed, 'failed');
+      if (failed) {
+        await this.recordMessageMilestone(failed, 'failed');
+      }
       return;
     }
     const waiting: InboxMessageState = message.mode === 'private' ? 'awaiting_anchor' : 'observed';
-    await this.store.transitionMessage(message.messageId, waiting, { l2TxHash: undefined });
+    await this.store.transitionMessageFrom(message.messageId, ['sent'], waiting, { l2TxHash: undefined });
   }
 
   /**
@@ -1393,11 +1492,13 @@ export class InboxBot implements BotLifecycle {
       spentBefore,
       argumentsStillValid,
     });
-    const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+    const failed = await this.store.transitionMessageFrom(message.messageId, ['sent'], 'failed', {
       failedAt: this.dateProvider.now(),
       failureReason: reason,
     });
-    await this.recordMessageMilestone(failed, 'failed');
+    if (failed) {
+      await this.recordMessageMilestone(failed, 'failed');
+    }
   }
 
   /**
@@ -1411,7 +1512,17 @@ export class InboxBot implements BotLifecycle {
       if (message.mode === 'public') {
         this.recordPublicExecution('success', message, receipt);
       }
-      await this.checkConsumptionNullifier(message, receipt);
+      if ((await this.checkConsumptionNullifier(message, receipt)) === 'failed') {
+        // The transaction executed, but not the consumption it was sent for, so the message is not consumed.
+        const failed = await this.store.transitionMessageFrom(message.messageId, ['sent'], 'failed', {
+          failedAt: this.dateProvider.now(),
+          failureReason: 'invalid_consumption',
+        });
+        if (failed) {
+          await this.recordMessageMilestone(failed, 'failed');
+        }
+        return;
+      }
       const relation = await this.classifyBlockRelation(message, receipt);
       current = await this.store.patchMessage(message.messageId, {
         includedAt: this.dateProvider.now(),
@@ -1425,10 +1536,13 @@ export class InboxBot implements BotLifecycle {
     if (!this.hasReachedCompletionPolicy(receipt.status)) {
       return;
     }
-    const completed = await this.store.transitionMessage(current.messageId, 'completed', {
+    const completed = await this.store.transitionMessageFrom(current.messageId, ['sent'], 'completed', {
       completedAt: this.dateProvider.now(),
       completionBlockNumber: receipt.blockNumber.toString(),
     });
+    if (!completed) {
+      return;
+    }
     if (completed.readyAt === undefined) {
       // Public consumption routinely beats the readiness poll; the observation is finished afterwards so its
       // latency is recorded rather than dropped.
@@ -1437,12 +1551,17 @@ export class InboxBot implements BotLifecycle {
     await this.recordMessageMilestone(completed, 'completed');
   }
 
-  /** Checks that the consuming transaction's effects carry the nullifier this message's consumption must emit. */
-  private async checkConsumptionNullifier(message: InboxMessageRecord, receipt: MinedTxReceipt): Promise<void> {
+  /**
+   * Checks that the consuming transaction's effects carry the nullifier this message's consumption must emit. A
+   * receipt served without its effects is `indeterminate`: it says nothing about the consumption either way.
+   */
+  private async checkConsumptionNullifier(
+    message: InboxMessageRecord,
+    receipt: MinedTxReceipt,
+  ): Promise<'passed' | 'failed' | 'indeterminate'> {
     if (!receipt.txEffect) {
-      // The node served the receipt without its effects; there is nothing to check against, so nothing is recorded.
       this.log.debug(`Consumption receipt carried no tx effect`, { messageId: message.messageId });
-      return;
+      return 'indeterminate';
     }
     const expected = await this.expectedConsumptionNullifier(message);
     if (receipt.txEffect.nullifiers.some(nullifier => nullifier.equals(expected))) {
@@ -1450,15 +1569,16 @@ export class InboxBot implements BotLifecycle {
         batchId: message.batchId,
         messageId: message.messageId,
       });
-    } else {
-      await this.recordCheck('consumption_nullifier', 'failed', {
-        batchId: message.batchId,
-        messageId: message.messageId,
-        txHash: message.l2TxHash,
-        blockNumber: receipt.blockNumber,
-      });
-      this.recordFailure('invalid_consumption', { messageId: message.messageId, check: 'consumption_nullifier' });
+      return 'passed';
     }
+    await this.recordCheck('consumption_nullifier', 'failed', {
+      batchId: message.batchId,
+      messageId: message.messageId,
+      txHash: message.l2TxHash,
+      blockNumber: receipt.blockNumber,
+    });
+    this.recordFailure('invalid_consumption', { messageId: message.messageId, check: 'consumption_nullifier' });
+    return 'failed';
   }
 
   /**
@@ -1481,6 +1601,12 @@ export class InboxBot implements BotLifecycle {
       MAX_INSERTION_SEARCH_BLOCKS,
     );
     if (insertion === undefined) {
+      return { relation: 'unknown' };
+    }
+    // The search walks blocks by number, so a chain that moved under it could answer about a different one. The
+    // consuming block is read again, and anything that changed is reported as unknown rather than as a relation.
+    const after = await this.node.getBlockData({ number: receipt.blockNumber });
+    if (!after || !after.blockHash.equals(receipt.blockHash)) {
       return { relation: 'unknown' };
     }
     return {
@@ -1652,6 +1778,7 @@ export class InboxBot implements BotLifecycle {
       this.consecutiveConsumptionFailures >= this.config.maxConsecutiveErrors
     ) {
       this.consumptionHealthy = false;
+      this.exitIfUnhealthy();
     }
   }
 
@@ -1666,7 +1793,20 @@ export class InboxBot implements BotLifecycle {
       this.consecutiveProductionFailures >= this.config.maxConsecutiveErrors
     ) {
       this.healthy = false;
+      this.exitIfUnhealthy();
     }
+  }
+
+  /**
+   * Exits when the operator asked an unhealthy bot to stop, mirroring `BotRunner`: a container that only fails
+   * its health check is not replaced, so an unhealthy bot has to exit for its orchestrator to restart it.
+   */
+  private exitIfUnhealthy(): void {
+    if (!this.config.stopWhenUnhealthy) {
+      return;
+    }
+    this.log.fatal(`Stopping inbox bot due to errors`);
+    process.exit(1);
   }
 
   /**
@@ -1859,10 +1999,13 @@ export class InboxBot implements BotLifecycle {
     result: InboxBotL1BatchResult,
     receipt: L1ToL2MessageBatchReceipt,
   ): Promise<void> {
-    this.metrics.recordL1Batch(result, batch.scenario, {
-      messageCount: batch.messageCount,
-      gasUsed: receipt.gasUsed,
-    });
+    if (!batch.resultExported) {
+      this.metrics.recordL1Batch(result, batch.scenario, {
+        messageCount: batch.messageCount,
+        gasUsed: receipt.gasUsed,
+      });
+    }
+    const stages: InboxBotStage[] = [];
     if (
       result === 'success' &&
       batch.submittedAt !== undefined &&
@@ -1874,8 +2017,9 @@ export class InboxBot implements BotLifecycle {
         { scenario: batch.scenario },
         (batch.minedAt - batch.submittedAt) / 1000,
       );
-      await this.store.markBatchExported(batch.batchId, ['l1_submission_to_mined']);
+      stages.push('l1_submission_to_mined');
     }
+    await this.store.markBatchExported(batch.batchId, { stages, result: true });
     this.log.info(`Inbox batch ${result}`, {
       batchId: batch.batchId,
       result,

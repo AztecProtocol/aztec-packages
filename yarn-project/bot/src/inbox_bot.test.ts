@@ -33,6 +33,7 @@ import { BlockHeader, GlobalVariables, PartialStateReference, StateReference, Tx
 import { Attributes, Metrics } from '@aztec/telemetry-client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import {
@@ -79,6 +80,10 @@ class FakeInboxL1Producer implements InboxL1Producer {
   public readonly sent: { intents: readonly L1ToL2MessageIntent[]; txHash: string }[] = [];
 
   public behaviour: 'success' | 'throw' | 'revert' = 'success';
+  /** Throws once the transaction is broadcast and its receipt registered, modelling a crash during the L1 wait. */
+  public crashAfterBroadcast = false;
+  /** Makes every L1 read throw, modelling a transport failure rather than an answer about the chain. */
+  public rpcDown = false;
   public confirmedNonce = 0;
   public nextIndex = 0n;
   public bucketSeq = 0n;
@@ -118,6 +123,9 @@ class FakeInboxL1Producer implements InboxL1Producer {
     this.confirmedNonce++;
     const receipt = this.buildReceipt(txHash, args.intents);
     this.receipts.set(txHash, receipt);
+    if (this.crashAfterBroadcast) {
+      throw new Error('L1 receipt wait failed');
+    }
     return receipt;
   }
 
@@ -161,7 +169,9 @@ class FakeInboxL1Producer implements InboxL1Producer {
   }
 
   public getBatchOutcome(txHash: string): Promise<L1ToL2MessageBatchReceipt | undefined> {
-    return Promise.resolve(this.receipts.get(txHash));
+    return this.rpcDown
+      ? Promise.reject(new Error('L1 RPC is unreachable'))
+      : Promise.resolve(this.receipts.get(txHash));
   }
 
   public getConfirmedNonce(): Promise<number> {
@@ -169,7 +179,9 @@ class FakeInboxL1Producer implements InboxL1Producer {
   }
 
   public isBlockCanonical(_blockNumber: bigint, blockHash: string): Promise<boolean> {
-    return Promise.resolve(!this.nonCanonicalBlocks.has(blockHash));
+    return this.rpcDown
+      ? Promise.reject(new Error('L1 RPC is unreachable'))
+      : Promise.resolve(!this.nonCanonicalBlocks.has(blockHash));
   }
 
   public getBucketMessageCount(bucketSeq: bigint, _atL1BlockNumber: bigint): Promise<number | undefined> {
@@ -746,6 +758,25 @@ describe('InboxBot', () => {
       expect(await store.getBatch(message.batchId)).toMatchObject({ state: 'failed', failureReason: 'reorg' });
     });
 
+    it('does not read an L1 RPC failure as a reorg', async () => {
+      const bot = buildBot({ inboxMessagesPerBatch: 2, l1ToL2SeedCount: 2 });
+      await bot.produceStep();
+      const [message] = await store.getActiveMessages();
+      producer.rpcDown = true;
+
+      await bot.produceStep();
+
+      expect(failures('reorg')).toEqual(0);
+      expect(await store.getBatch(message.batchId)).toMatchObject({ state: 'mined' });
+
+      producer.rpcDown = false;
+      await bot.produceStep();
+
+      expect(failures('reorg')).toEqual(0);
+      expect(await store.getBatch(message.batchId)).toMatchObject({ state: 'mined' });
+      expect((await store.getBatchMessages(message.batchId)).map(m => m.globalLeafIndex)).toEqual(['0', '1']);
+    });
+
     it('re-reads the receipt of a batch that was re-mined at different indices', async () => {
       const bot = buildBot({ inboxMessagesPerBatch: 2 });
       await bot.produceStep();
@@ -875,12 +906,78 @@ describe('InboxBot', () => {
       for (const message of await store.getBatchMessages(batchId)) {
         await store.transitionMessage(message.messageId, 'completed', {});
       }
+      await store.recordBatchProbe(batchId, 'replay');
 
       await bot.produceStep();
 
       const schedule = await store.getSchedule();
       expect(schedule).toMatchObject({ runInFlight: false, lastSuccessAt: dateProvider.now() });
       expect(schedule!.inFlightBatchId).toBeUndefined();
+    });
+
+    it('holds a run open until its replay probe has resolved, rather than closing it short of a success', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+      await bot.produceStep();
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      for (const message of await store.getBatchMessages(batchId)) {
+        await store.transitionMessage(message.messageId, 'completed', {});
+      }
+
+      await bot.produceStep();
+
+      expect(await store.getSchedule()).toMatchObject({ runInFlight: true, inFlightBatchId: batchId });
+      expect((await store.getSchedule())!.lastSuccessAt).toBeUndefined();
+
+      await store.recordBatchProbe(batchId, 'replay');
+      await bot.produceStep();
+
+      expect(await store.getSchedule()).toMatchObject({ runInFlight: false, lastSuccessAt: dateProvider.now() });
+    });
+
+    it('clears a run whose batch record retention has already removed', async () => {
+      const bot = buildBot(saturationConfig);
+      await bot.produceStep();
+      await store.updateSchedule({ runInFlight: true, inFlightBatchId: 'a-batch-that-is-gone' });
+
+      await bot.produceStep();
+
+      const schedule = await store.getSchedule();
+      expect(schedule).toMatchObject({ runInFlight: false });
+      expect(schedule!.inFlightBatchId).toBeUndefined();
+    });
+
+    it('owns a run from the moment it is reserved, so a crashed send never produces a second batch', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      const saturationBatches = () =>
+        producer.sent.filter(sent => sent.intents.length === MAX_INBOX_MESSAGES_PER_BATCH).length;
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+      producer.crashAfterBroadcast = true;
+
+      await bot.produceStep();
+
+      expect(saturationBatches()).toEqual(1);
+      expect(await store.getSchedule()).toMatchObject({ runInFlight: true });
+
+      // The transaction did land, so reconciliation adopts it rather than the schedule sending a second batch.
+      producer.crashAfterBroadcast = false;
+      dateProvider.advanceTime(60);
+      await bot.produceStep();
+
+      expect(saturationBatches()).toEqual(1);
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      expect(await store.getBatch(batchId)).toMatchObject({ state: 'mined' });
+
+      for (const message of await store.getBatchMessages(batchId)) {
+        await store.transitionMessage(message.messageId, 'completed', {});
+      }
+      await store.recordBatchProbe(batchId, 'replay');
+      await bot.produceStep();
+
+      expect(saturationBatches()).toEqual(1);
+      expect(await store.getSchedule()).toMatchObject({ runInFlight: false, lastSuccessAt: dateProvider.now() });
     });
 
     it('does not advance the success timestamp when a run had a failed message', async () => {
@@ -894,6 +991,7 @@ describe('InboxBot', () => {
       for (const message of messages.slice(1)) {
         await store.transitionMessage(message.messageId, 'completed', {});
       }
+      await store.recordBatchProbe(batchId, 'replay');
 
       await bot.produceStep();
 
@@ -910,12 +1008,15 @@ describe('InboxBot', () => {
 
       await bot.produceStep();
 
-      const schedule = await store.getSchedule();
-      expect(schedule).toMatchObject({ runInFlight: false, consecutiveFailures: 1 });
-      expect(schedule!.retryAfterAt).toEqual(dateProvider.now() + 10_000);
+      // The send claimed a nonce before it threw, so the run stays owned until reconciliation writes it off.
+      expect(await store.getSchedule()).toMatchObject({ runInFlight: true });
 
       producer.behaviour = 'success';
       await bot.produceStep();
+
+      const schedule = await store.getSchedule();
+      expect(schedule).toMatchObject({ runInFlight: false, consecutiveFailures: 1 });
+      expect(schedule!.retryAfterAt).toEqual(dateProvider.now() + 10_000);
       expect(producer.sent.filter(sent => sent.intents.length === MAX_INBOX_MESSAGES_PER_BATCH).length).toEqual(0);
 
       dateProvider.advanceTime(10);
@@ -1004,6 +1105,7 @@ describe('InboxBot', () => {
       for (const message of await store.getBatchMessages(batchId)) {
         await store.transitionMessage(message.messageId, 'completed', {});
       }
+      await store.recordBatchProbe(batchId, 'replay');
 
       await bot.produceStep();
 
@@ -1037,6 +1139,21 @@ describe('InboxBot', () => {
       producer.behaviour = 'success';
       await bot.produceStep();
       expect(bot.isHealthy()).toBe(true);
+    });
+
+    it('exits the process when it becomes unhealthy and the operator asked it to stop', async () => {
+      const exit = jest.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      try {
+        const bot = buildBot({ maxConsecutiveErrors: 1, stopWhenUnhealthy: true });
+        producer.behaviour = 'throw';
+
+        await bot.produceStep();
+
+        expect(bot.isHealthy()).toBe(false);
+        expect(exit).toHaveBeenCalledWith(1);
+      } finally {
+        exit.mockRestore();
+      }
     });
   });
 
@@ -1284,6 +1401,25 @@ describe('InboxBot', () => {
       });
     });
 
+    it('fails a consumption whose effects do not carry the message nullifier', async () => {
+      const bot = buildBot({ inboxConsumeMode: 'public', inboxMessagesPerBatch: 1 });
+      const [message] = await produceObservedBatch(bot);
+      await consume(bot);
+      const sent = await reload(message);
+      const insertion = await chain.insert(sent);
+      chain.mine(sent, { blockNumber: insertion.number, nullifiers: [Fr.random()] });
+
+      await consume(bot);
+
+      expect(await reload(message)).toMatchObject({ state: 'failed', failureReason: 'invalid_consumption' });
+      expect(checks('consumption_nullifier', 'failed')).toEqual(1);
+      expect(failures('invalid_consumption')).toEqual(1);
+      // The transaction did execute, so the public execution is still counted a success.
+      expect(publicExecutions('success')).toEqual(1);
+      expect(milestones('included')).toEqual(0);
+      expect(milestones('completed')).toEqual(0);
+    });
+
     it('reports a later block relation without treating the lost race as a failure', async () => {
       const bot = buildBot({ inboxConsumeMode: 'public', inboxMessagesPerBatch: 1 });
       const [message] = await produceObservedBatch(bot);
@@ -1319,6 +1455,28 @@ describe('InboxBot', () => {
       expect((await reload(message)).blockRelation).toEqual('unknown');
     });
 
+    it('reports an unknown relation when the consuming block is re-mined during the insertion search', async () => {
+      const bot = buildBot({ inboxConsumeMode: 'public', inboxMessagesPerBatch: 1 });
+      const [message] = await produceObservedBatch(bot);
+      await consume(bot);
+      const sent = await reload(message);
+      const insertion = await chain.insert(sent);
+      // Let readiness resolve first, so the only block reads left are the ones the relation check makes.
+      await consume(bot);
+      chain.mine(sent, { blockNumber: insertion.number, nullifiers: [await nullifierOf(sent)] });
+      let reads = 0;
+      chain.onBlockRead = () => {
+        // The chain moves under the bisection, after the first canonicality check has already passed.
+        if (++reads === 2) {
+          insertion.blockHash = BlockHash.random();
+        }
+      };
+
+      await consume(bot);
+
+      expect((await reload(message)).blockRelation).toEqual('unknown');
+    });
+
     it('calls a revert a correctness failure only when the block did carry the unspent message', async () => {
       const bot = buildBot({ inboxConsumeMode: 'public', inboxMessagesPerBatch: 1 });
       const [message] = await produceObservedBatch(bot);
@@ -1345,6 +1503,49 @@ describe('InboxBot', () => {
       await consume(bot);
 
       expect(await reload(message)).toMatchObject({ state: 'failed', failureReason: 'l2_revert' });
+    });
+
+    it('does not dispatch consumption attempts while the node is at its pending transaction cap', async () => {
+      const bot = buildBot({ inboxConsumeMode: 'public', inboxMessagesPerBatch: 1, maxPendingTxs: 2 });
+      const [message] = await produceObservedBatch(bot);
+      chain.node.getPendingTxCount.mockResolvedValue(5);
+
+      await consume(bot);
+
+      expect(consumer.sent).toEqual([]);
+      expect((await reload(message)).state).toEqual('observed');
+
+      chain.node.getPendingTxCount.mockResolvedValue(0);
+      await consume(bot);
+
+      expect(consumer.sent.length).toEqual(1);
+    });
+
+    it('does not resurrect a message that timed out while its consumption attempt was in flight', async () => {
+      const bot = buildBot({
+        inboxConsumeMode: 'public',
+        inboxMessagesPerBatch: 1,
+        l1ToL2MessageTimeoutSeconds: 60,
+      });
+      const [message] = await produceObservedBatch(bot);
+      const { promise, resolve } = promiseWithResolvers<void>();
+      consumer.gate = promise;
+      await bot.consumeStep();
+      expect((await reload(message)).state).toEqual('preparing');
+
+      // The message ages out while the attempt is still being proved.
+      dateProvider.advanceTime(120);
+      await bot.produceStep();
+      expect((await reload(message)).state).toEqual('timed_out');
+
+      resolve();
+      await bot.waitForBackgroundWork();
+
+      const timedOut = await reload(message);
+      expect(timedOut.state).toEqual('timed_out');
+      // The transaction the attempt did send is still recorded, so it can be followed up by hand.
+      expect(timedOut.l2TxHash).toBeDefined();
+      expect(milestones('completed')).toEqual(0);
     });
 
     it('abandons an attempt a restart interrupted rather than risking a second spend', async () => {
@@ -1488,7 +1689,9 @@ describe('InboxBot', () => {
       await bot.produceStep();
       expect(milestones('sent')).toEqual(2);
 
-      const [message] = await store.getActiveMessages();
+      const [message, inFlight] = await store.getActiveMessages();
+      // A message whose consumption is already in flight keeps the identity its transaction was built against.
+      await store.transitionMessage(inFlight.messageId, 'sent', { l2TxHash: hash(0x2001) });
       const mined = (await store.getBatch(message.batchId))!;
       producer.nonCanonicalBlocks.add(mined.l1BlockHash!);
       producer.nextIndex = 50n;
@@ -1502,7 +1705,14 @@ describe('InboxBot', () => {
       // what keep the re-resolved receipt from being counted a second time.
       await buildBot({ inboxMessagesPerBatch: 2, l1ToL2SeedCount: 2 }).produceStep();
 
-      expect((await store.getBatchMessages(message.batchId)).map(m => m.globalLeafIndex)).toEqual(['50', '51']);
+      const remined = await store.getBatchMessages(message.batchId);
+      expect(remined[0].globalLeafIndex).toEqual('50');
+      expect(remined[1]).toMatchObject({
+        state: 'failed',
+        failureReason: 'reorg',
+        globalLeafIndex: inFlight.globalLeafIndex,
+        msgHash: inFlight.msgHash,
+      });
       expect(milestones('sent')).toEqual(2);
       expect(
         telemetry.meter.values(Metrics.BOT_INBOX_STAGE_DURATION, {
@@ -1510,6 +1720,11 @@ describe('InboxBot', () => {
         }),
       ).toHaveLength(1);
       expect(failures('reorg')).toEqual(1);
+      expect(
+        telemetry.meter.sum(Metrics.BOT_INBOX_L1_BATCH_COUNT, { [Attributes.BOT_INBOX_RESULT]: 'success' }),
+      ).toEqual(1);
+      expect(telemetry.meter.values(Metrics.BOT_INBOX_L1_BATCH_SIZE)).toEqual([2]);
+      expect(telemetry.meter.values(Metrics.BOT_INBOX_L1_GAS_USED)).toEqual([1_000_000]);
     });
 
     it('arms its observable gauges while running and removes them when stopped', async () => {

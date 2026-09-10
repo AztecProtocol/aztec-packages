@@ -8,7 +8,15 @@ import type { Logger } from '@aztec/foundation/log';
 import { InboxAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type Hex, decodeEventLog, encodeFunctionData, getContract, multicall3Abi, parseEventLogs } from 'viem';
+import {
+  BlockNotFoundError,
+  type Hex,
+  decodeEventLog,
+  encodeFunctionData,
+  getContract,
+  multicall3Abi,
+  parseEventLogs,
+} from 'viem';
 
 import type { BotStore, PendingL1ToL2Message } from './store/index.js';
 
@@ -369,14 +377,24 @@ export async function sendL1ToL2MessageBatch(args: {
 /**
  * Returns whether the given L1 block is still the canonical block at its height. A re-mined batch can land at a
  * different index, so any membership or index derived from a receipt is only valid while this holds.
+ *
+ * Only the block's absence answers the question negatively. Any other failure is the transport's, not the chain's,
+ * and is thrown rather than read as a reorg, which would invalidate everything derived from a sound receipt.
  */
 export async function isL1BlockCanonical(
   l1Client: ExtendedViemWalletClient,
   blockNumber: bigint,
   blockHash: string,
 ): Promise<boolean> {
-  const block = await l1Client.getBlock({ blockNumber }).catch(() => undefined);
-  return block?.hash?.toLowerCase() === blockHash.toLowerCase();
+  try {
+    const block = await l1Client.getBlock({ blockNumber });
+    return block?.hash?.toLowerCase() === blockHash.toLowerCase();
+  } catch (err) {
+    if (err instanceof BlockNotFoundError) {
+      return false;
+    }
+    throw err;
+  }
 }
 
 /**
