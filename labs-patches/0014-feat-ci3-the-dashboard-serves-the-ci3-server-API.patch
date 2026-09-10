@@ -10,23 +10,39 @@ dashboard's basic auth, which the ci3 client sends from ~/.ci3/config.json once 
 The API refuses to serve without a password; bodies and gzip expansion are bounded; log and kv
 writes cannot cross into the run and list families; runs are validated, stored compact and
 replaced atomically; a redis outage does not lose a final log; only genuine absence is a 404.
-Alongside: constant-time password comparison, quoted /grind arguments, redis and S3 client
-timeouts. ci3_api_test.py covers it against a real redis and an in-memory S3.
+Alongside: quoted /grind arguments, redis and S3 client timeouts, and S3_CACHE_PUBLIC_URL so a
+test can point artifact reads at a local bucket. ci3_api_test.py covers the API against a real
+redis and an in-memory S3.
 
 diff --git a/ci3/dashboard/ci3_api.py b/ci3/dashboard/ci3_api.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf0065163b383b2
+index 0000000000000000000000000000000000000000..47462916cd47cffd030750270301358a62535cc5
 --- /dev/null
 +++ b/ci3/dashboard/ci3_api.py
-@@ -0,0 +1,310 @@
+@@ -0,0 +1,323 @@
 +"""The ci3 server API (aztec-packages ci3/CI3_SERVER_API.md) on the dashboard's redis and S3.
 +
-+The key shapes are the ones the dashboard already renders: gzipped logs under their id, test-cache
-+values under the command hash, `history_*` / `failed_tests*` lists, `ci-run-<section>` sorted sets,
-+`ci:test:*` events, final logs at logs/<4>/<id>.log.gz (or logs/<path>.log.gz for path ids such as
-+test-timings/... and bench/bb-breakdown/...), artifacts in the build cache. Register with rk.py's
-+app, auth decorator, S3 client and settings. Every route but /health takes the dashboard's basic
-+auth, and the API refuses to serve at all without a password: its callers write.
++ci3 is the foundation repo's bash CI framework; this is where it keeps everything it stores, in the
++key shapes this dashboard already renders:
++
++  logs       gzipped under their id (SETEX). Every denoised command, every test attempt, a run's
++             top-level log (its CI_LOG_ID), and data files with path ids: test-timings/<run>/<test
++             log> and bench/bb-breakdown/<key> (the chonk-breakdowns view reads those). A running job
++             re-puts its log every few seconds; the last write is marked final and is also copied to
++             S3 at logs/<4>/<id>.log.gz (path ids: logs/<path>.log.gz), where read_from_s3 finds it
++             once redis has expired it.
++  kv         the test cache: key = hash of the full test command line, value = the id of the log of
++             its passing run, so CI skips a test that already passed. Also hb-<run id>, the heartbeat
++             a running build refreshes every 30s (set-filter.lua marks a run inactive without it).
++  lists      history_<test hash>[_<branch>] (one line per attempt of a test) and failed_tests[_<section>]
++             (every failure and flake): the /list/<name> pages.
++  runs       ci-run-<section> sorted sets, score = the run id (CI_LOG_ID): the records the section
++             pages render, written RUNNING when a run starts and PASSED/FAILED when it ends.
++  artifacts  the build cache in S3: <component>-<content hash> tarballs, bench-<tree>.tar.gz,
++             npm-release-<tag>.tar.gz, the ci-success-* whole-run marker.
++
++Register with rk.py's app, auth decorator, S3 client and settings. Every route but /health takes the
++dashboard's basic auth, and the API refuses to serve at all without a password: its callers write.
 +
 +Callers are trusted shared writers. What the API guards against is a mistaken or malicious caller
 +taking the dashboard down with it: bodies and gzip expansion are bounded, keys cannot cross into
@@ -47,7 +63,6 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +SEGMENT = re.compile(r"[A-Za-z0-9._:+@=,-]+")
 +RUN_ID = re.compile(r"[0-9]{1,18}")
 +RESERVED = ("ci-run-", "history_", "failed_tests")  # owned by the runs and lists resources
-+EVENT_PREFIX = "ci:"
 +LOG_TTL = 60 * 60 * 24 * 14
 +MAX_TTL = 60 * 60 * 24 * 400
 +LIST_DEFAULT_MAX = 1000
@@ -60,6 +75,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +RUN_FIELDS = ("status", "msg", "name", "author")
 +CACHE_BUCKET = "aztec-ci-artifacts"
 +CACHE_PREFIX = "build-cache"
++CACHE_PUBLIC_URL = "https://%s.s3.amazonaws.com/%s" % (CACHE_BUCKET, CACHE_PREFIX)
 +uploads = threading.BoundedSemaphore(4)  # artifact uploads in flight, per worker
 +
 +
@@ -136,7 +152,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +    return e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound")
 +
 +
-+def register(app, protect, s3, logs_bucket, logs_prefix, password):
++def register(app, protect, s3, logs_bucket, logs_prefix, password, cache_public_url=CACHE_PUBLIC_URL):
 +    def route(rule, **kw):
 +        def deco(fn):
 +            def guarded(*a, **k):
@@ -162,6 +178,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +    def ci3_health():
 +        return Response("ci3-server", mimetype="text/plain", headers={"X-CI3-Server": "rkapp"})
 +
++    # Logs. GET /logs/<prefix>/ lists what is finalised under a prefix (S3 only): a run's test-timings.
 +    def log_list(prefix):
 +        names = []
 +        pages = s3.get_paginator("list_objects_v2").paginate(Bucket=logs_bucket, Prefix="%s/%s/" % (logs_prefix, prefix), Delimiter="/")
@@ -216,6 +233,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +            data = inflate(data)
 +        return text(data, "Log not found: %s\n" % key)
 +
++    # The test cache and heartbeats. mget is how the test filter checks a batch of 50 commands.
 +    @route("/kv/mget", methods=["POST"])
 +    def ci3_kv_mget():
 +        keys = [k for k in body().decode(errors="replace").split("\n") if k]
@@ -241,6 +259,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +    def ci3_kv_get(key):
 +        return text(r.get(check_key(key)))
 +
++    # Test history and failed-test feeds: newest first, bounded.
 +    @route("/lists/<path:name>", methods=["POST"])
 +    def ci3_list_push(name):
 +        check_key(name)
@@ -257,6 +276,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +        lines = r.lrange(check_key(name), 0, -1)
 +        return text(b"".join(l + b"\n" for l in lines) if lines else None)
 +
++    # The run registry. A section may contain "/" (merge-train/<x>); the id is the last segment.
 +    def split_run(rest):
 +        section, _, run_id = rest.rpartition("/")
 +        return (section, run_id) if section and RUN_ID.fullmatch(run_id) else (rest, None)
@@ -292,13 +312,7 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +        runs = [json.loads(raw) for raw in r.zrevrange(key, 0, RUNS_MAX - 1)]
 +        return Response(json.dumps(runs), mimetype="application/json")
 +
-+    @route("/events/<path:channel>", methods=["POST"])
-+    def ci3_event(channel):
-+        if not check_key(channel).startswith(EVENT_PREFIX):
-+            abort(400, "events are published on %s* channels" % EVENT_PREFIX)
-+        r.publish(channel, body().decode(errors="replace").strip())
-+        return "", 204
-+
++    # The build cache. Uploads stream to S3; reads go to the bucket's public endpoint.
 +    def artifact_key(name):
 +        return "%s/%s" % (CACHE_PREFIX, check_key(name))
 +
@@ -328,13 +342,13 @@ index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf00651
 +                if s3_missing(e):
 +                    return "", 404
 +                raise
-+        return redirect("https://%s.s3.amazonaws.com/%s" % (CACHE_BUCKET, key), code=302)
++        return redirect("%s/%s" % (cache_public_url.rstrip("/"), check_key(name)), code=302)
 diff --git a/ci3/dashboard/ci3_api_test.py b/ci3/dashboard/ci3_api_test.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..ae8174ee17cd7a932b10622685b81f0ffcb99526
+index 0000000000000000000000000000000000000000..2c5508e74ec237c6daf850c67e8db73ab048fe27
 --- /dev/null
 +++ b/ci3/dashboard/ci3_api_test.py
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,228 @@
 +#!/usr/bin/env python3
 +"""Tests for ci3_api against a real redis (REDIS_HOST/REDIS_PORT) and an in-memory S3.
 +
@@ -501,8 +515,6 @@ index 0000000000000000000000000000000000000000..ae8174ee17cd7a932b10622685b81f0f
 +        self.assertEqual(self.put("/logs/history_abc_next", b"x").status_code, 400)
 +        self.assertEqual(self.put("/kv/failed_tests_prs", b"x").status_code, 400)
 +        self.assertEqual(r.type("ci-run-prs"), b"zset")
-+        self.assertEqual(self.post("/events/not-ci", b"{}").status_code, 400)
-+        self.assertEqual(self.post("/events/ci:test:started", b'{"a":1}').status_code, 204)
 +
 +    def test_bad_arguments_are_400_before_any_mutation(self):
 +        for bad in ("abc", "-5", "0", str(ci3_api.MAX_TTL + 1)):
@@ -566,39 +578,30 @@ index 0000000000000000000000000000000000000000..ae8174ee17cd7a932b10622685b81f0f
 +if __name__ == "__main__":
 +    unittest.main()
 diff --git a/ci3/dashboard/rk.py b/ci3/dashboard/rk.py
-index 6907b70a6d0999b314af3a5e9a1c9d5d13b734c8..e6bd27a0b96def5a6cbea30868f734b6e2ab06e6 100644
+index 6907b70a6d0999b314af3a5e9a1c9d5d13b734c8..06d05e92a38d71423b6a599203d9d779534f12aa 100644
 --- a/ci3/dashboard/rk.py
 +++ b/ci3/dashboard/rk.py
-@@ -2,8 +2,10 @@ from flask import Flask, render_template_string, request, Response, redirect
+@@ -2,6 +2,7 @@ from flask import Flask, render_template_string, request, Response, redirect
  from flask_compress import Compress
  from flask_httpauth import HTTPBasicAuth
  import boto3
 +from botocore.config import Config
  from botocore.exceptions import ClientError
  import gzip
-+import hmac
  import json
- import os
- import re
-@@ -24,7 +26,7 @@ from rk_core import (
+@@ -23,8 +24,10 @@ from rk_core import (
+ )
  S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
  S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
++# Where build-cache artifacts are read from (the ci3 API redirects there); a test points it at a local bucket.
++S3_CACHE_PUBLIC_URL = os.getenv('S3_CACHE_PUBLIC_URL', 'https://aztec-ci-artifacts.s3.amazonaws.com/build-cache')
  
 -_s3 = boto3.client('s3', region_name='us-east-2')
 +_s3 = boto3.client('s3', region_name='us-east-2', config=Config(connect_timeout=10, read_timeout=60, retries={'max_attempts': 3}))
  DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', '')
  CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
  CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
-@@ -125,7 +127,7 @@ def read_breakdown_from_s3(runtime, flow_name, sha):
- 
- @auth.verify_password
- def verify_password(username, password):
--    if username == "aztec" and password == DASHBOARD_PASSWORD:
-+    if username == "aztec" and hmac.compare_digest(password.encode(), DASHBOARD_PASSWORD.encode()):
-         return username
-     return None
- 
-@@ -576,7 +578,7 @@ def trigger_grind():
+@@ -576,7 +579,7 @@ def trigger_grind():
              return redirect(f'/{run_id}')
  
          subprocess.Popen(
@@ -607,13 +610,13 @@ index 6907b70a6d0999b314af3a5e9a1c9d5d13b734c8..e6bd27a0b96def5a6cbea30868f734b6
              stdout=subprocess.DEVNULL,
              stderr=subprocess.DEVNULL,
              start_new_session=True
-@@ -639,6 +641,10 @@ def proxy_dashboard():
+@@ -639,6 +642,10 @@ def proxy_dashboard():
  def proxy_api(path):
      return _proxy(f'/api/{path}')
  
 +# The ci3 server API (ci3/CI3_SERVER_API.md in aztec-packages): what the ci3 scripts talk to.
 +import ci3_api
-+ci3_api.register(app, optional_auth, _s3, S3_LOGS_BUCKET, S3_LOGS_PREFIX, DASHBOARD_PASSWORD)
++ci3_api.register(app, optional_auth, _s3, S3_LOGS_BUCKET, S3_LOGS_PREFIX, DASHBOARD_PASSWORD, S3_CACHE_PUBLIC_URL)
 +
  @app.route('/<key>')
  @optional_auth

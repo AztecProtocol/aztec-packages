@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# End to end against the real thing: the labs dashboard (rkapp) serving the ci3 API, run here from the
+# labs checkout with the labs patch applied, on a throwaway redis and a minio bucket standing in for
+# S3, with ci3 pointed at it through an aztec-mode config. Exercises the ci3 scripts, not just the
+# client: cache_log, the test cache filter, run_test_cmd, log_ci_run, per-test timings, the build
+# cache, and that the dashboard's own pages render what came in. Skips without docker or the labs
+# checkout; the python dependencies go in a cached venv.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+export root="$ROOT" ci3="$ROOT/ci3"
+export REF_NAME=${REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}
+export PATH="$ci3:$PATH"
+
+RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; NC=$'\033[0m'
+TESTS_PASSED=0; TESTS_FAILED=0
+pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() { echo "${RED}✗${NC} $1: $2"; ((TESTS_FAILED++)) || true; }
+check() { if [ "$2" == "$3" ]; then pass "$1"; else fail "$1" "expected [$2] got [$3]"; fi; }
+
+echo "=== ci3 against rkapp (labs dashboard) ==="
+if ! docker info &>/dev/null; then echo "docker unavailable, skipping."; exit 0; fi
+if ! git -C "$ROOT/labs" rev-parse --verify -q HEAD >/dev/null; then echo "labs submodule not checked out, skipping."; exit 0; fi
+
+work=$(mktemp -d)
+redis_port=$((20000 + RANDOM % 20000)); minio_port=$((20000 + RANDOM % 20000)); rk_port=$((20000 + RANDOM % 20000))
+tag="ci3-rkapp-test-$$"
+cleanup() {
+  [ -n "${rk_pid:-}" ] && kill "$rk_pid" 2>/dev/null || true
+  docker rm -f "$tag-redis" "$tag-minio" >/dev/null 2>&1 || true
+  rm -rf "$work"
+}
+trap cleanup EXIT
+
+# The dashboard source: the labs checkout when the series is applied there, else the gitlink's
+# tree with the ci3 API patch applied on top.
+mkdir -p "$work/labs/ci3"
+if [ -f "$ROOT/labs/ci3/dashboard/ci3_api.py" ]; then
+  cp -r "$ROOT/labs/ci3/dashboard" "$work/labs/ci3/"
+else
+  git -C "$ROOT/labs" archive HEAD ci3/dashboard | tar -x -C "$work/labs"
+  patch -s -p1 -d "$work/labs" <"$(ls "$ROOT"/labs-patches/*-feat-ci3-the-dashboard-serves-the-ci3-server-API.patch | tail -1)"
+fi
+dashboard=$work/labs/ci3/dashboard
+
+venv=${TMPDIR:-/tmp}/ci3-rkapp-venv-$(sha256sum "$dashboard/requirements.txt" | cut -c1-12)
+if [ ! -x "$venv/bin/python" ]; then
+  echo "installing the dashboard's python dependencies into $venv..."
+  python3 -m venv "$venv" && "$venv/bin/pip" install -q -r "$dashboard/requirements.txt"
+fi
+
+echo "starting redis and minio..."
+docker run -d --rm --name "$tag-redis" -p 127.0.0.1:$redis_port:6379 redis:7-alpine >/dev/null
+docker run -d --rm --name "$tag-minio" -p 127.0.0.1:$minio_port:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin quay.io/minio/minio server /data >/dev/null
+export AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin AWS_DEFAULT_REGION=us-east-2 AWS_ENDPOINT_URL=http://127.0.0.1:$minio_port
+for _ in $(seq 1 60); do aws s3 ls >/dev/null 2>&1 && break; sleep 0.5; done
+aws s3 mb s3://aztec-ci-artifacts >/dev/null
+# The build cache is read anonymously through the bucket's public endpoint; make minio's public too.
+aws s3api put-bucket-policy --bucket aztec-ci-artifacts --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::aztec-ci-artifacts/*"}]}'
+public_cache=http://127.0.0.1:$minio_port/aztec-ci-artifacts/build-cache
+
+echo "starting rkapp..."
+(cd "$dashboard" && REDIS_HOST=127.0.0.1 REDIS_PORT=$redis_port DASHBOARD_PASSWORD=secret S3_CACHE_PUBLIC_URL=$public_cache CI_METRICS_URL=http://127.0.0.1:1 \
+  exec "$venv/bin/python" -c "import rk; rk.app.run(host='127.0.0.1', port=$rk_port)" >"$work/rk.log" 2>&1) &
+rk_pid=$!
+for _ in $(seq 1 60); do curl -s "http://127.0.0.1:$rk_port/health" | grep -q ci3-server && break; sleep 0.5; done
+check "rkapp answers as a ci3 server" "ci3-server" "$(curl -s "http://127.0.0.1:$rk_port/health")"
+
+# ci3, set up for the aztec server: this rkapp, with the dashboard as the link base.
+export CI3_CONFIG=$work/config.json CI=1 COMMIT_HASH=abc COMMIT_AUTHOR=me COMMIT_MSG=m RUN_ID=1 JOB_ID=x-fast CI_DASHBOARD=prs AWS_TOKEN=none
+unset CI3_SERVER CI3_PUBLIC_URL
+printf '{"mode": "aztec", "server": "http://127.0.0.1:%s", "public_url": "http://dashboard.example", "password": "secret"}\n' "$rk_port" >"$CI3_CONFIG"
+source "$ci3/source_stdlib"
+source "$ci3/source_ci3_client"
+check "ci3 resolved rkapp as its server" "http://127.0.0.1:$rk_port" "$CI3_SERVER"
+# The public build cache ci3 falls back to is minio here as well.
+ci3_public_cache_url=$public_cache
+redis() { docker exec "$tag-redis" redis-cli --raw "$@"; }
+s3ls() { aws s3 ls "s3://aztec-ci-artifacts/$1" 2>/dev/null | awk '{print $NF}'; }
+
+echo "--- logs"
+out=$(printf 'hello via rkapp\n' | DUP=1 cache_log "Test" 0123456789abcdef 2>/dev/null)
+check "cache_log passes output through" "hello via rkapp" "$out"
+check "the log is in redis, gzipped" "1f8b" "$(redis GET 0123456789abcdef | head -c 2 | xxd -p)"
+check "its final write reached S3 as logs/<4>/<id>.log.gz" "0123456789abcdef.log.gz" "$(s3ls logs/0123/)"
+check "ci3 reads it back" "hello via rkapp" "$(ci3_client log_get 0123456789abcdef | grep 'hello')"
+check "the dashboard renders it" 200 "$(curl -s -o /dev/null -w '%{http_code}' -u aztec:secret "http://127.0.0.1:$rk_port/0123456789abcdef")"
+check "printed links point at the dashboard" "http://dashboard.example/0123456789abcdef" "$(ci3_client url 0123456789abcdef)"
+
+echo "--- the test cache and run_test_cmd"
+export USE_TEST_CACHE=1
+first=$(run_test_cmd "deadbeef00000001 echo through-rkapp" 2>&1 | tail -1 | sed 's/\x1b\[[0-9;]*m//g')
+check "a test passes through rkapp" "PASSED" "${first%% *}"
+second=$(run_test_cmd "deadbeef00000001 echo through-rkapp" 2>&1 | tail -1 | sed 's/\x1b\[[0-9;]*m//g')
+check "and is skipped the second time" "SKIPPED" "${second%% *}"
+kept=$(printf '%s\n%s\n' "deadbeef00000001 echo through-rkapp" "deadbeef00000002 echo fresh" | filter_cached_test_cmd 2>/dev/null)
+check "filter_cached_test_cmd drops it" "deadbeef00000002 echo fresh" "$kept"
+check "history line recorded" 1 "$(TRACK_TEST_HISTORY=1 run_test_cmd "deadbeef00000003 echo hist" >/dev/null 2>&1; redis LLEN "history_$(hash_str_orig 'echo hist')" 2>/dev/null || ci3_client list_get "history_$(hash_str_orig 'echo hist')" | wc -l | tr -d ' ')"
+
+echo "--- per-test timings"
+CI_LOG_ID=1700000000000999 run_test_cmd 'deadbeef00000004 echo {\"span\":1} >> $TEST_TIMING_FILE' >/dev/null 2>&1
+check "timing file listed under the run" 1 "$(ci3_client log_list test-timings/1700000000000999 | wc -l | tr -d ' ')"
+check "and stored in S3 where the dashboard reads it" 1 "$(s3ls logs/test-timings/1700000000000999/ | wc -l | tr -d ' ')"
+
+echo "--- the run registry"
+log_ci_run 1700000000000999 >/dev/null 2>&1 && log_ci_run 1700000000000999 PASSED >/dev/null 2>&1
+check "run recorded and completed" "PASSED" "$(ci3_client run_get prs 1700000000000999 | jq -r .status)"
+check "it is one sorted-set member" 1 "$(redis ZCARD ci-run-prs)"
+check "the dashboard section renders it" 200 "$(curl -s -o /dev/null -w '%{http_code}' -u aztec:secret "http://127.0.0.1:$rk_port/section/prs")"
+
+echo "--- the build cache"
+mkdir -p "$work/src" "$work/dst"; echo "artifact content" >"$work/src/file.txt"
+(cd "$work" && cache_upload "rkapp-test-$$.tar.gz" src/file.txt 2>"$work/upload.err")
+check "cache_upload lands in the bucket" "rkapp-test-$$.tar.gz" "$(s3ls build-cache/ | grep "rkapp-test-$$")"
+if cache_exists "rkapp-test-$$.tar.gz"; then pass "cache_exists finds it"; else fail "cache_exists finds it" "exit 1"; fi
+cache_download "rkapp-test-$$.tar.gz" "$work/dst" 2>"$work/download.err"
+check "cache_download follows the redirect and extracts it" "artifact content" "$(cat "$work/dst/src/file.txt")"
+
+echo "--- and rkapp is still a dashboard"
+check "grind page renders" 200 "$(curl -s -o /dev/null -w '%{http_code}' -u aztec:secret "http://127.0.0.1:$rk_port/grind?cmd=echo")"
+check "anonymous writes are refused" 401 "$(printf x | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "http://127.0.0.1:$rk_port/kv/anon")"
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"; exit 0
+else echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"; echo "--- rk.log tail"; tail -20 "$work/rk.log"; exit 1; fi
