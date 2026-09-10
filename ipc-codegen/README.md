@@ -132,7 +132,6 @@ flags below are only for legacy positional schemas, which have no `service`.
 
 | Flag | Purpose |
 |---|---|
-| `--curve-constants` | TS only. Also emit `curve_constants.ts` with bn254/grumpkin/secp moduli & generators for schemas that need curve constants. |
 | `--skeleton <dir>` | One-shot scaffolding: writes a `<service>_handlers.{ts,rs,zig,cpp}` stub, `main`, and a build file into `<dir>` if they don't already exist. Skipped on subsequent runs. |
 | `--package-name <name>` | TS package mode only. Package name to write into the generated `package.json`. |
 | `--binary-name <name>` | Client package shell only; ignored by the server shell. Native service binary name to launch. |
@@ -146,18 +145,17 @@ Paths below are illustrative — consumers commit their own schema next to the
 C++ server that owns the wire format and supply absolute or relative paths on
 the command line.
 
-### TypeScript client, with curve constants
+### TypeScript client
 
 ```sh
 src/generate.ts \
   --schema /path/to/myservice_schema.jsonc \
   --lang ts \
   --out /path/to/output/generated \
-  --client \
-  --curve-constants
+  --client
 ```
 
-Produces `api_types.ts`, `async.ts`, `sync.ts`, `curve_constants.ts`. The TS
+Produces `api_types.ts`, `async.ts`, `sync.ts`. The TS
 client uses `@aztec-foundation/ipc-runtime`'s `UdsIpcClient` or `NapiShmSyncClient` for
 transport — no template copy.
 

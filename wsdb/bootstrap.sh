@@ -48,7 +48,7 @@ function build {
   copy_native
   npm_install_deps
   yarn build
-  (cd ts && ./scripts/prepare_arch_packages.sh "$(arch)-$(os)=build/$(arch)-$(os)/$WSDB_BINARY")
+  (cd ts && npm run prepare_arch_packages -- "$(arch)-$(os)=build/$(arch)-$(os)/$WSDB_BINARY")
 }
 
 function clean {
@@ -61,7 +61,7 @@ function release {
   copy_cross
   npm_install_deps
   yarn build
-  (cd ts && ./scripts/prepare_arch_packages.sh)
+  (cd ts && npm run prepare_arch_packages)
   for package_dir in ts/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done

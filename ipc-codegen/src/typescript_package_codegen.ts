@@ -12,8 +12,6 @@ export interface TypeScriptPackageOptions {
   wasmModule?: string;
   /** wasm transport: basename of the threads module shipped in the package's wasm/ directory. */
   wasmThreadsModule?: string;
-  /** Whether generated/curve_constants.ts is emitted alongside (re-exported from the entries). */
-  curveConstants?: boolean;
 }
 
 function className(prefix: string): string {
@@ -201,7 +199,7 @@ export class TypeScriptPackageCodegen {
     return `export * from './generated/api_types.js';
 export { AsyncApi } from './generated/async.js';
 export { SyncApi } from './generated/sync.js';
-${this.opts.curveConstants ? "export * from './generated/curve_constants.js';\n" : ""}`;
+`;
   }
 
   generatePackageJson(): string {

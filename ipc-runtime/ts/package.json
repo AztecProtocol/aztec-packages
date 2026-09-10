@@ -49,6 +49,6 @@
     "typescript": "^5.6.3"
   },
   "bin": {
-    "ipc-runtime-prepare-arch-packages": "./scripts/prepare_arch_packages.sh"
+    "ipc-runtime-prepare-arch-packages": "./scripts/prepare_arch_packages.mjs"
   }
 }
