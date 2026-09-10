@@ -26,7 +26,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstancePreimageWithAddress, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/server';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
