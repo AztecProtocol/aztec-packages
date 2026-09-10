@@ -32,6 +32,7 @@ import {
   MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
+  NOTE_ORIGIN,
   NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
@@ -240,6 +241,15 @@ export const ORACLE_REGISTRY = {
       { name: 'packedHintedNoteLength', type: U32 },
     ],
     returnType: BOUNDED_VEC(NOTE),
+  }),
+
+  aztec_utl_getSettledNoteOrigin: makeEntry({
+    params: [
+      { name: 'noteHash', type: FIELD },
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'noteNonce', type: FIELD },
+    ],
+    returnType: OPTION(NOTE_ORIGIN),
   }),
 
   aztec_utl_getPendingTaggedLogsV2: makeEntry({

@@ -437,6 +437,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_getSettledNoteOrigin(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getSettledNoteOrigin',
+      inputs,
+      handler: ([noteHash, contractAddress, noteNonce]) =>
+        this.handlerAsUtility().getSettledNoteOrigin(noteHash, contractAddress, noteNonce),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_getNullifierStatuses(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_getNullifierStatuses',
