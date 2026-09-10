@@ -9,8 +9,10 @@ import { BackendOptions, BackendType } from '../index.js';
 const SHM_RING_SIZE = 1024 * 1024 * 4;
 
 /**
- * bb monitors parent death (prctl/kqueue) and exits on its own, so the child must never hold the
- * Node event loop open; its log pipes (present with a logger) do, unless the caller asked for unref.
+ * A spawned server dies with its parent — ipc-runtime's C++ installs that watch, and the
+ * generated serve() calls it — so it must never hold the Node event loop open. The runtime does
+ * not assume it, so ask. Its log pipes are separate: they exist only when a logger is attached,
+ * and unref'ing them lets the process exit with lines still unread, so they follow the caller.
  */
 function bbProcessLifetime(options: BackendOptions) {
   return { unref: true, unrefStdio: options.unref };
