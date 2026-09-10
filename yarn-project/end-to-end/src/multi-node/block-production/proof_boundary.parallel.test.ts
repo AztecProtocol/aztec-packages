@@ -50,6 +50,10 @@ describe('multi-node/block-production/proof_boundary', () => {
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       ...MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING,
+      // The profile leaves this per-test. At the default of 2 the 24s slot derives only 3 block opportunities,
+      // under the Inbox catch-up floor, and the sequencer refuses the config at startup; 1 derives the 4 the
+      // floor wants. Gossip is mocked here, so the shorter propagation budget costs this suite nothing.
+      attestationPropagationTime: 1,
       initialValidators: validators,
       ...overrides,
     });
