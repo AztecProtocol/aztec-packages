@@ -195,18 +195,80 @@ pub fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
     factor
 }
 
-// Compute the fracs: w^i / (z - w^i) for all i
+/// Compute the fracs: w^i / (z - w^i) for all i.
+///
+/// The roots of unity let all `d` inverses be built from a single one, rather than from a
+/// `d`-element batch inversion.
+///
+/// Write `z_k = z^(2^k)` and `w_k = w^(2^k)`, so `w_k` is a primitive `(d / 2^k)`-th root of
+/// unity, and let
+///
+///     I_k[t] = 1 / (z_k - w_k^t),   t = 0 .. d/2^k - 1
+///
+/// The top level `k = log2(d)` is a single entry, `1 / (z^d - 1)`, costing one inversion. Each
+/// level below follows from the one above by a difference of two squares: with `m = d / 2^k`,
+/// and using `w_{k-1}^(t+m) = -w_{k-1}^t`,
+///
+///     (z_{k-1} - w_{k-1}^t)(z_{k-1} + w_{k-1}^t) = z_k - w_k^t
+///
+/// so a single parent yields two children for two multiplications:
+///
+///     I_{k-1}[t]     = (z_{k-1} + w_{k-1}^t) * I_k[t]
+///     I_{k-1}[t + m] = (z_{k-1} - w_{k-1}^t) * I_k[t]
+///
+/// `ROOTS` is stored bit-reversed (the EIP-4844 blob layout), which makes the indexing fall out:
+/// a parent at array index `u` has its two children at `2u` and `2u + 1`, and the root it needs,
+/// `w_{k-1}^t`, is exactly `ROOTS[2u]` at every level. Entries are written in place, descending
+/// through `u` so a child index never lands on a parent still to be read.
+///
+/// The last level folds the `w^i` numerator in as it descends. There `ROOTS[2u] = w^t` and
+/// `ROOTS[u] = w^2t`, giving
+///
+///     fracs[2u]     =  (z*w^t + w^2t) * I_1[u]
+///     fracs[2u + 1] = -(z*w^t - w^2t) * I_1[u]
+///
+/// which shares the `z*w^t` product across the pair: 3 multiplications per pair, against the 4 a
+/// separate numerator pass would need.
+///
+/// Total: ~2.5d multiplications and one inversion, against ~4d and one inversion for the
+/// batch-inversion form (Montgomery's trick alone costs 3 multiplications per element).
 unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_BLOB] {
-    let mut denoms = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
-    for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__sub(ROOTS[i]); // (z - w^i)
+    // z_pow[k] = z^(2^k)
+    let mut z_pow = [BLS12_381_Fr::zero(); LOG_FIELDS_PER_BLOB + 1];
+    z_pow[0] = z;
+    for k in 1..(LOG_FIELDS_PER_BLOB + 1) {
+        z_pow[k] = z_pow[k - 1].__mul(z_pow[k - 1]);
     }
-    let inv_denoms: [BLS12_381_Fr; FIELDS_PER_BLOB] = bignum::bignum::batch_invert(denoms); // 1 / (z - w^i), for all i
-    // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
-    let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // aiming for: w^i / (z - w^i), for all i
-    for i in 0..FIELDS_PER_BLOB {
-        let inv_denom = inv_denoms[i]; // 1 / (z - w^i)
-        fracs[i] = ROOTS[i].__mul(inv_denom); // w^i * (1 / (z - w^i))
+
+    // The single inverse everything else is derived from. If `z` is itself a d-th root of unity
+    // this is zero and the whole array degenerates to zeros, exactly as the batch-inversion form
+    // did; `validate_fracs` rejects that, and reaching it needs a Poseidon2 preimage.
+    let mut inverses = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+    inverses[0] = z_pow[LOG_FIELDS_PER_BLOB].__sub(BLS12_381_Fr::one()).__invmod();
+
+    // Descend to level 1, doubling the number of live entries each time.
+    let mut num_entries: u32 = 1;
+    for step in 0..(LOG_FIELDS_PER_BLOB - 1) {
+        let k = LOG_FIELDS_PER_BLOB - step;
+        for i in 0..num_entries {
+            let u = num_entries - 1 - i;
+            let inverse = inverses[u];
+            let root = ROOTS[2 * u];
+            inverses[2 * u] = z_pow[k - 1].__add(root).__mul(inverse);
+            inverses[2 * u + 1] = z_pow[k - 1].__sub(root).__mul(inverse);
+        }
+        num_entries *= 2;
+    }
+
+    // Final level: turn I_1 into the fracs, folding in the w^i numerator.
+    let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+    for u in 0..num_entries {
+        let inverse = inverses[u];
+        let root = ROOTS[2 * u]; // w^t
+        let root_squared = ROOTS[u]; // w^2t
+        let z_root = z.__mul(root);
+        fracs[2 * u] = z_root.__add(root_squared).__mul(inverse);
+        fracs[2 * u + 1] = z_root.__sub(root_squared).__mul(inverse).__neg();
     }
 
     fracs
@@ -563,6 +625,34 @@ mod tests {
             let denom = z.__sub(ROOTS[i]); // z - w^i
             let product = fracs[i].__mul(denom); // fracs[i] * (z - w^i)
             assert_eq(product, ROOTS[i]);
+        }
+    }
+
+    /// `__compute_fracs` derives every entry from a single inversion by halving down the roots
+    /// of unity, so an error in one level would corrupt a whole contiguous half of the output.
+    /// Spot-checking a few indices would miss that; check the defining relation everywhere.
+    #[test]
+    unconstrained fn test_compute_fracs_satisfies_defining_relation_everywhere() {
+        let z = BLS12_381_Fr::from(
+            0x1f4a21e3a1ab23739c164d0df1596c870180aab5f810c548097dd6371ac3186d,
+        );
+
+        let fracs = __compute_fracs(z);
+
+        for i in 0..FIELDS_PER_BLOB {
+            // fracs[i] * (z - w^i) == w^i
+            assert_eq(fracs[i].__mul(z.__sub(ROOTS[i])), ROOTS[i]);
+        }
+    }
+
+    /// The halving reads a parent's two children as `2u` / `2u + 1` and its root as `ROOTS[2u]`.
+    /// That only works because `ROOTS` is stored bit-reversed, which lands every root next to its
+    /// own negation. Assuming natural order instead silently corrupts half the output, so pin the
+    /// property the indexing rests on.
+    #[test]
+    unconstrained fn test_roots_are_stored_adjacent_to_their_negations() {
+        for u in 0..(FIELDS_PER_BLOB / 2) {
+            assert_eq(ROOTS[2 * u + 1], ROOTS[2 * u].__neg());
         }
     }
 
