@@ -1583,7 +1583,14 @@ describe('Archiver Sync', () => {
     // Local blocks are placed far ahead on L1 so their slot never expires while the tests move the L1 head.
     const LOCAL_BLOCKS_L1_BLOCK = 5000n;
 
-    /** Locally proposed blocks chained on genesis, each consuming through the given message counts. */
+    /**
+     * Locally proposed blocks chained on genesis, each consuming through the given message counts.
+     *
+     * `addBlock` resolves once the block is stored but triggers a sync it does not await, so the pass it starts
+     * outlives this helper with the head captured as it is now. Tests that then move the head backwards would race
+     * it: recovery against the stale head can commit after the pass for the new head and leave the old height as
+     * the synced one. Draining it here settles that pass before the caller changes anything.
+     */
     const addLocalBlocksConsuming = async (leafCounts: number[]) => {
       const { checkpoint } = await mockCheckpointAndMessages(CheckpointNumber(1), {
         startBlockNumber: BlockNumber(1),
@@ -1596,6 +1603,7 @@ describe('Archiver Sync', () => {
       for (const block of checkpoint.blocks) {
         await addLocalBlock(block);
       }
+      await archiver.syncImmediate();
       return checkpoint.blocks;
     };
     const localBlockNumbers = async () =>
