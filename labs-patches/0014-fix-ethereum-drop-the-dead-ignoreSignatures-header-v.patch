@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Thu, 10 Sep 2026 18:38:20 -0300
+Subject: [PATCH] fix(ethereum): drop the dead ignoreSignatures header
+ validation flag
+
+`CheckpointHeaderValidationFlags` on the Rollup carries a single field,
+`ignoreDA`. The `ignoreSignatures` field the TypeScript declared alongside it
+is a leftover from `BlockHeaderValidationFlags`, which lost that flag when
+signature verification moved out of the header check and became a function of
+the attestations passed in.
+
+Because the flags argument reaches viem as a typed variable rather than an
+inline literal, viem encoded it against the ABI and discarded the unknown key
+with no type error and no runtime error. The flag has therefore had no effect
+for as long as it has been declared, and removing it changes no encoded
+calldata.
+
+Nor does it change intent: signature checks are skipped by passing empty
+attestations, which the one caller that set `ignoreSignatures: true`
+(`SequencerPublisher.validateCheckpointHeader`) already does, so the header
+preflight it simulates keeps skipping them.
+
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index e8c5da3881bb37da8f712d67a0a22a6cf564d3be..0b04e06b0845647877173fcd4fe723b509c40707 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -887,10 +887,7 @@ export class RollupContract {
+       ViemSignature,
+       `0x${string}`,
+       `0x${string}`,
+-      {
+-        ignoreDA: boolean;
+-        ignoreSignatures: boolean;
+-      },
++      { ignoreDA: boolean },
+     ],
+     account: `0x${string}` | Account,
+   ): Promise<void> {
+diff --git a/yarn-project/sequencer-client/src/publisher/sequencer-publisher.ts b/yarn-project/sequencer-client/src/publisher/sequencer-publisher.ts
+index 948f14d655618eb2c9516689074a18dd9efdc2e1..f20fbb70727827cbfc3f6eab2dd9ccd5b1571723 100644
+--- a/yarn-project/sequencer-client/src/publisher/sequencer-publisher.ts
++++ b/yarn-project/sequencer-client/src/publisher/sequencer-publisher.ts
+@@ -983,7 +983,7 @@ export class SequencerPublisher {
+     header: CheckpointHeader,
+     simulationOverridesPlan?: SimulationOverridesPlan,
+   ): Promise<void> {
+-    const flags = { ignoreDA: true, ignoreSignatures: true };
++    const flags = { ignoreDA: true };
+ 
+     const args = [
+       header.toViem(),
