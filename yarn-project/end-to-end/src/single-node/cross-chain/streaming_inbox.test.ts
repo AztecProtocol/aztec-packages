@@ -1,9 +1,11 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -398,52 +400,55 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // Test 5 (forced same-block consumption): a public tx consuming a message that the *same* block inserts must
   // succeed. The block builder appends the block's messages to its fork before executing txs, matching the prover
   // and the block-root circuit (which pins each tx's L1-to-L2 tree snapshot to the post-append root); if it did
-  // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable. The node
-  // simulates public calls against the messages predicted for the next block, so a consume tx sent as soon as the
-  // node's archiver has observed the message passes simulation and lands in the pool before the inserting block
-  // is built. Observation is the only trigger: a message in a mined L1 block is consumable at once, without waiting
-  // for a descendant L1 block. The send is timed to the archiver's observation and retried with fresh messages when a
-  // block slips in between.
+  // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable.
+  //
+  // A block freezes its L1-to-L2 message set when it is prepared, which happens before the message's L1 tx is even
+  // mined, so a consume tx sent while a block is already building can only join that block -- one too early, against
+  // a frozen set that does not hold the message, and it reverts. Waiting for the archiver alone cannot avoid this:
+  // it leaves which block the tx joins up to where the send lands in the block cadence. Block production is
+  // therefore held while the message is sent and observed and the consume tx is put in the pool, so that the first
+  // block prepared after the resume is the one that both inserts the message and executes the tx.
   it('consumes a message in the same block that inserts it', async () => {
     const l1Account = t.ethAccount;
-    const maxAttempts = 5;
-    let sameBlockReceipt: { blockNumber: BlockNumber; msgHash: Fr; globalLeafIndex: bigint } | undefined;
+    const sequencer = t.context.aztecNodeService.getSequencer()!;
+    const [secret, secretHash] = await generateClaimSecret();
+    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
 
-    for (let attempt = 0; attempt < maxAttempts && sameBlockReceipt === undefined; attempt++) {
-      const [secret, secretHash] = await generateClaimSecret();
-      const message = { recipient: testContract.address, content: Fr.random(), secretHash };
-      const { msgHash, globalLeafIndex, txReceipt: l1Receipt } = await sendMessageToL2(message);
-      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()} in L1 block ${l1Receipt.blockNumber}`);
+    // Proven before the pause so the proof window cannot expire while nothing is being built.
+    await markAsProven();
+    await sequencer.pause();
 
-      // Do not drive L2 blocks while waiting: an extra block here only shifts the timing of the inserting block.
-      // The archiver polls L1 within an Ethereum slot; no later L1 block is needed for the message to be usable.
-      await waitForMessageObserved(msgHash);
+    const { msgHash, globalLeafIndex } = await sendMessageToL2(message);
+    // The archiver polls L1 independently of block production, so it still observes the message while paused.
+    await waitForMessageObserved(msgHash);
 
-      const { receipt } = await testContract.methods
-        .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
-        .send({ from: user1Address, wait: { dontThrowOnRevert: true } });
-      const inserting = await findInsertingBlock(msgHash);
-      const consumeBlock = BlockNumber(Number(receipt.blockNumber));
-      log.warn(`Consume tx for ${msgHash.toString()} landed in block ${consumeBlock}`, {
-        insertingBlock: inserting.blockNumber,
-        consumeBlock,
-        executionResult: receipt.executionResult,
-      });
+    // NO_WAIT: the tx has to reach the pool while production is held, so it cannot be awaited here -- nothing will
+    // mine it until the resume below. Simulation runs against the messages predicted for the next block, which the
+    // archiver has already observed, so the consume simulates against a tree that holds the message.
+    const { txHash } = await testContract.methods
+      .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
+      .send({ from: user1Address, wait: NO_WAIT });
+    log.warn(`Queued consume for ${msgHash.toString()} while production is held`, { txHash: txHash.toString() });
 
-      if (consumeBlock !== inserting.blockNumber) {
-        // A block was built between eligibility and the tx's arrival; that is timing, not a bug.
-        log.warn(`Consume did not land in the inserting block; retrying with a fresh message`);
-        continue;
-      }
+    // Resuming on a slot boundary gives the proposer its whole build frame for the block that carries both.
+    await t.monitor.waitUntilNextL2Slot();
+    await sequencer.start();
 
-      // Same block reached: the consume must have succeeded against the block's own messages.
-      expect(receipt.executionResult).toBe(TxExecutionResult.SUCCESS);
-      sameBlockReceipt = { blockNumber: consumeBlock, msgHash, globalLeafIndex: globalLeafIndex.toBigInt() };
-    }
+    const receipt = await waitForTx(aztecNode, txHash);
+    const consumeBlock = BlockNumber(Number(receipt.blockNumber));
+    const inserting = await findInsertingBlock(msgHash);
+    log.warn(`Consume tx for ${msgHash.toString()} landed in block ${consumeBlock}`, {
+      insertingBlock: inserting.blockNumber,
+      consumeBlock,
+      executionResult: receipt.executionResult,
+    });
 
-    if (sameBlockReceipt === undefined) {
-      throw new Error(`Could not produce a same-block consume in ${maxAttempts} attempts`);
-    }
+    // The premise of the case: holding production must put both in the same block. Anything else is a real failure
+    // -- a consume one block late would succeed against an already-inserted message and prove nothing.
+    expect(consumeBlock).toBe(inserting.blockNumber);
+    expect(receipt.executionResult).toBe(TxExecutionResult.SUCCESS);
+
+    const sameBlockReceipt = { blockNumber: consumeBlock, msgHash, globalLeafIndex: globalLeafIndex.toBigInt() };
     const [resolvedIndex] = (await aztecNode.getL1ToL2MessageMembershipWitness(
       sameBlockReceipt.blockNumber,
       sameBlockReceipt.msgHash,
