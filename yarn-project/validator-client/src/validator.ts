@@ -61,6 +61,7 @@ import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { ValidationService } from './duties/validation_service.js';
+import { DutyBudget, DutyBudgetExpiredError } from './duty_budget.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
@@ -520,11 +521,40 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposal: ValidatedCheckpointProposalCore,
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
+    // The all-nodes callback ran under a budget of its own; this one repeats the committee reads, may revalidate
+    // and then signs, so it takes an absolute budget for the same slot covering all of it. Without one the
+    // preliminary reads and the signer await are unbounded, and p2p waits on this callback.
+    const budget = new DutyBudget(this.proposalHandler.getReexecutionDeadline(proposal.slotNumber), this.dateProvider);
+    try {
+      return await this.attestToCheckpointProposalWithinBudget(proposal, budget);
+    } catch (err) {
+      if (!(err instanceof DutyBudgetExpiredError)) {
+        throw err;
+      }
+      this.log.warn(`Ran out of duty budget attesting to the checkpoint proposal for slot ${proposal.slotNumber}`, {
+        slot: proposal.slotNumber,
+        deadline: budget.deadline.toISOString(),
+      });
+      return undefined;
+    } finally {
+      // Anything still retrying belongs to a duty nobody will read from any more.
+      budget.stop(`checkpoint attestation for slot ${proposal.slotNumber}`);
+    }
+  }
+
+  /** {@link attestToCheckpointProposal}'s body, with every stage bound to the slot's duty budget. */
+  private async attestToCheckpointProposalWithinBudget(
+    proposal: ValidatedCheckpointProposalCore,
+    budget: DutyBudget,
+  ): Promise<CheckpointAttestation[] | undefined> {
     const proposalSlotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
 
     // If escape hatch is open for this slot's epoch, do not attest.
-    if (await this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber)) {
+    const escapeHatchOpen = await budget.run(`escape hatch check for slot ${proposalSlotNumber}`, () =>
+      this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber),
+    );
+    if (escapeHatchOpen) {
       this.log.warn(`Escape hatch open for slot ${proposalSlotNumber}, skipping checkpoint attestation handling`);
       return undefined;
     }
@@ -544,7 +574,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Check that I have any address in the committee where this checkpoint will land before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(proposalSlotNumber, this.getValidatorAddresses());
+    const inCommittee = await budget.run(`committee membership check for slot ${proposalSlotNumber}`, () =>
+      this.epochCache.filterInCommittee(proposalSlotNumber, this.getValidatorAddresses()),
+    );
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
@@ -564,7 +596,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.warn(`Skipping checkpoint proposal validation for slot ${proposalSlotNumber}`, proposalInfo);
       checkpointNumber = CheckpointNumber(0);
     } else {
-      const validationResult = await this.proposalHandler.handleCheckpointProposal(proposal, proposalInfo);
+      const validationResult = await this.proposalHandler.handleCheckpointProposal(proposal, proposalInfo, budget);
       if (!validationResult.isValid) {
         this.log.warn(`Checkpoint proposal validation failed: ${validationResult.reason}`, proposalInfo);
         return undefined;
@@ -627,14 +659,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    // Everything above may have waited on local state to catch up, so the signing gate takes the slot's consensus
-    // attestation deadline: nothing signed after it reaches a peer that would still accept it.
-    return await this.createCheckpointAttestationsFromProposal(
-      proposal,
-      attestors,
-      checkpointNumber,
-      this.proposalHandler.getReexecutionDeadline(proposalSlotNumber),
-    );
+    // Everything above may have waited on local state to catch up, so the signing gate takes the slot's duty budget,
+    // whose deadline is the consensus attestation deadline: nothing signed after it reaches a peer that would still
+    // accept it.
+    return await this.createCheckpointAttestationsFromProposal(proposal, attestors, checkpointNumber, budget);
   }
 
   /**
@@ -659,42 +687,59 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   /**
-   * The one place a checkpoint attestation is produced, so `deadline` gates every path that reaches it, the
-   * cached-verdict one included. Callers responding to a peer's proposal pass the slot's consensus attestation
-   * deadline; the proposer's own attestations are produced inside its publish budget instead and pass none.
+   * The one place a checkpoint attestation is produced, so `budget` gates every path that reaches it, the
+   * cached-verdict one included. Callers responding to a peer's proposal pass the slot's duty budget, whose
+   * deadline is the consensus attestation deadline; the proposer's own attestations are produced inside its
+   * publish budget instead and pass none.
    */
   private async createCheckpointAttestationsFromProposal(
     proposal: CheckpointProposalCore,
     attestors: EthAddress[] = [],
     checkpointNumber: CheckpointNumber,
-    deadline?: Date,
+    budget?: DutyBudget,
   ): Promise<CheckpointAttestation[] | undefined> {
     // Equivocation check: must happen right before signing to minimize the race window
     if (!this.shouldAttestToSlot(proposal.slotNumber)) {
       return undefined;
     }
 
-    const expired = () => deadline !== undefined && this.dateProvider.now() >= deadline.getTime();
-    if (expired()) {
+    if (budget?.expired()) {
       this.log.warn(`Not requesting an attestation for slot ${proposal.slotNumber}: past the attestation deadline`, {
         slot: proposal.slotNumber,
-        deadline: deadline!.toISOString(),
+        deadline: budget.deadline.toISOString(),
       });
       return undefined;
     }
 
-    const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
-
-    // Track the proposal we attested to (to prevent equivocation). The signing-protection record stands even when
-    // the signature itself turns out to be too late to use.
+    // Track the proposal we attested to (to prevent equivocation) before the request goes out, not after it comes
+    // back. A remote signer may have signed a request this node stopped waiting for, so the protection record has
+    // to stand for every request that was issued, however it ends.
     this.lastAttestedProposal = proposal;
+
+    const sign = () => this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
+    let attestations: CheckpointAttestation[];
+    try {
+      attestations = budget
+        ? await budget.run(`checkpoint attestation signing for slot ${proposal.slotNumber}`, sign)
+        : await sign();
+    } catch (err) {
+      if (!(err instanceof DutyBudgetExpiredError)) {
+        throw err;
+      }
+      // Signing may be remote (HA) and may never answer. The request stands as issued; this caller stops waiting.
+      this.log.warn(`Abandoning attestations for slot ${proposal.slotNumber}: the signer did not answer in time`, {
+        slot: proposal.slotNumber,
+        deadline: budget!.deadline.toISOString(),
+      });
+      return undefined;
+    }
 
     // Signing may be remote (HA), so a request that started in time can still return past the deadline. Peers
     // reject a stale attestation, so discard it rather than putting it in the pool or handing it back for gossip.
-    if (expired()) {
+    if (budget?.expired()) {
       this.log.warn(`Discarding attestations for slot ${proposal.slotNumber}: the signer returned too late`, {
         slot: proposal.slotNumber,
-        deadline: deadline!.toISOString(),
+        deadline: budget.deadline.toISOString(),
       });
       return undefined;
     }

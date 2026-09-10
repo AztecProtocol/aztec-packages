@@ -947,6 +947,48 @@ describe('ValidatorClient', () => {
       validateCheckpointSpy.mockRestore();
     });
 
+    // A remote (HA) signer that never answers must not hold the duty open either. The request stands as issued,
+    // so the equivocation record it produced is kept, but nothing is pooled or handed back for gossip.
+    it('settles when the remote signer never returns, pooling nothing and keeping the signing record', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+      const checkpointProposal = await makeCheckpointProposal({
+        archiveRoot: proposal.archive,
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      const validateCheckpointSpy = jest
+        .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+
+      // A short but nonzero budget, and a signer that never answers within it.
+      const deadline = validatorClient.getProposalHandler().getReexecutionDeadline(proposal.slotNumber);
+      dateProvider.setTime(deadline.getTime() - 200);
+      const validationService = (validatorClient as unknown as { validationService: ValidationService })
+        .validationService;
+      jest.spyOn(validationService, 'attestToCheckpointProposal').mockImplementation(() => new Promise(() => {}));
+
+      const attestations = await validatorClient.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(checkpointProposal),
+        sender,
+      );
+
+      expect(attestations).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
+      // The slot stays protected: a signer that never answered may still have signed.
+      expect(
+        (validatorClient as unknown as { lastAttestedProposal?: { slotNumber: SlotNumber } }).lastAttestedProposal
+          ?.slotNumber,
+      ).toEqual(proposal.slotNumber);
+      validateCheckpointSpy.mockRestore();
+    });
+
     it('should not attest to a checkpoint proposal that references a middle block instead of the last', async () => {
       const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 

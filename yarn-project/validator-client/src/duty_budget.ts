@@ -2,9 +2,9 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import { execWithSignal } from '@aztec/foundation/timer';
 
 /**
- * How long a run gets when the budget has already run out. The duty still makes the single attempt its callers
- * rely on, but bounded, so an unresponsive read cannot hold an expired duty open. Long enough for a local store
- * read, short enough that nothing waits on it.
+ * How long a duty gets in total once its budget has already run out. The duty still makes the single attempt its
+ * callers rely on, but bounded, so an unresponsive read cannot hold an expired duty open. Long enough for a local
+ * store read, short enough that nothing waits on it.
  */
 const EXPIRED_BUDGET_GRACE_MS = 1_000;
 
@@ -35,6 +35,9 @@ export class DutyBudgetExpiredError extends Error {
 export class DutyBudget {
   private readonly controller = new AbortController();
 
+  /** Absolute end of the one grace allowance, fixed by the first run that finds the budget already gone. */
+  private graceDeadlineMs: number | undefined;
+
   constructor(
     public readonly deadline: Date,
     private readonly dateProvider: DateProvider,
@@ -48,9 +51,22 @@ export class DutyBudget {
     return Math.max(0, this.deadline.getTime() - this.dateProvider.now());
   }
 
-  /** Whether the budget is gone, because the deadline passed or because the duty was stopped. */
+  /**
+   * Whether the budget is gone, because the deadline passed or because the duty was stopped. This is the hard
+   * question, the one output nobody would accept any more depends on: a signature produced after it is unusable.
+   * Work that only needs to finish the attempt already under way asks {@link canContinue} instead.
+   */
   public expired(): boolean {
     return this.remainingMs() === 0;
+  }
+
+  /**
+   * Whether the duty may start or commit further work: either it is still within budget, or it is within the
+   * single grace allowance described on {@link run}. Asking opens that allowance if nothing has opened it yet,
+   * so a duty entered past its deadline can finish the one attempt its callers rely on and no more.
+   */
+  public canContinue(): boolean {
+    return this.remainingMs() > 0 || this.remainingGraceMs() > 0;
   }
 
   /** The signal callees should pass on and check; aborted once the budget is gone. */
@@ -75,15 +91,29 @@ export class DutyBudget {
    *
    * A budget that has already run out still gets {@link EXPIRED_BUDGET_GRACE_MS}: a duty past its deadline is
    * expected to make the one attempt its callers rely on — a proposal whose blocks are already local validates
-   * without waiting for anything — and the point here is that even that attempt cannot hang. A duty that was
-   * explicitly stopped gets no grace: its result has no reader left.
+   * without waiting for anything — and the point here is that even that attempt cannot hang. The grace is one
+   * absolute allowance for the whole duty, anchored by the first run that finds the budget gone and shared by
+   * every run after it, so a duty past its deadline cannot walk stage by stage through a fresh second each time.
+   * A duty that was explicitly stopped gets no grace: its result has no reader left.
    */
   public async run<T>(what: string, fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
     if (this.controller.signal.aborted) {
       throw new DutyBudgetExpiredError(what, this.deadline);
     }
-    const remainingMs = this.remainingMs() || EXPIRED_BUDGET_GRACE_MS;
+    const remainingMs = this.remainingMs() || this.remainingGraceMs();
+    if (remainingMs === 0) {
+      throw new DutyBudgetExpiredError(what, this.deadline);
+    }
     const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(remainingMs)]);
     return await execWithSignal(fn, signal, () => new DutyBudgetExpiredError(what, this.deadline));
+  }
+
+  /** Milliseconds left of the single grace allowance, opening it on the first call. Zero once the duty is stopped. */
+  private remainingGraceMs(): number {
+    if (this.controller.signal.aborted) {
+      return 0;
+    }
+    this.graceDeadlineMs ??= this.dateProvider.now() + EXPIRED_BUDGET_GRACE_MS;
+    return Math.max(0, this.graceDeadlineMs - this.dateProvider.now());
   }
 }
