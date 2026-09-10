@@ -1,5 +1,5 @@
 import type { IpcClientAsync, IpcClientSync } from "../types.js";
-import { type HostImportsFactory, WasmInstanceHost } from "./host.js";
+import { WasmInstanceHost } from "./host.js";
 import { type WasmModuleSource, compileWasmModule } from "./module_source.js";
 import type { WasmPlatform, WorkerHandle } from "./platform.js";
 
@@ -14,8 +14,6 @@ export interface WasmFfiOptions {
   /** WASI environ for the module. `HARDWARE_CONCURRENCY` and `RAYON_NUM_THREADS` default to `threads`. */
   env?: Record<string, string>;
   logger?: (msg: string) => void;
-  /** Module-specific imports beyond WASI/wasi-threads (see `HostImportsFactory`). */
-  hostImports?: HostImportsFactory;
   /** FFI entry export; default: the module's one `<service>_ipc_ffi_entry` export. */
   entry?: string;
 }
@@ -41,7 +39,7 @@ export interface WasmFfiBackendOptions extends WasmFfiOptions {
    * the main instance runs on the calling thread and every call blocks it until it returns.
    */
   worker?: boolean;
-  /** Override the worker factories (packages whose modules need `hostImports` ship their own). */
+  /** Override the worker factories the platform entry binds. */
   createThreadWorker?: () => WorkerHandle;
   createMainWorker?: () => WorkerHandle;
 }
@@ -216,7 +214,6 @@ export class WasmFfiEngine {
       memory,
       env,
       logger,
-      hostImports: opts.hostImports,
       entry: opts.entry,
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
@@ -335,8 +332,7 @@ export class WasmFfiBackend implements IpcClientAsync {
       );
     }
     // Compile here so the (cached, streaming) compilation happens once and the compiled Module is
-    // shared with the worker; `hostImports` are functions and cannot cross the boundary, so a
-    // module needing them ships a worker entry that supplies them (see `runMainWorker`).
+    // what crosses to the worker, rather than each side compiling the same bytes.
     const module = await compileWasmModule(opts.module, bound.platform);
     const worker = bound.createMainWorker();
     const backend = new WasmFfiBackend(undefined, worker);

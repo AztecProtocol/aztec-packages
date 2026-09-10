@@ -14,20 +14,20 @@ export {
 };
 
 /**
- * The runtime's own worker scripts, spawned with the literal expression bundlers detect so they
- * are emitted as worker chunks. A package whose module needs `hostImports` points at its own.
+ * The worker scripts spawned for the main instance and each wasi thread, with the literal
+ * expression bundlers detect so they are emitted as worker chunks of the consuming application.
  */
 export const binding: WasmFfiBinding = {
   platform: browserPlatform,
   createThreadWorker: () =>
     browserWorkerHandle(
-      new Worker(new URL("./thread.worker.browser.js", import.meta.url), {
+      new Worker(new URL("./thread.worker.js", import.meta.url), {
         type: "module",
       }),
     ),
   createMainWorker: () =>
     browserWorkerHandle(
-      new Worker(new URL("./main.worker.browser.js", import.meta.url), {
+      new Worker(new URL("./main.worker.js", import.meta.url), {
         type: "module",
       }),
     ),

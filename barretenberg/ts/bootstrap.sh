@@ -67,8 +67,7 @@ function generate_bb_js_api_package {
     --package-transports uds,shm,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-wasm-module barretenberg.wasm \
-    --package-wasm-threads-module barretenberg-threads.wasm \
-    --package-wasm-host-imports "$ROOT/barretenberg/ts/codegen/bb_wasm_host_imports.ts"
+    --package-wasm-threads-module barretenberg-threads.wasm
 }
 
 # bb-avm-sim, cdb and bb.js-api are gitignored workspaces declared in package.json, so

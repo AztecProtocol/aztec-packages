@@ -1,31 +1,11 @@
 import { WASI_NAMESPACE, createWasiImports } from "./wasi_shim.js";
 
-/** What a module-specific host import gets to work with. */
-export interface HostImportsContext {
-  memory(): WebAssembly.Memory;
-  readCString(ptr: number): string;
-  readBytes(ptr: number, len: number): Uint8Array;
-  logger(msg: string): void;
-  /** Threads this instance may use: the engine's count on the main instance, 1 on a thread. */
-  threads: number;
-}
-
-/**
- * Extra imports a particular module needs beyond WASI and wasi-threads, keyed by import module
- * then name (e.g. `{ env: { logstr: ptr => ... } }`). The FFI contract itself needs none; this
- * is the escape hatch for modules whose platform layer imports its own logging or abort hooks.
- */
-export type HostImportsFactory = (
-  ctx: HostImportsContext,
-) => Record<string, Record<string, WebAssembly.ImportValue>>;
-
 export interface InstanceOptions {
   module: WebAssembly.Module;
   memory: WebAssembly.Memory;
   /** WASI environ for the module (e.g. `HARDWARE_CONCURRENCY`). */
   env?: Record<string, string>;
   logger?: (msg: string) => void;
-  hostImports?: HostImportsFactory;
   /**
    * wasi-threads `thread-spawn`: start the module's thread entry on another instance and return
    * its tid, or a negative errno when no thread can be started.
@@ -38,7 +18,7 @@ export interface InstanceOptions {
   entry?: string;
   /** Call the reactor's `_initialize` after instantiation (main instances only). Default true. */
   runInitialize?: boolean;
-  /** Threads this instance may use (reported to `hostImports`). Default 1. */
+  /** Threads this instance may use, for the WASI environ the module reads. Default 1. */
   threads?: number;
 }
 
@@ -92,6 +72,32 @@ function findEntry(
  * specific host imports), `_initialize` run, and the `<service>_ipc_ffi_entry` call protocol
  * implemented over the module's own allocator.
  */
+/**
+ * The tail of what the module wrote to stderr during the current call. A module compiled without
+ * exceptions cannot return a message when it gives up: it writes one out and exits. Keeping the
+ * text is what turns the bare `proc_exit` or trap the caller would otherwise see into an error
+ * that says what went wrong.
+ */
+class StderrTail {
+  private static readonly MAX_LINES = 8;
+  private lines: string[] = [];
+
+  record(line: string): void {
+    this.lines.push(line);
+    if (this.lines.length > StderrTail.MAX_LINES) {
+      this.lines.shift();
+    }
+  }
+
+  reset(): void {
+    this.lines.length = 0;
+  }
+
+  text(): string {
+    return this.lines.join("\n").trim();
+  }
+}
+
 export class WasmInstanceHost {
   private constructor(
     readonly instance: WebAssembly.Instance,
@@ -100,6 +106,7 @@ export class WasmInstanceHost {
     private readonly alloc: WasmFn,
     private readonly free: WasmFn,
     readonly logger: (msg: string) => void,
+    private readonly stderr: StderrTail,
   ) {}
 
   static async instantiate(opts: InstanceOptions): Promise<WasmInstanceHost> {
@@ -108,39 +115,21 @@ export class WasmInstanceHost {
     // instantiation, so everything reading memory goes through this.
     let memory = opts.memory;
     const logger = opts.logger ?? (() => {});
-    const ctx: HostImportsContext = {
-      memory: () => memory,
-      readBytes: (ptr, len) =>
-        new Uint8Array(memory.buffer).slice(ptr >>> 0, (ptr >>> 0) + len),
-      readCString: (ptr) => {
-        const m = new Uint8Array(memory.buffer);
-        let end = ptr >>> 0;
-        while (m[end] !== 0) {
-          end++;
-        }
-        return new TextDecoder().decode(m.slice(ptr >>> 0, end));
-      },
-      logger,
-      threads: opts.threads ?? 1,
-    };
-
-    const imports: Record<string, Record<string, WebAssembly.ImportValue>> = {};
-    for (const [ns, values] of Object.entries(opts.hostImports?.(ctx) ?? {})) {
-      imports[ns] = { ...values };
-    }
-    imports.env = { ...(imports.env ?? {}), memory };
-    imports[WASI_NAMESPACE] = {
-      ...createWasiImports(opts.module, () => memory, {
+    const stderr = new StderrTail();
+    const imports: Record<string, Record<string, WebAssembly.ImportValue>> = {
+      env: { memory },
+      [WASI_NAMESPACE]: createWasiImports(opts.module, () => memory, {
         env: opts.env,
-        onStderr: logger,
+        onStderr: (line) => {
+          stderr.record(line);
+          logger(line);
+        },
         onStdout: logger,
       }),
-      ...(imports[WASI_NAMESPACE] ?? {}),
-    };
-    imports.wasi = {
-      ...(imports.wasi ?? {}),
-      "thread-spawn": (startArg: number) =>
-        opts.spawnThread ? opts.spawnThread(startArg >>> 0) : -1,
+      wasi: {
+        "thread-spawn": (startArg: number) =>
+          opts.spawnThread ? opts.spawnThread(startArg >>> 0) : -1,
+      },
     };
 
     const missing: string[] = [];
@@ -152,7 +141,7 @@ export class WasmInstanceHost {
     }
     if (missing.length > 0) {
       throw new Error(
-        `wasm module imports not provided by the host (supply them through hostImports): ${missing.join(", ")}`,
+        `wasm module imports what this host does not provide; it must be a WASI reactor: ${missing.join(", ")}`,
       );
     }
 
@@ -191,6 +180,7 @@ export class WasmInstanceHost {
       exports[pair[0]] as WasmFn,
       exports[pair[1]] as WasmFn,
       logger,
+      stderr,
     );
   }
 
@@ -258,12 +248,21 @@ export class WasmInstanceHost {
     const slots = this.reserveScratch(SLOTS_BYTES + input.length);
     const inPtr = slots + SLOTS_BYTES;
     let outPtr = 0;
+    this.stderr.reset();
     try {
       this.refreshViews();
       this.bytes.set(input, inPtr);
       this.words.setUint32(slots, 0, true);
       this.words.setUint32(slots + 4, 0, true);
-      this.entry(inPtr, input.length, slots, slots + 4);
+      try {
+        this.entry(inPtr, input.length, slots, slots + 4);
+      } catch (cause) {
+        const reported = this.stderr.text();
+        if (!reported) {
+          throw cause;
+        }
+        throw new Error(reported, { cause });
+      }
       // The call may have grown memory, detaching the buffer the views were built over.
       this.refreshViews();
       outPtr = this.words.getUint32(slots, true);

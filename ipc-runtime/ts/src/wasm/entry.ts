@@ -8,7 +8,6 @@ import {
   WasmFfiBackendSync,
 } from "./backend.js";
 
-export type { HostImportsContext, HostImportsFactory } from "./host.js";
 export type { WasmModuleSource } from "./module_source.js";
 export type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
 export type { WasmFfiBackendOptions, WasmFfiBinding, WasmFfiOptions };

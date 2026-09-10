@@ -279,3 +279,99 @@ test("uses the module's own memory when it exports one instead of importing", as
   assert.deepEqual(engine.call(request), request);
   await engine.destroy();
 });
+
+/**
+ * A module whose entry reports a failure the only way one compiled without exceptions can: it
+ * writes the reason to stderr and exits. Everything before the entry is the smallest wrapping the
+ * engine will accept, so the test is about what the caller sees, not about the module.
+ */
+function buildAbortingModule(message: string): WebAssembly.Module {
+  const leb = (n: number) => {
+    const out = [];
+    do {
+      const byte = n & 0x7f;
+      n >>>= 7;
+      out.push(n === 0 ? byte : byte | 0x80);
+    } while (n !== 0);
+    return out;
+  };
+  const str = (s: string) => [s.length, ...[...s].map((c) => c.charCodeAt(0))];
+  const section = (id: number, body: number[]) => [id, ...leb(body.length), ...body];
+  const body = (locals: number[], code: number[]) => {
+    const bytes = [...locals, ...code, 0x0b];
+    return [...leb(bytes.length), ...bytes];
+  };
+  const I32 = 0x7f;
+  const WASI = "wasi_snapshot_preview1";
+  // Imported functions are numbered first, so the two WASI calls take 0 and 1.
+  const [FD_WRITE, PROC_EXIT] = [0, 1];
+  // Scratch below the message: the iovec at 0, fd_write's byte count at 8.
+  const [IOV, NWRITTEN, MSG] = [0, 8, 16];
+  const text = [...new TextEncoder().encode(message)];
+  if (MSG + text.length >= 64 || text.length >= 64) {
+    throw new Error("the hand-rolled encoder only emits single-byte i32.const operands");
+  }
+
+  const types = section(1, [
+    4,
+    0x60, 4, I32, I32, I32, I32, 1, I32, // fd_write
+    0x60, 1, I32, 0, // proc_exit, free
+    0x60, 4, I32, I32, I32, I32, 0, // entry
+    0x60, 1, I32, 1, I32, // alloc
+  ]);
+  const imports = section(2, [
+    3,
+    ...str("env"), ...str("memory"), 0x02, 0x01, ...leb(1), ...leb(4),
+    ...str(WASI), ...str("fd_write"), 0x00, 0,
+    ...str(WASI), ...str("proc_exit"), 0x00, 1,
+  ]);
+  const functions = section(3, [3, 2, 3, 1]);
+  const globals = section(6, [1, I32, 0x01, 0x41, ...leb(4096), 0x0b]);
+  const exports = section(7, [
+    3,
+    ...str("ipc_ffi_entry"), 0x00, 2,
+    ...str("ipc_ffi_alloc"), 0x00, 3,
+    ...str("ipc_ffi_free"), 0x00, 4,
+  ]);
+  const STORE = [0x36, 0x02, 0x00];
+  const code = section(10, [
+    3,
+    // entry: write the message to stderr, then exit non-zero without touching the out slots.
+    ...body(
+      [0],
+      [
+        0x41, IOV, 0x41, MSG, ...STORE,
+        0x41, IOV + 4, 0x41, text.length, ...STORE,
+        0x41, 2, 0x41, IOV, 0x41, 1, 0x41, NWRITTEN, 0x10, FD_WRITE, 0x1a,
+        0x41, 1, 0x10, PROC_EXIT,
+      ],
+    ),
+    ...body([0], [0x23, 0, 0x23, 0, 0x20, 0, 0x6a, 0x24, 0]),
+    ...body([0], []),
+  ]);
+  const data = section(11, [1, 0x00, 0x41, MSG, 0x0b, ...leb(text.length), ...text]);
+
+  return new WebAssembly.Module(
+    new Uint8Array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+      ...types, ...imports, ...functions, ...globals, ...exports, ...code, ...data,
+    ]),
+  );
+}
+
+test("a module that reports a failure and exits raises it as an error", async () => {
+  const engine = await WasmFfiEngine.create(
+    {
+      module: buildAbortingModule("abort: not on the curve"),
+      threads: 1,
+      memory: { initial: 1, maximum: 4 },
+    },
+    countingBinding(),
+  );
+  assert.throws(
+    () => engine.call(Uint8Array.of(1, 2, 3)),
+    (err: Error) => err.message.includes("not on the curve"),
+    "the text the module wrote is what the caller sees, not a bare proc_exit",
+  );
+  await engine.destroy();
+});

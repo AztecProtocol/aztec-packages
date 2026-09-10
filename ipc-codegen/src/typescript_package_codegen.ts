@@ -502,31 +502,13 @@ ${
   type IpcClientSync,${process ? "\n  SpawnedProcessBackend," : ""}
   pickServiceBackend,
 } from '@aztec-foundation/ipc-runtime';
-${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm/node';\n" : ""}import { AsyncApi } from './generated/async.js';
+import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 ${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}import { ${findBinary} } from './platform.js';
-${wasm ? `import { type ${prefix}WasmOptions, createWasmBackendSync, createWasmBackendWith } from './wasm.js';\n` : ""}
+${wasm ? `import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';\n` : ""}
 ${this.generatedExports()}${process ? "export * from './process.js';\n" : ""}${wasm ? "export * from './wasm.js';\n" : ""}export { ${findBinary} } from './platform.js';
 
-${this.createOptionTypes(backends)}${
-      wasm
-        ? `
-/**
- * The ${binaryName} wasm module in-process (node): the main instance in a worker thread by default,
- * wasi threads on further workers.
- */
-export function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
-  return createWasmBackendWith(
-    {
-      createMainWorker: () => platform.createWorker(new URL('./wasm/node/main.worker.js', import.meta.url)),
-      createThreadWorker: () => platform.createWorker(new URL('./wasm/thread.worker.js', import.meta.url)),
-    },
-    options,
-  );
-}
-`
-        : ""
-    }
+${this.createOptionTypes(backends)}
 /**
  * The backend \`${className(prefix)}.create\` would use for \`options\`, for facades that wrap the
  * generated API themselves. Unset backend: ${process ? `the process when the binary resolves${wasm ? ", falling back to wasm if it cannot be spawned" : ""}` : "the wasm module"}.
@@ -582,10 +564,9 @@ ${this.serviceClasses({ process, wasm })}`;
     const { prefix, packageName } = this.opts;
 
     return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
-import { type WasmFfiBackend, workerHandle } from '@aztec-foundation/ipc-runtime/wasm/browser';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-import { type ${prefix}WasmOptions, createWasmBackendSync, createWasmBackendWith } from './wasm.js';
+import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';
 
 ${this.generatedExports()}export * from './wasm.js';
 
@@ -607,24 +588,6 @@ export interface ${prefix}CreateSyncOptions {
   logger?: (msg: string) => void;
   unref?: boolean;
   wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;
-}
-
-/**
- * The ${this.opts.binaryName} wasm module in-process: the main instance in a web worker by default,
- * wasi threads on further workers when the page is cross-origin isolated (COOP/COEP). The worker
- * scripts are spawned with the literal expression bundlers detect, so they ship as worker chunks
- * of the consuming application.
- */
-export function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
-  return createWasmBackendWith(
-    {
-      createMainWorker: () =>
-        workerHandle(new Worker(new URL('./wasm/browser/main.worker.js', import.meta.url), { type: 'module' })),
-      createThreadWorker: () =>
-        workerHandle(new Worker(new URL('./wasm/thread.worker.js', import.meta.url), { type: 'module' })),
-    },
-    options,
-  );
 }
 
 export async function createBackend(options: ${prefix}CreateOptions = {}): Promise<IpcClientAsync> {
@@ -729,14 +692,12 @@ export class ${svc}Sync extends SyncApi {
   type WasmFfiBackend,
   type WasmFfiBackendSync,
   type WasmModuleSource,
-  type WorkerHandle,
   chooseWasmModule,
   createWasmFfiBackend,
   createWasmFfiBackendSync,
   platform,
   resolveWasmThreads,
 } from '@aztec-foundation/ipc-runtime/wasm';
-import { hostImports } from './wasm_host_imports.js';
 
 export { sharedMemoryAvailable } from '@aztec-foundation/ipc-runtime/wasm';
 
@@ -772,12 +733,6 @@ export interface ${prefix}WasmOptions {
   unref?: boolean;
 }
 
-/** Worker factories a platform entry binds (see WasmFfiBinding in ipc-runtime for why factories). */
-export interface WasmWorkers {
-  createMainWorker: () => WorkerHandle;
-  createThreadWorker: () => WorkerHandle;
-}
-
 // This package's own modules, as URLs relative to its own files: only the package can express
 // these, which is why the choosing lives here and the deciding does not.
 const MODULES = {
@@ -795,7 +750,12 @@ export function resolveThreads(threads?: number): number {
   return resolveWasmThreads(platform, '${packageName}', threads);
 }
 
-export async function createWasmBackendWith(workers: WasmWorkers, options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
+/**
+ * The ${this.opts.binaryName} wasm module in-process: the main instance in a worker by default, wasi
+ * threads on further workers. The workers are ipc-runtime's own, spawned with the literal
+ * expression bundlers detect, so they ship as worker chunks of the consuming application.
+ */
+export async function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
   const threads = resolveThreads(options.threads);
   const backend = await createWasmFfiBackend({
     module: options.module ?? defaultWasmModule(threads),
@@ -804,10 +764,7 @@ export async function createWasmBackendWith(workers: WasmWorkers, options: ${pre
     env: options.env,
     logger: options.logger,
     worker: options.worker,
-    hostImports,
 ${ffiExports}
-    createMainWorker: workers.createMainWorker,
-    createThreadWorker: workers.createThreadWorker,
   });
   if (options.unref) {
     backend.unref();
@@ -827,7 +784,6 @@ export async function createWasmBackendSync(options: ${prefix}WasmOptions = {}):
     memory: options.memory,
     env: options.env,
     logger: options.logger,
-    hostImports,
 ${ffiExports}
   });
   if (options.unref) {
@@ -835,52 +791,6 @@ ${ffiExports}
   }
   return backend;
 }
-`;
-  }
-
-  /** wasi-threads worker: one module instance per thread. Platform-neutral (it spawns nothing). */
-  generateThreadWorker(): string {
-    return `import { runThreadWorker, workerSide } from '@aztec-foundation/ipc-runtime/wasm';
-import { hostImports } from '../wasm_host_imports.js';
-
-runThreadWorker(workerSide(), { hostImports });
-`;
-  }
-
-  /** Main-instance worker for node. */
-  generateMainWorker(): string {
-    return `import { platform, runMainWorker, workerSide } from '@aztec-foundation/ipc-runtime/wasm/node';
-import { hostImports } from '../../wasm_host_imports.js';
-
-runMainWorker(workerSide(), platform, {
-  hostImports,
-  createThreadWorker: () => platform.createWorker(new URL('../thread.worker.js', import.meta.url)),
-});
-`;
-  }
-
-  /** Main-instance worker for browsers: spawns thread workers with the expression bundlers detect. */
-  generateBrowserMainWorker(): string {
-    return `import { platform, runMainWorker, workerHandle, workerSide } from '@aztec-foundation/ipc-runtime/wasm/browser';
-import { hostImports } from '../../wasm_host_imports.js';
-
-runMainWorker(workerSide(), platform, {
-  hostImports,
-  createThreadWorker: () =>
-    workerHandle(new Worker(new URL('../thread.worker.js', import.meta.url), { type: 'module' })),
-});
-`;
-  }
-
-  /** Placeholder for a module that needs nothing beyond WASI (--package-wasm-host-imports replaces it). */
-  generateDefaultHostImports(): string {
-    return `import type { HostImportsFactory } from '@aztec-foundation/ipc-runtime/wasm';
-
-/**
- * Imports the module needs beyond WASI and wasi-threads. The FFI contract needs none; a module
- * whose platform layer imports its own hooks ships them via --package-wasm-host-imports.
- */
-export const hostImports: HostImportsFactory | undefined = undefined;
 `;
   }
 
