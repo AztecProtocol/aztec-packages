@@ -1521,6 +1521,24 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
       });
 
+      // Forgetting a determination is never the safe direction, and the tracker keys its per-slot entry by slot
+      // alone. An equivocating proposer whose second proposal this node cannot check must not thereby erase what
+      // the first one established about the slot.
+      it('keeps a slot recorded as invalid when a later proposal for it cannot be checked', async () => {
+        // A different archive at this slot was already determined invalid: an equivocating proposer's first one.
+        reexecutionTracker.recordOutcome(SlotNumber(1), Fr.random(), 'invalid', CheckpointNumber(1));
+
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setUnreadable(new Error('l1 rpc request failed'));
+
+        await expect(validate(header)).resolves.toEqual({
+          isValid: false,
+          reason: 'inbox_endpoint_unverifiable',
+          checkpointNumber: CheckpointNumber(1),
+        });
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('invalid');
+      });
+
       // A refusal describes the L1 view at that instant, so it is not remembered as this proposal's verdict: the
       // next call re-reads and can still accept it. The content verdict the refused call paid a full rebuild for
       // is kept, so the attestation call moments later does not rebuild the checkpoint all over again.
