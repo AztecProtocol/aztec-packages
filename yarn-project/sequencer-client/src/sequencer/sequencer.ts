@@ -607,6 +607,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // In fisherman mode, pass undefined to use the fisherman's own keystore instead of the actual proposer's
     const proposerForPublisher = this.config.fishermanMode ? undefined : proposer;
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
+    using cleanup = new DisposableStack();
+    cleanup.use(publisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
@@ -738,7 +740,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
 
     // Create and return the checkpoint proposal job
-    return this.createCheckpointProposalJob(
+    const job = this.createCheckpointProposalJob(
       targetSlot,
       targetEpoch,
       checkpointNumber,
@@ -750,6 +752,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       invalidateCheckpoint,
       syncedTo.proposedCheckpointData,
     );
+    cleanup.move();
+    return job;
   }
 
   protected createCheckpointProposalJob(
@@ -1067,6 +1071,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Get a publisher for voting
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
+    using cleanup = new DisposableStack();
+    cleanup.use(publisher);
 
     this.log.debug(`Attempting to vote despite sync failure at slot ${slot}`, {
       attestorAddress,
@@ -1110,10 +1116,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
     // work loop while waiting for the target slot to start, but track it so stop() can drain it.
-    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
-    });
+    const send = publisher
+      .sendRequestsAt(targetSlot)
+      .catch(err => {
+        this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
+      })
+      .finally(() => publisher.dispose());
     this.pendingRequests.trackRequest(send, () => publisher.interrupt());
+    cleanup.move();
   }
 
   private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
@@ -1147,6 +1157,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.lastSlotForFallbackAction = slot;
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
+    using cleanup = new DisposableStack();
+    cleanup.use(publisher);
 
     this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, {
       slot,
@@ -1185,10 +1197,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
     // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild, but tracked so
     // stop() can drain it.
-    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
-    });
+    const send = publisher
+      .sendRequestsAt(targetSlot)
+      .catch(err => {
+        this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
+      })
+      .finally(() => publisher.dispose());
     this.pendingRequests.trackRequest(send, () => publisher.interrupt());
+    cleanup.move();
   }
 
   /**
@@ -1277,7 +1293,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       validatorToUse = ourValidatorAddresses[0];
     }
 
-    const { publisher } = await this.publisherFactory.create(validatorToUse);
+    const { publisher: createdPublisher } = await this.publisherFactory.create(validatorToUse);
+    using publisher = createdPublisher;
 
     const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(pendingChainValidationStatus);
     if (!invalidateCheckpoint) {

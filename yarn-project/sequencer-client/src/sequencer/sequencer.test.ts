@@ -227,7 +227,7 @@ describe('sequencer', () => {
     });
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
 
-    publisher = mockDeep<SequencerPublisher>();
+    publisher = mockDeep<SequencerPublisher>({ [Symbol.dispose]: jest.fn() });
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.validateCheckpointHeader.mockResolvedValue();
@@ -532,7 +532,12 @@ describe('sequencer', () => {
         }),
       );
 
+      let disposed = false;
+      publisher.dispose.mockImplementation(() => {
+        disposed = true;
+      });
       await sequencer.work();
+      expect(disposed).toBe(false);
       expect(publisher.sendRequestsAt).toHaveBeenCalled();
       expect(sequencer.getPendingRequestCount()).toBe(1);
 
@@ -541,6 +546,7 @@ describe('sequencer', () => {
       const stopPromise = sequencer.stop();
       releaseSend(undefined);
       await stopPromise;
+      expect(disposed).toBe(true);
 
       expect(publisher.interrupt).toHaveBeenCalled();
       expect(sequencer.getPendingRequestCount()).toBe(0);
@@ -549,6 +555,23 @@ describe('sequencer', () => {
   });
 
   describe('block building', () => {
+    it.each(['rejected', 'error'])('disposes a publisher when proposal preparation is %s', async outcome => {
+      await setupSingleTxBlock();
+      let disposed = false;
+      publisher[Symbol.dispose].mockImplementation(() => {
+        disposed = true;
+      });
+      if (outcome === 'error') {
+        publisher.canProposeAt.mockRejectedValue(new Error('RPC unavailable'));
+        await expect(sequencer.work()).rejects.toThrow('RPC unavailable');
+      } else {
+        publisher.canProposeAt.mockResolvedValue(undefined);
+        await sequencer.work();
+      }
+      expect(disposed).toBe(true);
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+    });
+
     it('builds a block out of a single tx', async () => {
       await setupSingleTxBlock();
       await sequencer.work();
@@ -819,7 +842,7 @@ describe('sequencer', () => {
     it('requests a publisher for each block', async () => {
       // Create multiple publishers for the test
       const publishers = times(2, i => {
-        const pub = mockDeep<SequencerPublisher>();
+        const pub = mockDeep<SequencerPublisher>({ [Symbol.dispose]: jest.fn() });
         pub.epochCache = epochCache;
         pub.getSenderAddress.mockImplementation(() => EthAddress.random());
         pub.validateCheckpointHeader.mockResolvedValue();
