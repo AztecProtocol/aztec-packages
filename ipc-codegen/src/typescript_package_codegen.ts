@@ -326,7 +326,6 @@ export function spawnProcessBackendSync(options: ${prefix}ProcessOptions = {}): 
   type SpawnedProcessBackend,${syncImports}
   spawnServiceBackend,
 } from '@aztec-foundation/ipc-runtime';
-import type { IpcErrorFactory } from './generated/async.js';
 import { BINARY } from './platform.js';
 
 export type ${prefix}Transport = ${transports};
@@ -337,7 +336,6 @@ export type ${prefix}Transport = ${transports};
  */
 export interface ${prefix}ProcessOptions extends ServiceProcessOptions {
   transport?: ${prefix}Transport;
-  createError?: IpcErrorFactory;
 }
 
 /** The name this package's first version used for the spawn options. */
@@ -379,10 +377,9 @@ export interface ${prefix}CreateOptions {
   /** Threads the service may use: a process reads them from HARDWARE_CONCURRENCY/RAYON_NUM_THREADS; wasm runs that many. */
   threads?: number;
   logger?: (msg: string) => void;
-  createError?: IpcErrorFactory;
   /** Let node exit while the backend is alive (a process that watches its parent, or the wasm workers). */
   unref?: boolean;
-${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger' | 'createError'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger' | 'createError'>;\n` : ""}}
+${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;\n` : ""}}
 
 /** Options for ${className(prefix)}Sync.create / createBackendSync. */
 export interface ${prefix}CreateSyncOptions {
@@ -391,9 +388,8 @@ export interface ${prefix}CreateSyncOptions {
   /** Threads a spawned process may use (the synchronous wasm module always has one). */
   threads?: number;
   logger?: (msg: string) => void;
-  createError?: IpcErrorFactory;
   unref?: boolean;
-${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger' | 'createError'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger' | 'createError'>;\n` : ""}}
+${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;\n` : ""}}
 `;
   }
 
@@ -407,19 +403,19 @@ ${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger' | 'c
  * given.${process ? " Process lifecycle stays inside the backend and never leaks onto this API." : ""}
  */
 export class ${svc} extends AsyncApi {
-  private constructor(backend: IpcClientAsync, createError?: IpcErrorFactory) {
-    super(backend, createError);
+  private constructor(backend: IpcClientAsync) {
+    super(backend);
   }
 
   static async create(options: ${prefix}CreateOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createBackend(options), options.createError);
+    return new ${svc}(await createBackend(options));
   }
 ${
   process
     ? `
   /** The service as a spawned '${this.opts.binaryName}' process (no fallback). */
   static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}> {
-    return new ${svc}(await spawnProcessBackend(options), options.createError);
+    return new ${svc}(await spawnProcessBackend(options));
   }
 `
     : ""
@@ -428,7 +424,7 @@ ${
         ? `
   /** The service over the in-process wasm module (no fallback). */
   static async wasm(options: ${prefix}WasmOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createWasmBackend(options), options.createError);
+    return new ${svc}(await createWasmBackend(options));
   }
 `
         : ""
@@ -461,19 +457,19 @@ ${
 
 /** The synchronous ${prefix} service: every call blocks the calling thread until the service answers. */
 export class ${svc}Sync extends SyncApi {
-  private constructor(backend: IpcClientSync, createError?: IpcErrorFactory) {
-    super(backend, createError);
+  private constructor(backend: IpcClientSync) {
+    super(backend);
   }
 
   static async create(options: ${prefix}CreateSyncOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createBackendSync(options), options.createError);
+    return new ${svc}Sync(await createBackendSync(options));
   }
 ${
   process && this.shm
     ? `
   /** The service as a spawned '${this.opts.binaryName}' process over shared memory (no fallback). */
   static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await spawnProcessBackendSync(options), options.createError);
+    return new ${svc}Sync(await spawnProcessBackendSync(options));
   }
 `
     : ""
@@ -482,7 +478,7 @@ ${
         ? `
   /** The service over the single-threaded in-process wasm module (no fallback). */
   static async wasm(options: ${prefix}WasmOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createWasmBackendSync(options), options.createError);
+    return new ${svc}Sync(await createWasmBackendSync(options));
   }
 `
         : ""
@@ -506,7 +502,7 @@ ${
   type IpcClientSync,${process ? "\n  SpawnedProcessBackend," : ""}
   pickServiceBackend,
 } from '@aztec-foundation/ipc-runtime';
-${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm/node';\n" : ""}import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
+${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm/node';\n" : ""}import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 ${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}import { ${findBinary} } from './platform.js';
 ${wasm ? `import { type ${prefix}WasmOptions, createWasmBackendSync, createWasmBackendWith } from './wasm.js';\n` : ""}
@@ -587,7 +583,7 @@ ${this.serviceClasses({ process, wasm })}`;
 
     return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import { type WasmFfiBackend, workerHandle } from '@aztec-foundation/ipc-runtime/wasm/browser';
-import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
+import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 import { type ${prefix}WasmOptions, createWasmBackendSync, createWasmBackendWith } from './wasm.js';
 
@@ -601,18 +597,16 @@ export interface ${prefix}CreateOptions {
   /** Worker threads to run with; more than one needs a cross-origin isolated page (COOP/COEP). */
   threads?: number;
   logger?: (msg: string) => void;
-  createError?: IpcErrorFactory;
   unref?: boolean;
-  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger' | 'createError'>;
+  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;
 }
 
 /** Options for ${className(prefix)}Sync.create / createBackendSync. */
 export interface ${prefix}CreateSyncOptions {
   backend?: ${prefix}Backend | IpcClientSync;
   logger?: (msg: string) => void;
-  createError?: IpcErrorFactory;
   unref?: boolean;
-  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger' | 'createError'>;
+  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;
 }
 
 /**
@@ -673,7 +667,7 @@ ${this.serviceClasses({ process: false, wasm: true })}`;
 
     return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime/registry';
 import { registerBackend as register, registeredBackend } from '@aztec-foundation/ipc-runtime/registry';
-import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
+import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 
 ${this.generatedExports()}export type { RegisteredBackends } from '@aztec-foundation/ipc-runtime/registry';
@@ -686,12 +680,10 @@ export function registerBackend(factories: Parameters<typeof register>[1]): void
 export interface ${prefix}CreateOptions {
   /** A backend object (anything with call()/destroy()); default: the one a native package registered. */
   backend?: IpcClientAsync;
-  createError?: IpcErrorFactory;
 }
 
 export interface ${prefix}CreateSyncOptions {
   backend?: IpcClientSync;
-  createError?: IpcErrorFactory;
 }
 
 export async function createBackend(options: ${prefix}CreateOptions = {}): Promise<IpcClientAsync> {
@@ -703,22 +695,22 @@ export async function createBackendSync(options: ${prefix}CreateSyncOptions = {}
 }
 
 export class ${svc} extends AsyncApi {
-  private constructor(backend: IpcClientAsync, createError?: IpcErrorFactory) {
-    super(backend, createError);
+  private constructor(backend: IpcClientAsync) {
+    super(backend);
   }
 
   static async create(options: ${prefix}CreateOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createBackend(options), options.createError);
+    return new ${svc}(await createBackend(options));
   }
 }
 
 export class ${svc}Sync extends SyncApi {
-  private constructor(backend: IpcClientSync, createError?: IpcErrorFactory) {
-    super(backend, createError);
+  private constructor(backend: IpcClientSync) {
+    super(backend);
   }
 
   static async create(options: ${prefix}CreateSyncOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createBackendSync(options), options.createError);
+    return new ${svc}Sync(await createBackendSync(options));
   }
 }
 `;
@@ -744,7 +736,6 @@ export class ${svc}Sync extends SyncApi {
   platform,
   resolveWasmThreads,
 } from '@aztec-foundation/ipc-runtime/wasm';
-import type { IpcErrorFactory } from './generated/async.js';
 import { hostImports } from './wasm_host_imports.js';
 
 export { sharedMemoryAvailable } from '@aztec-foundation/ipc-runtime/wasm';
@@ -779,7 +770,6 @@ export interface ${prefix}WasmOptions {
   logger?: (msg: string) => void;
   /** Let node exit while the module's workers are alive. */
   unref?: boolean;
-  createError?: IpcErrorFactory;
 }
 
 /** Worker factories a platform entry binds (see WasmFfiBinding in ipc-runtime for why factories). */
