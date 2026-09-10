@@ -77,6 +77,16 @@ interface IInbox {
     returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
+  /**
+   * @notice Records that the proven chain has consumed all messages up to and including bucket `_bucketSeq`,
+   * unlocking eviction of buckets at or below it when the ring wraps
+   * @dev Only callable by the rollup. Monotonic: a value at or below the current record is a no-op. Reverts with
+   * `Inbox__Unauthorized` if the caller is not the rollup, and with `Inbox__BucketOutOfWindow` if `_bucketSeq` is
+   * ahead of the current bucket.
+   * @param _bucketSeq - The sequence number of the newest bucket the proven chain has consumed
+   */
+  function markProvenConsumed(uint64 _bucketSeq) external;
+
   function getFeeAssetPortal() external view returns (address);
 
   function getState() external view returns (InboxState memory);
@@ -96,4 +106,20 @@ interface IInbox {
    * @return The bucket
    */
   function getBucket(uint256 _seq) external view returns (InboxBucket memory);
+
+  /**
+   * @notice Returns the sequence number of the newest bucket consumed by the proven chain
+   * @return The proven-consumed bucket sequence number
+   */
+  function getProvenConsumedBucketSeq() external view returns (uint64);
+
+  /**
+   * @notice Returns the number of buckets that can still be opened before `sendL2Message` reverts to protect an
+   * unconsumed bucket from being overwritten
+   * @dev Counts bucket openings, not messages: at zero, messages can still be absorbed into the current bucket
+   * until it fills or its L1 block passes. Equals the ring size at genesis and recovers as proofs advance the
+   * proven-consumed record.
+   * @return The number of buckets that can still be opened
+   */
+  function getRingHeadroom() external view returns (uint256);
 }

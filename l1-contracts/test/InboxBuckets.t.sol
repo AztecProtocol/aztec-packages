@@ -227,6 +227,8 @@ contract InboxBucketsTest is Test {
       vm.roll(block.number + 1);
       vm.warp(block.timestamp + 12);
       _send(ringInbox, i);
+      // Evicting a ring slot requires the proven chain to have consumed it, so keep consumption trailing the sends.
+      ringInbox.markProvenConsumed(uint64(i - 1));
     }
 
     uint256 current = ringInbox.getCurrentBucketSeq();
