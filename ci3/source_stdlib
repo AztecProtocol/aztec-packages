@@ -47,7 +47,8 @@ function get_num_cpus_max {
 }
 
 function aws_get_meta_data {
-  curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
+  # Off EC2 the metadata address is unroutable; do not wait out a TCP timeout for it.
+  curl -fs --max-time 2 -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
 }
 
 function urlencode {
@@ -59,7 +60,7 @@ function term_link {
 }
 
 function ci_term_link {
-  term_link "$DASHBOARD_URL/$1" "$1"
+  term_link "$(ci3_client url $1)" "$1"
 }
 
 function pr_link {

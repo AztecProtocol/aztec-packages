@@ -16,17 +16,25 @@ status_job_id=${JOB_ID:-bootstrap}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
-# Enable build instance key features (disk logging, benchmark uploads) by default.
+# Enable build instance key features (SSH transport) by default.
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
+# The instance sets ci3 up for the dashboard (ci3_setup in CI), so the links printed here and posted
+# as commit statuses are the instance's, on the dashboard, and a parent log on a developer's local
+# server is not referenced there.
+# CI_REDIS is for the labs submodule's own ci3, still the pre-API one, which reads it directly.
+dashboard_url=http://ci.aztec-labs.com
+instance_parent_log_id=${PARENT_LOG_ID:-}
+[ "$(ci3_setup --show | grep -c '"mode": "aztec"')" -eq 0 ] && instance_parent_log_id=""
+
 # Pre-generate a log ID and print the dashboard link.
 export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
-echo "CI booting..." | redis_setexz "$CI_LOG_ID" 300
-log_url="http://ci.aztec-labs.com/$CI_LOG_ID"
+echo "CI booting..." | ci3_client log_put "$CI_LOG_ID" 300
+log_url=$dashboard_url/$CI_LOG_ID
 echo -e "CI Log: ${yellow}$log_url${reset}"
 if [ -n "${CI_DASHBOARD:-}" ]; then
-  echo "CI dashboard: http://ci.aztec-labs.com/section/$CI_DASHBOARD"
+  echo "CI dashboard: $dashboard_url/section/$CI_DASHBOARD"
 fi
 
 # Post pending GitHub commit status so the CI log link is visible on the PR.
@@ -142,7 +150,7 @@ fi
 # SSH-specific: encode SSH keys for transfer to the instance.
 # AWS credentials are handled by instance profiles on all paths.
 if [ "$use_ssh" -eq 1 ]; then
-  # Only pass SSH keys if disk logging is enabled (internal CI only).
+  # Only pass SSH keys to internal CI.
   if [ "${CI_USE_BUILD_INSTANCE_KEY:-1}" -eq 1 ]; then
     if [ -f ~/.ssh/build_instance_key ]; then
       export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
@@ -191,6 +199,7 @@ container_script=$(
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
+  ci3/ci3_setup
   source ci3/source
   ci_log_id=\$CI_LOG_ID
   log_ci_run \$ci_log_id
@@ -200,7 +209,7 @@ container_script=$(
   fi
 
   # Heartbeat.
-  while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
+  while true; do ci3_client kv_set hb-\$ci_log_id 1 60; sleep 30; done &
 
   function run {
     echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION TARGET_BRANCH=\$TARGET_BRANCH"
@@ -354,17 +363,17 @@ start_build() {
     -e CI=1 \
     -e CI_SSM_MODE=$ci_ssm_mode \
     -e CI_LOG_ID=${CI_LOG_ID:-} \
-    -e CI_LOGS_S3_LOCATION=${CI_LOGS_S3_LOCATION:-s3://aztec-ci-artifacts/logs} \
+    -e CI3_PASSWORD=$(printf %q "${CI3_PASSWORD:-}") \
+    -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e RUN_ID=${RUN_ID:-} \
     -e JOB_ID=${JOB_ID:-} \
     -e REF_NAME=${REF_NAME:-} \
     -e TARGET_BRANCH=${TARGET_BRANCH:-} \
     -e CI_DASHBOARD=${CI_DASHBOARD:-} \
-    -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
+    -e PARENT_LOG_ID=$instance_parent_log_id \
     -e NO_CACHE=${NO_CACHE:-} \
     -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
     -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1} \
-    -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$local_uid \
     -e LOCAL_GROUP_ID=\$local_gid \

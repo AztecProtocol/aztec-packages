@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the given command.
-# If a redis cache is available, redirect input into a cache log.
+# If a ci3 server is available, store the input as a log there.
 # If DUP=1 then we duplicate input also to stdout.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -27,29 +27,30 @@ function finalize_log {
 }
 
 function publish_log {
-  cat $outfile | redis_setexz $key $CI_REDIS_EXPIRE
+  cat $outfile | ci3_client log_put $key
 }
 
 function publish_log_final {
   finalize_log
-  # Synchronous: this is the run's top-level log and the instance goes away right after.
-  cat $outfile | CACHE_PERSIST_SYNC=1 cache_persistent $key $CI_REDIS_EXPIRE
+  cat $outfile | ci3_client log_put $key $ci3_log_expire final
 }
 
+# Re-publishes while the log grows, until $outfile.done appears; the final publish waits for it to
+# exit, so no live write can land after the final one.
 function live_publish_log {
-  while [ -f $outfile ]; do
+  while [ ! -f $outfile.done ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
       publish_log
     fi
     for i in {1..5}; do
-      [ ! -f $outfile ] && break
+      [ -f $outfile.done ] && break
       sleep 1
     done
   done
 }
 
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  log_str="$name log id: ${yellow}$DASHBOARD_URL/$key${reset}"
+if [ -n "$CI3_SERVER" ]; then
+  log_str="$name log id: ${yellow}$(ci3_client url $key)${reset}"
   echo_stderr -e "$log_str"
   # Close inherited pipeline FDs to prevent blocking parent pipelines.
   # When cache_log runs inside a pipeline, fd 1/2 may reference the parent's pipe.
@@ -59,6 +60,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     exec >/dev/null
   fi
   live_publish_log >&- 2>&- &
+  live_pid=$!
   if [ "$dup" -eq 1 ]; then
     redact | tee -a $outfile
     # Print a second line if the log is long enough.
@@ -69,6 +71,8 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   else
     redact | cat >>$outfile
   fi
+  touch $outfile.done
+  wait $live_pid
   publish_log_final
 else
   if [ "$dup" -eq 1 ]; then

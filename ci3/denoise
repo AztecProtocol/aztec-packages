@@ -40,7 +40,7 @@ function cleanup {
 }
 trap cleanup SIGINT SIGTERM
 # Remove file on exit, so we can publish even after SIGINT or SIGTERM.
-trap 'cleanup; rm -f $outfile $dots_fifo' EXIT
+trap 'cleanup; rm -f $outfile $outfile.done $dots_fifo' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
@@ -54,7 +54,7 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 [ -t 1 ] && realtime=1 || realtime=0
 
 key=$(uuid)
-url=$DASHBOARD_URL/$key
+url=$(ci3_client url $key)
 # DENOISE_TMPDIR gives a run a private output directory, so tests can scope their
 # leaked-process checks to their own denoise instead of every one on the machine.
 outfile=${DENOISE_TMPDIR:-/tmp}/$key
@@ -74,17 +74,17 @@ function format_log_output {
 }
 
 function publish_log {
-  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
-  format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+  [ -z "$CI3_SERVER" ] && return
+  format_log_output | ci3_client log_put $key
 }
 
 function publish_log_final {
-  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
-  format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+  [ -z "$CI3_SERVER" ] && return
+  format_log_output | ci3_client log_put $key $ci3_log_expire final
 }
 
 function live_publish_log {
-  while [ -f $outfile ]; do
+  while [ ! -f $outfile.done ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
       publish_log
     fi
@@ -92,7 +92,7 @@ function live_publish_log {
   done
 }
 
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+if [ -n "$CI3_SERVER" ]; then
   live_publish_log &
   publish_pid=$!
   log_info="(${yellow}${url}${reset})"
@@ -128,7 +128,9 @@ wait $job_pid
 status=$?
 
 time="${SECONDS}s"
-[ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
+# Let the live publisher finish its last write before the final one, so nothing overwrites it.
+touch $outfile.done
+[ -n "${publish_pid:-}" ] && wait $publish_pid || true
 publish_log_final
 
 # Kill tail (source), EOF propagates through fifo, dots loop drains and exits.
@@ -144,9 +146,9 @@ if [ "$status" -ne 0 ]; then
   if [ "$status" -eq 143 ] || [ "$status" -eq 130 ]; then
     echo -e ". ${yellow}interrupted${reset} ($time)"
   else
-    # With no redis there is no log URL to point the reader at, so the output has to go
+    # With no log server there is no log URL to point the reader at, so the output has to go
     # inline or the failure is invisible.
-    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ -z "$CI3_SERVER" ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi
@@ -156,9 +158,9 @@ if [ "$status" -ne 0 ]; then
     fi
   fi
 else
-  # With no redis there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
+  # With no log server there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
   # driving bootstrap_ec2) would lose the output entirely, including the build's CI Log link.
-  if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "${CI:-0}" == "1" ]; then
+  if [ -z "$CI3_SERVER" ] && [ "${CI:-0}" == "1" ]; then
     echo -e "\nOutput (no log store available):"
     cat $outfile
   fi

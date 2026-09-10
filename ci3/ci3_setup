@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Sets up ~/.ci3/config.json, the file every ci3_client command reads, and makes sure the server it
+names is running. Run by the entry points (bootstrap.sh, ci.sh, the CI launcher) before ci3 loads.
+
+  ci3_setup          set up (idempotent)
+  ci3_setup --show   print the config
+
+Which server, decided once and then honoured from the config:
+  aztec   when CI3_PASSWORD is in the environment, or in CI (CI=1): the labs CI dashboard, where CI
+          logs live, with the password (its basic auth) stored in the config.
+  local   otherwise: ci3_server, the file-backed server, on this machine.
+
+An existing config is kept as it is. When the environment asks for the aztec server and the config
+disagrees, a terminal is asked whether to switch; a non-interactive run stops with an error.
+"""
+import json
+import os
+import subprocess
+import sys
+import urllib.parse
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+CONFIG = os.environ.get("CI3_CONFIG") or os.path.expanduser("~/.ci3/config.json")
+DASHBOARD_URL = "http://ci.aztec-labs.com"
+LOCAL_URL = "http://localhost:4275"
+
+
+def load():
+    try:
+        with open(CONFIG) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def save(config):
+    """Written whole and readable only by the owner: it may hold the password."""
+    os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
+    tmp = CONFIG + ".tmp-%d" % os.getpid()
+    with open(tmp, "w", opener=lambda p, flags: os.open(p, flags, 0o600)) as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, CONFIG)
+
+
+def wanted(password):
+    if password or os.environ.get("CI") == "1":
+        return {"mode": "aztec", "server": DASHBOARD_URL, "public_url": DASHBOARD_URL, "password": password}
+    return {"mode": "local", "server": LOCAL_URL, "public_url": LOCAL_URL}
+
+
+def matches(existing, config, password):
+    return existing.get("mode") == config["mode"] and (not password or existing.get("password") == password)
+
+
+def confirm(question):
+    if not sys.stdin.isatty():
+        return False
+    return input(question + " [y/N] ").strip().lower() in ("y", "yes")
+
+
+def ensure_server(config):
+    """Start the server the config names if it is one on this machine, and say whether it answers."""
+    url = urllib.parse.urlsplit(config["server"])
+    if url.hostname not in ("localhost", "127.0.0.1"):
+        return True
+    return subprocess.run([os.path.join(HERE, "ci3_server"), "start", "--port", str(url.port)], stdout=subprocess.DEVNULL).returncode == 0
+
+
+def main():
+    if "--show" in sys.argv[1:]:
+        print(json.dumps(load(), indent=2))
+        return 0
+    password = os.environ.get("CI3_PASSWORD", "")
+    config = wanted(password)
+    existing = load()
+    if existing and (config["mode"] == "local" or matches(existing, config, password)):
+        config = existing
+    elif existing:
+        if not confirm("%s is set up for the %s server; switch it to the aztec server?" % (CONFIG, existing.get("mode"))):
+            sys.stderr.write("%s is set up for the %s server but the environment asks for the aztec one "
+                             "(CI3_PASSWORD or CI=1). Remove the file or run this in a terminal to switch.\n"
+                             % (CONFIG, existing.get("mode")))
+            return 1
+        save(config)
+    else:
+        save(config)
+    if not ensure_server(config):
+        sys.stderr.write("the %s ci3 server at %s is not running and could not be started\n" % (config["mode"], config["server"]))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

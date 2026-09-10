@@ -28,14 +28,14 @@ echo "=== Denoise Test Suite ==="
 denoise_tmp=$(mktemp -d)
 trap 'rm -rf "$denoise_tmp"' EXIT
 
-# Common env for denoise: enable it, disable redis, set narrow dot width for fast tests.
+# Common env for denoise: enable it, disable the log server, set narrow dot width for fast tests.
 DENOISE_ENV=(
   DENOISE=1
   DENOISE_TMPDIR="$denoise_tmp"
   # Under CI=1 denoise posts a real GitHub commit status for a failing command, and this
   # suite runs failing commands on purpose.
   CI=0
-  CI_REDIS_AVAILABLE=0
+  CI3_CONFIG=/dev/null
   DENOISE_WIDTH=4
   DUMP_FAIL=0
   FORCE_COLOR=0

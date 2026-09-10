@@ -1,0 +1,387 @@
+#!/usr/bin/env python3
+"""The only way ci3 talks to its log / test-cache / artifact server (see CI3_SERVER_API.md).
+
+Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3 standard library only.
+
+  env                              shell exports for the resolved server (source_ci3_client evals it)
+  url [path]                       the browse URL of a log id / server path, as printed in links
+  log_put <id> [ttl] [final]       stdin -> the log <id> (replaces); "final" marks a log's last write
+  log_get <id>                     the log <id> -> stdout (exit 1 if absent)
+  log_list <prefix>                the ids directly under <prefix>, one per line
+  kv_get <key>...                  one line per key: the value, or empty
+  kv_set <key> <value> [ttl]
+  list_push <name> <line> [max]    prepend; the server keeps at most <max> (default 1000) lines
+  list_get <name>                  newest first (exit 1 if absent)
+  run_put <section> <id>           stdin (JSON) -> the CI run record
+  run_get <section> <id>           the JSON record -> stdout (exit 1 if absent)
+  artifact_put <name> <file>       upload a build-cache artifact (exit 1 on failure)
+  artifact_get <name>              stream a build-cache artifact -> stdout (exit 1 if absent)
+  artifact_exists <name>           exit 0 if present, else 1
+
+What ci3 keeps on the server, in ci3 terms:
+  logs       every denoised command (denoise), every test attempt (run_test_cmd), the run's top-level
+             log (CI_LOG_ID, bootstrap_ec2), and data files with path ids: test-timings/<run>/<test
+             log> (exec_test) and bench/bb-breakdown/<key> (the bb benchmarks). A running job re-puts
+             its log every few seconds; its last write is marked final.
+  kv         the test cache: key = hash of the full test command line, value = the id of the log of
+             its passing run, 7 days (run_test_cmd sets it, filter_cached_test_cmd and run_test_cmd
+             read it). Also hb-<run id>, the heartbeat bootstrap_ec2 refreshes every 30s.
+  lists      history_<test hash>[_<target branch>] (one line per attempt of a test) and
+             failed_tests[_<dashboard>] (every failure and flake), what the dashboard's history links
+             show.
+  runs       the run registry the dashboard renders per section (prs, next, releases, ...): one
+             record per CI_LOG_ID, written RUNNING by log_ci_run when a run starts and PASSED/FAILED
+             when it ends.
+  artifacts  the build cache: <component>-<content hash>.tar.gz|.zst (cache_upload/cache_download),
+             plus bench-<tree>.tar.gz, npm-release-<tag>.tar.gz and the ci-success-* whole-run marker.
+
+Configuration is ~/.ci3/config.json, written by ci3_setup (CI3_CONFIG names another file):
+  server      base URL of the server every command talks to
+  public_url  base of the links we print (default: server); edit it to share a tunnelled server
+  password    the aztec server's password, when set up for it; sent as basic auth (user aztec)
+No config, or a server that does not answer: every command is a harmless no-op. Stdin is drained,
+kv_get answers one empty line per key, writes exit 0, reads exit 1. Writes never fail the caller.
+"""
+import base64
+import gzip
+import http.client
+import json
+import io
+import os
+import shlex
+import sys
+import urllib.parse
+
+# The public, read-only build cache (S3 over plain HTTP) artifact reads fall back to on a miss: the
+# bucket endpoint from inside AWS, the CDN in front of it otherwise. ci3 never writes to it.
+PUBLIC_CACHE_URL_CI = "http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
+PUBLIC_CACHE_URL_LOCAL = "https://build-cache.aztec-labs.com"
+# Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
+# (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
+LOG_EXPIRE_CI = 60 * 60 * 24 * 14
+LOG_EXPIRE_LOCAL = 60 * 60 * 24 * 2
+ARTIFACT_EXPIRE = 60 * 60 * 24 * 7
+
+YELLOW, RESET = "\033[38;2;250;217;121m", "\033[0m"
+
+
+def warn(msg):
+    sys.stderr.write("%s%s%s\n" % (YELLOW, msg, RESET))
+
+
+def in_ci():
+    return os.environ.get("CI", "0") == "1"
+
+
+# --- configuration ---------------------------------------------------------------------------
+
+
+def config():
+    try:
+        with open(os.environ.get("CI3_CONFIG") or os.path.expanduser("~/.ci3/config.json")) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def resolve_server():
+    """The server this process tree talks to, or "" for none. Cached in CI3_SERVER by `env`."""
+    if "CI3_SERVER" in os.environ:
+        return os.environ["CI3_SERVER"]
+    server = config().get("server", "").rstrip("/")
+    if server and not answers(server):
+        warn("ci3 server %s (from %s) does not answer; run ci3/ci3_setup. Logs and test cache disabled."
+             % (server, os.environ.get("CI3_CONFIG") or "~/.ci3/config.json"))
+        server = ""
+    os.environ["CI3_SERVER"] = server
+    return server
+
+
+def answers(url):
+    try:
+        conn = connection(url, timeout=5)
+        conn.request("GET", "/health")
+        resp = conn.getresponse()
+        return resp.status == 200 and resp.read() == b"ci3-server"
+    except OSError:
+        return False
+
+
+def public_url():
+    return config().get("public_url", "").rstrip("/") or resolve_server()
+
+
+def cmd_env(args):
+    """Shell exports of the resolved configuration, for source_ci3_client."""
+    server = resolve_server()
+    lines = ["export CI3_SERVER=%s" % shlex.quote(server), "export CI3_PUBLIC_URL=%s" % shlex.quote(public_url())]
+    if not server:
+        lines.append("export USE_TEST_CACHE=0")
+    lines += [
+        "ci3_log_expire=%d" % (LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL),
+        "ci3_artifact_expire=%d" % ARTIFACT_EXPIRE,
+        "ci3_public_cache_url=%s" % (PUBLIC_CACHE_URL_CI if in_ci() else PUBLIC_CACHE_URL_LOCAL),
+    ]
+    print("\n".join(lines))
+    return 0
+
+
+# --- HTTP --------------------------------------------------------------------------------------
+
+
+def connection(url, timeout):
+    u = urllib.parse.urlsplit(url)
+    cls = http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection
+    return cls(u.hostname, u.port, timeout=timeout)
+
+
+def request(method, url, body=None, headers=None, timeout=30, redirects=5):
+    """One request; 3xx answers are followed, re-sending the body (a file body is rewound)."""
+    headers = dict(headers or {})
+    password = config().get("password")
+    if password:
+        headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + password).encode()).decode()
+    for _ in range(redirects + 1):
+        u = urllib.parse.urlsplit(url)
+        conn = connection(url, timeout)
+        if hasattr(body, "seek"):
+            body.seek(0)
+        conn.request(method, u.path + ("?" + u.query if u.query else ""), body=body, headers=headers)
+        resp = conn.getresponse()
+        if resp.status in (301, 302, 303, 307, 308) and resp.getheader("Location"):
+            resp.read()
+            target = urllib.parse.urljoin(url, resp.getheader("Location"))
+            if urllib.parse.urlsplit(target).netloc != u.netloc:
+                headers.pop("Authorization", None)  # the password is the server's, not a bucket's
+            url = target
+            if resp.status in (301, 302, 303):
+                method, body = ("GET" if method != "HEAD" else "HEAD"), None
+            continue
+        return resp
+    raise OSError("too many redirects")
+
+
+def key_path(*parts):
+    return "/".join(urllib.parse.quote(p, safe="/:+@=,") for p in parts)
+
+
+def api(method, path, body=None, headers=None, timeout=30, query=None):
+    server = resolve_server()
+    url = server + path + ("?" + urllib.parse.urlencode(query) if query else "")
+    return request(method, url, body, headers, timeout)
+
+
+def swallow(fn):
+    """Best-effort writes: never fail the caller (details with BUILD_SYSTEM_DEBUG=1)."""
+    try:
+        resp = fn()
+        if resp.status >= 300 and os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
+            sys.stderr.write("ci3_client: server answered %d\n" % resp.status)
+        resp.read()
+    except (OSError, http.client.HTTPException) as e:
+        if os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
+            sys.stderr.write("ci3_client: %s\n" % e)
+    return 0
+
+
+def stdin_bytes():
+    return sys.stdin.buffer.read()
+
+
+def out(data):
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
+
+
+def usage(cmd, text):
+    sys.stderr.write("usage: ci3_client %s %s\n" % (cmd, text))
+    return 2
+
+
+# --- commands ----------------------------------------------------------------------------------
+
+
+def cmd_url(args):
+    print("%s/%s" % (public_url(), args[0] if args else ""))
+    return 0
+
+
+def cmd_log_put(args):
+    if not args:
+        return usage("log_put", "<id> [ttl] [final]")
+    data = stdin_bytes()  # always drained: an undrained writer dies of SIGPIPE
+    if not resolve_server():
+        return 0
+    ttl = args[1] if len(args) > 1 and args[1] else str(LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL)
+    final = "1" if len(args) > 2 and args[2] == "final" else "0"
+    # A final write may wait on the server's durable store (S3 retries): give it longer.
+    return swallow(lambda: api("PUT", "/logs/" + key_path(args[0]), gzip.compress(data), {"Content-Encoding": "gzip"},
+                               timeout=300 if final == "1" else 60, query={"ttl": ttl, "final": final}))
+
+
+def read_or_fail(path, missing, timeout=60):
+    if not resolve_server():
+        sys.stderr.write("No ci3 server available.\n")
+        return 1
+    try:
+        resp = api("GET", path, timeout=timeout)
+        if resp.status != 200:
+            sys.stderr.write(missing + "\n")
+            return 1
+        expected, got = int(resp.getheader("Content-Length") or -1), 0
+        while True:
+            chunk = resp.read(1 << 20)
+            if not chunk:
+                break
+            got += len(chunk)
+            out(chunk)
+        if expected not in (-1, got):
+            sys.stderr.write("%s (truncated: %d of %d bytes)\n" % (missing, got, expected))
+            return 1
+        return 0
+    except (OSError, http.client.HTTPException) as e:
+        sys.stderr.write("%s (%s)\n" % (missing, e))
+        return 1
+
+
+def cmd_log_get(args):
+    if not args:
+        return usage("log_get", "<id>")
+    return read_or_fail("/logs/" + key_path(args[0]), "Log not found: " + args[0], timeout=120)
+
+
+def cmd_log_list(args):
+    if not args:
+        return usage("log_list", "<prefix>")
+    return read_or_fail("/logs/" + key_path(args[0].strip("/")) + "/", "Cannot list logs under " + args[0])
+
+
+def cmd_kv_get(args):
+    if not args:
+        return usage("kv_get", "<key>...")
+    misses = "\n".join("" for _ in args) + "\n"
+    if not resolve_server():
+        out(misses.encode())
+        return 0
+    try:
+        if len(args) == 1:
+            resp = api("GET", "/kv/" + key_path(args[0]))
+            value = resp.read() if resp.status == 200 else b""
+            out(value.rstrip(b"\n") + b"\n")
+            return 0
+        resp = api("POST", "/kv/mget", ("\n".join(args) + "\n").encode())
+        body = resp.read() if resp.status == 200 else b""
+        lines = body.decode(errors="replace").split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        # Callers index the answer by position: it must be exactly one line per key even on failure.
+        if len(lines) != len(args):
+            out(misses.encode())
+        else:
+            out(("\n".join(lines) + "\n").encode())
+    except (OSError, http.client.HTTPException):
+        out(misses.encode())
+    return 0
+
+
+def cmd_kv_set(args):
+    if len(args) < 2:
+        return usage("kv_set", "<key> <value> [ttl]")
+    if not resolve_server():
+        return 0
+    query = {"ttl": args[2]} if len(args) > 2 and args[2] else None
+    return swallow(lambda: api("PUT", "/kv/" + key_path(args[0]), args[1].encode(), query=query))
+
+
+def cmd_list_push(args):
+    if len(args) < 2:
+        return usage("list_push", "<name> <line> [max]")
+    if not resolve_server():
+        return 0
+    query = {"max": args[2]} if len(args) > 2 and args[2] else None
+    return swallow(lambda: api("POST", "/lists/" + key_path(args[0]), (args[1] + "\n").encode(), query=query))
+
+
+def cmd_list_get(args):
+    if not args:
+        return usage("list_get", "<name>")
+    return read_or_fail("/lists/" + key_path(args[0]), "List not found: " + args[0])
+
+
+def cmd_run_put(args):
+    if len(args) < 2:
+        return usage("run_put", "<section> <id>")
+    body = stdin_bytes()
+    if not resolve_server():
+        return 0
+    return swallow(lambda: api("PUT", "/runs/" + key_path(args[0], args[1]), body, {"Content-Type": "application/json"}))
+
+
+def cmd_run_get(args):
+    if len(args) < 2:
+        return usage("run_get", "<section> <id>")
+    return read_or_fail("/runs/" + key_path(args[0], args[1]), "Run not found: %s/%s" % (args[0], args[1]))
+
+
+def cmd_artifact_put(args):
+    if len(args) < 2:
+        return usage("artifact_put", "<name> <file>")
+    if not resolve_server():
+        return 1
+    try:
+        with open(args[1], "rb") as f:
+            headers = {"Content-Length": str(os.fstat(f.fileno()).st_size)}
+            resp = api("PUT", "/artifacts/" + key_path(args[0]), f, headers, timeout=600, query={"ttl": str(ARTIFACT_EXPIRE)})
+            resp.read()
+            return 0 if resp.status < 300 else 1
+    except OSError as e:
+        sys.stderr.write("ci3_client artifact_put: %s\n" % e)
+        return 1
+
+
+def cmd_artifact_get(args):
+    if not args:
+        return usage("artifact_get", "<name>")
+    return read_or_fail("/artifacts/" + key_path(args[0]), "Artifact not found: " + args[0], timeout=600)
+
+
+def cmd_artifact_exists(args):
+    if not args:
+        return usage("artifact_exists", "<name>")
+    if not resolve_server():
+        return 1
+    try:
+        resp = api("HEAD", "/artifacts/" + key_path(args[0]))
+        resp.read()
+        return 0 if resp.status == 200 else 1
+    except OSError:
+        return 1
+
+
+COMMANDS = {
+    "env": cmd_env, "url": cmd_url,
+    "log_put": cmd_log_put, "log_get": cmd_log_get, "log_list": cmd_log_list,
+    "kv_get": cmd_kv_get, "kv_set": cmd_kv_set,
+    "list_push": cmd_list_push, "list_get": cmd_list_get,
+    "run_put": cmd_run_put, "run_get": cmd_run_get,
+    "artifact_put": cmd_artifact_put, "artifact_get": cmd_artifact_get, "artifact_exists": cmd_artifact_exists,
+}
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv:
+        sys.stderr.write(__doc__)
+        return 2
+    cmd, argv = argv[0], argv[1:]
+    if cmd not in COMMANDS:
+        sys.stderr.write("ci3_client: unknown command %s\n%s" % (cmd, __doc__))
+        return 2
+    return COMMANDS[cmd](argv)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        sys.exit(0)

@@ -36,12 +36,9 @@ WINDOW=1
 PR_REF="HEAD"
 OUT=""
 SCAN_LIMIT=300
-# Same endpoints cache_download uses: the in-CI S3 http endpoint, else the public cache CDN.
-if [ "${CI:-0}" -eq 1 ]; then
-  CACHE_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
-else
-  CACHE_ENDPOINT="https://build-cache.aztec-labs.com"
-fi
+# The public build cache cache_download falls back to (the in-CI S3 http endpoint, else the CDN).
+source "$(git rev-parse --show-toplevel)/ci3/source_ci3_client"
+CACHE_ENDPOINT="$ci3_public_cache_url"
 
 die() { echo "bench_compare: error: $*" >&2; exit 1; }
 
@@ -75,12 +72,11 @@ if [ -z "$BASELINE" ]; then
 fi
 echo "bench_compare: baseline = $BASELINE" >&2
 
-# Fetch a per-run bench.json for a tree hash. Tries the http cache (no creds), then aws s3 (creds).
+# Fetch a per-run bench.json for a tree hash from the public build cache (no creds).
 fetch_bench() { # <treehash> <dest.json> -> 0 if found
   local tree="$1" dest="$2" tmp
   tmp="$(mktemp -d)"
-  if curl -fsSL "$CACHE_ENDPOINT/bench-$tree.tar.gz" -o "$tmp/b.tgz" 2>/dev/null \
-     || aws s3 cp "s3://aztec-ci-artifacts/build-cache/bench-$tree.tar.gz" "$tmp/b.tgz" >/dev/null 2>&1; then
+  if curl -fsSL "$CACHE_ENDPOINT/bench-$tree.tar.gz" -o "$tmp/b.tgz" 2>/dev/null; then
     if tar -xzf "$tmp/b.tgz" -C "$tmp" 2>/dev/null && [ -f "$tmp/bench-out/bench.json" ]; then
       cp "$tmp/bench-out/bench.json" "$dest"; rm -rf "$tmp"; return 0
     fi

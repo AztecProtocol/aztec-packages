@@ -11,8 +11,6 @@
 
 own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
-source "$root/ci3/source_redis"
-source "$root/ci3/source_cache"
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <circuit_name> <inputs_folder> <cpus>"
@@ -249,10 +247,10 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     tmp_breakdown_file="/tmp/benchmark_breakdown_ultrahonk_${circuit_name}_cpus${cpus}_$$.json"
     cp "$output/benchmark_breakdown.json" "$tmp_breakdown_file"
 
-    # Upload to S3
+    # Stored on the ci3 server under bench/ultrahonk-breakdown (the dashboard reads it there).
     disk_key="ultrahonk-${circuit_name}-cpus${cpus}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/ultrahonk-breakdown" "$disk_key"
+      cat "$tmp_breakdown_file" | ci3_client log_put "bench/ultrahonk-breakdown/$disk_key" "" final
       rm -f "$tmp_breakdown_file"
     } &
 

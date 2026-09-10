@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Tars the given paths and stores the result as build-cache artifact <name> on the ci3 server
+# (see CI3_SERVER_API.md). In a local run that is the file-backed ci3_server, so a rebuild after
+# switching branches back is a local cache hit.
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
@@ -17,28 +20,19 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
-if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
-  echo_stderr "Skipping upload because CI=0 and S3_FORCE_UPLOAD not set."
-  exit 0
-fi
-
 if [[ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]]; then
   echo_stderr "Skipping upload because NO_CACHE_UPLOAD=1."
   exit 0
 fi
 
-# In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
-if [[ "${CI_SSM_MODE:-0}" -eq 0 ]]; then
-  if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
-    echo_stderr "Skipping upload, no AWS credentials found."
-    exit 0
-  fi
+if [ -z "$CI3_SERVER" ] && [ -z "${CACHE_LOCAL_DIR:-}" ]; then
+  echo_stderr "Skipping upload of $name, no ci3 server available."
+  exit 0
 fi
 
-if [ -z "${S3_FORCE_UPLOAD:-}" ] && \
-  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
-    echo_stderr "Skipping upload, already exists: $name"
-    exit 0
+if [ -n "$CI3_SERVER" ] && [ -z "${S3_FORCE_UPLOAD:-}" ] && ci3_client artifact_exists "$name"; then
+  echo_stderr "Skipping upload, already exists: $name"
+  exit 0
 fi
 
 out_tar=$(mktemp)
@@ -60,8 +54,9 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   fi
 fi
 
-# Pipe tar directly to AWS S3 cp
-if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp $out_tar "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
+if [ -z "$CI3_SERVER" ]; then
+  echo_stderr "Skipping upload of $name, no ci3 server available."
+elif ci3_client artifact_put "$name" "$out_tar"; then
   echo_stderr "Cache upload of $name complete in ${SECONDS}s."
 else
   echo_stderr "Cache upload of $name failed."
