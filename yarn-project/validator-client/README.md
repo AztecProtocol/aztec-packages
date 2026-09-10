@@ -150,10 +150,11 @@ provider and L1 itself all move independently of the moment the proposal was sig
 invalid-proposal slot marker or a peer penalty, and neither is remembered as the proposal's verdict, so a view that
 recovers within the slot still permits a valid verdict.
 
-A refusal is not free, though: like every other outcome this node cannot complete, it records `unvalidated` for the
-slot, which the sentinel reports as a missed proposal for that slot's proposer when no checkpoint for it lands on
-L1. What it will not do is overwrite a `valid` this node already recorded for the same checkpoint, so a later RPC
-failure here cannot retract a validation that succeeded.
+A refusal records `unverifiable` for the slot, which the sentinel reports as `checkpoint-unverifiable`. That status
+exists so a refusal is not read as an absent proposal: without a record the sentinel would fall back to
+`checkpoint-missed`, which is counted against the proposer. `checkpoint-unverifiable` is counted against nobody —
+it says this observer could not check, not that the proposer failed. It also never overwrites a `valid` this node
+already recorded for the same checkpoint, so a later RPC failure here cannot retract a validation that succeeded.
 
 The proposer's own checkpoints are covered by the endpoint its sequencer resolved against the same live ring when
 it built the checkpoint's final block, plus the publication preflight it runs before submitting. Historical

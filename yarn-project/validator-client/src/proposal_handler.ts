@@ -209,10 +209,12 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   // Not proposer misbehavior: this node's Inbox view could not confirm the consumed prefix, or disagrees with it.
   inbox_prefix_unavailable: 'unvalidated',
   inbox_prefix_mismatch: 'unvalidated',
-  // Nor is an endpoint this node could not confirm: the bucket ring, the local provider and L1 itself all move
-  // independently of the moment the checkpoint was signed.
-  inbox_endpoint_unverifiable: 'unvalidated',
-  inbox_endpoint_not_live: 'unvalidated',
+  // An endpoint this node could not confirm is its own failure to check, not the proposer's to answer for: the
+  // bucket ring, the local provider and L1 itself all move independently of the moment the checkpoint was signed.
+  // `unverifiable` keeps that out of the proposer's missed-proposal count while still recording that a proposal
+  // was seen, so the slot is not mistaken for one the proposer skipped.
+  inbox_endpoint_unverifiable: 'unverifiable',
+  inbox_endpoint_not_live: 'unverifiable',
   // This node ran out of time to look; it observed nothing about the proposer. Recorded by the duty-expiry path
   // itself, which also refuses to overwrite an outcome the slot already has.
   validation_deadline_expired: 'unverifiable',
@@ -1867,12 +1869,12 @@ export class ProposalHandler {
 
     // Record the outcome on the re-execution tracker, except where that would forget a validation this node
     // already completed. p2p evaluates one proposal twice (all-nodes validation, then attestation) and the second
-    // look can fail on something purely local; `unvalidated` reaches the sentinel as a missed proposal for the
-    // slot's proposer, so downgrading a recorded `valid` would charge someone else's validator for an RPC failure
-    // here. Only the very checkpoint that was validated is protected: another archive at this slot still records.
+    // look can fail on something purely local, so a local-inability outcome never replaces a recorded `valid`:
+    // the node did validate this checkpoint, and only its second look was unlucky. Only the very checkpoint that
+    // was validated is protected: another archive at this slot still records.
     const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
     const wouldForgetValid =
-      outcome === 'unvalidated' &&
+      (outcome === 'unvalidated' || outcome === 'unverifiable') &&
       result.checkpointNumber !== undefined &&
       this.reexecutionTracker.hasReexecuted(result.checkpointNumber, proposal.archive);
     if (outcome !== undefined && !wouldForgetValid) {

@@ -1299,18 +1299,19 @@ describe('ProposalHandler checkpoint validation', () => {
       }
 
       /**
-       * Asserts what a refusal actually records: it is not slashable and sets no invalid-slot marker, and the
-       * slot's outcome is `unvalidated` rather than valid. That last part is not neutral — the sentinel counts
-       * `unvalidated` as a missed proposal for the slot's proposer whenever no checkpoint for the slot lands.
+       * Asserts what a refusal actually records: it is not slashable, sets no invalid-slot marker, and records
+       * the slot as `unverifiable` rather than valid. `unverifiable` is what keeps the refusal out of the
+       * proposer's accounting: `unvalidated` would reach the sentinel as a missed proposal for that proposer,
+       * and recording nothing at all would leave the sentinel to fall back to `checkpoint-missed`.
        */
-      function expectRefusalRecordedAsUnvalidated(
+      function expectRefusalRecordedAsUnverifiable(
         result: CheckpointProposalValidationResult,
         reason: 'inbox_endpoint_not_live' | 'inbox_endpoint_unverifiable',
       ) {
         expect(result).toEqual({ isValid: false, reason, checkpointNumber: CheckpointNumber(1) });
         expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[reason]).toBe(false);
         expect(handler.hasInvalidProposals(SlotNumber(1))).toBe(false);
-        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unvalidated');
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unverifiable');
       }
 
       // The checkpoint's first block ends at 5, inside the bucket closing at 7: only where the checkpoint itself
@@ -1348,14 +1349,14 @@ describe('ProposalHandler checkpoint validation', () => {
           { seq: 4n, total: 9n, rollingHash: inboxRollingHash },
         ]);
 
-        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_not_live');
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_not_live');
       });
 
       it('refuses a live boundary that commits to a different message prefix than the signed one', async () => {
         const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: Fr.random() }]);
 
-        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_not_live');
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_not_live');
       });
 
       // A missing endpoint is never special-cased into success: the ring may simply have evicted it.
@@ -1363,14 +1364,14 @@ describe('ProposalHandler checkpoint validation', () => {
         const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setBuckets([{ seq: 40n, total: 5000n, rollingHash: inboxRollingHash }]);
 
-        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_not_live');
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_not_live');
       });
 
       it('refuses, without attributing anything to the proposer, when the L1 view cannot be read', async () => {
         const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setUnreadable(new Error('l1 rpc request failed'));
 
-        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_unverifiable');
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_unverifiable');
       });
 
       // A provider still catching up reports the boundary below the checkpoint's end. The gate re-reads within the
@@ -1472,7 +1473,7 @@ describe('ProposalHandler checkpoint validation', () => {
         // The block at the captured height keeps changing under the call, so no attempt can bind its answer.
         inbox.onRead(readIndex => inbox.setViewHash(`0xreplaced${readIndex}`));
 
-        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_unverifiable');
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_unverifiable');
       });
 
       // The two seconds are a ceiling on the stage, not a deadline consulted between attempts: a provider that
@@ -1488,7 +1489,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
         // Slot 1's duty runs until its 40s attestation deadline; the endpoint stage may only take two seconds.
         expect(timer.ms()).toBeLessThan(10_000);
-        expectRefusalRecordedAsUnvalidated(result, 'inbox_endpoint_unverifiable');
+        expectRefusalRecordedAsUnverifiable(result, 'inbox_endpoint_unverifiable');
       });
 
       // Pruning the tracker is bookkeeping that happens to read L1 tips. The validator calls this path directly
@@ -1501,9 +1502,8 @@ describe('ProposalHandler checkpoint validation', () => {
         await expect(validate(header)).resolves.toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
       });
 
-      // The all-nodes callback and the attestation call the same proposal twice, and `unvalidated` is what the
-      // sentinel counts as a missed proposal for the slot's proposer. An RPC failure on the second call is this
-      // node's problem, and must not turn a checkpoint it did validate into a missed proposal for someone else.
+      // The all-nodes callback and the attestation call the same proposal twice. An RPC failure on the second
+      // call is this node's problem, and must not retract the validation the first call completed.
       it('keeps the slot recorded as valid when a later call cannot read the L1 view', async () => {
         const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
