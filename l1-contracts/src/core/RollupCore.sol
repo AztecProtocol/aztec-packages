@@ -306,7 +306,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setRewardConfig(MutableRewardConfig memory _config) external override(IRollupCore) onlyOwner {
     RewardExtLib.updateConfig(_config);
-    emit RewardConfigUpdated(_config);
   }
 
   /**
@@ -317,11 +316,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _manaTarget The new target mana per slot
    */
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
-    uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
-    require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
-    FeeLib.updateManaTarget(_manaTarget);
-
-    emit IRollupCore.ManaTargetUpdated(_manaTarget);
+    RewardExtLib.updateManaTarget(_manaTarget);
   }
 
   /**
@@ -354,7 +349,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _provingCostPerMana The cost in ETH per unit of mana for proving
    */
   function setProvingCostPerMana(EthValue _provingCostPerMana) external override(IRollupCore) onlyOwner {
-    FeeLib.updateProvingCostPerMana(_provingCostPerMana);
+    RewardExtLib.updateProvingCostPerMana(_provingCostPerMana);
   }
 
   /**
@@ -365,10 +360,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _protocolFeeMarginBps The new margin in basis points
    */
   function setProtocolFeeMargin(uint16 _protocolFeeMarginBps) external override(IRollupCore) onlyOwner {
-    (bool changed, uint16 oldBps) = RewardExtLib.updateProtocolFeeMargin(_protocolFeeMarginBps);
-    if (changed) {
-      emit IRollupCore.ProtocolFeeMarginUpdated(oldBps, _protocolFeeMarginBps);
-    }
+    RewardExtLib.updateProtocolFeeMargin(_protocolFeeMarginBps);
   }
 
   /**
@@ -377,8 +369,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _recipient The new protocol fee recipient
    */
   function setProtocolFeeRecipient(address _recipient) external override(IRollupCore) onlyOwner {
-    address oldRecipient = RewardExtLib.updateProtocolFeeRecipient(_recipient);
-    emit IRollupCore.ProtocolFeeRecipientUpdated(oldRecipient, _recipient);
+    RewardExtLib.updateProtocolFeeRecipient(_recipient);
   }
 
   /**
@@ -400,7 +391,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
     ValidatorOperationsExtLib.setEscapeHatch(_escapeHatch);
-    emit IValidatorSelectionCore.EscapeHatchSet(_escapeHatch);
   }
 
   /**
@@ -626,7 +616,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      Uses current L1 gas price and blob gas price for calculations.
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
-    FeeLib.updateL1GasFeeOracle();
+    RewardExtLib.updateL1GasFeeOracle();
   }
 
   /**

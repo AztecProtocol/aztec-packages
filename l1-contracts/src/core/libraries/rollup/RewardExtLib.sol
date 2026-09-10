@@ -2,6 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
+import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   FeeLib,
   ManaMinFeeComponents,
@@ -23,20 +26,51 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 library RewardExtLib {
+  using FeeConfigLib for CompressedFeeConfig;
+
   function initializeConfig(RewardConfig memory _config) external {
     RewardLib.initializeConfig(_config);
   }
 
+  /**
+   * @dev The owner-only fee and reward setters below hold their validation, mutation and event
+   *      emission here rather than in the Rollup. The Rollup sits close to the EIP-170 limit, and
+   *      an event's topic hash plus its argument encoding costs it ~75 bytes per emit site; the
+   *      `FeeLib` mutators inline another few hundred. A delegatecall keeps `msg.sender`, storage
+   *      and the log's emitting address, so moving them across this boundary is behaviour
+   *      preserving, and it only costs gas on cold admin paths. `ProposeLib` calls `FeeLib`
+   *      directly, so `propose` is unaffected.
+   */
   function updateConfig(MutableRewardConfig memory _config) external {
     RewardLib.updateConfig(_config);
+    emit IRollupCore.RewardConfigUpdated(_config);
   }
 
-  function updateProtocolFeeMargin(uint16 _bps) external returns (bool changed, uint16 oldBps) {
-    return FeeLib.updateProtocolFeeMargin(_bps);
+  function updateL1GasFeeOracle() external {
+    FeeLib.updateL1GasFeeOracle();
   }
 
-  function updateProtocolFeeRecipient(address _recipient) external returns (address oldRecipient) {
-    return RewardLib.updateProtocolFeeRecipient(_recipient);
+  function updateProvingCostPerMana(EthValue _provingCostPerMana) external {
+    FeeLib.updateProvingCostPerMana(_provingCostPerMana);
+  }
+
+  function updateManaTarget(uint256 _manaTarget) external {
+    uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
+    require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
+    FeeLib.updateManaTarget(_manaTarget);
+    emit IRollupCore.ManaTargetUpdated(_manaTarget);
+  }
+
+  function updateProtocolFeeMargin(uint16 _bps) external {
+    (bool changed, uint16 oldBps) = FeeLib.updateProtocolFeeMargin(_bps);
+    if (changed) {
+      emit IRollupCore.ProtocolFeeMarginUpdated(oldBps, _bps);
+    }
+  }
+
+  function updateProtocolFeeRecipient(address _recipient) external {
+    address oldRecipient = RewardLib.updateProtocolFeeRecipient(_recipient);
+    emit IRollupCore.ProtocolFeeRecipientUpdated(oldRecipient, _recipient);
   }
 
   function claimSequencerRewards(address _sequencer, IERC20 _feeAsset) external returns (uint256) {
