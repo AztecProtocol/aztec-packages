@@ -763,6 +763,23 @@ contract PartialEpochProofWithTwoOverridesGasReportTest is PartialEpochProofGasR
     _gasReporter().gasReportSubmit32CheckpointsWithTwoOverrides(_getGasReportSubmission(32));
     assertEq(rollup.getProvenCheckpointNumber(), 32);
   }
+
+  function testCompactExtensionWithTwoOverridesPreservesRewards() public {
+    rollup.submitEpochRootProof(_getGasReportSubmission(8));
+    uint256 snapshot = vm.snapshotState();
+    rollup.submitEpochRootProof(_getGasReportSubmission(16));
+    uint256 rewards = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH));
+    uint256[] memory sequencerRewards = new uint256[](16);
+    for (uint256 i = 0; i < 16; i++) {
+      sequencerRewards[i] = rollup.getSequencerRewards(checkpointHeaders[i + 1].coinbase);
+    }
+    vm.revertToState(snapshot);
+    rollup.submitEpochRootProof(_compactSubmission(_getGasReportSubmission(16), 8));
+    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH)), rewards);
+    for (uint256 i = 0; i < 16; i++) {
+      assertEq(rollup.getSequencerRewards(checkpointHeaders[i + 1].coinbase), sequencerRewards[i]);
+    }
+  }
 }
 
 contract PartialEpochProofExtensionGasReportTest is PartialEpochProofGasReportBase {
