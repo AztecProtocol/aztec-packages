@@ -8,7 +8,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -41,6 +41,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { type FakeInbox, makeFakeInbox } from './fake_inbox_test_helper.js';
 import type { ValidatorMetrics } from './metrics.js';
 import {
   type CheckpointProposalValidationResult,
@@ -109,6 +110,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let handler: ProposalHandler;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let inbox: FakeInbox;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let dateProvider: TestDateProvider;
@@ -127,6 +129,9 @@ describe('ProposalHandler checkpoint validation', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     mockEmptyInboxView(l1ToL2MessageSource);
+    // An L1 Inbox that never received a message: its genesis bucket ends at zero, which is where the
+    // consume-nothing checkpoints of these tests end too.
+    inbox = makeFakeInbox();
 
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
@@ -161,6 +166,7 @@ describe('ProposalHandler checkpoint validation', () => {
       mock<WorldStateSynchronizer>(),
       blockSource,
       l1ToL2MessageSource,
+      inbox,
       mock<ITxProvider>(),
       epochCache,
       consensusTimetable,
@@ -268,6 +274,7 @@ describe('ProposalHandler checkpoint validation', () => {
         mock<WorldStateSynchronizer>(),
         blockSource,
         l1ToL2MessageSource,
+        inbox,
         mock<ITxProvider>(),
         epochCache,
         consensusTimetable,
@@ -1198,6 +1205,364 @@ describe('ProposalHandler checkpoint validation', () => {
         checkpointNumber: CheckpointNumber(1),
       });
     });
+
+    describe('live Inbox endpoint gate', () => {
+      /**
+       * Sets up a two-block checkpoint whose blocks, ancestry and consumed content all check out: it starts from
+       * message total 3, its first block consumes through `midLeafCount` and its last through `lastLeafCount`, so
+       * the only open question left is whether the position it ends at is a live Inbox bucket endpoint. Returns
+       * the header the proposal signs, committing to `inboxRollingHash`.
+       */
+      function setupContentValidCheckpoint({
+        midLeafCount,
+        lastLeafCount,
+      }: {
+        midLeafCount: number;
+        lastLeafCount: number;
+      }) {
+        const inboxRollingHash = Fr.random();
+        const header = makeMatchingHeader({ inboxRollingHash });
+        const blockHeader = makeBlockHeader(1, {
+          slotNumber: SlotNumber(1),
+          coinbase: header.coinbase,
+          feeRecipient: header.feeRecipient,
+          gasFees: header.gasFees,
+          timestamp: header.timestamp,
+        });
+        unfreeze(blockHeader).lastArchive = new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
+        // The rebuilt checkpoint is mocked wholesale, so its block only has to satisfy the final structural
+        // validation; the blocks the archiver serves below are what the counts and the endpoint derive from.
+        const computedBlock = {
+          archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+          number: 5,
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: 0,
+          slot: SlotNumber(1),
+          header: blockHeader,
+          body: { txEffects: [] },
+          computeDAGasUsed: () => 0,
+          toBlobFields: () => [],
+        } as unknown as L2Block;
+        setupDeepValidationMocks({
+          header,
+          archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+          blocks: [computedBlock],
+          number: CheckpointNumber(1),
+          slot: SlotNumber(1),
+          toBlobFields: () => [],
+        });
+
+        // The checkpoint is blocks 5 and 6 of slot 1; block 4, before it, consumed through message total 3.
+        const midArchive = Fr.random();
+        const midBlock = {
+          archive: new AppendOnlyTreeSnapshot(midArchive, 1),
+          number: 5,
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: 0,
+          header: {
+            globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }),
+            state: { l1ToL2MessageTree: { nextAvailableLeafIndex: midLeafCount } },
+            lastArchive: new AppendOnlyTreeSnapshot(Fr.random(), 0),
+            getBlockNumber: () => 5,
+          },
+        } as unknown as L2Block;
+        const lastBlock = {
+          archive: new AppendOnlyTreeSnapshot(archiveRoot, 2),
+          number: 6,
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: 1,
+          header: {
+            globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }),
+            state: { l1ToL2MessageTree: { nextAvailableLeafIndex: lastLeafCount } },
+            lastArchive: new AppendOnlyTreeSnapshot(midArchive, 1),
+            getBlockNumber: () => 6,
+          },
+        } as unknown as L2Block;
+        blockSource.getBlocksForSlot.mockResolvedValue([midBlock, lastBlock]);
+        blockSource.getBlockData.mockImplementation(query =>
+          Promise.resolve(
+            'number' in query && query.number === 4
+              ? ({ header: { state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 3 } } } } as unknown as BlockData)
+              : (lastBlock as unknown as BlockData),
+          ),
+        );
+        mockConsumedRange(3n, BigInt(lastLeafCount), [new Fr(1), new Fr(2), new Fr(3), new Fr(4)], inboxRollingHash);
+        return { header, inboxRollingHash };
+      }
+
+      /** Runs the checkpoint proposal signing `header` through validation. */
+      async function validate(header: CheckpointHeader) {
+        return await handler.handleCheckpointProposal(
+          await makeProposal({ archiveRoot, checkpointHeader: header }),
+          proposalInfo,
+        );
+      }
+
+      /**
+       * Asserts what a refusal actually records: it is not slashable, sets no invalid-slot marker, and records
+       * the slot as `unverifiable` rather than valid. `unverifiable` is what keeps the refusal out of the
+       * proposer's accounting: `unvalidated` would reach the sentinel as a missed proposal for that proposer,
+       * and recording nothing at all would leave the sentinel to fall back to `checkpoint-missed`.
+       */
+      function expectRefusalRecordedAsUnverifiable(
+        result: CheckpointProposalValidationResult,
+        reason: 'inbox_endpoint_not_live' | 'inbox_endpoint_unverifiable',
+      ) {
+        expect(result).toEqual({ isValid: false, reason, checkpointNumber: CheckpointNumber(1) });
+        expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[reason]).toBe(false);
+        expect(handler.hasInvalidProposals(SlotNumber(1))).toBe(false);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unverifiable');
+      }
+
+      // The checkpoint's first block ends at 5, inside the bucket closing at 7: only where the checkpoint itself
+      // ends has to be a boundary, so the arbitrary prefix its blocks consumed stays allowed.
+      it('accepts a checkpoint whose final position closes a live bucket with the signed rolling hash', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+
+        const result = await validate(header);
+
+        expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+        // The last block's own consumed total, resolved once against an explicitly captured L1 head. The
+        // intermediate block's position is never asked about.
+        expect(inbox.reads).toEqual([{ upperBound: 7n, blockNumber: 900n }]);
+      });
+
+      // A checkpoint that consumed nothing still ends somewhere: the position it inherited, which has to be a live
+      // boundary like any other, and is one as long as the ring has not evicted it.
+      it('accepts a checkpoint that consumed no new messages while its inherited position is still live', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 3, lastLeafCount: 3 });
+        inbox.setBuckets([{ seq: 2n, total: 3n, rollingHash: inboxRollingHash }]);
+
+        const result = await validate(header);
+
+        expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+        expect(inbox.reads).toEqual([{ upperBound: 3n, blockNumber: 900n }]);
+      });
+
+      // Blocks may consume an arbitrary prefix, so a checkpoint can be entirely content-valid and still finish
+      // inside a bucket. The resolver answers with the boundary below it, which is not a match.
+      it('refuses a final position that falls inside a live bucket', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([
+          { seq: 3n, total: 3n, rollingHash: Fr.random() },
+          { seq: 4n, total: 9n, rollingHash: inboxRollingHash },
+        ]);
+
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_not_live');
+      });
+
+      it('refuses a live boundary that commits to a different message prefix than the signed one', async () => {
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: Fr.random() }]);
+
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_not_live');
+      });
+
+      // A missing endpoint is never special-cased into success: the ring may simply have evicted it.
+      it('refuses a position no live bucket reaches any more', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 40n, total: 5000n, rollingHash: inboxRollingHash }]);
+
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_not_live');
+      });
+
+      it('refuses, without attributing anything to the proposer, when the L1 view cannot be read', async () => {
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setUnreadable(new Error('l1 rpc request failed'));
+
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_unverifiable');
+      });
+
+      // A provider still catching up reports the boundary below the checkpoint's end. The gate re-reads within the
+      // slot's duty budget, so the view recovering in time still yields a valid verdict.
+      it('accepts once a lagging provider catches up within the duty budget', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 3n, total: 3n, rollingHash: Fr.random() }]);
+        inbox.onRead(readIndex => {
+          if (readIndex > 0) {
+            inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+          }
+        });
+        // Slot 1's attestation deadline is 40s; leave a couple of seconds of budget for the re-read.
+        dateProvider.setTime(38_000);
+
+        const result = await validate(header);
+
+        expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+        expect(inbox.reads.length).toBeGreaterThan(1);
+      });
+
+      // The all-nodes callback runs before any attestation, so a checkpoint without endpoint evidence must not
+      // become the parent this node pipelines the next slot on.
+      it('does not become the accepted proposed checkpoint when the endpoint is not live', async () => {
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 3n, total: 3n, rollingHash: Fr.random() }]);
+        const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
+        const p2p = mock<P2P>();
+        let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+        p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(h => {
+          checkpointHandler = h;
+        });
+        handler.register(p2p, true, archiver);
+
+        await checkpointHandler!(await makeProposal({ archiveRoot, checkpointHeader: header }), {} as any);
+
+        expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
+        expect(handler.hasInvalidProposals(SlotNumber(1))).toBe(false);
+      });
+
+      it('sets the proposed checkpoint once the endpoint is confirmed live', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
+        archiver.addProposedCheckpoint.mockResolvedValue(undefined);
+        const p2p = mock<P2P>();
+        let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+        p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(h => {
+          checkpointHandler = h;
+        });
+        handler.register(p2p, true, archiver);
+
+        await checkpointHandler!(await makeProposal({ archiveRoot, checkpointHeader: header }), {} as any);
+
+        expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
+      });
+
+      // p2p calls the handler twice for one proposal (all-nodes validation, then attestation) and the second call
+      // reuses the cached verdict. The ring and the L1 head both move in between, so the endpoint is re-read.
+      it('re-checks the endpoint on L1 before reusing a cached valid verdict', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: true,
+          checkpointNumber: CheckpointNumber(1),
+        });
+
+        // The bucket the checkpoint ends at is gone by the time the attestation callback runs.
+        inbox.setBuckets([{ seq: 40n, total: 5000n, rollingHash: inboxRollingHash }]);
+
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: false,
+          reason: 'inbox_endpoint_not_live',
+          checkpointNumber: CheckpointNumber(1),
+        });
+      });
+
+      it('reuses a cached valid verdict, without rebuilding, while the endpoint stays live', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+        await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: true,
+          checkpointNumber: CheckpointNumber(1),
+        });
+        expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledTimes(1);
+        expect(inbox.reads).toHaveLength(2);
+      });
+
+      // A height is not a view: a provider on a stale fork, or one the chain reorged under, answers a call at a
+      // captured block as readily as the canonical chain does. An answer that cannot be shown to come from the
+      // block it was asked at verifies nothing, however exactly its bucket matches.
+      it('refuses a matching endpoint answered from a view it cannot confirm was the one queried', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        // The block at the captured height keeps changing under the call, so no attempt can bind its answer.
+        inbox.onRead(readIndex => inbox.setViewHash(`0xreplaced${readIndex}`));
+
+        expectRefusalRecordedAsUnverifiable(await validate(header), 'inbox_endpoint_unverifiable');
+      });
+
+      // The two seconds are a ceiling on the stage, not a deadline consulted between attempts: a provider that
+      // accepts the call and never answers must not spend the rest of the slot's duty on one read.
+      it('gives up at its own ceiling when the L1 read never settles', async () => {
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setUnresponsive();
+        // Start of slot 1, so the duty has its full budget: only the stage's own ceiling can end this read.
+        dateProvider.setTime(0);
+        const timer = new Timer();
+
+        const result = await validate(header);
+
+        // Slot 1's duty runs until its 40s attestation deadline; the endpoint stage may only take two seconds.
+        expect(timer.ms()).toBeLessThan(10_000);
+        expectRefusalRecordedAsUnverifiable(result, 'inbox_endpoint_unverifiable');
+      });
+
+      // Pruning the tracker is bookkeeping that happens to read L1 tips. The validator calls this path directly
+      // for its attestation, so a tips read that never answers must not hold the accepted verdict back.
+      it('accepts without waiting on the tracker prune to read L1 tips', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        blockSource.getL2Tips.mockReturnValue(new Promise(() => {}));
+
+        await expect(validate(header)).resolves.toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+      });
+
+      // The all-nodes callback and the attestation call the same proposal twice. An RPC failure on the second
+      // call is this node's problem, and must not retract the validation the first call completed.
+      it('keeps the slot recorded as valid when a later call cannot read the L1 view', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+        await handler.handleCheckpointProposal(proposal, proposalInfo);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
+
+        inbox.setUnreadable(new Error('l1 rpc request failed'));
+
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: false,
+          reason: 'inbox_endpoint_unverifiable',
+          checkpointNumber: CheckpointNumber(1),
+        });
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
+      });
+
+      // Forgetting a determination is never the safe direction, and the tracker keys its per-slot entry by slot
+      // alone. An equivocating proposer whose second proposal this node cannot check must not thereby erase what
+      // the first one established about the slot.
+      it('keeps a slot recorded as invalid when a later proposal for it cannot be checked', async () => {
+        // A different archive at this slot was already determined invalid: an equivocating proposer's first one.
+        reexecutionTracker.recordOutcome(SlotNumber(1), Fr.random(), 'invalid', CheckpointNumber(1));
+
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setUnreadable(new Error('l1 rpc request failed'));
+
+        await expect(validate(header)).resolves.toEqual({
+          isValid: false,
+          reason: 'inbox_endpoint_unverifiable',
+          checkpointNumber: CheckpointNumber(1),
+        });
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('invalid');
+      });
+
+      // A refusal describes the L1 view at that instant, so it is not remembered as this proposal's verdict: the
+      // next call re-reads and can still accept it. The content verdict the refused call paid a full rebuild for
+      // is kept, so the attestation call moments later does not rebuild the checkpoint all over again.
+      it('accepts on a later call once the endpoint reappears in a recovered view', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setUnreadable(new Error('l1 rpc request failed'));
+        const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: false,
+          reason: 'inbox_endpoint_unverifiable',
+          checkpointNumber: CheckpointNumber(1),
+        });
+
+        inbox.setUnreadable(undefined);
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: true,
+          checkpointNumber: CheckpointNumber(1),
+        });
+        expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledTimes(1);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
+      });
+    });
   });
 
   /**
@@ -1229,6 +1594,7 @@ describe('ProposalHandler checkpoint validation', () => {
       mock<WorldStateSynchronizer>(),
       blockSource,
       l1ToL2MessageSource,
+      inbox,
       txProvider,
       epochCache,
       consensusTimetable,
@@ -1240,6 +1606,19 @@ describe('ProposalHandler checkpoint validation', () => {
     );
     return { proposal, blockHandler, txProvider };
   }
+
+  describe('block proposals and the live Inbox', () => {
+    // A checkpoint has to finish at a live bucket boundary, but its blocks may consume an arbitrary prefix and end
+    // anywhere in the message log, so the per-block path never asks L1 about the position a block ends at.
+    it('does not read the Inbox contract while validating a block proposal', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random(), [TxHash.random()]);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+      expect(inbox.reads).toEqual([]);
+    });
+  });
 
   describe('handleBlockProposal duplicate txs', () => {
     it('rejects a proposal that lists the same tx hash twice, without attempting collection', async () => {
@@ -1394,6 +1773,7 @@ describe('ProposalHandler checkpoint validation', () => {
         mock<WorldStateSynchronizer>(),
         blockSource,
         l1ToL2MessageSource,
+        inbox,
         txProvider,
         epochCache,
         consensusTimetable,
@@ -1455,6 +1835,7 @@ describe('ProposalHandler checkpoint validation', () => {
         mock<WorldStateSynchronizer>(),
         blockSource,
         l1ToL2MessageSource,
+        inbox,
         txProvider,
         epochCache,
         consensusTimetable,

@@ -64,6 +64,7 @@ import type {
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import type { ValidationService } from './duties/validation_service.js';
+import { type FakeInbox, makeFakeInbox } from './fake_inbox_test_helper.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import { type CheckpointProposalValidationFailureReason, ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -118,6 +119,7 @@ describe('ValidatorClient', () => {
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let inbox: FakeInbox;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -194,6 +196,9 @@ describe('ValidatorClient', () => {
     );
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    // An L1 Inbox that never received a message: its genesis bucket is the endpoint the consume-nothing
+    // checkpoints of these tests end at.
+    inbox = makeFakeInbox();
     txProvider = mock<TxProvider>();
     dateProvider = new TestDateProvider();
     blobClient = mock<BlobClientInterface>();
@@ -241,6 +246,7 @@ describe('ValidatorClient', () => {
       p2pClient,
       blockSource,
       l1ToL2MessageSource,
+      inbox,
       txProvider,
       keyStoreManager,
       blobClient,
@@ -880,6 +886,10 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // The checkpoint consumes nothing, so it ends where the Inbox's genesis bucket does; make that bucket
+      // commit to the hash this proposal signed, so the live endpoint gate confirms it.
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+
       // Mock validateCheckpointProposal to pass, so handleCheckpointProposal runs its
       // own checks (signature, fee modifier) and then proceeds to blob upload.
       const validateCheckpointSpy = jest
@@ -919,6 +929,12 @@ describe('ValidatorClient', () => {
           txHashes: proposal.txHashes,
         },
       });
+
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+      // The checkpoint consumes nothing, so it ends where the Inbox's genesis bucket does; make that bucket
+      // commit to the hash this proposal signed, so the live endpoint gate confirms it and the flow reaches
+      // the signer.
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
 
       const validateCheckpointSpy = jest
         .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
@@ -963,13 +979,18 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // The checkpoint consumes nothing, so it ends where the Inbox's genesis bucket does; make that bucket
+      // commit to the hash this proposal signed, so the live endpoint gate confirms it and the flow reaches
+      // the signer.
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+
       const validateCheckpointSpy = jest
         .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
         .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
 
       // A short but nonzero budget, and a signer that never answers within it.
       const deadline = validatorClient.getProposalHandler().getReexecutionDeadline(proposal.slotNumber);
-      dateProvider.setTime(deadline.getTime() - 200);
+      dateProvider.setTime(deadline.getTime() - 3_000);
       const validationService = (validatorClient as unknown as { validationService: ValidationService })
         .validationService;
       jest.spyOn(validationService, 'attestToCheckpointProposal').mockImplementation(() => new Promise(() => {}));

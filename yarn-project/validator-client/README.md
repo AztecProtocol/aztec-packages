@@ -79,6 +79,7 @@ These rules must always hold:
 4. **Sequential indexWithinCheckpoint**: Block N must have `indexWithinCheckpoint = parent.indexWithinCheckpoint + 1`
 5. **One proposer per slot**: Each slot has exactly one designated proposer. Sending multiple proposals for the same position (slot, indexWithinCheckpoint) with different content is equivocation and slashable
 6. **One attestation per slot**: Validators should only attest to one checkpoint per slot. Attesting to different proposals (different archives) for the same slot is equivocation and slashable
+7. **A checkpoint ends on a live Inbox bucket boundary**: its blocks may consume any prefix of the message log, but the position the checkpoint finishes at must close a bucket that is still live on L1 and commits to the rolling hash the checkpoint signed. Nodes confirm this against L1 before accepting a proposal (see below); L1 enforces it at publication
 
 ## Validation Flow
 
@@ -112,7 +113,53 @@ When a `CheckpointProposal` is received, before creating attestations:
 6. Verify checkpoint header fields match last block's global variables:
    - slotNumber, coinbase, feeRecipient, gasFees
 7. Verify lastArchiveRoot matches first block's lastArchive
+8. Confirm against L1 that the last block's consumed message total ends a live Inbox bucket committing to the
+   checkpoint's signed `inboxRollingHash`
 ```
+
+#### Live Inbox endpoint check
+
+Steps 1-7 are deterministic and local: they say the checkpoint is the one its signed payload describes and that this
+node holds the messages it consumed. They cannot say whether the position it finishes at is one L1 will accept, so
+the last step reads the Inbox contract before the proposal may be recorded as valid, exposed as this node's
+optimistic checkpoint parent, or attested to. It runs on every node, validator or not, because the all-nodes
+validation callback is what makes a proposal the accepted parent for the next slot.
+
+The gate is narrower than what L1 enforces. It confirms only that a live bucket *ends* at that total committing to
+the signed rolling hash; it says nothing about whether that bucket has settled. A checkpoint ending at the total of
+the still-open current bucket therefore passes here and is still rejected by `propose` with
+`Rollup__InboxBucketStillMutable`. Settlement remains an L1-only check that this one does not replace.
+
+The resolution is bound to the identity of the block it was read at, not to a height: the head is read for its
+number and hash, the `eth_call` is pinned to that number, and the block is read again afterwards. A provider serving
+a stale fork, or one the chain reorged under, answers a call at a height as readily as the canonical chain does, so
+an answer whose block is no longer the one at that height names no view and cannot verify anything. What this does
+not detect is a provider that lags uniformly: its own view is self-consistent, and only the endpoint the node's
+provider can see is ever checked. Load is therefore two block reads plus one `eth_call` per checkpoint proposal
+validated, that is per slot, and a second set on validators when the attestation path reuses a cached valid verdict.
+
+A failure is re-read for up to two seconds. That window is a ceiling on the whole step, enforced as a race and
+capped by whatever is left of the slot's duty budget: a provider that accepts the call and never answers is
+abandoned at it, cannot start another read afterwards, and leaves the following stages their remaining budget.
+
+The check never fails open. An unreadable or unidentifiable L1 view (RPC outage, timeout, a block the provider will
+not serve, a block replaced under the call) is reported as `inbox_endpoint_unverifiable`, and a view that answers
+without showing the signed position ending a live bucket (interior position, evicted endpoint, different rolling
+hash) as `inbox_endpoint_not_live`. Both are refusals to validate now, not accusations: the bucket ring, the local
+provider and L1 itself all move independently of the moment the proposal was signed. Neither reaches slashing, the
+invalid-proposal slot marker or a peer penalty, and neither is remembered as the proposal's verdict, so a view that
+recovers within the slot still permits a valid verdict.
+
+A refusal records `unverifiable` for the slot, which the sentinel reports as `checkpoint-unverifiable`. That status
+exists so a refusal is not read as an absent proposal: without a record the sentinel would fall back to
+`checkpoint-missed`, which is counted against the proposer. `checkpoint-unverifiable` is counted against nobody —
+it says this observer could not check, not that the proposer failed. It also never overwrites a `valid` this node
+already recorded for the same checkpoint, so a later RPC failure here cannot retract a validation that succeeded.
+
+The proposer's own checkpoints are covered by the endpoint its sequencer resolved against the same live ring when
+it built the checkpoint's final block, plus the publication preflight it runs before submitting. Historical
+checkpoints ingested by the archiver and checkpoints replayed for proving are outside this gate: they may reference
+endpoints the ring has long evicted.
 
 ### Attestation Creation
 

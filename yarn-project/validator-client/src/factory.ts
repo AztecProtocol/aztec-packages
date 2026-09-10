@@ -12,6 +12,7 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { InboxEndpointReader } from './checkpoint_endpoint_check.js';
 import { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -23,6 +24,7 @@ export function createProposalHandler(
     worldState: WorldStateSynchronizer;
     blockSource: L2BlockSource & L2BlockSink;
     l1ToL2MessageSource: L1ToL2MessageSource;
+    inbox: InboxEndpointReader;
     p2pClient: P2PClient;
     epochCache: EpochCache;
     blobClient: BlobClientInterface;
@@ -41,6 +43,7 @@ export function createProposalHandler(
     deps.worldState,
     deps.blockSource,
     deps.l1ToL2MessageSource,
+    deps.inbox,
     deps.p2pClient.getTxProvider(),
     deps.epochCache,
     consensusTimetable,
@@ -62,6 +65,7 @@ export function createValidatorClient(
     p2pClient: P2PClient;
     blockSource: L2BlockSource & L2BlockSink;
     l1ToL2MessageSource: L1ToL2MessageSource;
+    inbox: InboxEndpointReader;
     telemetry: TelemetryClient;
     dateProvider: DateProvider;
     epochCache: EpochCache;
@@ -84,6 +88,7 @@ export function createValidatorClient(
     deps.p2pClient,
     deps.blockSource,
     deps.l1ToL2MessageSource,
+    deps.inbox,
     txProvider,
     deps.keyStoreManager,
     deps.blobClient,

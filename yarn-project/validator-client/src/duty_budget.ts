@@ -1,3 +1,4 @@
+import { TimeoutError } from '@aztec/foundation/error';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { execWithSignal } from '@aztec/foundation/timer';
 
@@ -106,6 +107,31 @@ export class DutyBudget {
     }
     const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(remainingMs)]);
     return await execWithSignal(fn, signal, () => new DutyBudgetExpiredError(what, this.deadline));
+  }
+
+  /**
+   * Runs `fn` bounded by the shorter of the budget and `withinMs`, for a stage that advertises a ceiling of its
+   * own. The ceiling is the race, not a deadline the stage consults between attempts: an attempt that never
+   * settles is abandoned at it, and what is left of the duty stays available to the stages after it.
+   *
+   * Like {@link run}, the abandoned attempt keeps running, so `fn` has to honour the signal it is handed rather
+   * than start anything further with it, and a duty past its deadline draws on the same single grace allowance.
+   */
+  public async runWithin<T>(what: string, withinMs: number, fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    if (this.controller.signal.aborted) {
+      throw new DutyBudgetExpiredError(what, this.deadline);
+    }
+    const remainingMs = this.remainingMs() || this.remainingGraceMs();
+    if (remainingMs === 0) {
+      throw new DutyBudgetExpiredError(what, this.deadline);
+    }
+    const boundMs = Math.min(remainingMs, withinMs);
+    const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(boundMs)]);
+    return await execWithSignal(fn, signal, () =>
+      this.controller.signal.aborted
+        ? new DutyBudgetExpiredError(what, this.deadline)
+        : new TimeoutError(`Timeout running ${what} after ${boundMs}ms`),
+    );
   }
 
   /** Milliseconds left of the single grace allowance, opening it on the first call. Zero once the duty is stopped. */
