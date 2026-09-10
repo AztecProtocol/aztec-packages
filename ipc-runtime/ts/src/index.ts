@@ -43,3 +43,8 @@ export {
   spawnServiceBackend,
   spawnServiceBackendSync,
 } from "./service.js";
+export {
+  type RegisteredBackends,
+  registerBackend,
+  registeredBackend,
+} from "./backend_registry.js";
