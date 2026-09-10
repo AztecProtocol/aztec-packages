@@ -1540,7 +1540,7 @@ describe('CheckpointProposalJob', () => {
         return Promise.resolve();
       });
     };
-    const bundleLengths = () => checkpointBuilder.buildBlockCalls.map(call => call.opts.l1ToL2Messages?.length);
+    const bundleLengths = () => checkpointBuilder.buildBlockCalls.map(call => call.opts.l1ToL2Messages.length);
     const signedPrefixes = () =>
       validatorClient.createBlockProposal.mock.calls.map(call => call[6].inboxRollingHash.toString());
     const prefixAt = (count: number) => streamingInbox.positionAt(BigInt(count)).rollingHash.toString();
@@ -1573,6 +1573,30 @@ describe('CheckpointProposalJob', () => {
       // Pre-gossip and pre-publication preflights both check the final total; the send uses the hint of the latter.
       expect(preflightTotals()).toEqual([5n, 5n]);
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(7n);
+    });
+
+    it('re-derives the same range after a failed attempt and advances the cursor once on the retry', async () => {
+      // Three sub-slots. The first attempt at the checkpoint's first block fails on valid txs, so it signs nothing
+      // and must leave the cursor where it was: the retry in the next sub-slot has to select the same five
+      // messages again, and the checkpoint must end at 5 rather than at a cursor advanced twice.
+      mockSubslots(3);
+      streamingInbox.set(leaves(5));
+      publisher.validateCheckpointHeaderAndInbox.mockResolvedValue(7n);
+      checkpointBuilder.errorOnBuild = new InsufficientValidTxsError(0, 1, []);
+      betweenBlocks(1, () => (checkpointBuilder.errorOnBuild = undefined));
+
+      const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpoint!.blocks).toHaveLength(2);
+      // Three attempts: the failed one, its retry over the same range, and the final block with nothing left.
+      expect(bundleLengths()).toEqual([5, 5, 0]);
+      // Only the two blocks that built signed a prefix, both at 5: the cursor advanced exactly once.
+      expect(signedPrefixes()).toEqual([prefixAt(5), prefixAt(5)]);
+      expect(preflightTotals()).toEqual([5n, 5n]);
     });
 
     it('produces a message-only block when messages are observed and no txs are pending', async () => {
@@ -2220,6 +2244,7 @@ describe('CheckpointProposalJob', () => {
         buildDeadline: undefined,
         blockTimestamp: 0n,
         txHashesAlreadyIncluded: new Set<string>(),
+        l1ToL2Messages: [],
       });
 
       expect(result).toEqual({ failure: 'insufficient-valid-txs' });
@@ -2241,6 +2266,7 @@ describe('CheckpointProposalJob', () => {
         buildDeadline: undefined,
         blockTimestamp: 0n,
         txHashesAlreadyIncluded: new Set<string>(),
+        l1ToL2Messages: [],
       });
 
       expect(result).toEqual({ failure: 'insufficient-valid-txs' });
@@ -2621,6 +2647,7 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
+      l1ToL2Messages: Fr[];
     },
   ): Promise<
     { block: L2Block; usedTxs: Tx[] } | { failure: 'insufficient-txs' | 'insufficient-valid-txs' } | { error: Error }

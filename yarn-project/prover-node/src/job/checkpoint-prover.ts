@@ -304,6 +304,7 @@ export class CheckpointProver {
     const signal = this.abortController.signal;
     const checkpointTimer = new Timer();
     let subTreeStarted = false;
+    let failure: Error | undefined;
 
     try {
       // Test hook: force a sub-tree failure to exercise the checkpoint failure/upload path.
@@ -389,24 +390,38 @@ export class CheckpointProver {
         }
       }
 
-      // Streaming Inbox: the checkpoint's messages are consumed contiguously across its blocks;
-      // each block's slice runs from its parent block's L1-to-L2 leaf count to its own (compact indices make leaf
-      // count equal cumulative message count).
-      const l1ToL2LeafCount = (block: L2Block) => Number(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-      const checkpointStartLeafCount = l1ToL2LeafCount(this.checkpoint.blocks.at(-1)!) - this.l1ToL2Messages.length;
+      // Streaming Inbox: the checkpoint's messages are consumed contiguously across its blocks, so each block's slice
+      // runs from its parent block's L1-to-L2 leaf count to its own (compact indices make leaf count equal cumulative
+      // message count). The list must cover exactly the range from the previous block to the last one, or the slices
+      // would be silently misassigned and only caught by the header mismatch after the block was fully re-executed.
+      const l1ToL2LeafCount = (header: BlockHeader) => header.state.l1ToL2MessageTree.nextAvailableLeafIndex;
+      const checkpointStartLeafCount = l1ToL2LeafCount(this.previousBlockHeader);
+      const checkpointEndLeafCount = l1ToL2LeafCount(this.checkpoint.blocks.at(-1)!.header);
+      if (this.l1ToL2Messages.length !== checkpointEndLeafCount - checkpointStartLeafCount) {
+        throw new Error(
+          `Checkpoint ${this.checkpoint.number} consumed ${checkpointEndLeafCount - checkpointStartLeafCount} L1 to L2 messages ` +
+            `(leaf counts ${checkpointStartLeafCount} to ${checkpointEndLeafCount}) but ${this.l1ToL2Messages.length} were supplied`,
+        );
+      }
 
+      let previousBlockLeafCount = checkpointStartLeafCount;
       for (let blockIndex = 0; blockIndex < this.checkpoint.blocks.length; blockIndex++) {
         const blockTimer = new Timer();
         const block = this.checkpoint.blocks[blockIndex];
         const globalVariables = block.header.globalVariables;
         const blockTxs = this.getTxsForBlock(block, txs);
 
-        const prevLeafCount =
-          blockIndex === 0 ? checkpointStartLeafCount : l1ToL2LeafCount(this.checkpoint.blocks[blockIndex - 1]);
+        const blockEndLeafCount = l1ToL2LeafCount(block.header);
+        if (blockEndLeafCount < previousBlockLeafCount) {
+          throw new Error(
+            `Block ${block.number} L1 to L2 leaf count ${blockEndLeafCount} is below its parent's ${previousBlockLeafCount}`,
+          );
+        }
         const blockMessages = this.l1ToL2Messages.slice(
-          prevLeafCount - checkpointStartLeafCount,
-          l1ToL2LeafCount(block) - checkpointStartLeafCount,
+          previousBlockLeafCount - checkpointStartLeafCount,
+          blockEndLeafCount - checkpointStartLeafCount,
         );
+        previousBlockLeafCount = blockEndLeafCount;
 
         await this.subTree.startNewBlock(block.number, globalVariables.timestamp, blockTxs.length, blockMessages);
         if (signal.aborted) {
@@ -457,6 +472,9 @@ export class CheckpointProver {
           durationMs: checkpointTimer.ms(),
         },
       );
+    } catch (err) {
+      failure = err instanceof Error ? err : new Error(String(err));
+      throw err;
     } finally {
       if (this.completed) {
         // Release the result callback: it may already be holding a finished set of proofs.
@@ -467,7 +485,9 @@ export class CheckpointProver {
         if (subTreeStarted) {
           await this.teardownSubTree();
         }
-        this.failSubTreeProofs(new Error(`Checkpoint ${this.id} did not complete block processing`));
+        // Reject with the error that stopped block processing, when there is one, so consumers of the sub-tree
+        // promise (the top tree, the rerun tool) see the cause rather than only the fact of the failure.
+        this.failSubTreeProofs(failure ?? new Error(`Checkpoint ${this.id} did not complete block processing`));
       }
     }
   }

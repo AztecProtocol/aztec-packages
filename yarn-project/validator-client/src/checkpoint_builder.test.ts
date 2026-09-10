@@ -117,7 +117,7 @@ describe('CheckpointBuilder', () => {
 
   /** Default opts for validator-mode tests (no redistribution). */
   function validatorOpts(overrides?: Partial<PublicProcessorLimits> & { minValidTxs?: number }): BlockBuilderOptions {
-    return { ...overrides, isBuildingProposal: false, minValidTxs: overrides?.minValidTxs ?? 0 };
+    return { ...overrides, isBuildingProposal: false, minValidTxs: overrides?.minValidTxs ?? 0, l1ToL2Messages: [] };
   }
 
   /** Default opts for proposer-mode tests (with redistribution). */
@@ -136,6 +136,7 @@ describe('CheckpointBuilder', () => {
       perBlockAllocationMultiplier: overrides?.perBlockAllocationMultiplier ?? 1.2,
       perBlockDAAllocationMultiplier: overrides?.perBlockDAAllocationMultiplier,
       minValidTxs: overrides?.minValidTxs ?? 0,
+      l1ToL2Messages: [],
     };
   }
 
@@ -998,7 +999,7 @@ describe('CheckpointBuilder', () => {
       expect(lightweight.getBlocks()).toEqual([]);
     });
 
-    it('an empty or absent message list leaves the tree untouched', async () => {
+    it('an empty message list leaves the tree untouched', async () => {
       processor.process.mockResolvedValue([[], [], [], [], []]);
 
       const { block: block1 } = await builder.buildBlock([], firstBlockNumber, 1000n, {

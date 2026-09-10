@@ -124,7 +124,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       // root, so the AVM here must read the same tree or a tx consuming a message this block inserts would revert at
       // proposal time and succeed at proving time. Appending inside the fork checkpoint means a failed block rolls the
       // leaves back together with the tx effects.
-      const l1ToL2Messages = opts.l1ToL2Messages ?? [];
+      const l1ToL2Messages = opts.l1ToL2Messages;
       await appendL1ToL2MessagesToTree(this.fork, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
