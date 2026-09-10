@@ -132,7 +132,8 @@ jobs:
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          # The CI log dashboard's password (ci3/CI3_SERVER_API.md); stored by ci3_setup, not used yet.
+          # The CI log dashboard's password (ci3/CI3_SERVER_API.md): what the build instance's rkapp runs
+          # with (random when unset), and the deployed dashboard's once it serves the API.
           CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
@@ -145,9 +146,6 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
-        # ci3_success.sh uploads the whole-run success marker to the build cache through the ci3 server
-        # its ci3_setup starts (the aztec one in CI, which reaches S3 with the job's OIDC role).
         run: ./.github/ci3_success.sh
 
       - name: Notify Slack on backport CI failure

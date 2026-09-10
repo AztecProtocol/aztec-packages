@@ -11,8 +11,6 @@ Everything is a file under --dir (default /tmp/ci3):
 A write with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired entries read as
 absent and are swept periodically. What each store holds, in ci3 terms, is described in ci3_client.
 
-Another backend can reuse the HTTP handling and process management here (ci3_compat_server does):
-call run_cli() with its backend factory, identity function and extra flags.
 """
 import argparse
 import gzip

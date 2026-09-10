@@ -5,11 +5,10 @@ nothing about what sits behind it. Two implementations exist:
 
 - `ci3/ci3_server`: the file-backed reference implementation, what a local run uses
   (`http://localhost:4275`, files under `/tmp/ci3`).
-- `ci3/ci3_compat_server`: transitional. Forwards to the redis and S3 stores the pre-API ci3 wrote
-  to directly, with the key shapes the labs CI dashboard reads, so CI keeps its logs and test cache
-  before that dashboard speaks the API. Nothing in ci3 but `ci3_setup` knows it exists.
-- The labs CI dashboard (`ci.aztec-labs.com`, in the aztec-node repository): the production
-  implementation once it serves this API; the aztec mode below then names it directly.
+- The labs CI dashboard (rkapp, in the aztec-node repository; `labs-patches/0014` here,
+  aztec-node#140): the production implementation, on its redis and S3. Until the deployed
+  `ci.aztec-labs.com` serves it, a CI build instance runs that same rkapp itself (`ci3_rkapp`) on
+  the production stores; the aztec mode below then names the deployed one directly.
 
 Every ci3 script reaches the server only through `ci3/ci3_client <command>` (python, stdlib only),
 so a new backend needs to implement exactly this document.
@@ -21,15 +20,15 @@ so a new backend needs to implement exactly this document.
 | Field | Meaning |
 |---|---|
 | `mode` | `local` or `aztec`: which server `ci3_setup` set up (and restarts). |
-| `server` | Base URL of the server every command talks to. |
+| `server` | Base URL of the server every command talks to. Empty: none (logs and the test cache are off; the build cache is still read through its public URL). |
 | `public_url` | Base of the URLs printed in terminal links (default: `server`). Edit it to share a tunnelled local server. |
-| `password` | The aztec server's password, in `aztec` mode. Stored for the dashboard's API; not used yet. |
+| `password` | The aztec server's password, in `aztec` mode: what the rkapp `ci3_setup` runs was started with, later the deployed dashboard's. |
 
 `ci3_setup`, run by the entry points (`bootstrap.sh`, `ci.sh`, the CI launcher) before ci3 loads,
 writes the file once and honours it afterwards. `CI3_PASSWORD` in the environment, or `CI=1`, selects
-the aztec server: the labs CI dashboard, where CI logs live. Until it serves this API that means
-`ci3_compat_server` on the same machine, forwarding to the dashboard's redis/S3, with links to the
-dashboard. Otherwise `ci3_server`, the file-backed server. When the environment asks for the aztec
+the aztec server: the labs CI dashboard, where CI logs live. Until the deployed one serves this API
+that means rkapp run on the same machine (`ci3_rkapp`) on the dashboard's redis/S3, with links to
+the dashboard. Otherwise `ci3_server`, the file-backed server. When the environment asks for the aztec
 server and an existing config disagrees, a terminal is asked whether to switch; a non-interactive
 run stops with an error.
 

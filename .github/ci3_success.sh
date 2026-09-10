@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-"$(git rev-parse --show-toplevel)/ci3/ci3_setup"
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {
@@ -16,8 +15,9 @@ function save_cache {
   local run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
   echo "${run_url}" > ".ci-success.txt"
   echo "Saved CI success marker: ${run_url}"
-  # Upload cache
-  cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
+  # The runner has no ci3 server (it only orchestrates the build instance) but has the OIDC role:
+  # the marker goes to the build cache directly.
+  tar -czf - .ci-success.txt | aws s3 cp - "s3://aztec-ci-artifacts/build-cache/$cache_name" && echo "Uploaded $cache_name"
 }
 
 function handle_squash_merge {
