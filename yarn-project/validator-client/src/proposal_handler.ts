@@ -194,8 +194,9 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   // Not proposer misbehavior: this node's Inbox view could not confirm the consumed prefix, or disagrees with it.
   inbox_prefix_unavailable: 'unvalidated',
   inbox_prefix_mismatch: 'unvalidated',
-  // This node ran out of time to look; it observed nothing about the proposer.
-  validation_deadline_expired: undefined,
+  // This node ran out of time to look; it observed nothing about the proposer. Recorded by the duty-expiry path
+  // itself, which also refuses to overwrite an outcome the slot already has.
+  validation_deadline_expired: 'unverifiable',
   checkpoint_validation_failed: 'invalid',
 };
 
@@ -1589,12 +1590,20 @@ export class ProposalHandler {
       if (!(err instanceof DutyBudgetExpiredError)) {
         throw err;
       }
-      // Every stage runs inside the budget, so an expiry anywhere lands here with nothing cached and nothing
-      // recorded: the duty stopped looking, which is not an observation about the proposal.
+      // Every stage runs inside the budget, so an expiry anywhere lands here with nothing cached: the duty
+      // stopped looking, which is not a verdict on the proposal and must not be reused as one.
       this.log.warn(`Ran out of duty budget validating the checkpoint proposal for slot ${proposal.slotNumber}`, {
         ...proposalInfo,
         deadline: budget.deadline.toISOString(),
       });
+      // Something does have to be recorded, though. With no record and no checkpoint on L1 the sentinel reads the
+      // slot as one the proposer never proposed in, which is counted against it — so silence here would blame the
+      // proposer for this node's clock running out. `unverifiable` says a proposal was seen and could not be
+      // checked, and is counted against nobody. It never revises an outcome already recorded for the slot: a duty
+      // that gave up learned nothing that could.
+      if (this.reexecutionTracker.getOutcomeForSlot(proposal.slotNumber) === undefined) {
+        this.reexecutionTracker.recordOutcome(proposal.slotNumber, proposal.archive, 'unverifiable');
+      }
       return { isValid: false, reason: 'validation_deadline_expired' };
     }
   }
@@ -1715,7 +1724,7 @@ export class ProposalHandler {
       );
     } catch (err) {
       // A budget expiry is the duty giving up, not a verdict on the proposal: it propagates to the caller, which
-      // answers with `validation_deadline_expired` and records nothing.
+      // answers with `validation_deadline_expired`, which is charged to nobody.
       if (err instanceof DutyBudgetExpiredError) {
         throw err;
       }

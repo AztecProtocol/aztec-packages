@@ -194,6 +194,26 @@ describe('sentinel', () => {
       expect(activity[proposer.toString()]).toEqual('checkpoint-unvalidated');
     });
 
+    // An observer that ran out of time, or could not check a proposal against L1, records that it saw one, so the
+    // slot is not read as one the proposer skipped — the fallback below would otherwise make it checkpoint-missed
+    // or blocks-missed, both of which are counted against the proposer.
+    it('flags checkpoint as unverifiable when tracker outcome is unverifiable', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'unverifiable', CheckpointNumber(1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
+      p2p.hasBlockProposalsForSlot.mockResolvedValue(true);
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-unverifiable');
+    });
+
+    it('does not tag attestors as missed when the checkpoint is unverifiable', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'unverifiable', CheckpointNumber(1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-unverifiable');
+      expect(activity[committee[3].toString()]).not.toBe('attestation-missed');
+    });
+
     it('flags as blocks-missed when there is no tracker outcome and no block proposals (case 1)', async () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       p2p.hasBlockProposalsForSlot.mockResolvedValue(false);
@@ -405,6 +425,23 @@ describe('sentinel', () => {
       ]);
       expect(stats.missedProposals.count).toEqual(4);
       expect(stats.missedProposals.total).toEqual(5);
+    });
+
+    // The taxonomy's whole point: a slot this node could not check must not reach the proposer's inactivity
+    // accounting, while the slots it could check keep the accounting they always had.
+    it('does not count checkpoint-unverifiable as a missed proposal', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: SlotNumber(1), status: 'checkpoint-mined' },
+        { slot: SlotNumber(2), status: 'checkpoint-unverifiable' },
+        { slot: SlotNumber(3), status: 'checkpoint-unverifiable' },
+        { slot: SlotNumber(4), status: 'checkpoint-invalid' },
+        { slot: SlotNumber(5), status: 'checkpoint-missed' },
+      ]);
+
+      expect(stats.missedProposals.count).toEqual(2);
+      expect(stats.missedProposals.total).toEqual(5);
+      // The unverifiable slots do not extend the streak the two real misses start either.
+      expect(stats.missedProposals.currentStreak).toEqual(2);
     });
 
     it('resets streaks correctly', () => {

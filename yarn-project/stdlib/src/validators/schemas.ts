@@ -17,6 +17,7 @@ export const ValidatorStatusInSlotSchema = zodFor<ValidatorStatusInSlot>()(
     'checkpoint-valid',
     'checkpoint-invalid',
     'checkpoint-unvalidated',
+    'checkpoint-unverifiable',
     'checkpoint-missed',
     'blocks-missed',
     'attestation-sent',

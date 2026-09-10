@@ -469,10 +469,10 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(result).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
     });
 
-    // Running out of time is this node giving up, not something it learned about the proposal, so it neither
-    // caches a verdict for the next caller nor records an outcome the sentinel would read as a missed proposal.
-    it('neither caches nor records an outcome when the duty budget runs out', async () => {
-      const recordSpy = jest.spyOn(reexecutionTracker, 'recordOutcome');
+    // Running out of time is this node giving up, not something it learned about the proposal. It caches no
+    // verdict, and records the one outcome that is charged to nobody — recording nothing would leave the sentinel
+    // to fall back to `checkpoint-missed`, which is counted against the proposer.
+    it('records the slot as unverifiable, and caches nothing, when the duty budget runs out', async () => {
       blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
       dateProvider.setTime(39_800);
       const proposal = await makeProposal();
@@ -481,7 +481,7 @@ describe('ProposalHandler checkpoint validation', () => {
         isValid: false,
         reason: 'validation_deadline_expired',
       });
-      expect(recordSpy).not.toHaveBeenCalled();
+      expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unverifiable');
 
       // The next caller revalidates from scratch instead of inheriting the abandoned duty's non-verdict.
       const archiveRoot = proposal.archive;
@@ -494,6 +494,21 @@ describe('ProposalHandler checkpoint validation', () => {
         reason: 'checkpoint_already_published',
         checkpointNumber: CheckpointNumber(1),
       });
+    });
+
+    // A duty that gave up learned nothing that could revise what the slot already says, in either direction.
+    it('leaves an outcome the slot already has alone when a later duty runs out', async () => {
+      const proposal = await makeProposal();
+      reexecutionTracker.recordOutcome(SlotNumber(1), proposal.archive, 'valid', CheckpointNumber(1));
+
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: false,
+        reason: 'validation_deadline_expired',
+      });
+      expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
     });
   });
 
