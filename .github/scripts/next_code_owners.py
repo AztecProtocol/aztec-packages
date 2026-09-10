@@ -1,129 +1,110 @@
 """Apply .github/next-code-owners to a pull request, with CODEOWNERS semantics.
 
-Reads the owners file and the list of changed paths, and prints a JSON body for
-`POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers` — or nothing at all
-when nobody should be requested. Nothing is requested when the pull request's
-merge does not reach `next`, when no changed path has an owner, or when the base
-branch carries no owners file (a merge train that has not yet pulled `next`).
+Usage: next_code_owners.py OWNERS_FILE CHANGED_PATHS_FILE PR_AUTHOR BASE_REF
 
-Semantics match GitHub's CODEOWNERS: for each changed path the *last* matching
-pattern wins, and the pull request's reviewers are the union of those winners
-across all changed paths. Patterns follow CODEOWNERS/gitignore rules — a leading
-`/` anchors at the repository root, an unanchored pattern matches at any depth, a
-trailing `/` means everything beneath a directory, `*` stays within one path
-segment and `**` crosses segments.
+Prints a JSON body for `POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers`,
+or nothing when nobody should be requested. The reason is logged to stderr.
 
-The pull request's author is dropped: GitHub refuses to request the author as a
-reviewer, and asking it to fails the whole request.
+Matching follows GitHub's CODEOWNERS: for each changed path the *last* matching
+pattern wins, and the reviewers are the union of those winners. Patterns are
+gitignore-style — leading `/` anchors at the root, a trailing `/` means the whole
+directory, `*` stays within a path segment, `**` crosses segments.
 """
 
 import json
 import re
 import sys
 
-# A merge train's own pull request targets `next`, unless the train is suffixed
-# -v<N>, in which case it targets that release line. This mirrors the base_branch
-# rule in .github/workflows/merge-train-create-pr.yml; the two must agree about
-# where a train ends up.
+# Where a merge train's own pull request lands. A train targets `next` unless its
+# name is suffixed -v<N>, in which case it targets that release line. This mirrors
+# the base_branch rule in .github/workflows/merge-train-create-pr.yml; keep them
+# in step.
 TRAIN_TO_RELEASE_LINE = re.compile(r"^merge-train/.*-v[0-9]+$")
 
 
-def reaches_next(base_ref: str) -> bool:
+def reaches_next(base_ref):
     if base_ref == "next":
         return True
-    if not base_ref.startswith("merge-train/"):
-        return False
-    return not TRAIN_TO_RELEASE_LINE.match(base_ref)
+    return base_ref.startswith("merge-train/") and not TRAIN_TO_RELEASE_LINE.match(base_ref)
 
 
-def pattern_to_regex(pattern: str) -> re.Pattern:
+def pattern_to_regex(pattern):
     anchored = pattern.startswith("/")
-    body = pattern.lstrip("/")
-    directory_only = body.endswith("/")
-    body = body.rstrip("/")
+    directory_only = pattern.endswith("/")
+    body = pattern.strip("/")
 
-    out = []
-    i = 0
-    while i < len(body):
-        char = body[i]
-        if body.startswith("**", i):
-            out.append(".*")
-            i += 2
-            if i < len(body) and body[i] == "/":
-                i += 1
-            continue
-        if char == "*":
-            out.append("[^/]*")
-        elif char == "?":
-            out.append("[^/]")
+    parts = []
+    for token in re.split(r"(\*\*/|\*\*|\*|\?)", body):
+        if token == "**/":
+            parts.append("(?:.*/)?")
+        elif token == "**":
+            parts.append(".*")
+        elif token == "*":
+            parts.append("[^/]*")
+        elif token == "?":
+            parts.append("[^/]")
         else:
-            out.append(re.escape(char))
-        i += 1
+            parts.append(re.escape(token))
 
-    # A pattern without a slash in its body (e.g. `*.js`) matches a basename at
-    # any depth; one with a slash is relative to the root, like gitignore.
-    if anchored or "/" in body:
-        prefix = "^"
-    else:
-        prefix = "(?:^|.*/)"
-    # A directory pattern matches everything beneath it; a file pattern matches
-    # the file itself, or a directory of that name and everything beneath it,
-    # which is how CODEOWNERS treats `/docs`.
+    # As in gitignore: a pattern with no slash (`*.js`) matches at any depth; one
+    # with a slash is relative to the root.
+    prefix = "^" if anchored or "/" in body else "(?:^|.*/)"
+    # A directory pattern matches everything beneath it. A file pattern also
+    # matches a directory of that name, which is how CODEOWNERS treats `/docs`.
     suffix = "/.*" if directory_only else "(?:/.*)?$"
-    return re.compile(prefix + "".join(out) + suffix)
+    return re.compile(prefix + "".join(parts) + suffix)
 
 
-def load_rules(owners_file: str) -> list[tuple[re.Pattern, list[str]]]:
+def load_rules(owners_file):
     rules = []
     with open(owners_file, encoding="utf-8") as handle:
         for line in handle:
             line = line.split("#", 1)[0].strip()
-            if not line:
-                continue
-            pattern, *owners = line.split()
-            rules.append((pattern_to_regex(pattern), owners))
+            if line:
+                pattern, *owners = line.split()
+                rules.append((pattern_to_regex(pattern), owners))
     return rules
 
 
-def owners_for(path: str, rules: list[tuple[re.Pattern, list[str]]]) -> list[str]:
-    """The owners of the last pattern that matches `path`; empty when none does or
-    the winning pattern deliberately names nobody."""
-    winner: list[str] = []
+def owners_for(path, rules):
+    """Owners of the last pattern matching `path`; empty when none does."""
+    winner = []
     for regex, owners in rules:
         if regex.match(path):
             winner = owners
     return winner
 
 
-def main() -> int:
+def main():
     owners_file, changed_file, author, base_ref = sys.argv[1:5]
 
     if not reaches_next(base_ref):
+        print(f"base {base_ref} does not reach next", file=sys.stderr)
         return 0
-
     try:
         rules = load_rules(owners_file)
     except FileNotFoundError:
+        print(f"{owners_file} is absent on {base_ref}; nothing to apply", file=sys.stderr)
         return 0
-
     with open(changed_file, encoding="utf-8") as handle:
         changed = [line.strip() for line in handle if line.strip()]
 
-    users: list[str] = []
-    teams: list[str] = []
+    users, teams = [], []
     for path in changed:
         for owner in owners_for(path, rules):
-            handle = owner.lstrip("@")
-            if "/" in handle:
-                slug = handle.split("/", 1)[1]
-                if slug not in teams:
-                    teams.append(slug)
-            elif handle != author and handle not in users:
-                users.append(handle)
+            name = owner.lstrip("@")
+            if "/" in name:  # @org/team
+                target, name = teams, name.split("/", 1)[1]
+            else:
+                target = users
+                if name == author:  # GitHub refuses to request the author
+                    continue
+            if name not in target:
+                target.append(name)
 
     if not users and not teams:
+        print("no changed path has an owner", file=sys.stderr)
         return 0
-
     body = {}
     if users:
         body["reviewers"] = users

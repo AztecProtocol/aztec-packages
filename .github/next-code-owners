@@ -1,20 +1,16 @@
 # Code owners, requested for review only on pull requests whose merge reaches
-# `next`: pull requests based on `next`, and pull requests into a merge train
-# that itself targets `next` (every `merge-train/*` except the `-v<N>` ones, which
-# target their release line — the rule in merge-train-create-pr.yml).
+# `next`: those based on `next`, and those into a merge train that targets `next`
+# (every `merge-train/*` except the `-v<N>` ones, which target a release line).
 #
-# This file is deliberately NOT named CODEOWNERS. GitHub reads CODEOWNERS from the
-# pull request's base branch and offers no way to scope an entry to particular
-# bases, so a native CODEOWNERS also requests owners on pull requests stacked
-# onto feature branches — every feature branch cut from `next` carries a copy —
-# and re-requests them each time the stack is rebased. Owners here are requested
-# by .github/workflows/codeowner-notify-next.yml instead, which applies exactly
-# this file with CODEOWNERS semantics (last match wins, per changed file) and
-# nothing else. Add or change owners here as you would in CODEOWNERS.
+# Deliberately NOT named CODEOWNERS. GitHub reads CODEOWNERS from a pull request's
+# base branch with no way to scope it, so a native file also requests owners on
+# pull requests stacked onto feature branches, and again on every rebase of the
+# stack. .github/workflows/codeowner-notify-next.yml applies this file instead,
+# with CODEOWNERS semantics (last match wins, per changed path). Edit it exactly
+# as you would CODEOWNERS.
 #
-# What is given up by not using the native file: the "code owner" badge on
-# review requests, owner hints in the Files-changed view, and the
-# require_code_owner_review ruleset option, which needs a real CODEOWNERS.
+# Given up by not using the native name: the "code owner" badge, owner hints in
+# the Files-changed view, and the require_code_owner_review ruleset option.
 
 /.devcontainer/ @charlielye @ludamad
 /.github/ @charlielye @ludamad

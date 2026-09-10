@@ -18,7 +18,8 @@ on:
       - 'merge-train/**'
 
 permissions:
-  pull-requests: write
+  contents: read       # checkout
+  pull-requests: write # requested_reviewers
 
 jobs:
   request-owners:
@@ -29,7 +30,8 @@ jobs:
     steps:
       # pull_request_target checks out the base branch, never the pull request's
       # head, so the elevated token is not exposed to code from the pull request.
-      - uses: actions/checkout@v4
+      # Sparse: the repository is large and only two files are needed.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           sparse-checkout: |
             .github/next-code-owners
