@@ -2,7 +2,8 @@
 import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 
-import type { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import { EphemeralArrayService } from '../ephemeral_array_service.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
@@ -16,6 +17,7 @@ import {
 } from './oracle_registry.js';
 import {
   AZTEC_ADDRESS,
+  BOOL,
   EPHEMERAL_ARRAY,
   FIELD,
   FIXED_BOUNDED_VEC,
@@ -43,6 +45,10 @@ const LEGACY_PENDING_TAGGED_LOG: TypeMapping<LegacyPendingTaggedLog> = STRUCT<Le
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: LEGACY_MESSAGE_CONTEXT },
 ]);
+
+// Ephemeral arrays bridged by an adapter never get a slot: a param built here is only read back by the handler, and a
+// handler result is only read back here, and neither read touches the service an in-memory array was created with.
+const neverMaterialized = new EphemeralArrayService();
 
 /**
  * Wire shapes that already-deployed contracts still call by their original oracle name, keyed by that retired name.
@@ -86,6 +92,17 @@ export const LEGACY_ORACLE_REGISTRY: Record<string, LegacyOracleEntry> = {
       legacyType: EPHEMERAL_ARRAY(LEGACY_PENDING_TAGGED_LOG),
       // We can map this directly, since `ResolvedTx` carries the legacy context's fields under the same names
       mapping: result => result as unknown as EphemeralArray<LegacyPendingTaggedLog>,
+    },
+  }),
+  aztec_utl_doesNullifierExist: legacyOracle({
+    modernOracle: 'aztec_utl_getNullifierStatuses',
+    params: {
+      legacyType: [{ name: 'innerNullifier', type: FIELD }],
+      mapping: ([innerNullifier]) => [EphemeralArray.fromValues(neverMaterialized, [innerNullifier])],
+    },
+    returnType: {
+      legacyType: BOOL,
+      mapping: statuses => statuses.readAll(neverMaterialized)[0].exists,
     },
   }),
 };

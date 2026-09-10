@@ -1,4 +1,5 @@
 import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
@@ -6,15 +7,16 @@ import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2TipsProvider } from '@aztec/stdlib/block';
+import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
-import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/stdlib/tx';
+import { BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
@@ -34,9 +36,11 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import type { AnchoredContractData } from '../anchored_contract_data.js';
+import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import { HashedValuesCache } from '../hashed_values_cache.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { Option } from '../noir-structs/option.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { PrivateExecutionOracle, type PrivateExecutionOracleArgs } from './private_execution_oracle.js';
@@ -274,6 +278,55 @@ describe('PrivateExecutionOracle', () => {
       keyStore.hasAccount.mockResolvedValue(ownsRecipient);
       return keyStore;
     };
+  });
+
+  describe('getNullifierStatuses', () => {
+    const pending = new Fr(1);
+    const settled = new Fr(2);
+    const missing = new Fr(3);
+    const settledBlock = { l2BlockNumber: BlockNumber(7), l2BlockHash: BlockHash.random() };
+
+    const service = new EphemeralArrayService();
+    let noteCache: ExecutionNoteCache;
+    let aztecNode: MockProxy<AztecNode>;
+    let oracle: PrivateExecutionOracle;
+
+    const getNullifierStatuses = async (innerNullifiers: Fr[]) =>
+      (await oracle.getNullifierStatuses(EphemeralArray.fromValues(service, innerNullifiers))).readAll(service);
+
+    beforeEach(async () => {
+      noteCache = new ExecutionNoteCache(Fr.ZERO);
+      await noteCache.nullifierCreated(contractAddress, pending);
+
+      const settledSiloed = await siloNullifier(contractAddress, settled);
+      aztecNode = mock<AztecNode>();
+      aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+        Promise.resolve(leaves.map(leaf => (leaf.equals(settledSiloed) ? { data: 0n, ...settledBlock } : undefined))),
+      );
+
+      oracle = makeOracle({ noteCache, aztecNode, anchorBlockHeader: BlockHeader.empty() });
+    });
+
+    it('reports a nullifier emitted in this transaction as existing with no origin block, without querying the node', async () => {
+      await expect(getNullifierStatuses([pending])).resolves.toEqual([{ exists: true, originBlock: Option.none() }]);
+      expect(aztecNode.findLeavesIndexes).not.toHaveBeenCalled();
+    });
+
+    it('reports a settled nullifier with the block it was included in', async () => {
+      await expect(getNullifierStatuses([settled])).resolves.toEqual([
+        {
+          exists: true,
+          originBlock: Option.some({ blockNumber: 7, blockHash: new Fr(settledBlock.l2BlockHash.toBuffer()) }),
+        },
+      ]);
+    });
+
+    it('keeps results aligned across pending, settled and nonexistent nullifiers', async () => {
+      const statuses = await getNullifierStatuses([missing, pending, settled, pending]);
+
+      expect(statuses.map(status => status.exists)).toEqual([false, true, true, true]);
+      expect(statuses.map(status => status.originBlock.isSome())).toEqual([false, false, true, false]);
+    });
   });
 
   describe('resolveCustomRequest', () => {

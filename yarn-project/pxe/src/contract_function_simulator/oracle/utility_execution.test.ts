@@ -28,7 +28,7 @@ import {
   type ContractInstanceWithAddress,
   computeContractAddressFromInstance,
 } from '@aztec/stdlib/contract';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
@@ -210,9 +210,9 @@ describe('Utility Execution test suite', () => {
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     // The init check calls check_nullifier_exists, which queries findLeavesIndexes.
-    aztecNode.findLeavesIndexes.mockResolvedValue([
-      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
-    ]);
+    aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+      Promise.resolve(leaves.map(() => ({ data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() }))),
+    );
     contractStore.getFunctionArtifact.mockResolvedValue(artifact);
     contractStore.getContractInstance.mockResolvedValue({
       ...instanceFields,
@@ -302,9 +302,9 @@ describe('Utility Execution test suite', () => {
     const contractAddress = await computeContractAddressFromInstance(instanceFields);
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
-    aztecNode.findLeavesIndexes.mockResolvedValue([
-      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
-    ]);
+    aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+      Promise.resolve(leaves.map(() => ({ data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() }))),
+    );
     contractStore.getFunctionArtifact.mockResolvedValue(artifact);
     contractStore.getContractInstance.mockResolvedValue({
       ...instanceFields,
@@ -730,6 +730,39 @@ describe('Utility Execution test suite', () => {
         );
 
         expect(result.readAll(service)).toEqual([true, false, true]);
+      });
+    });
+
+    describe('getNullifierStatuses', () => {
+      const service = new EphemeralArrayService();
+      const settled = new Fr(1);
+      const missing = new Fr(2);
+      const settledBlock = { l2BlockNumber: BlockNumber(7), l2BlockHash: BlockHash.random() };
+
+      const getNullifierStatuses = async (innerNullifiers: Fr[]) =>
+        (
+          await utilityExecutionOracle.getNullifierStatuses(EphemeralArray.fromValues(service, innerNullifiers))
+        ).readAll(service);
+
+      beforeEach(async () => {
+        const settledSiloed = await siloNullifier(contractAddress, settled);
+        aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+          Promise.resolve(leaves.map(leaf => (leaf.equals(settledSiloed) ? { data: 0n, ...settledBlock } : undefined))),
+        );
+      });
+
+      it('returns aligned statuses with the origin block of each settled nullifier in one node call', async () => {
+        const statuses = await getNullifierStatuses([missing, settled, missing]);
+
+        expect(statuses).toEqual([
+          { exists: false, originBlock: Option.none() },
+          {
+            exists: true,
+            originBlock: Option.some({ blockNumber: 7, blockHash: new Fr(settledBlock.l2BlockHash.toBuffer()) }),
+          },
+          { exists: false, originBlock: Option.none() },
+        ]);
+        expect(aztecNode.findLeavesIndexes).toHaveBeenCalledTimes(1);
       });
     });
 

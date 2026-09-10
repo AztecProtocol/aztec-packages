@@ -1,6 +1,6 @@
 import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { uniqueBy } from '@aztec/foundation/collection';
+import { chunk, uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -26,7 +26,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstancePreimageWithAddress, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
@@ -73,6 +73,7 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import type { NullifierStatus } from '../noir-structs/nullifier_status.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
@@ -494,19 +495,38 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Check if a nullifier exists in the nullifier tree.
-   * @param innerNullifier - The inner nullifier.
-   * @returns A boolean indicating whether the nullifier exists in the tree or not.
+   * Returns the status of each inner nullifier: whether it exists in the nullifier tree at the anchor block and, if
+   * so, the block it was inserted in. Results are aligned with the input.
    */
-  public async doesNullifierExist(innerNullifier: Fr) {
-    const [nullifier, anchorBlockHash] = await allToCompletion([
-      siloNullifier(this.contractAddress, innerNullifier!),
-      this.anchorBlockHeader.hash(),
-    ]);
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [
-      nullifier,
-    ]);
-    return leafIndex?.data !== undefined;
+  public async getNullifierStatuses(innerNullifiers: EphemeralArray<Fr>): Promise<EphemeralArray<NullifierStatus>> {
+    const siloedNullifiers = await allToCompletion(
+      innerNullifiers
+        .readAll(this.ephemeralArrayService)
+        .map(innerNullifier => siloNullifier(this.contractAddress, innerNullifier)),
+    );
+    const statuses = await this.getSiloedNullifierStatuses(siloedNullifiers);
+    return EphemeralArray.fromValues(this.ephemeralArrayService, statuses);
+  }
+
+  /** Looks up siloed nullifiers in the nullifier tree at the anchor block, returning one status per input. */
+  protected async getSiloedNullifierStatuses(siloedNullifiers: Fr[]): Promise<NullifierStatus[]> {
+    const anchorBlockHash = await this.anchorBlockHeader.hash();
+    const leaves = (
+      await allToCompletion(
+        chunk(siloedNullifiers, MAX_RPC_LEN).map(batch =>
+          this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch),
+        ),
+      )
+    ).flat();
+    return leaves.map(
+      (leaf): NullifierStatus =>
+        leaf
+          ? {
+              exists: true,
+              originBlock: Option.some({ blockNumber: leaf.l2BlockNumber, blockHash: leaf.l2BlockHash.toFr() }),
+            }
+          : { exists: false, originBlock: Option.none() },
+    );
   }
 
   /**
