@@ -226,13 +226,21 @@ export class InboxMessageSynchronizer {
       // A head shorter than the local log is ambiguous: the chain really did shorten, or this provider is behind the
       // one the log was certified against. A retained syncpoint above this head that is still canonical settles it as
       // lag, and lag must not delete messages or claim a lower head as synced.
-      if (await this.isLaggedView(head, persistedSyncPoint)) {
+      const laterSyncPoint = await this.checkLaterSyncPoint(head, persistedSyncPoint);
+      if (laterSyncPoint === 'lagged') {
         return pending();
       }
       // A shorter canonical sequence whose tip hash is our prefix hash at that count is a pure truncation; the tip
       // itself proves where it ends, so no old placement lookup is needed.
       const localAtRemote = await this.stores.messages.getMessagePosition(remote.totalMessagesInserted);
       if (localAtRemote !== undefined && localAtRemote.rollingHash.equals(remote.rollingHash)) {
+        // A head that agrees with the local log through its own count is what a provider that has not caught up
+        // looks like, so shortening to it needs the later certified syncpoint to have been positively replaced. An
+        // unreadable syncpoint is no such evidence: an older canonical ancestor cannot prove the messages certified
+        // above it are gone, and deleting them would prune the speculative blocks that consumed them for nothing.
+        if (laterSyncPoint === 'unknown') {
+          return pending();
+        }
         if ((await this.checkL1Block(head)) !== 'canonical') {
           this.log.verbose(
             `Could not confirm L1 head ${head.l1BlockNumber} after reading the Inbox state; ` + `not truncating`,
@@ -241,6 +249,8 @@ export class InboxMessageSynchronizer {
         }
         return this.truncate(localAtRemote, head, finalizedL1Block);
       }
+      // The head disagrees with the local log at the head's own count, so this is not a view of the same chain that
+      // has yet to catch up: recovery searches L1 for a common anchor and only rolls back to one it found there.
       return this.startRecovery(head, remote);
     }
 
@@ -322,7 +332,7 @@ export class InboxMessageSynchronizer {
   }
 
   /**
-   * Whether a head shorter than the local log is a lagged provider view rather than a real chain replacement.
+   * What a retained syncpoint above a head shorter than the local log says about that head.
    *
    * The syncpoint is the highest L1 block at which the whole stored log was found equal to the Inbox's own position.
    * If that block is above this head and still canonical, the chain did not shorten past it: the messages the head
@@ -330,22 +340,39 @@ export class InboxMessageSynchronizer {
    * throw away certified messages and prune the proposed blocks that consumed them, only for the next pass to fetch
    * them straight back.
    *
-   * An unreadable syncpoint block is not treated as lag: without positive evidence the shorter head is handled by the
-   * ordinary path, which authenticates whatever it retains.
+   * A syncpoint that cannot be read is the same three-outcome question as any other block, and the answer has to
+   * survive to the caller: an unreadable one is no evidence that the certified messages above the head are gone, and
+   * truncating on it would delete them on the strength of a provider that could not answer. Only a syncpoint that
+   * reads back with a different hash is positive evidence the certified view was replaced, which the ordinary
+   * shorter-head path is then free to act on.
    */
-  private async isLaggedView(head: L1BlockId, syncPoint: L1BlockId | undefined): Promise<boolean> {
+  private async checkLaterSyncPoint(head: L1BlockId, syncPoint: L1BlockId | undefined): Promise<LaterSyncPointStatus> {
     if (syncPoint === undefined || syncPoint.l1BlockNumber <= head.l1BlockNumber) {
-      return false;
+      return 'none';
     }
-    if ((await this.checkL1Block(syncPoint)) !== 'canonical') {
-      return false;
+    const status = await this.checkL1Block(syncPoint);
+    if (status === 'unknown') {
+      this.log.verbose(
+        `Could not confirm the certified syncpoint at ${syncPoint.l1BlockNumber} above L1 head ` +
+          `${head.l1BlockNumber}; keeping the message log until the shorter head can be explained`,
+        { headL1BlockNumber: head.l1BlockNumber, syncPointL1BlockNumber: syncPoint.l1BlockNumber },
+      );
+      return 'unknown';
+    }
+    if (status === 'replaced') {
+      this.log.warn(
+        `Certified syncpoint at ${syncPoint.l1BlockNumber} has been replaced; the shorter L1 head ` +
+          `${head.l1BlockNumber} is handled as a chain replacement`,
+        { headL1BlockNumber: head.l1BlockNumber, syncPointL1BlockNumber: syncPoint.l1BlockNumber },
+      );
+      return 'replaced';
     }
     this.log.verbose(
       `L1 head ${head.l1BlockNumber} is behind the certified syncpoint at ${syncPoint.l1BlockNumber}, which is ` +
         `still canonical; keeping the message log and waiting for the provider to catch up`,
       { headL1BlockNumber: head.l1BlockNumber, syncPointL1BlockNumber: syncPoint.l1BlockNumber },
     );
-    return true;
+    return 'lagged';
   }
 
   /**
@@ -625,6 +652,13 @@ export class InboxMessageSynchronizer {
  * read. `unknown` is deliberately not merged into `replaced`: only the latter is evidence of a chain replacement.
  */
 type L1BlockStatus = 'canonical' | 'replaced' | 'unknown';
+
+/**
+ * What a retained certified syncpoint says about a head that reports fewer messages than the local log: there is no
+ * later syncpoint to ask, the syncpoint is still canonical so the head is a lagged view, the syncpoint was positively
+ * replaced, or it could not be read and the shortfall stays unexplained.
+ */
+type LaterSyncPointStatus = 'none' | 'lagged' | 'replaced' | 'unknown';
 
 /** The L1 head a sync pass was captured against is no longer canonical; the pass's uncommitted work is discarded. */
 class CapturedHeadReplacedError extends Error {
