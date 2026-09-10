@@ -569,6 +569,12 @@ function generate(args: Args) {
               "src/wasm/browser/main.worker.ts",
               packageGen.generateBrowserMainWorker(),
             );
+            // The host imports have to be a module inside the package rather than something the
+            // caller passes to a constructor: they are closures, and the same closures are needed
+            // in every realm that instantiates the module — the calling thread, the main worker
+            // and each wasi thread worker. Functions cannot be cloned across a worker boundary, so
+            // a worker can only get them by importing them, from a path a bundler can resolve at
+            // build time.
             writePackage(
               "src/wasm_host_imports.ts",
               args.packageWasmHostImports
