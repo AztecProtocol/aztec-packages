@@ -1,8 +1,8 @@
 import { createBackend, createBackendSync } from '@aztec-foundation/bb.js-api';
+import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import * as os from 'os';
 
 import { BackendOptions, BackendType } from '../index.js';
-import type { IMsgpackBackendAsync, IMsgpackBackendSync } from '../interface.js';
 
 // Shared-memory rings sized for bb's payloads (witnesses, proofs); the async backend pipelines, so
 // it gets a response ring of the same size.
@@ -24,7 +24,7 @@ export async function createAsyncBackend(
   type: BackendType,
   options: BackendOptions,
   logger: (msg: string) => void,
-): Promise<IMsgpackBackendAsync> {
+): Promise<IpcClientAsync> {
   const wasmPath = options.wasmPath ?? process.env.BB_WASM_PATH;
 
   switch (type) {
@@ -81,7 +81,7 @@ export async function createSyncBackend(
   type: BackendType,
   options: BackendOptions,
   logger: (msg: string) => void,
-): Promise<IMsgpackBackendSync> {
+): Promise<IpcClientSync> {
   const wasmPath = options.wasmPath ?? process.env.BB_WASM_PATH;
 
   switch (type) {

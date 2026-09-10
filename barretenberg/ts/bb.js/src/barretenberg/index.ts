@@ -1,7 +1,7 @@
 import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
+import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
-import { IMsgpackBackendAsync, IMsgpackBackendSync } from '../bb_backends/interface.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 import { BBApiException } from '../bbapi_exception.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
@@ -35,7 +35,7 @@ export type CircuitOptions = {
 export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
 
-  constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
+  constructor(backend: IpcClientAsync, options: BackendOptions) {
     super(backend, message => new BBApiException(message));
     this.options = options;
   }
@@ -191,7 +191,7 @@ let barretenbergSyncSingletonPromise: Promise<BarretenbergSync> | undefined;
 let barretenbergSyncSingleton: BarretenbergSync | undefined;
 
 export class BarretenbergSync extends SyncApi {
-  constructor(backend: IMsgpackBackendSync) {
+  constructor(backend: IpcClientSync) {
     super(backend, message => new BBApiException(message));
   }
 

@@ -1,7 +1,7 @@
 import { createBackend, createBackendSync, sharedMemoryAvailable } from '@aztec-foundation/bb.js-api';
+import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 
 import { BackendOptions, BackendType } from '../index.js';
-import type { IMsgpackBackendAsync, IMsgpackBackendSync } from '../interface.js';
 
 /**
  * Create backend of specific type (no fallback)
@@ -10,7 +10,7 @@ export async function createAsyncBackend(
   type: BackendType,
   options: BackendOptions,
   logger: (msg: string) => void,
-): Promise<IMsgpackBackendAsync> {
+): Promise<IpcClientAsync> {
   switch (type) {
     case BackendType.Wasm:
     case BackendType.WasmWorker: {
@@ -38,7 +38,7 @@ export async function createSyncBackend(
   type: BackendType,
   options: BackendOptions,
   logger: (msg: string) => void,
-): Promise<IMsgpackBackendSync> {
+): Promise<IpcClientSync> {
   switch (type) {
     case BackendType.Wasm:
       logger('Using WASM backend');
