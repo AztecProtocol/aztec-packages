@@ -81,10 +81,11 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
     /// values across the rest of the checkpoint. Do not drop or weaken any of them on the assumption that some flag
     /// still marks the first block — none does.
     ///
-    /// Together they also pin the first-block behaviour of the block roots themselves: a block absorbs the l1-to-l2
-    /// tree root into its blob data exactly when its start sponge blob is still uninitialized, which the sponge blob
-    /// assert below allows only for the leftmost block (every block absorbs its block-end fields, so a mid-checkpoint
-    /// block always inherits a sponge blob with fields already absorbed).
+    /// Together they also pin the first-block behaviour of the block roots themselves. Every block absorbs its own
+    /// block-end fields, the l1-to-l2 message tree root among them, since any block may insert its own bundle; the
+    /// root is per-block, not checkpoint-constant. What distinguishes the leftmost block is therefore the *start*
+    /// sponge blob: only it may still be uninitialized, which the sponge blob assert below is what enforces, so a
+    /// mid-checkpoint block always inherits a sponge blob with fields already absorbed.
     fn validate_start_states(self) {
         let first_rollup = self.previous_rollups[0].public_inputs;
 
