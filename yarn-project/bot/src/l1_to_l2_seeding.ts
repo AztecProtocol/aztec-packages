@@ -233,11 +233,14 @@ export function validateL1ToL2MessageBatchBuckets(args: {
 const BATCH_GAS_MARGIN_PERCENT = 20n;
 const BATCH_GAS_MARGIN_FLOOR = 200_000n;
 
-/** Generates `count` message intents with real claim secrets, so the messages can actually be consumed later. */
-export async function generateL1ToL2MessageIntents(count: number, log: Logger): Promise<L1ToL2MessageIntent[]> {
+/**
+ * Generates `count` message intents with real claim secrets, so the messages can actually be consumed later.
+ * `generateClaimSecret` logs the secret when handed a logger, so it is deliberately called without one.
+ */
+export async function generateL1ToL2MessageIntents(count: number): Promise<L1ToL2MessageIntent[]> {
   const intents: L1ToL2MessageIntent[] = [];
   for (let i = 0; i < count; i++) {
-    const [secret, secretHash] = await generateClaimSecret(log);
+    const [secret, secretHash] = await generateClaimSecret();
     intents.push({ content: Fr.random(), secret, secretHash });
   }
   return intents;

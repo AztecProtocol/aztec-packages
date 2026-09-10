@@ -335,7 +335,7 @@ describe('single-node/cross-chain/inbox_bot', () => {
     const measured: { count: number; gasUsed: bigint; gasPerMessage: bigint; buckets: number }[] = [];
 
     for (const count of [4, MAX_INBOX_MESSAGES_PER_BUCKET, MAX_INBOX_MESSAGES_PER_BATCH]) {
-      const intents = await generateL1ToL2MessageIntents(count, log);
+      const intents = await generateL1ToL2MessageIntents(count);
       const receipt = await sendL1ToL2MessageBatch({
         l1Client: t.harnessL1Client,
         inboxAddress,

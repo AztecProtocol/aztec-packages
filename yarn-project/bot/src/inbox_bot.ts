@@ -434,7 +434,7 @@ export class InboxBot implements BotLifecycle {
     count: number,
   ): Promise<InboxBatchRecord | undefined> {
     span.setAttribute(Attributes.BOT_INBOX_SCENARIO, scenario);
-    const intents = await generateL1ToL2MessageIntents(count, this.log);
+    const intents = await generateL1ToL2MessageIntents(count);
     const modes = await this.assignModes(count);
     const { batch } = await this.store.reserveBatch({
       scenario,
@@ -1668,9 +1668,6 @@ export class InboxBot implements BotLifecycle {
       this.healthy = false;
     }
   }
-
-  // Everything below is where the bot's telemetry leaves it: the instruments are fed here, and the same call
-  // sites carry the structured logs, so a transition can never be counted in one place and logged in another.
 
   /**
    * Snapshot of the bot's reconciled durable state for the observable gauges. Read on every collection rather

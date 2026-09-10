@@ -128,10 +128,6 @@ export class BotFactory {
   }
 
   /**
-   * Initializes the cross-chain bot by deploying TestContract, creating an L1 client,
-   * seeding initial L1→L2 messages, and waiting for the first to be ready.
-   */
-  /**
    * Sets up the account, the L1 client and the TestContract used by the cross-chain bot modes.
    * @param options.seedMessages - Whether to top the store up to `l1ToL2SeedCount` L1→L2 messages and block on
    * the first one becoming ready. Inbox mode produces its own batches on its own clock, so it opts out.
