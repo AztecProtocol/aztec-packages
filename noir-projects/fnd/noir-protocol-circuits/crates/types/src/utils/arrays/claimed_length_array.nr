@@ -26,9 +26,7 @@ where
             if should_be_empty {
                 self.array[i].assert_empty("RHS of input array is not empty");
             } else {
-                assert(!self.array[i].is_empty(), "LHS of input array is not dense")
-                // Requires Noir #9002:
-                // self.array[i].assert_not_empty("LHS of input array is not dense"); // LHS of input array is not dense.
+                assert(!self.array[i].is_empty(), "LHS of input array is not dense");
             }
         }
     }
