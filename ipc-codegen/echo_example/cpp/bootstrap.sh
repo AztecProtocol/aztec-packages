@@ -12,9 +12,7 @@ $NODE "$CODEGEN/src/generate.ts" \
   --client \
   --ffi \
   --out "$DIR/src/generated" \
-  --cpp-namespace echo \
-  --cpp-ffi-context echo::EchoCtx \
-  --cpp-ffi-context-include echo_handlers.hpp
+  --cpp-namespace echo
 
 cmake -S "$DIR" -B "$DIR/build"
 cmake --build "$DIR/build" --target echo_server echo_client golden_test ffi_test
