@@ -1,6 +1,7 @@
-# Code owners, requested for review only on pull requests whose merge reaches
+# Code owners, tagged in a comment only on pull requests whose merge reaches
 # `next`: those based on `next`, and those into a merge train that targets `next`
 # (every `merge-train/*` except the `-v<N>` ones, which target a release line).
+# The comment names the path each owner came from, so the author can see why.
 #
 # Deliberately NOT named CODEOWNERS. GitHub reads CODEOWNERS from a pull request's
 # base branch with no way to scope it, so a native file also requests owners on
@@ -9,8 +10,9 @@
 # with CODEOWNERS semantics (last match wins, per changed path). Edit it exactly
 # as you would CODEOWNERS.
 #
-# Given up by not using the native name: the "code owner" badge, owner hints in
-# the Files-changed view, and the require_code_owner_review ruleset option.
+# Given up by not using the native name: owners are not added as requested
+# reviewers (no Reviewers-sidebar entry or review-queue item), and the
+# require_code_owner_review ruleset option is unavailable.
 
 /.devcontainer/ @charlielye @ludamad
 /.github/ @charlielye @ludamad

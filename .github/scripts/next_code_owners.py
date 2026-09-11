@@ -1,9 +1,10 @@
 """Apply .github/next-code-owners to a pull request, with CODEOWNERS semantics.
 
-Usage: next_code_owners.py OWNERS_FILE CHANGED_PATHS_FILE PR_AUTHOR BASE_REF
+Usage: next_code_owners.py OWNERS_FILE CHANGED_PATHS_FILE BASE_REF
 
-Prints a JSON body for `POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers`,
-or nothing when nobody should be requested. The reason is logged to stderr.
+Prints a Markdown comment that @-mentions the owners of the changed paths, one line
+per owning rule so the author can see which paths brought in whom. Prints nothing
+when nobody should be told, and logs the reason to stderr.
 
 Matching follows GitHub's CODEOWNERS: for each changed path the *last* matching
 pattern wins, and the reviewers are the union of those winners. Patterns are
@@ -11,7 +12,6 @@ gitignore-style — leading `/` anchors at the root, a trailing `/` means the wh
 directory, `*` stays within a path segment, `**` crosses segments.
 """
 
-import json
 import re
 import sys
 
@@ -56,27 +56,28 @@ def pattern_to_regex(pattern):
 
 
 def load_rules(owners_file):
+    """Each rule is (regex, pattern text, owners), in file order."""
     rules = []
     with open(owners_file, encoding="utf-8") as handle:
         for line in handle:
             line = line.split("#", 1)[0].strip()
             if line:
                 pattern, *owners = line.split()
-                rules.append((pattern_to_regex(pattern), owners))
+                rules.append((pattern_to_regex(pattern), pattern, owners))
     return rules
 
 
-def owners_for(path, rules):
-    """Owners of the last pattern matching `path`; empty when none does."""
-    winner = []
-    for regex, owners in rules:
-        if regex.match(path):
-            winner = owners
+def winning_rule(path, rules):
+    """The last rule whose pattern matches `path`, or None."""
+    winner = None
+    for rule in rules:
+        if rule[0].match(path):
+            winner = rule
     return winner
 
 
 def main():
-    owners_file, changed_file, author, base_ref = sys.argv[1:5]
+    owners_file, changed_file, base_ref = sys.argv[1:4]
 
     if not reaches_next(base_ref):
         print(f"base {base_ref} does not reach next", file=sys.stderr)
@@ -89,28 +90,25 @@ def main():
     with open(changed_file, encoding="utf-8") as handle:
         changed = [line.strip() for line in handle if line.strip()]
 
-    users, teams = [], []
+    # One line per owning rule, in file order, so the author sees which of their
+    # paths brought in which owners. A rule that names nobody owns nothing.
+    hit = []
     for path in changed:
-        for owner in owners_for(path, rules):
-            name = owner.lstrip("@")
-            if "/" in name:  # @org/team
-                target, name = teams, name.split("/", 1)[1]
-            else:
-                target = users
-                if name == author:  # GitHub refuses to request the author
-                    continue
-            if name not in target:
-                target.append(name)
-
-    if not users and not teams:
+        rule = winning_rule(path, rules)
+        if rule and rule[2] and rule not in hit:
+            hit.append(rule)
+    if not hit:
         print("no changed path has an owner", file=sys.stderr)
         return 0
-    body = {}
-    if users:
-        body["reviewers"] = users
-    if teams:
-        body["team_reviewers"] = teams
-    print(json.dumps(body))
+
+    lines = [
+        "This pull request touches code with owners listed in "
+        "`.github/next-code-owners`. Tagging them for review:",
+        "",
+    ]
+    for _, pattern, owners in sorted(hit, key=rules.index):
+        lines.append(f"- {' '.join(owners)} — `{pattern}`")
+    print("\n".join(lines))
     return 0
 
 
