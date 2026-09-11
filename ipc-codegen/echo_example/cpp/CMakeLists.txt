@@ -54,7 +54,6 @@ target_link_libraries(golden_test PRIVATE echo_common)
 # The service as an in-process library: the generated FFI entry over the same
 # handlers the socket server uses.
 add_library(echo_ffi STATIC
-    src/echo_ffi.cpp
     src/echo_handlers.cpp
     src/generated/echo_ffi.cpp
 )

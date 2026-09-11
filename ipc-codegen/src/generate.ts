@@ -75,6 +75,8 @@ interface Args {
   cppNamespace: string;
   cppWireNamespace: string;
   cppIncludeDir: string;
+  cppFfiContext: string;
+  cppFfiContextInclude: string;
   uds: boolean;
   ffi: boolean;
   stripMethodPrefix: boolean;
@@ -125,6 +127,11 @@ Optional:
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
+  --cpp-ffi-context <type> C++ --ffi: the service's context type, which the generated
+                           dispatcher constructs and the handlers run over
+  --cpp-ffi-context-include <header>
+                           C++ --ffi: the service header declaring that type and the
+                           handler overloads
 `);
   process.exit(1);
 }
@@ -149,6 +156,8 @@ function parseArgs(argv: string[]): Args {
     cppNamespace: "",
     cppWireNamespace: "wire",
     cppIncludeDir: "",
+    cppFfiContext: "",
+    cppFfiContextInclude: "",
     uds: false,
     ffi: false,
     stripMethodPrefix: false,
@@ -216,6 +225,12 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--cpp-wire-namespace":
         args.cppWireNamespace = takeValue();
+        break;
+      case "--cpp-ffi-context":
+        args.cppFfiContext = takeValue();
+        break;
+      case "--cpp-ffi-context-include":
+        args.cppFfiContextInclude = takeValue();
         break;
       case "--cpp-include-dir":
         args.cppIncludeDir = takeValue();
@@ -656,6 +671,8 @@ function generate(args: Args) {
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
         stripMethodPrefix: stripMethodPrefix,
+        ffiContext: args.cppFfiContext,
+        ffiContextInclude: args.cppFfiContextInclude,
       });
 
       cppFiles.push(
