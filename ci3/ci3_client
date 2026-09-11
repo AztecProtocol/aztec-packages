@@ -3,7 +3,7 @@
 
 Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3 standard library only.
 
-  env                              shell exports for the resolved server (source_ci3_client evals it)
+  env                              shell exports from the environment; no network requests
   check                            verify the endpoint and authentication; fail if unavailable
   url [path]                       the browse URL of a log id / server path, as printed in links
   log_put <id> [ttl] [final]       stdin -> the log <id> (replaces); "final" marks a log's last write
@@ -37,16 +37,16 @@ What ci3 keeps on the server, in ci3 terms:
              plus bench-<tree>.tar.gz, npm-release-<tag>.tar.gz and the ci-success-* whole-run marker.
 
 Environment:
-  CI3_SERVER      server URL; defaults to http://localhost:4275 outside CI
+  CI3_SERVER     server URL; unset or empty disables logging and test caching
   CI3_PASSWORD   basic-auth password (user aztec)
   CI3_PUBLIC_URL link base, when different from the server
-CI requires CI3_SERVER=http://ci.aztec-labs.com and CI3_PASSWORD. Invalid credentials and unreachable
-explicit endpoints fail. Outside CI, an unset endpoint tries the local server and prints setup
-instructions if it is absent. CI3_SERVER='' explicitly disables logging and test caching outside CI.
+Local bootstrap starts a server when CI3_SERVER is unset and exports its URL to child processes.
+CI entry points require CI3_SERVER=http://ci.aztec-labs.com and CI3_PASSWORD. Entry points run
+`ci3_client check` to verify connectivity and authentication; ordinary commands never discover or
+probe a server implicitly. Run `ci3_client check` for setup instructions when no endpoint is set.
 """
 import base64
 import gzip
-import hashlib
 import http.client
 import os
 import shlex
@@ -55,18 +55,11 @@ import urllib.parse
 
 PUBLIC_CACHE_URL = "https://build-cache.aztec-labs.com"
 DASHBOARD_URL = "http://ci.aztec-labs.com"
-LOCAL_URL = "http://localhost:4275"
 # Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
 # (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
 LOG_EXPIRE_CI = 60 * 60 * 24 * 14
 LOG_EXPIRE_LOCAL = 60 * 60 * 24 * 2
 ARTIFACT_EXPIRE = 60 * 60 * 24 * 7
-
-YELLOW, RESET = "\033[38;2;250;217;121m", "\033[0m"
-
-
-def warn(msg):
-    sys.stderr.write("%s%s%s\n" % (YELLOW, msg, RESET))
 
 
 def in_ci():
@@ -80,15 +73,9 @@ class CI3Error(RuntimeError):
 # --- environment -----------------------------------------------------------------------------
 
 
-def resolve_server(force_check=False):
-    """Resolve environment settings, probing once per process tree unless they change."""
-    explicit = "CI3_SERVER" in os.environ
-    server = os.environ.get("CI3_SERVER", LOCAL_URL).rstrip("/")
-    password = os.environ.get("CI3_PASSWORD", "")
-    if in_ci() and (not explicit or server != DASHBOARD_URL):
-        raise CI3Error("CI3_SERVER must be set to the production API in CI: %s" % DASHBOARD_URL)
-    if server == DASHBOARD_URL and not password:
-        raise CI3Error("CI3_PASSWORD is required to authenticate to the production API.")
+def resolve_server():
+    """Read the endpoint from the environment without contacting a server."""
+    server = os.environ.get("CI3_SERVER", "").rstrip("/")
     if not server:
         return ""
     try:
@@ -98,19 +85,6 @@ def resolve_server(force_check=False):
         parsed.port
     except ValueError:
         raise CI3Error("CI3_SERVER must be an HTTP(S) URL; supply authentication through CI3_PASSWORD.")
-    fingerprint = hashlib.sha256((server + "\0" + password).encode()).hexdigest()
-    if force_check or os.environ.get("_CI3_CHECKED") != fingerprint:
-        if not answers(server):
-            if explicit or in_ci() or force_check:
-                raise CI3Error("ci3 server %s does not answer. Check CI3_SERVER or run ci3/ci3_server start." % server)
-            warn("No local ci3 server is running. Logs and test cache are disabled.\n"
-                 "Run ./bootstrap.sh or ci3/ci3_server start to start one.\n"
-                 "For production, export CI3_SERVER=%s and CI3_PASSWORD='<dashboard password>'." % DASHBOARD_URL)
-            os.environ["CI3_SERVER"] = ""
-            return ""
-        check_api(server)
-        os.environ["_CI3_CHECKED"] = fingerprint
-    os.environ["CI3_SERVER"] = server
     return server
 
 
@@ -133,8 +107,20 @@ def check_api(server):
 
 
 def cmd_check(args):
-    """Verify the selected endpoint and authenticate, even if an earlier check succeeded."""
-    resolve_server(force_check=True)
+    """Validate startup settings, verify the selected service and authenticate."""
+    server = resolve_server()
+    if in_ci() and server != DASHBOARD_URL:
+        raise CI3Error("CI3_SERVER must be set to the production API in CI: %s" % DASHBOARD_URL)
+    if not server:
+        raise CI3Error(
+            "CI3_SERVER is not set. Run ./bootstrap.sh to start a local server for a build.\n"
+            'For standalone commands, export CI3_SERVER="$(ci3/ci3_server start)".\n'
+            "For production, export CI3_SERVER=%s and CI3_PASSWORD='<dashboard password>'." % DASHBOARD_URL)
+    if server == DASHBOARD_URL and not os.environ.get("CI3_PASSWORD"):
+        raise CI3Error("CI3_PASSWORD is required to authenticate to the production API.")
+    if not answers(server):
+        raise CI3Error("ci3 server %s does not answer. Check CI3_SERVER or run ci3/ci3_server start." % server)
+    check_api(server)
     return 0
 
 
@@ -143,10 +129,9 @@ def public_url():
 
 
 def cmd_env(args):
-    """Shell exports of the resolved configuration, for source_ci3_client."""
+    """Shell exports of environment settings, with no discovery or preflight."""
     server = resolve_server()
     lines = ["export CI3_SERVER=%s" % shlex.quote(server), "export CI3_PUBLIC_URL=%s" % shlex.quote(public_url())]
-    lines.append("export _CI3_CHECKED=%s" % shlex.quote(os.environ.get("_CI3_CHECKED", "")))
     if not server:
         lines.append("export USE_TEST_CACHE=0")
     lines += [

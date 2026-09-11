@@ -22,17 +22,20 @@ Configuration uses environment variables only:
 
 | Variable | Meaning |
 |---|---|
-| `CI3_SERVER` | Server URL. Unset outside CI: try `http://localhost:4275`. Explicitly empty outside CI: disable logs and test caching. |
+| `CI3_SERVER` | Server URL. Unset or empty: disable logs and test caching in ordinary commands. Local bootstrap starts a server when unset; CI entry points require the production URL. |
 | `CI3_PASSWORD` | The dashboard's basic-auth password (user `aztec`). |
 | `CI3_PUBLIC_URL` | Link base, if different from `CI3_SERVER` (for example, a tunnel). |
 
-Local `bootstrap.sh` starts the file-backed server when `CI3_SERVER` is unset. Other commands try
-the default local endpoint and print setup instructions if it is unavailable. An explicitly selected
-endpoint must be reachable and accept the supplied credentials; it never silently falls back.
+Local `bootstrap.sh` starts or reuses the file-backed server when `CI3_SERVER` is unset and exports
+its URL to child processes. Set `CI3_SERVER=''` to opt out locally. Bootstrap checks an explicitly
+selected endpoint before building; it never silently falls back to another server.
+
+Sourcing `ci3/source` only loads environment settings; it makes no network requests. Standalone
+component commands use the exported endpoint, or quietly disable logging and test caching when
+none is set. To use a local server from those commands, export its URL in your shell:
 
 ```bash
-ci3/ci3_server start
-export CI3_SERVER=http://localhost:4275
+export CI3_SERVER="$(ci3/ci3_server start)"
 
 # Or select production:
 export CI3_SERVER=http://ci.aztec-labs.com
@@ -40,15 +43,17 @@ export CI3_PASSWORD='<dashboard password>'
 ci3/ci3_client check
 ```
 
-CI (`CI=1` or `CI=true`) requires the production URL and password. The runner, build instance,
-bootstrap and post-actions check the API before proceeding. The check verifies the service identity
-and an authenticated API request; missing settings, failed authentication and unavailable services
-are errors. `ci-*` bootstrap commands select CI mode before this check.
+CI entry points (`CI=1` or `CI=true`) require the production URL and password. The runner, build
+instance, bootstrap and post-actions run `ci3_client check` before proceeding. It verifies the service
+identity and an authenticated API request; missing settings, failed authentication and unavailable
+services are errors. `ci-*` bootstrap commands select CI mode before this check. Run
+`ci3_client check` explicitly to diagnose a connection or get setup instructions when no URL is set.
 
-`ci3_client env` exports the resolved endpoint and an internal check fingerprint to child processes.
-Changing the endpoint or password forces another check. With local logging disabled, writes drain
-stdin and do nothing; reads report a miss. Retention is fixed by the client: logs 14 days in CI and
-2 days locally, artifacts 7 days (a CI backend may ignore it).
+`ci3_client env` formats shell exports without discovery or preflight. API operations use the current
+environment directly and do not repeat startup probes. Isolated test containers receive no CI3
+settings; their outer runner uploads output and records test results. With logging disabled, log
+writes drain stdin and do nothing; reads report a miss. Retention is fixed by the client: logs 14 days
+in CI and 2 days locally, artifacts 7 days (a CI backend may ignore it).
 
 ## Conventions
 

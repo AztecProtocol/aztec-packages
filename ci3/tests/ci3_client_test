@@ -35,12 +35,12 @@ cleanup() {
 trap cleanup EXIT
 
 # The test's environment must not inherit the build's production endpoint or credentials.
-unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI3_PASSWORD _CI3_CHECKED
+unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI3_PASSWORD
 export CI=0
 url=$("$ci3/ci3_server" start --port $port --dir "$work/store")
 export CI3_SERVER=$url
 source "$ci3/source_ci3_client"
-check "configured server probed" "$url" "$CI3_SERVER"
+check "configured server exported" "$url" "$CI3_SERVER"
 check "url points at the server" "$url/abc" "$(ci3_client url abc)"
 check "CI3_PUBLIC_URL is the link base" "https://me.example/abc" "$(CI3_PUBLIC_URL=https://me.example ci3_client url abc)"
 
@@ -136,10 +136,10 @@ check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[
 check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client kv_set a b; echo $?; } )"
 if CI3_SERVER= ci3_client artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
 check "disabled server disables the test cache" "server=[] cache=0" "$(CI3_SERVER= bash -c 'source $ci3/source_ci3_client; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
-if CI3_SERVER=http://127.0.0.1:1 bash -e -c 'source "$ci3/source_ci3_client"' >/dev/null 2>&1; then
-  fail "an unreachable explicit server fails initialization" "exit 0"
+if CI3_SERVER=http://127.0.0.1:1 ci3_client check >/dev/null 2>&1; then
+  fail "an unreachable explicit server fails preflight" "exit 0"
 else
-  pass "an unreachable explicit server fails initialization"
+  pass "an unreachable explicit server fails preflight"
 fi
 
 # --- the ci3 scripts built on the clients ---

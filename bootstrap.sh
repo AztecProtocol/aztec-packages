@@ -174,7 +174,9 @@ if [[ -z "${CI3_SERVER+x}" && "${CI:-0}" != 1 && "${CI:-0}" != true ]]; then
   export CI3_SERVER
   echo "Local ci3 server: $CI3_SERVER" >&2
 fi
-"$(git rev-parse --show-toplevel)/ci3/ci3_client" check || exit 1
+if [[ -n "${CI3_SERVER:-}" || "${CI:-0}" == 1 || "${CI:-0}" == true ]]; then
+  "$(git rev-parse --show-toplevel)/ci3/ci3_client" check || exit 1
+fi
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 

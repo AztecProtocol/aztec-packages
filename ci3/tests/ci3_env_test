@@ -18,16 +18,26 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        self.server.requests.append(self.path)
+        if self.path != "/health":
+            self.respond_api(b"value\n")
+            return
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"ci3-server")
+        self.wfile.write(self.server.health_body)
 
     def do_POST(self):
+        self.server.requests.append(self.path)
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        self.respond_api(b"\n")
+
+    def respond_api(self, body):
         expected = "Basic " + base64.b64encode(b"aztec:correct").decode()
         status = self.server.api_status if self.headers.get("Authorization") == expected else 401
         self.send_response(status)
         self.end_headers()
+        if status == 200:
+            self.wfile.write(body)
 
     do_PUT = do_POST
 
@@ -39,18 +49,20 @@ class EnvironmentTest(unittest.TestCase):
         self.directory = Path(self.work.name)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.server.api_status = 200
+        self.server.health_body = b"ci3-server"
+        self.server.requests = []
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
         self.url = "http://127.0.0.1:%d" % self.server.server_port
-        self.env = {k: v for k, v in os.environ.items() if not k.startswith(("CI3_", "_CI3_"))}
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("CI3_")}
         self.env.update(CI="1", CI3_PASSWORD="correct", CI3_SERVER=self.url)
         self.client = self.directory / "ci3_client"
         self.client.write_text(
             "#!/usr/bin/env python3\nimport runpy, sys\n"
             "entry = runpy.run_path(%r)['main']\n"
-            "entry.__globals__.update(DASHBOARD_URL=%r, LOCAL_URL=%r)\n"
-            "sys.exit(entry())\n" % (str(CI3 / "ci3_client"), self.url, self.url)
+            "entry.__globals__.update(DASHBOARD_URL=%r)\n"
+            "sys.exit(entry())\n" % (str(CI3 / "ci3_client"), self.url)
         )
         self.client.chmod(0o755)
 
@@ -73,19 +85,19 @@ class EnvironmentTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_ci_requires_server(self):
-        self.assert_failed(self.command("env", CI3_SERVER=None), "CI3_SERVER")
+        self.assert_failed(self.command("check", CI3_SERVER=None), "CI3_SERVER")
 
     def test_ci_requires_password(self):
-        self.assert_failed(self.command("env", CI3_PASSWORD=""), "CI3_PASSWORD")
+        self.assert_failed(self.command("check", CI3_PASSWORD=""), "CI3_PASSWORD")
 
     def test_ci_rejects_other_server(self):
-        self.assert_failed(self.command("env", CI3_SERVER="http://localhost:4275"), "production")
+        self.assert_failed(self.command("check", CI3_SERVER="http://localhost:4275"), "production")
 
     def test_ci_cannot_disable_server(self):
-        self.assert_failed(self.command("env", CI3_SERVER=""), "CI3_SERVER")
+        self.assert_failed(self.command("check", CI3_SERVER=""), "CI3_SERVER")
 
     def test_rejected_password(self):
-        self.assert_failed(self.command("env", CI3_PASSWORD="wrong"), "401")
+        self.assert_failed(self.command("check", CI3_PASSWORD="wrong"), "401")
 
     def test_backend_failure(self):
         self.server.api_status = 503
@@ -93,53 +105,88 @@ class EnvironmentTest(unittest.TestCase):
 
     def test_unreachable_ci_server(self):
         self.stop_server()
-        self.assert_failed(self.command("env"), "does not answer")
+        self.assert_failed(self.command("check"), "does not answer")
+
+    def test_check_rejects_an_unrelated_service(self):
+        self.server.health_body = b"some other service"
+        self.assert_failed(self.command("check"), "does not answer")
 
     def test_explicit_local_endpoint(self):
         result = self.command("env", CI="0")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("export CI3_SERVER=" + self.url, result.stdout)
 
-    def test_default_local_endpoint(self):
-        result = self.command("env", CI="0", CI3_SERVER=None)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("export CI3_SERVER=" + self.url, result.stdout)
+    def test_unset_server_quietly_disables_integration(self):
+        for ci in ("0", "1"):
+            with self.subTest(ci=ci):
+                result = self.command("env", CI=ci, CI3_SERVER=None)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+                self.assertIn("export CI3_SERVER=''", result.stdout)
+                self.assertIn("export USE_TEST_CACHE=0", result.stdout)
+        self.assertEqual(self.server.requests, [])
 
-    def test_unconfigured_local_run_prints_help(self):
-        self.stop_server()
-        result = self.command("env", CI="0", CI3_SERVER=None)
-        self.assertEqual(result.returncode, 0, result.stderr)
+    def test_unconfigured_check_prints_help(self):
+        result = self.command("check", CI="0", CI3_SERVER=None)
+        self.assertNotEqual(result.returncode, 0)
         self.assertIn("ci3/ci3_server start", result.stderr)
         self.assertIn("CI3_SERVER=", result.stderr)
         self.assertIn("CI3_PASSWORD", result.stderr)
-        self.assertIn("export CI3_SERVER=''", result.stdout)
 
     def test_explicit_unreachable_endpoint_does_not_fall_back(self):
         self.stop_server()
-        self.assert_failed(self.command("env", CI="0"), "does not answer")
+        self.assert_failed(self.command("check", CI="0"), "does not answer")
 
     def test_local_logging_can_be_disabled(self):
         result = self.command("env", CI="0", CI3_SERVER="")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("export CI3_SERVER=''", result.stdout)
 
+    def test_check_requires_an_endpoint_even_when_disabled_locally(self):
+        self.assert_failed(self.command("check", CI="0", CI3_SERVER=""), "CI3_SERVER")
+
+    def test_environment_does_not_contact_the_server(self):
+        result = self.command("env", CI3_PASSWORD="wrong")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assertIn("export CI3_SERVER=" + self.url, result.stdout)
+        self.assertEqual(self.server.requests, [])
+
     def test_public_link_override(self):
         result = self.command("url", "abc", CI3_PUBLIC_URL="https://logs.example")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "https://logs.example/abc")
 
-    def test_changed_password_is_rechecked(self):
-        result = subprocess.run(["bash", "-ec", 'eval "$("$1" env)"; CI3_PASSWORD=wrong "$1" env',
+    def test_server_link_does_not_contact_the_server(self):
+        result = self.command("url", "abc", CI3_PASSWORD="wrong")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), self.url + "/abc")
+        self.assertEqual(self.server.requests, [])
+
+    def test_requests_do_not_run_a_preflight(self):
+        self.server.health_body = b"unavailable"
+        result = self.command("kv_get", "example")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "value\n")
+        self.assertEqual(self.server.requests, ["/kv/example"])
+
+    def test_check_always_validates_current_credentials(self):
+        result = subprocess.run(["bash", "-ec", '"$1" check; CI3_PASSWORD=wrong "$1" check',
                                  "bash", str(self.client)], env=self.env, text=True, capture_output=True)
         self.assert_failed(result, "401")
 
-    def test_shell_propagates_initialization_failure(self):
-        result = subprocess.run(["bash", "-ec", 'source "$1"; echo continued', "bash",
+    def test_api_writes_validate_current_credentials(self):
+        self.assert_failed(self.command("kv_set", "example", "value", CI3_PASSWORD="wrong"), "401")
+
+    def test_shell_loads_settings_without_a_reachable_server(self):
+        self.stop_server()
+        result = subprocess.run(["bash", "-ec", 'source "$1"; echo "$CI3_SERVER"', "bash",
                                  str(CI3 / "source_ci3_client")],
                                 env=dict(self.env, CI3_PASSWORD="wrong", ci3=str(self.directory)),
                                 text=True, capture_output=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertNotIn("continued", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), self.url)
+        self.assertEqual(result.stderr, "")
 
 
 if __name__ == "__main__":

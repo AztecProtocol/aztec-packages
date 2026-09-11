@@ -439,7 +439,7 @@ class Cli:
         result = answer_if_up()
         if result is not None:
             return result
-        # Parallel bootstraps sourcing ci3/source all start the server at once; only one binds. The
+        # Concurrent root bootstraps may start the server at once; only one binds. The
         # others see the port taken (or their own child exit) while the winner is still coming up, so
         # keep asking for a while before calling the port foreign or the start failed.
         if port_taken(args.port):
