@@ -3,7 +3,12 @@ on:
   schedule:
     # Run the workflow every night at 4:00 AM UTC.
     - cron: "0 4 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      suffix:
+        description: "Optional suffix for a manual nightly: tags v<version>-nightly.<date>.<suffix> instead of v<version>-nightly.<date>. Lowercase letters, digits and hyphens, starting with a letter."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -28,12 +33,25 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Create Nightly Tag
+        env:
+          SUFFIX: ${{ inputs.suffix }}
         run: |
           git config --global user.email "tech@aztecprotocol.com"
           git config --global user.name "AztecBot"
           current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
           nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+          if [ -n "$SUFFIX" ]; then
+            if ! [[ "$SUFFIX" =~ ^[a-z][a-z0-9-]*$ ]]; then
+              echo "::error::Invalid suffix '$SUFFIX': use lowercase letters, digits and hyphens, starting with a letter."
+              exit 1
+            fi
+            nightly_tag="$nightly_tag.$SUFFIX"
+          fi
           echo "${{ matrix.branch }} nightly tag: $nightly_tag"
+          if git ls-remote --exit-code --tags origin "refs/tags/$nightly_tag" >/dev/null 2>&1; then
+            echo "::error::Tag $nightly_tag already exists. Re-run this workflow with a suffix input to cut a distinct tag."
+            exit 1
+          fi
           git tag -a "$nightly_tag" -m "$nightly_tag"
           git push origin "$nightly_tag"
