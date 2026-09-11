@@ -195,6 +195,34 @@ fn test_assert_dense_trimmed_fails_with_empty_lhs() {
     arr.assert_dense_trimmed();
 }
 
+#[test(should_fail_with = "RHS of input array is not empty")]
+fn test_assert_dense_trimmed_fails_with_nonempty_first_element_when_length_zero() {
+    // Invalid: claimed length 0, so index 0 is already RHS and must be empty
+    let arr = ClaimedLengthArray { array: [10, 0, 0, 0], length: 0 };
+    arr.assert_dense_trimmed();
+}
+
+#[test(should_fail_with = "LHS of input array is not dense")]
+fn test_assert_dense_trimmed_fails_with_empty_last_element_when_full() {
+    // Invalid: claimed length N, so every index is LHS, including the last one
+    let arr = ClaimedLengthArray { array: [10, 20, 30, 0], length: 4 };
+    arr.assert_dense_trimmed();
+}
+
+// `length` is only a claim, and this check does not bound it. When the claim exceeds N,
+// every slot is LHS and must be populated. Bounding the claim is `assert_length_within_bounds`'s job.
+#[test]
+fn test_assert_dense_trimmed_does_not_bound_length() {
+    let arr = ClaimedLengthArray { array: [10, 20, 30, 40], length: 5 };
+    arr.assert_dense_trimmed();
+}
+
+#[test(should_fail_with = "LHS of input array is not dense")]
+fn test_assert_dense_trimmed_fails_with_gap_when_length_exceeds_n() {
+    let arr = ClaimedLengthArray { array: [10, 20, 0, 40], length: 5 };
+    arr.assert_dense_trimmed();
+}
+
 // ==================== assert_empty tests ====================
 
 #[test]
