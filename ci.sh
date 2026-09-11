@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_refname
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
@@ -152,8 +151,6 @@ function multi_job_run {
     'run {1} {2} {3} {4}' ::: "$@" | add_timestamps | DUP=1 cache_log "CI run" $RUN_ID
 }
 
-# Jobs in the ci dashboards are grouped on a single line by RUN_ID.
-export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
 case "$cmd" in
   fast|barretenberg|barretenberg-full)

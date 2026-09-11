@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Runs the given command.
+# Captures stdin as a log.
 # If a ci3 server is available, store the input as a log there.
 # If DUP=1 then we duplicate input also to stdout.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source "$ci3/source_log"
 
 name=$1
 
@@ -10,7 +11,7 @@ key=${2:-$(uuid)}
 dup=${DUP:-0}
 outfile=/tmp/$key
 touch $outfile
-trap 'rm -f $outfile' EXIT
+trap 'stop_log_publisher; rm -f "$outfile"' EXIT
 if [ -n "${PARENT_LOG_ID:-}" ]; then
   echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)" >>$outfile
 else
@@ -26,41 +27,14 @@ function finalize_log {
   sed -i "4c Took: ${SECONDS}s" "$outfile"
 }
 
-function publish_log {
-  cat $outfile | ci3_client log_put_partial $key
-}
-
-function publish_log_final {
-  finalize_log
-  cat $outfile | ci3_client log_put $key
-}
-
-# Re-publishes while the log grows, until $outfile.done appears; the final publish waits for it to
-# exit, so no live write can land after the final one.
-function live_publish_log {
-  while [ ! -f $outfile.done ]; do
-    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
-      publish_log
-    fi
-    for i in {1..5}; do
-      [ -f $outfile.done ] && break
-      sleep 1
-    done
-  done
-}
-
-if [ -n "$CI3_SERVER" ]; then
+if [ -n "${CI3_SERVER:-}" ]; then
   log_str="$name log id: ${yellow}$(ci3_client url $key)${reset}"
   echo_stderr -e "$log_str"
-  # Close inherited pipeline FDs to prevent blocking parent pipelines.
-  # When cache_log runs inside a pipeline, fd 1/2 may reference the parent's pipe.
-  # Holding them open prevents the parent pipeline from seeing EOF.
-  exec 2>/dev/null
+  # Background monitors outlive the build; after printing their link, close its output pipes.
   if [ "$dup" -ne 1 ]; then
-    exec >/dev/null
+    exec >/dev/null 2>/dev/null
   fi
-  live_publish_log >&- 2>&- &
-  live_pid=$!
+  start_log_publisher "$key" "$outfile"
   if [ "$dup" -eq 1 ]; then
     redact | tee -a $outfile
     # Print a second line if the log is long enough.
@@ -71,9 +45,12 @@ if [ -n "$CI3_SERVER" ]; then
   else
     redact | cat >>$outfile
   fi
-  touch $outfile.done
-  wait $live_pid
-  publish_log_final
+  stop_log_publisher
+  finalize_log
+  if ! publish_log_final "$key" "$outfile"; then
+    [ "$dup" -eq 1 ] || cat "$outfile" >&2
+    exit 1
+  fi
 else
   if [ "$dup" -eq 1 ]; then
     redact | cat

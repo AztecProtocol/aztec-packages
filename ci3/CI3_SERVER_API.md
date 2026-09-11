@@ -22,7 +22,7 @@ Configuration uses environment variables only:
 
 | Variable | Meaning |
 |---|---|
-| `CI3_SERVER` | Server URL. Unset or empty: disable logs and remote caching in ordinary commands. Local bootstrap starts a server when unset; CI entry points require the production URL. |
+| `CI3_SERVER` | Server URL. Unset or empty: disable logs and remote caching in ordinary commands. Local bootstrap starts a server when unset; CI entry points require an endpoint and password. |
 | `CI3_PASSWORD` | The dashboard's basic-auth password (user `aztec`). |
 | `CI3_PUBLIC_URL` | Link base, if different from `CI3_SERVER` (for example, a tunnel). |
 
@@ -43,23 +43,36 @@ export CI3_PASSWORD='<dashboard password>'
 ci3/ci3_client check
 ```
 
-CI entry points (`CI=1` or `CI=true`) require the production URL and password. The runner, build
+CI entry points (`CI=1` or `CI=true`) require an endpoint and password. The workflows select production;
+`ci3_client check` also works with a staging or local API. The runner, build
 instance, bootstrap and post-actions run `ci3_client check` before proceeding. It verifies the service
 identity and an authenticated API request; missing settings, failed authentication and unavailable
 services are errors. `ci-*` bootstrap commands select CI mode before this check. Run
 `ci3_client check` explicitly to diagnose a connection or get setup instructions when no URL is set.
 
-`ci3_client env` formats shell exports without discovery or preflight. API operations use the current
-environment directly and do not repeat startup probes. Isolated test containers receive no CI3
+Shell helpers preserve the environment, including the distinction between an unset and empty endpoint.
+API operations use it directly and do not repeat startup probes. Isolated test containers receive no CI3
 settings; their outer runner uploads output and records test results. With logging disabled, log
 writes drain stdin and do nothing; reads report a miss. Retention is fixed by the client: logs 14 days
 in CI and 2 days locally, artifacts 7 days (a CI backend may ignore it).
 
+Client reads return 0 on success, 1 on absence or a disabled endpoint, and 2 on an API, transport or
+usage error. `kv_get` returns one line per key (empty for a miss); a successful lookup returns 0 even
+when all keys are absent. Failed lookups return 2 without fabricated misses. Writes return 0 on success
+or when disabled, and 2 on failure (`artifact_put` returns 1 when disabled). These rules are the same
+locally and in CI. Cache consumers rebuild after failed reads. `cache_upload` propagates failed writes,
+so required release bundles cannot silently disappear. Denoise and the test runner preserve the
+command's exit status and print its output if the final log upload fails.
+
+`source_log` owns partial upload scheduling and waits for outstanding uploads before publishing a
+completed log. Denoise, test attempts, and stdin capture supply their own formatting.
+
 ## Conventions
 
 - Ids, keys and names are `/`-separated paths whose segments match `[A-Za-z0-9._:+@=,-]+`; `.` and
-  `..` segments are rejected (400), as are names ending in `.expires`, `.json` or `.jsonl` (the
-  reference server's own files).
+  `..` segments are rejected (400). Log and KV writes cannot use the prefixes `ci-run-`, `history_`,
+  or `failed_tests`, which the production dashboard reserves for runs and lists. Storage suffixes
+  such as `.json`, `.jsonl`, and `.expires` are ordinary key characters.
 - `?ttl=<seconds>` on a write lets the server delete the entry after that long. Without it the
   server applies its own retention.
 - Bodies are raw bytes. A write with `Content-Encoding: gzip` carries a gzipped body; the server
@@ -145,3 +158,14 @@ Stop an existing server before changing this mode.
 A local run uploads newly built artifacts to its file server, so switching back to a branch can hit
 that cache. Uploads skip existing artifacts, including public hits. `CACHE_FORCE_UPLOAD=1` overwrites
 them on the selected server; `NO_CACHE_UPLOAD=1` skips packaging and uploading.
+
+## Contract checks
+
+`./ci3/tests/ci3_contract_test` runs the common HTTP contract against a private file server. To run the
+same checks against another test deployment, set `CI3_CONTRACT_SERVER` and, if needed, `CI3_PASSWORD`.
+The checks write records with unique `contract-` names; use a disposable deployment.
+
+The file server keeps objects under `--dir/objects/`, with encoded key directories separating keys
+from data, expiry sidecars, and temporary files. This also allows a key and its children to coexist.
+Servers using the earlier storage layout must be stopped before starting this version; the old files
+are left intact and the local cache is rebuilt in the new layout.

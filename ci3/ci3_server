@@ -6,14 +6,13 @@
   ci3_server stop   [--port P] [--dir D]
   ci3_server status [--port P]
 
-Everything is a file under --dir (default /tmp/ci3):
-  logs/<id>  kv/<key>  lists/<name>  runs/<section>/<id>.json  artifacts/<name>
+Objects live under --dir/objects (default /tmp/ci3/objects), grouped into
+  logs, kv, lists, runs, and artifacts. Each encoded key directory holds data and expiry files.
 A write with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired entries read as
 absent and are swept periodically. What each store holds, in ci3 terms, is described in ci3_client.
 
 """
 import argparse
-import gzip
 import http.client
 import json
 import os
@@ -26,6 +25,7 @@ import sys
 import tempfile
 import threading
 import time
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, unquote, urlsplit
@@ -37,7 +37,13 @@ PUBLIC_CACHE_URL = "https://build-cache.aztec-labs.com"
 SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
 LIST_DEFAULT_MAX = 1000
 RUNS_MAX = 1000
-DEFAULT_LOG_TTL = 60 * 60 * 24 * 14
+MAX_TTL = 60 * 60 * 24 * 400
+MAX_BODY = 64 << 20
+MAX_EXPANDED = 256 << 20
+MAX_LIST = 10000
+MAX_MGET = 1000
+RUN_ID = re.compile(r"[0-9]{1,18}")
+RESERVED = ("ci-run-", "history_", "failed_tests")
 DEFAULT_ARTIFACT_TTL = 60 * 60 * 24 * 7
 SWEEP_INTERVAL = 600
 CHUNK = 1 << 20
@@ -53,12 +59,9 @@ class IncompleteBody(Exception):
 
 
 def check_key(key):
-    """Keys are '/'-separated paths of safe segments. The reference servers' own file suffixes are
-    reserved so a sidecar can never be addressed."""
+    """Keys are slash-separated paths of safe segments."""
     parts = key.split("/")
-    if any(p in ("", ".", "..") or not SEGMENT.match(p) for p in parts):
-        raise BadKey(key)
-    if parts[-1].endswith((".expires", ".json", ".jsonl")) or parts[-1].startswith(".tmp-"):
+    if any(p in ("", ".", "..") or not SEGMENT.fullmatch(p) for p in parts):
         raise BadKey(key)
     return parts
 
@@ -72,13 +75,14 @@ class FileBackend:
         self.root = os.path.abspath(root)
         self.lock = threading.RLock()
         for store in STORES:
-            os.makedirs(os.path.join(self.root, store), exist_ok=True)
+            os.makedirs(os.path.join(self.root, "objects", store), exist_ok=True)
 
     def describe(self):
         return "backend: file\nstorage: %s" % self.root
 
     def path(self, store, key):
-        return os.path.join(self.root, store, *check_key(key))
+        # Encoded key directories cannot collide with the data, expiry or temporary files inside them.
+        return os.path.join(self.root, "objects", store, *("_" + p for p in check_key(key)), "data")
 
     def expired(self, path):
         try:
@@ -131,13 +135,14 @@ class FileBackend:
             raise
 
     def read(self, path):
-        if not self.exists(path):
-            return None
-        with open(path, "rb") as f:
-            return f.read()
+        with self.lock:
+            if not self.exists(path):
+                return None
+            with open(path, "rb") as f:
+                return f.read()
 
     def sweep(self):
-        for dirpath, _, files in os.walk(self.root):
+        for dirpath, _, files in os.walk(os.path.join(self.root, "objects")):
             for name in files:
                 if name.endswith(".expires"):
                     self.exists(os.path.join(dirpath, name[: -len(".expires")]))
@@ -148,12 +153,15 @@ class FileBackend:
     def log_get(self, key):
         return self.read(self.path("logs", key))
 
-    def log_list(self, prefix):
-        d = self.path("logs", prefix)
-        if not os.path.isdir(d):
+    def keys(self, store, prefix):
+        directory = os.path.dirname(self.path(store, prefix))
+        if not os.path.isdir(directory):
             return []
-        return sorted(n for n in os.listdir(d)
-                      if not n.endswith(".expires") and not n.startswith(".tmp-") and self.exists(os.path.join(d, n)))
+        return [n[1:] for n in os.listdir(directory)
+                if n.startswith("_") and self.exists(os.path.join(directory, n, "data"))]
+
+    def log_list(self, prefix):
+        return sorted(self.keys("logs", prefix))[:10000]
 
     def kv_put(self, key, data, ttl):
         self.write(self.path("kv", key), data, ttl)
@@ -171,17 +179,14 @@ class FileBackend:
         return self.read(self.path("lists", name))
 
     def run_put(self, section, run_id, body, ttl):
-        self.write(self.path("runs", section + "/" + run_id) + ".json", body, ttl)
+        self.write(self.path("runs", section + "/" + run_id), body, ttl)
 
     def run_get(self, section, run_id):
-        return self.read(self.path("runs", section + "/" + run_id) + ".json")
+        return self.read(self.path("runs", section + "/" + run_id))
 
     def runs_list(self, section):
-        d = self.path("runs", section)
-        if not os.path.isdir(d):
-            return []
-        names = sorted((n for n in os.listdir(d) if n.endswith(".json")), reverse=True)
-        return [json.loads(data) for n in names[:RUNS_MAX] for data in [self.read(os.path.join(d, n))] if data]
+        names = sorted(self.keys("runs", section), key=int, reverse=True)[:RUNS_MAX]
+        return [json.loads(data) for name in names for data in [self.run_get(section, name)] if data]
 
     def artifact_put(self, name, stream, ttl, overwrite=True):
         self.write(self.path("artifacts", name), stream, ttl, overwrite=overwrite)
@@ -243,18 +248,43 @@ class Handler(BaseHTTPRequestHandler):
     def body(self):
         if self.headers.get("Transfer-Encoding") or self.headers.get("Content-Length") is None:
             raise LengthRequired()
-        return Body(self.rfile, int(self.headers["Content-Length"]))
+        length = self.headers["Content-Length"]
+        if not length.isdigit():
+            raise RequestError(400, "bad Content-Length")
+        return Body(self.rfile, int(length))
 
     def body_bytes(self):
         body = self.body()
+        if body.remaining > MAX_BODY:
+            raise RequestError(413, "body too large")
         data = body.read()
         if not body.complete:
             raise IncompleteBody()
-        return gzip.decompress(data) if self.headers.get("Content-Encoding", "").lower() == "gzip" else data
+        encoding = self.headers.get("Content-Encoding", "").lower()
+        if encoding == "gzip":
+            inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+            try:
+                data = inflater.decompress(data, MAX_EXPANDED + 1)
+            except zlib.error:
+                raise RequestError(400, "bad gzip body")
+            if len(data) > MAX_EXPANDED or inflater.unconsumed_tail:
+                raise RequestError(413, "expanded body too large")
+            if not inflater.eof:
+                raise RequestError(400, "truncated gzip body")
+        elif encoding:
+            raise RequestError(415, "only gzip content encoding is supported")
+        return data
+
+    def int_arg(self, name, default, maximum):
+        value = self.query.get(name, [""])[0]
+        if not value:
+            return default
+        if not value.isdigit() or not 1 <= int(value) <= maximum:
+            raise RequestError(400, "%s must be an integer in 1..%d" % (name, maximum))
+        return int(value)
 
     def ttl(self):
-        v = self.query.get("ttl", [""])[0]
-        return int(v) if v else None
+        return self.int_arg("ttl", None, MAX_TTL)
 
     def handle_request(self, fn):
         url = urlsplit(self.path)
@@ -263,7 +293,11 @@ class Handler(BaseHTTPRequestHandler):
         try:
             fn(parts, parts[0] if parts else "", "/".join(parts[1:]))
         except BadKey:
+            self.close_connection = True
             self.reply(400, "bad path\n")
+        except RequestError as e:
+            self.close_connection = True
+            self.reply(e.status, str(e) + "\n")
         except LengthRequired:
             self.close_connection = True
             self.reply(411, "Content-Length required\n")
@@ -301,7 +335,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.text(b.list_get(rest), "")
         if head == "runs" and rest:
             # A section may itself contain '/'; a run id is always a decimal timestamp.
-            if len(parts) >= 3 and parts[-1].isdigit():
+            if len(parts) >= 3 and RUN_ID.fullmatch(parts[-1]):
                 data = b.run_get("/".join(parts[1:-1]), parts[-1])
                 return self.reply(200, data, "application/json") if data else self.reply(404, "{}", "application/json")
             return self.reply(200, json.dumps(b.runs_list(rest)), "application/json")
@@ -345,18 +379,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def put(self, parts, head, rest):
         b = self.server.backend
+        if head in ("logs", "kv") and rest.startswith(RESERVED):
+            raise BadKey(rest)
         if head == "logs" and rest:
             b.log_put(rest, self.body_bytes(), self.ttl(), self.query.get("final", ["0"])[0] == "1")
             return self.reply(204)
         if head == "kv" and rest:
             b.kv_put(rest, self.body_bytes(), self.ttl())
             return self.reply(204)
-        if head == "runs" and len(parts) >= 3:
-            body = self.body_bytes()
-            json.loads(body)
-            b.run_put("/".join(parts[1:-1]), parts[-1], body, self.ttl())
+        if head == "runs" and len(parts) >= 3 and RUN_ID.fullmatch(parts[-1]):
+            try:
+                record = json.loads(self.body_bytes())
+            except ValueError:
+                raise RequestError(400, "runs take a JSON object")
+            if (not isinstance(record, dict) or record.get("timestamp") != int(parts[-1])
+                    or not all(isinstance(record.get(f), str) for f in ("status", "msg", "name", "author"))):
+                raise RequestError(400, "run requires timestamp == id and string status, msg, name, author")
+            b.run_put("/".join(parts[1:-1]), parts[-1], json.dumps(record, separators=(",", ":")).encode(), self.ttl())
             return self.reply(204)
         if head == "artifacts" and rest:
+            if self.headers.get("Content-Encoding"):
+                raise RequestError(415, "artifacts are uploaded as they are")
             b.artifact_put(rest, self.body(), self.ttl())
             return self.reply(201)
         return self.reply(405)
@@ -364,20 +407,24 @@ class Handler(BaseHTTPRequestHandler):
     def post(self, parts, head, rest):
         b = self.server.backend
         if head == "kv" and rest == "mget":
-            keys = self.body_bytes().decode().split("\n")
-            keys = keys[:-1] if keys and keys[-1] == "" else keys
-            values = []
-            for k in keys:
-                try:
-                    values.append(b.kv_get(k) or b"")
-                except BadKey:
-                    values.append(b"")
-            return self.reply(200, "".join(v.decode(errors="replace").rstrip("\n") + "\n" for v in values))
+            keys = [k for k in self.body_bytes().decode(errors="replace").split("\n") if k]
+            if len(keys) > MAX_MGET:
+                raise RequestError(413, "at most %d keys" % MAX_MGET)
+            for key in keys:
+                check_key(key)
+            values = [b.kv_get(k) or b"" for k in keys]
+            return self.reply(200, "".join(v.decode(errors="replace").replace("\n", " ") + "\n" for v in values))
         if head == "lists" and rest:
-            line = self.body_bytes().decode(errors="replace").rstrip("\n")
-            b.list_push(rest, line, int(self.query.get("max", [LIST_DEFAULT_MAX])[0]), self.ttl())
+            line = self.body_bytes().decode(errors="replace").rstrip("\n").replace("\n", " ")
+            b.list_push(rest, line, self.int_arg("max", LIST_DEFAULT_MAX, MAX_LIST), self.ttl())
             return self.reply(204)
         return self.reply(405)
+
+
+class RequestError(Exception):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
 
 
 class LengthRequired(Exception):
@@ -398,7 +445,7 @@ class Server(ThreadingHTTPServer):
 
 def identity_of(args):
     """What two starters must agree on to share a server."""
-    identity = "dir=%s;public_cache_url=%s" % (os.path.abspath(args.dir), args.public_cache_url.rstrip("/"))
+    identity = "format=2;dir=%s;public_cache_url=%s" % (os.path.abspath(args.dir), args.public_cache_url.rstrip("/"))
     return identity + (";cache_public=1" if args.cache_public else "")
 
 

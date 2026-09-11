@@ -258,12 +258,11 @@ ensure_chonk_flow_folder "$flow_folder_arg"
 chonk_flow "$runtime_arg" "$resolved_chonk_flow_folder"
 
 # Upload benchmark breakdown (op counts and timings) to disk if running in CI
-# Now uploads all flows via disk transfer only (no git uploads)
 runtime="$runtime_arg"
 flow_name="$(basename "$resolved_chonk_flow_folder")"
 
 # Breakdown and memory profile only exist for native runs (BB_BENCH is compiled out of wasm builds).
-if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
+if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ -n "${CI3_SERVER:-}" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   current_sha=$(git rev-parse HEAD)
@@ -282,11 +281,11 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     # Key format: <runtime>-<flow_name>-<sha>
     disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | ci3_client log_put "bench/bb-breakdown/$disk_key"
+      if ci3_client log_put "bench/bb-breakdown/$disk_key" < "$tmp_breakdown_file"; then
+        echo "Stored benchmark breakdown: bench/bb-breakdown/$disk_key"
+      fi
       rm -rf "$upload_state_dir"
     } &
-
-    echo "Stored benchmark breakdown: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
@@ -299,9 +298,10 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     cp "$memory_profile_file" "$tmp_memory_file"
     memory_disk_key="memory-${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_memory_file" | ci3_client log_put "bench/bb-breakdown/$memory_disk_key"
+      if ci3_client log_put "bench/bb-breakdown/$memory_disk_key" < "$tmp_memory_file"; then
+        echo "Stored memory profile: bench/bb-breakdown/$memory_disk_key"
+      fi
       rm -rf "$upload_state_dir"
     } &
-    echo "Stored memory profile: bench/bb-breakdown/$memory_disk_key"
   fi
 fi

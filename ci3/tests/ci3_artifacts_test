@@ -3,6 +3,7 @@
 import functools
 import http.client
 import io
+import json
 import os
 from pathlib import Path
 import runpy
@@ -108,7 +109,7 @@ class ArtifactTest(unittest.TestCase):
         result = self.command("ci3_client", "artifact_get", self.name, CI3_PASSWORD="server-only")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, self.archive)
-        stored = self.directory / "store/artifacts" / self.name
+        stored = Path(self.backend.path("artifacts", self.name))
         self.assertTrue(stored.is_file())
         self.assertEqual(stored.read_bytes(), self.archive)
         self.assertTrue(Path(str(stored) + ".expires").is_file())
@@ -138,7 +139,7 @@ class ArtifactTest(unittest.TestCase):
         status, _, _ = self.request("GET", "/artifacts/" + self.name)
         self.assertEqual(status, 502)
         self.assertFalse(self.backend.artifact_exists(self.name))
-        self.assertEqual(list((self.directory / "store/artifacts").rglob(".tmp-*")), [])
+        self.assertEqual(list((self.directory / "store/objects/artifacts").rglob(".tmp-*")), [])
 
     def test_public_cache_accepts_an_unknown_response_length(self):
         self.server.cache_public = True
@@ -181,7 +182,7 @@ class ArtifactTest(unittest.TestCase):
                     self.assertFalse(self.backend.artifact_exists("missing.tar.gz"))
 
     def test_invalid_names_are_not_redirected(self):
-        for name in ("%2e%2e/secret", "foo.expires", "foo%0d%0aLocation:evil"):
+        for name in ("%2e%2e/secret", "foo%0d%0aLocation:evil"):
             for method in ("GET", "HEAD"):
                 with self.subTest(name=name, method=method):
                     status, location, _ = self.request(method, "/artifacts/" + name)
@@ -197,7 +198,7 @@ class ArtifactTest(unittest.TestCase):
     def test_upload_stays_on_the_local_server(self):
         result = self.command("ci3_client", "artifact_put", self.name, self.directory / "file.txt")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.directory / "store/artifacts" / self.name).read_bytes(), b"public artifact\n")
+        self.assertEqual((Path(self.backend.path("artifacts", self.name))).read_bytes(), b"public artifact\n")
         self.assertEqual((self.public / self.name).read_bytes(), self.archive)
 
     def test_large_upload_follows_an_early_redirect(self):
@@ -213,12 +214,12 @@ class ArtifactTest(unittest.TestCase):
                 name = "redirect-%s.tar.gz" % status
                 result = self.command("ci3_client", "artifact_put", name, blob,
                                       CI3_SERVER="http://127.0.0.1:%d" % redirect.server_port)
-                stored = self.directory / "store/artifacts" / name
+                stored = Path(self.backend.path("artifacts", name))
                 if status in (307, 308):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(stored.read_bytes(), data)
                 else:
-                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertEqual(result.returncode, 2, result.stderr)
                     self.assertFalse(stored.exists())
 
     def test_cache_helpers_use_the_artifact_api(self):
@@ -263,6 +264,41 @@ class ArtifactTest(unittest.TestCase):
                 result = self.command("cache_upload", name, "nonexistent-file", **env)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertFalse(self.backend.artifact_exists(name))
+
+    def test_cache_upload_reports_transfer_failure(self):
+        result = self.command("cache_upload", "failure.tar.gz", "file.txt", CI3_SERVER="http://127.0.0.1:1")
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertIn(b"Cache upload of failure.tar.gz failed", result.stderr)
+
+    def test_cache_filter_runs_tests_when_the_server_is_unreachable(self):
+        commands = b"hash-one echo first\nhash-two echo second\n"
+        env = dict(self.env, USE_TEST_CACHE="1", CI3_SERVER="http://127.0.0.1:1")
+        result = subprocess.run([str(CI3 / "filter_cached_test_cmd")], input=commands, env=env,
+                                capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, commands)
+
+    def test_benchmark_comparison_reads_the_selected_server(self):
+        repository = self.directory / "repository"
+        repository.mkdir()
+        subprocess.run(["git", "init", "-q", str(repository)], check=True)
+        subprocess.run(["git", "-C", str(repository), "-c", "user.name=Test", "-c", "user.email=test@example.com",
+                        "commit", "--allow-empty", "-qm", "test"], check=True)
+        tree = subprocess.check_output(["git", "-C", str(repository), "rev-parse", "HEAD^{tree}"]).decode().strip()
+        (repository / "ci3").symlink_to(CI3)
+        data = b'[{"name":"local benchmark","unit":"ms","value":12}]'
+        with io.BytesIO() as archive:
+            with tarfile.open(fileobj=archive, mode="w:gz") as tar:
+                info = tarfile.TarInfo("bench-out/bench.json")
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            self.backend.artifact_put("bench-" + tree + ".tar.gz", archive.getvalue(), None)
+        result = subprocess.run([str(CI3 / "bench_compare"), "HEAD", "--baseline", "HEAD"], cwd=repository,
+                                env=self.env, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        comparison = json.loads(result.stdout)
+        self.assertEqual(comparison["benches"][0]["name"], "local benchmark")
+        self.assertEqual(comparison["benches"][0]["pct"], 0)
 
 
 if __name__ == "__main__":

@@ -40,7 +40,6 @@ export CI=0
 server_args=(--port "$port" --dir "$work/store" --public-cache-url http://127.0.0.1:1)
 url=$("$ci3/ci3_server" start "${server_args[@]}")
 export CI3_SERVER=$url
-source "$ci3/source_ci3_client"
 check "configured server exported" "$url" "$CI3_SERVER"
 check "url points at the server" "$url/abc" "$(ci3_client url abc)"
 check "CI3_PUBLIC_URL is the link base" "https://me.example/abc" "$(CI3_PUBLIC_URL=https://me.example ci3_client url abc)"
@@ -98,12 +97,12 @@ if ci3_client list_get nolist 2>/dev/null; then fail "missing list exits 1" "exi
 
 # --- runs ---
 echo "--- runs ---"
-echo '{"status":"RUNNING","name":"x"}' | ci3_client run_put prs 1700000000000123
-echo '{"status":"RUNNING","name":"y"}' | ci3_client run_put prs 1700000000000456
-check "run get" '{"status":"RUNNING","name":"x"}' "$(ci3_client run_get prs 1700000000000123)"
+echo '{"status":"RUNNING","name":"x","msg":"test","author":"test","timestamp":1700000000000123}' | ci3_client run_put prs 1700000000000123
+echo '{"status":"RUNNING","name":"y","msg":"test","author":"test","timestamp":1700000000000456}' | ci3_client run_put prs 1700000000000456
+check "run get" x "$(ci3_client run_get prs 1700000000000123 | jq -r .name)"
 check "runs listed newest first" "y,x" "$(curl -s "$url/runs/prs" | jq -r 'map(.name) | join(",")')"
-echo '{"status":"RUNNING"}' | ci3_client run_put merge-train/avm 1700000000000789
-check "run section may contain a slash" '{"status":"RUNNING"}' "$(ci3_client run_get merge-train/avm 1700000000000789)"
+echo '{"status":"RUNNING","name":"x","msg":"test","author":"test","timestamp":1700000000000789}' | ci3_client run_put merge-train/avm 1700000000000789
+check "run section may contain a slash" RUNNING "$(ci3_client run_get merge-train/avm 1700000000000789 | jq -r .status)"
 check "runs list for a slashed section" 1 "$(curl -s "$url/runs/merge-train/avm" | jq length)"
 if ci3_client run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
 check "unknown section lists empty" "[]" "$(curl -s "$url/runs/nothing")"
@@ -121,15 +120,15 @@ port_only=${url##*:}
 { printf 'PUT /artifacts/truncated.tar.gz HTTP/1.1\r\nHost: x\r\nContent-Length: 100000\r\n\r\n'; head -c 1000 /dev/urandom; } | timeout 5 bash -c "cat >/dev/tcp/127.0.0.1/$port_only" 2>/dev/null || true
 sleep 0.5
 if ci3_client artifact_exists truncated.tar.gz; then fail "truncated upload is not published" "artifact exists"; else pass "truncated upload is not published"; fi
-check "artifact ttl recorded" 1 "$( [ -f "$work/store/artifacts/foo-abc.tar.gz.expires" ] && echo 1 || echo 0)"
+check "artifact ttl recorded" 1 "$( [ -f "$work/store/objects/artifacts/_foo-abc.tar.gz/data.expires" ] && echo 1 || echo 0)"
 # Bodies must announce their length: a chunked upload (curl -T -) is refused outright.
 check "chunked upload is refused" 411 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -H 'Transfer-Encoding: chunked' -T - "$url/logs/chunked")"
 
 # --- auth ---
 echo "--- bad paths and reuse ---"
 check "bad path rejected" 400 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$url/logs/%2E%2E/etc")"
-check "server sidecars are not addressable" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/log1.expires")"
-check "run files are not addressable as logs" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/x.json")"
+check "server sidecars are not addressable" 404 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/log1.expires")"
+check "run files are not addressable as logs" 404 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/x.json")"
 if "$ci3/ci3_server" start "${server_args[@]}" --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
 if "$ci3/ci3_server" start "${server_args[@]}" --public-cache-url http://127.0.0.1:2 >/dev/null 2>&1; then fail "start with a different public cache refuses to reuse the server" "reused"; else pass "start with a different public cache refuses to reuse the server"; fi
 if CI3_CACHE_PUBLIC=1 "$ci3/ci3_server" start "${server_args[@]}" >/dev/null 2>&1; then fail "start with a different cache mode refuses to reuse the server" "reused"; else pass "start with a different cache mode refuses to reuse the server"; fi
@@ -143,7 +142,6 @@ mapfile -t got < <(CI3_SERVER= ci3_client kv_get a b)
 check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[1]}"
 check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client kv_set a b; echo $?; } )"
 if CI3_SERVER= ci3_client artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
-check "disabled server disables the test cache" "server=[] cache=0" "$(CI3_SERVER= bash -c 'source $ci3/source_ci3_client; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
 if CI3_SERVER=http://127.0.0.1:1 ci3_client check >/dev/null 2>&1; then
   fail "an unreachable explicit server fails preflight" "exit 0"
 else

@@ -1,0 +1,53 @@
+# Callers may override this to add a header to each snapshot.
+function format_log_output {
+  cat "$1"
+}
+
+function stop_log_publisher {
+  if [ -n "${publish_pid:-}" ]; then
+    printf '\n' >&"$publish_fd" || true
+    wait "$publish_pid" || true
+    publish_pid=
+    exec {publish_fd}>&-
+    rm -rf "$publish_dir"
+  fi
+}
+
+function start_log_publisher {
+  [ -n "${CI3_SERVER:-}" ] || return 0
+  stop_log_publisher
+  publish_dir=$(mktemp -d)
+  mkfifo "$publish_dir/wake"
+  exec {publish_fd}<> "$publish_dir/wake"
+  (
+    # A wakeup interrupts the idle interval, never an upload that the final write must follow.
+    if [ "${3:-0}" != 0 ] && read -r -t "$3" -u "$publish_fd"; then
+      exit 0
+    fi
+    [ -z "${log_running_message:-}" ] || echo -e "$log_running_message"
+    # Background publishers must not keep the caller's output pipes open.
+    exec >/dev/null 2>/dev/null
+    previous=
+    while [ -f "$2" ]; do
+      current=$(stat -c '%Y:%s' "$2")
+      if [ "$current" != "$previous" ]; then
+        if format_log_output "$2" | ci3_client log_put_partial "$1"; then
+          previous=$current
+        fi
+      fi
+      read -r -t 5 -u "$publish_fd" && break
+    done
+  ) &
+  publish_pid=$!
+}
+
+function publish_log_final {
+  stop_log_publisher
+  [ -n "${CI3_SERVER:-}" ] || return 0
+  local id=$1 file=$2
+  shift 2
+  if ! format_log_output "$file" | ci3_client log_put "$id" "$@"; then
+    echo_stderr "Could not publish log $id."
+    return 1
+  fi
+}

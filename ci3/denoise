@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+source "$ci3/source_log"
 
 # Ensure a command is passed
 if [ "$#" != 1 ]; then
@@ -17,11 +18,7 @@ fi
 
 function cleanup {
   set +e
-  if [ -n "${publish_pid:-}" ]; then
-    kill $publish_pid &>/dev/null
-    wait $publish_pid
-    publish_pid=
-  fi
+  stop_log_publisher
   if [ -n "${job_pid:-}" ]; then
     kill $job_pid &>/dev/null
     wait $job_pid
@@ -40,7 +37,7 @@ function cleanup {
 }
 trap cleanup SIGINT SIGTERM
 # Remove file on exit, so we can publish even after SIGINT or SIGTERM.
-trap 'cleanup; rm -f $outfile $outfile.done $dots_fifo' EXIT
+trap 'cleanup; rm -f $outfile $dots_fifo' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
@@ -73,33 +70,8 @@ function format_log_output {
   cat $outfile
 }
 
-function publish_log {
-  [ -z "$CI3_SERVER" ] && return
-  format_log_output | ci3_client log_put_partial $key
-}
-
-function publish_log_final {
-  [ -z "$CI3_SERVER" ] && return
-  format_log_output | ci3_client log_put $key
-}
-
-function live_publish_log {
-  while true; do
-    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
-      publish_log
-    fi
-    if read -r -t 5 -u "$publish_fd"; then
-      break
-    fi
-  done
-}
-
-if [ -n "$CI3_SERVER" ]; then
-  # Wake an idle publisher without interrupting an in-flight upload.
-  mkfifo "$outfile.done"
-  exec {publish_fd}<> "$outfile.done"
-  live_publish_log &
-  publish_pid=$!
+if [ -n "${CI3_SERVER:-}" ]; then
+  start_log_publisher "$key" "$outfile"
   log_info="(${yellow}${url}${reset})"
 fi
 
@@ -133,13 +105,11 @@ wait $job_pid
 status=$?
 
 time="${SECONDS}s"
-# Let the live publisher finish its last write before the final one, so nothing overwrites it.
-if [ -n "${publish_pid:-}" ]; then
-  printf '\n' >&"$publish_fd"
-  wait "$publish_pid" || true
-  exec {publish_fd}>&-
+if ! publish_log_final "$key" "$outfile"; then
+  log_info=
+  echo "Log upload failed; command output follows:"
+  cat "$outfile"
 fi
-publish_log_final
 
 # Kill tail (source), EOF propagates through fifo, dots loop drains and exits.
 kill $tail_pid &>/dev/null
@@ -156,7 +126,7 @@ if [ "$status" -ne 0 ]; then
   else
     # With no log server there is no log URL to point the reader at, so the output has to go
     # inline or the failure is invisible.
-    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ -z "$CI3_SERVER" ]; then
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ -z "${CI3_SERVER:-}" ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi
@@ -168,7 +138,7 @@ if [ "$status" -ne 0 ]; then
 else
   # With no log server there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
   # driving bootstrap_ec2) would lose the output entirely, including the build's CI Log link.
-  if [ -z "$CI3_SERVER" ] && [ "${CI:-0}" == "1" ]; then
+  if [ -z "${CI3_SERVER:-}" ] && [ "${CI:-0}" == "1" ]; then
     echo -e "\nOutput (no log store available):"
     cat $outfile
   fi

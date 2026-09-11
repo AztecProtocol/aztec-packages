@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import runpy
 import shlex
+import signal
 import subprocess
 import tempfile
 import threading
@@ -17,6 +18,9 @@ SERVER = runpy.run_path(str(CI3 / "ci3_server"))
 
 class Handler(SERVER["Handler"]):
     def put(self, parts, head, rest):
+        if getattr(self.server, "reject_logs", False):
+            self.body_bytes()
+            return self.reply(503)
         if head == "logs" and self.query.get("final") == ["0"]:
             body = self.body_bytes()
             self.server.partial_started.set()
@@ -48,8 +52,7 @@ class LoggingTest(unittest.TestCase):
                         DENOISE_TMPDIR=str(self.directory), BUILD_SYSTEM_DEBUG="0", FORCE_COLOR="0")
 
     def assert_final_log(self):
-        logs = list((self.directory / "store/logs").glob("*"))
-        logs = [path for path in logs if not path.name.endswith(".expires")]
+        logs = list((self.directory / "store/objects/logs").rglob("data"))
         self.assertEqual(len(logs), 1)
         self.assertIn("Status: 0\n", logs[0].read_text())
         self.assertIn("final-output\n", logs[0].read_text())
@@ -85,6 +88,60 @@ class LoggingTest(unittest.TestCase):
             if process.poll() is None:
                 process.kill()
             process.communicate()
+
+    def test_test_runner_orders_partial_and_final_uploads(self):
+        self.server.release_partial.clear()
+        finish = self.directory / "finish-test"
+        command = ('reviewhash:CPUS=1 echo initial-output; while [ ! -f ' + shlex.quote(str(finish))
+                   + ' ]; do sleep 0.1; done; echo final-""output')
+        env = dict(self.env, LIVE_LOGGING="1", PASS_LOG="1", ALLOW_FLAKES="0", USE_TEST_CACHE="0",
+                   TRACK_TEST_HISTORY="0", TRACK_TEST_FAIL="0", SLACK_NOTIFY_FLAKE="0", GITHUB_TOKEN="")
+        process = subprocess.Popen([str(CI3 / "run_test_cmd"), command], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertTrue(self.server.partial_started.wait(38))
+            finish.touch()
+            time.sleep(0.5)
+            self.server.release_partial.set()
+            _, errors = process.communicate(timeout=8)
+            self.assertEqual(process.returncode, 0, errors)
+            logs = list((self.directory / "store/objects/logs").rglob("data"))
+            self.assertEqual(len(logs), 1)
+            self.assertIn("final-output\n", logs[0].read_text())
+        finally:
+            finish.touch()
+            self.server.release_partial.set()
+            if process.poll() is None:
+                process.kill()
+            process.communicate()
+
+    def test_background_monitor_does_not_hold_build_pipe_open(self):
+        command = ('{ { echo monitor; sleep 30; } 2>&1 | ' + shlex.quote(str(CI3 / "cache_log"))
+                   + ' monitor & echo build-finished; } | cat')
+        process = subprocess.Popen(["bash", "-c", command], env=self.env, start_new_session=True,
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            output, _ = process.communicate(timeout=5)
+            self.assertIn("build-finished", output)
+        finally:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            process.communicate()
+
+    def test_log_failure_preserves_command_failure_and_output(self):
+        self.server.reject_logs = True
+        for script, command in (("denoise", "echo retained-output; exit 42"),
+                                ("run_test_cmd", "reviewhash echo retained-output; exit 42")):
+            with self.subTest(script=script):
+                env = dict(self.env, ALLOW_FLAKES="0", LIVE_LOGGING="0", PASS_LOG="1", USE_TEST_CACHE="0",
+                           TRACK_TEST_HISTORY="0", TRACK_TEST_FAIL="0", SLACK_NOTIFY_FLAKE="0", GITHUB_TOKEN="")
+                result = subprocess.run([str(CI3 / script), command], env=env, capture_output=True,
+                                        text=True, timeout=10)
+                self.assertEqual(result.returncode, 42, result.stderr)
+                self.assertIn("retained-output", result.stdout)
+                self.assertIn("Could not publish log", result.stderr)
 
 
 if __name__ == "__main__":

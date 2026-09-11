@@ -77,7 +77,7 @@ if [ -s "$TEST_TIMING_FILE" ]; then
     echo "Warning: not storing test timings; CI_LOG_ID or LOG_ID missing (CI_LOG_ID='${CI_LOG_ID:-}' LOG_ID='${LOG_ID:-}')."
   else
     echo "Test timing file: $TEST_TIMING_FILE ($(wc -l <"$TEST_TIMING_FILE") lines, $(wc -c <"$TEST_TIMING_FILE") bytes)"
-    cat "$TEST_TIMING_FILE" | ci3_client log_put "test-timings/${CI_LOG_ID}/${LOG_ID}"
+    cat "$TEST_TIMING_FILE" | ci3_client log_put "test-timings/${CI_LOG_ID}/${LOG_ID}" || true
   fi
   rm -f "$TEST_TIMING_FILE"
 fi

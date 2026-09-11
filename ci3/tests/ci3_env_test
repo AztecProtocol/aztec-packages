@@ -4,7 +4,6 @@ import base64
 import os
 from pathlib import Path
 import subprocess
-import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -45,9 +44,6 @@ class Handler(BaseHTTPRequestHandler):
 
 class EnvironmentTest(unittest.TestCase):
     def setUp(self):
-        self.work = tempfile.TemporaryDirectory()
-        self.addCleanup(self.work.cleanup)
-        self.directory = Path(self.work.name)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.server.api_status = 200
         self.server.health_body = b"ci3-server"
@@ -58,14 +54,7 @@ class EnvironmentTest(unittest.TestCase):
         self.url = "http://127.0.0.1:%d" % self.server.server_port
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("CI3_")}
         self.env.update(CI="1", CI3_PASSWORD="correct", CI3_SERVER=self.url)
-        self.client = self.directory / "ci3_client"
-        self.client.write_text(
-            "#!/usr/bin/env python3\nimport runpy, sys\n"
-            "entry = runpy.run_path(%r)['main']\n"
-            "entry.__globals__.update(DASHBOARD_URL=%r)\n"
-            "sys.exit(entry())\n" % (str(CI3 / "ci3_client"), self.url)
-        )
-        self.client.chmod(0o755)
+        self.client = CI3 / "ci3_client"
 
     def command(self, *args, **overrides):
         env = dict(self.env, **overrides)
@@ -91,9 +80,6 @@ class EnvironmentTest(unittest.TestCase):
     def test_ci_requires_password(self):
         self.assert_failed(self.command("check", CI3_PASSWORD=""), "CI3_PASSWORD")
 
-    def test_ci_rejects_other_server(self):
-        self.assert_failed(self.command("check", CI3_SERVER="http://localhost:4275"), "production")
-
     def test_ci_cannot_disable_server(self):
         self.assert_failed(self.command("check", CI3_SERVER=""), "CI3_SERVER")
 
@@ -112,19 +98,18 @@ class EnvironmentTest(unittest.TestCase):
         self.server.health_body = b"some other service"
         self.assert_failed(self.command("check"), "does not answer")
 
-    def test_explicit_local_endpoint(self):
-        result = self.command("env", CI="0")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("export CI3_SERVER=" + self.url, result.stdout)
+    def shell(self, script, **overrides):
+        env = dict(self.env, root=str(CI3.parent), REF_NAME="ci3-env-test", **overrides)
+        env = {k: v for k, v in env.items() if v is not None}
+        return subprocess.run(["bash", "-ec", 'NO_CD=1 source "$1"; ' + script, "bash", str(CI3 / "source")],
+                              env=env, capture_output=True, text=True, timeout=10)
 
-    def test_unset_server_quietly_disables_integration(self):
-        for ci in ("0", "1"):
-            with self.subTest(ci=ci):
-                result = self.command("env", CI=ci, CI3_SERVER=None)
+    def test_source_preserves_unset_and_empty_endpoint(self):
+        for value, expected in ((None, "unset"), ("", "set")):
+            with self.subTest(value=value):
+                result = self.shell('echo "${CI3_SERVER+set}${CI3_SERVER-unset}"', CI3_SERVER=value)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stderr, "")
-                self.assertIn("export CI3_SERVER=''", result.stdout)
-                self.assertIn("export USE_TEST_CACHE=0", result.stdout)
+                self.assertEqual(result.stdout.strip(), expected)
         self.assertEqual(self.server.requests, [])
 
     def test_unconfigured_check_prints_help(self):
@@ -138,19 +123,14 @@ class EnvironmentTest(unittest.TestCase):
         self.stop_server()
         self.assert_failed(self.command("check", CI="0"), "does not answer")
 
-    def test_local_logging_can_be_disabled(self):
-        result = self.command("env", CI="0", CI3_SERVER="")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("export CI3_SERVER=''", result.stdout)
-
     def test_check_requires_an_endpoint_even_when_disabled_locally(self):
         self.assert_failed(self.command("check", CI="0", CI3_SERVER=""), "CI3_SERVER")
 
     def test_environment_does_not_contact_the_server(self):
-        result = self.command("env", CI3_PASSWORD="wrong")
+        result = self.shell('echo "$CI3_SERVER"', CI3_PASSWORD="wrong")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")
-        self.assertIn("export CI3_SERVER=" + self.url, result.stdout)
+        self.assertEqual(result.stdout.strip(), self.url)
         self.assertEqual(self.server.requests, [])
 
     def test_public_link_override(self):
@@ -217,13 +197,26 @@ class EnvironmentTest(unittest.TestCase):
 
     def test_shell_loads_settings_without_a_reachable_server(self):
         self.stop_server()
-        result = subprocess.run(["bash", "-ec", 'source "$1"; echo "$CI3_SERVER"', "bash",
-                                 str(CI3 / "source_ci3_client")],
-                                env=dict(self.env, CI3_PASSWORD="wrong", ci3=str(self.directory)),
-                                text=True, capture_output=True)
+        result = self.shell('echo "$CI3_SERVER"', CI3_PASSWORD="wrong")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), self.url)
         self.assertEqual(result.stderr, "")
+
+    def test_transport_failures_are_errors_in_ci_and_locally(self):
+        for ci in ("0", "1"):
+            for command in (("kv_set", "key", "value"), ("kv_get", "key"), ("log_get", "key")):
+                with self.subTest(ci=ci, command=command):
+                    result = self.command(*command, CI=ci, CI3_PASSWORD="wrong")
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertIn("401", result.stderr)
+                    self.assertEqual(result.stdout, "")
+
+    def test_server_failure_is_not_a_cache_miss(self):
+        self.server.api_status = 503
+        result = self.command("kv_get", "key")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("503", result.stderr)
+        self.assertEqual(result.stdout, "")
 
 
 if __name__ == "__main__":
