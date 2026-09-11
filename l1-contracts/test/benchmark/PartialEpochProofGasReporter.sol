@@ -8,6 +8,7 @@ import {GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
 import {
   IERC20,
   IFeeJuicePortal,
+  IInbox,
   IOutbox,
   RollupConfig,
   SubmitEpochRootProofArgs
@@ -19,6 +20,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 contract PartialEpochProofGasReporter is RollupWithPreheating {
   IOutbox private immutable ORIGINAL_OUTBOX;
   IFeeJuicePortal private immutable ORIGINAL_FEE_ASSET_PORTAL;
+  IInbox private immutable ORIGINAL_INBOX;
 
   constructor(
     IERC20 _feeAsset,
@@ -29,16 +31,22 @@ contract PartialEpochProofGasReporter is RollupWithPreheating {
     GenesisState memory _genesisState,
     RollupConfigInput memory _config,
     IOutbox _originalOutbox,
-    IFeeJuicePortal _originalFeeAssetPortal
+    IFeeJuicePortal _originalFeeAssetPortal,
+    IInbox _originalInbox
   ) RollupWithPreheating(_feeAsset, _stakingAsset, _gse, _epochProofVerifier, _governance, _genesisState, _config) {
     ORIGINAL_OUTBOX = _originalOutbox;
     ORIGINAL_FEE_ASSET_PORTAL = _originalFeeAssetPortal;
+    ORIGINAL_INBOX = _originalInbox;
   }
 
   function _getRollupConfig() internal view override returns (RollupConfig memory config) {
     config = super._getRollupConfig();
     config.outbox = ORIGINAL_OUTBOX;
     config.feeAssetPortal = ORIGINAL_FEE_ASSET_PORTAL;
+    // The etched runtime carries the reporter's own Inbox immutable, whose ROLLUP is the reporter's deployment
+    // address; the proven-consumption callback would be rejected by it. Point the config at the Inbox the live
+    // Rollup created, which the fixture's proposals were validated against.
+    config.inbox = ORIGINAL_INBOX;
   }
 
   /**

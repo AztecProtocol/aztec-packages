@@ -214,6 +214,9 @@ contract ProposeInboxConsumptionTest is Test {
         bytes32(uint256(0x2000 + i)),
         bytes32(uint256(0x3000 + i))
       );
+      // Evicting a ring slot requires the proven chain to have consumed it, so keep consumption trailing the sends.
+      vm.prank(address(rollup));
+      ringInbox.markProvenConsumed(uint64(i - 1));
     }
 
     // No proposal-time warp: the loop above has already moved past SLOT's proposal time, and the revert fires
