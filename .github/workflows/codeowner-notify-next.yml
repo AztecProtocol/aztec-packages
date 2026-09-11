@@ -23,7 +23,7 @@ permissions:
   pull-requests: write # gh pr comment
 
 jobs:
-  request-owners:
+  tag-owners:
     if: >-
       ${{ !github.event.pull_request.draft
           && (github.event.action != 'edited' || github.event.changes.base.ref.from) }}

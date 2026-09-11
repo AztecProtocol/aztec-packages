@@ -7,7 +7,7 @@ per owning rule so the author can see which paths brought in whom. Prints nothin
 when nobody should be told, and logs the reason to stderr.
 
 Matching follows GitHub's CODEOWNERS: for each changed path the *last* matching
-pattern wins, and the reviewers are the union of those winners. Patterns are
+pattern wins, and every rule that wins for some path gets a line. Patterns are
 gitignore-style — leading `/` anchors at the root, a trailing `/` means the whole
 directory, `*` stays within a path segment, `**` crosses segments.
 """
@@ -68,11 +68,11 @@ def load_rules(owners_file):
 
 
 def winning_rule(path, rules):
-    """The last rule whose pattern matches `path`, or None."""
+    """Index of the last rule whose pattern matches `path`, or None."""
     winner = None
-    for rule in rules:
-        if rule[0].match(path):
-            winner = rule
+    for i, (regex, _, _) in enumerate(rules):
+        if regex.match(path):
+            winner = i
     return winner
 
 
@@ -90,14 +90,11 @@ def main():
     with open(changed_file, encoding="utf-8") as handle:
         changed = [line.strip() for line in handle if line.strip()]
 
-    # One line per owning rule, in file order, so the author sees which of their
+    # One line per winning rule, in file order, so the author sees which of their
     # paths brought in which owners. A rule that names nobody owns nothing.
-    hit = []
-    for path in changed:
-        rule = winning_rule(path, rules)
-        if rule and rule[2] and rule not in hit:
-            hit.append(rule)
-    if not hit:
+    winners = {winning_rule(path, rules) for path in changed} - {None}
+    winners = [i for i in sorted(winners) if rules[i][2]]
+    if not winners:
         print("no changed path has an owner", file=sys.stderr)
         return 0
 
@@ -106,7 +103,8 @@ def main():
         "`.github/next-code-owners`. Tagging them for review:",
         "",
     ]
-    for _, pattern, owners in sorted(hit, key=rules.index):
+    for i in winners:
+        _, pattern, owners = rules[i]
         lines.append(f"- {' '.join(owners)} — `{pattern}`")
     print("\n".join(lines))
     return 0
