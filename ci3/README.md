@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set; other commands print setup instructions if the local server is absent. CI requires the production endpoint and valid credentials. Artifact reads fall back to the public HTTPS build cache.
+   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI3_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set; other commands print setup instructions if the local server is absent. CI requires the production endpoint and valid credentials. Artifact reads fall back to the public HTTPS build cache.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).

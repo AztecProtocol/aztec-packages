@@ -23,7 +23,7 @@ Configuration uses environment variables only:
 | Variable | Meaning |
 |---|---|
 | `CI3_SERVER` | Server URL. Unset outside CI: try `http://localhost:4275`. Explicitly empty outside CI: disable logs and test caching. |
-| `CI_PASSWORD` | The dashboard's basic-auth password (user `aztec`). |
+| `CI3_PASSWORD` | The dashboard's basic-auth password (user `aztec`). |
 | `CI3_PUBLIC_URL` | Link base, if different from `CI3_SERVER` (for example, a tunnel). |
 
 Local `bootstrap.sh` starts the file-backed server when `CI3_SERVER` is unset. Other commands try
@@ -36,7 +36,7 @@ export CI3_SERVER=http://localhost:4275
 
 # Or select production:
 export CI3_SERVER=http://ci.aztec-labs.com
-export CI_PASSWORD='<dashboard password>'
+export CI3_PASSWORD='<dashboard password>'
 ci3/ci3_client check
 ```
 
@@ -66,7 +66,7 @@ stdin and do nothing; reads report a miss. Retention is fixed by the client: log
   `X-CI3-Server` header naming their configuration, so a second `start` with a different one refuses
   to reuse them.
 - Authentication: the reference servers take none (a local server is not exposed). The aztec server
-  takes HTTP basic auth (`aztec:<password>`), supplied through `CI_PASSWORD`.
+  takes HTTP basic auth (`aztec:<password>`), supplied through `CI3_PASSWORD`.
 
 ## Logs
 

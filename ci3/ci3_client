@@ -38,9 +38,9 @@ What ci3 keeps on the server, in ci3 terms:
 
 Environment:
   CI3_SERVER      server URL; defaults to http://localhost:4275 outside CI
-  CI_PASSWORD    basic-auth password (user aztec)
+  CI3_PASSWORD   basic-auth password (user aztec)
   CI3_PUBLIC_URL link base, when different from the server
-CI requires CI3_SERVER=http://ci.aztec-labs.com and CI_PASSWORD. Invalid credentials and unreachable
+CI requires CI3_SERVER=http://ci.aztec-labs.com and CI3_PASSWORD. Invalid credentials and unreachable
 explicit endpoints fail. Outside CI, an unset endpoint tries the local server and prints setup
 instructions if it is absent. CI3_SERVER='' explicitly disables logging and test caching outside CI.
 """
@@ -84,11 +84,11 @@ def resolve_server(force_check=False):
     """Resolve environment settings, probing once per process tree unless they change."""
     explicit = "CI3_SERVER" in os.environ
     server = os.environ.get("CI3_SERVER", LOCAL_URL).rstrip("/")
-    password = os.environ.get("CI_PASSWORD", "")
+    password = os.environ.get("CI3_PASSWORD", "")
     if in_ci() and (not explicit or server != DASHBOARD_URL):
         raise CI3Error("CI3_SERVER must be set to the production API in CI: %s" % DASHBOARD_URL)
     if server == DASHBOARD_URL and not password:
-        raise CI3Error("CI_PASSWORD is required to authenticate to the production API.")
+        raise CI3Error("CI3_PASSWORD is required to authenticate to the production API.")
     if not server:
         return ""
     try:
@@ -97,7 +97,7 @@ def resolve_server(force_check=False):
             raise ValueError()
         parsed.port
     except ValueError:
-        raise CI3Error("CI3_SERVER must be an HTTP(S) URL; supply authentication through CI_PASSWORD.")
+        raise CI3Error("CI3_SERVER must be an HTTP(S) URL; supply authentication through CI3_PASSWORD.")
     fingerprint = hashlib.sha256((server + "\0" + password).encode()).hexdigest()
     if force_check or os.environ.get("_CI3_CHECKED") != fingerprint:
         if not answers(server):
@@ -105,7 +105,7 @@ def resolve_server(force_check=False):
                 raise CI3Error("ci3 server %s does not answer. Check CI3_SERVER or run ci3/ci3_server start." % server)
             warn("No local ci3 server is running. Logs and test cache are disabled.\n"
                  "Run ./bootstrap.sh or ci3/ci3_server start to start one.\n"
-                 "For production, export CI3_SERVER=%s and CI_PASSWORD='<dashboard password>'." % DASHBOARD_URL)
+                 "For production, export CI3_SERVER=%s and CI3_PASSWORD='<dashboard password>'." % DASHBOARD_URL)
             os.environ["CI3_SERVER"] = ""
             return ""
         check_api(server)
@@ -127,7 +127,7 @@ def check_api(server):
         resp = request("POST", server + "/kv/mget", b"ci3-preflight\n", timeout=5, redirects=0)
         resp.read()
         if resp.status != 200:
-            raise CI3Error("ci3 API authentication/readiness check failed (HTTP %d). Check CI_PASSWORD and the server." % resp.status)
+            raise CI3Error("ci3 API authentication/readiness check failed (HTTP %d). Check CI3_PASSWORD and the server." % resp.status)
     except (OSError, http.client.HTTPException) as e:
         raise CI3Error("ci3 API authentication/readiness check failed: %s" % e) from e
 
@@ -170,7 +170,7 @@ def connection(url, timeout):
 def request(method, url, body=None, headers=None, timeout=30, redirects=5):
     """One request; 3xx answers are followed, re-sending the body (a file body is rewound)."""
     headers = dict(headers or {})
-    password = os.environ.get("CI_PASSWORD")
+    password = os.environ.get("CI3_PASSWORD")
     if password:
         headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + password).encode()).decode()
     for _ in range(redirects + 1):

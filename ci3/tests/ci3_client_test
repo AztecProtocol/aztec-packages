@@ -35,7 +35,7 @@ cleanup() {
 trap cleanup EXIT
 
 # The test's environment must not inherit the build's production endpoint or credentials.
-unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI_PASSWORD _CI3_CHECKED
+unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI3_PASSWORD _CI3_CHECKED
 export CI=0
 url=$("$ci3/ci3_server" start --port $port --dir "$work/store")
 export CI3_SERVER=$url

@@ -135,7 +135,7 @@ jobs:
           # The CI log dashboard's basic-auth password: ci3 writes logs, the test cache and the build
           # cache through the dashboard's ci3 server API (ci3/CI3_SERVER_API.md).
           CI3_SERVER: http://ci.aztec-labs.com
-          CI_PASSWORD: ${{ secrets.CI_PASSWORD }}
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 
@@ -148,7 +148,7 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CI3_SERVER: http://ci.aztec-labs.com
-          CI_PASSWORD: ${{ secrets.CI_PASSWORD }}
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         run: ./.github/ci3_success.sh
 
       - name: Notify Slack on backport CI failure
@@ -211,7 +211,7 @@ jobs:
       - name: Download the packed release
         env:
           CI3_SERVER: http://ci.aztec-labs.com
-          CI_PASSWORD: ${{ secrets.CI_PASSWORD }}
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         run: |
           ./ci3/ci3_client check
           source ./ci3/source_ci3_client

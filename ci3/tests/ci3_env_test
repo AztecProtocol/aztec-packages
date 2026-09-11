@@ -44,7 +44,7 @@ class EnvironmentTest(unittest.TestCase):
         self.addCleanup(self.server.shutdown)
         self.url = "http://127.0.0.1:%d" % self.server.server_port
         self.env = {k: v for k, v in os.environ.items() if not k.startswith(("CI3_", "_CI3_"))}
-        self.env.update(CI="1", CI_PASSWORD="correct", CI3_SERVER=self.url)
+        self.env.update(CI="1", CI3_PASSWORD="correct", CI3_SERVER=self.url)
         self.client = self.directory / "ci3_client"
         self.client.write_text(
             "#!/usr/bin/env python3\nimport runpy, sys\n"
@@ -76,7 +76,7 @@ class EnvironmentTest(unittest.TestCase):
         self.assert_failed(self.command("env", CI3_SERVER=None), "CI3_SERVER")
 
     def test_ci_requires_password(self):
-        self.assert_failed(self.command("env", CI_PASSWORD=""), "CI_PASSWORD")
+        self.assert_failed(self.command("env", CI3_PASSWORD=""), "CI3_PASSWORD")
 
     def test_ci_rejects_other_server(self):
         self.assert_failed(self.command("env", CI3_SERVER="http://localhost:4275"), "production")
@@ -85,7 +85,7 @@ class EnvironmentTest(unittest.TestCase):
         self.assert_failed(self.command("env", CI3_SERVER=""), "CI3_SERVER")
 
     def test_rejected_password(self):
-        self.assert_failed(self.command("env", CI_PASSWORD="wrong"), "401")
+        self.assert_failed(self.command("env", CI3_PASSWORD="wrong"), "401")
 
     def test_backend_failure(self):
         self.server.api_status = 503
@@ -111,7 +111,7 @@ class EnvironmentTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("ci3/ci3_server start", result.stderr)
         self.assertIn("CI3_SERVER=", result.stderr)
-        self.assertIn("CI_PASSWORD", result.stderr)
+        self.assertIn("CI3_PASSWORD", result.stderr)
         self.assertIn("export CI3_SERVER=''", result.stdout)
 
     def test_explicit_unreachable_endpoint_does_not_fall_back(self):
@@ -129,14 +129,14 @@ class EnvironmentTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "https://logs.example/abc")
 
     def test_changed_password_is_rechecked(self):
-        result = subprocess.run(["bash", "-ec", 'eval "$("$1" env)"; CI_PASSWORD=wrong "$1" env',
+        result = subprocess.run(["bash", "-ec", 'eval "$("$1" env)"; CI3_PASSWORD=wrong "$1" env',
                                  "bash", str(self.client)], env=self.env, text=True, capture_output=True)
         self.assert_failed(result, "401")
 
     def test_shell_propagates_initialization_failure(self):
         result = subprocess.run(["bash", "-ec", 'source "$1"; echo continued', "bash",
                                  str(CI3 / "source_ci3_client")],
-                                env=dict(self.env, CI_PASSWORD="wrong", ci3=str(self.directory)),
+                                env=dict(self.env, CI3_PASSWORD="wrong", ci3=str(self.directory)),
                                 text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("continued", result.stdout)
