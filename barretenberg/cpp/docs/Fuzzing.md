@@ -44,6 +44,7 @@ Barretenberg includes fuzzing targets for a wide range of components:
 - AVM fuzzers
    - ALU harness
 - ECCVM fuzzer
+- bbapi fuzzer (`bbapi_bbapi_fuzzer`)
 
 To build all fuzzers:
 
