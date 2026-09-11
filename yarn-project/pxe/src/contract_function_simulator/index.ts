@@ -72,6 +72,7 @@ export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } fr
 export type { FactCollection } from './noir-structs/fact_collection.js';
 export type { NoteData } from './noir-structs/note_data.js';
 export type { NullifierStatus } from './noir-structs/nullifier_status.js';
+export type { NoteOrigin } from './noir-structs/note_origin.js';
 export type { ResolvedTaggingStrategy } from './noir-structs/resolved_tagging_strategy.js';
 export type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { TxResolverService } from '../messages/tx_resolver_service.js';
