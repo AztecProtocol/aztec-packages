@@ -34,8 +34,6 @@ if(NOT FUZZING)
                 --ffi
                 --cpp-namespace bb::bbapi
                 --cpp-include-dir barretenberg/bbapi/generated
-                --cpp-ffi-context bb::bbapi::BBApiRequest
-                --cpp-ffi-context-include barretenberg/bbapi/bbapi_handlers.hpp
                 --strip-method-prefix
         DEPENDS ${BB_SCHEMA} ${IPC_CODEGEN_SRC}
         COMMENT "Generating BB IPC wire types + server dispatch + FFI entry from bb_schema.json"
