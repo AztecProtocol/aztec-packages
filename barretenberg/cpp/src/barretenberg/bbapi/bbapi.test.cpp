@@ -2,13 +2,17 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_srs.hpp"
+#include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <variant>
 
 using namespace bb;
 
@@ -82,6 +86,23 @@ TEST(BBApiInputValidation, CanonicalValuesAccepted)
     std::vector<uint256_t> proof = { uint256_t(1) };
 
     EXPECT_NO_THROW(bbapi::concatenate_proof<Flavor>(public_inputs, proof));
+}
+
+// num_points is attacker-controlled and sizes a 64-byte-per-point vector. The points_buf size check has to run
+// first, so the request is rejected without that allocation being attempted: which of the two ran first is
+// visible in the message, since allocating for 0xffffffff points fails with a std::bad_alloc of its own.
+TEST(SrsInitSrs, RejectsHugeNumPointsWithoutAllocating)
+{
+    bbapi::SrsInitSrs command;
+    command.num_points = 0xffffffff;
+    command.points_buf = std::vector<uint8_t>(64, 0);
+    command.g2_point = std::vector<uint8_t>(128, 0);
+
+    bbapi::CommandResponse response = bbapi::bbapi(bbapi::Command(std::move(command)));
+
+    ASSERT_TRUE(std::holds_alternative<bbapi::ErrorResponse>(response.get()))
+        << "Expected ErrorResponse but got: " << response.get_type_name();
+    EXPECT_THAT(std::get<bbapi::ErrorResponse>(response.get()).message, testing::HasSubstr("invalid points_buf size"));
 }
 
 TEST(BBApiInputValidation, TrailingBytesInBinaryInputRejected)
