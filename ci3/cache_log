@@ -27,12 +27,12 @@ function finalize_log {
 }
 
 function publish_log {
-  cat $outfile | ci3_client log_put $key
+  cat $outfile | ci3_client log_put_partial $key
 }
 
 function publish_log_final {
   finalize_log
-  cat $outfile | ci3_client log_put $key $ci3_log_expire final
+  cat $outfile | ci3_client log_put $key
 }
 
 # Re-publishes while the log grows, until $outfile.done appears; the final publish waits for it to

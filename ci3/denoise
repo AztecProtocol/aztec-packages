@@ -75,12 +75,12 @@ function format_log_output {
 
 function publish_log {
   [ -z "$CI3_SERVER" ] && return
-  format_log_output | ci3_client log_put $key
+  format_log_output | ci3_client log_put_partial $key
 }
 
 function publish_log_final {
   [ -z "$CI3_SERVER" ] && return
-  format_log_output | ci3_client log_put $key $ci3_log_expire final
+  format_log_output | ci3_client log_put $key
 }
 
 function live_publish_log {

@@ -27,7 +27,7 @@ instance_parent_log_id=${PARENT_LOG_ID:-}
 
 # Pre-generate a log ID and print the dashboard link.
 export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
-echo "CI booting..." | ci3_client log_put "$CI_LOG_ID" 300
+echo "CI booting..." | ci3_client log_put_partial "$CI_LOG_ID" 300
 log_url=$dashboard_url/$CI_LOG_ID
 echo -e "CI Log: ${yellow}$log_url${reset}"
 if [ -n "${CI_DASHBOARD:-}" ]; then

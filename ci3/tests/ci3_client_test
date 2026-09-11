@@ -52,6 +52,10 @@ check "browse url serves the log" "$(printf 'line one\nline two')" "$(curl -s "$
 check ".txt suffix still serves the log" "line one" "$(curl -s "$url/log1.txt" | head -1)"
 printf 'replaced\n' | ci3_client log_put log1
 check "log put replaces" "replaced" "$(ci3_client log_get log1)"
+printf 'in progress\n' | ci3_client log_put_partial live1
+check "partial log is readable" "in progress" "$(ci3_client log_get live1)"
+printf 'complete\n' | ci3_client log_put live1
+check "final log replaces its partial snapshot" "complete" "$(ci3_client log_get live1)"
 printf 'nested\n' | ci3_client log_put group/123/abc
 check "log ids may be paths" "nested" "$(ci3_client log_get group/123/abc)"
 printf 'flow\n' | ci3_client log_put bench/bb-breakdown/native-ecdsar1+transfer_0_recursions+sponsored_fpc-abc
@@ -131,6 +135,7 @@ check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_
 # --- no server: every client is a harmless no-op ---
 echo "--- no server ---"
 check "log_put drains stdin and exits 0" 0 "$( { printf 'x\n' | CI3_SERVER= ci3_client log_put z; echo $?; } )"
+check "log_put_partial drains stdin and exits 0" 0 "$( { printf 'x\n' | CI3_SERVER= ci3_client log_put_partial z; echo $?; } )"
 mapfile -t got < <(CI3_SERVER= ci3_client kv_get a b)
 check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[1]}"
 check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client kv_set a b; echo $?; } )"

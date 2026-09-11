@@ -8,6 +8,7 @@ import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
 
 
 CI3 = Path(__file__).resolve().parents[1]
@@ -177,6 +178,42 @@ class EnvironmentTest(unittest.TestCase):
 
     def test_api_writes_validate_current_credentials(self):
         self.assert_failed(self.command("kv_set", "example", "value", CI3_PASSWORD="wrong"), "401")
+
+    def test_log_put_is_final_with_default_retention(self):
+        result = self.command("log_put", "bench/breakdown")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        request = urlsplit(self.server.requests[-1])
+        self.assertEqual(request.path, "/logs/bench/breakdown")
+        self.assertEqual(parse_qs(request.query), {"ttl": ["1209600"], "final": ["1"]})
+
+    def test_log_put_partial_uses_default_retention(self):
+        result = self.command("log_put_partial", "live")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        request = urlsplit(self.server.requests[-1])
+        self.assertEqual(request.path, "/logs/live")
+        self.assertEqual(parse_qs(request.query), {"ttl": ["1209600"], "final": ["0"]})
+
+    def test_log_writes_use_local_retention_outside_ci(self):
+        for command in ("log_put", "log_put_partial"):
+            with self.subTest(command=command):
+                result = self.command(command, "local", CI="0")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(parse_qs(urlsplit(self.server.requests[-1]).query)["ttl"], ["172800"])
+
+    def test_log_writes_allow_custom_retention(self):
+        for command, final, ttl in (("log_put_partial", "0", "300"), ("log_put", "1", "7257600")):
+            with self.subTest(command=command):
+                result = self.command(command, "custom", ttl)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(parse_qs(urlsplit(self.server.requests[-1]).query), {"ttl": [ttl], "final": [final]})
+
+    def test_log_writes_reject_extra_arguments(self):
+        for command in ("log_put", "log_put_partial"):
+            with self.subTest(command=command):
+                result = self.command(command, "log", "300", "final")
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("usage: ci3_client " + command + " <id> [ttl]", result.stderr)
+        self.assertEqual(self.server.requests, [])
 
     def test_shell_loads_settings_without_a_reachable_server(self):
         self.stop_server()

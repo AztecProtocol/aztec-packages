@@ -250,7 +250,7 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     # Stored on the ci3 server under bench/ultrahonk-breakdown (the dashboard reads it there).
     disk_key="ultrahonk-${circuit_name}-cpus${cpus}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | ci3_client log_put "bench/ultrahonk-breakdown/$disk_key" "" final
+      cat "$tmp_breakdown_file" | ci3_client log_put "bench/ultrahonk-breakdown/$disk_key"
       rm -f "$tmp_breakdown_file"
     } &
 

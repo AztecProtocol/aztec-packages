@@ -6,7 +6,8 @@ Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Py
   env                              shell exports from the environment; no network requests
   check                            verify the endpoint and authentication; fail if unavailable
   url [path]                       the browse URL of a log id / server path, as printed in links
-  log_put <id> [ttl] [final]       stdin -> the log <id> (replaces); "final" marks a log's last write
+  log_put <id> [ttl]               stdin -> the completed log <id> (replaces)
+  log_put_partial <id> [ttl]       stdin -> an in-progress snapshot of log <id> (replaces)
   log_get <id>                     the log <id> -> stdout (exit 1 if absent)
   log_list <prefix>                the ids directly under <prefix>, one per line
   kv_get <key>...                  one line per key: the value, or empty
@@ -135,7 +136,6 @@ def cmd_env(args):
     if not server:
         lines.append("export USE_TEST_CACHE=0")
     lines += [
-        "ci3_log_expire=%d" % (LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL),
         "ci3_artifact_expire=%d" % ARTIFACT_EXPIRE,
         "ci3_public_cache_url=%s" % PUBLIC_CACHE_URL,
     ]
@@ -227,14 +227,15 @@ def cmd_url(args):
     return 0
 
 
-def cmd_log_put(args):
-    if not args:
-        return usage("log_put", "<id> [ttl] [final]")
+def cmd_log_put(args, partial=False):
+    """Replace a log with a completed or in-progress snapshot from stdin."""
+    if not 1 <= len(args) <= 2:
+        return usage("log_put_partial" if partial else "log_put", "<id> [ttl]")
     data = stdin_bytes()  # always drained: an undrained writer dies of SIGPIPE
     if not resolve_server():
         return 0
     ttl = args[1] if len(args) > 1 and args[1] else str(LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL)
-    final = "1" if len(args) > 2 and args[2] == "final" else "0"
+    final = "0" if partial else "1"
     # A final write may wait on the server's durable store (S3 retries): give it longer.
     return swallow(lambda: api("PUT", "/logs/" + key_path(args[0]), gzip.compress(data), {"Content-Encoding": "gzip"},
                                timeout=300 if final == "1" else 60, query={"ttl": ttl, "final": final}))
@@ -381,7 +382,8 @@ def cmd_artifact_exists(args):
 
 COMMANDS = {
     "env": cmd_env, "check": cmd_check, "url": cmd_url,
-    "log_put": cmd_log_put, "log_get": cmd_log_get, "log_list": cmd_log_list,
+    "log_put": cmd_log_put, "log_put_partial": lambda args: cmd_log_put(args, partial=True),
+    "log_get": cmd_log_get, "log_list": cmd_log_list,
     "kv_get": cmd_kv_get, "kv_set": cmd_kv_set,
     "list_push": cmd_list_push, "list_get": cmd_list_get,
     "run_put": cmd_run_put, "run_get": cmd_run_get,

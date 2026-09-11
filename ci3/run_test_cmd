@@ -105,13 +105,11 @@ function sig_handler {
 trap sig_handler SIGTERM SIGINT
 
 function publish_log {
-  local expire=${1:-$ci3_log_expire}
-  cat $tmp_file 2>/dev/null | ci3_client log_put $log_key $expire
+  cat $tmp_file 2>/dev/null | ci3_client log_put_partial $log_key "$@"
 }
 
 function publish_log_final {
-  local expire=${1:-$ci3_log_expire}
-  cat $tmp_file 2>/dev/null | ci3_client log_put $log_key $expire final
+  cat $tmp_file 2>/dev/null | ci3_client log_put $log_key "$@"
 }
 
 # Finalize the current log and start a fresh one with a new unique key.

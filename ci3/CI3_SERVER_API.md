@@ -75,6 +75,10 @@ in CI and 2 days locally, artifacts 7 days (a CI backend may ignore it).
 
 ## Logs
 
+Use `ci3_client log_put <id>` for a completed log and `ci3_client log_put_partial <id>` for live
+snapshots. Both read stdin and use the client's default retention; an optional second argument
+overrides the TTL in seconds. The client sets the HTTP `final` parameter from the command name.
+
 | | |
 |---|---|
 | `PUT /logs/<id>?ttl=&final=0\|1` | Body: the log text. Replaces any previous content. A running job re-PUTs its log every few seconds, so live logs are visible while it runs; its last write carries `final=1`, which a server may persist more durably. |
