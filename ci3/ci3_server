@@ -439,9 +439,9 @@ class Cli:
         result = answer_if_up()
         if result is not None:
             return result
-        # Concurrent root bootstraps may start the server at once; only one binds. The
-        # others see the port taken (or their own child exit) while the winner is still coming up, so
-        # keep asking for a while before calling the port foreign or the start failed.
+        # Multiple bootstrap processes can try to start the server at the same time, but only one
+        # can bind the port. The others may see an occupied port or their child process exit while
+        # the first server is still starting, so retry before reporting a conflict or startup failure.
         if port_taken(args.port):
             for _ in range(30):
                 time.sleep(0.1)
