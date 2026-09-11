@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List files inside a build-cache artifact (from the ci3 server, else the public build cache). For debugging.
+# List files inside a build-cache artifact through the ci3 API. For debugging.
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 if [ "$#" -lt 1 ]; then
@@ -9,8 +9,4 @@ fi
 
 tar_file="$1"
 
-if ci3_client artifact_exists "$tar_file"; then
-  ci3_client artifact_get "$tar_file" | tar -tzf -
-else
-  curl -s -f "$ci3_public_cache_url/$tar_file" | tar -tzf -
-fi
+ci3_client artifact_get "$tar_file" | tar -tzf -

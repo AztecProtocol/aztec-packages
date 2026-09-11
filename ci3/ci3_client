@@ -38,7 +38,7 @@ What ci3 keeps on the server, in ci3 terms:
              plus bench-<tree>.tar.gz, npm-release-<tag>.tar.gz and the ci-success-* whole-run marker.
 
 Environment:
-  CI3_SERVER     server URL; unset or empty disables logging and test caching
+  CI3_SERVER     server URL; unset or empty disables logging and remote caching
   CI3_PASSWORD   basic-auth password (user aztec)
   CI3_PUBLIC_URL link base, when different from the server
 Local bootstrap starts a server when CI3_SERVER is unset and exports its URL to child processes.

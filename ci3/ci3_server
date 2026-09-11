@@ -27,10 +27,11 @@ import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 DEFAULT_PORT = 4275
 DEFAULT_DIR = "/tmp/ci3"
+PUBLIC_CACHE_URL = "https://build-cache.aztec-labs.com"
 SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
 LIST_DEFAULT_MAX = 1000
 RUNS_MAX = 1000
@@ -297,18 +298,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, data, "application/json") if data else self.reply(404, "{}", "application/json")
             return self.reply(200, json.dumps(b.runs_list(rest)), "application/json")
         if head == "artifacts" and rest:
-            if self.command == "HEAD":
-                return self.reply(200 if b.artifact_exists(rest) else 404)
             opened = b.artifact_open(rest)
             if not opened:
-                return self.reply(404)
+                target = self.server.public_cache_url + "/" + quote(rest, safe="/:+@=,")
+                return self.reply(302, headers=[("Location", target)])
             size, f = opened
             with f:
                 self.send_response(200)
                 self.send_header("Content-Type", "application/octet-stream")
                 self.send_header("Content-Length", str(size))
                 self.end_headers()
-                shutil.copyfileobj(f, self.wfile, CHUNK)
+                if self.command != "HEAD":
+                    shutil.copyfileobj(f, self.wfile, CHUNK)
             return
         if head in STORES:
             return self.reply(404)
@@ -366,14 +367,15 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = True
     request_queue_size = 256  # hundreds of parallel test processes publish at once in CI
 
-    def __init__(self, addr, backend, identity, verbose):
+    def __init__(self, addr, backend, identity, verbose, public_cache_url=PUBLIC_CACHE_URL):
         super().__init__(addr, Handler)
         self.backend, self.identity, self.verbose = backend, identity, verbose
+        self.public_cache_url = public_cache_url.rstrip("/")
 
 
 def identity_of(args):
     """What two starters must agree on to share a server."""
-    return "dir=%s" % os.path.abspath(args.dir)
+    return "dir=%s;public_cache_url=%s" % (os.path.abspath(args.dir), args.public_cache_url.rstrip("/"))
 
 
 def health(port):
@@ -401,7 +403,7 @@ class Cli:
 
     def run(self, args):
         backend = FileBackend(args.dir)
-        server = Server((args.host, args.port), backend, identity_of(args), args.verbose)
+        server = Server((args.host, args.port), backend, identity_of(args), args.verbose, args.public_cache_url)
         # Written by the process that holds the port, so `stop` never targets a starter that lost the race.
         os.makedirs(args.dir, exist_ok=True)
         with open(os.path.join(args.dir, "server.pid"), "w") as f:
@@ -495,6 +497,7 @@ class Cli:
             p.add_argument("--host", default="127.0.0.1")
             p.add_argument("--port", type=int, default=DEFAULT_PORT)
             p.add_argument("--dir", default=DEFAULT_DIR, help="storage; also where server.pid and server.log live")
+            p.add_argument("--public-cache-url", default=PUBLIC_CACHE_URL, help="redirect artifact misses here")
             p.add_argument("--verbose", action="store_true")
             p.set_defaults(fn=fn)
         args = parser.parse_args()

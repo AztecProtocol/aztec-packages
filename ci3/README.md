@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI3_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set and exports its URL to child processes. Other commands use the exported endpoint or quietly disable logging and test caching. CI entry points require the production endpoint and valid credentials. Artifact reads fall back to the public HTTPS build cache.
+   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI3_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set and exports its URL to child processes. Other commands use the exported endpoint or disable logging and remote caching. CI entry points require the production endpoint and valid credentials. The local server redirects artifact misses to the public HTTPS build cache.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
@@ -46,7 +46,7 @@ Tools are provided for the following themes.
 
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
-   - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts on the ci3 server, falling back to the public build cache for reads. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
+   - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts through the ci3 API; the server handles storage and download redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
    - **`ci3_client <command>`**: The only way ci3 talks to its server: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `artifact_put/artifact_get/artifact_exists`, and `env` (shell exports without network requests).
    - **`ci3_client check`**: Explicitly verifies the selected endpoint and authentication, and prints setup instructions when no URL is set. Bootstrap and CI entry points run it before proceeding.
    - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. In CI the server is the labs dashboard (`ci.aztec-labs.com`), which serves the same API.

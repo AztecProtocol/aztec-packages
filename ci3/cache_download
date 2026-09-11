@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Downloads and extracts a build-cache artifact: from CACHE_LOCAL_DIR if set and present, else from
-# the ci3 server, else from the public read-only build cache (see CI3_SERVER_API.md).
+# Downloads and extracts a build-cache artifact from CACHE_LOCAL_DIR if present, else the ci3 API.
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
@@ -32,21 +31,6 @@ function extract_tar {
 
 mkdir -p "$out_dir"
 
-# Streams the artifact to stdout: the ci3 server if it has it, else the public build cache.
-# Decided up front (not inside the pipeline subshell) so the completion message can name the source.
-if ci3_client artifact_exists "$tar_file"; then
-  source="ci3 server"
-else
-  source="public build cache"
-fi
-function download_from_remote {
-  if [ "$source" == "ci3 server" ]; then
-    ci3_client artifact_get "$tar_file"
-  else
-    curl -s -f "$ci3_public_cache_url/$tar_file"
-  fi
-}
-
 # Local cache: if CACHE_LOCAL_DIR is set, check local cache first,
 # and on miss, download from remote into local cache before extracting.
 # If the cache directory cannot be created, skip local caching and fall through.
@@ -66,20 +50,20 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   fi
 
   echo_stderr "Local cache miss for $tar_file, downloading from remote."
-  if ! download_from_remote > "$local_cache_file"; then
+  if ! ci3_client artifact_get "$tar_file" > "$local_cache_file"; then
     rm -f "$local_cache_file"
     echo_stderr "Cache download of $tar_file failed."
     exit 1
   fi
 
   extract_tar < "$local_cache_file"
-  echo_stderr "Cache download and extraction of $tar_file ($source) complete in ${SECONDS}s."
+  echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
   exit 0
 fi
 
-if ! download_from_remote | extract_tar; then
+if ! ci3_client artifact_get "$tar_file" | extract_tar; then
   echo_stderr "Cache download of $tar_file failed."
   exit 1
 fi
 
-echo_stderr "Cache download and extraction of $tar_file ($source) complete in ${SECONDS}s."
+echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."

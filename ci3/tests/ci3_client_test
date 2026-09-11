@@ -37,7 +37,8 @@ trap cleanup EXIT
 # The test's environment must not inherit the build's production endpoint or credentials.
 unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI3_PASSWORD
 export CI=0
-url=$("$ci3/ci3_server" start --port $port --dir "$work/store")
+server_args=(--port "$port" --dir "$work/store" --public-cache-url http://127.0.0.1:1)
+url=$("$ci3/ci3_server" start "${server_args[@]}")
 export CI3_SERVER=$url
 source "$ci3/source_ci3_client"
 check "configured server exported" "$url" "$CI3_SERVER"
@@ -129,8 +130,9 @@ echo "--- bad paths and reuse ---"
 check "bad path rejected" 400 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$url/logs/%2E%2E/etc")"
 check "server sidecars are not addressable" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/log1.expires")"
 check "run files are not addressable as logs" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/x.json")"
-if "$ci3/ci3_server" start --port $port --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
-check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start --port $port --dir "$work/store" 2>/dev/null)"
+if "$ci3/ci3_server" start "${server_args[@]}" --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
+if "$ci3/ci3_server" start "${server_args[@]}" --public-cache-url http://127.0.0.1:2 >/dev/null 2>&1; then fail "start with a different public cache refuses to reuse the server" "reused"; else pass "start with a different public cache refuses to reuse the server"; fi
+check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start "${server_args[@]}" 2>/dev/null)"
 
 # --- no server: every client is a harmless no-op ---
 echo "--- no server ---"
@@ -202,7 +204,7 @@ if grep -q "Cache upload of ci3-client-test-$$.tar.gz complete" "$work/upload.er
 if cache_exists "ci3-client-test-$$.tar.gz"; then pass "cache_exists finds it"; else fail "cache_exists finds it" "exit 1"; fi
 cache_download "ci3-client-test-$$.tar.gz" "$work/dst" 2>"$work/download.err"
 check "cache_download extracts it" "artifact content" "$(cat "$work/dst/src/file.txt")"
-if grep -q "(ci3 server)" "$work/download.err"; then pass "cache_download reports the server as the source"; else fail "cache_download reports the server as the source" "$(cat "$work/download.err")"; fi
+if grep -q "Cache download and extraction of ci3-client-test-$$.tar.gz complete" "$work/download.err"; then pass "cache_download reports completion"; else fail "cache_download reports completion" "$(cat "$work/download.err")"; fi
 (cd "$work" && cache_upload "ci3-client-test-$$.tar.gz" src/file.txt 2>"$work/upload2.err")
 if grep -q "already exists" "$work/upload2.err"; then pass "cache_upload skips an existing artifact"; else fail "cache_upload skips an existing artifact" "$(cat "$work/upload2.err")"; fi
 if NO_CACHE=1 cache_download "ci3-client-test-$$.tar.gz" "$work/dst" 2>/dev/null; then fail "NO_CACHE=1 skips download" "exit 0"; else pass "NO_CACHE=1 skips download"; fi

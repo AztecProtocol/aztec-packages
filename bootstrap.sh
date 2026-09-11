@@ -644,7 +644,7 @@ function release {
   # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
   # A dry run packs but does not upload.
   if [ "${DRY_RUN:-0}" != 1 ]; then
-    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+    CACHE_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
   fi
 }
 

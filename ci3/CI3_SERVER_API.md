@@ -22,7 +22,7 @@ Configuration uses environment variables only:
 
 | Variable | Meaning |
 |---|---|
-| `CI3_SERVER` | Server URL. Unset or empty: disable logs and test caching in ordinary commands. Local bootstrap starts a server when unset; CI entry points require the production URL. |
+| `CI3_SERVER` | Server URL. Unset or empty: disable logs and remote caching in ordinary commands. Local bootstrap starts a server when unset; CI entry points require the production URL. |
 | `CI3_PASSWORD` | The dashboard's basic-auth password (user `aztec`). |
 | `CI3_PUBLIC_URL` | Link base, if different from `CI3_SERVER` (for example, a tunnel). |
 
@@ -31,7 +31,7 @@ its URL to child processes. Set `CI3_SERVER=''` to opt out locally. Bootstrap ch
 selected endpoint before building; it never silently falls back to another server.
 
 Sourcing `ci3/source` only loads environment settings; it makes no network requests. Standalone
-component commands use the exported endpoint, or quietly disable logging and test caching when
+component commands use the exported endpoint, or disable logging and remote caching when
 none is set. To use a local server from those commands, export its URL in your shell:
 
 ```bash
@@ -131,9 +131,12 @@ The build cache: content-addressed tarballs.
 | `GET /artifacts/<name>` | The bytes, or a `302` to a download URL. |
 | `HEAD /artifacts/<name>` | 200 or 404 (redirects followed). |
 
-Build-cache reads fall back to the public HTTPS endpoint (`https://build-cache.aztec-labs.com`) on a
-miss, so a server only has to serve what was uploaded to it. The npm publish job reads its release
-artifact from the public HTTPS cache after verifying the production API, preserving secure downloads.
+The server owns artifact routing. The file server serves local uploads and redirects GET and HEAD
+misses to `https://build-cache.aztec-labs.com` (override with `ci3_server start --public-cache-url <url>`). Production
+stores uploads in S3 and redirects downloads to its public bucket. Cache helpers only use the API;
+`CACHE_LOCAL_DIR` hits need no server. The npm publish job reads its release artifact from the public
+HTTPS cache after verifying the production API, preserving secure downloads.
 
-A local run uploads every artifact it builds to its file server (`NO_CACHE_UPLOAD=1` skips the tar
-and upload), which is what makes switching back to a branch a cache hit.
+A local run uploads newly built artifacts to its file server, so switching back to a branch can hit
+that cache. Uploads skip existing artifacts, including public hits. `CACHE_FORCE_UPLOAD=1` overwrites
+them on the selected server; `NO_CACHE_UPLOAD=1` skips packaging and uploading.
