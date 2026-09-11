@@ -1,0 +1,59 @@
+name: Code-owner notify (next)
+
+# Comments on pull requests whose merge reaches `next` — `next` itself, and the
+# merge trains that target it — tagging the owners of the changed paths from
+# .github/next-code-owners, with the path each owner came from. This replaces a
+# native CODEOWNERS, which GitHub reads from the base branch with no way to scope
+# it, so it also fires on pull requests stacked onto feature branches and again
+# on every rebase of the stack.
+#
+# Three moments matter: a pull request is opened non-draft, a draft is marked
+# ready, or a stacked pull request is retargeted onto `next` once the one below
+# it has merged. `edited` covers the last; the job guard limits it to edits that
+# changed the base, so a title or body edit does not tag anyone again.
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, edited]
+    branches:
+      - next
+      - 'merge-train/**'
+
+permissions:
+  contents: read       # checkout
+  pull-requests: write # gh pr comment
+
+jobs:
+  tag-owners:
+    if: >-
+      ${{ !github.event.pull_request.draft
+          && (github.event.action != 'edited' || github.event.changes.base.ref.from) }}
+    runs-on: ubuntu-latest
+    steps:
+      # pull_request_target checks out the base branch, never the pull request's
+      # head, so the elevated token is not exposed to code from the pull request.
+      # Sparse: the repository is large and only two files are needed.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          sparse-checkout: |
+            .github/next-code-owners
+            .github/scripts/next_code_owners.py
+          sparse-checkout-cone-mode: false
+
+      - name: Tag the owners of the changed paths
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "/repos/$REPO/pulls/$PR_NUMBER/files" \
+            --jq '.[].filename' > changed-files.txt
+          python3 .github/scripts/next_code_owners.py \
+            .github/next-code-owners changed-files.txt "$BASE_REF" > comment.md
+          if [ ! -s comment.md ]; then
+            echo "Nobody to tag for base $BASE_REF."
+            exit 0
+          fi
+          cat comment.md
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file comment.md
