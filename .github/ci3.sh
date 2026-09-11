@@ -101,6 +101,7 @@ function main {
     handle_release_pr
     exit 0
   fi
+  "$ci3/ci3_setup" || exit 1
   check_cache
   echo_header "Run ${CI_MODE} CI"
   exec ./ci.sh "${CI_MODE}" "$@"

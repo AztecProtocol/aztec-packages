@@ -36,7 +36,7 @@ WINDOW=1
 PR_REF="HEAD"
 OUT=""
 SCAN_LIMIT=300
-# The public build cache cache_download falls back to (the in-CI S3 http endpoint, else the CDN).
+# The public build cache cache_download falls back to.
 source "$(git rev-parse --show-toplevel)/ci3/source_ci3_client"
 CACHE_ENDPOINT="$ci3_public_cache_url"
 

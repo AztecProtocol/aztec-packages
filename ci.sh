@@ -32,7 +32,6 @@ function print_usage {
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
   echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
-  echo_cmd "dash"                  "Display a dashboard showing CI runs for the current user."
   echo_cmd "log"                   "Display the log of the given log ID."
   echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
@@ -158,9 +157,6 @@ function multi_job_run {
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
 case "$cmd" in
-  dash)
-    watch_ci -s next,prs --user --watch
-    ;;
   fast|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side

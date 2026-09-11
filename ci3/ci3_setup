@@ -6,7 +6,7 @@ names is running. Run by the entry points (bootstrap.sh, ci.sh, the CI launcher)
   ci3_setup --show   print the config
 
 Which server, decided once and then honoured from the config:
-  aztec   when CI3_PASSWORD is in the environment, or in CI (CI=1): the labs CI dashboard, where CI
+  aztec   when CI_PASSWORD is in the environment, or in CI (CI=1): the labs CI dashboard, where CI
           logs live, with the password (its basic auth) stored in the config.
   local   otherwise: ci3_server, the file-backed server, on this machine.
 
@@ -71,7 +71,7 @@ def main():
     if "--show" in sys.argv[1:]:
         print(json.dumps(load(), indent=2))
         return 0
-    password = os.environ.get("CI3_PASSWORD", "")
+    password = os.environ.get("CI_PASSWORD", "")
     config = wanted(password)
     existing = load()
     if existing and (config["mode"] == "local" or matches(existing, config, password)):
@@ -79,7 +79,7 @@ def main():
     elif existing:
         if not confirm("%s is set up for the %s server; switch it to the aztec server?" % (CONFIG, existing.get("mode"))):
             sys.stderr.write("%s is set up for the %s server but the environment asks for the aztec one "
-                             "(CI3_PASSWORD or CI=1). Remove the file or run this in a terminal to switch.\n"
+                             "(CI_PASSWORD or CI=1). Remove the file or run this in a terminal to switch.\n"
                              % (CONFIG, existing.get("mode")))
             return 1
         save(config)

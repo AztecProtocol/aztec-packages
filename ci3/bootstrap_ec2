@@ -363,7 +363,7 @@ start_build() {
     -e CI=1 \
     -e CI_SSM_MODE=$ci_ssm_mode \
     -e CI_LOG_ID=${CI_LOG_ID:-} \
-    -e CI3_PASSWORD=$(printf %q "${CI3_PASSWORD:-}") \
+    -e CI_PASSWORD=$(printf %q "${CI_PASSWORD:-}") \
     -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e RUN_ID=${RUN_ID:-} \
     -e JOB_ID=${JOB_ID:-} \

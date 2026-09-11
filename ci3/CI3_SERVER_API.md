@@ -5,12 +5,16 @@ nothing about what sits behind it. Two implementations exist:
 
 - `ci3/ci3_server`: the file-backed reference implementation, what a local run uses
   (`http://localhost:4275`, files under `/tmp/ci3`).
-- The labs CI dashboard (`http://ci.aztec-labs.com`; rkapp in the aztec-node repository, made to
-  serve this API by `labs-patches/0014`, aztec-node#140): the production implementation, on its
-  redis and S3, behind its basic auth (user `aztec`).
+- The deployed CI dashboard (`http://ci.aztec-labs.com`): the production implementation,
+  behind its basic auth (user `aztec`). Its implementation belongs to the aztec-node repository.
 
 Every ci3 script reaches the server only through `ci3/ci3_client <command>` (python, stdlib only),
 so a new backend needs to implement exactly this document.
+
+The full build (`./bootstrap.sh ci-full`, which runs `make full`) also builds and tests the
+`labs/` submodule. Its own `ci3` still uses Redis and S3 directly, so the build instance still
+passes `CI_REDIS` for labs. Migrating those scripts belongs in aztec-node; this client's tests
+use the file-backed reference server and require neither service.
 
 ## Client configuration
 
@@ -21,10 +25,10 @@ so a new backend needs to implement exactly this document.
 | `mode` | `local` or `aztec`: which server `ci3_setup` set up (and restarts). |
 | `server` | Base URL of the server every command talks to. Empty: none (logs and the test cache are off; the build cache is still read through its public URL). |
 | `public_url` | Base of the URLs printed in terminal links (default: `server`). Edit it to share a tunnelled local server. |
-| `password` | The dashboard's basic-auth password, in `aztec` mode (`CI3_PASSWORD` when `ci3_setup` ran). |
+| `password` | The dashboard's basic-auth password, in `aztec` mode (`CI_PASSWORD` when `ci3_setup` ran). |
 
 `ci3_setup`, run by the entry points (`bootstrap.sh`, `ci.sh`, the CI launcher) before ci3 loads,
-writes the file once and honours it afterwards. `CI3_PASSWORD` in the environment, or `CI=1`, selects
+writes the file once and honours it afterwards. `CI_PASSWORD` in the environment, or `CI=1`, selects
 the aztec server: the labs CI dashboard, where CI logs live. Otherwise `ci3_server`, the file-backed
 server. When the environment asks for the aztec
 server and an existing config disagrees, a terminal is asked whether to switch; a non-interactive
@@ -58,7 +62,7 @@ a CI backend may ignore it).
 
 | | |
 |---|---|
-| `PUT /logs/<id>?ttl=&final=0\|1` | Body: the log text. Replaces any previous content. A running job re-PUTs its log every few seconds, so live logs are visible while it runs; its last write carries `final=1`, which a server may persist more durably (the dashboard copies final logs to S3 and lists only those). |
+| `PUT /logs/<id>?ttl=&final=0\|1` | Body: the log text. Replaces any previous content. A running job re-PUTs its log every few seconds, so live logs are visible while it runs; its last write carries `final=1`, which a server may persist more durably. |
 | `GET /logs/<id>` | `text/plain`. |
 | `GET /logs/<prefix>/` | The ids directly under `<prefix>`, one per line (e.g. a run's `test-timings/<run id>/`). Meant for a run's own files: a server may list only persisted logs and cap the listing (the dashboard: 10000). |
 | `GET /<id>` | Browse URL: the human view of a log. This is what the terminal links point at (`<CI3_PUBLIC_URL>/<id>`). Plain text at minimum. |
@@ -104,12 +108,13 @@ The build cache: content-addressed tarballs.
 
 | | |
 |---|---|
-| `PUT /artifacts/<name>` | Body: the bytes, never content-encoded (a tarball is already compressed). A server may answer `307` with a `Location` to upload to directly (a presigned S3 URL); the client follows and re-sends the body there. |
+| `PUT /artifacts/<name>` | Body: the bytes, never content-encoded (a tarball is already compressed). A server may answer `307` with a `Location` to upload to directly; the client follows and re-sends the body there. |
 | `GET /artifacts/<name>` | The bytes, or a `302` to a download URL. |
 | `HEAD /artifacts/<name>` | 200 or 404 (redirects followed). |
 
-Artifact reads fall back to the public build cache (`build-cache.aztec-labs.com`, plain HTTP) on a
-miss, so a server only has to serve what was uploaded to it. ci3 never writes to S3 itself.
+Build-cache reads fall back to the public HTTPS endpoint (`https://build-cache.aztec-labs.com`) on a
+miss, so a server only has to serve what was uploaded to it. The npm publish job reads its release
+artifact from the public HTTPS cache, with the HTTP API disabled to preserve secure downloads.
 
 A local run uploads every artifact it builds to its file server (`NO_CACHE_UPLOAD=1` skips the tar
 and upload), which is what makes switching back to a branch a cache hit.
