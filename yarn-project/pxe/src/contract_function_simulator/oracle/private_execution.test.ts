@@ -339,10 +339,11 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
-    // Constrained-delivery tag derivation calls `doesNullifierExist` (e.g. the handshake bootstrap), which reads the
-    // node's nullifier tree. Default to "not found" so the destructured result is iterable; tests that need a specific
-    // nullifier override this.
-    aztecNode.findLeavesIndexes.mockResolvedValue([]);
+    // Constrained-delivery tag derivation calls `getNullifierStatuses` (e.g. the handshake bootstrap), which reads the
+    // node's nullifier tree. Default to "not found"; tests that need a specific nullifier override this.
+    aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+      Promise.resolve(leaves.map(() => undefined)),
+    );
 
     // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
@@ -812,9 +813,9 @@ describe('Private Execution test suite', () => {
         aztecNode.getL1ToL2MessageMembershipWitness.mockImplementation(async () => {
           return Promise.resolve([0n, await fork.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n)]);
         });
-        aztecNode.findLeavesIndexes.mockImplementation(() => {
-          return Promise.resolve([]);
-        });
+        aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+          Promise.resolve(leaves.map(() => undefined)),
+        );
       };
 
       it('Should be able to consume a dummy cross chain message', async () => {

@@ -437,11 +437,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_doesNullifierExist(...inputs: ForeignCallArgs) {
+  aztec_utl_getNullifierStatuses(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_doesNullifierExist',
+      oracle: 'aztec_utl_getNullifierStatuses',
       inputs,
-      handler: ([innerNullifier]) => this.handlerAsUtility().doesNullifierExist(innerNullifier),
+      handler: ([innerNullifiers]) => this.handlerAsUtility().getNullifierStatuses(innerNullifiers),
     });
   }
 

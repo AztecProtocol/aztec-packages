@@ -1,6 +1,7 @@
 use aztec::{
     ephemeral::EphemeralArray,
-    facts::{delete_fact_collection, Fact, FactCollection, get_fact_collection, OriginBlock, record_retractable_fact},
+    facts::{delete_fact_collection, Fact, FactCollection, get_fact_collection, record_retractable_fact},
+    oracle::block_reference::BlockReference,
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
 };
 
@@ -56,7 +57,7 @@ impl<T> RewindableRegister<T> {
     /// highest origin block, not the most recently written, so a write originating behind it would not take effect.
     /// Re-writing at the current version's origin is allowed: re-recording an identical fact is a no-op, which
     /// keeps rescans idempotent.
-    pub(crate) unconstrained fn write(self, value: T, origin_block: OriginBlock)
+    pub(crate) unconstrained fn write(self, value: T, origin_block: BlockReference)
     where
         T: Serialize,
     {
@@ -104,7 +105,7 @@ impl<T> RewindableRegister<T> {
                     if origin.block_number >= newest_finalized {
                         self.record_version(
                             version.payload,
-                            OriginBlock { block_number: origin.block_number, block_hash: origin.block_hash },
+                            BlockReference { block_number: origin.block_number, block_hash: origin.block_hash },
                         );
                     }
                 });
@@ -113,7 +114,7 @@ impl<T> RewindableRegister<T> {
     }
 
     /// Records a version fact at the given origin block.
-    unconstrained fn record_version(self, payload: EphemeralArray<Field>, origin_block: OriginBlock) {
+    unconstrained fn record_version(self, payload: EphemeralArray<Field>, origin_block: BlockReference) {
         record_retractable_fact(
             self.contract_address,
             self.scope,
@@ -162,12 +163,7 @@ pub(crate) unconstrained fn serialize_payload<T>(value: T) -> EphemeralArray<Fie
 where
     T: Serialize,
 {
-    let fields = value.serialize();
-    let payload = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
+    EphemeralArray::from_array(value.serialize())
 }
 
 /// Deserializes a fact payload into a value.
@@ -189,7 +185,8 @@ where
 
 mod test {
     use super::RewindableRegister;
-    use aztec::facts::{get_fact_collection, OriginBlock};
+    use aztec::facts::get_fact_collection;
+    use aztec::oracle::block_reference::BlockReference;
     use aztec::protocol::address::AztecAddress;
     use aztec::test::helpers::test_environment::TestEnvironment;
 
@@ -221,7 +218,7 @@ mod test {
         let block_number = env.last_block_number();
         env.private_context(|context| {
             let register = register_at(context.this_address(), scope);
-            register.write(123, OriginBlock { block_number, block_hash: 0xabc });
+            register.write(123, BlockReference { block_number, block_hash: 0xabc });
 
             assert_eq(register.read().unwrap(), 123);
         });
@@ -233,8 +230,8 @@ mod test {
         let block_number = env.last_block_number();
         env.private_context(|context| {
             let register = register_at(context.this_address(), scope);
-            register.write(1, OriginBlock { block_number, block_hash: 0xabc });
-            register.write(2, OriginBlock { block_number: block_number + 50, block_hash: 0xdef });
+            register.write(1, BlockReference { block_number, block_hash: 0xabc });
+            register.write(2, BlockReference { block_number: block_number + 50, block_hash: 0xdef });
 
             assert_eq(register.read().unwrap(), 2);
         });
@@ -246,8 +243,8 @@ mod test {
         let block_number = env.last_block_number();
         env.private_context(|context| {
             let register = register_at(context.this_address(), scope);
-            register.write(1, OriginBlock { block_number: block_number + 50, block_hash: 0xabc });
-            register.write(2, OriginBlock { block_number, block_hash: 0xdef });
+            register.write(1, BlockReference { block_number: block_number + 50, block_hash: 0xabc });
+            register.write(2, BlockReference { block_number, block_hash: 0xdef });
         });
     }
 
@@ -257,8 +254,8 @@ mod test {
         let block_number = env.last_block_number();
         env.private_context(|context| {
             let register = register_at(context.this_address(), scope);
-            register.write(1, OriginBlock { block_number, block_hash: 0xabc });
-            register.write(1, OriginBlock { block_number, block_hash: 0xabc });
+            register.write(1, BlockReference { block_number, block_hash: 0xabc });
+            register.write(1, BlockReference { block_number, block_hash: 0xabc });
 
             assert_eq(register.read().unwrap(), 1);
             let facts = get_fact_collection(context.this_address(), scope, TYPE_ID, COLLECTION_ID).unwrap().facts;
@@ -272,9 +269,9 @@ mod test {
         let block_number = env.last_block_number();
         env.private_context(|context| {
             let register = register_at(context.this_address(), scope);
-            register.write(1, OriginBlock { block_number, block_hash: 0xabc });
-            register.write(2, OriginBlock { block_number: block_number + 50, block_hash: 0xdef });
-            register.write(3, OriginBlock { block_number: block_number + 100, block_hash: 0x123 });
+            register.write(1, BlockReference { block_number, block_hash: 0xabc });
+            register.write(2, BlockReference { block_number: block_number + 50, block_hash: 0xdef });
+            register.write(3, BlockReference { block_number: block_number + 100, block_hash: 0x123 });
 
             // All origins are above the proven tip, hence pending: none is finalized dead history, so every version
             // is kept as a reorg fallback.
@@ -291,9 +288,9 @@ mod test {
         let block_number = env.last_block_number();
         env.private_context(|context| {
             let register = register_at(context.this_address(), scope);
-            register.write(1, OriginBlock { block_number: block_number - 2, block_hash: 0xabc });
-            register.write(2, OriginBlock { block_number: block_number - 1, block_hash: 0xdef });
-            register.write(3, OriginBlock { block_number, block_hash: 0x123 });
+            register.write(1, BlockReference { block_number: block_number - 2, block_hash: 0xabc });
+            register.write(2, BlockReference { block_number: block_number - 1, block_hash: 0xdef });
+            register.write(3, BlockReference { block_number, block_hash: 0x123 });
 
             // TXE finalizes every mined block, so all three origins are finalized and each write discards history
             // behind the newest finalized version, leaving the last two.

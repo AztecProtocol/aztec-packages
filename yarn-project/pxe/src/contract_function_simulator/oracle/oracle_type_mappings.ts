@@ -53,7 +53,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import {
-  type OriginBlock,
+  type BlockReference,
   type OriginBlockState,
   type RetractableFactOrigin,
   originBlockStateFromNumber,
@@ -69,6 +69,7 @@ import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '..
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import type { NullifierStatus } from '../noir-structs/nullifier_status.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
@@ -562,9 +563,14 @@ export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT([
   { name: 'context', type: RESOLVED_TX },
 ]);
 
-export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = STRUCT([
+export const BLOCK_REFERENCE: TypeMapping<BlockReference> = STRUCT([
   { name: 'blockNumber', type: U32 },
   { name: 'blockHash', type: FIELD },
+]);
+
+export const NULLIFIER_STATUS: TypeMapping<NullifierStatus> = STRUCT([
+  { name: 'exists', type: BOOL },
+  { name: 'originBlock', type: OPTION(BLOCK_REFERENCE) },
 ]);
 
 const ORIGIN_BLOCK_STATE: TypeMapping<OriginBlockState> = SCALAR({

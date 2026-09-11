@@ -4,6 +4,8 @@ import { toACVMField } from '@aztec/simulator/client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 
+import { EphemeralArrayService } from '../ephemeral_array_service.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { Option } from '../noir-structs/option.js';
 import { buildACIRCallback } from './acir_callback.js';
 import { LEGACY_ORACLE_REGISTRY, type LegacyOracleEntry } from './legacy_oracle_registry.js';
@@ -105,6 +107,30 @@ describe('legacy oracle dispatch', () => {
     expect(mappedNullifier).toEqual(
       Option.some({ contractAddress, nullifier: await computeFeeJuiceMessageNullifier(messageHash, secret) }),
     );
+  });
+
+  it('serves the retired single-nullifier existence check from the batch status oracle', async () => {
+    const service = new EphemeralArrayService();
+    const existing = Fr.random();
+    const handler = {
+      isUtility: true,
+      getNullifierStatuses: (innerNullifiers: EphemeralArray<Fr>) =>
+        Promise.resolve(
+          EphemeralArray.fromValues(
+            service,
+            innerNullifiers
+              .readAll(service)
+              .map(innerNullifier => ({ exists: innerNullifier.equals(existing), originBlock: Option.none() })),
+          ),
+        ),
+    } as unknown as Handler;
+
+    const callback = buildACIRCallback(handler);
+
+    expect(await callback['aztec_utl_doesNullifierExist']([toACVMField(existing)])).toEqual([toACVMField(new Fr(1))]);
+    expect(await callback['aztec_utl_doesNullifierExist']([toACVMField(Fr.random())])).toEqual([
+      toACVMField(new Fr(0)),
+    ]);
   });
 
   it('rejects a legacy name that collides with a live oracle', () => {

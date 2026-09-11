@@ -11,6 +11,7 @@ import {
   BLOCK_HASH,
   BLOCK_HEADER,
   BLOCK_NUMBER,
+  BLOCK_REFERENCE,
   BOOL,
   BOUNDED_VEC,
   CALL_PRIVATE_RESULT,
@@ -34,8 +35,8 @@ import {
   NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
+  NULLIFIER_STATUS,
   OPTION,
-  ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
@@ -187,9 +188,9 @@ export const ORACLE_REGISTRY = {
     returnType: OPTION(PUBLIC_KEYS_AND_PARTIAL_ADDRESS),
   }),
 
-  aztec_utl_doesNullifierExist: makeEntry({
-    params: [{ name: 'innerNullifier', type: FIELD }],
-    returnType: BOOL,
+  aztec_utl_getNullifierStatuses: makeEntry({
+    params: [{ name: 'innerNullifiers', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(NULLIFIER_STATUS),
   }),
 
   aztec_utl_getL1ToL2MembershipWitnessV2: makeEntry({
@@ -351,7 +352,7 @@ export const ORACLE_REGISTRY = {
       { name: 'factCollectionId', type: FIELD },
       { name: 'factTypeId', type: FIELD },
       { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
-      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+      { name: 'originBlock', type: OPTION(BLOCK_REFERENCE) },
     ],
   }),
 

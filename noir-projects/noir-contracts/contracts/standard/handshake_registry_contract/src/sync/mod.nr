@@ -6,7 +6,6 @@ use crate::sync::{cursor::SyncCursor, discovered_handshakes::record_discovered_h
 use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    facts::OriginBlock,
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -19,7 +18,7 @@ use aztec::{
             offchain::OffchainInboxSync,
         },
     },
-    oracle::message_processing,
+    oracle::{block_reference::BlockReference, message_processing},
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
@@ -75,7 +74,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
                     contract_address,
                     scope,
                     h,
-                    OriginBlock { block_number: log.block_number, block_hash: log.block_hash },
+                    BlockReference { block_number: log.block_number, block_hash: log.block_hash },
                 ));
         });
 

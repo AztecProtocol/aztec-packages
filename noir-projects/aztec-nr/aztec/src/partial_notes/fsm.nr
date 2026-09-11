@@ -63,7 +63,7 @@
 //! A reorg retracting either fact folds the reception back accordingly.
 use crate::ephemeral::EphemeralArray;
 use crate::facts::{
-    delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock, record_retractable_fact,
+    delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, record_retractable_fact,
     RetractableFactOrigin,
 };
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
@@ -72,6 +72,7 @@ use crate::messages::{
     logs::note::MAX_NOTE_PACKED_LEN,
     processing::{enqueue_note_for_validation, log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN}},
 };
+use crate::oracle::block_reference::BlockReference;
 use crate::protocol::{address::AztecAddress, hash::{poseidon2_hash, sha256_to_field}, traits::{Deserialize, Serialize}};
 use crate::utils::array;
 use super::DeliveredPendingPartialNote;
@@ -100,7 +101,7 @@ impl PartialNoteFsm {
         contract_address: AztecAddress,
         scope: AztecAddress,
         pending: DeliveredPendingPartialNote,
-        origin_block: OriginBlock,
+        origin_block: BlockReference,
     ) {
         record_retractable_fact(
             contract_address,
@@ -158,7 +159,7 @@ impl PartialNoteFsm {
     }
 
     /// Transition the partial note FSM as `completed`, conditional to `origin_block`.
-    unconstrained fn mark_completed(self, origin_block: OriginBlock) {
+    unconstrained fn mark_completed(self, origin_block: BlockReference) {
         let empty_payload: EphemeralArray<Field> = EphemeralArray::empty();
         record_retractable_fact(
             self.collection.contract_address,
@@ -328,28 +329,23 @@ impl PartialNoteFsm {
             });
         }
 
-        self.mark_completed(OriginBlock { block_number: log.block_number, block_hash: log.block_hash });
+        self.mark_completed(BlockReference { block_number: log.block_number, block_hash: log.block_hash });
     }
 }
 
 /// Serializes a [`DeliveredPendingPartialNote`] into a fact payload.
 unconstrained fn to_payload(pending: DeliveredPendingPartialNote) -> EphemeralArray<Field> {
-    let fields = pending.serialize();
-    let payload: EphemeralArray<Field> = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
+    EphemeralArray::from_array(pending.serialize())
 }
 
 mod test {
     use crate::ephemeral::EphemeralArray;
-    use crate::facts::OriginBlock;
     use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
     use crate::messages::logs::partial_note::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN;
     use crate::messages::processing::{
         get_enqueued_note_validation_requests, log_retrieval_response::LogRetrievalResponse,
     };
+    use crate::oracle::block_reference::BlockReference;
     use crate::partial_notes::DeliveredPendingPartialNote;
     use crate::protocol::address::AztecAddress;
     use crate::protocol::hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
@@ -374,8 +370,8 @@ mod test {
     }
 
     /// A low block, which TXE (proven == finalized == latest) reports as finalized.
-    fn finalized_block() -> OriginBlock {
-        OriginBlock { block_number: 1, block_hash: 0 }
+    fn finalized_block() -> BlockReference {
+        BlockReference { block_number: 1, block_hash: 0 }
     }
 
     #[test]
@@ -606,9 +602,10 @@ mod test {
             // A single pending partial note can resolve to more than one completion log (e.g. the same partial note
             // completed twice). Both logs here would independently discover a note, but step must complete only once
             // (enqueuing exactly one note) rather than panic, so this cannot break sync.
-            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
-            completion_logs.push(matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER));
-            completion_logs.push(matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER));
+            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::from_array([
+                matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER),
+                matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER),
+            ]);
 
             PartialNoteFsm::load_all(address, scope).get(0).step(
                 Option::some(completion_logs),
@@ -647,7 +644,7 @@ mod test {
     unconstrained fn step_keeps_a_completed_reception_while_its_block_is_unfinalized() {
         let (env, scope) = setup();
         // A future block never finalizes here, so the completed reception must survive the step.
-        let unfinalized_block = OriginBlock { block_number: env.last_block_number() + 100, block_hash: 0 };
+        let unfinalized_block = BlockReference { block_number: env.last_block_number() + 100, block_hash: 0 };
         env.private_context(|context| {
             let address = context.this_address();
             PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());

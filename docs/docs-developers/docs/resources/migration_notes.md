@@ -15,6 +15,21 @@ The first entry of `getPredictedMinFees` is now the fee the node's public simula
 
 Clients that reduce the list with `max` (the wallet SDK's `getMinFees`, the CLI) are unaffected, and now quote a fee the node's simulation accepts even mid-checkpoint. A client that reads `fees[0]` as "the current min fee" should call `getCurrentMinFees` instead.
 
+### [Aztec.nr] `OriginBlock` replaced by `BlockReference`
+
+`aztec::facts::OriginBlock` has been removed. Retractable facts now identify their origin block with `aztec::oracle::block_reference::BlockReference`, which has the same `block_number` and `block_hash` fields.
+
+**Migration:**
+
+```diff
+- use aztec::facts::{OriginBlock, record_retractable_fact};
++ use aztec::facts::record_retractable_fact;
++ use aztec::oracle::block_reference::BlockReference;
+
+- let origin_block = OriginBlock { block_number, block_hash };
++ let origin_block = BlockReference { block_number, block_hash };
+```
+
 ### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
 
 `@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).

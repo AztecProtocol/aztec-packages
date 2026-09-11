@@ -3,10 +3,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { FactCollectionKey, type OriginBlock } from './fact_store_keys.js';
+import { type BlockReference, FactCollectionKey } from './fact_store_keys.js';
 
 /** A fact as returned by the fact store. */
-export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: OriginBlock | undefined };
+export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: BlockReference | undefined };
 
 /**
  * A single immutable fact belonging to a fact collection.
@@ -16,7 +16,7 @@ export class StoredFact {
     public readonly factCollectionKey: FactCollectionKey,
     public readonly factTypeId: Fr,
     public readonly payload: Fr[],
-    public readonly originBlock: OriginBlock | undefined,
+    public readonly originBlock: BlockReference | undefined,
   ) {}
 
   /** Whether this fact is deleted on block pruning (true) or survives reorgs (false). */
