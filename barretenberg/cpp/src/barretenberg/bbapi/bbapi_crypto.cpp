@@ -10,6 +10,7 @@
  */
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
@@ -17,6 +18,7 @@
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include <tuple>
 
 namespace bb::bbapi {
 
@@ -31,6 +33,20 @@ Poseidon2Permutation::Response Poseidon2Permutation::execute(BB_UNUSED BBApiRequ
 
     // inputs is already std::array<fr, 4>, direct use
     return { Permutation::permutation(inputs) };
+}
+
+Poseidon2AbsorbChain::Response Poseidon2AbsorbChain::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    constexpr size_t FIELD_BYTES = sizeof(fr::data);
+    constexpr size_t BLOCK_BYTES = std::tuple_size_v<Sponge::Block> * FIELD_BYTES;
+    static_assert(sizeof(Sponge::Block) == BLOCK_BYTES,
+                  "Blocks must have no padding: many_from_buffer strides by sizeof(Block), while serialization writes "
+                  "every field limb");
+
+    BB_ASSERT(inputs.size() % BLOCK_BYTES == 0,
+              "Poseidon2AbsorbChain: input size must be a multiple of " << BLOCK_BYTES << " bytes");
+
+    return { Sponge::absorb_blocks(state, many_from_buffer<Sponge::Block>(inputs)) };
 }
 
 PedersenCommit::Response PedersenCommit::execute(BB_UNUSED BBApiRequest& request) &&

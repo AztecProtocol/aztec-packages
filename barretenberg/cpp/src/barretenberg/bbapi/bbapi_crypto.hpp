@@ -14,6 +14,7 @@
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/named_union.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -61,6 +62,31 @@ struct Poseidon2Permutation {
     Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(inputs);
     bool operator==(const Poseidon2Permutation&) const = default;
+};
+
+/**
+ * @struct Poseidon2AbsorbChain
+ * @brief Compute chain of Poseidon2 permutation rounds over chunks of 3-field blocks.
+ * @details Inputs are concatenated blocks of three 32-byte big-endian field elements.
+ * The caller supplies the initial state and handles padding and finalization. Empty input leaves the state unchanged.
+ */
+struct Poseidon2AbsorbChain {
+    using Sponge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::Sponge;
+
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2AbsorbChain";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2AbsorbChainResponse";
+        Sponge::State state;
+        SERIALIZATION_FIELDS(state);
+        bool operator==(const Response&) const = default;
+    };
+
+    Sponge::State state;
+    std::vector<uint8_t> inputs;
+    Response execute(BBApiRequest& request) &&;
+    SERIALIZATION_FIELDS(state, inputs);
+    bool operator==(const Poseidon2AbsorbChain&) const = default;
 };
 
 /**
