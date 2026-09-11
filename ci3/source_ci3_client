@@ -1,7 +1,6 @@
-# Connects ci3 to its log / test-cache / artifact server (see CI3_SERVER_API.md). The configuration is
-# ~/.ci3/config.json, set up by ci3_setup and read by ci3_client; this shim puts `ci3_client env` into
-# the shell: CI3_SERVER (the server every ci3_client command talks to, or empty), CI3_PUBLIC_URL (the
-# base of printed links), USE_TEST_CACHE=0 when there is no server, and the retention / public-cache
-# constants the bash callers read. Sourced by ci3/source.
+# Resolve the environment and verify the server once per process tree (see CI3_SERVER_API.md).
+# A failed check must propagate to the caller; eval alone would hide its exit status.
 export ci3=${ci3:-$(git rev-parse --show-toplevel)/ci3}
-eval "$("$ci3/ci3_client" env)"
+ci3_client_env=$("$ci3/ci3_client" env) || return 1
+eval "$ci3_client_env"
+unset ci3_client_env

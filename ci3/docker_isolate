@@ -77,7 +77,7 @@ cid=$(docker run -d \
   -e AVM \
   -e ELU_MONITOR_FILE \
   -e TEST_TIMING_FILE \
-  -e CI3_CONFIG=/dev/null \
+  -e CI3_SERVER= \
   -e RUN_ID \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \

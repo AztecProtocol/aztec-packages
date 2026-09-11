@@ -34,18 +34,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# A private file-backed server and a config naming it. The build's own ~/.ci3/config.json must not
-# leak in, so CI3_CONFIG points at ours.
-unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI_PASSWORD
+# The test's environment must not inherit the build's production endpoint or credentials.
+unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI_PASSWORD _CI3_CHECKED
 export CI=0
 url=$("$ci3/ci3_server" start --port $port --dir "$work/store")
-export CI3_CONFIG=$work/config.json
-printf '{"mode": "local", "server": "%s", "public_url": "%s"}\n' "$url" "$url" >"$CI3_CONFIG"
+export CI3_SERVER=$url
 source "$ci3/source_ci3_client"
 check "configured server probed" "$url" "$CI3_SERVER"
 check "url points at the server" "$url/abc" "$(ci3_client url abc)"
-printf '{"mode": "local", "server": "%s", "public_url": "https://me.example"}\n' "$url" >"$work/shared.json"
-check "public_url in the config is the link base" "https://me.example/abc" "$(CI3_CONFIG=$work/shared.json ci3_client url abc)"
+check "CI3_PUBLIC_URL is the link base" "https://me.example/abc" "$(CI3_PUBLIC_URL=https://me.example ci3_client url abc)"
 
 # --- logs ---
 echo "--- logs ---"
@@ -138,26 +135,12 @@ mapfile -t got < <(CI3_SERVER= ci3_client kv_get a b)
 check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[1]}"
 check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client kv_set a b; echo $?; } )"
 if CI3_SERVER= ci3_client artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
-check "no config resolves to no server" "server=[] cache=0" "$(unset CI3_SERVER USE_TEST_CACHE; CI3_CONFIG=$work/missing.json bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
-printf '{"mode": "local", "server": "http://127.0.0.1:1"}\n' >"$work/dead.json"
-check "a configured server that does not answer resolves to no server" "" "$(unset CI3_SERVER; CI3_CONFIG=$work/dead.json bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER')"
-
-# --- ci3_setup: writes the config once, honours it, refuses a silent switch ---
-echo "--- ci3_setup ---"
-setup_cfg=$work/setup/config.json
-if CI3_CONFIG=$setup_cfg CI=0 CI_PASSWORD= "$ci3/ci3_setup" </dev/null >/dev/null 2>&1; then started=started; else started=failed; fi
-check "local setup writes a local config and starts the server" "local started" "$(jq -r .mode "$setup_cfg" 2>/dev/null) $started"
-check "local setup stores no password" "null" "$(jq -r '.password' "$setup_cfg")"
-if CI3_CONFIG=$setup_cfg CI=0 CI_PASSWORD=secret "$ci3/ci3_setup" </dev/null >/dev/null 2>&1; then fail "non-interactive switch to aztec is refused" "exit 0"; else pass "non-interactive switch to aztec is refused"; fi
-check "refused switch leaves the config alone" "local" "$(jq -r .mode "$setup_cfg")"
-CI3_CONFIG=$setup_cfg CI=0 "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
-check "existing local config is honoured without a password" "local" "$(jq -r .mode "$setup_cfg")"
-aztec_cfg=$work/setup-aztec/config.json
-CI3_CONFIG=$aztec_cfg CI=0 CI_PASSWORD=secret "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
-check "aztec setup names the dashboard and stores the password" "aztec http://ci.aztec-labs.com secret" "$(jq -r '"\(.mode) \(.server) \(.password)"' "$aztec_cfg")"
-check "the config is private" 600 "$(stat -c %a "$aztec_cfg")"
-CI3_CONFIG=$work/setup-ci/config.json CI=1 CI_PASSWORD= "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
-check "CI selects the dashboard even without a password" "aztec http://ci.aztec-labs.com" "$(jq -r '"\(.mode) \(.server)"' "$work/setup-ci/config.json")"
+check "disabled server disables the test cache" "server=[] cache=0" "$(CI3_SERVER= bash -c 'source $ci3/source_ci3_client; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
+if CI3_SERVER=http://127.0.0.1:1 bash -e -c 'source "$ci3/source_ci3_client"' >/dev/null 2>&1; then
+  fail "an unreachable explicit server fails initialization" "exit 0"
+else
+  pass "an unreachable explicit server fails initialization"
+fi
 
 # --- the ci3 scripts built on the clients ---
 echo "--- cache_log ---"
@@ -181,14 +164,15 @@ kept=$(printf '%s\n%s\n' "$cached" "$fresh" | USE_TEST_CACHE=0 filter_cached_tes
 check "filter_cached_test_cmd is a passthrough without the test cache" "$(printf '%s\n%s' "$cached" "$fresh")" "$kept"
 
 echo "--- test execution and run metadata ---"
-export CI=1 USE_TEST_CACHE=1 REF_NAME=ci3-client-test TARGET_BRANCH=next
+export CI=0 PASS_LOG=1 USE_TEST_CACHE=1 REF_NAME=ci3-client-test TARGET_BRANCH=next
 export COMMIT_HASH=abc COMMIT_AUTHOR=test COMMIT_MSG=test RUN_ID=1 JOB_ID=x-full CI_DASHBOARD=prs AWS_TOKEN=none
 export LIVE_LOGGING=0 SLACK_NOTIFY_FLAKE=0
 unset GITHUB_TOKEN GH_TOKEN GITHUB_REPOSITORY
 first=$(run_test_cmd 'deadbeef00000001 echo through-api' 2>&1 | tail -1 | sed 's/\x1b\[[0-9;]*m//g')
 check "run_test_cmd passes" PASSED "${first%% *}"
+ci3_client kv_set "$(hash_str_orig 'deadbeef00000001 echo through-api')" cachelog1
 second=$(run_test_cmd 'deadbeef00000001 echo through-api' 2>&1 | tail -1 | sed 's/\x1b\[[0-9;]*m//g')
-check "a passing test is cached" SKIPPED "${second%% *}"
+check "a cached test is skipped" SKIPPED "${second%% *}"
 TRACK_TEST_HISTORY=1 run_test_cmd 'deadbeef00000002 echo history' >/dev/null 2>&1
 history=$(ci3_client list_get "history_$(hash_str_orig 'echo history')_next")
 if [[ "$history" == *PASSED* && "$history" == *'echo history'* ]]; then

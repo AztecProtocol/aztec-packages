@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export CI=1
 
-"$(git rev-parse --show-toplevel)/ci3/ci3_setup" || exit 1
+"$(git rev-parse --show-toplevel)/ci3/ci3_client" check || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {

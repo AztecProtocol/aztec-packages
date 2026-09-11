@@ -4,6 +4,7 @@
 Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3 standard library only.
 
   env                              shell exports for the resolved server (source_ci3_client evals it)
+  check                            verify the endpoint and authentication; fail if unavailable
   url [path]                       the browse URL of a log id / server path, as printed in links
   log_put <id> [ttl] [final]       stdin -> the log <id> (replaces); "final" marks a log's last write
   log_get <id>                     the log <id> -> stdout (exit 1 if absent)
@@ -35,24 +36,26 @@ What ci3 keeps on the server, in ci3 terms:
   artifacts  the build cache: <component>-<content hash>.tar.gz|.zst (cache_upload/cache_download),
              plus bench-<tree>.tar.gz, npm-release-<tag>.tar.gz and the ci-success-* whole-run marker.
 
-Configuration is ~/.ci3/config.json, written by ci3_setup (CI3_CONFIG names another file):
-  server      base URL of the server every command talks to
-  public_url  base of the links we print (default: server); edit it to share a tunnelled server
-  password    the aztec server's password, when set up for it; sent as basic auth (user aztec)
-No config, or a server that does not answer: every command is a harmless no-op. Stdin is drained,
-kv_get answers one empty line per key, writes exit 0, reads exit 1. Writes never fail the caller.
+Environment:
+  CI3_SERVER      server URL; defaults to http://localhost:4275 outside CI
+  CI_PASSWORD    basic-auth password (user aztec)
+  CI3_PUBLIC_URL link base, when different from the server
+CI requires CI3_SERVER=http://ci.aztec-labs.com and CI_PASSWORD. Invalid credentials and unreachable
+explicit endpoints fail. Outside CI, an unset endpoint tries the local server and prints setup
+instructions if it is absent. CI3_SERVER='' explicitly disables logging and test caching outside CI.
 """
 import base64
 import gzip
+import hashlib
 import http.client
-import json
-import io
 import os
 import shlex
 import sys
 import urllib.parse
 
 PUBLIC_CACHE_URL = "https://build-cache.aztec-labs.com"
+DASHBOARD_URL = "http://ci.aztec-labs.com"
+LOCAL_URL = "http://localhost:4275"
 # Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
 # (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
 LOG_EXPIRE_CI = 60 * 60 * 24 * 14
@@ -67,51 +70,83 @@ def warn(msg):
 
 
 def in_ci():
-    return os.environ.get("CI", "0") == "1"
+    return os.environ.get("CI", "0").lower() in ("1", "true")
 
 
-# --- configuration ---------------------------------------------------------------------------
+class CI3Error(RuntimeError):
+    pass
 
 
-def config():
+# --- environment -----------------------------------------------------------------------------
+
+
+def resolve_server(force_check=False):
+    """Resolve environment settings, probing once per process tree unless they change."""
+    explicit = "CI3_SERVER" in os.environ
+    server = os.environ.get("CI3_SERVER", LOCAL_URL).rstrip("/")
+    password = os.environ.get("CI_PASSWORD", "")
+    if in_ci() and (not explicit or server != DASHBOARD_URL):
+        raise CI3Error("CI3_SERVER must be set to the production API in CI: %s" % DASHBOARD_URL)
+    if server == DASHBOARD_URL and not password:
+        raise CI3Error("CI_PASSWORD is required to authenticate to the production API.")
+    if not server:
+        return ""
     try:
-        with open(os.environ.get("CI3_CONFIG") or os.path.expanduser("~/.ci3/config.json")) as f:
-            return json.load(f)
-    except (FileNotFoundError, ValueError):
-        return {}
-
-
-def resolve_server():
-    """The server this process tree talks to, or "" for none. Cached in CI3_SERVER by `env`."""
-    if "CI3_SERVER" in os.environ:
-        return os.environ["CI3_SERVER"]
-    server = config().get("server", "").rstrip("/")
-    if server and not answers(server):
-        warn("ci3 server %s (from %s) does not answer; run ci3/ci3_setup. Logs and test cache disabled."
-             % (server, os.environ.get("CI3_CONFIG") or "~/.ci3/config.json"))
-        server = ""
+        parsed = urllib.parse.urlsplit(server)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.query or parsed.fragment:
+            raise ValueError()
+        parsed.port
+    except ValueError:
+        raise CI3Error("CI3_SERVER must be an HTTP(S) URL; supply authentication through CI_PASSWORD.")
+    fingerprint = hashlib.sha256((server + "\0" + password).encode()).hexdigest()
+    if force_check or os.environ.get("_CI3_CHECKED") != fingerprint:
+        if not answers(server):
+            if explicit or in_ci() or force_check:
+                raise CI3Error("ci3 server %s does not answer. Check CI3_SERVER or run ci3/ci3_server start." % server)
+            warn("No local ci3 server is running. Logs and test cache are disabled.\n"
+                 "Run ./bootstrap.sh or ci3/ci3_server start to start one.\n"
+                 "For production, export CI3_SERVER=%s and CI_PASSWORD='<dashboard password>'." % DASHBOARD_URL)
+            os.environ["CI3_SERVER"] = ""
+            return ""
+        check_api(server)
+        os.environ["_CI3_CHECKED"] = fingerprint
     os.environ["CI3_SERVER"] = server
     return server
 
 
 def answers(url):
     try:
-        conn = connection(url, timeout=5)
-        conn.request("GET", "/health")
-        resp = conn.getresponse()
+        resp = request("GET", url + "/health", timeout=5, redirects=0)
         return resp.status == 200 and resp.read() == b"ci3-server"
-    except OSError:
+    except (OSError, http.client.HTTPException):
         return False
 
 
+def check_api(server):
+    try:
+        resp = request("POST", server + "/kv/mget", b"ci3-preflight\n", timeout=5, redirects=0)
+        resp.read()
+        if resp.status != 200:
+            raise CI3Error("ci3 API authentication/readiness check failed (HTTP %d). Check CI_PASSWORD and the server." % resp.status)
+    except (OSError, http.client.HTTPException) as e:
+        raise CI3Error("ci3 API authentication/readiness check failed: %s" % e) from e
+
+
+def cmd_check(args):
+    """Verify the selected endpoint and authenticate, even if an earlier check succeeded."""
+    resolve_server(force_check=True)
+    return 0
+
+
 def public_url():
-    return config().get("public_url", "").rstrip("/") or resolve_server()
+    return os.environ.get("CI3_PUBLIC_URL", "").rstrip("/") or resolve_server()
 
 
 def cmd_env(args):
     """Shell exports of the resolved configuration, for source_ci3_client."""
     server = resolve_server()
     lines = ["export CI3_SERVER=%s" % shlex.quote(server), "export CI3_PUBLIC_URL=%s" % shlex.quote(public_url())]
+    lines.append("export _CI3_CHECKED=%s" % shlex.quote(os.environ.get("_CI3_CHECKED", "")))
     if not server:
         lines.append("export USE_TEST_CACHE=0")
     lines += [
@@ -135,7 +170,7 @@ def connection(url, timeout):
 def request(method, url, body=None, headers=None, timeout=30, redirects=5):
     """One request; 3xx answers are followed, re-sending the body (a file body is rewound)."""
     headers = dict(headers or {})
-    password = config().get("password")
+    password = os.environ.get("CI_PASSWORD")
     if password:
         headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + password).encode()).decode()
     for _ in range(redirects + 1):
@@ -169,13 +204,17 @@ def api(method, path, body=None, headers=None, timeout=30, query=None):
 
 
 def swallow(fn):
-    """Best-effort writes: never fail the caller (details with BUILD_SYSTEM_DEBUG=1)."""
+    """Writes are best-effort locally; CI reports failures to its caller."""
     try:
         resp = fn()
+        if resp.status >= 300 and in_ci():
+            raise CI3Error("CI API write failed (HTTP %d)." % resp.status)
         if resp.status >= 300 and os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
             sys.stderr.write("ci3_client: server answered %d\n" % resp.status)
         resp.read()
     except (OSError, http.client.HTTPException) as e:
+        if in_ci():
+            raise CI3Error("CI API write failed: %s" % e) from e
         if os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
             sys.stderr.write("ci3_client: %s\n" % e)
     return 0
@@ -356,7 +395,7 @@ def cmd_artifact_exists(args):
 
 
 COMMANDS = {
-    "env": cmd_env, "url": cmd_url,
+    "env": cmd_env, "check": cmd_check, "url": cmd_url,
     "log_put": cmd_log_put, "log_get": cmd_log_get, "log_list": cmd_log_list,
     "kv_get": cmd_kv_get, "kv_set": cmd_kv_set,
     "list_push": cmd_list_push, "list_get": cmd_list_get,
@@ -382,3 +421,6 @@ if __name__ == "__main__":
         sys.exit(main())
     except BrokenPipeError:
         sys.exit(0)
+    except CI3Error as e:
+        sys.stderr.write("ci3_client: %s\n" % e)
+        sys.exit(1)

@@ -168,8 +168,13 @@ if [ "${1:-}" = "install_deps" ]; then
 fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
-# The ci3 server config (~/.ci3/config.json) and the server it names, before ci3 loads and reads it.
-"$(git rev-parse --show-toplevel)/ci3/ci3_setup" || exit 1
+[[ "${1:-}" == ci-* ]] && export CI=1
+if [[ -z "${CI3_SERVER+x}" && "${CI:-0}" != 1 && "${CI:-0}" != true ]]; then
+  CI3_SERVER=$("$(git rev-parse --show-toplevel)/ci3/ci3_server" start) || exit 1
+  export CI3_SERVER
+  echo "Local ci3 server: $CI3_SERVER" >&2
+fi
+"$(git rev-parse --show-toplevel)/ci3/ci3_client" check || exit 1
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 

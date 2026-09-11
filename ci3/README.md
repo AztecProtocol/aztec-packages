@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via the `ci3_client` commands. Nothing else in ci3 knows what stores them. `ci3_setup` writes `~/.ci3/config.json` and starts the server it names: the file-backed `ci3_server` for a local run, the aztec one (the labs dashboard, where CI logs live) when `CI_PASSWORD` is set or in CI. Artifact reads fall back to the public HTTPS build cache, which ci3 never writes to.
+   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set; other commands print setup instructions if the local server is absent. CI requires the production endpoint and valid credentials. Artifact reads fall back to the public HTTPS build cache.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
@@ -48,7 +48,7 @@ Tools are provided for the following themes.
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
    - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts on the ci3 server, falling back to the public build cache for reads. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
    - **`ci3_client <command>`**: The only way ci3 talks to its server: `log_put/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `artifact_put/artifact_get/artifact_exists`, and `env` (discovery).
-   - **`ci3_setup`**: Writes `~/.ci3/config.json` and starts the server it names. Run by the entry points before ci3 loads.
+   - **`ci3_client check`**: Verifies the selected endpoint and authentication before CI proceeds. Settings come only from the environment.
    - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. In CI the server is the labs dashboard (`ci.aztec-labs.com`), which serves the same API.
 
 2. **Test Parallelization & Caching**
@@ -89,4 +89,3 @@ Tools are provided for the following themes.
 
 4. **On success**:
    - Artifacts can be re-uploaded or flagged as “passed,” letting future runs skip unchanged steps.
-

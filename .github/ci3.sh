@@ -2,6 +2,7 @@
 # Main CI3 entry point. Sets up the environment and forwards to ci.sh.
 # CI mode is passed as first argument.
 set -euo pipefail
+export CI=1
 
 # AWS credentials are handled by instance profiles on all paths.
 : "${GITHUB_TOKEN:?required}"
@@ -101,7 +102,7 @@ function main {
     handle_release_pr
     exit 0
   fi
-  "$ci3/ci3_setup" || exit 1
+  "$ci3/ci3_client" check || exit 1
   check_cache
   echo_header "Run ${CI_MODE} CI"
   exec ./ci.sh "${CI_MODE}" "$@"

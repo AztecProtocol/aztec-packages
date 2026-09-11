@@ -16,17 +16,14 @@ status_job_id=${JOB_ID:-bootstrap}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
+"$ci3/ci3_client" check || exit 1
 # Enable build instance key features (SSH transport) by default.
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
-# The instance sets ci3 up for the dashboard (ci3_setup in CI), so the links printed here and posted
-# as commit statuses are the instance's, on the dashboard, and a parent log on a developer's local
-# server is not referenced there.
 # CI_REDIS is for the labs submodule's own ci3, still the pre-API one, which reads it directly.
-dashboard_url=http://ci.aztec-labs.com
+dashboard_url=$CI3_SERVER
 instance_parent_log_id=${PARENT_LOG_ID:-}
-[ "$(ci3_setup --show | grep -c '"mode": "aztec"')" -eq 0 ] && instance_parent_log_id=""
 
 # Pre-generate a log ID and print the dashboard link.
 export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
@@ -199,7 +196,7 @@ container_script=$(
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
-  ci3/ci3_setup
+  ci3/ci3_client check
   source ci3/source
   ci_log_id=\$CI_LOG_ID
   log_ci_run \$ci_log_id
@@ -363,6 +360,7 @@ start_build() {
     -e CI=1 \
     -e CI_SSM_MODE=$ci_ssm_mode \
     -e CI_LOG_ID=${CI_LOG_ID:-} \
+    -e CI3_SERVER=$(printf %q "$CI3_SERVER") \
     -e CI_PASSWORD=$(printf %q "${CI_PASSWORD:-}") \
     -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e RUN_ID=${RUN_ID:-} \

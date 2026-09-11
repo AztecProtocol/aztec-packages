@@ -18,27 +18,37 @@ use the file-backed reference server and require neither service.
 
 ## Client configuration
 
-`~/.ci3/config.json` (or the file `CI3_CONFIG` names) is all `ci3_client` reads:
+Configuration uses environment variables only:
 
-| Field | Meaning |
+| Variable | Meaning |
 |---|---|
-| `mode` | `local` or `aztec`: which server `ci3_setup` set up (and restarts). |
-| `server` | Base URL of the server every command talks to. Empty: none (logs and the test cache are off; the build cache is still read through its public URL). |
-| `public_url` | Base of the URLs printed in terminal links (default: `server`). Edit it to share a tunnelled local server. |
-| `password` | The dashboard's basic-auth password, in `aztec` mode (`CI_PASSWORD` when `ci3_setup` ran). |
+| `CI3_SERVER` | Server URL. Unset outside CI: try `http://localhost:4275`. Explicitly empty outside CI: disable logs and test caching. |
+| `CI_PASSWORD` | The dashboard's basic-auth password (user `aztec`). |
+| `CI3_PUBLIC_URL` | Link base, if different from `CI3_SERVER` (for example, a tunnel). |
 
-`ci3_setup`, run by the entry points (`bootstrap.sh`, `ci.sh`, the CI launcher) before ci3 loads,
-writes the file once and honours it afterwards. `CI_PASSWORD` in the environment, or `CI=1`, selects
-the aztec server: the labs CI dashboard, where CI logs live. Otherwise `ci3_server`, the file-backed
-server. When the environment asks for the aztec
-server and an existing config disagrees, a terminal is asked whether to switch; a non-interactive
-run stops with an error.
+Local `bootstrap.sh` starts the file-backed server when `CI3_SERVER` is unset. Other commands try
+the default local endpoint and print setup instructions if it is unavailable. An explicitly selected
+endpoint must be reachable and accept the supplied credentials; it never silently falls back.
 
-`ci3_client env` resolves the config once per process tree into `CI3_SERVER` (the server, or empty
-when there is none or it does not answer): then writes are no-ops (stdin drained), reads answer
-empty or miss, and only the artifact commands fail, since a caller decides what a miss means. Retention is fixed by the client: logs 14
-days in CI and 2 days locally, artifacts 7 days (so a local file server does not grow without bound;
-a CI backend may ignore it).
+```bash
+ci3/ci3_server start
+export CI3_SERVER=http://localhost:4275
+
+# Or select production:
+export CI3_SERVER=http://ci.aztec-labs.com
+export CI_PASSWORD='<dashboard password>'
+ci3/ci3_client check
+```
+
+CI (`CI=1` or `CI=true`) requires the production URL and password. The runner, build instance,
+bootstrap and post-actions check the API before proceeding. The check verifies the service identity
+and an authenticated API request; missing settings, failed authentication and unavailable services
+are errors. `ci-*` bootstrap commands select CI mode before this check.
+
+`ci3_client env` exports the resolved endpoint and an internal check fingerprint to child processes.
+Changing the endpoint or password forces another check. With local logging disabled, writes drain
+stdin and do nothing; reads report a miss. Retention is fixed by the client: logs 14 days in CI and
+2 days locally, artifacts 7 days (a CI backend may ignore it).
 
 ## Conventions
 
@@ -56,7 +66,7 @@ a CI backend may ignore it).
   `X-CI3-Server` header naming their configuration, so a second `start` with a different one refuses
   to reuse them.
 - Authentication: the reference servers take none (a local server is not exposed). The aztec server
-  takes HTTP basic auth (`aztec:<password>`), which the client sends when its config has a password.
+  takes HTTP basic auth (`aztec:<password>`), supplied through `CI_PASSWORD`.
 
 ## Logs
 
@@ -114,7 +124,7 @@ The build cache: content-addressed tarballs.
 
 Build-cache reads fall back to the public HTTPS endpoint (`https://build-cache.aztec-labs.com`) on a
 miss, so a server only has to serve what was uploaded to it. The npm publish job reads its release
-artifact from the public HTTPS cache, with the HTTP API disabled to preserve secure downloads.
+artifact from the public HTTPS cache after verifying the production API, preserving secure downloads.
 
 A local run uploads every artifact it builds to its file server (`NO_CACHE_UPLOAD=1` skips the tar
 and upload), which is what makes switching back to a branch a cache hit.
