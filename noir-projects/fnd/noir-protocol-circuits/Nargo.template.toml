@@ -8,6 +8,8 @@ members = [
     "crates/types",
     "crates/protocol-test-utils",
     "crates/blob",
+    "crates/inbox-parity-4",
+    "crates/inbox-parity-16",
     "crates/inbox-parity-64",
     "crates/inbox-parity-256",
     "crates/inbox-parity-1024",

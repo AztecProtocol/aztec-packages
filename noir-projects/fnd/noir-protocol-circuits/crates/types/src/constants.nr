@@ -148,10 +148,13 @@ pub global PRIVATE_KERNEL_INNER_4_VK_INDEX: u32 = 71;
 pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
 // VK index 73 is intentionally unallocated: it was the message-only block root, merged into the no-txs block root.
 // The InboxParity size ladder: one VK per size, checked as an allowed set by the checkpoint root. Appended here
-// (rather than reusing the freed 21/22) so the three sizes stay contiguous and read in order.
+// (rather than reusing the freed 21/22) so the ladder stays clear of the reset range. Indices are allocated in the
+// order the rungs were added, not in size order: 4 and 16 joined the ladder after the original three.
 pub global INBOX_PARITY_64_VK_INDEX: u32 = 74;
 pub global INBOX_PARITY_256_VK_INDEX: u32 = 75;
 pub global INBOX_PARITY_1024_VK_INDEX: u32 = 76;
+pub global INBOX_PARITY_4_VK_INDEX: u32 = 77;
+pub global INBOX_PARITY_16_VK_INDEX: u32 = 78;
 
 // Maximum number of apps absorbed by a single private kernel iteration.
 pub global MAX_APPS_PER_KERNEL: u32 = 5;
@@ -607,6 +610,8 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
 
 // The InboxParity size ladder: one variable-size parity proof is produced per checkpoint, and the prover picks the
 // smallest size >= the checkpoint's real message count. The largest rung equals the per-checkpoint message cap.
+pub global INBOX_PARITY_SIZE_XXSMALL: u32 = 4;
+pub global INBOX_PARITY_SIZE_XSMALL: u32 = 16;
 pub global INBOX_PARITY_SIZE_SMALL: u32 = 64;
 pub global INBOX_PARITY_SIZE_MEDIUM: u32 = 256;
 pub global INBOX_PARITY_SIZE_LARGE: u32 = 1024;
