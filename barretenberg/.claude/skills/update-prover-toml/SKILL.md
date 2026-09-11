@@ -5,7 +5,7 @@ description: Regenerate the protocol-circuit sample Prover.toml files (the witne
 
 # Updating protocol-circuit Prover.toml files
 
-All paths are from the repository root (one level above `barretenberg/`).
+All paths are from the repository root (one level above `barretenberg/`). The circuit crates and their tomls live in this repository; the TypeScript that regenerates them lives in the `labs/` git submodule, so its paths start with `labs/yarn-project/` and its workspaces are named `@aztec-labs/*`. Run the yarn commands below from `labs/yarn-project`.
 
 ## What these files are
 
@@ -19,19 +19,27 @@ nargo execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/<cir
 
 The tomls are captured from a real end-to-end run, not written by hand (except the reset one — see below).
 
+Each toml is self-contained on the verification-key side: it carries its own `vk_tree_root`, plus a `vk_data` membership witness (`leaf_index` + `sibling_path`) under that root for every child proof the circuit verifies. So a change that only moves the real VK tree root — adding or removing a circuit, say — does not by itself need a regeneration pass: the committed samples still execute against the root they were captured with.
+
 ## How regeneration works
 
-Two commands cover the protocol-circuit tomls, split by whether the sample needs a real client-proved transaction. Both capture circuit inputs during proving via `pushTestData`/`getTestData` and write them with `updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(...))` (`yarn-project/foundation/src/testing/files/index.ts`), which writes `noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml`.
+Two commands cover the protocol-circuit tomls, split by whether the sample needs a real client-proved transaction. Both capture circuit inputs during proving via `pushTestData`/`getTestData` and write them with `updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(...))` (`labs/yarn-project/foundation/src/testing/files/index.ts`), which writes `noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml` under whichever repository root it resolves from — which is no longer this one, see the warning next.
+
+> ⚠️ **The tests that write the tomls no longer live in the repository that holds them.** `getPathToFile` derives the repository root from the calling module's own location, so a run inside the submodule targets `labs/noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml`. The submodule has no `noir-projects/fnd` — it consumes the compiled circuits as the `@aztec-foundation/protocol-circuits-artifacts` package rather than as a source tree — so the write fails there instead of updating the tomls committed here. As a local stopgap, point the missing directory at this repository before running either command, and remove it afterwards so it does not sit untracked in the submodule:
+>
+> ```bash
+> ln -s ../../noir-projects/fnd labs/noir-projects/fnd   # ... regenerate ... then: rm labs/noir-projects/fnd
+> ```
 
 ### Block-root and above rollup circuits — prover-client suite
 
-`yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts` drives representative epochs through the simulated orchestrator and dumps each rollup circuit's captured input. The whole suite is `describe.skip`ped unless `AZTEC_GENERATE_TEST_DATA=1`, and it needs no L1 sandbox.
+`labs/yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts` drives representative epochs through the simulated orchestrator and dumps each rollup circuit's captured input. The whole suite is `describe.skip`ped unless `AZTEC_GENERATE_TEST_DATA=1`, and it needs no L1 sandbox.
 
 ```bash
-AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
+AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec-labs/prover-client test regenerate_rollup_sample_inputs
 ```
 
-Regenerates: `rollup-block-root-first-empty-tx`, `rollup-block-root-first`, `rollup-block-root-first-single-tx`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-root-msgs-only`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`, `rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`. The scenario list lives in the `scenarios` array in that test; each scenario's `dump` field names the tomls it owns.
+Regenerates every block-root variant plus the block-merge, checkpoint-root, checkpoint-merge, tx-merge and root tomls. Take the exact inventory from the `scenarios` array in that test rather than from a list here: each scenario's `dump` field names the tomls it owns, and the set changes whenever a block-root variant is added or removed.
 
 ### Private-kernel and transaction-base circuits — e2e prover full test
 
@@ -40,10 +48,10 @@ Regenerates: `rollup-block-root-first-empty-tx`, `rollup-block-root-first`, `rol
 From the repo root:
 
 ```bash
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn-project/end-to-end/scripts/run_test.sh simple single-node/prover/server/full
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 labs/yarn-project/end-to-end/scripts/run_test.sh simple single-node/prover/server/full
 ```
 
-(Equivalently, from `yarn-project/end-to-end`: `AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e single-node/prover/server/full.test`.) This is a full-stack run (L1 anvil + node + prover), ~15 min with fake proofs.
+(Equivalently, from `labs/yarn-project/end-to-end`: `AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e single-node/prover/server/full.test`.) This is a full-stack run (L1 anvil + node + prover), ~15 min with fake proofs.
 
 Regenerates:
 
