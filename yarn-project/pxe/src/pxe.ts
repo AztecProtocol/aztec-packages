@@ -73,7 +73,7 @@ import { PrivateEventFilterValidator } from './events/private_event_filter_valid
 import type { ExecutionHooks } from './hooks/index.js';
 import { TxResolverService } from './messages/tx_resolver_service.js';
 import { type CachingAztecNode, withCache } from './node/caching_aztec_node.js';
-import { OperationQueue } from './operation_queue.js';
+import { OperationQueue, type SyncedOperationContext } from './operation_queue.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -141,6 +141,18 @@ export type SimulateTxOpts = {
   scopes: AztecAddress[];
   /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
   senderForTags?: AztecAddress;
+};
+
+/** Options for PXE.simulateAndProveTx. */
+export type SimulateAndProveTxOpts = SimulateTxOpts & {
+  /**
+   * Returns the request to prove and its options, given the simulation's result. Runs inside the operation: other PXE
+   * operations wait for it to return, and it must not call the PXE itself, since that call would wait for this
+   * operation to end.
+   */
+  prepareProve: (
+    simulationResult: TxSimulationResult,
+  ) => Promise<{ proveTxRequest: TxExecutionRequest; proveOpts: ProveTxOpts }>;
 };
 
 /** Options for PXE.executeUtility. */
@@ -649,6 +661,202 @@ export class PXE {
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
+  /** Simulates `txRequest` within an already-open operation, using its anchor block and change set. */
+  async #simulateTx(
+    { changeSetId, syncTime, anchorBlockHeader, recording, totalMs }: SyncedOperationContext,
+    txRequest: TxExecutionRequest,
+    {
+      simulatePublic,
+      skipTxValidation = false,
+      skipFeeEnforcement = false,
+      skipKernels = true,
+      overrides,
+      scopes,
+      senderForTags,
+    }: SimulateTxOpts,
+  ): Promise<TxSimulationResult> {
+    const txInfo = {
+      origin: txRequest.origin,
+      functionSelector: txRequest.functionSelector,
+      simulatePublic,
+      chainId: txRequest.txContext.chainId,
+      version: txRequest.txContext.version,
+      authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+    };
+    this.log.info(
+      `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+      txInfo,
+    );
+
+    if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
+      throw new Error(
+        'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
+      );
+    }
+    const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
+
+    // Execution of private functions only; no proving, and no kernel logic.
+    const privateExecutionResult = await this.#executePrivate({
+      contractFunctionSimulator,
+      txRequest,
+      anchorBlockHeader,
+      scopes,
+      changeSetId,
+      senderForTags,
+    });
+
+    let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
+    let executionSteps: PrivateExecutionStep[] = [];
+
+    if (skipKernels) {
+      ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
+        privateExecutionResult,
+        (addr, sel) => this.#getDebugFunctionName(addr, sel, anchorBlockHeader),
+        this.node,
+      ));
+    } else {
+      // Kernel logic, plus proving of all private functions and kernels.
+      ({ publicInputs, executionSteps } = await this.#prove(
+        txRequest,
+        this.proofCreator,
+        privateExecutionResult,
+        anchorBlockHeader,
+        {
+          simulate: true,
+          skipFeeEnforcement,
+          profileMode: 'none',
+        },
+      ));
+    }
+
+    const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
+    const simulatedTx = await privateSimulationResult.toSimulatedTx();
+    let publicSimulationTime: number | undefined;
+    let publicOutput: PublicSimulationOutput | undefined;
+    if (simulatePublic && publicInputs.forPublic) {
+      const publicSimulationTimer = new Timer();
+      publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, overrides);
+      publicSimulationTime = publicSimulationTimer.ms();
+      if (publicOutput?.debugLogs?.length) {
+        await displayDebugLogs(publicOutput.debugLogs, addr => this.#getDebugContractName(addr, anchorBlockHeader));
+      }
+    }
+
+    let validationTime: number | undefined;
+    if (!skipTxValidation) {
+      const validationTimer = new Timer();
+      const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+      validationTime = validationTimer.ms();
+      if (validationResult.result === 'invalid') {
+        const reason = validationResult.reason.length > 0 ? ` Reason: ${validationResult.reason.join(', ')}` : '';
+        throw new Error(`The simulated transaction is unable to be added to state and is invalid.${reason}`);
+      }
+    }
+
+    const txHash = simulatedTx.getTxHash();
+
+    const totalTime = totalMs();
+
+    const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
+      functionName,
+      time: witgen,
+      oracles,
+    }));
+
+    const timings: SimulationTimings = {
+      total: totalTime,
+      sync: syncTime,
+      publicSimulation: publicSimulationTime,
+      validation: validationTime,
+      perFunction,
+      unaccounted:
+        totalTime -
+        (syncTime +
+          (publicSimulationTime ?? 0) +
+          (validationTime ?? 0) +
+          perFunction.reduce((acc, { time }) => acc + time, 0)),
+    };
+
+    this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
+      txHash,
+      ...txInfo,
+      ...(publicOutput
+        ? {
+            gasUsed: publicOutput.gasUsed,
+            revertCode: publicOutput.txEffect.revertCode.getCode(),
+            revertReason: publicOutput.revertReason,
+          }
+        : {}),
+    });
+
+    return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput, {
+      timings,
+      nodeRPCCalls: recording.stats(),
+    });
+  }
+
+  /**
+   * Proves `privateExecutionResult`, the private execution of `txRequest`, within an already-open operation, and stages
+   * the sender tagging indices the tx uses.
+   */
+  async #proveTx(
+    { changeSetId, syncTime, anchorBlockHeader, recording, totalMs }: SyncedOperationContext,
+    txRequest: TxExecutionRequest,
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<TxProvingResult> {
+    const {
+      publicInputs,
+      chonkProof,
+      executionSteps,
+      timings: { proving } = {},
+    } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, anchorBlockHeader, {
+      simulate: false,
+      skipFeeEnforcement: false,
+      profileMode: 'none',
+    });
+
+    const totalTime = totalMs();
+
+    const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
+      functionName,
+      time: witgen,
+      oracles,
+    }));
+
+    const timings: ProvingTimings = {
+      total: totalTime,
+      sync: syncTime,
+      proving,
+      perFunction,
+      unaccounted:
+        totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
+    };
+
+    this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
+
+    const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
+      timings,
+      nodeRPCCalls: recording.stats(),
+    });
+
+    // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
+    // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
+    // onchain).
+    // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
+    // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
+    // actually used to being reduced.
+    await persistSenderTaggingIndexRangesForTx(
+      this.senderTaggingStore,
+      privateExecutionResult.entrypoint.taggingIndexRanges,
+      publicInputs,
+      () => txProvingResult.getTxHash(),
+      changeSetId,
+      this.log,
+    );
+
+    return txProvingResult;
+  }
+
   // Public API
 
   /**
@@ -977,68 +1185,17 @@ export class PXE {
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.operationQueue.runSynced(
-      async ({ changeSetId, syncTime, anchorBlockHeader, recording, totalMs }) => {
+      async ctx => {
         const contractFunctionSimulator = this.#getSimulatorForTx();
         privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
-          anchorBlockHeader,
+          anchorBlockHeader: ctx.anchorBlockHeader,
           scopes,
-          changeSetId,
+          changeSetId: ctx.changeSetId,
           senderForTags,
         });
-
-        const {
-          publicInputs,
-          chonkProof,
-          executionSteps,
-          timings: { proving } = {},
-        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, anchorBlockHeader, {
-          simulate: false,
-          skipFeeEnforcement: false,
-          profileMode: 'none',
-        });
-
-        const totalTime = totalMs();
-
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
-          functionName,
-          time: witgen,
-          oracles,
-        }));
-
-        const timings: ProvingTimings = {
-          total: totalTime,
-          sync: syncTime,
-          proving,
-          perFunction,
-          unaccounted:
-            totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
-        };
-
-        this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
-
-        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
-          timings,
-          nodeRPCCalls: recording.stats(),
-        });
-
-        // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
-        // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
-        // onchain).
-        // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
-        // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
-        // actually used to being reduced.
-        await persistSenderTaggingIndexRangesForTx(
-          this.senderTaggingStore,
-          privateExecutionResult.entrypoint.taggingIndexRanges,
-          publicInputs,
-          () => txProvingResult.getTxHash(),
-          changeSetId,
-          this.log,
-        );
-
-        return txProvingResult;
+        return this.#proveTx(ctx, txRequest, privateExecutionResult);
       },
       { errorContext: () => [inspect(txRequest), inspect(privateExecutionResult)] },
     );
@@ -1141,150 +1298,84 @@ export class PXE {
    *
    * TODO(#7456) Prevent msgSender being defined here for the first call
    */
-  public simulateTx(
-    txRequest: TxExecutionRequest,
-    {
-      simulatePublic,
-      skipTxValidation = false,
-      skipFeeEnforcement = false,
-      skipKernels = true,
-      overrides,
-      scopes,
-      senderForTags,
-    }: SimulateTxOpts,
-  ): Promise<TxSimulationResult> {
+  public simulateTx(txRequest: TxExecutionRequest, opts: SimulateTxOpts): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
+    return this.operationQueue.runSynced(ctx => this.#simulateTx(ctx, txRequest, opts), {
+      errorContext: () => [
+        inspect(txRequest),
+        `simulatePublic=${opts.simulatePublic}`,
+        `skipTxValidation=${opts.skipTxValidation ?? false}`,
+        `scopes=${opts.scopes.map(s => s.toString()).join(', ')}`,
+      ],
+    });
+  }
+
+  /**
+   * Combination of `simulateTx` and `proveTx`: a simulation is executed, its results inspected to produce a provable
+   * transaction, followed by witness generation and proof.
+   *
+   * The entire sequence runs as a single atomic PXE operation, including no private state sync between simulation and
+   * witness generation, resulting in them running over identical environments (e.g. the note store, tagging indices,
+   * etc.).
+   *
+   * The simulation result is returned via a `prepareProve` callback, which then returns the input to the equivalent
+   * `proveTx` call. Due to the atomic nature of this function, `prepareProve` must NOT call any PXE function, as that
+   * would result in a deadlock.
+   */
+  public simulateAndProveTx(
+    simulationTxRequest: TxExecutionRequest,
+    { prepareProve, ...simulateOpts }: SimulateAndProveTxOpts,
+  ): Promise<TxProvingResult> {
+    let proveTxRequest: TxExecutionRequest | undefined;
+    let privateExecutionResult: PrivateExecutionResult | undefined;
+
+    // We run the entire thing as a single operation, which blocks the queue. There's two other possible paths we could
+    // take here:
+    //  a) decouple the queue from a changeset to commit. This would let us hold the queue and have two changesets, one
+    //     for the simulation and its corresponding sync, and one for the prove. In case of failure of either the
+    //     `prepareProve` callback (e.g. user rejection) of the proof itself, we'd still have committed the simulation
+    //     work, including the private state sync, which could save time in future runs.
+    //  b) make this be two separate jobs, releasing the queue in between, but holding a second lock which would prevent
+    //     PXE from updating its anchor block and therefore re-syncing contracts. In the case of a long-running
+    //     callback, other unrelated operations (e.g. utility call invocations) would still be able to go through.
+    //
+    // We're not currently taking either of these paths due to uncertainty on this even being a good primitive for PXE
+    // to expose to wallets, and to not invest too heavily in this direction (as both approaches would require
+    // refactoring). Additionally, the gains those approaches provide are currently not valuable: for a) we expect it to
+    // be unlikely for a follow-up simulation to be executed on the same anchor block as the first one, so committing
+    // the sync achieves little if anything, and for b) the callback is expected to be fairly quick, and for there to be
+    // no need in executing any other PXE calls while it runs.
+
     return this.operationQueue.runSynced(
-      async ({ changeSetId, syncTime, anchorBlockHeader, recording, totalMs }) => {
-        const txInfo = {
-          origin: txRequest.origin,
-          functionSelector: txRequest.functionSelector,
-          simulatePublic,
-          chainId: txRequest.txContext.chainId,
-          version: txRequest.txContext.version,
-          authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
-        };
-        this.log.info(
-          `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
-          txInfo,
-        );
+      async ctx => {
+        const simulationResult = await this.#simulateTx(ctx, simulationTxRequest, simulateOpts);
+        let proveOpts: ProveTxOpts;
+        ({ proveTxRequest, proveOpts } = await prepareProve(simulationResult));
 
-        if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
-          throw new Error(
-            'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
+        // The proving result's timings and node stats must cover proving alone, not the simulation before it.
+        const provingTimer = new Timer();
+        const recording = this.node.startRecording();
+        try {
+          privateExecutionResult = await this.#executePrivate({
+            contractFunctionSimulator: this.#getSimulatorForTx(),
+            txRequest: proveTxRequest,
+            anchorBlockHeader: ctx.anchorBlockHeader,
+            scopes: proveOpts.scopes,
+            changeSetId: ctx.changeSetId,
+            senderForTags: proveOpts.senderForTags,
+          });
+          return await this.#proveTx(
+            { ...ctx, syncTime: 0, recording, totalMs: () => provingTimer.ms() },
+            proveTxRequest,
+            privateExecutionResult,
           );
+        } finally {
+          recording.stop();
         }
-        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-
-        // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate({
-          contractFunctionSimulator,
-          txRequest,
-          anchorBlockHeader,
-          scopes,
-          changeSetId,
-          senderForTags,
-        });
-
-        let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
-        let executionSteps: PrivateExecutionStep[] = [];
-
-        if (skipKernels) {
-          ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
-            privateExecutionResult,
-            (addr, sel) => this.#getDebugFunctionName(addr, sel, anchorBlockHeader),
-            this.node,
-          ));
-        } else {
-          // Kernel logic, plus proving of all private functions and kernels.
-          ({ publicInputs, executionSteps } = await this.#prove(
-            txRequest,
-            this.proofCreator,
-            privateExecutionResult,
-            anchorBlockHeader,
-            {
-              simulate: true,
-              skipFeeEnforcement,
-              profileMode: 'none',
-            },
-          ));
-        }
-
-        const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-        const simulatedTx = await privateSimulationResult.toSimulatedTx();
-        let publicSimulationTime: number | undefined;
-        let publicOutput: PublicSimulationOutput | undefined;
-        if (simulatePublic && publicInputs.forPublic) {
-          const publicSimulationTimer = new Timer();
-          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, overrides);
-          publicSimulationTime = publicSimulationTimer.ms();
-          if (publicOutput?.debugLogs?.length) {
-            await displayDebugLogs(publicOutput.debugLogs, addr => this.#getDebugContractName(addr, anchorBlockHeader));
-          }
-        }
-
-        let validationTime: number | undefined;
-        if (!skipTxValidation) {
-          const validationTimer = new Timer();
-          const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
-          validationTime = validationTimer.ms();
-          if (validationResult.result === 'invalid') {
-            const reason = validationResult.reason.length > 0 ? ` Reason: ${validationResult.reason.join(', ')}` : '';
-            throw new Error(`The simulated transaction is unable to be added to state and is invalid.${reason}`);
-          }
-        }
-
-        const txHash = simulatedTx.getTxHash();
-
-        const totalTime = totalMs();
-
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
-          functionName,
-          time: witgen,
-          oracles,
-        }));
-
-        const timings: SimulationTimings = {
-          total: totalTime,
-          sync: syncTime,
-          publicSimulation: publicSimulationTime,
-          validation: validationTime,
-          perFunction,
-          unaccounted:
-            totalTime -
-            (syncTime +
-              (publicSimulationTime ?? 0) +
-              (validationTime ?? 0) +
-              perFunction.reduce((acc, { time }) => acc + time, 0)),
-        };
-
-        this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
-          txHash,
-          ...txInfo,
-          ...(publicOutput
-            ? {
-                gasUsed: publicOutput.gasUsed,
-                revertCode: publicOutput.txEffect.revertCode.getCode(),
-                revertReason: publicOutput.revertReason,
-              }
-            : {}),
-        });
-
-        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput, {
-          timings,
-          nodeRPCCalls: recording.stats(),
-        });
       },
-      {
-        errorContext: () => [
-          inspect(txRequest),
-          `simulatePublic=${simulatePublic}`,
-          `skipTxValidation=${skipTxValidation}`,
-          `scopes=${scopes.map(s => s.toString()).join(', ')}`,
-        ],
-      },
+      { errorContext: () => [inspect(simulationTxRequest), inspect(proveTxRequest), inspect(privateExecutionResult)] },
     );
   }
 
