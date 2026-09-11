@@ -55,8 +55,12 @@ function test_cmds {
   echo "$prefix $script golden ts"
   echo "$prefix $script golden cpp"
   echo "$prefix $script golden zig"
+  # The generated C++ FFI entry, driven in-process (the Rust equivalent runs as
+  # a cargo test during build()).
+  echo "$prefix ipc-codegen/echo_example/cpp/build/bin/ffi_test"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh shm"
+  echo "$prefix ipc-codegen/echo_example/ts_package/test.sh wasm"
 
   # Matrix: one command per (server, client) pair over UDS.
   for server in "${matrix_langs[@]}"; do

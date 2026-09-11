@@ -7,6 +7,13 @@ package.json
 tsconfig.json
 src/generated/
 src/index.ts
+src/react-native.ts
 src/platform.ts
+src/process.ts
 src/bin.ts
-scripts/prepare_arch_packages.sh
+src/browser.ts
+src/wasm.ts
+src/wasm/
+src/wasm_host_imports.ts
+wasm/
+.ipc-codegen-manifest

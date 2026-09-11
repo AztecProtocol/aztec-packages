@@ -641,6 +641,10 @@
       "response": {
         "dummy": "u8"
       }
+    },
+    "Warmup": {
+      "request": {},
+      "response": {}
     }
   }
 }

@@ -1,4 +1,4 @@
-#include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/bbapi/generated/bb_ffi.hpp"
 #include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/bbapi/generated/ipc_codegen/msgpack_adaptor.hpp"
 #include "barretenberg/bbapi/generated/ipc_codegen/msgpack_include.hpp"
@@ -26,11 +26,10 @@ template <typename Cmd> std::string ffi_response_type(const char* name, const Cm
 
     uint8_t* out = nullptr;
     size_t out_len = 0;
-    ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
+    bb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
 
     auto oh = msgpack::unpack(reinterpret_cast<const char*>(out), out_len);
-    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
-    free(out);
+    bb_ipc_ffi_free(out);
     auto arr = oh.get().via.array;
     EXPECT_EQ(arr.size, 2U);
     auto type = arr.ptr[0].as<std::string>();
@@ -72,6 +71,13 @@ TEST(CBind, UnknownCommandReturnsErrorResponse)
 {
     wire::BbPoseidon2Hash cmd;
     EXPECT_EQ(ffi_response_type("NoSuchCommand", cmd), "BbErrorResponse");
+}
+
+// Warmup runs the prover's hot loops on self-made inputs; they must be shaped so that
+// the unsafe MSM path never meets two equal points.
+TEST(CBind, WarmupSucceeds)
+{
+    EXPECT_EQ(ffi_response_type("BbWarmup", wire::BbWarmup{}), "BbWarmupResponse");
 }
 
 #else

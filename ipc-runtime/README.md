@@ -215,6 +215,27 @@ Two transport-specific clients:
 `UdsIpcServer` is provided for in-process tests; production servers are in
 C++.
 
+The `@aztec-foundation/ipc-runtime/wasm` entry (node and `browser` export
+conditions) runs a service compiled to a wasi reactor in-process, through the
+FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
+`_free`, found by suffix when not named; see `ipc-codegen/SCHEMA_SPEC.md`):
+
+| Export                        | Role                                                                                     |
+|-------------------------------|------------------------------------------------------------------------------------------|
+| `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
+| `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
+| `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
+| `runMainWorker`, `runThreadWorker` | bodies for a package's own worker scripts (needed when the module has `hostImports`)  |
+| `compileWasmModule`           | `Module` from a URL, `Response`, raw or gzipped bytes; streaming compilation for URLs      |
+
+The module is loaded through `WebAssembly.compileStreaming` where possible, so
+browsers that cache compiled wasm start from optimized code on a repeat visit.
+Memory is created to the module's declared shape (a threads build gets a
+shared memory even for one thread), WASI is served by a small shim (clock,
+random, stdout/stderr to the logger, environ), and modules whose platform
+layer imports functions of its own (bb imports a logger, an abort hook and its
+thread count) supply them through `hostImports`.
+
 ### Zig (`zig/`)
 
 `Server.fromPath(path)` / `Client.fromPath(path)` over the same C ABI; the

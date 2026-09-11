@@ -259,7 +259,7 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
 	$(call build,$@,barretenberg/ts,build_bb_js)
 
-# Copies the cross-compiles into bb.js.
+# Copies the cross-compiles into bb.js (its NAPI module) and bb.js-api (the bb binaries).
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
 
@@ -270,10 +270,10 @@ bb-ts-cross-copy: bb-ts bb-cpp-cross
 bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native bb-ts
 	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
 
-# Ordered after bb-cdb for the same reason bb-cdb is ordered after bb-avm-sim:
-# all three regenerate the same barretenberg/ts workspaces and install into the
-# same node_modules.
-bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-cpp-cross
+# Ordered after bb-cdb (and after bb-ts-cross-copy, which builds bb.js-api's cross copies)
+# for the same reason bb-cdb is ordered after bb-avm-sim: they all regenerate the same
+# barretenberg/ts workspaces and install into the same node_modules.
+bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-ts-cross-copy bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
 # Generated @aztec-foundation/cdb server bindings. Ordered after bb-avm-sim rather than run

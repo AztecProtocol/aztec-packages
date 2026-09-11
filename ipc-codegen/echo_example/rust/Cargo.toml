@@ -3,6 +3,9 @@ name = "echo-wire-compat"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [[bin]]
 name = "echo_server"
 path = "src/echo_server.rs"
@@ -14,8 +17,8 @@ path = "src/echo_client.rs"
 [features]
 default = ["ipc-runtime"]
 ipc-runtime = ["dep:ipc-runtime"]
-# Compile-checks the generated FFI backend (no real FFI library is linked;
-# the extern symbol is only required at link time of a consumer binary).
+# The generated FFI entry (export_echo_ffi!) and FFI client backend; the two
+# meet in-process in tests/ffi_roundtrip.rs.
 ffi = ["dep:libc"]
 
 [dependencies]

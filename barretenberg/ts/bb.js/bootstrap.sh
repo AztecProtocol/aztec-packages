@@ -13,10 +13,9 @@ hash=$(hash_str \
   ${AVM_TRANSPILER:-1})
 
 function prepare_project {
-  (cd .. && ./bootstrap.sh generate_packages)
-  # Same cache-key inputs as barretenberg/ts/bootstrap.sh: the workspaces
-  # portal into ipc-runtime/ts, so its manifest belongs in the key.
-  (cd .. && npm_install_deps "^ipc-runtime/ts/package\.json$")
+  # Generates the workspace packages (including @aztec-foundation/bb.js-api, which bb.js
+  # compiles against) and installs; same cache-key inputs as barretenberg/ts/bootstrap.sh.
+  (cd .. && ./bootstrap.sh build_bb_js_api_ts)
 }
 
 function formatting {
@@ -27,14 +26,14 @@ function formatting {
 
 function build {
   echo_header "bb.js build"
-  prepare_project
+  # bb.js compiles against @aztec-foundation/bb.js-api and runs the wasm modules and bb binary
+  # that package stages, so stage them whether or not bb.js's own build is cached.
+  (cd .. && ./bootstrap.sh build_bb_js_api)
   yarn formatting
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    yarn generate
-    yarn build:wasm
     yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest build
@@ -57,16 +56,11 @@ function test_cmds {
   for test in **/*.test.js; do
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.js$ ]] && continue
-    [[ "$test" == "bbapi/chonk_pinned_inputs.test.js" ]] && continue
+    [[ "$test" == "barretenberg/chonk_pinned_inputs.test.js" ]] && continue
 
-    local prefix=$hash
-    # Extra resource.
-    if [[ "$test" =~ ^examples/ ]]; then
-      prefix="$prefix:CPUS=16"
-    fi
-    echo "$prefix barretenberg/ts/bb.js/scripts/run_test.sh $test"
+    echo "$hash barretenberg/ts/bb.js/scripts/run_test.sh $test"
   done
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js"
+  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh barretenberg/chonk_pinned_inputs.test.js"
 }
 
 function bench_cmds {
@@ -80,10 +74,6 @@ function test {
 
 function release {
   cross_copy
-  # The bundled binaries are restored from the build cache, which is keyed on source, not on
-  # the release: finalize them here so they carry this release's version like every other copy.
-  local f
-  for f in ./build/*/bb ./build/*/bb.exe; do [ -f "$f" ] && ../../cpp/bootstrap.sh finalize_bb_binary "$(realpath "$f")"; done
   retry "deploy_npm ${REF_NAME#v}"
 }
 

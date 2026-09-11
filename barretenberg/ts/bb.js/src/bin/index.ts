@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 
-import { findBbBinary } from '../bb_backends/node/platform.js';
+import { findBbBinary } from '../backends/node/platform.js';
 
 const bin = findBbBinary();
 

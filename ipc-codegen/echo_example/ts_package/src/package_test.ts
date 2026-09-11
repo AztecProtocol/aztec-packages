@@ -1,12 +1,11 @@
-import { EchoService, SyncApi, type EchoTransport } from "./index.js";
+import { EchoService, EchoServiceSync, SyncApi } from "./index.js";
 import { createNapiShmSyncClient } from "@aztec-foundation/ipc-runtime";
 
 const args = process.argv.slice(2);
 const transportArg = args[args.indexOf("--transport") + 1] ?? "uds";
-if (transportArg !== "uds" && transportArg !== "shm") {
+if (transportArg !== "uds" && transportArg !== "shm" && transportArg !== "wasm") {
   throw new Error(`Unknown --transport '${transportArg}'`);
 }
-const transport = transportArg as EchoTransport;
 
 function testHash(base: number): Uint8Array {
   return Uint8Array.from({ length: 32 }, (_v, i) => base + i);
@@ -26,6 +25,62 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
     Buffer.from(expected).toString("hex"),
     label,
   );
+}
+
+// The wasm transport runs the service's own wasi reactor in-process, with no binary at all.
+// Both the worker-hosted and calling-thread forms, and the synchronous one.
+if (transportArg === "wasm") {
+  for (const worker of [true, false]) {
+    const wasmService = await EchoService.create({
+      backend: "wasm",
+      wasm: { worker },
+    });
+    try {
+      const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef]);
+      assertBytes((await wasmService.bytes({ data })).data, data, `wasm(worker=${worker}).bytes`);
+      const fields = await wasmService.fields({ a: 1, b: 2, name: "wasm" });
+      assertEqual(fields.name, "wasm", `wasm(worker=${worker}).fields.name`);
+      await wasmService
+        .fail({ message: "boom" })
+        .then(() => {
+          throw new Error(`wasm(worker=${worker}): fail should reject`);
+        })
+        .catch((e: Error) => {
+          if (!e.message.includes("boom")) throw e;
+        });
+    } finally {
+      await wasmService.destroy();
+    }
+  }
+
+  const sync = await EchoServiceSync.create({ backend: "wasm" });
+  try {
+    assertBytes(
+      sync.bytes({ data: Uint8Array.from([1, 2, 3]) }).data,
+      Uint8Array.from([1, 2, 3]),
+      "wasm sync bytes.data",
+    );
+  } finally {
+    sync.destroy();
+  }
+  console.error("echo ts package: wasm OK");
+  process.exit(0);
+}
+
+const transport = transportArg;
+
+// The default policy: the echo binary resolves, so create() spawns it.
+{
+  const created = await EchoService.create();
+  try {
+    if (!created.process) {
+      throw new Error("create(): expected a spawned process backend");
+    }
+    const data = Uint8Array.from([7, 8, 9]);
+    assertBytes((await created.bytes({ data })).data, data, "create().bytes");
+  } finally {
+    await created.destroy();
+  }
 }
 
 const service = await EchoService.spawn({ transport });
@@ -50,7 +105,11 @@ try {
   const nested = await service.nested({ inner });
   assertEqual(nested.inner.flag, true, "nested.inner.flag");
   assertEqual(nested.inner.values.length, 2, "nested.inner.values.length");
-  assertBytes(nested.inner.values[0]!, inner.values[0]!, "nested.inner.values[0]");
+  assertBytes(
+    nested.inner.values[0]!,
+    inner.values[0]!,
+    "nested.inner.values[0]",
+  );
 
   const hash = testHash(0x10);
   const second = testHash(0x40);

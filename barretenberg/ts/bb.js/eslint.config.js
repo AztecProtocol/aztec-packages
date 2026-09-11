@@ -22,8 +22,6 @@ export default [
     'eslint.config.js',
     'eslint.config.*.js',
     'src/jest/*.mjs',
-    // Codegen output; see .prettierignore.
-    'src/generated/**',
   ]),
   ...tseslint.config({
     extends: [
@@ -92,13 +90,7 @@ export default [
       curly: ['error', 'all'],
       camelcase: 'error',
       'import-x/no-relative-packages': 'error',
-      'import-x/no-unresolved': [
-        'error',
-        {
-          // Generated later in bootstrap; the tracked wasm symlinks are broken in a clean checkout until the C++ build runs.
-          ignore: ['generated', '\\.wasm\\.gz$'],
-        },
-      ],
+      'import-x/no-unresolved': 'error',
       'import-x/no-extraneous-dependencies': 'error',
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],

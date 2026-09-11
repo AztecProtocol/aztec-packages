@@ -5,6 +5,7 @@ ROOT=$(git rev-parse --show-toplevel)
 BB_AVM_SIM_BINARY=bb-avm-sim
 BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
+BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
 
 hash=$(hash_str \
   $(bb.js/bootstrap.sh hash) \
@@ -25,8 +26,6 @@ function generate_bb_avm_sim_package {
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/avm/avm_schema.json" \
     --lang ts \
-    --client \
-    --out "$ROOT/barretenberg/ts/bb-avm-sim/src/generated" \
     --package "$ROOT/barretenberg/ts/bb-avm-sim" \
     --package-name "$BB_AVM_SIM_PACKAGE" \
     --binary-name "$BB_AVM_SIM_BINARY" \
@@ -44,17 +43,100 @@ function generate_cdb_package {
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/cdb/cdb_schema.json" \
     --lang ts \
     --server \
-    --out "$ROOT/barretenberg/ts/cdb/src/generated" \
     --package "$ROOT/barretenberg/ts/cdb" \
     --package-name "$CDB_PACKAGE"
 }
 
-# Both bb-avm-sim and cdb are gitignored workspaces declared in package.json, so
-# `yarn install --immutable` fails against the committed lockfile unless both exist.
+# The bb API as a generated client package: typed AsyncApi/SyncApi over bb spawned as a
+# process (uds, shm) or run in-process as the wasm module (node and browsers). bb.js is
+# a consumer of this package, keeping only its facades and CRS handling.
+function generate_bb_js_api_package {
+  local bbapi="$ROOT/barretenberg/cpp/src/barretenberg/bbapi"
+  # bb.js keeps its historical API surface (poseidon2Hash, Poseidon2Hash), so the Bb
+  # service prefix is stripped from identifiers; wire tags keep it.
+  node --experimental-strip-types --experimental-transform-types --no-warnings \
+    "$ROOT/ipc-codegen/src/generate.ts" \
+    --schema "$bbapi/bb_schema.json" \
+    --lang ts \
+    --package "$ROOT/barretenberg/ts/bb.js-api" \
+    --package-name "$BB_JS_API_PACKAGE" \
+    --binary-name bb \
+    --binary-env-var BB_BINARY_PATH \
+    --strip-method-prefix \
+    --strip-type-prefix \
+    --package-transports uds,shm,wasm \
+    --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-wasm-module barretenberg.wasm \
+    --package-wasm-threads-module barretenberg-threads.wasm
+}
+
+# bb-avm-sim, cdb and bb.js-api are gitignored workspaces declared in package.json, so
+# `yarn install --immutable` fails against the committed lockfile unless all exist.
 # Generate them together before installing, whichever one we're about to build.
 function generate_packages {
   generate_bb_avm_sim_package
   generate_cdb_package
+  generate_bb_js_api_package
+}
+
+# The wasm builds the bb.js-api package ships: threads (node, cross-origin isolated
+# browsers) and single-thread (browsers without SharedArrayBuffer).
+#
+# Shipped uncompressed. npm tarballs are gzipped either way, so this costs nothing on install,
+# and it is the form a host's own compression and the browser's compiled-code cache both want:
+# only a real application/wasm response can be streamed straight into WebAssembly.compileStreaming
+# and cached. A consumer serving from a host that does not compress can point bb.js's wasmPath (or
+# BB_WASM_PATH) at a compressed copy instead; the loader recognises gzip.
+function copy_bb_js_api_wasm {
+  # Replace rather than add to: the package publishes everything under wasm/, so a module left
+  # from an earlier build would ship alongside the current one.
+  rm -rf bb.js-api/wasm
+  mkdir -p bb.js-api/wasm
+  cp "$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm" bb.js-api/wasm/barretenberg-threads.wasm
+  cp "$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" bb.js-api/wasm/barretenberg.wasm
+}
+
+function copy_bb_js_api_native {
+  local target_dir="bb.js-api/build/$(arch)-$(os)"
+  mkdir -p "$target_dir"
+  cp "$ROOT/barretenberg/cpp/build/bin/bb" "$target_dir/bb"
+}
+
+function copy_bb_js_api_cross {
+  if [ -n "${1:-}" ]; then
+    local cross_arch="$1"
+    mkdir -p "bb.js-api/build/$cross_arch"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/bb" "bb.js-api/build/$cross_arch/bb"
+  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
+    for cross_arch in arm64-linux amd64-macos arm64-macos; do
+      mkdir -p "bb.js-api/build/$cross_arch"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/bb" "bb.js-api/build/$cross_arch/bb"
+    done
+  else
+    echo "This task is expected to be run with an explicit arch or in an x86 release context."
+  fi
+}
+
+function prepare_bb_js_api_arch_packages {
+  yarn workspace "$BB_JS_API_PACKAGE" run prepare_arch_packages "$@"
+}
+
+# Generate + compile the package bb.js compiles against, without the wasm/binary artifacts
+# (enough for type-checking, formatting and lint). Not cached: it is a few seconds of tsc.
+function build_bb_js_api_ts {
+  generate_packages
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$BB_JS_API_PACKAGE" build
+}
+
+# The full package: compiled TS plus the wasm modules and this machine's bb binary. bb.js
+# runs these at test time, so it stages them even when its own build is cached.
+function build_bb_js_api {
+  echo_header "bb.js-api package build"
+  build_bb_js_api_ts
+  copy_bb_js_api_wasm
+  copy_bb_js_api_native
+  prepare_bb_js_api_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/bb"
 }
 
 function copy_bb_avm_sim_native {
@@ -81,7 +163,7 @@ function copy_bb_avm_sim_cross {
 }
 
 function prepare_bb_avm_sim_arch_packages {
-  (cd bb-avm-sim && ./scripts/prepare_arch_packages.sh "$@")
+  yarn workspace "$BB_AVM_SIM_PACKAGE" run prepare_arch_packages "$@"
 }
 
 function build_bb_js {
@@ -160,7 +242,10 @@ function test {
   (cd bb.js && ./bootstrap.sh test)
 }
 
+# bb.js's own cross copies (the LMDB NAPI module) and bb.js-api's (the bb binary), which bb.js
+# runs through.
 function cross_copy_bb_js {
+  cross_copy_bb_js_api "$@"
   (cd bb.js && ./bootstrap.sh cross_copy "$@")
 }
 
@@ -178,6 +263,12 @@ function cross_copy {
 
 function get_projects {
   echo "$PWD/bb.js"
+  if [ -d bb.js-api ]; then
+    for package_dir in bb.js-api/packages/*; do
+      [ -d "$package_dir" ] && echo "$PWD/$package_dir"
+    done
+    echo "$PWD/bb.js-api"
+  fi
   if [ -d bb-avm-sim ]; then
     for package_dir in bb-avm-sim/packages/*; do
       [ -d "$package_dir" ] && echo "$PWD/$package_dir"
@@ -209,7 +300,38 @@ function release_cdb {
   (cd cdb && retry "deploy_npm ${REF_NAME#v}")
 }
 
+function cross_copy_bb_js_api {
+  generate_packages
+  copy_bb_js_api_cross "$@"
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$BB_JS_API_PACKAGE" build
+  prepare_bb_js_api_arch_packages
+}
+
+# bb.js depends on bb.js-api, so it is published first (with its arch packages, the one published
+# home of the bb binary).
+function release_bb_js_api {
+  generate_packages
+  copy_bb_js_api_wasm
+  copy_bb_js_api_native
+  copy_bb_js_api_cross
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$BB_JS_API_PACKAGE" build
+  prepare_bb_js_api_arch_packages
+  # The binaries come from builds keyed on source, not on the release: finalize them so they
+  # carry this release's version like every other copy.
+  local f
+  for f in bb.js-api/packages/*/bb; do
+    [ -f "$f" ] && ../cpp/bootstrap.sh finalize_bb_binary "$(realpath "$f")"
+  done
+  for package_dir in bb.js-api/packages/*; do
+    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
+  done
+  (cd bb.js-api && retry "deploy_npm ${REF_NAME#v}")
+}
+
 function release {
+  release_bb_js_api
   (cd bb.js && ./bootstrap.sh release)
   release_bb_avm_sim
   release_cdb
@@ -217,7 +339,8 @@ function release {
 }
 
 export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
-export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim release release_cdb
+export -f generate_bb_js_api_package copy_bb_js_api_wasm copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
+export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
 
 case "$cmd" in
   "")

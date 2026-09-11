@@ -41,7 +41,10 @@ export class TypeScriptCodegen {
   /** Prefix to strip from generated type and converter names (e.g. "Bb" -> BbCircuitProve becomes CircuitProve) */
   private typePrefix: string = "";
 
-  constructor(options?: { stripMethodPrefix?: string; stripTypePrefix?: string }) {
+  constructor(options?: {
+    stripMethodPrefix?: string;
+    stripTypePrefix?: string;
+  }) {
     if (options?.stripMethodPrefix) {
       this.methodPrefix = options.stripMethodPrefix;
     }
@@ -376,6 +379,11 @@ ${conversions}
     return this.generateConverter("from", type, value);
   }
 
+  /** Error class name for a service's error response, e.g. `BbErrorResponse` -> `BbError`. */
+  private errorClassName(errorTypeName: string): string {
+    return errorTypeName.replace(/Response$/, "");
+  }
+
   // Generate types file (api_types.ts)
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
     const allStructs = dedupeStructsByName([
@@ -490,6 +498,18 @@ ${toFunctions}
 
 ${fromFunctions}
 
+/**
+ * Thrown when the service answers a command with ${schema.errorTypeName} rather than a result.
+ * The message is the service's own, so the type is what separates "the service said no" from a
+ * fault in the client. Declared here so the async and sync APIs throw the same class.
+ */
+export class ${this.errorClassName(schema.errorTypeName)} extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = '${this.errorClassName(schema.errorTypeName)}';
+  }
+}
+
 // Base API interfaces
 export interface AsyncApiBase {
 ${asyncApiMethods}
@@ -513,7 +533,7 @@ ${syncApiMethods}
     const msgpackCommand = from${cmdType}(command);
     return msgpackCall(this.backend, [["${command.name}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName === '${this.errorTypeName}') {
-        throw this.createError(result.message || 'Unknown error from server');
+        throw new ${this.errorClassName(this.errorTypeName)}(result.message || 'Unknown error from server');
       }
       if (variantName !== '${command.responseType}') {
         throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
@@ -532,7 +552,7 @@ ${syncApiMethods}
     const msgpackCommand = from${cmdType}(command);
     const [variantName, result] = msgpackCall(this.backend, [["${command.name}", msgpackCommand]]);
     if (variantName === '${this.errorTypeName}') {
-      throw this.createError(result.message || 'Unknown error from server');
+      throw new ${this.errorClassName(this.errorTypeName)}(result.message || 'Unknown error from server');
     }
     if (variantName !== '${command.responseType}') {
       throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
@@ -559,8 +579,6 @@ export interface IpcClientAsync {
   destroy(): Promise<void>;
 }
 
-export type IpcErrorFactory = (message: string) => Error;
-
 async function msgpackCall(backend: IpcClientAsync, input: any[]) {
   const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
   const encodedResult = await backend.call(inputBuffer);
@@ -568,10 +586,7 @@ async function msgpackCall(backend: IpcClientAsync, input: any[]) {
 }
 
 export class AsyncApi implements AsyncApiBase {
-  constructor(
-    protected backend: IpcClientAsync,
-    protected createError: IpcErrorFactory = message => new Error(message),
-  ) {}
+  constructor(protected backend: IpcClientAsync) {}
 
 ${methods}
 
@@ -600,8 +615,6 @@ export interface IpcClientSync {
   destroy(): void;
 }
 
-export type IpcErrorFactory = (message: string) => Error;
-
 function msgpackCall(backend: IpcClientSync, input: any[]) {
   const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
   const encodedResult = backend.call(inputBuffer);
@@ -609,10 +622,7 @@ function msgpackCall(backend: IpcClientSync, input: any[]) {
 }
 
 export class SyncApi implements SyncApiBase {
-  constructor(
-    protected backend: IpcClientSync,
-    protected createError: IpcErrorFactory = message => new Error(message),
-  ) {}
+  constructor(protected backend: IpcClientSync) {}
 
 ${methods}
 
@@ -641,6 +651,7 @@ ${methods}
     }
 
     types.add(baseInterface);
+    types.add(this.errorClassName(schema.errorTypeName));
 
     const sortedTypes = Array.from(types).sort();
     return `import { ${sortedTypes.join(", ")} } from './api_types.js';`;
