@@ -6,6 +6,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
 #include <gtest/gtest.h>
@@ -133,6 +134,17 @@ TEST(BBApiInputValidation, ChonkBatchVerifyWrongVkSizeReturnsInvalid)
 {
     auto response = bbapi::ChonkBatchVerify{ .proofs = { ChonkProof{} }, .vks = { { 0 } } }.execute();
     EXPECT_FALSE(response.valid);
+}
+
+TEST(Poseidon2AbsorbChain, MatchesNativeSponge)
+{
+    using Sponge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::Sponge;
+    const Sponge::State initial_state = { fr(11), fr(12), fr(13), fr(14) };
+    const std::array<Sponge::Block, 2> blocks = { { { fr(1), fr(2), fr(3) }, { fr(4), fr(5), fr(6) } } };
+
+    bbapi::BBApiRequest request{};
+    auto response = bbapi::Poseidon2AbsorbChain{ .state = initial_state, .inputs = to_buffer(blocks) }.execute(request);
+    EXPECT_EQ(response.state, Sponge::absorb_blocks(initial_state, blocks));
 }
 
 // Helper: pack a vector of PrivateExecutionStepRaw into a byte buffer via msgpack.

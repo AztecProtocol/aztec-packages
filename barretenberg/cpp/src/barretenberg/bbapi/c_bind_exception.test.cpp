@@ -9,6 +9,16 @@ using namespace bb::bbapi;
 
 #ifndef BB_NO_EXCEPTIONS
 
+TEST(CBind, Poseidon2AbsorbChainMalformedLengthReturnsErrorResponse)
+{
+    for (size_t length : { 1U, 32U, 95U, 97U }) {
+        SCOPED_TRACE(length);
+        auto response = bbapi(Poseidon2AbsorbChain{ .state = {}, .inputs = std::vector<uint8_t>(length) });
+        ASSERT_TRUE(std::holds_alternative<ErrorResponse>(response.get()));
+        EXPECT_NE(std::get<ErrorResponse>(response.get()).message.find("Poseidon2AbsorbChain"), std::string::npos);
+    }
+}
+
 // Test that exceptions thrown during command execution are caught and converted to ErrorResponse
 TEST(CBind, CatchesExceptionAndReturnsErrorResponse)
 {
