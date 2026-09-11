@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Downloads and extracts a build-cache artifact from CACHE_LOCAL_DIR if present, else the ci3 API.
+# Downloads and extracts a build-cache artifact through the ci3 API.
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
@@ -30,36 +30,6 @@ function extract_tar {
 }
 
 mkdir -p "$out_dir"
-
-# Local cache: if CACHE_LOCAL_DIR is set, check local cache first,
-# and on miss, download from remote into local cache before extracting.
-# If the cache directory cannot be created, skip local caching and fall through.
-if [[ -n "${CACHE_LOCAL_DIR:-}" ]] && ! mkdir -p "$CACHE_LOCAL_DIR" 2>/dev/null; then
-  echo_stderr "Warning: Cannot create local cache dir $CACHE_LOCAL_DIR, skipping local cache."
-  CACHE_LOCAL_DIR=""
-fi
-
-if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
-  local_cache_file="$CACHE_LOCAL_DIR/$tar_file"
-
-  if [[ -f "$local_cache_file" ]]; then
-    echo_stderr "Local cache hit for $tar_file."
-    extract_tar < "$local_cache_file"
-    echo_stderr "Cache extraction of $tar_file from local cache complete in ${SECONDS}s."
-    exit 0
-  fi
-
-  echo_stderr "Local cache miss for $tar_file, downloading from remote."
-  if ! ci3_client artifact_get "$tar_file" > "$local_cache_file"; then
-    rm -f "$local_cache_file"
-    echo_stderr "Cache download of $tar_file failed."
-    exit 1
-  fi
-
-  extract_tar < "$local_cache_file"
-  echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
-  exit 0
-fi
 
 if ! ci3_client artifact_get "$tar_file" | extract_tar; then
   echo_stderr "Cache download of $tar_file failed."

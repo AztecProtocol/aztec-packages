@@ -35,7 +35,7 @@ cleanup() {
 trap cleanup EXIT
 
 # The test's environment must not inherit the build's production endpoint or credentials.
-unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI3_PASSWORD
+unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID CI3_PASSWORD CI3_CACHE_PUBLIC
 export CI=0
 server_args=(--port "$port" --dir "$work/store" --public-cache-url http://127.0.0.1:1)
 url=$("$ci3/ci3_server" start "${server_args[@]}")
@@ -132,6 +132,7 @@ check "server sidecars are not addressable" 400 "$(curl -s -o /dev/null -w '%{ht
 check "run files are not addressable as logs" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/x.json")"
 if "$ci3/ci3_server" start "${server_args[@]}" --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
 if "$ci3/ci3_server" start "${server_args[@]}" --public-cache-url http://127.0.0.1:2 >/dev/null 2>&1; then fail "start with a different public cache refuses to reuse the server" "reused"; else pass "start with a different public cache refuses to reuse the server"; fi
+if CI3_CACHE_PUBLIC=1 "$ci3/ci3_server" start "${server_args[@]}" >/dev/null 2>&1; then fail "start with a different cache mode refuses to reuse the server" "reused"; else pass "start with a different cache mode refuses to reuse the server"; fi
 check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start "${server_args[@]}" 2>/dev/null)"
 
 # --- no server: every client is a harmless no-op ---

@@ -27,7 +27,9 @@ import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, unquote, urlsplit
+from urllib.request import urlopen
 
 DEFAULT_PORT = 4275
 DEFAULT_DIR = "/tmp/ci3"
@@ -36,6 +38,7 @@ SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
 LIST_DEFAULT_MAX = 1000
 RUNS_MAX = 1000
 DEFAULT_LOG_TTL = 60 * 60 * 24 * 14
+DEFAULT_ARTIFACT_TTL = 60 * 60 * 24 * 7
 SWEEP_INTERVAL = 600
 CHUNK = 1 << 20
 STORES = ("logs", "kv", "lists", "runs", "artifacts")
@@ -100,7 +103,7 @@ class FileBackend:
             except FileNotFoundError:
                 pass
 
-    def write(self, path, data, ttl=None):
+    def write(self, path, data, ttl=None, overwrite=True):
         """data: bytes, or a file-like object streamed in chunks."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp-")
@@ -113,6 +116,10 @@ class FileBackend:
                     if not data.complete:  # nothing is published unless the whole body arrived
                         raise IncompleteBody()
             with self.lock:
+                if not overwrite and self.exists(path):
+                    # A local upload may have arrived while a public artifact was downloading.
+                    self.remove(tmp)
+                    return
                 if ttl is None:
                     self.remove(path + ".expires")
                 else:
@@ -176,8 +183,8 @@ class FileBackend:
         names = sorted((n for n in os.listdir(d) if n.endswith(".json")), reverse=True)
         return [json.loads(data) for n in names[:RUNS_MAX] for data in [self.read(os.path.join(d, n))] if data]
 
-    def artifact_put(self, name, stream, ttl):
-        self.write(self.path("artifacts", name), stream, ttl)
+    def artifact_put(self, name, stream, ttl, overwrite=True):
+        self.write(self.path("artifacts", name), stream, ttl, overwrite=overwrite)
 
     def artifact_exists(self, name):
         return self.exists(self.path("artifacts", name))
@@ -194,13 +201,14 @@ class FileBackend:
 
 
 class Body:
-    """A request body of known length, read lazily so an artifact streams to disk. `complete` says
-    whether the client sent everything it announced."""
+    """Stream a body to disk, checking its announced length when known."""
 
     def __init__(self, rfile, length):
         self.rfile, self.remaining = rfile, length
 
     def read(self, n=-1):
+        if self.remaining is None:
+            return self.rfile.read(n)
         if self.remaining <= 0:
             return b""
         data = self.rfile.read(self.remaining if n < 0 else min(n, self.remaining))
@@ -209,7 +217,7 @@ class Body:
 
     @property
     def complete(self):
-        return self.remaining == 0
+        return self.remaining in (None, 0)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -301,7 +309,21 @@ class Handler(BaseHTTPRequestHandler):
             opened = b.artifact_open(rest)
             if not opened:
                 target = self.server.public_cache_url + "/" + quote(rest, safe="/:+@=,")
-                return self.reply(302, headers=[("Location", target)])
+                if self.command == "HEAD" or not self.server.cache_public:
+                    return self.reply(302, headers=[("Location", target)])
+                try:
+                    with urlopen(target, timeout=60) as response:
+                        if response.status != 200:
+                            return self.reply(502, "unexpected public cache response\n")
+                        length = response.getheader("Content-Length")
+                        body = Body(response, int(length) if length is not None else None)
+                        b.artifact_put(rest, body, DEFAULT_ARTIFACT_TTL, overwrite=False)
+                except HTTPError as e:
+                    e.close()
+                    return self.reply(404 if e.code == 404 else 502)
+                except IncompleteBody:
+                    return self.reply(502, "incomplete public cache response\n")
+                opened = b.artifact_open(rest)
             size, f = opened
             with f:
                 self.send_response(200)
@@ -367,15 +389,17 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = True
     request_queue_size = 256  # hundreds of parallel test processes publish at once in CI
 
-    def __init__(self, addr, backend, identity, verbose, public_cache_url=PUBLIC_CACHE_URL):
+    def __init__(self, addr, backend, identity, verbose, public_cache_url=PUBLIC_CACHE_URL, cache_public=False):
         super().__init__(addr, Handler)
         self.backend, self.identity, self.verbose = backend, identity, verbose
         self.public_cache_url = public_cache_url.rstrip("/")
+        self.cache_public = cache_public
 
 
 def identity_of(args):
     """What two starters must agree on to share a server."""
-    return "dir=%s;public_cache_url=%s" % (os.path.abspath(args.dir), args.public_cache_url.rstrip("/"))
+    identity = "dir=%s;public_cache_url=%s" % (os.path.abspath(args.dir), args.public_cache_url.rstrip("/"))
+    return identity + (";cache_public=1" if args.cache_public else "")
 
 
 def health(port):
@@ -403,7 +427,8 @@ class Cli:
 
     def run(self, args):
         backend = FileBackend(args.dir)
-        server = Server((args.host, args.port), backend, identity_of(args), args.verbose, args.public_cache_url)
+        server = Server((args.host, args.port), backend, identity_of(args), args.verbose,
+                        args.public_cache_url, args.cache_public)
         # Written by the process that holds the port, so `stop` never targets a starter that lost the race.
         os.makedirs(args.dir, exist_ok=True)
         with open(os.path.join(args.dir, "server.pid"), "w") as f:
@@ -498,6 +523,8 @@ class Cli:
             p.add_argument("--port", type=int, default=DEFAULT_PORT)
             p.add_argument("--dir", default=DEFAULT_DIR, help="storage; also where server.pid and server.log live")
             p.add_argument("--public-cache-url", default=PUBLIC_CACHE_URL, help="redirect artifact misses here")
+            p.add_argument("--cache-public", action="store_true", default=os.environ.get("CI3_CACHE_PUBLIC") == "1",
+                           help="retain public artifacts on GET (also CI3_CACHE_PUBLIC=1)")
             p.add_argument("--verbose", action="store_true")
             p.set_defaults(fn=fn)
         args = parser.parse_args()

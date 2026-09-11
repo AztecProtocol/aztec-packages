@@ -47,6 +47,7 @@ Tools are provided for the following themes.
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
    - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts through the ci3 API; the server handles storage and download redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
+     The file server can also retain public downloads: start it with `CI3_CACHE_PUBLIC=1` or `--cache-public`. By default, public reads are redirected without retaining a copy.
    - **`ci3_client <command>`**: The only way ci3 talks to its server: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `artifact_put/artifact_get/artifact_exists`, and `env` (shell exports without network requests).
    - **`ci3_client check`**: Explicitly verifies the selected endpoint and authentication, and prints setup instructions when no URL is set. Bootstrap and CI entry points run it before proceeding.
    - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. In CI the server is the labs dashboard (`ci.aztec-labs.com`), which serves the same API.

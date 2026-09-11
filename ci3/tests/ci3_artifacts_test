@@ -2,6 +2,7 @@
 """Exercise artifact routing through a file server and a private public-cache fixture."""
 import functools
 import http.client
+import io
 import os
 from pathlib import Path
 import runpy
@@ -23,13 +24,15 @@ class PublicCache(SimpleHTTPRequestHandler):
 
     def send_head(self):
         self.server.authorization = self.headers.get("Authorization")
+        if hasattr(self.server, "before_download"):
+            self.server.before_download()
+        if hasattr(self.server, "response_body"):
+            self.send_response(200)
+            if self.server.response_length is not None:
+                self.send_header("Content-Length", str(self.server.response_length))
+            self.end_headers()
+            return io.BytesIO(self.server.response_body)
         return super().send_head()
-
-
-class FileServerHandler(SERVER["Handler"]):
-    def get(self, *args):
-        self.server.reads.append(self.path)
-        return super().get(*args)
 
 
 class UploadRedirect(BaseHTTPRequestHandler):
@@ -61,12 +64,10 @@ class ArtifactTest(unittest.TestCase):
         self.backend = SERVER["FileBackend"](str(self.directory / "store"))
         self.server = SERVER["Server"](("127.0.0.1", 0), self.backend, "test", False)
         self.server.public_cache_url = self.upstream_url
-        self.server.RequestHandlerClass = FileServerHandler
-        self.server.reads = []
         self.start_server(self.server)
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("CI3_")}
         self.env.update(CI="0", CI3_SERVER="http://127.0.0.1:%d" % self.server.server_port,
-                        root=str(CI3.parent), REF_NAME="ci3-artifacts-test", CACHE_LOCAL_DIR="",
+                        root=str(CI3.parent), REF_NAME="ci3-artifacts-test",
                         NO_CACHE="0", NO_CACHE_UPLOAD="0", CACHE_FORCE_UPLOAD="")
         (self.directory / "file.txt").write_text("public artifact\n")
         self.name = "nested/build+abc.tar.gz"
@@ -102,6 +103,65 @@ class ArtifactTest(unittest.TestCase):
                 self.assertEqual(self.request(method, "/artifacts/" + self.name),
                                  (302, self.upstream_url + "/" + self.name, b""))
 
+    def test_opt_in_public_cache_retains_downloads(self):
+        self.server.cache_public = True
+        result = self.command("ci3_client", "artifact_get", self.name, CI3_PASSWORD="server-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, self.archive)
+        stored = self.directory / "store/artifacts" / self.name
+        self.assertTrue(stored.is_file())
+        self.assertEqual(stored.read_bytes(), self.archive)
+        self.assertTrue(Path(str(stored) + ".expires").is_file())
+        self.assertIsNone(self.upstream.authorization)
+        (self.public / self.name).unlink()
+        result = self.command("ci3_client", "artifact_get", self.name)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, self.archive)
+
+    def test_public_cache_does_not_download_for_head(self):
+        self.server.cache_public = True
+        self.assertEqual(self.request("HEAD", "/artifacts/" + self.name),
+                         (302, self.upstream_url + "/" + self.name, b""))
+        self.assertFalse(self.backend.artifact_exists(self.name))
+
+    def test_public_cache_keeps_a_concurrent_local_upload(self):
+        self.server.cache_public = True
+        self.upstream.before_download = lambda: self.backend.artifact_put(self.name, b"local upload", None)
+        result = self.command("ci3_client", "artifact_get", self.name)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, b"local upload")
+
+    def test_public_cache_rejects_a_truncated_download(self):
+        self.server.cache_public = True
+        self.upstream.response_body = self.archive
+        self.upstream.response_length = len(self.archive) + 100
+        status, _, _ = self.request("GET", "/artifacts/" + self.name)
+        self.assertEqual(status, 502)
+        self.assertFalse(self.backend.artifact_exists(self.name))
+        self.assertEqual(list((self.directory / "store/artifacts").rglob(".tmp-*")), [])
+
+    def test_public_cache_accepts_an_unknown_response_length(self):
+        self.server.cache_public = True
+        self.upstream.response_body = self.archive
+        self.upstream.response_length = None
+        result = self.command("ci3_client", "artifact_get", self.name)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, self.archive)
+        self.assertTrue(self.backend.artifact_exists(self.name))
+
+    def test_cache_mode_environment_reaches_the_detached_server(self):
+        self.server.shutdown()
+        self.server.server_close()
+        args = ("--port", self.server.server_port, "--dir", self.directory / "store",
+                "--public-cache-url", self.upstream_url)
+        self.addCleanup(lambda: self.command("ci3_server", "stop", *args))
+        started = self.command("ci3_server", "start", *args, CI3_CACHE_PUBLIC="1")
+        self.assertEqual(started.returncode, 0, started.stderr)
+        result = self.command("ci3_client", "artifact_get", self.name)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, self.archive)
+        self.assertTrue(self.backend.artifact_exists(self.name))
+
     def test_client_follows_redirects_without_forwarding_password(self):
         for command in ("artifact_get", "artifact_exists"):
             with self.subTest(command=command):
@@ -111,11 +171,14 @@ class ArtifactTest(unittest.TestCase):
                 self.assertIsNone(self.upstream.authorization)
 
     def test_missing_public_artifact_is_a_miss(self):
-        for command in ("artifact_get", "artifact_exists"):
-            with self.subTest(command=command):
-                result = self.command("ci3_client", command, "missing.tar.gz")
-                self.assertEqual(result.returncode, 1, result.stderr)
-                self.assertEqual(result.stdout, b"")
+        for mode in (False, True):
+            self.server.cache_public = mode
+            for command in ("artifact_get", "artifact_exists"):
+                with self.subTest(mode=mode, command=command):
+                    result = self.command("ci3_client", command, "missing.tar.gz")
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertEqual(result.stdout, b"")
+                    self.assertFalse(self.backend.artifact_exists("missing.tar.gz"))
 
     def test_invalid_names_are_not_redirected(self):
         for name in ("%2e%2e/secret", "foo.expires", "foo%0d%0aLocation:evil"):
@@ -178,15 +241,28 @@ class ArtifactTest(unittest.TestCase):
         self.assertTrue(self.backend.artifact_exists(self.name))
         self.assertEqual((self.public / self.name).read_bytes(), self.archive)
 
-    def test_disk_cache_hit_makes_no_http_requests(self):
-        cache = self.directory / "cache"
-        cache.mkdir()
-        (cache / "disk.tar.gz").write_bytes(self.archive)
-        self.backend.artifact_put("disk.tar.gz", self.archive, None)
-        result = self.command("cache_download", "disk.tar.gz", self.directory / "out", CACHE_LOCAL_DIR=str(cache))
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.directory / "out/file.txt").read_text(), "public artifact\n")
-        self.assertEqual(self.server.reads, [])
+    def test_cache_helpers_roundtrip_through_local_storage(self):
+        for extension in ("tar.gz", "tar.zst"):
+            with self.subTest(extension=extension):
+                name = "local/roundtrip." + extension
+                (self.directory / "file.txt").write_text("locally built artifact\n")
+                result = self.command("cache_upload", name, "file.txt")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(self.backend.artifact_exists(name))
+                (self.directory / "file.txt").unlink()
+                result = self.command("cache_download", name, self.directory / extension)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"")
+                self.assertEqual((self.directory / extension / "file.txt").read_text(), "locally built artifact\n")
+
+    def test_disabled_uploads_skip_packaging(self):
+        for name, env in (("disabled-cache.tar.gz", {}),
+                          ("disabled-upload.tar.gz", {"NO_CACHE_UPLOAD": "1"}),
+                          ("no-server.tar.gz", {"CI3_SERVER": ""})):
+            with self.subTest(name=name):
+                result = self.command("cache_upload", name, "nonexistent-file", **env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(self.backend.artifact_exists(name))
 
 
 if __name__ == "__main__":
