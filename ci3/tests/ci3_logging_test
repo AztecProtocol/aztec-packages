@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Check prompt log completion and ordering against a private HTTP server."""
+import os
+from pathlib import Path
+import runpy
+import shlex
+import subprocess
+import tempfile
+import threading
+import time
+import unittest
+
+
+CI3 = Path(__file__).resolve().parents[1]
+SERVER = runpy.run_path(str(CI3 / "ci3_server"))
+
+
+class Handler(SERVER["Handler"]):
+    def put(self, parts, head, rest):
+        if head == "logs" and self.query.get("final") == ["0"]:
+            body = self.body_bytes()
+            self.server.partial_started.set()
+            if not self.server.release_partial.wait(10):
+                return self.reply(504)
+            self.server.backend.log_put(rest, body, self.ttl(), False)
+            return self.reply(204)
+        return super().put(parts, head, rest)
+
+
+class LoggingTest(unittest.TestCase):
+    def setUp(self):
+        work = tempfile.TemporaryDirectory()
+        self.addCleanup(work.cleanup)
+        self.directory = Path(work.name)
+        self.backend = SERVER["FileBackend"](str(self.directory / "store"))
+        self.server = SERVER["Server"](("127.0.0.1", 0), self.backend, "test", False)
+        self.server.RequestHandlerClass = Handler
+        self.server.partial_started = threading.Event()
+        self.server.release_partial = threading.Event()
+        self.server.release_partial.set()
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.addCleanup(self.server.release_partial.set)
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("CI3_")}
+        self.env.update(CI="0", CI3_SERVER="http://127.0.0.1:%d" % self.server.server_port,
+                        root=str(CI3.parent), REF_NAME="ci3-logging-test", DENOISE="1",
+                        DENOISE_TMPDIR=str(self.directory), BUILD_SYSTEM_DEBUG="0", FORCE_COLOR="0")
+
+    def assert_final_log(self):
+        logs = list((self.directory / "store/logs").glob("*"))
+        logs = [path for path in logs if not path.name.endswith(".expires")]
+        self.assertEqual(len(logs), 1)
+        self.assertIn("Status: 0\n", logs[0].read_text())
+        self.assertIn("final-output\n", logs[0].read_text())
+
+    def test_short_command_does_not_wait_for_publish_interval(self):
+        started = time.monotonic()
+        result = subprocess.run([str(CI3 / "denoise"), "sleep 0.1; echo final-output"],
+                                env=self.env, capture_output=True, text=True, timeout=10)
+        elapsed = time.monotonic() - started
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(elapsed, 3, "denoise waited for its idle publisher")
+        self.assert_final_log()
+
+    def test_final_log_waits_for_an_active_partial_upload(self):
+        self.server.release_partial.clear()
+        command_done = self.directory / "command-done"
+        command = "echo final-output; touch " + shlex.quote(str(command_done))
+        process = subprocess.Popen([str(CI3 / "denoise"), command], env=self.env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertTrue(self.server.partial_started.wait(5))
+            deadline = time.monotonic() + 3
+            while not command_done.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(command_done.exists())
+            self.assertIsNone(process.poll(), "denoise exited with an upload still active")
+            self.server.release_partial.set()
+            _, errors = process.communicate(timeout=8)
+            self.assertEqual(process.returncode, 0, errors)
+            self.assert_final_log()
+        finally:
+            self.server.release_partial.set()
+            if process.poll() is None:
+                process.kill()
+            process.communicate()
+
+
+if __name__ == "__main__":
+    unittest.main()

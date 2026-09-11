@@ -10,7 +10,7 @@ import tarfile
 import tempfile
 import threading
 import unittest
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
 CI3 = Path(__file__).resolve().parents[1]
@@ -30,6 +30,21 @@ class FileServerHandler(SERVER["Handler"]):
     def get(self, *args):
         self.server.reads.append(self.path)
         return super().get(*args)
+
+
+class UploadRedirect(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_PUT(self):
+        if self.server.status is not None:
+            self.send_response(self.server.status)
+            self.send_header("Location", self.server.target + self.path)
+            self.send_header("Content-Length", "0")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.flush()
+        self.close_connection = True
 
 
 class ArtifactTest(unittest.TestCase):
@@ -121,6 +136,27 @@ class ArtifactTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.directory / "store/artifacts" / self.name).read_bytes(), b"public artifact\n")
         self.assertEqual((self.public / self.name).read_bytes(), self.archive)
+
+    def test_large_upload_follows_an_early_redirect(self):
+        redirect = ThreadingHTTPServer(("127.0.0.1", 0), UploadRedirect)
+        redirect.target = self.env["CI3_SERVER"]
+        self.start_server(redirect)
+        blob = self.directory / "large-upload"
+        data = bytes(range(256)) * (128 * 1024)
+        blob.write_bytes(data)
+        for status in (307, 308, 403, None):
+            with self.subTest(status=status):
+                redirect.status = status
+                name = "redirect-%s.tar.gz" % status
+                result = self.command("ci3_client", "artifact_put", name, blob,
+                                      CI3_SERVER="http://127.0.0.1:%d" % redirect.server_port)
+                stored = self.directory / "store/artifacts" / name
+                if status in (307, 308):
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(stored.read_bytes(), data)
+                else:
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertFalse(stored.exists())
 
     def test_cache_helpers_use_the_artifact_api(self):
         result = self.command("cache_exists", self.name)

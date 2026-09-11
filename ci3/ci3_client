@@ -163,7 +163,13 @@ def request(method, url, body=None, headers=None, timeout=30, redirects=5):
         conn = connection(url, timeout)
         if hasattr(body, "seek"):
             body.seek(0)
-        conn.request(method, u.path + ("?" + u.query if u.query else ""), body=body, headers=headers)
+        try:
+            conn.request(method, u.path + ("?" + u.query if u.query else ""), body=body, headers=headers)
+        except (BrokenPipeError, ConnectionResetError):
+            # A server can redirect or reject an upload before reading its whole body.
+            # Its response may still be readable after the write side closes.
+            if body is None:
+                raise
         resp = conn.getresponse()
         if resp.status in (301, 302, 303, 307, 308) and resp.getheader("Location"):
             resp.read()
@@ -356,7 +362,7 @@ def cmd_artifact_put(args):
             resp = api("PUT", "/artifacts/" + key_path(args[0]), f, headers, timeout=600, query={"ttl": str(ARTIFACT_EXPIRE)})
             resp.read()
             return 0 if resp.status < 300 else 1
-    except OSError as e:
+    except (OSError, http.client.HTTPException) as e:
         sys.stderr.write("ci3_client artifact_put: %s\n" % e)
         return 1
 

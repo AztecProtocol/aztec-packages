@@ -368,7 +368,8 @@ case "$cmd" in
       exit 1
     fi
     mkdir -p "$folder"
-    for id in $(ci3_client log_list "test-timings/$ci_log_id"); do
+    ids=$(ci3_client log_list "test-timings/$ci_log_id")
+    for id in $ids; do
       ci3_client log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
     done
     echo "Downloaded test timings for job $ci_log_id into $folder/"

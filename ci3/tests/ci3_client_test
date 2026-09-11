@@ -191,6 +191,13 @@ CI_LOG_ID=1700000000000999 run_test_cmd 'deadbeef00000003 echo {\"span\":1} >> $
 timings=$(ci3_client log_list test-timings/1700000000000999)
 check "one timing file is listed for the run" 1 "$(echo "$timings" | wc -l | tr -d ' ')"
 check "the timing data can be read through the API" '{"span":1}' "$(ci3_client log_get "test-timings/1700000000000999/$timings")"
+"$ROOT/ci.sh" test-timings 1700000000000999 "$work/timings" >/dev/null
+check "test-timings downloads the timing data" '{"span":1}' "$(cat "$work/timings/$timings.jsonl")"
+if CI3_SERVER=http://127.0.0.1:1 "$ROOT/ci.sh" test-timings 1700000000000999 "$work/failed-timings" >"$work/timings.out" 2>"$work/timings.err"; then
+  fail "test-timings propagates listing failures" "reported success with an unreachable server"
+else
+  pass "test-timings propagates listing failures"
+fi
 log_ci_run 1700000000000999 >/dev/null 2>&1
 check "run starts with a heartbeat" 'RUNNING 1' "$(ci3_client run_get prs 1700000000000999 | jq -r .status) $(ci3_client kv_get hb-1700000000000999)"
 log_ci_run 1700000000000999 PASSED >/dev/null 2>&1
