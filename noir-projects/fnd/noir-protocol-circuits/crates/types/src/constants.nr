@@ -62,7 +62,9 @@ pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
 // Cap on L1-to-L2 messages bundled into a single L2 block. One quarter of the per-checkpoint
-// cap: a checkpoint drains its Inbox consumption across up to four message-bearing blocks.
+// cap, so four blocks at full bundles are the fewest that can drain a checkpoint's whole Inbox
+// allowance. It is a floor, not a ceiling: blocks end at arbitrary message prefixes, so a
+// checkpoint may spread the same allowance over any number of partially filled blocks.
 pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 256;
 // Cap on L1-to-L2 messages consumed by a single checkpoint.
 pub global MAX_L1_TO_L2_MSGS_PER_CHECKPOINT: u32 = 1024;
