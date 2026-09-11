@@ -1,0 +1,255 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Gherghisan <alexghr@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 09:55:13 +0000
+Subject: [PATCH] feat: submit compact fees for proven checkpoints
+
+Use the proven tip observed during validation to send only coinbase and accumulated fees for the proven prefix. Keep full headers for the suffix and for public-input validation. Apply the same encoding to gas estimation and test fresh, partial, and fully proven prefixes.
+
+diff --git a/yarn-project/prover-node/src/prover-node-publisher.test.ts b/yarn-project/prover-node/src/prover-node-publisher.test.ts
+index 390a9d84f0082ae241c9a38dc2b37b75f98579b8..8d78e336101d82bfe1ad2ccc3c5dd9339c01c1cb 100644
+--- a/yarn-project/prover-node/src/prover-node-publisher.test.ts
++++ b/yarn-project/prover-node/src/prover-node-publisher.test.ts
+@@ -1,3 +1,5 @@
++import { RollupAbi } from '@aztec-foundation/l1-artifacts';
++
+ import { BatchedBlob } from '@aztec-labs/blob-lib/types';
+ import type { RollupContract } from '@aztec-labs/ethereum/contracts';
+ import { randomL1ContractAddresses } from '@aztec-labs/ethereum/l1-contract-addresses';
+@@ -13,6 +15,7 @@ import { Proof } from '@aztec-labs/stdlib/proofs';
+ import { CheckpointHeader, RootRollupPublicInputs } from '@aztec-labs/stdlib/rollup';
+ import { jest } from '@jest/globals';
+ import { type MockProxy, mock } from 'jest-mock-extended';
++import { decodeFunctionData, getAddress } from 'viem';
+ 
+ import { ProverNodePublisher } from './prover-node-publisher.js';
+ 
+@@ -197,6 +200,30 @@ describe('prover-node-publisher', () => {
+     },
+   );
+ 
++  describe('compact checkpoint headers', () => {
++    it.each([
++      { proven: 32, end: 48, prefixLength: 0 },
++      { proven: 40, end: 48, prefixLength: 8 },
++      { proven: 48, end: 48, prefixLength: 16 },
++    ])('encodes $prefixLength compact entries when proven is $proven', async ({ proven, end, prefixLength }) => {
++      const args = setupPublishData(64, proven, 33, end);
++      await publisher.submitEpochProof(args);
++      const [{ data }] = l1Utils.sendAndMonitorTransaction.mock.calls[0];
++      const decoded = decodeFunctionData({ abi: RollupAbi, data: data! });
++      if (decoded.functionName !== 'submitEpochRootProof') {
++        throw new Error(`Unexpected function ${decoded.functionName}`);
++      }
++      const [submission] = decoded.args;
++      const fullHeaders = args.headers.map(header => header.toViem());
++      const headers = fullHeaders.map(header => ({ ...header, coinbase: getAddress(header.coinbase) }));
++      expect(submission.provenCheckpointFees).toEqual(
++        headers.slice(0, prefixLength).map(({ coinbase, accumulatedFees }) => ({ coinbase, accumulatedFees })),
++      );
++      expect(submission.headers).toEqual(headers.slice(prefixLength));
++      expect(rollup.getEpochProofPublicInputs.mock.calls[0][0][3]).toEqual(fullHeaders);
++    });
++  });
++
+   describe('proof submission target', () => {
+     it('defaults the submit tx target to the rollup address', async () => {
+       const rollupAddress = EthAddress.random().toString();
+@@ -227,11 +254,11 @@ describe('prover-node-publisher', () => {
+     });
+   });
+ 
+-  it('analyzeEpochProofSubmission validates, estimates, and does not send tx', async () => {
++  it.each([32, 40, 64])('estimates compact calldata without sending when proven is %i', async proven => {
+     const fromCheckpoint = 33;
+     const toCheckpoint = 64;
+ 
+-    rollup.getTips.mockResolvedValue({ pending: CheckpointNumber(65), proven: CheckpointNumber(32) });
++    rollup.getTips.mockResolvedValue({ pending: CheckpointNumber(65), proven: CheckpointNumber(proven) });
+ 
+     const checkpoints = Array.from({ length: 100 }, () => RootRollupPublicInputs.random());
+     rollup.getCheckpoint.mockImplementation((n: CheckpointNumber) =>
+@@ -271,18 +298,33 @@ describe('prover-node-publisher', () => {
+       ourPublicInputs.blobPublicInputs.c.negate(),
+     );
+ 
++    const headers = makeHeadersForRange(fromCheckpoint, toCheckpoint);
+     await publisher.analyzeEpochProofSubmission({
+       epochNumber: EpochNumber(2),
+       fromCheckpoint: CheckpointNumber(fromCheckpoint),
+       toCheckpoint: CheckpointNumber(toCheckpoint),
+       publicInputs: ourPublicInputs,
+-      headers: makeHeadersForRange(fromCheckpoint, toCheckpoint),
++      headers,
+       proof: Proof.empty(),
+       batchedBlobInputs: batchedBlob,
+       attestations: [],
+     });
+ 
+-    expect(l1Utils.estimateGas).toHaveBeenCalled();
++    const [, { data }] = l1Utils.estimateGas.mock.calls[0];
++    const decoded = decodeFunctionData({ abi: RollupAbi, data: data! });
++    if (decoded.functionName !== 'submitEpochRootProof') {
++      throw new Error(`Unexpected function ${decoded.functionName}`);
++    }
++    const [submission] = decoded.args;
++    const prefixLength = proven - fromCheckpoint + 1;
++    const expectedHeaders = headers.map(header => {
++      const viem = header.toViem();
++      return { ...viem, coinbase: getAddress(viem.coinbase) };
++    });
++    expect(submission.provenCheckpointFees).toEqual(
++      expectedHeaders.slice(0, prefixLength).map(({ coinbase, accumulatedFees }) => ({ coinbase, accumulatedFees })),
++    );
++    expect(submission.headers).toEqual(expectedHeaders.slice(prefixLength));
+     expect(l1Utils.getFeesPerGas).toHaveBeenCalled();
+     expect(l1Utils.sendAndMonitorTransaction).not.toHaveBeenCalled();
+   });
+diff --git a/yarn-project/prover-node/src/prover-node-publisher.ts b/yarn-project/prover-node/src/prover-node-publisher.ts
+index 3b66d55bcfff92c4d79498c691e76d001d2be749..086ab3340b18fb88489444723153c6a5f8846dec 100644
+--- a/yarn-project/prover-node/src/prover-node-publisher.ts
++++ b/yarn-project/prover-node/src/prover-node-publisher.ts
+@@ -89,9 +89,9 @@ export class ProverNodePublisher {
+ 
+     const timer = new Timer();
+     // Validate epoch proof range and hashes are correct before submitting
+-    await this.validateEpochProofSubmission(args);
++    const provenPrefixLength = await this.validateEpochProofSubmission(args);
+ 
+-    const txReceipt = await this.sendSubmitEpochProofTx(args);
++    const txReceipt = await this.sendSubmitEpochProofTx(args, provenPrefixLength);
+     if (!txReceipt) {
+       this.log.error(`Failed to mine submitEpochProof tx`, undefined, ctx);
+       return false;
+@@ -138,7 +138,7 @@ export class ProverNodePublisher {
+     batchedBlobInputs: BatchedBlob;
+     attestations: ViemCommitteeAttestation[];
+     headers: CheckpointHeader[];
+-  }) {
++  }): Promise<number> {
+     const { fromCheckpoint, toCheckpoint, publicInputs, batchedBlobInputs } = args;
+ 
+     // Check that the checkpoint numbers match the expected epoch to be proven
+@@ -196,6 +196,10 @@ export class ProverNodePublisher {
+         log: this.log,
+       });
+     }
++
++    // The production rollup advances the proven tip and accounts for rewards atomically. A later proof may
++    // advance it further before inclusion; the contract accepts any already-proven prefix, including a shorter one.
++    return Math.max(0, proven - fromCheckpoint + 1);
+   }
+ 
+   /**
+@@ -215,9 +219,9 @@ export class ProverNodePublisher {
+   }): Promise<void> {
+     const { epochNumber, fromCheckpoint, toCheckpoint } = args;
+ 
+-    await this.validateEpochProofSubmission(args);
++    const provenPrefixLength = await this.validateEpochProofSubmission(args);
+ 
+-    const data = this.encodeSubmitEpochProofCalldata(args);
++    const data = this.encodeSubmitEpochProofCalldata(args, provenPrefixLength);
+     const senderAddress = this.l1TxUtils.getSenderAddress();
+ 
+     const [gasLimit, feesPerGas, latestBlock] = await Promise.all([
+@@ -252,33 +256,39 @@ export class ProverNodePublisher {
+     this.metrics.recordEstimatedSubmitProof(stats);
+   }
+ 
+-  private encodeSubmitEpochProofCalldata(args: {
+-    fromCheckpoint: CheckpointNumber;
+-    toCheckpoint: CheckpointNumber;
+-    publicInputs: RootRollupPublicInputs;
+-    proof: Proof;
+-    batchedBlobInputs: BatchedBlob;
+-    attestations: ViemCommitteeAttestation[];
+-    headers: CheckpointHeader[];
+-  }): Hex {
++  private encodeSubmitEpochProofCalldata(
++    args: {
++      fromCheckpoint: CheckpointNumber;
++      toCheckpoint: CheckpointNumber;
++      publicInputs: RootRollupPublicInputs;
++      proof: Proof;
++      batchedBlobInputs: BatchedBlob;
++      attestations: ViemCommitteeAttestation[];
++      headers: CheckpointHeader[];
++    },
++    provenPrefixLength: number,
++  ): Hex {
+     return encodeFunctionData({
+       abi: RollupAbi,
+       functionName: 'submitEpochRootProof',
+-      args: [this.getSubmitEpochProofArgs(args)],
++      args: [this.getSubmitEpochProofArgs(args, provenPrefixLength)],
+     });
+   }
+ 
+-  private async sendSubmitEpochProofTx(args: {
+-    fromCheckpoint: CheckpointNumber;
+-    toCheckpoint: CheckpointNumber;
+-    deadline?: Date;
+-    publicInputs: RootRollupPublicInputs;
+-    proof: Proof;
+-    batchedBlobInputs: BatchedBlob;
+-    attestations: ViemCommitteeAttestation[];
+-    headers: CheckpointHeader[];
+-  }): Promise<TransactionReceipt | undefined> {
+-    const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
++  private async sendSubmitEpochProofTx(
++    args: {
++      fromCheckpoint: CheckpointNumber;
++      toCheckpoint: CheckpointNumber;
++      deadline?: Date;
++      publicInputs: RootRollupPublicInputs;
++      proof: Proof;
++      batchedBlobInputs: BatchedBlob;
++      attestations: ViemCommitteeAttestation[];
++      headers: CheckpointHeader[];
++    },
++    provenPrefixLength: number,
++  ): Promise<TransactionReceipt | undefined> {
++    const txArgs = [this.getSubmitEpochProofArgs(args, provenPrefixLength)] as const;
+ 
+     this.log.info(`Submitting epoch proof to L1 rollup contract`, {
+       proofSize: args.proof.withoutPublicInputs().length,
+@@ -342,15 +352,18 @@ export class ProverNodePublisher {
+     ] as const;
+   }
+ 
+-  private getSubmitEpochProofArgs(args: {
+-    fromCheckpoint: CheckpointNumber;
+-    toCheckpoint: CheckpointNumber;
+-    publicInputs: RootRollupPublicInputs;
+-    proof: Proof;
+-    batchedBlobInputs: BatchedBlob;
+-    attestations: ViemCommitteeAttestation[];
+-    headers: CheckpointHeader[];
+-  }) {
++  private getSubmitEpochProofArgs(
++    args: {
++      fromCheckpoint: CheckpointNumber;
++      toCheckpoint: CheckpointNumber;
++      publicInputs: RootRollupPublicInputs;
++      proof: Proof;
++      batchedBlobInputs: BatchedBlob;
++      attestations: ViemCommitteeAttestation[];
++      headers: CheckpointHeader[];
++    },
++    provenPrefixLength: number,
++  ) {
+     // Returns arguments for EpochProofLib.sol -> submitEpochRootProof()
+     const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+     const argsArray = this.getEpochProofPublicInputsArgs(args);
+@@ -358,7 +371,10 @@ export class ProverNodePublisher {
+       start: argsArray[0],
+       end: argsArray[1],
+       args: argsArray[2],
+-      headers: argsArray[3],
++      provenCheckpointFees: argsArray[3]
++        .slice(0, provenPrefixLength)
++        .map(({ coinbase, accumulatedFees }) => ({ coinbase, accumulatedFees })),
++      headers: argsArray[3].slice(provenPrefixLength),
+       attestations: CommitteeAttestationsAndSigners.packAttestations(
+         args.attestations.map(a => CommitteeAttestation.fromViem(a)),
+       ),

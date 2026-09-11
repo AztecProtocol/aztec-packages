@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -209,7 +211,7 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+    vm.label(rollup.getProtocolFeeRecipient(), "BURN_ADDRESS");
   }
 
   function _installPartialEpochProofGasReporter(RollupBuilder _builder) internal {
@@ -221,7 +223,10 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
       rollup.getEpochProofVerifier(),
       address(this),
       config.genesisState,
-      config.rollupConfigInput
+      config.rollupConfigInput,
+      rollup.getOutbox(),
+      rollup.getFeeAssetPortal(),
+      rollup.getInbox()
     );
     // Keep the initialized rollup storage while exposing named gas-report entrypoints.
     vm.etch(address(rollup), address(reporter).code);
@@ -528,6 +533,7 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
             start: start,
             end: start + epochSize - 1,
             args: args,
+            provenCheckpointFees: new ProvenCheckpointFees[](0),
             headers: headers,
             attestations: checkpointAttestations[start + epochSize - 1],
             blobInputs: full.checkpoint.batchedBlobInputs,
@@ -576,22 +582,48 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
   mapping(uint256 checkpointNumber => bytes32 outHash) internal gasReportOutHashes;
   mapping(uint256 checkpointNumber => bytes32 inboxRollingHash) internal gasReportInboxRollingHashes;
 
+  /// @dev Seed one Inbox message a slot before the fixture epoch, so every checkpoint consumes bucket 1.
+  function _seedInitialInboxBucket() internal view virtual returns (bool) {
+    return false;
+  }
+
+  /// @dev Seed a second Inbox message just before checkpoint 9, so checkpoints 9 and up consume bucket 2.
+  function _seedSecondInboxBucket() internal view virtual returns (bool) {
+    return false;
+  }
+
   function setUp() public virtual override {
     super.setUp();
     RollupBuilder builder = _prepare(48, false, TestSlash.NONE);
-    _installPartialEpochProofGasReporter(builder);
+    // Propose against the deployed Rollup before etching. `propose` reads the `INBOX` immutable out of the running
+    // code, so proposals made through the reporter would validate against the reporter's own Inbox, whose `ROLLUP`
+    // is the reporter's deployment address rather than this one.
     _prepareGasReportEpoch();
+    _installPartialEpochProofGasReporter(builder);
+  }
+
+  function _sendInboxMessage(uint256 _salt) internal {
+    vm.prank(address(this));
+    Inbox(address(rollup.getInbox()))
+      .sendL2Message(
+        DataStructures.L2Actor({actor: bytes32(_salt), version: rollup.getVersion()}), bytes32(_salt), bytes32(0)
+      );
   }
 
   function _prepareGasReportEpoch() internal {
     Slot firstSlot = Slot.wrap(EPOCH_DURATION * GAS_REPORT_EPOCH);
     Slot endSlot = firstSlot + Slot.wrap(EPOCH_DURATION);
+    bool inboxSeeded;
 
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       _loadL1Metadata(i);
 
       Slot currentSlot = rollup.getCurrentSlot();
       if (currentSlot < firstSlot) {
+        if (_seedInitialInboxBucket() && !inboxSeeded && currentSlot + Slot.wrap(1) == firstSlot) {
+          _sendInboxMessage(1);
+          inboxSeeded = true;
+        }
         continue;
       }
       if (currentSlot >= endSlot) {
@@ -599,6 +631,15 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
       }
 
       rollup.setupEpoch();
+
+      // A bucket only settles once its L1 block has passed, so open bucket 2 slightly before checkpoint 9's
+      // proposal timestamp rather than at it.
+      if (_seedSecondInboxBucket() && rollup.getPendingCheckpointNumber() == 8) {
+        uint256 timestamp = block.timestamp;
+        vm.warp(timestamp - 12);
+        _sendInboxMessage(2);
+        vm.warp(timestamp);
+      }
 
       Checkpoint memory checkpoint = getCheckpoint();
       address proposer = rollup.getCurrentProposer();
@@ -628,6 +669,7 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
     }
 
     assertEq(rollup.getPendingCheckpointNumber(), EPOCH_DURATION);
+    assertEq(inboxSeeded, _seedInitialInboxBucket());
     assertEq(rollup.getEpochCommittee(Epoch.wrap(GAS_REPORT_EPOCH)).length, 48);
   }
 
@@ -653,6 +695,7 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
       start: 1,
       end: _length,
       args: args,
+      provenCheckpointFees: new ProvenCheckpointFees[](0),
       headers: headers,
       attestations: checkpointAttestations[_length],
       blobInputs: full.checkpoint.batchedBlobInputs,
@@ -662,6 +705,23 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
 
   function _gasReporter() internal view returns (PartialEpochProofGasReporter) {
     return PartialEpochProofGasReporter(address(rollup));
+  }
+
+  function _compactSubmission(SubmitEpochRootProofArgs memory _args, uint256 _prefixLength)
+    internal
+    pure
+    returns (SubmitEpochRootProofArgs memory)
+  {
+    _args.provenCheckpointFees = new ProvenCheckpointFees[](_prefixLength);
+    ProposedHeader[] memory headers = new ProposedHeader[](_args.headers.length - _prefixLength);
+    for (uint256 i = 0; i < _prefixLength; i++) {
+      _args.provenCheckpointFees[i] = ProvenCheckpointFees(_args.headers[i].coinbase, _args.headers[i].accumulatedFees);
+    }
+    for (uint256 i = 0; i < headers.length; i++) {
+      headers[i] = _args.headers[_prefixLength + i];
+    }
+    _args.headers = headers;
+    return _args;
   }
 }
 
@@ -695,7 +755,7 @@ contract PartialEpochProofExtensionGasReportTest is PartialEpochProofGasReportBa
   }
 
   function testGasReportSubmit8MoreCheckpoints() public {
-    _gasReporter().gasReportSubmit8MoreCheckpoints(_getGasReportSubmission(16));
+    _gasReporter().gasReportSubmit8MoreCheckpoints(_compactSubmission(_getGasReportSubmission(16), 8));
     assertEq(rollup.getProvenCheckpointNumber(), 16);
   }
 }

@@ -39,6 +39,17 @@ struct ProposePayload {
   bytes32 headerHash;
 }
 
+/**
+ * @notice The caller-supplied context for a proposal, bundled to keep `propose` off the stack limit.
+ * @param inbox - The Inbox the header's streaming message consumption is validated against
+ * @param checkBlob - Whether to run blob related checks. Hardcoded to true in RollupCore, exists only to be
+ *        overridden in tests
+ */
+struct ProposeConfig {
+  IInbox inbox;
+  bool checkBlob;
+}
+
 struct InterimProposeValues {
   ProposedHeader header;
   bytes32[] blobHashes;
@@ -168,8 +179,7 @@ library ProposeLib {
    * @param _blobsInput - The bytes to verify our input blob commitments match real blobs:
    *        - input[:1] - num blobs in checkpoint
    *        - input[1:] - blob commitments (48 bytes * num blobs in checkpoint)
-   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true in RollupCore, exists only to be
-   *          overridden in tests
+   * @param _config - The Inbox to validate message consumption against, and the blob check flag
    */
   function propose(
     ProposeArgs calldata _args,
@@ -177,7 +187,7 @@ library ProposeLib {
     address[] memory _signers,
     Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobsInput,
-    bool _checkBlob
+    ProposeConfig memory _config
   ) internal {
     // Prune unproven checkpoints if the proof submission window has passed
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
@@ -192,7 +202,7 @@ library ProposeLib {
     // Validate blob commitments against actual blob data and extract hashes
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly
     // similar to blobCommitmentsHash, see comment in BlobLib.sol -> validateBlobs().
-    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
+    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _config.checkBlob);
 
     v.header = _args.header;
 
@@ -269,7 +279,7 @@ library ProposeLib {
     // child validates against it and, since temp-log records rewind with the pending chain on a prune, the record
     // stays prune-consistent.
     v.consumedInboxMsgTotal = validateInboxConsumption(
-      rollupStore.config.inbox,
+      _config.inbox,
       v.header.inboxRollingHash,
       _args.bucketHint,
       v.header.slotNumber,
@@ -290,7 +300,7 @@ library ProposeLib {
       checkpointNumber,
       _args.oracleInput.feeAssetPriceModifier,
       v.header.totalManaUsed,
-      components.congestionCost,
+      FeeLib.protocolFeePerMana(components),
       components.proverCost
     );
 
@@ -311,7 +321,8 @@ library ProposeLib {
         slotNumber: v.header.slotNumber,
         feeHeader: v.feeHeader,
         inboxRollingHash: v.header.inboxRollingHash,
-        inboxMsgTotal: v.consumedInboxMsgTotal.toUint64()
+        inboxMsgTotal: v.consumedInboxMsgTotal.toUint64(),
+        inboxConsumedBucket: _args.bucketHint.toUint64()
       })
     );
 
@@ -472,6 +483,39 @@ library ProposeLib {
     }
 
     return bucket.totalMsgCount;
+  }
+
+  /**
+   * @notice Resolves a checkpoint's final consumed Inbox total to a live bucket and validates the consumption it
+   *         implies, returning the bucket sequence to pass to `propose` as `bucketHint`
+   *
+   * @dev The proposer-side counterpart of the `propose` check. `propose` receives the bucket sequence as an unsigned
+   *      hint; a proposer only knows the total it consumed up to, so this resolves that total to the bucket ending
+   *      exactly there and runs that bucket through the same `validateInboxConsumption` predicate. A total that is
+   *      not a bucket boundary has no snapshot to compare the header's rolling hash against and is rejected, as is a
+   *      total below the oldest retained bucket (`Inbox__NoBucketAtOrBeforeTotal`).
+   *
+   * @param _inbox - The Inbox holding the rolling-hash buckets
+   * @param _inboxRollingHash - The checkpoint header's inbox rolling hash
+   * @param _expectedTotal - The cumulative Inbox message count the checkpoint consumed up to
+   * @param _slotNumber - The slot the checkpoint is proposed in
+   * @param _parentTotalMsgCount - Cumulative Inbox message count consumed as of the parent checkpoint
+   * @return The sequence number of the bucket ending at `_expectedTotal`
+   */
+  function validateInboxConsumptionAtTotal(
+    IInbox _inbox,
+    bytes32 _inboxRollingHash,
+    uint64 _expectedTotal,
+    Slot _slotNumber,
+    uint256 _parentTotalMsgCount
+  ) internal view returns (uint64) {
+    (uint64 seq, IInbox.InboxBucket memory bucket) = _inbox.getBucketAtOrBeforeTotal(_expectedTotal);
+    require(
+      bucket.totalMsgCount == _expectedTotal,
+      Errors.Rollup__InboxTotalNotAtBucketBoundary(_expectedTotal, bucket.totalMsgCount)
+    );
+    validateInboxConsumption(_inbox, _inboxRollingHash, seq, _slotNumber, _parentTotalMsgCount);
+    return seq;
   }
 
   /**

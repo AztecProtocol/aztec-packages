@@ -1,13 +1,28 @@
 use super::TestBuilder;
 use protocol_test_utils::fixtures::vk_tree::{update_vk_hash, VK_MERKLE_TREE};
 use types::constants::{
-    CHECKPOINT_ROOT_ROLLUP_VK_INDEX, INBOX_PARITY_256_VK_INDEX, INBOX_PARITY_64_VK_INDEX,
+    CHECKPOINT_ROOT_ROLLUP_VK_INDEX, INBOX_PARITY_16_VK_INDEX, INBOX_PARITY_256_VK_INDEX,
+    INBOX_PARITY_4_VK_INDEX, INBOX_PARITY_64_VK_INDEX,
 };
 
 // --- Inbox parity proof / vk ---
 
 // The checkpoint root accepts any rung of the inbox parity size ladder. The default builder uses the 1024 rung; here
-// we exercise the other two to prove the whole allowed set is accepted.
+// we exercise the rest to prove the whole allowed set is accepted.
+#[test]
+fn accepts_ladder_vk_index_4() {
+    let mut builder = TestBuilder::default();
+    builder.inbox_parity_vk_index = INBOX_PARITY_4_VK_INDEX;
+    let _ = builder.execute_with_mock();
+}
+
+#[test]
+fn accepts_ladder_vk_index_16() {
+    let mut builder = TestBuilder::default();
+    builder.inbox_parity_vk_index = INBOX_PARITY_16_VK_INDEX;
+    let _ = builder.execute_with_mock();
+}
+
 #[test]
 fn accepts_ladder_vk_index_64() {
     let mut builder = TestBuilder::default();

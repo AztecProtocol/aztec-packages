@@ -12,8 +12,10 @@ import {
   ManaMinFeeComponents,
   EthPerFeeAssetE12,
   CheckpointHeaderValidationFlags,
+  CheckpointPreflightArgs,
   FeeHeader,
-  RollupConfigInput
+  RollupConfigInput,
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking, AttesterConfig, Exit, AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -28,8 +30,9 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
-import {ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
+import {FeeLib} from "./libraries/rollup/FeeLib.sol";
 import {RewardExtLib, RewardConfig} from "./libraries/rollup/RewardExtLib.sol";
+import {RewardLib} from "./libraries/rollup/RewardLib.sol";
 import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
   RollupCore,
@@ -46,7 +49,6 @@ import {
   ValidatorOperationsExtLib,
   EthValue,
   STFLib,
-  RollupStore,
   IInbox,
   IOutbox
 } from "./RollupCore.sol";
@@ -90,25 +92,34 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
-    CommitteeAttestations memory _attestations,
+    CommitteeAttestations calldata _attestations,
     address[] calldata _signers,
-    Signature memory _attestationsAndSignersSignature,
+    Signature calldata _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
-    CheckpointHeaderValidationFlags memory _flags
+    CheckpointHeaderValidationFlags calldata _flags
   ) external override(IRollup) {
     RollupOperationsExtLib.validateHeaderWithAttestations(
-      ValidateHeaderArgs({
-        header: _header,
-        digest: _digest,
-        manaMinFee: getManaMinFeeAt(Timestamp.wrap(block.timestamp), true),
-        blobsHashesCommitment: _blobsHash,
-        flags: _flags
-      }),
-      _attestations,
-      _signers,
-      _attestationsAndSignersSignature
+      _header, _attestations, _signers, _attestationsAndSignersSignature, _digest, _blobsHash, _flags
     );
+  }
+
+  /**
+   * @notice  Validate a header and its final Inbox consumption against the parent `propose` would use at this time
+   *
+   * @dev     Convenience function for the sequencer to simulate with the intended execution timestamp and state;
+   *          derives the parent from storage, so the caller's `_expectedParentCheckpointNumber` is checked rather
+   *          than trusted. See `RollupOperationsExtLib.validateCheckpointHeaderAndInbox`.
+   *
+   * @param _args - The header validation inputs plus the consumed Inbox total and the expected parent
+   * @return The Inbox bucket sequence to submit as `bucketHint`
+   */
+  function validateCheckpointHeaderAndInbox(CheckpointPreflightArgs calldata _args)
+    external
+    override(IRollup)
+    returns (uint64)
+  {
+    return RollupOperationsExtLib.validateCheckpointHeaderAndInbox(_args, _getRollupConfig().inbox);
   }
 
   /**
@@ -246,11 +257,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
-    return RewardExtLib.getManaTarget();
+    return FeeLib.getManaTarget();
   }
 
   function getManaLimit() external view override(IRollup) returns (uint256) {
-    return RewardExtLib.getManaLimit();
+    return FeeLib.getManaLimit();
   }
 
   function getTips() external view override(IRollup) returns (ChainTips memory) {
@@ -301,7 +312,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view override(IRollup) returns (bytes32[] memory) {
-    return EpochProofExtLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
+    return EpochProofExtLib.getEpochProofPublicInputs(
+      _start, _end, _args, _headers, _blobPublicInputs, _getRollupConfig()
+    );
   }
 
   /**
@@ -333,6 +346,19 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getPendingCheckpointNumber() external view override(IRollup) returns (uint256) {
     return STFLib.getStorage().tips.getPending();
+  }
+
+  /**
+   * @notice  Get the prover that first proved a given checkpoint
+   *
+   * @dev     Reverts if the checkpoint is not proven yet
+   *
+   * @param _checkpointNumber - The checkpoint number to look up
+   *
+   * @return address - The prover that first proved the checkpoint
+   */
+  function getFirstProvenBy(uint256 _checkpointNumber) external view override(IRollup) returns (address) {
+    return RewardExtLib.getFirstProvenBy(_checkpointNumber);
   }
 
   function getCheckpoint(uint256 _checkpointNumber) external view override(IRollup) returns (CheckpointLog memory) {
@@ -540,36 +566,39 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardExtLib.getProvingCostPerMana().toFeeAsset(getEthPerFeeAsset());
   }
 
+  // The config getters below go through {_getRollupConfig} rather than reading their immutable
+  // directly. Each direct read inlines a 32-byte push into this contract's runtime code, and Rollup
+  // sits close to the EIP-170 limit; sharing one assembly across all of them is ~95 bytes cheaper.
   function getVersion() external view override(IHaveVersion) returns (uint256) {
-    return STFLib.getStorage().config.version;
+    return _getRollupConfig().version;
   }
 
   function getInbox() external view override(IRollup) returns (IInbox) {
-    return STFLib.getStorage().config.inbox;
+    return _getRollupConfig().inbox;
   }
 
   function getOutbox() external view override(IRollup) returns (IOutbox) {
-    return STFLib.getStorage().config.outbox;
+    return _getRollupConfig().outbox;
   }
 
   function getFeeAsset() external view override(IRollup) returns (IERC20) {
-    return STFLib.getStorage().config.feeAsset;
+    return _getRollupConfig().feeAsset;
   }
 
   function getFeeAssetPortal() external view override(IRollup) returns (IFeeJuicePortal) {
-    return STFLib.getStorage().config.feeAssetPortal;
+    return _getRollupConfig().feeAssetPortal;
   }
 
   function getVkTreeRoot() external view override(IRollup) returns (bytes32) {
-    return STFLib.getStorage().config.vkTreeRoot;
+    return _getRollupConfig().vkTreeRoot;
   }
 
   function getProtocolContractsHash() external view override(IRollup) returns (bytes32) {
-    return STFLib.getStorage().config.protocolContractsHash;
+    return _getRollupConfig().protocolContractsHash;
   }
 
   function getEpochProofVerifier() external view override(IRollup) returns (IVerifier) {
-    return STFLib.getStorage().config.epochProofVerifier;
+    return _getRollupConfig().epochProofVerifier;
   }
 
   function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
@@ -604,16 +633,20 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ValidatorOperationsExtLib.getEntryQueueAt(_index);
   }
 
+  function getProtocolFeeRecipient() external view override(IRollup) returns (address) {
+    return RewardLib.getProtocolFeeRecipient();
+  }
+
+  function getProtocolFeeMargin() external view override(IRollup) returns (uint16) {
+    return FeeLib.getProtocolFeeMarginBps();
+  }
+
   function getSlasherExecutionDelay() external pure override(IStaking) returns (uint256) {
     return StakingLib.SLASHER_EXECUTION_DELAY;
   }
 
   function getLegacySlasherDrainWindow() external pure override(IStaking) returns (uint256) {
     return StakingLib.LEGACY_SLASHER_DRAIN_WINDOW;
-  }
-
-  function getBurnAddress() external pure override(IRollup) returns (address) {
-    return address(bytes20("CUAUHXICALLI"));
   }
 
   /**

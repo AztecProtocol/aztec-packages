@@ -2,62 +2,62 @@
   "no_validators": {
     "propose": {
       "calls": 150,
-      "min": 185722,
-      "mean": 199366,
-      "median": 195111,
-      "max": 225550,
+      "min": 185014,
+      "mean": 198659,
+      "median": 194404,
+      "max": 224842,
       "calldata_size": 996,
       "calldata_gas": 15936
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29309,
-      "mean": 32042,
-      "median": 29309,
-      "max": 113837
+      "min": 29287,
+      "mean": 32020,
+      "median": 29287,
+      "max": 113815
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 972329,
-      "mean": 991032,
-      "median": 981138,
-      "max": 1029525,
-      "calldata_size": 14148,
-      "calldata_gas": 226368
+      "min": 904577,
+      "mean": 925461,
+      "median": 915381,
+      "max": 966507,
+      "calldata_size": 14212,
+      "calldata_gas": 227392
     }
   },
   "validators": {
     "propose": {
       "calls": 150,
-      "min": 305434,
-      "mean": 327774,
-      "median": 327227,
-      "max": 355591,
+      "min": 304678,
+      "mean": 327074,
+      "median": 326519,
+      "max": 354847,
       "calldata_size": 4516,
       "calldata_gas": 72256
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29309,
-      "mean": 46504,
-      "median": 29309,
-      "max": 547670
+      "min": 29287,
+      "mean": 46482,
+      "median": 29287,
+      "max": 547648
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 1460323,
-      "mean": 1572081,
-      "median": 1579041,
-      "max": 1669921,
-      "calldata_size": 16644,
-      "calldata_gas": 266304
+      "min": 1393355,
+      "mean": 1505353,
+      "median": 1511108,
+      "max": 1605843,
+      "calldata_size": 16708,
+      "calldata_gas": 267328
     },
     "aggregate3": {
       "calls": 55,
-      "min": 365547,
-      "mean": 376665,
-      "median": 376350,
-      "max": 390039
+      "min": 364911,
+      "mean": 376090,
+      "median": 375832,
+      "max": 389450
     }
   }
 }

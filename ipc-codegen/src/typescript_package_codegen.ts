@@ -100,7 +100,11 @@ export interface TypeScriptServerPackageOptions {
  * from @aztec-foundation/ipc-runtime).
  */
 export class TypeScriptServerPackageCodegen {
-  constructor(private opts: TypeScriptServerPackageOptions) {}
+  private opts: TypeScriptServerPackageOptions;
+
+  constructor(opts: TypeScriptServerPackageOptions) {
+    this.opts = opts;
+  }
 
   generatePackageJson(): string {
     const pkg = {
@@ -175,7 +179,11 @@ runs \`yarn build\`.
 }
 
 export class TypeScriptPackageCodegen {
-  constructor(private opts: TypeScriptPackageOptions) {}
+  private opts: TypeScriptPackageOptions;
+
+  constructor(opts: TypeScriptPackageOptions) {
+    this.opts = opts;
+  }
 
   generatePackageJson(): string {
     const archPackages = archPackageNames(this.opts.packageName);

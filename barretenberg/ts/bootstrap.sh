@@ -15,7 +15,7 @@ hash=$(hash_str \
   $(semver check $REF_NAME && echo 1 || echo 0))
 
 function generate_bb_avm_sim_package {
-  node --experimental-strip-types --experimental-transform-types --no-warnings \
+  node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/avm/avm_schema.json" \
     --lang ts \
@@ -33,7 +33,7 @@ function generate_bb_avm_sim_package {
 # Server binding package for the AVM CDB protocol: generated wire types +
 # Handler/dispatch + the schema itself. Pure TS — no binary, no arch packages.
 function generate_cdb_package {
-  node --experimental-strip-types --experimental-transform-types --no-warnings \
+  node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/cdb/cdb_schema.json" \
     --lang ts \

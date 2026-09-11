@@ -4,7 +4,14 @@ pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
-import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  SubmitEpochRootProofArgs,
+  ProvenCheckpointFees,
+  PublicInputArgs,
+  IRollupCore,
+  RollupStore,
+  RollupConfig
+} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
@@ -97,34 +104,66 @@ library EpochProofLib {
    *              - start: First checkpoint number in the epoch (inclusive)
    *              - end: Last checkpoint number in the epoch (inclusive)
    *              - args: Public inputs (previousArchive, endArchive, endTimestamp, proverId)
-   *              - headers: Proposed headers for each checkpoint, supplying the fee recipient and value
+   *              - provenCheckpointFees: Fee recipient and value for an already proven and accounted prefix
+   *              - headers: Proposed headers for the remaining checkpoints
    *              - attestations: Committee attestations for the last checkpoint in the epoch
    *              - blobInputs: Batched blob data for EIP-4844 point evaluation precompile
    *              - proof: The validity proof bytes for the root rollup circuit
+   * @param _config The rollup's deployment-time configuration
    */
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args, RollupConfig memory _config) internal {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
 
-    Epoch endEpoch = assertAcceptable(_args.start, _args.end);
+    (Epoch endEpoch, Epoch currentEpoch, uint256 provenBeforeSubmission) = assertAcceptable(_args.start, _args.end);
+    {
+      uint256 firstHeaderToVerify;
+      if (provenBeforeSubmission >= _args.start) {
+        uint256 provenPrefixLength = provenBeforeSubmission - _args.start + 1;
+        uint256 accountedPrefixLength = RewardLib.getLongestProvenLength(endEpoch);
+        firstHeaderToVerify = provenPrefixLength < accountedPrefixLength ? provenPrefixLength : accountedPrefixLength;
+      }
 
-    // Rehash the supplied headers against storage once, here: the public-input assembly below reads the fee
-    // recipient/value out of them and relies on this call having run.
-    verifyHeaders(_args.start, _args.end, _args.headers);
+      uint256 prefixLength = _args.provenCheckpointFees.length;
+      require(
+        prefixLength <= firstHeaderToVerify,
+        Errors.Rollup__InvalidProvenCheckpointCount(firstHeaderToVerify, prefixLength)
+      );
+
+      // Proof verification binds compact fee data to canonical header hashes. Rewards may only consume full headers.
+      bytes32[] memory headerHashes =
+        verifyHeaders(_args.start, _args.end, _args.headers, prefixLength, firstHeaderToVerify);
+
+      require(verifyEpochRootProof(_args, _config, headerHashes), Errors.Rollup__InvalidProof());
+    }
 
     // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
     verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
 
-    require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
-
     RollupStore storage rollupStore = STFLib.getStorage();
+    CompressedChainTips tips = rollupStore.tips;
+
+    bool fullEpochProof = isFullEpochProof(_args.end, endEpoch, currentEpoch, tips.getPending());
 
     // Advance the proven block number and insert the out hash if the chain is extended.
-    if (_args.end > rollupStore.tips.getProven()) {
-      rollupStore.tips = rollupStore.tips.updateProven(_args.end);
+    if (_args.end > tips.getProven()) {
+      rollupStore.tips = tips.updateProven(_args.end);
+
+      // Record who proved this range. Only the end checkpoint gets an entry, so lookups for the checkpoints in
+      // between walk forward to it; a later proof of an already proven range cannot reach here and overwrite it.
+      STFLib.recordFirstProvenBy(_args.end, _args.args.proverId);
+
+      // Unlock Inbox ring eviction up to the bucket the newly proven tip consumed; its temp-log record was
+      // validated against the Inbox at propose time. Equal start and end rolling hashes mean the epoch consumed
+      // no messages, so the bucket is the one already recorded and the cross-contract write is skipped: both
+      // values are trusted here (the start was checked against storage, the end is bound by the proof), and a
+      // rolling hash identifies exactly one bucket since every bucket absorbs at least one message.
+      if (_args.args.previousInboxRollingHash != _args.args.endInboxRollingHash) {
+        _config.inbox.markProvenConsumed(STFLib.getInboxConsumedBucket(_args.end));
+      }
 
       // Handle L2->L1 message processing.
       // The circuit outputs an empty out hash tree root if the epoch contains no messages.
@@ -136,11 +175,12 @@ library EpochProofLib {
         // the number of checkpoints proven in this epoch so off-chain consumers can map a tx's
         // position-within-epoch directly to the smallest proof that covers it.
         uint256 numCheckpointsInEpoch = _args.end - _args.start + 1;
-        rollupStore.config.outbox.insert(endEpoch, numCheckpointsInEpoch, _args.args.outHash);
+        _config.outbox.insert(endEpoch, numCheckpointsInEpoch, _args.args.outHash);
       }
     }
 
-    RewardLib.handleRewardsAndFees(_args, endEpoch);
+    // Activity score depends on whether the proof is a full epoch proof
+    RewardLib.handleRewardsAndFees(_args, endEpoch, _config, fullEpochProof);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -154,24 +194,26 @@ library EpochProofLib {
    *
    * @dev The fee recipient/value public inputs are sourced from the supplied headers, so this entry point rehashes
    * them against storage before assembling: an off-chain caller must not walk away with public inputs built from
-   * unverified fee fields and only discover the mismatch when the on-chain proof reverts. The submit path verifies
-   * the headers up front and assembles via computeEpochProofPublicInputs to avoid rehashing them twice.
+   * unverified fee fields and only discover the mismatch when the on-chain proof reverts. The submit path separately
+   * validates headers that have not already been proven and accounted for.
    *
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
    * @param _blobPublicInputs- The blob public inputs for the proof
+   * @param _config - The rollup's deployment-time configuration
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
     ProposedHeader[] calldata _headers,
-    bytes calldata _blobPublicInputs
+    bytes calldata _blobPublicInputs,
+    RollupConfig memory _config
   ) internal view returns (bytes32[] memory) {
-    verifyHeaders(_start, _end, _headers);
-    return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
+    bytes32[] memory headerHashes = verifyHeaders(_start, _end, _headers, 0, 0);
+    return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs, _config, headerHashes);
   }
 
   /**
@@ -230,23 +272,27 @@ library EpochProofLib {
   }
 
   /**
-   * @notice Assembles the root rollup public inputs, taking the supplied checkpoint headers as already verified
+   * @notice Assembles the root rollup public inputs from supplied headers and canonical stored header hashes
    *
-   * @dev Callers must have rehashed `_headers` against the stored header hashes beforehand, since the fee
-   * recipient/value public inputs are read straight out of them.
+   * @dev Callers must ensure the supplied fee fields are either rehashed against `_headerHashes` or bound to those
+   * canonical hashes by proof verification.
    *
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
-   * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
-   * @param _blobPublicInputs- The blob public inputs for the proof
+   * @param  _headers - The proposed checkpoint headers supplying fee data for the remaining suffix
+   * @param  _blobPublicInputs - The blob public inputs for the proof
+   * @param  _config - The rollup's deployment-time configuration
+   * @param  _headerHashes - The canonical stored header hashes returned by verifyHeaders
    */
   function computeEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
     ProposedHeader[] calldata _headers,
-    bytes calldata _blobPublicInputs
+    bytes calldata _blobPublicInputs,
+    RollupConfig memory _config,
+    bytes32[] memory _headerHashes
   ) private view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -323,31 +369,31 @@ library EpochProofLib {
     uint256 numCheckpoints = _end - _start + 1;
 
     for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[5 + i] = STFLib.getHeaderHash(_start + i);
+      publicInputs[5 + i] = _headerHashes[i];
     }
 
     uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
-    // Taking recipient/value from the checkpoint headers rather than the prover
-    // as defense in depth. Slots past numCheckpoints stay zero.
-    for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[offset + 2 * i] = addressToField(_headers[i].coinbase);
-      publicInputs[offset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
+    // The submit path fills the compact prefix directly from calldata before verifying the proof.
+    uint256 suffixOffset = offset + 2 * (numCheckpoints - _headers.length);
+    for (uint256 i = 0; i < _headers.length; i++) {
+      publicInputs[suffixOffset + 2 * i] = addressToField(_headers[i].coinbase);
+      publicInputs[suffixOffset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
     }
     offset += Constants.MAX_CHECKPOINTS_PER_EPOCH * 2;
 
     publicInputs[offset] = bytes32(block.chainid);
     offset += 1;
 
-    publicInputs[offset] = bytes32(uint256(rollupStore.config.version));
+    publicInputs[offset] = bytes32(uint256(_config.version));
     offset += 1;
 
     // vk_tree_root
-    publicInputs[offset] = rollupStore.config.vkTreeRoot;
+    publicInputs[offset] = _config.vkTreeRoot;
     offset += 1;
 
     // protocol_contracts_hash
-    publicInputs[offset] = rollupStore.config.protocolContractsHash;
+    publicInputs[offset] = _config.protocolContractsHash;
     offset += 1;
 
     // prover_id: id of current epoch's prover
@@ -387,21 +433,32 @@ library EpochProofLib {
   }
 
   /**
-   * @notice Rehashes each provided checkpoint header and requires it to match the stored header hash
+   * @notice Rehashes a suffix of the provided checkpoint headers and requires it to match the stored header hashes
    *
    * @param _start The first checkpoint number in the epoch (inclusive)
    * @param _end The last checkpoint number in the epoch (inclusive)
-   * @param _headers The proposed headers for each checkpoint in [_start, _end]
+   * @param _headers The proposed headers after the compact prefix
+   * @param _prefixLength The number of checkpoints represented by compact fee data
+   * @param _firstHeaderToVerify The index of the first header that has not already been proven and accounted for
+   * @return headerHashes The canonical stored header hashes for the checkpoint range
    */
-  function verifyHeaders(uint256 _start, uint256 _end, ProposedHeader[] calldata _headers) private view {
+  function verifyHeaders(
+    uint256 _start,
+    uint256 _end,
+    ProposedHeader[] calldata _headers,
+    uint256 _prefixLength,
+    uint256 _firstHeaderToVerify
+  ) private view returns (bytes32[] memory headerHashes) {
     uint256 numCheckpoints = _end - _start + 1;
     require(
-      _headers.length == numCheckpoints, Errors.Rollup__InvalidCheckpointHeaderCount(numCheckpoints, _headers.length)
+      _headers.length + _prefixLength == numCheckpoints,
+      Errors.Rollup__InvalidCheckpointHeaderCount(numCheckpoints, _headers.length + _prefixLength)
     );
 
-    for (uint256 i = 0; i < numCheckpoints; i++) {
-      bytes32 expectedHeaderHash = STFLib.getHeaderHash(_start + i);
-      bytes32 providedHeaderHash = ProposedHeaderLib.hash(_headers[i]);
+    headerHashes = STFLib.getHeaderHashes(_start, _end);
+    for (uint256 i = _firstHeaderToVerify; i < numCheckpoints; i++) {
+      bytes32 expectedHeaderHash = headerHashes[i];
+      bytes32 providedHeaderHash = ProposedHeaderLib.hashCalldata(_headers[i - _prefixLength]);
       require(
         providedHeaderHash == expectedHeaderHash,
         Errors.Rollup__InvalidCheckpointHeader(expectedHeaderHash, providedHeaderHash)
@@ -429,18 +486,24 @@ library EpochProofLib {
    *
    * @param _start The first checkpoint number in the epoch (inclusive)
    * @param _end The last checkpoint number in the epoch (inclusive)
-   * @return The epoch number that the proof covers
+   * @return endEpoch The epoch number that the proof covers
+   * @return currentEpoch The epoch at the time the proof is submitted
+   * @return provenBeforeSubmission The proven checkpoint number observed while checking the submission
    */
-  function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
+  function assertAcceptable(uint256 _start, uint256 _end)
+    private
+    view
+    returns (Epoch endEpoch, Epoch currentEpoch, uint256 provenBeforeSubmission)
+  {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     Epoch startEpoch = STFLib.getEpochForCheckpoint(_start);
     // This also checks for existence of the checkpoint.
-    Epoch endEpoch = STFLib.getEpochForCheckpoint(_end);
+    endEpoch = STFLib.getEpochForCheckpoint(_end);
 
     require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
 
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
 
     require(
       startEpoch.isAcceptingProofsAtEpoch(currentEpoch),
@@ -456,7 +519,8 @@ library EpochProofLib {
     bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
     require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstCheckpointOfEpoch());
 
-    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.getProven();
+    provenBeforeSubmission = rollupStore.tips.getProven();
+    bool isStartBuildingOnProven = _start - 1 <= provenBeforeSubmission;
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
     bool claimedNumCheckpointsInEpoch = _end - _start + 1 <= Constants.MAX_CHECKPOINTS_PER_EPOCH;
@@ -465,7 +529,37 @@ library EpochProofLib {
       Errors.Rollup__TooManyCheckpointsInEpoch(Constants.MAX_CHECKPOINTS_PER_EPOCH, _end - _start)
     );
 
-    return endEpoch;
+    return (endEpoch, currentEpoch, provenBeforeSubmission);
+  }
+
+  /**
+   * @notice Checks if the submitted proof is a full epoch proof
+   *
+   * @param _end End checkpoint of the proof
+   * @param _endEpoch Proof epoch
+   * @param _currentEpoch Epoch at the time the proof is submitted
+   * @param _pendingCheckpointNumber Current pending checkpoint number
+   * @return true if the proof covers the whole epoch
+   */
+  function isFullEpochProof(uint256 _end, Epoch _endEpoch, Epoch _currentEpoch, uint256 _pendingCheckpointNumber)
+    private
+    view
+    returns (bool)
+  {
+    // Another checkpoint could be proposed if the epoch being proven is the current one, so we can't be sure that the
+    // proof is a full epoch proof
+    if (_endEpoch >= _currentEpoch) {
+      return false;
+    }
+
+    // If the last proof checkpoint is a pending checkpoint while the epoch is closed, then it's the last checkpoint of
+    // proof epoch
+    if (_end == _pendingCheckpointNumber) {
+      return true;
+    }
+
+    // If the next checkpoint is in a different epoch, then this one is the final one in the proof epoch
+    return STFLib.getSlotNumber(_end + 1).epochFromSlot() > _endEpoch;
   }
 
   /**
@@ -476,8 +570,8 @@ library EpochProofLib {
    *      2. Assembling the public inputs for the root rollup circuit
    *      3. Verifying the validity proof against the assembled public inputs using the configured verifier
    *
-   * @dev Assumes the caller has already verified the supplied checkpoint headers against storage, so assembly skips
-   *      rehashing them.
+   * @dev Assumes the caller has completed the submit path's required header checks, so assembly does not rehash
+   *      headers.
    *
    * @dev Errors Thrown:
    *      - Rollup__InvalidBlobProof: Batched blob proof verification failed
@@ -486,17 +580,29 @@ library EpochProofLib {
    *      - Rollup__InvalidArchive: End archive root mismatch in public inputs
    *
    * @param _args The epoch proof submission arguments containing proof data and public inputs
+   * @param _config The rollup's deployment-time configuration
+   * @param _headerHashes The canonical stored header hashes returned by verifyHeaders
    * @return True if both blob proof and validity proof verification succeed
    */
-  function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args) private view returns (bool) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
+  function verifyEpochRootProof(
+    SubmitEpochRootProofArgs calldata _args,
+    RollupConfig memory _config,
+    bytes32[] memory _headerHashes
+  ) private view returns (bool) {
     BlobLib.validateBatchedBlob(_args.blobInputs);
 
-    bytes32[] memory publicInputs =
-      computeEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
+    bytes32[] memory publicInputs = computeEpochProofPublicInputs(
+      _args.start, _args.end, _args.args, _args.headers, _args.blobInputs, _config, _headerHashes
+    );
 
-    require(rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
+    uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    ProvenCheckpointFees[] calldata provenFees = _args.provenCheckpointFees;
+    for (uint256 i = 0; i < provenFees.length; i++) {
+      publicInputs[offset + 2 * i] = addressToField(provenFees[i].coinbase);
+      publicInputs[offset + 2 * i + 1] = bytes32(provenFees[i].accumulatedFees);
+    }
+
+    require(_config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
     return true;
   }

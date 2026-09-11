@@ -2,10 +2,10 @@
 
 | Proof submission | Gas |
 |---|---:|
-| 1 Checkpoint | 661,209 |
-| 8 Checkpoints | 980,313 |
-| 8 More Checkpoints | 988,027 |
-| 16 Checkpoints | 1,291,434 |
-| 32 Checkpoints | 1,805,036 |
+| 1 Checkpoint | 654,930 |
+| 8 Checkpoints | 956,937 |
+| 8 More Checkpoints | 910,467 |
+| 16 Checkpoints | 1,246,308 |
+| 32 Checkpoints | 1,732,713 |
 
-Uses the mock epoch proof verifier.
+_Uses the mock epoch proof verifier; real ZK verification and top-level transaction calldata gas are not included._

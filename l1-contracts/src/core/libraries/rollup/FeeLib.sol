@@ -60,6 +60,9 @@ uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100;
 uint256 constant L1_GAS_PER_CHECKPOINT_PROPOSED = 300_000;
 uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 3_600_000;
 
+// The uncongested baseline of the congestion multiplier is (1 + mu) * 1e9, where mu is the
+// protocol fee margin: congestionMultiplier scales this minimum by (10_000 + marginBps) / 10_000.
+// At a margin of 0 the baseline is exactly 1e9.
 uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1e9;
 
 // The magic values are used to have the fakeExponential case where
@@ -94,12 +97,26 @@ uint256 constant MIN_PROVING_COST_PER_MANA = 2;
 // that proving costs will go down.
 uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 2e8;
 
+/*
+ * Protocol-fee-margin rate limit
+ *
+ * `setProtocolFeeMargin` multiplies the fee users pay, so increases are constrained to a bounded
+ * multiplicative step per cooldown, mirroring the proving-cost limiter above. The bounded quantity
+ * is the fee multiplier (10_000 + marginBps), not the margin itself, so each step raises the
+ * pinned fee by at most x3/2. Decreases are immediate and unrestricted (floor 0 is structural via
+ * uint16). `protocolMarginLastUpdate == 0` after `initialize`, so the first post-init update is
+ * not gated by the cooldown; the 30-day cadence engages after that (decreases stamp it too).
+ */
+uint256 constant PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL = 30 days;
+uint256 constant PROTOCOL_FEE_MARGIN_STEP_NUM = 3;
+uint256 constant PROTOCOL_FEE_MARGIN_STEP_DEN = 2;
+
 struct OracleInput {
   int256 feeAssetPriceModifier;
 }
 
 struct ManaMinFeeComponents {
-  uint256 congestionCost;
+  uint256 protocolFee;
   uint256 congestionMultiplier;
   uint256 sequencerCost;
   uint256 proverCost;
@@ -109,6 +126,7 @@ struct FeeStore {
   CompressedFeeConfig config;
   L1GasOracleValues l1GasOracleValues;
   uint64 provingCostLastUpdate;
+  uint64 protocolMarginLastUpdate;
 }
 
 library FeeLib {
@@ -168,7 +186,8 @@ library FeeLib {
     feeStore.config = FeeConfig({
         manaTarget: _manaTarget,
         congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
-        provingCostPerMana: _provingCostPerMana
+        provingCostPerMana: _provingCostPerMana,
+        protocolFeeMarginBps: 0
       }).compress();
 
     feeStore.l1GasOracleValues = L1GasOracleValues({
@@ -220,6 +239,49 @@ library FeeLib {
     feeStore.provingCostLastUpdate = uint64(block.timestamp);
   }
 
+  /**
+   * @notice Updates the protocol fee margin (in basis points) applied on top of operator cost.
+   * @dev Idempotent: setting the current value is a no-op (no state change, no cooldown stamp).
+   *      Increases are gated by the 30-day cooldown (first-ever update exempt) and the x3/2 step
+   *      on the fee multiplier `(10_000 + bps)`. Decreases are immediate and unrestricted but
+   *      still stamp the cooldown. The uint16 parameter makes values above 65535 unrepresentable
+   *      at the ABI boundary, so the reverting `toUint16` inside `compress` can never fire from
+   *      this path and later `compress` round-trips (updateManaTarget, updateProvingCostPerMana)
+   *      never see an out-of-range margin.
+   * @param _bps The new protocol fee margin in basis points
+   * @return changed Whether state was mutated (false for the idempotent no-op)
+   * @return oldBps The margin in effect before this call
+   */
+  function updateProtocolFeeMargin(uint16 _bps) internal returns (bool changed, uint16 oldBps) {
+    FeeStore storage feeStore = getStorage();
+    FeeConfig memory config = feeStore.config.decompress();
+
+    oldBps = uint16(config.protocolFeeMarginBps);
+
+    if (_bps == oldBps) {
+      return (false, oldBps);
+    }
+
+    if (_bps > oldBps) {
+      uint256 nextAllowed = uint256(feeStore.protocolMarginLastUpdate) + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
+      require(
+        feeStore.protocolMarginLastUpdate == 0 || block.timestamp >= nextAllowed,
+        Errors.FeeLib__ProtocolFeeMarginCooldown(nextAllowed)
+      );
+      require(
+        (10_000 + uint256(_bps)) * PROTOCOL_FEE_MARGIN_STEP_DEN
+          <= (10_000 + uint256(oldBps)) * PROTOCOL_FEE_MARGIN_STEP_NUM,
+        Errors.FeeLib__ProtocolFeeMarginStepExceeded(oldBps, _bps)
+      );
+    }
+
+    config.protocolFeeMarginBps = _bps;
+    feeStore.config = config.compress();
+    feeStore.protocolMarginLastUpdate = uint64(block.timestamp);
+
+    return (true, oldBps);
+  }
+
   function updateL1GasFeeOracle() internal {
     Slot slot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
     // The slot where we find a new queued value acceptable
@@ -242,7 +304,7 @@ library FeeLib {
     uint256 _checkpointNumber,
     int256 _feeAssetPriceModifierBps,
     uint256 _manaUsed,
-    uint256 _congestionCost,
+    uint256 _protocolFee,
     uint256 _proverCost
   ) internal view returns (FeeHeader memory) {
     require(
@@ -254,7 +316,7 @@ library FeeLib {
       excessMana: FeeLib.computeExcessMana(parentFeeHeader),
       ethPerFeeAsset: FeeLib.computeNewEthPerFeeAsset(parentFeeHeader.getEthPerFeeAsset(), _feeAssetPriceModifierBps),
       manaUsed: _manaUsed,
-      congestionCost: _congestionCost,
+      protocolFee: _protocolFee,
       proverCost: _proverCost
     });
   }
@@ -312,7 +374,7 @@ library FeeLib {
       FeeLib.clampedAdd(parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
 
-    EthValue congestionCost =
+    EthValue protocolFee =
     EthValue.wrap(
         Math.mulDiv(EthValue.unwrap(total), congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor)
       ) - total;
@@ -324,7 +386,7 @@ library FeeLib {
     return ManaMinFeeComponents({
       sequencerCost: FeeAssetValue.unwrap(sequencerCostPerMana.toFeeAsset(ethPerFeeAsset)),
       proverCost: FeeAssetValue.unwrap(proverCostPerMana.toFeeAsset(ethPerFeeAsset)),
-      congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(ethPerFeeAsset)),
+      protocolFee: FeeAssetValue.unwrap(protocolFee.toFeeAsset(ethPerFeeAsset)),
       congestionMultiplier: congestionMultiplier_
     });
   }
@@ -342,6 +404,10 @@ library FeeLib {
     return getStorage().config.getProvingCostPerMana();
   }
 
+  function getProtocolFeeMarginBps() internal view returns (uint16) {
+    return uint16(getStorage().config.getProtocolFeeMarginBps());
+  }
+
   function getEthPerFeeAssetAtCheckpoint(uint256 _checkpointNumber) internal view returns (EthPerFeeAssetE12) {
     return EthPerFeeAssetE12.wrap(STFLib.getFeeHeader(_checkpointNumber).getEthPerFeeAsset());
   }
@@ -357,7 +423,11 @@ library FeeLib {
     // Cap the exponent to prevent overflow in the Taylor series.
     // At e^100, the multiplier is ~2.69e43 * MINIMUM_CONGESTION_MULTIPLIER, more than enough
     uint256 cappedNumerator = Math.min(_numerator, denominator * 100);
-    return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, cappedNumerator, denominator);
+    // The protocol fee margin scales only this factor: (10_000 + bps) * 1e5 == (1 + mu) * 1e9,
+    // exactly 1e9 (== MINIMUM_CONGESTION_MULTIPLIER) at mu = 0. The mulDiv divisor in
+    // getManaMinFeeComponentsAt MUST stay MINIMUM_CONGESTION_MULTIPLIER — scaling both sites
+    // cancels the margin.
+    return fakeExponential((10_000 + feeStore.config.getProtocolFeeMarginBps()) * 1e5, cappedNumerator, denominator);
   }
 
   function computeManaLimit(uint256 _manaTarget) internal pure returns (uint256) {
@@ -394,7 +464,24 @@ library FeeLib {
     // Cap at uint128 max to ensure the fee can always be represented in the proposal header's
     // feePerL2Gas field (uint128). Without this cap, extreme congestion or parameter combinations
     // could produce fees that no valid header can represent, causing a liveness failure.
-    return Math.min(_components.sequencerCost + _components.proverCost + _components.congestionCost, type(uint128).max);
+    return Math.min(_components.sequencerCost + _components.proverCost + _components.protocolFee, type(uint128).max);
+  }
+
+  /**
+   * @notice The per-mana protocol fee written to the fee header: the pinned fee minus the two
+   *         converted operator costs, as one subtraction.
+   * @dev The single subtraction guarantees `fee - protocolFee == cost * manaUsed` holds exactly
+   *      in the reward waterfall; converting the margin and congestion tranches separately could
+   *      drift by a wei because the Ceil conversion is not additive. The subtraction can go
+   *      negative only when the uint128 cap in {summedMinFee} binds, in which case the protocol
+   *      fee is clamped to 0 and operators stay whole.
+   * @param _components The mana min fee components (in fee asset)
+   * @return The per-mana protocol fee
+   */
+  function protocolFeePerMana(ManaMinFeeComponents memory _components) internal pure returns (uint256) {
+    uint256 manaMinFee = summedMinFee(_components);
+    uint256 operatorCost = _components.sequencerCost + _components.proverCost;
+    return manaMinFee > operatorCost ? manaMinFee - operatorCost : 0;
   }
 
   function getStorage() internal pure returns (FeeStore storage storageStruct) {

@@ -12,16 +12,24 @@ import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
-// Number of buckets in the rolling-hash ring. Sized far beyond normal consumption lag (the censorship
-// cutoff bounds it to roughly one Aztec slot); outages longer than the ring are handled by overwrite
-// protection on unconsumed buckets, not by growing the ring.
-uint256 constant INBOX_BUCKET_RING_SIZE = 1024;
+// Number of buckets in the rolling-hash ring. Eviction is gated on proven consumption, so the ring has to
+// cover the worst-case proving lag (~2 epochs of one bucket per L1 block, which is what MIN_BUCKET_RING_SIZE
+// below is derived from) with enough margin that adversarial bucket creation cannot cheaply exhaust it: a
+// forced rollover costs ~2.2M gas, so burning this much headroom takes ~250 continuously-owned L1 blocks
+// (~50 min, ~9B gas). Ring size bounds retention only — 2 storage slots per live bucket, no per-send gas — and
+// exhausting it halts sends rather than overwriting unconsumed buckets.
+uint256 constant INBOX_BUCKET_RING_SIZE = 4096;
 
 // Constructor floor for the bucket ring. The ring must cover the longest stall the chain recovers from on
 // its own: the prune-and-repropose window of 64 checkpoints (2 epochs = 384 L1 blocks) at the natural cadence
 // of one bucket per L1 block, so the buckets it must re-consume after a prune have not been overwritten. 384
 // rounded up to the next power of two, kept at or below the production ring.
 uint256 constant MIN_BUCKET_RING_SIZE = 512;
+
+// Number of newest live buckets `getBucketAtOrBeforeTotal` probes one by one before binary-searching the rest of
+// the ring. Checkpoint endpoints normally sit within the last few buckets, so the short walk resolves the common
+// case in a handful of reads while a target far behind a deposit backlog still costs O(probes + log ring size).
+uint256 constant ENDPOINT_WALKBACK_PROBES = 4;
 
 /**
  * @title Inbox
@@ -42,6 +50,12 @@ contract Inbox is IInbox {
   mapping(uint256 ringIndex => InboxBucket bucket) internal buckets;
 
   uint64 internal currentBucketSeq;
+
+  // Sequence number of the newest bucket consumed by the proven chain, pushed by the Rollup on every proven-tip
+  // advance. Anchoring eviction to proven consumption is prune-immune (the proven tip never rewinds) and
+  // fail-closed (the cache can only lag the truth). Shares a slot with currentBucketSeq so the overwrite check
+  // reads it warm.
+  uint64 internal provenConsumedBucketSeq;
 
   constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _bucketRingSize) {
     ROLLUP = _rollup;
@@ -108,6 +122,22 @@ contract Inbox is IInbox {
     return (leaf, index);
   }
 
+  /**
+   * @notice Records that the proven chain has consumed all messages up to and including bucket `_bucketSeq`
+   *
+   * @dev Callable only by the ROLLUP. Monotonic: a value at or below the current record is a no-op. Reverts if
+   * `_bucketSeq` is ahead of the current bucket.
+   *
+   * @param _bucketSeq - The sequence number of the newest bucket the proven chain has consumed
+   */
+  function markProvenConsumed(uint64 _bucketSeq) external override(IInbox) {
+    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+    require(_bucketSeq <= currentBucketSeq, Errors.Inbox__BucketOutOfWindow(_bucketSeq, currentBucketSeq));
+    if (_bucketSeq > provenConsumedBucketSeq) {
+      provenConsumedBucketSeq = _bucketSeq;
+    }
+  }
+
   function getFeeAssetPortal() external view override(IInbox) returns (address) {
     return FEE_ASSET_PORTAL;
   }
@@ -134,13 +164,91 @@ contract Inbox is IInbox {
   }
 
   /**
+   * @notice Returns the live bucket with the greatest cumulative message total at or below `_upperBound`
+   *
+   * @dev Totals strictly increase with the bucket sequence, so the newest live bucket whose total does not exceed
+   * the bound is the answer. The live interval is `[oldest, current]` with `oldest = current - ringSize + 1` once the
+   * ring has wrapped (computed subtraction-first so `current + 1` cannot overflow at the sequence maximum); entries
+   * below `oldest` share a ring slot with a newer bucket and are never dereferenced. Walks back from `current` for
+   * at most ENDPOINT_WALKBACK_PROBES live entries, checking for `oldest` before each step down, then binary-searches
+   * only the still unscanned interval below the walk.
+   *
+   * @param _upperBound - The cumulative message total the returned bucket may not exceed
+   *
+   * @return The sequence number of the matching bucket and the bucket itself
+   */
+  function getBucketAtOrBeforeTotal(uint64 _upperBound)
+    external
+    view
+    override(IInbox)
+    returns (uint64, InboxBucket memory)
+  {
+    uint256 current = currentBucketSeq;
+    uint256 oldest = 0;
+    if (current >= BUCKET_RING_SIZE) {
+      oldest = current - BUCKET_RING_SIZE + 1;
+    }
+
+    uint256 seq = current;
+    for (uint256 i = 0; i < ENDPOINT_WALKBACK_PROBES; i++) {
+      uint64 total = buckets[seq % BUCKET_RING_SIZE].totalMsgCount;
+      if (total <= _upperBound) {
+        return (SafeCast.toUint64(seq), buckets[seq % BUCKET_RING_SIZE]);
+      }
+      if (seq == oldest) {
+        revert Errors.Inbox__NoBucketAtOrBeforeTotal(_upperBound, total);
+      }
+      seq -= 1;
+    }
+
+    // Every entry in (seq, current] exceeds the bound, so the answer, if any, lies in [oldest, seq].
+    uint256 lo = oldest;
+    uint256 hi = seq;
+    uint64 oldestTotal = buckets[lo % BUCKET_RING_SIZE].totalMsgCount;
+    if (oldestTotal > _upperBound) {
+      revert Errors.Inbox__NoBucketAtOrBeforeTotal(_upperBound, oldestTotal);
+    }
+    // Invariant: the bucket at `lo` qualifies and every bucket above `hi` does not; `mid` rounds up so `lo` always
+    // moves on a hit and the loop converges on the greatest qualifying sequence.
+    while (lo < hi) {
+      uint256 mid = hi - (hi - lo) / 2;
+      if (buckets[mid % BUCKET_RING_SIZE].totalMsgCount <= _upperBound) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return (SafeCast.toUint64(lo), buckets[lo % BUCKET_RING_SIZE]);
+  }
+
+  function getProvenConsumedBucketSeq() external view override(IInbox) returns (uint64) {
+    return provenConsumedBucketSeq;
+  }
+
+  /**
+   * @notice Returns the number of buckets that can still be opened before sends revert to protect an unconsumed
+   * bucket from being overwritten
+   *
+   * @dev Counts bucket openings, not messages: at zero, messages can still be absorbed into the current bucket
+   * until it fills or its L1 block passes. Neither subtraction can underflow: `markProvenConsumed` keeps the
+   * record at or below `currentBucketSeq`, and opening bucket n requires `provenConsumedBucketSeq >= n -
+   * BUCKET_RING_SIZE`, so the unconsumed span never exceeds the ring.
+   *
+   * @return The number of buckets that can still be opened
+   */
+  function getRingHeadroom() external view override(IInbox) returns (uint256) {
+    return BUCKET_RING_SIZE - (currentBucketSeq - provenConsumedBucketSeq);
+  }
+
+  /**
    * @notice Absorbs a message leaf into the consensus rolling hash and snapshots it into the bucket ring
    *
    * @dev A bucket only holds messages from a single L1 block, up to MAX_MSGS_PER_BUCKET; the first message
    * of a new L1 block — or the message after a full bucket, spilling over within the same block — opens the
    * next bucket, inheriting the rolling hash and cumulative count. Bucket 0 is the pristine genesis base
-   * case and never absorbs. Opening a bucket overwrites the ring entry from BUCKET_RING_SIZE buckets ago;
-   * protection against overwriting unconsumed buckets is not enforced yet.
+   * case and never absorbs. Opening a bucket overwrites the ring entry from BUCKET_RING_SIZE buckets ago; the
+   * open reverts unless the proven chain has consumed that entry, so in-flight messages are never destroyed —
+   * sends halt instead until proving catches up.
    *
    * @param _leaf - The message leaf to absorb
    *
@@ -157,6 +265,12 @@ contract Inbox is IInbox {
     // computed over timestamps, so co-timestamped blocks are indistinguishable to it.
     if (bucketSeq == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET) {
       bucketSeq += 1;
+      if (bucketSeq >= BUCKET_RING_SIZE) {
+        uint64 evictedBucketSeq = SafeCast.toUint64(bucketSeq - BUCKET_RING_SIZE);
+        require(
+          provenConsumedBucketSeq >= evictedBucketSeq, Errors.Inbox__WouldOverwriteUnconsumedBucket(evictedBucketSeq)
+        );
+      }
       currentBucketSeq = bucketSeq;
       bucket = InboxBucket({
         rollingHash: bucket.rollingHash,

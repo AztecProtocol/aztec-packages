@@ -12,7 +12,6 @@ use types::{
     constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT},
     merkle_tree::append_only_tree,
     traits::Hash,
-    utils::arrays::assert_trailing_zeros,
 };
 
 pub struct BlockRollupPublicInputsComposer {
@@ -142,9 +141,6 @@ impl BlockRollupPublicInputsComposer {
     ) -> Self {
         self.previous_l1_to_l2 = previous_l1_to_l2;
         self.bundle_applied = true;
-
-        // Real messages occupy the leading lanes; everything past `num_msgs` is zero padding.
-        assert_trailing_zeros(bundle.messages, bundle.num_msgs);
 
         // Append the real leaves to the l1-to-l2 message tree at its current (compact, unaligned) next-available index.
         self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, _>(

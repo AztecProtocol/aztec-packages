@@ -1,0 +1,220 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Thu, 10 Sep 2026 14:22:47 -0300
+Subject: [PATCH] feat(stdlib): add InboxParity rungs for 4 and 16 messages
+
+The InboxParity ladder gains two smaller rungs in the protocol circuits, so the
+node side has to know about them: `INBOX_PARITY_SIZES` grows to five entries
+(ascending, so `pickInboxParitySize` keeps picking the smallest that fits), the
+two artifacts join the server artifact union, the size-to-artifact map, the VK
+index map and the plain-UltraHonk list in the bb-prover, and the codegen script
+emits their input types.
+
+diff --git a/yarn-project/bb-prover/src/honk.ts b/yarn-project/bb-prover/src/honk.ts
+index 5cac2075281bfe55bbfc2d8c73ae9026822d0ef4..6ed3dae2f0ff6e0edd55494795584359d938242d 100644
+--- a/yarn-project/bb-prover/src/honk.ts
++++ b/yarn-project/bb-prover/src/honk.ts
+@@ -4,6 +4,8 @@ export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk' | 'ultra_starkn
+ 
+ const UltraKeccakHonkCircuits = ['RootRollupArtifact'] as const satisfies ServerProtocolArtifact[];
+ const UltraHonkCircuits = [
++  'InboxParity4Artifact',
++  'InboxParity16Artifact',
+   'InboxParity64Artifact',
+   'InboxParity256Artifact',
+   'InboxParity1024Artifact',
+diff --git a/yarn-project/noir-protocol-circuits-types/src/artifacts/server.ts b/yarn-project/noir-protocol-circuits-types/src/artifacts/server.ts
+index 2e8c9b9b695e3b94825d95208e0fb2143c38ae9a..86e3e6dfc20603c54ed758f678dd847a445ee4ac 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/artifacts/server.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/artifacts/server.ts
+@@ -1,6 +1,8 @@
+ import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec-labs/stdlib/noir';
+ 
+ import PublicChonkVerifierJson from '../../artifacts/chonk_verifier_public.json' with { type: 'json' };
++import InboxParity4Json from '../../artifacts/inbox_parity_4.json' with { type: 'json' };
++import InboxParity16Json from '../../artifacts/inbox_parity_16.json' with { type: 'json' };
+ import InboxParity64Json from '../../artifacts/inbox_parity_64.json' with { type: 'json' };
+ import InboxParity256Json from '../../artifacts/inbox_parity_256.json' with { type: 'json' };
+ import InboxParity1024Json from '../../artifacts/inbox_parity_1024.json' with { type: 'json' };
+@@ -25,6 +27,8 @@ import TxMergeRollupJson from '../../artifacts/rollup_tx_merge.json' with { type
+ import type { ServerProtocolArtifact } from './types.js';
+ 
+ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
++  InboxParity4Artifact: InboxParity4Json as NoirCompiledCircuit,
++  InboxParity16Artifact: InboxParity16Json as NoirCompiledCircuit,
+   InboxParity64Artifact: InboxParity64Json as NoirCompiledCircuit,
+   InboxParity256Artifact: InboxParity256Json as NoirCompiledCircuit,
+   InboxParity1024Artifact: InboxParity1024Json as NoirCompiledCircuit,
+@@ -46,6 +50,8 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
+ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
+   // No separate simulated build for the inbox parity ladder: they verify no child proofs, so the constrained
+   // artifacts are used for simulation too.
++  InboxParity4Artifact: InboxParity4Json as NoirCompiledCircuit,
++  InboxParity16Artifact: InboxParity16Json as NoirCompiledCircuit,
+   InboxParity64Artifact: InboxParity64Json as NoirCompiledCircuit,
+   InboxParity256Artifact: InboxParity256Json as NoirCompiledCircuit,
+   InboxParity1024Artifact: InboxParity1024Json as NoirCompiledCircuit,
+diff --git a/yarn-project/noir-protocol-circuits-types/src/artifacts/types.ts b/yarn-project/noir-protocol-circuits-types/src/artifacts/types.ts
+index 5809ad8add7ca1de37d88c5ab61d954ccaf9a018..f8d1febc568f130ab387d337c6e2974c5d4e6290 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/artifacts/types.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/artifacts/types.ts
+@@ -27,6 +27,8 @@ export type ClientProtocolArtifact =
+ 
+ // These are all circuits that should generate proofs with the `recursive` flag.
+ export type ServerProtocolArtifact =
++  | 'InboxParity4Artifact'
++  | 'InboxParity16Artifact'
+   | 'InboxParity64Artifact'
+   | 'InboxParity256Artifact'
+   | 'InboxParity1024Artifact'
+@@ -58,6 +60,10 @@ export interface ArtifactProvider {
+ 
+ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {
+   switch (artifact) {
++    case 'InboxParity4Artifact':
++      return 'inbox-parity-4';
++    case 'InboxParity16Artifact':
++      return 'inbox-parity-16';
+     case 'InboxParity64Artifact':
+       return 'inbox-parity-64';
+     case 'InboxParity256Artifact':
+diff --git a/yarn-project/noir-protocol-circuits-types/src/artifacts/vks/server.ts b/yarn-project/noir-protocol-circuits-types/src/artifacts/vks/server.ts
+index 99f2f9d1e34558f1aa0d804f788f0442b321e9e7..9bcb5592bac74317399a089cc0a826ade0ba156f 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/artifacts/vks/server.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/artifacts/vks/server.ts
+@@ -9,6 +9,8 @@ import {
+   CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
+   HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
+   HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
++  INBOX_PARITY_4_VK_INDEX,
++  INBOX_PARITY_16_VK_INDEX,
+   INBOX_PARITY_64_VK_INDEX,
+   INBOX_PARITY_256_VK_INDEX,
+   INBOX_PARITY_1024_VK_INDEX,
+@@ -31,6 +33,8 @@ import {
+ import { VerificationKeyData } from '@aztec-labs/stdlib/vks';
+ 
+ import PublicChonkVerifier from '../../../artifacts/chonk_verifier_public.json' with { type: 'json' };
++import InboxParity4 from '../../../artifacts/inbox_parity_4.json' with { type: 'json' };
++import InboxParity16 from '../../../artifacts/inbox_parity_16.json' with { type: 'json' };
+ import InboxParity64 from '../../../artifacts/inbox_parity_64.json' with { type: 'json' };
+ import InboxParity256 from '../../../artifacts/inbox_parity_256.json' with { type: 'json' };
+ import InboxParity1024 from '../../../artifacts/inbox_parity_1024.json' with { type: 'json' };
+@@ -55,6 +59,8 @@ import { abiToVKData } from '../../utils/vk_json.js';
+ import type { ProtocolCircuitName, ServerProtocolCircuitName } from '../types.js';
+ 
+ export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKeyData> = {
++  InboxParity4Artifact: abiToVKData(InboxParity4),
++  InboxParity16Artifact: abiToVKData(InboxParity16),
+   InboxParity64Artifact: abiToVKData(InboxParity64),
+   InboxParity256Artifact: abiToVKData(InboxParity256),
+   InboxParity1024Artifact: abiToVKData(InboxParity1024),
+@@ -89,6 +95,8 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
+   HidingKernelToRollup: HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
+   HidingKernelToPublic: HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
+   PublicChonkVerifier: PUBLIC_CHONK_VERIFIER_VK_INDEX,
++  InboxParity4Artifact: INBOX_PARITY_4_VK_INDEX,
++  InboxParity16Artifact: INBOX_PARITY_16_VK_INDEX,
+   InboxParity64Artifact: INBOX_PARITY_64_VK_INDEX,
+   InboxParity256Artifact: INBOX_PARITY_256_VK_INDEX,
+   InboxParity1024Artifact: INBOX_PARITY_1024_VK_INDEX,
+diff --git a/yarn-project/noir-protocol-circuits-types/src/execution/server.ts b/yarn-project/noir-protocol-circuits-types/src/execution/server.ts
+index 9d3c870eba333ababe207d81b44ce7cb2ac522ad..a8c414261eba957920186b5b394113b9f25ece4c 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/execution/server.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/execution/server.ts
+@@ -1,7 +1,13 @@
+ import type { InputValue } from '@aztec-foundation/noir-noirc_abi';
+ import type { InputMap } from '@aztec-foundation/noir-types';
+ 
+-import { INBOX_PARITY_SIZE_LARGE, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_SMALL } from '@aztec-labs/constants';
++import {
++  INBOX_PARITY_SIZE_LARGE,
++  INBOX_PARITY_SIZE_MEDIUM,
++  INBOX_PARITY_SIZE_SMALL,
++  INBOX_PARITY_SIZE_XSMALL,
++  INBOX_PARITY_SIZE_XXSMALL,
++} from '@aztec-labs/constants';
+ import { pushTestData } from '@aztec-labs/foundation/testing';
+ import type { InboxParityPrivateInputs } from '@aztec-labs/stdlib/parity';
+ import type {
+@@ -63,6 +69,10 @@ export function convertInboxParityPrivateInputsToNoir(inputs: InboxParityPrivate
+ /** Maps an InboxParity ladder size to its server artifact. */
+ export function inboxParityArtifactForSize(size: number): ServerProtocolArtifact {
+   switch (size) {
++    case INBOX_PARITY_SIZE_XXSMALL:
++      return 'InboxParity4Artifact';
++    case INBOX_PARITY_SIZE_XSMALL:
++      return 'InboxParity16Artifact';
+     case INBOX_PARITY_SIZE_SMALL:
+       return 'InboxParity64Artifact';
+     case INBOX_PARITY_SIZE_MEDIUM:
+diff --git a/yarn-project/noir-protocol-circuits-types/src/scripts/generate_ts_from_abi.ts b/yarn-project/noir-protocol-circuits-types/src/scripts/generate_ts_from_abi.ts
+index 21911887c6d4623e3259441209264a0a66fad50b..1035e60c8fb2687bb028027f8c7b22414479f475 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/scripts/generate_ts_from_abi.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/scripts/generate_ts_from_abi.ts
+@@ -8,6 +8,8 @@ import { promises as fs } from 'fs';
+ const log = createConsoleLogger('autogenerate');
+ 
+ const circuits = [
++  'inbox_parity_4',
++  'inbox_parity_16',
+   'inbox_parity_64',
+   'inbox_parity_256',
+   'inbox_parity_1024',
+diff --git a/yarn-project/prover-client/src/test/bb_prover_parity.test.ts b/yarn-project/prover-client/src/test/bb_prover_parity.test.ts
+index 91f467c362a75c1d4d8dd035c9dba27ff39bb425..062571a4300529c54f5a3a54caba92d73512e237 100644
+--- a/yarn-project/prover-client/src/test/bb_prover_parity.test.ts
++++ b/yarn-project/prover-client/src/test/bb_prover_parity.test.ts
+@@ -12,6 +12,8 @@ const logger = createLogger('prover-client:test:bb-prover-parity');
+ 
+ // Maps a ladder size to its server artifact name, mirroring the bb-prover's own selection.
+ const artifactForSize: Record<InboxParitySize, ServerProtocolArtifact> = {
++  4: 'InboxParity4Artifact',
++  16: 'InboxParity16Artifact',
+   64: 'InboxParity64Artifact',
+   256: 'InboxParity256Artifact',
+   1024: 'InboxParity1024Artifact',
+diff --git a/yarn-project/stdlib/src/parity/inbox_parity_private_inputs.ts b/yarn-project/stdlib/src/parity/inbox_parity_private_inputs.ts
+index cf0687ef9f7c3b6183b596b4299e854d79dc0064..dd96d2660fabb0afc7b61f2522fd22e75a5060d7 100644
+--- a/yarn-project/stdlib/src/parity/inbox_parity_private_inputs.ts
++++ b/yarn-project/stdlib/src/parity/inbox_parity_private_inputs.ts
+@@ -1,4 +1,10 @@
+-import { INBOX_PARITY_SIZE_LARGE, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_SMALL } from '@aztec-labs/constants';
++import {
++  INBOX_PARITY_SIZE_LARGE,
++  INBOX_PARITY_SIZE_MEDIUM,
++  INBOX_PARITY_SIZE_SMALL,
++  INBOX_PARITY_SIZE_XSMALL,
++  INBOX_PARITY_SIZE_XXSMALL,
++} from '@aztec-labs/constants';
+ import { padArrayEnd } from '@aztec-labs/foundation/collection';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { bufferSchemaFor } from '@aztec-labs/foundation/schemas';
+@@ -6,7 +12,13 @@ import { BufferReader, serializeToBuffer } from '@aztec-labs/foundation/serializ
+ import { bufferToHex, hexToBuffer } from '@aztec-labs/foundation/string';
+ 
+ /** The InboxParity size ladder, ascending. One VK per size; the prover proves the smallest that fits. */
+-export const INBOX_PARITY_SIZES = [INBOX_PARITY_SIZE_SMALL, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_LARGE] as const;
++export const INBOX_PARITY_SIZES = [
++  INBOX_PARITY_SIZE_XXSMALL,
++  INBOX_PARITY_SIZE_XSMALL,
++  INBOX_PARITY_SIZE_SMALL,
++  INBOX_PARITY_SIZE_MEDIUM,
++  INBOX_PARITY_SIZE_LARGE,
++] as const;
+ 
+ /** A valid InboxParity ladder size. */
+ export type InboxParitySize = (typeof INBOX_PARITY_SIZES)[number];
+diff --git a/yarn-project/stdlib/src/stats/stats.ts b/yarn-project/stdlib/src/stats/stats.ts
+index 276c1a70dbc6f8d87a55f6a1727f526e6fa51c0f..e1627a488af61e35e8846abf22b65f5e5333b4a7 100644
+--- a/yarn-project/stdlib/src/stats/stats.ts
++++ b/yarn-project/stdlib/src/stats/stats.ts
+@@ -101,6 +101,8 @@ export type ClientCircuitName =
+   | 'app-circuit';
+ 
+ export type ServerCircuitName =
++  | 'inbox-parity-4'
++  | 'inbox-parity-16'
+   | 'inbox-parity-64'
+   | 'inbox-parity-256'
+   | 'inbox-parity-1024'
