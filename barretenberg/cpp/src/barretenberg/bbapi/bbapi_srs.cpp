@@ -23,6 +23,10 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
     constexpr size_t UNCOMPRESSED_POINT_SIZE = sizeof(g1::affine_element); // 64
 
     size_t bytes_per_point = num_points > 0 ? points_buf.size() / num_points : 0;
+    if (bytes_per_point != UNCOMPRESSED_POINT_SIZE && bytes_per_point != COMPRESSED_POINT_SIZE) {
+        throw_or_abort("SrsInitSrs: invalid points_buf size. Expected 32 or 64 bytes per point, got " +
+                       std::to_string(bytes_per_point));
+    }
     std::vector<g1::affine_element> g1_points(num_points);
     std::vector<uint8_t> uncompressed_out;
 
@@ -33,7 +37,7 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
                 g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * UNCOMPRESSED_POINT_SIZE);
             }
         });
-    } else if (bytes_per_point == COMPRESSED_POINT_SIZE) {
+    } else {
         // Verify SHA-256 of every 4 MB chunk against the in-binary pin BN254_G1_CHUNK_HASHES.
         // Require chunk-aligned input so every byte is covered (no partial trailing chunk).
         if (points_buf.size() == 0 || points_buf.size() % bb::srs::SRS_CHUNK_SIZE_BYTES != 0) {
@@ -66,9 +70,6 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
                 std::copy(buf.begin(), buf.end(), &uncompressed_out[i * UNCOMPRESSED_POINT_SIZE]);
             }
         });
-    } else {
-        throw_or_abort("SrsInitSrs: invalid points_buf size. Expected 32 or 64 bytes per point, got " +
-                       std::to_string(bytes_per_point));
     }
 
     // Pin the first two G1 points to their canonical trusted-setup values. Defense in depth on the
