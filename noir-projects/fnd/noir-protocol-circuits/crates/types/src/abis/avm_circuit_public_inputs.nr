@@ -11,7 +11,6 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
-        log::Log,
         protocol_contracts::ProtocolContracts,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
@@ -75,7 +74,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, FLAT_PUBLIC_LOGS_HEADER_LENGTH,
-        MAX_ENQUEUED_CALLS_PER_TX,
+        MAX_ENQUEUED_CALLS_PER_TX, PUBLIC_LOG_HEADER_LENGTH,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::traits::SerializeToColumns,
@@ -633,12 +632,15 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     // Add a note hash to accumulated data
     item.accumulated_data.note_hashes[2] = 54321;
 
-    // Add a public log
-    let public_log = Log::new(
-        [10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008, 10009],
-        5, // Only consider the first 5 fields
-    );
-    item.accumulated_data.public_logs.add_log(AztecAddress::from_field(11223), public_log);
+    // Add a public log: a [log length, contract address] header followed by the log fields
+    let public_log_length: u32 = 5;
+    item.accumulated_data.public_logs.payload[0] = public_log_length as Field;
+    item.accumulated_data.public_logs.payload[1] = 11223;
+    for i in 0..public_log_length {
+        item.accumulated_data.public_logs.payload[PUBLIC_LOG_HEADER_LENGTH + i] =
+            10000 + i as Field;
+    }
+    item.accumulated_data.public_logs.length = PUBLIC_LOG_HEADER_LENGTH + public_log_length;
 
     // Add a public data write
     item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
@@ -691,10 +693,10 @@ fn flat_columns_of_avm_circuit_public_inputs() {
 
     // Public logs
     let public_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
-    assert_eq(flat[col0_offset + public_log_row], (public_log.length + 2) as Field);
-    assert_eq(flat[col0_offset + public_log_row + 1], public_log.length as Field);
+    assert_eq(flat[col0_offset + public_log_row], (public_log_length + 2) as Field);
+    assert_eq(flat[col0_offset + public_log_row + 1], public_log_length as Field);
     assert_eq(flat[col0_offset + public_log_row + 2], 11223);
-    for j in 0..public_log.length {
+    for j in 0..public_log_length {
         assert_eq(flat[col0_offset + public_log_row + 3 + j], 10000 + j as Field);
     }
 
