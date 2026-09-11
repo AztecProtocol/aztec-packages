@@ -41,3 +41,6 @@ abs_dest=$(pwd)/l1-contracts
 # Foundry is very finicky about copying out subsets.
 # Patch over what foundry feels needs to be rebuild (~3 seconds on mainframe)
 (cd "l1-contracts" && forge build)
+
+# The parent's out/ holds an artifact for every test contract too; drop what the cache never names.
+scripts/prune-unreferenced-artifacts.sh
