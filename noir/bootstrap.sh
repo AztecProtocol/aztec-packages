@@ -52,7 +52,7 @@ function install_native_from_release {
   # Guard with our build cache before reaching out to GitHub. This key (noir-$hash, derived from the
   # noir commit) is the same one CI populates from the source build, so a GitHub outage or a missing
   # release asset can't block the build when the artifact is already cached.
-  if cache_download noir-$hash.tar.gz && [[ -x "$release_dir/nargo" ]]; then
+  if ci3_client artifact_download noir-$hash.tar.gz && [[ -x "$release_dir/nargo" ]]; then
     echo "noir-from-release.flag set; restored nargo for $tag from the build cache (skipped GitHub)."
     return 0
   fi
@@ -102,7 +102,7 @@ function build_native {
     return
   fi
 
-  if ! cache_download noir-$hash.tar.gz; then
+  if ! ci3_client artifact_download noir-$hash.tar.gz; then
     # Serialize cargo operations to avoid race conditions with avm-transpiler
     # which may run in parallel and share the same CARGO_HOME.
     (
@@ -113,7 +113,7 @@ function build_native {
     # default-member) and labs-aztec-toolchain symlinks it for native protocol-circuit
     # execution, so it has to survive a cache round trip like the rest. The build also produces
     # acvm, which nothing consumes since the labs node moved to noir-execute; it is left behind.
-    cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,noir-execute,noir-profiler}
+    ci3_client artifact_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,noir-execute,noir-profiler}
   fi
 }
 
@@ -125,7 +125,7 @@ function build_packages {
   # It's cursed, llvm will use it without permission if it finds it in PATH.
   export PATH=$PWD/scripts:$PATH
 
-  if cache_download noir-packages-$hash.tar.gz; then
+  if ci3_client artifact_download noir-packages-$hash.tar.gz; then
     cd noir-repo
     npm_install_deps
     return
@@ -151,7 +151,7 @@ function build_packages {
   # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec-foundation/noir-
   find packages -type f -exec sed -i 's|@noir-lang/|@aztec-foundation/noir-|g' {} \;
 
-  cache_upload noir-packages-$hash.tar.gz \
+  ci3_client artifact_upload noir-packages-$hash.tar.gz \
     packages \
     noir-repo/acvm-repo/acvm_js/nodejs \
     noir-repo/acvm-repo/acvm_js/web \

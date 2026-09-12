@@ -100,7 +100,7 @@ function compile {
 function build {
   echo_header "acir_tests build"
 
-  if ! cache_download $tests_tar; then
+  if ! ci3_client artifact_download $tests_tar; then
     rm -rf acir_tests
     denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
@@ -121,7 +121,7 @@ function build {
 
     # Compile all tests
     compile
-    cache_upload $tests_tar acir_tests
+    ci3_client artifact_upload $tests_tar acir_tests
   fi
 
   npm_install_deps

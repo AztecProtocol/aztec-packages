@@ -1,6 +1,6 @@
 # Build System
 
-This repository uses a custom build system that is **agnostic to CI platforms** and **leverages a remote cache** (S3 or MinIO) for caching build artifacts. Our approach enables efficient incremental builds, distributed parallel testing, and consistent deployment to ephemeral infrastructure (e.g., AWS Spot Instances).
+This repository uses a custom build system that is **agnostic to CI platforms** and **leverages a remote cache** for build artifacts, logs and test results. Our approach enables efficient incremental builds, distributed parallel testing, and consistent deployment to ephemeral infrastructure (e.g., AWS Spot Instances).
 
 We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework (ci3 folder). Each project defines its own bootstrap or build script but relies on the shared `ci3` folder for advanced features like:
 
@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   A stateless approach using S3-compatible storage (AWS S3 or MinIO). This replaces older Docker-image-based caches, streamlines artifact reuse, and easily shares builds across different runners or machines.
+   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI3_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set and exports its URL to child processes. Other commands use the exported endpoint or disable logging and remote caching. CI entry points require an endpoint and valid credentials; the workflows select production. The local server redirects artifact misses to the public HTTPS build cache.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
@@ -46,17 +46,21 @@ Tools are provided for the following themes.
 
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
-   - **`cache_upload`, `cache_download`**: Upload/download `.tar.gz` artifacts from a remote S3-like cache.
-   - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
+   - **`ci3_client artifact_upload <name> <paths>...`, `ci3_client artifact_download <name> [directory]`**: Pack and restore `.tar.gz` or `.zst` build artifacts using Python 3.14+ standard-library compression. The server handles storage and redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
+     The file server can also retain public downloads: start it with `CI3_CACHE_PUBLIC=1` or `--cache-public`. By default, public reads are redirected without retaining a copy.
+   - **`ci3_client <command>`**: The API client: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, and `artifact_upload/artifact_download/artifact_exists`. Raw artifact transfers use `artifact_put/artifact_get`.
+     Requires Python 3.14+ with `compression.zstd`; root `./bootstrap.sh install_deps` installs it. CI runners and build images provide it.
+   - **`ci3_client check`**: Explicitly verifies the selected endpoint and authentication, and prints setup instructions when no URL is set. Bootstrap and CI entry points run it before proceeding.
+   - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. In CI the server is the labs dashboard (`ci.aztec-labs.com`), which serves the same API.
 
 2. **Test Parallelization & Caching**
    - **`parallelize`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
    - **`run_test_cmd`**: Single test runner that can skip tests cached as “already passed.”
-   - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (based on flags in redis).
+   - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (the test cache on the ci3 server).
 
 3. **Ephemeral Logging**
    - **`denoise`**: Minimizes output spam; prints dots for each line, reveals full logs only if a command fails.
-   - **`cache_log`**, **`dump_fail`**: Captures output for ephemeral storage and prints or reveals logs when needed.
+   - **`cache_log`**, **`dump_fail`**: Captures output into a log on the ci3 server and prints or reveals logs when needed. `./ci.sh log <id>` reads one back.
 
 4. **AWS Provisioning**
    - **`aws_request_instance`** & **`aws_terminate_instance`**: Provision ephemeral spot or on-demand instances.
@@ -74,8 +78,8 @@ Tools are provided for the following themes.
 
 1. **In each project**: A `bootstrap.sh` might:
    - Call `cache_content_hash` to detect changes.
-   - If changed, do the relevant compile step, then `cache_upload`.
-   - If not changed, do `cache_download` to restore a previously built artifact.
+   - If changed, do the relevant compile step, then `ci3_client artifact_upload`.
+   - If not changed, do `ci3_client artifact_download` to restore a previously built artifact.
 
 2. **In test scripts**:
    - We gather test commands (`test_cmds`) in a form easily read by `parallelize`.
@@ -87,4 +91,3 @@ Tools are provided for the following themes.
 
 4. **On success**:
    - Artifacts can be re-uploaded or flagged as “passed,” letting future runs skip unchanged steps.
-

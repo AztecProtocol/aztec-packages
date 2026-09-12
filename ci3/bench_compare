@@ -36,12 +36,7 @@ WINDOW=1
 PR_REF="HEAD"
 OUT=""
 SCAN_LIMIT=300
-# Same endpoints cache_download uses: the in-CI S3 http endpoint, else the public cache CDN.
-if [ "${CI:-0}" -eq 1 ]; then
-  CACHE_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
-else
-  CACHE_ENDPOINT="https://build-cache.aztec-labs.com"
-fi
+ci3="$(git rev-parse --show-toplevel)/ci3"
 
 die() { echo "bench_compare: error: $*" >&2; exit 1; }
 
@@ -58,6 +53,7 @@ done
 
 command -v jq >/dev/null || die "jq not found"
 command -v python3 >/dev/null || die "python3 not found"
+"$ci3/ci3_client" check || exit $?
 
 # Resolve the baseline branch. Explicit --baseline (or $BASELINE) wins; otherwise auto-detect the base
 # of the current branch's PR via gh, and only then fall back to origin/next. Always announced — a wrong
@@ -75,13 +71,12 @@ if [ -z "$BASELINE" ]; then
 fi
 echo "bench_compare: baseline = $BASELINE" >&2
 
-# Fetch a per-run bench.json for a tree hash. Tries the http cache (no creds), then aws s3 (creds).
+# Fetch a per-run bench.json for a tree hash through the selected API.
 fetch_bench() { # <treehash> <dest.json> -> 0 if found
   local tree="$1" dest="$2" tmp
   tmp="$(mktemp -d)"
-  if curl -fsSL "$CACHE_ENDPOINT/bench-$tree.tar.gz" -o "$tmp/b.tgz" 2>/dev/null \
-     || aws s3 cp "s3://aztec-ci-artifacts/build-cache/bench-$tree.tar.gz" "$tmp/b.tgz" >/dev/null 2>&1; then
-    if tar -xzf "$tmp/b.tgz" -C "$tmp" 2>/dev/null && [ -f "$tmp/bench-out/bench.json" ]; then
+  if "$ci3/ci3_client" artifact_download "bench-$tree.tar.gz" "$tmp"; then
+    if [ -f "$tmp/bench-out/bench.json" ]; then
       cp "$tmp/bench-out/bench.json" "$dest"; rm -rf "$tmp"; return 0
     fi
   fi

@@ -21,6 +21,9 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+COPY install-python.sh /tmp/install-python.sh
+RUN /tmp/install-python.sh && rm /tmp/install-python.sh
+
 # Install rust and cross-compilers. Noir specifically uses 1.89.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup

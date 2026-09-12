@@ -4,10 +4,10 @@ NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 image=$1
 image_file=${image//[^[:alnum:]]/_}-$(arch)
 
-if ! cache_download $image_file.zst; then
+if ! ci3_client artifact_download $image_file.zst; then
   docker pull $image
   docker save $image > $image_file
-  cache_upload $image_file.zst $image_file
+  ci3_client artifact_upload $image_file.zst $image_file
   rm $image_file
 else
   docker load < $image_file

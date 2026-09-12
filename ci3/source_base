@@ -12,9 +12,8 @@ export ci3="$root/ci3"
 if [[ "$PATH" != *"$ci3:" ]]; then
   export PATH=$ci3:$PATH
 
-  # We're on the github runner, we're about to launch ec2 instances with our container, but we need:
-  #  - redis-cli for logging.
-  #  - parallel for running commands in parallel.
+  # We're on the github runner, about to launch ec2 instances with our container, and need
+  # parallel for running commands in parallel.
   if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
     export PATH=$ci3/bin:$PATH
   fi

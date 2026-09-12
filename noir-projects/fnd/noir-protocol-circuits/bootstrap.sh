@@ -71,7 +71,7 @@ function compile {
   # We don't want to include `-$circuits_hash"` ordinarily, because it would force unnecessary
   # rebuilds when tests / comments are changed.
 
-  if ! cache_download circuit-$hash.tar.gz 1>&2; then
+  if ! ci3_client artifact_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
@@ -86,7 +86,7 @@ function compile {
       exit 1
     fi
 
-    cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
+    ci3_client artifact_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
   generate_vk "$name"
@@ -105,7 +105,7 @@ function generate_vk {
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-3")
   local key_path="$key_dir/$name.vk.data.json"
-  if ! cache_download vk-$hash.tar.gz 1>&2; then
+  if ! ci3_client artifact_download vk-$hash.tar.gz 1>&2; then
     SECONDS=0
     local outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
@@ -150,9 +150,9 @@ function generate_vk {
       echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
-      cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
+      ci3_client artifact_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
     else
-      cache_upload vk-$hash.tar.gz $key_path &> /dev/null
+      ci3_client artifact_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
   fi
   # VK was downloaded from cache, update the JSON artifact with VK information

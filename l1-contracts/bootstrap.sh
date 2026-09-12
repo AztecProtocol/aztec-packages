@@ -10,7 +10,7 @@ function download_solc {
   fi
   local platform="$(os)-$(arch)"
   local artifact="solc-$platform-$solc_version.tar.gz"
-  if cache_download "$artifact"; then
+  if ci3_client artifact_download "$artifact"; then
     return 0
   fi
 
@@ -37,7 +37,7 @@ function download_solc {
   fi
 
   cp "$svm_path" "$solc_path"
-  cache_upload "$artifact" "$solc_path"
+  ci3_client artifact_upload "$artifact" "$solc_path"
 }
 
 # We rely on noir-projects for the verifier contract.
@@ -60,7 +60,7 @@ function build_src {
   npm_install_deps
 
   local artifact=l1-contracts-src-$hash.tar.gz
-  if ! cache_download $artifact; then
+  if ! ci3_client artifact_download $artifact; then
     # Clean
     rm -rf broadcast cache out serve
 
@@ -80,7 +80,7 @@ function build_src {
     # Output storage information for the escape hatch contract.
     forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > ./out/EscapeHatch.sol/storage.json
 
-    cache_upload $artifact out cache
+    ci3_client artifact_upload $artifact out cache
   fi
 }
 
@@ -88,7 +88,7 @@ function build_verifier {
   echo_header "l1-contracts build_verifier"
 
   local artifact=l1-contracts-verifier-$hash.tar.gz
-  if ! cache_download $artifact; then
+  if ! ci3_client artifact_download $artifact; then
     mkdir -p generated
 
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
@@ -108,7 +108,7 @@ function build_verifier {
       script/deploy/*.s.sol \
       test/script/*.t.sol
 
-    cache_upload $artifact out cache generated
+    ci3_client artifact_upload $artifact out cache generated
   fi
 }
 
@@ -120,10 +120,10 @@ function build_artifacts {
   echo_header "l1-contracts build_artifacts"
 
   local artifact=l1-contracts-ts-$hash.tar.gz
-  if ! cache_download $artifact; then
+  if ! ci3_client artifact_download $artifact; then
     (cd l1-artifacts && yarn build)
 
-    cache_upload $artifact l1-artifacts/dest l1-artifacts/src l1-artifacts/l1-contracts
+    ci3_client artifact_upload $artifact l1-artifacts/dest l1-artifacts/src l1-artifacts/l1-contracts
   fi
 }
 

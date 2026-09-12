@@ -28,14 +28,14 @@ function build {
   prepare_project
   yarn formatting
 
-  if ! cache_download bb.js-$hash.tar.gz; then
+  if ! ci3_client artifact_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
     yarn generate
     yarn build:wasm
     yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
-    cache_upload bb.js-$hash.tar.gz dest build
+    ci3_client artifact_upload bb.js-$hash.tar.gz dest build
   fi
 
   # We copy snapshot dirs to dest so we can run tests from dest.

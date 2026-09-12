@@ -34,6 +34,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
       # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
       - name: Fail If Draft
@@ -123,6 +128,8 @@ jobs:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           # DO NOT allow build instance key access to external jobs.
           CI_USE_BUILD_INSTANCE_KEY: "0"
+          CI3_SERVER: http://ci.aztec-labs.com
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}

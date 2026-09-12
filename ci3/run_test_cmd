@@ -2,9 +2,9 @@
 # Called by 'parallelize' to execute a given test cmd.
 # This is a thin wrapper around exec_test that handles CI integration:
 # - Cache checking
-# - Redis publishing (started/failed/flaked events)
 # - Flake detection and owner notification
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source "$ci3/source_log"
 
 # We must enable job control to ensure our test runs in it's own process group.
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
@@ -19,8 +19,6 @@ is_merge_queue=0
 
 # If enabled, update the test log every 5s.
 live_logging=0
-# If enabled, publish test started/failed/flaked events to Redis channel.
-publish=0
 # If enabled, save logs for passed tests.
 pass_log=0
 # Allow a flaking tests to pass rather than fail.
@@ -34,9 +32,8 @@ slack_notify_flake=0
 
 if [ "$CI" -eq 1 ]; then
   # CI overrides.
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  if [ -n "${CI3_SERVER:-}" ]; then
     live_logging=1
-    publish=1
   fi
   pass_log=1
   allow_flakes=1
@@ -59,7 +56,6 @@ fi
 
 # Env overrides.
 live_logging=${LIVE_LOGGING:-$live_logging}
-publish=${PUBLISH:-$publish}
 pass_log=${PASS_LOG:-$pass_log}
 allow_flakes=${ALLOW_FLAKES:-$allow_flakes}
 track_test_history=${TRACK_TEST_HISTORY:-$track_test_history}
@@ -80,7 +76,7 @@ test_hash=$(hash_str_orig "$test_cmd")
 # We actually pre-filter tests in CI runs so this is rarely hit.
 # Commands marked 'disabled-cache' must never be served a cached result (mirrors filter_cached_test_cmd).
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [[ "$cmd" != *disabled-cache* ]]; then
-  log_key=$(redis_cli GET $key)
+  log_key=$(ci3_client kv_get "$key") || log_key=
   if [ -n "$log_key" ]; then
     log_info=" ($(ci_term_link $log_key))"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
@@ -90,9 +86,7 @@ fi
 
 # Exit handler to cleanup.
 function cleanup {
-  if [ -n "${publish_pid:-}" ]; then
-    kill $publish_pid &>/dev/null
-  fi
+  stop_log_publisher
   if [ -f ${tmp_file:-} ]; then
     rm -f $tmp_file
   fi
@@ -109,92 +103,41 @@ function sig_handler {
 }
 trap sig_handler SIGTERM SIGINT
 
-function publish_log {
-  local expire=${1:-$CI_REDIS_EXPIRE}
-  cat $tmp_file 2>/dev/null | redis_setexz $log_key $expire
-}
-
-function publish_log_final {
-  local expire=${1:-$CI_REDIS_EXPIRE}
-  cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
-}
-
-# Finalize the current log and start a fresh one with a new unique key.
+# Finalize the current attempt before its file is reused for a retry.
 function rotate_log {
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-    publish_log_final "$@"
-  fi
+  publish_log_final "$log_key" "$tmp_file" "$@" || { cat "$tmp_file"; log_info=; }
   log_key=$(uuid)
   log_info=" ($(ci_term_link $log_key))"
-  > $tmp_file
-  if [ "$live_logging" -eq 1 ]; then
-    kill ${publish_pid:-} &>/dev/null
-    live_publish_log &
-    publish_pid=$!
-  fi
+  > "$tmp_file"
+  start_live_log
 }
 
-function live_publish_log {
-  # Not replacing previous trap as we run this function in the background.
-  trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
-  # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
-  sleep 30 &
-  local sleep_pid=$!
-  wait $sleep_pid
-  publish_log
-  echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
-  # Close inherited stdout/stderr so this background process can't hold the outer
-  # pipeline's pipe fds open (which would prevent denoise/redact from seeing EOF).
-  exec >&- 2>&-
-  while [ -f $tmp_file ]; do
-    local stat=$(stat -c %Y "$tmp_file" || echo 0)
-    if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
-      publish_log
-    fi
-    sleep 5 &
-    sleep_pid=$!
-    wait $sleep_pid
-  done
+function start_live_log {
+  log_running_message="${blue}RUNNING${reset}${log_info:-}: $test_cmd"
+  if [ "$live_logging" -eq 1 ]; then
+    start_log_publisher "$log_key" "$tmp_file" 30
+  fi
 }
 
 # Create a new log key and ci link.
 log_key=$(uuid)
 log_info=" ($(ci_term_link $log_key))"
-grind_link=$(term_link "/grind?cmd=$(urlencode "$cmd")" "grind")
+grind_link=$(term_link "$(ci3_client url "grind?cmd=$(urlencode "$cmd")")" "grind")
 fail_links="($grind_link)"
 
 # Create a temporary file for the test log.
 tmp_file=/tmp/$key
 touch $tmp_file
 
-# Publish test started event to Redis channel.
-if [ "$publish" -eq 1 ]; then
-  start_redis_data=$(jq -n \
-    --arg status "started" \
-    --arg test_cmd "$cmd" \
-    --arg log_id "$log_key" \
-    --arg log_url "$DASHBOARD_URL/$log_key" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --arg dashboard "${CI_DASHBOARD:-}" \
-    '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, dashboard: $dashboard, timestamp: now | todate}')
-  redis_publish "ci:test:started" "$start_redis_data"
-fi
-
 # Start live log publishing if enabled.
-if [ "$live_logging" -eq 1 ]; then
-  live_publish_log &
-  publish_pid=$!
-fi
+start_live_log
 
 function run_test {
   # Reset timer and run the test in background (for prompt signal handling) using exec_test.
   SECONDS=0
   set +e
-  # Pass this attempt's log id so exec_test can name the test's timing file after it
-  # (matching the test's log at ci.aztec-labs.com/<log_key>). Tracks rotate_log on retries.
+  # This attempt's log id names the test's timing file (test-timings/<CI_LOG_ID>/<LOG_ID>). Tracks
+  # rotate_log on retries.
   LOG_ID=$log_key $ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
   test_pid=$!
   wait $test_pid
@@ -207,24 +150,26 @@ function run_test {
 }
 
 function finalize_test {
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-    # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
-    # If the test succeeded and we're logging passes, save the test log.
-    # If the test failed, save the test log.
-    if [ $code -eq 0 ]; then
-      if [ "$CI" -eq 1 ]; then
-        redis_cli SETEX $key 604800 $log_key &>/dev/null
-      fi
-      if [ "$pass_log" -eq 1 ]; then
-        publish_log_final
-      else
-        # Scrub the link we optimistically (for live logging) set earlier.
-        log_info=""
-      fi
-    else
-      # Publish final log, extending lifetime of failure to 12 weeks.
-      publish_log_final $((60 * 60 * 24 * 7 * 12))
+  stop_log_publisher
+  if [ -z "${CI3_SERVER:-}" ]; then
+    log_info=
+    [ "$code" -eq 0 ] || cat "$tmp_file"
+    return
+  fi
+  if [ "$code" -eq 0 ] && [ "$pass_log" -eq 0 ]; then
+    log_info=
+    return
+  fi
+  local ttl=()
+  # Keep failures for twelve weeks, long enough to investigate recurring flakes.
+  [ "$code" -eq 0 ] || ttl=($((60 * 60 * 24 * 7 * 12)))
+  if publish_log_final "$log_key" "$tmp_file" "${ttl[@]}"; then
+    if [ "$code" -eq 0 ] && [ "$CI" -eq 1 ]; then
+      ci3_client kv_set "$key" "$log_key" 604800 || true
     fi
+  else
+    log_info=
+    cat "$tmp_file"
   fi
 }
 
@@ -233,9 +178,7 @@ function track_test {
   local line=$(pr_link "$2")
   local max_lines=${3:-1000}
 
-  redis_cli LPUSH $list_key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-  # Keeps only the last max_lines lines.
-  redis_cli LTRIM $list_key 0 $max_lines &>/dev/null
+  ci3_client list_push $list_key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" $max_lines || true
 }
 
 function track_test_history {
@@ -246,22 +189,6 @@ function track_test_failed {
   track_test "failed_tests${CI_DASHBOARD:+_$CI_DASHBOARD}" "$1" 10000
 }
 
-function publish_redis {
-  local redis_data=$(jq -n \
-    --arg status "$1" \
-    --arg test_cmd "$cmd" \
-    --arg log_url "http://ci.aztec-labs.com/$log_key" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --argjson code "$code" \
-    --argjson duration "$SECONDS" \
-    --arg dashboard "${CI_DASHBOARD:-}" \
-    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, dashboard: $dashboard, timestamp: now | todate}')
-  redis_publish "ci:test:$1" "$redis_data"
-}
-
 # Show PASSED and early out on success.
 function pass {
   finalize_test
@@ -269,44 +196,12 @@ function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
-  [ "$publish" -eq 1 ] && publish_redis "passed"
-
   if [ "$track_test_history" -eq 1 ]; then
     local track_line="${green}PASSED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
     track_test_history "$track_line"
   fi
 
   exit 0
-}
-
-# Post a GitHub commit status for a failed test, with the ci.aztec-labs.com log as target_url.
-# No-ops silently if required env vars are absent (local runs, forks, etc.).
-function post_github_failure_status {
-  local token="${GITHUB_TOKEN:-}"
-  local repo="${GITHUB_REPOSITORY:-}"
-  local sha="${COMMIT_HASH:-}"
-  [[ -z "$token" || -z "$repo" || -z "$sha" ]] && return 0
-
-  # Context: ci/<test_cmd>, truncated to 255 chars (GitHub limit).
-  local context="ci/${test_cmd}"
-  context="${context:0:255}"
-  # Description: truncated to 140 chars (GitHub limit).
-  local description="${test_cmd}"
-  description="${description:0:140}"
-
-  local body
-  body=$(jq -n \
-    --arg state "failure" \
-    --arg target_url "http://ci.aztec-labs.com/${log_key}" \
-    --arg description "$description" \
-    --arg context "$context" \
-    '{state: $state, target_url: $target_url, description: $description, context: $context}')
-
-  curl -s -o /dev/null -X POST \
-    -H "Authorization: token $token" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${repo}/statuses/${sha}" \
-    -d "$body" &
 }
 
 # Show FAILED and exit with error code.
@@ -324,8 +219,7 @@ function fail {
   local track_line="${red}FAILED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
-  [ "$publish" -eq 1 ] && publish_redis "failed"
-  [ "$CI" -eq 1 ] && post_github_failure_status
+  post_github_status failure "ci/$test_cmd" "$(ci3_client url "$log_key")" "$test_cmd" || true
 
   exit $code
 }
@@ -365,8 +259,6 @@ function flake {
   local track_line="${purple}FLAKED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix} (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
-  [ "$publish" -eq 1 ] && publish_redis "flaked"
-
   # Save flake to buffer file (for PR comment generation)
   if [ -n "${FLAKES_FILE:-}" ]; then
     echo "$line" >> "$FLAKES_FILE"
@@ -378,7 +270,7 @@ function flake {
     for uid in $owners; do
       slack_uids+="<@$uid> "
     done
-    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $DASHBOARD_URL/$log_key" "$(flake_slack_channel)"
+    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $(ci3_client url $log_key)" "$(flake_slack_channel)"
   fi
 
   exit 0
@@ -416,8 +308,8 @@ else
 
   if [ $code -eq 0 ]; then
     # Publish the retry's log, then point back at the failure for flake reporting.
-    if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-      publish_log_final
+    if [ -n "${CI3_SERVER:-}" ]; then
+      publish_log_final "$log_key" "$tmp_file" || cat "$tmp_file"
     fi
     log_key=$failure_log_key
     log_info=$failure_log_info

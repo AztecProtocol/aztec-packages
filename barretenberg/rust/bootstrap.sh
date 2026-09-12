@@ -8,7 +8,7 @@ hash=$(hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_pattern
 function build {
   echo_header "barretenberg-rs build"
 
-  if ! cache_download barretenberg-rs-$hash.tar.gz; then
+  if ! ci3_client artifact_download barretenberg-rs-$hash.tar.gz; then
     # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
     (cd ../ts/bb.js && yarn generate)
 
@@ -18,7 +18,7 @@ function build {
     BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
 
     # Upload build artifacts and generated source files to cache
-    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
+    ci3_client artifact_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
   fi
 }
 
