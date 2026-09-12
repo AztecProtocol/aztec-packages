@@ -146,9 +146,8 @@ The build cache: content-addressed tarballs.
 
 The server owns artifact routing. The file server serves local uploads and redirects GET and HEAD
 misses to `https://build-cache.aztec-labs.com` (override with `ci3_server start --public-cache-url <url>`). Production
-stores uploads in S3 and redirects downloads to its public bucket. Cache helpers only use the API;
-the file server owns local artifact storage. The npm publish job reads its release artifact from the
-public HTTPS cache after verifying the production API, preserving secure downloads.
+stores uploads in S3 and redirects downloads to its public bucket. Cache helpers only use the API,
+including the npm publish job's release download; the file server owns local artifact storage.
 
 By default, redirected public artifacts are not retained locally. Start the file server with
 `CI3_CACHE_PUBLIC=1` or `ci3_server start --cache-public` to store downloaded artifacts under its
