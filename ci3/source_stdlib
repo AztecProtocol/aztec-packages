@@ -10,7 +10,7 @@ function hash_str_orig {
 function hash_str {
   set -eu
   if [[ "$*" == *"disabled-cache"* ]]; then
-    # We want to propagate cache being disabled so that cache_upload and cache_download can catch this
+    # We want to propagate cache being disabled so that ci3_client artifact_upload and ci3_client artifact_download can catch this
     echo "disabled-cache"
   else
     echo "$*" | git hash-object --stdin | cut -c1-16 | tr -d '\n'

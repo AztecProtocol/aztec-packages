@@ -23,12 +23,12 @@ function build {
   fi
   echo_header "build bb docs"
   npm_install_deps
-  if cache_download bb-docs-$hash.tar.gz; then
+  if ci3_client artifact_download bb-docs-$hash.tar.gz; then
     echo "Skipping deployment - no bb doc changes compared to cache."
     return
   fi
   denoise "yarn build"
-  cache_upload bb-docs-$hash.tar.gz build
+  ci3_client artifact_upload bb-docs-$hash.tar.gz build
 }
 
 function test_cmds {

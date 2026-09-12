@@ -77,6 +77,11 @@ jobs:
           # a bot-PAT remote at each push site.
           persist-credentials: true
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -197,6 +202,11 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -215,7 +225,7 @@ jobs:
           ./ci3/ci3_client check
           dir=$(mktemp -d)
           echo "NPM_RELEASE_DIR=$dir" >> "$GITHUB_ENV"
-          ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
+          ./ci3/ci3_client artifact_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
 
       - name: Publish
         run: ./ci3/publish_npm_release "$NPM_RELEASE_DIR/npm-release"

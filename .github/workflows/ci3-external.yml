@@ -34,6 +34,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
       # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
       - name: Fail If Draft

@@ -17,7 +17,7 @@ function save_cache {
   local run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
   echo "${run_url}" > ".ci-success.txt"
   echo "Saved CI success marker: ${run_url}"
-  cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
+  ci3_client artifact_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
 }
 
 function handle_squash_merge {

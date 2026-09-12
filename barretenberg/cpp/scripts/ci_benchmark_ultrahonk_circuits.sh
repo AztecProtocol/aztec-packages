@@ -75,7 +75,7 @@ function restore_cached_ultrahonk_inputs {
   cached_dir="$state_dir/ultrahonk-bench-inputs"
   rm -rf "$state_dir"
   mkdir -p "$state_dir"
-  if cache_download "$cache_name" "$state_dir" && ultrahonk_inputs_present "$cached_dir"; then
+  if ci3_client artifact_download "$cache_name" "$state_dir" && ultrahonk_inputs_present "$cached_dir"; then
     rm -rf "$dir"
     mkdir -p "$(dirname "$dir")"
     mv "$cached_dir" "$dir"
@@ -116,7 +116,7 @@ function ensure_ultrahonk_inputs {
       echo "Generating UltraHonk benchmark inputs at $abs_inputs"
       generate_ultrahonk_inputs "$abs_inputs"
       if [[ "$abs_inputs" == "$root/labs/yarn-project/end-to-end/ultrahonk-bench-inputs" ]]; then
-        (cd "$root/labs/yarn-project/end-to-end" && env -u root -u ci3 cache_upload "$cache_name" ultrahonk-bench-inputs)
+        (cd "$root/labs/yarn-project/end-to-end" && env -u root -u ci3 ci3_client artifact_upload "$cache_name" ultrahonk-bench-inputs)
       fi
     fi
 

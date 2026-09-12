@@ -60,7 +60,7 @@ Client reads return 0 on success, 1 on absence or a disabled endpoint, and 2 on 
 usage error. `kv_get` returns one line per key (empty for a miss); a successful lookup returns 0 even
 when all keys are absent. Failed lookups return 2 without fabricated misses. Writes return 0 on success
 or when disabled, and 2 on failure (`artifact_put` returns 1 when disabled). These rules are the same
-locally and in CI. Cache consumers rebuild after failed reads. `cache_upload` propagates failed writes,
+locally and in CI. Cache consumers rebuild after failed reads. `ci3_client artifact_upload` propagates failed writes,
 so required release bundles cannot silently disappear. Denoise and the test runner preserve the
 command's exit status and print its output if the final log upload fails.
 
@@ -137,6 +137,13 @@ The registry of CI runs a dashboard renders, grouped by section (`prs`, `next`, 
 ## Artifacts
 
 The build cache: content-addressed tarballs.
+
+`ci3_client artifact_upload <name> <paths>...` packs build outputs; `artifact_download <name> [directory]`
+restores them. Both require Python 3.14+ with `compression.zstd`, use standard-library archive handling,
+and keep stdout empty. Names ending in `.zst` use Zstandard; other names use gzip. Permissions and links
+are preserved. Downloads validate the HTTP body and compression footer before reporting success.
+`NO_CACHE=1` skips downloads; `NO_CACHE_UPLOAD=1` skips uploads; `disabled-cache` names skip both.
+The raw `artifact_put` and `artifact_get` commands transfer already-packed files.
 
 | | |
 |---|---|

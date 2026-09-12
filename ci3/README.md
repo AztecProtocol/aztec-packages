@@ -46,9 +46,10 @@ Tools are provided for the following themes.
 
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
-   - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts through the ci3 API; the server handles storage and download redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
+   - **`ci3_client artifact_upload <name> <paths>...`, `ci3_client artifact_download <name> [directory]`**: Pack and restore `.tar.gz` or `.zst` build artifacts using Python 3.14+ standard-library compression. The server handles storage and redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
      The file server can also retain public downloads: start it with `CI3_CACHE_PUBLIC=1` or `--cache-public`. By default, public reads are redirected without retaining a copy.
-   - **`ci3_client <command>`**: The only way ci3 talks to its server: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `artifact_put/artifact_get/artifact_exists`.
+   - **`ci3_client <command>`**: The API client: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, and `artifact_upload/artifact_download/artifact_exists`. Raw artifact transfers use `artifact_put/artifact_get`.
+     Requires Python 3.14+ with `compression.zstd`; root `./bootstrap.sh install_deps` installs it. CI runners and build images provide it.
    - **`ci3_client check`**: Explicitly verifies the selected endpoint and authentication, and prints setup instructions when no URL is set. Bootstrap and CI entry points run it before proceeding.
    - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. In CI the server is the labs dashboard (`ci.aztec-labs.com`), which serves the same API.
 
@@ -77,8 +78,8 @@ Tools are provided for the following themes.
 
 1. **In each project**: A `bootstrap.sh` might:
    - Call `cache_content_hash` to detect changes.
-   - If changed, do the relevant compile step, then `cache_upload`.
-   - If not changed, do `cache_download` to restore a previously built artifact.
+   - If changed, do the relevant compile step, then `ci3_client artifact_upload`.
+   - If not changed, do `ci3_client artifact_download` to restore a previously built artifact.
 
 2. **In test scripts**:
    - We gather test commands (`test_cmds`) in a form easily read by `parallelize`.

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise artifact routing through a file server and a private public-cache fixture."""
 import functools
+import gzip
 import http.client
 import io
 import json
@@ -12,6 +13,7 @@ import tarfile
 import tempfile
 import threading
 import unittest
+from compression import zstd
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -228,16 +230,16 @@ class ArtifactTest(unittest.TestCase):
         result = self.command("cache_ls", self.name)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, b"file.txt\n")
-        result = self.command("cache_download", self.name, self.directory / "out")
+        result = self.command("ci3_client", "artifact_download", self.name, self.directory / "out")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, b"")
         self.assertEqual((self.directory / "out/file.txt").read_text(), "public artifact\n")
 
     def test_upload_skips_a_public_hit_and_can_be_forced(self):
-        result = self.command("cache_upload", self.name, "file.txt")
+        result = self.command("ci3_client", "artifact_upload", self.name, "file.txt")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.backend.artifact_exists(self.name))
-        result = self.command("cache_upload", self.name, "file.txt", CACHE_FORCE_UPLOAD="1")
+        result = self.command("ci3_client", "artifact_upload", self.name, "file.txt", CACHE_FORCE_UPLOAD="1")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(self.backend.artifact_exists(self.name))
         self.assertEqual((self.public / self.name).read_bytes(), self.archive)
@@ -247,11 +249,11 @@ class ArtifactTest(unittest.TestCase):
             with self.subTest(extension=extension):
                 name = "local/roundtrip." + extension
                 (self.directory / "file.txt").write_text("locally built artifact\n")
-                result = self.command("cache_upload", name, "file.txt")
+                result = self.command("ci3_client", "artifact_upload", name, "file.txt")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertTrue(self.backend.artifact_exists(name))
                 (self.directory / "file.txt").unlink()
-                result = self.command("cache_download", name, self.directory / extension)
+                result = self.command("ci3_client", "artifact_download", name, self.directory / extension)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout, b"")
                 self.assertEqual((self.directory / extension / "file.txt").read_text(), "locally built artifact\n")
@@ -261,14 +263,77 @@ class ArtifactTest(unittest.TestCase):
                           ("disabled-upload.tar.gz", {"NO_CACHE_UPLOAD": "1"}),
                           ("no-server.tar.gz", {"CI3_SERVER": ""})):
             with self.subTest(name=name):
-                result = self.command("cache_upload", name, "nonexistent-file", **env)
+                result = self.command("ci3_client", "artifact_upload", name, "nonexistent-file", **env)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertFalse(self.backend.artifact_exists(name))
 
     def test_cache_upload_reports_transfer_failure(self):
-        result = self.command("cache_upload", "failure.tar.gz", "file.txt", CI3_SERVER="http://127.0.0.1:1")
+        result = self.command("ci3_client", "artifact_upload", "failure.tar.gz", "file.txt", CI3_SERVER="http://127.0.0.1:1")
         self.assertNotEqual(result.returncode, 0, result.stderr)
-        self.assertIn(b"Cache upload of failure.tar.gz failed", result.stderr)
+        self.assertIn(b"ci3_client artifact_upload:", result.stderr)
+
+    def test_upload_works_when_the_public_cache_is_unreachable(self):
+        self.server.public_cache_url = "http://127.0.0.1:1"
+        result = self.command("ci3_client", "artifact_upload", "offline.tar.gz", "file.txt")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.backend.artifact_exists("offline.tar.gz"))
+
+    def test_archives_preserve_directories_links_and_executable_permissions(self):
+        source = self.directory / "build output"
+        source.mkdir()
+        (source / "empty").mkdir()
+        binary = source / "program"
+        binary.write_bytes(b"executable bytes\n")
+        binary.chmod(0o755)
+        (source / "link").symlink_to("program")
+        (source / "toolchain").symlink_to("/opt/toolchain")
+        os.link(binary, source / "hardlink")
+        for extension in ("tar.gz", "zst"):
+            with self.subTest(extension=extension):
+                name = "structure." + extension
+                result = self.command("ci3_client", "artifact_upload", name, "build output", "file.txt")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"")
+                destination = self.directory / ("extracted-" + extension)
+                result = self.command("ci3_client", "artifact_download", name, destination)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                restored = destination / "build output"
+                self.assertTrue((restored / "empty").is_dir())
+                self.assertEqual((restored / "program").read_bytes(), binary.read_bytes())
+                self.assertEqual((restored / "program").stat().st_mode & 0o777, 0o755)
+                self.assertEqual(os.readlink(restored / "link"), "program")
+                self.assertEqual(os.readlink(restored / "toolchain"), "/opt/toolchain")
+                self.assertTrue(os.path.samefile(restored / "program", restored / "hardlink"))
+                self.assertTrue((destination / "file.txt").is_file())
+
+    def test_disabled_downloads_do_not_extract(self):
+        for name, env in (("disabled-cache.tar.gz", {}), (self.name, {"NO_CACHE": "1"}),
+                          (self.name, {"CI3_SERVER": ""})):
+            with self.subTest(name=name, env=env):
+                destination = self.directory / "disabled-destination"
+                result = self.command("ci3_client", "artifact_download", name, destination, **env)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertFalse(destination.exists())
+
+    def test_corrupt_or_truncated_downloads_fail(self):
+        self.upstream.response_body = self.archive
+        self.upstream.response_length = len(self.archive) + 100
+        result = self.command("ci3_client", "artifact_download", self.name, self.directory / "truncated")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        archives = (("truncated.tar.gz", self.archive[:-4]),
+                    ("corrupt.tar.gz", b"\x1f\x8b\x08\x00" + b"\x00" * 6 + b"\x07" * 30),
+                    ("truncated.zst", zstd.compress(gzip.decompress(self.archive))[:-4]))
+        for name, data in archives:
+            with self.subTest(name=name):
+                self.upstream.response_body = data
+                self.upstream.response_length = len(data)
+                result = self.command("ci3_client", "artifact_download", name, self.directory / "corrupt")
+                self.assertEqual(result.returncode, 2, result.stderr)
+
+    def test_missing_upload_input_does_not_publish_an_archive(self):
+        result = self.command("ci3_client", "artifact_upload", "missing-input.tar.gz", "file.txt", "absent")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertFalse(self.backend.artifact_exists("missing-input.tar.gz"))
 
     def test_cache_filter_runs_tests_when_the_server_is_unreachable(self):
         commands = b"hash-one echo first\nhash-two echo second\n"

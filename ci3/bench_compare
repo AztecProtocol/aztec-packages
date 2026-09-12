@@ -75,8 +75,8 @@ echo "bench_compare: baseline = $BASELINE" >&2
 fetch_bench() { # <treehash> <dest.json> -> 0 if found
   local tree="$1" dest="$2" tmp
   tmp="$(mktemp -d)"
-  if "$ci3/ci3_client" artifact_get "bench-$tree.tar.gz" > "$tmp/b.tgz"; then
-    if tar -xzf "$tmp/b.tgz" -C "$tmp" 2>/dev/null && [ -f "$tmp/bench-out/bench.json" ]; then
+  if "$ci3/ci3_client" artifact_download "bench-$tree.tar.gz" "$tmp"; then
+    if [ -f "$tmp/bench-out/bench.json" ]; then
       cp "$tmp/bench-out/bench.json" "$dest"; rm -rf "$tmp"; return 0
     fi
   fi

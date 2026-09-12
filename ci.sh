@@ -407,7 +407,7 @@ case "$cmd" in
   # BENCHMARK PROCESSING #
   ########################
   gh-bench)
-    cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
+    ci3_client artifact_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 
   help|"")

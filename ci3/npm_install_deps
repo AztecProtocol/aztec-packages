@@ -35,10 +35,10 @@ if [ "$CI" -eq 1 ] && [ -f $HOME/ci-started ] && [ "${NO_CACHE:-0}" -eq 0 ]; the
     echo_stderr "node_modules already installed at $nm_hash."
     exit 0
   fi
-  if ! cache_download node-modules-$nm_hash.zst; then
+  if ! ci3_client artifact_download node-modules-$nm_hash.zst; then
     denoise "retry 'find . -type d -iname node_modules -not -path \"*/node_modules/*\" | xargs rm -rf && yarn install --immutable'"
     if [ -d node_modules ]; then echo "$nm_hash" >$marker; fi
-    cache_upload node-modules-$nm_hash.zst $(find . -type d -iname node_modules -not -path "*/node_modules/*")
+    ci3_client artifact_upload node-modules-$nm_hash.zst $(find . -type d -iname node_modules -not -path "*/node_modules/*")
   else
     if [ -d node_modules ]; then echo "$nm_hash" >$marker; fi
   fi

@@ -102,6 +102,7 @@ function install_linux_deps {
   fi
   mkdir -p "$AZTEC_DEV_BIN"
   spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd redis-tools lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd doxygen"
+  spinner "Installing Python 3.14..." "sudo $root/build-images/src/install-python.sh"
   spinner "Installing llvm..." install_llvm
   spinner "Installing yq..." install_yq
   spinner "Installing ldid..." install_ldid
@@ -121,11 +122,12 @@ function install_macos_deps {
     exit 1
   fi
   spinner "Installing brew dependencies..." \
-    "brew install cmake ninja llvm@20 doxygen coreutils grep gnu-sed parallel yq zstd redis util-linux libusb jq bash"
+    "brew install cmake ninja llvm@20 doxygen coreutils grep gnu-sed parallel yq zstd redis util-linux libusb jq bash python@3.14"
 
   # Make clang 20 available.
   local llvm_bin="$(brew --prefix)/Cellar/llvm@20/20.1.8/bin"
   mkdir -p "$AZTEC_DEV_BIN"
+  ln -sf "$(brew --prefix python@3.14)/bin/python3.14" "$AZTEC_DEV_BIN/python3"
   ln -sf "$llvm_bin/clang" "$AZTEC_DEV_BIN/clang-20"
   ln -sf "$llvm_bin/clang++" "$AZTEC_DEV_BIN/clang++-20"
   ln -sf "$llvm_bin/clang-format" "$AZTEC_DEV_BIN/clang-format-20"
@@ -168,6 +170,7 @@ if [ "${1:-}" = "install_deps" ]; then
 fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
+export PATH="$HOME/.local/aztec-dev-bin:$PATH"
 [[ "${1:-}" == ci-* ]] && export CI=1
 if [[ -z "${CI3_SERVER+x}" && "${CI:-0}" != 1 && "${CI:-0}" != true ]]; then
   CI3_SERVER=$("$(git rev-parse --show-toplevel)/ci3/ci3_server" start) || exit 1
@@ -238,6 +241,10 @@ function toolchain_incompatible {
 # Checks for required utilities, toolchains and their versions.
 # DO NOT INSTALL THINGS IN HERE.
 function check_toolchains {
+  if ! python3 -c 'import sys; assert sys.version_info >= (3, 14); from compression import zstd' &>/dev/null; then
+    echo "Python 3.14+ with compression.zstd is required."
+    toolchain_incompatible
+  fi
   # Check for various required utilities.
   for util in jq parallel awk git curl zstd corepack solhint; do
     if ! ensure $util; then
@@ -535,7 +542,7 @@ function bench_publish {
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+  ci3_client artifact_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
 }
 
 function bench {
@@ -644,7 +651,7 @@ function release {
   # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
   # A dry run packs but does not upload.
   if [ "${DRY_RUN:-0}" != 1 ]; then
-    CACHE_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+    CACHE_FORCE_UPLOAD=1 ci3_client artifact_upload "npm-release-$REF_NAME.tar.gz" npm-release
   fi
 }
 

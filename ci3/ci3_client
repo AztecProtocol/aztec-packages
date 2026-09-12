@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The only way ci3 talks to its log / test-cache / artifact server (see CI3_SERVER_API.md).
 
-Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3 standard library only.
+Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3.14+ standard library only.
 
   check                            verify the endpoint and authentication; fail if unavailable
   url [path]                       the browse URL of a log id / server path, as printed in links
@@ -18,6 +18,8 @@ Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Py
   artifact_put <name> <file>       upload a build-cache artifact
   artifact_get <name>              stream a build-cache artifact -> stdout (exit 1 if absent)
   artifact_exists <name>           exit 0 if present, 1 if absent, 2 on error
+  artifact_upload <name> <paths>... pack paths into a gzip/Zstandard tarball and upload it
+  artifact_download <name> [dir]   download and extract a tarball (default: current directory)
 
 Exit status: 0 success, 1 absent/disabled, 2 API/transport/usage error. Disabled log/KV/list/run
 writes are no-ops; kv_get returns 0 with an empty line for each missing key.
@@ -36,7 +38,7 @@ What ci3 keeps on the server, in ci3 terms:
   runs       the run registry the dashboard renders per section (prs, next, releases, ...): one
              record per CI_LOG_ID, written RUNNING by log_ci_run when a run starts and PASSED/FAILED
              when it ends.
-  artifacts  the build cache: <component>-<content hash>.tar.gz|.zst (cache_upload/cache_download),
+  artifacts  the build cache: <component>-<content hash>.tar.gz|.zst (artifact_upload/artifact_download),
              plus bench-<tree>.tar.gz, npm-release-<tag>.tar.gz and the ci-success-* whole-run marker.
 
 Environment:
@@ -53,7 +55,16 @@ import gzip
 import http.client
 import os
 import sys
+import tarfile
+import tempfile
+import time
 import urllib.parse
+import zlib
+
+try:
+    from compression import zstd
+except ImportError:
+    zstd = None
 
 DASHBOARD_URL = "http://ci.aztec-labs.com"
 # Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
@@ -229,7 +240,7 @@ def cmd_log_put(args, partial=False):
                                timeout=300 if final == "1" else 60, query={"ttl": ttl, "final": final}))
 
 
-def read_or_fail(path, missing, timeout=60):
+def read_or_fail(path, missing, timeout=60, output=None):
     if not resolve_server():
         sys.stderr.write("No ci3 server available.\n")
         return 1
@@ -243,7 +254,7 @@ def read_or_fail(path, missing, timeout=60):
             if not chunk:
                 break
             got += len(chunk)
-            out(chunk)
+            output.write(chunk) if output is not None else out(chunk)
         if expected not in (-1, got):
             raise CI3Error("truncated response: %d of %d bytes" % (got, expected))
     return 0
@@ -329,9 +340,14 @@ def cmd_artifact_put(args):
     if not resolve_server():
         return 1
     with open(args[1], "rb") as f:
-        headers = {"Content-Length": str(os.fstat(f.fileno()).st_size)}
-        return write_response(api("PUT", "/artifacts/" + key_path(args[0]), f, headers,
-                                  timeout=600, query={"ttl": str(ARTIFACT_EXPIRE)}))
+        return put_artifact(args[0], f)
+
+
+def put_artifact(name, file):
+    file.seek(0)
+    headers = {"Content-Length": str(os.fstat(file.fileno()).st_size)}
+    return write_response(api("PUT", "/artifacts/" + key_path(name), file, headers,
+                              timeout=600, query={"ttl": str(ARTIFACT_EXPIRE)}))
 
 
 def cmd_artifact_get(args):
@@ -349,6 +365,62 @@ def cmd_artifact_exists(args):
         return 0 if response_ok(resp, allow_missing=True) else 1
 
 
+def cmd_artifact_upload(args):
+    """Pack build outputs and upload them unless caching is disabled or the artifact exists."""
+    if len(args) < 2:
+        return usage("artifact_upload", "<name> <paths>...")
+    name, *paths = args
+    if "disabled-cache" in name or os.environ.get("NO_CACHE_UPLOAD") == "1" or not resolve_server():
+        sys.stderr.write("Skipping upload of %s: artifact uploads are disabled.\n" % name)
+        return 0
+    if not os.environ.get("CACHE_FORCE_UPLOAD"):
+        try:
+            if cmd_artifact_exists([name]) == 0:
+                sys.stderr.write("Skipping upload, already exists: %s\n" % name)
+                return 0
+        except (CI3Error, OSError, http.client.HTTPException):
+            # Public cache reads may fail while uploads to the local server still work.
+            pass
+    started = time.monotonic()
+    with tempfile.TemporaryFile() as packed:
+        options = ({"options": {zstd.CompressionParameter.nb_workers: os.process_cpu_count() or 1}}
+                   if name.endswith(".zst") else {"compresslevel": 6})
+        with tarfile.open(fileobj=packed, mode="w:zst" if name.endswith(".zst") else "w:gz", **options) as archive:
+            for path in paths:
+                archive.add(path)
+        put_artifact(name, packed)
+    sys.stderr.write("Cache upload of %s complete in %.1fs.\n" % (name, time.monotonic() - started))
+    return 0
+
+
+def cmd_artifact_download(args):
+    """Restore a build artifact, validating the transfer and compression before reporting success."""
+    if not 1 <= len(args) <= 2:
+        return usage("artifact_download", "<name> [directory]")
+    name, directory = args[0], args[1] if len(args) == 2 else "."
+    if "disabled-cache" in name or os.environ.get("NO_CACHE") == "1" or not resolve_server():
+        sys.stderr.write("Not using cache for %s: artifact downloads are disabled.\n" % name)
+        return 1
+    started = time.monotonic()
+    with tempfile.TemporaryFile() as packed:
+        code = read_or_fail("/artifacts/" + key_path(name), "Artifact not found: " + name, timeout=600, output=packed)
+        if code:
+            return code
+        packed.seek(0)
+        decompressed = (zstd.ZstdFile(packed, "rb") if name.endswith(".zst")
+                        else gzip.GzipFile(fileobj=packed, mode="rb"))
+        with decompressed:
+            os.makedirs(directory, exist_ok=True)
+            with tarfile.open(fileobj=decompressed, mode="r|") as archive:
+                # Preserve GNU tar's handling of build-artifact links to external toolchains.
+                archive.extractall(directory, filter="tar")
+            # Tar's end marker precedes the compression footer, which also needs validation.
+            while decompressed.read(1 << 20):
+                pass
+    sys.stderr.write("Cache download and extraction of %s complete in %.1fs.\n" % (name, time.monotonic() - started))
+    return 0
+
+
 COMMANDS = {
     "check": cmd_check, "url": cmd_url,
     "log_put": cmd_log_put, "log_put_partial": lambda args: cmd_log_put(args, partial=True),
@@ -357,10 +429,14 @@ COMMANDS = {
     "list_push": cmd_list_push, "list_get": cmd_list_get,
     "run_put": cmd_run_put, "run_get": cmd_run_get,
     "artifact_put": cmd_artifact_put, "artifact_get": cmd_artifact_get, "artifact_exists": cmd_artifact_exists,
+    "artifact_upload": cmd_artifact_upload, "artifact_download": cmd_artifact_download,
 }
 
 
 def main():
+    if sys.version_info < (3, 14) or zstd is None:
+        sys.stderr.write("ci3_client requires Python 3.14+ with compression.zstd. Run ./bootstrap.sh install_deps.\n")
+        return 2
     argv = sys.argv[1:]
     if not argv:
         sys.stderr.write(__doc__)
@@ -373,7 +449,8 @@ def main():
         return COMMANDS[cmd](argv)
     except BrokenPipeError:
         return 0
-    except (CI3Error, OSError, http.client.HTTPException, ValueError) as e:
+    except (CI3Error, OSError, http.client.HTTPException, ValueError, EOFError, tarfile.TarError,
+            zlib.error, zstd.ZstdError) as e:
         sys.stderr.write("ci3_client %s: %s\n" % (cmd, e))
         return 2
 
