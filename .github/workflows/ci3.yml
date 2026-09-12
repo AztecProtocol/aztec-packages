@@ -132,6 +132,10 @@ jobs:
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          # The CI log dashboard's basic-auth password: ci3 writes logs, the test cache and the build
+          # cache through the dashboard's ci3 server API (ci3/CI3_SERVER_API.md).
+          CI3_SERVER: http://ci.aztec-labs.com
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 
@@ -143,6 +147,8 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI3_SERVER: http://ci.aztec-labs.com
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         run: ./.github/ci3_success.sh
 
       - name: Notify Slack on backport CI failure
@@ -179,11 +185,10 @@ jobs:
     needs: ci
     if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'AztecProtocol/aztec-packages'
     runs-on: ubuntu-latest
-    # Same environment as the release build above: the AWS OIDC role trusts tokens minted for it, and
-    # it is the environment to name when configuring each package's npm trusted publisher.
+    # Same environment as the release build above; name it in each package's npm trusted publisher.
     environment: master
     permissions:
-      id-token: write   # AWS OIDC for the cache download, npm OIDC for trusted publishing
+      id-token: write   # npm OIDC for trusted publishing
       contents: read
     steps:
       - name: Checkout
@@ -191,13 +196,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-2
-          role-session-name: publish-npm-${{ github.run_id }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -208,14 +206,16 @@ jobs:
       - name: Update npm
         run: npm install -g npm@^11.5.1 && npm --version
 
-      # Authenticated S3 download using the runner's AWS OIDC role, not the plain-HTTP cache
-      # endpoint, and extracted outside the checkout. publish_npm_release then refuses any
-      # tarball that is not one of our packages at exactly this tag's version.
+      # publish_npm_release refuses packages that do not match this tag's version.
       - name: Download the packed release
+        env:
+          CI3_SERVER: http://ci.aztec-labs.com
+          CI3_PASSWORD: ${{ secrets.CI3_PASSWORD }}
         run: |
+          ./ci3/ci3_client check
           dir=$(mktemp -d)
           echo "NPM_RELEASE_DIR=$dir" >> "$GITHUB_ENV"
-          S3_BUILD_CACHE_AWS_PARAMS="--region us-east-2" ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
+          ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
 
       - name: Publish
         run: ./ci3/publish_npm_release "$NPM_RELEASE_DIR/npm-release"

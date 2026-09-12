@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""Check prompt log completion and ordering against a private HTTP server."""
+import os
+from pathlib import Path
+import runpy
+import shlex
+import signal
+import subprocess
+import tempfile
+import threading
+import time
+import unittest
+
+
+CI3 = Path(__file__).resolve().parents[1]
+SERVER = runpy.run_path(str(CI3 / "ci3_server"))
+
+
+class Handler(SERVER["Handler"]):
+    def put(self, parts, head, rest):
+        if getattr(self.server, "reject_logs", False):
+            self.body_bytes()
+            return self.reply(503)
+        if head == "logs" and self.query.get("final") == ["0"]:
+            body = self.body_bytes()
+            self.server.partial_started.set()
+            if not self.server.release_partial.wait(10):
+                return self.reply(504)
+            self.server.backend.log_put(rest, body, self.ttl(), False)
+            return self.reply(204)
+        return super().put(parts, head, rest)
+
+
+class LoggingTest(unittest.TestCase):
+    def setUp(self):
+        work = tempfile.TemporaryDirectory()
+        self.addCleanup(work.cleanup)
+        self.directory = Path(work.name)
+        self.backend = SERVER["FileBackend"](str(self.directory / "store"))
+        self.server = SERVER["Server"](("127.0.0.1", 0), self.backend, "test", False)
+        self.server.RequestHandlerClass = Handler
+        self.server.partial_started = threading.Event()
+        self.server.release_partial = threading.Event()
+        self.server.release_partial.set()
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.addCleanup(self.server.release_partial.set)
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("CI3_")}
+        self.env.update(CI="0", CI3_SERVER="http://127.0.0.1:%d" % self.server.server_port,
+                        root=str(CI3.parent), REF_NAME="ci3-logging-test", DENOISE="1",
+                        DENOISE_TMPDIR=str(self.directory), BUILD_SYSTEM_DEBUG="0", FORCE_COLOR="0")
+
+    def assert_final_log(self):
+        logs = list((self.directory / "store/objects/logs").rglob("data"))
+        self.assertEqual(len(logs), 1)
+        self.assertIn("Status: 0\n", logs[0].read_text())
+        self.assertIn("final-output\n", logs[0].read_text())
+
+    def test_short_command_does_not_wait_for_publish_interval(self):
+        started = time.monotonic()
+        result = subprocess.run([str(CI3 / "denoise"), "sleep 0.1; echo final-output"],
+                                env=self.env, capture_output=True, text=True, timeout=10)
+        elapsed = time.monotonic() - started
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(elapsed, 3, "denoise waited for its idle publisher")
+        self.assert_final_log()
+
+    def test_final_log_waits_for_an_active_partial_upload(self):
+        self.server.release_partial.clear()
+        command_done = self.directory / "command-done"
+        command = "echo final-output; touch " + shlex.quote(str(command_done))
+        process = subprocess.Popen([str(CI3 / "denoise"), command], env=self.env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertTrue(self.server.partial_started.wait(5))
+            deadline = time.monotonic() + 3
+            while not command_done.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(command_done.exists())
+            self.assertIsNone(process.poll(), "denoise exited with an upload still active")
+            self.server.release_partial.set()
+            _, errors = process.communicate(timeout=8)
+            self.assertEqual(process.returncode, 0, errors)
+            self.assert_final_log()
+        finally:
+            self.server.release_partial.set()
+            if process.poll() is None:
+                process.kill()
+            process.communicate()
+
+    def test_test_runner_orders_partial_and_final_uploads(self):
+        self.server.release_partial.clear()
+        finish = self.directory / "finish-test"
+        command = ('reviewhash:CPUS=1 echo initial-output; while [ ! -f ' + shlex.quote(str(finish))
+                   + ' ]; do sleep 0.1; done; echo final-""output')
+        env = dict(self.env, LIVE_LOGGING="1", PASS_LOG="1", ALLOW_FLAKES="0", USE_TEST_CACHE="0",
+                   TRACK_TEST_HISTORY="0", TRACK_TEST_FAIL="0", SLACK_NOTIFY_FLAKE="0", GITHUB_TOKEN="")
+        process = subprocess.Popen([str(CI3 / "run_test_cmd"), command], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertTrue(self.server.partial_started.wait(38))
+            finish.touch()
+            time.sleep(0.5)
+            self.server.release_partial.set()
+            _, errors = process.communicate(timeout=8)
+            self.assertEqual(process.returncode, 0, errors)
+            logs = list((self.directory / "store/objects/logs").rglob("data"))
+            self.assertEqual(len(logs), 1)
+            self.assertIn("final-output\n", logs[0].read_text())
+        finally:
+            finish.touch()
+            self.server.release_partial.set()
+            if process.poll() is None:
+                process.kill()
+            process.communicate()
+
+    def test_background_monitor_does_not_hold_build_pipe_open(self):
+        command = ('{ { echo monitor; sleep 30; } 2>&1 | ' + shlex.quote(str(CI3 / "cache_log"))
+                   + ' monitor & echo build-finished; } | cat')
+        process = subprocess.Popen(["bash", "-c", command], env=self.env, start_new_session=True,
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            output, _ = process.communicate(timeout=5)
+            self.assertIn("build-finished", output)
+        finally:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            process.communicate()
+
+    def test_log_failure_preserves_command_failure_and_output(self):
+        self.server.reject_logs = True
+        for script, command in (("denoise", "echo retained-output; exit 42"),
+                                ("run_test_cmd", "reviewhash echo retained-output; exit 42")):
+            with self.subTest(script=script):
+                env = dict(self.env, ALLOW_FLAKES="0", LIVE_LOGGING="0", PASS_LOG="1", USE_TEST_CACHE="0",
+                           TRACK_TEST_HISTORY="0", TRACK_TEST_FAIL="0", SLACK_NOTIFY_FLAKE="0", GITHUB_TOKEN="")
+                result = subprocess.run([str(CI3 / script), command], env=env, capture_output=True,
+                                        text=True, timeout=10)
+                self.assertEqual(result.returncode, 42, result.stderr)
+                self.assertIn("retained-output", result.stdout)
+                self.assertIn("Could not publish log", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

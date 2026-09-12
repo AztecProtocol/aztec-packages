@@ -361,7 +361,7 @@ Note that all cache entries expire after 7 days.
 Yes. In the project directory run a full build as follows:
 
 ```
-S3_FORCE_UPLOAD=1 ./bootstrap.sh full
+CACHE_FORCE_UPLOAD=1 ./bootstrap.sh full
 ```
 
 This will perform a full rebuild of the project and forcefully replace the build cache with it's current hash. This should only be necessary if you need to recover from a-bad-thing-happening.

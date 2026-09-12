@@ -3,8 +3,6 @@
 # Downloads the pinned inputs itself when the requested flow is missing or stale.
 REPO_ROOT=$(git rev-parse --show-toplevel)
 NO_CD=1 source "$REPO_ROOT/ci3/source"
-source "$REPO_ROOT/ci3/source_redis"
-source "$REPO_ROOT/ci3/source_cache"
 source "$REPO_ROOT/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
 default_chonk_flow="ecdsar1+transfer_0_recursions+sponsored_fpc"
@@ -260,12 +258,11 @@ ensure_chonk_flow_folder "$flow_folder_arg"
 chonk_flow "$runtime_arg" "$resolved_chonk_flow_folder"
 
 # Upload benchmark breakdown (op counts and timings) to disk if running in CI
-# Now uploads all flows via disk transfer only (no git uploads)
 runtime="$runtime_arg"
 flow_name="$(basename "$resolved_chonk_flow_folder")"
 
 # Breakdown and memory profile only exist for native runs (BB_BENCH is compiled out of wasm builds).
-if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
+if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ -n "${CI3_SERVER:-}" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   current_sha=$(git rev-parse HEAD)
@@ -280,20 +277,20 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     # Other flows might delete bench-out before we finish uploading
     cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
 
-    # Upload to S3 (bench/bb-breakdown subfolder) in background
+    # Stored on the ci3 server under bench/bb-breakdown (the dashboard reads it there), in background.
     # Key format: <runtime>-<flow_name>-<sha>
     disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$disk_key"
+      if ci3_client log_put "bench/bb-breakdown/$disk_key" < "$tmp_breakdown_file"; then
+        echo "Stored benchmark breakdown: bench/bb-breakdown/$disk_key"
+      fi
       rm -rf "$upload_state_dir"
     } &
-
-    echo "Uploaded benchmark breakdown to S3: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
 
-  # Upload memory profile to S3
+  # Store the memory profile alongside it.
   memory_profile_file="bench-out/app-proving/$flow_name/$runtime/memory_profile.json"
   if [[ -f "$memory_profile_file" ]]; then
     upload_state_dir="$(make_pinned_chonk_state_tmpdir memory-upload)"
@@ -301,9 +298,10 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     cp "$memory_profile_file" "$tmp_memory_file"
     memory_disk_key="memory-${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_memory_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$memory_disk_key"
+      if ci3_client log_put "bench/bb-breakdown/$memory_disk_key" < "$tmp_memory_file"; then
+        echo "Stored memory profile: bench/bb-breakdown/$memory_disk_key"
+      fi
       rm -rf "$upload_state_dir"
     } &
-    echo "Uploaded memory profile to S3: bench/bb-breakdown/$memory_disk_key"
   fi
 fi

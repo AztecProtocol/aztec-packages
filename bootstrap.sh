@@ -168,6 +168,16 @@ if [ "${1:-}" = "install_deps" ]; then
 fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
+[[ "${1:-}" == ci-* ]] && export CI=1
+if [[ -z "${CI3_SERVER+x}" && "${CI:-0}" != 1 && "${CI:-0}" != true ]]; then
+  CI3_SERVER=$("$(git rev-parse --show-toplevel)/ci3/ci3_server" start) || exit 1
+  export CI3_SERVER
+  echo "Local ci3 server: $CI3_SERVER" >&2
+fi
+if [[ -n "${CI3_SERVER:-}" || "${CI:-0}" == 1 || "${CI:-0}" == true ]]; then
+  "$(git rev-parse --show-toplevel)/ci3/ci3_client" check || exit 1
+fi
+
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output by default.
@@ -634,7 +644,7 @@ function release {
   # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
   # A dry run packs but does not upload.
   if [ "${DRY_RUN:-0}" != 1 ]; then
-    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+    CACHE_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
   fi
 }
 

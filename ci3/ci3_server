@@ -1,0 +1,582 @@
+#!/usr/bin/env python3
+"""The file-backed reference implementation of ci3/CI3_SERVER_API.md. Python 3 standard library only.
+
+  ci3_server start  [--port P] [--dir D]   start detached unless one already answers on the port; prints its URL
+  ci3_server run    same flags, in the foreground
+  ci3_server stop   [--port P] [--dir D]
+  ci3_server status [--port P]
+
+Objects live under --dir/objects (default /tmp/ci3/objects), grouped into
+  logs, kv, lists, runs, and artifacts. Each encoded key directory holds data and expiry files.
+A write with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired entries read as
+absent and are swept periodically. What each store holds, in ci3 terms, is described in ci3_client.
+
+"""
+import argparse
+import http.client
+import json
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import zlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.error import HTTPError
+from urllib.parse import parse_qs, quote, unquote, urlsplit
+from urllib.request import urlopen
+
+DEFAULT_PORT = 4275
+DEFAULT_DIR = "/tmp/ci3"
+PUBLIC_CACHE_URL = "https://build-cache.aztec-labs.com"
+SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
+LIST_DEFAULT_MAX = 1000
+RUNS_MAX = 1000
+MAX_TTL = 60 * 60 * 24 * 400
+MAX_BODY = 64 << 20
+MAX_EXPANDED = 256 << 20
+MAX_LIST = 10000
+MAX_MGET = 1000
+RUN_ID = re.compile(r"[0-9]{1,18}")
+RESERVED = ("ci-run-", "history_", "failed_tests")
+DEFAULT_ARTIFACT_TTL = 60 * 60 * 24 * 7
+SWEEP_INTERVAL = 600
+CHUNK = 1 << 20
+STORES = ("logs", "kv", "lists", "runs", "artifacts")
+
+
+class BadKey(ValueError):
+    pass
+
+
+class IncompleteBody(Exception):
+    """The client sent fewer bytes than its Content-Length announced (it went away mid-upload)."""
+
+
+def check_key(key):
+    """Keys are slash-separated paths of safe segments."""
+    parts = key.split("/")
+    if any(p in ("", ".", "..") or not SEGMENT.fullmatch(p) for p in parts):
+        raise BadKey(key)
+    return parts
+
+
+class FileBackend:
+    """Files with optional expiry sidecars. Writes are atomic (temp file + rename) because a live log
+    is re-PUT every few seconds while a browser reads it. The lock serialises the sidecar and data
+    updates against expiry checks, so a refresh of an expired entry is never mistaken for expired."""
+
+    def __init__(self, root):
+        self.root = os.path.abspath(root)
+        self.lock = threading.RLock()
+        for store in STORES:
+            os.makedirs(os.path.join(self.root, "objects", store), exist_ok=True)
+
+    def describe(self):
+        return "backend: file\nstorage: %s" % self.root
+
+    def path(self, store, key):
+        # Encoded key directories cannot collide with the data, expiry or temporary files inside them.
+        return os.path.join(self.root, "objects", store, *("_" + p for p in check_key(key)), "data")
+
+    def expired(self, path):
+        try:
+            with open(path + ".expires") as f:
+                return float(f.read()) < time.time()
+        except (FileNotFoundError, ValueError):
+            return False
+
+    def exists(self, path):
+        with self.lock:
+            if not os.path.isfile(path):
+                return False
+            if self.expired(path):
+                self.remove(path)
+                return False
+            return True
+
+    def remove(self, path):
+        for p in (path, path + ".expires"):
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+
+    def write(self, path, data, ttl=None, overwrite=True):
+        """data: bytes, or a file-like object streamed in chunks."""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp-")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                if isinstance(data, bytes):
+                    f.write(data)
+                else:
+                    shutil.copyfileobj(data, f, CHUNK)
+                    if not data.complete:  # nothing is published unless the whole body arrived
+                        raise IncompleteBody()
+            with self.lock:
+                if not overwrite and self.exists(path):
+                    # A local upload may have arrived while a public artifact was downloading.
+                    self.remove(tmp)
+                    return
+                if ttl is None:
+                    self.remove(path + ".expires")
+                else:
+                    with open(path + ".expires", "w") as f:
+                        f.write(str(int(time.time() + ttl)))
+                os.replace(tmp, path)
+        except BaseException:
+            self.remove(tmp)
+            raise
+
+    def read(self, path):
+        with self.lock:
+            if not self.exists(path):
+                return None
+            with open(path, "rb") as f:
+                return f.read()
+
+    def sweep(self):
+        for dirpath, _, files in os.walk(os.path.join(self.root, "objects")):
+            for name in files:
+                if name.endswith(".expires"):
+                    self.exists(os.path.join(dirpath, name[: -len(".expires")]))
+
+    def log_put(self, key, data, ttl, final):
+        self.write(self.path("logs", key), data, ttl)
+
+    def log_get(self, key):
+        return self.read(self.path("logs", key))
+
+    def keys(self, store, prefix):
+        directory = os.path.dirname(self.path(store, prefix))
+        if not os.path.isdir(directory):
+            return []
+        return [n[1:] for n in os.listdir(directory)
+                if n.startswith("_") and self.exists(os.path.join(directory, n, "data"))]
+
+    def log_list(self, prefix):
+        return sorted(self.keys("logs", prefix))[:10000]
+
+    def kv_put(self, key, data, ttl):
+        self.write(self.path("kv", key), data, ttl)
+
+    def kv_get(self, key):
+        return self.read(self.path("kv", key))
+
+    def list_push(self, name, line, maximum, ttl):
+        path = self.path("lists", name)
+        with self.lock:
+            lines = [line] + (self.read(path) or b"").decode(errors="replace").splitlines()
+            self.write(path, "".join(l + "\n" for l in lines[:maximum]).encode(), ttl)
+
+    def list_get(self, name):
+        return self.read(self.path("lists", name))
+
+    def run_put(self, section, run_id, body, ttl):
+        self.write(self.path("runs", section + "/" + run_id), body, ttl)
+
+    def run_get(self, section, run_id):
+        return self.read(self.path("runs", section + "/" + run_id))
+
+    def runs_list(self, section):
+        names = sorted(self.keys("runs", section), key=int, reverse=True)[:RUNS_MAX]
+        return [json.loads(data) for name in names for data in [self.run_get(section, name)] if data]
+
+    def artifact_put(self, name, stream, ttl, overwrite=True):
+        self.write(self.path("artifacts", name), stream, ttl, overwrite=overwrite)
+
+    def artifact_exists(self, name):
+        return self.exists(self.path("artifacts", name))
+
+    def artifact_open(self, name):
+        """(size, file object) or None. Opened under the lock and sized from the open descriptor, so a
+        concurrent replacement cannot pair one version's size with another's bytes."""
+        path = self.path("artifacts", name)
+        with self.lock:
+            if not self.exists(path):
+                return None
+            f = open(path, "rb")
+        return os.fstat(f.fileno()).st_size, f
+
+
+class Body:
+    """Stream a body to disk, checking its announced length when known."""
+
+    def __init__(self, rfile, length):
+        self.rfile, self.remaining = rfile, length
+
+    def read(self, n=-1):
+        if self.remaining is None:
+            return self.rfile.read(n)
+        if self.remaining <= 0:
+            return b""
+        data = self.rfile.read(self.remaining if n < 0 else min(n, self.remaining))
+        self.remaining -= len(data)
+        return data
+
+    @property
+    def complete(self):
+        return self.remaining in (None, 0)
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "ci3-server/1"
+    protocol_version = "HTTP/1.1"
+    timeout = 300  # a stalled client cannot hold a thread forever
+
+    def log_message(self, fmt, *args):
+        if self.server.verbose:
+            sys.stderr.write("%s %s\n" % (self.address_string(), fmt % args))
+
+    def reply(self, code, body=b"", ctype="text/plain; charset=utf-8", headers=()):
+        body = body.encode() if isinstance(body, str) else body
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        for k, v in headers:
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def body(self):
+        if self.headers.get("Transfer-Encoding") or self.headers.get("Content-Length") is None:
+            raise LengthRequired()
+        length = self.headers["Content-Length"]
+        if not length.isdigit():
+            raise RequestError(400, "bad Content-Length")
+        return Body(self.rfile, int(length))
+
+    def body_bytes(self):
+        body = self.body()
+        if body.remaining > MAX_BODY:
+            raise RequestError(413, "body too large")
+        data = body.read()
+        if not body.complete:
+            raise IncompleteBody()
+        encoding = self.headers.get("Content-Encoding", "").lower()
+        if encoding == "gzip":
+            inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+            try:
+                data = inflater.decompress(data, MAX_EXPANDED + 1)
+            except zlib.error:
+                raise RequestError(400, "bad gzip body")
+            if len(data) > MAX_EXPANDED or inflater.unconsumed_tail:
+                raise RequestError(413, "expanded body too large")
+            if not inflater.eof:
+                raise RequestError(400, "truncated gzip body")
+        elif encoding:
+            raise RequestError(415, "only gzip content encoding is supported")
+        return data
+
+    def int_arg(self, name, default, maximum):
+        value = self.query.get(name, [""])[0]
+        if not value:
+            return default
+        if not value.isdigit() or not 1 <= int(value) <= maximum:
+            raise RequestError(400, "%s must be an integer in 1..%d" % (name, maximum))
+        return int(value)
+
+    def ttl(self):
+        return self.int_arg("ttl", None, MAX_TTL)
+
+    def handle_request(self, fn):
+        url = urlsplit(self.path)
+        self.query = parse_qs(url.query)
+        parts = [unquote(p) for p in url.path.strip("/").split("/") if p]
+        try:
+            fn(parts, parts[0] if parts else "", "/".join(parts[1:]))
+        except BadKey:
+            self.close_connection = True
+            self.reply(400, "bad path\n")
+        except RequestError as e:
+            self.close_connection = True
+            self.reply(e.status, str(e) + "\n")
+        except LengthRequired:
+            self.close_connection = True
+            self.reply(411, "Content-Length required\n")
+        except IncompleteBody:
+            self.close_connection = True
+            self.reply(400, "incomplete body\n")
+        except Exception as e:  # a backend failure must not take the server down
+            sys.stderr.write("ci3_server: %s %s failed: %r\n" % (self.command, self.path, e))
+            self.reply(502, "backend error: %r\n" % (e,))
+
+    def do_GET(self):
+        self.handle_request(self.get)
+
+    do_HEAD = do_GET
+
+    def do_PUT(self):
+        self.handle_request(self.put)
+
+    def do_POST(self):
+        self.handle_request(self.post)
+
+    def get(self, parts, head, rest):
+        b = self.server.backend
+        if not parts:
+            return self.reply(200, "ci3-server\n%s\n" % b.describe())
+        if head == "health":
+            return self.reply(200, "ci3-server", headers=[("X-CI3-Server", self.server.identity)])
+        if head == "logs" and rest:
+            if self.path.split("?")[0].endswith("/"):
+                return self.reply(200, "".join(n + "\n" for n in b.log_list(rest)))
+            return self.text(b.log_get(rest), "Log not found: %s\n" % rest)
+        if head == "kv" and rest:
+            return self.text(b.kv_get(rest), "")
+        if head in ("lists", "list") and rest:
+            return self.text(b.list_get(rest), "")
+        if head == "runs" and rest:
+            # A section may itself contain '/'; a run id is always a decimal timestamp.
+            if len(parts) >= 3 and RUN_ID.fullmatch(parts[-1]):
+                data = b.run_get("/".join(parts[1:-1]), parts[-1])
+                return self.reply(200, data, "application/json") if data else self.reply(404, "{}", "application/json")
+            return self.reply(200, json.dumps(b.runs_list(rest)), "application/json")
+        if head == "artifacts" and rest:
+            opened = b.artifact_open(rest)
+            if not opened:
+                target = self.server.public_cache_url + "/" + quote(rest, safe="/:+@=,")
+                if self.command == "HEAD" or not self.server.cache_public:
+                    return self.reply(302, headers=[("Location", target)])
+                try:
+                    with urlopen(target, timeout=60) as response:
+                        if response.status != 200:
+                            return self.reply(502, "unexpected public cache response\n")
+                        length = response.getheader("Content-Length")
+                        body = Body(response, int(length) if length is not None else None)
+                        b.artifact_put(rest, body, DEFAULT_ARTIFACT_TTL, overwrite=False)
+                except HTTPError as e:
+                    e.close()
+                    return self.reply(404 if e.code == 404 else 502)
+                except IncompleteBody:
+                    return self.reply(502, "incomplete public cache response\n")
+                opened = b.artifact_open(rest)
+            size, f = opened
+            with f:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(size))
+                self.end_headers()
+                if self.command != "HEAD":
+                    shutil.copyfileobj(f, self.wfile, CHUNK)
+            return
+        if head in STORES:
+            return self.reply(404)
+        # Browse URL: /<log id>, with an optional .txt suffix for compatibility with older links.
+        key = "/".join(parts)
+        key = key[:-4] if key.endswith(".txt") else key
+        return self.text(b.log_get(key), "Log not found: %s\n" % key)
+
+    def text(self, data, missing):
+        return self.reply(200, data) if data is not None else self.reply(404, missing)
+
+    def put(self, parts, head, rest):
+        b = self.server.backend
+        if head in ("logs", "kv") and rest.startswith(RESERVED):
+            raise BadKey(rest)
+        if head == "logs" and rest:
+            b.log_put(rest, self.body_bytes(), self.ttl(), self.query.get("final", ["0"])[0] == "1")
+            return self.reply(204)
+        if head == "kv" and rest:
+            b.kv_put(rest, self.body_bytes(), self.ttl())
+            return self.reply(204)
+        if head == "runs" and len(parts) >= 3 and RUN_ID.fullmatch(parts[-1]):
+            try:
+                record = json.loads(self.body_bytes())
+            except ValueError:
+                raise RequestError(400, "runs take a JSON object")
+            if (not isinstance(record, dict) or record.get("timestamp") != int(parts[-1])
+                    or not all(isinstance(record.get(f), str) for f in ("status", "msg", "name", "author"))):
+                raise RequestError(400, "run requires timestamp == id and string status, msg, name, author")
+            b.run_put("/".join(parts[1:-1]), parts[-1], json.dumps(record, separators=(",", ":")).encode(), self.ttl())
+            return self.reply(204)
+        if head == "artifacts" and rest:
+            if self.headers.get("Content-Encoding"):
+                raise RequestError(415, "artifacts are uploaded as they are")
+            b.artifact_put(rest, self.body(), self.ttl())
+            return self.reply(201)
+        return self.reply(405)
+
+    def post(self, parts, head, rest):
+        b = self.server.backend
+        if head == "kv" and rest == "mget":
+            keys = [k for k in self.body_bytes().decode(errors="replace").split("\n") if k]
+            if len(keys) > MAX_MGET:
+                raise RequestError(413, "at most %d keys" % MAX_MGET)
+            for key in keys:
+                check_key(key)
+            values = [b.kv_get(k) or b"" for k in keys]
+            return self.reply(200, "".join(v.decode(errors="replace").replace("\n", " ") + "\n" for v in values))
+        if head == "lists" and rest:
+            line = self.body_bytes().decode(errors="replace").rstrip("\n").replace("\n", " ")
+            b.list_push(rest, line, self.int_arg("max", LIST_DEFAULT_MAX, MAX_LIST), self.ttl())
+            return self.reply(204)
+        return self.reply(405)
+
+
+class RequestError(Exception):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+
+
+class LengthRequired(Exception):
+    pass
+
+
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+    request_queue_size = 256  # hundreds of parallel test processes publish at once in CI
+
+    def __init__(self, addr, backend, identity, verbose, public_cache_url=PUBLIC_CACHE_URL, cache_public=False):
+        super().__init__(addr, Handler)
+        self.backend, self.identity, self.verbose = backend, identity, verbose
+        self.public_cache_url = public_cache_url.rstrip("/")
+        self.cache_public = cache_public
+
+
+def identity_of(args):
+    """What two starters must agree on to share a server."""
+    identity = "format=2;dir=%s;public_cache_url=%s" % (os.path.abspath(args.dir), args.public_cache_url.rstrip("/"))
+    return identity + (";cache_public=1" if args.cache_public else "")
+
+
+def health(port):
+    """The identity of the ci3 server on the port, or None."""
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+        conn.request("GET", "/health")
+        resp = conn.getresponse()
+        return resp.getheader("X-CI3-Server", "") if resp.status == 200 and resp.read() == b"ci3-server" else None
+    except OSError:
+        return None
+
+
+def port_taken(port):
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+SCRIPT = os.path.abspath(__file__)
+
+
+class Cli:
+    """run/start/stop/status. `start` re-executes this script with `run`, detached."""
+
+    def run(self, args):
+        backend = FileBackend(args.dir)
+        server = Server((args.host, args.port), backend, identity_of(args), args.verbose,
+                        args.public_cache_url, args.cache_public)
+        # Written by the process that holds the port, so `stop` never targets a starter that lost the race.
+        os.makedirs(args.dir, exist_ok=True)
+        with open(os.path.join(args.dir, "server.pid"), "w") as f:
+            f.write(str(os.getpid()))
+
+        def sweeper():
+            while True:
+                time.sleep(SWEEP_INTERVAL)
+                backend.sweep()
+
+        threading.Thread(target=sweeper, daemon=True).start()
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+        sys.stderr.write("listening on http://%s:%d\n%s\n" % (args.host, args.port, backend.describe()))
+        server.serve_forever()
+
+    def reusable(self, args, identity):
+        if identity != identity_of(args):
+            sys.stderr.write("port %d has a ci3 server with a different configuration (%s), wanted (%s); stop it first\n"
+                             % (args.port, identity, identity_of(args)))
+            return False
+        return True
+
+    def start(self, args):
+        url = "http://localhost:%d" % args.port
+
+        def answer_if_up():
+            identity = health(args.port)
+            if identity is None:
+                return None
+            if not self.reusable(args, identity):
+                return 1
+            print(url)
+            return 0
+
+        result = answer_if_up()
+        if result is not None:
+            return result
+        # Multiple bootstrap processes can try to start the server at the same time, but only one
+        # can bind the port. The others may see an occupied port or their child process exit while
+        # the first server is still starting, so retry before reporting a conflict or startup failure.
+        if port_taken(args.port):
+            for _ in range(30):
+                time.sleep(0.1)
+                result = answer_if_up()
+                if result is not None:
+                    return result
+            sys.stderr.write("port %d is taken by something that is not a ci3 server\n" % args.port)
+            return 1
+        os.makedirs(args.dir, exist_ok=True)
+        logfile = os.path.join(args.dir, "server.log")
+        with open(logfile, "ab") as log:
+            child = subprocess.Popen([sys.executable, SCRIPT, "run"] + sys.argv[2:], stdin=subprocess.DEVNULL,
+                                     stdout=log, stderr=log, start_new_session=True)
+        deadline, exited_at = time.time() + 10, None
+        while time.time() < deadline:
+            result = answer_if_up()
+            if result is not None:
+                return result
+            if child.poll() is not None:
+                exited_at = exited_at or time.time()
+                if time.time() - exited_at > 3:
+                    break
+            time.sleep(0.1)
+        sys.stderr.write("ci3_server failed to start; see %s\n" % logfile)
+        return 1
+
+    def stop(self, args):
+        pidfile = os.path.join(args.dir, "server.pid")
+        try:
+            with open(pidfile) as f:
+                pid = int(f.read())
+            os.kill(pid, signal.SIGTERM)
+            os.remove(pidfile)
+            print("stopped ci3_server (pid %d)" % pid)
+        except (FileNotFoundError, ValueError, ProcessLookupError):
+            print("no ci3_server running from %s" % args.dir)
+
+    def status(self, args):
+        if health(args.port) is None:
+            print("nothing on port %d" % args.port)
+            return 1
+        conn = http.client.HTTPConnection("127.0.0.1", args.port, timeout=2)
+        conn.request("GET", "/")
+        print("up at http://localhost:%d\n%s" % (args.port, conn.getresponse().read().decode().strip()))
+
+    def main(self):
+        parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+        sub = parser.add_subparsers(dest="cmd", required=True)
+        for name, fn in (("run", self.run), ("start", self.start), ("stop", self.stop), ("status", self.status)):
+            p = sub.add_parser(name)
+            p.add_argument("--host", default="127.0.0.1")
+            p.add_argument("--port", type=int, default=DEFAULT_PORT)
+            p.add_argument("--dir", default=DEFAULT_DIR, help="storage; also where server.pid and server.log live")
+            p.add_argument("--public-cache-url", default=PUBLIC_CACHE_URL, help="redirect artifact misses here")
+            p.add_argument("--cache-public", action="store_true", default=os.environ.get("CI3_CACHE_PUBLIC") == "1",
+                           help="retain public artifacts on GET (also CI3_CACHE_PUBLIC=1)")
+            p.add_argument("--verbose", action="store_true")
+            p.set_defaults(fn=fn)
+        args = parser.parse_args()
+        sys.exit(args.fn(args) or 0)
+
+
+if __name__ == "__main__":
+    Cli().main()

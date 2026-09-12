@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export CI=1
 
+"$(git rev-parse --show-toplevel)/ci3/ci3_client" check || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {
@@ -15,7 +17,6 @@ function save_cache {
   local run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
   echo "${run_url}" > ".ci-success.txt"
   echo "Saved CI success marker: ${run_url}"
-  # Upload cache
   cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
 }
 
