@@ -15,6 +15,12 @@
 #include <unistd.h>
 #include <vector>
 
+// On Windows the CRT opens descriptors in text mode unless O_BINARY is passed: reads stop at the
+// first 0x1A and writes expand 0x0A into 0x0D 0x0A. POSIX has no text mode, so the flag is 0 there.
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
 namespace bb {
 inline size_t get_file_size(std::string const& filename)
 {
@@ -66,7 +72,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
     auto raw_size = std::filesystem::file_size(filename, ec);
     std::optional<size_t> file_size = ec ? std::nullopt : std::optional<size_t>(static_cast<size_t>(raw_size));
 
-    int fd = open(filename.c_str(), O_RDONLY);
+    int fd = open(filename.c_str(), O_RDONLY | O_BINARY);
     if (fd == -1) {
         THROW std::runtime_error("Unable to open file: " + filename + " (" + strerror(errno) + ")");
     }
@@ -103,7 +109,7 @@ inline void write_file(const std::string& filename, std::span<const uint8_t> dat
     // For regular files, truncate and create if missing (O_TRUNC | O_CREAT).
     // For FIFOs/pipes the file already exists and O_CREAT/O_TRUNC are no-ops, so
     // the same flags work uniformly for both cases — no need to stat() first.
-    int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
     if (fd == -1) {
         THROW std::runtime_error("Failed to open file for writing: " + filename + " (" + strerror(errno) + ")");
     }

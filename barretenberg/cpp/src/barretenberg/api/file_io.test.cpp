@@ -23,3 +23,17 @@ TEST(APIFileIO, ManyFromBufferExactAcceptsAlignedBuffers)
 
     EXPECT_EQ(parsed, expected);
 }
+
+TEST(APIFileIO, WriteReadRoundTripPreservesBinaryBytes)
+{
+    // 0x1A is the text-mode EOF marker on Windows, and text mode rewrites 0x0A and 0x0D 0x0A.
+    std::vector<uint8_t> data{ 0x00, 0x1A, 0x0A, 0x0D, 0x0A, 0x0D, 0xFF, 0x1A, 0x0A };
+    auto path = (std::filesystem::temp_directory_path() / "bb_file_io_binary_round_trip.bin").string();
+
+    write_file(path, data);
+    // get_file_size opens in binary mode, so this catches write-side expansion on its own.
+    EXPECT_EQ(get_file_size(path), data.size());
+    EXPECT_EQ(read_file(path), data);
+
+    std::filesystem::remove(path);
+}
