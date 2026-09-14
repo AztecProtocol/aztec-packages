@@ -1596,7 +1596,12 @@ describe('CheckpointProposalJob', () => {
       publisher.sendRequestsAt.mockReturnValue(sendDeferred.promise);
       publisher.interrupt.mockImplementation(() => sendDeferred.resolve(undefined));
 
+      let disposed = false;
+      publisher[Symbol.dispose].mockImplementation(() => {
+        disposed = true;
+      });
       const checkpoint = await job.execute();
+      expect(disposed).toBe(false);
       expect(checkpoint).toBeDefined();
 
       const pendingSubmission = job.awaitPendingSubmission().then(() => 'stopped' as const);
@@ -1611,6 +1616,7 @@ describe('CheckpointProposalJob', () => {
           }),
         ]);
         expect(result).toBe('stopped');
+        expect(disposed).toBe(true);
       } finally {
         if (timeout) {
           clearTimeout(timeout);
@@ -1641,7 +1647,12 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.seedBlocks([emptyBlock], [[]]);
 
       // In fisherman mode execute() always returns undefined (handled internally via handleCheckpointEndAsFisherman)
-      await job.execute();
+      let disposed = false;
+      publisher[Symbol.dispose].mockImplementation(() => {
+        disposed = true;
+      });
+      await job.executeAndAwait();
+      expect(disposed).toBe(true);
 
       // Fisherman still builds the block
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);

@@ -420,6 +420,7 @@ describe('L1Publisher integration', () => {
   };
 
   afterEach(async () => {
+    publisher?.dispose();
     await tryStop(anvil);
     await tryStop(worldStateSynchronizer);
   });
