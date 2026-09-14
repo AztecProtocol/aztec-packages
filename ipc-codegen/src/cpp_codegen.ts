@@ -868,6 +868,7 @@ IPC_FFI_EXPORT void ${free}(void* ptr);
 
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <span>
 #include <utility>
 #include <vector>
@@ -887,8 +888,23 @@ IPC_FFI_EXPORT void ${free}(void* ptr)
 IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len)
 {
     std::vector<uint8_t> response;
+    // The dispatch answers a malformed envelope, an unknown command and a throwing
+    // handler with an error frame, but an unpack or convert failure still escapes
+    // it. An exception cannot cross an FFI boundary, so anything reaching here has
+    // to become a response.
+#ifdef BB_NO_EXCEPTIONS
     ${ns}::ipc_ffi_dispatcher()(std::span<const uint8_t>(input, input_len),
                                 [&response](std::vector<uint8_t> frame) { response = std::move(frame); });
+#else
+    try {
+        ${ns}::ipc_ffi_dispatcher()(std::span<const uint8_t>(input, input_len),
+                                    [&response](std::vector<uint8_t> frame) { response = std::move(frame); });
+    } catch (const std::exception& e) {
+        response = ${ns}::detail::make_error(e.what());
+    } catch (...) {
+        response = ${ns}::detail::make_error("${prefix}: unknown exception");
+    }
+#endif
     auto* out = static_cast<uint8_t*>(${alloc}(response.size()));
     std::memcpy(out, response.data(), response.size());
     *output = out;
