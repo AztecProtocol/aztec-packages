@@ -12,6 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import time
 import unittest
 from compression import zstd
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -24,6 +25,16 @@ SERVER = runpy.run_path(str(CI3 / "ci3_server"))
 class PublicCache(SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
+
+    def copyfile(self, source, output):
+        if hasattr(self.server, "wait_for_extraction"):
+            output.write(source.read(256 * 1024))
+            output.flush()
+            deadline = time.monotonic() + 3
+            while not self.server.wait_for_extraction.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.server.extraction_started = self.server.wait_for_extraction.exists()
+        super().copyfile(source, output)
 
     def send_head(self):
         self.server.authorization = self.headers.get("Authorization")
@@ -224,10 +235,10 @@ class ArtifactTest(unittest.TestCase):
                     self.assertEqual(result.returncode, 2, result.stderr)
                     self.assertFalse(stored.exists())
 
-    def test_cache_helpers_use_the_artifact_api(self):
-        result = self.command("cache_exists", self.name)
+    def test_artifact_commands_use_the_api(self):
+        result = self.command("ci3_client", "artifact_exists", self.name)
         self.assertEqual(result.returncode, 0, result.stderr)
-        result = self.command("cache_ls", self.name)
+        result = self.command("ci3_client", "artifact_list", self.name)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, b"file.txt\n")
         result = self.command("ci3_client", "artifact_download", self.name, self.directory / "out")
@@ -244,7 +255,7 @@ class ArtifactTest(unittest.TestCase):
         self.assertTrue(self.backend.artifact_exists(self.name))
         self.assertEqual((self.public / self.name).read_bytes(), self.archive)
 
-    def test_cache_helpers_roundtrip_through_local_storage(self):
+    def test_archives_roundtrip_through_local_storage(self):
         for extension in ("tar.gz", "tar.zst"):
             with self.subTest(extension=extension):
                 name = "local/roundtrip." + extension
@@ -257,6 +268,56 @@ class ArtifactTest(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout, b"")
                 self.assertEqual((self.directory / extension / "file.txt").read_text(), "locally built artifact\n")
+
+    def test_list_supports_both_archive_formats(self):
+        for extension in ("tar.gz", "tar.zst"):
+            with self.subTest(extension=extension):
+                name = "listing." + extension
+                result = self.command("ci3_client", "artifact_upload", name, "file.txt")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                result = self.command("ci3_client", "artifact_list", name)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"file.txt\n")
+
+    def test_download_extracts_before_the_transfer_finishes(self):
+        (self.directory / "large.bin").write_bytes(os.urandom(2 * 1024 * 1024))
+        for extension, mode in (("tar.gz", "w:gz"), ("tar.zst", "w:zst")):
+            with self.subTest(extension=extension):
+                name = "streaming." + extension
+                with tarfile.open(self.public / name, mode) as archive:
+                    for filename in ("file.txt", "large.bin"):
+                        archive.add(self.directory / filename, arcname=filename)
+                destination = self.directory / extension
+                self.upstream.wait_for_extraction = destination / "file.txt"
+                self.upstream.extraction_started = False
+                result = self.command("ci3_client", "artifact_download", name, destination)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(self.upstream.extraction_started, "extraction waited for the entire download")
+                self.assertEqual((destination / "large.bin").read_bytes(), (self.directory / "large.bin").read_bytes())
+
+    def test_disabled_reads_apply_to_exists_and_list(self):
+        for command in ("artifact_exists", "artifact_list"):
+            for name, env in ((self.name, {"NO_CACHE": "1"}), ("disabled-cache.tar.gz", {}),
+                              (self.name, {"CI3_SERVER": ""})):
+                with self.subTest(command=command, name=name, env=env):
+                    result = self.command("ci3_client", command, name, **env)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertEqual(result.stdout, b"")
+
+    def test_no_cache_does_not_disable_upload_deduplication(self):
+        result = self.command("ci3_client", "artifact_upload", self.name, "nonexistent-file", NO_CACHE="1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.backend.artifact_exists(self.name))
+
+    def test_list_rejects_missing_and_corrupt_archives(self):
+        result = self.command("ci3_client", "artifact_list", "missing.tar.gz")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        for name, data in (("bad.tar.gz", self.archive[:-4]),
+                           ("bad.zst", zstd.compress(gzip.decompress(self.archive))[:-4])):
+            with self.subTest(name=name):
+                self.backend.artifact_put(name, data, None)
+                result = self.command("ci3_client", "artifact_list", name)
+                self.assertEqual(result.returncode, 2, result.stderr)
 
     def test_disabled_uploads_skip_packaging(self):
         for name, env in (("disabled-cache.tar.gz", {}),

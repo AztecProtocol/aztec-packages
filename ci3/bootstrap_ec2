@@ -16,6 +16,7 @@ status_job_id=${JOB_ID:-bootstrap}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
+export CI_DASHBOARD=${CI_DASHBOARD:-local}
 "$ci3/ci3_client" check || exit 1
 # Enable build instance key features (SSH transport) by default.
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
@@ -30,9 +31,7 @@ export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
 echo "CI booting..." | ci3_client log_put_partial "$CI_LOG_ID" 300
 log_url=$dashboard_url/$CI_LOG_ID
 echo -e "CI Log: ${yellow}$log_url${reset}"
-if [ -n "${CI_DASHBOARD:-}" ]; then
-  echo "CI dashboard: $dashboard_url/section/$CI_DASHBOARD"
-fi
+echo "CI dashboard: $dashboard_url/section/$CI_DASHBOARD"
 
 # Post pending GitHub commit status so the CI log link is visible on the PR.
 post_github_status pending "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true

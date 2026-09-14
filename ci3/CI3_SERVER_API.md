@@ -140,9 +140,12 @@ The build cache: content-addressed tarballs.
 
 `ci3_client artifact_upload <name> <paths>...` packs build outputs; `artifact_download <name> [directory]`
 restores them. Both require Python 3.14+ with `compression.zstd`, use standard-library archive handling,
-and keep stdout empty. Names ending in `.zst` use Zstandard; other names use gzip. Permissions and links
-are preserved. Downloads validate the HTTP body and compression footer before reporting success.
-`NO_CACHE=1` skips downloads; `NO_CACHE_UPLOAD=1` skips uploads; `disabled-cache` names skip both.
+and keep stdout empty. `artifact_list <name>` prints the paths in an archive. Names ending in `.zst`
+use Zstandard; other names use gzip. Permissions and links are preserved. Downloads stream directly
+into extraction and validate the HTTP body and compression footer before reporting success.
+`NO_CACHE=1` skips downloads, listing and existence checks; `NO_CACHE_UPLOAD=1` skips uploads;
+`disabled-cache` names skip both reads and uploads. Uploads still check for existing artifacts when
+`NO_CACHE=1` forces a rebuild; `CACHE_FORCE_UPLOAD=1` also replaces the stored artifact.
 The raw `artifact_put` and `artifact_get` commands transfer already-packed files.
 
 | | |
@@ -153,7 +156,7 @@ The raw `artifact_put` and `artifact_get` commands transfer already-packed files
 
 The server owns artifact routing. The file server serves local uploads and redirects GET and HEAD
 misses to `https://build-cache.aztec-labs.com` (override with `ci3_server start --public-cache-url <url>`). Production
-stores uploads in S3 and redirects downloads to its public bucket. Cache helpers only use the API,
+stores uploads in S3 and redirects downloads to its public bucket. Artifact commands only use the API,
 including the npm publish job's release download; the file server owns local artifact storage.
 
 By default, redirected public artifacts are not retained locally. Start the file server with

@@ -119,7 +119,7 @@ function build_preset {
 
 # Only check formatting if we're actually going to build (not cached).
 function build_format_check {
-  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+  if ! ci3_client artifact_exists barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
   fi
 }
@@ -129,7 +129,7 @@ function build_format_check {
 # This is a noop if the final artifacts exist in the cache.
 function build_native_objects {
   set -eu
-  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+  if ! ci3_client artifact_exists barretenberg-$native_preset-$hash.zst; then
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets nodejs_module
@@ -148,7 +148,7 @@ function build_cross_objects {
   target=$1
   # Of the cross targets, only arm64-linux builds bb-avm, which needs the full vm2.
   local vm2_full=$([[ "$target" == arm64-linux ]] && echo vm2 || true)
-  if ! cache_exists barretenberg-$target-$hash.zst; then
+  if ! ci3_client artifact_exists barretenberg-$target-$hash.zst; then
     cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk $vm2_full
   fi
 }

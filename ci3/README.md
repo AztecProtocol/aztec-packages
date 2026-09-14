@@ -48,7 +48,7 @@ Tools are provided for the following themes.
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
    - **`ci3_client artifact_upload <name> <paths>...`, `ci3_client artifact_download <name> [directory]`**: Pack and restore `.tar.gz` or `.zst` build artifacts using Python 3.14+ standard-library compression. The server handles storage and redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
      The file server can also retain public downloads: start it with `CI3_CACHE_PUBLIC=1` or `--cache-public`. By default, public reads are redirected without retaining a copy.
-   - **`ci3_client <command>`**: The API client: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, and `artifact_upload/artifact_download/artifact_exists`. Raw artifact transfers use `artifact_put/artifact_get`.
+   - **`ci3_client <command>`**: The API client: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, and `artifact_upload/artifact_download/artifact_exists/artifact_list`. Raw artifact transfers use `artifact_put/artifact_get`.
      Requires Python 3.14+ with `compression.zstd`; root `./bootstrap.sh install_deps` installs it. CI runners and build images provide it.
    - **`ci3_client check`**: Explicitly verifies the selected endpoint and authentication, and prints setup instructions when no URL is set. Bootstrap and CI entry points run it before proceeding.
    - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. In CI the server is the labs dashboard (`ci.aztec-labs.com`), which serves the same API.

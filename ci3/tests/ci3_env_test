@@ -28,8 +28,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self.server.requests.append(self.path)
-        self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        self.respond_api(b"\n")
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        self.respond_api(b"value\n" * len(body.splitlines()) if self.path == "/kv/mget" else b"\n")
 
     def respond_api(self, body):
         expected = "Basic " + base64.b64encode(b"aztec:correct").decode()
@@ -149,7 +149,7 @@ class EnvironmentTest(unittest.TestCase):
         result = self.command("kv_get", "example")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "value\n")
-        self.assertEqual(self.server.requests, ["/kv/example"])
+        self.assertEqual(self.server.requests, ["/kv/mget"])
 
     def test_check_always_validates_current_credentials(self):
         result = subprocess.run(["bash", "-ec", '"$1" check; CI3_PASSWORD=wrong "$1" check',

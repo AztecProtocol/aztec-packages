@@ -20,6 +20,7 @@ Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Py
   artifact_exists <name>           exit 0 if present, 1 if absent, 2 on error
   artifact_upload <name> <paths>... pack paths into a gzip/Zstandard tarball and upload it
   artifact_download <name> [dir]   download and extract a tarball (default: current directory)
+  artifact_list <name>             list the paths in a gzip/Zstandard tarball
 
 Exit status: 0 success, 1 absent/disabled, 2 API/transport/usage error. Disabled log/KV/list/run
 writes are no-ops; kv_get returns 0 with an empty line for each missing key.
@@ -51,6 +52,7 @@ CI entry points require CI3_SERVER and CI3_PASSWORD. Entry points run
 probe a server implicitly. Run `ci3_client check` for setup instructions when no endpoint is set.
 """
 import base64
+from contextlib import contextmanager
 import gzip
 import http.client
 import os
@@ -240,7 +242,12 @@ def cmd_log_put(args, partial=False):
                                timeout=300 if final == "1" else 60, query={"ttl": ttl, "final": final}))
 
 
-def read_or_fail(path, missing, timeout=60, output=None):
+def check_response_complete(resp):
+    if resp.length not in (None, 0):
+        raise CI3Error("truncated response: %d bytes missing" % resp.length)
+
+
+def read_or_fail(path, missing, timeout=60):
     if not resolve_server():
         sys.stderr.write("No ci3 server available.\n")
         return 1
@@ -248,15 +255,12 @@ def read_or_fail(path, missing, timeout=60, output=None):
         if not response_ok(resp, allow_missing=True):
             sys.stderr.write(missing + "\n")
             return 1
-        expected, got = int(resp.getheader("Content-Length") or -1), 0
         while True:
             chunk = resp.read(1 << 20)
             if not chunk:
                 break
-            got += len(chunk)
-            output.write(chunk) if output is not None else out(chunk)
-        if expected not in (-1, got):
-            raise CI3Error("truncated response: %d of %d bytes" % (got, expected))
+            out(chunk)
+        check_response_complete(resp)
     return 0
 
 
@@ -278,11 +282,6 @@ def cmd_kv_get(args):
     misses = "\n".join("" for _ in args) + "\n"
     if not resolve_server():
         out(misses.encode())
-        return 0
-    if len(args) == 1:
-        with api("GET", "/kv/" + key_path(args[0])) as resp:
-            value = resp.read() if response_ok(resp, allow_missing=True) else b""
-            out(value.rstrip(b"\n") + b"\n")
         return 0
     with api("POST", "/kv/mget", ("\n".join(args) + "\n").encode()) as resp:
         response_ok(resp)
@@ -357,12 +356,20 @@ def cmd_artifact_get(args):
 
 
 def cmd_artifact_exists(args):
-    if not args:
+    if len(args) != 1:
         return usage("artifact_exists", "<name>")
-    if not resolve_server():
+    if cache_reads_disabled(args[0]):
         return 1
-    with api("HEAD", "/artifacts/" + key_path(args[0])) as resp:
-        return 0 if response_ok(resp, allow_missing=True) else 1
+    return 0 if artifact_exists(args[0]) else 1
+
+
+def artifact_exists(name):
+    with api("HEAD", "/artifacts/" + key_path(name)) as resp:
+        return response_ok(resp, allow_missing=True)
+
+
+def cache_reads_disabled(name):
+    return "disabled-cache" in name or os.environ.get("NO_CACHE") == "1" or not resolve_server()
 
 
 def cmd_artifact_upload(args):
@@ -375,7 +382,7 @@ def cmd_artifact_upload(args):
         return 0
     if not os.environ.get("CACHE_FORCE_UPLOAD"):
         try:
-            if cmd_artifact_exists([name]) == 0:
+            if artifact_exists(name):
                 sys.stderr.write("Skipping upload, already exists: %s\n" % name)
                 return 0
         except (CI3Error, OSError, http.client.HTTPException):
@@ -393,31 +400,54 @@ def cmd_artifact_upload(args):
     return 0
 
 
+@contextmanager
+def read_artifact(name):
+    """Stream an archive from the API and validate the full transfer on completion."""
+    if cache_reads_disabled(name):
+        sys.stderr.write("Not using cache for %s: artifact downloads are disabled.\n" % name)
+        yield None
+        return
+    with api("GET", "/artifacts/" + key_path(name), timeout=600) as resp:
+        if not response_ok(resp, allow_missing=True):
+            sys.stderr.write("Artifact not found: %s\n" % name)
+            yield None
+            return
+        decompressed = (zstd.ZstdFile(resp, "rb") if name.endswith(".zst")
+                        else gzip.GzipFile(fileobj=resp, mode="rb"))
+        with decompressed:
+            with tarfile.open(fileobj=decompressed, mode="r|") as archive:
+                yield archive
+            # Tar's end marker precedes the compression footer, which also needs validation.
+            while decompressed.read(1 << 20):
+                pass
+        check_response_complete(resp)
+
+
 def cmd_artifact_download(args):
     """Restore a build artifact, validating the transfer and compression before reporting success."""
     if not 1 <= len(args) <= 2:
         return usage("artifact_download", "<name> [directory]")
     name, directory = args[0], args[1] if len(args) == 2 else "."
-    if "disabled-cache" in name or os.environ.get("NO_CACHE") == "1" or not resolve_server():
-        sys.stderr.write("Not using cache for %s: artifact downloads are disabled.\n" % name)
-        return 1
     started = time.monotonic()
-    with tempfile.TemporaryFile() as packed:
-        code = read_or_fail("/artifacts/" + key_path(name), "Artifact not found: " + name, timeout=600, output=packed)
-        if code:
-            return code
-        packed.seek(0)
-        decompressed = (zstd.ZstdFile(packed, "rb") if name.endswith(".zst")
-                        else gzip.GzipFile(fileobj=packed, mode="rb"))
-        with decompressed:
-            os.makedirs(directory, exist_ok=True)
-            with tarfile.open(fileobj=decompressed, mode="r|") as archive:
-                # Preserve GNU tar's handling of build-artifact links to external toolchains.
-                archive.extractall(directory, filter="tar")
-            # Tar's end marker precedes the compression footer, which also needs validation.
-            while decompressed.read(1 << 20):
-                pass
+    with read_artifact(name) as archive:
+        if archive is None:
+            return 1
+        os.makedirs(directory, exist_ok=True)
+        # Preserve GNU tar's handling of build-artifact links to external toolchains.
+        archive.extractall(directory, filter="tar")
     sys.stderr.write("Cache download and extraction of %s complete in %.1fs.\n" % (name, time.monotonic() - started))
+    return 0
+
+
+def cmd_artifact_list(args):
+    """List the paths in a build artifact without extracting it."""
+    if len(args) != 1:
+        return usage("artifact_list", "<name>")
+    with read_artifact(args[0]) as archive:
+        if archive is None:
+            return 1
+        for member in archive:
+            print(member.name)
     return 0
 
 
@@ -430,6 +460,7 @@ COMMANDS = {
     "run_put": cmd_run_put, "run_get": cmd_run_get,
     "artifact_put": cmd_artifact_put, "artifact_get": cmd_artifact_get, "artifact_exists": cmd_artifact_exists,
     "artifact_upload": cmd_artifact_upload, "artifact_download": cmd_artifact_download,
+    "artifact_list": cmd_artifact_list,
 }
 
 

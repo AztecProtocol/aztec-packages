@@ -80,6 +80,10 @@ check "kv miss is an empty line" "" "$(ci3_client kv_get nope)"
 mapfile -t got < <(ci3_client kv_get k1 nope k2)
 check "kv mget count" 3 "${#got[@]}"
 check "kv mget values in order" "v1||v2" "${got[0]}|${got[1]}|${got[2]}"
+ci3_client kv_set multiline $'first\nsecond'
+check "single kv get produces one line" "first second" "$(ci3_client kv_get multiline)"
+mapfile -t got < <(ci3_client kv_get multiline nope)
+check "single and batch kv get agree" "$(ci3_client kv_get multiline)" "${got[0]}"
 ci3_client kv_set hb 1 1
 sleep 2
 check "kv ttl expires" "" "$(ci3_client kv_get hb)"
@@ -207,7 +211,7 @@ mkdir -p "$work/src" "$work/dst"
 echo "artifact content" >"$work/src/file.txt"
 (cd "$work" && ci3_client artifact_upload "ci3-client-test-$$.tar.gz" src/file.txt 2>"$work/upload.err")
 if grep -q "Cache upload of ci3-client-test-$$.tar.gz complete" "$work/upload.err"; then pass "ci3_client artifact_upload stores on the server"; else fail "ci3_client artifact_upload stores on the server" "$(cat "$work/upload.err")"; fi
-if cache_exists "ci3-client-test-$$.tar.gz"; then pass "cache_exists finds it"; else fail "cache_exists finds it" "exit 1"; fi
+if ci3_client artifact_exists "ci3-client-test-$$.tar.gz"; then pass "artifact_exists finds it"; else fail "artifact_exists finds it" "exit 1"; fi
 ci3_client artifact_download "ci3-client-test-$$.tar.gz" "$work/dst" 2>"$work/download.err"
 check "ci3_client artifact_download extracts it" "artifact content" "$(cat "$work/dst/src/file.txt")"
 if grep -q "Cache download and extraction of ci3-client-test-$$.tar.gz complete" "$work/download.err"; then pass "ci3_client artifact_download reports completion"; else fail "ci3_client artifact_download reports completion" "$(cat "$work/download.err")"; fi
