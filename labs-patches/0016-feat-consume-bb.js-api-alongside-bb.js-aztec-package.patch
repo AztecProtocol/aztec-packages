@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Mon, 14 Sep 2026 17:21:25 +0000
+Subject: [PATCH] feat: consume bb.js-api alongside bb.js (aztec-packages
+ #25433)
+
+bb.js now depends on @aztec-foundation/bb.js-api as workspace:^, which only
+resolves inside the barretenberg/ts workspace, and bb.js-api carries four
+per-arch optional dependencies that are not published. use-local has to portal
+all five or `yarn install` fails with "Workspace not found", so pin them the way
+bb-avm-sim's family is already pinned.
+
+diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
+index eedfbfa621b4f00a1fca57e9cefeb7c74ebacf4c..6c0fef76c33b740011520595a289e0c4c4e39e1e 100755
+--- a/labs-aztec-toolchain/pins.mjs
++++ b/labs-aztec-toolchain/pins.mjs
+@@ -63,6 +63,15 @@ const LOCAL_PACKAGES = {
+   "@aztec-foundation/bb-avm-sim-linux-x64":
+     "portal:barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-x64",
+   "@aztec-foundation/bb.js": "portal:barretenberg/ts/bb.js",
++  "@aztec-foundation/bb.js-api": "portal:barretenberg/ts/bb.js-api",
++  "@aztec-foundation/bb.js-api-darwin-arm64":
++    "portal:barretenberg/ts/bb.js-api/packages/bb.js-api-darwin-arm64",
++  "@aztec-foundation/bb.js-api-darwin-x64":
++    "portal:barretenberg/ts/bb.js-api/packages/bb.js-api-darwin-x64",
++  "@aztec-foundation/bb.js-api-linux-arm64":
++    "portal:barretenberg/ts/bb.js-api/packages/bb.js-api-linux-arm64",
++  "@aztec-foundation/bb.js-api-linux-x64":
++    "portal:barretenberg/ts/bb.js-api/packages/bb.js-api-linux-x64",
+   "@aztec-foundation/cdb": "portal:barretenberg/ts/cdb",
+   "@aztec-foundation/constants-codegen": "portal:protocol/constants-codegen",
+   "@aztec-foundation/ipc-runtime": "portal:ipc-runtime/ts",
+diff --git a/yarn-project/package.json b/yarn-project/package.json
+index c613dbd9fca40e5735a6693ddaabfe40ca5da72e..2a0335abe4082bda76cccf2bbca69e7db67d4573 100644
+--- a/yarn-project/package.json
++++ b/yarn-project/package.json
+@@ -90,6 +90,11 @@
+     "@aztec-foundation/bb-avm-sim-linux-arm64": "6.0.0-nightly.20260910",
+     "@aztec-foundation/bb-avm-sim-linux-x64": "6.0.0-nightly.20260910",
+     "@aztec-foundation/bb.js": "6.0.0-nightly.20260910",
++    "@aztec-foundation/bb.js-api": "6.0.0-nightly.20260910",
++    "@aztec-foundation/bb.js-api-darwin-arm64": "6.0.0-nightly.20260910",
++    "@aztec-foundation/bb.js-api-darwin-x64": "6.0.0-nightly.20260910",
++    "@aztec-foundation/bb.js-api-linux-arm64": "6.0.0-nightly.20260910",
++    "@aztec-foundation/bb.js-api-linux-x64": "6.0.0-nightly.20260910",
+     "@aztec-foundation/cdb": "6.0.0-nightly.20260910",
+     "@aztec-foundation/constants-codegen": "6.0.0-nightly.20260910",
+     "@aztec-foundation/ipc-runtime": "6.0.0-nightly.20260910",
