@@ -5,6 +5,8 @@ function format_log_output {
 
 function stop_log_publisher {
   if [ -n "${publish_pid:-}" ]; then
+    # A timed read can consume its wakeup while returning a timeout; retain the stop request.
+    touch "$publish_dir/stop"
     printf '\n' >&"$publish_fd" || true
     wait "$publish_pid" || true
     publish_pid=
@@ -24,11 +26,12 @@ function start_log_publisher {
     if [ "${3:-0}" != 0 ] && read -r -t "$3" -u "$publish_fd"; then
       exit 0
     fi
+    [ ! -f "$publish_dir/stop" ] || exit 0
     [ -z "${log_running_message:-}" ] || echo -e "$log_running_message"
     # Background publishers must not keep the caller's output pipes open.
     exec >/dev/null 2>/dev/null
     previous=
-    while [ -f "$2" ]; do
+    while [ -f "$2" ] && [ ! -f "$publish_dir/stop" ]; do
       current=$(stat -c '%Y:%s' "$2")
       if [ "$current" != "$previous" ]; then
         if format_log_output "$2" | ci3_client log_put_partial "$1"; then

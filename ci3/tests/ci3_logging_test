@@ -115,6 +115,34 @@ class LoggingTest(unittest.TestCase):
                 process.kill()
             process.communicate()
 
+    def test_completion_at_publish_delay_boundary(self):
+        log = self.directory / "boundary.log"
+        log.write_text("completed-output\n")
+        command = f'''
+set -euo pipefail
+set -m
+source {shlex.quote(str(CI3 / "source_log"))}
+trap 'kill "${{publish_pid:-}}" 2>/dev/null || true' EXIT
+trap 'exit 143' TERM
+for ((i=0; i<150; i++)); do
+  start_log_publisher boundary {shlex.quote(str(log))} 0.003
+  sleep 0.003
+  stop_log_publisher
+done
+publish_log_final boundary {shlex.quote(str(log))}
+'''
+        env = dict(self.env, PATH=str(CI3) + os.pathsep + os.environ["PATH"])
+        process = subprocess.Popen(["bash", "-c", command], env=env, start_new_session=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            _, errors = process.communicate(timeout=20)
+            self.assertEqual(process.returncode, 0, errors)
+            self.assertEqual(self.backend.log_get("boundary"), b"completed-output\n")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            process.communicate(timeout=5)
+
     def test_background_monitor_does_not_hold_build_pipe_open(self):
         command = ('{ { echo monitor; sleep 30; } 2>&1 | ' + shlex.quote(str(CI3 / "cache_log"))
                    + ' monitor & echo build-finished; } | cat')
