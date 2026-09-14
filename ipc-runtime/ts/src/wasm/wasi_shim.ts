@@ -113,7 +113,10 @@ export function createWasiImports(
       for (let i = 0; i < iovsLen; i++) {
         const ptr = view().getUint32(iovs + i * 8, true);
         const len = view().getUint32(iovs + i * 8 + 4, true);
-        text += decoder.decode(bytes().subarray(ptr, ptr + len));
+        // slice, not subarray: with threads the wasm memory is a SharedArrayBuffer,
+        // and TextDecoder refuses a view onto shared memory ("The provided
+        // ArrayBufferView value must not be shared"). slice copies out first.
+        text += decoder.decode(bytes().slice(ptr, ptr + len));
         total += len;
       }
       const sink =
