@@ -114,7 +114,12 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
-add_subdirectory(barretenberg/wasi)
+# wasi implements the reactor's env against wasm builtins (__builtin_wasm_memory_size
+# and friends), which a native compiler does not have. Only the WASM branch below
+# consumes wasi_objects, so there is nothing to build here otherwise.
+if(WASM)
+    add_subdirectory(barretenberg/wasi)
+endif()
 
 if(NOT BB_LITE)
     add_subdirectory(barretenberg/lmdblib)
@@ -233,7 +238,7 @@ add_library(
 )
 
 # bb-external: static library for external consumers (e.g. barretenberg-rs).
-# Uses the core object list without lmdb/world_state — FFI consumers only need ipc_ffi_entry().
+# Uses the core object list without lmdb/world_state — FFI consumers only need bb_ipc_ffi_entry().
 # Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
     add_library(
