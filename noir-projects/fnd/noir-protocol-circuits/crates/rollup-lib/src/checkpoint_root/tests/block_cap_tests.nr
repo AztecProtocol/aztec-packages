@@ -12,9 +12,8 @@ fn checkpoint_at_the_block_cap() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         MAX_BLOCKS_PER_CHECKPOINT - LEFT_BLOCKS,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
 
 #[test(should_fail_with = "The checkpoint contains too many blocks")]
@@ -25,5 +24,5 @@ fn checkpoint_over_the_block_cap() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         MAX_BLOCKS_PER_CHECKPOINT - LEFT_BLOCKS + 1,
     )
-        .execute_with_mock_and_fail();
+        .execute_unconstrained_and_fail();
 }

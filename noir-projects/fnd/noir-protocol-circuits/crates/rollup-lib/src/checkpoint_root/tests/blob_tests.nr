@@ -54,7 +54,7 @@ fn overfilled_blob_fields() {
     builder.right_rollup.end_sponge_blob.num_absorbed_fields =
         FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Provided blob fields do not match the fields that were absorbed")]
@@ -64,7 +64,7 @@ fn incorrect_injected_blob_fields() {
     // Change the second field.
     builder.hints.blobs_fields[2] += 1;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Provided blob fields do not match the fields that were absorbed")]
@@ -75,7 +75,7 @@ fn incorrect_checkpoint_end_marker_in_injected_blob_fields() {
     // Override the checkpoint end marker with a random field.
     builder.hints.blobs_fields[num_block_blob_fields] = 99;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Found non-zero field after breakpoint")]
@@ -86,12 +86,11 @@ fn non_zero_blob_fields_beyond_absorbed_length() {
     // Add a random field beyond the absorbed fields. +1 to take into account the checkpoint end marker.
     builder.hints.blobs_fields[num_block_blob_fields + 1] = 99;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
-// TODO(#10323): remove the oracle and switch this test to unconstrained.
 #[test]
-fn correct_end_blob_accumulator_with_one_blob() {
+unconstrained fn correct_end_blob_accumulator_with_one_blob() {
     let builder = TestBuilder::new_with_one_blob();
 
     let public_inputs = builder.execute();
@@ -112,9 +111,8 @@ fn correct_end_blob_accumulator_with_one_blob() {
     assert_eq(end_blob_accumulator.gamma_acc, expected_gamma_acc);
 }
 
-// TODO(#10323): remove the oracle and switch this test to unconstrained.
 #[test]
-fn correct_end_blob_accumulator_with_max_blobs() {
+unconstrained fn correct_end_blob_accumulator_with_max_blobs() {
     // Create BLOBS_PER_CHECKPOINT full blobs.
     // Fill the blobs completely with different values (to avoid a constant polynomial)
     let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT];

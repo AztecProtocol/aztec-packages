@@ -196,33 +196,14 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         // These are reused for all blob evaluations in this checkpoint.
         let challenge_z = BLS12_381_Fr::from(self.final_blob_challenges.z);
 
-        if !::std::runtime::is_unconstrained() {
-            let end_blob_accumulator = evaluate_blobs_and_batch(
-                self.blobs_fields,
-                num_blob_fields,
-                sponge_blob_hash,
-                self.blob_commitments,
-                self.final_blob_challenges,
-                self.start_blob_accumulator,
-                challenge_z,
-            );
-
-            end_blob_accumulator
-        } else {
-            // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
-            // The sponge_blob_hash is checked in the oracle against the `hashed_blobs_fields`, so that we can mock the
-            // entire oracle call and assume it's correct when it is not relevant for the tests.
-            unsafe {
-                blob::mock_blob_oracle::evaluate_blobs_and_batch(
-                    self.blobs_fields,
-                    num_blob_fields,
-                    sponge_blob_hash,
-                    self.blob_commitments,
-                    self.final_blob_challenges,
-                    self.start_blob_accumulator,
-                    challenge_z,
-                )
-            }
-        }
+        evaluate_blobs_and_batch(
+            self.blobs_fields,
+            num_blob_fields,
+            sponge_blob_hash,
+            self.blob_commitments,
+            self.final_blob_challenges,
+            self.start_blob_accumulator,
+            challenge_z,
+        )
     }
 }
