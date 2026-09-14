@@ -9,7 +9,7 @@ import {
 runMainWorker(browserWorkerSide(), browserPlatform, {
   createThreadWorker: () =>
     browserWorkerHandle(
-      new Worker(new URL("./thread.worker.browser.js", import.meta.url), {
+      new Worker(new URL("./thread.worker.js", import.meta.url), {
         type: "module",
       }),
     ),
