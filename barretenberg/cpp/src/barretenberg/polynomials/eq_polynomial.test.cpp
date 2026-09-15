@@ -326,6 +326,25 @@ TEST_F(EqPolyTest, ProverEqAllChallengesAreOnes)
     }
 }
 
+TEST_F(EqPolyTest, ProverEqFallbackTableMatchesVerifierAcrossHypercube)
+{
+    for (size_t d = 1; d <= 5; ++d) {
+        std::vector<FF> r(d);
+        for (size_t i = 0; i < d; ++i) {
+            r[i] = FF::random_element();
+        }
+
+        const auto table = ProverEqPolynomial<FF>::construct_eq_with_edge_cases(std::span<const FF>(r), d);
+        ASSERT_EQ(table.size(), 1UL << d);
+
+        for (size_t mask = 0; mask < (1UL << d); ++mask) {
+            const auto u = bool_vec_from_mask(d, mask);
+            EXPECT_EQ(table.get(mask), VerifierEqPolynomial<FF>::eval(std::span<const FF>(r), u))
+                << "d=" << d << " mask=" << mask;
+        }
+    }
+}
+
 TEST_F(EqPolyTest, ProverEqSomeChallengesAreOnes)
 {
     // Force a couple of indices to 1 so those bits must be set in any nonzero coefficient.

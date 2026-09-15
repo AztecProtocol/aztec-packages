@@ -142,11 +142,13 @@ template <typename FF> class ProverEqPolynomial {
      * Each iteration doubles the table size by appending coefficients for X_i = 1 to those for X_i = 0.
      *
      * **Algorithm**: For each variable i ∈ {0, ..., d-1}:
-     *   - Given table T of size 2^i representing eq restricted to first i variables
-     *   - Expand to size 2^(i+1) by computing:
-     *     - T[mask] = T[mask >> 1] · b_i      if bit i of mask is 0
-     *     - T[mask] = T[mask >> 1] · (b_i + a_i) if bit i of mask is 1
+     *   - Given table T_old of size 2^i representing eq restricted to first i variables
+     *   - Expand to T_new of size 2^(i+1) by computing, with j = mask with bit i cleared:
+     *     - T_new[mask] = T_old[j] · b_i           if bit i of mask is 0
+     *     - T_new[mask] = T_old[j] · (b_i + a_i)   if bit i of mask is 1
      *   where a_i = 2r_i - 1, b_i = 1 - r_i
+     *
+     *   Variable X_i occupies bit i of the index; the upper half is offset by 2^i.
      *
      * **Cost analysis**:
      *   - Round i processes 2^i coefficients, producing 2^(i+1) outputs
