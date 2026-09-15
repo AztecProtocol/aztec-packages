@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <tuple>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
@@ -34,6 +35,13 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
   public:
     using State = typename Permutation::State;
     using Block = std::array<FF, rate>;
+
+    // Absorption needs a nonempty cache; the IV occupies the first capacity element at state[rate].
+    static_assert(rate > 0, "sponge rate must be positive");
+    static_assert(capacity > 0, "sponge capacity must be positive");
+    static_assert(rate + capacity == std::tuple_size_v<State>,
+                  "sponge rate + capacity must equal the permutation state width");
+    static_assert(t == std::tuple_size_v<State>, "sponge t must equal the permutation state width");
 
   private:
     static void absorb_block(State& state, const Block& block)
