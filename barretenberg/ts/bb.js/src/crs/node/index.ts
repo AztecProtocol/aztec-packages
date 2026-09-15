@@ -1,11 +1,126 @@
-import { closeSync, createWriteStream, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'fs';
+import { randomBytes } from 'crypto';
+import {
+  accessSync,
+  closeSync,
+  constants,
+  createWriteStream,
+  mkdirSync,
+  openSync,
+  readSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'fs';
 import { stat } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
+import { lock } from 'proper-lockfile';
 import { Readable } from 'stream';
-import { finished } from 'stream/promises';
+import { pipeline } from 'stream/promises';
 
 import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
+
+const BN254_COMPRESSED_POINT_BYTES = 32;
+const BN254_UNCOMPRESSED_POINT_BYTES = 64;
+const BN254_G2_BYTES = 128;
+const GRUMPKIN_POINT_BYTES = 64;
+
+const LOCK_FILE = 'crs.bbjs.lock';
+const LOCK_RETRY_MS = 500;
+const LOCK_MAX_WAIT_MS = 10 * 60 * 1000;
+
+type Logger = (msg: string) => void;
+
+function defaultCrsPath(): string {
+  return process.env.CRS_PATH ?? join(homedir(), '.bb-crs');
+}
+
+function fileSize(path: string): Promise<number> {
+  return stat(path)
+    .then(stats => stats.size)
+    .catch(() => 0);
+}
+
+/**
+ * Runs `fill` while holding the cache directory's bb.js lock, so only one process fills the cache at a time.
+ * A lock older than the stale threshold without a heartbeat is taken over; a paused holder that resumes can
+ * therefore still publish a complete file after the takeover.
+ */
+async function withCacheLock<T>(cachePath: string, logger: Logger, fill: () => Promise<T>): Promise<T> {
+  accessSync(cachePath, constants.W_OK);
+  const release = await lock(cachePath, {
+    lockfilePath: join(cachePath, LOCK_FILE),
+    retries: {
+      retries: LOCK_MAX_WAIT_MS / LOCK_RETRY_MS,
+      factor: 1,
+      minTimeout: LOCK_RETRY_MS,
+      maxTimeout: LOCK_RETRY_MS,
+    },
+    onCompromised: err => logger(`CRS cache lock compromised: ${err.message}`),
+  });
+  try {
+    return await fill();
+  } finally {
+    await release().catch(err => logger(`CRS cache lock release failed: ${err.message}`));
+  }
+}
+
+function tempPath(target: string): string {
+  return `${target}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+}
+
+/**
+ * Streams `source` into a temporary file next to `target`, then renames it into place once `sizeOk` accepts
+ * its byte count. Readers only ever see the complete file.
+ */
+async function downloadToFile(
+  source: ReadableStream<Uint8Array>,
+  target: string,
+  sizeOk: (bytes: number) => boolean,
+): Promise<void> {
+  const tmp = tempPath(target);
+  try {
+    await pipeline(Readable.fromWeb(source as any), createWriteStream(tmp));
+    const bytes = statSync(tmp).size;
+    if (!sizeOk(bytes)) {
+      throw new Error(`CRS download for ${target} produced ${bytes} bytes`);
+    }
+    renameSync(tmp, target);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
+}
+
+function writeFileAtomic(target: string, data: Uint8Array): void {
+  const tmp = tempPath(target);
+  try {
+    writeFileSync(tmp, data);
+    renameSync(tmp, target);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
+}
+
+function readPrefix(path: string, length: number): Uint8Array {
+  const fd = openSync(path, 'r');
+  try {
+    const data = new Uint8Array(length);
+    let offset = 0;
+    while (offset < length) {
+      const read = readSync(fd, data, offset, length - offset, offset);
+      if (read === 0) {
+        throw new Error(`${path} holds ${offset} bytes, expected at least ${length} bytes`);
+      }
+      offset += read;
+    }
+    return data;
+  } finally {
+    closeSync(fd);
+  }
+}
 
 /**
  * Generic CRS finder utility class.
@@ -14,14 +129,10 @@ export class Crs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = () => {},
+    private readonly logger: Logger = () => {},
   ) {}
 
-  static async new(
-    numPoints: number,
-    crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
-    logger: (msg: string) => void = () => {},
-  ) {
+  static async new(numPoints: number, crsPath = defaultCrsPath(), logger: Logger = () => {}) {
     const crs = new Crs(numPoints, crsPath, logger);
     await crs.init();
     return crs;
@@ -29,43 +140,75 @@ export class Crs {
 
   private hasUncompressed = false;
 
+  private get requestedPoints(): number {
+    return Math.max(this.numPoints, 1);
+  }
+
+  private get uncompressedPath(): string {
+    return join(this.path, 'bn254_g1.dat');
+  }
+
+  private get compressedPath(): string {
+    return join(this.path, 'bn254_g1_compressed.dat');
+  }
+
+  private get g2Path(): string {
+    return join(this.path, 'bn254_g2.dat');
+  }
+
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
+    if (await this.useCache()) {
+      return;
+    }
+    await withCacheLock(this.path, this.logger, async () => {
+      if (await this.useCache()) {
+        return;
+      }
+      await this.download();
+    });
+  }
 
-    const g2FileSize = await stat(this.path + '/bn254_g2.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
+  private async useCache(): Promise<boolean> {
+    const points = this.requestedPoints;
+    if ((await fileSize(this.g2Path)) !== BN254_G2_BYTES) {
+      return false;
+    }
 
-    // Prefer cached uncompressed (64 bytes/point, no decompression needed)
-    const uncompressedFileSize = await stat(this.path + '/bn254_g1.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
-    if (uncompressedFileSize >= this.numPoints * 64 && uncompressedFileSize % 64 == 0 && g2FileSize == 128) {
-      this.logger(`Using cached uncompressed CRS of size ${uncompressedFileSize / 64}`);
+    const uncompressedFileSize = await fileSize(this.uncompressedPath);
+    if (
+      uncompressedFileSize >= points * BN254_UNCOMPRESSED_POINT_BYTES &&
+      uncompressedFileSize % BN254_UNCOMPRESSED_POINT_BYTES == 0
+    ) {
+      this.logger(`Using cached uncompressed CRS of size ${uncompressedFileSize / BN254_UNCOMPRESSED_POINT_BYTES}`);
       this.hasUncompressed = true;
-      return;
+      return true;
     }
 
-    // Fall back to compressed on disk
-    const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
-    if (compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0 && g2FileSize == 128) {
-      this.logger(`Using cached compressed CRS of size ${compressedFileSize / 32} (will decompress once)`);
+    const compressedFileSize = await fileSize(this.compressedPath);
+    if (
+      compressedFileSize >= points * BN254_COMPRESSED_POINT_BYTES &&
+      compressedFileSize % BN254_COMPRESSED_POINT_BYTES == 0
+    ) {
+      this.logger(
+        `Using cached compressed CRS of size ${compressedFileSize / BN254_COMPRESSED_POINT_BYTES} (will decompress once)`,
+      );
       this.hasUncompressed = false;
-      return;
+      return true;
     }
+    return false;
+  }
 
-    // Download compressed from CDN
-    this.logger(`Downloading CRS of size ${this.numPoints} into ${this.path}`);
-    const crs = new NetCrs(this.numPoints);
-    const g1Stream = await crs.streamG1Data();
-    const g2Stream = await crs.streamG2Data();
-
-    await Promise.all([
-      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1_compressed.dat'))),
-      finished(Readable.fromWeb(g2Stream as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
-    ]);
+  private async download(): Promise<void> {
+    const points = this.requestedPoints;
+    this.logger(`Downloading CRS of size ${points} into ${this.path}`);
+    const crs = new NetCrs(points);
+    await downloadToFile(
+      await crs.streamG1Data(),
+      this.compressedPath,
+      bytes => bytes >= points * BN254_COMPRESSED_POINT_BYTES && bytes % BN254_COMPRESSED_POINT_BYTES == 0,
+    );
+    await downloadToFile(await crs.streamG2Data(), this.g2Path, bytes => bytes === BN254_G2_BYTES);
     this.hasUncompressed = false;
   }
 
@@ -74,30 +217,29 @@ export class Crs {
    * otherwise compressed (32 bytes/point) for WASM to decompress.
    */
   getG1Data(): Uint8Array {
-    const numPoints = Math.max(this.numPoints, 1);
+    const points = this.requestedPoints;
     if (this.hasUncompressed) {
-      const length = numPoints * 64;
-      const fd = openSync(this.path + '/bn254_g1.dat', 'r');
-      const data = new Uint8Array(length);
-      readSync(fd, data, 0, length, 0);
-      closeSync(fd);
-      return data;
+      return readPrefix(this.uncompressedPath, points * BN254_UNCOMPRESSED_POINT_BYTES);
     }
-    const compressedLength = numPoints * 32;
-    const fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
-    const compressed = new Uint8Array(compressedLength);
-    readSync(fd, compressed, 0, compressedLength, 0);
-    closeSync(fd);
-    return compressed;
+    return readPrefix(this.compressedPath, points * BN254_COMPRESSED_POINT_BYTES);
   }
 
   /**
-   * Cache uncompressed G1 data to disk after WASM decompression.
+   * Cache uncompressed G1 data to disk after WASM decompression. Keeps an existing cache that already
+   * covers at least as many points.
    */
-  cacheUncompressed(data: Uint8Array): Promise<void> {
-    writeFileSync(this.path + '/bn254_g1.dat', data);
+  async cacheUncompressed(data: Uint8Array): Promise<void> {
+    const needed = this.requestedPoints * BN254_UNCOMPRESSED_POINT_BYTES;
+    if (data.length < needed || data.length % BN254_UNCOMPRESSED_POINT_BYTES !== 0) {
+      throw new Error(`Uncompressed CRS has ${data.length} bytes, expected a multiple of 64 of at least ${needed}`);
+    }
+    await withCacheLock(this.path, this.logger, async () => {
+      if ((await fileSize(this.uncompressedPath)) >= data.length) {
+        return;
+      }
+      writeFileAtomic(this.uncompressedPath, data);
+    });
     this.hasUncompressed = true;
-    return Promise.resolve();
   }
 
   /**
@@ -105,7 +247,7 @@ export class Crs {
    * @returns The points data.
    */
   getG2Data(): Uint8Array {
-    return readFileSync(this.path + '/bn254_g2.dat');
+    return readPrefix(this.g2Path, BN254_G2_BYTES);
   }
 }
 
@@ -116,37 +258,49 @@ export class GrumpkinCrs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = () => {},
+    private readonly logger: Logger = () => {},
   ) {}
 
-  static async new(
-    numPoints: number,
-    crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
-    logger: (msg: string) => void = () => {},
-  ) {
+  static async new(numPoints: number, crsPath = defaultCrsPath(), logger: Logger = () => {}) {
     const crs = new GrumpkinCrs(numPoints, crsPath, logger);
     await crs.init();
     return crs;
   }
 
+  private get g1Path(): string {
+    return join(this.path, 'grumpkin_g1_v2.flat.dat');
+  }
+
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
-
-    const g1FileSize = await stat(this.path + '/grumpkin_g1_v2.flat.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
-
-    if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0) {
-      this.logger(`Using cached Grumpkin CRS of size ${g1FileSize / 64}`);
+    if (await this.useCache()) {
       return;
     }
+    await withCacheLock(this.path, this.logger, async () => {
+      if (await this.useCache()) {
+        return;
+      }
+      await this.download();
+    });
+  }
 
+  private async useCache(): Promise<boolean> {
+    const g1FileSize = await fileSize(this.g1Path);
+    if (g1FileSize >= this.numPoints * GRUMPKIN_POINT_BYTES && g1FileSize % GRUMPKIN_POINT_BYTES == 0) {
+      this.logger(`Using cached Grumpkin CRS of size ${g1FileSize / GRUMPKIN_POINT_BYTES}`);
+      return true;
+    }
+    return false;
+  }
+
+  private async download(): Promise<void> {
     this.logger(`Downloading Grumpkin CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetGrumpkinCrs(this.numPoints);
-    const stream = await crs.streamG1Data();
-
-    await finished(Readable.fromWeb(stream as any).pipe(createWriteStream(this.path + '/grumpkin_g1_v2.flat.dat')));
-    writeFileSync(this.path + '/grumpkin_size', String(crs.numPoints));
+    await downloadToFile(
+      await crs.streamG1Data(),
+      this.g1Path,
+      bytes => bytes >= this.numPoints * GRUMPKIN_POINT_BYTES && bytes % GRUMPKIN_POINT_BYTES == 0,
+    );
   }
 
   /**
@@ -154,6 +308,6 @@ export class GrumpkinCrs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
-    return readFileSync(this.path + '/grumpkin_g1_v2.flat.dat');
+    return readPrefix(this.g1Path, this.numPoints * GRUMPKIN_POINT_BYTES);
   }
 }
