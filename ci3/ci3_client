@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The only way ci3 talks to its log / test-cache / artifact server (see CI3_SERVER_API.md).
 
-Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3.14+ standard library only.
+Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`.
+Uses Python 3's standard library, plus tar and zstd for artifact archives.
 
   check                            verify the endpoint and authentication; fail if unavailable
   url [path]                       the browse URL of a log id / server path, as printed in links
@@ -52,21 +53,15 @@ CI entry points require CI3_SERVER and CI3_PASSWORD. Entry points run
 probe a server implicitly. Run `ci3_client check` for setup instructions when no endpoint is set.
 """
 import base64
-from contextlib import contextmanager
 import gzip
 import http.client
 import os
+import shutil
+import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 import urllib.parse
-import zlib
-
-try:
-    from compression import zstd
-except ImportError:
-    zstd = None
 
 DASHBOARD_URL = "http://ci.aztec-labs.com"
 # Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
@@ -389,38 +384,42 @@ def cmd_artifact_upload(args):
             # Public cache reads may fail while uploads to the local server still work.
             pass
     started = time.monotonic()
-    with tempfile.TemporaryFile() as packed:
-        options = ({"options": {zstd.CompressionParameter.nb_workers: os.process_cpu_count() or 1}}
-                   if name.endswith(".zst") else {"compresslevel": 6})
-        with tarfile.open(fileobj=packed, mode="w:zst" if name.endswith(".zst") else "w:gz", **options) as archive:
-            for path in paths:
-                archive.add(path)
-        put_artifact(name, packed)
+    with tempfile.TemporaryDirectory() as work:
+        archive = os.path.join(work, "archive")
+        compression = "--use-compress-program=zstd -T0" if name.endswith(".zst") else "-z"
+        subprocess.run(["tar", compression, "-cf", archive, "--", *paths], check=True)
+        with open(archive, "rb") as packed:
+            put_artifact(name, packed)
     sys.stderr.write("Cache upload of %s complete in %.1fs.\n" % (name, time.monotonic() - started))
     return 0
 
 
-@contextmanager
-def read_artifact(name):
-    """Stream an archive from the API and validate the full transfer on completion."""
+def read_artifact(name, directory=None):
+    """Stream an archive into tar for extraction, or list its paths if no directory is given."""
     if cache_reads_disabled(name):
         sys.stderr.write("Not using cache for %s: artifact downloads are disabled.\n" % name)
-        yield None
-        return
+        return 1
     with api("GET", "/artifacts/" + key_path(name), timeout=600) as resp:
         if not response_ok(resp, allow_missing=True):
             sys.stderr.write("Artifact not found: %s\n" % name)
-            yield None
-            return
-        decompressed = (zstd.ZstdFile(resp, "rb") if name.endswith(".zst")
-                        else gzip.GzipFile(fileobj=resp, mode="rb"))
-        with decompressed:
-            with tarfile.open(fileobj=decompressed, mode="r|") as archive:
-                yield archive
-            # Tar's end marker precedes the compression footer, which also needs validation.
-            while decompressed.read(1 << 20):
-                pass
+            return 1
+        compression = "--use-compress-program=zstd -d" if name.endswith(".zst") else "-z"
+        if directory is not None:
+            os.makedirs(directory, exist_ok=True)
+        action = ["-x", "-C", directory] if directory is not None else ["-t"]
+        # Read past tar's end marker so the decompressor also validates its footer.
+        with subprocess.Popen(["tar", compression, "--ignore-zeros", "-f", "-", *action],
+                              stdin=subprocess.PIPE) as process:
+            try:
+                with process.stdin:
+                    shutil.copyfileobj(resp, process.stdin, 64 * 1024)
+            except BrokenPipeError as e:
+                # An extractor rejecting its input must not become a successful output-pipe close.
+                raise CI3Error("tar stopped before the artifact download completed") from e
+            if process.wait():
+                raise CI3Error("tar failed to read artifact %s" % name)
         check_response_complete(resp)
+    return 0
 
 
 def cmd_artifact_download(args):
@@ -429,12 +428,9 @@ def cmd_artifact_download(args):
         return usage("artifact_download", "<name> [directory]")
     name, directory = args[0], args[1] if len(args) == 2 else "."
     started = time.monotonic()
-    with read_artifact(name) as archive:
-        if archive is None:
-            return 1
-        os.makedirs(directory, exist_ok=True)
-        # Preserve GNU tar's handling of build-artifact links to external toolchains.
-        archive.extractall(directory, filter="tar")
+    code = read_artifact(name, directory)
+    if code:
+        return code
     sys.stderr.write("Cache download and extraction of %s complete in %.1fs.\n" % (name, time.monotonic() - started))
     return 0
 
@@ -443,12 +439,7 @@ def cmd_artifact_list(args):
     """List the paths in a build artifact without extracting it."""
     if len(args) != 1:
         return usage("artifact_list", "<name>")
-    with read_artifact(args[0]) as archive:
-        if archive is None:
-            return 1
-        for member in archive:
-            print(member.name)
-    return 0
+    return read_artifact(args[0])
 
 
 COMMANDS = {
@@ -465,9 +456,6 @@ COMMANDS = {
 
 
 def main():
-    if sys.version_info < (3, 14) or zstd is None:
-        sys.stderr.write("ci3_client requires Python 3.14+ with compression.zstd. Run ./bootstrap.sh install_deps.\n")
-        return 2
     argv = sys.argv[1:]
     if not argv:
         sys.stderr.write(__doc__)
@@ -480,8 +468,7 @@ def main():
         return COMMANDS[cmd](argv)
     except BrokenPipeError:
         return 0
-    except (CI3Error, OSError, http.client.HTTPException, ValueError, EOFError, tarfile.TarError,
-            zlib.error, zstd.ZstdError) as e:
+    except (CI3Error, OSError, http.client.HTTPException, ValueError, EOFError, subprocess.CalledProcessError) as e:
         sys.stderr.write("ci3_client %s: %s\n" % (cmd, e))
         return 2
 

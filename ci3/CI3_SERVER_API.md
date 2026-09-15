@@ -139,10 +139,10 @@ The registry of CI runs a dashboard renders, grouped by section (`prs`, `next`, 
 The build cache: content-addressed tarballs.
 
 `ci3_client artifact_upload <name> <paths>...` packs build outputs; `artifact_download <name> [directory]`
-restores them. Both require Python 3.14+ with `compression.zstd`, use standard-library archive handling,
-and keep stdout empty. `artifact_list <name>` prints the paths in an archive. Names ending in `.zst`
-use Zstandard; other names use gzip. Permissions and links are preserved. Downloads stream directly
-into extraction and validate the HTTP body and compression footer before reporting success.
+restores them. Both use `tar` and keep stdout empty. `artifact_list <name>` prints the paths in an
+archive. Names ending in `.zst` use Zstandard; other names use gzip. Permissions and links are
+preserved. Downloads stream directly into extraction and validate the HTTP body and compression
+footer before reporting success.
 `NO_CACHE=1` skips downloads, listing and existence checks; `NO_CACHE_UPLOAD=1` skips uploads;
 `disabled-cache` names skip both reads and uploads. Uploads still check for existing artifacts when
 `NO_CACHE=1` forces a rebuild; `CACHE_FORCE_UPLOAD=1` also replaces the stored artifact.
