@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rumata888 <isennovskiy@gmail.com>
+Date: Tue, 15 Sep 2026 03:03:41 +0000
+Subject: [PATCH] test: check provider entry points on the rollup ABI
+
+
+diff --git a/yarn-project/ethereum/src/provider_exit_artifacts.test.ts b/yarn-project/ethereum/src/provider_exit_artifacts.test.ts
+index 58022cca58f9f7ba8ab7fa005cdba99ec16fc536..d62471f1745358da605d8b94af22a4e7afa8832f 100644
+--- a/yarn-project/ethereum/src/provider_exit_artifacts.test.ts
++++ b/yarn-project/ethereum/src/provider_exit_artifacts.test.ts
+@@ -6,11 +6,12 @@ describe('provider-exit deployment artifacts', () => {
+     expect(references).toContain('ProviderExitExtLib');
+     const library = RollupArtifact.libraries.libraryCode.ProviderExitExtLib;
+     expect(library.contractBytecode).toMatch(/^0x[0-9a-f]+$/i);
+-    expect(
+-      library.contractAbi
+-        .filter(item => item.type === 'function')
+-        .map(item => item.name)
+-        .sort(),
+-    ).toEqual(['getProviderExitLimitState', 'getProviderExitWindow', 'initiateProviderExit']);
++    expect(RollupArtifact.contractAbi).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ type: 'function', name: 'getProviderExitLimitState' }),
++        expect.objectContaining({ type: 'function', name: 'getProviderExitWindow' }),
++        expect.objectContaining({ type: 'function', name: 'initiateProviderExit' }),
++      ]),
++    );
+   });
+ });

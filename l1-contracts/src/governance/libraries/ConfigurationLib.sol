@@ -42,6 +42,14 @@ library ConfigurationLib {
   }
 
   /**
+   * @notice The delay after which a withdrawal can be finalized.
+   * @dev This method is used to calculate the sliding window for attester-initiated withdrawals
+   */
+  function getWithdrawalDelay(Configuration memory _config) internal pure returns (Timestamp) {
+    return Timestamp.wrap(Timestamp.unwrap(_config.votingDelay) / 5) + _config.votingDuration + _config.executionDelay;
+  }
+
+  /**
    * @notice
    * @dev     We specify `memory` here since it is called on outside import for validation
    *          before writing it to state.

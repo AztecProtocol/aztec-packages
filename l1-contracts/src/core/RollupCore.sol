@@ -28,6 +28,7 @@ import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {ProviderExitExtLib} from "@aztec/core/libraries/rollup/ProviderExitExtLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox, INBOX_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -487,6 +488,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function initiateWithdraw(address _attester, address _recipient) external override(IStakingCore) returns (bool) {
     return ValidatorOperationsExtLib.initiateWithdraw(_attester, _recipient);
+  }
+
+  /**
+   * @notice Initiates withdrawal of a validator's stake by the provider
+   * @dev The registered withdrawer retains control of the payout recipient.
+   * @param _attester The validator position to exit.
+   */
+  function initiateProviderExit(address _attester) external override(IStakingCore) {
+    ProviderExitExtLib.initiateProviderExit(_attester);
   }
 
   /**

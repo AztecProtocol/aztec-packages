@@ -1,0 +1,360 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rumata888 <isennovskiy@gmail.com>
+Date: Tue, 15 Sep 2026 03:00:59 +0000
+Subject: [PATCH] feat: support attester-signed provider exits
+
+
+diff --git a/yarn-project/cli/src/cmds/l1/index.ts b/yarn-project/cli/src/cmds/l1/index.ts
+index 5d6c1d72274e9061cf1cc00f3a992b0212038883..7739e64f38c63cbe9afb32fd78544fac74df48f2 100644
+--- a/yarn-project/cli/src/cmds/l1/index.ts
++++ b/yarn-project/cli/src/cmds/l1/index.ts
+@@ -337,6 +337,29 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
+       });
+     });
+ 
++  program
++    .command('initiate-provider-exit')
++    .description("Initiates a staking-provider exit, signed by the position's attester.")
++    .addOption(l1RpcUrlsOption)
++    .addOption(l1ChainIdOption)
++    .option('-pk, --private-key <string>', 'The attester private key', PRIVATE_KEY)
++    .option('-m, --mnemonic <string>', 'Mnemonic for the attester account', MNEMONIC)
++    .requiredOption('--attester <address>', 'Attester address of the position to exit', parseEthereumAddress)
++    .requiredOption('--rollup <address>', 'Rollup holding the position', parseEthereumAddress)
++    .action(async options => {
++      const { initiateProviderExit } = await import('./update_l1_validators.js');
++      await initiateProviderExit({
++        rpcUrls: options.l1RpcUrls,
++        chainId: options.l1ChainId,
++        privateKey: options.privateKey,
++        mnemonic: options.mnemonic,
++        attesterAddress: options.attester,
++        rollupAddress: options.rollup,
++        log,
++        debugLogger,
++      });
++    });
++
+   program
+     .command('remove-l1-validator')
+     .description('Removes a validator to the L1 rollup contract.')
+diff --git a/yarn-project/cli/src/cmds/l1/provider_exit.test.ts b/yarn-project/cli/src/cmds/l1/provider_exit.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..114bd5fa1f85023385e3136cca0d6c8792ca1079
+--- /dev/null
++++ b/yarn-project/cli/src/cmds/l1/provider_exit.test.ts
+@@ -0,0 +1,169 @@
++import { GovernanceAbi, RollupAbi, TestERC20Abi } from '@aztec-foundation/l1-artifacts';
++
++import { createExtendedL1Client } from '@aztec-labs/ethereum/client';
++import { DefaultL1ContractsConfig } from '@aztec-labs/ethereum/config';
++import { AttesterStatus, RollupContract } from '@aztec-labs/ethereum/contracts';
++import { deployAztecL1Contracts } from '@aztec-labs/ethereum/deploy-aztec-l1-contracts';
++import { type Anvil, EthCheatCodes, startAnvil } from '@aztec-labs/ethereum/test';
++import { SecretValue } from '@aztec-labs/foundation/config';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { EthAddress } from '@aztec-labs/foundation/eth-address';
++import { createLogger } from '@aztec-labs/foundation/log';
++import { DateProvider } from '@aztec-labs/foundation/timer';
++import { Command } from 'commander';
++import { getContract } from 'viem';
++import { mnemonicToAccount } from 'viem/accounts';
++import { foundry } from 'viem/chains';
++
++import { injectCommands } from './index.js';
++import { initiateProviderExit } from './update_l1_validators.js';
++
++const mnemonic = 'test test test test test test test test test test test junk';
++const attester = mnemonicToAccount(mnemonic);
++const withdrawer = mnemonicToAccount(mnemonic, { addressIndex: 1 });
++const logger = createLogger('cli:test:provider-exit');
++
++describe('initiate-provider-exit command', () => {
++  it('requires a rollup and attester and accepts no recipient', () => {
++    const program = new Command();
++    injectCommands(program, () => {}, logger);
++    const command = program.commands.find(command => command.name() === 'initiate-provider-exit');
++    expect(command).toBeDefined();
++    expect(command?.options.find(option => option.long === '--rollup')?.mandatory).toBe(true);
++    expect(command?.options.find(option => option.long === '--attester')?.mandatory).toBe(true);
++    expect(command?.options.some(option => /recipient|withdrawer/.test(option.long ?? ''))).toBe(false);
++  });
++
++  it('rejects a signer that does not match the attester before contacting L1', async () => {
++    await expect(
++      initiateProviderExit({
++        rpcUrls: ['http://127.0.0.1:1'],
++        chainId: foundry.id,
++        mnemonic,
++        attesterAddress: EthAddress.fromString(withdrawer.address),
++        rollupAddress: EthAddress.ZERO,
++        log: () => {},
++        debugLogger: logger,
++      }),
++    ).rejects.toThrow('The transaction signer must match the attester address');
++  });
++});
++
++describe('provider exit through the client and CLI', () => {
++  let anvil: Anvil;
++  let rpcUrl: string;
++
++  afterAll(async () => {
++    await anvil?.stop();
++  });
++
++  it('deploys, exits as the attester, and pays only the withdrawer-selected recipient after both delays', async () => {
++    ({ anvil, rpcUrl } = await startAnvil());
++    const { l1ContractAddresses } = await deployAztecL1Contracts(
++      rpcUrl,
++      '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
++      foundry.id,
++      {
++        ...DefaultL1ContractsConfig,
++        vkTreeRoot: Fr.random(),
++        protocolContractsHash: Fr.random(),
++        genesisArchiveRoot: Fr.random(),
++        realVerifier: false,
++        aztecTargetCommitteeSize: 4,
++        entryQueueBootstrapValidatorSetSize: 21,
++        entryQueueBootstrapFlushSize: 21,
++        entryQueueMaxFlushSize: 21,
++        initialValidators: Array.from({ length: 21 }, (_, index) => ({
++          attester:
++            index === 0
++              ? EthAddress.fromString(attester.address)
++              : EthAddress.fromString(`0x${(1000 + index).toString(16).padStart(40, '0')}`),
++          withdrawer: EthAddress.fromString(withdrawer.address),
++          bn254SecretKey: new SecretValue(BigInt(index + 1)),
++        })),
++      },
++    );
++    const attesterClient = createExtendedL1Client([rpcUrl], attester, foundry);
++    const withdrawerClient = createExtendedL1Client([rpcUrl], withdrawer, foundry);
++    const rollup = new RollupContract(attesterClient, l1ContractAddresses.rollupAddress);
++    const target = EthAddress.fromString(attester.address);
++    const recipient = mnemonicToAccount(mnemonic, { addressIndex: 2 }).address;
++    const token = getContract({
++      address: (await rollup.getStakingAsset()).toString(),
++      abi: TestERC20Abi,
++      client: attesterClient,
++    });
++    const governance = getContract({
++      address: l1ContractAddresses.governanceAddress.toString(),
++      abi: GovernanceAbi,
++      client: attesterClient,
++    });
++    const ownerRollup = getContract({ address: rollup.address, abi: RollupAbi, client: withdrawerClient });
++    const original = await rollup.getAttesterView(target);
++    const recipientBalance = await token.read.balanceOf([recipient]);
++
++    const before = await rollup.getProviderExitLimitState();
++    expect(before).toMatchObject({ validatorCount: 21n, committeeSize: 4n, used: 0n, allowance: 1n, canExit: true });
++    expect(await rollup.getProviderExitWindow()).toBe(before.window);
++
++    const receipt = await initiateProviderExit({
++      rpcUrls: [rpcUrl],
++      chainId: foundry.id,
++      mnemonic,
++      attesterAddress: target,
++      rollupAddress: l1ContractAddresses.rollupAddress,
++      log: () => {},
++      debugLogger: logger,
++    });
++    expect(receipt.status).toBe('success');
++    const pending = await rollup.getAttesterView(target);
++    expect(pending.status).toBe(AttesterStatus.ZOMBIE);
++    expect(pending.exit.exists).toBe(true);
++    expect(pending.exit.isRecipient).toBe(false);
++    expect(pending.exit.recipientOrWithdrawer).toEqual(EthAddress.fromString(withdrawer.address));
++    expect(pending.exit.amount).toBe(original.effectiveBalance);
++    expect(await token.read.balanceOf([recipient])).toBe(recipientBalance);
++    expect(await rollup.getProviderExitLimitState()).toMatchObject({
++      validatorCount: 20n,
++      used: 1n,
++      allowance: 0n,
++      canExit: false,
++    });
++    const withdrawal = await governance.read.getWithdrawal([pending.exit.withdrawalId]);
++
++    await expect(
++      attesterClient.simulateContract({
++        address: rollup.address,
++        abi: RollupAbi,
++        functionName: 'initiateWithdraw',
++        args: [attester.address, recipient],
++      }),
++    ).rejects.toThrow();
++
++    const selection = await ownerRollup.write.initiateWithdraw([attester.address, recipient]);
++    expect((await withdrawerClient.waitForTransactionReceipt({ hash: selection })).status).toBe('success');
++    const selected = await rollup.getAttesterView(target);
++    expect(selected.exit.withdrawalId).toBe(pending.exit.withdrawalId);
++    expect(selected.exit.exitableAt).toBe(pending.exit.exitableAt);
++    expect(selected.exit.recipientOrWithdrawer).toEqual(EthAddress.fromString(recipient));
++    expect(selected.exit.isRecipient).toBe(true);
++    expect(await governance.read.getWithdrawal([pending.exit.withdrawalId])).toEqual(withdrawal);
++
++    const unlock = pending.exit.exitableAt > withdrawal.unlocksAt ? pending.exit.exitableAt : withdrawal.unlocksAt;
++    const cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
++    await cheatCodes.warp(unlock - 1n);
++    await expect(
++      attesterClient.simulateContract({
++        address: rollup.address,
++        abi: RollupAbi,
++        functionName: 'finalizeWithdraw',
++        args: [attester.address],
++      }),
++    ).rejects.toThrow();
++    await cheatCodes.warp(unlock);
++    const finalized = await ownerRollup.write.finalizeWithdraw([attester.address]);
++    expect((await withdrawerClient.waitForTransactionReceipt({ hash: finalized })).status).toBe('success');
++    expect(await token.read.balanceOf([recipient])).toBe(recipientBalance + pending.exit.amount);
++    expect((await rollup.getAttesterView(target)).exit.exists).toBe(false);
++  }, 240_000);
++});
+diff --git a/yarn-project/cli/src/cmds/l1/update_l1_validators.ts b/yarn-project/cli/src/cmds/l1/update_l1_validators.ts
+index 5b889d49d1b232b1d2b3593f77d34df7faa3306b..9fa4469702311c4d73c208b5ba16a4362cf0acb9 100644
+--- a/yarn-project/cli/src/cmds/l1/update_l1_validators.ts
++++ b/yarn-project/cli/src/cmds/l1/update_l1_validators.ts
+@@ -254,6 +254,39 @@ export async function removeL1Validator({
+   dualLog(`Transaction hash: ${receipt.transactionHash}`);
+ }
+ 
++/** Initiates a provider exit without changing the registered withdrawer's control over the payout. */
++export async function initiateProviderExit({
++  rpcUrls,
++  chainId,
++  privateKey,
++  mnemonic,
++  attesterAddress,
++  rollupAddress,
++  log,
++  debugLogger,
++}: Omit<RollupCommandArgs, 'withdrawerAddress'> & LoggerArgs & { attesterAddress: EthAddress }) {
++  const account = getAccount(privateKey, mnemonic);
++  if (account.address.toLowerCase() !== attesterAddress.toString().toLowerCase()) {
++    throw new Error('The transaction signer must match the attester address');
++  }
++  const chain = createEthereumChain(rpcUrls, chainId);
++  const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
++  const rollup = new RollupContract(client, rollupAddress);
++  const l1TxUtils = createL1TxUtils(client, { logger: debugLogger });
++  const { receipt } = await rollup.initiateProviderExit(l1TxUtils, attesterAddress);
++  if (receipt.status !== 'success') {
++    throw new Error(`Provider exit reverted: ${receipt.transactionHash}`);
++  }
++  log(`Provider exit initiated for ${attesterAddress}. Transaction hash: ${receipt.transactionHash}`);
++  log('The registered withdrawer must select a recipient using initiateWithdraw before finalization.');
++  debugLogger.info('Provider exit initiated', {
++    attester: attesterAddress.toString(),
++    rollup: rollupAddress.toString(),
++    transactionHash: receipt.transactionHash,
++  });
++  return receipt;
++}
++
+ export async function pruneRollup({
+   rpcUrls,
+   chainId,
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index 0b04e06b0845647877173fcd4fe723b509c40707..99e313209a9903d2e3bf29a39fab41e98f84e5d2 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -210,6 +210,18 @@ export type RewardConfig = {
+   checkpointReward: bigint;
+ };
+ 
++/** Current provider-exit capacity. All durations are in seconds and counts are positions, not token amounts. */
++export type ProviderExitLimitState = {
++  window: bigint;
++  validatorCount: bigint;
++  committeeSize: bigint;
++  used: bigint;
++  /** Limit after one proposed removal; allowance minus used is not a guaranteed batch size. */
++  allowance: bigint;
++  /** Rollup-wide capacity only; the transaction still checks the caller and position. */
++  canExit: boolean;
++};
++
+ /**
+  * Exit information for a validator
+  */
+@@ -1350,6 +1362,30 @@ export class RollupContract {
+     return Buffer32.fromString(await this.rollup.read.getCurrentBlobCommitmentsHash());
+   }
+ 
++  public getProviderExitWindow(): Promise<bigint> {
++    return this.rollup.read.getProviderExitWindow();
++  }
++
++  public getProviderExitLimitState(): Promise<ProviderExitLimitState> {
++    return this.rollup.read.getProviderExitLimitState();
++  }
++
++  /** Initiates a provider exit. The transaction signer must be the position's attester. */
++  public initiateProviderExit(
++    l1TxUtils: L1TxUtils,
++    attester: EthAddress,
++  ): ReturnType<L1TxUtils['sendAndMonitorTransaction']> {
++    return l1TxUtils.sendAndMonitorTransaction({
++      to: this.address,
++      abi: RollupAbi,
++      data: encodeFunctionData({
++        abi: RollupAbi,
++        functionName: 'initiateProviderExit',
++        args: [attester.toString()],
++      }),
++    });
++  }
++
+   async getStakingAsset(): Promise<EthAddress> {
+     return EthAddress.fromString(await this.rollup.read.getStakingAsset());
+   }
+diff --git a/yarn-project/ethereum/src/l1_artifacts.ts b/yarn-project/ethereum/src/l1_artifacts.ts
+index 2e6979daa1c516ddb8741772f705985674bf0f4c..d1d574bd048ddc3418d8d49e4567b1b4c51940dd 100644
+--- a/yarn-project/ethereum/src/l1_artifacts.ts
++++ b/yarn-project/ethereum/src/l1_artifacts.ts
+@@ -27,6 +27,8 @@ import {
+   MultiAdderBytecode,
+   OutboxAbi,
+   OutboxBytecode,
++  ProviderExitExtLibAbi,
++  ProviderExitExtLibBytecode,
+   RegisterNewRollupVersionPayloadAbi,
+   RegisterNewRollupVersionPayloadBytecode,
+   RegistryAbi,
+@@ -103,6 +105,11 @@ export const RollupArtifact = {
+         contractAbi: ValidatorOperationsExtLibAbi,
+         contractBytecode: ValidatorOperationsExtLibBytecode as Hex,
+       },
++      ProviderExitExtLib: {
++        name: 'ProviderExitExtLib',
++        contractAbi: ProviderExitExtLibAbi,
++        contractBytecode: ProviderExitExtLibBytecode as Hex,
++      },
+       RewardExtLib: {
+         name: 'RewardExtLib',
+         contractAbi: RewardExtLibAbi,
+diff --git a/yarn-project/ethereum/src/provider_exit_artifacts.test.ts b/yarn-project/ethereum/src/provider_exit_artifacts.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..58022cca58f9f7ba8ab7fa005cdba99ec16fc536
+--- /dev/null
++++ b/yarn-project/ethereum/src/provider_exit_artifacts.test.ts
+@@ -0,0 +1,16 @@
++import { RollupArtifact } from './l1_artifacts.js';
++
++describe('provider-exit deployment artifacts', () => {
++  it('provides deployable bytecode for the provider library required by the rollup', () => {
++    const references = Object.values(RollupArtifact.libraries.linkReferences).flatMap(Object.keys);
++    expect(references).toContain('ProviderExitExtLib');
++    const library = RollupArtifact.libraries.libraryCode.ProviderExitExtLib;
++    expect(library.contractBytecode).toMatch(/^0x[0-9a-f]+$/i);
++    expect(
++      library.contractAbi
++        .filter(item => item.type === 'function')
++        .map(item => item.name)
++        .sort(),
++    ).toEqual(['getProviderExitLimitState', 'getProviderExitWindow', 'initiateProviderExit']);
++  });
++});
