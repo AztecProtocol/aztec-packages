@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Tue, 15 Sep 2026 08:18:38 +0000
+Subject: [PATCH] docs: update KECCAKF1600 base gas to 3960
+
+
+diff --git a/yarn-project/simulator/docs/avm/opcodes/keccakf1600.md b/yarn-project/simulator/docs/avm/opcodes/keccakf1600.md
+index 7c52ff2098cf93b6ae1c145cbf47a0029c60daa1..81bd09bd83402d2ffe24c5c2c97936b8f709d2d7 100644
+--- a/yarn-project/simulator/docs/avm/opcodes/keccakf1600.md
++++ b/yarn-project/simulator/docs/avm/opcodes/keccakf1600.md
+@@ -18,7 +18,7 @@ Computes the Keccak-f[1600] permutation on a state of 25 Uint64 elements. Input
+ 
+ | Component | Value | Scales with |
+ |-----------|-------|-------------|
+-| L2 Base | 58176 | - |
++| L2 Base | 3960 | - |
+ | DA Base | 0 | - |
+ | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
+ 
