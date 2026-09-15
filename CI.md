@@ -26,8 +26,8 @@ CI3:
 - Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelized at once to leverage maximum system throughput.
 - Runs on a single (currently large, 128 vcpu) machine.
 - Significantly reduces the chance of flakey tests making their way into master, by "grinding" the tests in the master merge queue. This simply executes the tests as above, but across N instances. (TBD)
-- Provides a shared redis cache at the test level, meaning the same test never needs to be run twice in CI (except when grinding).
-- Aims to reduce log noise significantly, only displaying logs that errored by default, while still storing all logs in a shared redis cache. Developers can "drill-down" into logs via log ids.
+- Provides a shared test cache, meaning the same test never needs to be run twice in CI (except when grinding).
+- Aims to reduce log noise significantly, only displaying logs that errored by default, while still storing all logs on a shared log server. Developers can "drill-down" into logs via log ids.
 - Aims to reduce repository clutter significantly. Ultimately, outside of the `ci3` folder itself, we shouldn't need more than a handful of bootstrap scripts, run_test scripts, and maybe a handful of exceptional helper scripts.
 
 ## The Scripts
@@ -206,7 +206,7 @@ ci ready
 A CI run is really just running `./bootstrap.sh ci`. This:
 
 - Enables use of the build cache.
-- Turns on denoising (you'll see lots of dots in the happy path with redis cache ids, and logs only for errors).
+- Turns on denoising (you'll see lots of dots in the happy path with log ids, and logs only for errors).
 - Sets the `CI=1` environment variable which makes things like yarn immutable.
 
 There are several notable ways you can trigger a CI run:
@@ -295,7 +295,7 @@ The content hash is computed using `git rev-parse HEAD^{tree}`, which provides a
 
 ## Denoise Logs
 
-When a CI run is taking place and it has a redis cache available, you will see logs like this:
+When a CI run is taking place and it has a log server available (see `ci3/CI3_SERVER_API.md`; a local run starts one on `localhost:4275`), you will see logs like this:
 
 ```
 --- pull submodules ---
@@ -346,13 +346,13 @@ Some projects will also have a "test hash". The test hash is part of the input t
 
 To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`../../noir/.rebuild_patterns` and `../noir/.noir-repo.rebuild_patterns`, but do make use of `../../noir/bootstrap.sh hash` to compute it correctly), and the test programs themselves (`../../noir/.noir-repo.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
 
-If a test successfully runs in CI, it won't be run again unless its redis key changes. This key consists of the "test hash" and the "test command". Here's an example:
+If a test successfully runs in CI, it won't be run again unless its cache key changes. This key consists of the "test hash" and the "test command". Here's an example:
 
 ```
 c533d7b87f00f64f ISOLATE=1 yarn-project/scripts/run_test.sh prover-node/dest/prover-node.test.js
 ```
 
-This is one of the tests output by `./barretenberg/ts/bootstrap.sh test_cmds` (labs' commands come through `labs/`, prefixed with a `cd labs`). The first field is the test hash, the rest is the command you can run from the repository root. This entire line is what's hashed to make up the redis key.
+This is one of the tests output by `./barretenberg/ts/bootstrap.sh test_cmds` (labs' commands come through `labs/`, prefixed with a `cd labs`). The first field is the test hash, the rest is the command you can run from the repository root. This entire line is what's hashed to make up the cache key.
 
 Note that all cache entries expire after 7 days.
 

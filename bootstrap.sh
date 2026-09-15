@@ -101,7 +101,7 @@ function install_linux_deps {
     exit 1
   fi
   mkdir -p "$AZTEC_DEV_BIN"
-  spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd redis-tools lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd doxygen"
+  spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd doxygen"
   spinner "Installing llvm..." install_llvm
   spinner "Installing yq..." install_yq
   spinner "Installing ldid..." install_ldid
@@ -121,7 +121,7 @@ function install_macos_deps {
     exit 1
   fi
   spinner "Installing brew dependencies..." \
-    "brew install cmake ninja llvm@20 doxygen coreutils grep gnu-sed parallel yq zstd redis util-linux libusb jq bash"
+    "brew install cmake ninja llvm@20 doxygen coreutils grep gnu-sed parallel yq zstd util-linux libusb jq bash"
 
   # Make clang 20 available.
   local llvm_bin="$(brew --prefix)/Cellar/llvm@20/20.1.8/bin"
