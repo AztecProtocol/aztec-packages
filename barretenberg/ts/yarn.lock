@@ -68,6 +68,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
+    "@types/proper-lockfile": "npm:^4.1.4"
     "@types/source-map-support": "npm:^0.5.6"
     "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
     comlink: "npm:^4.4.1"
@@ -85,6 +86,7 @@ __metadata:
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     prettier: "npm:^3.5.3"
+    proper-lockfile: "npm:^4.1.2"
     ts-jest: "npm:^29.4.0"
     ts-loader: "npm:^9.4.2"
     ts-node: "npm:^10.9.1"
@@ -1671,6 +1673,22 @@ __metadata:
   version: 2.0.4
   resolution: "@types/pako@npm:2.0.4"
   checksum: 10/9be5167f5cb45d405d92e8b320219e6d26f244880893425abb16b998cde0386185f048d60de609672f1e8654c44b77344e754138da3784460f4543fe8576fa62
+  languageName: node
+  linkType: hard
+
+"@types/proper-lockfile@npm:^4.1.4":
+  version: 4.1.4
+  resolution: "@types/proper-lockfile@npm:4.1.4"
+  dependencies:
+    "@types/retry": "npm:*"
+  checksum: 10/b0d1b8e84a563b2c5f869f7ff7542b1d83dec03d1c9d980847cbb189865f44b4a854673cdde59767e41bcb8c31932e613ac43822d358a6f8eede6b79ccfceb1d
+  languageName: node
+  linkType: hard
+
+"@types/retry@npm:*":
+  version: 0.12.5
+  resolution: "@types/retry@npm:0.12.5"
+  checksum: 10/3fb6bf91835ca0eb2987567d6977585235a7567f8aeb38b34a8bb7bbee57ac050ed6f04b9998cda29701b8c893f5dfe315869bc54ac17e536c9235637fe351a2
   languageName: node
   linkType: hard
 
@@ -5053,6 +5071,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"proper-lockfile@npm:^4.1.2":
+  version: 4.1.2
+  resolution: "proper-lockfile@npm:4.1.2"
+  dependencies:
+    graceful-fs: "npm:^4.2.4"
+    retry: "npm:^0.12.0"
+    signal-exit: "npm:^3.0.2"
+  checksum: 10/000a4875f543f591872b36ca94531af8a6463ddb0174f41c0b004d19e231d7445268b422ff1ea595e43d238655c702250cd3d27f408e7b9d97b56f1533ba26bf
+  languageName: node
+  linkType: hard
+
 "punycode@npm:^2.1.0":
   version: 2.3.1
   resolution: "punycode@npm:2.3.1"
@@ -5153,6 +5182,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"retry@npm:^0.12.0":
+  version: 0.12.0
+  resolution: "retry@npm:0.12.0"
+  checksum: 10/1f914879f97e7ee931ad05fe3afa629bd55270fc6cf1c1e589b6a99fab96d15daad0fa1a52a00c729ec0078045fe3e399bd4fd0c93bcc906957bdc17f89cb8e6
+  languageName: node
+  linkType: hard
+
 "retry@npm:^0.13.1":
   version: 0.13.1
   resolution: "retry@npm:0.13.1"
@@ -5235,7 +5271,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"signal-exit@npm:^3.0.3":
+"signal-exit@npm:^3.0.2, signal-exit@npm:^3.0.3":
   version: 3.0.7
   resolution: "signal-exit@npm:3.0.7"
   checksum: 10/a2f098f247adc367dffc27845853e9959b9e88b01cb301658cfe4194352d8d2bb32e18467c786a7fe15f1d44b233ea35633d076d5e737870b7139949d1ab6318

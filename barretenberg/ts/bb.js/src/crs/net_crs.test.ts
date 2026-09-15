@@ -42,6 +42,21 @@ describe('fetchWithFallback', () => {
     expect(data).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
   }, 30000);
 
+  it('rejects when the primary fails and the fallback returns an error status', async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((url: string) =>
+      url.includes('primary')
+        ? Promise.reject(new Error('primary down'))
+        : Promise.resolve(new Response('missing', { status: 500 }))) as typeof fetch;
+    try {
+      await expect(fetchWithFallback('https://primary.invalid/g1', 'https://fallback.invalid/g1', {})).rejects.toThrow(
+        /HTTP 500/,
+      );
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('should use primary when it succeeds', async () => {
     const goodPrimaryUrl = 'https://crs.aztec-cdn.foundation/g1_compressed.dat';
     const fallbackUrl = 'https://crs.aztec-labs.com/g1_compressed.dat';
