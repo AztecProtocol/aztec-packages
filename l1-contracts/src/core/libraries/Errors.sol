@@ -188,6 +188,10 @@ library Errors {
   error Staking__SlasherProposerNotInitialized(address slasher);
   error Staking__NoPendingSlasher();
   error Staking__SlasherNotReady(Timestamp readyAt);
+  error Staking__ProviderExitPoolTooSmall(uint256 validatorCount, uint256 committeeSize);
+  error Staking__ProviderExitLimitExceeded(uint256 used, uint256 allowance);
+  error Staking__NotAttester(address attester, address caller);
+  error Staking__NotLatestRollup(address rollup, address latestRollup);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

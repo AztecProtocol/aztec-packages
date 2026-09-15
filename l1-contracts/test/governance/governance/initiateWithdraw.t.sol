@@ -114,4 +114,38 @@ contract InitiateWithdrawTest is GovernanceBase {
     }
     assertEq(token.balanceOf(address(governance)), deposit);
   }
+
+  /// Testing that two implementations of getWithdrawalDelay give the same result
+  /// One implementation is used when we initiate a withdraw, the other we can call directly
+  function testFuzz_WithdrawalDelayMatchesMemoryHelper(
+    uint256 _votingDelay,
+    uint256 _votingDuration,
+    uint256 _executionDelay
+  ) external {
+    Configuration memory configuration = governance.getConfiguration();
+    configuration.votingDelay = Timestamp.wrap(bound(_votingDelay, 60, 90 days));
+    configuration.votingDuration = Timestamp.wrap(bound(_votingDuration, 60, 90 days));
+    configuration.executionDelay = Timestamp.wrap(bound(_executionDelay, 60, 90 days));
+
+    vm.prank(address(governance));
+    governance.updateConfiguration(configuration);
+
+    uint256 stakingAmount = 1e18;
+    token.mint(address(this), stakingAmount);
+    token.approve(address(governance), stakingAmount);
+    governance.deposit(address(this), stakingAmount);
+
+    Configuration memory updated_config = governance.getConfiguration();
+
+    Timestamp expected_unlock_time = Timestamp.wrap(block.timestamp) + updated_config.getWithdrawalDelay();
+
+    uint256 withdrawalId = governance.initiateWithdraw(address(this), stakingAmount);
+    Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
+
+    assertEq(
+      withdrawal.unlocksAt,
+      expected_unlock_time,
+      "Discrepancy between unlock time computed from memory `getWithdrawalDelay` helper and storage version used in `initiateWithdraw`"
+    );
+  }
 }
