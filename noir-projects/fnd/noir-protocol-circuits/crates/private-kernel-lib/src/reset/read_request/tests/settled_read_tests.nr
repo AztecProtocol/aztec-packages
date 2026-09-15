@@ -1,5 +1,6 @@
-use super::TestBuilder;
+use super::{TestBuilder, TestLeafPreimage};
 use protocol_test_utils::assert_array_eq;
+use types::{address::AztecAddress, merkle_tree::MembershipWitness, side_effect::Counted};
 
 impl TestBuilder {
     pub fn new_all_settled() -> Self {
@@ -117,6 +118,35 @@ fn incorrect_membership_witness_leaf_index() {
     let mut hint = builder.hints.settled_read_hints.pop();
     hint.membership_witness.leaf_index += 1;
     builder.hints.settled_read_hints.push(hint);
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "Settled read request must not be zero")]
+fn settled_read_of_zero_matches_unused_empty_leaf() {
+    let mut builder = TestBuilder::new();
+
+    // The test tree populates leaves 0..3 with values 111, 222, 333 and 444. Leaf 4 has never been
+    // written, so it holds the note-hash tree's empty-leaf sentinel (zero) while still being part of
+    // the tree - a sibling path for it verifies against the current root.
+    let empty_leaf_index = 4;
+
+    // A read request for value zero, shaped as a settled read (zero contract address).
+    let read_request_index = builder.read_requests.length;
+    builder.read_requests.push(Counted::new(0, builder.counter).scope(AztecAddress::zero()));
+    builder.counter += 1;
+
+    // Hint it at the unused leaf, with a preimage whose value is the sentinel itself. Without the
+    // zero check, value equality and Merkle membership both hold, so the kernel accepts a note that
+    // was never inserted.
+    builder.hints.add_settled_read_hint(
+        read_request_index,
+        MembershipWitness {
+            leaf_index: empty_leaf_index,
+            sibling_path: builder.tree.get_sibling_path(empty_leaf_index),
+        },
+        TestLeafPreimage { value: 0 },
+    );
 
     builder.validate();
 }
