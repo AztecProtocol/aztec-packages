@@ -307,6 +307,7 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
+(cd native-packages && ./format.sh staged)
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
 # Hooks are shared by every branch of this clone; older branches have no labs-patches.
@@ -618,7 +619,9 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
-    wsdb
+    native-packages/lmdblib
+    native-packages/kvdb
+    native-packages/wsdb
     barretenberg/ts
     barretenberg/rust
     noir
