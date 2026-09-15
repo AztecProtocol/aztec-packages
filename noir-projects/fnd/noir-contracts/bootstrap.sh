@@ -76,7 +76,7 @@ function compile {
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
   local contract_hash=$(get_contract_hash $1)
-  if ! cache_download contract-$contract_hash.tar.gz; then
+  if ! ci3_client artifact_download contract-$contract_hash.tar.gz; then
     # Aztec private app circuits intentionally defer validation of some oracle outputs (including
     # note-read requests) to the private kernels. Noir's local underconstrained and Brillig coverage
     # checks cannot see those downstream constraints. Every other diagnostic is an error:
@@ -89,7 +89,7 @@ function compile {
       --skip-brillig-constraints-check \
       --deny-warnings
     $BB aztec_process -i $json_path
-    cache_upload contract-$contract_hash.tar.gz $json_path
+    ci3_client artifact_upload contract-$contract_hash.tar.gz $json_path
   fi
   # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh
   # compile or a cache hit.

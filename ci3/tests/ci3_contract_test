@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""HTTP contract shared by the file server and CI3_CONTRACT_SERVER (optional CI3_PASSWORD)."""
+import base64
+import gzip
+import http.client
+import json
+import os
+from pathlib import Path
+import runpy
+import tempfile
+import threading
+import unittest
+from urllib.parse import urlsplit
+import uuid
+
+
+class ContractTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.url = os.environ.get("CI3_CONTRACT_SERVER")
+        cls.password = os.environ.get("CI3_PASSWORD", "") if cls.url else ""
+        if not cls.url:
+            module = runpy.run_path(str(Path(__file__).resolve().parents[1] / "ci3_server"))
+            work = tempfile.TemporaryDirectory()
+            cls.addClassCleanup(work.cleanup)
+            server = module["Server"](("127.0.0.1", 0), module["FileBackend"](work.name), "contract", False)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            cls.addClassCleanup(server.server_close)
+            cls.addClassCleanup(server.shutdown)
+            cls.url = "http://127.0.0.1:%d" % server.server_port
+
+    def setUp(self):
+        self.key = "contract-" + uuid.uuid4().hex
+
+    def request(self, method, path, body=None, headers=None):
+        url = urlsplit(self.url)
+        conn_type = http.client.HTTPSConnection if url.scheme == "https" else http.client.HTTPConnection
+        conn = conn_type(url.hostname, url.port, timeout=10)
+        headers = dict(headers or {})
+        if self.password:
+            headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + self.password).encode()).decode()
+        try:
+            conn.request(method, url.path.rstrip("/") + path, body, headers)
+            response = conn.getresponse()
+            return response.status, dict(response.getheaders()), response.read()
+        finally:
+            conn.close()
+
+    def put(self, path, body, headers=None):
+        return self.request("PUT", path, body, headers)[0]
+
+    def test_logs_and_storage_suffixes_are_ordinary_keys(self):
+        for suffix in ("", ".json", ".jsonl", ".expires", "/.tmp-entry"):
+            key = self.key + suffix
+            self.assertEqual(self.put("/logs/" + key + "?ttl=60&final=1", b"complete\n"), 204)
+            self.assertEqual(self.request("GET", "/logs/" + key)[::2], (200, b"complete\n"))
+
+    def test_log_listing_contains_completed_path_ids(self):
+        for name in ("one.json", "two.jsonl"):
+            self.assertEqual(self.put("/logs/%s/%s?ttl=60&final=1" % (self.key, name), b"data"), 204)
+        self.assertEqual(self.request("GET", "/logs/" + self.key + "/")[::2],
+                         (200, b"one.json\ntwo.jsonl\n"))
+
+    def test_gzip_and_invalid_encoding(self):
+        self.assertEqual(self.put("/logs/" + self.key + "?ttl=60&final=1", gzip.compress(b"text"),
+                                  {"Content-Encoding": "gzip"}), 204)
+        self.assertEqual(self.request("GET", "/logs/" + self.key)[2], b"text")
+        self.assertEqual(self.put("/logs/" + self.key, b"broken", {"Content-Encoding": "gzip"}), 400)
+        self.assertEqual(self.put("/logs/" + self.key, b"text", {"Content-Encoding": "br"}), 415)
+
+    def test_kv_batch_preserves_positions_and_one_line_per_value(self):
+        self.assertEqual(self.put("/kv/" + self.key + "?ttl=60", b"first\nsecond"), 204)
+        status, _, body = self.request("POST", "/kv/mget", (self.key + "\nmissing-" + self.key + "\n").encode())
+        self.assertEqual((status, body), (200, b"first second\n\n"))
+        self.assertEqual(self.request("POST", "/kv/mget", b"../invalid\n")[0], 400)
+
+    def test_bad_arguments_leave_the_previous_value_intact(self):
+        self.assertEqual(self.put("/kv/" + self.key + "?ttl=60", b"original"), 204)
+        for ttl in ("0", "-1", "invalid", "34560001"):
+            self.assertEqual(self.put("/kv/" + self.key + "?ttl=" + ttl, b"replaced"), 400)
+        self.assertEqual(self.request("GET", "/kv/" + self.key)[2], b"original")
+
+    def test_lists_are_bounded_and_each_entry_is_one_line(self):
+        for value in (b"old", b"one\ntwo", b"new"):
+            self.assertEqual(self.request("POST", "/lists/" + self.key + "?max=2", value)[0], 204)
+        self.assertEqual(self.request("GET", "/lists/" + self.key)[2], b"new\none two\n")
+        self.assertEqual(self.request("POST", "/lists/" + self.key + "?max=0", b"bad")[0], 400)
+
+    def test_runs_validate_the_record_before_replacing_it(self):
+        path = "/runs/" + self.key + "/123"
+        record = dict(timestamp=123, status="RUNNING", msg="contract", name="test", author="test")
+        self.assertEqual(self.put(path, json.dumps(record).encode()), 204)
+        for invalid in ([], {}, dict(record, timestamp=124), dict(record, status=1)):
+            self.assertEqual(self.put(path, json.dumps(invalid).encode()), 400)
+        self.assertEqual(json.loads(self.request("GET", path)[2]), record)
+        self.assertEqual(self.put("/runs/" + self.key + "/abc", json.dumps(record).encode()), 405)
+
+    def test_resources_reject_reserved_writes_and_parent_paths(self):
+        for family in ("logs", "kv"):
+            for key in ("history_" + self.key, "failed_tests" + self.key, "ci-run-" + self.key, "%2e%2e/secret"):
+                self.assertEqual(self.put("/" + family + "/" + key, b"bad"), 400)
+
+    def test_artifact_uploads_reject_content_encoding(self):
+        self.assertEqual(self.put("/artifacts/" + self.key + ".tar.gz", b"packed",
+                                  {"Content-Encoding": "gzip"}), 415)
+
+
+if __name__ == "__main__":
+    unittest.main()

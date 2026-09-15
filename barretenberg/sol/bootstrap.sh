@@ -30,7 +30,7 @@ function build_sol {
     echo_header "barretenberg/sol building sol"
 
     local artifact=barretenberg-sol-$hash.zst
-    if ! cache_download $artifact; then
+    if ! ci3_client artifact_download $artifact; then
 
         rm -rf broadcast cache out
         forge install
@@ -40,7 +40,7 @@ function build_sol {
         forge fmt || true
         denoise "forge build"
 
-        cache_upload $artifact out
+        ci3_client artifact_upload $artifact out
     fi
 }
 

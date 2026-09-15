@@ -11,8 +11,6 @@
 
 own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
-source "$root/ci3/source_redis"
-source "$root/ci3/source_cache"
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <circuit_name> <inputs_folder> <cpus>"
@@ -77,7 +75,7 @@ function restore_cached_ultrahonk_inputs {
   cached_dir="$state_dir/ultrahonk-bench-inputs"
   rm -rf "$state_dir"
   mkdir -p "$state_dir"
-  if cache_download "$cache_name" "$state_dir" && ultrahonk_inputs_present "$cached_dir"; then
+  if ci3_client artifact_download "$cache_name" "$state_dir" && ultrahonk_inputs_present "$cached_dir"; then
     rm -rf "$dir"
     mkdir -p "$(dirname "$dir")"
     mv "$cached_dir" "$dir"
@@ -118,7 +116,7 @@ function ensure_ultrahonk_inputs {
       echo "Generating UltraHonk benchmark inputs at $abs_inputs"
       generate_ultrahonk_inputs "$abs_inputs"
       if [[ "$abs_inputs" == "$root/labs/yarn-project/end-to-end/ultrahonk-bench-inputs" ]]; then
-        (cd "$root/labs/yarn-project/end-to-end" && env -u root -u ci3 cache_upload "$cache_name" ultrahonk-bench-inputs)
+        (cd "$root/labs/yarn-project/end-to-end" && env -u root -u ci3 ci3_client artifact_upload "$cache_name" ultrahonk-bench-inputs)
       fi
     fi
 
@@ -238,7 +236,7 @@ echo "  - benchmark_breakdown.json (hierarchical timing breakdown)"
 echo "  - proof (the generated proof)"
 
 # Upload benchmark breakdown to disk if running in CI
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
+if [[ "${CI:-}" == "1" ]] && [[ -n "${CI3_SERVER:-}" ]]; then
   echo_header "Uploading UltraHonk benchmark breakdown for $circuit_name (cpus=$cpus)"
 
   if [[ -f "$output/benchmark_breakdown.json" ]]; then
@@ -249,13 +247,13 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     tmp_breakdown_file="/tmp/benchmark_breakdown_ultrahonk_${circuit_name}_cpus${cpus}_$$.json"
     cp "$output/benchmark_breakdown.json" "$tmp_breakdown_file"
 
-    # Upload to S3
+    # Stored on the ci3 server under bench/ultrahonk-breakdown (the dashboard reads it there).
     disk_key="ultrahonk-${circuit_name}-cpus${cpus}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/ultrahonk-breakdown" "$disk_key"
+      if ci3_client log_put "bench/ultrahonk-breakdown/$disk_key" < "$tmp_breakdown_file"; then
+        echo "Stored benchmark breakdown: bench/ultrahonk-breakdown/$disk_key"
+      fi
       rm -f "$tmp_breakdown_file"
     } &
-
-    echo "Uploaded benchmark breakdown to S3: bench/ultrahonk-breakdown/$disk_key"
   fi
 fi

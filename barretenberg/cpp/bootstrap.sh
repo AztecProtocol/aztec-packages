@@ -110,16 +110,16 @@ function build_preset {
   set -eu
   local preset=$1
   local build_dir=$(scripts/preset-build-dir $preset)
-  if ! cache_download barretenberg-$preset-$hash.zst; then
+  if ! ci3_client artifact_download barretenberg-$preset-$hash.zst; then
     cmake_build $preset
-    cache_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
+    ci3_client artifact_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
   fi
   inject_bb_versions $build_dir/bin
 }
 
 # Only check formatting if we're actually going to build (not cached).
 function build_format_check {
-  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+  if ! ci3_client artifact_exists barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
   fi
 }
@@ -129,7 +129,7 @@ function build_format_check {
 # This is a noop if the final artifacts exist in the cache.
 function build_native_objects {
   set -eu
-  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+  if ! ci3_client artifact_exists barretenberg-$native_preset-$hash.zst; then
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets nodejs_module
@@ -148,7 +148,7 @@ function build_cross_objects {
   target=$1
   # Of the cross targets, only arm64-linux builds bb-avm, which needs the full vm2.
   local vm2_full=$([[ "$target" == arm64-linux ]] && echo vm2 || true)
-  if ! cache_exists barretenberg-$target-$hash.zst; then
+  if ! ci3_client artifact_exists barretenberg-$target-$hash.zst; then
     cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk $vm2_full
   fi
 }
@@ -158,14 +158,14 @@ function build_cross_objects {
 # as they were useful historically, and we have sanitizers.
 function build_gcc_syntax_check_only {
   set -eu
-  if cache_download barretenberg-gcc-$hash.zst; then
+  if ci3_client artifact_download barretenberg-gcc-$hash.zst; then
     return
   fi
   cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
-  cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
+  ci3_client artifact_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
 }
 
 # Do a basic test that the amd64-windows cross-compile preset still compiles (syntax only: no
@@ -174,20 +174,20 @@ function build_gcc_syntax_check_only {
 # such as SIGPIPE that are undeclared under MinGW.
 function build_windows_syntax_check_only {
   set -eu
-  if cache_download barretenberg-windows-syntax-$hash.zst; then
+  if ci3_client artifact_download barretenberg-windows-syntax-$hash.zst; then
     return
   fi
   cmake --preset amd64-windows -DSYNTAX_ONLY=1
   cmake --build --preset amd64-windows
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-amd64-windows/syntax-check-success.flag
-  cache_upload barretenberg-windows-syntax-$hash.zst build-amd64-windows/syntax-check-success.flag
+  ci3_client artifact_upload barretenberg-windows-syntax-$hash.zst build-amd64-windows/syntax-check-success.flag
 }
 
 # Do basic tests that the fuzzing and fuzzing-avm presets still compile (does not do optimization or create object files).
 function build_fuzzing_syntax_check_only {
   set -eu
-  if cache_download barretenberg-fuzzing-$hash.zst; then
+  if ci3_client artifact_download barretenberg-fuzzing-$hash.zst; then
     return
   fi
   cmake --preset fuzzing -DSYNTAX_ONLY=1
@@ -196,13 +196,13 @@ function build_fuzzing_syntax_check_only {
   cmake --build --preset fuzzing-avm
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-fuzzing/syntax-check-success.flag
-  cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
+  ci3_client artifact_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
 # Do basic tests that the smt preset still compiles and runs
 function build_smt_verification {
   set -eu
-  if cache_download barretenberg-smt-$hash.zst; then
+  if ci3_client artifact_download barretenberg-smt-$hash.zst; then
     return
   fi
 
@@ -212,16 +212,16 @@ function build_smt_verification {
   cmake --preset smt-verification
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
-  if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
+  if ci3_client artifact_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
     # Restore machine-dependent paths after downloading cache
     find build-smt/_deps/cvc5 -type f -name "*.cmake" -exec sed -i "s|/workspace|$(pwd)|g" {} \;
   else
     cmake --build build-smt --target cvc5
-    cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
+    ci3_client artifact_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
   fi
 
   cmake --build build-smt --target smt_verification_tests
-  cache_upload barretenberg-smt-$hash.zst build-smt
+  ci3_client artifact_upload barretenberg-smt-$hash.zst build-smt
 }
 
 # Tars one finalized binary: a stripped, version-stamped copy, identical to what the npm

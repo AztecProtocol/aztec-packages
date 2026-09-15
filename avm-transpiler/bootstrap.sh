@@ -17,7 +17,7 @@ export RUSTFLAGS="-Dwarnings"
 function build_native {
   echo_header "avm-transpiler build_native"
   artifact=avm-transpiler-$hash.tar.gz
-  if ! cache_download $artifact; then
+  if ! ci3_client artifact_download $artifact; then
     # Serialize cargo/rustup operations to avoid race conditions with noir build
     # which may run in parallel and share the same RUSTUP_HOME/CARGO_HOME.
     (
@@ -28,7 +28,7 @@ function build_native {
 
     denoise "cargo fmt --check"
     denoise "cargo clippy"
-    cache_upload $artifact target/release/avm-transpiler target/release/libavm_transpiler.a
+    ci3_client artifact_upload $artifact target/release/avm-transpiler target/release/libavm_transpiler.a
   fi
 }
 
@@ -37,7 +37,7 @@ function build_cross {
   echo_header "avm-transpiler build_cross $target"
 
   cross_compile_artifact=avm-transpiler-cross-$target-$hash.tar.gz
-  if ! cache_download $cross_compile_artifact; then
+  if ! ci3_client artifact_download $cross_compile_artifact; then
     # We build libraries to be linked by barretenberg
     # For now we only use the zig build for macOS targets
 
@@ -77,7 +77,7 @@ function build_cross {
 
     cargo zigbuild --release --target "$rust_target" --lib
 
-    cache_upload $cross_compile_artifact target/$rust_target/release/libavm_transpiler.a
+    ci3_client artifact_upload $cross_compile_artifact target/$rust_target/release/libavm_transpiler.a
   fi
 }
 

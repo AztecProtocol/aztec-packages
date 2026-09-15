@@ -447,7 +447,7 @@ labs-patches-tests: labs-patched
 # scripts/labs_fnd_hashes.sh records the providers' content hashes in the submodule, which is
 # what makes the labs cache keys (builds and tests) follow this tree.
 labs-use-local: labs-patched labs-deps
-	$(call run_command,$@,$(LABS_DIR),./labs-aztec-toolchain/bootstrap.sh use-local $(ROOT) \
+	$(call run_command,$@,$(LABS_DIR),$(ROOT)/scripts/labs_env.sh ./labs-aztec-toolchain/bootstrap.sh use-local $(ROOT) \
 	  && $(ROOT)/scripts/labs_fnd_hashes.sh \
 	  && (cd yarn-project && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
 	  && (cd docs && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \

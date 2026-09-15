@@ -59,7 +59,7 @@ if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
     echo_stderr "ERROR: Noticed changes to rebuild patterns during CI run: $diff"
     exit 1
   fi
-  # Signal to cache_upload and cache_download to not touch this file.
+  # Signal to ci3_client artifact_upload and ci3_client artifact_download to not touch this file.
   echo "disabled-cache"
   exit 0
 fi
