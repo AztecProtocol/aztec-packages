@@ -6,6 +6,15 @@ import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
 import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
+import {RollupConfiguration} from "../../script/deploy/RollupConfiguration.sol";
+import {RegistryRewardOverride, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+
+contract RollupConfigurationHarness is RollupConfiguration {
+  function getRegistryRewardOverride(string memory _envName) external view returns (RegistryRewardOverride memory) {
+    return _getRegistryRewardOverride(_envName);
+  }
+}
 
 contract DeployAztecL1ContractsTest is Test {
   using stdJson for string;
@@ -61,6 +70,9 @@ contract DeployAztecL1ContractsTest is Test {
     vm.setEnv("AZTEC_PROVING_COST_PER_MANA", vm.toString(json.readUint(".AZTEC_PROVING_COST_PER_MANA")));
     vm.setEnv("AZTEC_INITIAL_ETH_PER_FEE_ASSET", vm.toString(json.readUint(".AZTEC_INITIAL_ETH_PER_FEE_ASSET")));
 
+    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_0", json.readString(".AZTEC_REGISTRY_REWARD_OVERRIDE_0"));
+    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_1", json.readString(".AZTEC_REGISTRY_REWARD_OVERRIDE_1"));
+
     // Slashing config
     vm.setEnv("AZTEC_SLASHER_ENABLED", vm.toString(json.readBool(".AZTEC_SLASHER_ENABLED")));
     vm.setEnv("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", vm.toString(json.readUint(".AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS")));
@@ -81,5 +93,34 @@ contract DeployAztecL1ContractsTest is Test {
   function test_SmokeTest() public {
     DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
     deployScript.run();
+  }
+
+  function test_RegistryRewardOverridesConfiguration() public {
+    address registry0 = makeAddr("registry0");
+    address registry1 = makeAddr("registry1");
+    uint256 sequencerReward0 = 10e18;
+    uint256 sequencerReward1 = 20e18;
+
+    vm.setEnv(
+      "AZTEC_REGISTRY_REWARD_OVERRIDE_0", string.concat(vm.toString(registry0), ",", vm.toString(sequencerReward0))
+    );
+    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_1", string.concat(vm.toString(registry1), ",0x1158e460913d00000"));
+
+    RollupConfigInput memory config =
+      new RollupConfiguration().getRollupConfiguration(IRewardDistributor(makeAddr("rewardDistributor")));
+
+    assertEq(config.registryRewardOverrides[0].registry, registry0);
+    assertEq(config.registryRewardOverrides[0].sequencerReward, sequencerReward0);
+    assertEq(config.registryRewardOverrides[1].registry, registry1);
+    assertEq(config.registryRewardOverrides[1].sequencerReward, sequencerReward1);
+  }
+
+  function test_RevertWhenRegistryRewardOverrideIsMalformed() public {
+    string memory envName = "TEST_MALFORMED_REGISTRY_REWARD_OVERRIDE";
+    vm.setEnv(envName, vm.toString(makeAddr("registry")));
+    RollupConfigurationHarness configuration = new RollupConfigurationHarness();
+
+    vm.expectRevert("Invalid registry reward override");
+    configuration.getRegistryRewardOverride(envName);
   }
 }

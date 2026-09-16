@@ -15,7 +15,12 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {
+  RewardConfig,
+  MutableRewardConfig,
+  RegistryRewardOverride,
+  MAX_REGISTRY_REWARD_OVERRIDES
+} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -116,6 +121,7 @@ struct RollupConfigInput {
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
   uint256 ethereumSlotDuration;
+  RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] registryRewardOverrides;
 }
 
 /**
@@ -291,4 +297,8 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function getRewardConfig() external view returns (RewardConfig memory);
   function getCheckpointReward() external view returns (uint256);
+  function getRegistryRewardOverrides()
+    external
+    view
+    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory);
 }

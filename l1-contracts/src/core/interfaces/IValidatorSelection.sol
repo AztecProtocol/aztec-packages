@@ -7,6 +7,8 @@ import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
+uint256 constant MAXIMUM_COMMITTEE_SIZE = 256;
+
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
