@@ -236,6 +236,45 @@ index ebde5f89463df3699ff203aca7cb6d8d12e86258..8d1aeb5507dba7c016354f1a28db8e52
          prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
          genesisTimestamp: 0n,
        });
+diff --git a/yarn-project/protocol-contracts/src/genesis_data.test.ts b/yarn-project/protocol-contracts/src/genesis_data.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5535992ed215092038556d418bc8f5a8af04f68d
+--- /dev/null
++++ b/yarn-project/protocol-contracts/src/genesis_data.test.ts
+@@ -0,0 +1,33 @@
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { getContractClassFromArtifact } from '@aztec-labs/stdlib/contract';
++import { siloNullifier } from '@aztec-labs/stdlib/hash';
++
++import { DEFAULT_GENESIS_DATA } from './genesis_data.js';
++import { ProtocolContractAddress, protocolContractNames } from './protocol_contract_data.js';
++import { ProtocolContractArtifact } from './provider/bundle.js';
++
++describe('DEFAULT_GENESIS_DATA', () => {
++  // Recomputed from the bundled artifacts rather than read back from the generator's output, so that an artifact or
++  // compiler change that rotates a protocol class id fails here instead of silently moving the genesis roots.
++  it('seeds exactly the registration nullifiers the bundled protocol artifacts imply', async () => {
++    const expected: Fr[] = [];
++    for (const name of protocolContractNames) {
++      const { id: classId } = await getContractClassFromArtifact(ProtocolContractArtifact[name]);
++      expected.push(await siloNullifier(ProtocolContractAddress.ContractClassRegistry, classId));
++      expected.push(
++        await siloNullifier(ProtocolContractAddress.ContractInstanceRegistry, ProtocolContractAddress[name].toField()),
++      );
++    }
++    expected.sort((a, b) => (a.toBigInt() < b.toBigInt() ? -1 : 1));
++
++    expect(DEFAULT_GENESIS_DATA.prefilledNullifiers.map(n => n.toString())).toEqual(expected.map(n => n.toString()));
++  });
++
++  it('is strictly increasing, as the indexed nullifier tree requires', () => {
++    const nullifiers = DEFAULT_GENESIS_DATA.prefilledNullifiers;
++    expect(nullifiers.length).toBeGreaterThan(0);
++    for (let i = 1; i < nullifiers.length; i++) {
++      expect(nullifiers[i - 1].toBigInt() < nullifiers[i].toBigInt()).toBe(true);
++    }
++  });
++});
 diff --git a/yarn-project/protocol-contracts/src/genesis_data.ts b/yarn-project/protocol-contracts/src/genesis_data.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..ebaf09433576bc298b0c8ab3869dc6f23b3a919b
