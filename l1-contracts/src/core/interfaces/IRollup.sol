@@ -297,4 +297,8 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function getRewardConfig() external view returns (RewardConfig memory);
   function getCheckpointReward() external view returns (uint256);
+  function getRegistryRewardOverrides()
+    external
+    view
+    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory);
 }

@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {RollupCore} from "@aztec/core/RollupCore.sol";
 import {
   GenesisState,
+  IRollup,
   RollupConfigInput,
   RegistryRewardOverride,
   MAX_REGISTRY_REWARD_OVERRIDES
@@ -72,6 +73,29 @@ contract RegistryRewardOverridesTest is Test {
     config.registryRewardOverrides[1] = genesisOverride;
 
     RegistryRewardOverridesRollupHarness rollup = _deploy(config);
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory actual = rollup.getRegistryRewardOverrides();
+
+    assertEq(actual[0].registry, saleOverride.registry);
+    assertEq(actual[0].sequencerReward, saleOverride.sequencerReward);
+    assertEq(actual[1].registry, genesisOverride.registry);
+    assertEq(actual[1].sequencerReward, genesisOverride.sequencerReward);
+  }
+
+  function test_rollupExposesConfiguredRegistryRewardOverrides() external {
+    RegistryRewardOverride memory saleOverride =
+      RegistryRewardOverride({registry: makeAddr("saleRegistry"), sequencerReward: 10e18});
+    RegistryRewardOverride memory genesisOverride =
+      RegistryRewardOverride({registry: makeAddr("genesisRegistry"), sequencerReward: 0});
+
+    RollupConfigInput memory config = builder.getConfig().rollupConfigInput;
+    config.registryRewardOverrides[0] = saleOverride;
+    config.registryRewardOverrides[1] = genesisOverride;
+
+    RollupBuilder rollupBuilder = new RollupBuilder(address(this));
+    rollupBuilder.setRollupConfigInput(config);
+    rollupBuilder.deploy();
+
+    IRollup rollup = IRollup(address(rollupBuilder.getConfig().rollup));
     RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory actual = rollup.getRegistryRewardOverrides();
 
     assertEq(actual[0].registry, saleOverride.registry);
