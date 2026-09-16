@@ -25,15 +25,15 @@ import {
   Exit,
   AttesterView,
   Status,
-  ProviderExitLimitState
+  AttesterExitLimitState
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {TempCheckpointLog, CheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeAssetValue, PriceLib} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {AttesterExitExtLib} from "@aztec/core/libraries/rollup/AttesterExitExtLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {ProviderExitExtLib} from "@aztec/core/libraries/rollup/ProviderExitExtLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -258,12 +258,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().gse.ACTIVATION_THRESHOLD();
   }
 
-  function getProviderExitWindow() external view override(IStaking) returns (Timestamp) {
-    return ProviderExitExtLib.getProviderExitWindow();
+  function getAttesterExitWindow() external view override(IStaking) returns (Timestamp) {
+    return AttesterExitExtLib.getAttesterExitWindow();
   }
 
-  function getProviderExitLimitState() external view override(IStaking) returns (ProviderExitLimitState memory) {
-    return ProviderExitExtLib.getProviderExitLimitState();
+  function getAttesterExitLimitState() external view override(IStaking) returns (AttesterExitLimitState memory) {
+    return AttesterExitExtLib.getAttesterExitLimitState();
   }
 
   function getExitDelay() external view override(IStaking) returns (Timestamp) {

@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
-import {IStaking, IStakingCore, Exit, Status, ProviderExitLimitState} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking, IStakingCore, Exit, Status, AttesterExitLimitState} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
@@ -15,7 +15,7 @@ import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
 import {Configuration, Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors as GovernanceErrors} from "@aztec/governance/libraries/Errors.sol";
 
-contract InitiateProviderExitTest is StakingBase {
+contract InitiateWithdrawByAttesterTest is StakingBase {
   uint256 internal constant POOL_SIZE = 101;
 
   GSE internal gse;
@@ -68,7 +68,7 @@ contract InitiateProviderExitTest is StakingBase {
   function _exit(uint256 _index) internal {
     address attester = _attester(_index);
     vm.prank(attester);
-    staking.initiateProviderExit(attester);
+    staking.initiateWithdrawByAttester(attester);
   }
 
   function _finalizableAt(address _attesterAddress) internal view returns (uint256) {
@@ -101,7 +101,7 @@ contract InitiateProviderExitTest is StakingBase {
     builder.setRollupConfigInput(config).deploy();
     nextRollup = IStaking(address(builder.getConfig().rollup));
 
-    ProviderExitLimitState memory initialState = nextRollup.getProviderExitLimitState();
+    AttesterExitLimitState memory initialState = nextRollup.getAttesterExitLimitState();
     assertEq(initialState.validatorCount, 0);
     assertEq(initialState.used, 0);
     assertEq(initialState.allowance, 0);
@@ -113,7 +113,7 @@ contract InitiateProviderExitTest is StakingBase {
     gse.addRollup(address(nextRollup));
   }
 
-  function test_ProviderExitRemovesPosition(bool _bonus) external {
+  function test_AttesterExitRemovesPosition(bool _bonus) external {
     // The attesters differ only in whether they move with the latest rollup
     uint256 index = _bonus ? 0 : 1;
     address attester = _attester(index);
@@ -124,7 +124,7 @@ contract InitiateProviderExitTest is StakingBase {
     Timestamp expectedLocalUnlock = Timestamp.wrap(block.timestamp) + staking.getExitDelay();
 
     vm.expectEmit(true, true, false, true, address(staking));
-    emit IStakingCore.ProviderExitInitiated(attester, WITHDRAWER, ACTIVATION_THRESHOLD, withdrawalId);
+    emit IStakingCore.WithdrawInitiatedByAttester(attester, WITHDRAWER, ACTIVATION_THRESHOLD, withdrawalId);
 
     _exit(index);
 
@@ -155,7 +155,7 @@ contract InitiateProviderExitTest is StakingBase {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotAttester.selector, ATTESTER, _caller));
     vm.prank(_caller);
-    staking.initiateProviderExit(ATTESTER);
+    staking.initiateWithdrawByAttester(ATTESTER);
 
     assertFalse(staking.getExit(ATTESTER).exists);
     assertEq(staking.getActiveAttesterCount(), POOL_SIZE);
@@ -166,7 +166,7 @@ contract InitiateProviderExitTest is StakingBase {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NothingToExit.selector, unknownAttester));
     vm.prank(unknownAttester);
-    staking.initiateProviderExit(unknownAttester);
+    staking.initiateWithdrawByAttester(unknownAttester);
 
     assertEq(staking.getActiveAttesterCount(), POOL_SIZE);
   }
@@ -196,7 +196,7 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), 97);
     uint256 withdrawalCount = gov.withdrawalCount();
     // Since we are at 97 active attesters, allowance goes down to floor(97/20) = 4
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     _exit(4);
 
     assertEq(staking.getActiveAttesterCount(), 97);
@@ -205,7 +205,7 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(gse.effectiveBalanceOf(address(staking), _attester(4)), ACTIVATION_THRESHOLD);
   }
 
-  function test_ProviderExitCannotReducePoolBelowCommitteeSize() external {
+  function test_AttesterExitCannotReducePoolBelowCommitteeSize() external {
     for (uint256 i = 0; i < 52; i++) {
       vm.prank(WITHDRAWER);
       staking.initiateWithdraw(_attester(i), RECIPIENT);
@@ -216,14 +216,14 @@ contract InitiateProviderExitTest is StakingBase {
     _exit(52);
     assertEq(staking.getActiveAttesterCount(), 48);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitPoolTooSmall.selector, uint256(48), uint256(48)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitPoolTooSmall.selector, uint256(48), uint256(48)));
     _exit(53);
 
     assertEq(staking.getActiveAttesterCount(), 48);
     assertFalse(staking.getExit(_attester(53)).exists);
   }
 
-  function test_GovernanceFailureRollsBackProviderExit() external {
+  function test_GovernanceFailureRollsBackAttesterExit() external {
     uint256 withdrawalCount = gov.withdrawalCount();
 
     vm.mockCallRevert(
@@ -249,7 +249,7 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), 97);
   }
 
-  function test_GSEFailureRollsBackProviderExit() external {
+  function test_GSEFailureRollsBackAttesterExit() external {
     uint256 withdrawalCount = gov.withdrawalCount();
 
     vm.mockCall(
@@ -275,12 +275,12 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), 97);
   }
 
-  function test_NonCanonicalRollupCannotInitiateProviderExit() external {
+  function test_NonCanonicalRollupCannotInitiateWithdrawByAttester() external {
     vm.mockCall(
       address(registry), abi.encodeWithSelector(IRegistry.getCanonicalRollup.selector), abi.encode(address(0xBEEF))
     );
 
-    ProviderExitLimitState memory state = staking.getProviderExitLimitState();
+    AttesterExitLimitState memory state = staking.getAttesterExitLimitState();
     assertEq(state.validatorCount, POOL_SIZE);
     assertEq(state.used, 0);
     assertEq(state.allowance, 5);
@@ -293,7 +293,7 @@ contract InitiateProviderExitTest is StakingBase {
     assertFalse(staking.getExit(ATTESTER).exists);
   }
 
-  function test_CanonicalButNotLatestRollupCannotInitiateProviderExit() external {
+  function test_CanonicalButNotLatestRollupCannotInitiateWithdrawByAttester() external {
     address nextRollup = address(0xDEADBEEF);
     address gseOwner = gse.owner();
 
@@ -301,7 +301,7 @@ contract InitiateProviderExitTest is StakingBase {
     gse.addRollup(nextRollup);
 
     uint256 countBefore = staking.getActiveAttesterCount();
-    ProviderExitLimitState memory state = staking.getProviderExitLimitState();
+    AttesterExitLimitState memory state = staking.getAttesterExitLimitState();
     assertEq(state.validatorCount, 50);
     assertEq(state.used, 0);
     assertEq(state.allowance, 2);
@@ -448,7 +448,7 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(stakingAsset.balanceOf(RECIPIENT), recipientBalance + exit.amount);
   }
 
-  function test_SlashingReducesProviderExitPayout(bool _recipientAlreadySelected) external {
+  function test_SlashingReducesAttesterExitPayout(bool _recipientAlreadySelected) external {
     _exit(0);
 
     if (_recipientAlreadySelected) {
@@ -504,7 +504,7 @@ contract InitiateProviderExitTest is StakingBase {
       _exit(i);
     }
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     _exit(4);
 
     address attester = _attester(4);
@@ -572,7 +572,7 @@ contract InitiateProviderExitTest is StakingBase {
       _exit(i);
     }
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     _exit(4);
 
     Exit memory expected = staking.getExit(ATTESTER);
@@ -585,7 +585,7 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(abi.encode(selected), abi.encode(expected));
     assertEq(gov.withdrawalCount(), withdrawalCount);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     _exit(4);
   }
 
@@ -594,7 +594,7 @@ contract InitiateProviderExitTest is StakingBase {
       _exit(i);
     }
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     _exit(4);
 
     address attester = _attester(4);
@@ -606,19 +606,19 @@ contract InitiateProviderExitTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), POOL_SIZE - 5);
     assertFalse(staking.getExit(attester).exists);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     _exit(5);
   }
 
-  function test_ProviderExitLimitState() external {
+  function test_AttesterExitLimitState() external {
     Configuration memory config = gov.getConfiguration();
     Timestamp expectedWindow = Timestamp.wrap(
       Timestamp.unwrap(config.votingDelay) / 5 + Timestamp.unwrap(config.votingDuration)
         + Timestamp.unwrap(config.executionDelay)
     );
-    ProviderExitLimitState memory state = staking.getProviderExitLimitState();
+    AttesterExitLimitState memory state = staking.getAttesterExitLimitState();
     assertEq(state.window, expectedWindow);
-    assertEq(staking.getProviderExitWindow(), expectedWindow);
+    assertEq(staking.getAttesterExitWindow(), expectedWindow);
     assertEq(state.validatorCount, POOL_SIZE);
     assertEq(state.committeeSize, 48);
     assertEq(state.used, 0);
@@ -628,47 +628,47 @@ contract InitiateProviderExitTest is StakingBase {
     for (uint256 i = 0; i < 4; i++) {
       _exit(i);
     }
-    state = staking.getProviderExitLimitState();
+    state = staking.getAttesterExitLimitState();
     assertEq(state.validatorCount, 97);
     assertEq(state.used, 4);
     assertEq(state.allowance, 4);
     assertFalse(state.canExit);
   }
 
-  function test_ProviderExitLimitStateAtWindowExpiry() external {
+  function test_AttesterExitLimitStateAtWindowExpiry() external {
     for (uint256 i = 0; i < 4; i++) {
       _exit(i);
     }
-    uint256 expiresAt = block.timestamp + Timestamp.unwrap(staking.getProviderExitWindow());
+    uint256 expiresAt = block.timestamp + Timestamp.unwrap(staking.getAttesterExitWindow());
     vm.warp(expiresAt - 1);
-    ProviderExitLimitState memory state = staking.getProviderExitLimitState();
+    AttesterExitLimitState memory state = staking.getAttesterExitLimitState();
     assertEq(state.used, 4);
     assertFalse(state.canExit);
 
     vm.warp(expiresAt);
-    state = staking.getProviderExitLimitState();
+    state = staking.getAttesterExitLimitState();
     assertEq(state.used, 0);
     assertEq(state.validatorCount, 97);
     assertEq(state.allowance, 4);
     assertTrue(state.canExit);
 
     _exit(4);
-    state = staking.getProviderExitLimitState();
+    state = staking.getAttesterExitLimitState();
     assertEq(state.used, 1);
     assertEq(state.validatorCount, 96);
     assertTrue(state.canExit);
   }
 
-  function test_ProviderExitLimitStateTracksGovernanceWindow() external {
+  function test_AttesterExitLimitStateTracksGovernanceWindow() external {
     for (uint256 i = 0; i < 4; i++) {
       _exit(i);
     }
     Exit memory originalExit = staking.getExit(ATTESTER);
     Configuration memory originalConfig = gov.getConfiguration();
-    Timestamp originalWindow = staking.getProviderExitWindow();
+    Timestamp originalWindow = staking.getAttesterExitWindow();
     vm.warp(block.timestamp + Timestamp.unwrap(originalWindow));
 
-    ProviderExitLimitState memory state = staking.getProviderExitLimitState();
+    AttesterExitLimitState memory state = staking.getAttesterExitLimitState();
     assertEq(state.used, 0);
     assertTrue(state.canExit);
 
@@ -677,29 +677,29 @@ contract InitiateProviderExitTest is StakingBase {
     vm.prank(address(gov));
     gov.updateConfiguration(longerConfig);
 
-    state = staking.getProviderExitLimitState();
+    state = staking.getAttesterExitLimitState();
     assertEq(state.window, Timestamp.wrap(Timestamp.unwrap(originalWindow) + 1 days));
-    assertEq(staking.getProviderExitWindow(), state.window);
+    assertEq(staking.getAttesterExitWindow(), state.window);
     assertEq(state.used, 4);
     assertFalse(state.canExit);
 
     vm.prank(address(gov));
     gov.updateConfiguration(originalConfig);
-    state = staking.getProviderExitLimitState();
+    state = staking.getAttesterExitLimitState();
     assertEq(state.window, originalWindow);
-    assertEq(staking.getProviderExitWindow(), originalWindow);
+    assertEq(staking.getAttesterExitWindow(), originalWindow);
     assertEq(state.used, 0);
     assertTrue(state.canExit);
     assertEq(abi.encode(staking.getExit(ATTESTER)), abi.encode(originalExit));
   }
 
-  function test_UpgradeStartsWithEmptyProviderExitHistory() external {
+  function test_UpgradeStartsWithEmptyAttesterExitHistory() external {
     for (uint256 i = 0; i < 4; i++) {
       _exit(i);
     }
     IStaking nextRollup = _activateNewRollup();
-    ProviderExitLimitState memory oldState = staking.getProviderExitLimitState();
-    ProviderExitLimitState memory newState = nextRollup.getProviderExitLimitState();
+    AttesterExitLimitState memory oldState = staking.getAttesterExitLimitState();
+    AttesterExitLimitState memory newState = nextRollup.getAttesterExitLimitState();
     assertEq(oldState.validatorCount, 48);
     assertEq(oldState.used, 4);
     assertFalse(oldState.canExit);
@@ -711,21 +711,21 @@ contract InitiateProviderExitTest is StakingBase {
 
     address attester = _attester(4);
     vm.prank(attester);
-    nextRollup.initiateProviderExit(attester);
-    newState = nextRollup.getProviderExitLimitState();
+    nextRollup.initiateWithdrawByAttester(attester);
+    newState = nextRollup.getAttesterExitLimitState();
     assertEq(newState.validatorCount, 48);
     assertEq(newState.used, 1);
     assertFalse(newState.canExit);
-    oldState = staking.getProviderExitLimitState();
+    oldState = staking.getAttesterExitLimitState();
     assertEq(oldState.used, 4);
 
     address nextAttester = _attester(6);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitPoolTooSmall.selector, uint256(48), uint256(48)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitPoolTooSmall.selector, uint256(48), uint256(48)));
     vm.prank(nextAttester);
-    nextRollup.initiateProviderExit(nextAttester);
+    nextRollup.initiateWithdrawByAttester(nextAttester);
   }
 
-  function test_UpgradePreservesPendingProviderWithdrawal() external {
+  function test_UpgradePreservesPendingAttesterWithdrawal() external {
     _exit(0);
     Exit memory originalExit = staking.getExit(ATTESTER);
     Withdrawal memory originalWithdrawal = gov.getWithdrawal(originalExit.withdrawalId);

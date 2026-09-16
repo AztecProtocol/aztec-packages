@@ -24,11 +24,11 @@ import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperati
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {SlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/SlasherDeploymentExtLib.sol";
 import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {AttesterExitExtLib} from "@aztec/core/libraries/rollup/AttesterExitExtLib.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
-import {ProviderExitExtLib} from "@aztec/core/libraries/rollup/ProviderExitExtLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox, INBOX_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -491,12 +491,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Initiates withdrawal of a validator's stake by the provider
+   * @notice Initiates withdrawal of a validator's stake by the attester
    * @dev The registered withdrawer retains control of the payout recipient.
    * @param _attester The validator position to exit.
    */
-  function initiateProviderExit(address _attester) external override(IStakingCore) {
-    ProviderExitExtLib.initiateProviderExit(_attester);
+  function initiateWithdrawByAttester(address _attester) external override(IStakingCore) {
+    AttesterExitExtLib.initiateWithdrawByAttester(_attester);
   }
 
   /**

@@ -13,7 +13,7 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
-contract ProviderExitUsageHarness {
+contract AttesterExitUsageHarness {
   using CheckpointedUintLib for Checkpoints.Trace224;
 
   constructor(GSE _gse) {
@@ -21,15 +21,15 @@ contract ProviderExitUsageHarness {
   }
 
   function recordExit() external {
-    StakingLib.getStorage().providerExitHistory.add(1);
+    StakingLib.getStorage().attesterExitHistory.add(1);
   }
 
   function getWindow() external view returns (Timestamp) {
-    return StakingLib.getProviderExitWindow();
+    return StakingLib.getAttesterExitWindow();
   }
 
   function getUsage() external view returns (uint256) {
-    return StakingLib.getProviderExitUsage();
+    return StakingLib.getAttesterExitUsage();
   }
 
   function setCommitteeSize(uint32 _committeeSize) external {
@@ -37,12 +37,12 @@ contract ProviderExitUsageHarness {
   }
 
   function consumeExitAllowance() external {
-    StakingLib.consumeProviderExitAllowance();
+    StakingLib.consumeAttesterExitAllowance();
   }
 }
 
-contract ProviderExitUsageTest is GovernanceBase {
-  ProviderExitUsageHarness internal harness;
+contract AttesterExitUsageTest is GovernanceBase {
+  AttesterExitUsageHarness internal harness;
 
   uint256 internal constant START = 1000;
 
@@ -75,7 +75,7 @@ contract ProviderExitUsageTest is GovernanceBase {
     );
     gse.setGovernance(governance);
 
-    harness = new ProviderExitUsageHarness(gse);
+    harness = new AttesterExitUsageHarness(gse);
   }
 
   /// @notice Set the validator count and committee size
@@ -207,7 +207,7 @@ contract ProviderExitUsageTest is GovernanceBase {
 
     _setPool(99, BASIC_COMMITTEE_SIZE);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(4), uint256(4)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(4), uint256(4)));
     harness.consumeExitAllowance();
 
     assertEq(harness.getUsage(), 4);
@@ -224,7 +224,7 @@ contract ProviderExitUsageTest is GovernanceBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__ProviderExitPoolTooSmall.selector, uint256(BASIC_COMMITTEE_SIZE), uint256(BASIC_COMMITTEE_SIZE)
+        Errors.Staking__AttesterExitPoolTooSmall.selector, uint256(BASIC_COMMITTEE_SIZE), uint256(BASIC_COMMITTEE_SIZE)
       )
     );
     harness.consumeExitAllowance();
@@ -241,7 +241,7 @@ contract ProviderExitUsageTest is GovernanceBase {
   function test_ZeroRoundedEdgecase() external {
     _setPool(20, 1);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(0), uint256(0)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(0), uint256(0)));
     harness.consumeExitAllowance();
 
     assertEq(harness.getUsage(), 0);
@@ -253,7 +253,7 @@ contract ProviderExitUsageTest is GovernanceBase {
     harness.recordExit();
     harness.recordExit();
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__ProviderExitLimitExceeded.selector, uint256(2), uint256(2)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AttesterExitLimitExceeded.selector, uint256(2), uint256(2)));
     harness.consumeExitAllowance();
 
     vm.warp(START + WINDOW);
@@ -268,7 +268,7 @@ contract ProviderExitUsageTest is GovernanceBase {
     _setPool(0, BASIC_COMMITTEE_SIZE);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__ProviderExitPoolTooSmall.selector, uint256(0), uint256(BASIC_COMMITTEE_SIZE)
+        Errors.Staking__AttesterExitPoolTooSmall.selector, uint256(0), uint256(BASIC_COMMITTEE_SIZE)
       )
     );
     harness.consumeExitAllowance();
