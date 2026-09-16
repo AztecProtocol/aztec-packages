@@ -88,16 +88,25 @@ export function traceShape(flavor: Flavor): { name: string; kinds: string[] }[] 
 // Builder databus columns this flavor constrains, as indices into the builder's bus vectors
 // (kernel_calldata=0, first..fifth_app_calldata=1..5, return_data=6). The databus is part of the
 // arithmetization a builder targets, so it belongs to the trace type alongside the blocks.
-export function builderBusIndices(flavor: Flavor): number[] {
+export function builderBusIndices(flavor: Pick<Flavor, "name" | "relations">): number[] {
     const SELECTOR_TO_BUS_INDEX = new Map<string, number>([
         ["q_l", 0], ["q_r", 1], ["q_o", 2], ["q_4", 3], ["q_5", 4], ["q_c", 5], ["q_m", 6],
     ]);
     const selectors: string[] = [];
     for (const r of flavor.relations) {
-        for (const sel of r.subsets["databus_selectors"] ?? []) {
-            if (!selectors.includes(sel)) {
-                selectors.push(sel);
+        const members = r.subsets["databus_selectors"] ?? [];
+        if (r.id.startsWith("single_bus_lookup_")) {
+            if (members.length !== 1) {
+                throw new Error(`${flavor.name}: ${r.id} must declare exactly one databus selector`);
             }
+        } else if (members.length !== 0) {
+            throw new Error(`${flavor.name}: ${r.id} declares databus selectors without a single-bus relation`);
+        }
+        for (const sel of members) {
+            if (selectors.includes(sel)) {
+                throw new Error(`${flavor.name}: duplicate databus selector '${sel}'`);
+            }
+            selectors.push(sel);
         }
     }
     return selectors.map((sel) => {

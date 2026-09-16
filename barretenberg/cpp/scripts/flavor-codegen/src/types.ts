@@ -33,6 +33,8 @@ export interface Relation {
     // polynomial (e.g. ArithmeticRelation → "arithmetic"). Aggregated per flavor into
     // `get_gate_blocks()`.
     readonly gateBlockName?: string;
+    // Selectors consumed here but declared by another relation to preserve entity ordering.
+    readonly requiredNonGateSelectors: readonly EntityName[];
 }
 
 // Layout is derived: kind-bucketed (masking → precomputed → witness) per-relation walk; subsets

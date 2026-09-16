@@ -14,6 +14,32 @@
 
 using namespace bb;
 
+namespace {
+struct NonZKBoundaryFlavor : MegaZKFlavor {
+    static constexpr bool HasZK = false;
+};
+
+// AvmFlavor holds its relations in a flat_tuple::tuple rather than a std::tuple.
+template <typename Relations> struct AsFlatTuple;
+template <typename... Rs> struct AsFlatTuple<std::tuple<Rs...>> {
+    using type = flat_tuple::tuple<Rs...>;
+};
+struct FlatTupleZKBoundaryFlavor : MegaZKFlavor {
+    using Relations = AsFlatTuple<MegaZKFlavor::Relations>::type;
+};
+struct FlatTupleNonZKBoundaryFlavor : NonZKBoundaryFlavor {
+    using Relations = AsFlatTuple<MegaZKFlavor::Relations>::type;
+};
+
+static_assert(offset_relations_compatible<UltraFlavor>());
+static_assert(offset_relations_compatible<UltraZKFlavor>());
+static_assert(offset_relations_compatible<MegaFlavor>());
+static_assert(offset_relations_compatible<MegaZKFlavor>());
+static_assert(!offset_relations_compatible<NonZKBoundaryFlavor>());
+static_assert(offset_relations_compatible<FlatTupleZKBoundaryFlavor>());
+static_assert(!offset_relations_compatible<FlatTupleNonZKBoundaryFlavor>());
+} // namespace
+
 /**
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
  *
