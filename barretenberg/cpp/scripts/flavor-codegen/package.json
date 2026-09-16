@@ -6,6 +6,7 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
+    "test": "tsc && node --test dist/*.test.js",
     "build": "tsc",
     "regenerate": "node dist/main.js",
     "regenerate:dev": "tsc && node dist/main.js"

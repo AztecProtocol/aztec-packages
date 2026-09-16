@@ -11,7 +11,6 @@ import { relation } from "../relation.js";
 // relation is added to the Mega flavors only — the ACIR frontend lowers the same opcodes to standard
 // arithmetic gates for Ultra. Shares the existing `arithmetic` trace block — q_arith and q_bilinear_batched_eq
 // are mutually exclusive per row by construction.
-// Note: q_5 is not committed here, it's commited by the Poseidon relation to maintain ordering of the selectors
 export const BilinearOrBatchedEqCheckRelation = relation({
   id: "bilinear_batched_eq",
   cppName: "bb::BilinearOrBatchedEqCheckRelation",
@@ -30,5 +29,6 @@ export const BilinearOrBatchedEqCheckRelation = relation({
     { name: "q_bilinear_batched_eq", kind: "precomputed" },
   ],
   gateBlockName: "arithmetic",
+  requiredNonGateSelectors: ["q_5"],
   subsets: { gate_selectors: ["q_bilinear_batched_eq"] },
 });

@@ -1,4 +1,5 @@
 import type { Flavor, Relation } from "./types.js";
+import { builderBusIndices } from "./trace.js";
 
 interface FlavorInput {
     name: string;
@@ -13,6 +14,9 @@ interface FlavorInput {
 }
 
 export function flavor(input: FlavorInput): Flavor {
+    validateSelectorClassification(input);
+    // Called for its validation errors; the result is unused.
+    builderBusIndices(input);
     const composites: Record<string, readonly string[]> = {};
     for (const [name, parts] of Object.entries(input.composites ?? {})) {
         composites[name] = Object.freeze([...parts]);
@@ -26,6 +30,33 @@ export function flavor(input: FlavorInput): Flavor {
         composites: Object.freeze(composites),
         arithmetization: input.arithmetization,
     };
+}
+
+function validateSelectorClassification(input: FlavorInput): void {
+    const gateSelectors = new Set(input.relations.flatMap((r) => r.subsets.gate_selectors ?? []));
+    const nonGateSelectors = new Set(input.relations.flatMap((r) => r.subsets.non_gate_selectors ?? []));
+
+    // Builder selector columns use the q_ prefix; other precomputed columns are populated separately.
+    const declaredSelectors = new Set(
+        input.relations.flatMap((r) =>
+            r.entities
+                .filter((entity) => entity.kind === "precomputed" && entity.name.startsWith("q_"))
+                .map((entity) => entity.name)
+        )
+    );
+    for (const name of declaredSelectors) {
+        if (!gateSelectors.has(name) && !nonGateSelectors.has(name)) {
+            throw new Error(`${input.name}: selector '${name}' is in neither gate_selectors nor non_gate_selectors`);
+        }
+    }
+
+    for (const r of input.relations) {
+        for (const name of r.requiredNonGateSelectors) {
+            if (!nonGateSelectors.has(name)) {
+                throw new Error(`${input.name}: ${r.id} requires '${name}' in non_gate_selectors`);
+            }
+        }
+    }
 }
 
 // Snake_case → TitleCase + "CircuitBuilder"; override `builderName` when the arithmetization's
