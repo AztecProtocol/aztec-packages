@@ -1,0 +1,122 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Thu, 17 Sep 2026 14:37:34 -0300
+Subject: [PATCH] feat(world-state): expose the canonical genesis measurement
+
+`measureCanonicalGenesis` returns the seeded nullifiers, the genesis
+nullifier-tree root, the block-header hash and the archive root from one
+ephemeral world state, so the foundation's regeneration script and the
+`compute-genesis-values` CLI read the same numbers rather than each
+deriving their own.
+
+The l2_block genesis test now reads GENESIS_NULLIFIER_TREE_ROOT from the
+generated constants instead of repeating the literal, so a regeneration
+no longer has to reach into the patch series to update it.
+
+diff --git a/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts b/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts
+index 10da6b1a717c14ab30ce6e721259d67d61a176c2..f6ca0913d128ffaa4e7cb7c29b14bfd0a3ea4a0c 100644
+--- a/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts
++++ b/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts
+@@ -1,16 +1,23 @@
+ import { getInitialTestAccountsData } from '@aztec-labs/accounts/testing';
+ import type { LogFn } from '@aztec-labs/foundation/log';
+ import { protocolContractsHash } from '@aztec-labs/protocol-contracts';
+-import { getGenesisValues } from '@aztec-labs/world-state/testing';
++import { getGenesisValues, measureCanonicalGenesis } from '@aztec-labs/world-state/testing';
+ 
+ import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
+ 
+-/** Computes and prints genesis values needed for L1 contract deployment. */
++/**
++ * Computes and prints genesis values needed for L1 contract deployment.
++ *
++ * `genesisArchiveRoot` is this deployment's root, which depends on the accounts it prefunds. The `canonical` block is
++ * the prefunding-free genesis that the `GENESIS_*` protocol constants record, and is what
++ * `noir-projects/fnd/scripts/regenerate_genesis_constants.sh` reads to refresh them.
++ */
+ export async function computeGenesisValuesCmd(testAccounts: boolean, sponsoredFPC: boolean, log: LogFn) {
+   const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
+   const sponsoredFPCAddresses = sponsoredFPC ? await getSponsoredFPCAddress() : [];
+   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddresses);
+   const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
++  const canonical = await measureCanonicalGenesis();
+ 
+   const { getVKTreeRoot } = await import('@aztec-labs/noir-protocol-circuits-types/vk-tree');
+   const vkTreeRoot = getVKTreeRoot();
+@@ -21,6 +28,12 @@ export async function computeGenesisValuesCmd(testAccounts: boolean, sponsoredFP
+         vkTreeRoot: vkTreeRoot.toString(),
+         protocolContractsHash: protocolContractsHash.toString(),
+         genesisArchiveRoot: genesisArchiveRoot.toString(),
++        canonical: {
++          prefilledNullifiers: canonical.prefilledNullifiers.map(n => n.toString()),
++          nullifierTreeRoot: canonical.nullifierTreeRoot.toString(),
++          blockHeaderHash: canonical.blockHeaderHash.toString(),
++          archiveRoot: canonical.archiveRoot.toString(),
++        },
+       },
+       null,
+       2,
+diff --git a/yarn-project/stdlib/src/block/l2_block.test.ts b/yarn-project/stdlib/src/block/l2_block.test.ts
+index c21982836752c3bce482ac3041ce644c29565b48..c140359a0e44de41431d5bc943037ba9f0d6ca72 100644
+--- a/yarn-project/stdlib/src/block/l2_block.test.ts
++++ b/yarn-project/stdlib/src/block/l2_block.test.ts
+@@ -1,3 +1,4 @@
++import { GENESIS_NULLIFIER_TREE_ROOT } from '@aztec-labs/constants';
+ import { BlockNumber } from '@aztec-labs/foundation/branded-types';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { jsonStringify } from '@aztec-labs/foundation/json-rpc';
+@@ -23,7 +24,7 @@ describe('L2Block', () => {
+   });
+ 
+   it('can create an initial block', async () => {
+-    // Values taken from world_state.test.cpp WorldStateTest.GetInitialTreeInfoForAllTrees
++    // The non-nullifier roots are those of an empty world state; only the nullifier tree is seeded at genesis.
+     const emptyBlockHeader = BlockHeader.empty();
+     emptyBlockHeader.state.l1ToL2MessageTree.root = Fr.fromString(
+       '0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a',
+@@ -31,9 +32,7 @@ describe('L2Block', () => {
+     emptyBlockHeader.state.partial.noteHashTree.root = Fr.fromString(
+       '0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6',
+     );
+-    emptyBlockHeader.state.partial.nullifierTree.root = Fr.fromString(
+-      '0x21a19fe6f636fb24d9f63edb7b807613492cc0001c91e531917a2539f57e2ba8',
+-    );
++    emptyBlockHeader.state.partial.nullifierTree.root = new Fr(GENESIS_NULLIFIER_TREE_ROOT);
+     emptyBlockHeader.state.partial.nullifierTree.nextAvailableLeafIndex = 128;
+     emptyBlockHeader.state.partial.publicDataTree.root = Fr.fromString(
+       '0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084',
+diff --git a/yarn-project/world-state/src/testing.ts b/yarn-project/world-state/src/testing.ts
+index 5cd9a352e684c11b1004a3dea76ae971e10ee267..be193f30666200500d199805ccd86c759aa93666 100644
+--- a/yarn-project/world-state/src/testing.ts
++++ b/yarn-project/world-state/src/testing.ts
+@@ -22,6 +22,30 @@ async function generateGenesisValues(genesis: GenesisData) {
+   }
+ }
+ 
++/**
++ * Measures every value the canonical genesis pins, from one world state.
++ *
++ * Canonical means {@link DEFAULT_GENESIS_DATA} exactly: the protocol contracts' registration nullifiers, no prefunded
++ * public data and timestamp 0. That is what `GENESIS_NULLIFIER_TREE_ROOT`, `GENESIS_BLOCK_HEADER_HASH` and
++ * `GENESIS_ARCHIVE_ROOT` in `constants.nr` record, so this is the measurement
++ * `noir-projects/fnd/scripts/regenerate_genesis_constants.sh` writes back into them. A deployment that prefunds
++ * accounts gets a different archive root and must use {@link getGenesisValues} instead.
++ */
++export async function measureCanonicalGenesis() {
++  const ws = await NativeWorldStateService.ephemeral(DEFAULT_GENESIS_DATA);
++  try {
++    const committed = ws.getCommitted();
++    return {
++      prefilledNullifiers: DEFAULT_GENESIS_DATA.prefilledNullifiers,
++      nullifierTreeRoot: new Fr((await committed.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root),
++      blockHeaderHash: await ws.getInitialHeader().hash(),
++      archiveRoot: new Fr((await committed.getTreeInfo(MerkleTreeId.ARCHIVE)).root),
++    };
++  } finally {
++    await ws.close();
++  }
++}
++
+ export const defaultInitialAccountFeeJuice = new Fr(10n ** 22n);
+ 
+ /**

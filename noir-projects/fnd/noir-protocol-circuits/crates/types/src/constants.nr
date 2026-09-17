@@ -200,7 +200,11 @@ pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 // the production slot length.
 pub global MAX_BLOCKS_PER_CHECKPOINT: u32 = 72;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
-// The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+// The canonical genesis: an empty world state seeded with the protocol contracts' registration nullifiers, no
+// prefunded public data and timestamp 0. Measured from a real world state and rewritten together by
+// `noir-projects/fnd/scripts/regenerate_genesis_constants.sh`; never edit one of them by hand.
+pub global GENESIS_NULLIFIER_TREE_ROOT: Field =
+    0x21a19fe6f636fb24d9f63edb7b807613492cc0001c91e531917a2539f57e2ba8;
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
     0x075fee3188fcffcdcdfaf61295ed5ff6e12f4a2316274c1fca25481e09709ac7;
 pub global GENESIS_ARCHIVE_ROOT: Field =
