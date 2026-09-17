@@ -151,10 +151,10 @@ function stage_packages {
   # because nothing downstream strips them today.
   stage_artifacts --filter '.file_map = {} | .debug_symbols = ""' \
     protocol-circuits-artifacts noir-protocol-circuits/target
-  # The reset-data and abi generators downstream read both of these. The dimensions file is written by
-  # generate_variants, so a release needs that to have run and not merely the circuits to have compiled.
-  # They go to the dist root rather than artifacts/, because they describe the artifacts instead of
-  # being one.
+  # The reset-data and abi generators downstream read both of these. Both are build output: the
+  # dimensions file is written by generate_variants, and the config, which carries each variant's
+  # measured cost, by the build once the variants are compiled. They go to the dist root rather than
+  # artifacts/, because they describe the artifacts instead of being one.
   local config
   for config in private_kernel_reset_config.json private_kernel_reset_dimensions.json; do
     [ -f noir-protocol-circuits/$config ] ||
