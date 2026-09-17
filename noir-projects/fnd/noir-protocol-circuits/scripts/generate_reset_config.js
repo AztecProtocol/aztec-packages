@@ -18,7 +18,11 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
-const { families } = require("./generate_variants.js");
+const {
+  families,
+  getResetTag,
+  isFullDimensions,
+} = require("./reset_variants.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const VARIANTS_FILE = path.join(ROOT, "private_kernel_reset_variants.json");
@@ -27,26 +31,15 @@ const TARGET_DIR = path.join(ROOT, "target");
 const BB =
   process.env.BB || path.resolve(ROOT, "../../../barretenberg/cpp/build/bin/bb");
 
-const FULL = [64, 64, 64, 64, 64, 64, 64, 64, 64];
-
-function tagOf(dims) {
-  return dims.join("_");
-}
-
-function isFull(dims) {
-  return dims.every((v, i) => v === FULL[i]);
-}
-
-// The build names a compiled artifact after its crate directory with dashes replaced. The full-shape
-// variant (every dimension equal to 64) is the template crate itself, at <prefix>.json; every other
-// variant is a generated crate at <prefix>_<tag>.json.
+// The build names a compiled artifact after its crate directory with dashes replaced: the template
+// crate at <prefix>.json, every generated variant at <prefix>_<tag>.json.
 function artifactPath(group, dims) {
   const family = families.find((f) => f.group === group);
   if (!family) {
     throw new Error(`No variant family for catalog group ${JSON.stringify(group)}`);
   }
   const prefix = family.realFolder.replace(/-/g, "_");
-  const name = isFull(dims) ? prefix : `${prefix}_${tagOf(dims)}`;
+  const name = isFullDimensions(dims) ? prefix : `${prefix}_${getResetTag(dims)}`;
   return path.join(TARGET_DIR, `${name}.json`);
 }
 
@@ -65,7 +58,11 @@ function measureCircuitSize(group, dims) {
     ["gates", "-b", artifactPath(group, dims), "--scheme", "chonk"],
     { encoding: "utf8" },
   );
-  return parseCircuitSize(out);
+  try {
+    return parseCircuitSize(out);
+  } catch (e) {
+    throw new Error(`${group} [${getResetTag(dims)}]: ${e.message}`);
+  }
 }
 
 // Attaches a `cost` to every catalog entry, keeping the catalog's group and entry order. `measure`
@@ -79,7 +76,7 @@ function buildConfig(variants, measure) {
         const cost = measure(group, entry.dimensions);
         if (!Number.isInteger(cost) || cost <= 0) {
           throw new Error(
-            `Invalid cost ${cost} for ${group}/${entry.name} [${tagOf(entry.dimensions)}]`,
+            `Invalid cost ${cost} for ${group}/${entry.name} [${getResetTag(entry.dimensions)}]`,
           );
         }
         return { ...entry, cost };
@@ -103,7 +100,7 @@ function main() {
   const variants = JSON.parse(fs.readFileSync(VARIANTS_FILE, "utf8"));
   const config = buildConfig(variants, (group, dims) => {
     const cost = measureCircuitSize(group, dims);
-    console.log(`${group} [${tagOf(dims)}] cost=${cost}`);
+    console.log(`${group} [${getResetTag(dims)}] cost=${cost}`);
     return cost;
   });
   fs.writeFileSync(CONFIG_FILE, serialize(config));

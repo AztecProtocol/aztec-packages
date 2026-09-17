@@ -185,6 +185,10 @@ export -f hex_to_fields_json compile generate_vk check_pinned_vk
 function build {
   set -eu
 
+  # Build output describing target/. Removed up front so a build that stops before regenerating it
+  # cannot leave a config beside artifacts it does not describe.
+  rm -f private_kernel_reset_config.json
+
   # If pinned-build.tar.gz exists, use it instead of compiling.
   if [ -f pinned-build.tar.gz ]; then
     echo_stderr "Using pinned-build.tar.gz instead of compiling."
