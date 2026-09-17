@@ -193,19 +193,14 @@ function workspace_packages {
 
 # Libraries only compile as dependencies of the circuits, and nargo reports no warnings for a
 # dependency, so each is checked on its own with warnings denied.
-function check_library {
-  set -euo pipefail
-  local dir=$1
-  $NARGO check --package ${dir//-/_} --deny-warnings
-}
-
 function check_library_warnings {
   set -euo pipefail
   echo_stderr "Checking libraries for warnings..."
-  workspace_packages lib | parallel -v --line-buffer --tag check_library {}
+  workspace_packages lib | \
+    parallel -v --line-buffer --tag $NARGO --program-dir ./crates/{} check --deny-warnings
 }
 
-export -f hex_to_fields_json compile generate_vk check_pinned_vk check_library
+export -f hex_to_fields_json compile generate_vk check_pinned_vk
 
 function build {
   set -eu
