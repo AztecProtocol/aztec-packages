@@ -924,6 +924,7 @@ mod tests {
         let correct_factor = unsafe { super::__compute_factor_helper(z_pow_d_val) };
 
         // Add 1 to corrupt the factor
+        // Safety: the corrupted factor is what `validate_factor` below is expected to reject.
         let invalid_factor = unsafe { correct_factor.__add(BLS12_381_Fr::one()) };
 
         // This should fail because the constraint won't be satisfied
@@ -955,6 +956,7 @@ mod tests {
         let mut fracs = unsafe { __compute_fracs(z) };
 
         // Corrupt fracs[0] by adding 1
+        // Safety: the corrupted frac is what `validate_fracs` below is expected to reject.
         fracs[0] = unsafe { fracs[0].__add(BLS12_381_Fr::one()) };
 
         // This should fail because fracs[0] * (z - w^0) != ys[0]
@@ -991,6 +993,7 @@ mod tests {
 
         // Safety: computing correct values first
         let mut fracs = unsafe { __compute_fracs(z) };
+        // Safety: the corrupted frac is what `validate_fracs` below is expected to reject.
         fracs[last] = unsafe { fracs[last].__add(BLS12_381_Fr::one()) };
 
         validate_fracs(z, fracs);
@@ -1034,7 +1037,6 @@ mod tests {
         // Test that when y[i] = 0, fracs[i] must also satisfy the constraint
         // (which means fracs[i] * (z - w^i) = 0)
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // All zeros
 
         // Compute correct fracs (should all be zero)
         // Safety: computing correct values first

@@ -10,7 +10,7 @@ use types::{
 // If/when simulation times of unconstrained are improved, remove this.
 //
 // Note: `fracs` and `factor` are computed from `challenge_z` inside `evaluate_blobs_and_batch`.
-// The oracle does not use them; it receives `challenge_z` for interface consistency.
+// The oracle does not use them; it receives `_challenge_z` for interface consistency.
 pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     num_blob_fields: u32,
@@ -18,7 +18,7 @@ pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     kzg_commitments: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
-    challenge_z: BLS12_381_Fr,
+    _challenge_z: BLS12_381_Fr,
 ) -> BlobAccumulator {
     let fields = evaluate_blobs_oracle(
         NumBlobs,

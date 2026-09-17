@@ -1269,10 +1269,6 @@ impl FixtureBuilder {
         result.storage()
     }
 
-    fn mock_note_hash_read_value(self, index: u32) -> Field {
-        789 + self.value_offset + index as Field
-    }
-
     fn mock_nullifier_read_value(self, index: u32) -> Field {
         22334 + self.value_offset + index as Field
     }
@@ -1296,10 +1292,6 @@ impl FixtureBuilder {
 
     fn mock_nullifier_value(self, index: u32) -> Field {
         5678 + self.value_offset + index as Field
-    }
-
-    fn mock_nullifier_value_non_revertible(self, index: u32) -> Field {
-        9876 + self.value_offset + index as Field
     }
 
     fn mock_l2_to_l1_msg(self, index: u32) -> (Field, EthAddress) {
@@ -1383,10 +1375,6 @@ impl FixtureBuilder {
 
     fn mock_public_teardown_call_request(self) -> PublicCallRequest {
         self.mock_public_call_request(54345)
-    }
-
-    fn mock_fee_payer(self) -> AztecAddress {
-        AztecAddress::from_field(900900 + self.value_offset)
     }
 
     fn next_counter(&mut self) -> u32 {

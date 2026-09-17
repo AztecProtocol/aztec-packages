@@ -10,7 +10,6 @@ use types::{
     abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     address::AztecAddress,
     hash::compute_app_siloed_secret_key,
-    point::EmbeddedCurvePoint,
     public_keys::hash_public_key,
     scalar::Scalar,
     side_effect::Scoped,

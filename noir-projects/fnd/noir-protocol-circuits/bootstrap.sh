@@ -180,7 +180,37 @@ function check_pinned_vk {
   fi
 }
 
-export -f hex_to_fields_json compile generate_vk check_pinned_vk
+# Directory names of the workspace members whose Nargo.toml declares the given package type.
+function workspace_packages {
+  local type=$1
+  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
+    while read -r dir; do
+      if grep -q "type = \"$type\"" ./crates/$dir/Nargo.toml; then
+        echo "$(basename $dir)"
+      fi
+    done
+}
+
+# Libraries only compile as dependencies of the circuits, and nargo reports no warnings for a
+# dependency, so each is checked on its own with warnings denied.
+function check_library {
+  set -euo pipefail
+  local dir=$1
+  $NARGO check --package ${dir//-/_} --deny-warnings
+}
+
+function check_library_warnings {
+  set -euo pipefail
+  if [ -n "${NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS:-}" ]; then
+    echo_stderr "Skipping the library warnings check: NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS is set."
+    return
+  fi
+  echo_stderr "Checking libraries for warnings..."
+  workspace_packages lib | \
+    parallel -v --line-buffer --tag --halt now,fail=1 check_library {}
+}
+
+export -f hex_to_fields_json compile generate_vk check_pinned_vk check_library
 
 function build {
   set -eu
@@ -212,14 +242,7 @@ function build {
     return
   fi
 
-  if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
-    echo_stderr "Checking libraries for warnings..."
-    parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
-      ./crates/blob \
-      ./crates/private-kernel-lib \
-      ./crates/rollup-lib \
-      ./crates/types
-  fi
+  check_library_warnings
 
   # We allow errors so we can output the joblog.
   set +e
@@ -228,13 +251,7 @@ function build {
 
   [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
 
-  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
-    while read -r dir; do
-      toml_file=./crates/$dir/Nargo.toml
-      if grep -q 'type = "bin"' "$toml_file"; then
-          echo "$(basename $dir)"
-      fi
-    done | \
+  workspace_packages bin | \
     parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
       --joblog joblog.txt compile {}
   code=$?

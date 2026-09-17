@@ -130,7 +130,7 @@ fn absorb_in_chunks<let NUM_ITEMS: u32, let MAX_CHUNKS: u32>(
 }
 
 pub fn poseidon2_absorb_in_chunks_existing_sponge<let NUM_ITEMS: u32>(
-    mut sponge: Poseidon2Sponge,
+    sponge: Poseidon2Sponge,
     input: [Field; NUM_ITEMS],
     in_len: u32,
 ) -> Poseidon2Sponge {
