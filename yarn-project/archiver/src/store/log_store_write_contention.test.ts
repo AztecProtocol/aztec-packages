@@ -75,23 +75,28 @@ describe('LogStore write contention', () => {
     const baseline = await logStore.getPrivateLogsByTags({ tags });
     const baselineMs = baselineTimer.ms();
 
-    // Fill the store's serial writer queue without awaiting it. Tag queries are routed through that same queue, so
-    // the contended query below only resolves once these commit.
+    // Fill the store's serial writer queue without awaiting it.
     const writes = Array.from({ length: QUEUED_WRITES }, () => db.transactionAsync(() => sleep(WRITE_DURATION_MS)));
 
     const contendedTimer = new Timer();
     const contended = await logStore.getPrivateLogsByTags({ tags });
     const contendedMs = contendedTimer.ms();
 
+    const queuedWriteMs = QUEUED_WRITES * WRITE_DURATION_MS;
     logger.info(`Baseline read ${baselineMs.toFixed(2)}ms, contended read ${contendedMs.toFixed(2)}ms`, {
       baselineMs,
       contendedMs,
-      queuedWriteMs: QUEUED_WRITES * WRITE_DURATION_MS,
+      queuedWriteMs,
     });
 
     expect(contended.length).toBe(TAGS_PER_QUERY);
     expect(contended.every(logs => logs.length > 0)).toBe(true);
     expect(contended).toEqual(baseline);
+
+    // The query runs on a read-only snapshot instead of the writer queue, so it must not wait for the queued writes.
+    // Serializing behind them would cost the full `queuedWriteMs` on top of the baseline; half of that is left as
+    // jitter headroom so the bound only trips when the read really is queued.
+    expect(contendedMs).toBeLessThan(baselineMs + queuedWriteMs / 2);
 
     await Promise.all(writes);
   });

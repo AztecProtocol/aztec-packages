@@ -30,8 +30,12 @@ import {
   tagHexForLog,
 } from './log_store_codec.js';
 
-/** How many per-tag range scans a single tag query runs concurrently. */
-const TAG_SCAN_CONCURRENCY = 8;
+/**
+ * How many per-tag range scans a single tag query runs concurrently. Cursors bound to one read-only snapshot serialize
+ * on that snapshot's mutex natively, so overlapping them only hides the per-cursor round trip: measured on a
+ * 100-tag query, going from 1 to 2 cuts latency by a third and anything above 2 is flat or marginally worse.
+ */
+const TAG_SCAN_CONCURRENCY = 2;
 
 /**
  * Indexes every emitted private and public log under a composite hex-string key
@@ -48,11 +52,11 @@ const TAG_SCAN_CONCURRENCY = 8;
  *
  * Contract-class logs are no longer stored or served by the log store.
  *
- * Tag queries run inside `db.transactionAsync` so the `referenceBlock` reorg check and every per-tag scan see the same
- * snapshot of the store and cannot return a torn result. On lmdb-v2 that helper routes its callback through the store's
- * single serial writer queue, so a query waits for any queued write (notably block ingestion) to commit first; that
- * cost is accepted in exchange for the consistency. The per-tag scans within one query still run concurrently
- * ({@link TAG_SCAN_CONCURRENCY} at a time), each on its own cursor over the transaction's snapshot.
+ * Every read path runs inside `db.readOnlyTransaction`, so the `referenceBlock` reorg check and all the per-tag scans
+ * of one query observe the same committed snapshot and cannot return a torn result. Unlike `transactionAsync`, a
+ * read-only snapshot does not go through the store's single serial writer queue, so a query never waits for queued
+ * writes (notably block ingestion) to commit. The per-tag scans within one query run concurrently
+ * ({@link TAG_SCAN_CONCURRENCY} at a time), each on its own cursor over the snapshot.
  */
 export class LogStore {
   /** Primary map: composite private key (tag + tail = 96 hex chars + separators) -> serialized {@link StoredLogValue}. */
@@ -199,13 +203,13 @@ export class LogStore {
   /** Returns one inner array per element of `query.tags`, in input order. */
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
-    return this.db.transactionAsync(() => this.#runQuery(query, /* contractHex */ undefined));
+    return this.db.readOnlyTransaction(() => this.#runQuery(query, /* contractHex */ undefined));
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
   getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
-    return this.db.transactionAsync(() => this.#runQuery(query, fieldHex(query.contractAddress)));
+    return this.db.readOnlyTransaction(() => this.#runQuery(query, fieldHex(query.contractAddress)));
   }
 
   static #validateQuery(query: { txHash?: TxHash; fromBlock?: unknown; toBlock?: unknown }): void {
@@ -219,7 +223,7 @@ export class LogStore {
     const tags = (query.tags as ReadonlyArray<TagQuery<Tag | SiloedTag>>) ?? [];
     const primaryMap = isPublic ? this.#publicLogs : this.#privateLogs;
 
-    // referenceBlock reorg check, in-transaction, against the same db the log primary maps live on. The
+    // referenceBlock reorg check, on the query's snapshot, against the same db the log primary maps live on. The
     // genesis block is a valid anchor during early sync but is synthetic and never indexed in the block
     // store, so resolve it directly to the genesis block number rather than mistaking it for a reorg.
     let referenceBlockNumber: number | undefined;
@@ -266,9 +270,8 @@ export class LogStore {
 
     const limit = query.limitPerTag ?? MAX_LOGS_PER_TAG;
 
-    // Each scan opens its own native cursor over the transaction's snapshot, so they overlap instead of queueing. The
-    // pool bound stays well under the store's concurrent-cursor budget (maxReaders - 1) so other components can still
-    // read while a query is in flight.
+    // Each scan opens its own native cursor over the query's snapshot. The pool bound stays well under the store's
+    // concurrent-cursor budget (maxReaders - 1) so other components can still read while a query is in flight.
     const perTagResults = await asyncPool(TAG_SCAN_CONCURRENCY, [...tags], async tagEntry => {
       const { tagHex, afterLog } = normalizeTagEntry(tagEntry);
       const prefix = contractHex !== undefined ? encodePublicPrefix(contractHex, tagHex) : tagHex;
@@ -338,14 +341,16 @@ export class LogStore {
    * counts without depending on the removed `getPublicLogs(LogFilter)` API.
    */
   getPrivateLogsForBlock(blockNumber: number): Promise<LogResult[]> {
-    return this.db.transactionAsync(() =>
+    return this.db.readOnlyTransaction(() =>
       this.#readBlockLogs(this.#privateKeysByBlock, this.#privateLogs, blockNumber),
     );
   }
 
   /** {@inheritDoc LogStore.getPrivateLogsForBlock} */
   getPublicLogsForBlock(blockNumber: number): Promise<LogResult[]> {
-    return this.db.transactionAsync(() => this.#readBlockLogs(this.#publicKeysByBlock, this.#publicLogs, blockNumber));
+    return this.db.readOnlyTransaction(() =>
+      this.#readBlockLogs(this.#publicKeysByBlock, this.#publicLogs, blockNumber),
+    );
   }
 
   async #readBlockLogs(
