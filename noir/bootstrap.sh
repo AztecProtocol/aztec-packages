@@ -20,6 +20,19 @@ export GIT_COMMIT=$noir_commit
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 
+# Installs noir release $1 into the isolated NARGO_HOME $2, so we never touch ~/.nargo. noirup owns
+# how noir names and lays out its release artifacts; keep that knowledge here rather than reimplementing
+# it. Returns non-zero when noirup itself can't be fetched or the release won't install.
+function noirup_install {
+  local tag=$1 nargo_home=$2
+  rm -rf "$nargo_home"
+  mkdir -p "$nargo_home/bin"
+  curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/noir-lang/noirup/main/noirup \
+    -o "$nargo_home/noirup" || return 1
+  chmod +x "$nargo_home/noirup"
+  NARGO_HOME=$nargo_home "$nargo_home/noirup" -v "$tag"
+}
+
 # Local dev opt-in: when a `noir-from-release.flag` file exists at the repo root and the pinned
 # noir-repo commit is exactly an official noir release, fetch the released binaries with noirup
 # instead of compiling nargo from source (a ~10 minute build). Returns 0 when the released
@@ -59,26 +72,14 @@ function install_native_from_release {
 
   echo "noir-from-release.flag set and noir-repo is at release $tag; fetching released binaries via noirup."
 
-  # Install noirup and the pinned release into an isolated NARGO_HOME so we don't touch ~/.nargo.
   local nargo_home=$PWD/noir-repo/target/.noirup
-  rm -rf "$nargo_home"
-  mkdir -p "$nargo_home/bin"
-
-  if ! curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/noir-lang/noirup/main/noirup -o "$nargo_home/noirup"; then
-    echo_stderr "Failed to download noirup; building from source."
-    return 1
-  fi
-  chmod +x "$nargo_home/noirup"
-
-  if ! NARGO_HOME=$nargo_home "$nargo_home/noirup" -v "$tag"; then
+  if ! noirup_install "$tag" "$nargo_home"; then
     echo_stderr "noirup failed to install release $tag; building from source."
     return 1
   fi
 
-  # Place whatever noirup installed where the rest of the build expects it. noirup unpacks the
-  # release's `noir-<arch>-<platform>.tar.gz` bundle, which carries nargo, noir-execute,
-  # noir-profiler and noir-inspector; consumers of anything a given release omits fall back to the
-  # WASM simulator.
+  # Place whatever noirup installed where the rest of the build expects it. Consumers of a binary a
+  # given release omits fall back to the WASM simulator.
   mkdir -p "$release_dir"
   local bin
   for bin in nargo noir-execute noir-profiler; do
@@ -180,7 +181,7 @@ function install_deps {
   ) 200>/tmp/rustup.lock
 }
 
-export -f install_native_from_release build_native build_packages install_deps
+export -f noirup_install install_native_from_release build_native build_packages install_deps
 
 function build {
   echo_header "noir build"
@@ -194,26 +195,19 @@ function build {
       exit 1
     fi
 
-    # Check that the noir release carries the `noir-<arch>-<platform>.tar.gz` bundles that noirup
-    # downloads. Without this check, we could push an aztec release that errors out with a 404/gzip
-    # error on install (the install scripts invoke noirup which would fail).
+    # Check the pinned noir release can be installed the way users install it. Asserting which
+    # assets the release carries would restate what noirup already knows about noir's artifacts, and
+    # go stale the next time noir renames them; running noirup is the thing we actually care about.
     local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
-    echo "Checking noir release $noir_tag for noir bundle assets..."
-    local asset_count
-    asset_count=$(gh release view "$noir_tag" \
-      --repo noir-lang/noir \
-      --json assets \
-      --jq '[.assets[] | select(.name | test("^noir-.*\\.tar\\.gz$"))] | length') || {
-      echo_stderr "Error: Failed to query noir-lang/noir release '$noir_tag'. Does the release exist?"
-      exit 1
-    }
-    if [ "$asset_count" -eq 0 ]; then
-      echo_stderr "Error: Noir release '$noir_tag' exists but has no noir bundle assets."
-      echo_stderr "Users will get 404 errors when trying to install nargo via noirup."
+    echo "Checking noir release $noir_tag installs with noirup..."
+    local probe_home=$PWD/noir-repo/target/.noirup-release-check
+    if ! noirup_install "$noir_tag" "$probe_home" || [[ ! -x "$probe_home/bin/nargo" ]]; then
+      echo_stderr "Error: noirup cannot install noir release '$noir_tag'; users would hit the same failure."
       echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
       exit 1
     fi
-    echo "Found $asset_count noir bundle asset(s) in noir release $noir_tag."
+    echo "noirup installed $("$probe_home/bin/nargo" --version | head -1) from noir release $noir_tag."
+    rm -rf "$probe_home"
   fi
 
   denoise "retry install_deps"
