@@ -5,14 +5,9 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {AttesterView, Exit, Status, AttesterConfig} from "@aztec/core/libraries/rollup/StakingLib.sol";
-import {AppendOnlyTreeSnapshot} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 contract TestBase is Test {
   using stdStorage for StdStorage;
-
-  // Empty values
-  AppendOnlyTreeSnapshot EMPTY_APPENDONLY_TREE_SNAPSHOT =
-    AppendOnlyTreeSnapshot({root: bytes32(0), nextAvailableLeafIndex: 0});
 
   modifier skipWhenCoverage() {
     if (isCoverage()) {
