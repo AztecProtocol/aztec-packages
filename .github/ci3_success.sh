@@ -40,8 +40,7 @@ function handle_squash_merge {
   ./scripts/merge-train/squash-pr.sh \
     "${PR_NUMBER}" \
     "${PR_HEAD_REF}" \
-    "${PR_BASE_REF}" \
-    "${PR_BASE_SHA}"
+    "${PR_BASE_REF}"
   gh pr merge "${PR_NUMBER}" --auto -m || true
   echo "Squash and merge completed"
 }
