@@ -7,10 +7,9 @@
 // a compile error rather than an unconstrained row. Flavors whose block/kind shape is identical share
 // one emitted trace (see `traceOwners` in main.ts).
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { formatInPlace } from "./format.js";
+import { writeGenerated } from "./write.js";
 import type { Flavor } from "./types.js";
 
 // Flavor-entity name → C++ GateKind tag. Shared with flavor codegen (`GATE_KINDS` array).
@@ -245,15 +244,13 @@ function emitTraceHeader(flavor: Flavor): string {
     return lines.join("\n");
 }
 
-// Write the execution-trace header to disk and return its absolute path.
-export function generateTrace(flavor: Flavor, repoRoot: string): string {
+// Write the execution-trace header to disk; returns its absolute path and whether the file changed.
+export function generateTrace(flavor: Flavor, repoRoot: string): { path: string; written: boolean } {
     const header = emitTraceHeader(flavor);
     const outDir = path.join(
         repoRoot, "barretenberg", "cpp", "src", "barretenberg", "honk", "execution_trace", "generated"
     );
     const outFile = path.join(outDir, `${flavor.family}_execution_trace_generated.hpp`);
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(outFile, header, "utf8");
-    formatInPlace(outFile);
-    return outFile;
+    const written = writeGenerated(outFile, header);
+    return { path: outFile, written };
 }

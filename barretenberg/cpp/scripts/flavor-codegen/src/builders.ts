@@ -7,10 +7,9 @@
 // subset lists are derived from the same gate kinds the trace headers declare, so "which builders
 // have the lookup gate" cannot drift from what the traces actually own.
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { formatInPlace } from "./format.js";
+import { writeGenerated } from "./write.js";
 import { traceNames, traceShape } from "./trace.js";
 import type { Flavor } from "./types.js";
 
@@ -151,11 +150,12 @@ function emitBuildersHeader(traceOwners: readonly Flavor[]): string {
   return lines.join("\n");
 }
 
-// Write the builder forward-declaration header to disk and return its absolute path.
+// Write the builder forward-declaration header to disk; returns its absolute path and whether the
+// file changed.
 export function generateBuilders(
   traceOwners: readonly Flavor[],
   repoRoot: string,
-): string {
+): { path: string; written: boolean } {
   const header = emitBuildersHeader(traceOwners);
   const outDir = path.join(
     repoRoot,
@@ -169,8 +169,6 @@ export function generateBuilders(
     "generated",
   );
   const outFile = path.join(outDir, "circuit_builders_fwd_generated.hpp");
-  fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(outFile, header, "utf8");
-  formatInPlace(outFile);
-  return outFile;
+  const written = writeGenerated(outFile, header);
+  return { path: outFile, written };
 }

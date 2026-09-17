@@ -4,7 +4,6 @@
 // AllEntities, builder bridges (`get_gate_blocks`, `get_block_non_gate_selectors`, `GATE_KINDS`).
 // Hand-written flavor classes alias these via `using Generated = ...`.
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,7 +15,7 @@ import { MegaAvm } from "./flavors/mega_avm.js";
 import { MegaZK } from "./flavors/mega_zk.js";
 import { Ultra } from "./flavors/ultra.js";
 import { UltraZK } from "./flavors/ultra_zk.js";
-import { formatInPlace } from "./format.js";
+import { writeGenerated } from "./write.js";
 import {
     builderBusIndices,
     GATE_SELECTOR_TO_GATE_KIND,
@@ -784,15 +783,16 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
     return lines.join("\n");
 }
 
-function generate(flavor: Flavor, repoRoot: string): { path: string; layout: ResolvedLayout } {
+function generate(
+    flavor: Flavor,
+    repoRoot: string
+): { path: string; layout: ResolvedLayout; written: boolean } {
     const layout = resolveLayout(flavor);
     const header = emitGeneratedHeader(layout);
     const outDir = path.join(repoRoot, "barretenberg", "cpp", "src", "barretenberg", "flavor", "generated");
     const outFile = path.join(outDir, `${flavor.family}_flavor_generated.hpp`);
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(outFile, header, "utf8");
-    formatInPlace(outFile);
-    return { path: outFile, layout };
+    const written = writeGenerated(outFile, header);
+    return { path: outFile, layout, written };
 }
 
 function main(): void {
@@ -802,17 +802,17 @@ function main(): void {
     const traceOwnerFlavors: Flavor[] = [];
 
     for (const flavorValue of [Mega, MegaApp, MegaAvm, MegaKernel, MegaZK, Ultra, UltraZK]) {
-        const { path: outFile, layout } = generate(flavorValue, repoRoot);
+        const { path: outFile, layout, written } = generate(flavorValue, repoRoot);
         process.stdout.write(
-            `flavor-codegen: emitted ${path.relative(repoRoot, outFile)} ` +
+            `flavor-codegen: ${verb(written)} ${path.relative(repoRoot, outFile)} ` +
                 `(precomputed=${layout.numPrecomputed} witness=${layout.numWitness} ` +
                 `masking=${layout.numMasking} shifted=${layout.numShifted} all=${layout.numAll})\n`
         );
         // Only the flavor that owns its shape emits a trace; the others reuse it.
         if (layout.traceOwnerFamily === flavorValue.family) {
             traceOwnerFlavors.push(flavorValue);
-            const traceFile = generateTrace(flavorValue, repoRoot);
-            process.stdout.write(`flavor-codegen: emitted ${path.relative(repoRoot, traceFile)}\n`);
+            const trace = generateTrace(flavorValue, repoRoot);
+            process.stdout.write(`flavor-codegen: ${verb(trace.written)} ${path.relative(repoRoot, trace.path)}\n`);
         } else {
             process.stdout.write(
                 `flavor-codegen: ${flavorValue.family} reuses the ${layout.traceOwnerFamily} execution trace\n`
@@ -820,8 +820,13 @@ function main(): void {
         }
     }
 
-    const buildersFile = generateBuilders(traceOwnerFlavors, repoRoot);
-    process.stdout.write(`flavor-codegen: emitted ${path.relative(repoRoot, buildersFile)}\n`);
+    const builders = generateBuilders(traceOwnerFlavors, repoRoot);
+    process.stdout.write(`flavor-codegen: ${verb(builders.written)} ${path.relative(repoRoot, builders.path)}\n`);
+}
+
+// "wrote" when the file on disk changed, "up to date" when the generated content already matched it.
+function verb(written: boolean): string {
+    return written ? "wrote" : "up to date:";
 }
 
 main();
