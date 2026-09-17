@@ -238,10 +238,10 @@ index ebde5f89463df3699ff203aca7cb6d8d12e86258..8d1aeb5507dba7c016354f1a28db8e52
        });
 diff --git a/yarn-project/protocol-contracts/src/genesis_data.test.ts b/yarn-project/protocol-contracts/src/genesis_data.test.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..5535992ed215092038556d418bc8f5a8af04f68d
+index 0000000000000000000000000000000000000000..17aab4167420709743263d54ffdd7ff5a8f3647c
 --- /dev/null
 +++ b/yarn-project/protocol-contracts/src/genesis_data.test.ts
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,36 @@
 +import { Fr } from '@aztec-labs/foundation/curves/bn254';
 +import { getContractClassFromArtifact } from '@aztec-labs/stdlib/contract';
 +import { siloNullifier } from '@aztec-labs/stdlib/hash';
@@ -251,8 +251,11 @@ index 0000000000000000000000000000000000000000..5535992ed215092038556d418bc8f5a8
 +import { ProtocolContractArtifact } from './provider/bundle.js';
 +
 +describe('DEFAULT_GENESIS_DATA', () => {
-+  // Recomputed from the bundled artifacts rather than read back from the generator's output, so that an artifact or
-+  // compiler change that rotates a protocol class id fails here instead of silently moving the genesis roots.
++  // Recomputed from the bundled artifacts rather than read back from the generator's output, so a stale
++  // `protocol_contract_data.ts` or a mistake in its generator fails here. This does not catch a class id rotation:
++  // the generated file is rebuilt from the same artifacts, so both sides move together. What catches that is the
++  // pinned-root assertion in world-state's `testing.test.ts`, which compares a live genesis against
++  // `GENESIS_ARCHIVE_ROOT`.
 +  it('seeds exactly the registration nullifiers the bundled protocol artifacts imply', async () => {
 +    const expected: Fr[] = [];
 +    for (const name of protocolContractNames) {
