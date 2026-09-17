@@ -7,11 +7,6 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
-struct AppendOnlyTreeSnapshot {
-  bytes32 root;
-  uint32 nextAvailableLeafIndex;
-}
-
 struct GasFees {
   uint128 feePerDaGas;
   uint128 feePerL2Gas;
