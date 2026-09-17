@@ -50,10 +50,10 @@ test("artifactPath maps the full shape to the base artifact and others to a tagg
   );
 });
 
-test("artifactPath rejects a catalog group with no compiled variant prefix", () => {
+test("artifactPath rejects a catalog group with no variant family", () => {
   assert.throws(
     () => artifactPath("finalTailToRollup", [4, 4, 4, 4, 4, 4, 4, 4, 4]),
-    /No artifact prefix for catalog group "finalTailToRollup"/,
+    /No variant family for catalog group "finalTailToRollup"/,
   );
 });
 

@@ -18,6 +18,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { families } = require("./generate_variants.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const VARIANTS_FILE = path.join(ROOT, "private_kernel_reset_variants.json");
@@ -28,14 +29,6 @@ const BB =
 
 const FULL = [64, 64, 64, 64, 64, 64, 64, 64, 64];
 
-// Map each catalog group to the artifact-name prefix used by its compiled variants. The full-shape
-// variant (every dimension equal to 64) lives at <prefix>.json; all others at <prefix>_<tag>.json.
-const GROUP_PREFIXES = {
-  inner: "private_kernel_reset",
-  finalTail: "private_kernel_reset_tail",
-  finalTailToPublic: "private_kernel_reset_tail_to_public",
-};
-
 function tagOf(dims) {
   return dims.join("_");
 }
@@ -44,11 +37,15 @@ function isFull(dims) {
   return dims.every((v, i) => v === FULL[i]);
 }
 
+// The build names a compiled artifact after its crate directory with dashes replaced. The full-shape
+// variant (every dimension equal to 64) is the template crate itself, at <prefix>.json; every other
+// variant is a generated crate at <prefix>_<tag>.json.
 function artifactPath(group, dims) {
-  const prefix = GROUP_PREFIXES[group];
-  if (!prefix) {
-    throw new Error(`No artifact prefix for catalog group ${JSON.stringify(group)}`);
+  const family = families.find((f) => f.group === group);
+  if (!family) {
+    throw new Error(`No variant family for catalog group ${JSON.stringify(group)}`);
   }
+  const prefix = family.realFolder.replace(/-/g, "_");
   const name = isFull(dims) ? prefix : `${prefix}_${tagOf(dims)}`;
   return path.join(TARGET_DIR, `${name}.json`);
 }

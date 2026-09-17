@@ -336,11 +336,15 @@ function main() {
 // `node scripts/generate_variants.js --test`
 //
 // Run tests if --test flag is passed, otherwise run main
-if (process.argv.includes("--test")) {
-  runTests();
-} else {
-  main();
+if (require.main === module) {
+  if (process.argv.includes("--test")) {
+    runTests();
+  } else {
+    main();
+  }
 }
+
+module.exports = { families };
 
 function runTests() {
   let passed = 0;
