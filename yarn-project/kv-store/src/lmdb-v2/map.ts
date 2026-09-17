@@ -2,9 +2,8 @@ import { Encoder } from 'msgpackr';
 
 import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
-import type { ReadTransaction } from './read_transaction.js';
 import type { AztecLMDBStoreV2 } from './store.js';
-import { execInReadTx, execInWriteTx } from './tx-helpers.js';
+import { acquireReadTx, execInReadTx, execInWriteTx } from './tx-helpers.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 
 export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K, V> {
@@ -90,9 +89,7 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
     const endKey =
       range?.end !== undefined ? serializeKey(this.prefix, range.end) : reverse ? maxKey(this.prefix) : undefined;
 
-    let tx: ReadTransaction | undefined = this.store.getCurrentWriteTx();
-    const shouldClose = !tx;
-    tx ??= this.store.getReadTx();
+    const { tx, shouldClose } = acquireReadTx(this.store);
 
     try {
       for await (const [key, val] of tx.iterate(
