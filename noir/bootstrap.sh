@@ -75,9 +75,10 @@ function install_native_from_release {
     return 1
   fi
 
-  # Place whatever noirup installed where the rest of the build expects it. The release ships nargo
-  # (and noir-profiler), but not noir-execute; its consumers fall back to the WASM simulator when
-  # absent.
+  # Place whatever noirup installed where the rest of the build expects it. noirup unpacks the
+  # release's `noir-<arch>-<platform>.tar.gz` bundle, which carries nargo, noir-execute,
+  # noir-profiler and noir-inspector; consumers of anything a given release omits fall back to the
+  # WASM simulator.
   mkdir -p "$release_dir"
   local bin
   for bin in nargo noir-execute noir-profiler; do
@@ -193,25 +194,26 @@ function build {
       exit 1
     fi
 
-    # Check that the noir release has nargo binaries available for download. Without this check, we could push an aztec
-    # release that errors out with a 404/gzip error on install (the install scripts invoke noirup which would fail).
+    # Check that the noir release carries the `noir-<arch>-<platform>.tar.gz` bundles that noirup
+    # downloads. Without this check, we could push an aztec release that errors out with a 404/gzip
+    # error on install (the install scripts invoke noirup which would fail).
     local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
-    echo "Checking noir release $noir_tag for nargo binary assets..."
+    echo "Checking noir release $noir_tag for noir bundle assets..."
     local asset_count
     asset_count=$(gh release view "$noir_tag" \
       --repo noir-lang/noir \
       --json assets \
-      --jq '[.assets[] | select(.name | test("^nargo-"))] | length') || {
+      --jq '[.assets[] | select(.name | test("^noir-.*\\.tar\\.gz$"))] | length') || {
       echo_stderr "Error: Failed to query noir-lang/noir release '$noir_tag'. Does the release exist?"
       exit 1
     }
     if [ "$asset_count" -eq 0 ]; then
-      echo_stderr "Error: Noir release '$noir_tag' exists but has no nargo binary assets."
+      echo_stderr "Error: Noir release '$noir_tag' exists but has no noir bundle assets."
       echo_stderr "Users will get 404 errors when trying to install nargo via noirup."
       echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
       exit 1
     fi
-    echo "Found $asset_count nargo binary asset(s) in noir release $noir_tag."
+    echo "Found $asset_count noir bundle asset(s) in noir release $noir_tag."
   fi
 
   denoise "retry install_deps"
