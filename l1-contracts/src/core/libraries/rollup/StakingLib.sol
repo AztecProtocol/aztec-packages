@@ -528,17 +528,7 @@ library StakingLib {
       address withdrawer = store.gse.getWithdrawer(_attester);
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      (uint256 actualAmount, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, effectiveBalance);
-      require(removed, Errors.Staking__WithdrawFailed(_attester));
-
-      store.exits[_attester] = Exit({
-        withdrawalId: withdrawalId,
-        amount: actualAmount,
-        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
-        recipientOrWithdrawer: _recipient,
-        isRecipient: true,
-        exists: true
-      });
+      (uint256 actualAmount,) = _withdrawAndCreateExit(store, _attester, effectiveBalance, _recipient, true);
       emit IStakingCore.WithdrawInitiated(_attester, _recipient, actualAmount);
     }
 
@@ -549,7 +539,7 @@ library StakingLib {
    * @notice Initiate an exit by the attester
    *     @dev Checks performed:
    *        1. Msg sender is the attester
-   *        2. Rollup is canonical and ltest
+   *        2. Rollup is canonical and latest
    *        3. The attester hasn't initiated an exit and has a positive effective balance
    *        4. Exit allowance is not completely consumed
    *  @param _attester The validator address to withdraw stake for
@@ -577,18 +567,8 @@ library StakingLib {
 
     consumeAttesterExitAllowance();
 
-    (uint256 amountWithdrawn, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, effectiveBalance);
-
-    require(removed, Errors.Staking__WithdrawFailed(_attester));
-
-    store.exits[_attester] = Exit({
-      withdrawalId: withdrawalId,
-      amount: amountWithdrawn,
-      exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
-      recipientOrWithdrawer: withdrawer,
-      isRecipient: false,
-      exists: true
-    });
+    (uint256 amountWithdrawn, uint256 withdrawalId) =
+      _withdrawAndCreateExit(store, _attester, effectiveBalance, withdrawer, false);
 
     emit IStakingCore.WithdrawInitiatedByAttester(_attester, withdrawer, amountWithdrawn, withdrawalId);
   }
@@ -627,10 +607,13 @@ library StakingLib {
   }
 
   function getAttesterExitUsage() internal view returns (uint256) {
+    return getAttesterExitUsage(getAttesterExitWindow());
+  }
+
+  function getAttesterExitUsage(Timestamp _exitWindow) internal view returns (uint256) {
     StakingStorage storage store = getStorage();
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    Timestamp exitWindow = getAttesterExitWindow();
-    uint256 pastExits = currentTime < exitWindow ? 0 : store.attesterExitHistory.valueAt(currentTime - exitWindow);
+    uint256 pastExits = currentTime < _exitWindow ? 0 : store.attesterExitHistory.valueAt(currentTime - _exitWindow);
     return store.attesterExitHistory.valueNow() - pastExits;
   }
 
@@ -640,12 +623,16 @@ library StakingLib {
     state.window = getAttesterExitWindow();
     state.validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
     state.committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
-    state.used = getAttesterExitUsage();
+    state.used = getAttesterExitUsage(state.window);
     state.allowance = _getAttesterExitAllowance(state.validatorCount);
 
     Governance gov = store.gse.getGovernance();
     GovernanceProposer proposer = GovernanceProposer(gov.governanceProposer());
 
+    // It can technically happen that an upgrade does not add the new rollup to this GSE.
+    // If there is a split, it is unclear which Rollup should enforce the limit.
+    // Since this shouldn't happen under normal upgrades, it is easier to limit attester exits just to a canonical
+    // latest rollup.
     state.canExit = address(this) == proposer.getInstance() && address(this) == store.gse.getLatestRollup()
       && state.validatorCount > state.committeeSize && state.used < state.allowance;
   }
@@ -818,6 +805,27 @@ library StakingLib {
     assembly {
       storageStruct.slot := position
     }
+  }
+
+  function _withdrawAndCreateExit(
+    StakingStorage storage _store,
+    address _attester,
+    uint256 _effectiveBalance,
+    address _recipientOrWithdrawer,
+    bool _isRecipient
+  ) private returns (uint256 amountWithdrawn, uint256 withdrawalId) {
+    bool removed;
+    (amountWithdrawn, removed, withdrawalId) = _store.gse.withdraw(_attester, _effectiveBalance);
+    require(removed, Errors.Staking__WithdrawFailed(_attester));
+
+    _store.exits[_attester] = Exit({
+      withdrawalId: withdrawalId,
+      amount: amountWithdrawn,
+      exitableAt: Timestamp.wrap(block.timestamp) + _store.exitDelay.decompress(),
+      recipientOrWithdrawer: _recipientOrWithdrawer,
+      isRecipient: _isRecipient,
+      exists: true
+    });
   }
 
   /// @notice Whether `_caller` can call {slash}.
