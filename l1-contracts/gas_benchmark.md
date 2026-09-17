@@ -25,9 +25,9 @@
 
 | Function             |   Avg Gas |   Max Gas | Calldata Size | Calldata Gas |
 |----------------------|-----------|-----------|---------------|--------------|
-| propose              |   327,074 |   354,847 |         4,516 |       72,256 |
-| submitEpochRootProof | 1,521,661 | 1,621,840 |        16,708 |      267,328 |
-| aggregate3           |   376,068 |   389,428 |             - |            - |
+| propose              |   327,076 |   354,991 |         4,516 |       72,256 |
+| submitEpochRootProof | 1,521,631 | 1,621,804 |        16,708 |      267,328 |
+| aggregate3           |   376,078 |   389,404 |             - |            - |
 | setupEpoch           |    46,482 |   547,648 |             - |            - |
 
 **Avg Gas Cost per Second**: 5,883.8 gas/second
