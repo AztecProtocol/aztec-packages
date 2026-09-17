@@ -201,13 +201,8 @@ function check_library {
 
 function check_library_warnings {
   set -euo pipefail
-  if [ -n "${NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS:-}" ]; then
-    echo_stderr "Skipping the library warnings check: NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS is set."
-    return
-  fi
   echo_stderr "Checking libraries for warnings..."
-  workspace_packages lib | \
-    parallel -v --line-buffer --tag --halt now,fail=1 check_library {}
+  workspace_packages lib | parallel -v --line-buffer --tag check_library {}
 }
 
 export -f hex_to_fields_json compile generate_vk check_pinned_vk check_library
@@ -242,15 +237,18 @@ function build {
     return
   fi
 
+  rm -rf target
+  mkdir -p $key_dir
+
+  # Writes the workspace Nargo.toml the package listings below read.
+  if [ -f "package.json" ]; then
+    denoise "yarn && yarn generate_variants"
+  fi
+
   check_library_warnings
 
   # We allow errors so we can output the joblog.
   set +e
-  rm -rf target
-  mkdir -p $key_dir
-
-  [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
-
   workspace_packages bin | \
     parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
       --joblog joblog.txt compile {}
