@@ -422,6 +422,29 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice  Get the checkpointed randao in force at a given timestamp, with no lag applied
+   *
+   * @dev     Unlike `getSampleSeedAt`, the timestamp is used as given. `keyTs` is the timestamp the
+   *          returned randao was checkpointed under, which a caller that depends on the entropy
+   *          having been revealed at a particular time must check against the timestamp it asked for.
+   *
+   * @param _ts - The timestamp to read the checkpointed randao at
+   *
+   * @return exists - Whether any checkpoint precedes `_ts`; the other two are meaningless if false
+   * @return keyTs - The timestamp the returned randao was checkpointed under
+   * @return randao - The checkpointed randao value
+   * @custom:reverts Errors.ValidatorSelection__RandaoNotStable if the timestamp is in the future
+   */
+  function getCheckpointedRandaoAt(Timestamp _ts)
+    external
+    view
+    override(IValidatorSelection)
+    returns (bool, uint32, uint224)
+  {
+    return ValidatorOperationsExtLib.getCheckpointedRandaoAt(_ts);
+  }
+
+  /**
    * @notice  Get the sampling size for a given timestamp
    *
    * @param _ts - The timestamp to get the sampling size for

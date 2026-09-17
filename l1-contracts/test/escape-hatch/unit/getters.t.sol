@@ -69,6 +69,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     _joinCandidateSetWithConfig(CANDIDATE1);
     _warpForwardEpochs(config.frequency);
 
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     Epoch currentEpoch = _getCurrentEpoch();
@@ -98,6 +99,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
 
     assertFalse(escapeHatch.isHatchPrepared(preparedHatch), "Should not be prepared before selectCandidates");
 
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     assertTrue(escapeHatch.isHatchPrepared(preparedHatch), "Should be prepared after selectCandidates");
@@ -134,6 +136,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
 
     // PROPOSING: after selection
     _warpForwardEpochs(config.frequency);
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Record which hatch the candidate was selected for (currentHatch + lagInHatches)
@@ -206,17 +209,18 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.EscapeHatch__SetUnstable.selector, targetHatch));
     escapeHatch.getCandidateCountForHatch(targetHatch);
 
-    // Add another candidate at the SAME timestamp
+    // Add another candidate in the freeze block itself. The set is already closed for this hatch:
+    // the freeze timestamp is the first instant the snapshot no longer accepts joins, which is what
+    // makes the strict read above safe. A join here counts towards later hatches only.
     _joinCandidateSetWithConfig(CANDIDATE2);
 
     // ============ PART 2: IMMUTABILITY AFTER FREEZE ============
     // Warp past the freeze timestamp so snapshot is stable
     vm.warp(freezeTs + 1);
 
-    // Query the same targetHatch - now both CANDIDATE1 and CANDIDATE2 are in snapshot
-    // (both joined at or before freezeTs)
+    // Query the same targetHatch - only CANDIDATE1, who joined strictly before the freeze
     uint256 snapshotCount = escapeHatch.getCandidateCountForHatch(targetHatch);
-    assertEq(snapshotCount, 2, "Snapshot should have 2 candidates");
+    assertEq(snapshotCount, 1, "Snapshot should have 1 candidate");
 
     // Add a third candidate at current timestamp (after freeze)
     _joinCandidateSetWithConfig(CANDIDATE3);
@@ -224,17 +228,17 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     // Live count is now 3
     assertEq(escapeHatch.getCandidateCount(), 3, "Live count should be 3");
 
-    // Snapshot count should still be 2 (CANDIDATE3 joined after freeze)
+    // Snapshot count is unchanged by joins at or after the freeze
     uint256 snapshotCountAfterAdd = escapeHatch.getCandidateCountForHatch(targetHatch);
-    assertEq(snapshotCountAfterAdd, 2, "Snapshot count should still be 2 after adding CANDIDATE3");
+    assertEq(snapshotCountAfterAdd, 1, "Snapshot count should still be 1 after adding CANDIDATE3");
 
     // ============ PART 3: FUZZED TIME JUMP - IMMUTABILITY ============
     // Jump arbitrarily far into the future - snapshot must remain immutable
     vm.warp(block.timestamp + _futureTimeJump);
 
-    // Snapshot is STILL 2 - time passage doesn't affect frozen snapshots
+    // Snapshot is STILL 1 - time passage doesn't affect frozen snapshots
     uint256 snapshotCountAfterTimeJump = escapeHatch.getCandidateCountForHatch(targetHatch);
-    assertEq(snapshotCountAfterTimeJump, 2, "Snapshot count must be immutable after freeze regardless of time");
+    assertEq(snapshotCountAfterTimeJump, 1, "Snapshot count must be immutable after freeze regardless of time");
   }
 
   function test_WhenCallingGetCandidateAtIndex(EscapeHatchConfig memory _config) external givenValidConfig(_config) {

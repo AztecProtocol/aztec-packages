@@ -142,6 +142,10 @@ library ValidatorOperationsExtLib {
     return ValidatorSelectionLib.getSampleSeed(_epoch);
   }
 
+  function getCheckpointedRandaoAt(Timestamp _ts) external view returns (bool, uint32, uint224) {
+    return ValidatorSelectionLib.getCheckpointedRandaoAt(_ts);
+  }
+
   function getSamplingSizeAt(Epoch _epoch) external view returns (uint256) {
     return ValidatorSelectionLib.getSamplingSize(_epoch);
   }

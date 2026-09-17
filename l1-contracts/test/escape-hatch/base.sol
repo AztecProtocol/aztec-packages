@@ -142,6 +142,31 @@ contract EscapeHatchBase is TestBase {
     fakeRollup.setEscapeHatch(address(escapeHatch));
   }
 
+  /// @notice Checkpoints the rollup randao for the seed epoch of the hatch selection will prepare
+  /// @dev The escape hatch draws against the randao checkpointed for the epoch after the candidate
+  ///      set freezes, and stays shut without one. A live rollup records that every epoch through
+  ///      setupEpoch; these tests advance time without producing checkpoints, so it has to be put
+  ///      in place explicitly. Call this before selectCandidates in any test that expects a
+  ///      proposer to be designated, and before vm.record so the writes are not counted.
+  function _checkpointSeedRandao() internal {
+    if (useFakeRollup) {
+      return;
+    }
+    Hatch targetHatch = escapeHatch.getCurrentHatch() + Hatch.wrap(config.lagInHatches);
+    uint256 resumeAt = block.timestamp;
+
+    // Nothing to record yet if the hatch is too early for a seed epoch to exist, or if that epoch
+    // has not started. Both are cases where the test is not about to select a proposer anyway.
+    try escapeHatch.getSeedTimestamp(targetHatch) returns (uint32 seedTs) {
+      if (seedTs > resumeAt) {
+        return;
+      }
+      vm.warp(seedTs);
+      rollup.checkpointRandao();
+      vm.warp(resumeAt);
+    } catch {}
+  }
+
   function _mintAndApprove(address _candidate, uint256 _amount) internal {
     vm.prank(bondToken.owner());
     bondToken.mint(_candidate, _amount);

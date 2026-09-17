@@ -208,6 +208,16 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setLagInEpochsForRandao(uint256 _lagInEpochsForRandao) public returns (RollupBuilder) {
+    config.rollupConfigInput.lagInEpochsForRandao = _lagInEpochsForRandao;
+    return this;
+  }
+
+  function setLagInEpochsForValidatorSet(uint256 _lagInEpochsForValidatorSet) public returns (RollupBuilder) {
+    config.rollupConfigInput.lagInEpochsForValidatorSet = _lagInEpochsForValidatorSet;
+    return this;
+  }
+
   function setProofSubmissionEpochs(uint256 _proofSubmissionEpochs) public returns (RollupBuilder) {
     config.rollupConfigInput.aztecProofSubmissionEpochs = _proofSubmissionEpochs;
     return this;

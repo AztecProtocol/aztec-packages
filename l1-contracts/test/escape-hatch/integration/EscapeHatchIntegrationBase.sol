@@ -112,9 +112,30 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
    *      Warps forward by DEFAULT_FREQUENCY epochs to ensure candidates are in the snapshot.
    * @return The prepared hatch number
    */
+  /// @notice Checkpoints the rollup randao for the seed epoch of the hatch selection will prepare
+  /// @dev The escape hatch draws against the randao checkpointed for the epoch after the candidate
+  ///      set freezes, and stays shut without one. A live rollup records that every epoch through
+  ///      setupEpoch; these tests advance time without producing checkpoints, so it has to be put
+  ///      in place explicitly.
+  function _checkpointSeedRandao() internal {
+    Hatch targetHatchToPrepare =
+    escapeHatch.getHatch(rollup.getCurrentEpoch()) + Hatch.wrap(escapeHatch.getLagInHatches());
+    uint256 resumeAt = block.timestamp;
+
+    try escapeHatch.getSeedTimestamp(targetHatchToPrepare) returns (uint32 seedTs) {
+      if (seedTs > resumeAt) {
+        return;
+      }
+      vm.warp(seedTs);
+      IValidatorSelectionCore(address(rollup)).checkpointRandao();
+      vm.warp(resumeAt);
+    } catch {}
+  }
+
   function _selectCandidateForHatch() internal returns (Hatch) {
     _setRandomPrevrandao();
     _warpForwardEpochs(DEFAULT_FREQUENCY);
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     Hatch currentHatch = escapeHatch.getHatch(rollup.getCurrentEpoch());
