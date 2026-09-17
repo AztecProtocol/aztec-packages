@@ -39,6 +39,12 @@ const BENCHMARK_ITERATIONS_SLOW = 5;
 /** Number of blocks to build before benchmarking */
 const BLOCKS_TO_BUILD = 5;
 
+/** Tags per call for the batched log queries, matching the production PXE limit (MAX_RPC_LEN) */
+const TAGS_PER_CALL = 100;
+
+/** Number of log queries kept in flight when measuring how much a query queues behind its siblings */
+const CONCURRENT_LOG_QUERIES = 5;
+
 /** Result structure for benchmark data */
 interface BenchmarkResult {
   name: string;
@@ -70,6 +76,18 @@ function calculateStats(timings: number[]): TimingStats {
     total,
     count: timings.length,
   };
+}
+
+/**
+ * Builds a list of exactly `size` tags by cycling through the harvested ones, falling back to random tags when
+ * nothing was harvested.
+ */
+function cycleTags<T>(size: number, source: T[], makeRandom: () => T): T[] {
+  const tags: T[] = [];
+  for (let i = 0; i < size; i++) {
+    tags.push(source.length > 0 ? source[i % source.length] : makeRandom());
+  }
+  return tags;
 }
 
 /**
@@ -118,6 +136,9 @@ describe('e2e_node_rpc_perf', () => {
   const txHashes: TxHash[] = [];
   let tokenContract: TokenContract;
   let sampleTx: Tx; // A sample proven tx for benchmarking simulation/validation APIs
+  let referenceBlock: BlockHash;
+  const privateTags: SiloedTag[] = [];
+  const publicTags: Tag[] = [];
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -179,6 +200,8 @@ describe('e2e_node_rpc_perf', () => {
     const block = await aztecNode.getBlock(BlockNumber(blockNumber));
     blockArchive = block!.header.lastArchive.root;
 
+    await harvestTags();
+
     // Create a sample tx for benchmarking simulation/validation APIs
     logger.info('Creating sample tx for simulation/validation benchmarks...');
     sampleTx = await proveInteraction(wallet, tokenContract.methods.mint_to_public(ownerAddress, 1n), {
@@ -193,7 +216,7 @@ describe('e2e_node_rpc_perf', () => {
     const mintAmount = 100n;
 
     for (let block = 0; block < BLOCKS_TO_BUILD; block++) {
-      const provenTx = await proveInteraction(wallet, tokenContract.methods.mint_to_public(ownerAddress, mintAmount), {
+      const provenTx = await proveInteraction(wallet, tokenContract.methods.mint_to_private(ownerAddress, mintAmount), {
         from: ownerAddress,
       });
 
@@ -202,6 +225,26 @@ describe('e2e_node_rpc_perf', () => {
       logger.verbose(`Transaction ${receipt.txHash} included in block ${receipt.blockNumber}`);
       logger.info(`Block ${block + 1}/${BLOCKS_TO_BUILD} built`);
     }
+  }
+
+  async function harvestTags() {
+    const blocks = await aztecNode.getBlocks(BlockNumber(1), blockNumber, { includeTransactions: true });
+    for (const block of blocks) {
+      for (const txEffect of block.body.txEffects) {
+        for (const log of txEffect.privateLogs) {
+          privateTags.push(new SiloedTag(log.fields[0]));
+        }
+        for (const log of txEffect.publicLogs) {
+          if (log.contractAddress.equals(contractAddress) && log.fields.length > 0) {
+            publicTags.push(new Tag(log.fields[0]));
+          }
+        }
+      }
+    }
+    referenceBlock = blocks[blocks.length - 1].hash;
+    logger.info(
+      `Harvested ${privateTags.length} private and ${publicTags.length} public tags from ${blocks.length} blocks`,
+    );
   }
 
   function addResult(name: string, stats: TimingStats, unit = 'ms') {
@@ -577,6 +620,64 @@ describe('e2e_node_rpc_perf', () => {
         aztecNode.getPublicLogsByTags({ contractAddress, tags }),
       );
       addResult('getPublicLogsByTags', stats);
+      expect(stats.avg).toBeLessThan(3000);
+    });
+
+    it('benchmarks getPrivateLogsByTags with 100 tags (recipient sync shape)', async () => {
+      // The recipient-sync shape measured at the node boundary: ~100 tags per call, includeEffects on, and a
+      // near-total miss rate (0.45% of tags matched anything) — one matching tag among 100 keeps the hit path
+      // covered without over-weighting response serialization.
+      const tags = [
+        privateTags[0] ?? SiloedTag.random(),
+        ...Array.from({ length: TAGS_PER_CALL - 1 }, () => SiloedTag.random()),
+      ];
+      const { stats } = await benchmark(
+        'getPrivateLogsByTags_100tags',
+        () => aztecNode.getPrivateLogsByTags({ tags, referenceBlock, includeEffects: true }),
+        BENCHMARK_ITERATIONS_FAST,
+      );
+      addResult('getPrivateLogsByTags_100tags', stats);
+      expect(stats.avg).toBeLessThan(3000);
+    });
+
+    it('benchmarks getPrivateLogsByTags with 100 matching tags', async () => {
+      const tags = cycleTags(TAGS_PER_CALL, privateTags, () => SiloedTag.random());
+      const { stats } = await benchmark(
+        'getPrivateLogsByTags_100tags_allhits',
+        () => aztecNode.getPrivateLogsByTags({ tags, referenceBlock, includeEffects: true }),
+        BENCHMARK_ITERATIONS_FAST,
+      );
+      addResult('getPrivateLogsByTags_100tags_allhits', stats);
+      expect(stats.avg).toBeLessThan(3000);
+    });
+
+    it('benchmarks getPublicLogsByTags with 100 tags', async () => {
+      const tags = cycleTags(TAGS_PER_CALL, publicTags, () => Tag.random());
+      const { stats } = await benchmark(
+        'getPublicLogsByTags_100tags',
+        () => aztecNode.getPublicLogsByTags({ contractAddress, tags, referenceBlock }),
+        BENCHMARK_ITERATIONS_FAST,
+      );
+      addResult('getPublicLogsByTags_100tags', stats);
+      expect(stats.avg).toBeLessThan(3000);
+    });
+
+    it('benchmarks getPrivateLogsByTags queued behind concurrent calls', async () => {
+      // Issue CONCURRENT_LOG_QUERIES calls without awaiting them, then time one more issued right after. If the
+      // store serializes these against each other, the measured latency grows with the queue depth.
+      const timings: number[] = [];
+      for (let i = 0; i < BENCHMARK_ITERATIONS_FAST; i++) {
+        const tags = cycleTags(TAGS_PER_CALL, privateTags, () => SiloedTag.random());
+        const inFlight = Array.from({ length: CONCURRENT_LOG_QUERIES }, () =>
+          aztecNode.getPrivateLogsByTags({ tags, referenceBlock, includeEffects: true }),
+        );
+        const timer = new Timer();
+        await aztecNode.getPrivateLogsByTags({ tags, referenceBlock, includeEffects: true });
+        timings.push(timer.ms());
+        await Promise.all(inFlight);
+      }
+      const stats = calculateStats(timings);
+      addResult('getPrivateLogsByTags_100tags_queued', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
   });
