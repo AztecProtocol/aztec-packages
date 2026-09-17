@@ -1,0 +1,129 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Thu, 10 Sep 2026 12:23:21 -0300
+Subject: [PATCH] feat(ethereum): carry the consumed inbox bucket in checkpoint
+ log overrides
+
+The L1 `TempCheckpointLog` gains an `inboxConsumedBucket` member, packed into
+the same storage word as the slot number and the cumulative inbox message
+total. The override builders have to write it, otherwise supplying either of
+the other two zeroes it out and a simulation reads a checkpoint that consumed
+bucket 0.
+
+The packed-word diff now fires when any of the three fields is supplied and
+writes all three, with the new field width-checked at 64 bits like the
+message total.
+
+diff --git a/yarn-project/ethereum/src/contracts/chain_state_override.ts b/yarn-project/ethereum/src/contracts/chain_state_override.ts
+index b080b8056fafbe4cf45d47c482488beb56eb7631..eb93049c680f49e5896c590a8e9195634a33f91e 100644
+--- a/yarn-project/ethereum/src/contracts/chain_state_override.ts
++++ b/yarn-project/ethereum/src/contracts/chain_state_override.ts
+@@ -21,6 +21,7 @@ export type PendingCheckpointOverrideState = {
+   payloadDigest?: Buffer32;
+   slotNumber?: SlotNumber;
+   inboxMsgTotal?: bigint;
++  inboxConsumedBucket?: bigint;
+ };
+ 
+ export type ChainTipsOverride = {
+@@ -95,8 +96,8 @@ export class SimulationOverridesBuilder {
+    * Overrides one or more `tempCheckpointLogs` cell fields for the configured pending checkpoint.
+    * Any subset can be provided. The translator (`makeTempCheckpointLogOverride`) emits a stateDiff
+    * entry per storage word touched, so fields in untouched words stay at their on-chain values;
+-   * `slotNumber` and `inboxMsgTotal` share a word, so setting either zeroes the other unless it is
+-   * supplied too.
++   * `slotNumber`, `inboxMsgTotal` and `inboxConsumedBucket` share a word, so setting any of them
++   * zeroes the others unless they are supplied too.
+    *
+    * `slotNumber` is required for `STFLib.canPruneAtTime`: when the simulation overrides `pending`
+    * to a checkpoint that has no on-chain `tempCheckpointLogs` entry yet, the missing slotNumber falls
+@@ -109,6 +110,7 @@ export class SimulationOverridesBuilder {
+     payloadDigest?: Buffer32;
+     slotNumber?: SlotNumber;
+     inboxMsgTotal?: bigint;
++    inboxConsumedBucket?: bigint;
+   }): this {
+     this.assertPendingCheckpointNumber();
+     this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
+@@ -177,6 +179,7 @@ export async function buildSimulationOverridesStateOverride(
+           payloadDigest: plan.pendingCheckpointState.payloadDigest,
+           slotNumber: plan.pendingCheckpointState.slotNumber,
+           inboxMsgTotal: plan.pendingCheckpointState.inboxMsgTotal,
++          inboxConsumedBucket: plan.pendingCheckpointState.inboxConsumedBucket,
+           feeHeader: plan.pendingCheckpointState.feeHeader,
+         }),
+       ),
+diff --git a/yarn-project/ethereum/src/contracts/rollup.test.ts b/yarn-project/ethereum/src/contracts/rollup.test.ts
+index 54744f5474fa00832e9eb0abc510bea8a90bbaec..7c770fabeac2c4a296c348524d106fc0dc047997 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.test.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.test.ts
+@@ -487,16 +487,17 @@ describe('Rollup', () => {
+       );
+     });
+ 
+-    it('packs the inbox consumption count into the slot-number word', async () => {
++    it('packs the inbox consumption counts into the slot-number word', async () => {
+       const checkpointNumber = CheckpointNumber(13);
+       const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, {
+         slotNumber: SlotNumber(7),
+         inboxMsgTotal: 300n,
++        inboxConsumedBucket: 5n,
+       });
+       const { map, slotFor } = getDiffMap(checkpointNumber, override);
+       expect(override[0].stateDiff).toHaveLength(1);
+       expect(map.get(await slotFor(TempCheckpointLogField.SlotNumber))).toBe(
+-        `0x${(7n | (300n << 32n)).toString(16).padStart(64, '0')}`.toLowerCase(),
++        `0x${(7n | (300n << 32n) | (5n << 96n)).toString(16).padStart(64, '0')}`.toLowerCase(),
+       );
+     });
+ 
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index 6ac1639751d082d633487d7dcf04fa58714f82d1..b72cc405e81aee557a54df55a165666884e939b9 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -160,8 +160,8 @@ export enum TempCheckpointLogField {
+  * arbitrary `bytes32` value rather than a BN254 scalar. `slotNumber` carries the uint32 portion
+  * of the on-chain `CompressedSlot`.
+  *
+- * `slotNumber` and `inboxMsgTotal` share a single storage word, so supplying either rewrites both;
+- * the one left out lands as zero.
++ * `slotNumber`, `inboxMsgTotal` and `inboxConsumedBucket` share a single storage word, so supplying
++ * any one of them rewrites all three; the ones left out land as zero.
+  */
+ export type TempCheckpointLogOverrideFields = {
+   headerHash?: Fr;
+@@ -170,6 +170,8 @@ export type TempCheckpointLogOverrideFields = {
+   slotNumber?: SlotNumber;
+   /** Cumulative Inbox message count consumed as of this checkpoint. */
+   inboxMsgTotal?: bigint;
++  /** Inbox bucket sequence number this checkpoint's rolling hash corresponds to. */
++  inboxConsumedBucket?: bigint;
+   feeHeader?: FeeHeader;
+ };
+ 
+@@ -998,16 +1000,21 @@ export class RollupContract {
+         value: fields.payloadDigest.toString() as `0x${string}`,
+       });
+     }
+-    if (fields.slotNumber !== undefined || fields.inboxMsgTotal !== undefined) {
+-      // The L1 struct packs the slot number and the inbox consumption count into one word, so this
+-      // diff always writes both. Widths are enforced here because the L1 writers cast through
++    if (
++      fields.slotNumber !== undefined ||
++      fields.inboxMsgTotal !== undefined ||
++      fields.inboxConsumedBucket !== undefined
++    ) {
++      // The L1 struct packs the slot number and the two inbox consumption counts into one word, so this
++      // diff always writes all three. Widths are enforced here because the L1 writers cast through
+       // SafeCast and revert on overflow; a malformed override must surface rather than silently truncate
+       // into a neighbouring field.
+       const slotNumber = requireUintFits(BigInt(fields.slotNumber ?? 0), 32, 'slotNumber');
+       const inboxMsgTotal = requireUintFits(fields.inboxMsgTotal ?? 0n, 64, 'inboxMsgTotal');
++      const inboxConsumedBucket = requireUintFits(fields.inboxConsumedBucket ?? 0n, 64, 'inboxConsumedBucket');
+       stateDiff.push({
+         slot: slotAt(TempCheckpointLogField.SlotNumber),
+-        value: word(slotNumber | (inboxMsgTotal << 32n)),
++        value: word(slotNumber | (inboxMsgTotal << 32n) | (inboxConsumedBucket << 96n)),
+       });
+     }
+     if (fields.feeHeader) {

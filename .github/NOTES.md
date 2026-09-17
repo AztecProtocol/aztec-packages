@@ -27,7 +27,9 @@ There are three ways to land code in `v4-next`:
 
 ### Nightly releases
 
-Every night at 5:00 AM UTC, `nightly-release-tag-v4-next.yml` creates a tag from `v4-next` in the format `v{version}-nightly.{date}`. This mirrors the nightly release process on `next`.
+Every night at 4:00 AM UTC, `nightly-release-tag.yml` tags both `next` and `v5-next` in the format `v{version}-nightly.{date}`, taking the version from `.release-please-manifest.json` on each branch. Pushing the tag triggers the release flow.
+
+The workflow can also be dispatched manually. It then accepts an optional `suffix` input and tags `v{version}-nightly.{date}.{suffix}`, so an extra nightly can be cut on a day that already has one. The suffix must be lowercase letters, digits and hyphens starting with a letter, which keeps the tag a valid semver prerelease. Without a suffix, a manual run produces the canonical tag for the day and fails if it already exists: the workflow never moves an existing tag.
 
 ### Backports
 
@@ -43,5 +45,5 @@ The existing backport infrastructure (`backport.yml`) works with `v4-next` out o
 | Workflow | Trigger | Action |
 |---|---|---|
 | `pull-v4-into-v4-next.yml` | Push to `v4` | Merges `v4` into `v4-next`; creates conflict PR if needed |
-| `nightly-release-tag-v4-next.yml` | Daily at 05:00 UTC | Tags `v4-next` with `v{version}-nightly.{date}` |
+| `nightly-release-tag.yml` | Daily at 04:00 UTC, or manual dispatch | Tags `next` and `v5-next` with `v{version}-nightly.{date}`, plus an optional `.{suffix}` on manual runs |
 | `backport.yml` | `backport-to-v4-next` label + PR merge | Cherry-picks into `v4-next` via staging branch |

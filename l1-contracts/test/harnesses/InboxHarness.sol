@@ -14,4 +14,14 @@ contract InboxHarness is Inbox {
     // Compact cumulative index: the next message's index is the count inserted so far.
     return _totalMessagesInserted();
   }
+
+  // Ring surgery for tests that need the sequence counter far from where real sends could take it, such as the
+  // sequence type's maximum. Callers are responsible for writing every live ring slot afterwards.
+  function setCurrentBucketSeq(uint64 _seq) external {
+    currentBucketSeq = _seq;
+  }
+
+  function setBucket(uint64 _seq, InboxBucket memory _bucket) external {
+    buckets[_seq % BUCKET_RING_SIZE] = _bucket;
+  }
 }

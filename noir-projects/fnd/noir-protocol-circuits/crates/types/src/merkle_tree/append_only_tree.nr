@@ -111,7 +111,8 @@ pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let Subt
 /// boundary: the whole batch is merged into the tree's frontier (the incremental-merkle-tree "filled subtrees") level
 /// by level, so a compact bundle can start wherever the previous append left off. Only `leaves[0..num_leaves]` are
 /// inserted; the remaining lanes are no-ops and must be zero. The pair-hash lanes halve at each level as the batch
-/// rises, so the total cost is ~`MaxLeaves + 3 * TreeHeight` hashes rather than `MaxLeaves * TreeHeight`.
+/// rises, so the total cost is ~`MaxLeaves + 4 * TreeHeight` hashes (merge, hint validation, final root
+/// recomputation, and the zero-subtree-root chain) rather than `MaxLeaves * TreeHeight`.
 ///
 /// `frontier_hint` is the frontier at `snapshot.next_available_leaf_index`, i.e. `frontier_hint[level]` is the pending
 /// left-sibling node at each level. It is validated against `snapshot.root` before use, pinning it to the snapshot the
@@ -119,11 +120,12 @@ pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let Subt
 /// index is a right child, which are exactly the entries the validation pins, so an incorrect hint cannot produce a
 /// wrong result: it either fails validation or is never read.
 ///
-/// A completely full tree (`next_available_leaf_index == 2^TreeHeight`) has no representable frontier, so every call
-/// against one fails hint validation — including `num_leaves = 0`. Callers that append a bundle unconditionally
-/// therefore stop being provable altogether once the tree fills up, so this is a chain halt rather than a graceful
-/// degradation to "no more messages". It fails closed and is accepted behavior: at the heights used in practice the
-/// tree cannot be filled within the lifetime of the chain.
+/// Once the tree is completely full, no call to this function can succeed: appending more leaves fails the capacity
+/// check, and even a `num_leaves = 0` call fails, because a full tree has no frontier for the hint to match. (The
+/// one exception: a tree whose leaves are all zero is indistinguishable from an empty tree, so a `num_leaves = 0`
+/// call against it passes as a harmless no-op.) A caller that appends a bundle unconditionally therefore becomes
+/// unprovable once its tree fills up — the chain halts rather than degrading to "no more messages". This fails
+/// closed and is accepted behavior: at the heights used in practice the tree can never fill up.
 pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
     snapshot: AppendOnlyTreeSnapshot,
     leaves: [Field; MaxLeaves],
@@ -155,6 +157,8 @@ pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
     let start_index = snapshot.next_available_leaf_index as u64;
     let end_index = start_index + num_leaves as u64;
     // Guard against wrapping past the tree capacity, which would otherwise silently produce a wrong root.
+    // At height 64 the capacity is not representable as a u64, so the check is skipped; the `end_index` addition above
+    // rejects any overflowing appends, at the cost that a height-64 tree can never be filled to its last leaf.
     let mut tree_is_filled_exactly = false;
     if TreeHeight < 64 {
         let capacity = 1 as u64 << TreeHeight as u64;
@@ -683,6 +687,48 @@ mod append_leaves_tests {
 
         let batch: [Field; 6] = padded([201, 202, 203]);
         let _ = append_leaves_to_snapshot::<4, 6>(snapshot, batch, 3, [0; 4]);
+    }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn append_leaf_index_past_64_bits_fails() {
+        // 2^64 truncates to 0 as a u64, so without the bit-size check on the leaf index the empty-tree frontier
+        // would validate and the batch would silently land at index 0.
+        let mut snapshot = empty_snapshot::<5>();
+        snapshot.next_available_leaf_index = 18446744073709551616;
+        let leaves: [Field; 8] = padded([42]);
+        let _ = append_leaves_to_snapshot::<5, 8>(snapshot, leaves, 1, [0; 5]);
+    }
+
+    #[test]
+    fn append_with_tree_of_height_64() {
+        // The static_assert admits heights up to 64, where the capacity check is skipped (a 2^64 capacity is not
+        // representable as a u64). Verified against the aligned subtree-insert path, as no reference tree of this
+        // height can be built.
+        let snapshot = empty_snapshot::<64>();
+
+        let subtree_root = merkle_hash(11, 22);
+        let sibling_path: [Field; 63] = subarray(compute_zero_hashes::<64>(), 0);
+        let ref_snapshot =
+            insert_subtree_root_to_snapshot::<64, 1>(snapshot, sibling_path, subtree_root);
+
+        let result = append_leaves_to_snapshot::<64, 4>(snapshot, [11, 22, 0, 0], 2, [0; 64]);
+        assert_eq(result, ref_snapshot);
+    }
+
+    #[test(should_fail_with = "attempt to add with overflow")]
+    fn append_at_height_64_past_capacity_fails() {
+        // At height 64 the skipped capacity check's job falls to the checked u64 addition computing `end_index`:
+        // 2^64 - 1 passes the 64-bit index check, so the add is the only guard, and it fires before hint
+        // validation ever sees the (bogus) frontier.
+        let mut snapshot = empty_snapshot::<64>();
+        snapshot.next_available_leaf_index = 0xffffffffffffffff;
+        let _ = append_leaves_to_snapshot::<64, 4>(snapshot, [11, 22, 0, 0], 2, [0; 64]);
+    }
+
+    #[test(should_fail_with = "num_leaves is greater than the leaves array length")]
+    fn append_num_leaves_past_array_fails() {
+        let snapshot = empty_snapshot::<5>();
+        let _ = append_leaves_to_snapshot::<5, 8>(snapshot, [0; 8], 9, [0; 5]);
     }
 
     #[test(should_fail_with = "Found non-zero field after breakpoint")]

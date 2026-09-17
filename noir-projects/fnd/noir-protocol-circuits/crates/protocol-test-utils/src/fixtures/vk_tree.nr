@@ -1,8 +1,9 @@
 use crate::utils::pad_end;
 use types::{
     constants::{
-        HIDING_KERNEL_TO_PUBLIC_VK_INDEX, INBOX_PARITY_1024_VK_INDEX, INBOX_PARITY_256_VK_INDEX,
-        INBOX_PARITY_64_VK_INDEX, MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_INIT_2_VK_INDEX,
+        HIDING_KERNEL_TO_PUBLIC_VK_INDEX, INBOX_PARITY_1024_VK_INDEX, INBOX_PARITY_16_VK_INDEX,
+        INBOX_PARITY_256_VK_INDEX, INBOX_PARITY_4_VK_INDEX, INBOX_PARITY_64_VK_INDEX,
+        MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_INIT_2_VK_INDEX,
         PRIVATE_KERNEL_INIT_3_VK_INDEX, PRIVATE_KERNEL_INIT_4_VK_INDEX,
         PRIVATE_KERNEL_INIT_5_VK_INDEX, PRIVATE_KERNEL_INNER_2_VK_INDEX,
         PRIVATE_KERNEL_INNER_3_VK_INDEX, PRIVATE_KERNEL_INNER_4_VK_INDEX,
@@ -76,6 +77,9 @@ pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
 
     // Honk
     // The inbox parity ladder circuits are plain UltraHonk (not rollup-honk) and live past the reset range.
+    leaves[INBOX_PARITY_4_VK_INDEX] = generate_fake_honk_vk_for_index(INBOX_PARITY_4_VK_INDEX).hash;
+    leaves[INBOX_PARITY_16_VK_INDEX] =
+        generate_fake_honk_vk_for_index(INBOX_PARITY_16_VK_INDEX).hash;
     leaves[INBOX_PARITY_64_VK_INDEX] =
         generate_fake_honk_vk_for_index(INBOX_PARITY_64_VK_INDEX).hash;
     leaves[INBOX_PARITY_256_VK_INDEX] =

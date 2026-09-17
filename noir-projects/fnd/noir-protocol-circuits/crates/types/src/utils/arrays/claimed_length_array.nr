@@ -1,5 +1,4 @@
 use crate::traits::{Deserialize, Empty, Serialize};
-use crate::utils::for_loop::for_i_in_0_;
 
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.
@@ -19,20 +18,6 @@ where
     // No constructor. Append to an empty one.
 
     // For constrained append functions, see the dedicated file: assert_array_appended.nr
-
-    pub fn assert_dense_trimmed(self) {
-        for_i_in_0_(
-            self.length,
-            N,
-            |i| {
-                assert(!self.array[i].is_empty(), "LHS of input array is not dense")
-                // Requires Noir #9002:
-                // self.array[i].assert_not_empty("LHS of input array is not dense"); // LHS of input array is not dense.
-            },
-            |i| self.array[i].assert_empty("RHS of input array is not empty"),
-            false,
-        );
-    }
 
     pub fn assert_empty<let S: u32>(self, msg: str<S>) {
         for i in 0..N {
@@ -71,7 +56,6 @@ where
                 f(self.array[i]);
             }
         }
-        // for_i_only_in_0_(self.length, N, |i| { f(self.array[i]) }, false);
     }
 
     // E.g.
@@ -84,7 +68,6 @@ where
                 f(self.array[i], i);
             }
         }
-        // for_i_only_in_0_(self.length, N, |i| { f(self.array[i], i) }, false);
     }
 
     pub fn from_bounded_vec(vec: BoundedVec<T, N>) -> Self {
@@ -160,44 +143,6 @@ fn test_pop() {
 fn test_pop_fails_when_empty() {
     let mut arr: ClaimedLengthArray<Field, 3> = ClaimedLengthArray::empty();
     let _ = arr.pop();
-}
-
-// ==================== assert_dense_trimmed tests ====================
-
-#[test]
-fn test_assert_dense_trimmed_valid() {
-    // Valid: dense LHS, empty RHS
-    let arr = ClaimedLengthArray { array: [10, 20, 0, 0], length: 2 };
-    arr.assert_dense_trimmed();
-
-    // Valid: all empty with length 0
-    let arr2 = ClaimedLengthArray { array: [0, 0, 0, 0], length: 0 };
-    arr2.assert_dense_trimmed();
-
-    // Valid: all full
-    let arr3 = ClaimedLengthArray { array: [10, 20, 30, 40], length: 4 };
-    arr3.assert_dense_trimmed();
-}
-
-#[test(should_fail_with = "LHS of input array is not dense")]
-fn test_assert_dense_trimmed_fails_with_gap_in_lhs() {
-    // Invalid: gap in LHS (empty where non-empty expected)
-    let arr = ClaimedLengthArray { array: [10, 0, 30, 0], length: 3 };
-    arr.assert_dense_trimmed();
-}
-
-#[test(should_fail_with = "RHS of input array is not empty")]
-fn test_assert_dense_trimmed_fails_with_nonempty_in_rhs() {
-    // Invalid: non-empty in RHS (should be empty)
-    let arr = ClaimedLengthArray { array: [10, 20, 30, 40], length: 2 };
-    arr.assert_dense_trimmed();
-}
-
-#[test(should_fail_with = "LHS of input array is not dense")]
-fn test_assert_dense_trimmed_fails_with_empty_lhs() {
-    // Invalid: claimed length 2 but first element is empty
-    let arr = ClaimedLengthArray { array: [0, 20, 0, 0], length: 2 };
-    arr.assert_dense_trimmed();
 }
 
 // ==================== assert_empty tests ====================

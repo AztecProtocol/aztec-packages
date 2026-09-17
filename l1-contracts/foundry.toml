@@ -47,6 +47,7 @@ remappings = [
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 fs_permissions = [
+  { access = "read-write", path = "./test/fixtures/mainnet_atp_reward_override.json" },
   { access = "read", path = "./test/fixtures/bn254_constants.json" },
   { access = "read", path = "./test/fixtures/mixed_checkpoint_1.json" },
   { access = "read", path = "./test/fixtures/mixed_checkpoint_2.json" },

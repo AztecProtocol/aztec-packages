@@ -3,9 +3,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#ifndef NO_MULTITHREADING
-#include <mutex>
-#endif
+#include <exception>
 
 namespace bb::bbapi {
 
@@ -13,6 +11,16 @@ namespace bb::bbapi {
 namespace {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 BBApiRequest global_request;
+
+#ifndef BB_NO_EXCEPTIONS
+void write_error_response(const char* message, uint8_t** output_out, size_t* output_len_out)
+{
+    CommandResponse response = ErrorResponse{ .message = message };
+    auto [output, output_len] = msgpack_encode_buffer(response, *output_out, *output_len_out);
+    *output_out = output;
+    *output_len_out = output_len;
+}
+#endif
 } // namespace
 
 /**
@@ -37,5 +45,17 @@ CommandResponse bbapi(Command&& command)
 
 } // namespace bb::bbapi
 
-// Use CBIND macro to export the bbapi function for WASM
-CBIND_NOSCHEMA(bbapi, bb::bbapi::bbapi)
+WASM_EXPORT void bbapi(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out)
+{
+#ifndef BB_NO_EXCEPTIONS
+    try {
+#endif
+        msgpack_cbind_impl(bb::bbapi::bbapi, input_in, input_len_in, output_out, output_len_out);
+#ifndef BB_NO_EXCEPTIONS
+    } catch (const std::exception& e) {
+        bb::bbapi::write_error_response(e.what(), output_out, output_len_out);
+    } catch (...) {
+        bb::bbapi::write_error_response("bbapi: unknown exception", output_out, output_len_out);
+    }
+#endif
+}

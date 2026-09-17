@@ -94,8 +94,8 @@ contract MinimalFeeModel {
       FeeLib.getManaMinFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
 
     return ManaMinFeeComponentsModel({
-      congestion_cost: components.congestionCost,
       congestion_multiplier: components.congestionMultiplier,
+      protocol_fee: components.protocolFee,
       prover_cost: components.proverCost,
       sequencer_cost: components.sequencerCost
     });
@@ -130,7 +130,8 @@ contract MinimalFeeModel {
         slotNumber: Slot.wrap(0),
         feeHeader: FeeLib.computeFeeHeader(checkpointNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0),
         inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0
+        inboxMsgTotal: 0,
+        inboxConsumedBucket: 0
       })
     );
     //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);

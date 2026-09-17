@@ -2,12 +2,19 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RewardLib, RewardConfig, RewardStorage} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {
+  RewardLib,
+  RewardConfig,
+  MutableRewardConfig,
+  RewardStorage,
+  RegistryRewardOverride,
+  MAX_REGISTRY_REWARD_OVERRIDES
+} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardBooster, IBoosterCore, RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {SubmitEpochRootProofArgs, RollupConfig} from "@aztec/core/interfaces/IRollup.sol";
 import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -16,9 +23,24 @@ import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/Checkpoin
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {CompressedChainTips, ChainTipsLib} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
+
+contract RewardLibFakeGSE {
+  mapping(address attester => address withdrawer) internal withdrawers;
+
+  function setWithdrawer(address _attester, address _withdrawer) external {
+    withdrawers[_attester] = _withdrawer;
+  }
+
+  function getWithdrawer(address _attester) external view returns (address) {
+    return withdrawers[_attester];
+  }
+}
 
 contract FakeFeePortal {
   IERC20 public feeAsset;
@@ -63,8 +85,11 @@ contract RewardLibWrapper {
 
   RewardBooster internal booster;
   Epoch internal currentEpoch;
+  IERC20 internal immutable FEE_ASSET;
+  IFeeJuicePortal internal immutable FEE_ASSET_PORTAL;
   FakeRewardDistributor public rewardDistributor;
   FakeFeePortal public feePortal;
+  RewardLibFakeGSE public gse;
 
   constructor(IERC20 _feeAsset, uint96 _checkpointReward, uint32 _sequencerBps) {
     booster = new RewardBooster(
@@ -74,6 +99,7 @@ contract RewardLibWrapper {
 
     rewardDistributor = new FakeRewardDistributor(_feeAsset);
     feePortal = new FakeFeePortal(_feeAsset);
+    gse = new RewardLibFakeGSE();
     RewardConfig memory config = RewardConfig({
       rewardDistributor: IRewardDistributor(address(rewardDistributor)),
       sequencerBps: Bps.wrap(_sequencerBps),
@@ -83,9 +109,9 @@ contract RewardLibWrapper {
 
     RewardLib.initializeConfig(config);
 
-    RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.config.feeAsset = _feeAsset;
-    rollupStore.config.feeAssetPortal = IFeeJuicePortal(address(feePortal));
+    FEE_ASSET = _feeAsset;
+    FEE_ASSET_PORTAL = IFeeJuicePortal(address(feePortal));
+    StakingLib.getStorage().gse = GSE(address(gse));
 
     TimeLib.initialize(
       block.timestamp,
@@ -119,7 +145,8 @@ contract RewardLibWrapper {
         slotNumber: Slot.wrap(0),
         feeHeader: _feeHeader,
         inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0
+        inboxMsgTotal: 0,
+        inboxConsumedBucket: 0
       })
     );
   }
@@ -128,12 +155,50 @@ contract RewardLibWrapper {
     currentEpoch = _epoch;
   }
 
+  function updateProtocolFeeRecipient(address _recipient) external returns (address) {
+    return RewardLib.updateProtocolFeeRecipient(_recipient);
+  }
+
+  function getProtocolFeeRecipient() external view returns (address) {
+    return RewardLib.getProtocolFeeRecipient();
+  }
+
+  function setWithdrawer(address _attester, address _withdrawer) external {
+    gse.setWithdrawer(_attester, _withdrawer);
+  }
+
+  function getProposerIndex(Epoch _epoch, Slot _slot, uint256 _committeeSize) external view returns (uint256) {
+    return ValidatorSelectionLib.computeProposerIndex(
+      _epoch, _slot, ValidatorSelectionLib.getSampleSeed(_epoch), _committeeSize
+    );
+  }
+
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) external {
-    RewardLib.handleRewardsAndFees(_args, _endEpoch);
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory registryRewardOverrides;
+    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, new address[](0), registryRewardOverrides);
+  }
+
+  function handleRewardsAndFees(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    address[] memory _committee,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
+  ) external {
+    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, _committee, _registryRewardOverrides);
+  }
+
+  function updateRewardConfig(MutableRewardConfig memory _config) external {
+    RewardLib.updateConfig(_config);
   }
 
   function getSequencerRewards(address _sequencer) external view returns (uint256) {
     return RewardLib.getSequencerRewards(_sequencer);
+  }
+
+  // Only the fields handleRewardsAndFees reads are populated; the rest stay zero.
+  function _rollupConfig() internal view returns (RollupConfig memory config) {
+    config.feeAsset = FEE_ASSET;
+    config.feeAssetPortal = FEE_ASSET_PORTAL;
   }
 
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256) {

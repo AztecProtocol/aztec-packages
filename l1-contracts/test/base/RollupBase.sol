@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
@@ -102,6 +104,7 @@ contract RollupBase is DecoderBase {
         start: startCheckpointNumber,
         end: endCheckpointNumber,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,
@@ -135,12 +138,30 @@ contract RollupBase is DecoderBase {
     _proposeCheckpoint(_name, _slotNumber, _manaUsed, _extraBlobHashes, "");
   }
 
+  // Proposes without seeding the fixture's L1 to L2 messages, so the checkpoint references the bucket its parent
+  // already consumed and adds no messages.
+  function _proposeCheckpointWithoutInboxMessages(string memory _name, uint256 _slotNumber) internal {
+    bytes32[] memory extraBlobHashes = new bytes32[](0);
+    _proposeCheckpoint(_name, _slotNumber, 0, extraBlobHashes, "", false);
+  }
+
   function _proposeCheckpoint(
     string memory _name,
     uint256 _slotNumber,
     uint256 _manaUsed,
     bytes32[] memory _extraBlobHashes,
     bytes memory _revertMsg
+  ) private {
+    _proposeCheckpoint(_name, _slotNumber, _manaUsed, _extraBlobHashes, _revertMsg, true);
+  }
+
+  function _proposeCheckpoint(
+    string memory _name,
+    uint256 _slotNumber,
+    uint256 _manaUsed,
+    bytes32[] memory _extraBlobHashes,
+    bytes memory _revertMsg,
+    bool _seedInbox
   ) private {
     DecoderBase.Full memory full = load(_name);
     bytes memory blobCommitments = full.checkpoint.blobCommitments;
@@ -167,7 +188,9 @@ contract RollupBase is DecoderBase {
 
     // Seed the Inbox before jumping to the checkpoint's L1 block: propose rejects a bucket that is still
     // accumulating, and a bucket keeps accumulating for the whole L1 block that opened it.
-    _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+    if (_seedInbox) {
+      _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+    }
 
     // We jump to the time of the block, always past the L1 block the messages above landed in.
     vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
@@ -191,15 +214,7 @@ contract RollupBase is DecoderBase {
         }
       }
 
-      // https://github.com/foundry-rs/foundry/issues/10074
-      // don't add blob hashes if forge gas report is true
-      if (!vm.envOr("FORGE_GAS_REPORT", false)) {
-        emit log("Setting blob hashes");
-        vm.blobhashes(blobHashes);
-      } else {
-        // skip blob check if forge gas report is true
-        skipBlobCheck(address(rollup));
-      }
+      setBlobHashesOrSkipCheck(address(rollup), blobHashes);
     }
 
     proposedHeaders[full.checkpoint.checkpointNumber] = full.checkpoint.header;

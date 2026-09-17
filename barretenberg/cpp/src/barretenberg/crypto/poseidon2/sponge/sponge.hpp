@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <tuple>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
@@ -31,25 +32,40 @@ namespace bb::crypto {
  * @tparam Permutation
  */
 template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutation> class FieldSponge {
+  public:
+    using State = typename Permutation::State;
+    using Block = std::array<FF, rate>;
+
+    // Absorption needs a nonempty cache; the IV occupies the first capacity element at state[rate].
+    static_assert(rate > 0, "sponge rate must be positive");
+    static_assert(capacity > 0, "sponge capacity must be positive");
+    static_assert(rate + capacity == std::tuple_size_v<State>,
+                  "sponge rate + capacity must equal the permutation state width");
+    static_assert(t == std::tuple_size_v<State>, "sponge t must equal the permutation state width");
+
   private:
+    static void absorb_block(State& state, const Block& block)
+    {
+        for (size_t i = 0; i < rate; ++i) {
+            state[i] += block[i];
+        }
+
+        // Apply permutation
+        Permutation::permutation_inplace(state);
+    }
+
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
-    std::array<FF, t> state{};
+    State state{};
 
     // cached elements that have been absorbed.
-    std::array<FF, rate> cache{};
+    Block cache{};
     size_t cache_size = 0;
 
     FieldSponge(FF domain_iv) { state[rate] = domain_iv; }
 
     void perform_duplex()
     {
-        // Add the cache into sponge state
-        for (size_t i = 0; i < rate; ++i) {
-            state[i] += cache[i];
-        }
-
-        // Apply permutation
-        Permutation::permutation_inplace(state);
+        absorb_block(state, cache);
 
         // Reset the cache
         cache = {};
@@ -76,6 +92,19 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
     }
 
   public:
+    /**
+     * @brief Absorb complete rate-sized blocks into a supplied state, returning the updated state.
+     * @details Does not initialize the state, pad the input, or finalize the sponge.
+     * Empty input leaves the state unchanged.
+     */
+    static State absorb_blocks(State state, std::span<const Block> blocks)
+    {
+        for (const auto& block : blocks) {
+            absorb_block(state, block);
+        }
+        return state;
+    }
+
     /**
      * @brief Use the sponge to hash an input vector.
      *

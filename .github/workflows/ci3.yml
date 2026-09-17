@@ -71,7 +71,7 @@ jobs:
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
+          # Fetch PR commits depth. squash-pr.sh works on this shallow checkout without deepening it.
           fetch-depth: ${{ github.event.pull_request.commits || 1 }}
           # Persisted for authenticated reads (e.g. the aztec-packages-private mirror); pushes swap in
           # a bot-PAT remote at each push site.
@@ -142,7 +142,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: ./.github/ci3_success.sh
 
       - name: Notify Slack on backport CI failure

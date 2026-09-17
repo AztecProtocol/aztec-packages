@@ -46,8 +46,8 @@ struct L1GasOracleValuesModel {
 }
 
 struct ManaMinFeeComponentsModel {
-  uint256 congestion_cost;
   uint256 congestion_multiplier;
+  uint256 protocol_fee;
   uint256 prover_cost;
   uint256 sequencer_cost;
 }
@@ -137,10 +137,10 @@ contract FeeModelTestPoints is TestBase {
     internal
     pure
   {
-    assertEq(a.congestion_cost, b.congestion_cost, string.concat(_message, " congestion_cost mismatch"));
     assertEq(
       a.congestion_multiplier, b.congestion_multiplier, string.concat(_message, " congestion_multiplier mismatch")
     );
+    assertEq(a.protocol_fee, b.protocol_fee, string.concat(_message, " protocol_fee mismatch"));
     assertEq(a.prover_cost, b.prover_cost, string.concat(_message, " prover_cost mismatch"));
     assertEq(a.sequencer_cost, b.sequencer_cost, string.concat(_message, " sequencer_cost mismatch"));
   }

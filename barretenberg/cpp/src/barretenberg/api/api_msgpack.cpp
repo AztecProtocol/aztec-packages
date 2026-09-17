@@ -53,44 +53,54 @@ int process_msgpack_commands(std::istream& input_stream)
             return 1;
         }
 
-        // Deserialize the msgpack buffer
-        // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
-        // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-        auto obj = unpacked.get();
-
-        // First, expect an array (the tuple of arguments)
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-            throw_or_abort("Expected an array of size 1 (tuple of arguments) for bbapi command deserialization");
-        }
-
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        auto& tuple_arr = obj.via.array;
-        auto& command_obj = tuple_arr.ptr[0];
-
-        // Now access the Command itself, which should be an array of size 2 [command-name, payload]
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
-            throw_or_abort("Expected Command to be an array of size 2 [command-name, payload]");
-        }
-
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        auto& command_arr = command_obj.via.array;
-        if (command_arr.ptr[0].type != msgpack::type::STR) {
-            throw_or_abort("Expected first element of Command to be a string (type name)");
-        }
-
-        // Convert to Command (which is a NamedUnion)
-        bb::bbapi::Command command;
-        command_obj.convert(command);
-
-        // Execute the command
-        auto response = bbapi::bbapi(std::move(command));
-
-        // Serialize the response
         msgpack::sbuffer response_buffer;
-        msgpack::pack(response_buffer, response);
+#ifndef BB_NO_EXCEPTIONS
+        try {
+#endif
+            // Deserialize the msgpack buffer
+            // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
+            // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
+            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+            auto obj = unpacked.get();
+
+            // First, expect an array (the tuple of arguments)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+                throw_or_abort("Expected an array of size 1 (tuple of arguments) for bbapi command deserialization");
+            }
+
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            auto& tuple_arr = obj.via.array;
+            auto& command_obj = tuple_arr.ptr[0];
+
+            // Now access the Command itself, which should be an array of size 2 [command-name, payload]
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
+                throw_or_abort("Expected Command to be an array of size 2 [command-name, payload]");
+            }
+
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            auto& command_arr = command_obj.via.array;
+            if (command_arr.ptr[0].type != msgpack::type::STR) {
+                throw_or_abort("Expected first element of Command to be a string (type name)");
+            }
+
+            // Convert to Command (which is a NamedUnion)
+            bb::bbapi::Command command;
+            command_obj.convert(command);
+
+            // Execute the command
+            auto response = bbapi::bbapi(std::move(command));
+
+            // Serialize the response
+            msgpack::pack(response_buffer, response);
+#ifndef BB_NO_EXCEPTIONS
+        } catch (const std::exception& e) {
+            response_buffer.clear();
+            bb::bbapi::CommandResponse response = bb::bbapi::ErrorResponse{ .message = e.what() };
+            msgpack::pack(response_buffer, response);
+        }
+#endif
 
         // Write length-encoded response directly to stdout
         uint32_t response_length = static_cast<uint32_t>(response_buffer.size());

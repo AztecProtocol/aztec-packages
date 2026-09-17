@@ -185,6 +185,10 @@ export -f hex_to_fields_json compile generate_vk check_pinned_vk
 function build {
   set -eu
 
+  # Build output describing target/. Removed up front so a build that stops before regenerating it
+  # cannot leave a config beside artifacts it does not describe.
+  rm -f private_kernel_reset_config.json
+
   # If pinned-build.tar.gz exists, use it instead of compiling.
   if [ -f pinned-build.tar.gz ]; then
     echo_stderr "Using pinned-build.tar.gz instead of compiling."
@@ -203,7 +207,9 @@ function build {
     local code=$?
     cat joblog.txt
     set -e
-    return $code
+    [ "$code" -eq 0 ] || return $code
+    generate_reset_config
+    return
   fi
 
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
@@ -235,18 +241,18 @@ function build {
   cat joblog.txt
   [ "$code" -eq 0 ] || return $code
 
-  check_reset_costs
+  generate_reset_config
 }
 
-# Fails if any `cost` in private_kernel_reset_config.json no longer matches the gate count
-# `bb gates` reports for that variant's freshly-compiled artifact. Keeps the catalog the variant
-# selector reads in sync with the current bb + reset circuits. Run after the variants are compiled.
-function check_reset_costs {
+# Writes private_kernel_reset_config.json: the variant catalog with the gate count `bb gates` reports
+# for each freshly-compiled variant. The variant selector downstream reads it, so the release stages
+# it into protocol-circuits-artifacts next to the circuits. Run after the variants are compiled.
+function generate_reset_config {
   set -euo pipefail
-  # The mock circuits reuse this script but have no reset variant catalog to check.
-  [ -f ./scripts/refresh_reset_costs.js ] || return 0
-  echo_stderr "Checking reset variant costs are up to date..."
-  denoise "BB=$BB node ./scripts/refresh_reset_costs.js --check"
+  # The mock circuits reuse this script but have no reset variant catalog.
+  [ -f ./scripts/generate_reset_config.js ] || return 0
+  echo_stderr "Measuring reset variant costs..."
+  denoise "BB=$BB node ./scripts/generate_reset_config.js"
 }
 
 function test_cmds {
@@ -257,6 +263,11 @@ function test_cmds {
     fi
     echo "$prefix noir-projects/fnd/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
+  # Unit tests of the reset config generator, keyed on the scripts they cover rather than the circuits.
+  if [ -f ./scripts/generate_reset_config.test.js ]; then
+    local scripts_hash=$(hash_str $(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/scripts/"))
+    echo "$scripts_hash node --test noir-projects/fnd/noir-protocol-circuits/scripts/generate_reset_config.test.js"
+  fi
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
     private-kernel-init

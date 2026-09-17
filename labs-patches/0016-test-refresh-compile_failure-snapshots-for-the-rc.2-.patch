@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Wed, 16 Sep 2026 18:54:22 +0000
+Subject: [PATCH] test: refresh compile_failure snapshots for the rc.2
+ associated-item diagnostic
+
+noir-lang/noir#13666 replaces "Could not resolve 'X' in path" with
+"no associated item named \`X\` found for \`T\`" plus a secondary label on
+the path segment. Six compile_failure stderr snapshots capture that
+diagnostic; the assertions themselves are unchanged.
+
+diff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_call/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_call/snapshots__stderr.snap
+index de1c268866c5bf74027273d894f9de3660391ede..4df93ed799613e2a7afe89a4f769f63334dcdedb 100644
+--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_call/snapshots__stderr.snap
++++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_call/snapshots__stderr.snap
+@@ -2,14 +2,14 @@
+ source: tests/snapshots.rs
+ expression: stderr
+ ---
+-error: Could not resolve 'ZERO' in path
++error: no associated item named `ZERO` found for `AztecAddress`
+   ┌─ src/main.nr:3:1
+   │
+ 3 │ #[aztec]
+   │ -------- While running this function attribute
+   ·
+ 9 │         PanicOnIncorrectlyPerformedPrivateCall::at(AztecAddress::ZERO).arbitrary_external_function();
+-  │                                                                  ----
++  │                                                                  ---- a path can only name an associated type, constant or function of `AztecAddress`
+   │
+ 
+ error: Your private call needs to be passed into the `self.call(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_private_function(...args))`
+diff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_static_call/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_static_call/snapshots__stderr.snap
+index 7bd6bfee98f3185185322df150ed1f70ca4570a2..6806ee35d9344176c951671ffdc2834d91577471 100644
+--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_static_call/snapshots__stderr.snap
++++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_private_static_call/snapshots__stderr.snap
+@@ -2,14 +2,14 @@
+ source: tests/snapshots.rs
+ expression: stderr
+ ---
+-error: Could not resolve 'ZERO' in path
++error: no associated item named `ZERO` found for `AztecAddress`
+    ┌─ src/main.nr:3:1
+    │
+  3 │ #[aztec]
+    │ -------- While running this function attribute
+    ·
+ 18 │         PanicOnIncorrectlyPerformedPrivateStaticCall::at(AztecAddress::ZERO)
+-   │                                                                        ----
++   │                                                                        ---- a path can only name an associated type, constant or function of `AztecAddress`
+    │
+ 
+ error: Your private static call needs to be passed into the `self.view(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_private_static_function(...args))`
+diff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_call/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_call/snapshots__stderr.snap
+index 3361a44915c4167462c28865683a28f7b6f6920e..79bbb3a59b4b0620070fd7768927d2c8a3e9d649 100644
+--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_call/snapshots__stderr.snap
++++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_call/snapshots__stderr.snap
+@@ -2,14 +2,14 @@
+ source: tests/snapshots.rs
+ expression: stderr
+ ---
+-error: Could not resolve 'ZERO' in path
++error: no associated item named `ZERO` found for `AztecAddress`
+    ┌─ src/main.nr:3:1
+    │
+  3 │ #[aztec]
+    │ -------- While running this function attribute
+    ·
+ 12 │         PanicOnIncorrectlyPerformedPublicCall::at(AztecAddress::ZERO).arbitrary_public_function();
+-   │                                                                 ----
++   │                                                                 ---- a path can only name an associated type, constant or function of `AztecAddress`
+    │
+ 
+ error: Your public call needs to be passed into the `self.call(...)`, `self.enqueue(...)` or `self.enqueue_incognito(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_public_function(...args))`
+diff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_static_call/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_static_call/snapshots__stderr.snap
+index b426ebb70c1c16f4aa364af828cc940961a4387c..4e92d1c22b1b8cd2807938e8e5b892aa455d06b1 100644
+--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_static_call/snapshots__stderr.snap
++++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_incorrectly_performed_public_static_call/snapshots__stderr.snap
+@@ -2,14 +2,14 @@
+ source: tests/snapshots.rs
+ expression: stderr
+ ---
+-error: Could not resolve 'ZERO' in path
++error: no associated item named `ZERO` found for `AztecAddress`
+    ┌─ src/main.nr:3:1
+    │
+  3 │ #[aztec]
+    │ -------- While running this function attribute
+    ·
+ 18 │         PanicOnIncorrectlyPerformedPublicStaticCall::at(AztecAddress::ZERO)
+-   │                                                                       ----
++   │                                                                       ---- a path can only name an associated type, constant or function of `AztecAddress`
+    │
+ 
+ error: Your public static call needs to be passed into the `self.view(...)`, `self.enqueue_view(...)` or `self.enqueue_view_incognito(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_public_static_function(...args))`
+diff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap
+index 57e8e6b2c8f6498116fe25c7d255af957fda4dc0..d9ed998f8e63d5166db0e08328851901a0df55d4 100644
+--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap
++++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap
+@@ -14,11 +14,11 @@ error: Type NonStateVar does not implement StateVariable and hence cannot be pla
+     2: storage
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+ 
+-error: Could not resolve 'init' in path
++error: no associated item named `init` found for `Storage<_>`
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
+    │
+    │             let storage = Storage::init(&mut context);
+-   │                                    ----
++   │                                    ---- a path can only name an associated type, constant or function of `Storage<_>`
+    │
+    ┌─ src/main.nr:4:1
+    │
+diff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap
+index dfdf6e7bf30dce77c6bcfc671ba71ca18fcc638c..a28ab7d1b215c22c88baeeaed608739459b4a597 100644
+--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap
++++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap
+@@ -14,11 +14,11 @@ error: Type PrivateImmutable<Field, Context> implements OwnedStateVariable and h
+     2: storage
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+ 
+-error: Could not resolve 'init' in path
++error: no associated item named `init` found for `Storage<_>`
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
+    │
+    │             let storage = Storage::init(&mut context);
+-   │                                    ----
++   │                                    ---- a path can only name an associated type, constant or function of `Storage<_>`
+    │
+    ┌─ src/main.nr:4:1
+    │

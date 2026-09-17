@@ -16,6 +16,7 @@ contracts=(
   "SlashingProposer"
   "EmpireBase"
   "RollupOperationsExtLib"
+  "EpochProofExtLib"
   "ValidatorOperationsExtLib"
   "RewardExtLib"
   "SlasherDeploymentExtLib"

@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -173,7 +175,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+    vm.label(rollup.getProtocolFeeRecipient(), "BURN_ADDRESS");
 
     _;
   }
@@ -274,6 +276,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               start: start,
               end: start + epochSize - 1,
               args: args,
+              provenCheckpointFees: new ProvenCheckpointFees[](0),
               headers: headers,
               attestations: checkpointAttestations[start + epochSize - 1],
               blobInputs: full.checkpoint.batchedBlobInputs,

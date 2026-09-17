@@ -28,7 +28,7 @@ import {console} from "forge-std/console.sol";
  *      the FeeConfig allows provingCostPerMana up to uint64. Governance can set a
  *      valid config value that always reverts during compression.
  *
- *   2. FeeHeader compression - congestionCost (uint64): with a cheap fee asset (low
+ *   2. FeeHeader compression - protocolFee (uint64): with a cheap fee asset (low
  *      ethPerFeeAsset) and moderate congestion, the fee-asset conversion amplifies
  *      the congestion cost beyond 64 bits.
  *
@@ -44,7 +44,7 @@ import {console} from "forge-std/console.sol";
  *      proposer can work around the revert - permanent liveness failure.
  *
  *   Additionally, even after fixing (1)-(4), the summed mana min fee (sequencerCost +
- *   proverCost + congestionCost) can exceed the uint128 capacity of the proposal header's
+ *   proverCost + protocolFee) can exceed the uint128 capacity of the proposal header's
  *   feePerL2Gas field. Without capping summedMinFee at type(uint128).max, the proposer
  *   cannot construct a valid header, causing the same liveness failure.
  */
@@ -60,7 +60,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   uint256 internal constant MAX_PROVER_COST = (1 << 63) - 1;
-  uint256 internal constant MAX_CONGESTION_COST = type(uint64).max;
+  uint256 internal constant MAX_PROTOCOL_FEE = type(uint64).max;
 
   function setUp() public {
     // Warp to a timestamp large enough so that setupEpoch's
@@ -189,11 +189,11 @@ contract FeeHeaderOverflowTest is DecoderBase {
     // Verify the stored fee header has capped proverCost
     FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
     assertEq(storedFeeHeader.proverCost, MAX_PROVER_COST, "stored proverCost should be capped at 63-bit max");
-    assertEq(storedFeeHeader.congestionCost, 0, "congestionCost should be zero (no congestion)");
+    assertEq(storedFeeHeader.protocolFee, 0, "protocolFee should be zero (no congestion)");
   }
 
   // -----------------------------------------------------------------------
-  //  2. Compression overflow - congestionCost exceeds 64 bits
+  //  2. Compression overflow - protocolFee exceeds 64 bits
   // -----------------------------------------------------------------------
 
   /**
@@ -208,7 +208,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
    *         Note: proverCost stays within 63 bits here because provingCostPerMana is
    *         at the default (100 wei), so this specifically tests the congestion path.
    */
-  function test_propose_compressOverflow_congestionCost() public {
+  function test_propose_compressOverflow_protocolFee() public {
     // excessMana = 1e10 (~100x target): high enough for large congestion multiplier,
     // but well below the ~975x threshold that would overflow fakeExponential
     uint256 excessMana = 10_000_000_000;
@@ -237,11 +237,11 @@ contract FeeHeaderOverflowTest is DecoderBase {
     // Warp to slot 1
     vm.warp(block.timestamp + SLOT_DURATION);
 
-    // Fee computation succeeds (uint256 intermediates), but congestionCost exceeds uint64
+    // Fee computation succeeds (uint256 intermediates), but protocolFee exceeds uint64
     ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
 
-    assertTrue(components.congestionCost > MAX_CONGESTION_COST, "congestionCost should exceed 64-bit limit");
+    assertTrue(components.protocolFee > MAX_PROTOCOL_FEE, "protocolFee should exceed 64-bit limit");
     assertTrue(components.proverCost <= MAX_PROVER_COST, "proverCost should still fit in 63 bits");
 
     (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
@@ -249,14 +249,12 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     skipBlobCheck(address(rollup));
 
-    // propose succeeds because compress() caps congestionCost at 64-bit max instead of reverting.
+    // propose succeeds because compress() caps protocolFee at 64-bit max instead of reverting.
     rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
 
-    // Verify the stored fee header has capped congestionCost
+    // Verify the stored fee header has capped protocolFee
     FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
-    assertEq(
-      storedFeeHeader.congestionCost, MAX_CONGESTION_COST, "stored congestionCost should be capped at 64-bit max"
-    );
+    assertEq(storedFeeHeader.protocolFee, MAX_PROTOCOL_FEE, "stored protocolFee should be capped at 64-bit max");
     assertLe(storedFeeHeader.proverCost, MAX_PROVER_COST, "proverCost should still fit in 63 bits");
   }
 
@@ -291,7 +289,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     // Construct the modified CompressedFeeHeader with high excessMana.
     // Bit layout: manaUsed(32) | excessMana(48) | ethPerFeeAsset(48) |
-    //             congestionCost(64) | proverCost(63) | preHeat(1)
+    //             protocolFee(64) | proverCost(63) | preHeat(1)
     uint256 compressedValue = 0;
     compressedValue |= excessMana << 32;
     compressedValue |= ethPerFeeAsset << 80;
@@ -317,7 +315,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     // The congestion multiplier is capped (excessMana > denominator * 100 threshold)
     assertTrue(components.congestionMultiplier > 0, "congestionMultiplier should be non-zero");
     // Individual components exceed their compressed field widths
-    assertTrue(components.congestionCost > MAX_CONGESTION_COST, "congestionCost exceeds 64-bit limit");
+    assertTrue(components.protocolFee > MAX_PROTOCOL_FEE, "protocolFee exceeds 64-bit limit");
 
     // summedMinFee caps the total at uint128 max, ensuring the header can represent it
     assertEq(manaMinFee, type(uint128).max, "mana min fee should be capped at uint128 max");
@@ -334,9 +332,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     // Verify the stored fee header has capped values
     FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
-    assertEq(
-      storedFeeHeader.congestionCost, MAX_CONGESTION_COST, "stored congestionCost should be capped at 64-bit max"
-    );
+    assertEq(storedFeeHeader.protocolFee, MAX_PROTOCOL_FEE, "stored protocolFee should be capped at 64-bit max");
     assertLe(storedFeeHeader.proverCost, MAX_PROVER_COST, "proverCost should fit in 63 bits");
   }
 
@@ -356,7 +352,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
    *         the result exceeds uint48.
    *
    *         After fix: compress() caps excessMana at uint48 max (via Math.min) instead
-   *         of reverting, consistent with the congestionCost and proverCost caps.
+   *         of reverting, consistent with the protocolFee and proverCost caps.
    *         At uint48 max, the congestion multiplier is already pinned at the e^100 cap,
    *         so capping excessMana doesn't change observable fee behavior. The system
    *         naturally recovers as manaUsed drops to 0 under extreme fees.
@@ -382,7 +378,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     uint256 ethPerFeeAsset = genesisFeeHeader.ethPerFeeAsset;
 
     // Construct parent header with near-max excessMana and manaUsed > manaTarget.
-    // Bit layout: preHeat(1) | proverCost(63) | congestionCost(64) |
+    // Bit layout: preHeat(1) | proverCost(63) | protocolFee(64) |
     //             ethPerFeeAsset(48) | excessMana(48) | manaUsed(32)
     uint256 compressedValue = 0;
     compressedValue |= parentManaUsed; // bits 0-31

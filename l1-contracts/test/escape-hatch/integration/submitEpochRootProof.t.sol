@@ -2,6 +2,8 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {EscapeHatchIntegrationBase} from "./EscapeHatchIntegrationBase.sol";
 import {IEscapeHatchCore, Status, CandidateInfo, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -128,6 +130,7 @@ contract submitEpochRootProofTest is EscapeHatchIntegrationBase {
         start: 1,
         end: 1,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: AttestationLibHelper.packAttestations(_attestations),
         blobInputs: full.checkpoint.batchedBlobInputs,

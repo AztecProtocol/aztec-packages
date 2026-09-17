@@ -136,6 +136,7 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
+  echo "$hash cd l1-contracts && scripts/check_contract_sizes.sh"
   echo "$hash cd l1-contracts && forge test"
   echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
   echo "$hash:ISOLATE=1 cd l1-contracts && scripts/test_rollup_upgrade.sh"

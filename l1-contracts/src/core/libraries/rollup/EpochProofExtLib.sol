@@ -2,8 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {SubmitEpochRootProofArgs, PublicInputArgs, RollupConfig} from "@aztec/core/interfaces/IRollup.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {RegistryRewardOverride, MAX_REGISTRY_REWARD_OVERRIDES} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 
 /**
@@ -20,8 +21,12 @@ import {EpochProofLib} from "./EpochProofLib.sol";
  *      - Epoch proof public input computation
  */
 library EpochProofExtLib {
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofLib.submitEpochRootProof(_args);
+  function submitEpochRootProof(
+    SubmitEpochRootProofArgs calldata _args,
+    RollupConfig memory _config,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
+  ) external {
+    EpochProofLib.submitEpochRootProof(_args, _config, _registryRewardOverrides);
   }
 
   function getEpochProofPublicInputs(
@@ -29,8 +34,9 @@ library EpochProofExtLib {
     uint256 _end,
     PublicInputArgs calldata _args,
     ProposedHeader[] calldata _headers,
-    bytes calldata _blobPublicInputs
+    bytes calldata _blobPublicInputs,
+    RollupConfig memory _config
   ) external view returns (bytes32[] memory) {
-    return EpochProofLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
+    return EpochProofLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs, _config);
   }
 }

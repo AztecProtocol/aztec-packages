@@ -6,9 +6,11 @@ pragma solidity >=0.8.27;
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
   IRollupCore,
-  RollupStore,
+  RollupConfig,
   SubmitEpochRootProofArgs,
-  RollupConfigInput
+  RollupConfigInput,
+  MAX_REGISTRY_REWARD_OVERRIDES,
+  RegistryRewardOverride
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
@@ -189,6 +191,23 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   uint256 public immutable L1_BLOCK_AT_GENESIS;
 
+  // The deployment-time rollup configuration. Every value is fixed at construction, so it is held in
+  // immutables rather than storage; {_getRollupConfig} assembles it for the libraries, which cannot read
+  // a contract's immutables themselves.
+  bytes32 internal immutable VK_TREE_ROOT;
+  bytes32 internal immutable PROTOCOL_CONTRACTS_HASH;
+  uint32 internal immutable VERSION;
+  IERC20 internal immutable FEE_ASSET;
+  IFeeJuicePortal internal immutable FEE_ASSET_PORTAL;
+  IVerifier internal immutable EPOCH_PROOF_VERIFIER;
+  IInbox internal immutable INBOX;
+  IOutbox internal immutable OUTBOX;
+
+  address internal immutable REGISTRY_REWARD_OVERRIDE_0_REGISTRY;
+  uint96 internal immutable REGISTRY_REWARD_OVERRIDE_0_SEQUENCER_REWARD;
+  address internal immutable REGISTRY_REWARD_OVERRIDE_1_REGISTRY;
+  uint96 internal immutable REGISTRY_REWARD_OVERRIDE_1_SEQUENCER_REWARD;
+
   /**
    * @dev Storage gap to ensure checkBlob is in its own storage slot
    */
@@ -233,6 +252,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       Errors.Staking__ExitDelayAboveSlasherDelay(_config.exitDelaySeconds, StakingLib.SLASHER_EXECUTION_DELAY)
     );
 
+    // We can only figure out if the epoch is full once it closes,
+    // so we need to allow proofs to be accepted in a later epoch
+    require(
+      _config.aztecProofSubmissionEpochs > 0,
+      Errors.Rollup__InvalidProofSubmissionEpochs(1, _config.aztecProofSubmissionEpochs)
+    );
+
     TimeLib.initialize(
       block.timestamp,
       _config.aztecSlotDuration,
@@ -256,10 +282,27 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     _initializeRewards(_config);
+    REGISTRY_REWARD_OVERRIDE_0_REGISTRY = _config.registryRewardOverrides[0].registry;
+    REGISTRY_REWARD_OVERRIDE_0_SEQUENCER_REWARD = _config.registryRewardOverrides[0].sequencerReward;
+    REGISTRY_REWARD_OVERRIDE_1_REGISTRY = _config.registryRewardOverrides[1].registry;
+    REGISTRY_REWARD_OVERRIDE_1_SEQUENCER_REWARD = _config.registryRewardOverrides[1].sequencerReward;
 
     L1_BLOCK_AT_GENESIS = block.number;
 
-    _initializeStore(_feeAsset, _epochProofVerifier, _genesisState, _config);
+    // Immutables must be assigned directly in the constructor body, so the store setup cannot be
+    // factored out into a helper the way the slasher and reward setup are.
+    VK_TREE_ROOT = _genesisState.vkTreeRoot;
+    PROTOCOL_CONTRACTS_HASH = _genesisState.protocolContractsHash;
+    VERSION = _config.version;
+    FEE_ASSET = _feeAsset;
+    EPOCH_PROOF_VERIFIER = _epochProofVerifier;
+
+    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, _config.version, INBOX_BUCKET_RING_SIZE)));
+    INBOX = inbox;
+    OUTBOX = IOutbox(address(new Outbox(address(this), _config.version)));
+    FEE_ASSET_PORTAL = IFeeJuicePortal(inbox.getFeeAssetPortal());
+
+    STFLib.initialize(_genesisState);
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana, _config.initialEthPerFeeAsset);
   }
@@ -274,7 +317,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setRewardConfig(MutableRewardConfig memory _config) external override(IRollupCore) onlyOwner {
     RewardExtLib.updateConfig(_config);
-    emit RewardConfigUpdated(_config);
   }
 
   /**
@@ -285,11 +327,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _manaTarget The new target mana per slot
    */
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
-    uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
-    require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
-    FeeLib.updateManaTarget(_manaTarget);
-
-    emit IRollupCore.ManaTargetUpdated(_manaTarget);
+    RewardExtLib.updateManaTarget(_manaTarget);
   }
 
   /**
@@ -322,7 +360,27 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _provingCostPerMana The cost in ETH per unit of mana for proving
    */
   function setProvingCostPerMana(EthValue _provingCostPerMana) external override(IRollupCore) onlyOwner {
-    FeeLib.updateProvingCostPerMana(_provingCostPerMana);
+    RewardExtLib.updateProvingCostPerMana(_provingCostPerMana);
+  }
+
+  /**
+   * @notice Updates the protocol fee margin applied on top of operator cost in the mana base fee
+   * @dev Only callable by owner. Increases are rate-limited (30-day cooldown, x3/2 step on the fee
+   *      multiplier); decreases are immediate. Setting the current value is a no-op and emits no
+   *      event.
+   * @param _protocolFeeMarginBps The new margin in basis points
+   */
+  function setProtocolFeeMargin(uint16 _protocolFeeMarginBps) external override(IRollupCore) onlyOwner {
+    RewardExtLib.updateProtocolFeeMargin(_protocolFeeMarginBps);
+  }
+
+  /**
+   * @notice Updates the recipient of the protocol fee tranche of the reward waterfall
+   * @dev Only callable by owner. Rejects the zero address.
+   * @param _recipient The new protocol fee recipient
+   */
+  function setProtocolFeeRecipient(address _recipient) external override(IRollupCore) onlyOwner {
+    RewardExtLib.updateProtocolFeeRecipient(_recipient);
   }
 
   /**
@@ -344,7 +402,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
     ValidatorOperationsExtLib.setEscapeHatch(_escapeHatch);
-    emit IValidatorSelectionCore.EscapeHatchSet(_escapeHatch);
   }
 
   /**
@@ -354,7 +411,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @return The amount of rewards claimed
    */
   function claimSequencerRewards(address _coinbase) external override(IRollupCore) returns (uint256) {
-    return RewardExtLib.claimSequencerRewards(_coinbase);
+    return RewardExtLib.claimSequencerRewards(_coinbase, FEE_ASSET);
   }
 
   /**
@@ -370,7 +427,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     override(IRollupCore)
     returns (uint256)
   {
-    return RewardExtLib.claimProverRewards(_coinbase, _epochs);
+    return RewardExtLib.claimProverRewards(_coinbase, _epochs, FEE_ASSET);
   }
 
   /**
@@ -470,7 +527,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollupCore) {
-    EpochProofExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
   }
 
   /**
@@ -493,7 +550,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     bytes calldata _blobInput
   ) external override(IRollupCore) {
     RollupOperationsExtLib.propose(
-      _args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, checkBlob
+      _args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, checkBlob, INBOX
     );
   }
 
@@ -570,7 +627,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      Uses current L1 gas price and blob gas price for calculations.
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
-    FeeLib.updateL1GasFeeOracle();
+    RewardExtLib.updateL1GasFeeOracle();
   }
 
   /**
@@ -607,26 +664,32 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     }
 
     // Constructor-only writer; post-deployment updates go through {setRewardConfig}.
-    RewardExtLib.initializeConfig(rewardConfig);
+    RewardExtLib.initializeConfig(rewardConfig, _config.registryRewardOverrides);
   }
 
-  function _initializeStore(
-    IERC20 _feeAsset,
-    IVerifier _epochProofVerifier,
-    GenesisState memory _genesisState,
-    RollupConfigInput memory _config
-  ) internal {
-    STFLib.initialize(_genesisState);
-    RollupStore storage rollupStore = STFLib.getStorage();
+  function _getRollupConfig() internal view virtual returns (RollupConfig memory) {
+    return RollupConfig({
+      vkTreeRoot: VK_TREE_ROOT,
+      protocolContractsHash: PROTOCOL_CONTRACTS_HASH,
+      version: VERSION,
+      feeAsset: FEE_ASSET,
+      feeAssetPortal: FEE_ASSET_PORTAL,
+      epochProofVerifier: EPOCH_PROOF_VERIFIER,
+      inbox: INBOX,
+      outbox: OUTBOX
+    });
+  }
 
-    rollupStore.config.feeAsset = _feeAsset;
-    rollupStore.config.epochProofVerifier = _epochProofVerifier;
-    rollupStore.config.version = _config.version;
-
-    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, _config.version, INBOX_BUCKET_RING_SIZE)));
-
-    rollupStore.config.inbox = inbox;
-    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), _config.version)));
-    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+  function _getRegistryRewardOverrides()
+    internal
+    view
+    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides)
+  {
+    overrides[0] = RegistryRewardOverride({
+      registry: REGISTRY_REWARD_OVERRIDE_0_REGISTRY, sequencerReward: REGISTRY_REWARD_OVERRIDE_0_SEQUENCER_REWARD
+    });
+    overrides[1] = RegistryRewardOverride({
+      registry: REGISTRY_REWARD_OVERRIDE_1_REGISTRY, sequencerReward: REGISTRY_REWARD_OVERRIDE_1_SEQUENCER_REWARD
+    });
   }
 }
