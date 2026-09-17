@@ -78,6 +78,9 @@ void ChonkBatchVerifier::enqueue(VerifyRequest request)
                                                "proof has wrong size: expected " + std::to_string(expected_proof_size) +
                                                    ", got " + std::to_string(request.proof.size()));
                 has_failure = true;
+            } else if (!request.proof.has_valid_structure()) {
+                failure = VerifyResult::failed(request.request_id, "proof has invalid segment lengths");
+                has_failure = true;
             } else {
                 queue_.push_back(std::move(request));
             }

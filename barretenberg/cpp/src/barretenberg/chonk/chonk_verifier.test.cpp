@@ -59,8 +59,8 @@ TEST_F(ChonkRecursionTests, NativeVerification)
 /**
  * @brief A proof carrying trailing data the transcript never reads must be rejected.
  * @details The joint proof is the last segment loaded into the shared transcript, so an appended element is pure
- * trailing data: no subsequent read shifts and Fiat-Shamir is unaffected. Only the fully-consumed transcript
- * enforcement rejects it.
+ * trailing data: no subsequent read shifts and Fiat-Shamir is unaffected. The structural check rejects the
+ * oversized segment before verification.
  */
 TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingProofData)
 {
@@ -69,7 +69,7 @@ TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingProofData)
     proof.joint_proof.push_back(fr::random_element());
 
     ChonkNativeVerifier verifier(vk_and_hash);
-    EXPECT_THROW((void)verifier.verify(proof), std::runtime_error);
+    EXPECT_FALSE(verifier.verify(proof));
 }
 
 /**
@@ -87,13 +87,13 @@ TEST_F(ChonkRecursionTests, NativeVerificationRejectsShiftedSegmentBoundary)
     proof.eccvm_proof.erase(proof.eccvm_proof.begin());
 
     ChonkNativeVerifier verifier(vk_and_hash);
-    EXPECT_THROW((void)verifier.verify(proof), std::runtime_error);
+    EXPECT_FALSE(verifier.verify(proof));
 }
 
 /**
  * @brief Trailing data appended to the TripleIPA proof must be rejected.
- * @details The IPA proof rides its own transcript, so the shared-transcript fully-consumed enforcement does not
- * cover it; the TripleIPA reduction must enforce full consumption of its own segment.
+ * @details The structural check covers the IPA segment even though its verification is deferred and uses a
+ * separate transcript.
  */
 TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingIpaProofData)
 {
@@ -102,7 +102,7 @@ TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingIpaProofData)
     proof.ipa_proof.push_back(fr::random_element());
 
     ChonkNativeVerifier verifier(vk_and_hash);
-    EXPECT_THROW((void)verifier.verify(proof), std::runtime_error);
+    EXPECT_FALSE(verifier.verify(proof));
 }
 
 /**

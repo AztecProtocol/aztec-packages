@@ -296,6 +296,26 @@ TEST_F(ChonkBatchVerifierTests, WrongProofSizeReturnsFailedResult)
     EXPECT_NE(collector.results[0].error_message.find("wrong size"), std::string::npos);
 }
 
+TEST_F(ChonkBatchVerifierTests, InvalidProofSegmentsReturnFailedResult)
+{
+    auto [proof, vk] = generate_chonk_proof();
+    proof.merge_proof.push_back(proof.eccvm_proof.front());
+    proof.eccvm_proof.erase(proof.eccvm_proof.begin());
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+
+    verifier.enqueue(VerifyRequest{ .request_id = 13, .vk_index = 0, .proof = std::move(proof) });
+    collector.wait_for(1);
+    verifier.stop();
+
+    ASSERT_EQ(collector.results.size(), 1);
+    EXPECT_FALSE(collector.results[0].verified());
+    EXPECT_NE(collector.results[0].error_message.find("invalid segment lengths"), std::string::npos);
+}
+
 TEST_F(ChonkBatchVerifierTests, CallbackExceptionDoesNotKillVerifier)
 {
     auto [proof, vk] = generate_chonk_proof();

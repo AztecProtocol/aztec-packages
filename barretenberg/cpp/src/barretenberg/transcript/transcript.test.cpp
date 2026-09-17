@@ -1,6 +1,7 @@
 // Unified transcript tests - works for both native and stdlib transcripts
 // Replaces: transcript.test.cpp and stdlib_transcript.test.cpp
 
+#include "barretenberg/common/assert.hpp"
 #include "transcript_test_fixture.hpp"
 
 namespace bb::test {
@@ -218,6 +219,28 @@ TEST(TranscriptShortVsFull, ShortIsLowLimbOfFull)
     EXPECT_EQ(short_challenge, NativeTranscript::Codec::split_challenge(full)[0]);
     EXPECT_NE(short_challenge, full);
     EXPECT_LT(uint256_t(short_challenge).get_msb(), 127); // fits in 127 bits
+}
+
+TEST(TranscriptConsumption, RejectsLoadBeforeFullConsumption)
+{
+    NativeTranscript transcript;
+    transcript.load_proof({ fr(1), fr(2) });
+    EXPECT_EQ(transcript.receive_from_prover<fr>("first"), fr(1));
+    EXPECT_THROW_WITH_MESSAGE(transcript.load_proof({ fr(3) }), "fully consumed");
+    EXPECT_EQ(transcript.receive_from_prover<fr>("second"), fr(2));
+    transcript.load_proof({ fr(3) });
+    EXPECT_EQ(transcript.receive_from_prover<fr>("third"), fr(3));
+    EXPECT_NO_THROW(transcript.enforce_proof_fully_consumed("test"));
+}
+
+TEST(TranscriptConsumption, RejectsUnreadTrailingData)
+{
+    NativeTranscript transcript;
+    transcript.load_proof({ fr(1), fr(2) });
+    EXPECT_EQ(transcript.receive_from_prover<fr>("first"), fr(1));
+    EXPECT_THROW_WITH_MESSAGE(transcript.enforce_proof_fully_consumed("test"), "proof contains trailing data");
+    EXPECT_EQ(transcript.receive_from_prover<fr>("second"), fr(2));
+    EXPECT_NO_THROW(transcript.enforce_proof_fully_consumed("test"));
 }
 
 } // namespace bb::test

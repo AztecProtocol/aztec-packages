@@ -1,2 +1,5 @@
 barretenberg_module(chonk goblin dsl libdeflate::libdeflate_static hypernova multilinear_batching)
+if(NOT WASM AND NOT FUZZING)
+    target_link_libraries(chonk_tests PRIVATE vm2_stub)
+endif()
 add_subdirectory(batched_honk_translator)

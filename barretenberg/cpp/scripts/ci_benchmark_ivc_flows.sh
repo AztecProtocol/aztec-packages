@@ -209,10 +209,10 @@ function chonk_flow {
   local proof_size_kb=$(( proof_size_bytes / 1024 ))
 
   # Get compressed proof size and number of public inputs via bb proof_stats
-  # proof_stats writes proof_stats.json (metadata) and proof_stats.bin (compressed proof + public inputs)
+  # proof_stats writes proof_stats.json (metadata) and proof_stats.json.bin (compressed proof + public inputs)
   "./$native_build_dir/bin/bb" proof_stats --scheme chonk -p "$output/proof" -o "$output/proof_stats.json"
   # Gzip the compressed proof + public inputs (same treatment as the raw proof above)
-  tar -czf "$output/proof_stats.tar.gz" -C "$output" proof_stats.bin
+  tar -czf "$output/proof_stats.tar.gz" -C "$output" proof_stats.json.bin
   local compressed_proof_size_bytes=$(stat -c%s "$output/proof_stats.tar.gz" 2>/dev/null || stat -f%z "$output/proof_stats.tar.gz")
   local compressed_proof_size_kb=$(( compressed_proof_size_bytes / 1024 ))
 

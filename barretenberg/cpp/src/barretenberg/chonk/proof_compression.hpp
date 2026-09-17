@@ -431,6 +431,7 @@ class ProofCompressor {
 
     static std::vector<uint8_t> compress_chonk_proof(const ChonkProof& proof)
     {
+        proof.validate_structure();
         auto flat = proof.to_field_elements();
         std::vector<uint8_t> out;
         out.reserve(flat.size() * 32); // upper bound: every element compresses to 32 bytes
