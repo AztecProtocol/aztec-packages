@@ -51,6 +51,67 @@ describe('ReadTransaction', () => {
       keys: [Buffer.from('test_key1')],
       txId: 7,
     });
+
+    await expect(boundTx.getMany([Buffer.from('test_key1')])).resolves.toEqual([Buffer.from('foo')]);
+    expect(channel.sendMessage).toHaveBeenLastCalledWith(LMDBMessageType.GET, {
+      db: Database.DATA,
+      keys: [Buffer.from('test_key1')],
+      txId: 7,
+    });
+  });
+
+  it('splits many keys into chunked GET requests and preserves order', async () => {
+    const keys = Array.from({ length: 5 }, (_, i) => Buffer.from(`key${i}`));
+    channel.sendMessage.mockImplementation((_type, body: any) =>
+      Promise.resolve({ values: body.keys.map((k: Buffer) => (k.equals(keys[3]) ? null : [Buffer.from(`v-${k}`)])) }),
+    );
+
+    const result = await tx.getMany(keys, { chunkSize: 2 });
+
+    expect(channel.sendMessage).toHaveBeenCalledTimes(3);
+    expect(channel.sendMessage).toHaveBeenNthCalledWith(1, LMDBMessageType.GET, {
+      db: Database.DATA,
+      keys: keys.slice(0, 2),
+      txId: null,
+    });
+    expect(channel.sendMessage).toHaveBeenNthCalledWith(3, LMDBMessageType.GET, {
+      db: Database.DATA,
+      keys: keys.slice(4),
+      txId: null,
+    });
+    expect(result).toEqual(keys.map((k, i) => (i === 3 ? undefined : Buffer.from(`v-${k}`))));
+  });
+
+  it('rejects an invalid chunk size', async () => {
+    await expect(tx.getMany([Buffer.from('a')], { chunkSize: 0 })).rejects.toThrow('Invalid getMany chunk size');
+  });
+
+  it('sends a single GET request for many keys', async () => {
+    const getDeferred = promiseWithResolvers<LMDBResponseBody[LMDBMessageType.GET]>();
+
+    channel.sendMessage.mockReturnValue(getDeferred.promise);
+
+    const keys = [Buffer.from('key1'), Buffer.from('key2'), Buffer.from('key3')];
+    const resp = tx.getMany(keys);
+
+    expect(channel.sendMessage).toHaveBeenCalledTimes(1);
+    expect(channel.sendMessage).toHaveBeenCalledWith(LMDBMessageType.GET, { db: Database.DATA, keys, txId: null });
+
+    getDeferred.resolve({
+      values: [[Buffer.from('foo')], null, [Buffer.from('bar')]],
+    });
+
+    expect(await resp).toEqual([Buffer.from('foo'), undefined, Buffer.from('bar')]);
+  });
+
+  it('skips the GET request when asked for no keys', async () => {
+    expect(await tx.getMany([])).toEqual([]);
+    expect(channel.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('refuses batched reads once closed', async () => {
+    tx.close();
+    await expect(tx.getMany([Buffer.from('foo')])).rejects.toThrow('Transaction is closed');
   });
 
   it('iterates the database', async () => {
