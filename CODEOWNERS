@@ -48,7 +48,7 @@
 # the kernel and rollup circuits (types, serde, ts-types, protocol-test-utils
 # and its vk_tree fixture, ...) and the machinery that derives the many circuit
 # variants: Nargo.template.toml, scripts/generate_variants.js,
-# private_kernel_reset_config.json, and the bootstrap.sh that writes each
+# private_kernel_reset_variants.json, and the bootstrap.sh that writes each
 # variant's key. The rules below it narrow the kernel circuits, the rollup
 # circuits and the protocol contracts to their own owners.
 #

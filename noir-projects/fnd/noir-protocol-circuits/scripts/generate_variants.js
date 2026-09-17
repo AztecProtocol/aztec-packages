@@ -3,12 +3,12 @@
 const TOML = require("@iarna/toml");
 const fs = require("fs");
 const path = require("path");
-const config = require("../private_kernel_reset_config.json");
+const config = require("../private_kernel_reset_variants.json");
 
 const root = path.join(__dirname, "../");
 
 // Generator families. Each family pairs a catalog group from
-// `private_kernel_reset_config.json` with the template crates the generator copies
+// `private_kernel_reset_variants.json` with the template crates the generator copies
 // per-variant. The `inner` family contains non-siloing resets that are emitted mid-tx.
 // The `finalTail` and `finalTailToPublic` families contain the terminal reset+tail circuits
 // (rollup-bound and public-bound respectively).
@@ -61,9 +61,13 @@ const dimensionNames = [
  *
  *  Configuration Files
  *
- *  noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_config.json - The named catalog of variants
- *  grouped into `inner` and `final`. Each entry has a name, a 9-element `dimensions` array, and a
- *  measured `cost`. Costs are refreshed by `scripts/refresh_reset_costs.js`.
+ *  noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_variants.json - The named catalog of
+ *  variants grouped into `inner`, `finalTail` and `finalTailToPublic`. Each entry has a name and a
+ *  9-element `dimensions` array.
+ *
+ *  noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_config.json - The catalog with each
+ *  variant's measured `cost`, written by `scripts/generate_reset_config.js` once the variants are
+ *  compiled and shipped in protocol-circuits-artifacts for the runtime selector. Git-ignored.
  *
  *  noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_dimensions.json - The flattened list of
  *  every variant's dimensions, written by this script and consumed by the TypeScript codegen.
