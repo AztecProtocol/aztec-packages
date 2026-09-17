@@ -1,6 +1,7 @@
 use crate::tests::private_kernel_reset::{NULLIFIER_SILOING_AMOUNT, TestBuilder};
 use super::rebuild_bounded_vec;
 use protocol_test_utils::swap_items;
+use types::{address::AztecAddress, traits::{FromField, ToField}};
 
 #[test]
 fn previous_nullifiers_sorted() {
@@ -115,6 +116,111 @@ fn more_non_empty_nullifiers_than_capped_size() {
     // Add one more than the amount to be siloed.
     builder.previous_kernel.append_nullifiers(NULLIFIER_SILOING_AMOUNT + 1);
     builder.output.append_siloed_nullifiers(NULLIFIER_SILOING_AMOUNT + 1);
+
+    builder.validate_siloing();
+}
+
+// The siloed value, linked note hash, counter and ordering stay honest here: only the wrapper's
+// emitting address is changed. That address is one of the two operands of the tail's
+// cross-contract squash guard, so leaving it unbound makes that guard prover-satisfiable.
+#[test(should_fail_with = "Emitting contract address of the nullifier not copied correctly")]
+fn output_nullifier_with_forged_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_nullifiers(3);
+    builder.output.append_siloed_nullifiers(3);
+
+    let mut nullifier = builder.output.nullifiers.get(0);
+    nullifier.contract_address.inner += 1;
+    builder.output.nullifiers.set(0, nullifier);
+
+    builder.validate_siloing();
+}
+
+#[test(should_fail_with = "Emitting contract address of the nullifier not copied correctly")]
+fn output_nullifier_with_zeroed_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_nullifiers(3);
+    builder.output.append_siloed_nullifiers(3);
+
+    // Zero into both operands defeats the tail's guard without knowing either address, so pin it
+    // separately from the arbitrary-address case above.
+    let mut nullifier = builder.output.nullifiers.get(0);
+    nullifier.contract_address = AztecAddress::zero();
+    builder.output.nullifiers.set(0, nullifier);
+
+    builder.validate_siloing();
+}
+
+// Two emitters with the emitters exchanged in the output. Both siloed values remain correct under
+// their own input address, so only a binding to the item's own emitter rejects this.
+#[test(should_fail_with = "Emitting contract address of the nullifier not copied correctly")]
+fn output_nullifiers_with_swapped_contract_addresses() {
+    let mut builder = TestBuilder::new();
+
+    let emitter_a = builder.previous_kernel.contract_address;
+    let emitter_b = AztecAddress::from_field(emitter_a.to_field() + 1);
+
+    builder.previous_kernel.append_nullifiers(1);
+    builder.previous_kernel.contract_address = emitter_b;
+    builder.previous_kernel.append_nullifiers(1);
+    builder.previous_kernel.contract_address = emitter_a;
+
+    builder.output.append_siloed_nullifiers(1);
+    builder.output.contract_address = emitter_b;
+    builder.output.append_siloed_nullifiers(1);
+    builder.output.contract_address = emitter_a;
+
+    let mut first = builder.output.nullifiers.get(0);
+    let mut second = builder.output.nullifiers.get(1);
+    first.contract_address = emitter_b;
+    second.contract_address = emitter_a;
+    builder.output.nullifiers.set(0, first);
+    builder.output.nullifiers.set(1, second);
+
+    builder.validate_siloing();
+}
+
+#[test(should_fail_with = "Emitting contract address of the nullifier not copied correctly")]
+fn padded_nullifier_with_forged_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_nullifiers(3);
+
+    builder.padded_side_effects.nullifiers[2] =
+        builder.previous_kernel.nullifiers.pop().innermost().value;
+    builder.previous_kernel.nullifiers = rebuild_bounded_vec(builder.previous_kernel.nullifiers);
+
+    builder.output.append_siloed_nullifiers(2);
+    builder.output.append_padded_nullifiers(1);
+
+    let mut padded = builder.output.nullifiers.get(2);
+    padded.contract_address.inner += 1;
+    builder.output.nullifiers.set(2, padded);
+
+    builder.validate_siloing();
+}
+
+// A reset carrying nullifiers from two different emitters must still validate. This is the
+// positive control for the binding above: an output address pinned to any single fixed address
+// would reject this honest witness, while the swapped-address test rejects an unpinned one.
+#[test]
+fn nullifiers_from_two_contracts() {
+    let mut builder = TestBuilder::new();
+
+    let emitter_a = builder.previous_kernel.contract_address;
+    let emitter_b = AztecAddress::from_field(emitter_a.to_field() + 1);
+
+    builder.previous_kernel.append_nullifiers(1);
+    builder.previous_kernel.contract_address = emitter_b;
+    builder.previous_kernel.append_nullifiers(1);
+    builder.previous_kernel.contract_address = emitter_a;
+
+    builder.output.append_siloed_nullifiers(1);
+    builder.output.contract_address = emitter_b;
+    builder.output.append_siloed_nullifiers(1);
+    builder.output.contract_address = emitter_a;
 
     builder.validate_siloing();
 }
