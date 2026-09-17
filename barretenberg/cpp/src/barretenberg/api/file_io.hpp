@@ -16,8 +16,9 @@
 #include <vector>
 
 // On Windows the CRT opens descriptors in text mode unless O_BINARY is passed: reads stop at the
-// first 0x1A and writes expand 0x0A into 0x0D 0x0A. POSIX has no text mode, so the flag is 0 there.
-#ifndef O_BINARY
+// first 0x1A and writes expand 0x0A into 0x0D 0x0A. Other platforms have no text mode and no
+// O_BINARY, so define it as a no-op there.
+#ifndef _WIN32
 #define O_BINARY 0
 #endif
 
