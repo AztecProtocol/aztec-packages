@@ -180,13 +180,13 @@ function check_pinned_vk {
   fi
 }
 
-# Directory names of the workspace members whose Nargo.toml declares the given package type.
+# Paths under crates/ of the workspace members whose Nargo.toml declares the given package type.
 function workspace_packages {
   local type=$1
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       if grep -q "type = \"$type\"" ./crates/$dir/Nargo.toml; then
-        echo "$(basename $dir)"
+        echo "$dir"
       fi
     done
 }
@@ -246,7 +246,7 @@ function build {
   set +e
   workspace_packages bin | \
     parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
-      --joblog joblog.txt compile {}
+      --joblog joblog.txt compile {/}
   code=$?
   cat joblog.txt
   [ "$code" -eq 0 ] || return $code
