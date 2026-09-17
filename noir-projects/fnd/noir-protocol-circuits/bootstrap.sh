@@ -38,8 +38,27 @@ export ivc_kernel_regex=$(IFS="|"; echo "${ivc_kernel_patterns[*]}")
 export ivc_app_regex=$(IFS="|"; echo "${ivc_app_patterns[*]}")
 export hiding_kernel_regex=$(IFS="|"; echo "${ivc_hiding_pattern[*]}")
 export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
-# Combined ivc regex (kernel + app) kept for callers that just want "is this a chonk circuit?".
-export ivc_regex="${ivc_kernel_regex}|${ivc_app_regex}"
+
+# Classifies a circuit artifact by name: the three chonk circuit kinds, the two ultra-honk rollup
+# configurations, and plain ultra_honk for everything else. Every place that picks bb flags for a
+# circuit derives them from this, so the VKs the build writes and the bench that measures the same
+# circuits cannot disagree on its scheme.
+function circuit_kind {
+  local name=$1
+  if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
+    echo hiding
+  elif echo "$name" | grep -qE "${ivc_kernel_regex}"; then
+    echo kernel
+  elif echo "$name" | grep -qE "${ivc_app_regex}"; then
+    echo app
+  elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
+    echo rollup_honk
+  elif echo "$name" | grep -qE "rollup_root"; then
+    echo rollup_root
+  else
+    echo ultra_honk
+  fi
+}
 
 function on_exit {
   rm -f joblog.txt
@@ -110,19 +129,17 @@ function generate_vk {
     local outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
     function write_vk {
-      if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        $BB write_vk --scheme chonk --circuit_kind hiding -b - -o $outdir
-      elif echo "$name" | grep -qE "${ivc_kernel_regex}"; then
-        $BB write_vk --scheme chonk --circuit_kind kernel -b - -o $outdir
-      elif echo "$name" | grep -qE "${ivc_app_regex}"; then
-        $BB write_vk --scheme chonk --circuit_kind app -b - -o $outdir
-      elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
-        $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir
-      elif echo "$name" | grep -qE "rollup_root"; then
-        $BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir
-      else
-        $BB write_vk --scheme ultra_honk -b - -o $outdir
-      fi
+      local kind=$(circuit_kind "$name")
+      case $kind in
+        hiding|kernel|app)
+          $BB write_vk --scheme chonk --circuit_kind $kind -b - -o $outdir ;;
+        rollup_honk)
+          $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir ;;
+        rollup_root)
+          $BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir ;;
+        *)
+          $BB write_vk --scheme ultra_honk -b - -o $outdir ;;
+      esac
     }
 
     echo_stderr "Generating vk for function: $name..."
@@ -180,7 +197,7 @@ function check_pinned_vk {
   fi
 }
 
-export -f hex_to_fields_json compile generate_vk check_pinned_vk
+export -f hex_to_fields_json circuit_kind compile generate_vk check_pinned_vk
 
 function build {
   set -eu
@@ -268,6 +285,15 @@ function test_cmds {
     local scripts_hash=$(hash_str $(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/scripts/"))
     echo "$scripts_hash node --test noir-projects/fnd/noir-protocol-circuits/scripts/generate_reset_config.test.js"
   fi
+  # The mock circuits reuse this script; the classifier test lives with the real circuits only.
+  if [ -f ./scripts/circuit_kind.test.sh ]; then
+    local classifier_hash=$(hash_str $(cache_content_hash \
+      "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh" \
+      "^noir-projects/fnd/noir-protocol-circuits/scripts/circuit_kind.test.sh" \
+      "^noir-projects/fnd/chonk_circuits.json" \
+      "^noir-projects/fnd/rollup_honk_circuits.json"))
+    echo "$classifier_hash noir-projects/fnd/noir-protocol-circuits/scripts/circuit_kind.test.sh"
+  fi
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
     private-kernel-init
@@ -306,13 +332,11 @@ function bench_cmds {
   prefix="$circuits_hash noir-projects/fnd/noir-protocol-circuits/scripts/run_bench.sh"
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
-    if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then
-      echo "$prefix $artifact --scheme chonk"
-    elif echo "$artifact" | grep -qEf <(printf '%s\n' "${rollup_honk_patterns[@]}"); then
-      echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation"
-    else
-      echo "$prefix $artifact --scheme ultra_honk"
-    fi
+    case $(circuit_kind "$(basename "$artifact" .json)") in
+      hiding|kernel|app) echo "$prefix $artifact --scheme chonk" ;;
+      rollup_honk) echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation" ;;
+      *) echo "$prefix $artifact --scheme ultra_honk" ;;
+    esac
   done
 }
 
