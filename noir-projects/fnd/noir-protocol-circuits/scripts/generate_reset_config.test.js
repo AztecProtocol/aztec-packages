@@ -50,6 +50,13 @@ test("artifactPath maps the full shape to the base artifact and others to a tagg
   );
 });
 
+test("artifactPath rejects a catalog group with no compiled variant prefix", () => {
+  assert.throws(
+    () => artifactPath("finalTailToRollup", [4, 4, 4, 4, 4, 4, 4, 4, 4]),
+    /No artifact prefix for catalog group "finalTailToRollup"/,
+  );
+});
+
 test("parseCircuitSize reads the report bb prints after its log lines", () => {
   const out = [
     "Scheme is: chonk",
@@ -92,6 +99,21 @@ test("buildConfig attaches each entry's measured cost and keeps the catalog orde
       entries.map((entry) => [group, entry.dimensions]),
     ),
   );
+});
+
+test("buildConfig covers every group in the catalog, not a fixed list", () => {
+  const config = buildConfig({ finalTail: variants.finalTail }, fakeMeasure);
+  assert.deepEqual(Object.keys(config), ["finalTail"]);
+});
+
+test("buildConfig rejects a measurement that is not a positive integer", () => {
+  for (const bad of [undefined, 0, -1, 1.5, "67089", NaN]) {
+    assert.throws(
+      () => buildConfig(variants, () => bad),
+      /Invalid cost .* for inner\/inner_sm \[4_4_4_4_4_4_0_0_0\]/,
+      `cost ${bad}`,
+    );
+  }
 });
 
 test("buildConfig does not mutate the catalog it reads", () => {

@@ -203,7 +203,9 @@ function build {
     local code=$?
     cat joblog.txt
     set -e
-    return $code
+    [ "$code" -eq 0 ] || return $code
+    generate_reset_config
+    return
   fi
 
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then

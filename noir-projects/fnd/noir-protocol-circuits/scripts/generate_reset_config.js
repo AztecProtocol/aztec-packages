@@ -46,6 +46,9 @@ function isFull(dims) {
 
 function artifactPath(group, dims) {
   const prefix = GROUP_PREFIXES[group];
+  if (!prefix) {
+    throw new Error(`No artifact prefix for catalog group ${JSON.stringify(group)}`);
+  }
   const name = isFull(dims) ? prefix : `${prefix}_${tagOf(dims)}`;
   return path.join(TARGET_DIR, `${name}.json`);
 }
@@ -69,15 +72,21 @@ function measureCircuitSize(group, dims) {
 }
 
 // Attaches a `cost` to every catalog entry, keeping the catalog's group and entry order. `measure`
-// is called with the entry's group and dimensions.
+// is called with the entry's group and dimensions and must return a positive integer: the file
+// this writes is shipped, and nothing downstream validates it before the variant selector reads it.
 function buildConfig(variants, measure) {
   return Object.fromEntries(
-    Object.keys(GROUP_PREFIXES).map((group) => [
+    Object.entries(variants).map(([group, entries]) => [
       group,
-      variants[group].map((entry) => ({
-        ...entry,
-        cost: measure(group, entry.dimensions),
-      })),
+      entries.map((entry) => {
+        const cost = measure(group, entry.dimensions);
+        if (!Number.isInteger(cost) || cost <= 0) {
+          throw new Error(
+            `Invalid cost ${cost} for ${group}/${entry.name} [${tagOf(entry.dimensions)}]`,
+          );
+        }
+        return { ...entry, cost };
+      }),
     ]),
   );
 }
