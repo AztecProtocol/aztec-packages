@@ -3,36 +3,62 @@ use types::{
     constants::MAX_NULLIFIERS_PER_TX, side_effect::Ordered, utils::arrays::find_first_index,
 };
 
-/// This function serves two key purposes: enforcing ordering and ensuring transient data is fully squashed.
+/// Checks every nullifier that claims to nullify a note hash created in this tx, and serves two purposes:
 ///
-/// 1. Ordering
-/// For any nullifier that links to a note hash, this function ensures the nullifier is created
-/// *after* the corresponding note hash.
+/// 1. Ordering: a nullifier that links to a note hash must have been created *after* that note hash.
+///    Squashed pairs get this check in the Reset circuit; pairs that survive to the Tail get it here.
+/// 2. Squash enforcement: every transient (note hash, nullifier) pair must have been squashed. Emitting
+///    such a pair would enable a double spend, because a nullifier derived from the transient note hash
+///    differs from the one that would later be derived from the same note once it is settled.
 ///
-/// Transient (note hash, nullifier) pairs are squashed in the Reset circuit, so their ordering is
-/// implicitly enforced there. However, non-transient pairs are not squashed, so their counters must
-/// be checked here to ensure correct ordering.
+/// # What the two sides of the comparison hold
 ///
-/// A pair may be non-transient if, for example, the note hash is non-revertible while its nullifier
-/// is revertible, preventing them from being squashed together.
+/// The nullifier side, `nullifier.innermost().note_hash`, is filled by the app circuit. In `aztec-nr` it is
+/// set by `note::lifecycle::destroy_note` from `note::utils::compute_confirmed_note_hash_for_nullification`,
+/// and depends on the stage of the note being nullified:
 ///
-/// 2. Squashing
-/// This function ensures that all transient (note hash, nullifier) pairs are properly squashed.
-/// Leaving such a pair un-squashed (i.e. emitting it) would enable a double spend: the nullifier
-/// derived from a transient note hash differs from the nullifier that would later be derived from
-/// the same note once it is settled. Therefore, any un-squashed transient pair must be rejected.
+/// | Note being nullified                                   | `nullifier.note_hash`                         |
+/// |--------------------------------------------------------|-----------------------------------------------|
+/// | settled (created in an earlier tx)                     | `0`                                           |
+/// | pending, created in the same execution phase           | non-siloed note hash                          |
+/// | pending, created in the non-revertible phase and       | unique note hash: siloed note hash combined   |
+/// | nullified in the revertible phase                      | with the note nonce (first nullifier, index)  |
 ///
-/// Mechanism
-/// In `aztec-nr`, a contract that emits a nullifier for a non-revertible note hash, or chooses not
-/// to squash a note hash (e.g. to preserve a full execution record), sets `nullifier.note_hash` to
-/// the *siloed* note hash (or leaves it unset).
+/// The third row is the pair that cannot be squashed: if the tx later reverts, the revertible nullifier is
+/// discarded but the non-revertible note hash is still inserted, so both must be emitted and the nullifier
+/// must be derived as if the note were already settled. A contract that emits a nullifier through
+/// `push_nullifier_unsafe` instead leaves the link at `0` and is not checked here.
 ///
-/// By the time this function runs in the Tail circuit, all non-squashed note hashes have already
-/// been siloed in the Reset circuit. As a result, nullifiers that correctly reference non-transient
-/// note hashes will match these siloed values.
+/// The note hash side, `note_hash.innermost()`, is the terminal Reset circuit's output. Every surviving note
+/// hash has been siloed, and the note nonce has been applied to those whose final index is already known:
 ///
-/// In contrast, a nullifier that should have been squashed with a transient (non-siloed) note hash
-/// will fail to find a match here.
+/// | Note hash                                       | tx with public calls | private-only tx |
+/// |-------------------------------------------------|----------------------|-----------------|
+/// | non-revertible (counter < revertible counter)   | unique               | unique          |
+/// | revertible                                      | siloed only          | unique          |
+///
+/// The PXE assigns the nonce in the third row of the first table when the tx enters the revertible phase, from
+/// the same siloed protocol nullifier and the same index the Reset circuit uses, so the two sides agree for a
+/// correctly built tx. That nonce reaches the app circuit through an oracle and is not constrained there; the
+/// value equality below is the constraint that pins it.
+///
+/// # Decision per nullifier
+///
+/// - `note_hash == 0`: settled note, or a padding nullifier. Nothing to check.
+/// - `note_hash != 0`: look up the note hash with that value (hinted index). Then:
+///   - No note hash in this tx has that value: reject ("Hinted siloed note hash does not match ...").
+///     This is how an un-squashed transient pair is caught: its link is the non-siloed hash, which
+///     cannot equal any siloed output.
+///   - Found, but emitted by a different contract: reject. Guards apps whose note hash is not a hash
+///     of the note content (see the inline comment below).
+///   - Found, but with a counter above the nullifier's: reject ("Cannot link a note hash emitted after
+///     a nullifier").
+///   - Otherwise: accept. This is the legitimate previous-phase case from the tables above, where the
+///     nullifier was correctly derived from the unique note hash and the pair is emitted as-is.
+///
+/// Slots beyond the claimed length of both arrays are iterated too. A trailing note hash cannot be matched
+/// because its value is `0` (`validate_accumulated_items` asserts dense-trimmed values). A trailing nullifier
+/// with a non-zero link is rejected by the counter check, because its own counter is `0`.
 pub fn validate_unsquashable_note_hash_nullifier_ordering(
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     // Should be known at compile time.
