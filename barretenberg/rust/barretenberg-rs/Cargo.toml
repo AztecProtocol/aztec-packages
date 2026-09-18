@@ -21,21 +21,26 @@ rmp-serde.workspace = true
 rmpv.workspace = true
 serde.workspace = true
 
-# Async runtime
-tokio = { workspace = true, optional = true }
-
 # IPC and system
 libc.workspace = true
-nix = { workspace = true, optional = true }
+
+# UDS / MPSC-SHM transport. The generated Backend trait carries a bridge impl
+# for ipc_runtime::IpcClient, so this crate ships no transport code of its own.
+ipc-runtime = { path = "../../../ipc-runtime/rust", optional = true }
 
 # Utilities
 thiserror.workspace = true
-tracing = { workspace = true, optional = true }
 hex.workspace = true
 
 [features]
 default = ["native", "ffi"]
-native = ["tokio", "nix", "tracing"]
-async = ["tokio"]
 # FFI backend - links against libbarretenberg from cpp build
 ffi = []
+# Transport backends, provided by ipc-runtime.
+ipc-runtime = ["dep:ipc-runtime"]
+# Pre-migration feature names. `native` used to pull in the in-crate pipe
+# backend and its async runtime; the transport now comes from ipc-runtime and
+# needs no runtime of its own, so `async` is inert. Kept so existing manifests
+# resolve unchanged.
+native = ["ipc-runtime"]
+async = []

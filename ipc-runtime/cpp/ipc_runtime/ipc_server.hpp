@@ -396,6 +396,10 @@ class IpcServer {
                                                  size_t request_ring_size = DEFAULT_RING_SIZE,
                                                  size_t response_ring_size = DEFAULT_RING_SIZE);
     // Multi-producer SHM: one request ring per client slot and one response
+    // Serve an already-open fd pair (e.g. stdin/stdout when spawned with piped
+    // stdio): a single implicit client, same framing as the socket transport.
+    // This is what make_server("-") selects, with fds 0 and 1.
+    static std::unique_ptr<IpcServer> create_pipe(int in_fd, int out_fd);
     // ring per client slot. This is what make_server("*.shm") selects.
     static std::unique_ptr<IpcServer> create_mpsc_shm(const std::string& base_name,
                                                       size_t max_clients,
