@@ -21,6 +21,8 @@ class TripleIPATest : public CommitmentTest<Curve> {
 
     static constexpr size_t LOG_N = 4;
     static constexpr size_t N = 1UL << LOG_N;
+    static constexpr size_t NUM_UNSHIFTED = 5;
+    static constexpr std::array<size_t, 2> SHIFTED_SOURCES = { 1, 3 };
     using PCS = TripleIPA<Curve, LOG_N>;
 
     static CK ck;
@@ -59,41 +61,43 @@ class TripleIPATest : public CommitmentTest<Curve> {
         return result;
     }
 
-    PCS::TripleIpaInput create_input()
+    PCS::TripleIpaInput create_input(const Fr& rho = Fr::random_element())
     {
         PCS::TripleIpaInput input;
         const auto multilinear_challenge = this->random_evaluation_point(LOG_N);
-        input.claim_data.unshifted.multilinear_challenge = multilinear_challenge;
+        std::vector<Curve::AffineElement> commitments, shifted_commitments;
+        std::vector<Fr> evaluations, shifted_source_evaluations, shifted_evaluations;
 
         const auto shift = shift_tensor(multilinear_challenge);
 
-        for (size_t idx = 0; idx < 5; ++idx) {
+        for (size_t idx = 0; idx < NUM_UNSHIFTED; ++idx) {
             auto polynomial = this->random_polynomial(N);
-            input.claim_data.unshifted.evaluations.emplace_back(
-                polynomial.evaluate_mle(std::span<const Fr>(multilinear_challenge)));
-            input.claim_data.unshifted.commitments.emplace_back(ck.commit(polynomial));
+            evaluations.emplace_back(polynomial.evaluate_mle(std::span<const Fr>(multilinear_challenge)));
+            commitments.emplace_back(ck.commit(polynomial));
             input.unshifted_polynomials.emplace_back(std::move(polynomial));
         }
-        input.claim_data.unshifted.rho_powers =
-            PCS::TripleIpaClaimData::rho_powers(this->random_element(), input.unshifted_polynomials.size());
 
-        const std::array<size_t, 2> shifted_sources = { 1, 3 };
-        input.claim_data.shifted.rho_powers =
-            PCS::TripleIpaClaimData::rho_powers(this->random_element(), shifted_sources.size());
-        for (const size_t source_idx : shifted_sources) {
-            input.claim_data.shifted.commitments.emplace_back(input.claim_data.unshifted.commitments[source_idx]);
-            input.claim_data.shifted.source_unshifted_evaluations.emplace_back(
-                input.claim_data.unshifted.evaluations[source_idx]);
-            input.claim_data.shifted.shifted_evaluations.emplace_back(
+        for (const size_t source_idx : SHIFTED_SOURCES) {
+            shifted_commitments.emplace_back(commitments[source_idx]);
+            shifted_source_evaluations.emplace_back(evaluations[source_idx]);
+            shifted_evaluations.emplace_back(
                 inner_product(input.unshifted_polynomials[source_idx], std::span<const Fr>(shift)));
             input.shifted_polynomials.emplace_back(input.unshifted_polynomials[source_idx].share());
         }
 
         input.univariate_polynomial = this->random_polynomial(N);
-        input.claim_data.univariate.opening_pair.challenge = this->random_element();
-        input.claim_data.univariate.opening_pair.evaluation =
-            input.univariate_polynomial.evaluate(input.claim_data.univariate.opening_pair.challenge);
-        input.claim_data.univariate.commitment = ck.commit(input.univariate_polynomial);
+        const auto univariate_challenge = this->random_element();
+        const OpeningClaim<Curve> univariate{ { univariate_challenge,
+                                                input.univariate_polynomial.evaluate(univariate_challenge) },
+                                              ck.commit(input.univariate_polynomial) };
+        input.claim_data = PCS::TripleIpaClaimData::create(commitments,
+                                                           evaluations,
+                                                           shifted_commitments,
+                                                           shifted_source_evaluations,
+                                                           shifted_evaluations,
+                                                           multilinear_challenge,
+                                                           rho,
+                                                           univariate);
         return input;
     }
 
@@ -173,4 +177,136 @@ TEST_F(TripleIPATest, NativeBatchVerifyAccumulatorsRejectsTamperedProof)
     };
 
     EXPECT_FALSE(PCS::batch_verify_accumulators(vk, std::span<const PCS::NativeAccumulator>(accumulators)));
+}
+
+TEST_F(TripleIPATest, CreateBatchesWithConsecutiveRhoPowers)
+{
+    const auto input = create_input(Fr(2));
+    const auto& data = input.claim_data;
+    const std::vector<Fr> unshifted_weights{ 1, 2, 4, 8, 16 };
+    const std::vector<Fr> shifted_weights{ 32, 64 };
+    ASSERT_EQ(unshifted_weights.size(), NUM_UNSHIFTED);
+    ASSERT_EQ(shifted_weights.size(), SHIFTED_SOURCES.size());
+    EXPECT_EQ(data.unshifted.rho_powers, unshifted_weights);
+    EXPECT_EQ(data.shifted.rho_powers, shifted_weights);
+    const auto claim = data.batch();
+    Fr expected = 0;
+    for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+        expected += data.unshifted.evaluations[i] * unshifted_weights[i];
+    }
+    EXPECT_EQ(claim.unshifted_evaluation, expected);
+    expected = 0;
+    for (size_t i = 0; i < SHIFTED_SOURCES.size(); ++i) {
+        expected += data.shifted.shifted_evaluations[i] * shifted_weights[i];
+    }
+    EXPECT_EQ(claim.shifted_evaluation, expected);
+}
+
+TEST_F(TripleIPATest, RhoBatchingBindsIndividualEvaluations)
+{
+    for (const bool shifted : { false, true }) {
+        SCOPED_TRACE(shifted ? "shifted" : "unshifted");
+        auto input = create_input(Fr(2));
+        auto& evaluations =
+            shifted ? input.claim_data.shifted.shifted_evaluations : input.claim_data.unshifted.evaluations;
+        evaluations[0] += Fr::one();
+        evaluations[1] -= Fr::one();
+        const auto proof = prove(input);
+        EXPECT_FALSE(verify(input, proof));
+    }
+}
+
+TEST_F(TripleIPATest, RejectsChangedExternalClaim)
+{
+    const auto input = create_input();
+    const auto proof = prove(input);
+    const auto claim = input.claim_data.batch();
+    ASSERT_TRUE(PCS::reduce_verify(vk, claim, transcript_for(proof)));
+    using Claim = PCS::TripleIpaClaim;
+    using Mutation = std::pair<const char*, void (*)(Claim&)>;
+    const std::array<Mutation, 7> mutations = { {
+        { "unshifted commitment",
+          [](Claim& c) { c.unshifted_commitment = c.unshifted_commitment + Curve::AffineElement::one(); } },
+        { "shifted commitment",
+          [](Claim& c) { c.shifted_commitment = c.shifted_commitment + Curve::AffineElement::one(); } },
+        { "univariate commitment",
+          [](Claim& c) { c.univariate.commitment = c.univariate.commitment + Curve::AffineElement::one(); } },
+        { "unshifted evaluation", [](Claim& c) { c.unshifted_evaluation += Fr::one(); } },
+        { "shifted evaluation", [](Claim& c) { c.shifted_evaluation += Fr::one(); } },
+        { "univariate evaluation", [](Claim& c) { c.univariate.opening_pair.evaluation += Fr::one(); } },
+        { "univariate challenge", [](Claim& c) { c.univariate.opening_pair.challenge += Fr::one(); } },
+    } };
+    for (const auto& [name, mutate] : mutations) {
+        SCOPED_TRACE(name);
+        auto changed = claim;
+        mutate(changed);
+        EXPECT_FALSE(PCS::reduce_verify(vk, changed, transcript_for(proof)));
+    }
+    for (size_t i = 0; i < claim.multilinear_challenge.size(); ++i) {
+        SCOPED_TRACE(i);
+        auto changed = claim;
+        changed.multilinear_challenge[i] += Fr::one();
+        EXPECT_FALSE(PCS::reduce_verify(vk, changed, transcript_for(proof)));
+    }
+}
+
+TEST_F(TripleIPATest, DischargeRejectsFailedGroupRelation)
+{
+    const auto input = create_input();
+    auto proof = prove(input);
+    const auto claim = input.claim_data.batch();
+    const auto honest = PCS::reduce_to_accumulator(claim, transcript_for(proof));
+    ASSERT_TRUE(honest.relation_succeeded);
+    ASSERT_TRUE(PCS::verify_accumulator(vk, honest));
+
+    constexpr size_t scalar_size = FrCodec::calc_num_fields<Fr>();
+    ASSERT_GE(proof.size(), scalar_size);
+    const auto tail = std::span<bb::fr>(proof).last(scalar_size);
+    const Fr a_zero = FrCodec::deserialize_from_fields<Fr>(tail);
+    const auto replacement = FrCodec::serialize_to_fields<Fr>(a_zero + Fr::one());
+    std::copy(replacement.begin(), replacement.end(), tail.begin());
+    const auto bad = PCS::reduce_to_accumulator(claim, transcript_for(proof));
+    ASSERT_FALSE(bad.relation_succeeded);
+    EXPECT_EQ(bad.u_challenges_inv, honest.u_challenges_inv);
+    EXPECT_EQ(bad.claimed_commitment, honest.claimed_commitment);
+    EXPECT_FALSE(PCS::verify_accumulator(vk, bad));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, transcript_for(proof)));
+    for (size_t bad_index = 0; bad_index < 2; ++bad_index) {
+        SCOPED_TRACE(bad_index);
+        std::array<PCS::NativeAccumulator, 2> batch{ honest, honest };
+        batch[bad_index] = bad;
+        EXPECT_FALSE(PCS::batch_verify_accumulators(vk, batch));
+    }
+}
+
+TEST_F(TripleIPATest, BatchDischargeBindsClaimedCommitments)
+{
+    const auto input1 = create_input();
+    const auto input2 = create_input();
+    const std::array<PCS::NativeAccumulator, 2> honest{
+        PCS::reduce_to_accumulator(input1.claim_data.batch(), transcript_for(prove(input1))),
+        PCS::reduce_to_accumulator(input2.claim_data.batch(), transcript_for(prove(input2))),
+    };
+    ASSERT_TRUE(PCS::batch_verify_accumulators(vk, honest));
+
+    // This tests the discharge API with synthetic accumulators, not the reachability of these states from proofs.
+    // Without commitment absorption, an offset chosen after rho is known can cancel between two accumulators.
+    // Must mirror the labels in IPA::batch_verify_accumulators.
+    NativeTranscript unbound;
+    for (size_t i = 0; i < honest.size(); ++i) {
+        unbound.add_to_hash_buffer("IPA:batch_u_" + std::to_string(i), honest[i].u_challenges_inv);
+    }
+    const Fr rho = unbound.get_challenge<Fr>("IPA:batch_rho");
+    ASSERT_FALSE(rho.is_zero());
+    const Curve::Element delta = Curve::Element::one();
+    auto changed = honest;
+    changed[0].claimed_commitment = (Curve::Element(honest[0].claimed_commitment) + delta).normalize();
+    changed[1].claimed_commitment = (Curve::Element(honest[1].claimed_commitment) - delta * rho.invert()).normalize();
+    auto combine = [&](const auto& batch) {
+        return (Curve::Element(batch[0].claimed_commitment) + batch[1].claimed_commitment * rho).normalize();
+    };
+    ASSERT_EQ(combine(changed), combine(honest));
+    EXPECT_FALSE(PCS::verify_accumulator(vk, changed[0]));
+    EXPECT_FALSE(PCS::verify_accumulator(vk, changed[1]));
+    EXPECT_FALSE(PCS::batch_verify_accumulators(vk, changed));
 }
