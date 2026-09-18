@@ -167,14 +167,12 @@ class Chi {
      * This table is used by Composer objects to generate plookup constraints
      *
      * @param id a compile-time ID defined via plookup_tables.hpp
-     * @param table_index a circuit-specific ID for the table used by the circuit Composer
      * @return BasicTable
      */
-    static BasicTable generate_chi_renormalization_table(BasicTableId id, const size_t table_index)
+    static BasicTable generate_chi_renormalization_table(BasicTableId id)
     {
         BasicTable table;
         table.id = id;
-        table.table_index = table_index;
         table.use_twin_keys = false;
         auto table_size = numeric::pow64(static_cast<uint64_t>(EFFECTIVE_BASE), TABLE_BITS);
 

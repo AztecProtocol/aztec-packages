@@ -146,8 +146,7 @@ TEST_F(FixedBaseTableTest, MultiTableStructureAndOffsets)
 TEST_F(FixedBaseTableTest, TableGenerationAndValueRetrieval)
 {
     // Generate a basic table for the first LHS_LO sub-table
-    auto basic_table =
-        table::generate_basic_fixed_base_table<0>(FIXED_BASE_0_0, /*basic_table_index=*/0, /*table_index=*/0);
+    auto basic_table = table::generate_basic_fixed_base_table<0>(FIXED_BASE_0_0, /*slice_index=*/0);
 
     // The lookup function should be properly initialized
     EXPECT_NE(basic_table.get_values_from_key, nullptr);
@@ -200,14 +199,14 @@ TEST_F(FixedBaseTableTest, PartialTableHandling)
     // E.g. the last table in LHS_LO handles only 2 bits, so it should have 2^2 = 4 entries
     size_t last_table_idx_lo = table::NUM_TABLES_PER_LO_MULTITABLE - 1;
     auto basic_table = table::generate_basic_fixed_base_table</*multitable_index=*/0>(
-        static_cast<BasicTableId>(FIXED_BASE_0_0 + last_table_idx_lo), last_table_idx_lo, last_table_idx_lo);
+        static_cast<BasicTableId>(FIXED_BASE_0_0 + last_table_idx_lo), /*slice_index=*/last_table_idx_lo);
     EXPECT_EQ(basic_table.column_1.size(), 4);
 
     // The last table in LHS_HI handles a full 9 bits, so it should have 2^9 = 512 entries
     // 126 bits divides evenly by 9, so all HI tables are full-sized
     size_t last_table_idx_hi = table::NUM_TABLES_PER_HI_MULTITABLE - 1;
     auto hi_basic_table = table::generate_basic_fixed_base_table<1>(
-        static_cast<BasicTableId>(FIXED_BASE_1_0 + last_table_idx_hi), last_table_idx_hi, last_table_idx_hi);
+        static_cast<BasicTableId>(FIXED_BASE_1_0 + last_table_idx_hi), /*slice_index=*/last_table_idx_hi);
     EXPECT_EQ(hi_basic_table.column_1.size(), table::MAX_TABLE_SIZE);
 }
 

@@ -328,7 +328,9 @@ struct BasicTable {
 
     // Unique id of the table which is used to look it up, when we need its functionality. One of BasicTableId enum
     BasicTableId id;
-    size_t table_index;
+    // Circuit-local identity in the LogDeriv lookup relation. Defaults to 0 (unset); assigned by the
+    // builder's allocation sites (create_basic_table, register_basic_lookup_table).
+    size_t table_index = 0;
     // This means that we are using two inputs to look up stuff, not translate a single entry into another one.
     bool use_twin_keys;
 

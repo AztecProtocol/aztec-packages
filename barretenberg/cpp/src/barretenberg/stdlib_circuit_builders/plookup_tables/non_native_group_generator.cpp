@@ -183,11 +183,10 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xyprime_endo_values(const std
              ecc_generator_table<G1>::generator_endo_xyprime_table[index].second };
 }
 
-template <typename G1> BasicTable ecc_generator_table<G1>::generate_xlo_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_xlo_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -206,11 +205,10 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_xlo_table(Ba
     return table;
 }
 
-template <typename G1> BasicTable ecc_generator_table<G1>::generate_xhi_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_xhi_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -229,12 +227,10 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_xhi_table(Ba
     return table;
 }
 
-template <typename G1>
-BasicTable ecc_generator_table<G1>::generate_xlo_endo_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_xlo_endo_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -253,12 +249,10 @@ BasicTable ecc_generator_table<G1>::generate_xlo_endo_table(BasicTableId id, con
     return table;
 }
 
-template <typename G1>
-BasicTable ecc_generator_table<G1>::generate_xhi_endo_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_xhi_endo_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -277,11 +271,10 @@ BasicTable ecc_generator_table<G1>::generate_xhi_endo_table(BasicTableId id, con
     return table;
 }
 
-template <typename G1> BasicTable ecc_generator_table<G1>::generate_ylo_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_ylo_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -300,11 +293,10 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_ylo_table(Ba
     return table;
 }
 
-template <typename G1> BasicTable ecc_generator_table<G1>::generate_yhi_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_yhi_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -323,12 +315,10 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_yhi_table(Ba
     return table;
 }
 
-template <typename G1>
-BasicTable ecc_generator_table<G1>::generate_xyprime_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_xyprime_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
@@ -347,12 +337,10 @@ BasicTable ecc_generator_table<G1>::generate_xyprime_table(BasicTableId id, cons
     return table;
 }
 
-template <typename G1>
-BasicTable ecc_generator_table<G1>::generate_xyprime_endo_table(BasicTableId id, const size_t table_index)
+template <typename G1> BasicTable ecc_generator_table<G1>::generate_xyprime_endo_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 

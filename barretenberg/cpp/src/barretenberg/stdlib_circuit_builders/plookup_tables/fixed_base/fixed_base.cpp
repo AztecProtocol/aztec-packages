@@ -172,7 +172,7 @@ using function_ptr_table =
 /**
  * @brief create a compile-time static 2D array of all our required `get_basic_fixed_base_table_values` function
  * pointers, so that we can specify the function pointer required for this method call using runtime variables
- * `multitable_index`, `table_index`. (downstream code becomes a lot simpler if `table_index` is not compile time,
+ * `multitable_index`, `slice_index`. (downstream code becomes a lot simpler if `slice_index` is not compile time,
  * particularly the init code in `plookup_tables.cpp`)
  * @return constexpr function_ptr_table
  */
@@ -189,31 +189,30 @@ constexpr function_ptr_table make_function_pointer_table()
 /**
  * @brief Generate a single fixed-base-scalar-mul plookup table
  * @details Creates a BasicTable for a specific bit-slice of the scalar multiplication. Each table covers w =
- * BITS_PER_TABLE bits of the scalar at position table_index*w. The table stores precomputed points: (index, x-coord,
+ * BITS_PER_TABLE bits of the scalar at position slice_index*w. The table stores precomputed points: (index, x-coord,
  * y-coord) for index in [0, 2^w). For the last table in a multitable, the size may be smaller if remaining bits < w.
  *
  * @tparam multitable_index Which of our 4 multitables (LEFT_LO/HI, RIGHT_LO/HI) this table belongs to
  * @param id The unique and fixed BasicTableId for this table
- * @param basic_table_index The circuit table index (e.g. idx = i means this is the i'th table used in the circuit)
- * @param table_index The bit-slice position (0 = least significant slice) (0 <= table_index < NUM_TABLES_IN_MULTITABLE)
+ * @param slice_index The bit-slice position (0 = least significant slice) (0 <= slice_index < NUM_TABLES_IN_MULTITABLE)
  * @return BasicTable containing the precomputed points and lookup function
  */
 template <size_t multitable_index>
-BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_table_index, size_t table_index)
+BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t slice_index)
 {
     static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
-    BB_ASSERT_LT(table_index, MAX_NUM_TABLES_IN_MULTITABLE);
+    BB_ASSERT_LT(slice_index, MAX_NUM_TABLES_IN_MULTITABLE);
 
     const size_t multitable_bits = get_num_bits_of_multi_table<multitable_index>();
-    const size_t bits_covered_by_previous_tables_in_multitable = BITS_PER_TABLE * table_index;
+    const size_t bits_covered_by_previous_tables_in_multitable = BITS_PER_TABLE * slice_index;
     const bool is_small_table = (multitable_bits - bits_covered_by_previous_tables_in_multitable) < BITS_PER_TABLE;
     const size_t table_bits =
         is_small_table ? multitable_bits - bits_covered_by_previous_tables_in_multitable : BITS_PER_TABLE;
     const auto table_size = static_cast<size_t>(1ULL << table_bits);
 
-    BasicTable table{ .id = id, .table_index = basic_table_index, .use_twin_keys = false };
+    BasicTable table{ .id = id, .use_twin_keys = false };
 
-    const auto& basic_table = fixed_base_tables()[multitable_index][table_index];
+    const auto& basic_table = fixed_base_tables()[multitable_index][slice_index];
 
     for (size_t i = 0; i < table_size; ++i) {
         table.column_1.emplace_back(i);
@@ -222,7 +221,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
     }
 
     constexpr function_ptr_table get_values_from_key_table = make_function_pointer_table();
-    table.get_values_from_key = get_values_from_key_table[multitable_index][table_index];
+    table.get_values_from_key = get_values_from_key_table[multitable_index][slice_index];
     BB_ASSERT(table.get_values_from_key != nullptr);
 
     table.column_1_step_size = table_size;
@@ -289,10 +288,10 @@ template table::fixed_base_scalar_mul_tables table::generate_tables<table::BITS_
 template table::fixed_base_scalar_mul_tables table::generate_tables<table::BITS_PER_HI_SCALAR>(
     const table::affine_element& input);
 
-template BasicTable table::generate_basic_fixed_base_table<0>(BasicTableId, size_t, size_t);
-template BasicTable table::generate_basic_fixed_base_table<1>(BasicTableId, size_t, size_t);
-template BasicTable table::generate_basic_fixed_base_table<2>(BasicTableId, size_t, size_t);
-template BasicTable table::generate_basic_fixed_base_table<3>(BasicTableId, size_t, size_t);
+template BasicTable table::generate_basic_fixed_base_table<0>(BasicTableId, size_t);
+template BasicTable table::generate_basic_fixed_base_table<1>(BasicTableId, size_t);
+template BasicTable table::generate_basic_fixed_base_table<2>(BasicTableId, size_t);
+template BasicTable table::generate_basic_fixed_base_table<3>(BasicTableId, size_t);
 template MultiTable table::get_fixed_base_table<0, table::BITS_PER_LO_SCALAR>(MultiTableId);
 template MultiTable table::get_fixed_base_table<1, table::BITS_PER_HI_SCALAR>(MultiTableId);
 template MultiTable table::get_fixed_base_table<2, table::BITS_PER_LO_SCALAR>(MultiTableId);
