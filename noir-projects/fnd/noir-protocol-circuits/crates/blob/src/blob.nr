@@ -924,6 +924,7 @@ mod tests {
         let correct_factor = unsafe { super::__compute_factor_helper(z_pow_d_val) };
 
         // Add 1 to corrupt the factor
+        // Safety: the corrupted factor is what `validate_factor` below is expected to reject.
         let invalid_factor = unsafe { correct_factor.__add(BLS12_381_Fr::one()) };
 
         // This should fail because the constraint won't be satisfied
@@ -947,17 +948,16 @@ mod tests {
     fn test_validate_fracs_rejects_invalid_frac() {
         // Test that validate_fracs rejects incorrect frac hints
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
-        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
 
         // Compute correct fracs, then corrupt one
         // Safety: computing correct values first
         let mut fracs = unsafe { __compute_fracs(z) };
 
         // Corrupt fracs[0] by adding 1
+        // Safety: the corrupted frac is what `validate_fracs` below is expected to reject.
         fracs[0] = unsafe { fracs[0].__add(BLS12_381_Fr::one()) };
 
-        // This should fail because fracs[0] * (z - w^0) != ys[0]
+        // This should fail because fracs[0] no longer satisfies the relation validate_fracs enforces for z
         validate_fracs(z, fracs);
     }
 
@@ -965,9 +965,6 @@ mod tests {
     fn test_validate_fracs_rejects_swapped_fracs() {
         // Test that validate_fracs rejects fracs that are swapped between positions
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
-        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
-        ys[1] = BLS12_381_Fr::from_limbs([200, 0, 0]);
 
         // Compute correct fracs
         // Safety: computing correct values first
@@ -991,6 +988,7 @@ mod tests {
 
         // Safety: computing correct values first
         let mut fracs = unsafe { __compute_fracs(z) };
+        // Safety: the corrupted frac is what `validate_fracs` below is expected to reject.
         fracs[last] = unsafe { fracs[last].__add(BLS12_381_Fr::one()) };
 
         validate_fracs(z, fracs);
@@ -1030,20 +1028,15 @@ mod tests {
     }
 
     #[test(should_fail)]
-    fn test_validate_fracs_rejects_nonzero_frac_for_zero_y() {
-        // Test that when y[i] = 0, fracs[i] must also satisfy the constraint
-        // (which means fracs[i] * (z - w^i) = 0)
+    fn test_validate_fracs_rejects_arbitrary_frac() {
+        // Test that validate_fracs rejects a frac that is not the value derived from z
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // All zeros
 
-        // Compute correct fracs (should all be zero)
+        // Compute correct fracs
         // Safety: computing correct values first
         let mut fracs = unsafe { __compute_fracs(z) };
 
-        // Set fracs[0] to a non-zero value
-        // Since y[0] = 0, the constraint is fracs[0] * (z - w^0) = 0
-        // For this to hold with non-zero fracs[0], we'd need z = w^0 = 1
-        // But z = 42, so this should fail
+        // Replace fracs[0] with an arbitrary value: fracs[0] * (z - w^0) != w^0, so this should fail
         fracs[0] = BLS12_381_Fr::from_limbs([999, 0, 0]);
 
         validate_fracs(z, fracs);

@@ -1273,6 +1273,7 @@ impl FixtureBuilder {
         result.storage()
     }
 
+    #[allow(dead_code)]
     fn mock_note_hash_read_value(self, index: u32) -> Field {
         789 + self.value_offset + index as Field
     }
@@ -1302,6 +1303,7 @@ impl FixtureBuilder {
         5678 + self.value_offset + index as Field
     }
 
+    #[allow(dead_code)]
     fn mock_nullifier_value_non_revertible(self, index: u32) -> Field {
         9876 + self.value_offset + index as Field
     }
@@ -1389,6 +1391,7 @@ impl FixtureBuilder {
         self.mock_public_call_request(54345)
     }
 
+    #[allow(dead_code)]
     fn mock_fee_payer(self) -> AztecAddress {
         AztecAddress::from_field(900900 + self.value_offset)
     }

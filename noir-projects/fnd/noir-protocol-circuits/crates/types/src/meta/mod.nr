@@ -278,7 +278,9 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             Self { $param_name: $crate::traits::Packable::unpack(packed) }
         }
     } else {
+        // Nothing to unpack, so the parameter is referenced to keep the generated function warning-free.
         quote {
+            let _ = packed;
             Self {}
         }
     };
