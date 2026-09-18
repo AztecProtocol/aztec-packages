@@ -29,10 +29,10 @@
   "validators": {
     "propose": {
       "calls": 150,
-      "min": 304678,
-      "mean": 327074,
-      "median": 326519,
-      "max": 354847,
+      "min": 304606,
+      "mean": 327076,
+      "median": 326555,
+      "max": 354991,
       "calldata_size": 4516,
       "calldata_gas": 72256
     },
@@ -45,19 +45,19 @@
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 1409766,
-      "mean": 1521661,
-      "median": 1527519,
-      "max": 1621840,
+      "min": 1409694,
+      "mean": 1521631,
+      "median": 1527513,
+      "max": 1621804,
       "calldata_size": 16708,
       "calldata_gas": 267328
     },
     "aggregate3": {
       "calls": 55,
-      "min": 364889,
-      "mean": 376068,
-      "median": 375810,
-      "max": 389428
+      "min": 364901,
+      "mean": 376078,
+      "median": 375798,
+      "max": 389404
     }
   }
 }
