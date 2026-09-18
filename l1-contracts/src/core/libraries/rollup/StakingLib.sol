@@ -22,6 +22,7 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {CompressedTimeMath, CompressedTimestamp, CompressedEpoch} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -89,6 +90,12 @@ struct AttesterExitLimitState {
   uint256 used;
   uint256 allowance;
   bool canExit;
+}
+
+struct AttesterExitAuthorization {
+  address attester;
+  uint256 deadline;
+  Signature signature;
 }
 
 struct StakingStorage {
@@ -547,6 +554,82 @@ library StakingLib {
   function initiateWithdrawByAttester(address _attester) internal {
     require(msg.sender == _attester, Errors.Staking__NotAttester(_attester, msg.sender));
 
+    checkAttesterExitInstance();
+
+    (uint256 effectiveBalance, address withdrawer) = _prepareAttesterWithdrawal(_attester);
+
+    consumeAttesterExitAllowance();
+
+    _initiateAttesterWithdrawal(_attester, effectiveBalance, withdrawer);
+  }
+
+  function initiateWithdrawByAttesterWithSignature(address _attester) internal {
+    checkAttesterExitInstance();
+
+    (uint256 effectiveBalance, address withdrawer) = _prepareAttesterWithdrawal(_attester);
+
+    consumeAttesterExitAllowance();
+
+    _initiateAttesterWithdrawal(_attester, effectiveBalance, withdrawer);
+  }
+
+  function initiateWithdrawByAttesterBatchItem(address _attester) internal {
+    (uint256 effectiveBalance, address withdrawer) = _prepareAttesterWithdrawal(_attester);
+    _initiateAttesterWithdrawal(_attester, effectiveBalance, withdrawer);
+  }
+
+  /// @notice Check that attester exit is allowed at this time and consume 1 exit space
+  /// @dev This checks that there are enough validators to form a committee after the exit and that there is enough
+  /// space in the window. N.B. The allowance will shrink if validators exit using withdraw accounts.
+  function consumeAttesterExitAllowance() internal {
+    consumeAttesterExitAllowance(1);
+  }
+
+  function consumeAttesterExitAllowance(uint256 _exitCount) internal {
+    uint256 validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    uint256 committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
+
+    require(
+      validatorCount >= _exitCount && validatorCount - _exitCount >= committeeSize,
+      Errors.Staking__AttesterExitPoolTooSmall(validatorCount, committeeSize)
+    );
+
+    uint256 allowance = _getAttesterExitAllowance(validatorCount - _exitCount + 1);
+    uint256 used = getAttesterExitUsage();
+    uint256 usedAtFinalExit = used + _exitCount - 1;
+
+    require(usedAtFinalExit < allowance, Errors.Staking__AttesterExitLimitExceeded(usedAtFinalExit, allowance));
+
+    getStorage().attesterExitHistory.add(_exitCount);
+  }
+
+  function consumeAttesterExitAllowanceUpTo(uint256 _requestedExitCount) internal returns (uint256 exitCount) {
+    uint256 validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    uint256 committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
+    uint256 used = getAttesterExitUsage();
+
+    uint256 availableByCommittee = validatorCount > committeeSize ? validatorCount - committeeSize : 0;
+    // For k exits, used + k - 1 < floor((validatorCount - k) / quotient). Rearranging gives
+    // (quotient + 1) * k <= validatorCount - quotient * used.
+    uint256 usedWeight = used * ATTESTER_EXIT_QUOTIENT;
+    uint256 availableByLimit =
+      validatorCount > usedWeight ? (validatorCount - usedWeight) / (ATTESTER_EXIT_QUOTIENT + 1) : 0;
+
+    exitCount = Math.min(_requestedExitCount, Math.min(availableByCommittee, availableByLimit));
+    if (exitCount > 0) {
+      getStorage().attesterExitHistory.add(exitCount);
+    }
+  }
+
+  function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
+    assertValidQueueConfig(_config);
+    getStorage().queueConfig = _config.compress();
+    emit IStakingCore.StakingQueueConfigUpdated(_config);
+  }
+
+  /// @dev Governance's canonical instance and the GSE's latest rollup can disagree if an upgrade does not add
+  /// the new rollup to this GSE. In that state no rollup can safely enforce the shared exit limit, so both must match.
+  function checkAttesterExitInstance() internal view {
     StakingStorage storage store = getStorage();
 
     Governance gov = store.gse.getGovernance();
@@ -556,47 +639,6 @@ library StakingLib {
 
     address latestRollup = store.gse.getLatestRollup();
     require(address(this) == latestRollup, Errors.Staking__NotLatestRollup(address(this), latestRollup));
-
-    require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-
-    uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
-
-    require(effectiveBalance > 0, Errors.Staking__NothingToExit(_attester));
-
-    address withdrawer = store.gse.getWithdrawer(_attester);
-
-    consumeAttesterExitAllowance();
-
-    (uint256 amountWithdrawn, uint256 withdrawalId) =
-      _withdrawAndCreateExit(store, _attester, effectiveBalance, withdrawer, false);
-
-    emit IStakingCore.WithdrawInitiatedByAttester(_attester, withdrawer, amountWithdrawn, withdrawalId);
-  }
-
-  /// @notice Check that attester exit is allowed at this time and consume 1 exit space
-  /// @dev This checks that there are enough validators to form a committee after the exit and that there is enough
-  /// space in the window. N.B. The allowance will shrink if validators exit using withdraw accounts.
-  function consumeAttesterExitAllowance() internal {
-    uint256 validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
-
-    uint256 committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
-
-    // Have to be more validators than the committee size to eject one
-    require(validatorCount > committeeSize, Errors.Staking__AttesterExitPoolTooSmall(validatorCount, committeeSize));
-
-    uint256 allowance = _getAttesterExitAllowance(validatorCount);
-
-    uint256 used = getAttesterExitUsage();
-
-    require(used < allowance, Errors.Staking__AttesterExitLimitExceeded(used, allowance));
-
-    getStorage().attesterExitHistory.add(1);
-  }
-
-  function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
-    assertValidQueueConfig(_config);
-    getStorage().queueConfig = _config.compress();
-    emit IStakingCore.StakingQueueConfigUpdated(_config);
   }
 
   function getAttesterExitWindow() internal view returns (Timestamp) {
@@ -807,6 +849,14 @@ library StakingLib {
     }
   }
 
+  function _initiateAttesterWithdrawal(address _attester, uint256 _effectiveBalance, address _withdrawer) private {
+    StakingStorage storage store = getStorage();
+    (uint256 amountWithdrawn, uint256 withdrawalId) =
+      _withdrawAndCreateExit(store, _attester, _effectiveBalance, _withdrawer, false);
+
+    emit IStakingCore.WithdrawInitiatedByAttester(_attester, _withdrawer, amountWithdrawn, withdrawalId);
+  }
+
   function _withdrawAndCreateExit(
     StakingStorage storage _store,
     address _attester,
@@ -826,6 +876,21 @@ library StakingLib {
       isRecipient: _isRecipient,
       exists: true
     });
+  }
+
+  function _prepareAttesterWithdrawal(address _attester)
+    private
+    view
+    returns (uint256 effectiveBalance, address withdrawer)
+  {
+    StakingStorage storage store = getStorage();
+
+    require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
+
+    effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+    require(effectiveBalance > 0, Errors.Staking__NothingToExit(_attester));
+
+    withdrawer = store.gse.getWithdrawer(_attester);
   }
 
   /// @notice Whether `_caller` can call {slash}.

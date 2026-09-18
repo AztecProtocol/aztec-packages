@@ -28,7 +28,7 @@ import {AttesterExitExtLib} from "@aztec/core/libraries/rollup/AttesterExitExtLi
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {StakingLib, AttesterExitAuthorization} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox, INBOX_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -497,6 +497,44 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function initiateWithdrawByAttester(address _attester) external override(IStakingCore) {
     AttesterExitExtLib.initiateWithdrawByAttester(_attester);
+  }
+
+  /**
+   * @notice Initiates an attester withdrawal using an EIP-712 authorization.
+   * @dev Anyone may relay the authorization. The registered withdrawer retains control of the payout recipient.
+   * @param _authorization The attester, deadline, and signature authorizing the exit.
+   */
+  function initiateWithdrawByAttesterWithSignature(AttesterExitAuthorization calldata _authorization)
+    external
+    override(IStakingCore)
+  {
+    AttesterExitExtLib.initiateWithdrawByAttesterWithSignature(_authorization);
+  }
+
+  /**
+   * @notice Initiates multiple attester withdrawals using EIP-712 authorizations.
+   * @dev Shared instance and exit-limit checks are performed once for the whole batch.
+   * @param _authorizations The signed exit authorizations to execute atomically.
+   */
+  function initiateWithdrawByAttesterBatch(AttesterExitAuthorization[] calldata _authorizations)
+    external
+    override(IStakingCore)
+  {
+    AttesterExitExtLib.initiateWithdrawByAttesterBatch(_authorizations);
+  }
+
+  /**
+   * @notice Initiates as many authorized attester withdrawals as the current exit limit permits.
+   * @dev Processes a prefix of the array and returns zero when no capacity remains.
+   * @param _authorizations The ordered signed exit authorizations.
+   * @return exitedCount The number of authorizations processed from the start of the array.
+   */
+  function initiateWithdrawByAttesterBatchUpToLimit(AttesterExitAuthorization[] calldata _authorizations)
+    external
+    override(IStakingCore)
+    returns (uint256 exitedCount)
+  {
+    return AttesterExitExtLib.initiateWithdrawByAttesterBatchUpToLimit(_authorizations);
   }
 
   /**

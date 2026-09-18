@@ -30,7 +30,7 @@ import {
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {TempCheckpointLog, CheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {FeeAssetValue, PriceLib} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {FeeAssetValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {AttesterExitExtLib} from "@aztec/core/libraries/rollup/AttesterExitExtLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
@@ -74,7 +74,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
-  using PriceLib for EthValue;
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for CompressedTimestamp;
   using ChainTipsLib for CompressedChainTips;
@@ -581,7 +580,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProvingCostPerManaInFeeAsset() external view override(IRollup) returns (FeeAssetValue) {
-    return RewardExtLib.getProvingCostPerMana().toFeeAsset(getEthPerFeeAsset());
+    return RewardExtLib.getProvingCostPerManaInFeeAsset(getEthPerFeeAsset());
   }
 
   // The config getters below go through {_getRollupConfig} rather than reading their immutable

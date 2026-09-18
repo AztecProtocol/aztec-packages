@@ -195,6 +195,8 @@ library Errors {
   error Staking__SlasherNotReady(Timestamp readyAt);
   error Staking__AttesterExitPoolTooSmall(uint256 validatorCount, uint256 committeeSize);
   error Staking__AttesterExitLimitExceeded(uint256 used, uint256 allowance);
+  error Staking__EmptyAttesterExitBatch();
+  error Staking__AttesterExitAuthorizationExpired(uint256 deadline, uint256 currentTime);
   error Staking__NotAttester(address attester, address caller);
   error Staking__NotLatestRollup(address rollup, address latestRollup);
 

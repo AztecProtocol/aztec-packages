@@ -3,7 +3,13 @@
 pragma solidity >=0.8.27;
 
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {Exit, Status, AttesterView, AttesterExitLimitState} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {
+  Exit,
+  Status,
+  AttesterView,
+  AttesterExitLimitState,
+  AttesterExitAuthorization
+} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -58,6 +64,11 @@ interface IStakingCore {
   function vote(uint256 _proposalId) external;
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external;
   function initiateWithdrawByAttester(address _attester) external;
+  function initiateWithdrawByAttesterWithSignature(AttesterExitAuthorization calldata _authorization) external;
+  function initiateWithdrawByAttesterBatch(AttesterExitAuthorization[] calldata _authorizations) external;
+  function initiateWithdrawByAttesterBatchUpToLimit(AttesterExitAuthorization[] calldata _authorizations)
+    external
+    returns (uint256);
   function getEntryQueueFlushSize() external view returns (uint256);
   function getActiveAttesterCount() external view returns (uint256);
 }
