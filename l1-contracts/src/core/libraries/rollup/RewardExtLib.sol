@@ -3,7 +3,12 @@
 pragma solidity >=0.8.27;
 
 import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
-import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {
+  FeeConfigLib,
+  CompressedFeeConfig,
+  FeeAssetValue,
+  PriceLib
+} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   FeeLib,
@@ -33,6 +38,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 library RewardExtLib {
   using FeeConfigLib for CompressedFeeConfig;
+  using PriceLib for EthValue;
 
   function initializeConfig(
     RewardConfig memory _config,
@@ -166,6 +172,10 @@ library RewardExtLib {
 
   function getProvingCostPerMana() external view returns (EthValue) {
     return FeeLib.getProvingCostPerMana();
+  }
+
+  function getProvingCostPerManaInFeeAsset(EthPerFeeAssetE12 _ethPerFeeAsset) external view returns (FeeAssetValue) {
+    return FeeLib.getProvingCostPerMana().toFeeAsset(_ethPerFeeAsset);
   }
 
   function summedMinFee(ManaMinFeeComponents memory _components) external pure returns (uint256) {

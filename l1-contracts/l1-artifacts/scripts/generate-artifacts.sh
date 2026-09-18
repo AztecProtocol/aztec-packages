@@ -18,6 +18,7 @@ contracts=(
   "RollupOperationsExtLib"
   "EpochProofExtLib"
   "ValidatorOperationsExtLib"
+  "AttesterExitExtLib"
   "RewardExtLib"
   "SlasherDeploymentExtLib"
   "FeeJuicePortal"

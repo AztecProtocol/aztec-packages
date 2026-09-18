@@ -19,12 +19,20 @@ import {
   RegistryRewardOverride,
   MAX_REGISTRY_REWARD_OVERRIDES
 } from "@aztec/core/interfaces/IRollup.sol";
-import {IStaking, AttesterConfig, Exit, AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {
+  IStaking,
+  AttesterConfig,
+  Exit,
+  AttesterView,
+  Status,
+  AttesterExitLimitState
+} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {TempCheckpointLog, CheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {FeeAssetValue, PriceLib} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {FeeAssetValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {AttesterExitExtLib} from "@aztec/core/libraries/rollup/AttesterExitExtLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -66,7 +74,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
-  using PriceLib for EthValue;
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for CompressedTimestamp;
   using ChainTipsLib for CompressedChainTips;
@@ -248,6 +255,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getActivationThreshold() external view override(IStaking) returns (uint256) {
     return StakingLib.getStorage().gse.ACTIVATION_THRESHOLD();
+  }
+
+  function getAttesterExitWindow() external view override(IStaking) returns (Timestamp) {
+    return AttesterExitExtLib.getAttesterExitWindow();
+  }
+
+  function getAttesterExitLimitState() external view override(IStaking) returns (AttesterExitLimitState memory) {
+    return AttesterExitExtLib.getAttesterExitLimitState();
   }
 
   function getExitDelay() external view override(IStaking) returns (Timestamp) {
@@ -565,7 +580,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProvingCostPerManaInFeeAsset() external view override(IRollup) returns (FeeAssetValue) {
-    return RewardExtLib.getProvingCostPerMana().toFeeAsset(getEthPerFeeAsset());
+    return RewardExtLib.getProvingCostPerManaInFeeAsset(getEthPerFeeAsset());
   }
 
   // The config getters below go through {_getRollupConfig} rather than reading their immutable

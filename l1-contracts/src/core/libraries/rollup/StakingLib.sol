@@ -9,20 +9,25 @@ import {
   StakingQueueConfigLib
 } from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig, IGSECore} from "@aztec/governance/GSE.sol";
-import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Configuration, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
+import {CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {CompressedTimeMath, CompressedTimestamp, CompressedEpoch} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
@@ -39,9 +44,11 @@ enum Status {
 /**
  * @notice Represents a validator's exit from the staking system
  * @dev Used to track withdrawal details and timing for validators leaving the system.
- *      The exit can be created in two scenarios:
+ *      The exit can be created in three scenarios:
  *      1. Voluntary withdrawal: Validator calls initiateWithdraw() -> recipientOrWithdrawer is the final recipient
- *      2. Slashing-induced exit: Validator gets slashed -> recipientOrWithdrawer is the withdrawer who must later
+ *      2. Attester calls initiateWithdrawByAttester() -> recipientOrWithdrawer is the withdrawer who must later
+ *         call initiateWithdraw() to specify a recipient
+ *      3. Slashing-induced exit: Validator gets slashed -> recipientOrWithdrawer is the withdrawer who must later
  *         call initiateWithdraw() to specify a recipient
  *
  *      The recipientOrWithdrawer field serves dual purposes:
@@ -76,6 +83,21 @@ struct AttesterView {
   AttesterConfig config;
 }
 
+struct AttesterExitLimitState {
+  Timestamp window;
+  uint256 validatorCount;
+  uint256 committeeSize;
+  uint256 used;
+  uint256 allowance;
+  bool canExit;
+}
+
+struct AttesterExitAuthorization {
+  address attester;
+  uint256 deadline;
+  Signature signature;
+}
+
 struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
@@ -96,6 +118,7 @@ struct StakingStorage {
   // slasher takes over.
   address legacySlasher;
   CompressedTimestamp legacySlasherAuthorizedUntil;
+  Checkpoints.Trace224 attesterExitHistory;
 }
 
 library StakingLib {
@@ -109,8 +132,12 @@ library StakingLib {
   using CompressedTimeMath for Timestamp;
   using CompressedTimeMath for CompressedEpoch;
   using CompressedTimeMath for Epoch;
+  using CheckpointedUintLib for Checkpoints.Trace224;
+  using ConfigurationLib for Configuration;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
+
+  uint256 internal constant ATTESTER_EXIT_QUOTIENT = 20;
 
   /// @notice Delay between queuing a slasher replacement and being able to finalize it.
   uint256 internal constant SLASHER_EXECUTION_DELAY = 60 days;
@@ -489,7 +516,7 @@ library StakingLib {
 
     if (store.exits[_attester].exists) {
       // If there is already an exit, we either started it and should revert
-      // or it is because of a slash and we should update the recipient
+      // or it is because of a slash or attester-initiated exit and we should update the recipient
       // Still only if we are the withdrawer
       // We DO NOT update the exitableAt
       require(!store.exits[_attester].isRecipient, Errors.Staking__NothingToExit(_attester));
@@ -508,27 +535,148 @@ library StakingLib {
       address withdrawer = store.gse.getWithdrawer(_attester);
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      (uint256 actualAmount, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, effectiveBalance);
-      require(removed, Errors.Staking__WithdrawFailed(_attester));
-
-      store.exits[_attester] = Exit({
-        withdrawalId: withdrawalId,
-        amount: actualAmount,
-        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
-        recipientOrWithdrawer: _recipient,
-        isRecipient: true,
-        exists: true
-      });
+      (uint256 actualAmount,) = _withdrawAndCreateExit(store, _attester, effectiveBalance, _recipient, true);
       emit IStakingCore.WithdrawInitiated(_attester, _recipient, actualAmount);
     }
 
     return true;
   }
 
+  /**
+   * @notice Initiate an exit by the attester
+   *     @dev Checks performed:
+   *        1. Msg sender is the attester
+   *        2. Rollup is canonical and latest
+   *        3. The attester hasn't initiated an exit and has a positive effective balance
+   *        4. Exit allowance is not completely consumed
+   *  @param _attester The validator address to withdraw stake for
+   */
+  function initiateWithdrawByAttester(address _attester) internal {
+    require(msg.sender == _attester, Errors.Staking__NotAttester(_attester, msg.sender));
+
+    checkAttesterExitInstance();
+
+    (uint256 effectiveBalance, address withdrawer) = _prepareAttesterWithdrawal(_attester);
+
+    consumeAttesterExitAllowance();
+
+    _initiateAttesterWithdrawal(_attester, effectiveBalance, withdrawer);
+  }
+
+  function initiateWithdrawByAttesterWithSignature(address _attester) internal {
+    checkAttesterExitInstance();
+
+    (uint256 effectiveBalance, address withdrawer) = _prepareAttesterWithdrawal(_attester);
+
+    consumeAttesterExitAllowance();
+
+    _initiateAttesterWithdrawal(_attester, effectiveBalance, withdrawer);
+  }
+
+  function initiateWithdrawByAttesterBatchItem(address _attester) internal {
+    (uint256 effectiveBalance, address withdrawer) = _prepareAttesterWithdrawal(_attester);
+    _initiateAttesterWithdrawal(_attester, effectiveBalance, withdrawer);
+  }
+
+  /// @notice Check that attester exit is allowed at this time and consume 1 exit space
+  /// @dev This checks that there are enough validators to form a committee after the exit and that there is enough
+  /// space in the window. N.B. The allowance will shrink if validators exit using withdraw accounts.
+  function consumeAttesterExitAllowance() internal {
+    consumeAttesterExitAllowance(1);
+  }
+
+  function consumeAttesterExitAllowance(uint256 _exitCount) internal {
+    uint256 validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    uint256 committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
+
+    require(
+      validatorCount >= _exitCount && validatorCount - _exitCount >= committeeSize,
+      Errors.Staking__AttesterExitPoolTooSmall(validatorCount, committeeSize)
+    );
+
+    uint256 allowance = _getAttesterExitAllowance(validatorCount - _exitCount + 1);
+    uint256 used = getAttesterExitUsage();
+    uint256 usedAtFinalExit = used + _exitCount - 1;
+
+    require(usedAtFinalExit < allowance, Errors.Staking__AttesterExitLimitExceeded(usedAtFinalExit, allowance));
+
+    getStorage().attesterExitHistory.add(_exitCount);
+  }
+
+  function consumeAttesterExitAllowanceUpTo(uint256 _requestedExitCount) internal returns (uint256 exitCount) {
+    uint256 validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    uint256 committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
+    uint256 used = getAttesterExitUsage();
+
+    uint256 availableByCommittee = validatorCount > committeeSize ? validatorCount - committeeSize : 0;
+    // For k exits, used + k - 1 < floor((validatorCount - k) / quotient). Rearranging gives
+    // (quotient + 1) * k <= validatorCount - quotient * used.
+    uint256 usedWeight = used * ATTESTER_EXIT_QUOTIENT;
+    uint256 availableByLimit =
+      validatorCount > usedWeight ? (validatorCount - usedWeight) / (ATTESTER_EXIT_QUOTIENT + 1) : 0;
+
+    exitCount = Math.min(_requestedExitCount, Math.min(availableByCommittee, availableByLimit));
+    if (exitCount > 0) {
+      getStorage().attesterExitHistory.add(exitCount);
+    }
+  }
+
   function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
     assertValidQueueConfig(_config);
     getStorage().queueConfig = _config.compress();
     emit IStakingCore.StakingQueueConfigUpdated(_config);
+  }
+
+  /// @dev Governance's canonical instance and the GSE's latest rollup can disagree if an upgrade does not add
+  /// the new rollup to this GSE. In that state no rollup can safely enforce the shared exit limit, so both must match.
+  function checkAttesterExitInstance() internal view {
+    StakingStorage storage store = getStorage();
+
+    Governance gov = store.gse.getGovernance();
+    GovernanceProposer proposer = GovernanceProposer(gov.governanceProposer());
+
+    require(address(this) == proposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
+
+    address latestRollup = store.gse.getLatestRollup();
+    require(address(this) == latestRollup, Errors.Staking__NotLatestRollup(address(this), latestRollup));
+  }
+
+  function getAttesterExitWindow() internal view returns (Timestamp) {
+    StakingStorage storage store = getStorage();
+    Governance gov = store.gse.getGovernance();
+    Configuration memory governanceConfig = gov.getConfiguration();
+    return governanceConfig.getWithdrawalDelay();
+  }
+
+  function getAttesterExitUsage() internal view returns (uint256) {
+    return getAttesterExitUsage(getAttesterExitWindow());
+  }
+
+  function getAttesterExitUsage(Timestamp _exitWindow) internal view returns (uint256) {
+    StakingStorage storage store = getStorage();
+    Timestamp currentTime = Timestamp.wrap(block.timestamp);
+    uint256 pastExits = currentTime < _exitWindow ? 0 : store.attesterExitHistory.valueAt(currentTime - _exitWindow);
+    return store.attesterExitHistory.valueNow() - pastExits;
+  }
+
+  function getAttesterExitLimitState() internal view returns (AttesterExitLimitState memory state) {
+    StakingStorage storage store = getStorage();
+
+    state.window = getAttesterExitWindow();
+    state.validatorCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    state.committeeSize = ValidatorSelectionLib.getStorage().targetCommitteeSize;
+    state.used = getAttesterExitUsage(state.window);
+    state.allowance = _getAttesterExitAllowance(state.validatorCount);
+
+    Governance gov = store.gse.getGovernance();
+    GovernanceProposer proposer = GovernanceProposer(gov.governanceProposer());
+
+    // It can technically happen that an upgrade does not add the new rollup to this GSE.
+    // If there is a split, it is unclear which Rollup should enforce the limit.
+    // Since this shouldn't happen under normal upgrades, it is easier to limit attester exits just to a canonical
+    // latest rollup.
+    state.canExit = address(this) == proposer.getInstance() && address(this) == store.gse.getLatestRollup()
+      && state.validatorCount > state.committeeSize && state.used < state.allowance;
   }
 
   function getNextFlushableEpoch() internal view returns (Epoch) {
@@ -701,6 +849,50 @@ library StakingLib {
     }
   }
 
+  function _initiateAttesterWithdrawal(address _attester, uint256 _effectiveBalance, address _withdrawer) private {
+    StakingStorage storage store = getStorage();
+    (uint256 amountWithdrawn, uint256 withdrawalId) =
+      _withdrawAndCreateExit(store, _attester, _effectiveBalance, _withdrawer, false);
+
+    emit IStakingCore.WithdrawInitiatedByAttester(_attester, _withdrawer, amountWithdrawn, withdrawalId);
+  }
+
+  function _withdrawAndCreateExit(
+    StakingStorage storage _store,
+    address _attester,
+    uint256 _effectiveBalance,
+    address _recipientOrWithdrawer,
+    bool _isRecipient
+  ) private returns (uint256 amountWithdrawn, uint256 withdrawalId) {
+    bool removed;
+    (amountWithdrawn, removed, withdrawalId) = _store.gse.withdraw(_attester, _effectiveBalance);
+    require(removed, Errors.Staking__WithdrawFailed(_attester));
+
+    _store.exits[_attester] = Exit({
+      withdrawalId: withdrawalId,
+      amount: amountWithdrawn,
+      exitableAt: Timestamp.wrap(block.timestamp) + _store.exitDelay.decompress(),
+      recipientOrWithdrawer: _recipientOrWithdrawer,
+      isRecipient: _isRecipient,
+      exists: true
+    });
+  }
+
+  function _prepareAttesterWithdrawal(address _attester)
+    private
+    view
+    returns (uint256 effectiveBalance, address withdrawer)
+  {
+    StakingStorage storage store = getStorage();
+
+    require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
+
+    effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+    require(effectiveBalance > 0, Errors.Staking__NothingToExit(_attester));
+
+    withdrawer = store.gse.getWithdrawer(_attester);
+  }
+
   /// @notice Whether `_caller` can call {slash}.
   /// @dev The active slasher always qualifies. The legacy slasher qualifies only while its
   ///      drain window is still open, so quorum-backed rounds queued before a rotation can
@@ -732,5 +924,9 @@ library StakingLib {
     uint256 newFlushes = getEntryQueueFlushSize(activeAttesterCount);
 
     return (newFlushes, currentEpoch, true);
+  }
+
+  function _getAttesterExitAllowance(uint256 _validatorCount) private pure returns (uint256) {
+    return _validatorCount == 0 ? 0 : (_validatorCount - 1) / ATTESTER_EXIT_QUOTIENT;
   }
 }

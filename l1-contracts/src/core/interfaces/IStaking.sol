@@ -3,7 +3,13 @@
 pragma solidity >=0.8.27;
 
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {
+  Exit,
+  Status,
+  AttesterView,
+  AttesterExitLimitState,
+  AttesterExitAuthorization
+} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -35,6 +41,9 @@ interface IStakingCore {
   event WithdrawFinalized(address indexed attester, address indexed recipient, uint256 amount);
   event Slashed(address indexed attester, uint256 amount);
   event StakingQueueConfigUpdated(StakingQueueConfig config);
+  event WithdrawInitiatedByAttester(
+    address indexed attester, address indexed withdrawer, uint256 amount, uint256 withdrawalId
+  );
 
   function queueSetSlasher(address _slasher) external;
   function cancelSetSlasher() external;
@@ -54,7 +63,12 @@ interface IStakingCore {
   function slash(address _attester, uint256 _amount) external returns (bool);
   function vote(uint256 _proposalId) external;
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external;
-
+  function initiateWithdrawByAttester(address _attester) external;
+  function initiateWithdrawByAttesterWithSignature(AttesterExitAuthorization calldata _authorization) external;
+  function initiateWithdrawByAttesterBatch(AttesterExitAuthorization[] calldata _authorizations) external;
+  function initiateWithdrawByAttesterBatchUpToLimit(AttesterExitAuthorization[] calldata _authorizations)
+    external
+    returns (uint256);
   function getEntryQueueFlushSize() external view returns (uint256);
   function getActiveAttesterCount() external view returns (uint256);
 }
@@ -73,6 +87,8 @@ interface IStaking is IStakingCore {
   function getActivationThreshold() external view returns (uint256);
   function getEjectionThreshold() external view returns (uint256);
   function getExitDelay() external view returns (Timestamp);
+  function getAttesterExitWindow() external view returns (Timestamp);
+  function getAttesterExitLimitState() external view returns (AttesterExitLimitState memory);
   function getGSE() external view returns (GSE);
   function getAttesterView(address _attester) external view returns (AttesterView memory);
   function getStatus(address _attester) external view returns (Status);
