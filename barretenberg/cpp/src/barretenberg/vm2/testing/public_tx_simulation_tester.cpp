@@ -1,7 +1,7 @@
 #include "barretenberg/vm2/testing/public_tx_simulation_tester.hpp"
 
 #include "barretenberg/aztec/aztec_constants.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"

@@ -1,0 +1,276 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#pragma once
+
+#include "field/field_element.hpp"
+#include "merkle_tree/hash_path.hpp"
+#include "merkle_tree/indexed_leaf.hpp"
+#include "merkle_tree/tree_meta.hpp"
+#include "merkle_tree/types.hpp"
+#include <exception>
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+
+namespace azteclabs::wsdb::merkle_tree {
+struct TreeMetaResponse {
+    TreeMeta meta;
+
+    TreeMetaResponse() = default;
+    ~TreeMetaResponse() = default;
+    TreeMetaResponse(const TreeMetaResponse& other) = default;
+    TreeMetaResponse(TreeMetaResponse&& other) noexcept = default;
+    TreeMetaResponse& operator=(const TreeMetaResponse& other) = default;
+    TreeMetaResponse& operator=(TreeMetaResponse&& other) noexcept = default;
+};
+
+struct CheckpointResponse {
+    uint32_t depth;
+
+    CheckpointResponse() = default;
+    ~CheckpointResponse() = default;
+    CheckpointResponse(const CheckpointResponse& other) = default;
+    CheckpointResponse(CheckpointResponse&& other) noexcept = default;
+    CheckpointResponse& operator=(const CheckpointResponse& other) = default;
+    CheckpointResponse& operator=(CheckpointResponse&& other) noexcept = default;
+};
+
+struct AddDataResponse {
+    index_t size;
+    fr root;
+
+    AddDataResponse() = default;
+    ~AddDataResponse() = default;
+    AddDataResponse(const AddDataResponse& other) = default;
+    AddDataResponse(AddDataResponse&& other) noexcept = default;
+    AddDataResponse& operator=(const AddDataResponse& other) = default;
+    AddDataResponse& operator=(AddDataResponse&& other) noexcept = default;
+};
+
+struct GetSiblingPathResponse {
+    fr_sibling_path path;
+
+    GetSiblingPathResponse() = default;
+    ~GetSiblingPathResponse() = default;
+    GetSiblingPathResponse(const GetSiblingPathResponse& other) = default;
+    GetSiblingPathResponse(GetSiblingPathResponse&& other) noexcept = default;
+    GetSiblingPathResponse& operator=(const GetSiblingPathResponse& other) = default;
+    GetSiblingPathResponse& operator=(GetSiblingPathResponse&& other) noexcept = default;
+};
+
+template <typename LeafType> struct LeafUpdateWitnessData {
+    IndexedLeaf<LeafType> leaf;
+    index_t index;
+    fr_sibling_path path;
+
+    LeafUpdateWitnessData(const IndexedLeaf<LeafType>& l, const index_t& i, fr_sibling_path p)
+        : leaf(l)
+        , index(i)
+        , path(std::move(p))
+    {}
+    LeafUpdateWitnessData() = default;
+    ~LeafUpdateWitnessData() = default;
+    LeafUpdateWitnessData(const LeafUpdateWitnessData& other) = default;
+    LeafUpdateWitnessData(LeafUpdateWitnessData&& other) noexcept = default;
+    LeafUpdateWitnessData& operator=(const LeafUpdateWitnessData& other) = default;
+    LeafUpdateWitnessData& operator=(LeafUpdateWitnessData&& other) noexcept = default;
+    bool operator==(const LeafUpdateWitnessData& other) const = default;
+};
+
+template <typename LeafValueType> struct BatchInsertionResult {
+    std::vector<LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
+    fr_sibling_path subtree_path;
+};
+
+template <typename LeafValueType> struct SequentialInsertionResult {
+    std::vector<LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
+};
+
+template <typename LeafValueType> struct AddIndexedDataResponse {
+    AddDataResponse add_data_result;
+    fr_sibling_path subtree_path;
+    std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>> sorted_leaves;
+    std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> low_leaf_witness_data;
+
+    AddIndexedDataResponse() = default;
+    ~AddIndexedDataResponse() = default;
+    AddIndexedDataResponse(const AddIndexedDataResponse& other) = default;
+    AddIndexedDataResponse(AddIndexedDataResponse&& other) noexcept = default;
+    AddIndexedDataResponse& operator=(const AddIndexedDataResponse& other) = default;
+    AddIndexedDataResponse& operator=(AddIndexedDataResponse&& other) noexcept = default;
+};
+
+template <typename LeafValueType> struct AddIndexedDataSequentiallyResponse {
+    AddDataResponse add_data_result;
+    std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> low_leaf_witness_data;
+    std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> insertion_witness_data;
+
+    AddIndexedDataSequentiallyResponse() = default;
+    ~AddIndexedDataSequentiallyResponse() = default;
+    AddIndexedDataSequentiallyResponse(const AddIndexedDataSequentiallyResponse& other) = default;
+    AddIndexedDataSequentiallyResponse(AddIndexedDataSequentiallyResponse&& other) noexcept = default;
+    AddIndexedDataSequentiallyResponse& operator=(const AddIndexedDataSequentiallyResponse& other) = default;
+    AddIndexedDataSequentiallyResponse& operator=(AddIndexedDataSequentiallyResponse&& other) noexcept = default;
+};
+
+struct BlockForIndexResponse {
+    std::vector<std::optional<block_number_t>> blockNumbers;
+
+    BlockForIndexResponse() = default;
+    ~BlockForIndexResponse() = default;
+    BlockForIndexResponse(const BlockForIndexResponse& other) = default;
+    BlockForIndexResponse(BlockForIndexResponse&& other) noexcept = default;
+    BlockForIndexResponse& operator=(const BlockForIndexResponse& other) = default;
+    BlockForIndexResponse& operator=(BlockForIndexResponse&& other) noexcept = default;
+};
+
+struct FindLeafIndexResponse {
+    std::vector<std::optional<index_t>> leaf_indices;
+
+    FindLeafIndexResponse() = default;
+    ~FindLeafIndexResponse() = default;
+    FindLeafIndexResponse(const FindLeafIndexResponse& other) = default;
+    FindLeafIndexResponse(FindLeafIndexResponse&& other) noexcept = default;
+    FindLeafIndexResponse& operator=(const FindLeafIndexResponse& other) = default;
+    FindLeafIndexResponse& operator=(FindLeafIndexResponse&& other) noexcept = default;
+};
+
+struct SiblingPathAndIndex {
+    index_t index;
+    fr_sibling_path path;
+
+    SiblingPathAndIndex() = default;
+    ~SiblingPathAndIndex() = default;
+    SiblingPathAndIndex(index_t index, fr_sibling_path path)
+        : index(index)
+        , path(path)
+    {}
+    SiblingPathAndIndex(const SiblingPathAndIndex& other) = default;
+    SiblingPathAndIndex(SiblingPathAndIndex&& other) noexcept = default;
+    SiblingPathAndIndex& operator=(const SiblingPathAndIndex& other) = default;
+    SiblingPathAndIndex& operator=(SiblingPathAndIndex&& other) noexcept = default;
+};
+
+struct FindLeafPathResponse {
+    std::vector<std::optional<SiblingPathAndIndex>> leaf_paths;
+
+    FindLeafPathResponse() = default;
+    ~FindLeafPathResponse() = default;
+    FindLeafPathResponse(const FindLeafPathResponse& other) = default;
+    FindLeafPathResponse(FindLeafPathResponse&& other) noexcept = default;
+    FindLeafPathResponse& operator=(const FindLeafPathResponse& other) = default;
+    FindLeafPathResponse& operator=(FindLeafPathResponse&& other) noexcept = default;
+};
+
+struct GetLeafResponse {
+    std::optional<azteclabs::wsdb::fr> leaf;
+
+    GetLeafResponse() = default;
+    ~GetLeafResponse() = default;
+    GetLeafResponse(const GetLeafResponse& other) = default;
+    GetLeafResponse(GetLeafResponse&& other) noexcept = default;
+    GetLeafResponse& operator=(const GetLeafResponse& other) = default;
+    GetLeafResponse& operator=(GetLeafResponse&& other) noexcept = default;
+};
+
+template <typename LeafValueType> struct GetIndexedLeafResponse {
+    std::optional<IndexedLeaf<LeafValueType>> indexed_leaf;
+};
+
+struct GetLowIndexedLeafResponse {
+    bool is_already_present;
+    index_t index;
+
+    GetLowIndexedLeafResponse(bool p, const index_t& i)
+        : is_already_present(p)
+        , index(i)
+    {}
+    GetLowIndexedLeafResponse() = default;
+    ~GetLowIndexedLeafResponse() = default;
+    GetLowIndexedLeafResponse(const GetLowIndexedLeafResponse& other) = default;
+    GetLowIndexedLeafResponse(GetLowIndexedLeafResponse&& other) noexcept = default;
+    GetLowIndexedLeafResponse& operator=(const GetLowIndexedLeafResponse& other) = default;
+    GetLowIndexedLeafResponse& operator=(GetLowIndexedLeafResponse&& other) noexcept = default;
+
+    bool operator==(const GetLowIndexedLeafResponse& other) const
+    {
+        return is_already_present == other.is_already_present && index == other.index;
+    }
+};
+
+template <typename ResponseType> struct TypedResponse {
+    ResponseType inner;
+    bool success{ true };
+    std::string message;
+
+    TypedResponse() = default;
+    ~TypedResponse() = default;
+    TypedResponse(const TypedResponse& other) = default;
+    TypedResponse(TypedResponse&& other) noexcept = default;
+    TypedResponse& operator=(const TypedResponse& other) = default;
+    TypedResponse& operator=(TypedResponse&& other) noexcept = default;
+};
+
+struct Response {
+    bool success;
+    std::string message;
+
+    Response(bool s, std::string m)
+        : success(s)
+        , message(std::move(m))
+    {}
+    Response() = default;
+    ~Response() = default;
+    Response(const Response& other) = default;
+    Response(Response&& other) noexcept = default;
+    Response& operator=(const Response& other) = default;
+    Response& operator=(Response&& other) noexcept = default;
+};
+
+template <typename ResponseType>
+void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>& f,
+                        const std::function<void(TypedResponse<ResponseType>&)>& on_completion)
+{
+    TypedResponse<ResponseType> response;
+    try {
+        f(response);
+    } catch (std::exception& e) {
+        response.success = false;
+        response.message = e.what();
+        // std::cout << "Response " << e.what() << std::endl;
+    }
+    try {
+        on_completion(response);
+    } catch (std::exception& e) {
+        std::cerr << "Completion callback threw: " << e.what() << std::endl;
+        std::abort();
+    }
+}
+
+inline void execute_and_report(const std::function<void()>& f, const std::function<void(Response&)>& on_completion)
+{
+    Response response{ true, "" };
+    try {
+        f();
+    } catch (std::exception& e) {
+        response.success = false;
+        response.message = e.what();
+        // std::cout << "Response " << e.what() << std::endl;
+    }
+    try {
+        on_completion(response);
+    } catch (std::exception& e) {
+        std::cerr << "Completion callback threw: " << e.what() << std::endl;
+        std::abort();
+    }
+}
+} // namespace azteclabs::wsdb::merkle_tree

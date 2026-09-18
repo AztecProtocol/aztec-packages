@@ -1,0 +1,13 @@
+cpp/build/
+ts/dest/
+ts/build/
+ts/packages/
+ts/.tsbuildinfo
+node_modules
+*.log
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
