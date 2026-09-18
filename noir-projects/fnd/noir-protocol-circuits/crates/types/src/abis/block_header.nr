@@ -3,7 +3,10 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
         state_reference::StateReference,
     },
-    constants::{BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HEADER_HASH, GENESIS_BLOCK_HEADER_HASH},
+    constants::{
+        BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HEADER_HASH, GENESIS_BLOCK_HEADER_HASH,
+        GENESIS_NULLIFIER_TREE_ROOT,
+    },
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -87,13 +90,12 @@ fn serialization_of_empty() {
 #[test]
 fn hash_of_genesis_block_header() {
     let mut header = BlockHeader::empty();
-    // The following values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees.
+    // The remaining tree roots are those of an empty world state; only the nullifier tree is seeded at genesis.
     header.state.l1_to_l2_message_tree.root =
         0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a;
     header.state.partial.note_hash_tree.root =
         0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6;
-    header.state.partial.nullifier_tree.root =
-        0x21a19fe6f636fb24d9f63edb7b807613492cc0001c91e531917a2539f57e2ba8;
+    header.state.partial.nullifier_tree.root = GENESIS_NULLIFIER_TREE_ROOT;
     header.state.partial.nullifier_tree.next_available_leaf_index = 128;
     header.state.partial.public_data_tree.root =
         0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084;

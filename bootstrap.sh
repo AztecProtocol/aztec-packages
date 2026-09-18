@@ -309,7 +309,8 @@ set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
-# Hooks are shared by every branch of this clone; older branches have no labs-patches.
+# Hooks are shared by every branch of this clone; older branches have neither of these.
+if [ -x ./noir-projects/fnd/genesis_constants_precommit.sh ]; then ./noir-projects/fnd/genesis_constants_precommit.sh; fi
 if [ -x ./labs-patches/bootstrap.sh ]; then ./labs-patches/bootstrap.sh check_staged; fi
 EOF
   chmod +x $hooks_dir/pre-commit

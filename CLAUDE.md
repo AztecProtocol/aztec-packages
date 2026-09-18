@@ -24,6 +24,12 @@ The noir-projects build scripts default `$NARGO` to `noir/noir-repo/target/relea
 To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes `avm-transpiler/Cargo.lock`, reformats `noir-projects/fnd`, and stages everything (the labs lockfile is refreshed by `labs-use-local` at build time). Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
 </bumping_noir>
 
+<genesis_constants>
+The genesis nullifier tree is seeded with the protocol contracts' registration nullifiers, so anything that rotates a protocol class id (a protocol contract change, a Noir compiler bump, a transpiler change) moves `GENESIS_NULLIFIER_TREE_ROOT`, `GENESIS_BLOCK_HEADER_HASH`, `GENESIS_ARCHIVE_ROOT`, the C++ genesis seed vector and the six L1 checkpoint fixtures. Never hand-edit any of them: run `noir-projects/fnd/scripts/regenerate_genesis_constants.sh --fixtures`, the single source of truth, also surfaced via the `genesis-constants` skill. `--check` reports staleness without writing. Requires a built tree (`make labs-yarn-project`), and anvil for `--fixtures`.
+
+A class id rotation also fails the deployed-network pins in `labs/yarn-project/aztec/src/{mainnet,testnet}_compatibility.test.ts`. Those record what a live network was deployed with and change only at a governance upgrade — do not update them to make the failure go away.
+</genesis_constants>
+
 <git_workflow>
 
 <critical_never_assume_master>
