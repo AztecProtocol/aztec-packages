@@ -89,6 +89,40 @@ unconstrained fn extra_non_zero_contract_class_log_fields() {
     builder.execute_and_fail();
 }
 
+#[test(should_fail_with = "Found non-zero field after breakpoint")]
+unconstrained fn non_zero_private_log_fields_beyond_length() {
+    let mut builder = TestBuilder::new();
+
+    // Add a private log that only emits 3 of its fields.
+    let mut fixture_builder = FixtureBuilder::new();
+    fixture_builder.append_private_logs_with_lengths([3]);
+    builder.update_private_tail_accumulated_data(fixture_builder);
+
+    // Put a non-zero value in a field that is not emitted.
+    builder.private_tail.revertible_accumulated_data.private_logs[0].fields[5] = 99;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Found non-zero field after breakpoint")]
+unconstrained fn non_zero_private_log_fields_beyond_length_for_reverted_log() {
+    let mut builder = TestBuilder::new();
+
+    // Mark the tx as reverted.
+    builder.avm.reverted = true;
+
+    let mut fixture_builder = FixtureBuilder::new();
+    fixture_builder.end_setup();
+    // Add a revertible private log that only emits 3 of its fields.
+    fixture_builder.append_private_logs_with_lengths([3]);
+    builder.update_private_tail_accumulated_data(fixture_builder);
+
+    // The log is dropped from the blob because the tx reverted, but the tx hash still commits to it.
+    builder.private_tail.revertible_accumulated_data.private_logs[0].fields[5] = 99;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Incorrect contract class log length")]
 unconstrained fn incorrect_contract_class_log_length() {
     let mut builder = TestBuilder::new();

@@ -5,17 +5,17 @@
 use types::{
     abis::{
         block_constant_data::BlockConstantData, global_variables::GlobalVariables,
-        log_hash::LogHash, tx_constant_data::TxConstantData,
+        log_hash::LogHash, private_log::PrivateLog, tx_constant_data::TxConstantData,
     },
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_PROCESSABLE_L2_GAS,
+        MAX_PRIVATE_LOGS_PER_TX, MAX_PROCESSABLE_L2_GAS,
     },
     hash::compute_contract_class_log_hash,
     merkle_tree::{check_membership, MembershipWitness},
     side_effect::Scoped,
     traits::Hash,
-    utils::arrays::array_padded_with,
+    utils::arrays::{array_padded_with, assert_trailing_zeros},
 };
 
 /// Validate some of the tx constants that were propagated from private-land (from the private_tail's public inputs)
@@ -137,6 +137,28 @@ pub fn validate_contract_class_logs(
             array_padded_with(log_fields, log_hash.inner.length, 0),
             "Incorrect contract class log length",
         );
+    }
+}
+
+/// Validate that every private log is zero beyond its `length`.
+///
+/// The tx hash commits to all `PRIVATE_LOG_SIZE_IN_FIELDS` fields of every log, while only the first `length` are
+/// emitted via blobs. Requiring the rest to be zero makes the hash preimage recoverable from the emitted data, for the
+/// same reason `validate_contract_class_logs` requires it of contract class logs. `assert_trailing_zeros` also bounds
+/// `length <= PRIVATE_LOG_SIZE_IN_FIELDS`.
+///
+/// This must run on the kernel's output arrays, not inside the blob encoder (`validate_private_logs_blob_fields`),
+/// even though the encoder already computes the "past `length`" mask per field: the encoder only sees the logs that
+/// reach the blob, and on the public path the revertible logs of a reverted tx are dropped from the blob while the tx
+/// hash still commits to them. Callers pass every array the hash covers, including both halves of a
+/// `PrivateToPublicKernelCircuitPublicInputs` regardless of the revert flag.
+///
+/// All `MAX_PRIVATE_LOGS_PER_TX` slots are checked, not only the dense prefix of non-empty logs. The kernel's
+/// trimmed-array check requires the logs past the prefix to be empty; this check does not rely on that, and re-checking
+/// them here costs the same as skipping them would in a fixed-size circuit.
+pub fn validate_private_logs(private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX]) {
+    for log in private_logs {
+        assert_trailing_zeros(log.fields, log.length);
     }
 }
 

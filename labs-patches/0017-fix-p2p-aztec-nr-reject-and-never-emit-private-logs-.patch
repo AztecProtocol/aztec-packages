@@ -1,0 +1,256 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Fri, 18 Sep 2026 00:40:23 +0000
+Subject: [PATCH] fix(p2p,aztec-nr): reject and never emit private logs with
+ non-zero padding
+
+The tx base rollup rejects any private log whose fields beyond its emitted length are not zero, because the tx hash commits to all PRIVATE_LOG_SIZE_IN_FIELDS fields while only the emitted prefix is published.
+
+- p2p: DataTxValidator rejects such a tx at the mempool with TX_ERROR_PRIVATE_LOG_PADDING, so a sequencer never builds a block it cannot prove.
+- stdlib: PrivateLog.hasZeroPadding() carries the check.
+- aztec-nr: emit_raw_note_log_unsafe copies only the live prefix of the BoundedVec, so a caller that truncated or popped the vector cannot leak stale storage into the padding.
+
+diff --git a/noir-projects/aztec-nr/aztec/src/context/private_context.nr b/noir-projects/aztec-nr/aztec/src/context/private_context.nr
+index 4261cdbe24c6737f087f09d5c2be0f7f90a0cf9d..65b020100ed115bfad8c9f2b2c3ffc5597ccb196 100644
+--- a/noir-projects/aztec-nr/aztec/src/context/private_context.nr
++++ b/noir-projects/aztec-nr/aztec/src/context/private_context.nr
+@@ -37,7 +37,7 @@ use crate::protocol::{
+         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+         MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
+-        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_CIPHERTEXT_LEN,
++        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS,
+     },
+     hash::compute_contract_class_log_hash,
+     messaging::l2_to_l1_message::L2ToL1Message,
+@@ -974,6 +974,11 @@ impl PrivateContext {
+     /// * `note_hash_counter` - The side-effect counter that was assigned to the new note_hash when it was pushed to
+     /// this `PrivateContext`.
+     ///
++    /// Only the first `log.len()` entries of `log` are emitted. The protocol requires every field of a private log
++    /// beyond its emitted length to be zero (the tx hash commits to the whole fixed-size log while only the emitted
++    /// prefix is published), so this function zeroes those fields itself rather than copying whatever the
++    /// `BoundedVec`'s backing storage holds past `len()`.
++    ///
+     /// Important: If your application logic requires the log to always be emitted regardless of note squashing,
+     /// consider using [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) instead, or emitting
+     /// additional events.
+@@ -988,8 +993,18 @@ impl PrivateContext {
+         note_hash_counter: u32,
+     ) {
+         let counter = self.next_counter();
+-        let full_log = [tag].concat(log.storage());
+-        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log.len() + 1), note_hash_counter };
++        // `BoundedVec::truncate` and `pop` only move `len`; the vacated storage keeps its old values. Copy only the
++        // live prefix so the emitted log is zero past its length whatever the caller did to the vector.
++        let log_storage = log.storage();
++        let log_len = log.len();
++        let mut full_log = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
++        full_log[0] = tag;
++        for i in 0..PRIVATE_LOG_CIPHERTEXT_LEN {
++            if i < log_len {
++                full_log[i + 1] = log_storage[i];
++            }
++        }
++        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log_len + 1), note_hash_counter };
+         self.private_logs.push(private_log.count(counter));
+     }
+ 
+diff --git a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts
+index 53d88ce0df92c934c0bc675f515fbe5a3a1dd571..10bf7a707ff1b9e3d955fd2035be95abeb915521 100644
+--- a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts
++++ b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts
+@@ -12,7 +12,7 @@ import { bufferAsFields } from '@aztec-labs/stdlib/abi';
+ import { AztecAddress } from '@aztec-labs/stdlib/aztec-address';
+ import { computeContractClassId, computePublicBytecodeCommitment } from '@aztec-labs/stdlib/contract';
+ import { LogHash, ScopedLogHash } from '@aztec-labs/stdlib/kernel';
+-import { ContractClassLog, ContractClassLogFields } from '@aztec-labs/stdlib/logs';
++import { ContractClassLog, ContractClassLogFields, PrivateLog } from '@aztec-labs/stdlib/logs';
+ import { mockTx } from '@aztec-labs/stdlib/testing';
+ import {
+   TX_ERROR_CALLDATA_COUNT_MISMATCH,
+@@ -23,6 +23,7 @@ import {
+   TX_ERROR_INCORRECT_CALLDATA,
+   TX_ERROR_INCORRECT_CONTRACT_CLASS_ID,
+   TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG,
++  TX_ERROR_PRIVATE_LOG_PADDING,
+   type Tx,
+ } from '@aztec-labs/stdlib/tx';
+ import { jest } from '@jest/globals';
+@@ -251,6 +252,50 @@ describe('TxDataValidator', () => {
+     await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
+   });
+ 
++  describe('private log padding', () => {
++    // A log that emits 3 of its 16 fields, with non-zero values in the unpublished tail.
++    const junkPaddedLog = () => {
++      const log = PrivateLog.random();
++      log.emittedLength = 3;
++      return log;
++    };
++
++    const zeroPaddedLog = () => {
++      const log = PrivateLog.random();
++      log.emittedLength = 3;
++      for (let i = log.emittedLength; i < log.fields.length; i++) {
++        log.fields[i] = Fr.ZERO;
++      }
++      return log;
++    };
++
++    it('allows a private-only tx whose short logs are zero padded', async () => {
++      const tx = await mockTx(1, {
++        numberOfNonRevertiblePublicCallRequests: 0,
++        numberOfRevertiblePublicCallRequests: 0,
++      });
++      tx.data.forRollup!.end.privateLogs[0] = zeroPaddedLog();
++      await expectValid([tx]);
++    });
++
++    it('rejects a private-only tx with non-zero private log fields beyond the emitted length', async () => {
++      const tx = await mockTx(1, {
++        numberOfNonRevertiblePublicCallRequests: 0,
++        numberOfRevertiblePublicCallRequests: 0,
++      });
++      tx.data.forRollup!.end.privateLogs[0] = junkPaddedLog();
++      await expectInvalid(tx, TX_ERROR_PRIVATE_LOG_PADDING);
++    });
++
++    it('rejects a public tx with non-zero private log fields beyond the emitted length', async () => {
++      const [nonRevertible, revertible] = await mockTxs(2);
++      nonRevertible.data.forPublic!.nonRevertibleAccumulatedData.privateLogs[0] = junkPaddedLog();
++      revertible.data.forPublic!.revertibleAccumulatedData.privateLogs[0] = junkPaddedLog();
++      await expectInvalid(nonRevertible, TX_ERROR_PRIVATE_LOG_PADDING);
++      await expectInvalid(revertible, TX_ERROR_PRIVATE_LOG_PADDING);
++    });
++  });
++
+   describe('contract class id validation', () => {
+     /**
+      * Builds a ContractClassLog encoding a ContractClassPublishedEvent.
+diff --git a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts
+index 20c512d9848f87f7aab439972524cdc0c3e62585..4dda6900320aa102b3d93967526c6df0a05f64d1 100644
+--- a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts
++++ b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts
+@@ -14,6 +14,7 @@ import {
+   TX_ERROR_INCORRECT_CONTRACT_CLASS_ID,
+   TX_ERROR_INCORRECT_HASH,
+   TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG,
++  TX_ERROR_PRIVATE_LOG_PADDING,
+   Tx,
+   type TxValidationResult,
+   type TxValidator,
+@@ -33,6 +34,7 @@ export class DataTxValidator implements TxValidator<Tx> {
+       (await this.#hasCorrectHash(tx)) ??
+       (await this.#hasCorrectCalldata(tx)) ??
+       (await this.#hasCorrectContractClassLogs(tx)) ??
++      this.#hasZeroPaddedPrivateLogs(tx) ??
+       (await this.#hasCorrectContractClassIds(tx));
+     return reason ? { result: 'invalid', reason: [reason] } : { result: 'valid' };
+   }
+@@ -135,6 +137,24 @@ export class DataTxValidator implements TxValidator<Tx> {
+     return undefined;
+   }
+ 
++  // The tx base rollup rejects a private log whose fields beyond `emittedLength` are not zero, so a tx carrying one
++  // can never be included. Reject it here so a sequencer does not build a block it cannot prove. Every log is checked,
++  // including empty ones: an empty log with non-zero fields is junk the kernel also rejects.
++  #hasZeroPaddedPrivateLogs(tx: Tx): string | undefined {
++    const privateLogs = tx.data.getPrivateLogs();
++    const badLogIndex = privateLogs.findIndex(log => !log.hasZeroPadding());
++    if (badLogIndex !== -1) {
++      const reason = TX_ERROR_PRIVATE_LOG_PADDING;
++      this.#log.verbose(
++        `Rejecting tx ${tx.getTxHash().toString()}. Reason: ${reason}. Private log index: ${badLogIndex}. Emitted length: ${
++          privateLogs[badLogIndex].emittedLength
++        }.`,
++      );
++      return reason;
++    }
++    return undefined;
++  }
++
+   async #hasCorrectContractClassIds(tx: Tx): Promise<string | undefined> {
+     const contractClassLogs = tx.getContractClassLogs();
+     for (const log of contractClassLogs) {
+diff --git a/yarn-project/stdlib/src/kernel/private_kernel_tail_circuit_public_inputs.ts b/yarn-project/stdlib/src/kernel/private_kernel_tail_circuit_public_inputs.ts
+index fbe87d4e710e2fcd4abd8bcac1cb1bd1b5d3db5a..5522322501e6a5fd37e75a21e1c63329065d93fa 100644
+--- a/yarn-project/stdlib/src/kernel/private_kernel_tail_circuit_public_inputs.ts
++++ b/yarn-project/stdlib/src/kernel/private_kernel_tail_circuit_public_inputs.ts
+@@ -263,13 +263,16 @@ export class PrivateKernelTailCircuitPublicInputs {
+     return nullifiers.filter(n => !n.isZero());
+   }
+ 
+-  getNonEmptyPrivateLogs() {
+-    const privateLogs = this.forPublic
++  getPrivateLogs() {
++    return this.forPublic
+       ? this.forPublic.nonRevertibleAccumulatedData.privateLogs.concat(
+           this.forPublic.revertibleAccumulatedData.privateLogs,
+         )
+       : this.forRollup!.end.privateLogs;
+-    return privateLogs.filter(n => !n.isEmpty());
++  }
++
++  getNonEmptyPrivateLogs() {
++    return this.getPrivateLogs().filter(n => !n.isEmpty());
+   }
+ 
+   getNonEmptyContractClassLogsHashes() {
+diff --git a/yarn-project/stdlib/src/logs/private_log.test.ts b/yarn-project/stdlib/src/logs/private_log.test.ts
+index c7fe7043736f4519588f6b4595e4ca29a62efe5e..0aaf4f7e23f5c190e5e420f22c3aa3c24ddcb0ce 100644
+--- a/yarn-project/stdlib/src/logs/private_log.test.ts
++++ b/yarn-project/stdlib/src/logs/private_log.test.ts
+@@ -40,6 +40,17 @@ describe('PrivateLog', () => {
+     expect(PrivateLog.fromBlobFields(fields.length, fields)).toEqual(log);
+   });
+ 
++  it('checks the padding beyond the emitted length', () => {
++    const fields = makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random);
++    expect(new PrivateLog(fields, PRIVATE_LOG_SIZE_IN_FIELDS).hasZeroPadding()).toBe(true);
++    expect(new PrivateLog(fields, 3).hasZeroPadding()).toBe(false);
++    expect(new PrivateLog(fields, PRIVATE_LOG_SIZE_IN_FIELDS + 1).hasZeroPadding()).toBe(false);
++    expect(
++      new PrivateLog(padArrayEnd(fields.slice(0, 3), Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS), 3).hasZeroPadding(),
++    ).toBe(true);
++    expect(PrivateLog.empty().hasZeroPadding()).toBe(true);
++  });
++
+   it('number of emitted fields is correct', () => {
+     const smallLogFields = [new Fr(1), new Fr(2), new Fr(3)];
+     const smallLog = new PrivateLog(
+diff --git a/yarn-project/stdlib/src/logs/private_log.ts b/yarn-project/stdlib/src/logs/private_log.ts
+index cf5a8fc4e7628f0cd5fc81f90eff38f387d264b6..7ccc0639caaa7574fd5f844b87897f7d00669d14 100644
+--- a/yarn-project/stdlib/src/logs/private_log.ts
++++ b/yarn-project/stdlib/src/logs/private_log.ts
+@@ -63,6 +63,18 @@ export class PrivateLog {
+     return this.emittedLength === 0;
+   }
+ 
++  /**
++   * Whether `emittedLength` is within bounds and every field beyond it is zero. The protocol circuits require this of
++   * every private log: the tx hash commits to all `PRIVATE_LOG_SIZE_IN_FIELDS` fields while only the first
++   * `emittedLength` are published, so a log with non-zero padding has a tx hash that cannot be recomputed from
++   * published data.
++   */
++  hasZeroPadding() {
++    return (
++      this.emittedLength <= PRIVATE_LOG_SIZE_IN_FIELDS && this.fields.slice(this.emittedLength).every(f => f.isZero())
++    );
++  }
++
+   static empty() {
+     return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.zero), 0);
+   }
+diff --git a/yarn-project/stdlib/src/tx/validator/error_texts.ts b/yarn-project/stdlib/src/tx/validator/error_texts.ts
+index 3c247999358a098e20ea182afd77eb5bbecc1945..50b6eefff73b45a9da0eed4abad831986b92f6e7 100644
+--- a/yarn-project/stdlib/src/tx/validator/error_texts.ts
++++ b/yarn-project/stdlib/src/tx/validator/error_texts.ts
+@@ -34,6 +34,7 @@ export const TX_ERROR_CONTRACT_CLASS_LOG_COUNT = 'Mismatched number of contract
+ export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Incorrect contract class logs length';
+ export const TX_ERROR_CONTRACT_CLASS_LOGS = 'Mismatched contract class logs';
+ export const TX_ERROR_CONTRACT_CLASS_LOG_SORTING = 'Incorrectly sorted contract class logs';
++export const TX_ERROR_PRIVATE_LOG_PADDING = 'Non-zero private log fields beyond emitted length';
+ export const TX_ERROR_INCORRECT_HASH = 'Incorrect tx hash';
+ 
+ // Size
