@@ -41,7 +41,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   }
 
   function useRealVerifier() external view returns (bool) {
-    return vm.envOr("REAL_VERIFIER", false);
+    return vm.envOr("REAL_VERIFIER", true);
   }
 
   function getFeeJuicePortalInitialBalance() external view returns (uint256) {

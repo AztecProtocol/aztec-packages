@@ -8,7 +8,9 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
 import {RollupConfiguration} from "../../script/deploy/RollupConfiguration.sol";
 import {RegistryRewardOverride, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {HonkVerifier} from "@generated/HonkVerifier.sol";
 
 contract RollupConfigurationHarness is RollupConfiguration {
   function getRegistryRewardOverride(string memory _envName) external view returns (RegistryRewardOverride memory) {
@@ -93,6 +95,17 @@ contract DeployAztecL1ContractsTest is Test {
   function test_SmokeTest() public {
     DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
     deployScript.run();
+  }
+
+  // The mock verifier accepts any proof, so a deployment that does not set REAL_VERIFIER must bind the real one.
+  function test_DeploysRealVerifierByDefault() public {
+    DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
+    deployScript.run();
+
+    IVerifier verifier = deployScript.output().rollup.rollup.getEpochProofVerifier();
+    assertEq(
+      address(verifier).codehash, address(new HonkVerifier()).codehash, "epoch proof verifier is not HonkVerifier"
+    );
   }
 
   function test_RegistryRewardOverridesConfiguration() public {
