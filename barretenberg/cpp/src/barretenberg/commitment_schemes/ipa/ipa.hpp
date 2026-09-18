@@ -413,19 +413,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
     /**
      * @brief Per-proof data extracted from an IPA transcript.
-     * @details Contains all values derived from transcript processing (steps 2–7, 9 of the IPA verification
+     * @details Contains all values derived from transcript processing (steps 2–6, 9 of the IPA verification
      * protocol) that are needed for either single-proof or batch IPA verification.
-     * Does not include the MSM (step 8).
+     * Does not construct the challenge polynomial (step 7) or perform the MSM (step 8).
      */
     struct TranscriptData {
         GroupElement C_zero;                  ///< \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
         Fr b_zero;                            ///< \f$b_0 = g(\beta) = \prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
-        Polynomial<Fr> s_vec;                 ///< \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,
-                                              ///<  \prod_{i=0}^{k-1}u_{i}^{-1})\f$
         Fr gen_challenge;                     ///< Generator challenge \f$u\f$ where \f$U = u \cdot G\f$
         Commitment G_zero_from_prover;        ///< \f$G_0\f$ received from prover (not recomputed)
         Fr a_zero;                            ///< \f$a_0\f$ received from prover
-        std::vector<Fr> round_challenges_inv; ///< Round challenge inverses used by recursive aggregation.
+        std::vector<Fr> round_challenges_inv; ///< Inverses for challenge polynomial reconstruction.
     };
 
     /**
@@ -434,19 +432,19 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param opening_claim Contains the commitment \f$C\f$ and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
-     * @return TranscriptData containing \f$C_0, b_0, \vec{s}, u, G_0, a_0\f$
+     * @return TranscriptData containing \f$C_0, b_0, u, G_0, a_0\f$ and round challenge inverses
      *
-     * @details Performs steps 2–7 and 9 of the IPA verification protocol (see reduce_verify_internal_native):
+     * @details Performs steps 2–6 and 9 of the IPA verification protocol (see reduce_verify_internal_native):
      *
      *2. Receive the generator challenge \f$u\f$, abort if it's zero, otherwise compute \f$U=u\cdot G\f$
      *3. Compute \f$C'=C+f(\beta)\cdot U\f$. (Recall that \f$f(\beta)\f$ is the claimed evaluation.)
      *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$, abort on \f$u_j=0\f$
      *5. Compute \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
      *6. Compute \f$b_0=g(\beta)=\prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
-     *7. Compute vector \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,\prod_{i=0}^{k-1}u_{i}^{-1})\f$
      *
      * Additionally receives \f$G_0\f$ and \f$a_0\f$ from the prover transcript (step 9).
-     * Does NOT compute \f$G_s=\langle \vec{s},\vec{G}\rangle\f$ (step 8, the MSM)
+     * Does NOT construct the challenge polynomial (step 7), compute
+     * \f$G_s=\langle \vec{s},\vec{G}\rangle\f$ (step 8, the MSM)
      * or perform the final verification check (steps 10–11).
      *
      * @pre add_claim_to_hash_buffer must have been called on the transcript (step 1).
@@ -507,22 +505,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 6.
         // Compute b_zero succinctly.
         const Fr b_zero = b_zero_from_round_challenges(std::span<const Fr>(round_challenges_inv));
-        // Step 7.
-        // Construct vector s.
-        bb::Polynomial<Fr> s_vec(construct_poly_from_u_challenges_inv(
-            std::span<const Fr>(round_challenges_inv).subspan(0, log_poly_length)));
 
         // Receive G_0 and a_0 from prover (advances transcript; G_0 not recomputed here).
         Commitment G_zero_from_prover = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
-        return { C_zero,
-                 b_zero,
-                 std::move(s_vec),
-                 generator_challenge,
-                 G_zero_from_prover,
-                 a_zero,
-                 std::move(round_challenges_inv) };
+        return { C_zero, b_zero, generator_challenge, G_zero_from_prover, a_zero, std::move(round_challenges_inv) };
     }
 
     template <typename Transcript>
@@ -571,20 +559,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         BB_BENCH_NAME("IPA::reduce_verify");
 
-        // Steps 2–7, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
+        // Steps 2–6, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
         auto data = read_transcript_data(opening_claim, transcript);
 
-        // Step 8.
+        // Steps 7–8.
         // Compute G_s = <s, G> via SRS MSM and verify against prover's G_0
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
+        const Polynomial<Fr> s_vec(construct_poly_from_u_challenges_inv(data.round_challenges_inv));
         Commitment G_zero;
         {
             BB_BENCH_NAME("IPA::srs_msm");
-            G_zero =
-                scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
+            G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
         if (G_zero != data.G_zero_from_prover) {
             info("IPA verification failed: G_0 mismatch");
