@@ -213,7 +213,7 @@ unconstrained fn forged_bounded_vec_oracle() -> BoundedVec<Field, 2> {}
 #[test(should_fail_with = "BoundedVec length exceeds max")]
 unconstrained fn bounded_vec_serialization_rejects_len_above_max() {
     // Mocked return is decoded as `storage = [11, 22]`, `len = 3`.
-    OracleMock::mock("forged_bounded_vec").returns(([11, 22], 3));
+    let _ = OracleMock::mock("forged_bounded_vec").returns(([11, 22], 3));
     let invalid_vec = forged_bounded_vec_oracle();
     let _ = invalid_vec.serialize();
 }

@@ -68,7 +68,8 @@ const dimensionNames = [
  *  8. NULLIFIER_SILOING - Nullifier siloing
  *  9. PRIVATE_LOG_SILOING - Private log siloing
  *
- *  For each, the script sets {NAME}_HINTS_LEN and {NAME}_AMOUNT globals.
+ *  For each, the script sets {NAME}_HINTS_LEN and {NAME}_AMOUNT globals, and drops the constants group
+ *  from the template's `use types::{ constants::{...}, ... }` import, since the variant refers to none of them.
  *
  *  Runtime Selection
  *
@@ -124,7 +125,6 @@ function generateDimensions(dimensionsByGroup) {
  *   - {NAME}_AMOUNT: the actual iteration count (can be 0)
  *   - {NAME}_HINTS_LEN: the hints array length (minimum 1 [WHY?])
  *
- * Also removes the `constants::` import block since variants use literal values, not constants.
  */
 function updateConstants(code, name, value) {
   // Replace {NAME}_AMOUNT global with the new value
@@ -150,10 +150,10 @@ function updateConstants(code, name, value) {
     code = code.replace(hintRegex, `global ${hintName}: u32 = ${hintLen};`);
   }
 
-  // Remove the constants:: import block (e.g., MAX_NOTE_HASH_READ_REQUESTS_PER_TX)
+  // Remove the constants:: import group (e.g., MAX_NOTE_HASH_READ_REQUESTS_PER_TX)
   // since we've replaced the constant references with literal values
   return code.replace(
-    /use dep::types::\{\s*constants::\{[^}]*?\},\s*([^}]*?)\};/,
+    /use types::\{\s*constants::\{[^}]*?\},\s*([^}]*?)\};/,
     (_, rest) => {
       const restVars = rest
         .split(",")
@@ -161,9 +161,9 @@ function updateConstants(code, name, value) {
         .filter((item) => item.length > 0);
 
       return restVars.length > 1
-        ? `use dep::types::{${restVars.join(", ")}};`
+        ? `use types::{${restVars.join(", ")}};`
         : restVars.length === 1
-          ? `use dep::types::${restVars[0]};`
+          ? `use types::${restVars[0]};`
           : "";
     },
   );
@@ -506,6 +506,32 @@ function runTests() {
     }
     if (!result.includes("global NOTE_HASH_PENDING_READ_AMOUNT: u32 = 0;")) {
       throw new Error(`Expected AMOUNT to be 0, got: ${result}`);
+    }
+  });
+
+  // Test: every template's constants import group is removed once its globals are literals, so a
+  // template whose use statement drifts from the form the rewrite matches fails here.
+  test("updateConstants removes the constants import group from every template", () => {
+    for (const family of families) {
+      for (const folder of [family.realFolder, family.simulatedFolder]) {
+        let code = fs.readFileSync(
+          path.join(root, "crates", folder, "src/main.nr"),
+          "utf8",
+        );
+        for (const name of dimensionNames) {
+          code = updateConstants(code, name, 4);
+        }
+        assertEqual(
+          code.includes("constants::"),
+          false,
+          `${folder}: constants import group should be removed`,
+        );
+        assertEqual(
+          /\bMAX_[A-Z_]+_PER_TX\b/.test(code),
+          false,
+          `${folder}: no constant should remain referenced`,
+        );
+      }
     }
   });
 

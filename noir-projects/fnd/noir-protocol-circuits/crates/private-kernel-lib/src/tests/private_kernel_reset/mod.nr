@@ -34,7 +34,6 @@ use types::{
     merkle_tree::{
         LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
     },
-    point::EmbeddedCurvePoint,
     public_keys::hash_public_key,
     side_effect::{Counted, Scoped},
     traits::Empty,
