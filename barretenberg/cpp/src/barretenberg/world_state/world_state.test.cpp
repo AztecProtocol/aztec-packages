@@ -168,13 +168,35 @@ void assert_fork_state_unchanged(const WorldState& ws,
 
 TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
 {
-    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    // The canonical protocol contract registration nullifiers a production network seeds at genesis. They must stay in
+    // sync with `ProtocolContractGenesisNullifiers`, generated from the protocol contract artifacts by the client's
+    // protocol-contracts package, and they determine the GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT constants
+    // asserted below. Sorted ascending because the indexed nullifier tree requires unique, strictly increasing
+    // prefilled leaves.
+    std::vector<bb::fr> prefilled_nullifiers = {
+        bb::fr("0x0d99507b7ecac720c73bf197a0e7366a5ed80c1c1b0afe8ff8c6ecc7b5a7aefe"),
+        bb::fr("0x0eb50b367fb754d3a7d1238bfc105cc9b391a02e187be69038876ae9a502e877"),
+        bb::fr("0x19abee68e5a38d84af5a572b116d0f7ad75e2f37436282f66d98b79ed188ad84"),
+        bb::fr("0x1cea539e01abaa5db980e7ff52ef0d2a7772310306ac625783ae435756ee326d"),
+        bb::fr("0x227e7f5e17eb474dea5aeba8d5e515e4c67c9ea86d6c873f07c145681b1a1ea5"),
+        bb::fr("0x270362ee3cfed58db7e3d28f732d3d68b47a4b2efdf20bb96af27e02a6203dc4"),
+    };
+    WorldState ws(thread_pool_size,
+                  data_dir,
+                  map_size,
+                  tree_heights,
+                  tree_prefill,
+                  std::vector<PublicDataLeafValue>(),
+                  prefilled_nullifiers,
+                  initial_header_generator_point);
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+        // The prefilled nullifiers replace padding leaves inside the 128-leaf initial prefill region rather than being
+        // appended, so the tree size stays 128 while the root reflects the seeded values.
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x21a19fe6f636fb24d9f63edb7b807613492cc0001c91e531917a2539f57e2ba8"));
     }
 
     {

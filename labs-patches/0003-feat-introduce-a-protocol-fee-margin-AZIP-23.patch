@@ -3,12 +3,12 @@ From: aminsammara <aminsammara1@gmail.com>
 Date: Fri, 28 Aug 2026 00:00:00 +0000
 Subject: [PATCH] feat: introduce a protocol fee margin (AZIP-23)
 
----
+
 diff --git a/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts b/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts
-index 3fc1008c01..86dfd888d7 100644
+index 3e3e2adc5e26b329a00eae741910f6f7cc1eb1fa..49ab85d4e8d054112add643c99e87104a5f08f0a 100644
 --- a/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts
 +++ b/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts
-@@ -445,7 +445,7 @@ describe('NodePublicCallsSimulator', () => {
+@@ -444,7 +444,7 @@ describe('NodePublicCallsSimulator', () => {
  });
  
  function makeFeeHeader(): FeeHeader {
@@ -18,7 +18,7 @@ index 3fc1008c01..86dfd888d7 100644
  
  function makeProposedCheckpointData(args: {
 diff --git a/yarn-project/end-to-end/src/single-node/fees/fees_test.ts b/yarn-project/end-to-end/src/single-node/fees/fees_test.ts
-index 8a0d733c7d..0e661ba2ba 100644
+index b7daa424c26980a069ee2620483ea5c4317b96b4..c1713e320beb40c957579d0707d3d750adb380bb 100644
 --- a/yarn-project/end-to-end/src/single-node/fees/fees_test.ts
 +++ b/yarn-project/end-to-end/src/single-node/fees/fees_test.ts
 @@ -381,13 +381,14 @@ export class FeesTest extends SingleNodeTestContext {
@@ -41,7 +41,7 @@ index 8a0d733c7d..0e661ba2ba 100644
    }
  
 diff --git a/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts b/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts
-index 4e56319a2a..a9066db971 100644
+index 4e56319a2a5b7d47f10a4011e8794d4fdd772907..a9066db9710099da5ea776f723d830dba7b52a90 100644
 --- a/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts
 +++ b/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts
 @@ -112,7 +112,7 @@ describe('Uniswap Price Oracle', () => {
@@ -54,7 +54,7 @@ index 4e56319a2a..a9066db971 100644
          modifier,
          100n,
 diff --git a/yarn-project/ethereum/src/contracts/rollup.test.ts b/yarn-project/ethereum/src/contracts/rollup.test.ts
-index 52069c7496..95fd12af0e 100644
+index 31f7d71141d6d8d51707ff7c87f9f8d6f52eb048..2262d7755c2938fd1cf066743c63196e77fab7a9 100644
 --- a/yarn-project/ethereum/src/contracts/rollup.test.ts
 +++ b/yarn-project/ethereum/src/contracts/rollup.test.ts
 @@ -22,7 +22,7 @@ import { type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup
@@ -161,7 +161,7 @@ index 52069c7496..95fd12af0e 100644
      });
    });
 diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
-index af17f8d37c..e17fa5e771 100644
+index af4ac517775b024a0bc1fa86f9ac8de0d3a2a6f7..cd27a307a7c8c8182b9f0e19647914424a20f5e6 100644
 --- a/yarn-project/ethereum/src/contracts/rollup.ts
 +++ b/yarn-project/ethereum/src/contracts/rollup.ts
 @@ -114,7 +114,7 @@ export type FeeHeader = {
@@ -245,10 +245,10 @@ index af17f8d37c..e17fa5e771 100644
      };
    }
 diff --git a/yarn-project/ethereum/src/test/chain_monitor.ts b/yarn-project/ethereum/src/test/chain_monitor.ts
-index c73e49f852..302cf4ab36 100644
+index 272bf7fae3e907674b0b70f34b6cbcc67d90f95a..07539fdac4b7d7fb86ea1f06833ad1641731f88b 100644
 --- a/yarn-project/ethereum/src/test/chain_monitor.ts
 +++ b/yarn-project/ethereum/src/test/chain_monitor.ts
-@@ -12,7 +12,7 @@ import type { ViemClient } from '../types.js';
+@@ -11,7 +11,7 @@ import type { ViemClient } from '../types.js';
  
  /** L2 fee data reported by the chain monitor. */
  export type L2FeeData = ManaMinFeeComponents & {
@@ -257,7 +257,7 @@ index c73e49f852..302cf4ab36 100644
    minFeePerMana: bigint;
    /** L1 base fee observed by the oracle. */
    l1BaseFee: bigint;
-@@ -381,7 +381,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
+@@ -380,7 +380,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
      return (
        this.l2FeeData.sequencerCost !== newData.sequencerCost ||
        this.l2FeeData.proverCost !== newData.proverCost ||
@@ -267,7 +267,7 @@ index c73e49f852..302cf4ab36 100644
        this.l2FeeData.l1BlobFee !== newData.l1BlobFee ||
        this.l2FeeData.ethPerFeeAsset !== newData.ethPerFeeAsset
 diff --git a/yarn-project/ethereum/src/test/rollup_cheat_codes.ts b/yarn-project/ethereum/src/test/rollup_cheat_codes.ts
-index e2823cd86c..a9fb3f839f 100644
+index ee6523711676e1014f2f502b2fa5324c52188db0..8f8d34fbdb4af3b7370b408b08764dd411665749 100644
 --- a/yarn-project/ethereum/src/test/rollup_cheat_codes.ts
 +++ b/yarn-project/ethereum/src/test/rollup_cheat_codes.ts
 @@ -374,6 +374,30 @@ export class RollupCheatCodes {
@@ -312,10 +312,10 @@ index e2823cd86c..a9fb3f839f 100644
     */
    public async clearProvingCostCooldown() {
 diff --git a/yarn-project/prover-node/src/prover-node-publisher.test.ts b/yarn-project/prover-node/src/prover-node-publisher.test.ts
-index f7a1e248dc..6fb4f20eb0 100644
+index 8d78e336101d82bfe1ad2ccc3c5dd9339c01c1cb..837be0bf558db9548361431980a74f3579ce2cc7 100644
 --- a/yarn-project/prover-node/src/prover-node-publisher.test.ts
 +++ b/yarn-project/prover-node/src/prover-node-publisher.test.ts
-@@ -73,7 +73,7 @@ describe('prover-node-publisher', () => {
+@@ -75,7 +75,7 @@ describe('prover-node-publisher', () => {
            excessMana: 0n, // unused
            manaUsed: 0n, // unused
            ethPerFeeAsset: 0n, // unused
@@ -324,7 +324,7 @@ index f7a1e248dc..6fb4f20eb0 100644
            proverCost: 0n, // unused
          },
        }),
-@@ -244,7 +244,7 @@ describe('prover-node-publisher', () => {
+@@ -270,7 +270,7 @@ describe('prover-node-publisher', () => {
          blobCommitmentsHash: Buffer32.ZERO,
          outHash: '0x',
          slotNumber: SlotNumber(0),
@@ -333,7 +333,7 @@ index f7a1e248dc..6fb4f20eb0 100644
        }),
      );
  
-@@ -311,7 +311,7 @@ describe('prover-node-publisher', () => {
+@@ -352,7 +352,7 @@ describe('prover-node-publisher', () => {
            excessMana: 0n, // unused
            manaUsed: 0n, // unused
            ethPerFeeAsset: 0n, // unused
@@ -343,10 +343,10 @@ index f7a1e248dc..6fb4f20eb0 100644
          },
        }),
 diff --git a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
-index c2707c9072..5f9ccc0bfb 100644
+index 7260dd2046fae0828284f7608982b59a7b3f6655..89548b5f6a8aa878ff147f9a05a2e17cc35867f6 100644
 --- a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
 +++ b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
-@@ -264,7 +264,7 @@ describe('FeePredictor', () => {
+@@ -267,7 +267,7 @@ describe('FeePredictor', () => {
            excessMana: newExcessMana,
            manaUsed: assumedManaUsed,
            ethPerFeeAsset: decayEthPerFeeAsset(currentFeeHeader.ethPerFeeAsset, i + 1),
@@ -355,7 +355,7 @@ index c2707c9072..5f9ccc0bfb 100644
            proverCost: 0n,
          };
  
-@@ -341,7 +341,7 @@ describe('FeePredictor', () => {
+@@ -344,7 +344,7 @@ describe('FeePredictor', () => {
          excessMana: newExcessMana,
          manaUsed: 0n,
          ethPerFeeAsset: decayedEthPerFeeAsset,
@@ -364,7 +364,7 @@ index c2707c9072..5f9ccc0bfb 100644
          proverCost: 0n,
        };
  
-@@ -359,6 +359,33 @@ describe('FeePredictor', () => {
+@@ -362,6 +362,33 @@ describe('FeePredictor', () => {
        nextCheckpointOffset++;
      }
    }, 60_000);
@@ -399,7 +399,7 @@ index c2707c9072..5f9ccc0bfb 100644
  
  describe('FeePredictor state caching', () => {
 diff --git a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts
-index 86132e3b35..dc1b6389c6 100644
+index 9ab61df8c8690d3ff8591d0ef0d08be66db07071..bd80340dce6c23b80a4e44d35da3db237708e000 100644
 --- a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts
 +++ b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts
 @@ -21,6 +21,7 @@ type FeeOracleState = {
@@ -441,10 +441,10 @@ index 86132e3b35..dc1b6389c6 100644
      );
    }
 diff --git a/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts b/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts
-index 1f6bf35348..7c73d4369e 100644
+index 79b59d646d0bbc0996af22914c33430b02ec46c9..016425746093a3a6506e59634e29cd3504493f78 100644
 --- a/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts
 +++ b/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts
-@@ -193,7 +193,7 @@ describe('CheckpointProposalJob', () => {
+@@ -192,7 +192,7 @@ describe('CheckpointProposalJob', () => {
      // Default rollup contract reads used by pipelined fee-header derivation. Tests that exercise
      // the failure modes override these via jest.spyOn.
      jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockResolvedValue({
@@ -454,10 +454,10 @@ index 1f6bf35348..7c73d4369e 100644
      jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
      publisher.sendRequestsAt.mockResolvedValue({
 diff --git a/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts b/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts
-index 4eff6b3476..d2078d8a9e 100644
+index 65cb6e9158332e2f2f1079c66788e0f260c7bd16..be876254b1a8fbbd11f60cd38dd956ef4d52cd83 100644
 --- a/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts
 +++ b/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts
-@@ -261,7 +261,7 @@ describe('sequencer', () => {
+@@ -260,7 +260,7 @@ describe('sequencer', () => {
      rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
      // Default rollup reads used by pipelined fee-header derivation.
      rollupContract.getCheckpoint.mockResolvedValue({
@@ -467,10 +467,10 @@ index 4eff6b3476..d2078d8a9e 100644
      rollupContract.getManaTarget.mockResolvedValue(10_000n);
  
 diff --git a/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts b/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts
-index 3c7e5bea83..d007259eea 100644
+index 26f80c803be718f9f998b8c5ec56459485ffcea8..24d78ae2a0445d75bc3fadad1d20524bdb594240 100644
 --- a/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts
 +++ b/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts
-@@ -38,7 +38,7 @@ describe('computePipelinedParentFeeHeader', () => {
+@@ -37,7 +37,7 @@ describe('computePipelinedParentFeeHeader', () => {
      manaUsed: 3000n,
      excessMana: 1000n,
      ethPerFeeAsset: 500n,
@@ -479,7 +479,7 @@ index 3c7e5bea83..d007259eea 100644
      proverCost: 10n,
    };
  
-@@ -139,7 +139,7 @@ describe('buildCheckpointSimulationOverridesPlan', () => {
+@@ -138,7 +138,7 @@ describe('buildCheckpointSimulationOverridesPlan', () => {
      manaUsed: 3000n,
      excessMana: 1000n,
      ethPerFeeAsset: 500n,
@@ -489,7 +489,7 @@ index 3c7e5bea83..d007259eea 100644
    };
  
 diff --git a/yarn-project/stdlib/src/gas/README.md b/yarn-project/stdlib/src/gas/README.md
-index b98eef59ac..5d1779f772 100644
+index d0980089673a78730755c400b66ff64cf99ce202..427fed74dbb37f87156db6bae35965f6b0053700 100644
 --- a/yarn-project/stdlib/src/gas/README.md
 +++ b/yarn-project/stdlib/src/gas/README.md
 @@ -56,28 +56,35 @@ Updates to `provingCostPerMana` are rate-limited on L1 (`FeeLib.updateProvingCos
@@ -546,7 +546,7 @@ index b98eef59ac..5d1779f772 100644
  
  Each component is converted from ETH to the fee asset individually (rounding up) before
 diff --git a/yarn-project/stdlib/src/gas/fee_math.test.ts b/yarn-project/stdlib/src/gas/fee_math.test.ts
-index e77dfb8a2d..a501fe652e 100644
+index e77dfb8a2ddd8fabb4027cbeb34d0fc6d8f254e5..a501fe652e640b2442ac9d6c70d81bb5285bd33e 100644
 --- a/yarn-project/stdlib/src/gas/fee_math.test.ts
 +++ b/yarn-project/stdlib/src/gas/fee_math.test.ts
 @@ -65,12 +65,12 @@ describe('computeExcessMana', () => {
@@ -632,7 +632,7 @@ index e77dfb8a2d..a501fe652e 100644
 +  });
  });
 diff --git a/yarn-project/stdlib/src/gas/fee_math.ts b/yarn-project/stdlib/src/gas/fee_math.ts
-index 35ff2842c9..6d1ffa8fa7 100644
+index 35ff2842c97a88356c9664503ed16c2e1bcfb871..6d1ffa8fa73dbbee67e9e9334a9ba2563f6b6e84 100644
 --- a/yarn-project/stdlib/src/gas/fee_math.ts
 +++ b/yarn-project/stdlib/src/gas/fee_math.ts
 @@ -36,6 +36,7 @@ export type ManaMinFeeParams = {
@@ -715,6 +715,3 @@ index 35ff2842c9..6d1ffa8fa7 100644
  
    // Cap at uint128 max (matching FeeLib.summedMinFee)
    const UINT128_MAX = (1n << 128n) - 1n;
--- 
-2.50.1
-

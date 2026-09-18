@@ -25,29 +25,29 @@
     "l2ToL1Messages": []
   },
   "checkpoint": {
-    "archive": "0x299f7226fb475b76e4910d0d20c5dc5079a31510c2ef283249a28dd31d0ead9b",
-    "blobCommitments": "0x01b3ccb2e20737b7dd25f84587a422ed7c0acd11a07cc6a3c57e53a2ac1174e074c4add0ad4089fd72a292e2afe5300ced",
-    "batchedBlobInputs": "0x0190ec07763f83656b26eac5dc282384fef950d4168ea2851eff61297eb5c64816557fbeed7d4fdf3a53efe23b75d108baf92f191a4493b703bfdf2a7d60853317e12799229b6cc1013ed9e5f515f3bfdd4e78e7a2c67c81e2853e64a4d77edaad8ef0ce2941f24c2ba63fcb9d82a41dca77c083bcee059bfcba3f11eae3cf75dd85b1fd788f1a71e0400bb6a6e05cef8b8fdfb3e4fc041765d006db581b2a97b599e41b65cbc9b1b4048bdd9f36f0c880b3679daff312c831aa4b92a378222c",
+    "archive": "0x29ab87121aaf9c1e3fa0173cdaccfd56231eb98acbbf160a993a7fc67e91bedb",
+    "blobCommitments": "0x018fde3f7d01984311b334fe0505d537dc7a7a2a325bc49b03866e002e64f4667e4e0fdc22d10a6082afece9e35e0adb7e",
+    "batchedBlobInputs": "0x01b5414f3eed7bf93765e873205b8c8ed3797bcf4d726b60c5e41961a60d01430b612d9a1ef5b3f5f54a98f0793271f07100a011a2d7428c62e42951761dcf8647539bcf4eb1ec5886b4b91cbfd4a3255f4590472c88c563cbc30318d47f2bd7b908b79b00283b09a56a0a1a4cb70d98b866c7e59814f4b95856e05e6a7b0ea62b0eda2b7836609b622149bd9afc1f928fc874c39768ba63820afb9fc1a9f5b5d5e3f4d3fed696bd706e55817e2f7c55a3df0de306d5944f05a3dabc395e3cce",
     "checkpointNumber": 2,
     "body": "0x00000000",
     "header": {
-      "lastArchiveRoot": "0x1a2faa8d85b5e6cc286b14f52d05dcf79315b4302df692365666f7fc33acdc9a",
-      "blockHeadersHash": "0x20cdd3a677e28e11ebc0d21cd0dc0f94605bbd945030d5edb5137514126d5e76",
-      "blobsHash": "0x00afc4ce8554940482f56137bf5e5fa237afab054f67677affcfb292e6ba2661",
-      "inboxRollingHash": "0x00c5742e045891daea618eb01febd89dbe05fc8142585eb13029805a8f6dfd11",
+      "lastArchiveRoot": "0x18725cd4cd7c2e4d9562f781628e2a6f1421ab16f74879647fe6b795f75873ba",
+      "blockHeadersHash": "0x1b943044444a50bcdba9a48c63bc81fce896c18da3a0fd809546b7a073ccd22a",
+      "blobsHash": "0x0080f7918e5d245dabb15b84b4e198d3aa3e474f9c5bb59c2833b1370a573a30",
+      "inboxRollingHash": "0x0096b17d8f30867405bebf16ea82e57acb3db09f42c992b6461bc2d37ffd8314",
       "outHash": "0x00c95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093",
       "slotNumber": 102,
-      "timestamp": 1787821748,
-      "coinbase": "0xfb65547d5bb1828bdf254a002b75c7a2d706c549",
-      "feeRecipient": "0x01c5f8def3834b839581a7609592cfe24811934720ff38dd8d1a45b532873fad",
+      "timestamp": 1789580770,
+      "coinbase": "0x27dbb33d119f0e035374c8ab71d6c3fbceb56490",
+      "feeRecipient": "0x1604210f2e146856bc747dea281fe8d20b9bfcd099b243bfaa06e5e6c3ef801d",
       "gasFees": {
         "feePerDaGas": 0,
-        "feePerL2Gas": 537300000
+        "feePerL2Gas": 541500000
       },
       "totalManaUsed": 0,
       "accumulatedFees": 0
     },
-    "headerHash": "0x00bcd22d69da55c80faebd233f82f73297a25d3f1b969e6c5d1ea00718604855",
+    "headerHash": "0x0077b0283dc689265cfd9bf97ee172ef0706b99804de77cbc0c28a556155733d",
     "numTxs": 0
   }
 }
