@@ -67,6 +67,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
     _warpToSafeEpoch();
 
     // Prepare the hatch with no candidates (so no one gets selected as proposer)
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Now join candidate set (after hatch is prepared, they won't be selected)
@@ -74,6 +75,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
 
     _warpForwardEpochs(config.frequency);
 
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
     Hatch hatch = escapeHatch.getHatch(rollup.getCurrentEpoch()) + Hatch.wrap(escapeHatch.getLagInHatches());
     assertEq(escapeHatch.getDesignatedProposer(hatch), CANDIDATE1, "candidate 1 not chosen");

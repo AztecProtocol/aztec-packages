@@ -48,6 +48,7 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getTimestampForEpoch(Epoch _epoch) external view returns (Timestamp);
 
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
+  function getCheckpointedRandaoAt(Timestamp _ts) external view returns (bool exists, uint32 keyTs, uint224 randao);
   function getSamplingSizeAt(Timestamp _ts) external view returns (uint256);
   function getLagInEpochsForValidatorSet() external view returns (uint256);
   function getLagInEpochsForRandao() external view returns (uint256);

@@ -17,6 +17,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     _warpToSafeEpoch();
 
     // First, trigger selectCandidates
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Get the hatch that was prepared
@@ -26,6 +27,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     assertTrue(escapeHatch.isHatchPrepared(preparedHatch), "Hatch should be prepared");
 
     // Call again - should be no-op
+    _checkpointSeedRandao();
     vm.record();
     escapeHatch.selectCandidates();
     (, bytes32[] memory writes) = vm.accesses(address(escapeHatch));
@@ -87,6 +89,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     // No candidates joined
     assertEq(escapeHatch.getCandidateCount(), 0, "Should have no candidates");
 
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     Hatch currentHatch = escapeHatch.getCurrentHatch();
@@ -135,6 +138,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     vm.warp(bound(_ts, nextSnapshotTs, nextHatchTs - 1));
 
     // selectCandidates should succeed as no-op (no revert)
+    _checkpointSeedRandao();
     vm.record();
     escapeHatch.selectCandidates();
     (, bytes32[] memory writes) = vm.accesses(address(escapeHatch));
@@ -151,6 +155,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
 
     // Verify that selection works normally when we advance to the next hatch
     vm.warp(nextHatchTs);
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Now the next target hatch should be prepared with a proposer
@@ -194,6 +199,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     Hatch preparedHatch = currentHatch + Hatch.wrap(config.lagInHatches);
 
     assertTrue(escapeHatch.isCandidate(CANDIDATE1), "Candidate should be in active set");
+    _checkpointSeedRandao();
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.CandidateSelected(preparedHatch, CANDIDATE1);
 
@@ -275,6 +281,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     Hatch firstHatchToPrepare = currentHatch + Hatch.wrap(config.lagInHatches);
 
     // First selection - one candidate will be selected
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Determine which candidate was selected and which can exit
@@ -288,6 +295,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     uint256 nextHatchTs = Timestamp.unwrap(rollup.getTimestampForEpoch(escapeHatch.getFirstEpoch(nextHatch)));
     vm.warp(nextHatchTs - 1);
 
+    _checkpointSeedRandao();
     vm.prank(exitingCandidate);
     escapeHatch.initiateExit();
 
@@ -302,6 +310,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     vm.warp(nextHatchTs);
 
     // Call selectCandidates for the second hatch
+    _checkpointSeedRandao();
     vm.record();
     escapeHatch.selectCandidates();
 
