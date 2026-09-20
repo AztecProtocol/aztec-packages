@@ -24,6 +24,8 @@ use validate_side_effect_counters::validate_unique_and_within_bounds_side_effect
 /// - Call requests have valid msg_senders
 /// - Static call restrictions are enforced (no state changes)
 /// - The call matches either the tx_request (for Init) or a call request from the previous kernel's call stack (for Inner)
+/// - For Init, the `claimed_revertible_counter` hint is 0 only for a private-only tx, and otherwise greater than 2 and
+///   above the first call's start counter
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
@@ -39,6 +41,7 @@ impl PrivateCallDataValidator {
         self,
         tx_request: TxRequest,
         protocol_contracts: ProtocolContracts,
+        is_private_only: bool,
         claimed_revertible_counter: u32,
     ) {
         self.validate_common(
@@ -77,6 +80,41 @@ impl PrivateCallDataValidator {
             this_call.start_side_effect_counter > 1,
             "start_side_effect_counter must be greater than 1",
         );
+
+        // `claimed_revertible_counter` is a hint from the PXE: the value that the tx's
+        // `min_revertible_side_effect_counter` will have once every private call has been processed. The
+        // Init, Inner and Reset circuits use the hint (see `validate_expected_counters` and the reset's
+        // note-hash siloing and squashing), and the Tail circuits assert that it equals the final
+        // `min_revertible_side_effect_counter`. The hint is checked here so that no circuit ever uses a value
+        // the Tail would reject.
+        if claimed_revertible_counter == 0 {
+            // `claimed_revertible_counter == 0` means no private call in the tx ends the setup phase, so every
+            // side effect is non-revertible. Only a private-only tx may do this: nothing in it can revert.
+            // A tx with public calls must end its setup phase (even if no side effect follows), so that the
+            // side effects the AVM must never roll back, the protocol nullifier above all, are in the
+            // non-revertible set.
+            assert(
+                is_private_only,
+                "claimed_revertible_counter must not be 0 for a tx with public calls",
+            );
+        } else {
+            // `min_revertible_side_effect_counter` is a side-effect counter allocated inside the private call
+            // that ends the setup phase. The smallest side-effect counters are reserved:
+            //   - 0 is unused,
+            //   - 1 is the protocol nullifier,
+            //   - 2 is the start counter of the first call (`start_side_effect_counter > 1`, asserted above).
+            // So it is strictly above all three. This assertion is implied by `start_side_effect_counter > 1`
+            // together with the assertion after it; it is kept for its specific failure message.
+            assert(
+                claimed_revertible_counter > 2,
+                "claimed_revertible_counter must be greater than 2",
+            );
+            // Like every side-effect counter of the tx, it is strictly above the first call's start counter.
+            assert(
+                claimed_revertible_counter > this_call.start_side_effect_counter,
+                "claimed_revertible_counter must be greater than the first call's start counter",
+            );
+        }
     }
 
     /// Called by the Inner circuit.
@@ -408,8 +446,8 @@ impl PrivateCallDataValidator {
             self.data.public_inputs.expected_revertible_side_effect_counter;
 
         if expected_non_revertible_side_effect_counter != 0 {
-            // If `claimed_revertible_counter` is 0, it means that the `min_revertible_side_effect_counter` was never set by
-            // any private function call in the tx, so everything is non revertible.
+            // `claimed_revertible_counter == 0` means no private call in the tx ends the setup phase, so
+            // everything is non revertible. `validate_as_first_call` only accepts this for a private-only tx.
             assert(
                 (claimed_revertible_counter == 0)
                     | (expected_non_revertible_side_effect_counter < claimed_revertible_counter),

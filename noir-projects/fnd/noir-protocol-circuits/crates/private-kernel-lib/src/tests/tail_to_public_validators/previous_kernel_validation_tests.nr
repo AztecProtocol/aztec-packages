@@ -8,10 +8,16 @@ use types::{
 
 // --- min_revertible_side_effect_counter ---
 
-#[test(should_fail_with = "min_revertible_side_effect_counter must not be 0 for tail_to_public")]
-fn zero_min_revertible_side_effect_counter() {
+#[test]
+fn smallest_min_revertible_side_effect_counter() {
+    // 3 is the smallest value a private call can allocate (0 is unused, 1 is the protocol nullifier, 2 is
+    // the first call's start counter). The init circuit bounds the claim; this tail only reconciles it and
+    // requires the first nullifier, the protocol nullifier at counter 1, to be below it.
     let mut builder = TestBuilder::new();
-    builder.previous_kernel.min_revertible_side_effect_counter = 0;
+    let _ = builder.previous_kernel.nullifiers.pop();
+    builder.previous_kernel.set_protocol_nullifier();
+    builder.previous_kernel.min_revertible_side_effect_counter = 3;
+    builder.previous_kernel.claimed_revertible_counter = 3;
     let _ = builder.execute();
 }
 

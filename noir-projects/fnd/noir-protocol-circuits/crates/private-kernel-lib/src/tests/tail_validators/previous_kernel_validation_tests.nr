@@ -6,6 +6,32 @@ use types::{
     traits::{Empty, FromField},
 };
 
+// --- min_revertible_side_effect_counter ---
+
+#[test]
+fn unset_min_revertible_side_effect_counter() {
+    // No private call ended the setup phase: every side effect is non-revertible.
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.min_revertible_side_effect_counter = 0;
+    builder.previous_kernel.claimed_revertible_counter = 0;
+    let _ = builder.execute();
+}
+
+#[test]
+fn set_min_revertible_side_effect_counter() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.end_setup();
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "claimed_revertible_counter does not match min_revertible_side_effect_counter")]
+fn mismatch_claimed_revertible_counter() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.previous_kernel.claimed_revertible_counter = 4567;
+    let _ = builder.execute();
+}
+
 // --- validation_requests ---
 
 #[test(should_fail_with = "Non empty note hash read requests")]

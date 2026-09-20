@@ -33,7 +33,14 @@ impl TestBuilder {
 
         let tx_request = private_call.to_tx_request();
 
-        TestBuilder { tx_request, private_call, is_private_only: false, revertible_counter_hint: 0 }
+        // Default to a tx with public calls whose `min_revertible_side_effect_counter` is just above the first
+        // call's start counter.
+        TestBuilder {
+            tx_request,
+            private_call,
+            is_private_only: false,
+            revertible_counter_hint: counter + 1,
+        }
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {

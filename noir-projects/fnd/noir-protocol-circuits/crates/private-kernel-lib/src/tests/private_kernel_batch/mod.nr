@@ -169,7 +169,9 @@ impl<let N: u32> BatchNTestBuilder<N> {
             tx_request,
             private_calls,
             is_private_only: false,
-            revertible_counter_hint: 0,
+            // A tx with public calls whose `min_revertible_side_effect_counter` is just above the first call's
+            // start counter (2).
+            revertible_counter_hint: 3,
         }
     }
 
@@ -1424,7 +1426,9 @@ fn deferred_grandchild_init_scenario() -> (PrivateKernelInitNCircuitPrivateInput
         vk_tree_root: a.vk_tree_root,
         protocol_contracts: a.protocol_contracts,
         is_private_only: false,
-        revertible_counter_hint: 0,
+        // A tx with public calls needs a `claimed_revertible_counter` above 2 and above A's start counter
+        // (2); 3 is the smallest value the init circuit accepts.
+        revertible_counter_hint: 3,
     };
 
     (inputs, PrivateCallStackBatchHints { popped_from_source: [0, 1, 1] }, d)
