@@ -54,6 +54,9 @@ contract Registry is IRegistry, Ownable {
 
   /**
    * @notice Adds a new rollup instance to the registry, which becomes the new canonical rollup
+   * @dev Each registered rollup is an independent instance with its own genesis state, Inbox, Outbox and
+   * FeeJuicePortal. Becoming canonical grants the privileges listed above; it does not carry over any L2 state
+   * from the previous canonical rollup, which stays registered under its own version and is not disabled.
    * @param _rollup The rollup instance to add
    */
   function addRollup(IHaveVersion _rollup) external override(IRegistry) onlyOwner {

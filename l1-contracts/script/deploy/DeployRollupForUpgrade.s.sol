@@ -29,6 +29,11 @@ import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.s
 /// It loads existing L1 infrastructure from the registry and canonical rollup,
 /// then outputs deployment results to JSON.
 ///
+/// Only shared infrastructure addresses (governance, GSE, fee and staking assets, reward distributor) are
+/// reused from the canonical rollup. The new rollup is an independent instance that starts from the
+/// GenesisState supplied via environment variables; no archive, checkpoint, message or fee-juice state is
+/// carried over from the canonical rollup, which stays registered under its own version.
+///
 /// For initial L1 deployment, use DeployAztecL1Contracts.s.sol instead.
 ///
 /// See RollupConfiguration.sol for relevant environment variables.
