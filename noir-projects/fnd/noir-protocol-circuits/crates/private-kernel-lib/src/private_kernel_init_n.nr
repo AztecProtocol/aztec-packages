@@ -52,6 +52,7 @@ pub fn execute<let N: u32>(
     PrivateCallDataValidator::new(inputs.private_calls[0]).validate_as_first_call(
         inputs.tx_request,
         inputs.protocol_contracts,
+        inputs.is_private_only,
         inputs.revertible_counter_hint,
     );
 
