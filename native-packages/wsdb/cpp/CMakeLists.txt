@@ -1,286 +1,89 @@
-# Standalone build for the aztec-wsdb world-state database service.
-#
-# This package owns the wsdb service: the world_state engine, the persistent
-# content-addressed merkle storage, the lmdb tree store, and the IPC server.
-# It depends on barretenberg only as a *prebuilt* artifact: bb is assumed to be
-# already built in place (default preset -> barretenberg/cpp/build), and this
-# project links the resulting static archives. It never (re)builds bb.
-#
-# Link target: the full libbarretenberg.a (for the generic merkle core), plus the
-# lmdblib sibling package's liblmdblib.a (the lmdb C++ wrapper, which barretenberg
-# no longer hosts). bb-external is intentionally NOT usable here -- it excludes
-# crypto_merkle_tree_objects (see barretenberg/cpp/src/CMakeLists.txt).
-
 cmake_minimum_required(VERSION 3.24)
-# C is enabled for any C sources pulled in transitively.
+# aztec-wsdb: the world-state DB service. Compiles no barretenberg header; everything it needs from
+# outside this directory comes from one aztec-packages release, pinned by tag in ../foundation.pin.
 project(aztec_wsdb CXX C)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-# src/common/aztec_constants.hpp is generated from the protocol's Noir constant definitions, with
-# wsdb's own symbol selection (scripts/constants-codegen/cpp.json). Generation needs the surrounding
-# monorepo; a checkout without it must provide the header by other means.
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../../protocol/constants-codegen/src/cli.ts")
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr"
-    )
-    execute_process(
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/remake-constants.sh"
-        RESULT_VARIABLE AZTEC_CONSTANTS_GEN_RESULT
-    )
-    if(NOT AZTEC_CONSTANTS_GEN_RESULT EQUAL 0)
-        message(FATAL_ERROR "aztec_constants.hpp generation failed")
-    endif()
-endif()
-
-# Match barretenberg's prebuilt archive build (Release -> -O3 -DNDEBUG). bb headers
-# (inline/template crypto + field code) are compiled into BOTH bb's Release archive
-# and this build; compiling them here without NDEBUG/-O3 is an ODR violation that can
-# silently diverge inlined results (e.g. tree leaf hashes). Default to Release.
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
+set(pkg "${CMAKE_CURRENT_SOURCE_DIR}/..")
+set(deps "${CMAKE_BINARY_DIR}/_deps")
 
-# ---------------------------------------------------------------------------
-# Locate the prebuilt barretenberg tree.
-# ---------------------------------------------------------------------------
-get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
-set(BB_SRC "${REPO_ROOT}/barretenberg/cpp/src")
-set(BB_BUILD "${REPO_ROOT}/barretenberg/cpp/build" CACHE PATH "barretenberg build dir")
-set(IPC_RUNTIME_SRC "${REPO_ROOT}/ipc-runtime/cpp")
-set(IPC_CODEGEN_DIR "${REPO_ROOT}/ipc-codegen")
-
-set(BB_LIB "${BB_BUILD}/lib/libbarretenberg.a")
-# libbarretenberg.a deliberately excludes the env module (logstr / throw_or_abort_impl /
-# hardware_concurrency) so consumers supply their own runtime. As a native command we
-# link bb's env implementation, matching what the old in-bb aztec-wsdb target did.
-set(ENV_LIB "${BB_BUILD}/lib/libenv.a")
-set(IPC_RUNTIME_LIB "${BB_BUILD}/lib/libipc_runtime.a")
-
-# lmdblib sibling package: headers + the prebuilt wrapper archive (the lmdb C++
-# wrapper that barretenberg no longer hosts).
-set(LMDBLIB_PKG "${REPO_ROOT}/native-packages/lmdblib")
-set(LMDBLIB_SRC "${LMDBLIB_PKG}/cpp/src")
-set(LMDBLIB_LIB "${LMDBLIB_PKG}/cpp/build/lib/liblmdblib.a")
-
-# wsdb consumes prebuilt static archives: barretenberg's (for the poseidon2 c_bind,
-# under ${BB_BUILD}/lib) and the lmdblib sibling package's. lmdblib owns the LMDB and
-# msgpack-c dependencies; wsdb gets them transitively (liblmdblib.a is built against
-# them), so reference lmdblib's built artifacts rather than fetching our own copies.
-set(DEPS_PREFIX "${CMAKE_BINARY_DIR}/_deps")
-set(LMDB_INCLUDE "${LMDBLIB_PKG}/cpp/build/_deps/lmdb-src/libraries/liblmdb")
-set(LMDB_LIB "${LMDBLIB_PKG}/cpp/build/lib/liblmdb.a")
-set(MSGPACK_INCLUDE "${LMDBLIB_PKG}/cpp/build/_deps/msgpack-src/include")
-
-foreach(artifact "${BB_LIB}" "${ENV_LIB}" "${IPC_RUNTIME_LIB}" "${LMDBLIB_LIB}" "${LMDB_LIB}")
-    if(NOT EXISTS "${artifact}")
-        message(FATAL_ERROR "Missing prebuilt artifact: ${artifact}\n"
-                            "Build barretenberg (cd barretenberg/cpp && cmake --preset default && cd build && ninja) "
-                            "and lmdblib (cd native-packages/lmdblib && ./bootstrap.sh) first.")
-    endif()
-endforeach()
-
-# Match the ABI-affecting compile flags of the bb build. bb is compiled with
-# clang and -march=skylake; mixing toolchains/arch against bb's prebuilt static
-# archives risks subtle ODR/template-instantiation mismatches, so match it.
-add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_ALGOS)
-add_compile_options(-march=skylake -fconstexpr-steps=100000000 -fbracket-depth=1024)
-add_compile_options(-Wno-deprecated-declarations -Wno-missing-field-initializers)
-# bb's archives are built with libc++ (std::__1:: symbols). The system clang here
-# links libstdc++ by default, leaving those symbols undefined, so force libc++ for
-# both compile and link to match bb's ABI.
-add_compile_options(-stdlib=libc++)
-# Statically link libc++/libc++abi/libgcc so aztec-wsdb is self-contained (no
-# libc++.so.1 runtime dependency), matching bb's own aztec-wsdb. Otherwise the
-# binary fails to launch (exit 127) in minimal environments — e.g. a scaffolded
-# user project — that don't ship the libc++ runtime.
-add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
-
-# The decoupled wsdb core/tests include NO barretenberg headers — only wsdb's own src,
-# the bb-free sibling packages (lmdblib, ipc-runtime), msgpack-c and lmdb. bb is still
-# *linked* (libbarretenberg.a) purely for the poseidon2 c_bind. BB_SRC is added back only
-# on the parity/equivalence target, which deliberately compiles barretenberg headers.
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${LMDBLIB_SRC}
-    ${MSGPACK_INCLUDE}
-    ${LMDB_INCLUDE}
-    ${IPC_RUNTIME_SRC}
-)
-
-# ---------------------------------------------------------------------------
-# Codegen the wsdb server dispatch from the local schema (this package owns the
-# wire contract). bb's client codegen reads the same schema from this path.
-# ---------------------------------------------------------------------------
-set(WSDB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/../wsdb_schema.jsonc)
-set(WSDB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated)
-set(WSDB_GEN_OUTPUTS
-    ${WSDB_GEN_DIR}/wsdb_dispatch.hpp
-    ${WSDB_GEN_DIR}/wsdb_ipc_server.hpp
-    ${WSDB_GEN_DIR}/wsdb_types.hpp
-    ${WSDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-    ${WSDB_GEN_DIR}/ipc_codegen/named_union.hpp
-    ${WSDB_GEN_DIR}/ipc_codegen/throw.hpp
-)
-file(GLOB_RECURSE IPC_CODEGEN_SRC
-    ${IPC_CODEGEN_DIR}/src/*.ts
-    ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
-)
-add_custom_command(
-    OUTPUT ${WSDB_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
-            --schema ${WSDB_SCHEMA}
-            --lang cpp
-            --out ${WSDB_GEN_DIR}
-            --server
-            --cpp-namespace azteclabs::wsdb
-            --cpp-include-dir wsdb/generated
-    DEPENDS ${WSDB_SCHEMA} ${IPC_CODEGEN_SRC}
-    COMMENT "Generating WSDB IPC server dispatch from wsdb_schema.jsonc"
-    VERBATIM
-)
-add_custom_target(wsdb_ipc_server_generated DEPENDS ${WSDB_GEN_OUTPUTS})
-
-# ---------------------------------------------------------------------------
-# CLI11 (header-only) for aztec-wsdb command-line parsing. Fetched and pinned to
-# v2.4.2 (matches barretenberg's vendored copy) rather than vendored in-tree.
-# ---------------------------------------------------------------------------
+# --- Dependencies -------------------------------------------------------------------------------
+# barretenberg's static library (the poseidon2 c_bind and the reference world state's C ABI) from
+# the GitHub release of the pinned tag, and a sparse clone of aztec-packages at that tag for
+# ipc-runtime/cpp (compiled in) and ipc-codegen (run with node).
+file(READ "${pkg}/foundation.pin" tag)
+string(STRIP "${tag}" tag)
+string(REGEX REPLACE "^v" "" version "${tag}")
+string(TOLOWER "${CMAKE_SYSTEM_NAME}" os)
+string(REPLACE "x86_64" "amd64" arch "${CMAKE_SYSTEM_PROCESSOR}")
+string(REPLACE "aarch64" "arm64" arch "${arch}")
 include(FetchContent)
+FetchContent_Declare(aztec-packages
+    DOWNLOAD_COMMAND git clone --quiet --filter=blob:none --depth 1 --sparse --branch "${tag}"
+                     https://github.com/AztecProtocol/aztec-packages.git <SOURCE_DIR>
+            COMMAND git -C <SOURCE_DIR> sparse-checkout set ipc-runtime/cpp ipc-codegen)
+FetchContent_Declare(barretenberg
+    URL "https://github.com/AztecProtocol/barretenberg/releases/download/${tag}/barretenberg-static-${arch}-${os}.tar.gz")
+FetchContent_MakeAvailable(aztec-packages barretenberg)
+set(foundation ${aztec-packages_SOURCE_DIR})
+set(bb_archive ${barretenberg_SOURCE_DIR}/libbb-external.a)
+# The lmdblib sibling package: the lmdb C++ wrapper plus the lmdb and msgpack-c sources it fetched.
+set(lmdblib "${pkg}/../lmdblib/cpp")
+# --- Build --------------------------------------------------------------------------------------
+# Match barretenberg's archive build (-march=skylake, libc++, Release).
+add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_ALGOS)
+add_compile_options(-march=skylake -fconstexpr-steps=100000000 -fbracket-depth=1024 -stdlib=libc++
+                    -Wno-deprecated-declarations -Wno-missing-field-initializers)
+add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
+include_directories(src ${lmdblib}/src ${lmdblib}/build/_deps/msgpack-src/include
+                    ${lmdblib}/build/_deps/lmdb-src/libraries/liblmdb)
+
+set(IPC_RUNTIME_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(IPC_RUNTIME_BUILD_NAPI OFF CACHE BOOL "" FORCE)
+add_subdirectory(${foundation}/ipc-runtime/cpp ${deps}/ipc-runtime)
+
+# The generated server dispatch and wire types (../wsdb_schema.jsonc owns the wire contract), and
+# the protocol constants from @aztec-foundation/constants-codegen at the pinned version; both are
+# regenerated whenever configure runs, which their inputs below trigger.
+execute_process(
+    COMMAND node --experimental-strip-types --no-warnings ${foundation}/ipc-codegen/src/generate.ts
+            --schema ${pkg}/wsdb_schema.jsonc --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
+            --server --cpp-namespace azteclabs::wsdb --cpp-include-dir wsdb/generated
+    COMMAND_ERROR_IS_FATAL ANY)
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "WSDB_FOUNDATION_VERSION=${version}" "${pkg}/scripts/remake-constants.sh"
+    COMMAND_ERROR_IS_FATAL ANY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${pkg}/wsdb_schema.jsonc ${pkg}/foundation.pin ${pkg}/scripts/constants-codegen/cpp.json)
+
 set(CLI11_BUILD_TESTS OFF CACHE INTERNAL "")
 set(CLI11_BUILD_EXAMPLES OFF CACHE INTERNAL "")
 set(CLI11_BUILD_DOCS OFF CACHE INTERNAL "")
-FetchContent_Declare(
-    cli11
-    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-    GIT_TAG v2.4.2
-    GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(cli11)
+FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.4.2 GIT_SHALLOW TRUE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.13.0 GIT_SHALLOW TRUE)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.8.3 GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(cli11 googletest benchmark)
 
-# ---------------------------------------------------------------------------
-# wsdb core: world_state + persistent merkle storage + server handlers.
-# ---------------------------------------------------------------------------
-set(WSDB_CORE_SOURCES
-    src/common/thread_pool.cpp
-    src/world_state/types.cpp
-    src/world_state/world_state.cpp
-    src/merkle_tree/lmdb_store/lmdb_tree_store.cpp
-    src/merkle_tree/merkle_tree_id.cpp
-    src/wsdb/wsdb_handlers.cpp
-    src/wsdb/wsdb_ipc_server.cpp
-    src/wsdb/cli.cpp
-)
-add_library(wsdb_core STATIC ${WSDB_CORE_SOURCES})
-add_dependencies(wsdb_core wsdb_ipc_server_generated)
-# Wrap libbarretenberg.a + libenv.a in --start-group/--end-group: bb's archive
-# references env symbols (logstr, throw_or_abort_impl) and the link order between
-# the two is not a clean DAG, so let the linker resolve them mutually.
-target_link_libraries(wsdb_core PUBLIC
-    -Wl,--start-group ${BB_LIB} ${ENV_LIB} ${LMDBLIB_LIB} -Wl,--end-group
-    ${IPC_RUNTIME_LIB} ${LMDB_LIB} pthread)
-# CLI11 is only used in cli.cpp's implementation, so keep it private to wsdb_core.
-target_link_libraries(wsdb_core PRIVATE CLI11::CLI11)
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/*.cpp)
+file(GLOB_RECURSE tests CONFIGURE_DEPENDS src/*.test.cpp)
+file(GLOB_RECURSE benches CONFIGURE_DEPENDS src/*.bench.cpp)
+list(REMOVE_ITEM sources ${tests} ${benches})
+set(libs ${bb_archive} ${lmdblib}/build/lib/liblmdblib.a ipc_runtime ${lmdblib}/build/lib/liblmdb.a pthread)
 
-# ---------------------------------------------------------------------------
-# aztec-wsdb binary.
-# ---------------------------------------------------------------------------
-add_executable(aztec-wsdb src/wsdb/main.cpp)
-target_link_libraries(aztec-wsdb PRIVATE wsdb_core)
+add_executable(aztec-wsdb ${sources})
+target_link_libraries(aztec-wsdb PRIVATE ${libs} CLI11::CLI11)
 
-# ---------------------------------------------------------------------------
-# Tests. The equality test links MemoryMerkleDB (the reference impl, which stays
-# in bb's vm2_sim module -> libvm2_sim.a) against a real WorldState (local). It
-# can no longer live in vm2_tests since that target no longer links world_state.
-# ---------------------------------------------------------------------------
-option(WSDB_BUILD_TESTS "Build wsdb C++ tests" ON)
-if(WSDB_BUILD_TESTS)
-    include(ExternalProject)
-    set(VM2_SIM_LIB "${BB_BUILD}/lib/libvm2_sim.a")
-    set(GTEST_LIB "${BB_BUILD}/lib/libgtest.a")
-    set(GMOCK_LIB "${BB_BUILD}/lib/libgmock.a")
-    set(GMOCK_MAIN_LIB "${BB_BUILD}/lib/libgmock_main.a")
-    # gtest/gmock libs come from bb's published archives (cached), but their headers
-    # live under bb's uncached _deps. Fetch our own copy, pinned to bb's tag (cmake/gtest.cmake).
-    set(GTEST_PREFIX "${DEPS_PREFIX}/gtest-src")
-    ExternalProject_Add(
-        gtest_headers
-        PREFIX ${GTEST_PREFIX}
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.13.0
-        GIT_SHALLOW TRUE
-        SOURCE_DIR ${GTEST_PREFIX}/src/gtest
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ""
-        UPDATE_COMMAND ""
-    )
-    set(GTEST_INCLUDE "${GTEST_PREFIX}/src/gtest/googletest/include")
-    set(GMOCK_INCLUDE "${GTEST_PREFIX}/src/gtest/googlemock/include")
+list(REMOVE_ITEM sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp)
+add_executable(wsdb_tests ${sources} ${tests})
+target_link_libraries(wsdb_tests PRIVATE ${libs} CLI11::CLI11 gmock_main gmock gtest)
 
-    # The decoupled test set: exercises wsdb's own tree/storage with no barretenberg
-    # headers. (The field_element parity tests link bb headers and live in their own
-    # target below. The reference conformance test compiles no bb headers either — it
-    # reaches barretenberg's reference merkle DB through its flat C ABI, resolved from
-    # the same prebuilt archive that provides the poseidon2 c_bind.)
-    set(WSDB_TEST_SOURCES
-        src/common/uint256.test.cpp
-        src/merkle_tree/fixtures.test.cpp
-        src/merkle_tree/lmdb_store/lmdb_tree_store.test.cpp
-        src/merkle_tree/node_store/content_addressed_cache.test.cpp
-        src/merkle_tree/append_only_tree/content_addressed_append_only_tree.test.cpp
-        src/merkle_tree/indexed_tree/content_addressed_indexed_tree.test.cpp
-        src/merkle_tree/nullifier_tree/nullifier_memory_tree.test.cpp
-        src/world_state/world_state.test.cpp
-        src/wsdb/memory_merkle_db.test.cpp
-    )
-    add_executable(wsdb_tests ${WSDB_TEST_SOURCES})
-    add_dependencies(wsdb_tests wsdb_ipc_server_generated gtest_headers)
-    target_include_directories(wsdb_tests PRIVATE ${GTEST_INCLUDE} ${GMOCK_INCLUDE})
-    # wsdb_core (WorldState + persistent merkle), vm2_sim (MemoryMerkleDB) and bb's
-    # archive reference each other's symbols, so group them all for mutual resolution.
-    target_link_libraries(wsdb_tests PRIVATE
-        -Wl,--start-group
-            $<TARGET_FILE:wsdb_core> ${VM2_SIM_LIB} ${BB_LIB} ${ENV_LIB} ${LMDBLIB_LIB}
-        -Wl,--end-group
-        ${IPC_RUNTIME_LIB} ${LMDB_LIB} pthread
-        ${GMOCK_MAIN_LIB} ${GMOCK_LIB} ${GTEST_LIB}
-    )
-    add_dependencies(wsdb_tests wsdb_core)
-endif()
-
-# ---------------------------------------------------------------------------
-# Barretenberg-linked tests (OFF by default; require a prebuilt barretenberg).
-# These deliberately compile bb headers, so they add BB_SRC back and define
-#
-#  - wsdb_parity_tests: proves FieldElement + the poseidon2 c_bind are byte-identical
-#    to bb::fr / bb's Poseidon2HashPolicy (the consensus gate).
-#  - The reference conformance test (src/wsdb/memory_merkle_db.test.cpp) is NOT here:
-#    it drives bb's reference merkle DB through a flat C ABI instead of bb headers, so
-#    it lives in the main wsdb_tests target above.
-# ---------------------------------------------------------------------------
-option(WSDB_BUILD_BB_TESTS "Build the barretenberg-linked parity/equivalence tests" OFF)
-if(WSDB_BUILD_BB_TESTS AND WSDB_BUILD_TESTS)
-    # These tests compile barretenberg headers, which include tracy; fetch its headers.
-    set(TRACY_SOURCE_DIR "${DEPS_PREFIX}/tracy-src")
-    execute_process(
-        COMMAND sh -c "mkdir -p ${TRACY_SOURCE_DIR} && cd ${TRACY_SOURCE_DIR} && git init --quiet && (git remote add origin https://github.com/wolfpld/tracy.git 2>/dev/null || true) && git fetch --depth 1 origin --quiet 5d542dc09f3d9378d005092a4ad446bd405f819a && git reset --quiet --hard FETCH_HEAD"
-        RESULT_VARIABLE tracy_result
-    )
-    if(tracy_result)
-        message(FATAL_ERROR "Failed to download Tracy")
-    endif()
-    set(TRACY_INCLUDE "${TRACY_SOURCE_DIR}/public")
-
-    add_executable(wsdb_parity_tests src/field/field_element.test.cpp)
-    add_dependencies(wsdb_parity_tests wsdb_ipc_server_generated gtest_headers)
-    target_include_directories(wsdb_parity_tests PRIVATE ${BB_SRC} ${TRACY_INCLUDE} ${GTEST_INCLUDE} ${GMOCK_INCLUDE})
-    target_link_libraries(wsdb_parity_tests PRIVATE
-        -Wl,--start-group ${BB_LIB} ${ENV_LIB} ${LMDBLIB_LIB} -Wl,--end-group
-        ${IPC_RUNTIME_LIB} ${LMDB_LIB} pthread
-        ${GMOCK_MAIN_LIB} ${GMOCK_LIB} ${GTEST_LIB}
-    )
-endif()
+add_executable(wsdb_bench ${sources} ${benches})
+target_link_libraries(wsdb_bench PRIVATE ${libs} CLI11::CLI11 benchmark::benchmark_main)

@@ -40,6 +40,10 @@ function update_goldens {
   echo "implementations of the schema."
 }
 
+function release {
+  retry "deploy_npm ${REF_NAME#v}"
+}
+
 function test_cmds {
   local matrix_langs=(rust ts zig cpp)
 

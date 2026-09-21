@@ -125,11 +125,7 @@ inline std::ostream& operator<<(std::ostream& os, const FieldElement& fe)
 
 } // namespace azteclabs::wsdb
 
-// In the decoupled (bb-free) build there is no barretenberg `fr`; wsdb's merkle code
-// refers to the node/leaf field type as `fr`/`bb::fr`, so alias it to FieldElement.
-// Lets the forked merkle headers compile unchanged. The parity/equivalence tests DO link
-// barretenberg and need the real bb::fr alongside FieldElement, so they compile with
-// -DWSDB_NO_FR_ALIAS to suppress this alias.
+// wsdb's merkle code refers to the node/leaf field type as `fr`; it is FieldElement.
 namespace azteclabs::wsdb {
 using fr = ::azteclabs::wsdb::FieldElement;
 } // namespace azteclabs::wsdb

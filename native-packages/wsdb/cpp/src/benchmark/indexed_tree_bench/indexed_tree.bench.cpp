@@ -358,4 +358,3 @@ BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2, SEQUENTIAL>)
     ->Range(512, 8192)
     ->Iterations(100);
 
-BENCHMARK_MAIN();
