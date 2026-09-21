@@ -71,6 +71,37 @@ index 27e053dc520d0e8c3f93ac39fe761c2c60d20962..ac0953177ca26da6904419f41e5057b0
          }
      }
  
+diff --git a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
+index 96aa56a8567cacd8f9833386a11c38704f544e24..0219b7218fba0b917972a902fd22cbdc3b110901 100644
+--- a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
++++ b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
+@@ -27,13 +27,12 @@ use crate::protocol::constants::{
+     DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
+     DOM_SEP__NULLIFIER_MERKLE, DOM_SEP__OVSK_M, DOM_SEP__PARTIAL_ADDRESS, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+     DOM_SEP__PRIVATE_FUNCTION_LEAF, DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER, DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
+-    DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
+-    DOM_SEP__PUBLIC_DATA_MERKLE, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER, DOM_SEP__PUBLIC_KEYS_HASH,
+-    DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
++    DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS, DOM_SEP__PROTOCOL_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE,
++    DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_DATA_MERKLE, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
++    DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
+     DOM_SEP__RETRIEVED_BYTECODES_MERKLE, DOM_SEP__SALTED_INITIALIZATION_HASH, DOM_SEP__SECRET_HASH,
+     DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
+-    DOM_SEP__TSK_M, DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNIQUE_NOTE_HASH,
+-    DOM_SEP__WRITTEN_SLOTS_MERKLE,
++    DOM_SEP__TSK_M, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNIQUE_NOTE_HASH, DOM_SEP__WRITTEN_SLOTS_MERKLE,
+ };
+ use crate::protocol::hash::poseidon2_hash_bytes;
+ 
+@@ -74,7 +73,7 @@ global PROTOCOL_DOMAIN_SEPARATORS: [u32; 59] = [
+     DOM_SEP__PARTIAL_ADDRESS,
+     DOM_SEP__CONTRACT_ADDRESS_V2,
+     DOM_SEP__BLOCK_HEADER_HASH,
+-    DOM_SEP__TX_REQUEST,
++    DOM_SEP__PROTOCOL_NULLIFIER,
+     DOM_SEP__PUBLIC_TX_HASH,
+     DOM_SEP__PRIVATE_TX_HASH,
+     DOM_SEP__PUBLIC_CALLDATA,
 diff --git a/yarn-project/noir-protocol-circuits-types/src/conversion/client.ts b/yarn-project/noir-protocol-circuits-types/src/conversion/client.ts
 index 6b56ed80bde4a1d6cb69ace6dd13a7507e9f0fd8..c8b978a69c5968e082ce6243b9814ff0fe614af3 100644
 --- a/yarn-project/noir-protocol-circuits-types/src/conversion/client.ts
@@ -343,7 +374,7 @@ index e3bbb1cea00612e3d3240f2a9a4e8b3493b7bd38..13259031da5ecc32776b969e58bd7ede
        this.protocolContracts.getSize()
      );
 diff --git a/yarn-project/stdlib/src/tx/tx_request.test.ts b/yarn-project/stdlib/src/tx/tx_request.test.ts
-index 00bedcf387d46a996cc33794ad55868700b8e1a4..4f3dbc61adbf065e6fad1f3a48df6540ad925529 100644
+index 00bedcf387d46a996cc33794ad55868700b8e1a4..fa978de7bdfaab5808f5a2994012ed5b0a009709 100644
 --- a/yarn-project/stdlib/src/tx/tx_request.test.ts
 +++ b/yarn-project/stdlib/src/tx/tx_request.test.ts
 @@ -32,7 +32,7 @@ describe('TxRequest', () => {
@@ -355,7 +386,7 @@ index 00bedcf387d46a996cc33794ad55868700b8e1a4..4f3dbc61adbf065e6fad1f3a48df6540
      const gasSettings = new GasSettings(new Gas(2, 2), new Gas(1, 1), new GasFees(4, 4), new GasFees(3, 3));
      const txRequest = TxRequest.from({
        origin: AztecAddress.fromBigIntUnsafe(1122n),
-@@ -42,17 +42,39 @@ describe('TxRequest', () => {
+@@ -42,17 +42,43 @@ describe('TxRequest', () => {
        salt: new Fr(789),
      });
  
@@ -376,7 +407,11 @@ index 00bedcf387d46a996cc33794ad55868700b8e1a4..4f3dbc61adbf065e6fad1f3a48df6540
 +    const bumped = TxRequest.from({
 +      ...txRequest,
 +      argsHash: new Fr(34),
-+      txContext: new TxContext(new Fr(44), new Fr(55), new GasSettings(new Gas(20, 20), new Gas(10, 10), new GasFees(40, 40), new GasFees(30, 30))),
++      txContext: new TxContext(
++        new Fr(44),
++        new Fr(55),
++        new GasSettings(new Gas(20, 20), new Gas(10, 10), new GasFees(40, 40), new GasFees(30, 30)),
++      ),
 +    });
 +    expect((await bumped.computeProtocolNullifier()).equals(siloed)).toBe(true);
 +    // The salt and the origin are.
