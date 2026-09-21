@@ -26,6 +26,9 @@ class EccvmRowTracker {
     uint32_t num_msm_rows = 0;
 
   public:
+    /** @brief Count the prepended hiding row without finalizing the current MSM. */
+    void add_hiding_row() { ++num_transcript_rows; }
+
     [[nodiscard]] uint32_t get_number_of_muls() const { return cached_num_muls + cached_active_msm_count; }
 
     /**

@@ -110,7 +110,8 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     // with any other value from the Translator circuit would trigger the round provenance mechanism if we didn't clear
     // the round provenance. This cross-protocol usage is sound because:
     // 1. ECCVM proves correctness of translation evaluations via its own sumcheck + IPA
-    // 2. ECCVM computes accumulated_result = (op + v·Px + v²·Py + v³·z1 + v⁴·z2 - masking) / x
+    // 2. ECCVM computes accumulated_result = (op + v·Px + v²·Py + v³·z1 + v⁴·z2 - masking) / x^(1 +
+    // ECCVMFlavor::TRACE_OFFSET)
     // 3. Translator re-computes the same accumulator non-natively in its circuit
     // 4. TranslatorAccumulatorTransferRelationImpl enforces exact equality at the final row:
     //    accumulators_binary_limbs_i == accumulated_result[i] for i ∈ {0,1,2,3}

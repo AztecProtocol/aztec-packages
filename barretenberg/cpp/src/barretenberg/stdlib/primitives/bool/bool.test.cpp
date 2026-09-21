@@ -637,3 +637,28 @@ TYPED_TEST(BoolTest, AssertEqual)
 {
     TestFixture::test_assert_equal();
 }
+
+TYPED_TEST(BoolTest, FixWitnessPreservesInvertedValues)
+{
+    using Builder = TypeParam;
+    using FF = typename Builder::FF;
+    using Bool = typename TestFixture::bool_ct;
+    using Witness = typename TestFixture::witness_ct;
+    for (bool raw_value : { false, true }) {
+        for (bool inverted : { false, true }) {
+            Builder builder;
+            Bool value(Witness(&builder, raw_value));
+            const auto raw_index = value.get_witness_index();
+            if (inverted) {
+                value = !value;
+            }
+            const bool expected = raw_value != inverted;
+            value.fix_witness();
+            EXPECT_EQ(value.get_value(), expected);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            auto& variables = const_cast<std::vector<FF>&>(builder.get_variables());
+            variables[raw_index] = FF(!raw_value);
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+}

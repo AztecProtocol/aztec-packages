@@ -1125,3 +1125,25 @@ TYPED_TEST(ShpleminiTest, SmallSubgroupIPABoundaryOpeningRejectsForgedInnerProdu
 }
 
 } // namespace bb
+
+TEST(GeminiSparseFolding, MatchesZeroPaddedPolynomial)
+{
+    using FF = bb::fr;
+    using Polynomial = bb::Polynomial<FF>;
+    using Gemini = bb::GeminiProver_<bb::curve::BN254>;
+    constexpr size_t log_n = 4;
+    const std::vector<FF> challenge(6, FF(2));
+    for (size_t size : { size_t(1), size_t(4), size_t(8) }) {
+        Polynomial sparse(size, 1UL << log_n);
+        Polynomial dense(1UL << log_n);
+        for (size_t i = 0; i < size; ++i) {
+            sparse.at(i) = dense.at(i) = FF(i + 1);
+        }
+        const auto sparse_folds = Gemini::compute_fold_polynomials(log_n, challenge, sparse);
+        const auto dense_folds = Gemini::compute_fold_polynomials(log_n, challenge, dense);
+        ASSERT_EQ(sparse_folds.size(), dense_folds.size());
+        for (size_t i = 0; i < sparse_folds.size(); ++i) {
+            EXPECT_EQ(sparse_folds[i].evaluate(FF(3)), dense_folds[i].evaluate(FF(3)));
+        }
+    }
+}

@@ -83,7 +83,7 @@ template <typename FF_> class ECCVMWnafRelationImpl {
         FIRST_SLICE_POSITIVE = 20,
         // When precompute_select == 0: force point_transition to zero
         INACTIVE_POINT_TRANSITION = 21,
-        // Precompute select shape: monotonically non-decreasing after first row
+        // Precompute select shape: monotonically non-increasing after lagrange_first
         PRECOMPUTE_SELECT_SHAPE = 22,
         NUM_SUBRELATIONS,
     };

@@ -312,3 +312,37 @@ TEST_F(IPATest, RejectsClaimProofMismatch)
 
 typename IPATest::CK IPATest::ck;
 typename IPATest::VK IPATest::vk;
+
+TEST_F(IPATest, MockTranscriptCanReplayAllElements)
+{
+    MockTranscript transcript;
+    const Commitment point = Commitment::one();
+    transcript.initialize({ uint256_t(3) }, { point }, { uint256_t(5) });
+    for (size_t replay = 0; replay < 2; ++replay) {
+        EXPECT_EQ(transcript.get_challenge<Fr>("challenge"), Fr(3));
+        EXPECT_EQ(transcript.receive_from_prover<Fr>("scalar"), Fr(5));
+        EXPECT_EQ(transcript.receive_from_prover<Commitment>("point"), point);
+        transcript.reset_indices();
+    }
+}
+
+TEST_F(IPATest, ChallengePolynomialRejectsWrongChallengeCount)
+{
+    for (size_t size : { size_t(0), log_n - 1, log_n + 1 }) {
+        const std::vector<Fr> challenges(size, Fr(2));
+        EXPECT_THROW(PCS::evaluate_challenge_poly(challenges, Fr(3)), std::runtime_error);
+        EXPECT_THROW(PCS::construct_poly_from_u_challenges_inv(challenges), std::runtime_error);
+        const std::vector<Fr> valid(log_n, Fr(2));
+        EXPECT_THROW(PCS::create_challenge_poly(challenges, valid, Fr(3)), std::runtime_error);
+        EXPECT_THROW(PCS::create_challenge_poly(valid, challenges, Fr(3)), std::runtime_error);
+    }
+}
+
+TEST_F(IPATest, ChallengePolynomialEvaluationMatchesCoefficients)
+{
+    const std::vector<Fr> challenges(log_n, Fr(2));
+    const auto poly = PCS::construct_poly_from_u_challenges_inv(challenges);
+    EXPECT_EQ(PCS::evaluate_challenge_poly(challenges, Fr(3)), poly.evaluate(Fr(3)));
+    const auto combined = PCS::create_challenge_poly(challenges, challenges, Fr(4));
+    EXPECT_EQ(combined.evaluate(Fr(3)), Fr(5) * poly.evaluate(Fr(3)));
+}

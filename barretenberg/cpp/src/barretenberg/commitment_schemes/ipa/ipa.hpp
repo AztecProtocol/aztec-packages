@@ -829,7 +829,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
         previous_round_s[0] = Fr(1);
         for (size_t i = 0; i < log_poly_length; ++i) {
-            const size_t round_size = 1 << (i + 1);
+            const size_t round_size = size_t(1) << (i + 1);
             const Fr round_challenge = round_challenges_inv[i];
             for (size_t j = 0; j < round_size / 2; ++j) {
                 current_round_s[j * 2] = previous_round_s[j];
@@ -868,6 +868,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     static Fr evaluate_challenge_poly(const std::vector<Fr>& u_challenges_inv, Fr r)
     {
+        BB_ASSERT_EQ(u_challenges_inv.size(), log_poly_length);
         // Runs the obvious algorithm to compute the product ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.r^{2^{i-1}}) by
         // remembering the current 2-primary power of r.
         Fr challenge_poly_eval = 1;
@@ -930,7 +931,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
         previous_round_s[0] = bb::fq(1);
         for (size_t i = 0; i < log_poly_length; ++i) {
-            const size_t round_size = 1 << (i + 1);
+            const size_t round_size = size_t(1) << (i + 1);
             const bb::fq round_challenge = u_challenges_inv[i];
             parallel_for_heuristic(
                 round_size / 2,
@@ -959,7 +960,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                     bb::fq alpha)
     {
         // Always extend each to 1<<log_poly_length length
-        Polynomial<bb::fq> challenge_poly(1 << log_poly_length);
+        Polynomial<bb::fq> challenge_poly(poly_length);
         Polynomial challenge_poly_1 = construct_poly_from_u_challenges_inv(u_challenges_inv_1);
         Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(u_challenges_inv_2);
         challenge_poly += challenge_poly_1;

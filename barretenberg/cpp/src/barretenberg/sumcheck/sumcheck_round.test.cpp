@@ -1069,3 +1069,29 @@ TEST(SumcheckRound, RowParallelSkipFiresMatchesScalarMega)
 {
     check_row_parallel_matches_scalar<MegaFlavor>({ static_cast<size_t>(MegaFlavor::EntityId::q_arith) });
 }
+
+TEST(SumcheckRound, EccOpQueueSkipRequiresZeroWires)
+{
+    using Flavor = MegaFlavor;
+    using FF = Flavor::FF;
+    using Relation = EccOpQueueRelation<FF>;
+    using Edges = SumcheckProverRound<Flavor>::ExtendedEdges;
+    Edges edges{};
+    for (auto& edge : edges.get_all()) {
+        edge = std::remove_reference_t<decltype(edge)>(FF(0));
+    }
+    ASSERT_TRUE(Relation::skip(edges));
+    for (auto id : { Edges::EntityId::ecc_op_wire_1,
+                     Edges::EntityId::ecc_op_wire_2,
+                     Edges::EntityId::ecc_op_wire_3,
+                     Edges::EntityId::ecc_op_wire_4 }) {
+        edges[id].value_at(1) = FF(1);
+        typename Relation::SumcheckTupleOfUnivariatesOverSubrelations accumulator{};
+        Relation::accumulate(accumulator, edges, RelationParameters<FF>{}, FF(1));
+        bool nonzero = false;
+        constexpr_for<0, 8, 1>([&]<size_t i>() { nonzero |= !std::get<i>(accumulator).is_zero(); });
+        ASSERT_TRUE(nonzero);
+        EXPECT_FALSE(Relation::skip(edges));
+        edges[id].value_at(1) = FF(0);
+    }
+}

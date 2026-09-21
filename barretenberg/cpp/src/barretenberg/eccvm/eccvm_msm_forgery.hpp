@@ -381,11 +381,12 @@ inline ProverPolynomials build_trace(const Fixture& f, bool forge, Forgery* out 
     // The false statement: the target's accumulator is x*A + y*B + C, but its `eq` is repointed at the
     // donor's target, which differs by the donor's second MSM.
     auto queue = make_queue(f, Variant::TARGET);
-    auto& ops = queue->get_eccvm_ops();
+    auto ops = queue->get_eccvm_ops();
     auto& donor_ops = donor_queue->get_eccvm_ops();
     BB_ASSERT_EQ(ops.size(), donor_ops.size());
     BB_ASSERT_EQ(ops.back().op_code.eq, true);
     ops.back().base_point = donor_ops.back().base_point;
+    queue->set_eccvm_ops_with_row_counts_for_testing(ops);
 
     ECCVMCircuitBuilder builder{ queue };
     ProverPolynomials polys(builder);

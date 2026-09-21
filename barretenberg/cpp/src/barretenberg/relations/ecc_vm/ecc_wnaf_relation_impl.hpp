@@ -122,9 +122,8 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     const auto s1hi_shift = View(in.precompute_s1hi_shift);
     const auto s1hi_shift_msb_set = (s1hi_shift - 2) * (s1hi_shift - 3);
     const auto scaled_transition_plus_lagrange_first = scaled_transition + scaled_lagrange_first;
-    // away from row zero, add `scaled_transition * precompute_select_shift * s1hi_shift_msb_set`. however,
-    // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
-    // `scaled_lagrange_first`.
+    // The first scalar starts after the lagrange_first row, where q_transition is zero in the honest trace.
+    // Include scaled_lagrange_first so its leading slice is checked too.
     std::get<FIRST_SLICE_POSITIVE>(accumulator) +=
         scaled_transition_plus_lagrange_first * precompute_select_shift * s1hi_shift_msb_set;
     /**
@@ -169,8 +168,8 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     const auto check_sum = scalar_sum_shift - sum_delta;
     std::get<SCALAR_SUM_CHECK>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
     // We must constrain `precompute_select` to be of the correct shape: 0 1 1 ... 1 0 ...0. In other words, after the
-    // first row, it is monotonically non-decreasing. In other words, a malicious prover cannot inject the value '0' in
-    // the middle.
+    // lagrange_first row, it is monotonically non-increasing. In other words, a malicious prover cannot inject the
+    // value '0' in the middle.
     const auto scaled_lagrange_first_minus_one =
         scaled_lagrange_first - scaling_factor; // (if not at the first row, is -1, else 0) * scaling_factor
     const auto precompute_select_check = precompute_select_shift * (precompute_select - 1);
@@ -239,10 +238,10 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
 
     /**
      * @brief Scalar transition/PC checks.
-     * 1: if q_transition = 1 or if lagrange_first = 1, scalar_sum_new = 0. (note that q_transition[0] == 0.)
-     * 2: if q_transition = 0, pc at next row = pc at current row
-     * 3: if q_transition = 1, pc at next row = pc at current row - 1 (decrements by 1)
-     * (we combine 2 and 3 into a single relation)
+     * 1: if q_transition = 1 or lagrange_first = 1, scalar_sum_new = 0.
+     * 2: if q_transition = 0, pc at next row = pc at current row.
+     * 3: if q_transition = 1, pc at next row = pc at current row - 1.
+     * We combine 2 and 3 into a single relation.
      */
     std::get<SCALAR_SUM_SHIFT_ZERO>(accumulator) += precompute_select_transition_plus_lagrange_first * scalar_sum_shift;
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)

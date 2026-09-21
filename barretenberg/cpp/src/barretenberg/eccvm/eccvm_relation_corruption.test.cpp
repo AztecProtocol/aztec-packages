@@ -132,21 +132,14 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
 {
     const FF beta = FF::random_element(&engine);
     const FF gamma = FF::random_element(&engine);
-    const FF beta_sqr = beta.sqr();
-    const FF beta_cube = beta_sqr * beta;
-    auto eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
-    eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-
-    RelationParameters<FF> params{
-        .eta = 0,
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = 0,
-        .beta_sqr = beta_sqr,
-        .beta_cube = beta_cube,
-        .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
-    };
+    RelationParameters<FF> params{};
+    params.compute_beta_powers(beta);
+    params.gamma = gamma;
+    const FF tagged_gamma = gamma + params.beta_quartic;
+    params.eccvm_set_permutation_delta =
+        (tagged_gamma * (tagged_gamma + params.beta_sqr) * (tagged_gamma + FF(2) * params.beta_sqr) *
+         (tagged_gamma + FF(3) * params.beta_sqr))
+            .invert();
 
     compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, Flavor::TRACE_OFFSET);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
@@ -730,4 +723,17 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorSkewMsmPcTamper)
     EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior skew row";
     EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_SKEW_CONTINUITY))
         << "MSM_PC_SKEW_CONTINUITY should be among the failing subrelations";
+}
+
+TEST_F(ECCVMRelationCorruptionTests, FullParametersIncludeDomainSeparation)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    const auto params = compute_full_relation_params(polynomials);
+    const FF tag = params.beta.sqr().sqr();
+    EXPECT_EQ(params.beta_quartic, tag);
+    FF denominator(1);
+    for (size_t i = 0; i < 4; ++i) {
+        denominator *= params.gamma + FF(i) * params.beta.sqr() + tag;
+    }
+    EXPECT_EQ(params.eccvm_set_permutation_delta * denominator, FF(1));
 }

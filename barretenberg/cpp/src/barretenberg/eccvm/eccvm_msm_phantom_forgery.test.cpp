@@ -184,8 +184,9 @@ bool prove_and_verify(const Fixture& f, bool forge)
     ECCVMCircuitBuilder donor_builder{ donor_queue };
 
     auto queue = make_queue(f, Variant::TARGET);
-    auto& ops = queue->get_eccvm_ops();
+    auto ops = queue->get_eccvm_ops();
     ops.back().base_point = donor_queue->get_eccvm_ops().back().base_point;
+    queue->set_eccvm_ops_with_row_counts_for_testing(ops);
     ECCVMCircuitBuilder builder{ queue };
 
     auto prover_transcript = std::make_shared<Transcript>();

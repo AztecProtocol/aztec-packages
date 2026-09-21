@@ -51,8 +51,15 @@ class MegaCircuitBuilder_ : public UltraCircuitBuilder_<ExecutionTrace_> {
     uint32_t mul_accum_op_idx;
     uint32_t equality_op_idx;
 
-    // Functions for adding ECC op queue "gates"
+    /**
+     * @brief Append an ECC addition with fresh coordinate witnesses.
+     * @note Callers must constrain the returned witness indices to their in-circuit point.
+     */
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
+    /**
+     * @brief Append an ECC multiplication with fresh coordinate and scalar witnesses.
+     * @note Callers must constrain the returned witness indices to their in-circuit point and scalar.
+     */
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar, bool in_finalize = false);
     ecc_op_tuple queue_ecc_eq(bool in_finalize = true);
     ecc_op_tuple queue_ecc_no_op();
