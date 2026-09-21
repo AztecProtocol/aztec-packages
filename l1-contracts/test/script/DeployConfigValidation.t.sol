@@ -68,17 +68,69 @@ contract DeployConfigValidationTest is Test {
     _;
   }
 
-  // Load the canonical L1 config defaults so `getRollupConfiguration` yields a valid baseline.
+  // Load the canonical L1 config defaults so `getRollupConfiguration` yields a valid baseline. The values are set
+  // exactly as the other script tests set them, because the process environment is shared across parallel tests.
   function setUp() public skipWhenCoverage {
     string memory root = vm.projectRoot();
-    string memory json = vm.readFile(string.concat(root, "/scripts/network-defaults.json"));
-    string[] memory keys = vm.parseJsonKeys(json, "$");
-    for (uint256 i = 0; i < keys.length; i++) {
-      vm.setEnv(keys[i], _readAsString(json, keys[i]));
-    }
+    string memory path = string.concat(root, "/scripts/network-defaults.json");
+    string memory json = vm.readFile(path);
+
+    // Genesis roots are required by the deployer; any non-zero field element will do here.
     vm.setEnv("VK_TREE_ROOT", vm.toString(uint256(keccak256("vk_tree_root")) >> 8));
     vm.setEnv("PROTOCOL_CONTRACTS_HASH", vm.toString(uint256(keccak256("protocol_contracts_hash")) >> 8));
     vm.setEnv("GENESIS_ARCHIVE_ROOT", vm.toString(uint256(keccak256("genesis_archive_root")) >> 8));
+
+    // Timing config
+    vm.setEnv("ETHEREUM_SLOT_DURATION", vm.toString(json.readUint(".ETHEREUM_SLOT_DURATION")));
+    vm.setEnv("AZTEC_SLOT_DURATION", vm.toString(json.readUint(".AZTEC_SLOT_DURATION")));
+    vm.setEnv("AZTEC_EPOCH_DURATION", vm.toString(json.readUint(".AZTEC_EPOCH_DURATION")));
+    vm.setEnv("AZTEC_PROOF_SUBMISSION_EPOCHS", vm.toString(json.readUint(".AZTEC_PROOF_SUBMISSION_EPOCHS")));
+
+    // Validator config
+    vm.setEnv("AZTEC_TARGET_COMMITTEE_SIZE", vm.toString(json.readUint(".AZTEC_TARGET_COMMITTEE_SIZE")));
+    vm.setEnv(
+      "AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", vm.toString(json.readUint(".AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET"))
+    );
+    vm.setEnv("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", vm.toString(json.readUint(".AZTEC_LAG_IN_EPOCHS_FOR_RANDAO")));
+    vm.setEnv("AZTEC_LOCAL_EJECTION_THRESHOLD", json.readString(".AZTEC_LOCAL_EJECTION_THRESHOLD"));
+    vm.setEnv("AZTEC_EXIT_DELAY_SECONDS", vm.toString(json.readUint(".AZTEC_EXIT_DELAY_SECONDS")));
+
+    // Entry queue config
+    vm.setEnv(
+      "AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE",
+      vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE"))
+    );
+    vm.setEnv(
+      "AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE"))
+    );
+    vm.setEnv("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN")));
+    vm.setEnv(
+      "AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT"))
+    );
+    vm.setEnv("AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE")));
+
+    // Fees config
+    vm.setEnv("AZTEC_MANA_TARGET", vm.toString(json.readUint(".AZTEC_MANA_TARGET")));
+    vm.setEnv("AZTEC_PROVING_COST_PER_MANA", vm.toString(json.readUint(".AZTEC_PROVING_COST_PER_MANA")));
+    vm.setEnv("AZTEC_INITIAL_ETH_PER_FEE_ASSET", vm.toString(json.readUint(".AZTEC_INITIAL_ETH_PER_FEE_ASSET")));
+
+    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_0", json.readString(".AZTEC_REGISTRY_REWARD_OVERRIDE_0"));
+    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_1", json.readString(".AZTEC_REGISTRY_REWARD_OVERRIDE_1"));
+
+    // Slashing config
+    vm.setEnv("AZTEC_SLASHER_ENABLED", vm.toString(json.readBool(".AZTEC_SLASHER_ENABLED")));
+    vm.setEnv("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", vm.toString(json.readUint(".AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS")));
+    vm.setEnv("AZTEC_SLASHING_OFFSET_IN_ROUNDS", vm.toString(json.readUint(".AZTEC_SLASHING_OFFSET_IN_ROUNDS")));
+    vm.setEnv("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", vm.toString(json.readUint(".AZTEC_SLASHING_LIFETIME_IN_ROUNDS")));
+    vm.setEnv(
+      "AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS",
+      vm.toString(json.readUint(".AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS"))
+    );
+    vm.setEnv("AZTEC_SLASHING_DISABLE_DURATION", vm.toString(json.readUint(".AZTEC_SLASHING_DISABLE_DURATION")));
+    vm.setEnv("AZTEC_SLASHING_VETOER", json.readString(".AZTEC_SLASHING_VETOER"));
+    vm.setEnv("AZTEC_SLASH_AMOUNT_SMALL", json.readString(".AZTEC_SLASH_AMOUNT_SMALL"));
+    vm.setEnv("AZTEC_SLASH_AMOUNT_MEDIUM", json.readString(".AZTEC_SLASH_AMOUNT_MEDIUM"));
+    vm.setEnv("AZTEC_SLASH_AMOUNT_LARGE", json.readString(".AZTEC_SLASH_AMOUNT_LARGE"));
 
     configuration = new RollupConfigurationHarness();
     configuration.loadConfig();
@@ -93,15 +145,6 @@ contract DeployConfigValidationTest is Test {
       stakingAsset: stakingAsset,
       rewardDistributor: rewardDistributor
     });
-  }
-
-  function _readAsString(string memory _json, string memory _key) internal pure returns (string memory) {
-    bytes memory raw = vm.parseJson(_json, string.concat(".", _key));
-    // Numbers decode to a single word; strings, addresses and booleans are stored as strings in the defaults file.
-    if (raw.length == 32) {
-      return vm.toString(abi.decode(raw, (uint256)));
-    }
-    return abi.decode(raw, (string));
   }
 
   function _baseConfig() internal view returns (RollupConfigInput memory) {
@@ -166,6 +209,12 @@ contract DeployConfigValidationTest is Test {
     lib.validateRollupConfig(input, config);
   }
 
+  function test_LongEpochIsAllowed() public view {
+    RollupConfigInput memory config = _baseConfig();
+    config.aztecEpochDuration = 1000;
+    lib.validateRollupConfig(input, config);
+  }
+
   function test_RevertWhenExitDelayZero() public {
     RollupConfigInput memory config = _baseConfig();
     config.exitDelaySeconds = 0;
@@ -184,12 +233,6 @@ contract DeployConfigValidationTest is Test {
     config = _baseConfig();
     config.aztecEpochDuration = 0;
     _expectInvalid(config, "DeployRollupLib: aztecEpochDuration is zero");
-  }
-
-  function test_RevertWhenEpochDurationAboveProofCap() public {
-    RollupConfigInput memory config = _baseConfig();
-    config.aztecEpochDuration = 33;
-    _expectInvalid(config, "DeployRollupLib: aztecEpochDuration exceeds MAX_CHECKPOINTS_PER_EPOCH");
   }
 
   function test_RevertWhenEpochSecondsOverflowUint32() public {

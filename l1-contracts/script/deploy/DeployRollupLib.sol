@@ -22,7 +22,6 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {HonkVerifier} from "@generated/HonkVerifier.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 import {IRollupConfiguration} from "./RollupConfiguration.sol";
 
@@ -96,15 +95,12 @@ library DeployRollupLib {
   /// @notice Reject configuration the Rollup constructor accepts but that leaves the deployed instance unusable.
   /// @dev Every value here is fixed at construction, so a bad one can only be corrected by redeploying. A zero
   ///      `targetCommitteeSize` is not rejected: `ValidatorSelectionLib` treats it as "no committee", which local
-  ///      networks and end-to-end tests rely on.
+  ///      networks and end-to-end tests rely on. An epoch longer than `MAX_CHECKPOINTS_PER_EPOCH` is not rejected
+  ///      either: end-to-end tests use long epochs to keep a run inside epoch 0.
   function validateRollupConfig(RollupAddressInput memory input, RollupConfigInput memory config) internal view {
     require(config.ethereumSlotDuration > 0, "DeployRollupLib: ethereumSlotDuration is zero");
     require(config.aztecSlotDuration > 0, "DeployRollupLib: aztecSlotDuration is zero");
     require(config.aztecEpochDuration > 0, "DeployRollupLib: aztecEpochDuration is zero");
-    require(
-      config.aztecEpochDuration <= Constants.MAX_CHECKPOINTS_PER_EPOCH,
-      "DeployRollupLib: aztecEpochDuration exceeds MAX_CHECKPOINTS_PER_EPOCH"
-    );
     // TimeLib multiplies the two uint32 durations without widening.
     uint256 epochDurationSeconds = config.aztecSlotDuration * config.aztecEpochDuration;
     require(epochDurationSeconds <= type(uint32).max, "DeployRollupLib: epoch duration in seconds overflows uint32");
