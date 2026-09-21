@@ -21,7 +21,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           REF_NAME: ${{ github.event.pull_request.head.ref }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: ./ci3/merge_train_failure_slack_notify --dequeued
+        run: ./ci3-local/merge_train_failure_slack_notify --dequeued
 
   notify-merged:
     name: Notify Slack (Merged)
@@ -39,4 +39,4 @@ jobs:
           REF_NAME: ${{ github.event.pull_request.head.ref }}
           TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: ./ci3/merge_train_failure_slack_notify --merged
+        run: ./ci3-local/merge_train_failure_slack_notify --merged
