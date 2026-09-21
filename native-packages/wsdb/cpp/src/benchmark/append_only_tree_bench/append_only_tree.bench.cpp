@@ -82,4 +82,3 @@ BENCHMARK(append_only_tree_bench<Poseidon2>)
 
 } // namespace
 
-BENCHMARK_MAIN();

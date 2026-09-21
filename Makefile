@@ -89,7 +89,7 @@ full: full-foundation full-labs
 # and nothing more. bb-sol adds the Solidity gas benchmark's generated verifier;
 # bb-acir builds barretenberg/acir_tests, whose headless-test harness (ts-node)
 # the bb browser memory bench (ci_benchmark_browser_memory.sh) drives.
-bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir \
+bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir wsdb \
 		noir-protocol-circuits l1-contracts
 
 bench-labs: labs-bench
@@ -402,7 +402,7 @@ lmdblib:
 kvdb: lmdblib
 	$(call build,$@,native-packages/kvdb)
 
-wsdb: ipc-codegen ipc-runtime bb-cpp-native lmdblib
+wsdb: lmdblib
 	$(call build,$@,native-packages/wsdb)
 
 # Native-package C++ tests (self-contained gtest binaries). kvdb has no C++ tests

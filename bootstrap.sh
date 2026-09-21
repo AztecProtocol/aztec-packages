@@ -501,7 +501,7 @@ function labs_bench_cmds {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- barretenberg/{ts,cpp,sol} noir-projects/fnd/noir-protocol-circuits l1-contracts
+    set -- barretenberg/{ts,cpp,sol} native-packages/wsdb noir-projects/fnd/noir-protocol-circuits l1-contracts
     parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
     labs_bench_cmds
     return
@@ -620,6 +620,7 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
+    ipc-codegen
     native-packages/lmdblib
     native-packages/kvdb
     native-packages/wsdb
@@ -687,7 +688,7 @@ function private_release {
 
   # Publish for real, in dependency order: the ipc-codegen-generated @aztec-foundation/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
+  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
   done
