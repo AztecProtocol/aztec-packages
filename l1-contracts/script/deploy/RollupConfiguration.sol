@@ -27,6 +27,15 @@ interface IRollupConfiguration {
   function parseValidators() external view returns (CheatDepositArgs[] memory);
 }
 
+/// @title RollupConfiguration
+/// @author Aztec Labs
+/// @notice Reads rollup deployment configuration from environment variables for the env-driven deployer
+/// used by tests, the spartan/CLI tooling and testnets (`DeployAztecL1Contracts`, `DeployRollupForUpgrade`).
+/// @dev Mainnet rollup versions are deployed by bespoke pinned `DeployRollupForUpgradeV<N>.s.sol` scripts
+/// that hard-code their configuration instead of reading it here. Examples:
+///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
+///   - v6: `DeployRollupForUpgradeV6.s.sol`
+/// The environment variables read below describe a test network, not mainnet.
 contract RollupConfiguration is IRollupConfiguration, Test {
   using stdJson for string;
   using SafeCast for uint256;
