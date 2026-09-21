@@ -5,8 +5,6 @@ if [ ! -f "$(git rev-parse --show-toplevel)/ci3/source" ]; then
   exit 1
 fi
 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
-source $ci3/source_refname
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
