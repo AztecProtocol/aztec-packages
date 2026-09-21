@@ -775,7 +775,6 @@ pub global DOM_SEP__CONTRACT_ADDRESS_V2: u32 = 4099338721;
 
 pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 4195546849;
 
-pub global DOM_SEP__TX_REQUEST: u32 = 3763737512;
 /// Domain separator for the unsiloed protocol nullifier (`TxRequest::compute_protocol_nullifier_value`).
 pub global DOM_SEP__PROTOCOL_NULLIFIER: u32 = 4023616154;
 pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 1630108851;

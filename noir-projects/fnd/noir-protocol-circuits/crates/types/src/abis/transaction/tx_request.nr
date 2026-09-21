@@ -1,9 +1,9 @@
 use crate::{
     abis::{function_data::FunctionData, transaction::tx_context::TxContext},
     address::AztecAddress,
-    constants::{DOM_SEP__PROTOCOL_NULLIFIER, DOM_SEP__TX_REQUEST, NULL_MSG_SENDER_CONTRACT_ADDRESS},
+    constants::{DOM_SEP__PROTOCOL_NULLIFIER, NULL_MSG_SENDER_CONTRACT_ADDRESS},
     hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
-    traits::{Deserialize, Empty, Hash, Serialize, ToField},
+    traits::{Deserialize, Empty, Serialize, ToField},
 };
 use std::meta::derive;
 
@@ -34,12 +34,6 @@ impl Empty for TxRequest {
             function_data: FunctionData::empty(),
             salt: 0,
         }
-    }
-}
-
-impl Hash for TxRequest {
-    fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__TX_REQUEST)
     }
 }
 
@@ -79,9 +73,29 @@ mod tests {
             transaction::{tx_context::TxContext, tx_request::TxRequest},
         },
         address::AztecAddress,
-        constants::TX_REQUEST_LENGTH,
-        traits::{Deserialize, Empty, FromField, Hash, Serialize},
+        constants::{NULL_MSG_SENDER_CONTRACT_ADDRESS, TX_REQUEST_LENGTH},
+        hash::{compute_siloed_nullifier, create_protocol_nullifier},
+        traits::{Deserialize, Empty, FromField, Serialize},
     };
+
+    fn example_tx_request() -> TxRequest {
+        let gas_settings = GasSettings::new(
+            Gas::new(2, 2),
+            Gas::new(1, 1),
+            GasFees::new(4, 4),
+            GasFees::new(3, 3),
+        );
+        TxRequest {
+            origin: AztecAddress::from_field(1122),
+            args_hash: 33,
+            tx_context: TxContext { chain_id: 44, version: 55, gas_settings },
+            function_data: FunctionData {
+                selector: FunctionSelector::from_u32(66),
+                is_private: true,
+            },
+            salt: 789,
+        }
+    }
 
     #[test]
     fn serialization_of_empty() {
@@ -94,47 +108,8 @@ mod tests {
     }
 
     #[test]
-    fn compute_hash() {
-        let gas_settings = GasSettings::new(
-            Gas::new(2, 2),
-            Gas::new(1, 1),
-            GasFees::new(4, 4),
-            GasFees::new(3, 3),
-        );
-        let tx_request = TxRequest {
-            origin: AztecAddress::from_field(1122),
-            args_hash: 33,
-            tx_context: TxContext { chain_id: 44, version: 55, gas_settings },
-            function_data: FunctionData {
-                selector: FunctionSelector::from_u32(66),
-                is_private: true,
-            },
-            salt: 789,
-        };
-        // Value from tx_request.test.ts "compute hash" test
-        let test_data_tx_request_hash =
-            0x09c2372649f434fc01e3c010792c33b383bfff50f7e6ed7b6ba689d6d7b1f109;
-        assert(tx_request.hash() == test_data_tx_request_hash);
-    }
-
-    #[test]
     fn compute_protocol_nullifier() {
-        let gas_settings = GasSettings::new(
-            Gas::new(2, 2),
-            Gas::new(1, 1),
-            GasFees::new(4, 4),
-            GasFees::new(3, 3),
-        );
-        let tx_request = TxRequest {
-            origin: AztecAddress::from_field(1122),
-            args_hash: 33,
-            tx_context: TxContext { chain_id: 44, version: 55, gas_settings },
-            function_data: FunctionData {
-                selector: FunctionSelector::from_u32(66),
-                is_private: true,
-            },
-            salt: 789,
-        };
+        let tx_request = example_tx_request();
         // Gas settings and the first call's args are not part of the preimage.
         let mut bumped = tx_request;
         bumped.tx_context.gas_settings = GasSettings::new(
@@ -154,10 +129,32 @@ mod tests {
         assert(
             tx_request.compute_protocol_nullifier() != other_origin.compute_protocol_nullifier(),
         );
+        let mut other_chain = tx_request;
+        other_chain.tx_context.chain_id = 45;
+        assert(tx_request.compute_protocol_nullifier() != other_chain.compute_protocol_nullifier());
+        let mut other_version = tx_request;
+        other_version.tx_context.version = 56;
+        assert(
+            tx_request.compute_protocol_nullifier() != other_version.compute_protocol_nullifier(),
+        );
         // Values from tx_request.test.ts "compute protocol nullifier" test
         let test_data_value = 0x274bc3bf8d36c9c8628a471d930d1d833dd5072df6fe108390f04f7d88418051;
         let test_data_siloed = 0x032db509ef1efc8cdefdab5e059061d52e1b04aaccc04404f87d0bef7d0021e1;
         assert_eq(tx_request.compute_protocol_nullifier_value(), test_data_value);
         assert_eq(tx_request.compute_protocol_nullifier(), test_data_siloed);
+    }
+
+    // The value the init kernel inserts at index 0, once siloed by the reset kernel, is exactly the value every
+    // private call is shown as `protocol_nullifier`.
+    #[test]
+    fn exposed_protocol_nullifier_is_the_siloed_first_nullifier() {
+        let tx_request = example_tx_request();
+        let inserted = create_protocol_nullifier(tx_request);
+        assert_eq(inserted.contract_address, NULL_MSG_SENDER_CONTRACT_ADDRESS);
+        assert_eq(inserted.innermost().value, tx_request.compute_protocol_nullifier_value());
+        assert_eq(
+            compute_siloed_nullifier(inserted.contract_address, inserted.innermost().value),
+            tx_request.compute_protocol_nullifier(),
+        );
     }
 }

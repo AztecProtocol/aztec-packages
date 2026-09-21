@@ -237,10 +237,8 @@ impl FixtureBuilder {
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
-        let mut builder = builder.use_contract(contract_data).use_function(
-            contract_function,
-            fixtures::contract_functions::default_vk,
-        );
+        let _ = builder.use_contract(contract_data);
+        let _ = builder.use_function(contract_function, fixtures::contract_functions::default_vk);
         builder.protocol_nullifier = builder.to_tx_request().compute_protocol_nullifier();
         builder
     }
