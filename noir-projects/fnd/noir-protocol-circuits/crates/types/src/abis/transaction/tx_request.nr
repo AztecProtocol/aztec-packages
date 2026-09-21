@@ -21,7 +21,8 @@ pub struct TxRequest {
     // The transaction's nonce: a fresh random field drawn by the wallet. Together with `origin`, `chain_id` and
     // `version` it is the whole preimage of the protocol nullifier (`compute_protocol_nullifier_value`), so it is what
     // keeps that nullifier unpredictable and unique. Only the kernel and the wallet ever see it; app circuits are
-    // shown the (siloed) protocol nullifier instead. Must be non-zero.
+    // shown the (siloed) protocol nullifier instead. The kernel cannot check that it is random; the wallet must draw it
+    // fresh for every transaction, because two requests with the same origin and salt are mutually exclusive.
     pub salt: Field,
 }
 

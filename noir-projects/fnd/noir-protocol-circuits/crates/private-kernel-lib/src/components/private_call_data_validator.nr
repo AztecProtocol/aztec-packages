@@ -187,8 +187,6 @@ impl PrivateCallDataValidator {
             this_call.tx_context,
             "tx_context in private call does not match the value in tx_request",
         );
-        // A zero salt would make the protocol nullifier a deterministic function of public data.
-        assert(tx_request.salt != 0, "tx_request salt must be non-zero");
         // Binds the entry-point proof to the tx request's protocol nullifier, and through it to the
         // salt. Without this a third party could rebind the same proof to a different salt, yielding a
         // different protocol nullifier and replaying the transaction.

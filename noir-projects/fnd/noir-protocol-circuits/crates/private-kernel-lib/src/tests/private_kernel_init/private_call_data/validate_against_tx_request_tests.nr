@@ -88,13 +88,3 @@ fn mismatch_protocol_nullifier() {
 
     builder.execute_and_fail();
 }
-
-#[test(should_fail_with = "tx_request salt must be non-zero")]
-fn zero_salt() {
-    let mut builder = TestBuilder::new();
-
-    builder.tx_request.salt = 0;
-    builder.private_call.protocol_nullifier = builder.tx_request.compute_protocol_nullifier();
-
-    builder.execute_and_fail();
-}

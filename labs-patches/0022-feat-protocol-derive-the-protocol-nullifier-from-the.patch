@@ -16,7 +16,7 @@ computeProtocolNullifier(value) in stdlib/hash takes the unsiloed value. Account
 wallets are unchanged.
 
 diff --git a/docs/docs-developers/docs/resources/migration_notes.md b/docs/docs-developers/docs/resources/migration_notes.md
-index 1b424640776e10ee60ce47b836ad6e7107658851..b224c9703cfcf4ab589e6eb68db405b26b938cec 100644
+index 1b424640776e10ee60ce47b836ad6e7107658851..59d503114eee476edeea4737288d6153d6e58650 100644
 --- a/docs/docs-developers/docs/resources/migration_notes.md
 +++ b/docs/docs-developers/docs/resources/migration_notes.md
 @@ -9,6 +9,14 @@ Aztec is in active development. Each version may introduce breaking changes that
@@ -25,7 +25,7 @@ index 1b424640776e10ee60ce47b836ad6e7107658851..b224c9703cfcf4ab589e6eb68db405b2
  
 +### [Protocol] The protocol nullifier is derived from the tx request's salt alone; `tx_request_salt` becomes `protocol_nullifier`
 +
-+The protocol nullifier, which the init kernel always inserts at index 0 of a transaction's nullifiers, is now `silo(NULL_MSG_SENDER, H(origin, chain_id, version, salt))` instead of `H(tx_request)`. Gas settings and the first call's arguments are no longer part of its preimage, so two transactions built with the same salt (a fee bump, or a cancellation) share it and at most one of them can be mined. The proof is still pinned to the full tx request by the init kernel, and the salt must be non-zero.
++The protocol nullifier, which the init kernel always inserts at index 0 of a transaction's nullifiers, is now `silo(NULL_MSG_SENDER, H(origin, chain_id, version, salt))` instead of `H(tx_request)`. Gas settings and the first call's arguments are no longer part of its preimage, so two transactions built with the same salt (a fee bump, or a cancellation) share it and at most one of them can be mined. The proof is still pinned to the full tx request by the init kernel. The kernel cannot check that the salt is random, so wallets must draw it fresh for every transaction: two requests with the same origin and salt are mutually exclusive.
 +
 +The `tx_request_salt` field of `PrivateCircuitPublicInputs`, `PrivateContextInputs` and `PrivateTxConstantData` is replaced by `protocol_nullifier`: the siloed protocol nullifier, kernel-checked and identical on every private call of the transaction. The raw salt no longer reaches app circuits. This is set by the framework and PXE; contracts need no changes beyond recompiling. `TxRequest` gains `computeProtocolNullifierValue()` / `computeProtocolNullifier()` in Aztec.js (`compute_protocol_nullifier_value` / `compute_protocol_nullifier` in Noir); `TxRequest.hash()` (Noir: `impl Hash for TxRequest`) and `DOM_SEP__TX_REQUEST` are removed, since computing the old protocol nullifier was their only job; and `computeProtocolNullifier(value)` in `@aztec-labs/stdlib/hash` takes the unsiloed value.
 +
@@ -393,7 +393,7 @@ index 00bedcf387d46a996cc33794ad55868700b8e1a4..4f3dbc61adbf065e6fad1f3a48df6540
    });
  });
 diff --git a/yarn-project/stdlib/src/tx/tx_request.ts b/yarn-project/stdlib/src/tx/tx_request.ts
-index c88a103ab77de8b1b2e805f71d77d10af4fa2485..9e2736eff2ec3d34267fbcd2b693ebc29e2d5d5c 100644
+index c88a103ab77de8b1b2e805f71d77d10af4fa2485..4ccb143ecc1891e4e6849a976cb825a3e5328e5f 100644
 --- a/yarn-project/stdlib/src/tx/tx_request.ts
 +++ b/yarn-project/stdlib/src/tx/tx_request.ts
 @@ -5,6 +5,7 @@ import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec-labs/
@@ -404,19 +404,21 @@ index c88a103ab77de8b1b2e805f71d77d10af4fa2485..9e2736eff2ec3d34267fbcd2b693ebc2
  import { FunctionData } from './function_data.js';
  import { TxContext } from './tx_context.js';
  
-@@ -22,7 +23,10 @@ export class TxRequest {
+@@ -22,7 +23,12 @@ export class TxRequest {
      public txContext: TxContext,
      /** Function data representing the function to call. */
      public functionData: FunctionData,
 -    /** A salt to make the hash difficult to predict. The hash is used as the first nullifier if there is no nullifier emitted throughout the tx. */
 +    /**
 +     * The transaction's nonce: a fresh random field drawn by the wallet. With `origin`, `chainId` and `version` it is the
-+     * whole preimage of the protocol nullifier, so it keeps that nullifier unpredictable and unique. Must be non-zero.
++     * whole preimage of the protocol nullifier, so it keeps that nullifier unpredictable and unique. The kernel cannot
++     * check that it is random; draw it fresh for every transaction, since two requests with the same origin and salt are
++     * mutually exclusive.
 +     */
      public salt: Fr,
    ) {}
    // docs:end:constructor
-@@ -43,6 +47,26 @@ export class TxRequest {
+@@ -43,6 +49,26 @@ export class TxRequest {
      return serializeToBuffer([...TxRequest.getFields(this)]);
    }
  
@@ -443,7 +445,7 @@ index c88a103ab77de8b1b2e805f71d77d10af4fa2485..9e2736eff2ec3d34267fbcd2b693ebc2
    toFields(): Fr[] {
      const fields = serializeToFields(...TxRequest.getFields(this));
      if (fields.length !== TX_REQUEST_LENGTH) {
-@@ -67,10 +91,6 @@ export class TxRequest {
+@@ -67,10 +93,6 @@ export class TxRequest {
      );
    }
  
