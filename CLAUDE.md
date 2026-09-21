@@ -9,7 +9,7 @@ All paths below are relative to the git root. When working inside a component, a
 
 `avm-transpiler/` transpiles Noir bytecode to AVM bytecode (Rust). `noir/` is the Noir compiler, a git submodule pointing to noir-lang/noir. `noir-projects/fnd/` holds the protocol circuits and protocol contracts written in Noir.
 
-`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
+`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `l1-contracts/script/deploy/` is the env-driven deployer for tests, spartan/CLI and testnets; mainnet rollup upgrades use bespoke pinned scripts (`DeployRollupForUpgradeV<N>.s.sol`: V5 on the `v5-next` branch, V6), so its defaults are not mainnet configuration and findings against them are not mainnet findings. `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
 </components>
 
 <build_system>
