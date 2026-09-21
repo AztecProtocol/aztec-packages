@@ -106,8 +106,9 @@ pub struct PrivateCircuitPublicInputs {
     // The hashes of the contract class logs created in this function call.
     pub contract_class_logs_hashes: ClaimedLengthArray<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
-    // The transaction's protocol nullifier, siloed, i.e. exactly the value the init kernel inserts at index 0 of the
-    // transaction's nullifiers. Set by the framework, identical on every private call of the transaction. The init
+    // The transaction's protocol nullifier, siloed: the init kernel inserts its unsiloed value at index 0 of the
+    // transaction's nullifiers and the reset kernel siloes it, so this is exactly the value that lands in the nullifier
+    // tree. Set by the framework, identical on every private call of the transaction. The init
     // kernel asserts the first call's value equals `tx_request.compute_protocol_nullifier()`, which binds this proof
     // to a specific tx request (and, through it, to the salt) so a third party cannot rebind it to a different one;
     // every later kernel asserts each nested call's value equals the transaction constant. Because the value is a

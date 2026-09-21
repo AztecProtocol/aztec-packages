@@ -107,7 +107,7 @@ index 1ca48efd38ed87dce4035e14005b5cced6eece77..5550c18b310e48b8e6aa365f1197545b
      mapProtocolContractsFromNoir(data.protocol_contracts),
    );
 diff --git a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
-index 981af63e696762cfdb8447815907d17ea88b4205..8793a521600f25473d706a77cd979fe4f610ff5c 100644
+index 981af63e696762cfdb8447815907d17ea88b4205..53ec5186c118a9c7f109c647632ef905c95f493d 100644
 --- a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
 +++ b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
 @@ -50,7 +50,6 @@ import type { BlockParameter, L2TipsProvider } from '@aztec-labs/stdlib/block';
@@ -118,16 +118,24 @@ index 981af63e696762cfdb8447815907d17ea88b4205..8793a521600f25473d706a77cd979fe4
    computeSiloedPrivateLogFirstField,
    computeUniqueNoteHash,
    siloNoteHash,
-@@ -254,7 +253,7 @@ export class ContractFunctionSimulator {
+@@ -254,7 +253,15 @@ export class ContractFunctionSimulator {
        entryPointArtifact.isStatic,
      );
  
 -    const protocolNullifier = await computeProtocolNullifier(await request.toTxRequest().hash());
++    if (request.salt.isZero()) {
++      // Zero is what an unset field looks like. The kernel accepts it, so a wallet that never set the salt would see
++      // its first transaction succeed and every later one from this origin rejected as a duplicate nullifier.
++      this.log.warn(
++        'Tx request salt is zero. The salt is the transaction nonce: draw it fresh per transaction, or every other ' +
++          `transaction from ${request.origin} with a zero salt will collide with this one on the protocol nullifier.`,
++      );
++    }
 +    const protocolNullifier = await request.toTxRequest().computeProtocolNullifier();
      const noteCache = new ExecutionNoteCache(protocolNullifier);
      const taggingIndexCache = new ExecutionTaggingIndexCache();
  
-@@ -266,7 +265,7 @@ export class ContractFunctionSimulator {
+@@ -266,7 +273,7 @@ export class ContractFunctionSimulator {
      const privateExecutionOracle = new PrivateExecutionOracle({
        argsHash: request.firstCallArgsHash,
        txContext: request.txContext,
