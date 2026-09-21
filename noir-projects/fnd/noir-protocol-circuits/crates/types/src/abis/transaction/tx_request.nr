@@ -18,9 +18,9 @@ pub struct TxRequest {
     pub tx_context: TxContext,
     // The data of the first function call in the transaction.
     pub function_data: FunctionData,
-    // The transaction's nonce: a fresh random field drawn by the wallet. Together with `origin`, `chain_id` and
-    // `version` it is the whole preimage of the protocol nullifier (`compute_protocol_nullifier_value`), so it is what
-    // keeps that nullifier unpredictable and unique. Only the kernel and the wallet ever see it; app circuits are
+    // A fresh random field drawn by the wallet, acting as the tx request's nonce. Together with `origin`, `chain_id`
+    // and `version` it is the whole preimage of the protocol nullifier (`compute_protocol_nullifier_value`), so it is
+    // what keeps that nullifier unpredictable and unique. Only the kernel and the wallet ever see it; app circuits are
     // shown the (siloed) protocol nullifier instead. The kernel cannot check that it is random; the wallet must draw it
     // fresh for every transaction, because two requests with the same origin and salt are mutually exclusive.
     pub salt: Field,
@@ -39,10 +39,10 @@ impl Empty for TxRequest {
 }
 
 impl TxRequest {
-    /// The unsiloed value of the protocol nullifier: the transaction's nonce commitment.
+    /// The unsiloed value of the protocol nullifier: a commitment to the tx request's salt.
     ///
     /// The preimage is deliberately narrow. `origin` (the first call's contract), `chain_id` and `version` name the
-    /// slot the nonce belongs to; `salt` is the nonce. Gas settings and the first call's arguments are left out so
+    /// slot the salt belongs to; `salt` is the per-transaction nonce. Gas settings and the first call's arguments are left out so
     /// that a fee bump or a cancellation that reuses the salt produces the same nullifier and the two transactions are
     /// mutually exclusive. The proof is still pinned to the full request by `validate_against_tx_request`.
     pub fn compute_protocol_nullifier_value(self) -> Field {

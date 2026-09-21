@@ -335,27 +335,28 @@ index 8c930d7abc687d6deec9bcce4fc98b89db396630..daa8f138849147c96a5d2434714ec186
  }
  
 diff --git a/yarn-project/stdlib/src/tx/private_tx_constant_data.ts b/yarn-project/stdlib/src/tx/private_tx_constant_data.ts
-index e3bbb1cea00612e3d3240f2a9a4e8b3493b7bd38..13259031da5ecc32776b969e58bd7ede986723df 100644
+index e3bbb1cea00612e3d3240f2a9a4e8b3493b7bd38..ea05b1ebdf12116b0746cdb48d6f379f4c58eb44 100644
 --- a/yarn-project/stdlib/src/tx/private_tx_constant_data.ts
 +++ b/yarn-project/stdlib/src/tx/private_tx_constant_data.ts
-@@ -26,11 +26,12 @@ export class PrivateTxConstantData {
+@@ -24,13 +24,13 @@ export class PrivateTxConstantData {
+      */
+     public txContext: TxContext,
      /**
-      * Salt of the transaction request (`TxRequest.salt`).
+-     * Salt of the transaction request (`TxRequest.salt`).
++     * The transaction's siloed protocol nullifier.
       *
--     * Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each
+      * Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each
 -     * app circuit's `txRequestSalt` public input can be checked against it. It is intentionally not carried into
 -     * `TxConstantData`: it is dropped by the Tail circuits rather than being exposed by the final (hiding) kernel.
-+     * The transaction's siloed protocol nullifier. Bound to the user's `tx_request` by the Init circuit and kept
-+     * constant by every subsequent kernel so that each app circuit's `protocolNullifier` public input can be checked
-+     * against it. Not carried into `TxConstantData`: the value is already published as the transaction's first
-+     * nullifier.
++     * app circuit's `protocolNullifier` public input can be checked against it. Not carried into `TxConstantData`:
++     * the value is already published as the transaction's first nullifier.
       */
 -    public txRequestSalt: Fr,
 +    public protocolNullifier: Fr,
      /**
       * Root of the vk tree for the protocol circuits.
       */
-@@ -49,7 +50,7 @@ export class PrivateTxConstantData {
+@@ -49,7 +49,7 @@ export class PrivateTxConstantData {
      return [
        fields.anchorBlockHeader,
        fields.txContext,
@@ -364,7 +365,7 @@ index e3bbb1cea00612e3d3240f2a9a4e8b3493b7bd38..13259031da5ecc32776b969e58bd7ede
        fields.vkTreeRoot,
        fields.protocolContracts,
      ] as const;
-@@ -105,7 +106,7 @@ export class PrivateTxConstantData {
+@@ -105,7 +105,7 @@ export class PrivateTxConstantData {
      return (
        this.anchorBlockHeader.getSize() +
        this.txContext.getSize() +
@@ -436,7 +437,7 @@ index 00bedcf387d46a996cc33794ad55868700b8e1a4..fa978de7bdfaab5808f5a2994012ed5b
    });
  });
 diff --git a/yarn-project/stdlib/src/tx/tx_request.ts b/yarn-project/stdlib/src/tx/tx_request.ts
-index c88a103ab77de8b1b2e805f71d77d10af4fa2485..4ccb143ecc1891e4e6849a976cb825a3e5328e5f 100644
+index c88a103ab77de8b1b2e805f71d77d10af4fa2485..7a81a5ac48031ad520e7844420c8c323b6c6e9d6 100644
 --- a/yarn-project/stdlib/src/tx/tx_request.ts
 +++ b/yarn-project/stdlib/src/tx/tx_request.ts
 @@ -5,6 +5,7 @@ import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec-labs/
@@ -453,10 +454,10 @@ index c88a103ab77de8b1b2e805f71d77d10af4fa2485..4ccb143ecc1891e4e6849a976cb825a3
      public functionData: FunctionData,
 -    /** A salt to make the hash difficult to predict. The hash is used as the first nullifier if there is no nullifier emitted throughout the tx. */
 +    /**
-+     * The transaction's nonce: a fresh random field drawn by the wallet. With `origin`, `chainId` and `version` it is the
-+     * whole preimage of the protocol nullifier, so it keeps that nullifier unpredictable and unique. The kernel cannot
-+     * check that it is random; draw it fresh for every transaction, since two requests with the same origin and salt are
-+     * mutually exclusive.
++     * A fresh random field drawn by the wallet, acting as the tx request's nonce. With `origin`, `chainId` and `version`
++     * it is the whole preimage of the protocol nullifier, so it keeps that nullifier unpredictable and unique. The kernel
++     * cannot check that it is random; draw it fresh for every transaction, since two requests with the same origin and
++     * salt are mutually exclusive.
 +     */
      public salt: Fr,
    ) {}
