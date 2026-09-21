@@ -69,8 +69,10 @@ struct DeployAztecL1ContractsOutput {
  * complete L1 set from scratch, including test-only assets and handlers. It is not how mainnet was
  * deployed: mainnet's one-off contracts (token, GSE, Registry, Governance, GovernanceProposer,
  * ProtocolTreasury, CoinIssuer) came from the `AztecProtocol/ignition-contracts` deployment, and each
- * mainnet rollup version is deployed by a bespoke pinned `DeployRollupForUpgradeV<N>.s.sol`. Its
- * defaults are test-network conveniences, not mainnet configuration.
+ * mainnet rollup version is deployed by a bespoke pinned `DeployRollupForUpgradeV<N>.s.sol`. Examples:
+ *   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
+ *   - v6: `DeployRollupForUpgradeV6.s.sol`
+ * This script's defaults are test-network conveniences, not mainnet configuration.
  */
 contract DeployAztecL1Contracts is Script, Test {
   /// @notice All deployed contract addresses

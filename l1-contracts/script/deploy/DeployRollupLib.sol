@@ -46,8 +46,11 @@ struct RollupAddressOutput {
 /// @author Aztec Labs
 /// @notice Library for deploying rollup contracts. Used by DeployAztecL1Contracts and DeployRollupForUpgrade.
 /// @dev Serves the env-driven deployer for tests, the spartan/CLI tooling and testnets. Mainnet rollup
-/// versions are deployed by bespoke pinned `DeployRollupForUpgradeV<N>.s.sol` scripts (v5 on the
-/// `v5-next` branch, v6) that construct the rollup directly with hard-coded configuration; the
+/// versions are deployed by bespoke pinned `DeployRollupForUpgradeV<N>.s.sol` scripts that construct the
+/// rollup directly with hard-coded configuration. Examples:
+///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
+///   - v6: `DeployRollupForUpgradeV6.s.sol`
+/// The
 /// `IRollupConfiguration` defaults honoured here, such as the mock verifier when `REAL_VERIFIER` is
 /// unset, are test-network conveniences, not mainnet configuration.
 library DeployRollupLib {

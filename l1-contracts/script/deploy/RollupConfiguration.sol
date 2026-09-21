@@ -32,8 +32,10 @@ interface IRollupConfiguration {
 /// @notice Reads rollup deployment configuration from environment variables for the env-driven deployer
 /// used by tests, the spartan/CLI tooling and testnets (`DeployAztecL1Contracts`, `DeployRollupForUpgrade`).
 /// @dev Mainnet rollup versions are deployed by bespoke pinned `DeployRollupForUpgradeV<N>.s.sol` scripts
-/// (v5 on the `v5-next` branch, v6) that hard-code their configuration instead of reading it here. The
-/// defaults below (a mock verifier unless `REAL_VERIFIER=true`, zero genesis roots, `NETWORK=local`) are
+/// that hard-code their configuration instead of reading it here. Examples:
+///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
+///   - v6: `DeployRollupForUpgradeV6.s.sol`
+/// The defaults below (a mock verifier unless `REAL_VERIFIER=true`, zero genesis roots, `NETWORK=local`) are
 /// test-network conveniences, not mainnet configuration.
 contract RollupConfiguration is IRollupConfiguration, Test {
   using stdJson for string;

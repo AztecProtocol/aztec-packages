@@ -37,8 +37,10 @@ import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.s
 /// This is the env-driven deployer for tests, the spartan/CLI tooling and testnets. Mainnet upgrades
 /// do not run it: each mainnet rollup version is deployed by a bespoke pinned script,
 /// `DeployRollupForUpgradeV<N>.s.sol`, that hard-codes and re-verifies the configuration of that one
-/// deployment (v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch; v6:
-/// `DeployRollupForUpgradeV6.s.sol`). The environment defaults consumed here and in
+/// deployment. Examples:
+///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
+///   - v6: `DeployRollupForUpgradeV6.s.sol`
+/// The environment defaults consumed here and in
 /// `RollupConfiguration` (a mock verifier unless `REAL_VERIFIER=true`, zero genesis roots) are
 /// test-network conveniences, not mainnet configuration.
 ///
