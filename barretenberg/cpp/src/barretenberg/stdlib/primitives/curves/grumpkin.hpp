@@ -39,19 +39,17 @@ template <typename CircuitBuilder> struct grumpkin {
     // Required by SmallSubgroupIPA argument. This constant needs to divide the size of the multiplicative subgroup of
     // the ScalarField and accommodate the concatenated Libra polynomial:
     // SUBGROUP_SIZE > CONST_ECCVM_LOG_N * LIBRA_UNIVARIATES_LENGTH + 1 = 15 * 4 + 1 = 61.
-    static constexpr size_t SUBGROUP_SIZE = 87;
+    static constexpr size_t SUBGROUP_SIZE = NativeCurve::SUBGROUP_SIZE;
     // The generator below was derived by factoring r - 1 into primes, where r is the modulus of the Grumkin scalar
     // field. A random field element was sampled and raised to the power (r - 1) / (3 * 29). We verified that the
     // resulting element does not generate a smaller subgroup by further raising it to the powers of 3 and 29. To
     // optimize the recursive verifier and avoid costly inversions, we also precompute and store its inverse.
-    static constexpr bb::fq subgroup_generator =
-        bb::fq("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b");
-    static constexpr bb::fq subgroup_generator_inverse =
-        bb::fq("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
+    static constexpr bb::fq subgroup_generator = NativeCurve::subgroup_generator;
+    static constexpr bb::fq subgroup_generator_inverse = NativeCurve::subgroup_generator_inverse;
     // The length of the polynomials used to mask the Sumcheck Round Univariates in the committed (ECCVM) sumcheck.
     // Must match the native curve::Grumpkin::LIBRA_UNIVARIATES_LENGTH; see the rationale there and in
     // sumcheck/docs/committed_sumcheck_zk.md.
-    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 4;
+    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = NativeCurve::LIBRA_UNIVARIATES_LENGTH;
 };
 
 } // namespace bb::stdlib

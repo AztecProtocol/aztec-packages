@@ -22,17 +22,10 @@ namespace bb {
  * multiset-equality checks (as it is in the ECCVM and in the Translator).
  *
  * @details
- * Z_perm is a shiftable multilinear polynomial and hence is specified by its values on the boolean hypercube. As it is
- * shiftable, Z_perm[0] == 0. Then it is specified by Z_perm[1] = 1 and the following iterative definition:
- *
- *                  relation::numerator(j)
- * Z_perm[i] = ∏ --------------------------------------------------------------------------------
- *                  relation::denominator(j)
- *
- * where ∏ := ∏_{j=0:i-1}
- *
- * (Note that Z_perm[1] may be thought of as the quotient of the empty product by the empty product, and hence setting
- * is 1 is consistent.)
+ * The caller initializes Z_perm[TRACE_OFFSET] = 0. At that row, the relation uses Z_perm + lagrange_first,
+ * supplying the initial product value 1. For i > TRACE_OFFSET, this helper computes
+ * Z_perm[i] = product_{j=TRACE_OFFSET}^{i-1} numerator(j) / denominator(j).
+ * Rows before TRACE_OFFSET are reserved or masked and are not part of this product.
  *
  * The specific algebraic relation used by Z_perm is
  *      * specified by Flavor::GrandProductRelations, for Flavor in {ECCVM, Translator}; and
@@ -90,6 +83,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Grand product starts after the disabled/reserved head rows (where lagrange_first lives).
     constexpr size_t gp_start = Flavor::TRACE_OFFSET;
 
+    auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
+    BB_ASSERT(grand_product_polynomial.is_shiftable());
+    BB_ASSERT_GT(domain_size, gp_start);
+    BB_ASSERT_LTE(domain_size, grand_product_polynomial.end_index());
     const size_t active_size = domain_size - gp_start;
 
     // The size of the iteration domain is one less than the active domain since the final value of the
@@ -204,15 +201,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(denominator.coeffs());
 
     // Step (3) Compute grand_product_polynomial[i] = numerator[i] / denominator[i]
-    auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-    // The grand_product_polynomial must be shiftable for the permutation argument
-    BB_ASSERT(grand_product_polynomial.is_shiftable());
-
-    // Initialize grand product: z_perm[gp_start] = 1 (the first active row after disabled region)
-    // For non-ZK, gp_start = NUM_ZERO_ROWS = 1, which matches z_perm[1] = num[0] * inv_den[0] implicitly
-    // (since z_perm[0] = 0, the relation at lagrange_first uses z_perm + 1).
-    // For ZK with top masking, z_perm must be 0 at lagrange_first (row NUM_DISABLED_ROWS_IN_SUMCHECK)
-    // and the product starts from gp_start.
+    // The caller initializes z_perm[gp_start] = 0; lagrange_first supplies the initial 1 in the relation.
 
     // Compute grand product values: z_perm[gp_start + i + 1] = numerator[i] / denominator[i]
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {

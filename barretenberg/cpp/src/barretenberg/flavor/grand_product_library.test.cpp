@@ -144,3 +144,19 @@ TYPED_TEST(GrandProductTests, GrandProductPermutation)
 {
     TestFixture::template test_permutation_grand_product_construction<UltraFlavor>();
 }
+
+TEST(GrandProductBoundsDeathTest, RejectsDomainOutsideAllocatedRows)
+{
+    using Flavor = bb::UltraFlavor;
+    using FF = Flavor::FF;
+    using Relation = bb::UltraPermutationRelation<FF>;
+    Flavor::ProverPolynomials polynomials;
+    for (auto& poly : polynomials.get_all()) {
+        poly = bb::Polynomial<FF>(8);
+    }
+    polynomials.z_perm() = bb::Polynomial<FF>::shiftable(size_t(8), size_t(8));
+    bb::RelationParameters<FF> params{};
+    for (size_t domain : { Flavor::TRACE_OFFSET, size_t(16) }) {
+        EXPECT_THROW_OR_ABORT((bb::compute_grand_product<Flavor, Relation>(polynomials, params, domain)), "");
+    }
+}

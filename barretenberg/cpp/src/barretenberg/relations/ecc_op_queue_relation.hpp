@@ -19,9 +19,8 @@ namespace bb {
  * @note In other words, the `ecc_op_wire`s are derived witnesses, which the prover "fills in". We wish that these
  * values are constrained to be `w_i_shift` when `i` is in the `ecc_op` range and 0 else. This tacitly assumes that
  * the ecc ops "come first" in the execution trace.
- * @note This relation utilizes the shifted wires so that the ecc op wires can store the data beginning at index 0
- * (non-ZK Mega) or at index TRACE_OFFSET (MegaZK), unlike the wires which contain an initial zero row to facilitate
- * the left-shift-by-1 needed by other relations.
+ * @note Op wires start at ecc_op_block.trace_offset() - NUM_ZERO_ROWS, which equals Flavor::TRACE_OFFSET
+ * for current Mega flavors. Conventional wires retain the initial zero row required for left shifts.
  */
 template <typename FF_> class EccOpQueueRelationImpl {
   public:
@@ -38,10 +37,11 @@ template <typename FF_> class EccOpQueueRelationImpl {
         3  // op-queue-wire vanishes sub-relation 4
     };
 
-    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        // The prover can skip execution of this relation if the ecc op selector is identically zero
-        return in[AllEntities::EntityId::lagrange_ecc_op].is_zero();
+        using Id = AllEntities::EntityId;
+        return in[Id::lagrange_ecc_op].is_zero() && in[Id::ecc_op_wire_1].is_zero() &&
+               in[Id::ecc_op_wire_2].is_zero() && in[Id::ecc_op_wire_3].is_zero() && in[Id::ecc_op_wire_4].is_zero();
     }
 
     /**

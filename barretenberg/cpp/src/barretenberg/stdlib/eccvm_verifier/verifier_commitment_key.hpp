@@ -19,8 +19,9 @@ template <typename Curve_> class VerifierCommitmentKey {
      * The first `num_points` native Grumpkin SRS monomial points are copied directly into in-circuit commitments;
      * these are the raw SRS points used for IPA verification.
      *
-     * @details The Grumpkin SRS points are initialized as constants in the circuit but might be subsequently
-     * turned into constant witnesses to make operations in the circuit more efficient.
+     * @details SRS points remain circuit constants for fixed-base multiplication. Their integrity is an input
+     * assumption; this wrapper does not validate the native CRS.
+     * @param builder Unused: constructing circuit constants requires no builder context.
      */
     VerifierCommitmentKey([[maybe_unused]] Builder* builder,
                           size_t num_points,

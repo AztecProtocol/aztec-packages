@@ -4,7 +4,9 @@
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 
 #include <array>
+#include <cstdlib>
 #include <gtest/gtest.h>
+#include <limits>
 #include <vector>
 
 namespace bb {
@@ -370,7 +372,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
 }
 
 // Test that verification aborts when the evaluation challenge is in the small subgroup.
-// This is an edge case that should never happen in practice (probability ~1/|H|), but
+// This is an edge case that should never happen in practice (probability |H|/|F| for a uniform field challenge), but
 // if it does, the protocol must reject to prevent soundness issues.
 TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
 {
@@ -403,3 +405,34 @@ TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
                  std::runtime_error);
 }
 } // namespace bb
+
+TEST(SmallSubgroupIPAHelperDeathTest, RejectsOverflowingExtentsBeforeWriting)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(
+        {
+            try {
+                bb::compute_eccvm_challenge_coeffs<bb::curve::Grumpkin>(
+                    bb::fq(2), bb::fq(3), std::numeric_limits<size_t>::max(), 2);
+            } catch (const std::runtime_error&) {
+                std::_Exit(0);
+            }
+            std::_Exit(1);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
+}
+
+TEST(SmallSubgroupIPAHelperTest, EccvmChallengeCoefficientsRespectExtents)
+{
+    using Curve = bb::curve::Grumpkin;
+    using FF = Curve::ScalarField;
+    const auto coeffs = bb::compute_eccvm_challenge_coeffs<Curve>(FF(2), FF(3), 2, 3);
+    ASSERT_EQ(coeffs.size(), Curve::SUBGROUP_SIZE);
+    const std::array<FF, 6> expected{ FF(1), FF(2), FF(4), FF(3), FF(6), FF(12) };
+    for (size_t i = 0; i < coeffs.size(); ++i) {
+        EXPECT_EQ(coeffs[i], i < expected.size() ? expected[i] : FF(0));
+    }
+    EXPECT_THROW(bb::compute_eccvm_challenge_coeffs<Curve>(FF(2), FF(3), 30, 4), std::runtime_error);
+    EXPECT_THROW(bb::compute_eccvm_challenge_coeffs<Curve>(FF(2), FF(3), 1, 0), std::runtime_error);
+}

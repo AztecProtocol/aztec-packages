@@ -79,6 +79,10 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      *
      * The relations that constrain `precompute_point_transition` and `precompute_pc` are in `ecc_wnaf_relation.hpp`
      *
+     * The set relation binds each selected block's terminal point to a transcript base point or its endomorphism image.
+     * The transcript relation checks the base point is on BN254; (omega*x, -y) preserves that curve because omega^3
+     * = 1. Thus the on-curve premise for this point-table arithmetic is enforced across relations.
+     *
      * When precompute_point_transition = 1, the next row corresponds to the beginning of the processing of a new point.
      * We use a multiset-equality check, `ecc_set_relation.hpp` to validate (pc, Tx, Ty, scalar-multiplier) is the same
      * as something derived from the transcript columns. In other words, the multiset equality check allows the tables
@@ -165,9 +169,9 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      *
      * We don't need to check for incomplete point addition edge case (x_1 == x_2); the only cases this would correspond
      * to are y2 == y1 or y2 == -y1. Both of these cases may be ruled out as follows.
-     *      1. y2 == y1. Then 2P == kP, where k∈{1, ..., 13}, which of course cannot happen because the order r of E(Fₚ)
-     *      is a large prime and P is already assumed to not be the neutral element.
-     *      2. y2 == -y1. Again, then -2P == kP, k∈{1, ..., 13}, and we get the same contradiction.
+     *      1. y2 == y1. Then 2P == kP, where k∈{1, 3, ..., 13}, which of course cannot happen because the order r of
+     * E(Fₚ) is a large prime and P is already assumed to not be the neutral element.
+     *      2. y2 == -y1. Again, then -2P == kP, k∈{1, 3, ..., 13}, and we get the same contradiction.
      */
     const auto& x1 = Tx_shift;
     const auto& y1 = Ty_shift;

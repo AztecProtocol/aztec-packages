@@ -57,7 +57,7 @@ class MockTranscript {
     {
         current_challenge_index = 0;
         current_field_index = 0;
-        current_challenge_index = 0;
+        current_group_index = 0;
     }
     /**
      * @brief Send something that can be converted to uint256_t to the verifier (used for field elements)

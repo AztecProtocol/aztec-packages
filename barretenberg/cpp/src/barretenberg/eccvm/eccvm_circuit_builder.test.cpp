@@ -573,3 +573,40 @@ TEST(ECCVMCircuitBuilderTests, ScalarEdgeCase)
     bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
+
+TEST(ECCVMCircuitBuilderTests, FailedQueueReadDoesNotTurnRealEqualityIntoHidingOp)
+{
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->add_erroneous_equality_op_for_testing();
+    op_queue->merge();
+    EXPECT_THROW(op_queue->get_eccvm_ops(), std::runtime_error);
+    add_hiding_op_for_test(op_queue);
+
+    ASSERT_EQ(op_queue->get_eccvm_ops().size(), 2);
+    ECCVMCircuitBuilder circuit{ op_queue };
+    EXPECT_FALSE(ECCVMTraceChecker::check(circuit, &engine));
+}
+
+TEST(ECCVMCircuitBuilderTests, RowCountIncludesHidingOperation)
+{
+    for (bool use_zk_columns : { false, true }) {
+        for (size_t hiding_position : { size_t(0), size_t(3), size_t(6) }) {
+            auto queue = std::make_shared<ECCOpQueue>();
+            for (size_t i = 0; i <= 6; ++i) {
+                if (i == hiding_position) {
+                    if (use_zk_columns) {
+                        queue->construct_zk_columns();
+                    } else {
+                        add_hiding_op_for_test(queue);
+                    }
+                }
+                if (i >= hiding_position) {
+                    queue->merge();
+                    const auto rows = ECCVMTranscriptBuilder::compute_rows(queue->get_eccvm_ops(), 0);
+                    EXPECT_EQ(queue->get_num_rows(), rows.size());
+                }
+                queue->add_accumulate(G1::affine_one);
+            }
+        }
+    }
+}

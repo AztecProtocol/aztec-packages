@@ -11,6 +11,7 @@ namespace bb {
 template <typename Flavor_> class HypernovaDeciderVerifier {
   public:
     using Flavor = Flavor_;
+    static_assert(!Flavor::HasZK, "ZK flavors require propagating the Shplemini consistency verdict");
     using FF = Flavor::FF;
     using Curve = Flavor::Curve;
     using Commitment = Flavor::Commitment;

@@ -80,6 +80,8 @@ template <typename Curve> struct PairingPoints {
      * On Ultra, each rᵢ·Pᵢ is a separate short scalar_mul accumulated with complete addition, as in aggregate().
      * Unlike a multi-point batch_mul, this involves no cross-point incomplete additions, so no edge-case handling
      * is needed for any inputs.
+     * On Mega, batch_mul queues Goblin operations. Arithmetic correctness and edge cases are enforced by
+     * ECCVM, with Translator binding those operations to the Mega circuit.
      *
      * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
      */
