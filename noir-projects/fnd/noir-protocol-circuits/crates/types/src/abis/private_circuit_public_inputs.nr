@@ -106,11 +106,15 @@ pub struct PrivateCircuitPublicInputs {
     // The hashes of the contract class logs created in this function call.
     pub contract_class_logs_hashes: ClaimedLengthArray<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
-    // The tx request's salt. Set by the framework, it serves two purposes. (1) It makes `tx_request.hash()`
-    // (the protocol nullifier `P`) unpredictable, preventing a dictionary attack that guesses the tx request
-    // preimage to recompute `P`. (2) The init kernel asserts it equals `tx_request.salt`, binding this proof
-    // to a specific tx request so a third party cannot rebind it to a different one (and thus a different `P`).
-    pub tx_request_salt: Field,
+    // The transaction's protocol nullifier, siloed: the init kernel inserts its unsiloed value at index 0 of the
+    // transaction's nullifiers and the reset kernel siloes it, so this is exactly the value that lands in the nullifier
+    // tree. Set by the framework, identical on every private call of the transaction. The init
+    // kernel asserts the first call's value equals `tx_request.compute_protocol_nullifier()`, which binds this proof
+    // to a specific tx request (and, through it, to the salt) so a third party cannot rebind it to a different one;
+    // every later kernel asserts each nested call's value equals the transaction constant. Because the value is a
+    // one-way image of the salt, exposing it here leaks nothing that the chain does not publish, while giving every
+    // call a kernel-checked handle to the transaction it is part of.
+    pub protocol_nullifier: Field,
 }
 
 impl Empty for PrivateCircuitPublicInputs {
@@ -139,7 +143,7 @@ impl Empty for PrivateCircuitPublicInputs {
             expected_revertible_side_effect_counter: 0,
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
-            tx_request_salt: 0,
+            protocol_nullifier: 0,
         }
     }
 }

@@ -57,7 +57,7 @@ pub fn execute<let N: u32>(
 
     let constants_for_apps = PrivateTxConstantData {
         tx_context: inputs.private_calls[0].public_inputs.tx_context,
-        tx_request_salt: inputs.private_calls[0].public_inputs.tx_request_salt,
+        protocol_nullifier: inputs.private_calls[0].public_inputs.protocol_nullifier,
         vk_tree_root: inputs.vk_tree_root,
         protocol_contracts: inputs.protocol_contracts,
         anchor_block_header: inputs.private_calls[0].public_inputs.anchor_block_header,

@@ -177,7 +177,7 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
     ) -> [PrivateCallRequest; N] {
         let expected_constants = PrivateTxConstantData {
             tx_context: self.private_calls[0].public_inputs.tx_context,
-            tx_request_salt: self.private_calls[0].public_inputs.tx_request_salt,
+            protocol_nullifier: self.private_calls[0].public_inputs.protocol_nullifier,
             vk_tree_root,
             protocol_contracts,
             anchor_block_header: self.private_calls[0].public_inputs.anchor_block_header,
