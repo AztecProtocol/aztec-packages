@@ -160,10 +160,10 @@ contract DeployConfigValidationTest is Test {
     upgrade.requireRegistryHasCode(Registry(makeAddr("not-a-registry")));
   }
 
-  function test_RevertWhenCommitteeSizeZero() public {
+  function test_ZeroCommitteeSizeIsAllowed() public view {
     RollupConfigInput memory config = _baseConfig();
     config.targetCommitteeSize = 0;
-    _expectInvalid(config, "DeployRollupLib: targetCommitteeSize is zero");
+    lib.validateRollupConfig(input, config);
   }
 
   function test_RevertWhenExitDelayZero() public {

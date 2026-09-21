@@ -94,7 +94,9 @@ library DeployRollupLib {
   }
 
   /// @notice Reject configuration the Rollup constructor accepts but that leaves the deployed instance unusable.
-  /// @dev Every value here is fixed at construction, so a bad one can only be corrected by redeploying.
+  /// @dev Every value here is fixed at construction, so a bad one can only be corrected by redeploying. A zero
+  ///      `targetCommitteeSize` is not rejected: `ValidatorSelectionLib` treats it as "no committee", which local
+  ///      networks and end-to-end tests rely on.
   function validateRollupConfig(RollupAddressInput memory input, RollupConfigInput memory config) internal view {
     require(config.ethereumSlotDuration > 0, "DeployRollupLib: ethereumSlotDuration is zero");
     require(config.aztecSlotDuration > 0, "DeployRollupLib: aztecSlotDuration is zero");
@@ -106,7 +108,6 @@ library DeployRollupLib {
     // TimeLib multiplies the two uint32 durations without widening.
     uint256 epochDurationSeconds = config.aztecSlotDuration * config.aztecEpochDuration;
     require(epochDurationSeconds <= type(uint32).max, "DeployRollupLib: epoch duration in seconds overflows uint32");
-    require(config.targetCommitteeSize > 0, "DeployRollupLib: targetCommitteeSize is zero");
     require(config.exitDelaySeconds > 0, "DeployRollupLib: exitDelaySeconds is zero");
     // A zero RANDAO lag samples the same epoch it seeds, and the sample-time subtraction is done in uint32.
     require(config.lagInEpochsForRandao >= 1, "DeployRollupLib: lagInEpochsForRandao is zero");
