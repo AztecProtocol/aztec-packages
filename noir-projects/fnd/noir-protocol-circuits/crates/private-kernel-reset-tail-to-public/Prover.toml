@@ -175,7 +175,7 @@ is_private_only = false
 claimed_revertible_counter = "0x0000000000000000000000000000000000000000000000000000000000000004"
 
   [previous_kernel_public_inputs.constants]
-  tx_request_salt = "0x304f82b6c1f18432a3e3a5dfe4d9d5073583a8dd8a5829c80eb0f5e7ed7f8d10"
+  protocol_nullifier = "0x19b9da85f7c5921a2b06033fbb02614167aa8f025b295d92e745de38cd9f25dd"
   vk_tree_root = "0x258bc0b99bbadc087d8d8f7c78e4b41ba24c8d6979dbe698e00411bd7ec11891"
 
     [previous_kernel_public_inputs.constants.anchor_block_header]

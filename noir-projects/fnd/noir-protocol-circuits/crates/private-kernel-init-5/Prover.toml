@@ -1288,7 +1288,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000004"
 is_fee_payer = true
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2ff38eeb9a515aa49d88f4dbd9ec90101ebd4bd21fe74b533059de31839595b6"
+protocol_nullifier = "0x24aba99fdac0b6194cee47ac9087d8e60e8978b8e211f01cefc0fb74a50993e4"
 
   [app_public_inputs_0.call_context]
   is_static_call = false
@@ -3030,7 +3030,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2ff38eeb9a515aa49d88f4dbd9ec90101ebd4bd21fe74b533059de31839595b6"
+protocol_nullifier = "0x24aba99fdac0b6194cee47ac9087d8e60e8978b8e211f01cefc0fb74a50993e4"
 
   [app_public_inputs_1.call_context]
   is_static_call = false
@@ -4772,7 +4772,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2ff38eeb9a515aa49d88f4dbd9ec90101ebd4bd21fe74b533059de31839595b6"
+protocol_nullifier = "0x24aba99fdac0b6194cee47ac9087d8e60e8978b8e211f01cefc0fb74a50993e4"
 
   [app_public_inputs_2.call_context]
   is_static_call = true
@@ -6514,7 +6514,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2ff38eeb9a515aa49d88f4dbd9ec90101ebd4bd21fe74b533059de31839595b6"
+protocol_nullifier = "0x24aba99fdac0b6194cee47ac9087d8e60e8978b8e211f01cefc0fb74a50993e4"
 
   [app_public_inputs_3.call_context]
   is_static_call = true
@@ -8256,7 +8256,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2ff38eeb9a515aa49d88f4dbd9ec90101ebd4bd21fe74b533059de31839595b6"
+protocol_nullifier = "0x24aba99fdac0b6194cee47ac9087d8e60e8978b8e211f01cefc0fb74a50993e4"
 
   [app_public_inputs_4.call_context]
   is_static_call = false

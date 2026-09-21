@@ -69,12 +69,32 @@ fn mismatch_l2_gas_limit() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "tx_request_salt in private call does not match the salt in tx_request")]
+#[test(should_fail_with = "protocol_nullifier in private call does not match the tx request")]
 fn mismatch_salt() {
     let mut builder = TestBuilder::new();
 
-    // Tweak the salt to be a different value.
+    // Tweak the salt to be a different value: the protocol nullifier the call reports no longer matches.
     builder.tx_request.salt += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "protocol_nullifier in private call does not match the tx request")]
+fn mismatch_protocol_nullifier() {
+    let mut builder = TestBuilder::new();
+
+    // The call reports a protocol nullifier that is not the tx request's.
+    builder.private_call.protocol_nullifier += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "tx_request salt must be non-zero")]
+fn zero_salt() {
+    let mut builder = TestBuilder::new();
+
+    builder.tx_request.salt = 0;
+    builder.private_call.protocol_nullifier = builder.tx_request.compute_protocol_nullifier();
 
     builder.execute_and_fail();
 }

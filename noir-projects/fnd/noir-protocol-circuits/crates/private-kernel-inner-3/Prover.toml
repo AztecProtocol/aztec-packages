@@ -173,7 +173,7 @@ is_private_only = true
 claimed_revertible_counter = "0x0000000000000000000000000000000000000000000000000000000000000004"
 
   [previous_kernel_public_inputs.constants]
-  tx_request_salt = "0x2a4f3339ef54172c7f561c9348ff8dbdd8fb3b2b0976e4b647ef3a80df25c3d5"
+  protocol_nullifier = "0x161bfc4d484bc5d6088b0f2a93bdbbf77ad59b76386011d4730c59ac30f8371e"
   vk_tree_root = "0x258bc0b99bbadc087d8d8f7c78e4b41ba24c8d6979dbe698e00411bd7ec11891"
 
     [previous_kernel_public_inputs.constants.anchor_block_header]
@@ -6798,7 +6798,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2a4f3339ef54172c7f561c9348ff8dbdd8fb3b2b0976e4b647ef3a80df25c3d5"
+protocol_nullifier = "0x161bfc4d484bc5d6088b0f2a93bdbbf77ad59b76386011d4730c59ac30f8371e"
 
   [app_public_inputs_0.call_context]
   is_static_call = true
@@ -8540,7 +8540,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2a4f3339ef54172c7f561c9348ff8dbdd8fb3b2b0976e4b647ef3a80df25c3d5"
+protocol_nullifier = "0x161bfc4d484bc5d6088b0f2a93bdbbf77ad59b76386011d4730c59ac30f8371e"
 
   [app_public_inputs_1.call_context]
   is_static_call = true
@@ -10282,7 +10282,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x2a4f3339ef54172c7f561c9348ff8dbdd8fb3b2b0976e4b647ef3a80df25c3d5"
+protocol_nullifier = "0x161bfc4d484bc5d6088b0f2a93bdbbf77ad59b76386011d4730c59ac30f8371e"
 
   [app_public_inputs_2.call_context]
   is_static_call = false

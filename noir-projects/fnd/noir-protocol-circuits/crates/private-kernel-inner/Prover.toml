@@ -173,7 +173,7 @@ is_private_only = true
 claimed_revertible_counter = "0x0000000000000000000000000000000000000000000000000000000000000004"
 
   [previous_kernel_public_inputs.constants]
-  tx_request_salt = "0x0535f5a38052e6176f113ecf8a14548f95eca62292e494a86ee6b0a04ed26d18"
+  protocol_nullifier = "0x12109601047df9a0f93596f42e97dd0e35e5507bb6ca1a0afdad785085b75e7f"
   vk_tree_root = "0x258bc0b99bbadc087d8d8f7c78e4b41ba24c8d6979dbe698e00411bd7ec11891"
 
     [previous_kernel_public_inputs.constants.anchor_block_header]
@@ -6314,7 +6314,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a912ea4"
-tx_request_salt = "0x0535f5a38052e6176f113ecf8a14548f95eca62292e494a86ee6b0a04ed26d18"
+protocol_nullifier = "0x12109601047df9a0f93596f42e97dd0e35e5507bb6ca1a0afdad785085b75e7f"
 
   [app_public_inputs.call_context]
   is_static_call = false

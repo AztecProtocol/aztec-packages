@@ -123,7 +123,11 @@ impl PrivateCallDataValidator {
             "anchor block header mismatch",
         );
         assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
-        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
+        assert_eq(
+            this_call.protocol_nullifier,
+            constants.protocol_nullifier,
+            "mismatch protocol_nullifier",
+        );
     }
 
     /// Validate that the call_request matched the current call.
@@ -183,13 +187,15 @@ impl PrivateCallDataValidator {
             this_call.tx_context,
             "tx_context in private call does not match the value in tx_request",
         );
-        // Binds the entry-point proof to the tx request's salt. The salt feeds the protocol nullifier
-        // (`P = H(tx_request)`), so without this a third party could rebind the same proof to a
-        // different salt, yielding a different `P` and replaying the transaction.
+        // A zero salt would make the protocol nullifier a deterministic function of public data.
+        assert(tx_request.salt != 0, "tx_request salt must be non-zero");
+        // Binds the entry-point proof to the tx request's protocol nullifier, and through it to the
+        // salt. Without this a third party could rebind the same proof to a different salt, yielding a
+        // different protocol nullifier and replaying the transaction.
         assert_eq(
-            tx_request.salt,
-            this_call.tx_request_salt,
-            "tx_request_salt in private call does not match the salt in tx_request",
+            tx_request.compute_protocol_nullifier(),
+            this_call.protocol_nullifier,
+            "protocol_nullifier in private call does not match the tx request",
         );
     }
 
@@ -207,7 +213,11 @@ impl PrivateCallDataValidator {
             "anchor block header mismatch",
         );
         assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
-        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
+        assert_eq(
+            this_call.protocol_nullifier,
+            constants.protocol_nullifier,
+            "mismatch protocol_nullifier",
+        );
     }
 
     /// For Inner only.

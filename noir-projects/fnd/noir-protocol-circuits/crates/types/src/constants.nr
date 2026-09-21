@@ -467,12 +467,12 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL + 1)
     + BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
-    + 1 /* tx_request_salt */;
+    + 1 /* protocol_nullifier */;
 pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* start_side_effect_counter */
-    + 1 /* tx_request_salt */;
+    + 1 /* protocol_nullifier */;
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 // TODO: Leila's considering moving this into a noir file within bb
@@ -776,6 +776,8 @@ pub global DOM_SEP__CONTRACT_ADDRESS_V2: u32 = 4099338721;
 pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 4195546849;
 
 pub global DOM_SEP__TX_REQUEST: u32 = 3763737512;
+/// Domain separator for the unsiloed protocol nullifier (`TxRequest::compute_protocol_nullifier_value`).
+pub global DOM_SEP__PROTOCOL_NULLIFIER: u32 = 4023616154;
 pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 1630108851;
 pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 1971680439;
 
