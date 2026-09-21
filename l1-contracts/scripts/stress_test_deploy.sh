@@ -21,6 +21,12 @@ echo "=== Results dir: $RESULTS_DIR ==="
 
 source ./scripts/load_network_defaults.sh
 
+# The deployer requires explicit genesis roots. Only 31 random bytes (top byte zero) so each value is always
+# below the BN254 scalar field modulus.
+export VK_TREE_ROOT="0x00$(openssl rand -hex 31)"
+export PROTOCOL_CONTRACTS_HASH="0x00$(openssl rand -hex 31)"
+export GENESIS_ARCHIVE_ROOT="0x00$(openssl rand -hex 31)"
+
 PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 # Pre-compile so workers skip compilation.

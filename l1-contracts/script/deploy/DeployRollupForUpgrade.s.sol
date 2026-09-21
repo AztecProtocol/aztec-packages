@@ -73,9 +73,14 @@ contract DeployRollupForUpgrade is Script {
     console.log("JSON DEPLOY RESULT:", finalJson);
   }
 
+  function _requireRegistryHasCode(Registry _registry) internal view {
+    require(address(_registry).code.length > 0, "DeployRollupForUpgrade: REGISTRY_ADDRESS has no code on this chain");
+  }
+
   /// @notice Parse existing L1 infrastructure from environment variables
   function _getRollupAddressInput() internal returns (RollupAddressInput memory) {
     Registry registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
+    _requireRegistryHasCode(registry);
 
     // Load existing addresses from the registry and canonical rollup.
     Governance governance = Governance(registry.getGovernance());

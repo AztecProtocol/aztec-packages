@@ -22,6 +22,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {HonkVerifier} from "@generated/HonkVerifier.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 import {IRollupConfiguration} from "./RollupConfiguration.sol";
 
@@ -85,9 +86,46 @@ library DeployRollupLib {
     GenesisState memory genesisState = config.getGenesisState();
     RollupConfigInput memory rollupConfigInput =
       config.getRollupConfiguration(IRewardDistributor(address(input.rewardDistributor)));
+    validateRollupConfig(input, rollupConfigInput);
 
     return new Rollup(
       input.feeAsset, input.stakingAsset, input.gse, verifier, input.deployer, genesisState, rollupConfigInput
+    );
+  }
+
+  /// @notice Reject configuration the Rollup constructor accepts but that leaves the deployed instance unusable.
+  /// @dev Every value here is fixed at construction, so a bad one can only be corrected by redeploying.
+  function validateRollupConfig(RollupAddressInput memory input, RollupConfigInput memory config) internal view {
+    require(config.ethereumSlotDuration > 0, "DeployRollupLib: ethereumSlotDuration is zero");
+    require(config.aztecSlotDuration > 0, "DeployRollupLib: aztecSlotDuration is zero");
+    require(config.aztecEpochDuration > 0, "DeployRollupLib: aztecEpochDuration is zero");
+    require(
+      config.aztecEpochDuration <= Constants.MAX_CHECKPOINTS_PER_EPOCH,
+      "DeployRollupLib: aztecEpochDuration exceeds MAX_CHECKPOINTS_PER_EPOCH"
+    );
+    // TimeLib multiplies the two uint32 durations without widening.
+    uint256 epochDurationSeconds = config.aztecSlotDuration * config.aztecEpochDuration;
+    require(epochDurationSeconds <= type(uint32).max, "DeployRollupLib: epoch duration in seconds overflows uint32");
+    require(config.targetCommitteeSize > 0, "DeployRollupLib: targetCommitteeSize is zero");
+    require(config.exitDelaySeconds > 0, "DeployRollupLib: exitDelaySeconds is zero");
+    // A zero RANDAO lag samples the same epoch it seeds, and the sample-time subtraction is done in uint32.
+    require(config.lagInEpochsForRandao >= 1, "DeployRollupLib: lagInEpochsForRandao is zero");
+    require(
+      config.lagInEpochsForValidatorSet >= config.lagInEpochsForRandao,
+      "DeployRollupLib: lagInEpochsForValidatorSet below lagInEpochsForRandao"
+    );
+    require(
+      config.lagInEpochsForValidatorSet * epochDurationSeconds <= type(uint32).max,
+      "DeployRollupLib: lag in seconds overflows uint32"
+    );
+    // SlashingProposer encodes each amount as uint96 when it builds a payload.
+    for (uint256 i = 0; i < config.slashAmounts.length; i++) {
+      require(config.slashAmounts[i] <= type(uint96).max, "DeployRollupLib: slash amount exceeds uint96");
+    }
+    require(address(config.rewardConfig.rewardDistributor) != address(0), "DeployRollupLib: rewardDistributor is zero");
+    // The GSE only accounts stake in its own asset.
+    require(
+      address(input.stakingAsset) == address(input.gse.ASSET()), "DeployRollupLib: stakingAsset is not GSE.ASSET()"
     );
   }
 

@@ -20,7 +20,6 @@ echo "=== Deploying rollup upgrade ==="
 echo "Registry: $registry_address"
 
 REGISTRY_ADDRESS="$registry_address" \
-REAL_VERIFIER="${REAL_VERIFIER:-true}" \
 ./scripts/forge_broadcast.js \
   script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
   --rpc-url "$L1_RPC_URL" \
