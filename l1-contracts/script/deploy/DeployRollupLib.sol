@@ -50,9 +50,7 @@ struct RollupAddressOutput {
 /// rollup directly with hard-coded configuration. Examples:
 ///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
 ///   - v6: `DeployRollupForUpgradeV6.s.sol`
-/// The
-/// `IRollupConfiguration` defaults honoured here, such as the mock verifier when `REAL_VERIFIER` is
-/// unset, are test-network conveniences, not mainnet configuration.
+/// The `IRollupConfiguration` values honoured here describe a test network, not mainnet.
 library DeployRollupLib {
   function deployRollup(RollupAddressInput memory input, IRollupConfiguration config)
     internal

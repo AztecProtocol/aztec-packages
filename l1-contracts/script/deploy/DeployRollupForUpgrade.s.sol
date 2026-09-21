@@ -40,9 +40,8 @@ import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.s
 /// deployment. Examples:
 ///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
 ///   - v6: `DeployRollupForUpgradeV6.s.sol`
-/// The environment defaults consumed here and in
-/// `RollupConfiguration` (a mock verifier unless `REAL_VERIFIER=true`, zero genesis roots) are
-/// test-network conveniences, not mainnet configuration.
+/// The environment-driven inputs consumed here and in `RollupConfiguration` describe a test network,
+/// not mainnet.
 ///
 /// For initial L1 deployment, use DeployAztecL1Contracts.s.sol instead.
 ///
