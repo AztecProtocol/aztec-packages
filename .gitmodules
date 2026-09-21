@@ -30,3 +30,8 @@
 	branch = main
 	shallow = true
 	update = none
+[submodule "ci3"]
+	path = ci3
+	url = https://github.com/aztec-labs-eng/ci3.git
+	branch = main
+	shallow = true

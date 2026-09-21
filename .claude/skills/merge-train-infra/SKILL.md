@@ -21,7 +21,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 5. **Recreation & Wakeup** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the base branch (usually `next`). Then runs `scripts/merge-train/wakeup-prs.sh` to add the `ci-wakeup-pr-after-merge` label to all open PRs targeting the branch that have passed CI and have automerge enabled. This triggers a CI re-run (typically a no-op via tree-hash cache) so those PRs can proceed through the merge queue. The label is immediately removed by a step in `ci3.yml` so it can be re-applied on subsequent merges.
 
-6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3/merge_train_failure_slack_notify`. That script also kicks off a ClaudeBox session to investigate/fix the dequeued PR (`ci3/slack_notify_with_claudebox_kickoff`), passing `--repo "$GITHUB_REPOSITORY"` so the session runs in the mode matching the repo the train lives on. When the train is on a private mirror (`…-private`), `claudebox.yml` selects private mode; otherwise it stays public. Without that repo hint a private-train fix session lands in public mode and cannot read the PR or open the fix.
+6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3-local/merge_train_failure_slack_notify`. That script also kicks off a ClaudeBox session to investigate/fix the dequeued PR (`ci3/slack_notify_with_claudebox_kickoff`), passing `--repo "$GITHUB_REPOSITORY"` so the session runs in the mode matching the repo the train lives on. When the train is on a private mirror (`…-private`), `claudebox.yml` selects private mode; otherwise it stays public. Without that repo hint a private-train fix session lands in public mode and cannot read the PR or open the fix.
 
 ## Label-Driven Ports (`backport.yml`)
 
@@ -84,7 +84,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 1. Create a branch from the desired base (`next` for most trains; a release line like `v5-next` for a release-specific train) with naming pattern `merge-train/{team}`. For a v5-release train use the `-v5` suffix (`merge-train/{team}-v5`): `merge-train-create-pr.yml` routes any `*-v5` branch to a `v5-next` base automatically and adds the `private-port-next` label.
 2. Add the branch to the loop in `.github/workflows/merge-train-next-to-branches.yml`. If it tracks a base branch other than `next`, also add that base to the workflow's `push` trigger and pass it as the second argument to `merge-next.sh` (see the `v5-next` → `-v5` trains wiring)
 3. For a base other than `next` that the `*-v5` convention does not already cover, set the PR base in `.github/workflows/merge-train-create-pr.yml`. Either way, add a stale-check job that passes `BASE_BRANCH` in `.github/workflows/merge-train-stale-check.yml`
-4. Add the branch-to-Slack-channel mapping in `ci3/merge_train_failure_slack_notify`
+4. Add the branch-to-Slack-channel mapping in `ci3-local/merge_train_failure_slack_notify`
 5. Optionally add CI mode overrides in `.github/ci3_labels_to_env.sh` and `bootstrap.sh`
 6. Push code to the branch -- automation handles PR creation from there
 
@@ -121,7 +121,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 |---|---|
 | `.github/ci3_labels_to_env.sh` | CI mode selection based on labels and target branches |
 | `.github/ci3.sh` | Instance postfix for merge-train parallelism |
-| `ci3/merge_train_failure_slack_notify` | Slack failure notification with branch-to-channel mapping |
+| `ci3-local/merge_train_failure_slack_notify` | Slack failure notification with branch-to-channel mapping |
 | `ci3/run_test_cmd` | Test history tracking for merge-train branches |
 | `ci3/bootstrap_ec2` | EC2 failure notification trigger |
 | `bootstrap.sh` | CI mode definitions (`ci-barretenberg`, `ci-full`, etc.) |
