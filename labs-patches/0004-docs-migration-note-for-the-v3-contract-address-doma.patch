@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iAmMichaelConnor <mike@aztec.foundation>
+Date: Mon, 21 Sep 2026 21:57:04 +0000
+Subject: [PATCH] docs: migration note for the v3 contract address domain
+ separator
+
+Every contract address on v6 differs from v5 because the address domain separator is rotated per protocol version; record the new separator value and the standard contracts' canonical addresses (old to new).
+
+diff --git a/docs/docs-developers/docs/resources/migration_notes.md b/docs/docs-developers/docs/resources/migration_notes.md
+index 59d503114eee476edeea4737288d6153d6e58650..7ae0ec169beaab28b11f1200eab2a2b50cf3f1fe 100644
+--- a/docs/docs-developers/docs/resources/migration_notes.md
++++ b/docs/docs-developers/docs/resources/migration_notes.md
+@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
+ 
+ ## TBD
+ 
++### [Protocol] The contract address domain separator is bumped to V3; every contract address differs from v5
++
++The domain separator that goes into contract address derivation (`preaddress = poseidon2(DOM_SEP__CONTRACT_ADDRESS_Vn, public_keys_hash, partial_address)`) is bumped for v6: `DOM_SEP__CONTRACT_ADDRESS_V2` (`4099338721`) is replaced by `DOM_SEP__CONTRACT_ADDRESS_V3 = 993442748` (`hash_to_u32("az_dom_sep", "contract_address_v3")`). Every protocol version rotates this separator on purpose: an address can never exist on two rollup instances, so funds cannot be sent to an address that is live on one rollup and dead on another. As a result, every contract address on v6, including account addresses, differs from the address the same class, salt, initialization and public keys produced on v5. The `V` number is the separator revision, not the protocol version.
++
++Nothing needs to change in contract code, but anything that hard-codes an address must be updated. The canonical addresses of the standard contracts, which are deterministic in their pinned artifacts and the separator, move to:
++
++| Contract            | v5 address (V2)                                                      | v6 address (V3)                                                      |
++| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
++| AuthRegistry        | `0x1ec33912c9f14470513e0eb23db81ddb2aa1ae3395e6ab4d3cba383f68dec3c5` | `0x193392554ff4cc24ac9acd5488a436e9e8eea429ae0edc8de082575b2c964399` |
++| MultiCallEntrypoint | `0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6` | `0x063b74f69435c76e490b3dedd9238552228b523f233235152b236981cdf025f4` |
++| PublicChecks        | `0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe` | `0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a` |
++| HandshakeRegistry   | `0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7` | `0x13833f89e250646a1ca08fef8b00bc96eb20df07bc0917bcdba3adedbdf99611` |
++
++`STANDARD_*_ADDRESS` in `@aztec-labs/standard-contracts` and `aztec::standard_addresses` carry the new values, so code that reads them needs only a recompile. The protocol contracts keep their magic addresses (`1`, `2`, ...), but the derived addresses behind them move too, which is why the genesis constants change with this release.
++
+ ### [Protocol] The protocol nullifier is derived from the tx request's salt alone; `tx_request_salt` becomes `protocol_nullifier`
+ 
+ The protocol nullifier, which the init kernel always inserts at index 0 of a transaction's nullifiers, is now `silo(NULL_MSG_SENDER, H(origin, chain_id, version, salt))` instead of `H(tx_request)`. Gas settings and the first call's arguments are no longer part of its preimage, so two transactions built with the same salt (a fee bump, or a cancellation) share it and at most one of them can be mined. The proof is still pinned to the full tx request by the init kernel. The kernel cannot check that the salt is random, so wallets must draw it fresh for every transaction: two requests with the same origin and salt are mutually exclusive.
