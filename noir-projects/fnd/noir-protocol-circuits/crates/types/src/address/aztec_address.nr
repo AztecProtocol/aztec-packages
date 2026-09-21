@@ -2,7 +2,7 @@ use crate::{
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
-    constants::{AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V2, MAX_FIELD_VALUE},
+    constants::{AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V3, MAX_FIELD_VALUE},
     contract_class_id::ContractClassId,
     hash::poseidon2_hash_with_separator,
     public_keys::{hash_public_key, IvpkM, PublicKeys, ToPoint},
@@ -135,7 +135,7 @@ impl AztecAddress {
 
         let pre_address = poseidon2_hash_with_separator(
             [public_keys_hash.to_field(), partial_address.to_field()],
-            DOM_SEP__CONTRACT_ADDRESS_V2,
+            DOM_SEP__CONTRACT_ADDRESS_V3,
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
@@ -244,15 +244,15 @@ fn compute_address_from_partial_and_pub_keys() {
     let address = AztecAddress::compute(public_keys, partial_address).to_field();
 
     let expected_computed_address_from_partial_and_pubkeys =
-        0x303ffc8bd456d132463b1fc3a633aeb718a7883c268f3956c05e6fe09b5a5424;
+        0x23877639c7424d1d2a9f514e59ee662b3154a730b783caf822d196b625ba4355;
     assert_eq(address, expected_computed_address_from_partial_and_pubkeys);
 }
 
 #[test]
 fn compute_preaddress_from_partial_and_pub_keys() {
-    let pre_address = poseidon2_hash_with_separator([1, 2], DOM_SEP__CONTRACT_ADDRESS_V2);
+    let pre_address = poseidon2_hash_with_separator([1, 2], DOM_SEP__CONTRACT_ADDRESS_V3);
     let expected_computed_preaddress_from_partial_and_pubkey =
-        0x0fa1c698858df1a99170cd39d5f4bfad6d0d60f1f8afa3dc92281ee60b36f3bb;
+        0x2e0787752b82b3ab9c28d67b48f24f8a3dac253023bf5136bbcb8ddbf4b1381c;
     assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);
 }
 
