@@ -1,4 +1,2 @@
-# Emitted by `yarn generate` (src/cbind/generate.ts) from the C bindings schema.
-# Prettier resolves ignore files against the package directory, so the entry in
-# ../.gitignore does not cover it.
+# Prettier only reads ignore files in the package directory, so the entry in ../.gitignore does not apply.
 src/cbind/generated/
