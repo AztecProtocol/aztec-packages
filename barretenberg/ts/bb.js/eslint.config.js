@@ -22,6 +22,7 @@ export default [
     'eslint.config.js',
     'eslint.config.*.js',
     'src/jest/*.mjs',
+    'src/cbind/generated/**',
   ]),
   ...tseslint.config({
     extends: [
