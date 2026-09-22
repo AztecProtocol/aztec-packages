@@ -25,16 +25,17 @@ namespace bb {
  * sees a fixed-shape relation with no bus loop. A flavor with N buses simply lists N independent
  * `SingleBusLookupRelation` instantiations in its `Relations_<FF>` tuple.
  *
- * Per-column subrelations (4 total):
+ * Per-column subrelations (5 total):
  *
  * (1a) Inverse correctness on read rows:    (I · L · T − 1) · is_read = 0   (per-row, deg 5)
  * (1b) Inverse correctness on write rows:   (I · L · T − 1) · count   = 0   (per-row, deg 4)
  * (2)  Lookup identity (linearly dep'nt):   Σ_rows (is_read · T − count · L) · I = 0  (deg 4)
  * (3)  Read-count locality:                 (1 − indicator) · count   = 0   (per-row, deg 2)
+ * (4)  Value locality:                      (1 − indicator) · value   = 0   (per-row, deg 2)
  *
  * Where L = w_l + w_r·β + γ (read term) and T = value + databus_id·β + γ (table term). is_read =
  * q_busread · selector. Subrelations (1a)/(1b)/(2) all share length 6 to amortize the common
- * `I·L·T − 1` factor across rows; (3) uses length 3 since it has no shared computation.
+ * `I·L·T − 1` factor across rows; (3) and (4) use length 3 since they have no shared computation.
  */
 template <typename FF_, auto ValueId, auto ReadCountsId, auto InversesId, auto IndicatorId, auto SelectorId>
 class SingleBusLookupRelationImpl {
@@ -45,15 +46,14 @@ class SingleBusLookupRelationImpl {
     static constexpr size_t INVERSE_WRITE_SUBREL_LENGTH = 6;       // deg 4: (I*L*T - 1) * count
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 6;              // deg 4: (is_read*T - count*L) * I
     static constexpr size_t READ_COUNT_LOCALITY_SUBREL_LENGTH = 3; // deg 2: (1 - indicator) * count
+    static constexpr size_t VALUE_LOCALITY_SUBREL_LENGTH = 3;      // deg 2: (1 - indicator) * value
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
-        INVERSE_READ_SUBREL_LENGTH,
-        INVERSE_WRITE_SUBREL_LENGTH,
-        LOOKUP_SUBREL_LENGTH,
-        READ_COUNT_LOCALITY_SUBREL_LENGTH,
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS{
+        INVERSE_READ_SUBREL_LENGTH,        INVERSE_WRITE_SUBREL_LENGTH,  LOOKUP_SUBREL_LENGTH,
+        READ_COUNT_LOCALITY_SUBREL_LENGTH, VALUE_LOCALITY_SUBREL_LENGTH,
     };
-    // (1a)/(1b)/(3) are per-row identities; (2) is a sum across the trace.
-    static constexpr std::array<bool, 4> SUBRELATION_LINEARLY_INDEPENDENT{ true, true, false, true };
+    // (1a)/(1b)/(3)/(4) are per-row identities; (2) is a sum across the trace.
+    static constexpr std::array<bool, 5> SUBRELATION_LINEARLY_INDEPENDENT{ true, true, false, true, true };
 
     // Marker used by tooling (RelationChecker, etc.) to identify per-bus lookup relations in a
     // flavor's `Relations_<FF>` tuple without baking the relation's identity into a heuristic.
@@ -62,8 +62,9 @@ class SingleBusLookupRelationImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        // Skip when the row is not a read gate AND has no read counts on this column.
-        return in[AllEntities::EntityId::q_busread].is_zero() && in[ReadCountsId].is_zero();
+        // Skip when the row is not a read gate, has no read counts on this column, and carries no
+        // value: subrelation (4) is non-trivial on any row with a non-zero value off the support.
+        return in[AllEntities::EntityId::q_busread].is_zero() && in[ReadCountsId].is_zero() && in[ValueId].is_zero();
     }
 
     /**
@@ -154,6 +155,7 @@ class SingleBusLookupRelationImpl {
      *   (1b) (I*L*T - 1) * count     = 0
      *   (2)  (is_read*T - count*L)*I = 0       (linearly dependent — summed across trace)
      *   (3)  (1 - indicator) * count = 0       (read_counts vanish outside the bus's data rows)
+     *   (4)  (1 - indicator) * value = 0       (values vanish outside the bus's data rows)
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
@@ -192,6 +194,12 @@ class SingleBusLookupRelationImpl {
         const ShortAccumulator indicator_short(indicator_m);
         const ShortAccumulator read_counts_short(read_counts_m);
         std::get<3>(accumulator) += (read_counts_short - indicator_short * read_counts_short) * scaling_factor;
+
+        // (4) (1 − indicator) · value: the committed bus column carries no nonzero values outside
+        // the declared support, so its commitment is a function of only the declared data.
+        const auto value_m = CoefficientAccumulator(in[ValueId]);
+        const ShortAccumulator value_short(value_m);
+        std::get<4>(accumulator) += (value_short - indicator_short * value_short) * scaling_factor;
     }
 };
 
