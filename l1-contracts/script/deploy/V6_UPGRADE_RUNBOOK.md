@@ -3,6 +3,10 @@
 How to deploy the v6 rollup and get it made canonical. Covers `DeployRollupForUpgradeV6.s.sol`,
 `V6UpgradePayload.sol` and `V6UpgradeSimulation.sol`.
 
+Reviewing the payload rather than running the upgrade? Start at
+[`src/periphery/V6UpgradePayload.md`](../../src/periphery/V6UpgradePayload.md) — what it intends,
+guarantees, and deliberately leaves alone.
+
 ## What this does
 
 The deploy script deploys, in one broadcast:
