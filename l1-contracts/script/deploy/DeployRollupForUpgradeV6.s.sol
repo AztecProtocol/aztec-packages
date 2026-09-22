@@ -174,7 +174,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
    *      Values track v5 production unless a comment says otherwise; each line records the v5
    *      value so any intentional v6 divergence is visible as a divergence.
    */
-  function _config() internal view returns (Config memory c) {
+  /// @dev `virtual` so a test can supply the three genesis roots and exercise the rest of this
+  ///      table for real. Nothing else about it is overridable, and nothing in the deploy path
+  ///      overrides it: `run()` still refuses to deploy while the roots are zero.
+  function _config() internal view virtual returns (Config memory c) {
     c = Config({
       vkTreeRoot: bytes32(0), // TODO: from the v6 protocol circuits build
       protocolContractsHash: bytes32(0), // TODO: from the v6 protocol circuits build
@@ -188,9 +191,9 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       lagInEpochsForRandao: 1,
       localEjectionThreshold: 190_000e18, // v5 production: 190_000e18 (mainnet), 199_000e18 (sepolia)
       expectedGseActivationThreshold: 200_000e18, // not set here; asserted against the existing GSE. v5 production:
-        // 200_000e18
+      // 200_000e18
       expectedGseEjectionThreshold: 100_000e18, // not set here; asserted against the existing GSE. v5 production:
-        // 100_000e18
+      // 100_000e18
       exitDelaySeconds: 345_600, // 4 days. v5 production: 345_600 (mainnet), 172_800 (sepolia)
       entryQueueBootstrapValidatorSetSize: 500, // v5 production: 500.
       entryQueueBootstrapFlushSize: 4, // v5 production: 4
@@ -225,7 +228,7 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       escapeHatchFailedHatchPunishment: 9_600_000e18, // v5 production
       escapeHatchFrequency: 112, // epochs between hatches. v5 production
       escapeHatchActiveDuration: 2, // epochs. v5 production; also the minimum allowed here, being
-        // aztecProofSubmissionEpochs + 1
+      // aztecProofSubmissionEpochs + 1
       escapeHatchLagInHatches: 1, // v5 production
       escapeHatchProposingExitDelay: 30 days, // v5 production; also the maximum the constructor allows
       enforcePayloadExecutionWindow: true,
@@ -265,6 +268,15 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
 
     revert DeployRollupForUpgradeV6__UnsupportedChain(block.chainid);
   }
+
+  /// @notice The rollup {run} deployed. Zero until it has run.
+  /// @dev Mirrors `rollupOutput()` on DeployRollupForUpgrade: the addresses are logged for an
+  ///      operator, and exposed here for anything that has to read them back -- a test, or tooling
+  ///      that follows the deploy.
+  Rollup public deployedRollup;
+
+  /// @notice The payload {run} deployed. Zero until it has run.
+  V6UpgradePayload public deployedPayload;
 
   /// @notice Deploys the verifier, the rollup, and the governance payload, then verifies the result.
   function run() public {
@@ -345,11 +357,22 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     console.log("newFlushRewarder ", address(payload.NEW_FLUSH_REWARDER()));
     verifyFlushRewarder(address(rollup), address(payload));
 
-    // Runs the payload through the real governance lifecycle against a state snapshot and reverts
-    // it, so a deploy cannot succeed while producing a payload that would fail or misbehave.
-    // Requires forked state; see V6UpgradeSimulation.
-    new V6UpgradeSimulation().simulate(address(payload));
+    _simulate(address(payload));
     console.log("version          ", rollup.getVersion());
+
+    deployedRollup = rollup;
+    deployedPayload = payload;
+  }
+
+  /**
+   * @notice Runs the payload through the real governance lifecycle against a state snapshot and
+   *         reverts it, so a deploy cannot succeed while producing a payload that would fail.
+   * @dev Requires FORKED state -- it needs a governance with real voters and mainnet timings; see
+   *      V6UpgradeSimulation. `virtual` so a test exercising the config table against a local stack
+   *      can skip it, which is the only thing in `run()` that a local stack cannot satisfy.
+   */
+  function _simulate(address _payload) internal virtual {
+    new V6UpgradeSimulation().simulate(_payload);
   }
 
   /// @notice Asserts every configurable value of an already-deployed rollup against {_config}.
