@@ -165,7 +165,7 @@ inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 81;
 
 // Hiding kernel: verifies the tail kernel (HN_FINAL), then a batch-merge recursive verifier sized for
 // CHONK_MAX_NUM_CIRCUITS plus a decider.
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36626;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36849;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 // The hiding kernel's ultra-op count is defined canonically as bb::HIDING_KERNEL_ULTRA_OPS (constants.hpp), since
 // the merge prover/verifier pin to it; reference it directly to avoid an ambiguous re-export in this namespace.

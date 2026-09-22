@@ -10,10 +10,10 @@ There are two distinct merge mechanisms:
 
 - The **Merge Protocol** in `MERGE_PROTOCOL.md` proves the latest pairwise merge relation. It checks one step of the form
   $$
-  M_j(X) = L_j(X) + X^\ell R_j(X)
+  M_j(X) = L_j(X) + X^k R_j(X)
   $$
-  for each column $j \in \lbrace 1,2,3,4\rbrace$, together with a degree check for the left table. It should be read as the latest-merge protocol, including the soundness and degree-of-freedom analysis for that final merge.
-- The **Batch Merge Protocol** proves, in one proof, that a committed aggregate table is the concatenation of all accumulated subtables bound by a running commitment hash, with a zero-knowledge prefix prepended by the batch merge prover.
+  for each column $j \in \lbrace 1,2,3,4\rbrace$, together with a degree check $\deg(L_j)<k$ for the left table. In Chonk, $k$ is the verifier-derived fixed append offset determined by `HIDING_KERNEL_ULTRA_OPS`, not the actual size of $L_j$. It should be read as the latest-merge protocol, including the soundness and degree-of-freedom analysis for that final merge.
+- The **Batch Merge Protocol** proves, in one proof, that a committed aggregate table is the concatenation of all accumulated subtables bound by a running commitment hash, with a zero-knowledge prefix and a fixed equality-to-infinity/reset separator after every active subtable.
 
 The batch merge protocol therefore does not replace the latest merge proof. Batch merge establishes the accumulated table up to the batch-merge output: all subtables bound by the running hash, plus the ZK prefix. The latest merge protocol is then responsible for the final pairwise merge involving the hiding-kernel table.
 
@@ -22,31 +22,32 @@ The batch merge protocol therefore does not replace the latest merge proof. Batc
 The Merge Protocol proves only a current/latest merge step. Given commitments to two tables $L_j$ and $R_j$, it proves that the output commitment opens to
 
 $$
-M_j(X) = L_j(X) + X^\ell R_j(X)
+M_j(X) = L_j(X) + X^k R_j(X)
 $$
 
-for each wire column $j$, where $\ell$ is the unshifted size of $L_j$.
+for each wire column $j$, where $k$ is the verifier-derived fixed append offset. The degree check proves $\deg(L_j)<k$; it does not require the actual size of $L_j$ to equal $k$.
 
-The Batch Merge Protocol proves a different statement. It receives a running hash that binds a sequence of subtable commitments and proves that the output aggregate commitment opens to the concatenation of every accumulated subtable, preceded by the batch-merge ZK prefix:
+The Batch Merge Protocol proves a different statement. It receives a running hash that binds a sequence of subtable commitments and proves that the output aggregate commitment opens to the concatenation of every accumulated subtable, preceded by the batch-merge ZK prefix and with a fixed separator after each subtable:
 
 $$
-F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} f_{i,j}(X),
+F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} \bigl(f_{i,j}(X) + X^{s_i} \mathcal{S}_j(X)\bigr),
 \qquad
-k_i = s_0 + \sum_{m < i} s_m.
+k_i = s_0 + \sum_{1 \leq m < i} (s_m + 2).
 $$
 
-Here:
+Subtable sizes and offsets count Ultra rows (two rows per ECC operation). Here:
 
 - $j \in \lbrace 1,2,3,4\rbrace$ indexes the op-queue columns.
 - $f_{0,j}$ is the ZK-prefix column.
 - $f_{i,j}$ is the $j$-th column of the $i$-th accumulated subtable.
 - $s_0$ is the fixed ZK-prefix size.
-- $s_i$ is the claimed size bound for subtable $i$.
+- $s_i$ is the claimed size bound for subtable $i$, excluding its separator.
+- $\mathcal{S}(X)=(3,0,0,0)$ denotes the four column polynomials of the fixed equality-to-infinity/reset separator. It occupies two rows: $(3,0,0,0)$ followed by $(0,0,0,0)$.
 
 Thus:
 
 - Merge Protocol: latest pairwise merge only.
-- Batch Merge Protocol: batched merge of all accumulated subtables plus the ZK prefix.
+- Batch Merge Protocol: batched merge of all accumulated subtables, their separators, and the ZK prefix.
 
 ## Running Commitment Hash
 
@@ -56,10 +57,10 @@ $$
 T_i = ([f_{i,1}], [f_{i,2}], [f_{i,3}], [f_{i,4}]),
 $$
 
-then the next hash is
+then the next hash is computed over the commitments serialized to field elements:
 
 $$
-h_i = \text{Poseidon2}(h_{i-1}, T_i).
+h_1 = \text{Poseidon2}(T_1), \qquad h_i = \text{Poseidon2}(h_{i-1}, T_i) \quad (i \geq 2).
 $$
 
 The final kernel receives the resulting hash and passes it to the batch merge verifier. The verifier recomputes the same hash chain from the commitments supplied in the batch merge proof and checks that the selected hash value equals the public input hash. In the implementation this is optimized by reusing transcript challenges: `Transcript::get_challenge("HASH_i")` updates the transcript and yields the hash-chain element.
@@ -78,15 +79,15 @@ Prover data:
 - ZK-prefix polynomials $f_{0,j}$.
 - Aggregate polynomials
   $$
-  F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} f_{i,j}(X),
+  F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} \bigl(f_{i,j}(X) + X^{s_i} \mathcal{S}_j(X)\bigr),
   \qquad
-  k_i = s_0 + \sum_{m<i} s_m.
+  k_i = s_0 + \sum_{1 \leq m < i} (s_m + 2).
   $$
 
 The verifier should be convinced that:
 
 1. The running hash $h$ binds the commitments to $f_{1,j},\ldots,f_{N,j}$.
-2. Each aggregate commitment $[F_j]$ is the concatenation of the ZK prefix and the $N$ accumulated subtables.
+2. Each aggregate commitment $[F_j]$ is the concatenation of the ZK prefix and the $N$ accumulated subtables, each followed by its fixed separator.
 3. The claimed size bounds are respected:
    $$
    \deg(f_{0,j}) < s_0,\qquad \deg(f_{i,j}) < s_i \text{ for } i=1,\ldots,N.
@@ -120,7 +121,7 @@ $$
 3. Create and commit to the ZK-prefix columns $[C_{0,j}]$ using `ECCOpQueue::construct_zk_columns()`.
 4. Send $N$ and the subtable sizes $s_i$ for all $M$ possible subtable slots.
 5. Construct and commit to the merged table columns $[F_j]$.
-6. Derive batching challenges $1,\alpha,\alpha^2,\ldots$.
+6. Derive batching challenges $\alpha_{i,j}=\alpha^{4i+j-1}$, for $i=0,\ldots,M$ and $j=1,\ldots,4$.
 7. Construct the degree-check polynomial over the active slots
    $$
    G(X) = \sum_{i=0}^{N}\sum_{j=1}^{4}
@@ -137,13 +138,20 @@ The verifier recomputes the hash chain, receives commitments/evaluations, and pe
 
 #### Concatenation Check
 
-For each column $j$, the verifier checks
+For each slot $i=1,\ldots,M$, let $a_i=1$ if $i\leq N$ and $a_i=0$ otherwise. Compute $p_i=\kappa^{\sigma_i}$,
+$v_i=a_i p_i$, and $q_i=p_i+(\kappa^2-1)v_i$. Starting with $H_j=0$, process
+slots $i=M,\ldots,1$ in reverse:
 
 $$
-F_j(\kappa) = C_{0,j}(\kappa) + \kappa^{\sigma_0} C_{1,j}(\kappa) + \kappa^{\sigma_0+\sigma_1} C_{2,j}(\kappa) + \cdots + \kappa^{\sum_{m=0}^{M-1}\sigma_m} C_{M,j}(\kappa).
+H_j \leftarrow C_{i,j}(\kappa) + q_i H_j + v_i \mathcal{S}_j(\kappa),
+\qquad
+F_j(\kappa) = C_{0,j}(\kappa) + \kappa^{\sigma_0} H_j.
 $$
 
-In code this is evaluated with Horner's rule from the last table slot down to the ZK prefix. Since $\sigma_i=0$ and $C_{i,j}(\kappa)=0$ for unused slots, indices $i>N$ do not contribute.
+An active empty subtable still contributes a separator. Unused slots have $p_i=q_i=1$,
+$v_i=0$, and zero columns, so they contribute nothing. The ZK prefix has no separator.
+The existing powers and inverses are reused for the original degree bounds below; no extra
+commitments, transmitted evaluations, or PCS openings are needed.
 
 #### Degree Check
 
@@ -159,12 +167,11 @@ $$
 G(\kappa^{-1}) = \sum_{i=0}^{M}\sum_{j=1}^{4} \alpha_{i,j}\, \kappa^{1-\sigma_i} C_{i,j}(\kappa)
 $$
 
-This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. In particular, unused slots have $\sigma_i=0$ which means the right hand side has a term of the form
+This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. A zero size requires a zero column, including for active empty subtables. For $\sigma_i=0$, the corresponding reversed expression is
 $$
-X^{-1} C_{i,j}(X^{-1})
+X^{-1} C_{i,j}(X^{-1}).
 $$
-Unless $C_{i,j} = 0$ such a terms contributes negative powers of $X$, which means the right hand side is not a polynomial, while the left hand side is (because it was committed to).
-
+A nonzero $C_{i,j}$ contributes only negative powers here. The batched expression cannot equal the committed polynomial $G(X)$ except through a batching cancellation; the random evaluation checks this identity with the usual failure probability.
 
 #### Hash Consistency Check
 
@@ -202,7 +209,7 @@ The batch merge algebra above is written without duplicating the trace-layout di
 
 The important separation is:
 
-- Batch merge proves the hash-bound accumulated subtables plus the ZK prefix.
+- Batch merge proves the hash-bound accumulated subtables, their separators, and the ZK prefix.
 - Latest merge proves the final append relation for the current hiding-kernel table and performs the final layout alignment discussed in `MERGE_PROTOCOL.md`.
 
 ## Soundness Considerations
@@ -230,7 +237,8 @@ commitments and ZK prefix fixed, the protocol allows different amounts of zero p
 The following checks ensure that this padding does not change the sequence of ECC operations being verified:
 
 1. The concatenation and degree checks preserve each subtable's contents and order, prevent overlap, and
-   require the added rows to be zero.
+   require the added padding rows to be zero. The bound remains $\deg(C_{i,j}) < \sigma_i$,
+   excluding the separator rows: allowing subtable support there would permit cancelling the fixed opcode.
 2. Padding that places a nonzero opcode on an odd Translator row is rejected. The Translator requires
    opcodes on odd rows to be zero (`TranslatorOpcodeConstraintRelationImpl` in
    `relations/translator_vm/translator_extra_relations_impl.hpp`).
@@ -243,7 +251,27 @@ The following checks ensure that this padding does not change the sequence of EC
    trailing random rows in the Translator's masking region.
 
 Requiring exact sizes would need additional information binding each subtable's length to its circuit.
-The checks above allow zero padding without requiring that information.
+The checks above allow zero padding without requiring that information. The separator follows the
+claimed support in Ultra rows and follows the actual operation list in ECCVM; opcode-zero padding
+leaves their translation evaluations equal.
+
+### Accumulator isolation
+
+The protocol-controlled recursive batch-merge verifier mandates a separator after every active
+subtable, including empty ones. The original commitments and their running hash are unchanged.
+The final hiding-kernel subtable is appended separately at its fixed offset and receives no separator.
+
+Support separation fixes both separator rows independently of app-controlled coefficients.
+Translator's operation accumulation includes opcode 3 and zero coordinates at that position,
+and its translation evaluation binds this operation to the ECCVM transcript. On an ordinary
+equality row, ECCVM's curve equation rules out a finite point with coordinates (0,0); infinity
+equality then requires an empty accumulator. A dirty boundary therefore rejects the transaction,
+rather than discarding the outstanding accumulator. The special hiding row remains confined to
+the existing prefix.
+
+Native reconstruction must use an actual infinity point for the ECCVM separator, while its Ultra
+coordinates are zero. Separators also terminate pending mul runs, so their MSM/precompute row
+counts must be included. They consume existing queue headroom without moving the final append.
 
 These arguments retain the usual Schwartz-Zippel, degree-check batching, Shplonk batching, KZG binding,
 and hash-chain collision failure probabilities.
