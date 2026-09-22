@@ -164,9 +164,10 @@ case "$cmd" in
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
-    # parent dashboard log, matching merge-queue. The job id stays "x-$cmd" so the
-    # GitHub status check name is unchanged.
-    multi_job_run "x-$cmd amd64 ci-$cmd"
+    # parent dashboard log, matching merge-queue.
+    bootstrap_cmd=ci-$cmd
+    [ "$cmd" == ci ] && bootstrap_cmd=ci
+    multi_job_run "x-$cmd amd64 $bootstrap_cmd"
     ;;
   bench)
     # Launched by the build instance on uploadable runs to produce stable benchmark
