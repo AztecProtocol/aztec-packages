@@ -34,6 +34,11 @@ contract V6UpgradePayload is IPayload {
   /// @notice The rollup being made canonical.
   IInstance public immutable ROLLUP;
 
+  /// @notice The canonical rollup at deployment -- the one {ROLLUP} is built to succeed.
+  /// @dev Public so it can be checked before signalling: a payload whose PREDECESSOR is no longer
+  ///      canonical can never execute, and that is readable on-chain before any vote is committed.
+  address public immutable PREDECESSOR;
+
   /// @notice The flush rewarder serving the outgoing rollup, or zero on a chain that has none.
   FlushRewarder public immutable OLD_FLUSH_REWARDER;
 
@@ -50,6 +55,9 @@ contract V6UpgradePayload is IPayload {
   /// @notice Thrown when governance executes outside the permitted window.
   error V6UpgradePayload__OutsideExecutionWindow(uint256 timestamp);
 
+  /// @notice Thrown when the rollup this payload was built to succeed is no longer canonical.
+  error V6UpgradePayload__PredecessorNotCanonical(address expected, address actual);
+
   /**
    * @notice Binds the payload to the rollup it will make canonical, and deploys the replacement
    *         flush rewarder when there is an outgoing one to migrate.
@@ -65,6 +73,13 @@ contract V6UpgradePayload is IPayload {
     OLD_FLUSH_REWARDER = _oldFlushRewarder;
     ENFORCE_EXECUTION_WINDOW = _enforceExecutionWindow;
 
+    // Read ONCE and bound as an immutable, so the rewarder check below and the execution-time
+    // guard are talking about the same rollup by construction. Unconditional, so this reverts
+    // with `Registry__NoRollupsRegistered` against an empty registry -- this payload succeeds a
+    // rollup and cannot be used for a first registration.
+    address outgoingRollup = address(_registry.getCanonicalRollup());
+    PREDECESSOR = outgoingRollup;
+
     // Nothing on the rollup points back at its flush rewarder -- a FlushRewarder is a
     // permissionless wrapper around the permissionless `flushEntryQueue`, so a rollup may have
     // any number of them and knows about none. The address therefore has to be supplied, but it
@@ -72,7 +87,6 @@ contract V6UpgradePayload is IPayload {
     // replaced. This rejects a rewarder for a foreign or already-retired rollup.
     if (address(_oldFlushRewarder) != address(0)) {
       address servedRollup = address(_oldFlushRewarder.ROLLUP());
-      address outgoingRollup = address(_registry.getCanonicalRollup());
       require(
         servedRollup == outgoingRollup, V6UpgradePayload__FlushRewarderRollupMismatch(servedRollup, outgoingRollup)
       );
@@ -94,14 +108,31 @@ contract V6UpgradePayload is IPayload {
     uint256 next = 0;
 
     IPayload.Action[] memory res =
-      new IPayload.Action[]((ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (migrateFlushRewarder ? 3 : 2));
+      new IPayload.Action[](1 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (migrateFlushRewarder ? 3 : 2));
+
+    // FIRST, before the window and before anything is written: this payload only authorises a
+    // transition FROM the rollup that was canonical when it was deployed.
+    //
+    // Registration is append-only with last-write-wins, and `execute` is permissionless, so two
+    // accepted registrations are a hazard: if this one is abandoned and a replacement executes
+    // first, anyone could later execute this one and demote the replacement -- permanently, since
+    // neither registry re-admits a rollup it already holds. Binding the predecessor makes a stale
+    // payload inert instead: it reverts, the proposal stays Executable until it expires, and
+    // nothing moves.
+    //
+    // Ahead of the window check deliberately. Both are non-mutating so the order is free, and of
+    // the two failures "this payload must never run" is the one worth surfacing over "come back
+    // on Monday".
+    res[next++] =
+      Action({target: address(this), data: abi.encodeWithSelector(this.assertPredecessorIsCanonical.selector)});
 
     // The window is enforced as its own action rather than inside `getActions` so that reading the
     // proposal stays possible at any time -- explorers, `GSEPayload.amIValid` and the deploy
     // script's simulation all call `getActions`, and a revert here would break them out of hours.
-    // Placed first so nothing is mutated before the check: Governance reverts the whole execution
-    // on any failed action, and it rolls back the Executed flag with it, so a rejected attempt
-    // leaves the proposal executable again once the window opens.
+    // The same is true of the guard above, which is why it is an action too: a stale payload must
+    // still be READABLE, so that what it would do stays inspectable after it can no longer do it.
+    // Governance reverts the whole execution on any failed action and rolls back the Executed flag
+    // with it, so a rejected attempt leaves the proposal executable again once the window opens.
     if (ENFORCE_EXECUTION_WINDOW) {
       res[next++] =
         Action({target: address(this), data: abi.encodeWithSelector(this.assertWithinExecutionWindow.selector)});
@@ -137,8 +168,17 @@ contract V6UpgradePayload is IPayload {
     return res;
   }
 
+  /// @notice Reverts unless {PREDECESSOR} is still the canonical rollup.
+  /// @dev Targeted by the first action. Voters can also call it directly before signalling to
+  ///      confirm the payload is still live.
+  // solhint-disable-next-line comprehensive-interface
+  function assertPredecessorIsCanonical() external view {
+    address canonical = address(REGISTRY.getCanonicalRollup());
+    require(canonical == PREDECESSOR, V6UpgradePayload__PredecessorNotCanonical(PREDECESSOR, canonical));
+  }
+
   /// @notice Reverts unless the current time is inside the permitted execution window.
-  /// @dev Targeted by the first action when {ENFORCE_EXECUTION_WINDOW} is set.
+  /// @dev Targeted by an action, after the predecessor guard, when {ENFORCE_EXECUTION_WINDOW} is set.
   // solhint-disable-next-line comprehensive-interface
   function assertWithinExecutionWindow() external view {
     require(isWithinExecutionWindow(block.timestamp), V6UpgradePayload__OutsideExecutionWindow(block.timestamp));

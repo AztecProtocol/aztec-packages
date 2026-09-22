@@ -149,6 +149,10 @@ Sanity-check by hand that the rollup is inert and correctly owned:
 cast call <rollup> "owner()(address)"           --rpc-url $RPC  # governance
 cast call <rollup> "getEscapeHatch()(address)"  --rpc-url $RPC  # the deployed hatch, non-zero
 cast call <rollup> "getVersion()(uint256)"      --rpc-url $RPC  # not already in the registry
+
+# the payload is bound to the rollup it succeeds; must equal the OUTGOING rollup, not the new one
+cast call <payload> "PREDECESSOR()(address)"    --rpc-url $RPC
+cast call $REG "getCanonicalRollup()(address)"  --rpc-url $RPC
 ```
 
 ## 6. Governance proposal
@@ -165,6 +169,32 @@ delay — on the order of weeks in total), so expect the proposal to sit before 
 
 Before execution, re-run the `totalEarmarkedBalance` and `rewardsAvailable` checks from step 3 —
 both can move while the proposal is pending, and `rewardsAvailable` is read at execution time.
+
+### Before signalling or voting, check the payload is still live
+
+The payload only authorises a transition **from** the rollup that was canonical when it was
+deployed, and it refuses to execute once that is no longer true. Both halves are readable on-chain,
+and both should be checked before anything is committed to:
+
+```bash
+# (a) the guard is actually in the action list — expect assertPredecessorIsCanonical first
+cast call <payload> "getActions()((address,bytes)[])" --rpc-url $RPC
+
+# (b) the rollup it is bound to is still canonical — these two must be equal
+cast call <payload> "PREDECESSOR()(address)"         --rpc-url $RPC
+cast call $REG "getCanonicalRollup()(address)"       --rpc-url $RPC
+```
+
+A registration payload without that guard is the hazard the guard exists to remove: registration is
+append-only with last-write-wins and `execute` is permissionless, so an accepted-but-abandoned
+payload can be executed by anyone later and demote whatever replaced it — permanently, since
+neither the registry nor the GSE re-admits a rollup it already holds.
+
+**The consequence, which is intended but worth stating.** Once *any* other registration executes,
+this payload is dead: it can never execute, even if its proposal was accepted and is still inside
+its grace period. Registering v6 then requires deploying a fresh payload — which picks up the new
+canonical rollup as its `PREDECESSOR` — and taking it through the full governance cycle again. So a
+patched replacement for a bad v6 is not a quick swap; budget the whole cycle for it.
 
 ## 7. After execution
 
