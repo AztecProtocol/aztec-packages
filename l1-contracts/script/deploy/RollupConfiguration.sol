@@ -47,22 +47,43 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   function loadConfig() external {
     networkName = vm.envOr("NETWORK", string("local"));
     validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
+
+    _requireNetworkMatchesChain(networkName, block.chainid);
   }
 
+  /// @dev NETWORK selects the contract defaults and the chain id selects RPC and keys; a mismatch means one of
+  ///      them points at the wrong network.
+  function _requireNetworkMatchesChain(string memory _networkName, uint256 _chainId) internal pure {
+    bool isMainnetName = keccak256(bytes(_networkName)) == keccak256("mainnet");
+    require(!isMainnetName || _chainId == 1, "RollupConfiguration: NETWORK=mainnet requires chain id 1");
+    require(_chainId != 1 || isMainnetName, "RollupConfiguration: chain id 1 requires NETWORK=mainnet");
+  }
+
+  /// @dev A stub verifier accepts any proof, so it must be requested explicitly with REAL_VERIFIER=false.
   function useRealVerifier() external view returns (bool) {
-    return vm.envOr("REAL_VERIFIER", false);
+    return vm.envOr("REAL_VERIFIER", true);
   }
 
   function getFeeJuicePortalInitialBalance() external view returns (uint256) {
     return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
   }
 
+  /// @dev The genesis roots are immutable once the rollup is constructed and a zero root cannot match any node's
+  ///      view of the chain, so each one must be supplied explicitly.
   function getGenesisState() external view returns (GenesisState memory) {
-    return GenesisState({
+    GenesisState memory genesisState = GenesisState({
       vkTreeRoot: bytes32(vm.envOr("VK_TREE_ROOT", uint256(0))),
       protocolContractsHash: bytes32(vm.envOr("PROTOCOL_CONTRACTS_HASH", uint256(0))),
       genesisArchiveRoot: bytes32(vm.envOr("GENESIS_ARCHIVE_ROOT", uint256(0)))
     });
+    _requireGenesisState(genesisState);
+    return genesisState;
+  }
+
+  function _requireGenesisState(GenesisState memory _genesisState) internal pure {
+    require(_genesisState.vkTreeRoot != bytes32(0), "RollupConfiguration: VK_TREE_ROOT is unset");
+    require(_genesisState.protocolContractsHash != bytes32(0), "RollupConfiguration: PROTOCOL_CONTRACTS_HASH is unset");
+    require(_genesisState.genesisArchiveRoot != bytes32(0), "RollupConfiguration: GENESIS_ARCHIVE_ROOT is unset");
   }
 
   function getRewardConfiguration(IRewardDistributor _rewardDistributor) external pure returns (RewardConfig memory) {

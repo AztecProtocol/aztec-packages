@@ -38,6 +38,11 @@ contract DeployRollupForUpgradeTest is Test {
     string memory path = string.concat(root, "/scripts/network-defaults.json");
     string memory json = vm.readFile(path);
 
+    // Genesis roots are required by the deployer; any non-zero field element will do here.
+    vm.setEnv("VK_TREE_ROOT", vm.toString(uint256(keccak256("vk_tree_root")) >> 8));
+    vm.setEnv("PROTOCOL_CONTRACTS_HASH", vm.toString(uint256(keccak256("protocol_contracts_hash")) >> 8));
+    vm.setEnv("GENESIS_ARCHIVE_ROOT", vm.toString(uint256(keccak256("genesis_archive_root")) >> 8));
+
     // Timing config
     vm.setEnv("ETHEREUM_SLOT_DURATION", vm.toString(json.readUint(".ETHEREUM_SLOT_DURATION")));
     vm.setEnv("AZTEC_SLOT_DURATION", vm.toString(json.readUint(".AZTEC_SLOT_DURATION")));
