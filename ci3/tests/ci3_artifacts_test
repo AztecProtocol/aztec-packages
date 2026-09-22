@@ -217,6 +217,12 @@ class ArtifactTest(unittest.TestCase):
         self.assertEqual((Path(self.backend.path("artifacts", self.name))).read_bytes(), b"public artifact\n")
         self.assertEqual((self.public / self.name).read_bytes(), self.archive)
 
+    def test_artifact_upload_rejects_content_encoding(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
+        self.addCleanup(conn.close)
+        conn.request("PUT", "/artifacts/encoded.tar.gz", b"packed", {"Content-Encoding": "gzip"})
+        self.assertEqual(conn.getresponse().status, 415)
+
     def test_large_upload_follows_an_early_redirect(self):
         redirect = ThreadingHTTPServer(("127.0.0.1", 0), UploadRedirect)
         redirect.target = self.env["CI3_SERVER"]

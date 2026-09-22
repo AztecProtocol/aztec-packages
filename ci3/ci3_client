@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The only way ci3 talks to its log / test-cache / artifact server (see CI3_SERVER_API.md).
+"""CI logs and test results through the API; shared build artifacts through AWS/HTTPS.
 
 Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`.
-Uses Python 3's standard library, plus tar and zstd for artifact archives.
+Uses Python 3's standard library, tar/zstd for archives, and the AWS CLI for shared uploads.
 
   check                            verify the endpoint and authentication; fail if unavailable
   url [path]                       the browse URL of a log id / server path, as printed in links
@@ -47,6 +47,8 @@ Environment:
   CI3_SERVER     server URL; unset or empty disables logging and remote caching
   CI3_PASSWORD   basic-auth password (user aztec)
   CI3_PUBLIC_URL link base, when different from the server
+Outside CI, loopback servers store artifacts locally. Otherwise uploads use AWS credentials and
+downloads use the public HTTPS build cache, independently of the dashboard password and responses.
 Local bootstrap starts a server when CI3_SERVER is unset and exports its URL to child processes.
 CI entry points require CI3_SERVER and CI3_PASSWORD. Entry points run
 `ci3_client check` to verify connectivity and authentication; ordinary commands never discover or
@@ -56,6 +58,7 @@ import base64
 import gzip
 import http.client
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -64,6 +67,8 @@ import time
 import urllib.parse
 
 DASHBOARD_URL = "http://ci.aztec-labs.com"
+ARTIFACT_BUCKET = "s3://aztec-ci-artifacts/build-cache"
+ARTIFACT_PUBLIC_URL = "https://build-cache.aztec-labs.com"
 # Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
 # (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
 LOG_EXPIRE_CI = 60 * 60 * 24 * 14
@@ -144,11 +149,11 @@ def connection(url, timeout):
     return cls(u.hostname, u.port, timeout=timeout)
 
 
-def request(method, url, body=None, headers=None, timeout=30, redirects=5):
+def request(method, url, body=None, headers=None, timeout=30, redirects=5, authenticate=True):
     """One request; 3xx answers are followed, re-sending the body (a file body is rewound)."""
     headers = dict(headers or {})
     password = os.environ.get("CI3_PASSWORD")
-    if password:
+    if password and authenticate:
         headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + password).encode()).decode()
     for _ in range(redirects + 1):
         u = urllib.parse.urlsplit(url)
@@ -246,7 +251,11 @@ def read_or_fail(path, missing, timeout=60):
     if not resolve_server():
         sys.stderr.write("No ci3 server available.\n")
         return 1
-    with api("GET", path, timeout=timeout) as resp:
+    return stream_response(api("GET", path, timeout=timeout), missing)
+
+
+def stream_response(resp, missing):
+    with resp:
         if not response_ok(resp, allow_missing=True):
             sys.stderr.write(missing + "\n")
             return 1
@@ -338,6 +347,11 @@ def cmd_artifact_put(args):
 
 
 def put_artifact(name, file):
+    validate_artifact_name(name)
+    if not local_artifacts():
+        subprocess.run(["aws", "s3", "cp", os.path.abspath(file.name), ARTIFACT_BUCKET + "/" + name,
+                        "--only-show-errors"], check=True)
+        return 0
     file.seek(0)
     headers = {"Content-Length": str(os.fstat(file.fileno()).st_size)}
     return write_response(api("PUT", "/artifacts/" + key_path(name), file, headers,
@@ -347,7 +361,27 @@ def put_artifact(name, file):
 def cmd_artifact_get(args):
     if not args:
         return usage("artifact_get", "<name>")
-    return read_or_fail("/artifacts/" + key_path(args[0]), "Artifact not found: " + args[0], timeout=600)
+    if not resolve_server():
+        return 1
+    return stream_response(artifact_response("GET", args[0]), "Artifact not found: " + args[0])
+
+
+def local_artifacts():
+    return not in_ci() and urllib.parse.urlsplit(resolve_server()).hostname in ("localhost", "127.0.0.1", "::1")
+
+
+def validate_artifact_name(name):
+    if any(p in ("", ".", "..") or not re.fullmatch(r"[A-Za-z0-9._:+@=,-]+", p) for p in name.split("/")):
+        raise CI3Error("invalid artifact name: " + name)
+
+
+def artifact_response(method, name):
+    validate_artifact_name(name)
+    if local_artifacts():
+        return api(method, "/artifacts/" + key_path(name), timeout=600)
+    # Executable artifacts must not depend on a password-authenticated dashboard response.
+    return request(method, ARTIFACT_PUBLIC_URL + "/" + key_path(name), timeout=600,
+                   redirects=0, authenticate=False)
 
 
 def cmd_artifact_exists(args):
@@ -359,7 +393,7 @@ def cmd_artifact_exists(args):
 
 
 def artifact_exists(name):
-    with api("HEAD", "/artifacts/" + key_path(name)) as resp:
+    with artifact_response("HEAD", name) as resp:
         return response_ok(resp, allow_missing=True)
 
 
@@ -399,7 +433,7 @@ def read_artifact(name, directory=None):
     if cache_reads_disabled(name):
         sys.stderr.write("Not using cache for %s: artifact downloads are disabled.\n" % name)
         return 1
-    with api("GET", "/artifacts/" + key_path(name), timeout=600) as resp:
+    with artifact_response("GET", name) as resp:
         if not response_ok(resp, allow_missing=True):
             sys.stderr.write("Artifact not found: %s\n" % name)
             return 1

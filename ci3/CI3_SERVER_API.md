@@ -1,15 +1,15 @@
 # ci3 server API
 
-ci3 stores CI logs, the test cache, run metadata and build artifacts through the HTTP API below. It knows
-nothing about what sits behind it. Two implementations exist:
+ci3 stores CI logs, the test cache and run metadata through the HTTP API below.
+Shared build artifacts use AWS credentials for S3 uploads and a fixed HTTPS endpoint for downloads;
+the dashboard password grants no authority to publish executable artifacts. Two API implementations exist:
 
 - `ci3/ci3_server`: the file-backed reference implementation, what a local run uses
   (`http://localhost:4275`, files under `/tmp/ci3`).
 - The deployed CI dashboard (`http://ci.aztec-labs.com`): the production implementation,
   behind its basic auth (user `aztec`). Its implementation belongs to the aztec-node repository.
 
-Every ci3 script reaches the server only through `ci3/ci3_client <command>` (python, stdlib only),
-so a new backend needs to implement exactly this document.
+Every ci3 script uses `ci3/ci3_client <command>` (Python stdlib, tar/zstd, and AWS CLI for shared uploads).
 
 The full build (`./bootstrap.sh ci-full`, which runs `make full`) also builds and tests the
 `labs/` submodule. Its own `ci3` still uses Redis and S3 directly, so the build instance still
@@ -154,10 +154,18 @@ The raw `artifact_put` and `artifact_get` commands transfer already-packed files
 | `GET /artifacts/<name>` | The bytes, or a `302` to a download URL. |
 | `HEAD /artifacts/<name>` | 200 or 404 (redirects followed). |
 
-The server owns artifact routing. The file server serves local uploads and redirects GET and HEAD
-misses to `https://build-cache.aztec-labs.com` (override with `ci3_server start --public-cache-url <url>`). Production
-stores uploads in S3 and redirects downloads to its public bucket. Artifact commands only use the API,
-including the npm publish job's release download; the file server owns local artifact storage.
+The artifact HTTP routes above are for local storage. Outside CI, a loopback `CI3_SERVER`
+(`localhost`, `127.0.0.1`, or `::1`) uses the file server, which serves local uploads and redirects
+GET and HEAD misses to `https://build-cache.aztec-labs.com`
+(override with `ci3_server start --public-cache-url <url>`).
+
+In CI, or with any remote `CI3_SERVER`, the client uploads directly to
+`s3://aztec-ci-artifacts/build-cache` using `aws s3 cp` and the AWS credential chain:
+GitHub Actions assumes its role through OIDC; EC2 builds use their instance role. Reads and existence
+checks go directly to `https://build-cache.aztec-labs.com`, without the dashboard password or redirects.
+This also applies to the npm publish job's release download. The production API must reject artifact
+writes, and its role should have no write permission to `build-cache/*`; it still persists logs under
+its separate log prefix. Local artifact uploads never populate the shared S3 cache.
 
 By default, redirected public artifacts are not retained locally. Start the file server with
 `CI3_CACHE_PUBLIC=1` or `ci3_server start --cache-public` to store downloaded artifacts under its

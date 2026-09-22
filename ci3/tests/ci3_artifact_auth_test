@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Shared artifacts require AWS credentials and never trust the dashboard for their bytes."""
+import functools
+import http.client
+import os
+from pathlib import Path
+import runpy
+import tarfile
+import tempfile
+import threading
+import unittest
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
+
+
+CI3 = Path(__file__).resolve().parents[1]
+
+
+class Cache(SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def send_head(self):
+        self.server.authorization = self.headers.get("Authorization")
+        if self.path == "/redirect":
+            self.send_response(302)
+            self.send_header("Location", "http://untrusted.example/artifact")
+            self.end_headers()
+            return None
+        return super().send_head()
+
+
+class ArtifactAuthTest(unittest.TestCase):
+    def setUp(self):
+        work = tempfile.TemporaryDirectory()
+        self.addCleanup(work.cleanup)
+        self.directory = Path(work.name)
+        self.artifact = self.directory / "artifact"
+        self.artifact.write_bytes(b"trusted build output")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Cache, directory=work.name))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.server = server
+        self.client = runpy.run_path(str(CI3 / "ci3_client"))["main"].__globals__
+        env = dict(os.environ, CI="1", CI3_SERVER="http://dashboard.invalid", CI3_PASSWORD="dashboard-only")
+        self.enter_patch(patch.dict(os.environ, env, clear=True))
+
+        def connect(url, timeout):
+            if not url.startswith("https://build-cache.aztec-labs.com/"):
+                raise OSError("untrusted artifact source: " + url)
+            return http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=timeout)
+
+        self.enter_patch(patch.dict(self.client, connection=connect))
+
+    def enter_patch(self, context):
+        context.__enter__()
+        self.addCleanup(context.__exit__, None, None, None)
+
+    def test_shared_reads_ignore_dashboard_and_omit_password(self):
+        for ci, endpoint in (("1", "http://localhost:4275"), ("0", "https://dashboard.invalid")):
+            with self.subTest(ci=ci, endpoint=endpoint), patch.dict(os.environ, CI=ci, CI3_SERVER=endpoint):
+                self.assertTrue(self.client["artifact_exists"]("artifact"))
+                received = bytearray()
+                with patch.dict(self.client, out=received.extend):
+                    self.assertEqual(self.client["cmd_artifact_get"](["artifact"]), 0)
+                self.assertEqual(received, self.artifact.read_bytes())
+                self.assertIsNone(self.server.authorization)
+
+    def test_shared_reads_reject_redirects(self):
+        with self.assertRaises((OSError, self.client["CI3Error"])):
+            self.client["artifact_exists"]("redirect")
+
+    def test_shared_archive_extraction_ignores_dashboard(self):
+        with tarfile.open(self.directory / "build.tar.gz", "w:gz") as archive:
+            archive.add(self.artifact, arcname="artifact")
+        destination = self.directory / "extracted"
+        self.assertEqual(self.client["cmd_artifact_download"](["build.tar.gz", str(destination)]), 0)
+        self.assertEqual((destination / "artifact").read_bytes(), self.artifact.read_bytes())
+        self.assertIsNone(self.server.authorization)
+
+    def test_missing_shared_artifact_is_a_miss(self):
+        self.assertFalse(self.client["artifact_exists"]("absent"))
+
+    def test_shared_upload_uses_aws_and_never_falls_back_to_password(self):
+        aws = self.directory / "aws"
+        aws.write_text("""#!/usr/bin/env python3
+import os, pathlib, sys
+if os.environ.get('TEST_AWS_DENIED') == '1':
+    sys.exit(1)
+assert sys.argv[1:3] == ['s3', 'cp'], sys.argv
+assert sys.argv[4] == 's3://aztec-ci-artifacts/build-cache/artifact', sys.argv
+pathlib.Path(os.environ['TEST_UPLOADED']).write_bytes(pathlib.Path(sys.argv[3]).read_bytes())
+""")
+        aws.chmod(0o755)
+        uploaded = self.directory / "uploaded"
+        with patch.dict(os.environ, PATH=str(self.directory) + os.pathsep + os.environ["PATH"],
+                        TEST_UPLOADED=str(uploaded)):
+            self.assertEqual(self.client["cmd_artifact_put"](["artifact", str(self.artifact)]), 0)
+            self.assertEqual(uploaded.read_bytes(), self.artifact.read_bytes())
+            with patch.dict(os.environ, TEST_AWS_DENIED="1"):
+                with patch("sys.argv", ["ci3_client", "artifact_put", "artifact", str(self.artifact)]):
+                    self.assertEqual(self.client["main"](), 2)
+            self.assertEqual(uploaded.read_bytes(), self.artifact.read_bytes())
+
+    def test_shared_upload_rejects_invalid_keys(self):
+        for name in ("../artifact", "/artifact", "bad?key", "nested//artifact"):
+            with self.subTest(name=name), self.assertRaises(self.client["CI3Error"]):
+                self.client["cmd_artifact_put"]([name, str(self.artifact)])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -100,10 +100,5 @@ class ContractTest(unittest.TestCase):
             for key in ("history_" + self.key, "failed_tests" + self.key, "ci-run-" + self.key, "%2e%2e/secret"):
                 self.assertEqual(self.put("/" + family + "/" + key, b"bad"), 400)
 
-    def test_artifact_uploads_reject_content_encoding(self):
-        self.assertEqual(self.put("/artifacts/" + self.key + ".tar.gz", b"packed",
-                                  {"Content-Encoding": "gzip"}), 415)
-
-
 if __name__ == "__main__":
     unittest.main()

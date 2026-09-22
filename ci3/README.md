@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI3_PASSWORD` for production authentication. Local bootstrap starts a file-backed server when no endpoint is set and exports its URL to child processes. Other commands use the exported endpoint or disable logging and remote caching. CI entry points require an endpoint and valid credentials; the workflows select production. The local server redirects artifact misses to the public HTTPS build cache.
+   Logs and the test cache use [`CI3_SERVER_API.md`](CI3_SERVER_API.md) through `ci3_client`. Set `CI3_SERVER` to select an endpoint and `CI3_PASSWORD` for production authentication. Shared build artifacts upload directly to S3 with AWS credentials and download from the public HTTPS cache; the dashboard password cannot publish them. Local bootstrap starts a file-backed loopback server when no endpoint is set and exports its URL to child processes. That server stores local artifacts and redirects misses to the public cache. Other commands use the exported endpoint or disable logging and remote caching. CI entry points require an endpoint and valid credentials; the workflows select production.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
@@ -46,7 +46,7 @@ Tools are provided for the following themes.
 
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
-   - **`ci3_client artifact_upload <name> <paths>...`, `ci3_client artifact_download <name> [directory]`**: Pack and restore `.tar.gz` or `.zst` build artifacts using `tar` and `zstd`. The server handles storage and redirects. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
+   - **`ci3_client artifact_upload <name> <paths>...`, `ci3_client artifact_download <name> [directory]`**: Pack and restore `.tar.gz` or `.zst` build artifacts using `tar` and `zstd`. Shared storage uses AWS uploads and HTTPS reads. Local loopback servers retain uploads for a week under `/tmp/ci3`; `NO_CACHE_UPLOAD=1` skips them.
      The file server can also retain public downloads: start it with `CI3_CACHE_PUBLIC=1` or `--cache-public`. By default, public reads are redirected without retaining a copy.
    - **`ci3_client <command>`**: The API client: `log_put/log_put_partial/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, and `artifact_upload/artifact_download/artifact_exists/artifact_list`. Raw artifact transfers use `artifact_put/artifact_get`.
      Uses Python 3's standard library and the existing archive tools; no Python packages are required.
