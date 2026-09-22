@@ -138,7 +138,7 @@ index 1ca48efd38ed87dce4035e14005b5cced6eece77..5550c18b310e48b8e6aa365f1197545b
      mapProtocolContractsFromNoir(data.protocol_contracts),
    );
 diff --git a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
-index 981af63e696762cfdb8447815907d17ea88b4205..53ec5186c118a9c7f109c647632ef905c95f493d 100644
+index 8baec00942eb23f9a9c66fb4d1b100049a20f8e6..687ba34a4fae9118b98496fffde9c7fec71e56b3 100644
 --- a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
 +++ b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
 @@ -50,7 +50,6 @@ import type { BlockParameter, L2TipsProvider } from '@aztec-labs/stdlib/block';
@@ -375,7 +375,7 @@ index e3bbb1cea00612e3d3240f2a9a4e8b3493b7bd38..ea05b1ebdf12116b0746cdb48d6f379f
        this.protocolContracts.getSize()
      );
 diff --git a/yarn-project/stdlib/src/tx/tx_request.test.ts b/yarn-project/stdlib/src/tx/tx_request.test.ts
-index 00bedcf387d46a996cc33794ad55868700b8e1a4..fa978de7bdfaab5808f5a2994012ed5b0a009709 100644
+index 6bf9ec7ae1a12fa857ac1696123b338f0b88eccc..856c87378e82e585053b222df79f9fae58e708f8 100644
 --- a/yarn-project/stdlib/src/tx/tx_request.test.ts
 +++ b/yarn-project/stdlib/src/tx/tx_request.test.ts
 @@ -32,7 +32,7 @@ describe('TxRequest', () => {
@@ -422,14 +422,14 @@ index 00bedcf387d46a996cc33794ad55868700b8e1a4..fa978de7bdfaab5808f5a2994012ed5b
 +    expect((await otherOrigin.computeProtocolNullifier()).equals(siloed)).toBe(false);
  
      // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-     updateInlineTestData(
+     updateInlineFndTestData(
        'noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_request.nr',
 -      'test_data_tx_request_hash',
 -      hash.toString(),
 +      'test_data_value',
 +      value.toString(),
 +    );
-+    updateInlineTestData(
++    updateInlineFndTestData(
 +      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_request.nr',
 +      'test_data_siloed',
 +      siloed.toString(),
@@ -514,7 +514,7 @@ index a4a2effbd2edaf0d91cd14232b7e90b935a1c352..1105862f55cb5397f0a15c869038630f
  
  const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = STRUCT([
 diff --git a/yarn-project/txe/src/oracle/txe_oracle_top_level_context.ts b/yarn-project/txe/src/oracle/txe_oracle_top_level_context.ts
-index d9ae2c5cfc12b6f417fc641c0978b0a671d543f6..8554dbfae304c16c478cb84251a73b4fe3500f72 100644
+index d8cd4d77aa580fe7d3353f70b3595f356a834eda..804b47674071d5ac5f77d53914c9603feb394651 100644
 --- a/yarn-project/txe/src/oracle/txe_oracle_top_level_context.ts
 +++ b/yarn-project/txe/src/oracle/txe_oracle_top_level_context.ts
 @@ -522,7 +522,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
@@ -527,7 +527,7 @@ index d9ae2c5cfc12b6f417fc641c0978b0a671d543f6..8554dbfae304c16c478cb84251a73b4f
        anchorBlockHeader: blockHeader,
        utilityExecutor,
 diff --git a/yarn-project/txe/src/txe_session.ts b/yarn-project/txe/src/txe_session.ts
-index 469100b61d7cf1bf45b524be12beda98caf465ce..5b6c973967c74fe0d872c10408358df34e8be8d4 100644
+index 7177c370dce9182a1569107b3bd91e7728660522..2e875e114c1baacb8628ff5fe2e000d057526f16 100644
 --- a/yarn-project/txe/src/txe_session.ts
 +++ b/yarn-project/txe/src/txe_session.ts
 @@ -783,7 +783,7 @@ export class TXESession implements TXESessionStateHandler {
