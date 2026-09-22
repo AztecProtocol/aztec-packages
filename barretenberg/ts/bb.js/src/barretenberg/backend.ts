@@ -336,7 +336,10 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    await this.api.chonkStart({ kinds: this.circuitKinds });
+    // Commands are dispatched without waiting for each response: the backend answers in FIFO order,
+    // so the pipeline stays full. Every response is awaited together with chonkProve below, which
+    // rejects on the first failed command instead of leaving an unhandled rejection.
+    const pending: Promise<unknown>[] = [this.api.chonkStart({ kinds: this.circuitKinds })];
 
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
@@ -351,21 +354,22 @@ export class AztecClientBackend {
         );
       }
 
-      await this.api.chonkLoad({
-        circuit: {
-          name: functionName,
-          bytecode: bytecode,
-          verificationKey: vk,
-        },
-        kind: this.circuitKinds[i],
-      });
-
-      await this.api.chonkAccumulate({
-        witness,
-      });
+      pending.push(
+        this.api.chonkLoad({
+          circuit: {
+            name: functionName,
+            bytecode: bytecode,
+            verificationKey: vk,
+          },
+          kind: this.circuitKinds[i],
+        }),
+        this.api.chonkAccumulate({
+          witness,
+        }),
+      );
     }
 
-    const proveResult = await this.api.chonkProve({});
+    const [proveResult] = await Promise.all([this.api.chonkProve({}), ...pending]);
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
     if (this.circuitKinds[lastIdx] !== CircuitKind.HidingKernel) {
       throw new AztecClientBackendError(
