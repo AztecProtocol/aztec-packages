@@ -7,8 +7,8 @@
 # Note that "test" targets don't *run* tests, they just output test commands to /tmp/test_cmds.
 #
 # Expectation is to run with one of the following targets:
-# - make fast
-# - make full
+# - make fast (the development build)
+# - make full (what CI builds and tests)
 # - make release
 
 # Shell to use for all commands
@@ -195,7 +195,7 @@ bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-tra
 bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
-# Cross-compile for ARM64 macOS (release or CI_FULL)
+# Cross-compile for ARM64 macOS (release and CI)
 bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
@@ -246,7 +246,7 @@ bb-cpp-windows:
 bb-cpp-asan:
 	$(call build,$@,barretenberg/cpp,build_preset asan-fast)
 
-# SMT verification (CI_FULL only)
+# SMT verification (CI only, non-release)
 bb-cpp-smt:
 	$(call build,$@,barretenberg/cpp,build_smt_verification)
 
@@ -468,7 +468,7 @@ LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
 
 # fast covers what a foundation change can break: labs compiled against the portals and its
 # unit/e2e tests, and the contracts against this tree's nargo/bb. docs, spartan, playground and
-# the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
+# the claude tooling only consume yarn-project and go in full, which is what CI builds.
 LABS_FAST_GOALS := yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests
 LABS_FULL_GOALS := spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches
 
@@ -484,9 +484,8 @@ labs-fast: labs-use-local
 labs-full: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS) $(LABS_FULL_GOALS))
 
-# The docs build runs check_doc_references.sh, but the docs build is full-only, so a patch
-# with references the checker cannot resolve passes PR (fast) CI and fails the merge queue.
-# The check itself is seconds of bash; run it in fast.
+# The docs build runs check_doc_references.sh, but the docs build is full-only; the check itself
+# is seconds of bash, so it runs in the development build too.
 labs-docs-refs-check: labs-patched
 	$(call run_command,$@,$(LABS_DIR)/docs,./scripts/check_doc_references.sh docs)
 

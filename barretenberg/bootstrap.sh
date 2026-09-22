@@ -29,8 +29,15 @@ case "$cmd" in
     bootstrap_all $@
     ;;
   ci)
-    bootstrap_all
-    bootstrap_all test
+    # cpp has its own ci command: it builds and tests every preset, not just the default one.
+    [ -n "${SKIP_BB_CRS:-}" ] || ./crs/bootstrap.sh
+    ./cpp/bootstrap.sh ci
+    for project in bbup ts rust acir_tests docs sol; do
+      ./$project/bootstrap.sh
+    done
+    for project in bbup ts rust acir_tests docs sol; do
+      ./$project/bootstrap.sh test
+    done
     ;;
   "release-preview")
     ./docs/bootstrap.sh release-preview

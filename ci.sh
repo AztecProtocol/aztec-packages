@@ -19,11 +19,10 @@ function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
   echo_cmd "dash"                  "Display a dashboard showing CI runs for the current user."
-  echo_cmd "fast"                  "Spin up an EC2 instance and run bootstrap ci-fast."
-  echo_cmd "full"                  "Spin up an EC2 instance and run bootstrap ci-full."
-  echo_cmd "full-no-test-cache"    "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
+  echo_cmd "ci"                    "Spin up an EC2 instance and run bootstrap ci."
+  echo_cmd "no-test-cache"         "Spin up an EC2 instance and run bootstrap ci-no-test-cache."
   echo_cmd "barretenberg"          "Spin up an EC2 instance and run barretenberg-only CI."
-  echo_cmd "grind"                 "Spin up EC2 instances to run parallel full CI runs."
+  echo_cmd "grind"                 "Spin up EC2 instances to run parallel CI runs."
   echo_cmd "merge-queue"           "Spin up EC2 instances to run the merge-queue jobs."
   echo_cmd "grind-test"            "Spin up an EC2 and grind a given test command."
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
@@ -128,7 +127,7 @@ function multi_job_run {
   export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
   export DENOISE=1
   export DENOISE_WIDTH=32
-  # Only the first job (the amd64 full build) runs the dedicated bench box and uploads;
+  # Only the first job (the amd64 build) runs the dedicated bench box and uploads;
   # the rest bench inline as a breakage check (see bootstrap.sh build_and_test). This
   # de-races grind runs (e.g. merge-queue-heavy fires ~10 instances) that would otherwise
   # all upload to the same bench cache key.
@@ -161,7 +160,7 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|barretenberg|barretenberg-full)
+  ci|no-test-cache|barretenberg)
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
@@ -197,11 +196,6 @@ case "$cmd" in
     # log. No denoise here: this is an interactive debug mode where raw output matters.
     PARENT_LOG_ID=$RUN_ID bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*" 2>&1 | DUP=1 cache_log "CI run" $RUN_ID
     ;;
-  full|full-no-test-cache)
-    export CI_DASHBOARD="prs"
-    export AWS_SHUTDOWN_TIME=75
-    multi_job_run "x-$cmd amd64 ci-$cmd"
-    ;;
   chonk-input-update)
     export CI_DASHBOARD="prs"
     export AWS_SHUTDOWN_TIME=90
@@ -224,27 +218,27 @@ case "$cmd" in
     }
     export -f run
     seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
-      'run $USER-x{}-full amd64 ci-full-no-test-cache'
+      'run $USER-x{} amd64 ci-no-test-cache'
     ;;
   merge-queue)
-    # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
+    # Uncached runs of all tests on x86, plus the arm64 build and test.
     multi_job_run \
-      'x1-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast'
+      'x1 amd64 ci-no-test-cache' \
+      'a1 arm64 ci-arm64'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan-v5 PRs.
     multi_job_run \
-      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast'
+      'x'{1..10}' amd64 ci-no-test-cache' \
+      'a1 arm64 ci-arm64'
     ;;
   merge-queue-ci)
     # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
     export DRY_RUN=1
     export NO_CACHE=1
     multi_job_run \
-      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast' \
+      'x'{1..10}' amd64 ci-no-test-cache' \
+      'a1 arm64 ci-arm64' \
       "release amd64 ci-release v0.0.1-commit.$(git rev-parse --short HEAD)"
     ;;
   grind-test)

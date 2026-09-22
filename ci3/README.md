@@ -82,7 +82,7 @@ Tools are provided for the following themes.
    - `parallelize` calls `run_test_cmd` on each line, skipping or running tests as needed.
 
 3. **In local or ephemeral servers**:
-   - Either manually run `./bootstrap.sh fast` or let the CI invoke it on a fresh machine.
+   - Either manually run `./bootstrap.sh` or let the CI invoke it on a fresh machine.
    - The system pulls dependencies, attempts to restore from remote caches, rebuilds only if necessary, then parallelizes tests.
 
 4. **On success**:

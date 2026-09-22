@@ -56,7 +56,7 @@ jobs:
               # Create PR with ci-no-squash label
               labels="ci-no-squash"
               if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/spartan-v5" || "$branch" == "merge-train/ci" ]]; then
-                labels="$labels,ci-full-no-test-cache"
+                labels="$labels,ci-no-test-cache"
               fi
               # Trains targeting a v<N>-next release line (v5-next) are
               # forward-ported into their base via the private-port-next driver.

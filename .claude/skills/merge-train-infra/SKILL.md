@@ -11,7 +11,7 @@ This skill covers the automation internals of the merge-train system. For contri
 
 The merge-train system is fully automated via GitHub Actions in `.github/workflows/merge-train-*.yml`:
 
-1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` (or `v5-next` for `-v5` trains such as `merge-train/spartan-v5` and `merge-train/fairies-v5`) with the `ci-no-squash` label (plus `private-port-next` for any train that targets `v5-next`, and `ci-full-no-test-cache` for `merge-train/spartan`, `merge-train/spartan-v5`, and `merge-train/ci`). Skips merge commits and commits already in the base branch.
+1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` (or `v5-next` for `-v5` trains such as `merge-train/spartan-v5` and `merge-train/fairies-v5`) with the `ci-no-squash` label (plus `private-port-next` for any train that targets `v5-next`, and `ci-no-test-cache` for `merge-train/spartan`, `merge-train/spartan-v5`, and `merge-train/ci`). Skips merge commits and commits already in the base branch.
 
 2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**` and `backport-to-*-staging` branches. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body wraps the commit list in `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers. Backport/port staging PRs also call `update-pr-body.sh` inline from `scripts/backport_to_staging.sh` to handle the first-push case (where the PR doesn't exist yet when the workflow fires).
 
@@ -62,10 +62,11 @@ Merge-train PRs get a unique instance postfix (commit count) to allow parallel E
 
 ### CI Modes in bootstrap.sh
 
-- `ci-barretenberg`: Only builds and tests barretenberg (AVM disabled)
-- `ci-barretenberg-full`: Full barretenberg CI including acir_tests
-- `merge-queue`: 4x AMD64 full + 1x ARM64 fast in parallel
-- `merge-queue-heavy`: 10x AMD64 full + 1x ARM64 fast in parallel (used for `merge-train/spartan` and `merge-train/spartan-v5`)
+- `ci`: Builds and tests the whole repository (the default for PRs)
+- `ci-no-test-cache`: `ci` without the test cache, so every test runs
+- `ci-barretenberg`: Only builds and tests barretenberg, including acir_tests (AVM disabled)
+- `merge-queue`: 1x AMD64 `ci-no-test-cache` + 1x ARM64 `ci-arm64` in parallel
+- `merge-queue-heavy`: 10x AMD64 `ci-no-test-cache` + 1x ARM64 `ci-arm64` in parallel (used for `merge-train/spartan-v5`)
 
 ### Test History Tracking (`ci3/run_test_cmd`)
 
@@ -124,7 +125,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `ci3/merge_train_failure_slack_notify` | Slack failure notification with branch-to-channel mapping |
 | `ci3/run_test_cmd` | Test history tracking for merge-train branches |
 | `ci3/bootstrap_ec2` | EC2 failure notification trigger |
-| `bootstrap.sh` | CI mode definitions (`ci-barretenberg`, `ci-full`, etc.) |
+| `bootstrap.sh` | CI mode definitions (`ci`, `ci-no-test-cache`, `ci-barretenberg`, etc.) |
 
 ### Other Scripts
 

@@ -6,7 +6,7 @@
 #
 # Examples:
 #   post_github_status pending "ci/build" "http://ci.aztec-labs.com/abc123"
-#   post_github_status failure "ci/x1-full" "http://ci.aztec-labs.com/abc123" "bootstrap failed"
+#   post_github_status failure "ci/x1" "http://ci.aztec-labs.com/abc123" "bootstrap failed"
 #
 # Environment:
 #   CI             - must be 1 (otherwise no-op)

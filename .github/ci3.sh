@@ -54,9 +54,8 @@ function check_cache {
   # Only whitelist some ci modes for cache.
   # E.g. we skip cache for release builds - they must always produce versioned images
   cached_ci_modes=(
-    "fast"
-    "full"
-    "full-no-test-cache"
+    "ci"
+    "no-test-cache"
     "barretenberg"
     "ci-release-pr"
   )

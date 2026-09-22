@@ -49,7 +49,7 @@ if [ "$CI" -eq 1 ]; then
   fi
 
   # Notify on flakes if in merge queue, backport-to-v2-staging, or a spartan merge-train.
-  # The spartan trains run their full test suite on pull_request (via ci-full-no-test-cache),
+  # The spartan trains run their full test suite on pull_request (via ci-no-test-cache),
   # not just merge_group, so without these cases the spartan PR's flakes are never reported.
   [[ "$is_merge_queue" -eq 1 \
       || "$REF_NAME" == "backport-to-v2-staging" \

@@ -96,7 +96,7 @@ pr_tree="$(git rev-parse "$pr_commit^{tree}")"
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 
 fetch_bench "$pr_tree" "$work/pr.json" \
-  || die "no bench data for PR commit $pr_commit (tree $pr_tree). Trigger a run (label 'ci-full-no-test-cache') or pass a benched commit."
+  || die "no bench data for PR commit $pr_commit (tree $pr_tree). Trigger a run (label 'ci-no-test-cache') or pass a benched commit."
 
 # Baseline set: merge-base, then first-parent predecessors; take the first $WINDOW that have data.
 baseline_files=(); n=0

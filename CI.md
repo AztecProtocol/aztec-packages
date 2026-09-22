@@ -68,21 +68,9 @@ After cloning the repository, run:
 ./bootstrap.sh
 ```
 
-This is the same as running:
+This uses the S3 cache to get the repository into a runnable state as fast as possible.
 
-```
-./bootstrap.sh fast
-```
-
-A fast bootstrap will use the S3 cache to get the repository into a runnable state as fast as possible.
-
-If you want to build everything from scratch and not use the cache:
-
-```
-./bootstrap.sh full
-```
-
-After running any of the above, you should have a fully runnable repository, including being able to run all the tests. If something doesn't run without further intervention, something's wrong and you should let me know.
+After running it, you should have a fully runnable repository, including being able to run all the tests. If something doesn't run without further intervention, something's wrong and you should let me know.
 
 ### Cleaning the repo.
 
@@ -266,10 +254,9 @@ The following labels can be used to control CI behavior on pull requests:
 
 - **`ci-no-squash`**: Exempts the PR from the single-commit requirement. Use when multiple commits are intentional (e.g., merge-train PRs).
 
-- **`ci-merge-queue`**: Simulates merge queue behavior on your PR, running the full test suite.
+- **`ci-merge-queue`**: Simulates merge queue behavior on your PR, including the uncached test runs and the arm64 leg.
 
-- **`ci-full`**: Forces a full CI run instead of the default fast run.
-
+- **`ci-no-test-cache`**: Runs every test instead of skipping ones that already passed for the same content, and uploads benchmarks.
 
 - **`ci-barretenberg`**: Runs only Barretenberg-related CI checks.
 
@@ -361,10 +348,10 @@ Note that all cache entries expire after 7 days.
 Yes. In the project directory run a full build as follows:
 
 ```
-S3_FORCE_UPLOAD=1 ./bootstrap.sh full
+S3_FORCE_UPLOAD=1 ./bootstrap.sh
 ```
 
-This will perform a full rebuild of the project and forcefully replace the build cache with it's current hash. This should only be necessary if you need to recover from a-bad-thing-happening.
+This will perform a rebuild of the project and forcefully replace the build cache with it's current hash. This should only be necessary if you need to recover from a-bad-thing-happening.
 
 ## Build Image / Devcontainer
 
@@ -393,16 +380,6 @@ Performing this at the project level is inefficient, particularly for linting. W
 ```
 labs/yarn-project/bootstrap.sh format
 ```
-
-### Master CI runs do more then PR CI runs. How do I manually trigger that flow?
-
-It's probably best to do this on a fresh ec2 instance rather than crippling your local hardware. You can do:
-
-```
-CI_FULL=1 ci ec2-test
-```
-
-This will create a new instance, bootstrap, and run all tests that would run on master.
 
 ### How does swc compare to tsc (typescript compiler?)
 

@@ -6,7 +6,7 @@
 # Usage: aws_instance_name [ref] [arch] [postfix]
 #   ref     default $REF_NAME, else the current git branch.
 #   arch    default $ARCH, else amd64. Normalised: x86_64->amd64, aarch64|arm64->arm64.
-#   postfix default $INSTANCE_POSTFIX (the per-job suffix, e.g. x-fast, bench); optional.
+#   postfix default $INSTANCE_POSTFIX (the per-job suffix, e.g. x-ci, bench); optional.
 #
 # The repo prefix is $GITHUB_REPOSITORY's basename (default aztec-packages) so that
 # aztec-packages and aztec-packages-private don't collide on names.

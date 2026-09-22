@@ -40,8 +40,7 @@ Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstr
 
 Add GitHub labels to PRs to control what CI runs. Choose based on what changed:
 
-- **`ci-barretenberg`** — Barretenberg-only builds (default for `merge-train/barretenberg` branch). Core tests, no cross-compilation.
-- **`ci-barretenberg-full`** or **`ci-full`** — Full builds including cross-compilation (macOS, iOS, ARM64 Linux), SMT verification, ASAN, and GCC syntax checks. Use when changing CMake presets, bootstrap.sh, or build infrastructure.
+- **`ci-barretenberg`** — Barretenberg-only builds and tests (default for `merge-train/barretenberg` branch), including cross-compilation (macOS, iOS, Android), SMT verification, ASAN, and GCC syntax checks. Without a label, CI builds and tests the whole repository with the same bb coverage.
 - **`ci-release-pr`** — Creates a test release tag for pre-release validation. Use when changing release packaging or publish workflows.
 
 ## Code comments

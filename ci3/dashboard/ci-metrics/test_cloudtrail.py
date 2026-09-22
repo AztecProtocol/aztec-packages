@@ -198,8 +198,8 @@ print(f"\n{len(unknown_runs)} unknown ci_runs in last {days_back} days")
 # Examples:
 #   next_amd64                              → branch=next
 #   merge-train_spartan_amd64_17            → branch=merge-train_spartan
-#   pr-20419_arm64_a1-fast                  → branch=pr-20419
-#   cl_all_in_makefile_arm64_a1-fast        → branch=cl_all_in_makefile
+#   pr-20419_arm64_a1                       → branch=pr-20419
+#   cl_all_in_makefile_arm64_a1             → branch=cl_all_in_makefile
 _NAME_TAG_RE = re.compile(r'^(.+)_(amd64|arm64)(?:_.*)?$')
 tag_index = {}
 for inst in instances:

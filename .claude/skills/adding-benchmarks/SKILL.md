@@ -192,7 +192,7 @@ jq 'all(has("name") and has("value") and has("unit"))' bench-out/test.bench.json
 ## CI Details
 
 **Benchmarks upload when:**
-- PR has label: `ci-merge-queue`, `ci-full`, or `ci-full-no-test-cache` (publishes to target branch, i.e. `next` or a merge-train branch)
+- PR has label: `ci-merge-queue` or `ci-no-test-cache` (publishes to target branch, i.e. `next` or a merge-train branch)
 - Running on merge queue (publishes with `next`)
 
 **10-commit visibility window:** The dashboard only shows benchmarks that ran in the last 10 commits. If a benchmark stops running, it disappears after ~10 merges.

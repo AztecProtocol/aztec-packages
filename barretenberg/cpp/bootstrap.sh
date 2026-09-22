@@ -275,14 +275,17 @@ function build {
   echo_header "bb cpp build"
 
   denoise ./scripts/remake-constants.sh
+  (cd $root && make bb-cpp)
+}
 
-  if [ "$CI_FULL" -eq 1 ]; then
-    # Deletes all build dirs and build bb and wasms from scratch.
-    rm -rf build*
-    (cd $root && make bb-cpp-full)
-  else
-    (cd $root && make bb-cpp)
-  fi
+# The CI build: every preset CI checks (cross-compiles, gcc/fuzzing/windows syntax checks, asan, smt),
+# from clean build dirs.
+function build_ci {
+  echo_header "bb cpp ci build"
+
+  denoise ./scripts/remake-constants.sh
+  rm -rf build*
+  (cd $root && make bb-cpp-full)
 }
 
 # Tests that dominate the suite's wall time, taking tens of seconds to minutes each: the recursive verifier
@@ -385,17 +388,20 @@ function test_cmds_nightly {
   test_cmds_native nightly
 }
 
+# The CI test set: native plus the wasm-threads, asan and smt builds that build_ci produces.
+function test_cmds_ci {
+  test_cmds_native
+  test_cmds_wasm_threads
+  test_cmds_asan
+  test_cmds_smt
+}
+
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
   if [ -z "${1:-}" ]; then
     test_cmds_native
-    if [ "$CI_FULL" -eq 1 ]; then
-      test_cmds_wasm_threads
-      test_cmds_asan
-      test_cmds_smt
-    fi
   else
     test_cmds_$1
   fi
@@ -511,8 +517,8 @@ case "$cmd" in
     build
     ;;
   "ci")
-    build
-    test
+    build_ci
+    test ci
     ;;
   "hash")
     echo $hash
