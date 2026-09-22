@@ -87,6 +87,7 @@ GoblinProof Goblin::prove()
 void Goblin::prove_batch_merge()
 {
     BB_BENCH_NAME("Goblin::prove_batch_merge");
+    op_queue->add_batch_merge_separators();
     BatchMergeProver prover{ op_queue, CHONK_MAX_NUM_CIRCUITS };
     batch_merge_proof = prover.construct_proof();
 }

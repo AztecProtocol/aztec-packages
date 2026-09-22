@@ -164,6 +164,8 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // Step 9: Verify concatenation identity, degree identity, and hash consistency
     // -------------------------------------------------------------------------
 
+    const bool concatenation_verified = check_concatenation_identity(evals, powers_of_kappa, indicator_array, kappa);
+
     std::vector<OriginTag> origin_tags;
     if constexpr (IsRecursive) {
         // To prevent an OriginTag false positive, we re-tag the powers of kappa with the round
@@ -177,7 +179,6 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
         }
     }
 
-    const bool concatenation_verified = check_concatenation_identity(evals, powers_of_kappa);
     const bool degree_check_verified =
         check_degree_identity(evals, powers_of_kappa_inv, kappa, degree_check_challenges);
     const bool hash_verified = check_hash_consistency(binding_hash, calculated_hashes, indicator_array);
@@ -280,17 +281,48 @@ std::vector<typename BatchMergeVerifier_<Curve, MaxMergeSize>::FF> BatchMergeVer
 
 template <typename Curve, size_t MaxMergeSize>
 bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_concatenation_identity(
-    std::vector<FF>& evals, const std::vector<FF>& pow_kappa_subtable_size) const
+    std::vector<FF>& evals,
+    const std::vector<FF>& pow_kappa_subtable_size,
+    const std::vector<FF>& indicators,
+    const FF& kappa) const
 {
+    // Keep the original support bounds in the degree check: extending them would permit cancelling a separator.
+    const FF separator_shift = kappa * kappa - FF(1);
+    const FF separator_opcode(UltraEccOpsTable::make_separator_op_pair().first.op_code.value());
+    // Horner starts at the last slot, so only the preceding M-1 slots need a multiplier.
+    std::vector<FF> shifts;
+    std::vector<FF> separators;
+    for (size_t i = 0; i < MAX_MERGE_SIZE; ++i) {
+        const FF active_shift = indicators[i] * pow_kappa_subtable_size[i + 1];
+        if (i + 1 < MAX_MERGE_SIZE) {
+            shifts.push_back(pow_kappa_subtable_size[i + 1] + separator_shift * active_shift);
+        }
+        separators.push_back(separator_opcode * active_shift);
+    }
+    FF prefix_shift = pow_kappa_subtable_size[0];
+    if constexpr (IsRecursive) {
+        // These derived challenge powers are combined with evaluations submitted in the next transcript round.
+        prefix_shift.set_origin_tag(evals[0].get_origin_tag());
+        for (FF& shift : shifts) {
+            shift.set_origin_tag(evals[0].get_origin_tag());
+        }
+        for (FF& separator : separators) {
+            separator.set_origin_tag(evals[0].get_origin_tag());
+        }
+    }
     bool concatenation_verified = true;
     for (size_t j = 0; j < NUM_WIRES; ++j) {
-        FF concatenation_diff = evals[((NUM_COLUMN_TABLES - 1) * NUM_WIRES) + j];
-        // Horner: i from N-1 down to 0 — accum ← accum · κ^{size_i} + T_{i,j}(κ).
-        for (size_t i_rev = 1; i_rev < NUM_COLUMN_TABLES; ++i_rev) {
-            const size_t i = NUM_COLUMN_TABLES - 1 - i_rev;
-            concatenation_diff *= pow_kappa_subtable_size[i];
-            concatenation_diff += evals[(i * NUM_WIRES) + j];
+        FF concatenation_diff = evals[(MAX_MERGE_SIZE * NUM_WIRES) + j];
+        if (j == 0) {
+            concatenation_diff += separators.back();
         }
+        for (size_t i = MAX_MERGE_SIZE - 1; i-- > 0;) {
+            concatenation_diff = evals[((i + 1) * NUM_WIRES) + j] + shifts[i] * concatenation_diff;
+            if (j == 0) {
+                concatenation_diff += separators[i];
+            }
+        }
+        concatenation_diff = evals[j] + prefix_shift * concatenation_diff;
         concatenation_diff -= evals[NUM_EVALS_FROM_COLUMNS + j];
 
         if constexpr (IsRecursive) {

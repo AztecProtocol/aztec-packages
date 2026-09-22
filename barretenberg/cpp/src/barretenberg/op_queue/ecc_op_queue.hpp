@@ -76,6 +76,20 @@ class ECCOpQueue {
     std::vector<UltraOp> ultra_ops_zk_reconstructed;    // Chonk table
     std::vector<UltraOp> ultra_ops_no_zk_reconstructed; // AVM table
 
+    std::vector<ECCVMOperation> reconstruct_eccvm_ops() const
+    {
+        std::vector<ECCVMOperation> ops;
+        ops.reserve(eccvm_ops_table.size() + ultra_ops_table.get_num_separator_subtables());
+        for (size_t i = 0; i < eccvm_ops_table.num_subtables(); ++i) {
+            const auto& subtable = eccvm_ops_table.get()[i];
+            ops.insert(ops.end(), subtable.begin(), subtable.end());
+            if (i < ultra_ops_table.get_num_separator_subtables()) {
+                ops.push_back(UltraEccOpsTable::make_separator_op_pair().second);
+            }
+        }
+        return ops;
+    }
+
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
@@ -128,6 +142,15 @@ class ECCOpQueue {
         ultra_ops_table.merge_with_fixed_append_offset(ultra_fixed_offset);
     }
 
+    /** @brief Install protocol-owned separators without changing original subtable commitments. */
+    void add_batch_merge_separators()
+    {
+        BB_ASSERT_EQ(eccvm_ops_table.num_subtables(), ultra_ops_table.num_subtables());
+        invalidate_reconstructed_tables();
+        ultra_ops_table.add_batch_merge_separators();
+        eccvm_row_tracker.recompute(reconstruct_eccvm_ops(), has_hiding_op);
+    }
+
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
     {
         BB_ASSERT(!has_hiding_op, "Hiding op must be installed exactly once");
@@ -166,7 +189,8 @@ class ECCOpQueue {
 
     // Excludes the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
-    size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
+    // Includes protocol separators; excludes the ZK prefix and fixed-append padding.
+    size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); }
     // Excludes the optional ZK prefix, same as get_ultra_ops_table_num_rows.
     size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
 
@@ -179,7 +203,7 @@ class ECCOpQueue {
             if (!has_hiding_op) {
                 throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
             }
-            eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed();
+            eccvm_ops_reconstructed = reconstruct_eccvm_ops();
             eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
         }
         return eccvm_ops_reconstructed;

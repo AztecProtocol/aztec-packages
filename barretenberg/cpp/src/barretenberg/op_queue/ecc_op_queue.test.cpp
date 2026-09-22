@@ -388,3 +388,47 @@ TEST(ECCOpQueueTest, AppendingToExplicitTestInputPreservesBothInputs)
     EXPECT_EQ(ops[1].base_point, g1::affine_one);
     EXPECT_EQ(ops[1].z1, uint256_t(7));
 }
+
+TEST(ECCOpQueueTest, BatchSeparatorsPreserveSubtablesAndFixedAppend)
+{
+    auto queue = std::make_shared<ECCOpQueue>();
+    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(queue, false);
+    queue->merge();
+    queue->initialize_new_subtable();
+    queue->merge();
+    queue->construct_zk_columns();
+    const auto original = queue->construct_subtable_columns();
+    const auto original_eccvm = queue->get_eccvm_ops();
+    const auto original_ultra = queue->get_zk_reconstructed_ultra_ops();
+    const size_t original_rows = queue->get_ultra_ops_table_num_rows();
+    queue->add_batch_merge_separators();
+
+    const auto unchanged = queue->construct_subtable_columns();
+    ASSERT_EQ(unchanged.size(), original.size());
+    for (size_t i = 0; i < original.size(); ++i) {
+        for (size_t col = 0; col < 4; ++col) {
+            EXPECT_EQ(unchanged[i][col], original[i][col]);
+        }
+    }
+    EXPECT_EQ(queue->get_ultra_ops_table_num_rows(), original_rows + 4);
+    EXPECT_EQ(queue->get_eccvm_ops().size(), original_eccvm.size() + 2);
+    EXPECT_EQ(queue->get_zk_reconstructed_ultra_ops().size(), original_ultra.size() + 2);
+    const auto [ultra_separator, eccvm_separator] = UltraEccOpsTable::make_separator_op_pair();
+    EXPECT_EQ(queue->get_eccvm_ops().back(), eccvm_separator);
+    EXPECT_EQ(queue->get_zk_reconstructed_ultra_ops().back(), ultra_separator);
+    ECCOpQueueTest::check_table_consistency_with_eccvm(queue, true);
+
+    const auto aggregate = queue->construct_ultra_ops_table_columns();
+    queue->initialize_new_subtable();
+    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(queue, false);
+    const size_t append_offset = queue->get_append_offset_for_prover();
+    queue->merge_fixed_append(append_offset);
+    const auto tail = queue->construct_table_columns_up_to_tail();
+    for (size_t col = 0; col < 4; ++col) {
+        EXPECT_EQ(tail[col], aggregate[col]);
+    }
+    EXPECT_EQ(queue->get_ultra_ops_table_num_rows() + UltraEccOpsTable::ZK_ULTRA_OPS,
+              ECCOpQueue::OP_QUEUE_SIZE * UltraEccOpsTable::NUM_ROWS_PER_OP);
+    ECCOpQueueTest::check_final_table_column_polynomials(queue, append_offset);
+    ECCOpQueueTest::check_table_consistency_with_eccvm(queue, true);
+}

@@ -781,3 +781,33 @@ TEST_F(ChonkTests, DecompressionRejectsTruncatedProof)
     compressed.resize(compressed.size() - 32);
     EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs), "");
 }
+
+TEST_F(ChonkTests, BatchMergeRejectsDirtyAppBoundaryWithFixedReceivingVk)
+{
+    std::shared_ptr<MegaAppFlavor::VerificationKey> receiving_vk;
+    for (bool dirty : { false, true }) {
+        CircuitProducer producer(2, false);
+        Chonk ivc(producer.circuit_kinds());
+        auto first = producer.create_next_circuit<CircuitKind::App>(ivc, SMALL_LOG_2_NUM_GATES);
+        first.queue_ecc_mul_accum(g1::affine_element::one(), dirty ? FF(7) : FF(0));
+        ivc.accumulate(first, producer.make_circuit_verification_key<CircuitKind::App>(first));
+
+        auto second = producer.create_next_circuit<CircuitKind::App>(ivc, SMALL_LOG_2_NUM_GATES);
+        second.queue_ecc_mul_accum(g1::affine_element::one(), FF(11));
+        second.queue_ecc_eq();
+        auto key = producer.make_circuit_verification_key<CircuitKind::App>(second);
+        const auto actual_vk = std::get<std::shared_ptr<MegaAppFlavor::VerificationKey>>(key);
+        if (!dirty) {
+            receiving_vk = actual_vk;
+        } else {
+            ASSERT_EQ(*actual_vk, *receiving_vk);
+        }
+        ivc.accumulate(second, Chonk::CircuitVerificationKey{ receiving_vk });
+
+        while (ivc.get_num_circuits_accumulated() < producer.total_num_circuits) {
+            producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
+        }
+        auto proof = ivc.prove();
+        EXPECT_EQ(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()), !dirty);
+    }
+}
