@@ -5,21 +5,10 @@ pub fn store<let N: u32>(values: [Field; N], hash: Field) {
     unsafe { store_in_execution_cache_oracle_wrapper(values, hash) };
 }
 
-unconstrained fn store_in_execution_cache_oracle_wrapper<let N: u32>(
-    values: [Field; N],
-    hash: Field,
-) {
+unconstrained fn store_in_execution_cache_oracle_wrapper<let N: u32>(values: [Field; N], hash: Field) {
     store_in_execution_cache_oracle(values, hash);
 }
 
-pub unconstrained fn load<let N: u32>(hash: Field) -> [Field; N] {
-    load_from_execution_cache_oracle(hash)
-}
-
 // TODO(F-498): review naming consistency
-#[oracle(aztec_prv_setHashPreimage)]
+#[oracle(aztec_protocol_prv_setHashPreimage)]
 unconstrained fn store_in_execution_cache_oracle<let N: u32>(_values: [Field; N], _hash: Field) {}
-
-// TODO(F-498): review naming consistency
-#[oracle(aztec_prv_getHashPreimage)]
-unconstrained fn load_from_execution_cache_oracle<let N: u32>(_hash: Field) -> [Field; N] {}

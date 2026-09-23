@@ -197,12 +197,7 @@ pub contract ContractInstanceRegistry {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn update(new_contract_class_id: ContractClassId) {
         // MACRO CODE START
-        let context: PublicContext = PublicContext::new(
-            || -> Field {
-                let serialized_args: [Field; 1] = avm::calldata_copy(1, <ContractClassId as Serialize>::N);
-                hash_args(serialized_args)
-            },
-        );
+        let context: PublicContext = PublicContext::new();
         let storage: Storage<PublicContext> = Storage::init(context);
         // MACRO CODE END
 
@@ -243,12 +238,7 @@ pub contract ContractInstanceRegistry {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn set_update_delay(new_update_delay: u64) {
         // MACRO CODE START
-        let context: PublicContext = PublicContext::new(
-            || -> Field {
-                let serialized_args: [Field; 1] = avm::calldata_copy(1, <u64 as Serialize>::N);
-                hash_args(serialized_args)
-            },
-        );
+        let context: PublicContext = PublicContext::new();
         let storage: Storage<PublicContext> = Storage::init(context);
         // MACRO CODE END
 
@@ -271,12 +261,7 @@ pub contract ContractInstanceRegistry {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn get_update_delay() -> pub u64 {
         // MACRO CODE START
-        let context: PublicContext = PublicContext::new(
-            || -> Field {
-                let serialized_args: [Field; 0] = avm::calldata_copy(1, 0);
-                hash_args(serialized_args)
-            },
-        );
+        let context: PublicContext = PublicContext::new();
         let storage: Storage<PublicContext> = Storage::init(context);
         assert(context.is_static_call(), "Function get_update_delay can only be called statically");
         // MACRO CODE END

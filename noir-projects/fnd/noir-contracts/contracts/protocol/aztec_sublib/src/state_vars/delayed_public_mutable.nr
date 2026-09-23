@@ -8,7 +8,7 @@ use crate::protocol::{
     traits::Packable,
 };
 
-use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars::StateVariable, utils::WithHash};
+use crate::{context::PublicContext, state_vars::StateVariable, utils::WithHash};
 
 /// Mutable public values with private read access.
 ///
@@ -142,45 +142,6 @@ impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, PublicConte
 where
     T: Eq,
 {
-    /// Schedules a write to the current value.
-    ///
-    /// The current value does not immediately change. Once the current delay passes,
-    /// [`get_current_value`](DelayedPublicMutable::get_current_value) automatically begins to return `new_value`.
-    ///
-    /// ## Multiple Scheduled Changes
-    ///
-    /// Only a **single** value can be scheduled to become the new value at a given point in time. Any prior scheduled
-    /// changes which have not yet become current are **replaced** with the new one and discarded.
-    ///
-    /// To illustrate this, consider a scenario at `t0` with a current value `A`. A value change to `B` is scheduled to
-    /// occur at `t1`. At some point _before_ `t1`, a second value change to `C` is scheduled to occur at `t2` (`t2 >
-    /// t1`). The result is that the current value continues to be `A` all the way until `t2`, at which point it
-    /// changes to `C`.
-    ///
-    /// This also means that it is possible to **cancel** a scheduled change by calling `schedule_value_change` with
-    /// the current value.
-    ///
-    /// ## Examples
-    ///
-    /// A public setter that authorizes a user:
-    /// ```noir
-    /// #[external("public")]
-    /// fn authorize_user(user: AztecAddress) {
-    ///     assert_eq(self.storage.admin.read(), self.msg_sender(), "caller is not admin");
-    ///     self.storage.user_authorization.at(user).schedule_value_change(true);
-    /// }
-    /// ```
-    ///
-    /// ## Cost
-    ///
-    /// The `SSTORE` AVM opcode is invoked `2 * N + 2` times, where `N` is `T`'s packed length.
-    pub fn schedule_value_change(self, new_value: T)
-    where
-        T: Packable,
-    {
-        let _ = self.schedule_and_get_value_change(new_value);
-    }
-
     /// Schedules a write to the current value, returning the scheduled entry.
     pub fn schedule_and_get_value_change(self, new_value: T) -> ScheduledValueChange<T>
     where
@@ -203,13 +164,14 @@ where
 
     /// Schedules a write to the current delay.
     ///
-    /// This works just like [`schedule_value_change`](DelayedPublicMutable::schedule_value_change), except instead of
+    /// This works just like
+    /// [`schedule_and_get_value_change`](DelayedPublicMutable::schedule_and_get_value_change), except instead of
     /// changing the value in the state variable, it changes the delay that will govern future invocations of that
     /// function.
     ///
     /// The current delay does not immediately change. Once the current delay passes,
     /// [`get_current_delay`](DelayedPublicMutable::get_current_delay) automatically begins to return `new_delay`, and
-    /// [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) begins using it.
+    /// [`schedule_and_get_value_change`](DelayedPublicMutable::schedule_and_get_value_change) begins using it.
     ///
     /// ## Multiple Scheduled Changes
     ///
@@ -270,51 +232,14 @@ where
         self.write(self.read_value_change(), delay_change);
     }
 
-    /// Returns the current value.
-    ///
-    /// If [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) has never been called, then this
-    /// returns the default empty public storage value, which is all zeroes - equivalent to `let t =
-    /// T::unpack(std::mem::zeroed());`.
-    ///
-    /// It is not possible to detect if a `DelayedPublicMutable` has ever been initialized or not other than by testing
-    /// for the zero sentinel value. For a more robust solution, store an `Option<T>` in the `DelayedPublicMutable`.
-    ///
-    /// Use [`get_scheduled_value`](DelayedPublicMutable::get_scheduled_value) to instead get the last value that was
-    /// scheduled to become the current one (which will equal the current value if the delay has already passed).
-    ///
-    /// ## Examples
-    ///
-    /// A public getter that returns a user's authorization status:
-    /// ```noir
-    /// #[external("public")]
-    /// fn is_authorized(user: AztecAddress) -> bool {
-    ///     self.storage.user_authorization.at(user).get_current_value()
-    /// }
-    /// ```
-    ///
-    /// ## Cost
-    ///
-    /// The `SLOAD` AVM opcode is invoked `2 * N + 1` times, where `N` is `T`'s packed length.
-    pub fn get_current_value(self) -> T
-    where
-        T: Packable,
-    {
-        let current_timestamp = self.context.timestamp();
-        let value_change = self.read_value_change();
-
-        value_change.get_current_at(current_timestamp)
-    }
-
     /// Returns the current delay.
     ///
-    /// This is the delay that would be used by [`schedule_value_change`](DelayedPublicMutable::schedule_value_change)
-    /// if it were called in the current transaction.
+    /// This is the delay that would be used by
+    /// [`schedule_and_get_value_change`](DelayedPublicMutable::schedule_and_get_value_change) if it were called in the
+    /// current transaction.
     ///
     /// If [`schedule_delay_change`](DelayedPublicMutable::schedule_delay_change) has never been called, then this
     /// returns the `InitialDelay` used in the [`storage`](crate::macros::storage::storage) struct.
-    ///
-    /// Use [`get_scheduled_delay`](DelayedPublicMutable::get_scheduled_delay) to instead get the last delay that was
-    /// scheduled to become the current one (which will equal the current delay if the delay has already passed).
     ///
     /// ## Examples
     ///
@@ -335,22 +260,6 @@ where
     {
         let current_timestamp = self.context.timestamp();
         self.read_delay_change().get_current(current_timestamp)
-    }
-
-    /// Returns the last scheduled value and timestamp of change.
-    pub fn get_scheduled_value(self) -> (T, u64)
-    where
-        T: Packable,
-    {
-        self.read_value_change().get_scheduled()
-    }
-
-    /// Returns the last scheduled delay and timestamp of change.
-    pub fn get_scheduled_delay(self) -> (u64, u64)
-    where
-        T: Packable,
-    {
-        self.read_delay_change().get_scheduled()
     }
 
     fn read_value_change(self) -> ScheduledValueChange<T>
@@ -390,141 +299,5 @@ where
         let values = WithHash::new(DelayedPublicMutableValues::new(value_change, delay_change));
 
         self.context.storage_write(self.storage_slot, values);
-    }
-}
-
-impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, &mut PrivateContext>
-where
-    T: Eq,
-{
-    /// Returns the current value.
-    ///
-    /// If [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) has never been called, then this
-    /// returns the default empty public storage value, which is all zeroes - equivalent to `let t =
-    /// T::unpack(std::mem::zeroed());`.
-    ///
-    /// It is not possible to detect if a `DelayedPublicMutable` has ever been initialized or not other than by testing
-    /// for the zero sentinel value. For a more robust solution, store an `Option<T>` in the `DelayedPublicMutable`.
-    ///
-    /// ## Privacy
-    ///
-    /// This function does leak some privacy, though in a subtle way. Understanding this is key to understanding how to
-    /// use `DelayedPublicMutable` in a privacy-preserving way.
-    ///
-    /// Private reads are based on a historical public storage read at the anchor block (i.e.
-    /// [`crate::history::storage::public_storage_historical_read`]). `DelayedPublicMutable` is able to provide
-    /// guarantees about values read in the past remaining the state variable's current value into the future due to
-    /// the existence of delays when scheduling writes. It then sets the `expiration_timestamp` property of the current
-    /// transaction (see
-    /// [`PrivateContext::set_expiration_timestamp`](crate::context::PrivateContext::set_expiration_timestamp)) to
-    /// ensure that the transaction can only be included in a block **prior** to the state variable's value changing.
-    /// In other words, it knows some facts about the near future up until some time horizon, and then makes sure that
-    /// it doesn't act on this knowledge past said moment.
-    ///
-    /// Because the `expiration_timestamp` property is part of the transaction's public information, any mutation to
-    /// this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
-    /// transaction: it is the smallest (most restrictive) timestamp that will be used.
-    ///
-    /// If the state variable **does not** have any value changes scheduled, then the timestamp will be set to that of
-    /// the anchor block plus the current delay. If multiple contracts use the same delay for their
-    /// `DelayedPublicMutable` state variables, then these will all be in the same privacy set.
-    ///
-    /// If the state variable **does** have a value change scheduled, then the timestamp will be set to equal the time
-    /// at which the current value will change, i.e. the one
-    /// [`get_scheduled_value`](DelayedPublicMutable::get_scheduled_value) returns - which is public information. This
-    /// results in an unavoidable privacy leak of any transactions in which a contract privately reads a
-    /// `DelayedPublicMutable` that will change soon.
-    ///
-    /// Transactions that do not read from a `DelayedPublicMutable` are part of a privacy set in which the
-    /// `expiration_timestamp` is set to their anchor block plus [`crate::protocol::constants::MAX_TX_LIFETIME`],
-    /// making this the most privacy-preserving delay. The less frequent said value changes are, the more private the
-    /// contract is. Wallets can also then choose to further lower this timestamp to make it less obvious that their
-    /// transactions are interacting with this soon-to-change variable.
-    ///
-    /// ## Examples
-    ///
-    /// A private action that requires authorization:
-    /// ```noir
-    /// #[external("private")]
-    /// fn do_action() {
-    ///     assert(
-    ///         self.storage.user_authorization.at(self.msg_sender()).get_current_value(),
-    ///         "caller is not authorized"
-    ///     );
-    ///
-    ///     // do the action
-    /// }
-    /// ```
-    ///
-    /// A private action that can be paused:
-    /// ```noir
-    /// #[external("private")]
-    /// fn do_action() {
-    ///     assert(!self.storage.paused.get_current_value(), "contract is paused");
-    ///
-    ///     // do the action
-    /// }
-    /// ```
-    ///
-    /// ## Cost
-    ///
-    /// This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.
-    pub fn get_current_value(self) -> T
-    where
-        T: Packable,
-    {
-        // When reading the current value in private we construct a historical state proof for the public value.
-        // However, since this value might change, we must constrain the maximum transaction timestamp as this proof
-        // will only be valid for the time we can ensure the value will not change, which will depend on the current
-        // delay and any scheduled delay changes.
-        let (value_change, delay_change, anchor_timestamp) = self.anchor_read_from_public_storage();
-
-        // We use the effective minimum delay as opposed to the current delay at the anchor block's timestamp as this
-        // one also takes into consideration any scheduled delay changes. For example, consider a scenario in which at
-        // timestamp `x` the current delay was 86400 seconds (1 day). We may naively think that the earliest we could
-        // change the value would be at timestamp `x + 86400` by scheduling immediately after the anchor block's
-        // timestamp, i.e. at timestamp `x + 1`. But if there was a delay change scheduled for timestamp `y` to reduce
-        // the delay to 43200 seconds (12 hours), then if a value change was scheduled at timestamp `y` it would go
-        // into effect at timestamp `y + 43200`, which is earlier than what we'd expect if we only considered the
-        // current delay.
-        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(anchor_timestamp);
-        let time_horizon = value_change.get_time_horizon(anchor_timestamp, effective_minimum_delay);
-
-        // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
-        // historical public value matches the current one, since it can only change after the horizon.
-        self.context.set_expiration_timestamp(time_horizon);
-
-        value_change.get_current_at(anchor_timestamp)
-    }
-
-    fn anchor_read_from_public_storage(self) -> (ScheduledValueChange<T>, ScheduledDelayChange<InitialDelay>, u64)
-    where
-        T: Packable,
-    {
-        let header = self.context.get_anchor_block_header();
-        let address = self.context.this_address();
-
-        let anchor_timestamp = header.global_variables.timestamp;
-
-        let values: DelayedPublicMutableValues<T, InitialDelay> =
-            WithHash::historical_public_storage_read(header, address, self.storage_slot);
-
-        (values.svc, values.sdc, anchor_timestamp)
-    }
-}
-
-impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, UtilityContext>
-where
-    T: Eq,
-{
-    pub unconstrained fn get_current_value(self) -> T
-    where
-        T: Packable,
-    {
-        let dpmv: DelayedPublicMutableValues<T, InitialDelay> =
-            WithHash::utility_public_storage_read(self.context, self.storage_slot);
-
-        let current_timestamp = self.context.timestamp();
-        dpmv.svc.get_current_at(current_timestamp)
     }
 }

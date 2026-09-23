@@ -104,7 +104,12 @@ function build {
   if [ "$#" -eq 0 ]; then
     rm -rf target
     mkdir -p target
-    local contracts=$(grep -oP "(?<=contracts/)[^\"]+" Nargo.toml)
+    # The workspace also holds library crates (aztec_sublib) so that nargo fmt and nargo test cover them. `compile`
+    # expects this to return crates with artifacts (i.e. contracts) to post-process, so only `type = "contract"`
+    # crates are compiled here. Libraries require no explicit compilation step.
+    local contracts=$(grep -oP "(?<=contracts/)[^\"]+" Nargo.toml | while read -r c; do
+      grep -q '^type = "contract"' "contracts/$c/Nargo.toml" && echo "$c"
+    done)
   else
     local contracts="$@"
   fi
