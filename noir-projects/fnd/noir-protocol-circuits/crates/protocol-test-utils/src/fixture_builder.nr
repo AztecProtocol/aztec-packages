@@ -148,7 +148,11 @@ pub struct FixtureBuilder {
     pub args_hash: Field,
     pub calldata_hash: Field,
     pub returns_hash: Field,
+    // The salt of the tx request this fixture is the first call of (see `to_tx_request`).
     pub tx_request_salt: Field,
+    // The siloed protocol nullifier the fixture reports as its `protocol_nullifier` public input. Initialised from
+    // the fixture's own tx request; tests mutate it to simulate a call that disagrees with the transaction.
+    pub protocol_nullifier: Field,
 
     // Private call.
     pub salted_initialization_hash: SaltedInitializationHash,
@@ -233,10 +237,10 @@ impl FixtureBuilder {
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
-        builder.use_contract(contract_data).use_function(
-            contract_function,
-            fixtures::contract_functions::default_vk,
-        )
+        let _ = builder.use_contract(contract_data);
+        let _ = builder.use_function(contract_function, fixtures::contract_functions::default_vk);
+        builder.protocol_nullifier = builder.to_tx_request().compute_protocol_nullifier();
+        builder
     }
 
     pub fn as_parent_contract(&mut self) -> Self {
@@ -341,7 +345,7 @@ impl FixtureBuilder {
         PrivateTxConstantData {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
-            tx_request_salt: self.tx_request_salt,
+            protocol_nullifier: self.protocol_nullifier,
             vk_tree_root: self.vk_tree_root,
             protocol_contracts: self.protocol_contracts,
         }
@@ -443,7 +447,7 @@ impl FixtureBuilder {
             },
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
-            tx_request_salt: self.tx_request_salt,
+            protocol_nullifier: self.protocol_nullifier,
         }
     }
 

@@ -391,9 +391,9 @@ impl<let N: u32> BatchNTestBuilder<N> {
         self.private_calls[index] = private_call;
     }
 
-    fn increment_tx_request_salt(&mut self, index: u32) {
+    fn increment_protocol_nullifier(&mut self, index: u32) {
         let mut private_call = self.private_calls[index];
-        private_call.tx_request_salt += 1;
+        private_call.protocol_nullifier += 1;
         self.private_calls[index] = private_call;
     }
 
@@ -634,9 +634,9 @@ impl<let N: u32> InnerNTestBuilder<N> {
         self.private_calls[index] = private_call;
     }
 
-    fn increment_tx_request_salt(&mut self, index: u32) {
+    fn increment_protocol_nullifier(&mut self, index: u32) {
         let mut private_call = self.private_calls[index];
-        private_call.tx_request_salt += 1;
+        private_call.protocol_nullifier += 1;
         self.private_calls[index] = private_call;
     }
 
@@ -800,12 +800,12 @@ fn assert_batch_n_second_call_must_match_previous_kernel_header<let N: u32>() {
 fn assert_init_n_salt_mismatch_rejected<let N: u32>() {
     let mut builder = BatchNTestBuilder::<N>::new();
 
-    // The init kernel binds every call's `tx_request_salt` to the tx request's salt. The first call
+    // The init kernel binds every call's `protocol_nullifier` to the tx request. The first call
     // is bound directly (`validate_against_tx_request`); subsequent calls are bound via the shared
     // constants (`validate_against_constants`). Mutate a subsequent call when one exists (N > 1),
     // otherwise the only (first) call.
     let index = if N == 1 { 0 } else { 1 };
-    builder.increment_tx_request_salt(index);
+    builder.increment_protocol_nullifier(index);
 
     let _ = builder.execute_linear_chain();
 }
@@ -924,9 +924,9 @@ fn assert_inner_n_with_previous_side_effects_matches_sequential_kernels<let N: u
 fn assert_inner_n_salt_mismatch_rejected<let N: u32>() {
     let mut builder = InnerNTestBuilder::<N>::new();
 
-    // Every inner call's `tx_request_salt` must match the salt propagated by the previous kernel's
+    // Every inner call's `protocol_nullifier` must match the value propagated by the previous kernel's
     // constants (`validate_against_constants`).
-    builder.increment_tx_request_salt(0);
+    builder.increment_protocol_nullifier(0);
 
     let _ = builder.execute_linear_chain();
 }
@@ -1464,7 +1464,7 @@ fn batch_1_expiration_timestamp_min_matches_sequential() {
 
 // For N = 1 the single call is the first call, so its salt is bound directly by
 // `validate_against_tx_request` (hence the different failure message than the N > 1 cases).
-#[test(should_fail_with = "tx_request_salt in private call does not match the salt in tx_request")]
+#[test(should_fail_with = "protocol_nullifier in private call does not match the tx request")]
 fn batch_1_salt_mismatch_rejected() {
     assert_init_n_salt_mismatch_rejected::<1>();
 }
@@ -1509,7 +1509,7 @@ fn inner_1_expiration_timestamp_min_matches_sequential() {
     assert_inner_n_expiration_timestamp_min_matches_sequential::<1>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn inner_1_salt_mismatch_rejected() {
     assert_inner_n_salt_mismatch_rejected::<1>();
 }
@@ -1584,7 +1584,7 @@ fn batch_2_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<2>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn batch_2_salt_mismatch_rejected() {
     assert_init_n_salt_mismatch_rejected::<2>();
 }
@@ -1711,7 +1711,7 @@ fn inner_2_depth_first_with_sibling_matches_sequential_kernels() {
     assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<2>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn inner_2_salt_mismatch_rejected() {
     assert_inner_n_salt_mismatch_rejected::<2>();
 }
@@ -1811,7 +1811,7 @@ fn batch_3_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<3>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn batch_3_salt_mismatch_rejected() {
     assert_init_n_salt_mismatch_rejected::<3>();
 }
@@ -1936,7 +1936,7 @@ fn inner_3_depth_first_with_sibling_matches_sequential_kernels() {
     assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<3>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn inner_3_salt_mismatch_rejected() {
     assert_inner_n_salt_mismatch_rejected::<3>();
 }
@@ -2041,7 +2041,7 @@ fn batch_4_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<4>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn batch_4_salt_mismatch_rejected() {
     assert_init_n_salt_mismatch_rejected::<4>();
 }
@@ -2166,7 +2166,7 @@ fn inner_4_depth_first_with_sibling_matches_sequential_kernels() {
     assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<4>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn inner_4_salt_mismatch_rejected() {
     assert_inner_n_salt_mismatch_rejected::<4>();
 }
@@ -2271,7 +2271,7 @@ fn batch_5_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<5>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn batch_5_salt_mismatch_rejected() {
     assert_init_n_salt_mismatch_rejected::<5>();
 }
@@ -2396,7 +2396,7 @@ fn inner_5_depth_first_with_sibling_matches_sequential_kernels() {
     assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<5>();
 }
 
-#[test(should_fail_with = "mismatch tx_request_salt")]
+#[test(should_fail_with = "mismatch protocol_nullifier")]
 fn inner_5_salt_mismatch_rejected() {
     assert_inner_n_salt_mismatch_rejected::<5>();
 }

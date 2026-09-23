@@ -127,8 +127,11 @@ pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
     // The protocol nullifier is ascribed a special side-effect counter of 1. No other side-effect
-    // can have counter 1 (see `validate_as_first_call` for that assertion).
-    Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
+    // can have counter 1 (see `validate_as_first_call` for that assertion). Its value is the
+    // transaction's nonce commitment (origin, chain id, version, salt): see
+    // `TxRequest::compute_protocol_nullifier_value`. The reset kernel siloes it under
+    // `NULL_MSG_SENDER_CONTRACT_ADDRESS` like every other nullifier.
+    Nullifier { value: tx_request.compute_protocol_nullifier_value(), note_hash: 0 }.count(1).scope(
         NULL_MSG_SENDER_CONTRACT_ADDRESS,
     )
 }

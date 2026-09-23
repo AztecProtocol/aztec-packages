@@ -23,6 +23,8 @@ impl TestBuilder {
             builder.private_call.use_protocol_contract(0 /* contract address 1 is at index 0 */);
 
         builder.tx_request.function_data = builder.private_call.function_data;
+        // The protocol nullifier commits to the origin, so re-derive it for the new first-call contract.
+        builder.private_call.protocol_nullifier = builder.tx_request.compute_protocol_nullifier();
 
         builder
     }
