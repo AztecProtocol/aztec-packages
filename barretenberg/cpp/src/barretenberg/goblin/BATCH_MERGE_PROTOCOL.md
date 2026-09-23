@@ -65,6 +65,8 @@ $$
 
 The final kernel receives the resulting hash and passes it to the batch merge verifier. The verifier recomputes the same hash chain from the commitments supplied in the batch merge proof and checks that the selected hash value equals the public input hash. In the implementation this is optimized by reusing transcript challenges: `Transcript::get_challenge("HASH_i")` updates the transcript and yields the hash-chain element.
 
+The first step omits the previous hash entirely. `ecc_op_hash_step` uses a fresh transcript, absorbing the previous hash (when present) before the commitments. This produces the same hash input as the verifier's continuing transcript. Changes to transcript absorption order or domain separation must preserve this agreement.
+
 ## Protocol Statement
 
 Let $M$ be the maximum number of subtables supported by the verifier, and let $N \leq M$ be the actual number of accumulated subtables sent by the prover. The prover and verifier work over four columns, but it is useful to write the statement per column.

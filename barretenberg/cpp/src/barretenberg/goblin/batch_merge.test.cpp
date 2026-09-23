@@ -560,6 +560,37 @@ using TestParams = ::testing::Types<TestParam<curve::BN254, 9>,
                                     TestParam<stdlib::bn254<MegaHidingKernelCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>>;
 TYPED_TEST_SUITE(BatchMergeTests, TestParams);
 
+TYPED_TEST(BatchMergeTests, RunningHashMatchesTranscript)
+{
+    using FF = typename TestFixture::FF;
+    using Verifier = typename TestFixture::Verifier;
+    using Commitment = typename Verifier::Commitment;
+    typename TestFixture::BuilderType builder;
+    NativeTranscript transcript;
+    std::optional<FF> running_hash;
+    for (size_t round = 0; round < 2; ++round) {
+        std::vector<Commitment> commitments;
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            const auto point = col == 0 ? NativeG1::infinity() : NativeG1::random_element();
+            transcript.send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(round), point);
+            if constexpr (TestFixture::IsRecursive) {
+                commitments.push_back(Commitment::from_witness(&builder, point));
+            } else {
+                commitments.push_back(point);
+            }
+        }
+        running_hash = Verifier::ecc_op_hash_step(commitments, running_hash);
+        const auto expected = transcript.get_challenge<bb::fr>("HASH_" + std::to_string(round));
+        if constexpr (TestFixture::IsRecursive) {
+            EXPECT_EQ(running_hash->get_value(), expected);
+            running_hash->assert_equal(FF(expected));
+        } else {
+            EXPECT_EQ(*running_hash, expected);
+        }
+    }
+    EXPECT_TRUE(TestFixture::check_circuit(builder));
+}
+
 // Completeness
 
 TYPED_TEST(BatchMergeTests, ValidProofPassesWithPadding)

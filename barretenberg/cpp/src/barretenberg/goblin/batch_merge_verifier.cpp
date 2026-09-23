@@ -374,33 +374,22 @@ template <typename Curve, size_t MaxMergeSize>
 typename BatchMergeVerifier_<Curve, MaxMergeSize>::FF BatchMergeVerifier_<Curve, MaxMergeSize>::ecc_op_hash_step(
     const std::vector<Commitment>& col_commitments, const std::optional<FF>& prev_hash)
 {
-    std::vector<FF> hash_inputs;
+    BB_ASSERT_EQ(col_commitments.size(), NUM_WIRES);
+    Transcript hash_transcript;
+    // Absorb copies so transcript tagging does not change the callers' origin tags.
     if (prev_hash.has_value()) {
-        if constexpr (IsRecursive) {
-            const FF& h = prev_hash.value();
-            h.set_origin_tag(OriginTag::constant());
-            hash_inputs.push_back(h);
-        } else {
-            hash_inputs.push_back(prev_hash.value());
-        }
+        auto previous_hash = *prev_hash;
+        hash_transcript.add_to_hash_buffer("previous_hash", previous_hash);
     }
-    for (const auto& com : col_commitments) {
-        auto com_serialized = Transcript::Codec::serialize_to_fields(com);
-        if constexpr (IsRecursive) {
-            for (auto& el : com_serialized) {
-                el.set_origin_tag(OriginTag::constant());
-            }
-        }
-        hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
+    for (auto commitment : col_commitments) {
+        hash_transcript.add_to_hash_buffer("commitment", commitment);
     }
+    FF hash_result = hash_transcript.template get_challenge<FF>("hash");
     if constexpr (IsRecursive) {
-        FF hash_result = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
         hash_result.unset_free_witness_tag();
         hash_result.set_origin_tag(OriginTag::constant());
-        return hash_result;
-    } else {
-        return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
     }
+    return hash_result;
 }
 
 template <typename Curve, size_t MaxMergeSize>
