@@ -27,7 +27,7 @@ jobs:
   # The main CI job for Aztec pull requests. It gatekeeps merges to next, intended for the merge queue.
   #
   # This orchestrates AWS EC2 spot instances then remotely runs ./bootstrap.sh
-  # The ci-full label enables heavier tests. For other labels, see ci3.sh.
+  # For labels that change what runs, see .github/ci3_labels_to_env.sh.
   #
   #            Standard PR)                      Merge Queue
   #                  |                                 |

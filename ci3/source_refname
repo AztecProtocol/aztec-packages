@@ -30,12 +30,6 @@ if [ -z "${REF_NAME:-}" ]; then
   export REF_NAME
 fi
 
-if [ -z "${CI_FULL:-}" ]; then
-  export CI_FULL=0
-  if [ "$CI" -eq 1 ] && { semver check "$REF_NAME" || [ "$REF_NAME" == "master" ]; }; then
-    export CI_FULL=1
-  fi
-fi
 export CI_SCENARIO_TEST="${CI_SCENARIO_TEST:-0}"
 
 if [ -z "${COMMIT_HASH:-}" ]; then

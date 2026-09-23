@@ -458,11 +458,11 @@ function build_and_test {
       start_txes
       make noir-projects-txe-tests
 
-      # Benches (full builds only). Uploadable runs (BENCH_UPLOAD=1 — the first instance of
-      # a run) bench on a dedicated fixed-hardware box for stable numbers: launched here,
-      # logged like the test engine, waited on below, and the sole uploader. Everything
+      # Benches (full builds without NO_BENCH=1). Uploadable runs (BENCH_UPLOAD=1 — the first
+      # instance of a run) bench on a dedicated fixed-hardware box for stable numbers: launched
+      # here, logged like the test engine, waited on below, and the sole uploader. Everything
       # else benches inline as ordinary tests — a breakage check only, no upload.
-      if [ "$1" == full ]; then
+      if [ "$1" == full ] && [ "${NO_BENCH:-0}" -eq 0 ]; then
         if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
           setsid color_prefix "bench" "denoise './ci.sh bench'" & bench_pid=$!
         else
@@ -771,7 +771,6 @@ function release_compat_e2e {
   (
     set -e
     export USE_TEST_CACHE=0
-    export CI_FULL=0
     export NO_FAIL_FAST=1
     build
     for ver in "${versions[@]}"; do
@@ -867,23 +866,26 @@ case "$cmd" in
   ######################################
   # VARIANTS ON NORMAL PULL-REQUEST CI #
   ######################################
-  "ci-fast")
+  "ci")
+    # PR runs do not bench: uploads come from ci-no-test-cache and the merge queue, and an
+    # inline bench on every push would only lengthen the run.
     export CI=1
     export USE_TEST_CACHE=1
-    export CI_FULL=0
-    build_and_test fast
-    ;;
-  "ci-full")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export CI_FULL=1
+    export NO_BENCH=1
     build_and_test full
     ;;
-  "ci-full-no-test-cache")
+  "ci-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
-    export CI_FULL=1
     build_and_test full
+    ;;
+  "ci-arm64")
+    # The arm64 leg of the merge queue checks that the tree builds and passes its tests on arm64.
+    # The extra builds in `full` are cross-compiles and sanitizer/SMT variants, which the amd64 leg
+    # already covers and which do not depend on the host architecture.
+    export CI=1
+    export USE_TEST_CACHE=1
+    build_and_test fast
     ;;
   "ci-bench")
     # Run on a dedicated, fixed, on-demand instance (launched by the build
@@ -891,7 +893,6 @@ case "$cmd" in
     # near-instant cache pull, as the launching build instance already populated
     # the cache for this commit. No test engine; bench uploads bench-<treehash>.
     export CI=1
-    export CI_FULL=1
     prep
     make bench
     bench
@@ -899,7 +900,6 @@ case "$cmd" in
   "ci-chonk-input-update")
     export CI=1
     export USE_TEST_CACHE=1
-    export CI_FULL=0
     prep
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh chonk_input_update
@@ -999,7 +999,8 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     export NO_FAIL_FAST=1
     barretenberg/crs/bootstrap.sh
-    barretenberg/cpp/bootstrap.sh ci
+    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh test
     ;;
   "ci-barretenberg-nightly")
     # Nightly job: bb tests that are too slow to run per merge (barretenberg/cpp/bootstrap.sh test_cmds_nightly).
@@ -1023,18 +1024,9 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
-    barretenberg/ts/bb.js/bootstrap.sh formatting
-    barretenberg/crs/bootstrap.sh
-    barretenberg/cpp/bootstrap.sh ci
-    ;;
-  "ci-barretenberg-full")
-    export CI=1
-    export CI_FULL=1
-    export USE_TEST_CACHE=1
-    export AVM=0
-    export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
+    barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/bootstrap.sh ci
     ;;
 

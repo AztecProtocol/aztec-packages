@@ -15,8 +15,8 @@ job is to get a run, invoke the script, then filter the output with judgement.
 
 Each CI benchmark run uploads a single `bench-out/bench.json` (a flat array of `{name, unit, value}`,
 `customSmallerIsBetter` — higher = worse) to the build-cache, keyed by the commit's **git tree hash**
-(`bench-<treehash>.tar.gz`, ~40 KB). A PR only produces one on an *uploadable* run: labels
-`ci-full-no-test-cache`, `ci-full`, or a merge-queue run. `ci3/bench_compare` pulls these per-run
+(`bench-<treehash>.tar.gz`, ~40 KB). A PR only produces one on an *uploadable* run: label
+`ci-no-test-cache`, or a merge-queue run. `ci3/bench_compare` pulls these per-run
 blobs — never the multi-MB per-branch `data.js` graph history.
 
 ## Steps
@@ -27,7 +27,7 @@ blobs — never the multi-MB per-branch `data.js` graph history.
   clearly if the commit has no bench data.
 - **If there's no run and the user is fine using the last one:** walk back the branch for the most
   recent benched commit — `for c in $(git rev-list -n 30 HEAD); do ci3/bench_compare "$c" >/dev/null 2>&1 && echo "$c" && break; done` — and use that commit.
-- **If a fresh run is needed:** tell the user to add the `ci-full-no-test-cache` label to the PR (that
+- **If a fresh run is needed:** tell the user to add the `ci-no-test-cache` label to the PR (that
   triggers x-bench on a dedicated metal box and uploads) and to re-run this once CI finishes. Do not
   block waiting unless asked.
 

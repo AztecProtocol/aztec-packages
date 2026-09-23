@@ -74,7 +74,7 @@ function main {
 
   local explicit_ci_mode_labels=()
   local mode_label
-  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-barretenberg-full ci-barretenberg; do
+  for mode_label in ci-merge-queue ci-release-pr ci-no-test-cache ci-barretenberg; do
     if has_label "$mode_label"; then
       explicit_ci_mode_labels+=("$mode_label")
     fi
@@ -132,14 +132,8 @@ function main {
     # way a private release is cut: there are no private nightlies (nightly-release-tag.yml runs in the
     # public repo alone, by design).
     ci_mode="release-pr"
-  elif has_label "ci-full"; then
-    ci_mode="full"
-  elif has_label "ci-full-no-test-cache"; then
-    ci_mode="full-no-test-cache"
-  # elif has_label "ci-test-network"; then
-  #   ci_mode="full-no-test-cache"
-  elif has_label "ci-barretenberg-full"; then
-    ci_mode="barretenberg-full"
+  elif has_label "ci-no-test-cache"; then
+    ci_mode="no-test-cache"
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
     ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
@@ -149,7 +143,7 @@ function main {
     # internal Artifact Registry.
     ci_mode="release"
   else
-    ci_mode="fast"
+    ci_mode="ci"
   fi
 
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
@@ -166,18 +160,18 @@ function main {
     echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
 
-  # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
-  # and publish the result; ci-fast never benches. For grind runs (merge-queue-heavy fires
-  # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
-  # rest to 0 so they bench inline as a breakage check without racing the upload. The
-  # destination (bench/next vs bench/prs) is BENCH_BRANCH below.
-  if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
+  # Uploading modes run their benches on a dedicated, fixed-hardware box (stable numbers) and
+  # publish the result. A plain PR run does not bench at all (bootstrap.sh ci sets NO_BENCH=1);
+  # ci-no-test-cache is how a PR asks for fresh numbers. For grind runs (merge-queue-heavy fires
+  # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the rest
+  # to 0 so they bench inline without racing the upload. The destination (bench/next vs bench/prs) is BENCH_BRANCH below.
+  if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "no-test-cache" ]]; then
     echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi
 
   # Determine the branch label for benchmark publishing.
   # Only merge-queue runs targeting "next" publish under "next" since those represent code about to land.
-  # Everything else (ci-full PRs, merge queues for other branches) publishes under "prs"
+  # Everything else (PRs, merge queues for other branches) publishes under "prs"
   # to avoid polluting the main benchmark graphs.
   local bench_branch
   if [[ ("$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy") && "$target_branch" == "next" ]]; then
