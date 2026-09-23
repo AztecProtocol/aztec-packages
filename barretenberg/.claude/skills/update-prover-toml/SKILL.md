@@ -23,13 +23,9 @@ Each toml is self-contained on the verification-key side: it carries its own `vk
 
 ## How regeneration works
 
-Two commands cover the protocol-circuit tomls, split by whether the sample needs a real client-proved transaction. Both capture circuit inputs during proving via `pushTestData`/`getTestData` and write them with `updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(...))` (`labs/yarn-project/foundation/src/testing/files/index.ts`), which writes `noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml` under whichever repository root it resolves from — which is no longer this one, see the warning next.
+Two commands cover the protocol-circuit tomls, split by whether the sample needs a real client-proved transaction. Both capture circuit inputs during proving via `pushTestData`/`getTestData` and write them with `updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(...))` (`labs/yarn-project/foundation/src/testing/files/index.ts`), which writes `noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml` in this repository.
 
-> ⚠️ **The tests that write the tomls no longer live in the repository that holds them.** `getPathToFile` derives the repository root from the calling module's own location, so a run inside the submodule targets `labs/noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml`. The submodule has no `noir-projects/fnd` — it consumes the compiled circuits as the `@aztec-foundation/protocol-circuits-artifacts` package rather than as a source tree — so the write fails there instead of updating the tomls committed here. As a local stopgap, point the missing directory at this repository before running either command, and remove it afterwards so it does not sit untracked in the submodule:
->
-> ```bash
-> ln -s ../../noir-projects/fnd labs/noir-projects/fnd   # ... regenerate ... then: rm labs/noir-projects/fnd
-> ```
+> ⚠️ **Run both commands from a checkout of this repository**, never from a standalone aztec-node clone. The tests that capture the tomls live in the `labs/` submodule and the tomls themselves are committed here, so `getPathToFndFile` resolves them one directory above the submodule root. The submodule consumes the compiled circuits as the `@aztec-foundation/protocol-circuits-artifacts` package rather than as a source tree, so a clone of it on its own has nothing to write to, and the regeneration fails naming the target and this repository rather than writing somewhere unexpected.
 
 ### Block-root and above rollup circuits — prover-client suite
 

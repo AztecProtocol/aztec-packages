@@ -213,8 +213,9 @@ protocol circuits, split by whether the sample needs a real client-proved
 transaction.
 
 Both commands below run from `labs/yarn-project`, the TypeScript node's git
-submodule; see the `update-prover-toml` skill for the directory the captured
-tomls actually land in, which is not this repository.
+submodule, and write the captured tomls into this repository under
+`noir-projects/fnd/noir-protocol-circuits/crates/`, so run them from a checkout
+of it; see the `update-prover-toml` skill.
 
 **Block-root and above rollup circuits — prover-client suite** (simulated
 orchestrator, no L1 sandbox):
