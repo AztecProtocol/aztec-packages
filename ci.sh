@@ -123,7 +123,7 @@ function multi_job_run {
       export CI_DASHBOARD="prs"
     fi
   fi
-  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
   export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
   export DENOISE=1
   export DENOISE_WIDTH=32

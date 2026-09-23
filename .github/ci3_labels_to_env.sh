@@ -161,11 +161,10 @@ function main {
   fi
 
   # Uploading modes run their benches on a dedicated, fixed-hardware box (stable numbers) and
-  # publish the result; every other run benches inline as a breakage check. A plain PR run does
-  # not upload, so a push does not cost a bench box; ci-no-test-cache is how a PR asks for fresh
-  # numbers. For grind runs (merge-queue-heavy fires ~10 instances) only the first instance keeps
-  # BENCH_UPLOAD=1 — multi_job_run forces the rest to 0 so they bench inline without racing the
-  # upload. The destination (bench/next vs bench/prs) is BENCH_BRANCH below.
+  # publish the result. A plain PR run does not bench at all (bootstrap.sh ci sets NO_BENCH=1);
+  # ci-no-test-cache is how a PR asks for fresh numbers. For grind runs (merge-queue-heavy fires
+  # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the rest
+  # to 0 so they bench inline without racing the upload. The destination (bench/next vs bench/prs) is BENCH_BRANCH below.
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "no-test-cache" ]]; then
     echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi

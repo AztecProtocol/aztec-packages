@@ -458,11 +458,11 @@ function build_and_test {
       start_txes
       make noir-projects-txe-tests
 
-      # Benches (full builds only). Uploadable runs (BENCH_UPLOAD=1 — the first instance of
-      # a run) bench on a dedicated fixed-hardware box for stable numbers: launched here,
-      # logged like the test engine, waited on below, and the sole uploader. Everything
+      # Benches (full builds without NO_BENCH=1). Uploadable runs (BENCH_UPLOAD=1 — the first
+      # instance of a run) bench on a dedicated fixed-hardware box for stable numbers: launched
+      # here, logged like the test engine, waited on below, and the sole uploader. Everything
       # else benches inline as ordinary tests — a breakage check only, no upload.
-      if [ "$1" == full ]; then
+      if [ "$1" == full ] && [ "${NO_BENCH:-0}" -eq 0 ]; then
         if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
           setsid color_prefix "bench" "denoise './ci.sh bench'" & bench_pid=$!
         else
@@ -867,8 +867,11 @@ case "$cmd" in
   # VARIANTS ON NORMAL PULL-REQUEST CI #
   ######################################
   "ci")
+    # PR runs do not bench: uploads come from ci-no-test-cache and the merge queue, and an
+    # inline bench on every push would only lengthen the run.
     export CI=1
     export USE_TEST_CACHE=1
+    export NO_BENCH=1
     build_and_test full
     ;;
   "ci-no-test-cache")
