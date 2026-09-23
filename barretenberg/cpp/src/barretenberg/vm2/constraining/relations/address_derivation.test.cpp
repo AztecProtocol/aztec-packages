@@ -82,7 +82,7 @@ TEST(AddressDerivationConstrainingTest, Basic)
         poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
-    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
+    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address });
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);
@@ -291,7 +291,7 @@ TEST(AddressDerivationConstrainingTest, NegativeIVKNotOnCurve)
         poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
-    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
+    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address });
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);

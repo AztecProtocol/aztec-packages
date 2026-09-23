@@ -1,0 +1,175 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iAmMichaelConnor <mike@aztec.foundation>
+Date: Mon, 21 Sep 2026 22:15:48 +0000
+Subject: [PATCH] feat!: bump the contract address domain separator to v3
+
+Rename DOM_SEP__CONTRACT_ADDRESS_V2 to DOM_SEP__CONTRACT_ADDRESS_V3 (993442748, hash_to_u32("az_dom_sep", "contract_address_v3")) so v6 contract addresses cannot collide with v5 ones, and refresh the address test vectors, the noir_test_gen snapshot and the standard-contract address tables that derive from it.
+
+diff --git a/noir-projects/aztec-nr/aztec/src/standard_addresses.nr b/noir-projects/aztec-nr/aztec/src/standard_addresses.nr
+index 8ea6b15103c98c606e740718a216211fa9f543a2..1b8553a00d13f89d8f8089940e958e1f2cae7b38 100644
+--- a/noir-projects/aztec-nr/aztec/src/standard_addresses.nr
++++ b/noir-projects/aztec-nr/aztec/src/standard_addresses.nr
+@@ -2,17 +2,17 @@
+ use protocol_types::{address::AztecAddress, traits::FromField};
+ 
+ pub global STANDARD_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+-    0x1ec33912c9f14470513e0eb23db81ddb2aa1ae3395e6ab4d3cba383f68dec3c5,
++    0x193392554ff4cc24ac9acd5488a436e9e8eea429ae0edc8de082575b2c964399,
+ );
+ 
+ pub global STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(
+-    0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6,
++    0x063b74f69435c76e490b3dedd9238552228b523f233235152b236981cdf025f4,
+ );
+ 
+ pub global STANDARD_PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(
+-    0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe,
++    0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a,
+ );
+ 
+ pub global STANDARD_HANDSHAKE_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+-    0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7,
++    0x13833f89e250646a1ca08fef8b00bc96eb20df07bc0917bcdba3adedbdf99611,
+ );
+diff --git a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
+index 0219b7218fba0b917972a902fd22cbdc3b110901..1a8a867c5e505ff4199be444938587ea7c8b144a 100644
+--- a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
++++ b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
+@@ -20,7 +20,7 @@ use crate::protocol::constants::{
+     DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z,
+     DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC,
+     DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
+-    DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET, DOM_SEP__CONTRACT_ADDRESS_V2, DOM_SEP__CONTRACT_CLASS_ID,
++    DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET, DOM_SEP__CONTRACT_ADDRESS_V3, DOM_SEP__CONTRACT_CLASS_ID,
+     DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FBSK_M, DOM_SEP__FUNCTION_ARGS,
+     DOM_SEP__HANDSHAKE_FORGERY_PROTECTION, DOM_SEP__INITIALIZER, DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE,
+     DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__MSSK_M, DOM_SEP__NHK_M,
+@@ -71,7 +71,7 @@ global PROTOCOL_DOMAIN_SEPARATORS: [u32; 59] = [
+     DOM_SEP__PUBLIC_KEYS_HASH,
+     DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
+     DOM_SEP__PARTIAL_ADDRESS,
+-    DOM_SEP__CONTRACT_ADDRESS_V2,
++    DOM_SEP__CONTRACT_ADDRESS_V3,
+     DOM_SEP__BLOCK_HEADER_HASH,
+     DOM_SEP__PROTOCOL_NULLIFIER,
+     DOM_SEP__PUBLIC_TX_HASH,
+diff --git a/yarn-project/noir-protocol-circuits-types/src/__snapshots__/noir_test_gen.test.ts.snap b/yarn-project/noir-protocol-circuits-types/src/__snapshots__/noir_test_gen.test.ts.snap
+index a762988924af77a5a32b71b9a0661c237db4a1b5..ea2f7e36ce2836ffa1e294236fa6f8713da08987 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/__snapshots__/noir_test_gen.test.ts.snap
++++ b/yarn-project/noir-protocol-circuits-types/src/__snapshots__/noir_test_gen.test.ts.snap
+@@ -2,7 +2,7 @@
+ 
+ exports[`Data generation for noir tests Computes contract info for defaultContract 1`] = `
+ {
+-  "address": "AztecAddress { inner: 0x07680e2c2f956fafe2ee3a31150da694fd5792515b9349febc7fb738cfb24d7a }",
++  "address": "AztecAddress { inner: 0x2b3f0ef4f511c63fd3657adc4d9ced7d9fdc9d98072b7d8b43cc0791fc6e390a }",
+   "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000003039",
+   "contract_address_salt": "0x000000000000000000000000000000000000000000000000000000000000ddd5",
+   "contract_class_id": "ContractClassId { inner: 0x2888d24c26f34b139f0f1d30278df8f9007d06da3b63cfe6eeb9a710d51f4f4a }",
+@@ -17,7 +17,7 @@ exports[`Data generation for noir tests Computes contract info for defaultContra
+ 
+ exports[`Data generation for noir tests Computes contract info for parentContract 1`] = `
+ {
+-  "address": "AztecAddress { inner: 0x0e8d8115be632405aa0b0540f28c2f6c7a8a1b99ee18ea975c31d14f52377cb1 }",
++  "address": "AztecAddress { inner: 0x02cf3f963c4dd25c241309655b4c319c0589a59f4f440e38d1481ae254c297a5 }",
+   "artifact_hash": "0x00000000000000000000000000000000000000000000000000000000000004bc",
+   "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000001618",
+   "contract_class_id": "ContractClassId { inner: 0x2998b9cf4a582f068a01b43c141dbcc5fd8f5cd17a797484b5a5db2386cf7574 }",
+@@ -32,7 +32,7 @@ exports[`Data generation for noir tests Computes contract info for parentContrac
+ 
+ exports[`Data generation for noir tests Computes contract info for updatedContract 1`] = `
+ {
+-  "address": "AztecAddress { inner: 0x1b1ac9bb4af44a4f2f4e6ecc488dc18b9b8b8b3bacfa99e6cec1b81fa9d10b1e }",
++  "address": "AztecAddress { inner: 0x2166216039b46642ec9cabc114322efa15d68e0e046b0cc54d6ef0db18e32f6f }",
+   "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000054501",
+   "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000000315",
+   "contract_class_id": "ContractClassId { inner: 0x07a63b1343bb8515d1115202c71cdc95f9bcda9c2237bdfc25435b89ffa06b46 }",
+diff --git a/yarn-project/standard-contracts/src/standard_contract_data.ts b/yarn-project/standard-contracts/src/standard_contract_data.ts
+index f6af2f01a14e49a0b238a5e86e2a874fe694a66f..09bd527febf33c8f1e8196a5c44dae5bfd7b11c4 100644
+--- a/yarn-project/standard-contracts/src/standard_contract_data.ts
++++ b/yarn-project/standard-contracts/src/standard_contract_data.ts
+@@ -20,13 +20,13 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
+ };
+ 
+ export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
+-  AuthRegistry: AztecAddress.fromStringUnsafe('0x1ec33912c9f14470513e0eb23db81ddb2aa1ae3395e6ab4d3cba383f68dec3c5'),
++  AuthRegistry: AztecAddress.fromStringUnsafe('0x193392554ff4cc24ac9acd5488a436e9e8eea429ae0edc8de082575b2c964399'),
+   MultiCallEntrypoint: AztecAddress.fromStringUnsafe(
+-    '0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6',
++    '0x063b74f69435c76e490b3dedd9238552228b523f233235152b236981cdf025f4',
+   ),
+-  PublicChecks: AztecAddress.fromStringUnsafe('0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe'),
++  PublicChecks: AztecAddress.fromStringUnsafe('0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a'),
+   HandshakeRegistry: AztecAddress.fromStringUnsafe(
+-    '0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7',
++    '0x13833f89e250646a1ca08fef8b00bc96eb20df07bc0917bcdba3adedbdf99611',
+   ),
+ };
+ 
+diff --git a/yarn-project/stdlib/src/contract/contract_address.test.ts b/yarn-project/stdlib/src/contract/contract_address.test.ts
+index 53fb5d805feabfbf620263170b8e82d16bf0e0db..acf2636db2aa17d15808ded6bff9b75eaced3b27 100644
+--- a/yarn-project/stdlib/src/contract/contract_address.test.ts
++++ b/yarn-project/stdlib/src/contract/contract_address.test.ts
+@@ -77,7 +77,7 @@ describe('ContractAddress', () => {
+     const logger = createLogger('stdlib:contract_address:test');
+     logger.info(`Computed contract address from instance in ${ms}ms`);
+     expect(address.toString()).toMatchInlineSnapshot(
+-      `"0x0c295919fa5b94d9b9fa5e24e9cef2e8e757c17e2cecd366055571c88d9e2a44"`,
++      `"0x1e3ec1cc97c8ed6301003a493b5450dd2620c71224aa586d3b5140e8959fd0dc"`,
+     );
+   });
+ });
+diff --git a/yarn-project/stdlib/src/contract/contract_address.ts b/yarn-project/stdlib/src/contract/contract_address.ts
+index 770190591b2e87ee23abc0693442f0299145ce26..d549329345b6425ed571ced6bf2330b3db80c14d 100644
+--- a/yarn-project/stdlib/src/contract/contract_address.ts
++++ b/yarn-project/stdlib/src/contract/contract_address.ts
+@@ -16,7 +16,7 @@ import type { PartialAddress } from './partial_address.js';
+  * ```
+  * salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash])
+  * partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash])
+- * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
++ * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V3, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
+  * ```
+  * @param instance - A contract instance for which to calculate the deployment address.
+  */
+diff --git a/yarn-project/stdlib/src/keys/derivation.test.ts b/yarn-project/stdlib/src/keys/derivation.test.ts
+index 333db5ec48255fa983faf9a813ecdc0ce52c469a..bb0caa233bbfe9c74005aef927b4f4cd0ba336ed 100644
+--- a/yarn-project/stdlib/src/keys/derivation.test.ts
++++ b/yarn-project/stdlib/src/keys/derivation.test.ts
+@@ -31,7 +31,7 @@ describe('🔑', () => {
+     const partialAddress = new Fr(2n);
+     const address = await computePreaddress(publicKeysHash, partialAddress);
+     expect(address.toString()).toMatchInlineSnapshot(
+-      `"0x0fa1c698858df1a99170cd39d5f4bfad6d0d60f1f8afa3dc92281ee60b36f3bb"`,
++      `"0x2e0787752b82b3ab9c28d67b48f24f8a3dac253023bf5136bbcb8ddbf4b1381c"`,
+     );
+ 
+     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+@@ -70,7 +70,7 @@ describe('🔑', () => {
+     );
+     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
+     const address = (await computeAddress(publicKeys, partialAddress)).toString();
+-    expect(address).toMatchInlineSnapshot(`"0x303ffc8bd456d132463b1fc3a633aeb718a7883c268f3956c05e6fe09b5a5424"`);
++    expect(address).toMatchInlineSnapshot(`"0x23877639c7424d1d2a9f514e59ee662b3154a730b783caf822d196b625ba4355"`);
+ 
+     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+     updateInlineTestData(
+diff --git a/yarn-project/stdlib/src/keys/derivation.ts b/yarn-project/stdlib/src/keys/derivation.ts
+index d939ae7bde97f512e843adbbbd3bfd26ac4ffa08..c85ac6eca3d8167a2646bd41a27a8b5cc03b8427 100644
+--- a/yarn-project/stdlib/src/keys/derivation.ts
++++ b/yarn-project/stdlib/src/keys/derivation.ts
+@@ -51,12 +51,12 @@ export function deriveMasterFallbackSecretKey(secretKey: Fr): GrumpkinScalar {
+ }
+ 
+ export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
+-  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
++  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V3);
+ }
+ 
+ export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): Promise<AztecAddress> {
+   // Given public keys and a partial address, we can compute our address in the following steps.
+-  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
++  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V3);
+   // 2. addressPoint = (preaddress * G) + ivpk_m
+   // 3. address = addressPoint.x
+   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
