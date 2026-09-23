@@ -11,7 +11,7 @@ pub fn notify_created_nullifier(inner_nullifier: Field) {
     unsafe { notify_created_nullifier_oracle(inner_nullifier) };
 }
 
-#[oracle(aztec_prv_notifyCreatedNullifier)]
+#[oracle(aztec_protocol_prv_notifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_inner_nullifier: Field) {}
 
 /// Returns true if the nullifier has been emitted in the same transaction, i.e. if [notify_created_nullifier] has been
@@ -28,7 +28,7 @@ pub unconstrained fn is_nullifier_pending(
     is_nullifier_pending_oracle(inner_nullifier, contract_address)
 }
 
-#[oracle(aztec_prv_isNullifierPending)]
+#[oracle(aztec_protocol_prv_isNullifierPending)]
 unconstrained fn is_nullifier_pending_oracle(
     _inner_nullifier: Field,
     _contract_address: AztecAddress,

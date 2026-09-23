@@ -69,7 +69,7 @@ unconstrained fn store_oracle<let N: u32>(
 /// response shape would be 3 single items, whereas it were a struct containing `u32, [Field;10], u32` then the
 /// expected shape would be single, array, single.). Instead, we return the serialization and deserialize in Noir.
 // TODO(F-498): review naming consistency
-#[oracle(aztec_utl_getCapsule)]
+#[oracle(aztec_protocol_utl_getCapsule)]
 unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,

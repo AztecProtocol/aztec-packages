@@ -11,9 +11,6 @@ pub mod public_call;
 pub mod tx_phase;
 pub mod call_private_function;
 pub mod logs;
-
-// logging oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
-// here from protocol_types.
-pub use protocol_types::logging;
+pub mod logging;
 
 pub mod version;

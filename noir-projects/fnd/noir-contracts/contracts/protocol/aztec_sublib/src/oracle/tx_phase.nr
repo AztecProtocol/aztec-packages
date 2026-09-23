@@ -17,7 +17,7 @@ unconstrained fn notify_revertible_phase_start_oracle_wrapper(counter: u32) {
     notify_revertible_phase_start_oracle(counter);
 }
 
-#[oracle(aztec_prv_notifyRevertiblePhaseStart)]
+#[oracle(aztec_protocol_prv_notifyRevertiblePhaseStart)]
 unconstrained fn notify_revertible_phase_start_oracle(_counter: u32) {}
 
 // TODO(F-498): review naming consistency
