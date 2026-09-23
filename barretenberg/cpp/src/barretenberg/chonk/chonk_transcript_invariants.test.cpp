@@ -64,32 +64,36 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
  * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
  * - App circuits (0-4, 6): 0 transcripts - use native HN folding prover
- * - Init kernel (5): 3 transcripts:
+ * - Init kernel (5): 8 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Intermediate kernel (7): 3 transcripts:
+ *     4-8. ECC-op commitment hashes for the five apps
+ * - Intermediate kernel (7): 5 transcripts:
  *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Reset-tail kernel (8): 2 transcripts:
+ *     4-5. ECC-op commitment hashes for the init kernel and remaining app
+ * - Reset-tail kernel (8): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Hiding kernel (9): 3 transcripts:
+ *     3. ECC-op commitment hash for the intermediate kernel
+ * - Hiding kernel (9): 4 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
+ *     4. ECC-op commitment hash for the reset-tail kernel
  *
- * Total: 0*5 + 3 + 0 + 3 + 2 + 3 = 11 transcripts
+ * Total: 0*5 + 8 + 0 + 5 + 3 + 4 = 20 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
     // Pinned expected transcript count for a MAX_APPS_PER_KERNEL + 1 app IVC (one full app group + a one-app
     // remainder group, then the reset-tail and hiding kernels). Values below assume MAX_APPS_PER_KERNEL == 5.
     static_assert(MAX_APPS_PER_KERNEL == 5, "Update pinned transcript counts if MAX_APPS_PER_KERNEL changes");
-    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 11;
+    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 20;
     constexpr size_t EXPECTED_NUM_CIRCUITS = 10;
-    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 0, 0, 3, 0, 3, 2, 3 };
+    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 0, 0, 8, 0, 5, 3, 4 };
 
     // Record transcript index before IVC
     size_t index_before_ivc = bb::unique_transcript_index.load();
@@ -117,7 +121,7 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 
     // Pin the total number of transcripts created during accumulation
     EXPECT_EQ(total_transcripts, EXPECTED_TOTAL_TRANSCRIPTS)
-        << "Total transcript count during 4-app IVC accumulation changed. "
+        << "Total transcript count during IVC accumulation changed. "
         << "If intentional, update EXPECTED_TOTAL_TRANSCRIPTS. "
         << "Unexpected changes may indicate security-relevant transcript isolation issues.";
 
