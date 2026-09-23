@@ -21,6 +21,11 @@ use types::{
 ///   - Items within `original_array.length` must not be nullish.
 ///   - Items beyond `original_array.length` must be nullish.
 /// - Items within `original_array.length` in `original_array` must have been sorted by counter in ascending order.
+///   Not checked here: the split counter is only compared against the items either side of
+///   `first_after_split_index`, and every item is routed by its position relative to that index. With unsorted
+///   input, an item with `counter >= split_counter` can land in `transformed_array_lt` (non-revertible), or one with
+///   `counter < split_counter` in `transformed_array_gte` (revertible). The terminal reset's
+///   `ResetOutputValidator::validate_sorted_siloed_padded_data` guarantees the ordering.
 /// - Items beyond `original_array.length` in `original_array` must have a counter value of 0.
 /// - `num_padded_lt` must not be larger than the total number of padded items and empty items in `sorted_padded_array`.
 ///
