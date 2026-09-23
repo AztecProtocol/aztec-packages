@@ -9,18 +9,9 @@ pub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
     unsafe { log_oracle_wrapper(DEBUG_LOG_LEVEL, msg, args) };
 }
 
-unconstrained fn log_oracle_wrapper<let M: u32, let N: u32>(
-    log_level: u32,
-    msg: str<M>,
-    args: [Field; N],
-) {
+unconstrained fn log_oracle_wrapper<let M: u32, let N: u32>(log_level: u32, msg: str<M>, args: [Field; N]) {
     log_oracle(log_level, msg, N, args);
 }
 
 #[oracle(aztec_protocol_misc_log)]
-unconstrained fn log_oracle<let M: u32, let N: u32>(
-    log_level: u32,
-    msg: str<M>,
-    length: u32,
-    args: [Field; N],
-) {}
+unconstrained fn log_oracle<let M: u32, let N: u32>(log_level: u32, msg: str<M>, length: u32, args: [Field; N]) {}

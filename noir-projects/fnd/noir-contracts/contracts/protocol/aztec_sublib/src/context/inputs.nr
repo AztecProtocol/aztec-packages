@@ -1,6 +1,4 @@
-use crate::protocol::abis::{
-    block_header::BlockHeader, call_context::CallContext, transaction::tx_context::TxContext,
-};
+use crate::protocol::abis::{block_header::BlockHeader, call_context::CallContext, transaction::tx_context::TxContext};
 
 // PrivateContextInputs are expected to be provided to each private function
 pub struct PrivateContextInputs {

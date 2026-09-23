@@ -23,14 +23,12 @@ impl PublicContext {
     }
 
     /// Returns `true` if an `unsiloed_nullifier` has been emitted by `contract_address`.
-    pub fn nullifier_exists_unsafe(
-        _self: Self,
-        unsiloed_nullifier: Field,
-        contract_address: AztecAddress,
-    ) -> bool {
+    pub fn nullifier_exists_unsafe(_self: Self, unsiloed_nullifier: Field, contract_address: AztecAddress) -> bool {
         let siloed_nullifier = compute_siloed_nullifier(contract_address, unsiloed_nullifier);
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::nullifier_exists(siloed_nullifier) }
+        unsafe {
+            avm::nullifier_exists(siloed_nullifier)
+        }
     }
 
     /// Returns the address of the current contract being executed.
@@ -71,7 +69,9 @@ impl PublicContext {
     /// Checks if the current execution is within a staticcall context.
     pub fn is_static_call(_self: Self) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::is_static_call() }
+        unsafe {
+            avm::is_static_call()
+        }
     }
 
     /// Reads raw field values from public storage.
@@ -79,9 +79,7 @@ impl PublicContext {
         let mut out = [0; N];
         for i in 0..N {
             // Safety: AVM opcodes are constrained by the AVM itself
-            out[i] = unsafe {
-                avm::storage_read(storage_slot + i as Field, self.this_address().to_field())
-            };
+            out[i] = unsafe { avm::storage_read(storage_slot + i as Field, self.this_address().to_field()) };
         }
         out
     }

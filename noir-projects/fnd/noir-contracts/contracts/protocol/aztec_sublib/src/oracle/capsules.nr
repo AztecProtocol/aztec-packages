@@ -2,11 +2,7 @@ use crate::protocol::{address::AztecAddress, traits::Deserialize};
 
 /// Returns data previously stored in the per-contract non-volatile database. Returns Option::none() if nothing was
 /// stored at the given slot.
-pub unconstrained fn load<T>(
-    contract_address: AztecAddress,
-    slot: Field,
-    scope: AztecAddress,
-) -> Option<T>
+pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field, scope: AztecAddress) -> Option<T>
 where
     T: Deserialize,
 {

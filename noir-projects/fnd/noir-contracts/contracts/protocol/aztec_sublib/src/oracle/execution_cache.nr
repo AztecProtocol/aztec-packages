@@ -5,10 +5,7 @@ pub fn store<let N: u32>(values: [Field; N], hash: Field) {
     unsafe { store_in_execution_cache_oracle_wrapper(values, hash) };
 }
 
-unconstrained fn store_in_execution_cache_oracle_wrapper<let N: u32>(
-    values: [Field; N],
-    hash: Field,
-) {
+unconstrained fn store_in_execution_cache_oracle_wrapper<let N: u32>(values: [Field; N], hash: Field) {
     store_in_execution_cache_oracle(values, hash);
 }
 
