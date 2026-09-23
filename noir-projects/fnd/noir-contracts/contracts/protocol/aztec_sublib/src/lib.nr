@@ -11,7 +11,6 @@ pub mod oracle;
 pub mod state_vars;
 pub mod nullifier;
 pub mod utils;
-pub mod history;
 pub mod macros;
 
 // Re-export protocol_types as `protocol` for compatibility with existing aztec imports

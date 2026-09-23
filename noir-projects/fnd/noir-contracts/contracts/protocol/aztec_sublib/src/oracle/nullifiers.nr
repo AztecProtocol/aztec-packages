@@ -33,15 +33,3 @@ unconstrained fn is_nullifier_pending_oracle(
     _inner_nullifier: Field,
     _contract_address: AztecAddress,
 ) -> bool {}
-
-/// Returns true if the nullifier exists. Note that a `true` value can be constrained by proving existence of the
-/// nullifier, but a `false` value should not be relied upon since other transactions may emit this nullifier before
-/// the current transaction is included in a block. While this might seem of little use at first, certain design
-/// patterns benefit from this abstraction (see e.g. `PrivateMutable`).
-pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
-    check_nullifier_exists_oracle(inner_nullifier)
-}
-
-// TODO(F-498): review naming consistency
-#[oracle(aztec_utl_doesNullifierExist)]
-unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}

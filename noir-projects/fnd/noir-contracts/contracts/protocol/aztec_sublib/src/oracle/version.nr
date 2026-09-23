@@ -20,18 +20,3 @@ unconstrained fn assert_compatible_oracle_version_wrapper() {
 
 #[oracle(aztec_protocol_misc_assertCompatibleOracleVersion)]
 unconstrained fn assert_compatible_oracle_version_oracle(version: u32) {}
-
-mod test {
-    use super::{assert_compatible_oracle_version_oracle, PROTOCOL_ORACLE_VERSION};
-
-    #[test]
-    unconstrained fn compatible_oracle_version() {
-        assert_compatible_oracle_version_oracle(PROTOCOL_ORACLE_VERSION);
-    }
-
-    #[test(should_fail_with = "Incompatible protocol oracle version:")]
-    unconstrained fn incompatible_oracle_version() {
-        let arbitrary_incorrect_version = 318183437;
-        assert_compatible_oracle_version_oracle(arbitrary_incorrect_version);
-    }
-}

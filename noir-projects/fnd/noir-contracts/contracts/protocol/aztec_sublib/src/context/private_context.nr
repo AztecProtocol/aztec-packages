@@ -1,12 +1,9 @@
 use crate::{
-    context::{inputs::PrivateContextInputs, NullifierExistenceRequest, ReturnsHash},
-    hash::hash_args,
+    context::{inputs::PrivateContextInputs, NullifierExistenceRequest},
     messaging::process_l1_to_l2_message,
     oracle::{
-        call_private_function::call_private_function_internal,
         public_call::validate_public_calldata,
-        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
-        execution_cache,
+        tx_phase::notify_revertible_phase_start,
         logs::notify_created_contract_class_log,
         nullifiers::notify_created_nullifier,
     },
@@ -14,9 +11,6 @@ use crate::{
 use crate::protocol::{
     abis::{
         block_header::BlockHeader,
-        call_context::CallContext,
-        function_selector::FunctionSelector,
-        gas_settings::GasSettings,
         log_hash::LogHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
@@ -41,7 +35,6 @@ use crate::protocol::{
 
 /// Minimal PrivateContext for protocol contracts going to audit.
 /// Contains only the methods actually used by: fee_juice, auth_registry, contract_class_registry, contract_instance_registry
-#[derive(Eq)]
 pub struct PrivateContext {
     pub inputs: PrivateContextInputs,
     pub side_effect_counter: u32,
@@ -123,33 +116,6 @@ impl PrivateContext {
         self.inputs.tx_context.version
     }
 
-    /// Returns the gas settings for the current transaction.
-    pub fn gas_settings(self) -> GasSettings {
-        self.inputs.tx_context.gas_settings
-    }
-
-    /// Returns the function selector of the currently executing function.
-    pub fn selector(self) -> FunctionSelector {
-        self.inputs.call_context.function_selector
-    }
-
-    /// Returns the hash of the arguments passed to the current function.
-    pub fn get_args_hash(self) -> Field {
-        self.args_hash
-    }
-
-    /// Returns the anchor block header.
-    pub fn get_anchor_block_header(self) -> BlockHeader {
-        self.anchor_block_header
-    }
-
-    /// Sets the hash of the return values for this private function.
-    pub fn set_return_hash<let N: u32>(&mut self, serialized_return_values: [Field; N]) {
-        let return_hash = hash_args(serialized_return_values);
-        self.return_hash = return_hash;
-        execution_cache::store(serialized_return_values, return_hash);
-    }
-
     /// Builds the PrivateCircuitPublicInputs for this private function.
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
@@ -190,30 +156,6 @@ impl PrivateContext {
         self.side_effect_counter += 1;
         self.min_revertible_side_effect_counter = self.next_counter();
         notify_revertible_phase_start(self.min_revertible_side_effect_counter);
-    }
-
-    pub fn in_revertible_phase(&mut self) -> bool {
-        let current_counter = self.side_effect_counter;
-
-        // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible =
-            unsafe { in_revertible_phase(current_counter) };
-
-        if is_revertible {
-            if (self.expected_revertible_side_effect_counter == 0)
-                | (current_counter < self.expected_revertible_side_effect_counter) {
-                self.expected_revertible_side_effect_counter = current_counter;
-            }
-        } else if current_counter > self.expected_non_revertible_side_effect_counter {
-            self.expected_non_revertible_side_effect_counter = current_counter;
-        }
-
-        is_revertible
-    }
-
-    /// Sets a deadline for when this transaction must be included in a block.
-    pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
-        self.expiration_timestamp = std::cmp::min(self.expiration_timestamp, expiration_timestamp);
     }
 
     /// Pushes a new nullifier. Used by class_registry and instance_registry.
@@ -295,64 +237,6 @@ impl PrivateContext {
         ));
     }
 
-    /// Makes a read-only call to a private function. Used by auth_registry for authwit.
-    pub fn static_call_private_function<let ArgsCount: u32>(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ArgsCount],
-    ) -> ReturnsHash {
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-        self.call_private_function_with_args_hash(
-            contract_address,
-            function_selector,
-            args_hash,
-            true,
-        )
-    }
-
-    fn call_private_function_with_args_hash(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args_hash: Field,
-        is_static_call: bool,
-    ) -> ReturnsHash {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        let start_side_effect_counter = self.side_effect_counter;
-
-        // Safety: The oracle simulates the private call and returns the value of the side effects counter after
-        // execution of the call.
-        let (end_side_effect_counter, returns_hash) = unsafe {
-            call_private_function_internal(
-                contract_address,
-                function_selector,
-                args_hash,
-                start_side_effect_counter,
-                is_static_call,
-            )
-        };
-
-        self.private_call_requests.push(
-            PrivateCallRequest {
-                call_context: CallContext {
-                    msg_sender: self.this_address(),
-                    contract_address,
-                    function_selector,
-                    is_static_call,
-                },
-                args_hash,
-                returns_hash,
-                start_side_effect_counter,
-                end_side_effect_counter,
-            },
-        );
-
-        self.side_effect_counter = end_side_effect_counter + 1;
-        ReturnsHash::new(returns_hash)
-    }
-
     /// Enqueues a call to a public function with a calldata hash. Used by fee_juice and auth_registry.
     pub fn call_public_function_with_calldata_hash(
         &mut self,
@@ -383,30 +267,5 @@ impl PrivateContext {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
         counter
-    }
-}
-
-impl Empty for PrivateContext {
-    fn empty() -> Self {
-        PrivateContext {
-            inputs: PrivateContextInputs::empty(),
-            side_effect_counter: 0 as u32,
-            min_revertible_side_effect_counter: 0 as u32,
-            is_fee_payer: false,
-            args_hash: 0,
-            return_hash: 0,
-            expiration_timestamp: 0,
-            nullifier_read_requests: BoundedVec::new(),
-            nullifiers: BoundedVec::new(),
-            private_call_requests: BoundedVec::new(),
-            public_call_requests: BoundedVec::new(),
-            public_teardown_call_request: PublicCallRequest::empty(),
-            l2_to_l1_msgs: BoundedVec::new(),
-            anchor_block_header: BlockHeader::empty(),
-            private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
-            expected_non_revertible_side_effect_counter: 0,
-            expected_revertible_side_effect_counter: 0,
-        }
     }
 }

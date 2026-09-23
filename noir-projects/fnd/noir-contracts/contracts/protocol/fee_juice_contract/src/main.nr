@@ -139,16 +139,7 @@ pub contract FeeJuice {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_only_self]
     unconstrained fn _increase_public_balance(to: AztecAddress, amount: u128) {
         // MACRO CODE START
-        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(
-            || -> Field {
-                let serialized_args: [Field; 2] = aztec::oracle::avm::calldata_copy(
-                    1,
-                    <AztecAddress as aztec::protocol::traits::Serialize>::N
-                        + <u128 as aztec::protocol::traits::Serialize>::N,
-                );
-                aztec::hash::hash_args(serialized_args)
-            },
-        );
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new();
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
 
         assert(
@@ -167,13 +158,7 @@ pub contract FeeJuice {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn check_balance(fee_limit: u128) {
         // MACRO CODE START
-        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(
-            || -> Field {
-                let serialized_args: [Field; 1] =
-                    aztec::oracle::avm::calldata_copy(1, <u128 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            },
-        );
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new();
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
 
         assert(context.is_static_call(), "Function check_balance can only be called statically");
@@ -187,13 +172,7 @@ pub contract FeeJuice {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn balance_of_public(owner: AztecAddress) -> pub u128 {
         // MACRO CODE START
-        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(
-            || -> Field {
-                let serialized_args: [Field; 1] =
-                    aztec::oracle::avm::calldata_copy(1, <AztecAddress as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            },
-        );
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new();
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
 
         assert(context.is_static_call(), "Function balance_of_public can only be called statically");
