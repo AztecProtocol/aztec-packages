@@ -281,8 +281,13 @@ function release_packages {
   cd "$dir"
   do_or_dryrun npm init -y
   # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
+  # npm accepts a publish well before it serves the new version, sometimes more than 20 minutes later, so keep retrying
+  # for up to 30 minutes. --prefer-online makes each attempt re-check the registry instead of reusing npm's cached
+  # package metadata, which would otherwise hide the new version for up to 5 minutes.
+  local npm_serve_timeout_s=1800 npm_retry_sleep_s=30
   for package in "${package_list[@]}"; do
-    retry "do_or_dryrun npm install $package"
+    RETRY_ATTEMPTS=$((npm_serve_timeout_s / npm_retry_sleep_s)) RETRY_SLEEP=$npm_retry_sleep_s \
+      retry "do_or_dryrun npm install --prefer-online $package"
   done
   rm -rf "$dir"
 }
