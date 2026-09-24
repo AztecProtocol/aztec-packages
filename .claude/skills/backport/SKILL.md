@@ -200,6 +200,6 @@ Print a summary:
   diff match.
 - **Clean up `.rej` files**: Always delete `.rej` files before committing.
 - **Staging branch convention**: The staging branch is always
-  `backport-to-{TARGET_BRANCH}-staging` (e.g., `backport-to-v4-staging`,
-  `backport-to-v4-devnet-2-staging`). Multiple backports accumulate on the same
+  `backport-to-{TARGET_BRANCH}-staging` (e.g., `backport-to-v6-staging`,
+  `backport-to-v5-next-staging`). Multiple backports accumulate on the same
   staging branch and get merged together.

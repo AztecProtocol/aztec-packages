@@ -108,39 +108,24 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --body \
             "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. (🤖) [View backport run]($WORKFLOW_URL)."
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack and fail on conflict
         if: steps.backport.outcome == 'failure'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
           TITLE: ${{ github.event.pull_request.title }}
           URL: ${{ github.event.pull_request.html_url }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
-          STAGING_BRANCH: ${{ steps.extract-branch.outputs.staging_branch }}
           VERB: ${{ steps.extract-branch.outputs.verb }}
         run: |
-
-          # Post single message to #backports, derive permalink from response
           TEXT=$(printf '⚠️ %s failed: <%s|#%s %s> → `%s` (author: %s) (🤖)' \
             "${VERB^}" "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
-          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+          curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
-            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
-          echo "Slack response: $RESP"
-          TS=$(echo "$RESP" | jq -r '.ts // empty')
-          CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
 
-          LINK=""
-          if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
-            LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
-          fi
-
-          gh workflow run claudebox.yml \
-            -f prompt="${VERB^} PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH). The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR." \
-            -f link="${LINK:-$URL}" \
-            -f target_ref="origin/$STAGING_BRANCH" \
-            -f slack_channel="$CHANNEL_ID" \
-            -f slack_thread_ts="$TS"
+          # A failed run is the conflict signal: ClaudeBox receives this run's
+          # workflow_run webhook and opens a resolution PR into the staging branch.
+          exit 1
