@@ -1,12 +1,10 @@
 # Release branches
 
-`next` is the development branch. Release lines (for example `v5-next` and `v6`) take changes from `next` through backports, or through PRs opened directly against the release branch.
+`next` is the development branch. Release lines (for example `v6`) take changes from `next` through ports, or through PRs opened directly against the release branch.
 
-### Backports
+### Ports
 
-- Label a PR with `backport-to-<branch>` (for example `backport-to-v6` or `backport-to-v5-next`) to backport it once it merges.
-- On merge, `backport.yml` cherry-picks the change onto a `backport-to-<branch>-staging` branch, and a staging PR accumulates backported commits targeting `<branch>`.
-- If the cherry-pick conflicts, the run posts to #backports and fails. ClaudeBox receives the failed run's `workflow_run` webhook and opens a resolution PR into the staging branch. CI holds no ClaudeBox credentials.
+Label a PR `port-to-<branch>` (`port-to-v6`, `port-to-next`) to port it to that branch once it merges; adding the label after merge works too. This repo has no port or backport workflow: ClaudeBox watches merged PRs through the GitHub webhook, ports each labelled change onto one rolling integration branch per target, and keeps a single PR into the target branch, reporting in #backports. The labels, their targets and the procedure live in [AztecProtocol/claudebox](https://github.com/AztecProtocol/claudebox) (`claudebox-server/config.yml` `merge_triggers`, and the `port-to-branch` skill). Change port automation there, not here.
 
 ### Nightly releases
 
@@ -19,4 +17,3 @@ The workflow can also be dispatched manually. It then accepts an optional `suffi
 | Workflow | Trigger | Action |
 |---|---|---|
 | `nightly-release-tag.yml` | Daily at 04:00 UTC, or manual dispatch | Tags `next` and `v5-next` with `v{version}-nightly.{date}`, plus an optional `.{suffix}` on manual runs |
-| `backport.yml` | `backport-to-<branch>` label + PR merge | Cherry-picks into `<branch>` via a staging branch; fails the run on conflict |
