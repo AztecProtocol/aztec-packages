@@ -127,9 +127,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.rewardBoostConfig = this.getRewardBoostConfiguration();
     config.stakingQueueConfig = this.getStakingQueueConfiguration();
 
-    // Compute version as first 4 bytes of hash(abi.encode(config, genesisState))
-    config.version = _computeConfigVersion(config, this.getGenesisState());
-
     return config;
   }
 
@@ -156,7 +153,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.slashingDisableDuration = vm.envUint("AZTEC_SLASHING_DISABLE_DURATION");
     config.manaTarget = vm.envUint("AZTEC_MANA_TARGET");
     config.exitDelaySeconds = vm.envUint("AZTEC_EXIT_DELAY_SECONDS");
-    config.version = 0; // Computed below
     config.provingCostPerMana = EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA"));
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET"));
     config.registryRewardOverrides[0] = _getRegistryRewardOverride("AZTEC_REGISTRY_REWARD_OVERRIDE_0");
@@ -177,21 +173,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     require(fields.length == 2, "Invalid registry reward override");
     registryRewardOverride.registry = vm.parseAddress(fields[0]);
     registryRewardOverride.sequencerReward = vm.parseUint(fields[1]).toUint96();
-  }
-
-  /// @notice Compute rollup config version by hashing config + genesis state
-  /// @dev Version is the first 4 bytes (uint32) of keccak256(abi.encode(rollupConfig, genesisState))
-  ///      This DOES NOT match the TS implementation: keccak256(jsonStringify({rollupConfigArgs, genesisStateArgs}))
-  function _computeConfigVersion(RollupConfigInput memory _config, GenesisState memory _genesisState)
-    private
-    pure
-    returns (uint32)
-  {
-    bytes32 hash = keccak256(abi.encode(_config, _genesisState));
-    // Extract first 4 bytes as uint32 (big-endian)
-    // Casting to bytes4 is intentional because the config version is defined as the first 4 bytes of the hash.
-    // forge-lint: disable-next-line(unsafe-typecast)
-    return uint32(bytes4(hash));
   }
 
   function _getSlashingOffset() private view returns (uint256) {

@@ -3,7 +3,6 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
-import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking, IStakingCore, Exit, Status, AttesterExitLimitState} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
@@ -96,9 +95,7 @@ contract InitiateWithdrawByAttesterTest is StakingBase {
   function _activateNewRollup() internal returns (IStaking nextRollup) {
     RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
       .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false);
-    RollupConfigInput memory config = builder.getConfig().rollupConfigInput;
-    config.version = uint32(IHaveVersion(address(staking)).getVersion() + 1);
-    builder.setRollupConfigInput(config).deploy();
+    builder.deploy();
     nextRollup = IStaking(address(builder.getConfig().rollup));
 
     AttesterExitLimitState memory initialState = nextRollup.getAttesterExitLimitState();

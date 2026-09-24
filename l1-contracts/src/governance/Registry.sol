@@ -11,8 +11,8 @@ import {RewardDistributor, IRewardDistributor} from "./RewardDistributor.sol";
 struct RegistryStorage {
   /**
    * @notice Mapping from version to rollup instance
-   * @dev As implemented today, the version is a truncated hash of identifiers of the rollup instance
-   * See RollupCore.sol for the implementation.
+   * @dev The version is a truncated hash of the chain id and the rollup's address, computed by the rollup
+   * itself at construction. See RollupCore.sol for the implementation.
    * @dev updated when a new rollup instance is added, which becomes the new canonical rollup
    */
   mapping(uint256 version => IHaveVersion rollup) versionToRollup;

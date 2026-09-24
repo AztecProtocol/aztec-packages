@@ -294,13 +294,21 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // factored out into a helper the way the slasher and reward setup are.
     VK_TREE_ROOT = _genesisState.vkTreeRoot;
     PROTOCOL_CONTRACTS_HASH = _genesisState.protocolContractsHash;
-    VERSION = _config.version;
+    // The version identifies this rollup instance: it keys the Registry, scopes Inbox/Outbox messages,
+    // is part of every tx's signed context and is a public input of the epoch proof. It is derived from
+    // this contract's address so that two deployments never share it by accident and a deployer cannot
+    // set it directly. The hash is truncated to 32 bits, so a deployer willing to grind CREATE2 salts can
+    // still reach another rollup's version; it is a separator, not a collision-resistant identity.
+    // Casting to bytes4 is intentional because the version is defined as the first 4 bytes of the hash.
+    // forge-lint: disable-next-line(unsafe-typecast)
+    uint32 version = uint32(bytes4(keccak256(abi.encode(bytes("aztec_rollup_version"), block.chainid, address(this)))));
+    VERSION = version;
     FEE_ASSET = _feeAsset;
     EPOCH_PROOF_VERIFIER = _epochProofVerifier;
 
-    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, _config.version, INBOX_BUCKET_RING_SIZE)));
+    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, INBOX_BUCKET_RING_SIZE)));
     INBOX = inbox;
-    OUTBOX = IOutbox(address(new Outbox(address(this), _config.version)));
+    OUTBOX = IOutbox(address(new Outbox(address(this), version)));
     FEE_ASSET_PORTAL = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     STFLib.initialize(_genesisState);
