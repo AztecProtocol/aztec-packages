@@ -7,6 +7,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/group/forgery_test_utils.hpp"
 #include "barretenberg/stdlib/primitives/test_utils.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -1611,9 +1612,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseSomeInLookupTable)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3395); // Mega
+        check_circuit_and_gate_count(builder, 3539); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 3398); // Ultra
+        check_circuit_and_gate_count(builder, 3542); // Ultra
     }
 }
 
@@ -1694,9 +1695,9 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 12973); // Mega
+        check_circuit_and_gate_count(builder, 13608); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 12976); // Ultra
+        check_circuit_and_gate_count(builder, 13611); // Ultra
     }
 }
 
@@ -1781,9 +1782,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
             EXPECT_FALSE(result2.is_constant());
             // Gate count difference due to additional constants added by default in Mega builder
             if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-                check_circuit_and_gate_count(builder, 5285); // Mega
+                check_circuit_and_gate_count(builder, 5795); // Mega
             } else {
-                check_circuit_and_gate_count(builder, 5288); // Ultra
+                check_circuit_and_gate_count(builder, 5798); // Ultra
             }
         }
     };
@@ -2216,6 +2217,106 @@ TEST(CycleGroupKernelArithmetizationTest, FixedBaseMulAgreesWithFullArithmetizat
     bb::MegaKernelCircuitBuilder kernel_builder;
     EXPECT_EQ(multiply(full_builder), multiply(kernel_builder));
     EXPECT_EQ(multiply(full_builder), Curve::AffineElement(Curve::Element(generator) * scalar));
+}
+
+using bb::stdlib::test_utils::forge_degenerate_ecc_add;
+using bb::stdlib::test_utils::make_forgeable_builder;
+using bb::stdlib::test_utils::variable_base_offset;
+
+// P = G0 - G1 and top slice 1 make the first Straus addition G0 + G0.
+TYPED_TEST(CycleGroupTest, BatchMulConstantPointCollidingInStrausLoopCannotForge)
+{
+    STDLIB_TYPE_ALIASES
+    using ScalarField = typename Curve::ScalarField;
+    auto builder = make_forgeable_builder<Builder>();
+
+    const auto offsets = cycle_group_ct::OffsetGenerators::default_generators().get(2);
+    const AffineElement point(Element(offsets[0]) - Element(offsets[1]));
+    const ScalarField scalar(uint256_t(1) << 252);
+    const ScalarField constant_scalar(7);
+
+    std::vector<cycle_group_ct> points{ cycle_group_ct(point), cycle_group_ct(Group::affine_one) };
+    std::vector<cycle_scalar_ct> scalars{ cycle_scalar_ct::from_witness(&builder, scalar),
+                                          cycle_scalar_ct(constant_scalar) };
+    const auto result = cycle_group_ct::batch_mul(points, scalars);
+    const AffineElement expected(Element(point) * scalar + Element(Group::affine_one) * constant_scalar);
+    EXPECT_EQ(result.get_value(), expected);
+
+    ASSERT_TRUE(forge_degenerate_ecc_add(builder));
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+// P = O - D and scalar 1 make the variable accumulator equal the fixed accumulator O.
+TYPED_TEST(CycleGroupTest, BatchMulConstantPointCollidingWithFixedBaseCannotForge)
+{
+    STDLIB_TYPE_ALIASES
+    using ScalarField = typename Curve::ScalarField;
+    using plookup::fixed_base::table;
+    auto builder = make_forgeable_builder<Builder>();
+
+    const AffineElement fixed_point = table::lhs_generator_point();
+    const Element fixed_offset = Element(table::get_generator_offset_for_table_id(plookup::FIXED_BASE_LEFT_LO)) +
+                                 Element(table::get_generator_offset_for_table_id(plookup::FIXED_BASE_LEFT_HI));
+    const auto offsets = cycle_group_ct::OffsetGenerators::default_generators().get(2);
+    const AffineElement point(fixed_offset - variable_base_offset<Builder>(offsets, 1));
+    const ScalarField constant_scalar(7);
+
+    std::vector<cycle_group_ct> points{ cycle_group_ct(fixed_point),
+                                        cycle_group_ct(point),
+                                        cycle_group_ct(Group::affine_one) };
+    std::vector<cycle_scalar_ct> scalars{ cycle_scalar_ct::from_witness(&builder, ScalarField(0)),
+                                          cycle_scalar_ct::from_witness(&builder, ScalarField(1)),
+                                          cycle_scalar_ct(constant_scalar) };
+    const auto result = cycle_group_ct::batch_mul(points, scalars);
+    const AffineElement expected(Element(point) + Element(Group::affine_one) * constant_scalar);
+    EXPECT_EQ(result.get_value(), expected);
+
+    ASSERT_TRUE(forge_degenerate_ecc_add(builder));
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+// C = P + 2D makes offset removal add P + D to itself, even when P is trusted.
+TYPED_TEST(CycleGroupTest, BatchMulConstantTermCollidingWithOffsetRemovalCannotForge)
+{
+    STDLIB_TYPE_ALIASES
+    using ScalarField = typename Curve::ScalarField;
+    const auto offsets = cycle_group_ct::OffsetGenerators::default_generators().get(2);
+    for (const AffineElement point : { TestFixture::generators[0], AffineElement(Group::affine_one) }) {
+        SCOPED_TRACE(point == Group::affine_one ? "trusted base" : "untrusted base");
+        auto builder = make_forgeable_builder<Builder>();
+        const AffineElement constant_term(Element(point) + variable_base_offset<Builder>(offsets, 1).dbl());
+        const auto result = cycle_group_ct::batch_mul(
+            { cycle_group_ct(point), cycle_group_ct(constant_term) },
+            { cycle_scalar_ct::from_witness(&builder, ScalarField(1)), cycle_scalar_ct(ScalarField(1)) });
+        EXPECT_EQ(result.get_value(), AffineElement(Element(point) + Element(constant_term)));
+        EXPECT_TRUE(CircuitChecker::check(builder));
+        EXPECT_FALSE(forge_degenerate_ecc_add(builder));
+    }
+}
+
+TYPED_TEST(CycleGroupTest, BatchMulChecksOnlyUntrustedConstantPoints)
+{
+    STDLIB_TYPE_ALIASES
+    using ScalarField = typename Curve::ScalarField;
+
+    const ScalarField scalar = ScalarField::random_element(&engine);
+    auto num_gates = [&](const AffineElement& point, bool constant_points_trusted) {
+        Builder builder;
+        std::vector<cycle_group_ct> points{ cycle_group_ct(point) };
+        std::vector<cycle_scalar_ct> scalars{ cycle_scalar_ct::from_witness(&builder, scalar) };
+        const auto result = cycle_group_ct::batch_mul(points, scalars, constant_points_trusted);
+        EXPECT_EQ(result.get_value(), AffineElement(Element(point) * scalar));
+        EXPECT_TRUE(CircuitChecker::check(builder));
+        return builder.get_num_finalized_gates_inefficient();
+    };
+
+    // Vouching for a point selects the unchecked path, so a point is on that path iff vouching changes nothing.
+    const AffineElement generator = Group::affine_one;
+    const AffineElement other_point = TestFixture::generators[0];
+    for (const AffineElement& point : { generator, AffineElement(-Element(generator)) }) {
+        EXPECT_EQ(num_gates(point, false), num_gates(point, true));
+    }
+    EXPECT_GT(num_gates(other_point, false), num_gates(other_point, true));
 }
 
 #pragma GCC diagnostic pop

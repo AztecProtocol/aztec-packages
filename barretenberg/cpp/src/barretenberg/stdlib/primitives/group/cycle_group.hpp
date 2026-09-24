@@ -111,16 +111,19 @@ template <typename Builder> class cycle_group {
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
-                                 const std::vector<BigScalarField>& scalars)
+                                 const std::vector<BigScalarField>& scalars,
+                                 bool constant_points_trusted = false)
         requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf))
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
             cycle_scalars.emplace_back(scalar);
         }
-        return batch_mul(base_points, cycle_scalars);
+        return batch_mul(base_points, cycle_scalars, constant_points_trusted);
     }
-    static cycle_group batch_mul(const std::vector<cycle_group>& base_points, const std::vector<cycle_scalar>& scalars);
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
+                                 const std::vector<cycle_scalar>& scalars,
+                                 bool constant_points_trusted = false);
 
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<BigScalarField>& scalars,
@@ -228,6 +231,8 @@ template <typename Builder> class cycle_group {
     field_t _y;
     bool_t _is_infinity;
     Builder* context;
+
+    static bool is_trusted_constant_point(const AffineElement& point);
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,

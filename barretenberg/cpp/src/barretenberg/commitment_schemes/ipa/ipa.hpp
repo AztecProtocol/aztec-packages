@@ -838,10 +838,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // We use 8-bit tables (table_bits=8, 32 rounds) to minimise gate count. However, with N=32768 SRS points
         // and 8-bit tables, the total table rows = 32768 × 256 = 2^23 exactly. The 5 mandatory overhead rows
         // (NUM_DISABLED_ROWS_IN_SUMCHECK=4, NUM_ZERO_ROWS=1) push the total to 2^23+5, forcing dyadic_size = 2^24.
-        // To stay within 2^23 we handle the first SRS point separately using operator*.
+        // To stay within 2^23 we handle the first SRS point separately with batch_mul. The SRS points are
+        // hash-derived, so no one knows a discrete-log relation between them and batch_mul's offset generators.
         std::vector<Commitment> remaining_srs(srs_elements.begin() + 1, srs_elements.begin() + poly_length);
         std::vector<Fr> remaining_s(s_vec.begin() + 1, s_vec.end());
-        Commitment first_term = srs_elements[0] * s_vec[0];
+        Commitment first_term =
+            Commitment::batch_mul({ srs_elements[0] }, { s_vec[0] }, /*constant_points_trusted=*/true);
         Commitment remaining_term = Commitment::fixed_batch_mul(remaining_srs, remaining_s, /*table_bits=*/8);
         Commitment computed_G_zero = first_term + remaining_term;
         // check the computed G_zero and the claimed G_zero are the same.
