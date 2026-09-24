@@ -12,12 +12,19 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 
 contract RollupVersionTest is Test {
-  function test_versionIsDerivedFromChainIdAndAddress() external {
+  function test_versionIsDerivedFromChainIdAddressConfigAndGenesis() external {
     RollupBuilder builder = new RollupBuilder(address(this)).deploy();
     Rollup rollup = Rollup(address(builder.getConfig().rollup));
 
-    uint256 expected =
-      uint32(bytes4(keccak256(abi.encode(bytes("aztec_rollup_version"), block.chainid, address(rollup)))));
+    uint256 expected = uint32(
+      bytes4(
+        keccak256(
+          abi.encode(
+            block.chainid, address(rollup), builder.getConfig().rollupConfigInput, builder.getConfig().genesisState
+          )
+        )
+      )
+    );
     assertEq(rollup.getVersion(), expected, "version");
     assertEq(Inbox(address(rollup.getInbox())).VERSION(), expected, "inbox version");
     assertEq(Outbox(address(rollup.getOutbox())).VERSION(), expected, "outbox version");
