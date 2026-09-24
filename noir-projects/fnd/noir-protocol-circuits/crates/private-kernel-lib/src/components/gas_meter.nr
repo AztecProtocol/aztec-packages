@@ -90,7 +90,10 @@ pub fn meter_gas_used(public_inputs: PrivateKernelCircuitPublicInputs, is_for_pu
     let teardown_gas = if !is_for_public | public_inputs.public_teardown_call_request.is_empty() {
         Gas::empty()
     } else {
-        public_inputs.constants.tx_context.gas_settings.teardown_gas_limits
+        // The teardown call is dispatched by the AVM like any other enqueued public call, so it consumes the startup
+        // gas on top of its gas limits.
+        let teardown_startup_gas = Gas::new(0, FIXED_AVM_STARTUP_L2_GAS);
+        public_inputs.constants.tx_context.gas_settings.teardown_gas_limits + teardown_startup_gas
     };
 
     let metered_da_gas = metered_da_fields * DA_GAS_PER_FIELD;
