@@ -346,10 +346,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
             break;
         }
         case OperandType::FF: {
-            FF operand_ff;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            read(pos_ptr, operand_ff);
-            operands.emplace_back(Operand::from<FF>(operand_ff));
+            operands.emplace_back(Operand::from<FF>(FF::from_bytes_reduced(bytecode.subspan(pos, 32))));
         }
         }
         pos += operand_size;

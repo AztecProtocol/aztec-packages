@@ -34,6 +34,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
+#include <span>
 
 #pragma clang diagnostic push
 
@@ -764,7 +765,7 @@ class BigGroupBase {
             case Instruction::OPCODE::CONSTANT:
             case Instruction::OPCODE::WITNESS:
             case Instruction::OPCODE::CONSTANT_WITNESS: {
-                auto scalar = ScalarField::serialize_from_buffer(Data);
+                auto scalar = ScalarField::from_bytes_reduced(std::span<const uint8_t>(Data, sizeof(uint256_t)));
                 auto el = GroupElement::one() * scalar;
                 instr.arguments.element = typename Instruction::Element(scalar, el);
                 break;
@@ -791,7 +792,8 @@ class BigGroupBase {
             case Instruction::OPCODE::MULTIPLY:
                 instr.arguments.mulArgs.in = *Data;
                 instr.arguments.mulArgs.out = *(Data + 1);
-                instr.arguments.mulArgs.scalar = ScalarField::serialize_from_buffer(Data + 2);
+                instr.arguments.mulArgs.scalar =
+                    ScalarField::from_bytes_reduced(std::span<const uint8_t>(Data + 2, sizeof(uint256_t)));
                 break;
 #endif
 #ifndef DISABLE_BATCH_MUL
@@ -808,7 +810,8 @@ class BigGroupBase {
 
                 size_t offset = n + 2;
                 for (size_t i = 0; i < n; i++) {
-                    instr.arguments.batchMulArgs.scalars[i] = ScalarField::serialize_from_buffer(Data + offset);
+                    instr.arguments.batchMulArgs.scalars[i] =
+                        ScalarField::from_bytes_reduced(std::span<const uint8_t>(Data + offset, sizeof(uint256_t)));
                     offset += sizeof(ScalarField);
                 }
                 break;

@@ -9,7 +9,7 @@
 
 namespace bb::crypto {
 struct KeccakHasher {
-    static constexpr size_t BLOCK_SIZE = 64;
+    static constexpr size_t BLOCK_SIZE = 136;
     static constexpr size_t OUTPUT_SIZE = 32;
     static std::vector<uint8_t> hash(const std::vector<uint8_t>& message)
     {

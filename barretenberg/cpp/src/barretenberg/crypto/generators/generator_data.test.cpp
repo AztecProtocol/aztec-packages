@@ -1,5 +1,6 @@
 #include "generator_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include <future>
 #include <gtest/gtest.h>
 #include <vector>
 
@@ -97,6 +98,36 @@ TEST(GeneratorContext, GeneratorDataGetVariousCases)
                 }
             }
         }
+    }
+}
+
+TEST(GeneratorContext, ViewsSurviveGrowth)
+{
+    generator_data<curve::Grumpkin> generators;
+    const auto first = generators.get(2, 0, "STABLE_VIEWS");
+    const std::vector<grumpkin::g1::affine_element> expected(first.begin(), first.end());
+    const auto extended = generators.get(64, 0, "STABLE_VIEWS");
+    EXPECT_EQ(first[0], expected[0]);
+    EXPECT_EQ(first[1], expected[1]);
+    EXPECT_EQ(extended[0], expected[0]);
+}
+
+TEST(GeneratorContext, ConcurrentCacheGrowth)
+{
+    generator_data<curve::Grumpkin> generators;
+    std::vector<std::future<std::vector<grumpkin::g1::affine_element>>> results;
+    for (size_t size = 1; size <= 8; ++size) {
+        results.push_back(std::async(std::launch::async, [&generators, size] {
+            const auto view = generators.get(size, 0, "CONCURRENT_GROWTH");
+            return std::vector<grumpkin::g1::affine_element>(view.begin(), view.end());
+        }));
+    }
+    const auto expected = grumpkin::g1::derive_generators("CONCURRENT_GROWTH", 8, 0);
+    for (size_t i = 0; i < results.size(); ++i) {
+        const auto actual = results[i].get();
+        EXPECT_EQ(actual,
+                  std::vector<grumpkin::g1::affine_element>(expected.begin(),
+                                                            expected.begin() + static_cast<std::ptrdiff_t>(i + 1)));
     }
 }
 

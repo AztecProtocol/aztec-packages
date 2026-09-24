@@ -123,6 +123,15 @@ TYPED_TEST(PolynomialTests, LinearPolyProductSmallN)
     }
 }
 
+TYPED_TEST(PolynomialTests, EvaluationDomainRejectsZeroSize)
+{
+    using FF = TypeParam;
+    ASSERT_THROW_OR_ABORT(EvaluationDomain<FF>(0), "Evaluation domain size must be a nonzero power of two");
+    EvaluationDomain<FF> empty;
+    EXPECT_EQ(empty.size, 0UL);
+    EXPECT_EQ(empty.domain_inverse, FF(0));
+}
+
 TYPED_TEST(PolynomialTests, evaluation_domain)
 {
     using FF = TypeParam;

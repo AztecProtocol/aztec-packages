@@ -5,6 +5,7 @@ import {TestBase} from "test/base/TestBase.sol";
 import {DifferentialFuzzer} from "test/base/DifferentialFuzzer.sol";
 import {IVerifier} from "src/interfaces/IVerifier.sol";
 import {Errors} from "src/honk/Errors.sol";
+import {NUMBER_OF_ENTITIES_ZK, ZK_BATCHED_RELATION_PARTIAL_LENGTH} from "src/honk/HonkTypes.sol";
 
 /**
  * @title NegativeTestBaseZK
@@ -103,10 +104,6 @@ abstract contract NegativeTestBaseZK is TestBase {
 
     // Each G1 point is 64 bytes (x, y)
     uint256 constant G1_POINT_SIZE = 64;
-
-    // ZK-specific constants
-    uint256 constant NUMBER_OF_ENTITIES_ZK = 44;
-    uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9; // 9 coefficients per round for ZK
 
     /// @notice Override in concrete test to return the verifier instance
     function _createVerifier() internal virtual returns (IVerifier);
@@ -640,6 +637,11 @@ abstract contract NegativeTestBaseZK is TestBase {
         // Before that: sumcheckEvaluations(NUMBER_OF_ENTITIES_ZK * 32)
         uint256 evalsEndOffset = proof.length - 256 - LOG_N * 32 - (LOG_N - 1) * 64 - 160;
         uint256 firstEvalOffset = evalsEndOffset - NUMBER_OF_ENTITIES_ZK * 32;
+        assertEq(
+            firstEvalOffset,
+            _sumcheckUnivariateOffset() + LOG_N * ZK_BATCHED_RELATION_PARTIAL_LENGTH * 32,
+            "Sumcheck evaluation offset"
+        );
 
         setValue(proof, firstEvalOffset, P + 1);
 

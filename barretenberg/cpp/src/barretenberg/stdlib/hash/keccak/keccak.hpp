@@ -148,6 +148,11 @@ template <typename Builder> class keccak {
     template <size_t lane_index> static field_t<Builder> normalize_and_rotate(const field_ct& limb, field_ct& msb);
     static void compute_twisted_state(keccak_state& internal);
     static void theta(keccak_state& state);
+    /** @brief Constrain a twisted theta lane's base-11 decomposition and normalize its middle 64 digits. */
+    static field_ct normalize_theta_lane(const field_ct& lane,
+                                         const field_ct& hi,
+                                         const field_ct& mid,
+                                         const field_ct& lo);
     static void rho(keccak_state& state);
     static void pi(keccak_state& state);
     static void chi(keccak_state& state);

@@ -2,6 +2,8 @@
 #include "barretenberg/common/assert.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <limits>
+#include <span>
 #include <vector>
 
 namespace bb {
@@ -20,6 +22,8 @@ class PairingPointsTagging {
     bool has_public_pairing_points_ = false;
 
   public:
+    static constexpr uint32_t UNREGISTERED = std::numeric_limits<uint32_t>::max();
+
     PairingPointsTagging() = default;
     PairingPointsTagging(const PairingPointsTagging& other) = default;
     PairingPointsTagging(PairingPointsTagging&& other) noexcept = default;
@@ -35,34 +39,37 @@ class PairingPointsTagging {
      */
     uint32_t create_pairing_point_tag()
     {
+        BB_ASSERT(!has_public_pairing_points_,
+                  "Cannot create pairing points after pairing points have been set to public.");
         has_pairing_points_ = true;
         uint32_t new_tag = next_pairing_point_tag_++;
-        pairing_points_tags_.emplace_back(
-            new_tag); // Each PairingPoints starts with tag equal to the number of PairingPoints created before it
+        pairing_points_tags_.emplace_back(new_tag); // Each new result starts as its own representative.
         return new_tag;
     }
 
-    /**
-     * @brief Merge two pairing point tags
-     * @param tag1 First tag
-     * @param tag2 Second tag
-     * @details If the tags are different, all instances of tag2 are replaced with tag1. We also check that the pairing
-     * points have not been set to public yet.
-     */
-    void merge_pairing_point_tags(uint32_t tag1_index, uint32_t tag2_index)
+    /** @brief Reject inputs that were consumed by an earlier aggregation. */
+    void validate_aggregation_input(uint32_t tag_index) const
     {
         BB_ASSERT(!has_public_pairing_points_,
                   "Cannot merge pairing point tags after pairing points have been set to public.");
+        BB_ASSERT(tag_index == UNREGISTERED ||
+                      (tag_index < pairing_points_tags_.size() && pairing_points_tags_[tag_index] == tag_index),
+                  "Cannot aggregate stale pairing points.");
+    }
 
-        // If different tags, override tag2 with tag1
-        uint32_t tag1 = pairing_points_tags_[tag1_index];
-        uint32_t tag2 = pairing_points_tags_[tag2_index];
-
-        if (tag1 != tag2) {
-            for (auto& tag : pairing_points_tags_) {
-                tag = tag == tag2 ? tag1 : tag;
+    /** @brief Allocate a result tag and transfer the input obligations to it. */
+    uint32_t aggregate_pairing_point_tags(std::span<const uint32_t> inputs)
+    {
+        for (auto input : inputs) {
+            validate_aggregation_input(input);
+        }
+        const auto result = create_pairing_point_tag();
+        for (auto& tag : pairing_points_tags_) {
+            if (std::ranges::find(inputs, tag) != inputs.end()) {
+                tag = result;
             }
         }
+        return result;
     }
 
     /**
@@ -115,12 +122,18 @@ class PairingPointsTagging {
     uint32_t get_tag(uint32_t tag_index) const { return pairing_points_tags_.at(tag_index); }
 
     /**
-     * @brief Record that pairing points have been set to public
+     * @brief Require publication of the final accumulator, or defaults when there are no obligations.
      */
-    void set_public_pairing_points()
+    void set_public_pairing_points(uint32_t tag_index)
     {
         BB_ASSERT(!has_public_pairing_points_,
                   "Trying to set pairing points to public for a circuit that already has public pairing points.");
+        BB_ASSERT(tag_index == UNREGISTERED
+                      ? pairing_points_tags_.empty()
+                      : tag_index < pairing_points_tags_.size() &&
+                            std::ranges::all_of(
+                                pairing_points_tags_, [tag_index](auto tag) { return tag == tag_index; }),
+                  "Only the final pairing accumulator can be published.");
         has_public_pairing_points_ = true;
     }
 };

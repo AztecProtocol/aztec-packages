@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace bb::field_conversion_tests {
 
@@ -367,4 +368,22 @@ TEST_F(FieldConversionTest, U256CodecRejectsNonCanonicalFq)
 }
 #endif
 
+} // namespace bb::field_conversion_tests
+
+namespace bb::field_conversion_tests {
+TEST_F(FieldConversionTest, RejectsOutOfRangeTranscriptIntegers)
+{
+    const auto check = []<typename Codec, typename T>() {
+        using Word = typename Codec::DataType;
+        constexpr size_t bits = sizeof(T) * 8;
+        std::array<Word, 1> input{ Word((uint256_t(1) << bits) - 1) };
+        EXPECT_EQ(Codec::template deserialize_from_fields<T>(input), std::numeric_limits<T>::max());
+        input[0] = Word(uint256_t(1) << bits);
+        ASSERT_THROW_OR_ABORT(Codec::template deserialize_from_fields<T>(input), "Integer exceeds target range");
+    };
+    check.template operator()<FrCodec, uint32_t>();
+    check.template operator()<FrCodec, uint64_t>();
+    check.template operator()<U256Codec, uint32_t>();
+    check.template operator()<U256Codec, uint64_t>();
+}
 } // namespace bb::field_conversion_tests

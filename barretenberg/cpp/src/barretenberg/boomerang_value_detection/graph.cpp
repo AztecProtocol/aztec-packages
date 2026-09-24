@@ -903,9 +903,8 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_keccak_plook
 
     std::unordered_set<BasicTableId> keccak_plookup_tables{
         BasicTableId::KECCAK_INPUT, BasicTableId::KECCAK_OUTPUT, BasicTableId::KECCAK_CHI,   BasicTableId::KECCAK_THETA,
-        BasicTableId::KECCAK_RHO,   BasicTableId::KECCAK_RHO_1,  BasicTableId::KECCAK_RHO_2, BasicTableId::KECCAK_RHO_3,
-        BasicTableId::KECCAK_RHO_4, BasicTableId::KECCAK_RHO_5,  BasicTableId::KECCAK_RHO_6, BasicTableId::KECCAK_RHO_7,
-        BasicTableId::KECCAK_RHO_8, BasicTableId::KECCAK_RHO_9
+        BasicTableId::KECCAK_RHO_1, BasicTableId::KECCAK_RHO_2,  BasicTableId::KECCAK_RHO_3, BasicTableId::KECCAK_RHO_4,
+        BasicTableId::KECCAK_RHO_5, BasicTableId::KECCAK_RHO_6,  BasicTableId::KECCAK_RHO_7, BasicTableId::KECCAK_RHO_8
     };
 
     auto& lookup_block = circuit_builder.blocks.lookup;
