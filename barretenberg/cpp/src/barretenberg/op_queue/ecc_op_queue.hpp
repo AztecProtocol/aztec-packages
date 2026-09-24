@@ -462,7 +462,10 @@ class ECCOpQueue {
     {
         constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
         constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - current_subtable_size - reserved_op_slots - zk_op_slots;
+        static_assert(OP_QUEUE_SIZE >= reserved_op_slots + zk_op_slots,
+                      "Fixed append reserves more op slots than the queue contains");
+        constexpr size_t max_subtable_size = OP_QUEUE_SIZE - reserved_op_slots - zk_op_slots;
+        return max_subtable_size - current_subtable_size;
     }
 
     // === Hiding Op State ===

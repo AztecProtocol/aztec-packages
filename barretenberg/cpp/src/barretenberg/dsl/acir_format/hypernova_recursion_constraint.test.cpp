@@ -707,3 +707,23 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnProofTypeMismatch)
     EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, metadata),
                               "ACIR proof_type disagrees with circuit-kinds-derived state");
 }
+
+TEST_F(HypernovaRecursionConstraintTest, FailsOnMissingIvcWithWitness)
+{
+    auto ivc = create_mock_chonk_from_constraints(make_hn_recursion_constraints({ PROOF_TYPE::OINK }));
+    AcirProgram program = construct_mock_kernel_program(ivc);
+    ASSERT_FALSE(program.witness.empty());
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, ProgramMetadata{}),
+                              "HN recursion requires an IVC outside write-VK mode");
+}
+
+TEST_F(HypernovaRecursionConstraintTest, RejectsMissingPreviousAccumulator)
+{
+    auto ivc = create_mock_chonk_from_constraints(make_hn_recursion_constraints({ PROOF_TYPE::HN }));
+    AcirProgram program = construct_mock_kernel_program(ivc);
+    ivc->recursive_verifier_native_accum.challenge.clear();
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, ProgramMetadata{ .ivc = ivc }),
+                              "Previous Chonk verifier accumulator is missing");
+}

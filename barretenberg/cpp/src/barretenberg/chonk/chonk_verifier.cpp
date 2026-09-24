@@ -21,6 +21,7 @@ template <>
 ChonkVerifier<false>::TripleIpaReductionResult ChonkVerifier<false>::reduce_to_triple_ipa_opening(const Proof& proof)
 {
     BB_BENCH_NAME("ChonkVerifier::reduce_to_triple_ipa_opening");
+    auto transcript = std::make_shared<Transcript>();
     if (!proof.has_valid_structure()) {
         info("ChonkVerifier: proof has invalid segment lengths");
         return { false };
@@ -131,6 +132,8 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
  */
 template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof& proof)
 {
+    auto transcript = std::make_shared<Transcript>();
+
     // Step 1: Verify MegaZK Oink on the shared transcript
     BatchedHonkTranslatorRecursiveVerifier batched_verifier(vk_and_hash, transcript);
     auto oink_result = batched_verifier.verify_mega_zk_oink(proof.hiding_oink_proof);

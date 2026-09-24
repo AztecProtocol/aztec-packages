@@ -317,10 +317,6 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
 template class UltraVerifier_<MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
-// MegaZKRecursiveFlavor with HidingKernelIO (Chonk)
-template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                              stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
-
 // An UltraHonk proof recursively verified inside a Mega circuit: the verifier's bigfield base field
 // needs the non-native-field gate, so only the arithmetizations that keep it.
 #define INSTANTIATE_MEGA_ULTRA_VERIFIER(Builder)                                                                       \

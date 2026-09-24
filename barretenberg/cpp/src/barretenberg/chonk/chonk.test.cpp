@@ -811,3 +811,13 @@ TEST_F(ChonkTests, BatchMergeRejectsDirtyAppBoundaryWithFixedReceivingVk)
         EXPECT_EQ(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()), !dirty);
     }
 }
+
+TEST_F(ChonkTests, RejectsCircuitUsingDifferentOpQueue)
+{
+    Chonk ivc({ CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
+    AppCircuit circuit(std::make_shared<ECCOpQueue>());
+    Chonk::CircuitVerificationKey vk{ std::shared_ptr<MegaAppFlavor::VerificationKey>{} };
+
+    EXPECT_THROW_WITH_MESSAGE(ivc.accumulate(circuit, vk),
+                              "Chonk::accumulate: circuit op queue differs from Goblin queue");
+}

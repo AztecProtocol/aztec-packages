@@ -56,6 +56,15 @@ TEST_F(ChonkRecursionTests, NativeVerification)
     EXPECT_TRUE(verifier.verify(proof));
 }
 
+TEST_F(ChonkRecursionTests, NativeVerifierCanBeReused)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+    ChonkNativeVerifier verifier(vk_and_hash);
+
+    EXPECT_TRUE(verifier.verify(proof));
+    EXPECT_TRUE(verifier.verify(proof));
+}
+
 /**
  * @brief A proof carrying trailing data the transcript never reads must be rejected.
  * @details The joint proof is the last segment loaded into the shared transcript, so an appended element is pure

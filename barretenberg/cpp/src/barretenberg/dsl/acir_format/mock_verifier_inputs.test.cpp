@@ -16,6 +16,10 @@ class MockVerifierInputsTest : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
+TEST_F(MockVerifierInputsTest, DefaultFieldElementsAreDeterministic)
+{
+    EXPECT_EQ(create_mock_merge_proof(), create_mock_merge_proof());
+}
 
 // Static assertions for proof size constants that must stay in sync with Noir (constants.nr)
 // These constants are used by Noir protocol circuits and TypeScript

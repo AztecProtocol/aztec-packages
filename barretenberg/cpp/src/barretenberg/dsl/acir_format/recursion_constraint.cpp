@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
@@ -271,6 +272,9 @@ void process_hn_recursion_constraints(Builder& builder,
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
+        if (!builder.is_write_vk_mode()) {
+            throw_or_abort("HN recursion requires an IVC outside write-VK mode");
+        }
         process_with_ivc(create_mock_chonk_from_constraints(hn_recursion_data.first));
     } else {
         process_with_ivc(ivc_base);

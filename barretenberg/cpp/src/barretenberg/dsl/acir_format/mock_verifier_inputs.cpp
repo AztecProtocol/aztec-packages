@@ -29,8 +29,7 @@ template <class FF>
 void populate_field_elements(std::vector<fr>& fields, const size_t& num_elements, std::optional<FF> value)
 {
     for (size_t i = 0; i < num_elements; ++i) {
-        std::vector<fr> field_elements = value.has_value() ? FrCodec::serialize_to_fields(value.value())
-                                                           : FrCodec::serialize_to_fields(FF::random_element());
+        std::vector<fr> field_elements = FrCodec::serialize_to_fields(value.value_or(FF(static_cast<uint64_t>(i + 1))));
         fields.insert(fields.end(), field_elements.begin(), field_elements.end());
     }
 }
