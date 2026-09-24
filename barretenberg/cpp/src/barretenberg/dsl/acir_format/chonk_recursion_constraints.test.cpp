@@ -2,6 +2,7 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
@@ -138,4 +139,30 @@ TEST_F(ChonkRecursionConstraintTest, GateCountChonkRecursion)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
     EXPECT_EQ(program.constraints.gates_per_opcode[0], CHONK_RECURSION_GATES);
+}
+
+TEST_F(ChonkRecursionConstraintTest, RejectsWitnessPredicate)
+{
+    Builder builder;
+    RecursionConstraint constraint;
+    constraint.proof_type = PROOF_TYPE::CHONK;
+    constraint.predicate = WitnessOrConstant<bb::fr>::from_index(0);
+
+    EXPECT_THROW_WITH_MESSAGE((void)create_chonk_recursion_constraints(builder, constraint),
+                              "Chonk recursion requires a constant true predicate");
+}
+
+TEST_F(ChonkRecursionConstraintTest, WriteVkPopulatesMockVkHash)
+{
+    ChonkData chonk_data = get_chonk_data();
+    AcirProgram program = create_acir_program(chonk_data);
+    const uint32_t key_hash_index = program.constraints.chonk_recursion_constraints[0].key_hash;
+    const size_t num_inner_public_inputs =
+        static_cast<size_t>(chonk_data.mega_vk->num_public_inputs) - PUBLIC_INPUTS_SIZE;
+    program.witness.clear();
+
+    auto builder = create_circuit<Builder>(program, { .has_ipa_claim = true });
+    using IO = bb::stdlib::recursion::honk::HidingKernelIO<Builder>;
+    auto mock_vk = create_mock_honk_vk<MegaZKFlavor, IO>(1 << MegaZKFlavor::VIRTUAL_LOG_N, num_inner_public_inputs);
+    EXPECT_EQ(builder.get_variable(key_hash_index), mock_vk->hash());
 }

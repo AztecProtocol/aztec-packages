@@ -8,6 +8,9 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 
 namespace bb {
 
@@ -208,6 +211,9 @@ template <typename Circuit> void KernelCompletion<Circuit>::complete_kernel_circ
     // this is the hiding kernel is read directly from the circuit kinds supplied at construction.
     const bool is_init = is_init_kernel();
     const bool is_hiding = ivc.is_hiding_kernel();
+    if (!is_init && ivc.recursive_verifier_native_accum.challenge.size() != MultilinearBatchingFlavor::VIRTUAL_LOG_N) {
+        throw_or_abort("Previous Chonk verifier accumulator is missing or malformed");
+    }
 
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel.
@@ -324,8 +330,9 @@ template <typename Circuit> bool KernelCompletion<Circuit>::is_init_kernel() con
 
 template <typename Circuit> void KernelCompletion<Circuit>::hide_op_queue_content(Circuit& circuit)
 {
-    circuit.queue_ecc_random_op();
-    circuit.queue_ecc_random_op();
+    for (size_t idx = 0; idx < TranslatorCircuitBuilder::NUM_RANDOM_OPS_END; ++idx) {
+        circuit.queue_ecc_random_op();
+    }
 }
 
 template class KernelCompletion<KernelCircuit>;

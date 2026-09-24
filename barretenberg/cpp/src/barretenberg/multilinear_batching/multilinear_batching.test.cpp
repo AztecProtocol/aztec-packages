@@ -567,4 +567,37 @@ TEST_F(MultilinearBatchingClaimCountTests, FewerClaimsThanProvedThrows)
     EXPECT_FALSE(verify_with_mismatched_claim_count(/*prover_num_claims=*/3, /*verifier_num_claims=*/2));
 }
 
+TEST(AccumulatorHashOriginTagTests, HashIgnoresTranscriptIdentityButChangesWithClaimValues)
+{
+    using RecursiveVerifier = MultilinearBatchingRecursiveVerifier<MegaKernelCircuitBuilder>;
+    using RecursiveCurve = typename RecursiveVerifier::Curve;
+    using RecursiveClaim = MultilinearBatchingVerifierClaim<RecursiveCurve>;
+    using RecursiveTranscript = typename RecursiveVerifier::Transcript;
+
+    VerifierClaim native_claim{ .challenge = { FF(2), FF(3) },
+                                .non_shifted_evaluation = FF(5),
+                                .shifted_evaluation = FF(7),
+                                .non_shifted_commitment = Commitment::one(),
+                                .shifted_commitment = Commitment::one() };
+
+    MegaKernelCircuitBuilder producer_builder;
+    MegaKernelCircuitBuilder consumer_builder;
+    auto producer_claim = RecursiveClaim::stdlib_from_native<RecursiveCurve>(&producer_builder, native_claim);
+    auto consumer_claim = RecursiveClaim::stdlib_from_native<RecursiveCurve>(&consumer_builder, native_claim);
+    auto producer_transcript = std::make_shared<RecursiveTranscript>();
+    auto consumer_transcript = std::make_shared<RecursiveTranscript>();
+    EXPECT_NE(extract_transcript_tag(*producer_transcript).transcript_index,
+              extract_transcript_tag(*consumer_transcript).transcript_index);
+
+    const auto producer_hash = producer_claim.hash_with_origin_tagging(*producer_transcript);
+    const auto consumer_hash = consumer_claim.hash_with_origin_tagging(*consumer_transcript);
+    EXPECT_EQ(producer_hash.get_value(), consumer_hash.get_value());
+
+    native_claim.shifted_evaluation += FF(1);
+    MegaKernelCircuitBuilder changed_builder;
+    auto changed_claim = RecursiveClaim::stdlib_from_native<RecursiveCurve>(&changed_builder, native_claim);
+    const auto changed_hash = changed_claim.hash_with_origin_tagging(*consumer_transcript);
+    EXPECT_NE(producer_hash.get_value(), changed_hash.get_value());
+}
+
 } // namespace

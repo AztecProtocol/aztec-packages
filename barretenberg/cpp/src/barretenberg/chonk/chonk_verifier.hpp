@@ -43,7 +43,8 @@ namespace bb {
 template <bool IsRecursive> class ChonkVerifier {
     // Conditional types based on recursion
     using Builder = std::conditional_t<IsRecursive, UltraCircuitBuilder, void>;
-    using HidingKernelVerifier = std::conditional_t<IsRecursive, bb::MegaZKRecursiveVerifier, bb::MegaZKVerifier>;
+    using HidingKernelFlavor =
+        std::conditional_t<IsRecursive, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>, bb::MegaZKFlavor>;
     using GoblinVerifier = std::conditional_t<IsRecursive, bb::GoblinRecursiveVerifier, bb::GoblinVerifier>;
     using Transcript = typename GoblinVerifier::Transcript;
     using GoblinReductionResult = typename GoblinVerifier::ReductionResult;
@@ -71,14 +72,13 @@ template <bool IsRecursive> class ChonkVerifier {
     };
 
     using Output = std::conditional_t<IsRecursive, ReductionResult, bool>;
-    using VKAndHash = typename HidingKernelVerifier::VKAndHash;
-    using VK = typename HidingKernelVerifier::VerificationKey;
-    using Commitment = typename HidingKernelVerifier::Commitment;
+    using VKAndHash = typename HidingKernelFlavor::VKAndHash;
+    using VK = typename HidingKernelFlavor::VerificationKey;
+    using Commitment = typename HidingKernelFlavor::Commitment;
     using Proof = std::conditional_t<IsRecursive, ChonkStdlibProof, ChonkProof>;
 
     ChonkVerifier(const std::shared_ptr<VKAndHash>& vk_and_hash)
         : vk_and_hash(vk_and_hash)
-        , transcript(std::make_shared<Transcript>())
     {}
 
     /**
@@ -131,8 +131,6 @@ template <bool IsRecursive> class ChonkVerifier {
   private:
     // VK and hash of the hiding kernel
     std::shared_ptr<VKAndHash> vk_and_hash;
-    // Shared transcript for all verifiers
-    std::shared_ptr<Transcript> transcript;
 };
 
 // Type aliases for ease of use

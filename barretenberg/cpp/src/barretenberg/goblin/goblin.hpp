@@ -91,7 +91,7 @@ class Goblin {
      * @details In the Chonk flow this is invoked only for the final fixed-location append of the hiding kernel
      * subtable; multi-subtable merges are handled by prove_batch_merge().
      */
-    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
+    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript) const;
 
     /**
      * @brief Construct an ECCVM proof and TripleIPA opening proof.

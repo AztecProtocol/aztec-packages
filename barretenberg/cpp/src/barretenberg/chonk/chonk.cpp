@@ -35,13 +35,13 @@ void Chonk::run_native_instance_sumcheck(const std::shared_ptr<typename NativeFl
     // The group's claims are folded together before the next kernel (see update_native_verifier_accumulator).
     bool sumcheck_verified =
         native_folding_verifier->template accumulate_instance<NativeFlavor>(verifier_inst, queue_entry.proof);
+    BB_ASSERT(sumcheck_verified);
     info("Sumcheck: instance to accumulator verified: ", sumcheck_verified ? "true" : "false");
 
-    info("Chonk accumulate: prover and verifier sumcheck claims match: ",
-         folding_prover->get_cached_claims().back().compare_with_verifier_claim(
-             native_folding_verifier->get_cached_claims().back())
-             ? "true"
-             : "false");
+    const bool claims_match = folding_prover->get_cached_claims().back().compare_with_verifier_claim(
+        native_folding_verifier->get_cached_claims().back());
+    BB_ASSERT(claims_match);
+    info("Chonk accumulate: prover and verifier sumcheck claims match: ", claims_match ? "true" : "false");
 }
 
 template <typename InstanceFlavor>
@@ -90,12 +90,14 @@ void Chonk::update_native_verifier_accumulator(bool is_init_group)
         is_init_group ? std::nullopt : std::optional<VerifierAccumulator>(std::move(native_verifier_accum));
     auto [batching_verified, new_accumulator] =
         native_folding_verifier->finalize(multilinear_batch_proof, std::move(previous_accumulator));
+    BB_ASSERT(batching_verified);
     native_verifier_accum = std::move(new_accumulator);
     native_folding_verifier.reset();
     info("Multilinear batching: claims to accumulator verified: ", batching_verified ? "true" : "false");
 
-    info("Chonk accumulate: prover and verifier accumulators match: ",
-         prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
+    const bool accumulators_match = prover_accumulator.compare_with_verifier_claim(native_verifier_accum);
+    BB_ASSERT(accumulators_match);
+    info("Chonk accumulate: prover and verifier accumulators match: ", accumulators_match ? "true" : "false");
 
     Transcript hash_transcript;
     info("Chonk accumulate: hash of verifier accumulator computed natively: ",
@@ -111,7 +113,9 @@ void Chonk::verify_decider_natively()
     HypernovaDeciderVerifier<KernelFlavor> decider_verifier(native_verifier_accumulation_transcript);
     bb::PairingPoints<curve::BN254> pairing_points =
         decider_verifier.verify_proof(native_verifier_accum, decider_proof);
-    info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
+    const bool pairing_points_verified = pairing_points.check();
+    BB_ASSERT(pairing_points_verified);
+    info("Decider: pairing points verified? ", pairing_points_verified ? "true" : "false");
 
     info("======= END OF DEBUGGING INFO FOR NATIVE DECIDER STEP =======");
 }
@@ -297,6 +301,9 @@ template <IsChonkCircuit Circuit> void Chonk::accumulate(Circuit& circuit, const
     // different position in the stack than the one the IVC expects next.
     if (kind != current_kind()) {
         throw_or_abort("Chonk::accumulate: circuit arithmetization disagrees with the expected CircuitKind");
+    }
+    if (circuit.op_queue != goblin.op_queue) {
+        throw_or_abort("Chonk::accumulate: circuit op queue differs from Goblin queue");
     }
 
     if constexpr (kind == CircuitKind::HidingKernel) {
