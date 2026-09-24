@@ -214,6 +214,15 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 TYPED_TEST_SUITE(CommitmentKeyTest, Curves);
 
+TYPED_TEST(CommitmentKeyTest, RejectsUninitializedKey)
+{
+    typename TestFixture::CK key;
+    EXPECT_FALSE(key.initialized());
+    typename TestFixture::Polynomial polynomial(2);
+    ASSERT_THROW_OR_ABORT(key.commit(polynomial), "Commitment key is not initialized");
+    ASSERT_THROW_OR_ABORT(key.get_monomial_size(), "Commitment key is not initialized");
+}
+
 TYPED_TEST(CommitmentKeyTest, CommitToZeroPoly)
 {
     TestFixture::test_commit_to_zero_poly();

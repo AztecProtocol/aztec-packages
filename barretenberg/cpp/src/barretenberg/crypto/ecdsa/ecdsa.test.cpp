@@ -272,7 +272,7 @@ TYPED_TEST(EcdsaNativeTests, RejectInfinityResult)
     auto hash = Sha256Hasher::hash(buffer);
 
     // Override the public key: new public key is (-hash) * r^{-1} * G
-    Fr fr_hash = Fr::serialize_from_buffer(hash.data());
+    Fr fr_hash = Fr::from_bytes_reduced(hash);
     Fr r = Fr::serialize_from_buffer(&signature.r[0]);
     Fr r_inverse = r.invert();
     Fr modified_private_key = r_inverse * (-fr_hash);
@@ -363,4 +363,29 @@ TEST(ecdsa, verify_signature_secp256r1_sha256_NIST_1)
     bool result =
         ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, public_key, sig);
     EXPECT_EQ(result, true);
+}
+
+TYPED_TEST(EcdsaNativeTests, RecoveryRejectsInvalidCurvePoint)
+{
+    using AffineElement = typename TestFixture::AffineElement;
+    using Fr = typename TestFixture::Fr;
+    using Fq = typename TestFixture::Fq;
+    using G1 = typename TestFixture::G1;
+    using Hasher = typename TestFixture::Hasher;
+    using Curve = typename TestFixture::Curve;
+    if constexpr (Curve::supports_recovery) {
+        uint256_t r = 1;
+        while (r < 100 && AffineElement::from_compressed_unsafe(r)[0].on_curve()) {
+            ++r;
+        }
+        ASSERT_LT(r, uint256_t(100));
+        ecdsa_signature signature{};
+        Fr::serialize_to_buffer(Fr(r), signature.r.data());
+        Fr::serialize_to_buffer(Fr(1), signature.s.data());
+        signature.v = ECDSA_RECOVERY_ID_OFFSET;
+        const auto recover = [&] { return ecdsa_recover_public_key<Hasher, Fq, Fr, G1>("invalid point", signature); };
+        ASSERT_THROW_OR_ABORT(recover(), "Invalid ECDSA recovery point");
+    } else {
+        GTEST_SKIP() << "Public key recovery not supported for this curve";
+    }
 }

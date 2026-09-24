@@ -75,7 +75,7 @@ enum BasicTableId {
     HONK_DUMMY_BASIC2,
     KECCAK_INPUT,
     KECCAK_THETA,
-    KECCAK_RHO,
+    RESERVED_KECCAK_RHO, // Preserve subsequent table IDs embedded in verification keys.
     KECCAK_CHI,
     KECCAK_OUTPUT,
     KECCAK_RHO_1,
@@ -86,7 +86,7 @@ enum BasicTableId {
     KECCAK_RHO_6,
     KECCAK_RHO_7,
     KECCAK_RHO_8,
-    KECCAK_RHO_9,
+    RESERVED_KECCAK_RHO_9,
     // Used by straus_plookup_table for fixed-base MSM with constant EC points (e.g. IPA verifier SRS elements).
     // Each table instance gets this id; uniqueness within a circuit is ensured by table_index, not id.
     STRAUS_EC_POINT,

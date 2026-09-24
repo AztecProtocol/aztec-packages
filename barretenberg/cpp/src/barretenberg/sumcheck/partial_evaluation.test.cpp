@@ -362,3 +362,24 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
         EXPECT_EQ(polys[i].get()[0], expected_val[i]);
     }
 }
+
+TYPED_TEST(PartialEvaluationTests, OddActiveRangeFoldsAgainstZero)
+{
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    typename Flavor::ProverPolynomials full;
+    full.q_m() = typename Flavor::Polynomial(3, 8);
+    full.q_m().at(0) = FF(2);
+    full.q_m().at(1) = FF(3);
+    full.q_m().at(2) = FF(5);
+    auto transcript = Flavor::Transcript::test_prover_init_empty();
+    SumcheckProver<Flavor> sumcheck(8, full, transcript, FF(1), std::vector<FF>(3, FF(1)), {}, 3);
+    const FF challenge(7);
+    auto folded = sumcheck.partially_evaluate_first_round(full, challenge);
+    EXPECT_EQ(folded.q_m().end_index(), 2UL);
+    EXPECT_EQ(folded.q_m()[0], FF(2) * (FF(1) - challenge) + FF(3) * challenge);
+    EXPECT_EQ(folded.q_m()[1], FF(5) * (FF(1) - challenge));
+    sumcheck.partially_evaluate_in_place(folded, FF(11));
+    EXPECT_EQ(folded.q_m()[0],
+              (FF(2) * (FF(1) - challenge) + FF(3) * challenge) * FF(-10) + FF(5) * (FF(1) - challenge) * FF(11));
+}

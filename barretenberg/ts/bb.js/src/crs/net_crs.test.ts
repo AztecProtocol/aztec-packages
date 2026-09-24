@@ -74,3 +74,18 @@ describe('fetchWithFallback', () => {
     expect(data).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
   }, 30000);
 });
+
+describe('CRS response bodies', () => {
+  it('rejects successful responses with no data stream', async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (() => Promise.resolve(new Response(null, { status: 200 }))) as typeof fetch;
+    try {
+      await expect(new NetCrs(1).streamG1Data()).rejects.toThrow(/Empty response body/);
+      await expect(fetchWithFallback('https://primary.invalid/g2', 'https://fallback.invalid/g2', {})).rejects.toThrow(
+        /Empty response body/,
+      );
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

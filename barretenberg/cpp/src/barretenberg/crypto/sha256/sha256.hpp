@@ -7,6 +7,7 @@
 #pragma once
 
 #include "stdint.h"
+#include <algorithm>
 #include <array>
 #include <iomanip>
 #include <ostream>
@@ -23,7 +24,7 @@ template <typename T> Sha256Hash sha256(const T& input);
 
 inline bool operator==(Sha256Hash const& lhs, std::vector<uint8_t> const& rhs)
 {
-    return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+    return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
 } // namespace bb::crypto
@@ -31,7 +32,7 @@ inline bool operator==(Sha256Hash const& lhs, std::vector<uint8_t> const& rhs)
 namespace std {
 inline bool operator==(std::vector<uint8_t> const& lhs, bb::crypto::Sha256Hash const& rhs)
 {
-    return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+    return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
 inline std::ostream& operator<<(std::ostream& os, bb::crypto::Sha256Hash const& arr)

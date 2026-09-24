@@ -392,6 +392,13 @@ template <class Params_> struct alignas(32) field {
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
 
+    /** @brief Interpret 32 big-endian bytes as an integer and reduce it modulo the field modulus. */
+    static field from_bytes_reduced(std::span<const uint8_t> bytes)
+    {
+        BB_ASSERT_EQ(bytes.size(), sizeof(uint256_t), "Field element input must be 32 bytes");
+        return field(from_buffer<uint256_t>(bytes));
+    }
+
     template <class V> static field reconstruct_from_public(const std::span<const field<V>, PUBLIC_INPUTS_SIZE>& limbs);
 
     [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
@@ -673,6 +680,9 @@ template <typename B, typename Params> void read(B& it, field<Params>& value)
     read(it, result.data[2]);
     read(it, result.data[1]);
     read(it, result.data[0]);
+    BB_ASSERT_LT((uint256_t{ result.data[0], result.data[1], result.data[2], result.data[3] }),
+                 field<Params>::modulus,
+                 "Non-canonical field element");
     value = result.to_montgomery_form();
 }
 template <typename B, typename Params> void write(B& buf, field<Params> const& value)

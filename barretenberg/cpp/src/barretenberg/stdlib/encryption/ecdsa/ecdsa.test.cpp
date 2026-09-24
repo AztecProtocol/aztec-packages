@@ -128,7 +128,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             auto hash = Sha256Hasher::hash(buffer);
 
             // Override the public key: new public key is (-hash) * r^{-1} * G
-            FrNative fr_hash = FrNative::serialize_from_buffer(&hash[0]);
+            FrNative fr_hash = FrNative::from_bytes_reduced(hash);
             FrNative r = FrNative::serialize_from_buffer(&signature.r[0]);
             FrNative r_inverse = r.invert();
             FrNative modified_private_key = r_inverse * (-fr_hash);

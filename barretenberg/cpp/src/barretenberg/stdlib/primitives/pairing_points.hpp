@@ -33,7 +33,7 @@ template <typename Curve> struct PairingPoints {
     // Number of bb::fr field elements used to represent pairing points in public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
-    uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
+    uint32_t tag_index = PairingPointsTagging::UNREGISTERED; // Index of the tag for tracking pairing point aggregation
 
     const Group& P0() const { return _points[0]; }
     const Group& P1() const { return _points[1]; }
@@ -95,8 +95,15 @@ template <typename Curve> struct PairingPoints {
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 0UL, "Must provide at least one PairingPoints for aggregation");
+        Builder* builder = nullptr;
         for (const auto& points : pairing_points) {
+            builder = validate_context<Builder>(builder, validate_context<Builder>(points));
             BB_ASSERT(points.has_data_, "Cannot aggregate null pairing points.");
+        }
+        if (builder != nullptr) {
+            for (const auto& points : pairing_points) {
+                builder->pairing_points_tagging.validate_aggregation_input(points.tag_index);
+            }
         }
         if (num_points == 1) {
             return pairing_points[0];
@@ -153,14 +160,16 @@ template <typename Curve> struct PairingPoints {
             }
         }
 
-        PairingPoints aggregated_points(P0, P1);
-
-        // Merge tags
-        Builder* builder = P0.get_context();
+        PairingPoints aggregated_points;
+        aggregated_points._points = { P0, P1 };
+        aggregated_points.has_data_ = true;
         if (builder != nullptr) {
+            std::vector<uint32_t> input_tags;
+            input_tags.reserve(num_points);
             for (const auto& points : pairing_points) {
-                builder->pairing_points_tagging.merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+                input_tags.push_back(points.tag_index);
             }
+            aggregated_points.tag_index = builder->pairing_points_tagging.aggregate_pairing_point_tags(input_tags);
         }
 
         return aggregated_points;
@@ -176,6 +185,15 @@ template <typename Curve> struct PairingPoints {
     void aggregate(PairingPoints const& other)
     {
         BB_ASSERT(other.has_data_, "Cannot aggregate null pairing points.");
+
+        Builder* builder =
+            validate_context<Builder>(validate_context<Builder>(*this), validate_context<Builder>(other));
+        if (builder != nullptr) {
+            builder->pairing_points_tagging.validate_aggregation_input(other.tag_index);
+            if (has_data_) {
+                builder->pairing_points_tagging.validate_aggregation_input(tag_index);
+            }
+        }
 
         // If LHS is empty, simply set it equal to the incoming pairing points
         if (!this->has_data_ && other.has_data_) {
@@ -207,9 +225,9 @@ template <typename Curve> struct PairingPoints {
         }
 
         // Merge the tags in the builder
-        Builder* builder = P0().get_context();
         if (builder != nullptr) {
-            builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
+            const std::array input_tags{ tag_index, other.tag_index };
+            tag_index = builder->pairing_points_tagging.aggregate_pairing_point_tags(input_tags);
         }
 
 #ifndef NDEBUG
@@ -235,7 +253,7 @@ template <typename Curve> struct PairingPoints {
         }
         Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
         BB_ASSERT(builder != nullptr, "set_public on pairing points requires a builder context.");
-        builder->pairing_points_tagging.set_public_pairing_points();
+        builder->pairing_points_tagging.set_public_pairing_points(tag_index);
         uint32_t start_idx = P0().set_public();
         P1().set_public();
         return start_idx;
@@ -271,7 +289,7 @@ template <typename Curve> struct PairingPoints {
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        builder->pairing_points_tagging.set_public_pairing_points();
+        builder->pairing_points_tagging.set_public_pairing_points(PairingPointsTagging::UNREGISTERED);
         // Infinity is represented as (0,0) in biggroup. Directly add zero limbs as public inputs, bypassing bigfield's
         // self_reduce.
         uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
