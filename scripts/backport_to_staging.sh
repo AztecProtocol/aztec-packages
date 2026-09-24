@@ -18,6 +18,11 @@ Options:
   --dry-run      Preview actions without making changes
   --continue     Continue after manually fixing conflicts
 
+Exit status:
+  0  Backported, or the change is already present in the target
+  3  The cherry-pick conflicts; the staging branch exists on origin for a resolution PR
+  1  Any other failure
+
 Examples:
   # Backport PR #123 to v2
   $0 123 v2
@@ -122,22 +127,6 @@ if [[ "$PR_STATE" != "MERGED" ]]; then
 fi
 
 if [[ $CONTINUE_MODE -eq 0 ]]; then
-  # Fetch the target branch
-  echo "Fetching origin/$TARGET_BRANCH..."
-  git fetch origin "$TARGET_BRANCH"
-
-  # Check if staging branch exists remotely
-  echo "Checking for staging branch. $STAGING_BRANCH.."
-  if git ls-remote --heads origin "$STAGING_BRANCH" | grep -q "$STAGING_BRANCH"; then
-    echo "Staging branch exists, fetching and checking out..."
-    git fetch origin "$STAGING_BRANCH"
-    git checkout -B "$STAGING_BRANCH" FETCH_HEAD
-  else
-    echo "Creating new staging branch from origin/$TARGET_BRANCH..."
-    git checkout -B "$STAGING_BRANCH" "origin/$TARGET_BRANCH"
-  fi
-
-  # Get merge commit SHA and cherry-pick (preserves author and message)
   echo "Fetching merge commit..."
   MERGE_COMMIT=$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')
   if [[ -z "$MERGE_COMMIT" || "$MERGE_COMMIT" == "null" ]]; then
@@ -157,20 +146,58 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
     CHERRY_PICK_ARGS=""
   fi
 
-  echo "Cherry-picking $MERGE_COMMIT..."
-  if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
-    # No unmerged paths means the patch applied to nothing: the change is already
-    # present in the target. Skip it quietly instead of treating it as a conflict.
-    if [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
-      git cherry-pick --skip >/dev/null 2>&1 || git reset --hard >/dev/null
-      echo "PR #$PR_NUMBER is already present in $TARGET_BRANCH; nothing to port."
-      exit 0
+  # Backports to the same target run concurrently, so the push can lose a race with another one.
+  # Each attempt rebuilds the cherry-pick on the freshly fetched staging branch.
+  MAX_PUSH_ATTEMPTS=${MAX_PUSH_ATTEMPTS:-3}
+  for ((attempt = 1; ; attempt++)); do
+    echo "Fetching origin/$TARGET_BRANCH..."
+    git fetch origin "$TARGET_BRANCH"
+
+    echo "Checking for staging branch $STAGING_BRANCH..."
+    if git ls-remote --exit-code --heads origin "$STAGING_BRANCH" >/dev/null; then
+      echo "Staging branch exists, fetching and checking out..."
+      git fetch origin "$STAGING_BRANCH"
+      git checkout -B "$STAGING_BRANCH" FETCH_HEAD
+    else
+      echo "Creating new staging branch from origin/$TARGET_BRANCH..."
+      git checkout -B "$STAGING_BRANCH" "origin/$TARGET_BRANCH"
     fi
-    git cherry-pick --abort 2>/dev/null || true
-    echo "Error: Failed to cherry-pick. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
-    exit 1
-  fi
-  echo "Cherry-pick applied successfully!"
+
+    echo "Cherry-picking $MERGE_COMMIT..."
+    if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
+      # No unmerged paths means the patch applied to nothing: the change is already
+      # present in the target. Skip it quietly instead of treating it as a conflict.
+      if [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
+        git cherry-pick --skip >/dev/null 2>&1 || git reset --hard >/dev/null
+        echo "PR #$PR_NUMBER is already present in $TARGET_BRANCH; nothing to port."
+        if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+          echo "result=already-present" >> "$GITHUB_OUTPUT"
+        fi
+        exit 0
+      fi
+      git cherry-pick --abort 2>/dev/null || true
+      # A conflict resolution is a PR into the staging branch, so it has to exist on origin even
+      # when this is the first backport to the target.
+      if ! git ls-remote --exit-code --heads origin "$STAGING_BRANCH" >/dev/null; then
+        do_or_dryrun git push origin "HEAD:refs/heads/$STAGING_BRANCH"
+      fi
+      echo "Error: Failed to cherry-pick. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
+      exit 3
+    fi
+    echo "Cherry-pick applied successfully!"
+    git log -1 --pretty=format:'Committed as %H by %an <%ae>%n%n%s%n%n%b'
+
+    echo "Pushing to origin/$STAGING_BRANCH..."
+    if do_or_dryrun git push origin "$STAGING_BRANCH"; then
+      break
+    fi
+    if ((attempt >= MAX_PUSH_ATTEMPTS)); then
+      echo "Error: Push to $STAGING_BRANCH rejected $attempt times" >&2
+      exit 1
+    fi
+    echo "Push rejected, retrying on the updated staging branch..."
+    sleep $((attempt * 5))
+  done
 else
   echo "Continuing from previous failure..."
   # Verify we're on the correct branch
@@ -190,12 +217,11 @@ else
   git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$COMMIT_SUBJECT
 
 $PR_BODY"
-fi
 
-git log -1 --pretty=format:'Committed as %H by %an <%ae>%n%n%s%n%n%b'
-# Push staging branch
-echo "Pushing to origin/$STAGING_BRANCH..."
-do_or_dryrun git push origin "$STAGING_BRANCH"
+  git log -1 --pretty=format:'Committed as %H by %an <%ae>%n%n%s%n%n%b'
+  echo "Pushing to origin/$STAGING_BRANCH..."
+  do_or_dryrun git push origin "$STAGING_BRANCH"
+fi
 
 # Create or update PR
 echo ""
@@ -214,8 +240,13 @@ if [[ -z "$EXISTING_PR" ]]; then
   if [[ -n "$STAGING_PR_LABELS" ]]; then
     CREATE_ARGS+=(--label "$STAGING_PR_LABELS")
   fi
-  do_or_dryrun gh pr create "${CREATE_ARGS[@]}"
-  do_or_dryrun echo "Created new backport PR"
+  # backport-staging-pr.yml opens the same PR on the push above; losing that race is fine.
+  if do_or_dryrun gh pr create "${CREATE_ARGS[@]}"; then
+    do_or_dryrun echo "Created new backport PR"
+  elif [[ -z "$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number --jq '.[0].number')" ]]; then
+    echo "Error: Failed to create the staging PR" >&2
+    exit 1
+  fi
 else
   echo "PR already exists (#$EXISTING_PR)"
   # Ensure required labels are present on a pre-existing staging PR too.

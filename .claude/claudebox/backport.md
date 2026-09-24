@@ -6,10 +6,15 @@ branch staging area. This is triggered by `backport.yml` when a cherry-pick fail
 ## Context
 
 You will receive a prompt like:
-> Backport PR #NNN (title) to BRANCH. The automatic cherry-pick failed due to conflicts.
+> Backport OWNER/REPO PR #NNN (url, "title", author LOGIN) to BRANCH (staging branch
+> backport-to-BRANCH-staging). The automatic cherry-pick of merge commit SHA
+> failed due to conflicts.
 
 Variables you need to extract from the prompt:
+- `REPO`: the repository the PR was merged in (e.g., `AztecProtocol/aztec-packages-private`).
+  PR numbers are per-repository, so every GitHub call below uses this repo.
 - `PR_NUMBER`: the PR number (e.g., `21829`)
+- `AUTHOR`: the original PR author's GitHub login
 - `TARGET_BRANCH`: the target branch (e.g., `v4-next`)
 - `STAGING_BRANCH`: `backport-to-${TARGET_BRANCH}-staging`; the prompt states it explicitly.
 
@@ -26,7 +31,7 @@ commits will leak into the PR. **Always verify your branch before calling `creat
 ### 1. Validate PR State
 
 ```
-github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/<PR_NUMBER>")
+github_api(method="GET", path="repos/<REPO>/pulls/<PR_NUMBER>")
 ```
 
 Confirm `state` is `closed` and `merged` is `true`. Extract `merge_commit_sha`.
@@ -79,7 +84,7 @@ When the cherry-pick fails:
 1. Check `git status` and `git diff` to understand the conflict state
 2. Get the full PR diff for reference:
    ```
-   github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/<PR_NUMBER>",
+   github_api(method="GET", path="repos/<REPO>/pulls/<PR_NUMBER>",
               accept="application/vnd.github.v3.diff")
    ```
 3. For each conflicted file:
@@ -123,19 +128,31 @@ Then create the PR:
 create_pr(
   title="<PR_TITLE> (backport #<PR_NUMBER>)",
   body="## Summary
-Backport of https://github.com/AztecProtocol/aztec-packages/pull/<PR_NUMBER> to <TARGET_BRANCH>.
+Backport of https://github.com/<REPO>/pull/<PR_NUMBER> to <TARGET_BRANCH>.
 
 <Brief description of what was backported and any conflicts resolved>
 
 ## Commit structure
 1. Cherry-pick with conflict markers (if conflicts existed)
 2. Conflict resolution (if needed)",
+  repo="<REPO>",
   base="backport-to-<TARGET_BRANCH>-staging"
 )
 ```
 
+Keep `(#<PR_NUMBER>)` in the cherry-pick commit subject: the staging PR's commit list and the
+"already backported" check in step 2 both match on it.
+
 ### 8. Report
 
-Use `respond_to_user` with a short summary including:
-- Link to the created PR
-- Whether conflicts were encountered and how they were resolved
+This session is bound to the #backports Slack thread for this backport; your reply lands there,
+where the PR author has been asked to review. Reply with a short summary. Every PR reference is a
+clickable link to its full GitHub URL, never a bare `#N`:
+- The resolution PR you opened, as `[<REPO>#<N>](https://github.com/<REPO>/pull/<N>)`.
+- The original PR, linked the same way.
+- Which files conflicted and how you resolved each, in a line or two.
+- What the reviewer should do next: "<AUTHOR>, please review and merge this PR; the change then
+  reaches `<TARGET_BRANCH>` with the accumulated backports PR."
+
+If you could not resolve the conflicts, say so plainly and point the author at the manual
+resolution steps in the bot comment on the original PR.

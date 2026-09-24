@@ -151,10 +151,14 @@ jobs:
           PR_HTML_URL: ${{ github.event.pull_request.html_url }}
           PR_NUM: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          REPO: ${{ github.repository }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            TEXT="CI3 failed on backport PR: <${PR_HTML_URL}|#${PR_NUM} - ${PR_TITLE}>\n<${RUN_URL}|View Run>"
+            BRANCH_URL="https://github.com/${REPO}/tree/${PR_HEAD_REF}"
+            TEXT="CI3 failed on backport PR: <${PR_HTML_URL}|${REPO}#${PR_NUM} - ${PR_TITLE}> → \`${PR_BASE_REF}\`"$'\n'"<${RUN_URL}|View Run>. Nothing in this PR reaches \`${PR_BASE_REF}\` until it is green: fix it with a PR into <${BRANCH_URL}|${PR_HEAD_REF}>, and check the PR's commit list for whose backport broke."
             curl -X POST https://slack.com/api/chat.postMessage \
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               -H "Content-type: application/json" \

@@ -8,6 +8,8 @@ function test_cmds {
     echo "$hash ./ci3/$f"
   done
   echo "$hash ./ci3/semver test"
+  local backport_hash=$(hash_str $(cache_content_hash ^scripts/backport_ ^ci3/do_or_dryrun))
+  echo "$backport_hash ./scripts/backport_to_staging.test.sh"
 }
 
 function test {
