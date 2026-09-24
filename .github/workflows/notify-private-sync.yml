@@ -1,17 +1,17 @@
 # Notify the private mirror (AztecProtocol/aztec-packages-private) to sync this branch.
 #
-# Replaces the private repo's 15-minute polling: on every push to next/v5-next we dispatch its
+# Replaces the private repo's 15-minute polling: on every push to next/v5-next/v6 we dispatch its
 # sync-upstream-<branch>.yml via AztecBot. This ONLY dispatches a workflow in the private repo — it
 # never checks out, reads, or pushes any private content, so no private commits can leak into public.
 name: Notify Private Sync
 
 on:
   push:
-    branches: [next, v5-next]
+    branches: [next, v5-next, v6]
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to sync (next or v5-next)"
+        description: "Branch to sync (next, v5-next or v6)"
         required: true
         default: next
 

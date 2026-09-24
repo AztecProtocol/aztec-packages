@@ -1,0 +1,53 @@
+name: Backport staging PR
+
+# Keeps a backport-to-<target>-staging branch paired with an open "Accumulated backports" PR into
+# <target>. backport_to_staging.sh opens that PR for clean cherry-picks; this covers commits that
+# reach the staging branch any other way, such as a merged conflict-resolution PR.
+
+on:
+  push:
+    branches:
+      - "backport-to-*-staging"
+
+concurrency:
+  group: backport-staging-pr-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  ensure-pr:
+    name: Ensure staging PR
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Open or refresh the staging PR
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          STAGING_BRANCH: ${{ github.ref_name }}
+        run: |
+          TARGET_BRANCH="${STAGING_BRANCH#backport-to-}"
+          TARGET_BRANCH="${TARGET_BRANCH%-staging}"
+
+          if ! git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null; then
+            echo "Target branch $TARGET_BRANCH does not exist; nothing to do"
+            exit 0
+          fi
+          if [[ -z "$(git rev-list "origin/$TARGET_BRANCH..origin/$STAGING_BRANCH")" ]]; then
+            echo "$STAGING_BRANCH has no commits ahead of $TARGET_BRANCH; no PR needed yet"
+            exit 0
+          fi
+
+          EXISTING_PR=$(gh pr list --state open --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number --jq '.[0].number')
+          if [[ -z "$EXISTING_PR" ]]; then
+            # backport_to_staging.sh may open the same PR concurrently; losing that race is fine.
+            gh pr create --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" \
+              --title "chore: Accumulated backports to $TARGET_BRANCH" \
+              --body "Backport staging PR. Body will be updated with commit list." ||
+              gh pr list --state open --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number --jq '.[0].number' | grep -q .
+          fi
+
+          ./scripts/merge-train/update-pr-body.sh "$STAGING_BRANCH"

@@ -115,6 +115,16 @@ while IFS= read -r pr_json; do
 
   echo "Checking PR #$pr_number ($branch)"
 
+  # An open PR into a backport staging branch is a pending conflict resolution. Merging the staging
+  # PR without it would ship the later backports to the release branch ahead of the one they follow.
+  if [[ "$branch" == backport-to-* ]]; then
+    pending=$(gh pr list --state open --base "$branch" --json number --jq '[.[].number | "#\(.)"] | join(", ")')
+    if [[ -n "$pending" ]]; then
+      echo "PR #$pr_number has open PRs into $branch ($pending), skipping auto-merge"
+      continue
+    fi
+  fi
+
   # Get last meaningful commit info (SHA and date)
   commit_info=$(get_last_meaningful_commit_info "$pr_number")
 
