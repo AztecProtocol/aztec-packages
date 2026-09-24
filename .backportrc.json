@@ -1,3 +1,0 @@
-{
-  "prTitle": "chore(backport-to-{{targetBranch}}): {{commitMessages}}"
-}
