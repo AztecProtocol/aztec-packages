@@ -129,11 +129,14 @@ add_pr() { # <number> <sha> <title>
     > "$state/pr_$1.json"
 }
 
+# TARGET_BRANCH and PR_NUMBER are exported the way ci3 and backport.yml export them: the script
+# must take its inputs from its arguments, not from whatever the environment already holds.
 run_backport() { # <pr> <target>; prints the exit code. Step outputs land in $state/output.
   local code=0
   : > "$state/output"
   (cd "$runner" && git fetch -q origin && git checkout -q --detach origin/next &&
     PATH="${EXTRA_PATH:-}$test_root/bin:$PATH" BACKPORT_TEST_STATE="$state" GITHUB_OUTPUT="$state/output" \
+    TARGET_BRANCH=next PR_NUMBER=999 \
       bash <(cat "$script_dir/backport_to_staging.sh") "$1" "$2") > "$test_root/last.log" 2>&1 || code=$?
   echo "$code"
 }

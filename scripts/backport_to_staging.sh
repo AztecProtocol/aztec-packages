@@ -42,6 +42,10 @@ if [[ $# -lt 2 ]]; then
 fi
 
 CONTINUE_MODE=0
+# Positional arguments only: CI and the backport workflow export TARGET_BRANCH (and may export
+# PR_NUMBER) for other steps, and an inherited value must not stand in for a missing argument.
+PR_NUMBER=""
+TARGET_BRANCH=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,9 +58,9 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      if [[ -z "${PR_NUMBER:-}" ]]; then
+      if [[ -z "$PR_NUMBER" ]]; then
         PR_NUMBER="$1"
-      elif [[ -z "${TARGET_BRANCH:-}" ]]; then
+      elif [[ -z "$TARGET_BRANCH" ]]; then
         TARGET_BRANCH="$1"
       else
         echo "Error: Unexpected argument '$1'" >&2
