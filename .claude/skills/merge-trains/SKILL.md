@@ -77,10 +77,3 @@ If the user needs to bypass CI checks for their merge-train PR (e.g., a known fl
 3. **Force merge in the UI**: The user can then use GitHub's "Merge without waiting for requirements to be met" button (bypass merge) in the PR UI. All users have this permission. 
 
 **Important**: Only do this when the user explicitly asks to bypass checks. Always confirm first since it skips all CI validation.
-
-## Backport Trains
-
-A related system exists for backport branches (`backport-to-*`). These use the same auto-merge mechanism but with different settings:
-- Branch pattern: `backport-to-`
-- Inactivity threshold: 8 hours (instead of 4)
-- Merge strategy: merge commit
