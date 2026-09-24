@@ -117,6 +117,9 @@ contract DeployRollupForUpgradeTest is Test {
 
     // ============ STEP 2: Deploy Rollup Upgrade ============
     vm.setEnv("REGISTRY_ADDRESS", vm.toString(address(registry)));
+    // Set a different genesis archive root to get a different version
+    // This mirrors the TS test: genesisArchiveRoot: Fr.random()
+    vm.setEnv("GENESIS_ARCHIVE_ROOT", vm.toString(uint256(keccak256("different_genesis"))));
 
     DeployRollupForUpgrade upgradeDeploy = new DeployRollupForUpgrade();
     upgradeDeploy.run();
