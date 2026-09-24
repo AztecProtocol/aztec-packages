@@ -13,6 +13,7 @@ import {IRegistry, IHaveVersion} from "@aztec/governance/interfaces/IRegistry.so
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {FlushRewarder} from "@aztec/periphery/FlushRewarder.sol";
 import {V6UpgradePayload} from "@aztec/periphery/V6UpgradePayload.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
@@ -25,6 +26,19 @@ import {TestBase} from "@test/base/Base.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
+
+/// @dev The payload only reads `getRollup()` off the hatch it installs.
+contract StubEscapeHatch {
+  address internal immutable ROLLUP_;
+
+  constructor(address _rollup) {
+    ROLLUP_ = _rollup;
+  }
+
+  function getRollup() external view returns (address) {
+    return ROLLUP_;
+  }
+}
 
 /// @dev Stands in for a rollup being registered: a version to key on, a GSE to point at.
 contract StandInRollup {
@@ -214,7 +228,8 @@ contract V6UpgradeAtomicityTest is TestBase {
     StandInRollup newRollup = new StandInRollup(gse);
     // Window off: this file is about atomicity, and the clock would only add a second reason to
     // revert. The window itself is covered in test/periphery/V6UpgradePayload.t.sol.
-    return new V6UpgradePayload(IRegistry(address(registry)), IInstance(address(newRollup)), _old, false);
+    IEscapeHatch hatch = IEscapeHatch(address(new StubEscapeHatch(address(newRollup))));
+    return new V6UpgradePayload(IRegistry(address(registry)), IInstance(address(newRollup)), hatch, _old, false);
   }
 
   /// @dev Signal → submit → vote → warp, leaving the proposal Executable.

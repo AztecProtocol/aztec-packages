@@ -8,6 +8,8 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IHaveVersion, IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
+import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {FlushRewarder} from "@aztec/periphery/FlushRewarder.sol";
 import {V6UpgradePayload} from "@aztec/periphery/V6UpgradePayload.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -35,6 +37,20 @@ contract StubRollup {
   }
 }
 
+/// @dev The payload only reads `getRollup()` off the hatch, so a real EscapeHatch -- whose
+///      constructor interrogates the rollup -- would add nothing but cost here.
+contract StubEscapeHatch {
+  address internal immutable ROLLUP_;
+
+  constructor(address _rollup) {
+    ROLLUP_ = _rollup;
+  }
+
+  function getRollup() external view returns (address) {
+    return ROLLUP_;
+  }
+}
+
 contract V6UpgradePayloadTest is TestBase {
   TestERC20 internal token;
   Registry internal registry;
@@ -47,6 +63,9 @@ contract V6UpgradePayloadTest is TestBase {
 
   /// @dev Day index of 2026-11-01, the month the v6 upgrade is prepared in.
   uint256 internal constant FIRST_DAY = 20_758;
+
+  /// @dev The hatch the payload installs, bound to the incoming rollup.
+  IEscapeHatch internal hatch;
 
   /// @dev `isWithinExecutionWindow` is pure; this instance is only a host to call it on.
   V6UpgradePayload internal payloadForWindow;
@@ -61,6 +80,7 @@ contract V6UpgradePayloadTest is TestBase {
     incoming = IInstance(address(new StubRollup(gseAddr)));
     registry.addRollup(_haveVersion(outgoing));
 
+    hatch = IEscapeHatch(address(new StubEscapeHatch(address(incoming))));
     payloadForWindow = _deploy({_window: true, _withRewarder: false});
   }
 
@@ -105,7 +125,7 @@ contract V6UpgradePayloadTest is TestBase {
     registry.addRollup(_haveVersion(other));
 
     IPayload.Action[] memory actions = payload.getActions();
-    assertEq(actions.length, 5, "stale payload no longer describes itself");
+    assertEq(actions.length, 6, "stale payload no longer describes itself");
     assertEq(bytes4(actions[0].data), payload.assertPredecessorIsCanonical.selector, "guard action lost");
   }
 
@@ -132,45 +152,49 @@ contract V6UpgradePayloadTest is TestBase {
   function test_ActionListShapeWindowAndRewarder() public {
     V6UpgradePayload payload = _deploy({_window: true, _withRewarder: true});
     IPayload.Action[] memory a = payload.getActions();
-    assertEq(a.length, 5, "wrong action count");
+    assertEq(a.length, 6, "wrong action count");
 
     _assertGuard(a[0], payload);
     _assertWindow(a[1], payload);
-    _assertAddRollup(a[2]);
-    _assertGseAddRollup(a[3]);
-    _assertRecover(a[4], payload);
+    _assertSetEscapeHatch(a[2], payload);
+    _assertAddRollup(a[3]);
+    _assertGseAddRollup(a[4]);
+    _assertRecover(a[5], payload);
   }
 
   function test_ActionListShapeWindowNoRewarder() public {
     V6UpgradePayload payload = _deploy({_window: true, _withRewarder: false});
     IPayload.Action[] memory a = payload.getActions();
-    assertEq(a.length, 4, "wrong action count");
+    assertEq(a.length, 5, "wrong action count");
 
     _assertGuard(a[0], payload);
     _assertWindow(a[1], payload);
-    _assertAddRollup(a[2]);
-    _assertGseAddRollup(a[3]);
+    _assertSetEscapeHatch(a[2], payload);
+    _assertAddRollup(a[3]);
+    _assertGseAddRollup(a[4]);
   }
 
   function test_ActionListShapeNoWindowWithRewarder() public {
     V6UpgradePayload payload = _deploy({_window: false, _withRewarder: true});
     IPayload.Action[] memory a = payload.getActions();
-    assertEq(a.length, 4, "wrong action count");
+    assertEq(a.length, 5, "wrong action count");
 
     _assertGuard(a[0], payload);
-    _assertAddRollup(a[1]);
-    _assertGseAddRollup(a[2]);
-    _assertRecover(a[3], payload);
+    _assertSetEscapeHatch(a[1], payload);
+    _assertAddRollup(a[2]);
+    _assertGseAddRollup(a[3]);
+    _assertRecover(a[4], payload);
   }
 
   function test_ActionListShapeNoWindowNoRewarder() public {
     V6UpgradePayload payload = _deploy({_window: false, _withRewarder: false});
     IPayload.Action[] memory a = payload.getActions();
-    assertEq(a.length, 3, "wrong action count");
+    assertEq(a.length, 4, "wrong action count");
 
     _assertGuard(a[0], payload);
-    _assertAddRollup(a[1]);
-    _assertGseAddRollup(a[2]);
+    _assertSetEscapeHatch(a[1], payload);
+    _assertAddRollup(a[2]);
+    _assertGseAddRollup(a[3]);
   }
 
   /// @dev `rewardsAvailable()` is read when the action list is built, not when the payload is
@@ -180,12 +204,12 @@ contract V6UpgradePayloadTest is TestBase {
     FlushRewarder old = payload.OLD_FLUSH_REWARDER();
 
     IPayload.Action[] memory before = payload.getActions();
-    (,, uint256 amountBefore) = _decodeRecover(before[3].data);
+    (,, uint256 amountBefore) = _decodeRecover(before[4].data);
 
     token.mint(address(old), 500e18);
 
     IPayload.Action[] memory later = payload.getActions();
-    (,, uint256 amountAfter) = _decodeRecover(later[3].data);
+    (,, uint256 amountAfter) = _decodeRecover(later[4].data);
 
     assertEq(amountAfter, amountBefore + 500e18, "recover amount did not follow the balance");
     assertEq(amountAfter, old.rewardsAvailable(), "recover amount is not rewardsAvailable at call time");
@@ -204,13 +228,25 @@ contract V6UpgradePayloadTest is TestBase {
         V6UpgradePayload.V6UpgradePayload__FlushRewarderRollupMismatch.selector, address(incoming), address(outgoing)
       )
     );
-    new V6UpgradePayload(IRegistry(address(registry)), incoming, foreign, false);
+    new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, foreign, false);
   }
 
   function test_ConstructorRevertsAgainstAnEmptyRegistry() public {
     Registry empty = new Registry(address(this), IERC20(address(token)));
     vm.expectRevert(abi.encodeWithSelector(Errors.Registry__NoRollupsRegistered.selector));
-    new V6UpgradePayload(IRegistry(address(empty)), incoming, FlushRewarder(address(0)), false);
+    new V6UpgradePayload(IRegistry(address(empty)), incoming, hatch, FlushRewarder(address(0)), false);
+  }
+
+  function test_ConstructorRevertsWhenTheHatchServesAnotherRollup() public {
+    // `setEscapeHatch` is one-shot, so a hatch bound elsewhere would burn the only chance to
+    // install one on this rollup.
+    IEscapeHatch foreign = IEscapeHatch(address(new StubEscapeHatch(address(outgoing))));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        V6UpgradePayload.V6UpgradePayload__EscapeHatchRollupMismatch.selector, address(outgoing), address(incoming)
+      )
+    );
+    new V6UpgradePayload(IRegistry(address(registry)), incoming, foreign, FlushRewarder(address(0)), false);
   }
 
   function test_NewRewarderIsZeroWhenThereIsNoOldOne() public {
@@ -341,7 +377,7 @@ contract V6UpgradePayloadTest is TestBase {
     if (_withRewarder) {
       token.mint(address(old), 1000e18);
     }
-    return new V6UpgradePayload(IRegistry(address(registry)), incoming, old, _window);
+    return new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, old, _window);
   }
 
   function _haveVersion(IInstance _rollup) internal pure returns (IHaveVersion) {
@@ -357,6 +393,12 @@ contract V6UpgradePayloadTest is TestBase {
   function _assertWindow(IPayload.Action memory _a, V6UpgradePayload _payload) internal view {
     assertEq(_a.target, address(_payload), "window target");
     assertEq(bytes4(_a.data), _payload.assertWithinExecutionWindow.selector, "window selector");
+  }
+
+  function _assertSetEscapeHatch(IPayload.Action memory _a, V6UpgradePayload _payload) internal view {
+    assertEq(_a.target, address(incoming), "setEscapeHatch must target the NEW rollup");
+    assertEq(bytes4(_a.data), IValidatorSelectionCore.setEscapeHatch.selector, "setEscapeHatch selector");
+    assertEq(abi.decode(_slice4(_a.data), (address)), _payload.ESCAPE_HATCH(), "setEscapeHatch argument");
   }
 
   function _assertAddRollup(IPayload.Action memory _a) internal view {

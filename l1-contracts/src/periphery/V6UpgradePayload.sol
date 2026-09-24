@@ -2,7 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
+import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IGSECore} from "@aztec/governance/GSE.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
@@ -39,6 +41,14 @@ contract V6UpgradePayload is IPayload {
   ///      canonical can never execute, and that is readable on-chain before any vote is committed.
   address public immutable PREDECESSOR;
 
+  /// @notice The escape hatch this payload installs on {ROLLUP}.
+  /// @dev Installed HERE rather than during the deploy. `setEscapeHatch` is `onlyOwner`, and the
+  ///      rollup is constructed owned by governance -- because that same constructor argument also
+  ///      becomes the Slasher's immutable GOVERNANCE, which can slash any attester with no vote.
+  ///      Constructing with the deployer to do owner-gated setup would hand that power to the
+  ///      deploy key permanently, and no later `transferOwnership` could take it back.
+  address public immutable ESCAPE_HATCH;
+
   /// @notice The flush rewarder serving the outgoing rollup, or zero on a chain that has none.
   FlushRewarder public immutable OLD_FLUSH_REWARDER;
 
@@ -58,18 +68,34 @@ contract V6UpgradePayload is IPayload {
   /// @notice Thrown when the rollup this payload was built to succeed is no longer canonical.
   error V6UpgradePayload__PredecessorNotCanonical(address expected, address actual);
 
+  /// @notice Thrown when the supplied escape hatch was built for a different rollup.
+  error V6UpgradePayload__EscapeHatchRollupMismatch(address served, address expected);
+
   /**
    * @notice Binds the payload to the rollup it will make canonical, and deploys the replacement
    *         flush rewarder when there is an outgoing one to migrate.
    * @param _registry The registry to register the rollup in
    * @param _rollup The newly deployed rollup
+   * @param _escapeHatch The escape hatch built for {_rollup}, installed by this payload
    * @param _oldFlushRewarder The flush rewarder serving the outgoing rollup, or zero to skip the
    *        flush-incentive migration entirely
    * @param _enforceExecutionWindow Whether to restrict execution to UK office hours
    */
-  constructor(IRegistry _registry, IInstance _rollup, FlushRewarder _oldFlushRewarder, bool _enforceExecutionWindow) {
+  constructor(
+    IRegistry _registry,
+    IInstance _rollup,
+    IEscapeHatch _escapeHatch,
+    FlushRewarder _oldFlushRewarder,
+    bool _enforceExecutionWindow
+  ) {
     REGISTRY = _registry;
     ROLLUP = _rollup;
+
+    // The hatch names the rollup it was built for, and `setEscapeHatch` is one-shot, so a hatch
+    // bound elsewhere would burn the only chance to install one.
+    address hatchRollup = _escapeHatch.getRollup();
+    require(hatchRollup == address(_rollup), V6UpgradePayload__EscapeHatchRollupMismatch(hatchRollup, address(_rollup)));
+    ESCAPE_HATCH = address(_escapeHatch);
     OLD_FLUSH_REWARDER = _oldFlushRewarder;
     ENFORCE_EXECUTION_WINDOW = _enforceExecutionWindow;
 
@@ -108,7 +134,7 @@ contract V6UpgradePayload is IPayload {
     uint256 next = 0;
 
     IPayload.Action[] memory res =
-      new IPayload.Action[](1 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (migrateFlushRewarder ? 3 : 2));
+      new IPayload.Action[](2 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (migrateFlushRewarder ? 3 : 2));
 
     // FIRST, before the window and before anything is written: this payload only authorises a
     // transition FROM the rollup that was canonical when it was deployed.
@@ -137,6 +163,14 @@ contract V6UpgradePayload is IPayload {
       res[next++] =
         Action({target: address(this), data: abi.encodeWithSelector(this.assertWithinExecutionWindow.selector)});
     }
+
+    // Installs the escape hatch, BEFORE the rollup becomes canonical. `setEscapeHatch` is
+    // `onlyOwner` and one-shot, and governance has owned this rollup since construction -- see
+    // {ESCAPE_HATCH} for why it is not owned by the deployer even briefly.
+    res[next++] = Action({
+      target: address(ROLLUP),
+      data: abi.encodeWithSelector(IValidatorSelectionCore.setEscapeHatch.selector, ESCAPE_HATCH)
+    });
 
     // Registers the rollup under its own version, making it the canonical rollup. Reverts if that
     // version is already registered.

@@ -12,23 +12,25 @@ guarantees, and deliberately leaves alone.
 The deploy script deploys, in one broadcast:
 
 1. `HonkVerifier` — the real epoch proof verifier.
-2. `Rollup` — owned by the **deployer** at construction, not governance. Deploying it also
-   constructs its `Inbox`, `Outbox`, `FeeJuicePortal`, `Slasher` + `SlashingProposer`, and a fresh
-   `RewardBooster`.
-3. `EscapeHatch`, then `rollup.setEscapeHatch(...)` — done here, while the deployer still owns the
-   rollup. `setEscapeHatch` is `onlyOwner` and one-shot.
-4. `rollup.transferOwnership(governance)` — after this line nothing owner-gated can be done
-   without a governance proposal.
-5. `V6UpgradePayload` — and, on a chain with a flush rewarder, a replacement `FlushRewarder`
+2. `Rollup` — owned by **governance** from construction. Deploying it also constructs its `Inbox`,
+   `Outbox`, `FeeJuicePortal`, `Slasher` + `SlashingProposer`, and a fresh `RewardBooster`.
+   **The owner argument is not only the owner:** it also becomes the Slasher's immutable
+   `GOVERNANCE`, which can execute any slash payload with no vote and no delay. Constructing with
+   the deploy key would hand that power to the key permanently — `transferOwnership` moves only the
+   `Ownable` half. This is why no owner-gated setup happens in the script.
+3. `EscapeHatch` — built here, but **installed by the payload**, since `setEscapeHatch` is
+   `onlyOwner` and the owner is governance.
+4. `V6UpgradePayload` — and, on a chain with a flush rewarder, a replacement `FlushRewarder`
    deployed inside the payload's constructor.
 
 Nothing is canonical yet. The payload is what governance executes later; it performs:
 
 | # | Action | Why |
 |---|---|---|
-| 1 | `Registry.addRollup(v6)` | makes v6 the canonical rollup |
-| 2 | `GSE.addRollup(v6)` | lets existing attesters follow without redepositing |
-| 3 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | carries the entry-queue flush incentive across (skipped if there is no old rewarder) |
+| 1 | `v6.setEscapeHatch(hatch)` | installs the hatch; `onlyOwner`, so only governance can |
+| 2 | `Registry.addRollup(v6)` | makes v6 the canonical rollup |
+| 3 | `GSE.addRollup(v6)` | lets existing attesters follow without redepositing |
+| 4 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | carries the entry-queue flush incentive across (skipped if there is no old rewarder) |
 
 ## 1. Build
 
@@ -151,7 +153,9 @@ Sanity-check by hand that the rollup is inert and correctly owned:
 
 ```bash
 cast call <rollup> "owner()(address)"           --rpc-url $RPC  # governance
-cast call <rollup> "getEscapeHatch()(address)"  --rpc-url $RPC  # the deployed hatch, non-zero
+cast call <rollup> "getEscapeHatch()(address)"  --rpc-url $RPC  # ZERO until the payload executes
+cast call <payload> "ESCAPE_HATCH()(address)"  --rpc-url $RPC  # the hatch it will install
+cast call <rollup> "owner()(address)"          --rpc-url $RPC  # governance, from construction
 cast call <rollup> "getVersion()(uint256)"      --rpc-url $RPC  # not already in the registry
 
 # the payload is bound to the rollup it succeeds; must equal the OUTGOING rollup, not the new one

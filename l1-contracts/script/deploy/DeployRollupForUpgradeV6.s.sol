@@ -11,6 +11,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {EscapeHatch} from "@aztec/core/EscapeHatch.sol";
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
@@ -302,15 +303,23 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     // Always the real verifier: this script exists for upgrades of live networks.
     IVerifier verifier = IVerifier(address(new HonkVerifier()));
 
-    // The 5th argument is the Rollup's owner. Passing `deployer` rather than governance is what
-    // would let the deployer run owner-gated setup here; ownership is handed to governance
-    // immediately after, so anything not done before that line needs a governance call instead.
+    // The 5th argument is GOVERNANCE, and it is load-bearing twice: it becomes the Rollup's
+    // `Ownable` owner AND the Slasher's immutable `GOVERNANCE`, which may execute any slash
+    // payload with no vote, no round and no delay (Slasher.sol:58).
+    //
+    // So it MUST be governance, not the deployer. `transferOwnership` moves only the Ownable
+    // half; the Slasher's copy is immutable and would leave the deploy key able to slash every
+    // validator for the life of the rollup. Recovery would take 60 days to queue a replacement
+    // Slasher plus a 30-day window in which the old one still works.
+    //
+    // The cost is that no owner-gated setup can happen here. `setEscapeHatch` therefore moved
+    // into the payload, where governance performs it.
     Rollup rollup = new Rollup(
       current.getFeeAsset(),
       current.getStakingAsset(),
       current.getGSE(),
       verifier,
-      deployer,
+      governance,
       _genesisState(c),
       _rollupConfigInput(c, registry.getRewardDistributor())
     );
@@ -329,16 +338,14 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       c.escapeHatchProposingExitDelay
     );
 
-    // `setEscapeHatch` is `onlyOwner` and one-shot: it reverts if a hatch is already registered,
-    // and it rejects any hatch whose `getRollup()` is not this rollup. Calling it here, while the
-    // deployer still owns the rollup, is what keeps it out of the governance payload.
-    rollup.setEscapeHatch(address(escapeHatch));
-
-    // From here on, only governance can change the rollup's configuration.
-    rollup.transferOwnership(governance);
-
+    // The rollup has been owned by governance since construction, so nothing owner-gated happens
+    // here and there is no ownership to transfer. The hatch is installed by the payload.
     V6UpgradePayload payload = new V6UpgradePayload(
-      registry, IInstance(address(rollup)), FlushRewarder(c.oldFlushRewarder), c.enforcePayloadExecutionWindow
+      registry,
+      IInstance(address(rollup)),
+      IEscapeHatch(address(escapeHatch)),
+      FlushRewarder(c.oldFlushRewarder),
+      c.enforcePayloadExecutionWindow
     );
 
     vm.stopBroadcast();
@@ -351,10 +358,11 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     console.log("outbox           ", address(rollup.getOutbox()));
     console.log("feeJuicePortal   ", address(rollup.getFeeAssetPortal()));
     console.log("slasher          ", rollup.getSlasher());
-    console.log("escapeHatch      ", address(escapeHatch));
+    console.log("escapeHatch      ", address(escapeHatch), "(installed by the payload)");
     console.log("rewardBooster    ", address(rollup.getRewardConfig().booster));
     console.log("payload          ", address(payload));
     console.log("newFlushRewarder ", address(payload.NEW_FLUSH_REWARDER()));
+    verifyEscapeHatch(address(rollup), address(payload));
     verifyFlushRewarder(address(rollup), address(payload));
 
     _simulate(address(payload));
@@ -384,8 +392,7 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     _verifyGenesisAndTime(rollup, c);
     _verifyStakingAndFees(rollup, c);
     _verifyRewards(rollup, c);
-    _verifySlashing(rollup, c);
-    _verifyEscapeHatch(rollup, c);
+    _verifySlashing(rollup, c, registry.getGovernance());
     _verifySubContracts(rollup, registry);
   }
 
@@ -414,12 +421,18 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     assertEq(newRewarder.owner(), Registry(vm.envAddress("REGISTRY_ADDRESS")).getGovernance(), "flush rewarder owner");
   }
 
-  function _verifyEscapeHatch(Rollup _rollup, Config memory _c) private view {
-    // A zero address here means `setEscapeHatch` never ran; since it is one-shot and owner-gated,
-    // that would leave the hatch permanently unsettable except by governance.
-    EscapeHatch hatch = EscapeHatch(address(_rollup.getEscapeHatch()));
-    assertTrue(address(hatch) != address(0), "escape hatch not set on the rollup");
+  /**
+   * @notice Asserts the payload's escape hatch is built for this rollup.
+   * @dev Separate from {verify} for the same reason as {verifyFlushRewarder}: the hatch is
+   *      installed BY the payload, so the rollup does not point at it until governance executes.
+   *      Installation itself is asserted post-execution by V6UpgradeSimulation.
+   */
+  function verifyEscapeHatch(address _rollup, address _payload) public view {
+    _verifyEscapeHatch(EscapeHatch(V6UpgradePayload(_payload).ESCAPE_HATCH()), Rollup(_rollup), _config());
+  }
 
+  function _verifyEscapeHatch(EscapeHatch hatch, Rollup _rollup, Config memory _c) private view {
+    assertTrue(address(hatch) != address(0), "payload has no escape hatch");
     assertEq(hatch.getRollup(), address(_rollup), "escape hatch points at another rollup");
     assertEq(hatch.getBondToken(), address(_rollup.getStakingAsset()), "escape hatch bond token");
     assertEq(hatch.getBondSize(), _c.escapeHatchBondSize, "escapeHatchBondSize");
@@ -486,7 +499,7 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     assertEq(overrides[1].sequencerReward, _c.rewardOverrideSequencerReward1, "rewardOverrideSequencerReward1");
   }
 
-  function _verifySlashing(Rollup _rollup, Config memory _c) private view {
+  function _verifySlashing(Rollup _rollup, Config memory _c, address _governance) private view {
     // With slashing disabled the Rollup deploys no slasher at all, so there is nothing else to read.
     if (!_c.slasherEnabled) {
       assertEq(_rollup.getSlasher(), address(0), "slasher deployed despite slasherEnabled = false");
@@ -494,6 +507,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     }
 
     Slasher slasher = Slasher(_rollup.getSlasher());
+    // The one that matters most and is easiest to get wrong: GOVERNANCE is immutable and is taken
+    // from the Rollup constructor's owner argument, so a rollup constructed by the deployer hands
+    // the deploy key unilateral, permanent slashing power that no later transfer can revoke.
+    assertEq(slasher.GOVERNANCE(), _governance, "slasher GOVERNANCE is not governance");
     assertEq(slasher.VETOER(), _c.slashingVetoer, "slashingVetoer");
     assertEq(slasher.SLASHING_DISABLE_DURATION(), _c.slashingDisableDuration, "slashingDisableDuration");
 

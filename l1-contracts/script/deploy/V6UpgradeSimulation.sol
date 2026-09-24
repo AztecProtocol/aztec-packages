@@ -196,6 +196,10 @@ contract V6UpgradeSimulation is Test {
     // configuration (fee margin, fee recipient, queue config) can ever be changed again.
     assertEq(Rollup(newRollup).owner(), _registry.getGovernance(), "rollup owner is not governance");
 
+    // The hatch is installed by the payload, not the deploy, so this is the only place the
+    // installation is proved before the real execution.
+    assertEq(address(Rollup(newRollup).getEscapeHatch()), _payload.ESCAPE_HATCH(), "escape hatch was not installed");
+
     _assertRewardDistributor(_payload, _registry, _before);
     _assertFlushRewarder(_payload, _before);
   }

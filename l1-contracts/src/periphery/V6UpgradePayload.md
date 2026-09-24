@@ -14,11 +14,12 @@ Governance runs each as `target.call(data)` from its own address, in this order,
 |---|---|---|---|
 | 1 | `this.assertPredecessorIsCanonical()` | always | this payload only authorises a transition **from** the rollup that was canonical when it was deployed |
 | 2 | `this.assertWithinExecutionWindow()` | `ENFORCE_EXECUTION_WINDOW` | mainnet only: UK weekdays 08:00–17:00 London, so an upgrade is not executed unattended |
-| 3 | `Registry.addRollup(v6)` | always | makes v6 canonical |
-| 4 | `GSE.addRollup(v6)` | always | existing attesters follow without withdrawing and redepositing |
-| 5 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | a rewarder exists | carries the entry-queue flush incentive to the replacement |
+| 3 | `v6.setEscapeHatch(ESCAPE_HATCH)` | always | installs the escape hatch, before v6 is canonical |
+| 4 | `Registry.addRollup(v6)` | always | makes v6 canonical |
+| 5 | `GSE.addRollup(v6)` | always | existing attesters follow without withdrawing and redepositing |
+| 6 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | a rewarder exists | carries the entry-queue flush incentive to the replacement |
 
-Three to five actions depending on chain. Sepolia has neither the window nor a rewarder.
+Four to six actions depending on chain. Sepolia has neither the window nor a rewarder.
 
 ## What it guarantees
 
@@ -30,8 +31,12 @@ Three to five actions depending on chain. Sepolia has neither the window nor a r
 - **It stays readable when it is dead.** Both checks are actions rather than reverts inside
   `getActions()`, so explorers, `GSEPayload.amIValid` and the deploy simulation can still read what
   the payload would do after it can no longer do it.
-- **Nothing is owner-gated on the deployer.** The rollup's ownership is handed to governance during
-  the deploy, before this payload exists.
+- **The deploy key holds no power over v6, at any point.** The rollup is constructed owned by
+  governance rather than transferred afterwards. That matters beyond ownership: the same
+  constructor argument becomes the Slasher's immutable `GOVERNANCE`, which can slash any attester
+  with no vote and no delay, and `transferOwnership` cannot move it. Constructing with governance
+  is what keeps it out of the deploy key's hands — at the cost of the escape hatch having to be
+  installed here, by governance, rather than during the deploy.
 
 ## What it deliberately does not do
 
@@ -51,6 +56,8 @@ Three to five actions depending on chain. Sepolia has neither the window nor a r
 cast call <payload> "PREDECESSOR()(address)"        # must equal the CURRENT canonical rollup
 cast call $REG "getCanonicalRollup()(address)"
 cast call <payload> "getActions()((address,bytes)[])"  # guard must be present, and first
+cast call <rollup> "owner()(address)"                  # governance, from construction
+cast call <slasher> "GOVERNANCE()(address)"            # governance -- NOT the deploy key
 ```
 
 A registration payload without that guard is the hazard the guard exists to remove.

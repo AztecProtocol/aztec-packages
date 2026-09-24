@@ -11,6 +11,7 @@ import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FlushRewarder} from "@aztec/periphery/FlushRewarder.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {V6UpgradePayload} from "@aztec/periphery/V6UpgradePayload.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -119,6 +120,26 @@ contract DeployRollupForUpgradeV6Test is Test {
     assertEq(address(payload.OLD_FLUSH_REWARDER()), address(0), "sepolia should have no old rewarder");
     assertEq(address(payload.NEW_FLUSH_REWARDER()), address(0), "sepolia should deploy no new rewarder");
     assertFalse(payload.ENFORCE_EXECUTION_WINDOW(), "sepolia should not enforce the window");
+  }
+
+  /// @dev The Rollup constructor's `_governance` becomes BOTH the Ownable owner and the Slasher's
+  ///      immutable GOVERNANCE, which may execute any slash payload with no vote. Ownership is
+  ///      handed over after construction; the Slasher's copy cannot be.
+  function test_SlasherGovernanceIsGovernanceNotTheDeployer() public {
+    vm.chainId(MAINNET_CHAIN_ID);
+    _placeOutgoingFlushRewarder();
+
+    V6ConfigHarness harness = new V6ConfigHarness();
+    harness.run();
+    Rollup deployed = harness.deployedRollup();
+
+    address slasherGov = Slasher(deployed.getSlasher()).GOVERNANCE();
+    emit log_named_address("slasher GOVERNANCE", slasherGov);
+    emit log_named_address("rollup owner       ", deployed.owner());
+    emit log_named_address("registry governance", registry.getGovernance());
+    emit log_named_address("deployer (this)    ", address(harness));
+
+    assertEq(slasherGov, registry.getGovernance(), "slasher GOVERNANCE is not governance");
   }
 
   function test_UnsupportedChainReverts() public {
