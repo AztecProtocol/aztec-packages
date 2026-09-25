@@ -178,8 +178,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_deploy',
       inputs,
-      handler: ([contractPath, initializer, _, args, secret, salt, deployer]) =>
-        this.handlerAsTxe().deploy(contractPath, initializer, args, secret, salt, deployer),
+      handler: ([contractPath, initializer, _, args, secret, salt, deployer, immutablesHash]) =>
+        this.handlerAsTxe().deploy(contractPath, initializer, args, secret, salt, deployer, immutablesHash),
     });
   }
 

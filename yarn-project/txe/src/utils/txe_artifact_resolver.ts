@@ -87,6 +87,7 @@ export class TXEArtifactResolver {
     secret,
     salt,
     deployer,
+    immutablesHash,
   }: {
     rootPath: string;
     packageName: string;
@@ -96,6 +97,7 @@ export class TXEArtifactResolver {
     secret: Fr;
     salt: Fr;
     deployer: AztecAddress;
+    immutablesHash: Fr;
   }): Promise<ResolvedArtifact> {
     const publicKeys = secret.equals(Fr.ZERO) ? PublicKeys.default() : (await deriveKeys(secret)).publicKeys;
     const publicKeysHash = await publicKeys.hash();
@@ -106,7 +108,7 @@ export class TXEArtifactResolver {
     const { dir: contractDirectory, base: contractFilename } = parse(contractPath);
     const cacheKey = `${contractDirectory ?? ''}-${contractFilename}-${initializer}-${args
       .map(arg => arg.toString())
-      .join('-')}-${publicKeysHash}-${salt}-${deployer}-${fileHash}`;
+      .join('-')}-${publicKeysHash}-${salt}-${deployer}-${immutablesHash}-${fileHash}`;
 
     return this.#deployments.getOrCompute(cacheKey, () =>
       this.#computeDeployArtifact(
@@ -118,6 +120,7 @@ export class TXEArtifactResolver {
         publicKeys,
         publicKeysHash,
         deployer,
+        immutablesHash,
       ),
     );
   }
@@ -177,6 +180,7 @@ export class TXEArtifactResolver {
     publicKeys: PublicKeys,
     publicKeysHash: Fr,
     deployer: AztecAddress,
+    immutablesHash: Fr,
   ): Promise<ResolvedArtifact> {
     // Inner cache: artifact load + hash depends only on the compiled bytecode (`fileHash`), so subsequent deploys of
     // the same contract — regardless of constructor args / deployer / salt — reuse the same `ContractArtifactWithHash`.
@@ -196,6 +200,7 @@ export class TXEArtifactResolver {
       publicKeys,
       constructorArtifact: initializer || undefined,
       deployer,
+      immutablesHash,
     });
     return { artifact, instance };
   }
