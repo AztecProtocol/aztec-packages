@@ -49,7 +49,6 @@ target_link_libraries(
     barretenberg
     vm2_sim
     wsdb_ipc_merkle_db
-    wsdb_ipc_client
     cdb_ipc_client
     ipc_runtime
     env
