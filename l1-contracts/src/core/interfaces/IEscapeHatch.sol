@@ -42,6 +42,7 @@ interface IEscapeHatchCore {
   event CandidateSelected(Hatch indexed hatch, address indexed candidate);
   event ArchiveUpdated(address indexed proposer, uint128 checkpointNumber, bytes32 archive);
   event ProofValidated(Hatch indexed hatch, address indexed proposer, bool success, uint256 punishment);
+  event HatchPreparationSkipped(Hatch indexed hatch, uint32 seedTimestamp, uint32 foundTimestamp);
 
   function joinCandidateSet() external;
   function initiateExit() external;
@@ -67,6 +68,7 @@ interface IEscapeHatch is IEscapeHatchCore {
   function isCandidate(address _candidate) external view returns (bool);
   function getSetTimestamp(Hatch _hatch) external view returns (uint32);
   function getSeedTimestamp(Hatch _hatch) external view returns (uint32);
+  function getSeed(Hatch _hatch) external view returns (uint256);
   function getRollup() external view returns (address);
   function getBondToken() external view returns (address);
   function getBondSize() external view returns (uint96);

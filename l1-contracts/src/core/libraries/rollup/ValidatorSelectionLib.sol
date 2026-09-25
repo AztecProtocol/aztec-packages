@@ -13,6 +13,7 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SlotDerivation} from "@oz/utils/SlotDerivation.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
@@ -601,6 +602,46 @@ library ValidatorSelectionLib {
 
   function getLagInEpochsForRandao() internal view returns (uint256) {
     return getStorage().lagInEpochsForRandao;
+  }
+
+  /**
+   * @notice Reads the checkpointed randao in force at a timestamp, without applying any lag
+   * @dev Unlike `getSampleSeed`, this applies no lag of its own: callers that already chose the
+   *      timestamp they want entropy from would otherwise have it silently moved further into the
+   *      past. The key of the checkpoint actually found is returned alongside the value, because a
+   *      caller relying on the entropy having been revealed at a particular time has to be able to
+   *      tell an exact hit from a fall-back to an older checkpoint.
+   * @param _ts The timestamp to read the checkpointed randao at
+   * @return exists Whether any checkpoint precedes `_ts`; the other two are meaningless if false
+   * @return keyTs The timestamp the returned randao was checkpointed under
+   * @return randao The checkpointed randao value
+   * @custom:reverts Errors.ValidatorSelection__RandaoNotStable if `_ts` is in the future
+   */
+  function getCheckpointedRandaoAt(Timestamp _ts) internal view returns (bool exists, uint32 keyTs, uint224 randao) {
+    uint32 ts = Timestamp.unwrap(_ts).toUint32();
+    require(ts <= block.timestamp, Errors.ValidatorSelection__RandaoNotStable(ts, uint32(block.timestamp)));
+
+    Checkpoints.Trace224 storage randaos = getStorage().randaos;
+
+    // Checkpoints exposes upperLookup for the value and at()/length() for the keys, but nothing
+    // that returns both, so the upper-bound search is repeated here.
+    uint256 low = 0;
+    uint256 high = randaos.length();
+    while (low < high) {
+      uint256 mid = Math.average(low, high);
+      if (randaos.at(uint32(mid))._key > ts) {
+        high = mid;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    if (low == 0) {
+      return (false, 0, 0);
+    }
+
+    Checkpoints.Checkpoint224 memory checkpoint = randaos.at(uint32(low - 1));
+    return (true, checkpoint._key, checkpoint._value);
   }
 
   /**
