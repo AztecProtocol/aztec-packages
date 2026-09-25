@@ -23,9 +23,10 @@ import {
   mkdirSync,
   cpSync,
   rmSync,
+  rmdirSync,
 } from "fs";
 import { execSync } from "child_process";
-import { basename, dirname, join, resolve } from "path";
+import { basename, dirname, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 import {
   SchemaVisitor,
@@ -48,6 +49,9 @@ import { toSnakeCase } from "./naming.ts";
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Records what the last run produced, so this one can remove what it no longer emits. */
+const MANIFEST = ".ipc-codegen-manifest";
+
 // ---------------------------------------------------------------------------
 // Argument parsing
 // ---------------------------------------------------------------------------
@@ -65,13 +69,14 @@ interface Args {
   binaryEnvVar: string;
   packageTransports: string;
   packageIpcPathArgs: string;
+  packageWasmModule: string;
+  packageWasmThreadsModule: string;
   ipcRuntimeDependency: string;
   cppNamespace: string;
   cppWireNamespace: string;
   cppIncludeDir: string;
   uds: boolean;
   ffi: boolean;
-  curveConstants: string;
   stripMethodPrefix: boolean;
   stripTypePrefix: boolean;
 }
@@ -82,7 +87,8 @@ function usage(): never {
 Required:
   --schema <file>    JSON schema file
   --lang <lang>      Target language (ts, rust, zig, cpp)
-  --out <dir>        Output directory
+  --out <dir>        Output directory for the generated bindings (implied by
+                     --package: <package>/src/generated)
 
 Optional:
   --server                 Generate server dispatch
@@ -94,9 +100,16 @@ Optional:
   --package-name <name>    TS package name for --package
   --binary-name <name>     Native service binary name for --package
   --binary-env-var <name>  Env var overriding the binary path for --package
-  --package-transports <t> Comma-separated transports for --package (uds,shm)
+  --package-transports <t> Comma-separated transports for --package (uds,shm,wasm)
   --package-ipc-path-args <args>
                            Comma-separated binary args for IPC path; use {path}
+  --package-wasm-module <file>
+                           wasm transport: the single-thread module, shipped in the
+                           package's wasm/ directory. Ship it uncompressed: only a
+                           real application/wasm response can be streamed into
+                           WebAssembly.compileStreaming and cached by the browser
+  --package-wasm-threads-module <file>
+                           wasm transport: the threads module, shipped in wasm/
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -106,11 +119,13 @@ Optional:
                            names too (e.g. BbCircuitProve -> CircuitProve).
                            Wire tags always keep the full schema name.
   --uds                    Copy UDS backend templates (rust, zig only)
-  --ffi                    Copy in-process FFI backend templates (rust, zig only)
+  --ffi                    In-process FFI. With --client (rust, zig): copy the FFI
+                           client backend template. With --server (rust, cpp): emit
+                           the exported FFI entry (ipc_ffi_entry) over the dispatch
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
-  --curve-constants <path> Generate TS curve constants from JSON at <path>`);
+`);
   process.exit(1);
 }
 
@@ -128,13 +143,14 @@ function parseArgs(argv: string[]): Args {
     binaryEnvVar: "",
     packageTransports: "uds",
     packageIpcPathArgs: "--socket,{path}",
+    packageWasmModule: "",
+    packageWasmThreadsModule: "",
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
     cppIncludeDir: "",
     uds: false,
     ffi: false,
-    curveConstants: "",
     stripMethodPrefix: false,
     stripTypePrefix: false,
   };
@@ -186,6 +202,12 @@ function parseArgs(argv: string[]): Args {
       case "--package-ipc-path-args":
         args.packageIpcPathArgs = takeValue();
         break;
+      case "--package-wasm-module":
+        args.packageWasmModule = takeValue();
+        break;
+      case "--package-wasm-threads-module":
+        args.packageWasmThreadsModule = takeValue();
+        break;
       case "--ipc-runtime-dependency":
         args.ipcRuntimeDependency = takeValue();
         break;
@@ -204,9 +226,6 @@ function parseArgs(argv: string[]): Args {
       case "--ffi":
         args.ffi = true;
         break;
-      case "--curve-constants":
-        args.curveConstants = takeValue();
-        break;
       case "--strip-method-prefix":
         args.stripMethodPrefix = true;
         break;
@@ -219,6 +238,18 @@ function parseArgs(argv: string[]): Args {
     }
   }
 
+  if (args.packageDir) {
+    // The package shell imports the bindings from ./generated, so that is where they go.
+    const packageOut = join(resolve(args.packageDir), "src", "generated");
+    if (!args.out) {
+      args.out = packageOut;
+    } else if (resolve(args.out) !== packageOut) {
+      console.error(
+        `--out must be <package>/src/generated (${packageOut}) when --package is given; omit it`,
+      );
+      process.exit(1);
+    }
+  }
   if (!args.schema || !args.lang || !args.out) {
     usage();
   }
@@ -226,10 +257,23 @@ function parseArgs(argv: string[]): Args {
     console.error(`--package is only supported for --lang ts`);
     process.exit(1);
   }
-  if ((args.uds || args.ffi) && args.lang !== "rust" && args.lang !== "zig") {
+  if (args.uds && args.lang !== "rust" && args.lang !== "zig") {
     console.error(
-      `--uds/--ffi copy backend templates and only apply to rust and zig; ` +
+      `--uds copies backend templates and only applies to rust and zig; ` +
         `ts and cpp consume transports from ipc-runtime directly`,
+    );
+    process.exit(1);
+  }
+  if (args.ffi && !["rust", "zig", "cpp"].includes(args.lang)) {
+    console.error(
+      `--ffi applies to rust, zig and cpp; a ts package reaches an FFI module ` +
+        `through the wasm transport (--package-transports wasm)`,
+    );
+    process.exit(1);
+  }
+  if (args.ffi && args.lang === "cpp" && !args.server) {
+    console.error(
+      `--ffi for cpp emits the server-side FFI entry; pass --server`,
     );
     process.exit(1);
   }
@@ -300,6 +344,49 @@ function detectPrefix(compiled: CompiledSchema): string {
 // Template copying
 // ---------------------------------------------------------------------------
 
+/**
+ * Every path this run produced. Generated output is disposable and the set of files changes as
+ * the generator does, so the next run uses this to delete what it no longer emits — otherwise a
+ * checkout keeps compiling a file that is no longer generated from anything.
+ */
+const written: string[] = [];
+
+/**
+ * Remove anything an earlier run produced under `root` that this one did not, then record what
+ * this one did. Paths are stored relative to `root` so the tree can move.
+ */
+function pruneStale(root: string) {
+  const manifestPath = join(root, MANIFEST);
+  const current = written.map((p) => relative(root, p)).sort();
+  let previous: string[] = [];
+  try {
+    previous = readFileSync(manifestPath, "utf-8").split("\n").filter(Boolean);
+  } catch {
+    // No manifest: either the first run here, or output from before manifests existed. Either
+    // way there is nothing we can safely claim to own, so only record.
+  }
+  const emptied = new Set<string>();
+  for (const stale of previous.filter((p) => !current.includes(p))) {
+    const path = join(root, stale);
+    rmSync(path, { recursive: true, force: true });
+    console.log(`  ${path} (removed, no longer generated)`);
+    for (let dir = dirname(path); dir !== root; dir = dirname(dir)) {
+      emptied.add(dir);
+    }
+  }
+  // Deepest first, so a directory holding only now-empty directories goes too. rmdir on a
+  // directory that still holds something fails, which is exactly the test we want.
+  for (const dir of [...emptied].sort((a, b) => b.length - a.length)) {
+    try {
+      rmdirSync(dir);
+      console.log(`  ${dir} (removed, now empty)`);
+    } catch {
+      // Still holds something generated, or something we did not write. Leave it.
+    }
+  }
+  writeFileSync(manifestPath, current.join("\n") + "\n");
+}
+
 function copyTemplate(lang: string, filename: string, outDir: string) {
   const templatePath = join(__dirname, "..", "templates", lang, filename);
   const destPath = join(outDir, filename);
@@ -307,6 +394,7 @@ function copyTemplate(lang: string, filename: string, outDir: string) {
   const tmpPath = `${destPath}.${process.pid}.tmp`;
   writeFileSync(tmpPath, readFileSync(templatePath, "utf-8"));
   renameSync(tmpPath, destPath);
+  written.push(destPath);
   console.log(`  ${destPath} (template)`);
 }
 
@@ -315,6 +403,7 @@ function copyTemplateDir(lang: string, dirname: string, outDir: string) {
   const destPath = join(outDir, dirname);
   rmSync(destPath, { recursive: true, force: true });
   cpSync(templatePath, destPath, { recursive: true });
+  written.push(destPath);
   console.log(`  ${destPath} (template)`);
 }
 
@@ -361,6 +450,7 @@ function generate(args: Args) {
     const tmpPath = `${path}.${process.pid}.tmp`;
     writeFileSync(tmpPath, content);
     renameSync(tmpPath, path);
+    written.push(path);
     console.log(`  ${path}`);
     return path;
   }
@@ -388,9 +478,6 @@ function generate(args: Args) {
         // No transport template copy — consumers import IpcClient from
         // '@aztec-foundation/ipc-runtime' (or hand in a compatible byte backend).
       }
-      if (args.curveConstants) {
-        generateCurveConstants(absOut, resolve(args.curveConstants));
-      }
       if (args.packageDir) {
         const packageDir = resolve(args.packageDir);
         const packageName =
@@ -405,6 +492,7 @@ function generate(args: Args) {
           const tmpPath = `${path}.${process.pid}.tmp`;
           writeFileSync(tmpPath, content);
           renameSync(tmpPath, path);
+          written.push(path);
           if (opts?.executable) {
             try {
               execSync(`chmod +x ${path}`);
@@ -429,37 +517,57 @@ function generate(args: Args) {
         } else {
           const binaryName =
             args.binaryName || toSnakeCase(prefix).replace(/_/g, "-");
+          const transports = args.packageTransports
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean);
+          const wasm = transports.includes("wasm");
+          if (
+            wasm &&
+            !args.packageWasmModule &&
+            !args.packageWasmThreadsModule
+          ) {
+            console.error(
+              `--package-transports wasm needs --package-wasm-module and/or --package-wasm-threads-module`,
+            );
+            process.exit(1);
+          }
           const packageGen = new TypeScriptPackageCodegen({
             prefix,
             packageName,
             binaryName,
             binaryEnvVar: args.binaryEnvVar || defaultBinaryEnvVar(binaryName),
             ipcRuntimeDependency: args.ipcRuntimeDependency,
-            transports: args.packageTransports
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean),
+            transports,
             ipcPathArgs: args.packageIpcPathArgs
               .split(",")
               .map((arg) => arg.trim())
               .filter(Boolean),
+            wasmModule: args.packageWasmModule || undefined,
+            wasmThreadsModule: args.packageWasmThreadsModule || undefined,
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());
           writePackage("README.md", packageGen.generateReadme());
           writePackage("src/index.ts", packageGen.generateIndex());
+          writePackage(
+            "src/react-native.ts",
+            packageGen.generateReactNativeIndex(),
+          );
           writePackage("src/platform.ts", packageGen.generatePlatform());
+          if (transports.some((t) => t !== "wasm")) {
+            writePackage("src/process.ts", packageGen.generateProcess());
+          }
           if (binaryName) {
             writePackage("src/bin.ts", packageGen.generateBin());
+          }
+          if (wasm) {
+            writePackage("src/browser.ts", packageGen.generateBrowserIndex());
+            writePackage("src/wasm.ts", packageGen.generateWasm());
           }
           for (const manifest of packageGen.generateArchPackageManifests()) {
             writePackage(manifest.path, manifest.content);
           }
-          writePackage(
-            "scripts/prepare_arch_packages.sh",
-            packageGen.generatePrepareArchPackagesScript(),
-            { executable: true },
-          );
         }
       }
       break;
@@ -479,6 +587,9 @@ function generate(args: Args) {
           `${toSnakeCase(prefix)}_server.rs`,
           gen.generateServer(compiled),
         );
+        if (args.ffi) {
+          writeFile(`${toSnakeCase(prefix)}_ffi.rs`, gen.generateFfi());
+        }
       }
       if (args.client) {
         writeFile(
@@ -494,7 +605,8 @@ function generate(args: Args) {
         copyTemplate("rust", "error.rs", absOut);
       }
       if (args.ffi) {
-        copyTemplate("rust", "ffi_backend.rs", absOut);
+        // Generated rather than a template: it links the service-prefixed symbols.
+        writeFile("ffi_backend.rs", gen.generateFfiBackend());
       }
       break;
     }
@@ -530,7 +642,8 @@ function generate(args: Args) {
         copyTemplate("zig", "backend.zig", absOut);
       }
       if (args.ffi) {
-        copyTemplate("zig", "ffi_backend.zig", absOut);
+        // Generated rather than a template: it links the service-prefixed symbols.
+        writeFile("ffi_backend.zig", gen.generateFfiBackend());
       }
       break;
     }
@@ -565,6 +678,20 @@ function generate(args: Args) {
             gen.generateServerHeader(),
           ),
         );
+        if (args.ffi) {
+          cppFiles.push(
+            writeFile(
+              `${toSnakeCase(prefix)}_ffi.hpp`,
+              gen.generateFfiHeader(),
+            ),
+          );
+          cppFiles.push(
+            writeFile(
+              `${toSnakeCase(prefix)}_ffi.cpp`,
+              gen.generateFfiSource(),
+            ),
+          );
+        }
       }
       if (args.client) {
         cppFiles.push(
@@ -591,53 +718,10 @@ function generate(args: Args) {
       process.exit(1);
   }
 
+  // Generated output for one service lives under the package when there is one, and under --out
+  // otherwise; either way that directory is the generator's to keep tidy.
+  pruneStale(args.packageDir ? resolve(args.packageDir) : absOut);
   console.log("Done.");
-}
-
-// ---------------------------------------------------------------------------
-// Curve constants
-// ---------------------------------------------------------------------------
-
-function hexToBigInt(hex: string): bigint {
-  return BigInt("0x" + hex);
-}
-
-function hexToByteList(hex: string): string {
-  const bytes: number[] = [];
-  for (let i = 0; i < hex.length; i += 2)
-    bytes.push(parseInt(hex.substring(i, i + 2), 16));
-  return `new Uint8Array([${bytes.join(", ")}])`;
-}
-
-function serializeCoordinate(coord: string | string[]): string {
-  return Array.isArray(coord)
-    ? `[${coord.map((c) => hexToByteList(c)).join(", ")}]`
-    : hexToByteList(coord);
-}
-
-function generateCurveConstants(outputDir: string, constantsPath: string) {
-  const constants = JSON.parse(readFileSync(constantsPath, "utf-8"));
-  const content = `// AUTOGENERATED FILE - DO NOT EDIT
-export const BN254_FR_MODULUS = ${hexToBigInt(constants.bn254_fr_modulus)}n;
-export const BN254_FQ_MODULUS = ${hexToBigInt(constants.bn254_fq_modulus)}n;
-export const BN254_G1_GENERATOR = { x: ${serializeCoordinate(constants.bn254_g1_generator.x)}, y: ${serializeCoordinate(constants.bn254_g1_generator.y)} } as const;
-export const BN254_G2_GENERATOR = { x: ${serializeCoordinate(constants.bn254_g2_generator.x)}, y: ${serializeCoordinate(constants.bn254_g2_generator.y)} } as const;
-export const GRUMPKIN_FR_MODULUS = ${hexToBigInt(constants.grumpkin_fr_modulus)}n;
-export const GRUMPKIN_FQ_MODULUS = ${hexToBigInt(constants.grumpkin_fq_modulus)}n;
-export const GRUMPKIN_G1_GENERATOR = { x: ${serializeCoordinate(constants.grumpkin_g1_generator.x)}, y: ${serializeCoordinate(constants.grumpkin_g1_generator.y)} } as const;
-export const SECP256K1_FR_MODULUS = ${hexToBigInt(constants.secp256k1_fr_modulus)}n;
-export const SECP256K1_FQ_MODULUS = ${hexToBigInt(constants.secp256k1_fq_modulus)}n;
-export const SECP256K1_G1_GENERATOR = { x: ${serializeCoordinate(constants.secp256k1_g1_generator.x)}, y: ${serializeCoordinate(constants.secp256k1_g1_generator.y)} } as const;
-export const SECP256R1_FR_MODULUS = ${hexToBigInt(constants.secp256r1_fr_modulus)}n;
-export const SECP256R1_FQ_MODULUS = ${hexToBigInt(constants.secp256r1_fq_modulus)}n;
-export const SECP256R1_G1_GENERATOR = { x: ${serializeCoordinate(constants.secp256r1_g1_generator.x)}, y: ${serializeCoordinate(constants.secp256r1_g1_generator.y)} } as const;
-`;
-  mkdirSync(outputDir, { recursive: true });
-  const path = join(outputDir, "curve_constants.ts");
-  const tmpPath = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmpPath, content);
-  renameSync(tmpPath, path);
-  console.log(`  ${path}`);
 }
 
 // ---------------------------------------------------------------------------
