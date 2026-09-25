@@ -9,6 +9,28 @@
     ".": {
       "types": "./dest/index.d.ts",
       "import": "./dest/index.js"
+    },
+    "./wasm": {
+      "browser": {
+        "types": "./dest/wasm/browser/index.d.ts",
+        "default": "./dest/wasm/browser/index.js"
+      },
+      "default": {
+        "types": "./dest/wasm/node/index.d.ts",
+        "default": "./dest/wasm/node/index.js"
+      }
+    },
+    "./wasm/node": {
+      "types": "./dest/wasm/node/index.d.ts",
+      "default": "./dest/wasm/node/index.js"
+    },
+    "./wasm/browser": {
+      "types": "./dest/wasm/browser/index.d.ts",
+      "default": "./dest/wasm/browser/index.js"
+    },
+    "./registry": {
+      "types": "./dest/backend_registry.d.ts",
+      "default": "./dest/backend_registry.js"
     }
   },
   "scripts": {
@@ -17,12 +39,16 @@
     "test": "tsc -p tsconfig.json && node --test dest/*.test.js"
   },
   "files": [
+    "build",
     "dest",
-    "src",
-    "build"
+    "scripts",
+    "src"
   ],
   "devDependencies": {
     "@types/node": "^22",
     "typescript": "^5.6.3"
+  },
+  "bin": {
+    "ipc-runtime-prepare-arch-packages": "./scripts/prepare_arch_packages.mjs"
   }
 }

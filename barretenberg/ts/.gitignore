@@ -8,6 +8,7 @@ bb.js/build
 bb.js/.tsbuildinfo*
 bb.js/*.tsbuildinfo
 bb-avm-sim/
+bb.js-api/
 cdb/
 .tsbuildinfo*
 *.tsbuildinfo
@@ -16,6 +17,3 @@ cdb/
 package.tgz
 package
 packages/
-
-# Generated files
-bb.js/src/generated/

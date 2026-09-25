@@ -11,6 +11,8 @@ __metadata:
   dependencies:
     "@types/node": "npm:^22"
     typescript: "npm:^5.6.3"
+  bin:
+    ipc-runtime-prepare-arch-packages: ./scripts/prepare_arch_packages.mjs
   languageName: unknown
   linkType: soft
 
