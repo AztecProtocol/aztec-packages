@@ -10,7 +10,7 @@
 namespace bb {
 
 /**
- * @brief Anchors ordered_range_constraints_i[0] = 0 for each of the 5 sorted range-check wires (short-monomial form).
+ * @brief Anchors the ordered-range and non-range main-wire first values to zero (short-monomial form).
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -28,7 +28,7 @@ void TranslatorShiftableFirstCoeffZeroShortRelationImpl<FF>::accumulate(Containe
     using View = TranslatorShortMonomialView<Accumulator>;
 
     // Every contribution carries a lagrange_first factor, so on any edge where lagrange_first is identically zero all
-    // five contributions are the zero polynomial. lagrange_first is nonzero at a single index, so this skips the
+    // contributions are the zero polynomial. lagrange_first is nonzero at a single index, so this skips the
     // degree-2 products on essentially every edge.
     if (!in.lagrange_first.is_zero()) {
         auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
@@ -45,6 +45,19 @@ void TranslatorShiftableFirstCoeffZeroShortRelationImpl<FF>::accumulate(Containe
         std::get<2>(accumulators) += Accumulator(lagrange_first_scaled * ordered_range_constraints_2);
         std::get<3>(accumulators) += Accumulator(lagrange_first_scaled * ordered_range_constraints_3);
         std::get<4>(accumulators) += Accumulator(lagrange_first_scaled * ordered_range_constraints_4);
+        std::get<5>(accumulators) += Accumulator(lagrange_first_scaled * View(in.p_x_low_limbs));
+        std::get<6>(accumulators) += Accumulator(lagrange_first_scaled * View(in.p_x_high_limbs));
+        std::get<7>(accumulators) += Accumulator(lagrange_first_scaled * View(in.p_y_low_limbs));
+        std::get<8>(accumulators) += Accumulator(lagrange_first_scaled * View(in.p_y_high_limbs));
+        std::get<9>(accumulators) += Accumulator(lagrange_first_scaled * View(in.z_low_limbs));
+        std::get<10>(accumulators) += Accumulator(lagrange_first_scaled * View(in.z_high_limbs));
+        std::get<11>(accumulators) += Accumulator(lagrange_first_scaled * View(in.accumulators_binary_limbs_0));
+        std::get<12>(accumulators) += Accumulator(lagrange_first_scaled * View(in.accumulators_binary_limbs_1));
+        std::get<13>(accumulators) += Accumulator(lagrange_first_scaled * View(in.accumulators_binary_limbs_2));
+        std::get<14>(accumulators) += Accumulator(lagrange_first_scaled * View(in.accumulators_binary_limbs_3));
+        std::get<15>(accumulators) += Accumulator(lagrange_first_scaled * View(in.quotient_low_binary_limbs));
+        std::get<16>(accumulators) += Accumulator(lagrange_first_scaled * View(in.quotient_high_binary_limbs));
+        std::get<17>(accumulators) += Accumulator(lagrange_first_scaled * View(in.relation_wide_limbs));
     }
 }
 } // namespace bb
