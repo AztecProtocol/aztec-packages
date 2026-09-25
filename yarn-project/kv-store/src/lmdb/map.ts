@@ -1,7 +1,7 @@
 import type { Database, RangeOptions } from 'lmdb';
 
 import type { Key, Range, Value } from '../interfaces/common.js';
-import type { AztecAsyncMap, AztecMap } from '../interfaces/map.js';
+import type { AztecAsyncMap, AztecMap, GetManyOptions } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -37,6 +37,10 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
 
   getAsync(key: K): Promise<V | undefined> {
     return Promise.resolve(this.get(key));
+  }
+
+  getManyAsync(keys: K[], _opts?: GetManyOptions): Promise<(V | undefined)[]> {
+    return Promise.all(keys.map(key => this.getAsync(key)));
   }
 
   has(key: K): boolean {

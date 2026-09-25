@@ -344,12 +344,14 @@ export class LogStore {
     if (!keys || keys.length === 0) {
       return [];
     }
+    const raws = await primaryMap.getManyAsync(keys);
     const results: LogResult[] = [];
-    for (const key of keys) {
-      const raw = await primaryMap.getAsync(key);
+    for (let i = 0; i < keys.length; i++) {
+      const raw = raws[i];
       if (!raw) {
         continue;
       }
+      const key = keys[i];
       const tail = decodeKeyTail(key);
       const value = decodeValue(raw);
       results.push({
