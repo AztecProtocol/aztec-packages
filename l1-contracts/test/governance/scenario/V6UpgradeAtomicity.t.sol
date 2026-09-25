@@ -109,11 +109,8 @@ contract V6UpgradeAtomicityTest is TestBase {
     stakingQueueConfig.normalFlushSizeMin = VALIDATOR_COUNT * 2;
 
     vm.warp(100_000);
-    RollupBuilder builder = new RollupBuilder(address(this))
-      .setGovProposerN(7)
-      .setGovProposerM(10)
-      .setStakingQueueConfig(stakingQueueConfig)
-      .setTargetCommitteeSize(0);
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
+      .setStakingQueueConfig(stakingQueueConfig).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
