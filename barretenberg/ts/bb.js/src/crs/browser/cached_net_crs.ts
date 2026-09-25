@@ -32,9 +32,15 @@ export class CachedNetCrs {
       this.g1Data =
         g1Uncompressed.length === uncompressedLength ? g1Uncompressed : g1Uncompressed.slice(0, uncompressedLength);
     } else {
-      // Download compressed from CDN
-      const netCrs = new NetCrs(this.numPoints);
-      this.g1Data = await netCrs.downloadG1Data();
+      const compressedLength = this.numPoints * 32;
+      const g1Compressed = await get('g1CompressedData');
+      if (g1Compressed && g1Compressed.length >= compressedLength) {
+        this.g1Data = g1Compressed.length === compressedLength ? g1Compressed : g1Compressed.slice(0, compressedLength);
+      } else {
+        const netCrs = new NetCrs(this.numPoints);
+        this.g1Data = await netCrs.downloadG1Data();
+        await set('g1CompressedData', this.g1Data);
+      }
     }
 
     if (!g2Data) {
