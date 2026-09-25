@@ -1,0 +1,2 @@
+# Prettier only reads ignore files in the package directory, so the entry in ../.gitignore does not apply.
+src/cbind/generated/
