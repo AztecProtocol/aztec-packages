@@ -141,9 +141,11 @@ export class NodeWorldStateQueries {
     // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
-    const { blockNumber: referenceBlockNumber } = await this.#resolveBlockNumberAndHash(
-      normalizeBlockParameter(referenceBlock),
-    );
+    // A numeric reference is not resolved: only block N-1 is read, so a witness against the archive at the tip can
+    // be requested with the number after the tip before that block exists. getWorldState still verifies N-1.
+    const query = normalizeBlockParameter(referenceBlock);
+    const referenceBlockNumber =
+      'number' in query ? query.number : (await this.#resolveBlockNumberAndHash(query)).blockNumber;
     if (referenceBlockNumber === BlockNumber.ZERO) {
       // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
       return undefined;
