@@ -1,4 +1,5 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
+import { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
@@ -14,6 +15,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import type { Hex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import {
+  MembershipWitness,
+  MerkleTreeCalculator,
+  SiblingPath,
+  computeRootFromSiblingPath,
+  shaMerkleHash,
+} from '@aztec/foundation/trees';
 import { unfreeze } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, RemoteSigner, type ValidatorKeyStore } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -1010,6 +1018,178 @@ describe('aztec node', () => {
         const result = await node.getBlockHashMembershipWitness(initialBlockHash, someBlockHash);
         expect(result).toBeUndefined();
       });
+
+      describe('against a real archive', () => {
+        const tip = BlockNumber(100);
+        const hashForBlock = (blockNumber: BlockNumber): BlockHash =>
+          new BlockHash(new Fr(1_000_000n + BigInt(blockNumber)));
+        const hasher = (left: Buffer, right: Buffer) => Promise.resolve(shaMerkleHash(left, right));
+
+        /** Archive root and snapshot after each block, keyed by block number. Only blocks tip-1 and tip have one. */
+        let archives: Map<number, { root: Fr; snapshot: MockProxy<MerkleTreeReadOperations> }>;
+
+        /**
+         * Builds the archive after `blockNumber` (leaves are the hashes of blocks 0..blockNumber) at full archive
+         * height, and a snapshot that serves sibling paths from it. The leaves fit in a small subtree, so the path
+         * above it is made of empty-subtree hashes.
+         */
+        const buildArchive = async (blockNumber: BlockNumber) => {
+          const subtreeHeight = 7;
+          const leaves = Array.from({ length: blockNumber + 1 }, (_, i) => hashForBlock(BlockNumber(i)).toBuffer());
+          const subtree = await (
+            await MerkleTreeCalculator.create(subtreeHeight, Buffer.alloc(32), hasher)
+          ).computeTree(leaves);
+          const upperPath: Buffer[] = [];
+          let emptySubtreeRoot = Buffer.alloc(32);
+          for (let level = 0; level < ARCHIVE_HEIGHT; level++) {
+            if (level >= subtreeHeight) {
+              upperPath.push(emptySubtreeRoot);
+            }
+            emptySubtreeRoot = await hasher(emptySubtreeRoot, emptySubtreeRoot);
+          }
+          const root = await (
+            await MerkleTreeCalculator.create(ARCHIVE_HEIGHT, Buffer.alloc(32), hasher)
+          ).computeTreeRoot(leaves);
+
+          const snapshot = mock<MerkleTreeReadOperations>();
+          snapshot.findSiblingPaths.mockImplementation(((treeId: MerkleTreeId, values: BlockHash[]) =>
+            Promise.resolve(
+              treeId !== MerkleTreeId.ARCHIVE
+                ? values.map(() => undefined)
+                : values.map(value => {
+                    const index = leaves.findIndex(leaf => leaf.equals(value.toBuffer()));
+                    return index === -1
+                      ? undefined
+                      : {
+                          index: BigInt(index),
+                          path: new SiblingPath(ARCHIVE_HEIGHT, [...subtree.getSiblingPath(index), ...upperPath]),
+                        };
+                  }),
+            )) as MerkleTreeReadOperations['findSiblingPaths']);
+          return { root: Fr.fromBuffer(root), snapshot };
+        };
+
+        const rootFromWitness = async (leaf: BlockHash, witness: MembershipWitness<typeof ARCHIVE_HEIGHT>) =>
+          Fr.fromBuffer(
+            await computeRootFromSiblingPath(
+              leaf.toBuffer(),
+              witness.siblingPath.map(sibling => sibling.toBuffer()),
+              Number(witness.leafIndex),
+              hasher,
+            ),
+          );
+
+        beforeEach(async () => {
+          lastBlockNumber = tip;
+          archives = new Map([
+            [tip - 1, await buildArchive(BlockNumber(tip - 1))],
+            [tip, await buildArchive(tip)],
+          ]);
+
+          // Blocks up to the tip exist; the successor of the tip never arrives.
+          l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) => {
+            if (!query || 'tag' in query) {
+              return Promise.resolve(makeBlockData(tip, hashForBlock(tip)));
+            }
+            if ('number' in query) {
+              return Promise.resolve(
+                query.number <= tip ? makeBlockData(query.number, hashForBlock(query.number)) : undefined,
+              );
+            }
+            if ('hash' in query) {
+              const blockNumber = Number(query.hash.toBigInt() - 1_000_000n);
+              return Promise.resolve(
+                blockNumber >= 0 && blockNumber <= tip
+                  ? makeBlockData(BlockNumber(blockNumber), query.hash)
+                  : undefined,
+              );
+            }
+            return Promise.resolve(undefined);
+          }) as L2BlockSource['getBlockData']);
+
+          worldState.getVerifiedSnapshot.mockImplementation((blockNumber, blockHash) => {
+            const archive = archives.get(blockNumber);
+            return archive && blockHash.equals(hashForBlock(blockNumber))
+              ? Promise.resolve(archive.snapshot)
+              : Promise.reject(new WorldStateSynchronizerError(`No snapshot available for block ${blockNumber}`));
+          });
+        });
+
+        it.each<[string, BlockParameter]>([
+          ['a bare number', BlockNumber(tip + 1)],
+          ['a number object', { number: BlockNumber(tip + 1) }],
+        ])(
+          'serves a witness against the tip archive for the numeric reference after the tip as %s',
+          async (_, referenceBlock) => {
+            const witness = await node.getBlockHashMembershipWitness(referenceBlock, hashForBlock(tip));
+
+            expect(witness?.leafIndex).toEqual(BigInt(tip));
+            expect(await rootFromWitness(hashForBlock(tip), witness!)).toEqual(archives.get(tip)!.root);
+          },
+        );
+
+        it('serves a witness for an older block against the tip archive', async () => {
+          const target = BlockNumber(42);
+
+          const witness = await node.getBlockHashMembershipWitness(BlockNumber(tip + 1), hashForBlock(target));
+
+          expect(witness?.leafIndex).toEqual(BigInt(target));
+          expect(await rootFromWitness(hashForBlock(target), witness!)).toEqual(archives.get(tip)!.root);
+        });
+
+        it('returns undefined when the target block is not in the tip archive', async () => {
+          expect(await node.getBlockHashMembershipWitness(BlockNumber(tip + 1), BlockHash.random())).toBeUndefined();
+        });
+
+        it.each<[string, BlockParameter]>([
+          ['a bare number', BlockNumber.ZERO],
+          ['a number object', { number: BlockNumber.ZERO }],
+        ])('returns undefined for numeric reference zero as %s', async (_, referenceBlock) => {
+          expect(
+            await node.getBlockHashMembershipWitness(referenceBlock, hashForBlock(BlockNumber.ZERO)),
+          ).toBeUndefined();
+        });
+
+        it('fails when the predecessor of a numeric reference does not exist', async () => {
+          await expect(node.getBlockHashMembershipWitness(BlockNumber(tip + 2), hashForBlock(tip))).rejects.toThrow(
+            /Block not found for number=101/,
+          );
+        });
+
+        it('fails when the snapshot for the predecessor of a numeric reference is unavailable', async () => {
+          await expect(
+            node.getBlockHashMembershipWitness(BlockNumber(tip - 1), hashForBlock(BlockNumber(10))),
+          ).rejects.toThrow(/No snapshot available for block 98/);
+        });
+
+        it('serves a witness against the predecessor archive for a hash reference', async () => {
+          const witness = await node.getBlockHashMembershipWitness(
+            hashForBlock(tip),
+            hashForBlock(BlockNumber(tip - 1)),
+          );
+
+          expect(witness?.leafIndex).toEqual(BigInt(tip - 1));
+          expect(await rootFromWitness(hashForBlock(BlockNumber(tip - 1)), witness!)).toEqual(
+            archives.get(tip - 1)!.root,
+          );
+          // The tip is not yet in the archive its own header references.
+          expect(await node.getBlockHashMembershipWitness(hashForBlock(tip), hashForBlock(tip))).toBeUndefined();
+        });
+
+        it('serves a witness against the predecessor archive for a tag reference', async () => {
+          const witness = await node.getBlockHashMembershipWitness('proposed', hashForBlock(BlockNumber(tip - 1)));
+
+          expect(await rootFromWitness(hashForBlock(BlockNumber(tip - 1)), witness!)).toEqual(
+            archives.get(tip - 1)!.root,
+          );
+        });
+
+        it('fails for a hash reference to a block past the tip', async () => {
+          await expect(
+            node.getBlockHashMembershipWitness(hashForBlock(BlockNumber(tip + 1)), hashForBlock(tip)),
+          ).rejects.toThrow(/not found when resolving query/);
+        });
+      });
     });
   });
 
@@ -1155,6 +1335,19 @@ describe('aztec node', () => {
 
       expect(timer.ms()).toBeGreaterThanOrEqual(byNumberWaitMs);
       expect(timer.ms()).toBeLessThan(2 * byNumberWaitMs);
+    });
+
+    it('does not hold a block hash membership witness query for the numeric reference after the tip', async () => {
+      // The witness is read from the archive at the tip, so it must not wait for the next block to arrive.
+      const path = SiblingPath.random(ARCHIVE_HEIGHT);
+      merkleTreeOps.findSiblingPaths.mockImplementation((() =>
+        Promise.resolve([{ index: 5n, path }])) as MerkleTreeReadOperations['findSiblingPaths']);
+      const timer = new Timer();
+
+      const witness = await node.getBlockHashMembershipWitness(unseenBlockNumber, hashForBlock(lastBlockNumber));
+
+      expect(witness).toEqual(MembershipWitness.fromSiblingPath(5n, path));
+      expect(timer.ms()).toBeLessThan(byNumberWaitMs);
     });
 
     it('does not hold off again when a sync retry re-resolves the query', async () => {
