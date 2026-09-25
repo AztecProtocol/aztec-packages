@@ -200,12 +200,24 @@ TEST_F(TranslatorRelationConsistency, ShiftableFirstCoeffZeroRelation)
 
         const auto parameters = RelationParameters<FF>::get_random();
 
-        // Each ordered_range_constraints wire must be zero at the first row (lower endpoint of the sorted range).
         expected_values[0] = lagrange_first * ordered_range_constraints_0;
         expected_values[1] = lagrange_first * ordered_range_constraints_1;
         expected_values[2] = lagrange_first * ordered_range_constraints_2;
         expected_values[3] = lagrange_first * ordered_range_constraints_3;
         expected_values[4] = lagrange_first * ordered_range_constraints_4;
+        expected_values[5] = lagrange_first * input_elements.p_x_low_limbs;
+        expected_values[6] = lagrange_first * input_elements.p_x_high_limbs;
+        expected_values[7] = lagrange_first * input_elements.p_y_low_limbs;
+        expected_values[8] = lagrange_first * input_elements.p_y_high_limbs;
+        expected_values[9] = lagrange_first * input_elements.z_low_limbs;
+        expected_values[10] = lagrange_first * input_elements.z_high_limbs;
+        expected_values[11] = lagrange_first * input_elements.accumulators_binary_limbs_0;
+        expected_values[12] = lagrange_first * input_elements.accumulators_binary_limbs_1;
+        expected_values[13] = lagrange_first * input_elements.accumulators_binary_limbs_2;
+        expected_values[14] = lagrange_first * input_elements.accumulators_binary_limbs_3;
+        expected_values[15] = lagrange_first * input_elements.quotient_low_binary_limbs;
+        expected_values[16] = lagrange_first * input_elements.quotient_high_binary_limbs;
+        expected_values[17] = lagrange_first * input_elements.relation_wide_limbs;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };

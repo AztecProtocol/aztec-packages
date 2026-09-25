@@ -73,6 +73,8 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
     // Z1/Z2 zero checks: deg 2, length 3.
     std::get<Base::Z1_ZERO_CHECK>(accumulator) += Acc3(z1 * (z1_zero * scaling_factor));
     std::get<Base::Z2_ZERO_CHECK>(accumulator) += Acc3(z2 * (z2_zero * scaling_factor));
+    std::get<Base::Z1_NONMUL_CHECK>(accumulator) += Acc3(((-q_mul + FF(1)) * z1) * scaling_factor);
+    std::get<Base::Z2_NONMUL_CHECK>(accumulator) += Acc3(((-q_mul + FF(1)) * z2) * scaling_factor);
 
     // Opcode well-formed: deg 1, length 2.
     auto tmp = q_add + q_add;

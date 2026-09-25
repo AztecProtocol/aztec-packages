@@ -107,6 +107,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
     std::get<Z1_ZERO_CHECK>(accumulator) += (z1 * z1_zero) * scaling_factor; // if z1_zero = 1, z1 must be 0. degree 2
     std::get<Z2_ZERO_CHECK>(accumulator) += (z2 * z2_zero) * scaling_factor; // degree 2
+    std::get<Z1_NONMUL_CHECK>(accumulator) += ((-q_mul + 1) * z1) * scaling_factor;
+    std::get<Z2_NONMUL_CHECK>(accumulator) += ((-q_mul + 1) * z2) * scaling_factor;
 
     /**
      * @brief Validate `op` opcode is well formed.

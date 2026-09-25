@@ -83,19 +83,21 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         INFINITY_ACC_X = 24,
         // Infinity flag consistency: acc_y = 0 when accumulator empty
         INFINITY_ACC_Y = 25,
+        Z1_NONMUL_CHECK = 26,
+        Z2_NONMUL_CHECK = 27,
         // The following subrelations are gated entirely by `msm_transition` and are grouped contiguously at the end so
         // the short-monomial flavor can split them into a separately-skippable relation (skip when msm_transition ==
         // 0).
         // MSM offset generator subtraction: x-coordinate
-        OFFSET_GENERATOR_X = 26,
+        OFFSET_GENERATOR_X = 28,
         // MSM offset generator subtraction: y-coordinate
-        OFFSET_GENERATOR_Y = 27,
+        OFFSET_GENERATOR_Y = 29,
         // MSM infinity x-diff check
-        MSM_INFINITY_X_DIFF = 28,
+        MSM_INFINITY_X_DIFF = 30,
         // MSM infinity y-sum check
-        MSM_INFINITY_Y_SUM = 29,
+        MSM_INFINITY_Y_SUM = 31,
         // MSM infinity inverse check
-        MSM_INFINITY_INVERSE = 30,
+        MSM_INFINITY_INVERSE = 32,
         NUM_SUBRELATIONS,
     };
 
@@ -104,8 +106,8 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
     // part of centralizing all `lagrange_first · col = 0` pins. The `is_accumulator_empty ·
     // transcript_accumulator_{x,y} = 0` cascade in this relation continues to depend on
     // that pin firing — DO NOT remove it without revisiting.
-    static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS{
-        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
