@@ -26,7 +26,6 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_schema.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
-#include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/memory_profile.hpp"
