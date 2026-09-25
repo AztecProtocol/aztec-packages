@@ -37,19 +37,15 @@ export interface SpawnedProcessBackendOptions {
    */
   respawn?: boolean;
   /**
-   * Unref the child process (and, over UDS, the idle socket) so a backend
-   * that is never destroy()ed cannot hold the Node event loop open. Calls in
-   * flight still keep the loop alive until their response arrives.
+   * When true, an idle backend does not keep the caller's process alive: you never have to
+   * destroy() it for node to exit. Work in progress still holds the loop — the connect while
+   * the server starts, and each call until its response arrives — so nothing exits early.
+   *
+   * The one thing given up is trailing output: the child's stdout/stderr pipes, which exist
+   * only when `logger` is set, stop holding the loop too, so a process that exits while the
+   * child is mid-line loses it.
    */
   unref?: boolean;
-  /**
-   * Also unref the child's stdout/stderr pipes, which exist only when
-   * `logger` is set. Separate from `unref` because those pipes are how the
-   * caller sees the child's output: unref'ing them lets the process exit with
-   * log lines still unread, so it is opt-in even when the child itself is
-   * unref'd.
-   */
-  unrefStdio?: boolean;
   /** SHM only: fixed client slot id. When unset the client self-allocates a free slot. */
   clientId?: number;
   /** SHM only: override the native addon path. */
@@ -106,6 +102,20 @@ async function removeStaleIpcPath(
  * live logger when there is one and to `logFd` otherwise. Shared by the async
  * and sync backends so process setup has exactly one implementation.
  */
+/**
+ * Stop the child and its output pipes holding the caller's event loop. Called once the backend is
+ * connected, never before: until then the child is the only thing keeping the process alive while
+ * the server starts, and unref'ing it lets node exit mid-startup. After it, each transport refs
+ * itself for the duration of a call (see UdsIpcClient's idle unref and the shm client's TSFN
+ * acquire/release), so only a genuinely idle backend is invisible to the loop.
+ */
+function unrefWhenIdle(child: ChildProcess): void {
+  child.unref();
+  // The stdio pipes are net.Sockets at runtime but typed as Readable.
+  (child.stdout as unknown as { unref?: () => void } | null)?.unref?.();
+  (child.stderr as unknown as { unref?: () => void } | null)?.unref?.();
+}
+
 function spawnServerProcess(
   options: SpawnedProcessBackendOptions,
   ipcPath: string,
@@ -137,14 +147,6 @@ function spawnServerProcess(
         `[${options.binaryName} stderr] ${data.toString().trimEnd()}`,
       ),
     );
-  }
-  if (options.unref) {
-    child.unref();
-  }
-  if (options.unrefStdio) {
-    // The stdio pipes are net.Sockets at runtime but typed as Readable.
-    (child.stdout as unknown as { unref?: () => void } | null)?.unref?.();
-    (child.stderr as unknown as { unref?: () => void } | null)?.unref?.();
   }
   return child;
 }
@@ -433,6 +435,9 @@ export class SpawnedProcessBackend implements IpcClientAsync {
       await this.cleanupIpcPath();
       throw this.asSpawnError(err);
     }
+    if (options.unref) {
+      unrefWhenIdle(child);
+    }
     return incarnation as Incarnation;
   }
 
@@ -581,6 +586,9 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
         connectShmSyncClient(options, ipcPath),
         childReadyFailure,
       ]);
+      if (options.unref) {
+        unrefWhenIdle(child);
+      }
       return new SpawnedProcessBackendSync(
         options,
         child,

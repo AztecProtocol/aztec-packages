@@ -1,7 +1,6 @@
 #!/usr/bin/env node
+import { findBbBinary } from '@aztec-foundation/bb.js-api';
 import { spawnSync } from 'node:child_process';
-
-import { findBbBinary } from '../bb_backends/node/platform.js';
 
 const bin = findBbBinary();
 
