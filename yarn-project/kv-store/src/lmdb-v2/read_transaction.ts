@@ -1,9 +1,17 @@
 import { CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
 
+/**
+ * Reads against the store. When constructed with the id of a native read transaction, every read and iteration is
+ * routed through it, so they all observe the same snapshot; otherwise each operation reads whatever is committed at
+ * the time it runs.
+ */
 export class ReadTransaction {
   protected open = true;
 
-  constructor(protected channel: LMDBMessageChannel) {}
+  constructor(
+    protected channel: LMDBMessageChannel,
+    protected readonly txId?: number,
+  ) {}
 
   public close(): void {
     if (!this.open) {
@@ -20,13 +28,21 @@ export class ReadTransaction {
 
   public async get(key: Uint8Array): Promise<Uint8Array | undefined> {
     this.assertIsOpen();
-    const response = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.DATA });
+    const response = await this.channel.sendMessage(LMDBMessageType.GET, {
+      keys: [key],
+      db: Database.DATA,
+      txId: this.txId ?? null,
+    });
     return response.values[0]?.[0] ?? undefined;
   }
 
   public async getIndex(key: Uint8Array): Promise<Uint8Array[]> {
     this.assertIsOpen();
-    const response = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.INDEX });
+    const response = await this.channel.sendMessage(LMDBMessageType.GET, {
+      keys: [key],
+      db: Database.INDEX,
+      txId: this.txId ?? null,
+    });
     return response.values[0] ?? [];
   }
 
@@ -74,6 +90,7 @@ export class ReadTransaction {
         count: typeof limit === 'number' ? Math.min(limit, CURSOR_PAGE_SIZE) : CURSOR_PAGE_SIZE,
         onePage: typeof limit === 'number' && limit < CURSOR_PAGE_SIZE,
         db,
+        txId: this.txId ?? null,
       });
 
       cursor = response.cursor ?? undefined;
@@ -133,6 +150,7 @@ export class ReadTransaction {
         count: 0,
         onePage: false,
         db,
+        txId: this.txId ?? null,
       });
 
       cursor = response.cursor ?? undefined;
