@@ -67,10 +67,29 @@ deploy these must be set:
 | `protocolContractsHash` | set | same |
 | `genesisArchiveRoot` | set | same; must be below the BN254 scalar field modulus |
 | `initialEthPerFeeAsset` | **TODO — stale** | E12 ETH-per-fee-asset price; refresh at deploy time |
+| `rewardOverrideRegistry0/1` | **TODO — zero** | ATP registries (auction, genesis sale); addresses live in ignition-contracts |
+| `rewardOverrideSequencerReward0/1` | **TODO — zero** | per-registry sequencer reward; each must be <= 450e18 |
 | `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e` |
 
 `run()` refuses to proceed while any of the three genesis roots is zero. The other fields have no
 such guard — `initialEthPerFeeAsset` will deploy silently at whatever value is in the table.
+
+The reward overrides deserve particular care, because every way of getting them wrong is silent:
+
+- All-zero is a valid configuration and means "no overrides": ATP validators from both programmes
+  earn the full default sequencer share. Nothing warns you.
+- A registry address is matched by exact equality against what
+  `staker.getATP().getRegistry()` returns for a validator. Nothing at deploy time checks the
+  address is a registry, or a contract at all, so a wrong-but-plausible address deploys happily
+  and is simply never matched — same observable result as no override.
+- Overrides only ever reduce: the constructor rejects a `sequencerReward` above
+  `checkpointReward * sequencerBps` (450e18 at the values in the table) and the reward path takes
+  `min(default, override)`, so too high a value cannot pay anyone more than the default.
+- A zero registry must carry a zero reward, and the two registries must differ; both are rejected
+  at construction.
+
+Confirm each address against ignition-contracts, and read them back with
+`getRegistryRewardOverrides()` after the deploy.
 
 The three genesis values are produced by the protocol circuits / node build, not by anything in
 `l1-contracts`. Get them from the same source the v6 release uses; do not carry v5's forward.

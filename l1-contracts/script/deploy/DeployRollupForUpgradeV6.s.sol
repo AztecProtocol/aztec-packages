@@ -175,9 +175,9 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
    *      Values track v5 production unless a comment says otherwise; each line records the v5
    *      value so any intentional v6 divergence is visible as a divergence.
    */
-  /// @dev `virtual` so a test can supply the three genesis roots and exercise the rest of this
-  ///      table for real. Nothing else about it is overridable, and nothing in the deploy path
-  ///      overrides it: `run()` still refuses to deploy while the roots are zero.
+  /// @dev `virtual` so a test can zero the genesis roots and exercise `run()`'s refusal to deploy
+  ///      without them. Nothing else about it is overridable, and nothing in the deploy path
+  ///      overrides it.
   function _config() internal view virtual returns (Config memory c) {
     c = Config({
       // Emitted by the protocol circuits and protocol contracts built at aztec-packages

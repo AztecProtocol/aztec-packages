@@ -16,32 +16,16 @@ import {V6UpgradePayload} from "@aztec/periphery/V6UpgradePayload.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 /**
- * @dev The deploy script with the three genesis roots replaced by stand-ins, and nothing else
- *      changed.
+ * @dev The deploy script with the governance simulation stubbed out, and nothing else changed.
  *
- *      The roots are opaque commitments from the circuits build and move whenever it is rebuilt;
- *      every other literal is a protocol parameter the constructors have opinions about, and those
- *      opinions are what this tests. Substituting them keeps these tests from failing on a rebuild
- *      that has nothing to do with the table.
+ *      Every literal in the table is the real one, the genesis roots included: these tests deploy
+ *      the table as written and let the constructors pass judgement on it.
  */
 contract V6ConfigHarness is DeployRollupForUpgradeV6 {
-  /// @dev BN254 Fr. The roots are field elements, not arbitrary bytes32 -- the Rollup rejects
-  ///      anything at or above this with `Rollup__FieldElementOutOfRange`, so a stand-in has to be
-  ///      reduced into the field or it fails for a reason that has nothing to do with the config.
-  uint256 internal constant FR =
-    21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_617;
-
   /// @dev The governance simulation needs forked state -- real voters, mainnet timings -- and is
   ///      the one step of `run()` a local stack cannot satisfy. Skipped here so the config table
   ///      itself can be exercised; the simulation is what runs on deploy day, against a fork.
   function _simulate(address) internal override {}
-
-  function _config() internal view override returns (Config memory c) {
-    c = super._config();
-    c.vkTreeRoot = bytes32(uint256(keccak256("vkTreeRoot")) % FR);
-    c.protocolContractsHash = bytes32(uint256(keccak256("protocolContractsHash")) % FR);
-    c.genesisArchiveRoot = bytes32(uint256(keccak256("genesisArchiveRoot")) % FR);
-  }
 }
 
 /// @dev The table with its genesis roots zeroed, so the guard in `run()` is still exercised now
