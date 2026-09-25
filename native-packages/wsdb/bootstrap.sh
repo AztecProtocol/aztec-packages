@@ -19,8 +19,6 @@ function generate_ts_package {
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$WSDB_SCHEMA" \
     --lang ts \
-    --client \
-    --out "$PKG/ts/src/generated" \
     --package "$PKG/ts" \
     --package-name @aztec-foundation/wsdb \
     --binary-name "$WSDB_BINARY" \
@@ -45,7 +43,7 @@ function build {
   build_native
   npm_install_deps
   yarn build
-  (cd ts && ./scripts/prepare_arch_packages.sh "$(arch)-$(os)=build/$(arch)-$(os)/$WSDB_BINARY")
+  (cd ts && npm run prepare_arch_packages -- "$(arch)-$(os)=build/$(arch)-$(os)/$WSDB_BINARY")
 }
 
 # Emit test commands for the CI test engine. The decoupled wsdb_tests use no
@@ -71,7 +69,7 @@ function release {
   build_native
   npm_install_deps
   yarn build
-  (cd ts && ./scripts/prepare_arch_packages.sh)
+  (cd ts && npm run prepare_arch_packages)
   for package_dir in ts/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done

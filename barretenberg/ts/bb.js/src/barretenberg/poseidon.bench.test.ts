@@ -1,5 +1,3 @@
-import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { Barretenberg, BarretenbergSync } from '../index.js';
 import { BackendType } from './index.js';
 import { Fr } from './testing/fields.js';
@@ -25,14 +23,8 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
   let nativeSocketApi: Barretenberg | null = null;
   let nativeShmApi: Barretenberg | null = null;
   let nativeShmSyncApi: BarretenbergSync | null = null;
-  let wasm: BarretenbergWasmMain;
 
   beforeAll(async () => {
-    // Setup direct WASM access for baseline benchmark (always required)
-    wasm = new BarretenbergWasmMain();
-    const { module } = await fetchModuleAndThreads(1);
-    await wasm.init(module, 1);
-
     // Setup WASM API
     try {
       wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true });

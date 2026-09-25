@@ -1,10 +1,9 @@
-import { BackendOptions, BackendType } from '../bb_backends/index.js';
-import { IMsgpackBackendAsync, IMsgpackBackendSync } from '../bb_backends/interface.js';
-import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
-import { BBApiException } from '../bbapi_exception.js';
+import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
+import type { IpcClientAsync } from '@aztec-foundation/ipc-runtime';
+
+import { BackendOptions, BackendType } from '../backends/index.js';
+import { createAsyncBackend, createSyncBackend } from '../backends/node/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { AsyncApi } from '../generated/async.js';
-import { SyncApi } from '../generated/sync.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
@@ -21,7 +20,7 @@ export {
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './backend.js';
-export * from '../bb_backends/index.js';
+export * from '../backends/index.js';
 
 export type CircuitOptions = {
   /** @description Whether to produce SNARK friendly proofs */
@@ -35,8 +34,8 @@ export type CircuitOptions = {
 export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
 
-  constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
-    super(backend, message => new BBApiException(message));
+  constructor(backend: IpcClientAsync, options: BackendOptions) {
+    super(backend);
     this.options = options;
   }
 
@@ -54,11 +53,8 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
-      if (
-        !options.skipSrsInit &&
-        (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)
-      ) {
-        await backend.initSRSChonk(options.srsSize);
+      if (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker) {
+        await backend.initWasm();
       }
       return backend;
     }
@@ -69,18 +65,27 @@ export class Barretenberg extends AsyncApi {
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
-        if (!options.skipSrsInit) {
-          await backend.initSRSChonk(options.srsSize);
-        }
+        await backend.initWasm();
         return backend;
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
       const backend = new Barretenberg(await createAsyncBackend(BackendType.WasmWorker, options, logger), options);
-      if (!options.skipSrsInit) {
-        await backend.initSRSChonk(options.srsSize);
-      }
+      await backend.initWasm();
       return backend;
+    }
+  }
+
+  /**
+   * A WASM backend starts with no SRS loaded (a native bb reads its own), and with its code
+   * unoptimized by the engine's baseline tier until it has run.
+   */
+  private async initWasm(): Promise<void> {
+    if (!this.options.skipSrsInit) {
+      await this.initSRSChonk(this.options.srsSize);
+    }
+    if (this.options.warmup) {
+      await this.warmup({});
     }
   }
 
@@ -185,10 +190,6 @@ let barretenbergSyncSingletonPromise: Promise<BarretenbergSync> | undefined;
 let barretenbergSyncSingleton: BarretenbergSync | undefined;
 
 export class BarretenbergSync extends SyncApi {
-  constructor(backend: IMsgpackBackendSync) {
-    super(backend, message => new BBApiException(message));
-  }
-
   /**
    * Create a new BarretenbergSync instance.
    *

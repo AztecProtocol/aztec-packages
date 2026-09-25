@@ -12,12 +12,65 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aztec-foundation/bb.js-api-darwin-arm64@portal:../ts/bb.js-api/packages/bb.js-api-darwin-arm64::locator=%40aztec%2Facir-tests%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-darwin-arm64@portal:../ts/bb.js-api/packages/bb.js-api-darwin-arm64::locator=%40aztec%2Facir-tests%40workspace%3A."
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec-foundation/bb.js-api-darwin-x64@portal:../ts/bb.js-api/packages/bb.js-api-darwin-x64::locator=%40aztec%2Facir-tests%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-darwin-x64@portal:../ts/bb.js-api/packages/bb.js-api-darwin-x64::locator=%40aztec%2Facir-tests%40workspace%3A."
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec-foundation/bb.js-api-linux-arm64@portal:../ts/bb.js-api/packages/bb.js-api-linux-arm64::locator=%40aztec%2Facir-tests%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-linux-arm64@portal:../ts/bb.js-api/packages/bb.js-api-linux-arm64::locator=%40aztec%2Facir-tests%40workspace%3A."
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec-foundation/bb.js-api-linux-x64@portal:../ts/bb.js-api/packages/bb.js-api-linux-x64::locator=%40aztec%2Facir-tests%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-linux-x64@portal:../ts/bb.js-api/packages/bb.js-api-linux-x64::locator=%40aztec%2Facir-tests%40workspace%3A."
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec-foundation/bb.js-api@portal:../ts/bb.js-api::locator=%40aztec%2Facir-tests%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api@portal:../ts/bb.js-api::locator=%40aztec%2Facir-tests%40workspace%3A."
+  dependencies:
+    "@aztec-foundation/bb.js-api-darwin-arm64": "npm:0.1.0"
+    "@aztec-foundation/bb.js-api-darwin-x64": "npm:0.1.0"
+    "@aztec-foundation/bb.js-api-linux-arm64": "npm:0.1.0"
+    "@aztec-foundation/bb.js-api-linux-x64": "npm:0.1.0"
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+  dependenciesMeta:
+    "@aztec-foundation/bb.js-api-darwin-arm64":
+      optional: true
+    "@aztec-foundation/bb.js-api-darwin-x64":
+      optional: true
+    "@aztec-foundation/bb.js-api-linux-arm64":
+      optional: true
+    "@aztec-foundation/bb.js-api-linux-x64":
+      optional: true
+  bin:
+    bb: ./dest/bin.js
+  languageName: node
+  linkType: soft
+
 "@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=bbjs-test%40workspace%3Abbjs-test":
   version: 0.0.0-use.local
   resolution: "@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=bbjs-test%40workspace%3Abbjs-test"
   dependencies:
+    "@aztec-foundation/bb.js-api": "workspace:^"
     "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
-    comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     idb-keyval: "npm:^6.2.1"
     msgpackr: "npm:^1.11.2"
@@ -32,8 +85,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=browser-test-app%40workspace%3Abrowser-test-app"
   dependencies:
+    "@aztec-foundation/bb.js-api": "workspace:^"
     "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
-    comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     idb-keyval: "npm:^6.2.1"
     msgpackr: "npm:^1.11.2"
@@ -47,6 +100,8 @@ __metadata:
 "@aztec-foundation/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Facir-tests%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec-foundation/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Facir-tests%40workspace%3A."
+  bin:
+    ipc-runtime-prepare-arch-packages: ./scripts/prepare_arch_packages.mjs
   languageName: node
   linkType: soft
 
@@ -1599,13 +1654,6 @@ __metadata:
   version: 2.0.20
   resolution: "colorette@npm:2.0.20"
   checksum: 10c0/e94116ff33b0ff56f3b83b9ace895e5bf87c2a7a47b3401b8c3f3226e050d5ef76cf4072fb3325f9dc24d1698f9b730baf4e05eeaf861d74a1883073f4c98a40
-  languageName: node
-  linkType: hard
-
-"comlink@npm:^4.4.1":
-  version: 4.4.2
-  resolution: "comlink@npm:4.4.2"
-  checksum: 10c0/38aa1f455cf08e94aaa8fc494fd203cc0ef02ece6c21404b7931ce17567e8a72deacddab98aa5650cfd78332ff24c34610586f6fb27fd19dc77e753ed1980deb
   languageName: node
   linkType: hard
 
