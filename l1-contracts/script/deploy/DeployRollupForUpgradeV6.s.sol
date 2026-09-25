@@ -168,6 +168,12 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     // configured: the payload reads both off the registry and the rollup, which is what makes this
     // work unchanged on a chain whose distributor and fee asset differ.
     uint256 earmarkAmountForPredecessor;
+    // Rewrites the OUTGOING rollup's reward split as part of the upgrade. Nothing here touches the
+    // new rollup, which keeps `sequencerBps` and `checkpointReward` from this same table. Gated by
+    // a flag because both 0 and 10000 bps are real splits, so no value can mean "leave it alone".
+    bool retunePredecessorRewards;
+    uint16 predecessorSequencerBps;
+    uint96 predecessorCheckpointReward;
     // The flush rewarder serving the rollup being replaced, or zero on a chain that has none.
     // A FlushRewarder is immutably bound to one rollup, so v6 needs its own; the payload deploys
     // the replacement and moves the outgoing one's unowed balance across.
@@ -245,6 +251,9 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       escapeHatchProposingExitDelay: 30 days, // v5 production; also the maximum the constructor allows
       enforcePayloadExecutionWindow: true,
       earmarkAmountForPredecessor: 0, // TODO: balance to reserve for v5; zero omits the reservation
+      retunePredecessorRewards: false, // TODO: flip once the two values below are agreed
+      predecessorSequencerBps: 0, // TODO: v5's sequencer share after the upgrade (<= 10000)
+      predecessorCheckpointReward: 0, // TODO: v5's checkpoint reward after the upgrade
       oldFlushRewarder: 0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e // bound to the v5 rollup
     });
 
@@ -267,6 +276,9 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       // Testnet upgrades are executed on demand, so the office-hours restriction is mainnet only.
       c.enforcePayloadExecutionWindow = false;
       c.earmarkAmountForPredecessor = 0; // TODO: fund the Sepolia distributor first, then set
+      c.retunePredecessorRewards = false; // TODO: mirror whatever mainnet settles on
+      c.predecessorSequencerBps = 0; // TODO
+      c.predecessorCheckpointReward = 0; // TODO
         // Sepolia has no flush rewarder to migrate, so the payload skips that action entirely.
         // Leaving the mainnet address here would make the payload constructor revert, since it
         // reads the outgoing rewarder's asset and rate.
@@ -362,14 +374,8 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
 
     // The rollup has been owned by governance since construction, so nothing owner-gated happens
     // here and there is no ownership to transfer. The hatch is installed by the payload.
-    V6UpgradePayload payload = new V6UpgradePayload(
-      registry,
-      IInstance(address(rollup)),
-      IEscapeHatch(address(escapeHatch)),
-      FlushRewarder(c.oldFlushRewarder),
-      c.enforcePayloadExecutionWindow,
-      c.earmarkAmountForPredecessor
-    );
+    // Constructed in a helper purely to keep `run` inside the stack limit.
+    V6UpgradePayload payload = _deployPayload(c, registry, rollup, escapeHatch);
 
     vm.stopBroadcast();
 
@@ -437,6 +443,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     Registry registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
     assertEq(p.EARMARK_AMOUNT(), c.earmarkAmountForPredecessor, "earmark amount");
     assertEq(p.PREDECESSOR(), address(registry.getCanonicalRollup()), "earmark recipient is not the outgoing rollup");
+    assertEq(p.RETUNE_PREDECESSOR_REWARDS(), c.retunePredecessorRewards, "retune flag");
+    assertEq(p.PREDECESSOR_SEQUENCER_BPS(), c.predecessorSequencerBps, "predecessor sequencerBps");
+    assertEq(p.PREDECESSOR_CHECKPOINT_REWARD(), c.predecessorCheckpointReward, "predecessor checkpointReward");
+
     if (c.earmarkAmountForPredecessor > 0) {
       assertEq(address(p.REWARD_DISTRIBUTOR()), address(registry.getRewardDistributor()), "earmark distributor");
       assertEq(address(p.REWARD_ASSET()), address(Rollup(_rollup).getFeeAsset()), "earmark reward asset");
@@ -585,6 +595,24 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
 
     // The deploy is only safe to hand to governance if governance actually controls it.
     assertEq(_rollup.owner(), _registry.getGovernance(), "rollup owner should be governance");
+  }
+
+  /// @dev Split out of {run} only so that function stays within the EVM stack limit.
+  function _deployPayload(Config memory _c, Registry _registry, Rollup _rollup, EscapeHatch _escapeHatch)
+    private
+    returns (V6UpgradePayload)
+  {
+    return new V6UpgradePayload(
+      _registry,
+      IInstance(address(_rollup)),
+      IEscapeHatch(address(_escapeHatch)),
+      FlushRewarder(_c.oldFlushRewarder),
+      _c.enforcePayloadExecutionWindow,
+      _c.earmarkAmountForPredecessor,
+      _c.retunePredecessorRewards,
+      _c.predecessorSequencerBps,
+      _c.predecessorCheckpointReward
+    );
   }
 
   function _genesisState(Config memory _c) private pure returns (GenesisState memory) {

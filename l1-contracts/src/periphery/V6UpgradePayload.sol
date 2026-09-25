@@ -4,7 +4,9 @@ pragma solidity >=0.8.27;
 
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
+import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {Bps, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {IGSECore} from "@aztec/governance/GSE.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
@@ -82,6 +84,18 @@ contract V6UpgradePayload is IPayload {
   ///      bucket first. Whatever is reserved here is subtracted from what {ROLLUP} can claim.
   uint256 public immutable EARMARK_AMOUNT;
 
+  /// @notice Whether to retune {PREDECESSOR}'s reward split before it stops being canonical.
+  bool public immutable RETUNE_PREDECESSOR_REWARDS;
+
+  /// @notice The sequencer share, in basis points, to leave {PREDECESSOR} on.
+  /// @dev Applies to the OUTGOING rollup only. {ROLLUP} keeps whatever the deploy script gave it.
+  ///      A flag gates this rather than a sentinel value, because both zero and 10000 are
+  ///      meaningful splits and neither can stand in for "leave it alone".
+  uint16 public immutable PREDECESSOR_SEQUENCER_BPS;
+
+  /// @notice The checkpoint reward to leave {PREDECESSOR} on.
+  uint96 public immutable PREDECESSOR_CHECKPOINT_REWARD;
+
   /// @notice Thrown when the supplied flush rewarder serves a rollup other than the outgoing one.
   error V6UpgradePayload__FlushRewarderRollupMismatch(address served, address outgoing);
 
@@ -104,6 +118,9 @@ contract V6UpgradePayload is IPayload {
    *        flush-incentive migration entirely
    * @param _enforceExecutionWindow Whether to restrict execution to UK office hours
    * @param _earmarkAmount Reward-pool balance to reserve for the outgoing rollup, or zero for none
+   * @param _retunePredecessorRewards Whether to rewrite the outgoing rollup's reward split
+   * @param _predecessorSequencerBps The sequencer share to leave the outgoing rollup on
+   * @param _predecessorCheckpointReward The checkpoint reward to leave the outgoing rollup on
    */
   constructor(
     IRegistry _registry,
@@ -111,7 +128,10 @@ contract V6UpgradePayload is IPayload {
     IEscapeHatch _escapeHatch,
     FlushRewarder _oldFlushRewarder,
     bool _enforceExecutionWindow,
-    uint256 _earmarkAmount
+    uint256 _earmarkAmount,
+    bool _retunePredecessorRewards,
+    uint16 _predecessorSequencerBps,
+    uint96 _predecessorCheckpointReward
   ) {
     REGISTRY = _registry;
     ROLLUP = _rollup;
@@ -128,6 +148,9 @@ contract V6UpgradePayload is IPayload {
     EARMARK_AMOUNT = _earmarkAmount;
     REWARD_DISTRIBUTOR = _earmarkAmount > 0 ? _registry.getRewardDistributor() : IRewardDistributor(address(0));
     REWARD_ASSET = _earmarkAmount > 0 ? _rollup.getFeeAsset() : IERC20(address(0));
+    RETUNE_PREDECESSOR_REWARDS = _retunePredecessorRewards;
+    PREDECESSOR_SEQUENCER_BPS = _predecessorSequencerBps;
+    PREDECESSOR_CHECKPOINT_REWARD = _predecessorCheckpointReward;
 
     // Read ONCE and bound as an immutable, so the rewarder check below and the execution-time
     // guard are talking about the same rollup by construction. Unconditional, so this reverts
@@ -179,7 +202,10 @@ contract V6UpgradePayload is IPayload {
 
     // Always: predecessor guard, setEscapeHatch, Registry.addRollup, GSE.addRollup.
     IPayload.Action[] memory res = new IPayload
-      .Action[](4 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (earmark ? 2 : 0) + (migrateFlushRewarder ? 1 : 0));
+      .Action[](
+      4 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (earmark ? 2 : 0) + (RETUNE_PREDECESSOR_REWARDS ? 1 : 0)
+        + (migrateFlushRewarder ? 1 : 0)
+    );
 
     // FIRST, before the window and before anything is written: this payload only authorises a
     // transition FROM the rollup that was canonical when it was deployed.
@@ -231,6 +257,26 @@ contract V6UpgradePayload is IPayload {
       // governance can never grant one: `Governance.execute` refuses any action targeting the
       // asset. Routing through this contract is what makes the round trip possible at all.
       res[next++] = Action({target: address(this), data: abi.encodeWithSelector(this.forwardEarmark.selector)});
+    }
+
+    if (RETUNE_PREDECESSOR_REWARDS) {
+      // Retunes the OUTGOING rollup's split, and must also land before `Registry.addRollup`: the
+      // point is for it to be in force for whatever {PREDECESSOR} still settles on its way out.
+      // {ROLLUP} is untouched and keeps the values it was constructed with.
+      //
+      // `setRewardConfig` has no cooldown and no step cap -- unlike `setProvingCostPerMana` and
+      // `setProtocolFeeMargin`, which are both rate limited -- so this lands the moment the payload
+      // executes. The split is read at PROOF time, so it also reaches checkpoints already proposed
+      // under the old split but not yet proven.
+      res[next++] = Action({
+        target: PREDECESSOR,
+        data: abi.encodeWithSelector(
+          IRollupCore.setRewardConfig.selector,
+          MutableRewardConfig({
+            sequencerBps: Bps.wrap(PREDECESSOR_SEQUENCER_BPS), checkpointReward: PREDECESSOR_CHECKPOINT_REWARD
+          })
+        )
+      });
     }
 
     // Installs the escape hatch, BEFORE the rollup becomes canonical. `setEscapeHatch` is

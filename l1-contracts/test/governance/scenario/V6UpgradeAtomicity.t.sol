@@ -226,7 +226,9 @@ contract V6UpgradeAtomicityTest is TestBase {
     // Window off: this file is about atomicity, and the clock would only add a second reason to
     // revert. The window itself is covered in test/periphery/V6UpgradePayload.t.sol.
     IEscapeHatch hatch = IEscapeHatch(address(new StubEscapeHatch(address(newRollup))));
-    return new V6UpgradePayload(IRegistry(address(registry)), IInstance(address(newRollup)), hatch, _old, false, 0);
+    return new V6UpgradePayload(
+      IRegistry(address(registry)), IInstance(address(newRollup)), hatch, _old, false, 0, false, 0, 0
+    );
   }
 
   /// @dev Signal → submit → vote → warp, leaving the proposal Executable.
