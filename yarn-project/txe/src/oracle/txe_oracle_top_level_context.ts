@@ -286,6 +286,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     secret: Fr,
     salt: Fr,
     deployer: AztecAddress,
+    immutablesHash: Fr,
   ): Promise<Fr[]> {
     const { artifact, instance } = await this.artifactResolver.resolveDeployArtifact({
       rootPath: this.rootPath,
@@ -296,6 +297,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       secret,
       salt,
       deployer,
+      immutablesHash,
     });
 
     // Emit deployment nullifier

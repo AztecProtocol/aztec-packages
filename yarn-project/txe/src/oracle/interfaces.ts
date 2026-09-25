@@ -68,6 +68,7 @@ export interface ITxeExecutionOracle {
     secret: Fr,
     salt: Fr,
     deployer: AztecAddress,
+    immutablesHash: Fr,
   ): Promise<Fr[]>;
   createAccount(secret: Fr, partialAddress: Fr): Promise<CompleteAddress>;
   addAccount(secret: Fr): Promise<CompleteAddress>;

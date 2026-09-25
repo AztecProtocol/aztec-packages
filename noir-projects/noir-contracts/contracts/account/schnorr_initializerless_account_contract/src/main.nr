@@ -1,5 +1,7 @@
 use aztec::{macros::{aztec, AztecConfig}, messages::discovery::do_sync_state_no_op};
 
+mod test;
+
 #[aztec(AztecConfig::new().custom_sync_state(do_sync_state_no_op))]
 pub contract SchnorrInitializerlessAccount {
     use aztec::{
