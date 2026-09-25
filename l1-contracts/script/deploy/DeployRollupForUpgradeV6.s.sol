@@ -268,6 +268,15 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       c.rewardOverrideSequencerReward0 = 0; // TODO: must be <= 450e18
       c.rewardOverrideRegistry1 = address(0); // TODO: Sepolia ATP registry, or leave zero if none exists
       c.rewardOverrideSequencerReward1 = 0; // TODO: must be <= 450e18
+      // Admit 12 validators per epoch rather than mainnet's 4, so testnet's queue drains at a
+      // rate that suits testing. All three move together: the bootstrap phase returns
+      // `bootstrapFlushSize` directly, the normal phase floors at `normalFlushSizeMin`, and
+      // `maxFlushSize` caps both, so raising fewer than three leaves the old value binding.
+      // `normalFlushSizeQuotient` stays at 400: `setSize / 400` only passes 12 above 4800
+      // validators, and the cap holds it at 12 there anyway.
+      c.entryQueueBootstrapFlushSize = 12; // v5 Sepolia production: 4
+      c.entryQueueNormalFlushSizeMin = 12; // v5 Sepolia production: 1
+      c.entryQueueMaxFlushSize = 12; // v5 Sepolia production: 4
       return c;
     }
 
