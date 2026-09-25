@@ -254,7 +254,7 @@ std::span<const uint8_t> SocketServer::receive(int client_id, uint64_t& request_
         }
         total_read += static_cast<size_t>(n);
     }
-    msg_len -= FRAME_ID_SIZE;
+    msg_len -= static_cast<uint32_t>(FRAME_ID_SIZE);
 
     // Resize buffer if needed to fit length prefix + message
     size_t total_size = sizeof(uint32_t) + msg_len;

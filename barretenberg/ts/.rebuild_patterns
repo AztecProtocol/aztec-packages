@@ -3,4 +3,6 @@
 ^ipc-codegen/src/.*\.ts$
 ^ipc-codegen/templates/
 ^barretenberg/cpp/src/barretenberg/avm/avm_schema\.json$
+^barretenberg/cpp/src/barretenberg/bbapi/bb_schema\.json$
+^barretenberg/cpp/src/barretenberg/bbapi/bb_curve_constants\.json$
 ^barretenberg/cpp/src/barretenberg/cdb/cdb_schema\.json$
