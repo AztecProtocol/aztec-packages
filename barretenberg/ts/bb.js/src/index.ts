@@ -16,8 +16,15 @@ export {
 } from './barretenberg/index.js';
 
 export { randomBytes } from './random/index.js';
-export { splitHonkProof, reconstructHonkProof, deflattenFields, type ProofData } from './proof/index.js';
-export { BBApiException } from './bbapi_exception.js';
+export { splitHonkProof, reconstructHonkProof, deflattenFields, type ProofData } from './proof.js';
+/**
+ * `BbError` is thrown when bb answers a command with an error rather than a result. It comes from
+ * the generated API, so the async and sync classes throw the same one, on every backend (bb's
+ * wasm builds with exceptions, so a handler that throws is answered with an error response too).
+ *
+ * BBApiException is the name the previous API used, kept so existing callers keep compiling.
+ */
+export { BbError, BbError as BBApiException } from '@aztec-foundation/bb.js-api';
 
 // Export Point types for use in foundation and other packages
 export type {
@@ -28,9 +35,9 @@ export type {
   GrumpkinPoint,
   Secp256k1Point,
   Secp256r1Point,
-} from './generated/api_types.js';
+} from '@aztec-foundation/bb.js-api';
 
-export { toChonkProof } from './generated/api_types.js';
+export { toChonkProof } from '@aztec-foundation/bb.js-api';
 
 /**
  * @deprecated Fq2 coordinates are typed per curve now (see Bn254G2Point).
@@ -40,21 +47,7 @@ export type Field2 = [Uint8Array, Uint8Array];
 
 export { CircuitKind } from './circuit_kind.js';
 
-// Export curve constants for use in foundation
-export {
-  BN254_FQ_MODULUS,
-  BN254_FR_MODULUS,
-  BN254_G1_GENERATOR,
-  BN254_G2_GENERATOR,
-  GRUMPKIN_FR_MODULUS,
-  GRUMPKIN_FQ_MODULUS,
-  GRUMPKIN_G1_GENERATOR,
-  SECP256K1_FR_MODULUS,
-  SECP256K1_FQ_MODULUS,
-  SECP256K1_G1_GENERATOR,
-  SECP256R1_FR_MODULUS,
-  SECP256R1_FQ_MODULUS,
-  SECP256R1_G1_GENERATOR,
-} from './generated/curve_constants.js';
+// Curve constants, for callers doing their own field arithmetic.
+export * from './curve_constants.js';
 
-export { findBbBinary } from './bb_backends/node/platform.js';
+export { findBbBinary } from './backends/node/index.js';

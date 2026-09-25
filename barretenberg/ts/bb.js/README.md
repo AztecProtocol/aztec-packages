@@ -44,6 +44,25 @@ If `1` is specified, fallback to non multi-threaded wasm that doesn't need share
 
 See `src/main.ts` for larger example of how to use.
 
+### How bb is reached
+
+The typed API (`Barretenberg` extends it) and every way of reaching bb come from the
+`@aztec-foundation/bb.js-api` package, generated from bb's schema by ipc-codegen; bb.js adds the facades,
+its `BackendType` options and CRS handling. That package ships the bb binary as per-platform optional
+dependencies (override with `bbPath` or `BB_BINARY_PATH`) and bb's wasm modules (single-thread and threads
+builds), run in-process through `@aztec-foundation/ipc-runtime/wasm`: the module in a worker, wasi threads
+on further workers. Pass `warmup: true` to run bb's `Warmup` command after initialization, which takes the
+prover's hot loops through the engine's optimizing tier before the first real request. bb.js itself only
+bundles bb's LMDB NAPI module (`findNapiBinary`).
+
+The wasm modules ship uncompressed and are fetched as ordinary assets, so the browser streams them
+straight into `WebAssembly.compileStreaming` and can cache the compiled code between visits. That means
+serving them with your host's own compression: most CDNs compress `application/wasm` by default, but nginx
+does not unless `application/wasm` is added to `gzip_types`. Where you cannot compress on the wire, pass
+`wasmPath` (or set `BB_WASM_PATH` in node) pointing at a gzipped copy — the loader recognises gzip, at the
+cost of the compiled-code cache. `wasmPath` also takes any other build of the module, and is used verbatim:
+unlike earlier versions, bb.js no longer rewrites the filename to pick a `-threads` variant.
+
 ### Browser Context
 
 It's recommended to use a dynamic import. This allows the developer to pick the time at which the package (several MB
@@ -52,6 +71,11 @@ in size) is loaded and keeps page load times responsive.
 ```typescript
 const { Barretenberg, RawBuffer, Crs } = await import('@aztec-foundation/bb.js');
 ```
+
+The worker scripts and the wasm modules are referenced with `new URL('...', import.meta.url)` (the workers as
+`new Worker(new URL(...), { type: 'module' })`), which webpack 5, Vite and similar bundlers turn into chunks and
+assets of your application. Vite users should exclude `@aztec-foundation/bb.js` and `@aztec-foundation/bb.js-api`
+from `optimizeDeps`, so those references are resolved from the packages rather than from a pre-bundled copy.
 
 ### Multithreading in browser
 
@@ -82,10 +106,13 @@ You can enable these headers for specific pages that perform proof generation, b
 
 ## Debugging
 
-Got an unhelpful stack trace in wasm? Run:
+Got an unhelpful stack trace in wasm? Point bb.js at the unstripped module the wasm build leaves next to the
+stripped one:
 
 ```
-BUILD_CPP=1 NO_STRIP=1 ./script/copy_wasm.sh
+BB_WASM_PATH=$(git rev-parse --show-toplevel)/barretenberg/cpp/build-wasm-threads/bin/barretenberg-debug.wasm
 ```
 
-This will drop unstripped wasms into the dest folder. Run your test again to get a trace.
+(the loader takes a `.wasm` or a `.wasm.gz` either way)
+
+Run your test again to get a trace.
