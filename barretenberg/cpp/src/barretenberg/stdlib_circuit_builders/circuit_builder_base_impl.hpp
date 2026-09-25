@@ -142,6 +142,25 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     if (real_variable_tags[a_real_idx] == DEFAULT_TAG) {
         real_variable_tags[a_real_idx] = real_variable_tags[b_real_idx];
     }
+
+    // BOOMERANG_DUPLICATE_PROVENANCE: See
+    // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
+    auto a_provenance_it = witness_duplicate_provenance.find(a_real_idx);
+    auto b_provenance_it = witness_duplicate_provenance.find(b_real_idx);
+    if (a_provenance_it == witness_duplicate_provenance.end() &&
+        b_provenance_it != witness_duplicate_provenance.end()) {
+        witness_duplicate_provenance[a_real_idx] = b_provenance_it->second;
+    } else if (a_provenance_it != witness_duplicate_provenance.end() &&
+               b_provenance_it != witness_duplicate_provenance.end() &&
+               a_provenance_it->second != b_provenance_it->second) {
+        const auto old_key = b_provenance_it->second;
+        const auto new_key = a_provenance_it->second;
+        for (auto& [_, key] : witness_duplicate_provenance) {
+            if (key == old_key) {
+                key = new_key;
+            }
+        }
+    }
 }
 
 template <typename FF_>
