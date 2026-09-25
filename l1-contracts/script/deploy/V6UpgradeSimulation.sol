@@ -17,6 +17,7 @@ import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 
@@ -52,6 +53,9 @@ contract V6UpgradeSimulation is Test {
     uint256 bonusAttesters;
     uint256 rewardDistributorBalance;
     uint256 rewardDistributorAvailableToNew;
+    uint256 earmarkAmount;
+    uint256 earmarkedToPredecessorBefore;
+    uint256 totalEarmarkedBefore;
     uint256 flushFundsToMove;
     uint256 oldFlushBalance;
     uint256 newFlushBalance;
@@ -92,6 +96,11 @@ contract V6UpgradeSimulation is Test {
     IERC20 rewardAsset = IERC20(Rollup(address(_payload.ROLLUP())).getFeeAsset());
     s.rewardDistributorBalance = rewardAsset.balanceOf(address(distributor));
     s.rewardDistributorAvailableToNew = distributor.availableTo(address(_payload.ROLLUP()));
+
+    s.earmarkAmount = _payload.EARMARK_AMOUNT();
+    s.earmarkedToPredecessorBefore =
+      RewardDistributor(address(distributor)).specificRecipientBalance(_payload.PREDECESSOR());
+    s.totalEarmarkedBefore = RewardDistributor(address(distributor)).totalEarmarkedBalance();
 
     FlushRewarder oldFlush = _payload.OLD_FLUSH_REWARDER();
     if (address(oldFlush) != address(0)) {
@@ -216,15 +225,32 @@ contract V6UpgradeSimulation is Test {
     IERC20 rewardAsset = IERC20(Rollup(newRollup).getFeeAsset());
 
     assertEq(distributor.canonicalRollup(), newRollup, "distributor does not follow the new rollup");
+
+    // Unchanged whether or not an earmark ran: the reservation moves value between the
+    // distributor's buckets, it does not move value out of the distributor.
     assertEq(
       rewardAsset.balanceOf(address(distributor)),
       _before.rewardDistributorBalance,
       "distributor balance moved during the upgrade"
     );
+
+    // The reservation landed on the OUTGOING rollup, and the payload kept nothing back.
+    assertEq(
+      RewardDistributor(address(distributor)).specificRecipientBalance(_payload.PREDECESSOR()),
+      _before.earmarkedToPredecessorBefore + _before.earmarkAmount,
+      "earmark did not reach the outgoing rollup"
+    );
+    assertEq(
+      RewardDistributor(address(distributor)).totalEarmarkedBalance(),
+      _before.totalEarmarkedBefore + _before.earmarkAmount,
+      "earmark not reflected in the earmarked total"
+    );
+    assertEq(rewardAsset.balanceOf(address(_payload)), 0, "payload retained reward asset");
+    // Anything reserved for the predecessor is exactly what the new rollup no longer sees.
     assertGe(
-      distributor.availableTo(newRollup),
+      distributor.availableTo(newRollup) + _before.earmarkAmount,
       _before.rewardDistributorAvailableToNew,
-      "new rollup cannot claim what it could before"
+      "new rollup lost more than the earmark"
     );
   }
 

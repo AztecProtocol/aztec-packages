@@ -228,13 +228,13 @@ contract V6UpgradePayloadTest is TestBase {
         V6UpgradePayload.V6UpgradePayload__FlushRewarderRollupMismatch.selector, address(incoming), address(outgoing)
       )
     );
-    new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, foreign, false);
+    new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, foreign, false, 0);
   }
 
   function test_ConstructorRevertsAgainstAnEmptyRegistry() public {
     Registry empty = new Registry(address(this), IERC20(address(token)));
     vm.expectRevert(abi.encodeWithSelector(Errors.Registry__NoRollupsRegistered.selector));
-    new V6UpgradePayload(IRegistry(address(empty)), incoming, hatch, FlushRewarder(address(0)), false);
+    new V6UpgradePayload(IRegistry(address(empty)), incoming, hatch, FlushRewarder(address(0)), false, 0);
   }
 
   function test_ConstructorRevertsWhenTheHatchServesAnotherRollup() public {
@@ -246,7 +246,7 @@ contract V6UpgradePayloadTest is TestBase {
         V6UpgradePayload.V6UpgradePayload__EscapeHatchRollupMismatch.selector, address(outgoing), address(incoming)
       )
     );
-    new V6UpgradePayload(IRegistry(address(registry)), incoming, foreign, FlushRewarder(address(0)), false);
+    new V6UpgradePayload(IRegistry(address(registry)), incoming, foreign, FlushRewarder(address(0)), false, 0);
   }
 
   function test_NewRewarderIsZeroWhenThereIsNoOldOne() public {
@@ -377,7 +377,7 @@ contract V6UpgradePayloadTest is TestBase {
     if (_withRewarder) {
       token.mint(address(old), 1000e18);
     }
-    return new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, old, _window);
+    return new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, old, _window, 0);
   }
 
   function _haveVersion(IInstance _rollup) internal pure returns (IHaveVersion) {

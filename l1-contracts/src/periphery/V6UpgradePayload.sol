@@ -8,7 +8,9 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IGSECore} from "@aztec/governance/GSE.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {FlushRewarder} from "@aztec/periphery/FlushRewarder.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 /**
  * @title V6UpgradePayload
@@ -59,6 +61,27 @@ contract V6UpgradePayload is IPayload {
   /// @notice Whether execution is restricted to UK office hours. Set per chain by the deploy script.
   bool public immutable ENFORCE_EXECUTION_WINDOW;
 
+  /// @notice The distributor holding the reward pool, read off the registry at construction.
+  /// @dev Zero when {EARMARK_AMOUNT} is zero: a payload that reserves nothing has no business
+  ///      requiring the chain to have a distributor at all.
+  IRewardDistributor public immutable REWARD_DISTRIBUTOR;
+
+  /// @notice The asset that distributor pays out, read off {ROLLUP} at construction.
+  /// @dev Derived rather than configured: mainnet and Sepolia use different distributors and
+  ///      different fee assets, and both follow from the registry and the rollup, so they cannot
+  ///      drift from the chain the payload is actually pointed at.
+  IERC20 public immutable REWARD_ASSET;
+
+  /// @notice Reward-pool balance to reserve for {PREDECESSOR} before it stops being canonical.
+  ///         Zero omits the reservation entirely.
+  /// @dev The recipient is {PREDECESSOR} -- the OUTGOING rollup -- not {ROLLUP}. Earmarking to the
+  ///      incoming rollup would be pointless: it becomes canonical and gains the whole implicit
+  ///      pool regardless. The outgoing rollup is the one that loses implicit-pool access the
+  ///      moment `Registry.addRollup` runs, because the distributor resolves `canonicalRollup()`
+  ///      live off the registry, so anything it should keep has to be moved into its own earmarked
+  ///      bucket first. Whatever is reserved here is subtracted from what {ROLLUP} can claim.
+  uint256 public immutable EARMARK_AMOUNT;
+
   /// @notice Thrown when the supplied flush rewarder serves a rollup other than the outgoing one.
   error V6UpgradePayload__FlushRewarderRollupMismatch(address served, address outgoing);
 
@@ -80,13 +103,15 @@ contract V6UpgradePayload is IPayload {
    * @param _oldFlushRewarder The flush rewarder serving the outgoing rollup, or zero to skip the
    *        flush-incentive migration entirely
    * @param _enforceExecutionWindow Whether to restrict execution to UK office hours
+   * @param _earmarkAmount Reward-pool balance to reserve for the outgoing rollup, or zero for none
    */
   constructor(
     IRegistry _registry,
     IInstance _rollup,
     IEscapeHatch _escapeHatch,
     FlushRewarder _oldFlushRewarder,
-    bool _enforceExecutionWindow
+    bool _enforceExecutionWindow,
+    uint256 _earmarkAmount
   ) {
     REGISTRY = _registry;
     ROLLUP = _rollup;
@@ -98,6 +123,11 @@ contract V6UpgradePayload is IPayload {
     ESCAPE_HATCH = address(_escapeHatch);
     OLD_FLUSH_REWARDER = _oldFlushRewarder;
     ENFORCE_EXECUTION_WINDOW = _enforceExecutionWindow;
+    // Only reached for when the reservation is actually used, so a payload without one stays
+    // constructible against a registry or rollup that does not answer these.
+    EARMARK_AMOUNT = _earmarkAmount;
+    REWARD_DISTRIBUTOR = _earmarkAmount > 0 ? _registry.getRewardDistributor() : IRewardDistributor(address(0));
+    REWARD_ASSET = _earmarkAmount > 0 ? _rollup.getFeeAsset() : IERC20(address(0));
 
     // Read ONCE and bound as an immutable, so the rewarder check below and the execution-time
     // guard are talking about the same rollup by construction. Unconditional, so this reverts
@@ -128,13 +158,28 @@ contract V6UpgradePayload is IPayload {
       );
   }
 
+  /// @notice Moves everything this payload holds into the distributor, reserved for {PREDECESSOR}.
+  /// @dev Reads its own balance rather than taking an amount, so it cannot disagree with the
+  ///      `recoverFrom` action that funds it. Permissionless by design: it can only ever push the
+  ///      payload's own balance to one fixed recipient, and leaving it callable means a stray
+  ///      transfer here is recoverable rather than stranded.
+  // solhint-disable-next-line comprehensive-interface
+  function forwardEarmark() external {
+    uint256 amount = REWARD_ASSET.balanceOf(address(this));
+    REWARD_ASSET.approve(address(REWARD_DISTRIBUTOR), amount);
+    REWARD_DISTRIBUTOR.subsidizeAddress(PREDECESSOR, amount);
+  }
+
   /// @inheritdoc IPayload
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     bool migrateFlushRewarder = address(OLD_FLUSH_REWARDER) != address(0);
     uint256 next = 0;
 
-    IPayload.Action[] memory res =
-      new IPayload.Action[](2 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (migrateFlushRewarder ? 3 : 2));
+    bool earmark = EARMARK_AMOUNT > 0;
+
+    // Always: predecessor guard, setEscapeHatch, Registry.addRollup, GSE.addRollup.
+    IPayload.Action[] memory res = new IPayload
+      .Action[](4 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (earmark ? 2 : 0) + (migrateFlushRewarder ? 1 : 0));
 
     // FIRST, before the window and before anything is written: this payload only authorises a
     // transition FROM the rollup that was canonical when it was deployed.
@@ -162,6 +207,30 @@ contract V6UpgradePayload is IPayload {
     if (ENFORCE_EXECUTION_WINDOW) {
       res[next++] =
         Action({target: address(this), data: abi.encodeWithSelector(this.assertWithinExecutionWindow.selector)});
+    }
+
+    if (earmark) {
+      // Reserves part of the reward pool for the OUTGOING rollup, and must run before
+      // `Registry.addRollup` below. The distributor resolves `canonicalRollup()` live, so
+      // {PREDECESSOR} can only reach the implicit (un-earmarked) pool while it is still canonical;
+      // one action later that access is gone for good.
+      //
+      // Drawing FROM {PREDECESSOR} and earmarking back TO {PREDECESSOR} reads like a no-op and is
+      // not: it converts pool access that is about to lapse into a balance that survives, because
+      // `specificRecipientBalance` is keyed by address and is indifferent to which rollup is
+      // canonical. The predecessor guard above is what makes the draw safe -- it has already
+      // established that {PREDECESSOR} is canonical at this point.
+      res[next++] = Action({
+        target: address(REWARD_DISTRIBUTOR),
+        data: abi.encodeWithSelector(
+          IRewardDistributor.recoverFrom.selector, PREDECESSOR, address(this), EARMARK_AMOUNT
+        )
+      });
+
+      // `subsidizeAddress` pulls via `transferFrom`, so it needs an allowance from the holder, and
+      // governance can never grant one: `Governance.execute` refuses any action targeting the
+      // asset. Routing through this contract is what makes the round trip possible at all.
+      res[next++] = Action({target: address(this), data: abi.encodeWithSelector(this.forwardEarmark.selector)});
     }
 
     // Installs the escape hatch, BEFORE the rollup becomes canonical. `setEscapeHatch` is

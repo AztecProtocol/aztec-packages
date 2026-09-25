@@ -161,6 +161,13 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     // London, DST-aware). Enforced as the payload's first action, so a rejected attempt reverts
     // the whole execution and leaves the proposal executable again when the window next opens.
     bool enforcePayloadExecutionWindow;
+    // Reward-pool balance the payload reserves for the OUTGOING rollup before it stops being
+    // canonical. Zero omits the reservation. Whatever is reserved is subtracted from what the new
+    // rollup can claim, and the pool is live, so this must be set against the balance at execution
+    // time rather than a figure from deploy day. The distributor and the reward asset are NOT
+    // configured: the payload reads both off the registry and the rollup, which is what makes this
+    // work unchanged on a chain whose distributor and fee asset differ.
+    uint256 earmarkAmountForPredecessor;
     // The flush rewarder serving the rollup being replaced, or zero on a chain that has none.
     // A FlushRewarder is immutably bound to one rollup, so v6 needs its own; the payload deploys
     // the replacement and moves the outgoing one's unowed balance across.
@@ -196,9 +203,9 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       lagInEpochsForRandao: 1,
       localEjectionThreshold: 190_000e18, // v5 production: 190_000e18 (mainnet), 199_000e18 (sepolia)
       expectedGseActivationThreshold: 200_000e18, // not set here; asserted against the existing GSE. v5 production:
-      // 200_000e18
+        // 200_000e18
       expectedGseEjectionThreshold: 100_000e18, // not set here; asserted against the existing GSE. v5 production:
-      // 100_000e18
+        // 100_000e18
       exitDelaySeconds: 345_600, // 4 days. v5 production: 345_600 (mainnet), 172_800 (sepolia)
       entryQueueBootstrapValidatorSetSize: 500, // v5 production: 500.
       entryQueueBootstrapFlushSize: 4, // v5 production: 4
@@ -233,10 +240,11 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       escapeHatchFailedHatchPunishment: 9_600_000e18, // v5 production
       escapeHatchFrequency: 112, // epochs between hatches. v5 production
       escapeHatchActiveDuration: 2, // epochs. v5 production; also the minimum allowed here, being
-      // aztecProofSubmissionEpochs + 1
+        // aztecProofSubmissionEpochs + 1
       escapeHatchLagInHatches: 1, // v5 production
       escapeHatchProposingExitDelay: 30 days, // v5 production; also the maximum the constructor allows
       enforcePayloadExecutionWindow: true,
+      earmarkAmountForPredecessor: 0, // TODO: balance to reserve for v5; zero omits the reservation
       oldFlushRewarder: 0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e // bound to the v5 rollup
     });
 
@@ -258,9 +266,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       c.slashAmountLarge = 250_000e18;
       // Testnet upgrades are executed on demand, so the office-hours restriction is mainnet only.
       c.enforcePayloadExecutionWindow = false;
-      // Sepolia has no flush rewarder to migrate, so the payload skips that action entirely.
-      // Leaving the mainnet address here would make the payload constructor revert, since it
-      // reads the outgoing rewarder's asset and rate.
+      c.earmarkAmountForPredecessor = 0; // TODO: fund the Sepolia distributor first, then set
+        // Sepolia has no flush rewarder to migrate, so the payload skips that action entirely.
+        // Leaving the mainnet address here would make the payload constructor revert, since it
+        // reads the outgoing rewarder's asset and rate.
       c.oldFlushRewarder = address(0);
       // Sepolia's own ATP registries and reward amounts. The ceiling is the same 450e18 as
       // mainnet, because Sepolia does not override `checkpointReward` or `sequencerBps`.
@@ -268,12 +277,12 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       c.rewardOverrideSequencerReward0 = 0; // TODO: must be <= 450e18
       c.rewardOverrideRegistry1 = address(0); // TODO: Sepolia ATP registry, or leave zero if none exists
       c.rewardOverrideSequencerReward1 = 0; // TODO: must be <= 450e18
-      // Admit 12 validators per epoch rather than mainnet's 4, so testnet's queue drains at a
-      // rate that suits testing. All three move together: the bootstrap phase returns
-      // `bootstrapFlushSize` directly, the normal phase floors at `normalFlushSizeMin`, and
-      // `maxFlushSize` caps both, so raising fewer than three leaves the old value binding.
-      // `normalFlushSizeQuotient` stays at 400: `setSize / 400` only passes 12 above 4800
-      // validators, and the cap holds it at 12 there anyway.
+        // Admit 12 validators per epoch rather than mainnet's 4, so testnet's queue drains at a
+        // rate that suits testing. All three move together: the bootstrap phase returns
+        // `bootstrapFlushSize` directly, the normal phase floors at `normalFlushSizeMin`, and
+        // `maxFlushSize` caps both, so raising fewer than three leaves the old value binding.
+        // `normalFlushSizeQuotient` stays at 400: `setSize / 400` only passes 12 above 4800
+        // validators, and the cap holds it at 12 there anyway.
       c.entryQueueBootstrapFlushSize = 12; // v5 Sepolia production: 4
       c.entryQueueNormalFlushSizeMin = 12; // v5 Sepolia production: 1
       c.entryQueueMaxFlushSize = 12; // v5 Sepolia production: 4
@@ -358,7 +367,8 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       IInstance(address(rollup)),
       IEscapeHatch(address(escapeHatch)),
       FlushRewarder(c.oldFlushRewarder),
-      c.enforcePayloadExecutionWindow
+      c.enforcePayloadExecutionWindow,
+      c.earmarkAmountForPredecessor
     );
 
     vm.stopBroadcast();
@@ -420,6 +430,17 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       c.enforcePayloadExecutionWindow,
       "payload execution window flag"
     );
+
+    // The earmark wiring: the amount is configured, the other three are derived, so asserting them
+    // is what proves the payload is pointed at this chain's distributor rather than another's.
+    V6UpgradePayload p = V6UpgradePayload(_payload);
+    Registry registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
+    assertEq(p.EARMARK_AMOUNT(), c.earmarkAmountForPredecessor, "earmark amount");
+    assertEq(p.PREDECESSOR(), address(registry.getCanonicalRollup()), "earmark recipient is not the outgoing rollup");
+    if (c.earmarkAmountForPredecessor > 0) {
+      assertEq(address(p.REWARD_DISTRIBUTOR()), address(registry.getRewardDistributor()), "earmark distributor");
+      assertEq(address(p.REWARD_ASSET()), address(Rollup(_rollup).getFeeAsset()), "earmark reward asset");
+    }
 
     if (c.oldFlushRewarder == address(0)) {
       assertEq(address(newRewarder), address(0), "flush rewarder deployed on a chain with none to migrate");
