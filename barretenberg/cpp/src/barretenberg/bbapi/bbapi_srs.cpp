@@ -109,6 +109,10 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 
 SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    if (num_points == 0 || num_points > srs::GRUMPKIN_G1_NUM_POINTS) {
+        throw_or_abort("SrsInitGrumpkinSrs: point count is outside the pinned Grumpkin CRS");
+    }
+
     // Validate buffer size before accessing raw pointer
     const size_t required_size = static_cast<size_t>(num_points) * sizeof(curve::Grumpkin::AffineElement);
     if (points_buf.size() < required_size) {
@@ -117,10 +121,7 @@ SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest&
                        std::to_string(required_size) + ")");
     }
 
-    // Anchor whole chunks of the WASM-ingress buffer (bb.js fetches 2^16 points = one chunk).
-    if (points_buf.size() >= bb::srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES) {
-        verify_grumpkin_crs_integrity(std::span<const uint8_t>(points_buf.data(), points_buf.size()));
-    }
+    verify_grumpkin_crs_integrity(points_buf);
 
     // Parse Grumpkin affine elements from buffer
     std::vector<curve::Grumpkin::AffineElement> points(num_points);

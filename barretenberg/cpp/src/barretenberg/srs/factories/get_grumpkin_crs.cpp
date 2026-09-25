@@ -12,7 +12,12 @@ namespace bb {
 
 void verify_grumpkin_crs_integrity(std::span<const uint8_t> data)
 {
-    size_t full_chunks = std::min(data.size() / bb::srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES, bb::srs::GRUMPKIN_G1_NUM_CHUNKS);
+    if (data.empty() || data.size() > srs::GRUMPKIN_G1_SIZE_BYTES ||
+        data.size() % srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES != 0) {
+        throw_or_abort("Grumpkin CRS must contain complete pinned chunks (1 to " +
+                       std::to_string(srs::GRUMPKIN_G1_NUM_CHUNKS) + " chunks)");
+    }
+    const size_t full_chunks = data.size() / srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES;
     for (size_t c = 0; c < full_chunks; ++c) {
         auto chunk = data.subspan(c * bb::srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES, bb::srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES);
         if (bb::crypto::sha256(chunk) != bb::srs::GRUMPKIN_G1_CHUNK_HASHES[c]) {
@@ -25,58 +30,47 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
                                                                  size_t num_points,
                                                                  bool allow_download)
 {
-    std::filesystem::create_directories(path);
+    if (num_points == 0 || num_points > srs::GRUMPKIN_G1_NUM_POINTS) {
+        throw_or_abort("Grumpkin CRS point count must be between 1 and " + std::to_string(srs::GRUMPKIN_G1_NUM_POINTS));
+    }
+    const size_t chunks_needed =
+        (num_points + srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS - 1) / srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS;
+    const size_t verify_points = chunks_needed * srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS;
+    const size_t verify_bytes = verify_points * sizeof(curve::Grumpkin::AffineElement);
 
-    auto g1_path = path / "grumpkin_g1_v2.flat.dat";
-    auto lock_path = path / "crs.lock";
+    std::filesystem::create_directories(path);
+    const auto g1_path = path / "grumpkin_g1_v2.flat.dat";
+    const auto lock_path = path / "crs.lock";
     // Acquire exclusive lock to prevent simultaneous generation/writes
     FileLockGuard lock(lock_path.string());
 
-    size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(curve::Grumpkin::AffineElement);
-
-    if (g1_downloaded_points >= num_points) {
-        vinfo("using cached grumpkin crs with num points ", g1_downloaded_points, " at: ", g1_path);
-
-        // Read up to the chunk boundary covering num_points and anchor those chunks against the
-        // pinned hashes. Sub-chunk requests (only cold-generated small caches) can't form a whole
-        // chunk and fall back to the on-curve smoke check below.
-        size_t chunks_needed =
-            (num_points + bb::srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS - 1) / bb::srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS;
-        size_t verify_points = chunks_needed * bb::srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS;
-        if (chunks_needed <= bb::srs::GRUMPKIN_G1_NUM_CHUNKS && verify_points <= g1_downloaded_points) {
-            auto data = read_file(g1_path, verify_points * sizeof(curve::Grumpkin::AffineElement));
-            verify_grumpkin_crs_integrity(std::span<const uint8_t>(data.data(), data.size()));
-            std::vector<curve::Grumpkin::AffineElement> points(num_points);
-            for (uint32_t i = 0; i < num_points; ++i) {
-                points[i] =
-                    from_buffer<curve::Grumpkin::AffineElement>(data, i * sizeof(curve::Grumpkin::AffineElement));
-            }
-            return points;
+    // A short cache cannot authenticate even a smaller requested prefix against the chunk pins.
+    if (get_file_size(g1_path) >= verify_bytes) {
+        vinfo("using cached grumpkin crs with num points ", num_points, " at: ", g1_path);
+        const auto data = read_file(g1_path, verify_bytes);
+        if (data.size() != verify_bytes) {
+            throw_or_abort("Truncated Grumpkin CRS");
         }
-
-        auto data = read_file(g1_path, num_points * sizeof(curve::Grumpkin::AffineElement));
+        verify_grumpkin_crs_integrity(data);
         std::vector<curve::Grumpkin::AffineElement> points(num_points);
-        for (uint32_t i = 0; i < num_points; ++i) {
+        for (size_t i = 0; i < num_points; ++i) {
             points[i] = from_buffer<curve::Grumpkin::AffineElement>(data, i * sizeof(curve::Grumpkin::AffineElement));
         }
-        if (points[0].on_curve()) {
-            return points;
-        }
+        return points;
     }
 
-    if (!allow_download && g1_downloaded_points == 0) {
-        throw_or_abort("grumpkin g1 data not found and generation not allowed in this context");
-    } else if (!allow_download) {
-        throw_or_abort(format("grumpkin g1 data had ",
-                              g1_downloaded_points,
-                              " points and ",
-                              num_points,
-                              " were requested but generation not allowed in this context"));
+    if (!allow_download) {
+        throw_or_abort(format("Grumpkin CRS cache needs ",
+                              verify_points,
+                              " points for integrity verification, but generation is not allowed"));
     }
 
     vinfo("generating grumpkin crs...");
-    auto points = srs::generate_grumpkin_srs(num_points);
-    write_file(g1_path, to_buffer(points));
+    auto points = srs::generate_grumpkin_srs(verify_points);
+    const auto data = to_buffer(points);
+    verify_grumpkin_crs_integrity(data);
+    write_file(g1_path, data);
+    points.resize(num_points);
     return points;
 }
 } // namespace bb

@@ -8,10 +8,9 @@ namespace bb::srs {
 
 /**
  * @brief Canonical number of points in the Aztec Grumpkin SRS published at
- * `https://crs.aztec-cdn.foundation/grumpkin_g1.dat`.
+ * `https://crs.aztec-cdn.foundation/grumpkin_g1_v2.dat`.
  *
- * @details Sized for ECCVM proving (`CONST_ECCVM_LOG_N = 15`, 2^15 IPA opening rounds) with one
- * doubling of headroom. This is the size that `barretenberg/crs/bootstrap.sh` downloads.
+ * @details This is the size that `barretenberg/crs/bootstrap.sh` downloads.
  */
 inline constexpr size_t GRUMPKIN_G1_NUM_POINTS = 1ULL << 18;
 

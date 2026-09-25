@@ -109,7 +109,7 @@ TEST(CrsFactory, grumpkin)
 // Gates that bootstrap.sh produced the canonical file: every chunk matches GRUMPKIN_G1_CHUNK_HASHES.
 TEST(CrsFactory, GrumpkinG1OnDiskMatchesChunkHashes)
 {
-    auto data = bb::read_file(bb::srs::bb_crs_path() / "grumpkin_g1.flat.dat", bb::srs::GRUMPKIN_G1_SIZE_BYTES);
+    auto data = bb::read_file(bb::srs::bb_crs_path() / "grumpkin_g1_v2.flat.dat", bb::srs::GRUMPKIN_G1_SIZE_BYTES);
     ASSERT_EQ(data.size(), bb::srs::GRUMPKIN_G1_SIZE_BYTES);
     bb::verify_grumpkin_crs_integrity(std::span<const uint8_t>(data.data(), data.size()));
 }
@@ -140,7 +140,7 @@ TEST(CrsFactory, GrumpkinCacheTamperingRejected)
         bb::curve::Grumpkin::ScalarField scalar(i + 1);
         tampered[i] = AffineEl(bb::curve::Grumpkin::Element(G) * scalar);
     }
-    bb::write_file(cache_path / "grumpkin_g1.flat.dat", to_buffer(tampered));
+    bb::write_file(cache_path / "grumpkin_g1_v2.flat.dat", to_buffer(tampered));
 
     ASSERT_ANY_THROW(bb::get_grumpkin_g1_data(cache_path, /*num_points=*/8, /*allow_download=*/false));
 
@@ -269,4 +269,47 @@ TEST(CrsFactory, Bn254CacheLoadRejectsCorruptionWhenEnvVarSet)
     unsetenv("BB_VERIFY_CRS");
 
     fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, GrumpkinIntegrityRejectsUncoveredBytes)
+{
+    EXPECT_THROW(verify_grumpkin_crs_integrity({}), std::runtime_error);
+    const auto points = srs::generate_grumpkin_srs(srs::GRUMPKIN_G1_NUM_POINTS);
+    auto bytes = to_buffer(points);
+    EXPECT_NO_THROW(verify_grumpkin_crs_integrity(bytes));
+    EXPECT_THROW(verify_grumpkin_crs_integrity(std::span(bytes).first(2 * sizeof(Grumpkin::AffineElement))),
+                 std::runtime_error);
+    EXPECT_THROW(verify_grumpkin_crs_integrity(std::span(bytes).first(srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES + 64)),
+                 std::runtime_error);
+    for (size_t chunk = 0; chunk < srs::GRUMPKIN_G1_NUM_CHUNKS; ++chunk) {
+        auto corrupted = bytes;
+        corrupted[chunk * srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES + 64] ^= 1;
+        EXPECT_THROW(verify_grumpkin_crs_integrity(corrupted), std::runtime_error);
+    }
+    bytes.resize(bytes.size() + srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES);
+    EXPECT_THROW(verify_grumpkin_crs_integrity(bytes), std::runtime_error);
+}
+
+TEST(CrsFactory, GrumpkinShortCacheCannotBypassIntegrity)
+{
+    const fs::path cache_path = "barretenberg_srs_test_crs_grumpkin_short";
+    fs::remove_all(cache_path);
+    fs::create_directories(cache_path);
+    auto points = srs::generate_grumpkin_srs(2);
+    points[1] = points[0];
+    write_file(cache_path / "grumpkin_g1_v2.flat.dat", to_buffer(points));
+    EXPECT_THROW(get_grumpkin_g1_data(cache_path, 2, /*allow_download=*/false), std::runtime_error);
+    EXPECT_EQ(get_grumpkin_g1_data(cache_path, 2, /*allow_download=*/true), srs::generate_grumpkin_srs(2));
+    fs::remove_all(cache_path);
+}
+
+TEST(CrsFactory, GrumpkinGeneratedCacheCoversWholeChunks)
+{
+    const fs::path cache_path = "barretenberg_srs_test_crs_grumpkin_generated";
+    fs::remove_all(cache_path);
+    const auto expected = srs::generate_grumpkin_srs(2);
+    EXPECT_EQ(get_grumpkin_g1_data(cache_path, 2, /*allow_download=*/true), expected);
+    EXPECT_EQ(fs::file_size(cache_path / "grumpkin_g1_v2.flat.dat"), srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES);
+    EXPECT_EQ(get_grumpkin_g1_data(cache_path, 2, /*allow_download=*/false), expected);
+    fs::remove_all(cache_path);
 }
