@@ -16,12 +16,13 @@ import {V6UpgradePayload} from "@aztec/periphery/V6UpgradePayload.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 /**
- * @dev The deploy script with the three genesis roots filled in, and nothing else changed.
+ * @dev The deploy script with the three genesis roots replaced by stand-ins, and nothing else
+ *      changed.
  *
- *      `run()` refuses to deploy while they are zero, which is correct for the real thing and is
- *      exactly what stops the rest of the table from ever being exercised before deploy day. The
- *      roots are opaque commitments from the circuits build; every other literal is a protocol
- *      parameter the constructors have opinions about, and those opinions are what this tests.
+ *      The roots are opaque commitments from the circuits build and move whenever it is rebuilt;
+ *      every other literal is a protocol parameter the constructors have opinions about, and those
+ *      opinions are what this tests. Substituting them keeps these tests from failing on a rebuild
+ *      that has nothing to do with the table.
  */
 contract V6ConfigHarness is DeployRollupForUpgradeV6 {
   /// @dev BN254 Fr. The roots are field elements, not arbitrary bytes32 -- the Rollup rejects
@@ -40,6 +41,17 @@ contract V6ConfigHarness is DeployRollupForUpgradeV6 {
     c.vkTreeRoot = bytes32(uint256(keccak256("vkTreeRoot")) % FR);
     c.protocolContractsHash = bytes32(uint256(keccak256("protocolContractsHash")) % FR);
     c.genesisArchiveRoot = bytes32(uint256(keccak256("genesisArchiveRoot")) % FR);
+  }
+}
+
+/// @dev The table with its genesis roots zeroed, so the guard in `run()` is still exercised now
+///      that the real table has them filled in.
+contract V6ZeroRootsHarness is DeployRollupForUpgradeV6 {
+  function _config() internal view override returns (Config memory c) {
+    c = super._config();
+    c.vkTreeRoot = bytes32(0);
+    c.protocolContractsHash = bytes32(0);
+    c.genesisArchiveRoot = bytes32(0);
   }
 }
 
@@ -151,13 +163,13 @@ contract DeployRollupForUpgradeV6Test is Test {
     harness.run();
   }
 
-  /// @dev The real script must refuse to deploy while the genesis roots are unset, which is the
-  ///      only reason this file needs a harness at all. Asserted against the UNMODIFIED script.
-  function test_RealScriptRefusesWhileGenesisRootsAreZero() public {
+  /// @dev The script must refuse to deploy while the genesis roots are unset. The real table now
+  ///      carries them, so the zero case is constructed rather than read off it.
+  function test_RefusesWhileGenesisRootsAreZero() public {
     vm.chainId(MAINNET_CHAIN_ID);
-    DeployRollupForUpgradeV6 real = new DeployRollupForUpgradeV6();
+    V6ZeroRootsHarness zeroed = new V6ZeroRootsHarness();
     vm.expectRevert(bytes("vkTreeRoot not set"));
-    real.run();
+    zeroed.run();
   }
 
   // -----------------------------------------------------------------------------------------------

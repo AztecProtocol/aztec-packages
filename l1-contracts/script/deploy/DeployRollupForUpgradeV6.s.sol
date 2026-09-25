@@ -77,8 +77,8 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
   /// @notice Every value that determines what the v6 rollup is. One field per configurable knob.
   struct Config {
     // Genesis state of the protocol circuits. Produced by the v6 noir-projects build, not chosen.
-    // Left zero on purpose: {run} refuses to deploy until they are filled in, because the Rollup
-    // accepts zeros silently and a wrong genesis is only detectable after the fact.
+    // {run} refuses to deploy while any of them is zero, because the Rollup accepts zeros silently
+    // and a wrong genesis is only detectable after the fact.
     bytes32 vkTreeRoot;
     bytes32 protocolContractsHash;
     bytes32 genesisArchiveRoot;
@@ -180,9 +180,13 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
   ///      overrides it: `run()` still refuses to deploy while the roots are zero.
   function _config() internal view virtual returns (Config memory c) {
     c = Config({
-      vkTreeRoot: bytes32(0), // TODO: from the v6 protocol circuits build
-      protocolContractsHash: bytes32(0), // TODO: from the v6 protocol circuits build
-      genesisArchiveRoot: bytes32(0), // TODO: from the v6 protocol circuits build;
+      // Emitted by the protocol circuits and protocol contracts built at aztec-packages
+      // d521f0d940d096fbea5b62010d9c9c70f1dc0fd2: `getVKTreeRoot()` and `protocolContractsHash`
+      // from the built packages, `GENESIS_ARCHIVE_ROOT` from the protocol constants. Rebuilding
+      // the circuits or the protocol contracts moves all three.
+      vkTreeRoot: 0x2d89003cc2dc62b06f07d83d3635c66c63fc43668369d30e7ee516f908ee10e3,
+      protocolContractsHash: 0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378,
+      genesisArchiveRoot: 0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6,
       ethereumSlotDuration: 12, // L1 slot time; no v5 equivalent, the v5 inbox took an explicit lag instead
       aztecSlotDuration: 72,
       aztecEpochDuration: 32,

@@ -63,9 +63,9 @@ deploy these must be set:
 
 | Field | Status | Notes |
 |---|---|---|
-| `vkTreeRoot` | **TODO — zero** | from the v6 protocol circuits build |
-| `protocolContractsHash` | **TODO — zero** | same |
-| `genesisArchiveRoot` | **TODO — zero** | same; must be below the BN254 scalar field modulus |
+| `vkTreeRoot` | set | from the protocol circuits build at `d521f0d9` |
+| `protocolContractsHash` | set | same |
+| `genesisArchiveRoot` | set | same; must be below the BN254 scalar field modulus |
 | `initialEthPerFeeAsset` | **TODO — stale** | E12 ETH-per-fee-asset price; refresh at deploy time |
 | `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e` |
 
@@ -74,6 +74,30 @@ such guard — `initialEthPerFeeAsset` will deploy silently at whatever value is
 
 The three genesis values are produced by the protocol circuits / node build, not by anything in
 `l1-contracts`. Get them from the same source the v6 release uses; do not carry v5's forward.
+
+The values currently in the table were read off a full build of aztec-packages
+`d521f0d940d096fbea5b62010d9c9c70f1dc0fd2`:
+
+| Field | Value |
+|---|---|
+| `vkTreeRoot` | `0x2d89003cc2dc62b06f07d83d3635c66c63fc43668369d30e7ee516f908ee10e3` |
+| `protocolContractsHash` | `0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378` |
+| `genesisArchiveRoot` | `0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6` |
+
+Regenerate them if the deploy is cut from a different commit — rebuilding the protocol circuits or
+the protocol contracts moves all three. After `./bootstrap.sh`, the first two come from the built
+packages and the third from the protocol constants:
+
+```bash
+# from labs/yarn-project/prover-node
+node --input-type=module -e '
+import { getVKTreeRoot } from "@aztec-labs/noir-protocol-circuits-types/vk-tree";
+import { protocolContractsHash } from "@aztec-labs/protocol-contracts";
+console.log(getVKTreeRoot().toString(), protocolContractsHash.toString());'
+
+grep -A1 GENESIS_ARCHIVE_ROOT \
+  noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
+```
 
 ## 3. Pre-flight checks
 
