@@ -14,7 +14,8 @@
  *   AT EXECUTION TIME, once their `dependsOn` has run.
  * - Steps execute in topological layers over the single graph, so an action can precede a contract
  *   it sets up. Within a layer, contract publishes are individual txs and same-account actions batch
- *   into ≤{@link APP_MAX_CALLS}-call BatchCalls. The one-time fee-juice claim per account is
+ *   into BatchCalls of {@link APP_MAX_CALLS} - 1 (the entrypoint's limit counts the fee payment
+ *   call, so a full batch leaves no room for it). The one-time fee-juice claim per account is
  *   consumed + mined by that account's first tx before the rest fan out.
  * - Fund steps provision arbitrary addresses (contracts or accounts that never send) with bridged
  *   Fee Juice: bridge at execution time, then an L2 claim tx from the step's `from` account. Their
@@ -837,7 +838,11 @@ class DeploymentRun<C extends Steps> {
     return units;
   }
 
-  /** A layer's actions, batching independent same-account actions into ≤{@link APP_MAX_CALLS}-call BatchCalls. */
+  /**
+   * A layer's actions, batching independent same-account actions into BatchCalls of
+   * {@link APP_MAX_CALLS} - 1 — the entrypoint's call limit counts the fee payment call, so a full
+   * batch leaves no room for it.
+   */
   private actionUnits(layer: string[]): ExecutionUnit[] {
     const actionsByAccount = new Map<string, { account: AztecAddress; aliases: string[] }>();
     for (const alias of layer.filter(a => this.actionSteps.has(a))) {
@@ -851,7 +856,7 @@ class DeploymentRun<C extends Steps> {
     }
     const units: ExecutionUnit[] = [];
     for (const { account, aliases } of actionsByAccount.values()) {
-      for (const batch of chunk(aliases, APP_MAX_CALLS)) {
+      for (const batch of chunk(aliases, APP_MAX_CALLS - 1)) {
         units.push({
           label: batch.length === 1 ? `action ${batch[0]}` : `batch [${batch.join(', ')}]`,
           kind: 'action',

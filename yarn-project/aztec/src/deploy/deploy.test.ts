@@ -66,6 +66,23 @@ describe('runDeployment', () => {
       },
     } satisfies ActionStep<Contracts>;
 
+    // Five more same-account actions: together they exceed one batch, exercising the fee-call
+    // slot reservation in action chunking. They mint to `operator` (declared below), never to
+    // admin — defToken's deferred name reads the admin balance, and it must not depend on where
+    // these land relative to its resolution.
+    const extraMints = Object.fromEntries(
+      Array.from({ length: 5 }, (_, i) => [
+        `mintExtra${i}`,
+        {
+          kind: 'action',
+          from: r => r.account('admin'),
+          dependsOn: ['token'],
+          call: ctx => ctx.instance('token').methods.mint_to_public(operator, 1n),
+          done: async ctx => !(await ctx.ran('token')),
+        } satisfies ActionStep<Contracts>,
+      ]),
+    );
+
     // Deferred: its name reads runtime state (the token supply `mint` creates), so the address can
     // only resolve once `mint` has run. On a re-run the state is already there, so the framework
     // resolves it at inventory time and discovers it published — nothing to send.
@@ -145,7 +162,7 @@ describe('runDeployment', () => {
       accounts: { admin: { secret, salt } },
       // Admin is genesis-funded well above this threshold ⇒ "funded" ⇒ pays from balance (no bridge).
       fees: { kind: 'fee-juice', threshold: 1n, fundAmount: 0n } as const,
-      steps: { ...contracts, mint, defToken, mintDef, fundOperator },
+      steps: { ...contracts, mint, ...extraMints, defToken, mintDef, fundOperator },
       output: capture,
     };
 
