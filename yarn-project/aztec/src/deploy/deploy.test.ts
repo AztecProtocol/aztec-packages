@@ -196,7 +196,7 @@ describe('runDeployment', () => {
     }
   }, 300_000);
 
-  it('auto-derives interdependencies, dedupes a shared class, and registers privately', async () => {
+  it('auto-derives interdependencies, dedupes a shared class, registers privately, and deploys universally', async () => {
     const secret = Fr.fromString('0x00000000000000000000000000000000000000000000000000000000feedface');
     const salt = new Fr(0);
     const admin = await getSchnorrInitializerlessAccountContractAddress(
@@ -234,11 +234,20 @@ describe('runDeployment', () => {
         mode: 'register',
         initializerArgs: r => [r.account('admin'), 'Reg', 'REG', 18],
       },
+      // Universal: `from` sends and pays, but the address preimage omits it.
+      uniToken: {
+        kind: 'contract',
+        contract: TokenContract,
+        from: r => r.account('admin'),
+        mode: 'publish',
+        universal: true,
+        initializerArgs: r => [r.account('admin'), 'Universal', 'UNI', 18],
+      },
     } satisfies Record<string, ContractStep>;
 
     const addresses: Record<string, string> = {};
     const capture = (ctx: Ctx) => {
-      for (const alias of ['token', 'token2', 'regToken']) {
+      for (const alias of ['token', 'token2', 'regToken', 'uniToken']) {
         addresses[alias] = ctx.contract(alias).toString();
       }
     };
@@ -260,8 +269,8 @@ describe('runDeployment', () => {
 
       // Interdependency: token2's args reference token, so its dependency is auto-derived.
       expect(plan?.steps.find(s => s.id === 'token2')?.dependsOn).toContain('token');
-      // All three resolved to distinct deterministic addresses.
-      expect(new Set(Object.values(addresses)).size).toBe(3);
+      // All four resolved to distinct deterministic addresses.
+      expect(new Set(Object.values(addresses)).size).toBe(4);
       // The register step must honor its declared deployer in the derivation — the registered
       // address has to match what publishing the same spec (deployer included) would produce.
       const expectedRegToken = await getContractInstanceFromInstantiationParams(TokenContract.artifact, {
@@ -270,6 +279,12 @@ describe('runDeployment', () => {
         deployer: admin,
       });
       expect(addresses.regToken).toEqual(expectedRegToken.address.toString());
+      // The universal step's address must omit the deployer from the preimage.
+      const expectedUniToken = await getContractInstanceFromInstantiationParams(TokenContract.artifact, {
+        salt: new Fr(0),
+        constructorArgs: [admin, 'Universal', 'UNI', 18],
+      });
+      expect(addresses.uniToken).toEqual(expectedUniToken.address.toString());
 
       // Idempotent re-run: both publishes are on-chain and the register step sends no tx, so the
       // whole graph is a no-op. (A broken shared-class dedup would have thrown on the first run.)

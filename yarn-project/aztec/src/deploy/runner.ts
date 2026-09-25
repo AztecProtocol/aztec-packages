@@ -86,6 +86,11 @@ function isDeferred<C>(step: ContractStep<C>): boolean {
   return step.deferredInitializerArgs != null;
 }
 
+/** The account that sends (and pays for) a contract step's publish tx. */
+function contractSender<C>(step: ContractStep<C>): (resolve: Resolver) => AztecAddress {
+  return step.universal ? step.from : step.deployer;
+}
+
 /**
  * The contract aliases a pure resolver callback looks up, extracted by dry-running it against a
  * resolver that records each `contract(alias)` lookup instead of resolving it. The callback's return
@@ -347,7 +352,7 @@ class DeploymentRun<C extends Steps> {
     const accountUsedBy = new Set<string>();
     for (const alias of this.execAliases) {
       const step = getOrThrow(this.steps, alias, 'step');
-      const address = step.kind === 'contract' ? step.deployer(this.resolver) : step.from(this.resolver);
+      const address = step.kind === 'contract' ? contractSender(step)(this.resolver) : step.from(this.resolver);
       accountUsedBy.add(address.toString());
     }
     const stepStatus = (alias: string, step: StepSpec<C>): DeployPlan['steps'][number]['status'] => {
@@ -503,13 +508,13 @@ class DeploymentRun<C extends Steps> {
   /**
    * Publishes/registers a contract from already-computed initializer args (used upfront for
    * deterministic contracts, and at inventory or execution time for deferred ones). Both modes
-   * derive the address from the full instantiation params — deployer and secret-derived public
-   * keys included — so a registered contract lands on the same address publishing it would.
+   * derive the address from the full instantiation params — deployer (unless universal) and
+   * secret-derived public keys included — so a registered contract lands on the same address
+   * publishing it would.
    */
   private async resolveContract(alias: string, step: ContractStep<C>, args: unknown[]): Promise<void> {
     this.publishedCache.delete(alias); // re-resolution may change the address
     const salt = step.salt ?? this.defaultSalt;
-    const deployer = step.deployer(this.resolver);
     const publicKeys = step.secret ? (await deriveKeys(step.secret)).publicKeys : undefined;
     if (step.mode === 'publish') {
       const deployMethod = DeployMethod.create<ContractBase>(
@@ -520,7 +525,11 @@ class DeploymentRun<C extends Steps> {
           args,
           ...(step.initializer ? { constructorNameOrArtifact: step.initializer } : {}),
         },
-        { deployer, salt, ...(publicKeys ? { publicKeys } : {}) },
+        {
+          ...(step.universal ? { universalDeploy: true } : { deployer: step.deployer(this.resolver) }),
+          salt,
+          ...(publicKeys ? { publicKeys } : {}),
+        },
       );
       const instance = await deployMethod.getInstance();
       this.contractAddresses.set(alias, instance.address);
@@ -530,7 +539,7 @@ class DeploymentRun<C extends Steps> {
     } else {
       const instance = await getContractInstanceFromInstantiationParams(step.contract.artifact, {
         salt,
-        deployer,
+        ...(step.universal ? {} : { deployer: step.deployer(this.resolver) }),
         ...(publicKeys ? { publicKeys } : {}),
         ...(args.length ? { constructorArgs: args } : {}),
         ...(step.initializer ? { constructorArtifact: step.initializer } : {}),
@@ -767,7 +776,7 @@ class DeploymentRun<C extends Steps> {
     const units: ExecutionUnit[] = [];
     for (const alias of layer.filter(a => this.contractSteps.has(a))) {
       const step = getOrThrow(this.contractSteps, alias, 'contract');
-      const account = step.deployer(this.resolver);
+      const account = contractSender(step)(this.resolver);
       units.push({
         label: `publish ${alias}`,
         kind: 'publish',
