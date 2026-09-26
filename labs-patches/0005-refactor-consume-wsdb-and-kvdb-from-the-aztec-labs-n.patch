@@ -1,0 +1,265 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <karl.lye@gmail.com>
+Date: Sat, 26 Sep 2026 18:20:02 +0000
+Subject: [PATCH] refactor: consume wsdb and kvdb from the @aztec-labs npm
+ scope
+
+The native packages are moving to the labs org, so their npm packages are published under
+@aztec-labs from the first version there (7.0.0-nightly.20260926.b) onwards.
+
+diff --git a/docs/examples/bootstrap.sh b/docs/examples/bootstrap.sh
+index 6bac416bcc5c45d2e0d31105fc8830f14c9ebe40..7a2b0c4df07401196825f8a6d1a94b0ecb3dbca5 100755
+--- a/docs/examples/bootstrap.sh
++++ b/docs/examples/bootstrap.sh
+@@ -198,7 +198,7 @@ function validate-webapp-tutorial {
+       }
+ 
+       // yarn-project pins the packages built outside it (e.g. @aztec-foundation/bb.js,
+-      // @aztec-foundation/ipc-runtime, @aztec-foundation/wsdb, @aztec-foundation/noir-*) to published npm versions via
++      // @aztec-foundation/ipc-runtime, @aztec-labs/wsdb, @aztec-foundation/noir-*) to published npm versions via
+       // its root resolutions. Workspace manifests declare those with placeholder
+       // versions that only the resolutions rewrite, so mirror the pins here: consume
+       // them from npm at the pinned version, never link them. Path-based entries
+diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
+index a949edd98067d2db3d90ec56b1384dc14712884b..e510068f74ce4bfb1d56fc911282ed1da44a48e5 100755
+--- a/labs-aztec-toolchain/pins.mjs
++++ b/labs-aztec-toolchain/pins.mjs
+@@ -45,7 +45,7 @@ function versionsIn(text, regex, expected, offset = 0) {
+   });
+ }
+ 
+-// Where each @aztec-foundation npm resolution lives inside a foundation checkout, as
++// Where each first-party (@aztec-foundation, @aztec-labs) npm resolution lives inside a foundation checkout, as
+ // "<yarn protocol><foundation-relative path>"; use-local relativizes the path from the
+ // consuming manifest's directory. null marks packages with no consumable package dir in
+ // the foundation tree, which stay pinned to the published release even in use-local mode.
+@@ -66,14 +66,14 @@ const LOCAL_PACKAGES = {
+   "@aztec-foundation/cdb": "portal:barretenberg/ts/cdb",
+   "@aztec-foundation/constants-codegen": "portal:protocol/constants-codegen",
+   "@aztec-foundation/ipc-runtime": "portal:ipc-runtime/ts",
+-  "@aztec-foundation/kvdb": "portal:native-packages/kvdb/ts",
+-  "@aztec-foundation/kvdb-darwin-arm64":
++  "@aztec-labs/kvdb": "portal:native-packages/kvdb/ts",
++  "@aztec-labs/kvdb-darwin-arm64":
+     "portal:native-packages/kvdb/ts/packages/kvdb-darwin-arm64",
+-  "@aztec-foundation/kvdb-darwin-x64":
++  "@aztec-labs/kvdb-darwin-x64":
+     "portal:native-packages/kvdb/ts/packages/kvdb-darwin-x64",
+-  "@aztec-foundation/kvdb-linux-arm64":
++  "@aztec-labs/kvdb-linux-arm64":
+     "portal:native-packages/kvdb/ts/packages/kvdb-linux-arm64",
+-  "@aztec-foundation/kvdb-linux-x64":
++  "@aztec-labs/kvdb-linux-x64":
+     "portal:native-packages/kvdb/ts/packages/kvdb-linux-x64",
+   "@aztec-foundation/l1-artifacts": "portal:l1-contracts/l1-artifacts",
+   "@aztec-foundation/mock-protocol-circuits-artifacts":
+@@ -82,14 +82,14 @@ const LOCAL_PACKAGES = {
+     "portal:noir-projects/fnd/protocol-circuits-artifacts/dist",
+   "@aztec-foundation/protocol-contracts-artifacts":
+     "portal:noir-projects/fnd/protocol-contracts-artifacts/dist",
+-  "@aztec-foundation/wsdb": "portal:native-packages/wsdb/ts",
+-  "@aztec-foundation/wsdb-darwin-arm64":
++  "@aztec-labs/wsdb": "portal:native-packages/wsdb/ts",
++  "@aztec-labs/wsdb-darwin-arm64":
+     "portal:native-packages/wsdb/ts/packages/wsdb-darwin-arm64",
+-  "@aztec-foundation/wsdb-darwin-x64":
++  "@aztec-labs/wsdb-darwin-x64":
+     "portal:native-packages/wsdb/ts/packages/wsdb-darwin-x64",
+-  "@aztec-foundation/wsdb-linux-arm64":
++  "@aztec-labs/wsdb-linux-arm64":
+     "portal:native-packages/wsdb/ts/packages/wsdb-linux-arm64",
+-  "@aztec-foundation/wsdb-linux-x64":
++  "@aztec-labs/wsdb-linux-x64":
+     "portal:native-packages/wsdb/ts/packages/wsdb-linux-x64",
+   "@aztec-foundation/noir-acvm_js": "portal:noir/packages/acvm_js",
+   "@aztec-foundation/noir-types": "portal:noir/packages/types",
+@@ -244,10 +244,10 @@ const SITES = [
+   },
+   {
+     // yarn-project pins its first-party npm dependencies in one place, the resolutions block;
+-    // the workspace manifests carry a dummy version. Every @aztec-foundation-scoped entry there is a
+-    // release of this repo and so tracks BB_VERSION, unlike the third-party entries it sits
+-    // beside.
+-    name: "@aztec-foundation resolutions entry",
++    // the workspace manifests carry a dummy version. Every @aztec-foundation- or @aztec-labs-scoped
++    // entry there is a release of this repo and so tracks BB_VERSION, unlike the third-party
++    // entries it sits beside.
++    name: "first-party resolutions entry",
+     files: () => ["yarn-project/package.json"],
+     required: ["yarn-project/package.json"],
+     pins(content, { bb }) {
+@@ -256,7 +256,7 @@ const SITES = [
+         throw new Error("yarn-project/package.json has no resolutions block");
+       return versionsIn(
+         block[0],
+-        /"@aztec-foundation\/[^"]+":\s*"([^"]+)"/dg,
++        /"@(?:aztec-foundation|aztec-labs)\/[^"]+":\s*"([^"]+)"/dg,
+         bb,
+         block.index,
+       );
+@@ -267,7 +267,7 @@ const SITES = [
+     verify(content) {
+       const block = /"resolutions"\s*:\s*\{[^}]*\}/.exec(content);
+       if (!block) return ["yarn-project/package.json has no resolutions block"];
+-      const keys = [...block[0].matchAll(/"(@aztec-foundation\/[^"]+)":/g)].map(
++      const keys = [...block[0].matchAll(/"(@(?:aztec-foundation|aztec-labs)\/[^"]+)":/g)].map(
+         (m) => m[1],
+       );
+       const errors = [];
+@@ -292,7 +292,7 @@ const SITES = [
+       const targets = [];
+       let retargeted = 0;
+       const updated = block[0].replace(
+-        /"(@aztec-foundation\/[^"]+)":(\s*)"([^"]+)"/g,
++        /"(@(?:aztec-foundation|aztec-labs)\/[^"]+)":(\s*)"([^"]+)"/g,
+         (entry, name, ws, current) => {
+           const local = LOCAL_PACKAGES[name];
+           if (local === undefined) {
+diff --git a/yarn-project/native/package.json b/yarn-project/native/package.json
+index 30fa306fe3b7c6f8a2ccaf747dbbb1ca3f28500b..b1290c7d5707cb6419b818f16bbee463da58209d 100644
+--- a/yarn-project/native/package.json
++++ b/yarn-project/native/package.json
+@@ -16,7 +16,7 @@
+   ],
+   "dependencies": {
+     "@aztec-foundation/bb.js": "0.1.0-dummy",
+-    "@aztec-foundation/kvdb": "0.1.0-dummy",
++    "@aztec-labs/kvdb": "0.1.0-dummy",
+     "@aztec-labs/foundation": "workspace:^",
+     "msgpackr": "^1.11.2"
+   },
+diff --git a/yarn-project/native/src/native_module.ts b/yarn-project/native/src/native_module.ts
+index 1be17e9ad1841a737b2260a6713bfc2e19b32432..9781bed84f6077590a7a79eb5cccca5c2d590f1f 100644
+--- a/yarn-project/native/src/native_module.ts
++++ b/yarn-project/native/src/native_module.ts
+@@ -1,5 +1,4 @@
+-import { findNapiBinary } from '@aztec-foundation/kvdb';
+-
++import { findNapiBinary } from '@aztec-labs/kvdb';
+ import { createRequire } from 'module';
+ 
+ import type { MessageReceiver } from './msgpack_channel.js';
+diff --git a/yarn-project/package.json b/yarn-project/package.json
+index dd9af8f3625816c6ea09a5a196aed410a210d6cd..e3ca28c3ade1f68c589530e2ffddab307fad6b27 100644
+--- a/yarn-project/package.json
++++ b/yarn-project/package.json
+@@ -97,16 +97,16 @@
+     "@aztec-foundation/mock-protocol-circuits-artifacts": "6.0.0-nightly.20260923",
+     "@aztec-foundation/protocol-circuits-artifacts": "6.0.0-nightly.20260923",
+     "@aztec-foundation/protocol-contracts-artifacts": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/wsdb": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/wsdb-darwin-arm64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/wsdb-darwin-x64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/wsdb-linux-arm64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/wsdb-linux-x64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/kvdb": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-nightly.20260923",
+-    "@aztec-foundation/kvdb-linux-x64": "6.0.0-nightly.20260923",
++    "@aztec-labs/wsdb": "6.0.0-nightly.20260923",
++    "@aztec-labs/wsdb-darwin-arm64": "6.0.0-nightly.20260923",
++    "@aztec-labs/wsdb-darwin-x64": "6.0.0-nightly.20260923",
++    "@aztec-labs/wsdb-linux-arm64": "6.0.0-nightly.20260923",
++    "@aztec-labs/wsdb-linux-x64": "6.0.0-nightly.20260923",
++    "@aztec-labs/kvdb": "6.0.0-nightly.20260923",
++    "@aztec-labs/kvdb-darwin-arm64": "6.0.0-nightly.20260923",
++    "@aztec-labs/kvdb-darwin-x64": "6.0.0-nightly.20260923",
++    "@aztec-labs/kvdb-linux-arm64": "6.0.0-nightly.20260923",
++    "@aztec-labs/kvdb-linux-x64": "6.0.0-nightly.20260923",
+     "@aztec-foundation/noir-acvm_js": "6.0.0-nightly.20260923",
+     "@aztec-foundation/noir-types": "6.0.0-nightly.20260923",
+     "@aztec-foundation/noir-noirc_abi": "6.0.0-nightly.20260923",
+diff --git a/yarn-project/world-state/package.json b/yarn-project/world-state/package.json
+index 1c826c7c2705e6027befa9f50a5678e1b72f070b..89e593ffe8f9396714585c7c0ec5df9e4a7138f8 100644
+--- a/yarn-project/world-state/package.json
++++ b/yarn-project/world-state/package.json
+@@ -64,7 +64,7 @@
+     ]
+   },
+   "dependencies": {
+-    "@aztec-foundation/wsdb": "0.1.0-dummy",
++    "@aztec-labs/wsdb": "0.1.0-dummy",
+     "@aztec-labs/constants": "workspace:^",
+     "@aztec-labs/foundation": "workspace:^",
+     "@aztec-labs/protocol-contracts": "workspace:^",
+diff --git a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
+index b6a0baae1c26b90e58126d4fa68d1a424f3ae123..cc841eee30b4b2df204d827ee1dca1dca05b555f 100644
+--- a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
++++ b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
+@@ -1,8 +1,8 @@
+ import { type IpcClientAsync, UdsIpcClient, createNapiShmAsyncClient } from '@aztec-foundation/ipc-runtime';
+-import { AsyncApi } from '@aztec-foundation/wsdb';
+ 
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
++import { AsyncApi } from '@aztec-labs/wsdb';
+ import { jest } from '@jest/globals';
+ 
+ import { NativeWorldStateService } from './native_world_state.js';
+diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+index 6cd36e2816616de6d9014b2adf224acfab12f14e..fc0f1341131f0d976d24e71174d7db76e91516e1 100644
+--- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
++++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+@@ -1,15 +1,3 @@
+-import { AsyncApi, WsdbService } from '@aztec-foundation/wsdb';
+-import type {
+-  WorldStateDBStats as WsdbDBStats,
+-  DBStats as WsdbDBStatsInner,
+-  WorldStateMeta as WsdbMeta,
+-  SiblingPathAndIndex as WsdbSiblingPathAndIndex,
+-  WorldStateStatusFull as WsdbStatusFull,
+-  WorldStateStatusSummary as WsdbStatusSummary,
+-  TreeDBStats as WsdbTreeDBStats,
+-  TreeMeta as WsdbTreeMeta,
+-} from '@aztec-foundation/wsdb';
+-
+ import {
+   ARCHIVE_HEIGHT,
+   DomainSeparator,
+@@ -26,6 +14,17 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec-labs/foun
+ import type { IndexedTreeId, TreeInfo } from '@aztec-labs/stdlib/interfaces/server';
+ import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
+ import type { GenesisData, WorldStateRevision } from '@aztec-labs/stdlib/world-state';
++import { AsyncApi, WsdbService } from '@aztec-labs/wsdb';
++import type {
++  WorldStateDBStats as WsdbDBStats,
++  DBStats as WsdbDBStatsInner,
++  WorldStateMeta as WsdbMeta,
++  SiblingPathAndIndex as WsdbSiblingPathAndIndex,
++  WorldStateStatusFull as WsdbStatusFull,
++  WorldStateStatusSummary as WsdbStatusSummary,
++  TreeDBStats as WsdbTreeDBStats,
++  TreeMeta as WsdbTreeMeta,
++} from '@aztec-labs/wsdb';
+ import { cpus } from 'node:os';
+ 
+ import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+diff --git a/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts b/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
+index c8fdee8ec2c1204cddf6747f1feb20afc9f5e441..3ca1c729e434ff9735565c884cc3bd593e475169 100644
+--- a/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
++++ b/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
+@@ -1,8 +1,8 @@
+ import { type IpcClientAsync, UdsIpcClient, createNapiShmAsyncClient } from '@aztec-foundation/ipc-runtime';
+-import { AsyncApi } from '@aztec-foundation/wsdb';
+ 
+ import { createLogger } from '@aztec-labs/foundation/log';
+ import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
++import { AsyncApi } from '@aztec-labs/wsdb';
+ 
+ import { NativeWorldStateService } from './native_world_state.js';
+ 
+diff --git a/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts b/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts
+index ac270f27778512c7efbfe814bccaf358b05ef347..a679b9ee8d932d1ecc5729d178a760735b5802e2 100644
+--- a/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts
++++ b/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts
+@@ -1,8 +1,8 @@
+ import { type IpcClientAsync, UdsIpcClient } from '@aztec-foundation/ipc-runtime';
+-import { AsyncApi } from '@aztec-foundation/wsdb';
+ 
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
++import { AsyncApi } from '@aztec-labs/wsdb';
+ import { jest } from '@jest/globals';
+ 
+ import { NativeWorldStateService } from './native_world_state.js';

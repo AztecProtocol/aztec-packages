@@ -7,10 +7,10 @@ Subject: [PATCH] fix(pxe): charge the teardown call's AVM startup gas in
 The private kernel's gas meter charges FIXED_AVM_STARTUP_L2_GAS for the teardown call on top of its gas limits, because the AVM dispatches it like any other enqueued public call. Kernelless simulation is what gas estimation runs on, so it has to meter the same amount: otherwise the estimated gas limits of a tx with a teardown call fall short of the gas_used the kernel proves, and the tx is rejected for exceeding its limits.
 
 diff --git a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
-index 981af63e696762cfdb8447815907d17ea88b4205..7d4edaa16d914d05ef417e8263145cb2d44453b0 100644
+index 687ba34a4fae9118b98496fffde9c7fec71e56b3..766235078fa2e725c631f37e1cb3812fe3cefafc 100644
 --- a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
 +++ b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
-@@ -725,7 +725,12 @@ export async function generateSimulatedProvingResult(
+@@ -732,7 +732,12 @@ export async function generateSimulatedProvingResult(
      );
      gasUsed = meterGasUsed(revertibleData, isPrivateOnlyTx).add(meterGasUsed(nonRevertibleData, isPrivateOnlyTx));
      if (publicTeardownCallRequest) {

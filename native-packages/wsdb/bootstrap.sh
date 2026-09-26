@@ -22,7 +22,7 @@ function generate_ts_package {
     --client \
     --out "$PKG/ts/src/generated" \
     --package "$PKG/ts" \
-    --package-name @aztec-foundation/wsdb \
+    --package-name @aztec-labs/wsdb \
     --binary-name "$WSDB_BINARY" \
     --package-transports uds,shm \
     --package-ipc-path-args 'msgpack,run,--input,{path}'
