@@ -1,5 +1,5 @@
 {
-  "name": "@aztec-foundation/kvdb",
+  "name": "@aztec-labs/kvdb",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -21,10 +21,10 @@
     "tslib": "^2.4.0"
   },
   "optionalDependencies": {
-    "@aztec-foundation/kvdb-darwin-arm64": "0.1.0",
-    "@aztec-foundation/kvdb-darwin-x64": "0.1.0",
-    "@aztec-foundation/kvdb-linux-arm64": "0.1.0",
-    "@aztec-foundation/kvdb-linux-x64": "0.1.0"
+    "@aztec-labs/kvdb-darwin-arm64": "0.1.0",
+    "@aztec-labs/kvdb-darwin-x64": "0.1.0",
+    "@aztec-labs/kvdb-linux-arm64": "0.1.0",
+    "@aztec-labs/kvdb-linux-x64": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.17",

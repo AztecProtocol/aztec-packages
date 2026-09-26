@@ -1,9 +1,9 @@
 {
-  "name": "@aztec-foundation/kvdb-packages",
+  "name": "@aztec-labs/kvdb-packages",
   "packageManager": "yarn@4.13.0",
   "private": true,
   "scripts": {
-    "build": "yarn workspace @aztec-foundation/kvdb build",
+    "build": "yarn workspace @aztec-labs/kvdb build",
     "clean": "yarn workspaces foreach -A -p -v run clean"
   },
   "workspaces": [

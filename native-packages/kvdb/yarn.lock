@@ -5,55 +5,55 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec-foundation/kvdb-darwin-arm64@npm:0.1.0, @aztec-foundation/kvdb-darwin-arm64@workspace:ts/packages/kvdb-darwin-arm64":
+"@aztec-labs/kvdb-darwin-arm64@npm:0.1.0, @aztec-labs/kvdb-darwin-arm64@workspace:ts/packages/kvdb-darwin-arm64":
   version: 0.0.0-use.local
-  resolution: "@aztec-foundation/kvdb-darwin-arm64@workspace:ts/packages/kvdb-darwin-arm64"
+  resolution: "@aztec-labs/kvdb-darwin-arm64@workspace:ts/packages/kvdb-darwin-arm64"
   languageName: unknown
   linkType: soft
 
-"@aztec-foundation/kvdb-darwin-x64@npm:0.1.0, @aztec-foundation/kvdb-darwin-x64@workspace:ts/packages/kvdb-darwin-x64":
+"@aztec-labs/kvdb-darwin-x64@npm:0.1.0, @aztec-labs/kvdb-darwin-x64@workspace:ts/packages/kvdb-darwin-x64":
   version: 0.0.0-use.local
-  resolution: "@aztec-foundation/kvdb-darwin-x64@workspace:ts/packages/kvdb-darwin-x64"
+  resolution: "@aztec-labs/kvdb-darwin-x64@workspace:ts/packages/kvdb-darwin-x64"
   languageName: unknown
   linkType: soft
 
-"@aztec-foundation/kvdb-linux-arm64@npm:0.1.0, @aztec-foundation/kvdb-linux-arm64@workspace:ts/packages/kvdb-linux-arm64":
+"@aztec-labs/kvdb-linux-arm64@npm:0.1.0, @aztec-labs/kvdb-linux-arm64@workspace:ts/packages/kvdb-linux-arm64":
   version: 0.0.0-use.local
-  resolution: "@aztec-foundation/kvdb-linux-arm64@workspace:ts/packages/kvdb-linux-arm64"
+  resolution: "@aztec-labs/kvdb-linux-arm64@workspace:ts/packages/kvdb-linux-arm64"
   languageName: unknown
   linkType: soft
 
-"@aztec-foundation/kvdb-linux-x64@npm:0.1.0, @aztec-foundation/kvdb-linux-x64@workspace:ts/packages/kvdb-linux-x64":
+"@aztec-labs/kvdb-linux-x64@npm:0.1.0, @aztec-labs/kvdb-linux-x64@workspace:ts/packages/kvdb-linux-x64":
   version: 0.0.0-use.local
-  resolution: "@aztec-foundation/kvdb-linux-x64@workspace:ts/packages/kvdb-linux-x64"
+  resolution: "@aztec-labs/kvdb-linux-x64@workspace:ts/packages/kvdb-linux-x64"
   languageName: unknown
   linkType: soft
 
-"@aztec-foundation/kvdb-packages@workspace:.":
+"@aztec-labs/kvdb-packages@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@aztec-foundation/kvdb-packages@workspace:."
+  resolution: "@aztec-labs/kvdb-packages@workspace:."
   languageName: unknown
   linkType: soft
 
-"@aztec-foundation/kvdb@workspace:ts":
+"@aztec-labs/kvdb@workspace:ts":
   version: 0.0.0-use.local
-  resolution: "@aztec-foundation/kvdb@workspace:ts"
+  resolution: "@aztec-labs/kvdb@workspace:ts"
   dependencies:
-    "@aztec-foundation/kvdb-darwin-arm64": "npm:0.1.0"
-    "@aztec-foundation/kvdb-darwin-x64": "npm:0.1.0"
-    "@aztec-foundation/kvdb-linux-arm64": "npm:0.1.0"
-    "@aztec-foundation/kvdb-linux-x64": "npm:0.1.0"
+    "@aztec-labs/kvdb-darwin-arm64": "npm:0.1.0"
+    "@aztec-labs/kvdb-darwin-x64": "npm:0.1.0"
+    "@aztec-labs/kvdb-linux-arm64": "npm:0.1.0"
+    "@aztec-labs/kvdb-linux-x64": "npm:0.1.0"
     "@types/node": "npm:^22.15.17"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
   dependenciesMeta:
-    "@aztec-foundation/kvdb-darwin-arm64":
+    "@aztec-labs/kvdb-darwin-arm64":
       optional: true
-    "@aztec-foundation/kvdb-darwin-x64":
+    "@aztec-labs/kvdb-darwin-x64":
       optional: true
-    "@aztec-foundation/kvdb-linux-arm64":
+    "@aztec-labs/kvdb-linux-arm64":
       optional: true
-    "@aztec-foundation/kvdb-linux-x64":
+    "@aztec-labs/kvdb-linux-x64":
       optional: true
   languageName: unknown
   linkType: soft
