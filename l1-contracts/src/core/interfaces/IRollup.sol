@@ -113,7 +113,6 @@ struct RollupConfigInput {
   uint256 slashingDisableDuration;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
-  uint32 version;
   EthValue provingCostPerMana;
   EthPerFeeAssetE12 initialEthPerFeeAsset;
   RewardConfig rewardConfig;
