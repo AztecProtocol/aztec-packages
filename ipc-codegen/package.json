@@ -1,0 +1,20 @@
+{
+  "name": "@aztec-foundation/ipc-codegen",
+  "version": "0.1.0",
+  "description": "Generates IPC bindings (TypeScript, C++, Rust, Zig) from a service schema",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "ipc-codegen": "./bin/ipc-codegen.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "README.md",
+    "SCHEMA_SPEC.md"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  }
+}
