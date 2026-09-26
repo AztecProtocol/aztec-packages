@@ -620,7 +620,6 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
-    native-packages/lmdblib
     native-packages/kvdb
     native-packages/wsdb
     barretenberg/ts
