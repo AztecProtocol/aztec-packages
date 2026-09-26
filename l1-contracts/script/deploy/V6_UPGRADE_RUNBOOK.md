@@ -27,10 +27,19 @@ Nothing is canonical yet. The payload is what governance executes later; it perf
 
 | # | Action | Why |
 |---|---|---|
-| 1 | `v6.setEscapeHatch(hatch)` | installs the hatch; `onlyOwner`, so only governance can |
-| 2 | `Registry.addRollup(v6)` | makes v6 the canonical rollup |
-| 3 | `GSE.addRollup(v6)` | lets existing attesters follow without redepositing |
-| 4 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | carries the entry-queue flush incentive across (skipped if there is no old rewarder) |
+| 1 | `assertPredecessorIsCanonical()` | refuses to run if the rollup this payload succeeds is no longer canonical |
+| 2 | `assertWithinExecutionWindow()` | mainnet only; Mon–Fri 08:00–17:00 London |
+| 3 | `distributor.recoverFrom(v5, payload, amount)` | skipped when the reservation is zero |
+| 4 | `payload.forwardEarmark()` | parks the drawn balance in v5's own earmarked bucket |
+| 5 | `v5.setRewardConfig(...)` | retunes the OUTGOING rollup's split; skipped when the flag is off |
+| 6 | `v6.setEscapeHatch(hatch)` | installs the hatch; `onlyOwner`, so only governance can |
+| 7 | `Registry.addRollup(v6)` | makes v6 the canonical rollup |
+| 8 | `GSE.addRollup(v6)` | lets existing attesters follow without redepositing |
+| 9 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | carries the entry-queue flush incentive across (skipped if there is no old rewarder) |
+
+Actions 3–5 all act on the **outgoing** rollup and must precede action 7. The distributor resolves
+`canonicalRollup()` live off the registry, so once v6 is canonical the old rollup can no longer
+reach the implicit pool, and the retune would be settling a chain that has already stopped.
 
 ## 1. Build
 
@@ -66,10 +75,17 @@ deploy these must be set:
 | `vkTreeRoot` | set | from the protocol circuits build at `d521f0d9` |
 | `protocolContractsHash` | set | same |
 | `genesisArchiveRoot` | set | same; must be below the BN254 scalar field modulus |
-| `initialEthPerFeeAsset` | **TODO — stale** | E12 ETH-per-fee-asset price; refresh at deploy time |
-| `rewardOverrideRegistry0/1` | **TODO — zero** | ATP registries (auction, genesis sale); addresses live in ignition-contracts |
-| `rewardOverrideSequencerReward0/1` | **TODO — zero** | per-registry sequencer reward; each must be <= 450e18 |
-| `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e` |
+| `initialEthPerFeeAsset` | **TODO — mainnet** | E12 ETH-per-fee-asset price; refresh at deploy time |
+| `rewardOverrideRegistry0/1` | **TODO — mainnet** | ATP registries (auction, genesis sale); addresses live in ignition-contracts. Deliberately none on Sepolia |
+| `rewardOverrideSequencerReward0/1` | **TODO — mainnet** | per-registry sequencer reward; each must be <= 450e18 |
+| `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e`; zero on Sepolia |
+| `earmarkAmountForPredecessor` | **TODO — mainnet** | set on Sepolia (5M); zero omits both earmark actions |
+| `retunePredecessorRewards` | **TODO — mainnet** | set on Sepolia (`true`) |
+| `predecessorSequencerBps` | **TODO — mainnet** | set on Sepolia (8000) |
+| `predecessorCheckpointReward` | **TODO — mainnet** | set on Sepolia (100e18) |
+| `enforcePayloadExecutionWindow` | set | `true` on mainnet, `false` on Sepolia |
+
+Sepolia has no outstanding values; every TODO above is on the mainnet path.
 
 `run()` refuses to proceed while any of the three genesis roots is zero. The other fields have no
 such guard — `initialEthPerFeeAsset` will deploy silently at whatever value is in the table.
@@ -219,7 +235,29 @@ On mainnet the configured delays are long (voting delay, then voting duration, t
 delay — on the order of weeks in total), so expect the proposal to sit before it is executable.
 
 Before execution, re-run the `totalEarmarkedBalance` and `rewardsAvailable` checks from step 3 —
-both can move while the proposal is pending, and `rewardsAvailable` is read at execution time.
+both can move while the proposal is pending, and `rewardsAvailable` is read at execution time. So
+is the earmark amount's headroom: `subsidizeAddress` is permissionless, so anyone can raise
+`totalEarmarkedBalance` and shrink the implicit pool the reservation draws from.
+
+### Executing on mainnet: office hours only
+
+The mainnet payload will only execute **Monday to Friday, 08:00–17:00 London**, DST included —
+08:00–17:00 UTC in winter, 07:00–16:00 UTC in summer. Outside that the first action reverts and
+the whole execution rolls back, including the `Executed` flag, so the proposal stays executable and
+can simply be retried when the window next opens. Nothing is consumed by a rejected attempt.
+
+Check before sending, rather than discovering it from a revert:
+
+```bash
+# true when the window is open right now
+cast call <payload> "isWithinExecutionWindow(uint256)(bool)" $(date +%s) --rpc-url $RPC
+
+# and confirm the chain agrees the restriction applies
+cast call <payload> "ENFORCE_EXECUTION_WINDOW()(bool)" --rpc-url $RPC
+```
+
+The longest closed stretch is Friday 17:00 to Monday 08:00, well inside the grace period, so the
+window cannot strand a proposal on its own. Sepolia is unrestricted.
 
 ### Before signalling or voting, check the payload is still live
 
@@ -255,7 +293,19 @@ cast call $RD  "canonicalRollup()(address)"               --rpc-url $RPC  # foll
 cast call <rollup> "getActiveAttesterCount()(uint256)"    --rpc-url $RPC  # inherits the bonus bucket
 cast call $ROLLUP  "getActiveAttesterCount()(uint256)"    --rpc-url $RPC  # outgoing rollup, expect 0
 cast call <newFlushRewarder> "rewardsAvailable()(uint256)" --rpc-url $RPC
+
+# the reservation: total distributor balance UNCHANGED, the amount moved between buckets
+cast call $TOKEN "balanceOf(address)(uint256)" $RD              --rpc-url $RPC  # same as before
+cast call $RD "totalEarmarkedBalance()(uint256)"               --rpc-url $RPC  # up by the amount
+cast call $RD "specificRecipientBalance(address)(uint256)" $ROLLUP --rpc-url $RPC  # up by the amount
+cast call <payload> "..."  # payload holds none of the asset
+
+# the retune, read off the OUTGOING rollup
+cast call $ROLLUP "getRewardConfig()" --rpc-url $RPC
 ```
+
+The distributor's **total balance not moving** is the check that matters for the reservation: the
+funds change bucket, they do not leave. If the total fell, something claimed rather than earmarked.
 
 The outgoing rollup dropping to **exactly 0** is expected, not a fault: every mainnet attester is
 registered against the bonus instance (`moveWithLatestRollup = true`), and the bonus instance is
