@@ -275,26 +275,32 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       c.slashAmountLarge = 250_000e18;
       // Testnet upgrades are executed on demand, so the office-hours restriction is mainnet only.
       c.enforcePayloadExecutionWindow = false;
-      c.earmarkAmountForPredecessor = 0; // TODO: fund the Sepolia distributor first, then set
-      c.retunePredecessorRewards = false; // TODO: mirror whatever mainnet settles on
-      c.predecessorSequencerBps = 0; // TODO
-      c.predecessorCheckpointReward = 0; // TODO
+      // The Sepolia distributor was funded with ~100.98M FEE, all of it un-earmarked, so this
+      // draws from the implicit pool with room to spare.
+      c.earmarkAmountForPredecessor = 5_000_000e18;
+      // Pinned rather than inherited so the mainnet TODO below does not read as outstanding here:
+      // testnet fees are not priced against a real market, and this value only sets the starting
+      // point the fee oracle moves from.
+      c.initialEthPerFeeAsset = 10_000_000;
+      c.retunePredecessorRewards = true;
+      c.predecessorSequencerBps = 8000; // 80% sequencer / 20% prover, down from the 9000 v6 runs on
+      c.predecessorCheckpointReward = 100e18; // down from the 500e18 v6 runs on
         // Sepolia has no flush rewarder to migrate, so the payload skips that action entirely.
         // Leaving the mainnet address here would make the payload constructor revert, since it
         // reads the outgoing rewarder's asset and rate.
       c.oldFlushRewarder = address(0);
-      // Sepolia's own ATP registries and reward amounts. The ceiling is the same 450e18 as
-      // mainnet, because Sepolia does not override `checkpointReward` or `sequencerBps`.
-      c.rewardOverrideRegistry0 = address(0); // TODO: Sepolia ATP registry, or leave zero if none exists
-      c.rewardOverrideSequencerReward0 = 0; // TODO: must be <= 450e18
-      c.rewardOverrideRegistry1 = address(0); // TODO: Sepolia ATP registry, or leave zero if none exists
-      c.rewardOverrideSequencerReward1 = 0; // TODO: must be <= 450e18
-        // Admit 12 validators per epoch rather than mainnet's 4, so testnet's queue drains at a
-        // rate that suits testing. All three move together: the bootstrap phase returns
-        // `bootstrapFlushSize` directly, the normal phase floors at `normalFlushSizeMin`, and
-        // `maxFlushSize` caps both, so raising fewer than three leaves the old value binding.
-        // `normalFlushSizeQuotient` stays at 400: `setSize / 400` only passes 12 above 4800
-        // validators, and the cap holds it at 12 there anyway.
+      // No registry reward overrides on Sepolia. The ATP registries these key on are a mainnet
+      // arrangement, so both slots stay empty and the two-hop registry probe never fires.
+      c.rewardOverrideRegistry0 = address(0);
+      c.rewardOverrideSequencerReward0 = 0;
+      c.rewardOverrideRegistry1 = address(0);
+      c.rewardOverrideSequencerReward1 = 0;
+      // Admit 12 validators per epoch rather than mainnet's 4, so testnet's queue drains at a
+      // rate that suits testing. All three move together: the bootstrap phase returns
+      // `bootstrapFlushSize` directly, the normal phase floors at `normalFlushSizeMin`, and
+      // `maxFlushSize` caps both, so raising fewer than three leaves the old value binding.
+      // `normalFlushSizeQuotient` stays at 400: `setSize / 400` only passes 12 above 4800
+      // validators, and the cap holds it at 12 there anyway.
       c.entryQueueBootstrapFlushSize = 12; // v5 Sepolia production: 4
       c.entryQueueNormalFlushSizeMin = 12; // v5 Sepolia production: 1
       c.entryQueueMaxFlushSize = 12; // v5 Sepolia production: 4
