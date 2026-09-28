@@ -2,3 +2,4 @@
 # emitted in prettier's style. It is gitignored, but CI runners reuse working
 # directories, so it can be present when `yarn formatting` runs.
 src/generated/
+src/cbind/generated/

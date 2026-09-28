@@ -1,4 +1,6 @@
-import { fieldToString, fieldsToStrings } from './backend.js';
+import { CircuitKind } from '../cbind/circuit_kind.js';
+import { AztecClientBackend, fieldToString, fieldsToStrings } from './backend.js';
+import type { Barretenberg } from './index.js';
 
 describe('field helper functions', () => {
   describe('fieldToString', () => {
@@ -118,5 +120,27 @@ describe('field helper functions', () => {
 
       expect(fieldsToStrings(fields, 16)).toEqual(['f', '10', 'ff']);
     });
+  });
+});
+
+describe('AztecClientBackend', () => {
+  it.each(['chonkStart', 'chonkLoad', 'chonkAccumulate'] as const)('propagates %s failures', async step => {
+    const error = new Error(`${step} failed`);
+    const failure = Promise.reject(error);
+    void failure.catch(() => {});
+    const api = {
+      chonkStart: () => Promise.resolve({}),
+      chonkLoad: () => Promise.resolve({}),
+      chonkAccumulate: () => Promise.resolve({}),
+      chonkProve: () => Promise.reject(new Error('Proving continued after setup failed')),
+    };
+    api[step] = () => failure;
+    const backend = new AztecClientBackend(
+      [new Uint8Array([1])],
+      api as unknown as Barretenberg,
+      ['hiding_kernel'],
+      [CircuitKind.HidingKernel],
+    );
+    await expect(backend.prove([new Uint8Array([2])], [new Uint8Array([3])])).rejects.toBe(error);
   });
 });
