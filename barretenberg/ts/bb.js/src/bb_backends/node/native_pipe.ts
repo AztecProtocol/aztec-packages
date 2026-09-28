@@ -1,6 +1,7 @@
 import { ChildProcess, spawn } from 'child_process';
 
 import { IMsgpackBackendAsync } from '../interface.js';
+import { isChildRunning } from './child_liveness.js';
 
 /**
  * Asynchronous native backend that communicates with bb binary via stdin/stdout.
@@ -14,6 +15,7 @@ export class BarretenbergNativePipeAsyncBackend implements IMsgpackBackendAsync 
   private process: ChildProcess;
   private pendingResolve: ((data: Uint8Array) => void) | null = null;
   private pendingReject: ((error: Error) => void) | null = null;
+  private destroyed = false;
 
   // State machine for reading responses
   private readingLength: boolean = true;
@@ -118,7 +120,12 @@ export class BarretenbergNativePipeAsyncBackend implements IMsgpackBackendAsync 
     });
   }
 
+  isAlive(): boolean {
+    return !this.destroyed && isChildRunning(this.process);
+  }
+
   destroy(): Promise<void> {
+    this.destroyed = true;
     this.process.kill();
     return new Promise(resolve => {
       this.process.once('exit', () => resolve());

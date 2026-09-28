@@ -8,6 +8,7 @@ import readline from 'readline';
 import { threadId } from 'worker_threads';
 
 import { IMsgpackBackendAsync } from '../interface.js';
+import { isChildRunning } from './child_liveness.js';
 
 let instanceCounter = 0;
 
@@ -147,7 +148,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private static async waitForSocketAndConnect(socketPath: string, proc: ChildProcess): Promise<net.Socket> {
     const startTime = Date.now();
     for (;;) {
-      if (proc.exitCode !== null || proc.signalCode !== null) {
+      if (!isChildRunning(proc)) {
         throw new Error(
           `bb process exited before socket connection was established (code=${proc.exitCode} signal=${proc.signalCode})`,
         );
@@ -279,6 +280,10 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       this.socket!.write(lengthBuf);
       this.socket!.write(inputBuffer);
     });
+  }
+
+  isAlive(): boolean {
+    return this.socket !== null;
   }
 
   destroy(): Promise<void> {

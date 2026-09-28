@@ -4,6 +4,7 @@ import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
+import { ReplaceableSingleton } from './singleton.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
@@ -134,58 +135,66 @@ export class Barretenberg extends AsyncApi {
     return [response.numGates, response.numGatesDyadic];
   }
 
+  /**
+   * Whether this instance is usable: not destroyed and, on a native backend, the bb process is running
+   * and, on the socket backend, connected. An instance that is not alive never recovers; create a new
+   * one. Process exit and disconnect are observed on the event loop, so a call can still fail after
+   * this returns true. On the shared-memory backend a call to a bb process that has died does not
+   * settle.
+   */
+  isAlive(): boolean {
+    return this.backend.isAlive();
+  }
+
   destroy(): Promise<void> {
     return super.destroy();
   }
 
   /**
-   * Initialize the singleton instance of Barretenberg.
+   * Initialize the singleton instance of Barretenberg and return it. The options of the call that
+   * creates the singleton apply until destroySingleton(); later calls' options are ignored. Concurrent
+   * calls share one instance, a failed initialization is retried by the next call, and a singleton
+   * that is no longer alive is destroyed and replaced with a new one created with the same options.
    * @param options Backend configuration options
    */
-  static async initSingleton(options: BackendOptions = {}) {
-    if (!barretenbergSingletonPromise) {
-      barretenbergSingletonPromise = Barretenberg.new({ ...options, unref: true });
-    }
-    try {
-      barretenbergSingleton = await barretenbergSingletonPromise;
-      return barretenbergSingleton;
-    } catch (error) {
-      // If initialization fails, clear the singleton so next call can retry
-      barretenbergSingleton = undefined;
-      barretenbergSingletonPromise = undefined;
-      throw error;
-    }
+  static initSingleton(options: BackendOptions = {}) {
+    const singletonOptions = { ...options, unref: true };
+    return barretenbergSingleton.init(() => Barretenberg.new(singletonOptions));
   }
 
   static async destroySingleton() {
-    if (barretenbergSingleton) {
-      await barretenbergSingleton.destroy();
-      barretenbergSingleton = undefined;
-      barretenbergSingletonPromise = undefined;
-    }
+    await barretenbergSingleton.take()?.destroy();
   }
 
   /**
    * Get the singleton instance of Barretenberg.
-   * Must call initSingleton() first.
+   * Must call initSingleton() first. Only initSingleton() replaces a singleton that is no longer alive.
    */
   static getSingleton() {
-    if (!barretenbergSingleton) {
+    const instance = barretenbergSingleton.get();
+    if (!instance) {
       throw new Error('First call Barretenberg.initSingleton() on @aztec-foundation/bb.js module.');
     }
-    return barretenbergSingleton;
+    return instance;
   }
 }
 
-let barretenbergSingletonPromise: Promise<Barretenberg> | undefined;
-let barretenbergSingleton: Barretenberg | undefined;
-
-let barretenbergSyncSingletonPromise: Promise<BarretenbergSync> | undefined;
-let barretenbergSyncSingleton: BarretenbergSync | undefined;
+const barretenbergSingleton = new ReplaceableSingleton<Barretenberg>();
+const barretenbergSyncSingleton = new ReplaceableSingleton<BarretenbergSync>();
 
 export class BarretenbergSync extends SyncApi {
   constructor(backend: IMsgpackBackendSync) {
     super(backend);
+  }
+
+  /**
+   * Whether this instance is usable: not destroyed and, on the native backend, the bb process is
+   * running. An instance that is not alive never recovers; create a new one. Process exit is observed
+   * on the event loop, so calls made back to back without yielding can miss it, and a call to a bb
+   * process that has died does not return.
+   */
+  isAlive(): boolean {
+    return this.backend.isAlive();
   }
 
   /**
@@ -217,30 +226,30 @@ export class BarretenbergSync extends SyncApi {
   }
 
   /**
-   * Initialize the singleton instance.
+   * Initialize the singleton instance and return it. The options of the call that creates the
+   * singleton apply until destroySingleton(); later calls' options are ignored. Concurrent calls share
+   * one instance, a failed initialization is retried by the next call, and a singleton that is no
+   * longer alive is destroyed and replaced with a new one created with the same options.
    * @param options Backend configuration options
    */
-  static async initSingleton(options: BackendOptions = {}) {
-    if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new(options);
-    }
-
-    barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
-    return barretenbergSyncSingleton;
+  static initSingleton(options: BackendOptions = {}) {
+    const singletonOptions = { ...options };
+    return barretenbergSyncSingleton.init(() => BarretenbergSync.new(singletonOptions));
   }
 
   static destroySingleton() {
-    if (barretenbergSyncSingleton) {
-      barretenbergSyncSingleton.destroy();
-      barretenbergSyncSingleton = undefined;
-      barretenbergSyncSingletonPromise = undefined;
-    }
+    barretenbergSyncSingleton.take()?.destroy();
   }
 
+  /**
+   * Get the singleton instance.
+   * Must call initSingleton() first. Only initSingleton() replaces a singleton that is no longer alive.
+   */
   static getSingleton() {
-    if (!barretenbergSyncSingleton) {
+    const instance = barretenbergSyncSingleton.get();
+    if (!instance) {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec-foundation/bb.js module.');
     }
-    return barretenbergSyncSingleton;
+    return instance;
   }
 }

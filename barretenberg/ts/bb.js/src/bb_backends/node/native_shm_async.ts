@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 import { threadId } from 'worker_threads';
 
 import { IMsgpackBackendAsync } from '../interface.js';
+import { isChildRunning } from './child_liveness.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 
 let instanceCounter = 0;
@@ -26,6 +27,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   private client: any; // NAPI MsgpackClientAsync instance
   private logFd?: number; // File descriptor for logs
   private logger: (msg: string) => void;
+  private destroyed = false;
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
@@ -247,7 +249,15 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     });
   }
 
+  isAlive(): boolean {
+    return !this.destroyed && isChildRunning(this.process);
+  }
+
   destroy(): Promise<void> {
+    if (this.destroyed) {
+      return Promise.resolve();
+    }
+    this.destroyed = true;
     // Kill the bb process
     // Background thread and callbacks will be cleaned up by OS on process exit
     this.process.kill('SIGTERM');

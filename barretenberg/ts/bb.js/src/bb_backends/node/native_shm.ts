@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 import { threadId } from 'worker_threads';
 
 import { IMsgpackBackendSync } from '../interface.js';
+import { isChildRunning } from './child_liveness.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 
 let instanceCounter = 0;
@@ -23,6 +24,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
   private process: ChildProcess;
   private client: any; // NAPI MsgpackClient instance
   private logFd?: number; // File descriptor for logs
+  private destroyed = false;
 
   private constructor(process: ChildProcess, client: any, logFd?: number) {
     this.process = process;
@@ -206,7 +208,15 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
   }
 
+  isAlive(): boolean {
+    return !this.destroyed && isChildRunning(this.process);
+  }
+
   destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
     this.cleanup();
     this.process.kill('SIGTERM');
     // Remove process event listeners to prevent hanging

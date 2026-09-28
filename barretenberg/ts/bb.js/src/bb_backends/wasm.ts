@@ -11,6 +11,8 @@ import { IMsgpackBackendAsync, IMsgpackBackendSync } from './interface.js';
  * Encapsulates all WASM initialization and memory management.
  */
 export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
+  private destroyed = false;
+
   private constructor(private wasm: BarretenbergWasmMain) {}
 
   /**
@@ -29,7 +31,15 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
     return this.wasm.cbindCall('bbapi', inputBuffer);
   }
 
+  isAlive(): boolean {
+    return !this.destroyed;
+  }
+
   destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
     // BarretenbergWasmMain has async destroy, but for sync API we call it without awaiting
     // This is consistent with the synchronous semantics expected by the caller
     void this.wasm.destroy();
@@ -43,6 +53,8 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
  * Direct mode: Runs WASM directly on the calling thread. Used by node.js for better performance.
  */
 export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
+  private destroyed = false;
+
   private constructor(
     private wasm: BarretenbergWasmMain | BarretenbergWasmMainWorker,
     private worker?: any,
@@ -99,7 +111,15 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
     return Promise.resolve(this.wasm.cbindCall('bbapi', inputBuffer));
   }
 
+  isAlive(): boolean {
+    return !this.destroyed;
+  }
+
   async destroy(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
     await this.wasm.destroy();
     if (this.worker) {
       await this.worker.terminate();
