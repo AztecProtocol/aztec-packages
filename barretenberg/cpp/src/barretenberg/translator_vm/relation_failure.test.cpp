@@ -981,3 +981,31 @@ TEST_F(TranslatorRelationFailureTests, OpcodeConstraintFailsOnGenuineOpcodeAtOdd
     EXPECT_TRUE(failures.contains(0)) << "Subrelation 0 (opcode validity) should catch the odd-row opcode";
     EXPECT_EQ(failures.at(0), static_cast<uint32_t>(odd_row)) << "Failure should be at the odd row";
 }
+
+/**
+ * @brief The result row must hold the hiding op (op = 3), never a no-op.
+ *
+ * @details ECCVM row 1 skips its equality and on-curve checks because it expects the ZK prefix's hiding op there.
+ * The ECCVM op list omits no-ops, so a no-op at the result row would move the first real op onto that unchecked
+ * row while the Translator sequence stays consistent. Subrelation 5 of the opcode-constraint relation enforces
+ * lagrange_result_row * (op - 3) == 0.
+ */
+TEST_F(TranslatorRelationFailureTests, OpcodeConstraintFailsOnNoOpAtResultRow)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline opcode constraint should pass";
+
+    const size_t result_row = Flavor::RESULT_ROW;
+    ASSERT_EQ(pp.op[result_row], FF(3));
+
+    pp.op.at(result_row) = FF(0);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_TRUE(failures.contains(5)) << "Subrelation 5 (hiding op at result row) should catch the no-op";
+    EXPECT_EQ(failures.at(5), static_cast<uint32_t>(result_row)) << "Failure should be at the result row";
+}

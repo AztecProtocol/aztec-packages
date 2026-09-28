@@ -797,6 +797,7 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
 
         const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
         const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
+        const auto& lagrange_result_row = input_elements.lagrange_result_row;
 
         RelationValues expected_values;
 
@@ -811,6 +812,9 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
         expected_values[2] = shared * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
         expected_values[3] = shared * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
         expected_values[4] = shared * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+
+        // The result row holds the hiding op (op = 3)
+        expected_values[5] = (op - FF(3)) * lagrange_result_row;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
