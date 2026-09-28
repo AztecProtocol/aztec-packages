@@ -384,9 +384,8 @@ template <typename Flavor> class SumcheckProver {
                          "Sumcheck Prover: Multilinear batching flavor has only dependent relations, no gate "
                          "challenges should be provided.");
         } else {
-            // The rounds index gate_challenges through GateSeparatorPolynomial assuming at least multivariate_d
-            // entries.
-            BB_ASSERT_GTE(gate_challenges.size(), multivariate_d, "SumcheckProver: fewer gate challenges than rounds");
+            // Real and virtual rounds together index gate_challenges[0 .. virtual_log_n).
+            BB_ASSERT_GTE(gate_challenges.size(), virtual_log_n, "SumcheckProver: fewer gate challenges than rounds");
         }
     };
     /**

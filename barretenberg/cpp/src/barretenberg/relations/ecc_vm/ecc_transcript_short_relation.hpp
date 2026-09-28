@@ -62,13 +62,11 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
 
     // Skip rows on which every one of the 28 main subrelations contributes the identically-zero polynomial.
     //
-    // Predicate: skip iff z1 and z2 are zero and the sum of these wires is_zero(): transcript_op,
+    // Predicate: skip iff z1, z2 and each of these wires is_zero(): transcript_op,
     // transcript_msm_transition, transcript_msm_count, transcript_accumulator_not_empty, transcript_accumulator_x,
-    // transcript_accumulator_y, lagrange_first, lagrange_second, lagrange_third, lagrange_last. On a non-randomised row
-    // each summand is a boolean, region, or coordinate wire that is genuinely 0 on the honest trailing-padding rows, so
-    // the sum is 0 iff each is individually 0. The four lagranges live on disjoint single rows, so they never cancel
-    // each other. On the row-disabled rows the wires are randomised, so the sum is nonzero w.h.p. and those rows are
-    // never skipped (same reasoning as the existing ECCVM skips).
+    // transcript_accumulator_y, lagrange_first, lagrange_second, lagrange_third, lagrange_last. Each wire is tested on
+    // its own: a live row with accumulator_x + accumulator_y cancelling the op bits must not be skipped. On the
+    // row-disabled rows the wires are randomised, so those rows are never skipped w.h.p.
     //
     // EVERY boundary lagrange that gates or disables a subrelation is included: lagrange_first gates is_not_first_row;
     // lagrange_second gates HIDING_ROW_EQ and HIDING_ROW_RESET and the is_not_hiding_row factor in the eq and on-curve
@@ -106,11 +104,11 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
     // desynchronise the prover's sumcheck round polynomials from the verifier's recomputation.
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.transcript_z1.is_zero() && in.transcript_z2.is_zero() &&
-               (in.transcript_op + in.transcript_msm_transition + in.transcript_msm_count +
-                in.transcript_accumulator_not_empty + in.transcript_accumulator_x + in.transcript_accumulator_y +
-                in.lagrange_first + in.lagrange_second + in.lagrange_third + in.lagrange_last)
-                   .is_zero();
+        return in.transcript_z1.is_zero() && in.transcript_z2.is_zero() && in.transcript_op.is_zero() &&
+               in.transcript_msm_transition.is_zero() && in.transcript_msm_count.is_zero() &&
+               in.transcript_accumulator_not_empty.is_zero() && in.transcript_accumulator_x.is_zero() &&
+               in.transcript_accumulator_y.is_zero() && in.lagrange_first.is_zero() && in.lagrange_second.is_zero() &&
+               in.lagrange_third.is_zero() && in.lagrange_last.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

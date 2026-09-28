@@ -32,8 +32,9 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
     } else {
         // Non-padded: use actual circuit size from VK (native only)
         const size_t log_circuit_size = static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
-        BB_ASSERT_GTE(
-            log_circuit_size, static_cast<size_t>(1), "VK log_circuit_size is 0, which is invalid for any circuit");
+        // With ZK, the row-disabling factor 1 - prod_{i>=2}(1 - u_i) is identically zero below three rounds.
+        constexpr size_t min_log_circuit_size = Flavor::HasZK ? 3 : 1;
+        BB_ASSERT_GTE(log_circuit_size, min_log_circuit_size, "VK log_circuit_size is below the flavor's minimum");
         return log_circuit_size;
     }
 }
