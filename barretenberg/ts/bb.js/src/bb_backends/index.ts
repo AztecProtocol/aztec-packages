@@ -47,6 +47,17 @@ export type BackendOptions = {
   maxClients?: number;
 
   /**
+   * @description Replace the bb process when it dies, on the next call (NativeUnixSocket only).
+   *
+   * Calls that were in flight still fail, with an error carrying `retry: true`; only later calls
+   * see the replacement. Safe only where an instance holds no state between calls, since a
+   * replacement has no Chonk accumulation and no batch-verifier session: a pool of verifiers is
+   * the intended case. Off by default, so an owner that does hold such state keeps failing
+   * loudly rather than silently continuing against a fresh process.
+   */
+  respawn?: boolean;
+
+  /**
    * @description Specify exact backend to use
    * - If unset: tries backends in default order with fallback
    * - If set: must succeed with specified backend or throw error (no fallback)

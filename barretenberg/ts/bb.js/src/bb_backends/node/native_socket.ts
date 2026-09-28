@@ -7,6 +7,7 @@ import * as path from 'path';
 import readline from 'readline';
 import { threadId } from 'worker_threads';
 
+import { BackendUnavailableError } from '../errors.js';
 import { IMsgpackBackendAsync } from '../interface.js';
 
 let instanceCounter = 0;
@@ -15,6 +16,27 @@ let instanceCounter = 0;
 // on a fully loaded prover many bb processes can spawn simultaneously and startup time has no
 // useful upper bound, so this must only ever fire when bb is genuinely stuck, never under load.
 const STARTUP_TIMEOUT_MS = 60_000;
+
+/** What it takes to start a bb process, kept so a dead one can be replaced by an identical one. */
+interface SpawnOptions {
+  bbBinaryPath: string;
+  threads?: number;
+  logger?: (msg: string) => void;
+  unref?: boolean;
+  /**
+   * Replace the bb process when it dies, on the next call. Only safe where a bb process holds no
+   * state between calls: a replacement has no Chonk accumulation and no batch-verifier session.
+   * Off by default, so a caller that does hold such state keeps failing loudly instead of
+   * silently continuing against a fresh process.
+   */
+  respawn?: boolean;
+}
+
+/** A bb process and the connection to it. Replaced as a unit. */
+interface Incarnation {
+  proc: ChildProcess;
+  socket: net.Socket;
+}
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -46,25 +68,45 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBuffer: Buffer | null = null;
   private responseBytesRead: number = 0;
 
-  private constructor(
-    private process: ChildProcess,
-    socket: net.Socket,
-    private logger: (msg: string) => void,
-  ) {
-    this.socket = socket;
+  private proc: ChildProcess | null = null;
+  /** Set when the process died; cleared when a replacement is adopted. */
+  private death: Error | null = null;
+  /** Shared by every caller that finds the connection down, so one death causes one replacement. */
+  private starting: Promise<void> | null = null;
+  private destroyed = false;
 
-    this.process.on('error', err => {
-      this.failAllPending(new Error(`Native backend process error: ${err.message}`));
+  private constructor(private opts: SpawnOptions) {
+    this.socket = null;
+    this.logger = opts.logger ?? (() => {});
+  }
+
+  private logger: (msg: string) => void;
+
+  /** Take ownership of a started process and its connection, and watch for its death. */
+  private adopt(incarnation: Incarnation): void {
+    this.proc = incarnation.proc;
+    this.socket = incarnation.socket;
+    this.death = null;
+    this.readingLength = true;
+    this.lengthBytesRead = 0;
+    this.responseBuffer = null;
+    this.responseBytesRead = 0;
+
+    const { proc, socket } = incarnation;
+    // Every listener is scoped to this incarnation and removed with it, so a death observed after
+    // a replacement was adopted cannot tear the replacement down.
+    proc.on('error', err => {
+      this.onDeath(incarnation, `Native backend process error: ${err.message}`);
     });
 
-    this.process.on('exit', (code, signal) => {
-      const errorMsg =
+    proc.on('exit', (code, signal) => {
+      const reason =
         code !== null && code !== 0
           ? `Native backend process exited with code ${code}`
           : signal && signal !== 'SIGTERM'
             ? `Native backend process killed with signal ${signal}`
             : 'Native backend process exited unexpectedly';
-      this.failAllPending(new Error(errorMsg));
+      this.onDeath(incarnation, reason);
     });
 
     socket.on('data', (chunk: Buffer) => {
@@ -72,12 +114,26 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     });
 
     socket.on('error', err => {
-      this.failAllPending(new Error(`Socket error: ${err.message}`));
+      this.onDeath(incarnation, `Socket error: ${err.message}`);
     });
 
     socket.on('end', () => {
-      this.failAllPending(new Error('Socket connection ended unexpectedly'));
+      this.onDeath(incarnation, 'Socket connection ended unexpectedly');
     });
+  }
+
+  /**
+   * The bb process this backend was talking to is gone. In-flight calls fail as retryable, and the
+   * connection is dropped so the next call either starts a replacement or reports the death.
+   */
+  private onDeath(incarnation: Incarnation, reason: string): void {
+    if (this.proc !== incarnation.proc) {
+      return; // A later incarnation is already in charge.
+    }
+    this.death = new BackendUnavailableError(reason);
+    this.proc = null;
+    discard(incarnation);
+    this.failAllPending(this.death);
   }
 
   /**
@@ -91,7 +147,17 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     threads?: number,
     logger?: (msg: string) => void,
     unref?: boolean,
+    respawn?: boolean,
   ): Promise<BarretenbergNativeSocketAsyncBackend> {
+    const opts: SpawnOptions = { bbBinaryPath, threads, logger, unref, respawn };
+    const backend = new BarretenbergNativeSocketAsyncBackend(opts);
+    backend.adopt(await this.start(opts));
+    return backend;
+  }
+
+  /** Start a bb process and connect to it. The whole of what a replacement has to repeat. */
+  private static async start(opts: SpawnOptions): Promise<Incarnation> {
+    const { bbBinaryPath, threads, logger, unref } = opts;
     // Create a unique socket path in temp directory
     const socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
@@ -132,12 +198,15 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     try {
       await once(proc, 'spawn');
     } catch (err) {
-      throw new Error(`Native backend process error: ${(err as Error).message}`);
+      // A missing or non-executable binary is a configuration fault: retrying cannot fix it.
+      const code = (err as NodeJS.ErrnoException).code;
+      const message = `Native backend process error: ${(err as Error).message}`;
+      throw code === 'ENOENT' || code === 'EACCES' ? new Error(message) : new BackendUnavailableError(message);
     }
 
     try {
       const socket = await this.waitForSocketAndConnect(socketPath, proc);
-      return new BarretenbergNativeSocketAsyncBackend(proc, socket, logger ?? (() => {}));
+      return { proc, socket };
     } catch (err) {
       proc.kill('SIGKILL');
       throw err;
@@ -207,6 +276,11 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     }
   }
 
+  /** Whether a call can be made without first starting a replacement bb process. */
+  isConnected(): boolean {
+    return this.socket !== null;
+  }
+
   private handleData(chunk: Buffer): void {
     let offset = 0;
 
@@ -258,10 +332,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     }
   }
 
-  call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    if (!this.socket) {
-      return Promise.reject(new Error('Socket not connected'));
-    }
+  async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
+    await this.ensureConnected();
 
     return new Promise((resolve, reject) => {
       // If this is the first pending callback, ref the socket to keep event loop alive
@@ -281,11 +353,54 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     });
   }
 
-  destroy(): Promise<void> {
-    this.failAllPending(new Error('Backend connection closed'));
-    // Don't try to unlink socket - bb owns it and will clean it up
-    this.process.kill('SIGTERM');
-    this.process.removeAllListeners();
-    return Promise.resolve();
+  /**
+   * The connection to use for the next call, replacing a dead bb process when that is allowed.
+   * Concurrent callers share one replacement, so a single death costs a single process.
+   */
+  private async ensureConnected(): Promise<void> {
+    if (this.socket) {
+      return;
+    }
+    if (this.destroyed) {
+      throw new Error('Backend connection closed');
+    }
+    if (!this.opts.respawn) {
+      throw this.death ?? new BackendUnavailableError('Socket not connected');
+    }
+    this.starting ??= this.replace().finally(() => {
+      this.starting = null;
+    });
+    await this.starting;
   }
+
+  private async replace(): Promise<void> {
+    this.logger('bb process died; starting a replacement');
+    const incarnation = await BarretenbergNativeSocketAsyncBackend.start(this.opts);
+    if (this.destroyed) {
+      // destroy() ran while this was starting: the owner is gone, so neither is this process.
+      discard(incarnation);
+      incarnation.proc.kill('SIGTERM');
+      throw new Error('Backend connection closed');
+    }
+    this.adopt(incarnation);
+  }
+
+  async destroy(): Promise<void> {
+    this.destroyed = true;
+    this.failAllPending(new Error('Backend connection closed'));
+    // Don't leave a replacement that is still starting behind: it would outlive its owner.
+    await this.starting?.catch(() => {});
+    const proc = this.proc;
+    this.proc = null;
+    // Don't try to unlink socket - bb owns it and will clean it up
+    proc?.kill('SIGTERM');
+    proc?.removeAllListeners();
+  }
+}
+
+/** Stop watching an incarnation and drop its connection, without killing the process. */
+function discard(incarnation: Incarnation): void {
+  incarnation.proc.removeAllListeners();
+  incarnation.socket.removeAllListeners();
+  incarnation.socket.destroy();
 }
