@@ -250,10 +250,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       escapeHatchLagInHatches: 1, // v5 production
       escapeHatchProposingExitDelay: 30 days, // v5 production; also the maximum the constructor allows
       enforcePayloadExecutionWindow: true,
-      earmarkAmountForPredecessor: 0, // TODO: balance to reserve for v5; zero omits the reservation
-      retunePredecessorRewards: false, // TODO: flip once the two values below are agreed
-      predecessorSequencerBps: 0, // TODO: v5's sequencer share after the upgrade (<= 10000)
-      predecessorCheckpointReward: 0, // TODO: v5's checkpoint reward after the upgrade
+      earmarkAmountForPredecessor: 1_800_000e18,
+      retunePredecessorRewards: true,
+      predecessorSequencerBps: 7000, // v5 keeps the 7000 it already runs; only the reward below moves
+      predecessorCheckpointReward: 50e18, // down from the 500e18 v5 runs on, and the 500e18 v6 starts on
       oldFlushRewarder: 0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e // bound to the v5 rollup
     });
 
