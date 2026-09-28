@@ -50,10 +50,13 @@ export type BackendOptions = {
    * @description Replace the bb process when it dies, on the next call (NativeUnixSocket only).
    *
    * Calls that were in flight still fail, with an error carrying `retry: true`; only later calls
-   * see the replacement. Safe only where an instance holds no state between calls, since a
-   * replacement has no Chonk accumulation and no batch-verifier session: a pool of verifiers is
-   * the intended case. Off by default, so an owner that does hold such state keeps failing
-   * loudly rather than silently continuing against a fresh process.
+   * see the replacement.
+   *
+   * Safe only for an owner whose every call stands alone, carrying what it needs in its arguments.
+   * A replacement process has none of the state a command sequence establishes: no SRS loaded over
+   * the connection, no Chonk accumulation, no batch-verifier session with its registered keys. An
+   * owner that runs any such sequence must leave this off, so a death fails loudly instead of the
+   * next call quietly running against a process that has forgotten everything.
    */
   respawn?: boolean;
 

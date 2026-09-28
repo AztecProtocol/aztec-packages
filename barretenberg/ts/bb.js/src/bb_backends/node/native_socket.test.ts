@@ -154,9 +154,57 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
       await backend.destroy();
       expect(String(await call)).toMatch(/Backend connection closed/);
 
-      const pids = fake.pids();
-      expect(pids).toHaveLength(2);
-      await waitUntil(() => !isProcessAlive(pids[1]));
+      // destroy() does not wait for the replacement, so watch for it to arrive and then go.
+      await waitUntil(() => fake.pids().length === 2);
+      await waitUntil(() => !isProcessAlive(fake.pids()[1]));
+    });
+
+    it('fails retryably when the replacement cannot start either', async () => {
+      // The scenario the option exists for, gone wrong: bb is killed, and its replacement dies
+      // under the same pressure before it can connect. The caller must still be told to retry.
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-bb-'));
+      const serverJs = path.join(dir, 'echo_server.cjs');
+      fs.writeFileSync(serverJs, ECHO_SERVER_JS);
+      const pidLog = path.join(dir, 'pids');
+      const bb = path.join(dir, 'bb');
+      // Serves on the first start; every later start exits before creating its socket.
+      fs.writeFileSync(
+        bb,
+        `#!/bin/bash\nif [ -e ${pidLog} ]; then exit 9; fi\necho $$ >> ${pidLog}\nexec node ${serverJs} "$4"\n`,
+        { mode: 0o755 },
+      );
+
+      const backend = await BarretenbergNativeSocketAsyncBackend.new(bb, undefined, undefined, undefined, true);
+      await backend.call(new Uint8Array([1]));
+
+      process.kill(Number(fs.readFileSync(pidLog, 'utf-8').trim()), 'SIGKILL');
+      await waitUntil(() => !backend.isConnected());
+
+      const err = await backend.call(new Uint8Array([2])).catch(e => e);
+      expect(isRetryable(err)).toBe(true);
+      expect(String(err)).toMatch(/exited before socket connection was established/);
+      await backend.destroy();
+    });
+
+    it('leaves no bb running when the connection breaks but the process does not exit', async () => {
+      // A server that hangs up on the first request and keeps running, as bb does: its client is
+      // disconnected, its serve loop is not.
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-bb-'));
+      const serverJs = path.join(dir, 'hangup_server.cjs');
+      fs.writeFileSync(
+        serverJs,
+        `const net = require('net');\nnet.createServer(s => s.on('data', () => s.end())).listen(process.argv[2]);\nsetInterval(() => {}, 1000);\n`,
+      );
+      const pidLog = path.join(dir, 'pids');
+      const bb = path.join(dir, 'bb');
+      fs.writeFileSync(bb, `#!/bin/bash\necho $$ >> ${pidLog}\nexec node ${serverJs} "$4"\n`, { mode: 0o755 });
+
+      const backend = await BarretenbergNativeSocketAsyncBackend.new(bb);
+      const pid = Number(fs.readFileSync(pidLog, 'utf-8').trim());
+      await expect(backend.call(new Uint8Array([1]))).rejects.toThrow();
+
+      await waitUntil(() => !isProcessAlive(pid));
+      await backend.destroy();
     });
   });
 });
