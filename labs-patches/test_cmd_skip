@@ -1,1 +1,1 @@
-end-to-end/scripts/run_test[.]sh (compose|web3signer|ha) |playground/scripts/run_test[.]sh|docs/examples/bootstrap[.]sh execute|[.]claude/tests/format_file_test
+end-to-end/scripts/run_test[.]sh (compose|web3signer|ha) |playground/scripts/run_test[.]sh|docs/examples/bootstrap[.]sh execute|[.]claude/tests/format_file_test|yarn-project/scripts/run_test[.]sh aztec/src/mainnet_compatibility[.]test[.]ts
