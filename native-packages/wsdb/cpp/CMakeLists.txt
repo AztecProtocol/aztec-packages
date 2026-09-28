@@ -35,9 +35,12 @@ set(bb_archive ${barretenberg_SOURCE_DIR}/libbb-external.a)
 # The lmdblib sibling package: the lmdb C++ wrapper plus the lmdb and msgpack-c sources it fetched.
 set(lmdblib "${pkg}/../lmdblib/cpp")
 # --- Build --------------------------------------------------------------------------------------
-# Match barretenberg's archive build (-march=skylake, libc++, Release).
+# Match barretenberg's archive build (-march=skylake on x86_64, libc++, Release).
 add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_ALGOS)
-add_compile_options(-march=skylake -fconstexpr-steps=100000000 -fbracket-depth=1024 -stdlib=libc++
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    add_compile_options(-march=skylake)
+endif()
+add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024 -stdlib=libc++
                     -Wno-deprecated-declarations -Wno-missing-field-initializers)
 add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
 include_directories(src ${lmdblib}/src ${lmdblib}/build/_deps/msgpack-src/include
