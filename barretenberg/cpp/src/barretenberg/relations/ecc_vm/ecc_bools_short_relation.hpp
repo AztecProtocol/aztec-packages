@@ -25,19 +25,20 @@ template <typename FF_> class ECCVMBoolsTranscriptShortRelationImpl {
      * @brief Skip the transcript booleanity checks where every transcript boolean column is zero across the edge.
      *
      * @details Each check is `w * (w - 1)` with no shift, so its per-edge contribution is the zero polynomial exactly
-     * when `w` is the constant 0 (or constant 1) linear edge. The summed-wire predicate is_zero() holds iff every
-     * column in this group is zero at both edge endpoints, in which case each `w` is the zero linear edge and every
-     * `w*(w-1)` vanishes. ECCVM keeps all ZK masking in the disabled head [0, TRACE_OFFSET), so off-region rows in the
+     * when `w` is the constant 0 (or constant 1) linear edge. The predicate holds iff every column in this group
+     * is zero at both edge endpoints, in which case each `w` is the zero linear edge and every `w*(w-1)` vanishes.
+     * ECCVM keeps all ZK masking in the disabled head [0, TRACE_OFFSET), so off-region rows in the
      * skip-governed range are genuinely zero; a boundary edge (a zero row adjacent to an active row) has a non-zero
-     * summed edge and is correctly not skipped. Same predicate shape as the transcript and wnaf short skips.
+     * column and is correctly not skipped. Same predicate shape as the transcript and wnaf short skips.
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.transcript_eq + in.transcript_add + in.transcript_mul + in.transcript_reset_accumulator +
-                in.transcript_msm_transition + in.transcript_accumulator_not_empty + in.transcript_z1zero +
-                in.transcript_z2zero + in.transcript_add_x_equal + in.transcript_add_y_equal +
-                in.transcript_base_infinity + in.transcript_msm_infinity + in.transcript_msm_count_zero_at_transition)
-            .is_zero();
+        return in.transcript_eq.is_zero() && in.transcript_add.is_zero() && in.transcript_mul.is_zero() &&
+               in.transcript_reset_accumulator.is_zero() && in.transcript_msm_transition.is_zero() &&
+               in.transcript_accumulator_not_empty.is_zero() && in.transcript_z1zero.is_zero() &&
+               in.transcript_z2zero.is_zero() && in.transcript_add_x_equal.is_zero() &&
+               in.transcript_add_y_equal.is_zero() && in.transcript_base_infinity.is_zero() &&
+               in.transcript_msm_infinity.is_zero() && in.transcript_msm_count_zero_at_transition.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -66,9 +67,9 @@ template <typename FF_> class ECCVMBoolsMsmShortRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.msm_transition + in.precompute_point_transition + in.msm_add + in.msm_double + in.msm_skew +
-                in.precompute_select + in.msm_add1 + in.msm_add2 + in.msm_add3 + in.msm_add4)
-            .is_zero();
+        return in.msm_transition.is_zero() && in.precompute_point_transition.is_zero() && in.msm_add.is_zero() &&
+               in.msm_double.is_zero() && in.msm_skew.is_zero() && in.precompute_select.is_zero() &&
+               in.msm_add1.is_zero() && in.msm_add2.is_zero() && in.msm_add3.is_zero() && in.msm_add4.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
