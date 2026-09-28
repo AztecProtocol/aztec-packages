@@ -38,7 +38,9 @@ struct SrsInitSrs {
 
 /**
  * @struct SrsInitGrumpkinSrs
- * @brief Initialize Grumpkin SRS with Grumpkin points
+ * @brief Initialize Grumpkin SRS with Grumpkin points.
+ * @details points_buf must contain complete 65536-point chunks of the canonical v2 SRS (at most 262144
+ * points), even when num_points selects a smaller nonempty prefix. Every supplied byte is hash-verified.
  */
 struct SrsInitGrumpkinSrs {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitGrumpkinSrs";

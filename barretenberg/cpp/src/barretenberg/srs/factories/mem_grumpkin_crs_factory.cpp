@@ -18,7 +18,11 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
 
     MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> points)
         : monomials_(std::move(points))
-    {}
+    {
+        if (monomials_.empty() || !monomials_[0].on_curve()) {
+            throw_or_abort("MemGrumpkinCrs: first point is not on the Grumpkin curve");
+        }
+    }
 
     ~MemGrumpkinCrs() override = default;
     std::span<Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
