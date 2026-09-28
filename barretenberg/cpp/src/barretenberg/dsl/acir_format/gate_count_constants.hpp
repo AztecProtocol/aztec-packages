@@ -130,7 +130,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1439061;
+inline constexpr size_t CHONK_RECURSION_GATES = 1439066;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -184,7 +184,7 @@ inline constexpr char ECCVM_RECURSIVE_VERIFIER_VK_HASH[] =
 // ========================================
 
 inline constexpr char TRANSLATOR_RECURSIVE_VERIFIER_VK_HASH[] =
-    "0x1b031756c04eeaa93cd1848f87870ba2b110a841f7412f9d47e4155a21713236";
+    "0x305887d6ef788134b3472fb93ff7783d6c8c4f3ed4ce73c4b1cc0dc1a44a0f0a";
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

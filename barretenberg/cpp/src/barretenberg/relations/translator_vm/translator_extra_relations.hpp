@@ -9,12 +9,13 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
         6, // opcode constraint relation
         6, // opcode constraint relation
         6, // opcode constraint relation
         6, // opcode constraint relation
-        6  // opcode constraint relation
+        6, // opcode constraint relation
+        3  // hiding op (eq and reset) at the result row
     };
 
     /**
@@ -32,13 +33,16 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      *          1. on even indices: opcode ∈ {0,3,4,8} (nop, eq and reset, mul or add)
      *          2. on odd indices:  opcode = 0
      *          3. on even indices when op = 0 (no-op), accumulator limbs stay the same
+     *          4. at the result row: opcode = 3 (the ZK prefix's hiding op)
      *
      * @details Constraints 1 and 2 are a single subrelation gated by lagrange_even/lagrange_odd respectively.
      * Constraint 2 is required for soundness: a genuine opcode placed on an odd row would be skipped by the
      * non-native accumulator (which is gated by lagrange_even·op), so without it a prover could drop an ECC op
      * from the batched evaluation. Random masking ops are exempt because both lagrange selectors are zero in the
      * masking regions. Constraint 3 ensures that at even indices when the opcode is 0 (no-op), the accumulator
-     * limbs do not change.
+     * limbs do not change. Constraint 4 pins the hiding op: ECCVM row 1 skips its equality and on-curve checks on
+     * the assumption that it holds the hiding op, so the result row may not be left as a no-op, which would move
+     * the first real op onto that unchecked row.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
