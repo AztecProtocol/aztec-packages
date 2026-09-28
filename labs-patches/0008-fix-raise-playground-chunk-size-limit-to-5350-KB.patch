@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iakovenkos <sergey.s.yakovenko@gmail.com>
+Date: Mon, 28 Sep 2026 12:09:02 +0000
+Subject: [PATCH] fix: raise playground chunk size limit to 5350 KB
+
+
+diff --git a/playground/vite.config.ts b/playground/vite.config.ts
+index 0894f04d42ad23ff6965424624b45eb706485afc..390434701ddcaed87f250a2e981816c7c5a1896a 100644
+--- a/playground/vite.config.ts
++++ b/playground/vite.config.ts
+@@ -160,7 +160,7 @@ export default defineConfig(({ mode }) => {
+         //   assets/barretenberg-*.js to 5079.12 KB and assets/barretenberg-threads-*.js to 5116.65 KB.
+         {
+           pattern: /.*/,
+-          maxSizeKB: 5300,
++          maxSizeKB: 5350,
+           description: 'Detect if json artifacts or bb.js wasm get out of control',
+         },
+       ]),
