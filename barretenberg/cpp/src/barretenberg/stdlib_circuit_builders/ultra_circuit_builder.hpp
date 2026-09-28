@@ -35,50 +35,10 @@ template <typename FF> struct non_native_partial_multiplication_witnesses {
     std::array<uint32_t, 4> b;
 };
 
-template <typename ExecutionTrace_>
-class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
-  public:
-    using ExecutionTrace = ExecutionTrace_;
-    using FF = typename ExecutionTrace::FF;
-    using RomRamLogic = RomRamLogic_<ExecutionTrace>;
-
-    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
-
-    static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
-    // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
-    // chuncks according to the parameter below
-    static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
-    static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
-    static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
-    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
-    // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
-    // determine their max values.
-    static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
-    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
-        253; // the Grumpkin scalar field modulus is between 2^253 and 2^254 and has 254 bits. Therefore the largest
-             // non-vacuous dyadic range-constraint we can enforce is 2^253 - 1, i.e., `num_bits == 253`.
-    enum MEMORY_SELECTORS {
-        MEM_NONE,
-        RAM_CONSISTENCY_CHECK,
-        ROM_CONSISTENCY_CHECK,
-        RAM_TIMESTAMP_CHECK,
-        ROM_READ,
-        RAM_READ,
-        RAM_WRITE,
-        ROM_LOGUP_TABLE, // single-value ROM table entry (LogUp scheme)
-        ROM_LOGUP_READ,  // single-value ROM read access (LogUp scheme)
-    };
-
-    enum NNF_SELECTORS {
-        NNF_NONE,
-        LIMB_ACCUMULATE_1,
-        LIMB_ACCUMULATE_2,
-        NON_NATIVE_FIELD_1,
-        NON_NATIVE_FIELD_2,
-        NON_NATIVE_FIELD_3,
-    };
-
+/**
+ * @brief Flavor-independent range and multiplication records shared by circuit builders.
+ */
+struct UltraCircuitBuilderData {
     struct RangeList {
         uint64_t target_range; // range constraint will be for the range [0, target_range], i.e., is inclusive of
                                // `target_range`.
@@ -127,8 +87,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
          * @param vec
          * @param circuit_builder
          */
+        template <typename FF>
         static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec,
-                                UltraCircuitBuilder_<ExecutionTrace>* circuit_builder)
+                                CircuitBuilderBase<FF>* circuit_builder)
         {
             std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
 
@@ -189,6 +150,55 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             }
         };
     };
+};
+
+template <typename ExecutionTrace_>
+class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
+  public:
+    using ExecutionTrace = ExecutionTrace_;
+    using FF = typename ExecutionTrace::FF;
+    using RomRamLogic = RomRamLogic_<ExecutionTrace>;
+
+    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
+
+    static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
+    // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
+    // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
+    // chuncks according to the parameter below
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
+    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
+    // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
+    // determine their max values.
+    static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
+    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
+        253; // the Grumpkin scalar field modulus is between 2^253 and 2^254 and has 254 bits. Therefore the largest
+             // non-vacuous dyadic range-constraint we can enforce is 2^253 - 1, i.e., `num_bits == 253`.
+    enum MEMORY_SELECTORS {
+        MEM_NONE,
+        RAM_CONSISTENCY_CHECK,
+        ROM_CONSISTENCY_CHECK,
+        RAM_TIMESTAMP_CHECK,
+        ROM_READ,
+        RAM_READ,
+        RAM_WRITE,
+        ROM_LOGUP_TABLE, // single-value ROM table entry (LogUp scheme)
+        ROM_LOGUP_READ,  // single-value ROM read access (LogUp scheme)
+    };
+
+    enum NNF_SELECTORS {
+        NNF_NONE,
+        LIMB_ACCUMULATE_1,
+        LIMB_ACCUMULATE_2,
+        NON_NATIVE_FIELD_1,
+        NON_NATIVE_FIELD_2,
+        NON_NATIVE_FIELD_3,
+    };
+
+    using RangeList = UltraCircuitBuilderData::RangeList;
+    using cached_partial_non_native_field_multiplication =
+        UltraCircuitBuilderData::cached_partial_non_native_field_multiplication;
 
   private:
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table

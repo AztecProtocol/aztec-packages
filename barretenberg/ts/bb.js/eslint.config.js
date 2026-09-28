@@ -17,6 +17,7 @@ export default [
     '**/node_modules/**',
     '**/dest/**',
     '**/dist/**',
+    'src/cbind/generated/**',
     '*.js',
     '**/scripts/**',
     'eslint.config.js',
