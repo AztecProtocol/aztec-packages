@@ -620,6 +620,7 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
+    ipc-codegen
     native-packages/kvdb
     native-packages/wsdb
     barretenberg/ts
@@ -688,7 +689,7 @@ function private_release {
 
   # Publish for real, in dependency order: the ipc-codegen-generated @aztec-labs/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
-  local publish=(barretenberg/ts noir ipc-runtime native-packages/wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
+  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
   done
