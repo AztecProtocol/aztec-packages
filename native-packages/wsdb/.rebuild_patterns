@@ -4,7 +4,5 @@
 ^native-packages/wsdb/wsdb_schema\.jsonc$
 ^native-packages/wsdb/cpp/
 ^native-packages/lmdblib/
-^ipc-codegen/src/.*\.ts$
-^ipc-codegen/templates/
-^protocol/constants-codegen/
-^noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants\.nr$
+^native-packages/wsdb/foundation\.pin$
+^native-packages/wsdb/scripts/

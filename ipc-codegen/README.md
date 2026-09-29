@@ -10,6 +10,10 @@ truth — see `SCHEMA_SPEC.md` for its format. Wire format is msgpack; the actua
 [`/ipc-runtime`](../ipc-runtime) — clients and servers in different languages
 talk byte-compatibly because they all pack the same wire types.
 
+Published to npm as `@aztec-foundation/ipc-codegen`; the `ipc-codegen` bin runs the generator from
+its TypeScript sources with Node's type stripping, so consumers outside this repository invoke it as
+`node_modules/.bin/ipc-codegen --schema ... --lang ...` with the same flags as below.
+
 ## Quick start
 
 ```sh
