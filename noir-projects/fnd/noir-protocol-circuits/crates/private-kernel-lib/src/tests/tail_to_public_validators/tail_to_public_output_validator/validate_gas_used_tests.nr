@@ -7,6 +7,7 @@ use types::{
         L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_PRIVATE_LOG, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        TEARDOWN_AVM_STARTUP_L2_GAS_ENABLED,
     },
 };
 
@@ -58,8 +59,12 @@ fn with_teardown_call_request() {
 
     builder.previous_kernel.set_public_teardown_call_request();
 
-    // The teardown call is an enqueued public call, so it consumes the startup gas on top of its gas limits.
-    let teardown_startup_gas = Gas::new(0, FIXED_AVM_STARTUP_L2_GAS);
+    // The teardown call is an enqueued public call, so it consumes the startup gas on top of its gas limits, when
+    // charging it is enabled.
+    let teardown_startup_gas = Gas::new(
+        0,
+        FIXED_AVM_STARTUP_L2_GAS * TEARDOWN_AVM_STARTUP_L2_GAS_ENABLED,
+    );
     let expected_gas_used =
         teardown_gas_limits + teardown_startup_gas + get_minimum_public_tx_gas_used();
 
@@ -238,7 +243,8 @@ fn full_side_effects() {
         + MAX_L2_TO_L1_MSGS_PER_TX * AVM_SENDL2TOL1MSG_BASE_L2_GAS
         + MAX_PRIVATE_LOGS_PER_TX * L2_GAS_PER_PRIVATE_LOG
         + MAX_CONTRACT_CLASS_LOGS_PER_TX * L2_GAS_PER_CONTRACT_CLASS_LOG
-        + (MAX_ENQUEUED_CALLS_PER_TX + 1) * FIXED_AVM_STARTUP_L2_GAS; // +1 for the teardown call.
+        + MAX_ENQUEUED_CALLS_PER_TX * FIXED_AVM_STARTUP_L2_GAS
+        + TEARDOWN_AVM_STARTUP_L2_GAS_ENABLED * FIXED_AVM_STARTUP_L2_GAS; // The teardown call's startup gas.
     let expected_gas_used =
         Gas::public_tx_overhead() + Gas::new(da_gas, l2_gas) + teardown_gas_limits;
 

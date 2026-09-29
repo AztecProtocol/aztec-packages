@@ -4,7 +4,7 @@ use types::{
         AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,
         DA_GAS_PER_FIELD, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PUBLIC_DATA_WRITE_LENGTH,
+        PUBLIC_DATA_WRITE_LENGTH, TEARDOWN_AVM_STARTUP_L2_GAS_ENABLED,
     },
     traits::Empty,
 };
@@ -90,10 +90,15 @@ pub fn meter_gas_used(public_inputs: PrivateKernelCircuitPublicInputs, is_for_pu
     let teardown_gas = if !is_for_public | public_inputs.public_teardown_call_request.is_empty() {
         Gas::empty()
     } else {
+        let limits = public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
         // The teardown call is dispatched by the AVM like any other enqueued public call, so it consumes the startup
-        // gas on top of its gas limits.
-        let teardown_startup_gas = Gas::new(0, FIXED_AVM_STARTUP_L2_GAS);
-        public_inputs.constants.tx_context.gas_settings.teardown_gas_limits + teardown_startup_gas
+        // gas on top of its gas limits. Charging it is gated by a protocol constant because it changes the kernel's
+        // circuit, and so its verification key.
+        if TEARDOWN_AVM_STARTUP_L2_GAS_ENABLED != 0 {
+            limits + Gas::new(0, FIXED_AVM_STARTUP_L2_GAS)
+        } else {
+            limits
+        }
     };
 
     let metered_da_gas = metered_da_fields * DA_GAS_PER_FIELD;

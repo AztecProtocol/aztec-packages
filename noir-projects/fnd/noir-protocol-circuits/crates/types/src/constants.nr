@@ -1182,6 +1182,9 @@ pub global PUBLIC_TX_L2_GAS_OVERHEAD: u32 = 540000;
 pub global PRIVATE_TX_L2_GAS_OVERHEAD: u32 = 440000;
 // base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
+// Whether the private kernel (and the PXE's gas estimation) charge FIXED_AVM_STARTUP_L2_GAS for the teardown call, on
+// top of its gas limits (0 = no, 1 = yes).
+pub global TEARDOWN_AVM_STARTUP_L2_GAS_ENABLED: u32 = 0;
 
 // The maximum amount of l2 gas that the AVM can process safely.
 pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
