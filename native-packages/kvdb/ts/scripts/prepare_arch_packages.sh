@@ -31,7 +31,7 @@ done
 
 for build_dir in "${!PLATFORMS[@]}"; do
   read -r suffix os cpu <<< "${PLATFORMS[$build_dir]}"
-  pkg_name="@aztec-foundation/kvdb-${suffix}"
+  pkg_name="@aztec-labs/kvdb-${suffix}"
   out_dir="packages/kvdb-${suffix}"
   binary_path="${BINARIES[$suffix]:-${BINARIES[$build_dir]:-}}"
 
@@ -54,7 +54,7 @@ for build_dir in "${!PLATFORMS[@]}"; do
 {
   "name": "${pkg_name}",
   "version": "${version}",
-  "description": "Native NAPI addon for @aztec-foundation/kvdb (${suffix})",
+  "description": "Native NAPI addon for @aztec-labs/kvdb (${suffix})",
   "license": "MIT",
   "os": ["${os}"],
   "cpu": ["${cpu}"],

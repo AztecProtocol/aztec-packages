@@ -1,9 +1,9 @@
 {
-  "name": "@aztec-foundation/wsdb-packages",
+  "name": "@aztec-labs/wsdb-packages",
   "packageManager": "yarn@4.13.0",
   "private": true,
   "scripts": {
-    "build": "yarn workspace @aztec-foundation/wsdb build",
+    "build": "yarn workspace @aztec-labs/wsdb build",
     "clean": "yarn workspaces foreach -A -p -v run clean"
   },
   "workspaces": [

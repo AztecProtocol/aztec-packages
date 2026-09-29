@@ -10,10 +10,10 @@ export type Platform =
   | "aarch64-darwin";
 
 const PLATFORM_TO_PACKAGE: Record<Platform, string> = {
-  "x86_64-linux": "@aztec-foundation/kvdb-linux-x64",
-  "x86_64-darwin": "@aztec-foundation/kvdb-darwin-x64",
-  "aarch64-linux": "@aztec-foundation/kvdb-linux-arm64",
-  "aarch64-darwin": "@aztec-foundation/kvdb-darwin-arm64",
+  "x86_64-linux": "@aztec-labs/kvdb-linux-x64",
+  "x86_64-darwin": "@aztec-labs/kvdb-darwin-x64",
+  "aarch64-linux": "@aztec-labs/kvdb-linux-arm64",
+  "aarch64-darwin": "@aztec-labs/kvdb-darwin-arm64",
 };
 
 const NAPI_BINARY = "nodejs_module.node";

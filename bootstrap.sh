@@ -671,20 +671,22 @@ function private_release {
   ci3/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
-  # Route our scope to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs). Everything we publish is @aztec-foundation-scoped — the noir packages are renamed
-  # @noir-lang/* -> @aztec-foundation/noir-* on release. Exported so deploy_npm picks it up.
+  # Route our scopes to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs). We publish @aztec-foundation (the noir packages are renamed @noir-lang/* ->
+  # @aztec-foundation/noir-* on release) and, for the native packages that are moving to the labs
+  # org, @aztec-labs. Exported so deploy_npm picks it up.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
   (umask 077; {
     echo "@aztec-foundation:registry=$reg"
+    echo "@aztec-labs:registry=$reg"
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
   set -x
 
-  # Publish for real, in dependency order: the ipc-codegen-generated @aztec-foundation/wsdb has a runtime
+  # Publish for real, in dependency order: the ipc-codegen-generated @aztec-labs/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
   local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do

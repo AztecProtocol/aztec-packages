@@ -24,7 +24,7 @@ function build {
   echo_header "kvdb build"
   build_native
   # Create the per-arch workspace packages BEFORE installing: npm_install_deps does
-  # a clean `yarn install --immutable` on a cache miss, and the @aztec-foundation/kvdb-<arch>
+  # a clean `yarn install --immutable` on a cache miss, and the @aztec-labs/kvdb-<arch>
   # optionalDependencies must resolve to these local workspaces (not npm) or the
   # install 404s.
   (cd ts && ./scripts/prepare_arch_packages.sh "$(arch)-$(os)=build/$(arch)-$(os)/$NAPI_BINARY")
