@@ -217,6 +217,7 @@ function respond(msg: WorkerResponse): void {
       }
     }
   } catch (err) {
+    const name = err instanceof Error ? err.name : 'Error';
     const message = err instanceof Error ? err.message : String(err);
     const encryptionCode = detectEncryptionCode(req, err, message);
     if (req.type === 'init') {
@@ -226,7 +227,7 @@ function respond(msg: WorkerResponse): void {
         // The main thread terminates this worker after a failed init, which releases any remaining OPFS handles.
       }
     }
-    respond({ type: 'err', id: req.id, message, encryptionCode });
+    respond({ type: 'err', id: req.id, name, message, encryptionCode });
   }
 };
 

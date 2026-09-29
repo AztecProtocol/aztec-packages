@@ -10,7 +10,13 @@ import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { SQLiteOPFSAztecArray } from './array.js';
-import { SqliteCorruptionError, SqliteEncryptionError, isCorruptionMessage } from './errors.js';
+import {
+  SqliteCorruptionError,
+  SqliteEncryptionError,
+  SqlitePoolBusyError,
+  isCorruptionMessage,
+  isHeldFileError,
+} from './errors.js';
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
@@ -135,6 +141,9 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     } catch (err) {
       worker?.terminate();
       await poolLock?.release();
+      if (effectivePoolDirectory && isHeldFileError(err)) {
+        throw new SqlitePoolBusyError(effectivePoolDirectory, { cause: err });
+      }
       throw err;
     }
   }
@@ -312,7 +321,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
             } else if (isCorruptionMessage(resp.message)) {
               reject(new SqliteCorruptionError(resp.message));
             } else {
-              reject(new Error(resp.message));
+              reject(Object.assign(new Error(resp.message), { name: resp.name }));
             }
           } else {
             resolve(resp);

@@ -61,10 +61,27 @@ export class SqliteCorruptionError extends Error {
 
 /** Error thrown when another browser context already owns a store's OPFS pool. */
 export class SqlitePoolBusyError extends Error {
-  constructor(public readonly poolDirectory: string) {
-    super(`SQLite-OPFS pool "${poolDirectory}" is already in use by another store instance`);
+  constructor(
+    public readonly poolDirectory: string,
+    opts?: { cause?: unknown },
+  ) {
+    super(`SQLite-OPFS pool "${poolDirectory}" is already in use by another store instance`, opts);
     this.name = 'SqlitePoolBusyError';
   }
+}
+
+const WEBKIT_HELD_FILE_MESSAGE = 'The object is in an invalid state.';
+
+/**
+ * Returns `true` if `err` is the error a browser raises for a pool file that another context holds open: Chromium's
+ * `NoModificationAllowedError`, or WebKit's `InvalidStateError` with no message of its own.
+ **/
+export function isHeldFileError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === 'NoModificationAllowedError' ||
+      (err.name === 'InvalidStateError' && err.message === WEBKIT_HELD_FILE_MESSAGE))
+  );
 }
 
 /** Error thrown when the browser context does not expose the Web Locks API required by the OPFS SAH pool. */

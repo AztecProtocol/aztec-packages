@@ -27,6 +27,7 @@ export type WorkerResponse =
   | {
       type: 'err';
       id: number;
+      name: string;
       message: string;
       /**
        * Set when the worker detected an encryption-shaped failure. The main thread

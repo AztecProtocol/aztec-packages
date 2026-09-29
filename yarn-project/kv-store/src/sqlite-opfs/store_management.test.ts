@@ -29,6 +29,42 @@ async function duplicateFirstAssociatedOpaqueFile(name: string): Promise<void> {
   throw new Error('No associated SAH file found to duplicate');
 }
 
+const FILE_HOLDER_SOURCE = `
+let handle;
+onmessage = async ({ data }) => {
+  if (data.release) {
+    handle.close();
+    postMessage('released');
+    return;
+  }
+  let dir = await navigator.storage.getDirectory();
+  for (const part of data.path) dir = await dir.getDirectoryHandle(part);
+  for await (const entry of dir.values()) {
+    if (entry.kind === 'file') {
+      handle = await entry.createSyncAccessHandle();
+      postMessage('held');
+      return;
+    }
+  }
+  postMessage('empty');
+};`;
+
+async function holdOpaqueFile(name: string): Promise<{ release(): Promise<void> }> {
+  const worker = new Worker(URL.createObjectURL(new Blob([FILE_HOLDER_SOURCE], { type: 'text/javascript' })));
+  const ask = (message: object) =>
+    new Promise<string>(resolve => {
+      worker.onmessage = event => resolve(event.data);
+      worker.postMessage(message);
+    });
+  expect(await ask({ path: [storePoolDirectory(name), '.opaque'] })).toEqual('held');
+  return {
+    release: async () => {
+      await ask({ release: true });
+      worker.terminate();
+    },
+  };
+}
+
 describe('sqlite-opfs store management', () => {
   it('round-trips data for a store reopened by name', async () => {
     const store = await openByName('mech_roundtrip');
@@ -68,6 +104,25 @@ describe('sqlite-opfs store management', () => {
 
     await opened[0].close();
     const reopened = await openByName(name);
+    await reopened.close();
+    await deleteStore(name);
+  });
+
+  it('reports a pool file that another context holds open without the pool lock as busy', async () => {
+    const name = 'mech_held_file';
+    const store = await openByName(name);
+    await store.openSingleton<string>('payload').set('kept');
+    await store.close();
+    const holder = await holdOpaqueFile(name);
+    try {
+      const error = await openByName(name).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(SqlitePoolBusyError);
+      expect((error as Error).cause).toMatchObject({ name: 'NoModificationAllowedError' });
+    } finally {
+      await holder.release();
+    }
+    const reopened = await openByName(name);
+    expect(await reopened.openSingleton<string>('payload').getAsync()).toEqual('kept');
     await reopened.close();
     await deleteStore(name);
   });
