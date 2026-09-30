@@ -34,7 +34,15 @@ export {
   type Platform,
 } from "./native_loader.js";
 export {
+  type NapiFfiAddon,
+  NapiFfiBackend,
+  NapiFfiBackendSync,
+  loadNapiFfiAddon,
+} from "./napi_ffi.js";
+export {
+  type ServiceBackendChoice,
   type ServiceBinary,
+  type ServiceNativeFile,
   type ServiceProcessOptions,
   findServiceBinary,
   pickServiceBackend,
