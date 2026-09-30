@@ -14,4 +14,8 @@ add_subdirectory(poseidon2)
 
 if (NOT WASM)
     add_subdirectory(merkle_tree)
+else()
+    # Header-only; the wasm reference world state (wsdb_ref) needs the headers but not the tests.
+    add_library(crypto_merkle_tree INTERFACE)
+    target_link_libraries(crypto_merkle_tree INTERFACE numeric)
 endif()

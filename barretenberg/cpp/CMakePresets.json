@@ -768,7 +768,8 @@
       "targets": [
         "barretenberg.wasm",
         "barretenberg.wasm.gz",
-        "barretenberg-debug.wasm"
+        "barretenberg-debug.wasm",
+        "wsdb-ref.wasm"
       ]
     },
     {
@@ -801,25 +802,25 @@
       "name": "amd64-linux",
       "configurePreset": "amd64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-external", "bb-avm-sim", "wsdb_ref_napi"]
     },
     {
       "name": "arm64-linux",
       "configurePreset": "arm64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "bb-avm", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-avm", "bb-external", "bb-avm-sim", "wsdb_ref_napi"]
     },
     {
       "name": "amd64-macos",
       "configurePreset": "amd64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-external", "bb-avm-sim", "wsdb_ref_napi"]
     },
     {
       "name": "arm64-macos",
       "configurePreset": "arm64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-external", "bb-avm-sim", "wsdb_ref_napi"]
     },
     {
       "name": "amd64-windows",

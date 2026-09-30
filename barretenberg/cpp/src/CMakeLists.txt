@@ -119,12 +119,17 @@ add_subdirectory(barretenberg/vm2_stub)
 # consumes wasi_objects, so there is nothing to build here otherwise.
 if(WASM)
     add_subdirectory(barretenberg/wasi)
+    # The reference world state is also a wasm reactor (wsdb-ref.wasm, see wsdb_ref/).
+    add_subdirectory(barretenberg/aztec)
+    add_subdirectory(barretenberg/world_state_reference)
+    add_subdirectory(barretenberg/wsdb_ref)
 endif()
 
 if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # Mobile builds exclude these modules that aren't needed on mobile
     add_subdirectory(barretenberg/aztec)
     add_subdirectory(barretenberg/world_state_reference)
+    add_subdirectory(barretenberg/wsdb_ref)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/vm2_wsdb)

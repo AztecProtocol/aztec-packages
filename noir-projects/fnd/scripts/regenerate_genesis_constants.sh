@@ -9,7 +9,8 @@
 #   1. noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
 #        GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH, GENESIS_ARCHIVE_ROOT.
 #        Source of truth: aztec_constants.hpp, ConstantsGen.sol and labs' constants.gen.ts all derive from it.
-#   2. native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
+#   2. barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp
+#      native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
 #        The seed vector the C++ world-state test builds its genesis from.
 #   3. l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json   (--fixtures)
 #        Checkpoint 1 of each family starts from the genesis archive; checkpoint 2 chains off checkpoint 1.
@@ -48,6 +49,7 @@ done
 
 constants_nr=noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
 seeds_hpp=native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
+bb_seeds_hpp=barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp
 cpp_constants=barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp
 sol_constants=l1-contracts/src/core/libraries/ConstantsGen.sol
 ts_constants=labs/yarn-project/constants/src/constants.gen.ts
@@ -90,19 +92,21 @@ echo "  GENESIS_BLOCK_HEADER_HASH   = $HEADER_HASH"
 echo "  GENESIS_ARCHIVE_ROOT        = $ARCHIVE_ROOT"
 echo "  seeds                       = $(echo "$SEEDS" | wc -w)"
 
+# The same seed vector for two C++ trees: wsdb's (its own field type) and barretenberg's reference world
+# state, whose tests rebuild the canonical genesis from it.
 function write_seeds_header {
-  local file=$1
+  local file=$1 field_include=$2 namespace=$3 field=$4
   {
-    cat <<'EOF'
+    cat <<EOF
 // GENERATED FILE - DO NOT EDIT.
 // Regenerate with noir-projects/fnd/scripts/regenerate_genesis_constants.sh.
 #pragma once
 
-#include "field/field_element.hpp"
+#include "$field_include"
 
 #include <vector>
 
-namespace azteclabs::wsdb::world_state {
+namespace $namespace {
 
 /**
  * @brief The protocol contracts' registration nullifiers, seeded into the nullifier tree of a production genesis.
@@ -113,16 +117,16 @@ namespace azteclabs::wsdb::world_state {
  * GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT, so they are rewritten together
  * with those constants and never on their own.
  */
-inline std::vector<fr> genesis_protocol_nullifiers()
+inline std::vector<$field> genesis_protocol_nullifiers()
 {
     return {
 EOF
-    for seed in $SEEDS; do echo "        fr(\"$seed\"),"; done
-    cat <<'EOF'
+    for seed in $SEEDS; do echo "        $field(\"$seed\"),"; done
+    cat <<EOF
     };
 }
 
-} // namespace azteclabs::wsdb::world_state
+} // namespace $namespace
 EOF
   } >"$file"
 }
@@ -136,7 +140,9 @@ if [ "$check_only" = 1 ]; then
     grep -q "$2" "$constants_nr" || { echo "  stale: $1 in $constants_nr"; stale=1; }
   done
   for seed in $SEEDS; do
-    grep -q "$seed" "$seeds_hpp" || { echo "  stale: $seed missing from $seeds_hpp"; stale=1; }
+    for header in "$seeds_hpp" "$bb_seeds_hpp"; do
+      grep -q "$seed" "$header" || { echo "  stale: $seed missing from $header"; stale=1; }
+    done
   done
   grep -q "$ARCHIVE_ROOT" l1-contracts/test/fixtures/empty_checkpoint_1.json ||
     { echo "  stale: l1-contracts/test/fixtures/*_checkpoint_*.json (rerun with --fixtures)"; stale=1; }
@@ -147,7 +153,8 @@ fi
 
 phase "Update the pinned sources"
 node "$helper" write-constants "$constants_nr" "$NULLIFIER_ROOT" "$HEADER_HASH" "$ARCHIVE_ROOT"
-write_seeds_header "$seeds_hpp"
+write_seeds_header "$seeds_hpp" field/field_element.hpp azteclabs::wsdb::world_state fr
+write_seeds_header "$bb_seeds_hpp" barretenberg/ecc/curves/bn254/fr.hpp bb::world_state bb::fr
 
 phase "Regenerate the derived constants"
 # constants-codegen embeds constants.nr at build time, so it must be rebuilt before the remake scripts run, or they
@@ -185,11 +192,11 @@ if [ "$with_fixtures" = 1 ]; then
 fi
 
 phase "Stage"
-git add "$constants_nr" "$seeds_hpp"
+git add "$constants_nr" "$seeds_hpp" "$bb_seeds_hpp"
 if [ "$with_fixtures" = 1 ]; then git add l1-contracts/test/fixtures/; fi
 
 echo
-git --no-pager diff --cached --stat -- "$constants_nr" "$seeds_hpp" l1-contracts/test/fixtures/
+git --no-pager diff --cached --stat -- "$constants_nr" "$seeds_hpp" "$bb_seeds_hpp" l1-contracts/test/fixtures/
 echo
 if [ "$with_fixtures" = 1 ]; then
   echo "Done. Review the staged diff and commit."
