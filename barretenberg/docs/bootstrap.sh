@@ -32,10 +32,12 @@ function build {
 }
 
 function test_cmds {
-  # The recursive example proves a circuit embedding a full in-circuit Honk verifier in WASM; on the
-  # default 2-CPU budget that prove+verify lands ~140-340s and intermittently trips the jest timeout.
-  # A 4-CPU budget roughly halves it, back well under the per-test cap.
-  echo "$hash:CPUS=4 barretenberg/docs/bootstrap.sh test"
+  # The recursive example proves a circuit embedding a full in-circuit Honk verifier in WASM. It takes
+  # ~35s on an idle box, but this lane runs alongside the bb build, and when that rebuilds everything
+  # the test slows by an order of magnitude (>400s seen on 4 CPUs). The published bb.js it uses is
+  # not built from this tree, so that slowdown says nothing about the change under test: budget for
+  # it here, and in the test's own jest timeout, rather than fail on it.
+  echo "$hash:CPUS=4:TIMEOUT=1500s barretenberg/docs/bootstrap.sh test"
 }
 
 function test {
