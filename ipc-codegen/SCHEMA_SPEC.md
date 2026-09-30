@@ -119,10 +119,10 @@ ignored, so it may be a service schema or a file holding only `aliases` and
 { "service": "Prover", "imports": ["../common/field_types.jsonc"], ... }
 ```
 
-Type names carry no service prefix, so an imported type has the same name, and
-the same encoding, in every service that imports it. The generated TypeScript
-types are structural and interchange freely between packages. C++ still emits a
-separate `wire::` struct per service namespace.
+Imports exist so a type is defined once, not so generated code is shared: each
+service's output still carries its own copy of every type it uses. Type names
+carry no service prefix, so an imported type has the same name and the same
+encoding in every service that imports it.
 
 ### `extends`
 
