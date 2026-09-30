@@ -59,6 +59,9 @@ export interface CompiledSchema {
   // Error response type name (e.g. 'WsdbErrorResponse'). Always present:
   // schema validation rejects schemas without an error variant.
   errorTypeName: string;
+
+  // Parent command sets of a schema that `extends` others, outermost first. Absent otherwise.
+  inherited?: InheritedInterface[];
 }
 
 /**
@@ -554,6 +557,160 @@ export function stripJsonc(text: string): string {
     out += c;
   }
   return out;
+}
+
+/** A friendly schema's `extends` declaration: the parent file and the name of its interface. */
+export interface SchemaExtends {
+  /** Parent schema path, relative to the extending schema's own file. */
+  schema: string;
+  /** Name for the parent's command set in generated code (TS: `Async<interface>Api`). */
+  interface: string;
+}
+
+/** One inherited level of an `extends` chain: the interface name and its commands' wire names. */
+export interface InheritedInterface {
+  name: string;
+  commandNames: string[];
+}
+
+/** Validate a friendly schema's `extends` value; undefined when the schema extends nothing. */
+export function parseExtends(value: unknown): SchemaExtends | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const ok =
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as any).schema === "string" &&
+    typeof (value as any).interface === "string" &&
+    /^[A-Z][A-Za-z0-9]*$/.test((value as any).interface);
+  if (!ok) {
+    throw new Error(
+      `'extends' must be { "schema": "<path>", "interface": "<PascalCaseName>" }`,
+    );
+  }
+  return value as SchemaExtends;
+}
+
+/**
+ * Add `added` definitions to `inherited` for one section. Aliases and types may repeat an
+ * inherited definition only verbatim — the same type reached along two paths (two imports of a
+ * shared file, or an import the parent also made) is one type — while a command may never be
+ * redefined: its request/response pair is the wire contract the parent's clients rely on.
+ */
+function mergeSection(
+  section: "aliases" | "types" | "commands",
+  inherited: Record<string, any>,
+  added: Record<string, any>,
+  source: string,
+): Record<string, any> {
+  for (const [name, definition] of Object.entries(added)) {
+    if (!(name in inherited)) {
+      continue;
+    }
+    if (
+      section !== "commands" &&
+      JSON.stringify(inherited[name]) === JSON.stringify(definition)
+    ) {
+      continue;
+    }
+    throw new Error(
+      `'${name}' in '${section}' redefines a definition inherited from ${source}`,
+    );
+  }
+  return { ...inherited, ...added };
+}
+
+/**
+ * Merge the aliases and types of a schema listed in `imports` into `schema`. An import shares
+ * vocabulary between services and nothing else: the imported file's service, error and commands
+ * are ignored, and it need not be a service schema at all (a file of just `aliases`/`types`).
+ */
+export function mergeImportedTypes(
+  schema: any,
+  imported: any,
+  source: string,
+): any {
+  return {
+    ...schema,
+    aliases: mergeSection("aliases", imported.aliases ?? {}, schema.aliases ?? {}, source),
+    types: mergeSection("types", imported.types ?? {}, schema.types ?? {}, source),
+  };
+}
+
+/**
+ * Merge a friendly schema onto the (already resolved) schema it extends. Extension is additive:
+ * the child may add aliases, types and commands but may not redefine an inherited one, and it
+ * keeps the parent's service name and error, since those are part of every inherited wire tag.
+ * A server of the child therefore answers every parent command byte-for-byte as the parent's
+ * contract says, which is what lets code written against the parent run against the child.
+ *
+ * The result is a plain friendly schema (no `extends`) plus `__inherited`, the chain of parent
+ * interfaces outermost first, each listing the full command set visible at that level.
+ */
+export function mergeExtendedSchema(
+  parent: any,
+  child: any,
+  ext: SchemaExtends,
+): any {
+  if (child.service !== undefined && child.service !== parent.service) {
+    throw new Error(
+      `schema extending ${ext.schema} must keep its service '${parent.service}' (got '${child.service}'): ` +
+        `inherited wire tags are prefixed with it`,
+    );
+  }
+  if (
+    child.error !== undefined &&
+    JSON.stringify(child.error) !== JSON.stringify(parent.error)
+  ) {
+    throw new Error(
+      `schema extending ${ext.schema} redefines 'error'; the error variant is inherited`,
+    );
+  }
+  const merged: any = {
+    service: parent.service,
+    error: parent.error,
+  };
+  for (const section of ["aliases", "types", "commands"] as const) {
+    merged[section] = mergeSection(
+      section,
+      parent[section] ?? {},
+      child[section] ?? {},
+      ext.schema,
+    );
+  }
+  const inherited: InheritedInterface[] = [
+    ...(parent.__inherited ?? []),
+    {
+      name: ext.interface,
+      commandNames: Object.keys(parent.commands ?? {}).map(
+        (key) => parent.service + key,
+      ),
+    },
+  ];
+  if (
+    inherited.some(
+      (level, i) => inherited.findIndex((l) => l.name === level.name) !== i,
+    )
+  ) {
+    throw new Error(
+      `interface name '${ext.interface}' is already used higher up the extends chain`,
+    );
+  }
+  merged.__inherited = inherited;
+  return merged;
+}
+
+/** Validate a friendly schema's `imports` value: a list of schema paths. */
+export function parseImports(value: unknown): string[] {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
+    throw new Error(`'imports' must be a list of schema paths`);
+  }
+  return value;
 }
 
 /** A parsed friendly schema is recognised by its top-level `service` key. */

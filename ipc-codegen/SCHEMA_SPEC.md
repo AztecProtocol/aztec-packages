@@ -107,6 +107,60 @@ A `response` may instead be a **string** naming another command's response type
 to reuse its shape — e.g. `"response": "AliasesResponse"` reuses the
 `EchoAliases` response. Use the generated response type name (`<service><Command>Response`).
 
+### `imports`
+
+A list of schema paths, relative to this file, whose `aliases` and `types` are
+merged into this schema. An import shares vocabulary between services and
+nothing else: the imported file's `service`, `error` and `commands` are
+ignored, so it may be a service schema or a file holding only `aliases` and
+`types`. Imports resolve recursively.
+
+```jsonc
+{ "service": "Prover", "imports": ["../common/field_types.jsonc"], ... }
+```
+
+Type names carry no service prefix, so an imported type has the same name, and
+the same encoding, in every service that imports it. The generated TypeScript
+types are structural and interchange freely between packages. C++ still emits a
+separate `wire::` struct per service namespace.
+
+### `extends`
+
+Makes this schema a strict superset of another service's contract:
+
+```jsonc
+{
+  "extends": { "schema": "wsdb_base_schema.jsonc", "interface": "WsdbBase" },
+  "commands": { "SyncBlock": { ... } }
+}
+```
+
+The extending schema inherits the parent's `service`, `error`, `aliases`,
+`types` and `commands`, and may add aliases, types and commands of its own. It
+may not rename the service or change the error, since both are part of every
+inherited wire tag. A server of the extended schema therefore accepts every
+parent request unchanged, and a parent client can talk to it. `service` and
+`error` may be omitted, or repeated verbatim.
+
+`interface` names the parent's command set in generated code. TypeScript gets
+`Async<interface>Api` and `Sync<interface>Api`, holding only the parent's
+methods, and the full `AsyncApiBase`/`SyncApiBase` extend them. These are
+structural, so code typed against `AsyncWsdbBaseApi` accepts the client of any
+schema that extends the base, from any package. Chains are allowed. Each level
+adds its own interface, and names must be unique along the chain.
+
+Merge rules, shared by `imports` and `extends`:
+
+- An alias or type may repeat an inherited definition only verbatim. The same
+  type reached along two paths is one type. A different definition under the
+  same name is an error.
+- A command may never be redefined.
+- A cycle between schema files is an error.
+
+Output that ships the wire contract (the TS server binding package) ships the
+merged schema as one self-contained file. A schema that uses neither key hashes
+its own text as before. A merged schema hashes its merged form.
+
 ## Type-reference shorthand grammar
 
 Every field type is a shorthand string. The grammar is a leaf type optionally
