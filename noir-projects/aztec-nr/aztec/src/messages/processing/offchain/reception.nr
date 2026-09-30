@@ -97,7 +97,7 @@
 use crate::{
     ephemeral::EphemeralArray,
     facts::{
-        delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type,
+        delete_fact_collection, Fact, FactCollection, FactScope, get_fact_collection, get_fact_collections_by_type,
         record_non_retractable_fact, record_retractable_fact,
     },
     messages::processing::OffchainMessageWithTx,
@@ -158,7 +158,7 @@ impl OffchainReception {
     pub(crate) unconstrained fn init(contract_address: AztecAddress, message: OffchainMessage) {
         record_non_retractable_fact(
             contract_address,
-            message.recipient,
+            FactScope::account(message.recipient),
             OFFCHAIN_RECEPTION_TYPE_ID,
             Self::id_for(message),
             OFFCHAIN_MESSAGE_RECEIVED,
@@ -171,7 +171,11 @@ impl OffchainReception {
         contract_address: AztecAddress,
         scope: AztecAddress,
     ) -> EphemeralArray<OffchainReception> {
-        get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE_ID)
+        get_fact_collections_by_type(
+            contract_address,
+            FactScope::account(scope),
+            OFFCHAIN_RECEPTION_TYPE_ID,
+        )
             .map(|collection: FactCollection| OffchainReception { collection })
     }
 
@@ -202,7 +206,7 @@ impl OffchainReception {
     ) -> bool {
         get_fact_collection(
             contract_address,
-            scope,
+            FactScope::account(scope),
             OFFCHAIN_RECEPTION_TYPE_ID,
             Self::id_for(message),
         )
@@ -254,7 +258,7 @@ impl OffchainReception {
     ) -> bool {
         let maybe_collection = get_fact_collection(
             contract_address,
-            scope,
+            FactScope::account(scope),
             OFFCHAIN_RECEPTION_TYPE_ID,
             Self::id_for(message),
         );

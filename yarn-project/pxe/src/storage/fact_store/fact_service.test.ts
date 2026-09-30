@@ -3,6 +3,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { FactScope } from './fact_scope.js';
 import { FactService } from './fact_service.js';
 import { FactStore } from './fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
@@ -19,8 +20,9 @@ describe('FactService', () => {
 
   const changeSetId = 'change-set-1';
   const contract = AztecAddress.fromFieldUnsafe(new Fr(1));
-  const allowedScope = AztecAddress.fromFieldUnsafe(new Fr(2));
-  const disallowedScope = AztecAddress.fromFieldUnsafe(new Fr(3));
+  const allowedAccount = AztecAddress.fromFieldUnsafe(new Fr(2));
+  const allowedScope: FactScope = { type: 'account', account: allowedAccount };
+  const disallowedScope: FactScope = { type: 'account', account: AztecAddress.fromFieldUnsafe(new Fr(3)) };
   const typeId = new Fr(10);
   const collectionId = new Fr(20);
   const factTypeId = new Fr(30);
@@ -38,7 +40,7 @@ describe('FactService', () => {
   });
 
   it('delegates record+get for an allowed scope', async () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, changeSetId);
 
     const collection = await service.getFactCollection(factCollectionKey, makeTips(0, 0), changeSetId);
@@ -46,7 +48,7 @@ describe('FactService', () => {
   });
 
   it('delegates getFactCollectionsByType for an allowed scope', async () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, changeSetId);
 
     const collections = await service.getFactCollectionsByType(factCollectionTypeKey, makeTips(0, 0), changeSetId);
@@ -56,7 +58,7 @@ describe('FactService', () => {
   });
 
   it('delegates deleteFactCollection for an allowed scope', async () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, changeSetId);
     await service.deleteFactCollection(factCollectionKey, changeSetId);
 
@@ -64,35 +66,53 @@ describe('FactService', () => {
   });
 
   it('rejects a disallowed scope on recordFact', () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     expect(() =>
       service.recordFact(disallowedCollectionKey, factTypeId, [factPayload], undefined, changeSetId),
     ).toThrow(/not in the allowed scopes/);
   });
 
   it('rejects a disallowed scope on deleteFactCollection', () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     expect(() => service.deleteFactCollection(disallowedCollectionKey, changeSetId)).toThrow(
       /not in the allowed scopes/,
     );
   });
 
   it('rejects a disallowed scope on getFactCollection', async () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     await expect(service.getFactCollection(disallowedCollectionKey, makeTips(0, 0), changeSetId)).rejects.toThrow(
       /not in the allowed scopes/,
     );
   });
 
   it('rejects a disallowed scope on getFactCollectionsByType', async () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     await expect(
       service.getFactCollectionsByType(disallowedCollectionTypeKey, makeTips(0, 0), changeSetId),
     ).rejects.toThrow(/not in the allowed scopes/);
   });
 
+  it('allows the public scope with no allowed accounts', async () => {
+    const service = new FactService(store, []);
+    const publicCollectionKey = new FactCollectionKey(contract, { type: 'public' }, typeId, collectionId);
+    await service.recordFact(publicCollectionKey, factTypeId, [factPayload], undefined, changeSetId);
+
+    const collections = await service.getFactCollectionsByType(
+      new FactCollectionTypeKey(contract, { type: 'public' }, typeId),
+      makeTips(0, 0),
+      changeSetId,
+    );
+    expect(collections).toEqual([
+      { key: publicCollectionKey, facts: [{ factTypeId, payload: [factPayload], originBlock: undefined }] },
+    ]);
+
+    await service.deleteFactCollection(publicCollectionKey, changeSetId);
+    expect(await service.getFactCollection(publicCollectionKey, makeTips(0, 0), changeSetId)).toBeUndefined();
+  });
+
   it('annotates a retractable fact with its origin block state', async () => {
-    const service = new FactService(store, [allowedScope]);
+    const service = new FactService(store, [allowedAccount]);
     const blockHash = new Fr(123);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], { blockNumber: 4, blockHash }, changeSetId);
 

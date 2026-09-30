@@ -875,12 +875,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_recordFact(...inputs: ForeignCallArgs) {
+  aztec_utl_recordFactV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_recordFact',
+      oracle: 'aztec_utl_recordFactV2',
       inputs,
       handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId, factTypeId, payload, originBlock]) =>
-        this.handlerAsUtility().recordFact(
+        this.handlerAsUtility().recordFactV2(
           contractAddress,
           scope,
           factCollectionTypeId,
@@ -893,32 +893,32 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_deleteFactCollection(...inputs: ForeignCallArgs) {
+  aztec_utl_deleteFactCollectionV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_deleteFactCollection',
+      oracle: 'aztec_utl_deleteFactCollectionV2',
       inputs,
       handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
-        this.handlerAsUtility().deleteFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+        this.handlerAsUtility().deleteFactCollectionV2(contractAddress, scope, factCollectionTypeId, factCollectionId),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getFactCollection(...inputs: ForeignCallArgs) {
+  aztec_utl_getFactCollectionV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getFactCollection',
+      oracle: 'aztec_utl_getFactCollectionV2',
       inputs,
       handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
-        this.handlerAsUtility().getFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+        this.handlerAsUtility().getFactCollectionV2(contractAddress, scope, factCollectionTypeId, factCollectionId),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getFactCollectionsByType(...inputs: ForeignCallArgs) {
+  aztec_utl_getFactCollectionsByTypeV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getFactCollectionsByType',
+      oracle: 'aztec_utl_getFactCollectionsByTypeV2',
       inputs,
       handler: ([contractAddress, scope, factCollectionTypeId]) =>
-        this.handlerAsUtility().getFactCollectionsByType(contractAddress, scope, factCollectionTypeId),
+        this.handlerAsUtility().getFactCollectionsByTypeV2(contractAddress, scope, factCollectionTypeId),
     });
   }
 

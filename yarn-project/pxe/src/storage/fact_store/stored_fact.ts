@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { FactScope } from './fact_scope.js';
 import { type BlockReference, FactCollectionKey } from './fact_store_keys.js';
 
 /** A fact as returned by the fact store. */
@@ -35,24 +36,44 @@ export class StoredFact {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(
-      this.factCollectionKey.contractAddress,
-      this.factCollectionKey.scope,
-      this.factCollectionKey.factCollectionTypeId,
-      this.factCollectionKey.factCollectionId,
-      this.factTypeId,
-      this.payload.length,
-      ...this.payload,
-      this.originBlock !== undefined,
-      this.originBlock ? this.originBlock.blockNumber : 0,
-      this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
-    );
+    const { scope } = this.factCollectionKey;
+    const record = (scopeAccount: AztecAddress) =>
+      serializeToBuffer(
+        this.factCollectionKey.contractAddress,
+        scopeAccount,
+        this.factCollectionKey.factCollectionTypeId,
+        this.factCollectionKey.factCollectionId,
+        this.factTypeId,
+        this.payload.length,
+        ...this.payload,
+        this.originBlock !== undefined,
+        this.originBlock ? this.originBlock.blockNumber : 0,
+        this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
+      );
+    // For DB schema compatibility, account records use the schema's record layout unchanged, and public records extend
+    // it with a trailing marker instead of adding a scope kind field.
+    switch (scope.type) {
+      case 'account':
+        return record(scope.account);
+      case 'public':
+        return Buffer.concat([record(AztecAddress.ZERO), serializeToBuffer(true)]);
+      default: {
+        const _exhaustive: never = scope;
+        throw new Error(`Unhandled fact scope type: ${JSON.stringify(_exhaustive)}`);
+      }
+    }
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): StoredFact {
+  /**
+   * Inverse of {@link toBuffer}.
+   *
+   * `buffer` must end where the record does, since any bytes after an account record are read as the public scope
+   * marker.
+   */
+  static fromBuffer(buffer: Buffer): StoredFact {
     const reader = BufferReader.asReader(buffer);
     const contractAddress = reader.readObject(AztecAddress);
-    const scope = reader.readObject(AztecAddress);
+    const scopeAccount = reader.readObject(AztecAddress);
     const factCollectionTypeId = reader.readObject(Fr);
     const factCollectionId = reader.readObject(Fr);
     const factTypeId = reader.readObject(Fr);
@@ -62,6 +83,20 @@ export class StoredFact {
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
     const originBlock = hasOriginBlock ? { blockNumber, blockHash } : undefined;
+    let scope: FactScope = { type: 'account', account: scopeAccount };
+    if (!reader.isEmpty()) {
+      const malformed = `Malformed public scope marker in stored fact of contract ${contractAddress}`;
+      if (!reader.readBoolean()) {
+        throw new Error(`${malformed}: marker is false`);
+      }
+      if (!reader.isEmpty()) {
+        throw new Error(`${malformed}: trailing bytes after the marker`);
+      }
+      if (!scopeAccount.isZero()) {
+        throw new Error(`${malformed}: record names account ${scopeAccount}`);
+      }
+      scope = { type: 'public' };
+    }
     return new StoredFact(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       factTypeId,

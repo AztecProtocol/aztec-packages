@@ -63,7 +63,7 @@
 //! A reorg retracting either fact folds the reception back accordingly.
 use crate::ephemeral::EphemeralArray;
 use crate::facts::{
-    delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, record_retractable_fact,
+    delete_fact_collection, Fact, FactCollection, FactScope, get_fact_collections_by_type, record_retractable_fact,
     RetractableFactOrigin,
 };
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
@@ -105,7 +105,7 @@ impl PartialNoteFsm {
     ) {
         record_retractable_fact(
             contract_address,
-            scope,
+            FactScope::account(scope),
             PARTIAL_NOTE_RECEPTION_TYPE_ID,
             Self::id_for(pending),
             PARTIAL_NOTE_DELIVERED,
@@ -119,7 +119,11 @@ impl PartialNoteFsm {
         contract_address: AztecAddress,
         scope: AztecAddress,
     ) -> EphemeralArray<PartialNoteFsm> {
-        get_fact_collections_by_type(contract_address, scope, PARTIAL_NOTE_RECEPTION_TYPE_ID)
+        get_fact_collections_by_type(
+            contract_address,
+            FactScope::account(scope),
+            PARTIAL_NOTE_RECEPTION_TYPE_ID,
+        )
             .map(|collection: FactCollection| PartialNoteFsm { collection })
     }
 

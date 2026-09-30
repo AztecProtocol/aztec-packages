@@ -4,8 +4,11 @@ import { toACVMField } from '@aztec/simulator/client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 
+import type { FactScope } from '../../storage/fact_store/index.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import type { Fact } from '../noir-structs/fact.js';
+import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { Option } from '../noir-structs/option.js';
 import { buildACIRCallback } from './acir_callback.js';
 import { LEGACY_ORACLE_REGISTRY, type LegacyOracleEntry } from './legacy_oracle_registry.js';
@@ -131,6 +134,112 @@ describe('legacy oracle dispatch', () => {
     expect(await callback['aztec_utl_doesNullifierExist']([toACVMField(Fr.random())])).toEqual([
       toACVMField(new Fr(0)),
     ]);
+  });
+
+  describe('retired fact oracles', () => {
+    const service = new EphemeralArrayService();
+    const contract = AztecAddress.fromBigIntUnsafe(100n);
+    const account = AztecAddress.fromBigIntUnsafe(1n);
+    const typeId = new Fr(7n);
+    const collectionId = new Fr(42n);
+
+    const collectionUnder = (scope: FactScope): FactCollection => ({
+      contractAddress: contract,
+      scope,
+      factCollectionTypeId: typeId,
+      factCollectionId: collectionId,
+      facts: EphemeralArray.fromValues<Fact>(service, []),
+    });
+
+    it('passes the bare account address of the old wire to the modern handler as an account scope', async () => {
+      let handlerArgs: unknown[] | undefined;
+      const handler = {
+        isUtility: true,
+        deleteFactCollectionV2: (...args: unknown[]) => {
+          handlerArgs = args;
+          return Promise.resolve();
+        },
+      } as unknown as Handler;
+
+      await buildACIRCallback(handler)['aztec_utl_deleteFactCollection'](
+        ...[contract.toField(), account.toField(), typeId, collectionId].map(field => [toACVMField(field)]),
+      );
+
+      expect(handlerArgs).toEqual([contract, { type: 'account', account }, typeId, collectionId]);
+    });
+
+    it('passes the old recordFact wire to the modern handler with an account scope and its other args intact', async () => {
+      let handlerArgs: unknown[] | undefined;
+      const handler = {
+        isUtility: true,
+        recordFactV2: (...args: unknown[]) => {
+          handlerArgs = args;
+          return Promise.resolve();
+        },
+      } as unknown as Handler;
+      const factTypeId = new Fr(3n);
+      const payload = [new Fr(9n), new Fr(10n)];
+      const payloadSlot = service.newArray(payload.map(field => [field]));
+      const originBlock = { blockNumber: 12, blockHash: new Fr(0xabcn) };
+
+      await buildACIRCallback(handler)['aztec_utl_recordFact'](
+        ...[
+          contract.toField(),
+          account.toField(),
+          typeId,
+          collectionId,
+          factTypeId,
+          payloadSlot,
+          // Some, then the origin block's number and hash.
+          Fr.ONE,
+          new Fr(originBlock.blockNumber),
+          originBlock.blockHash,
+        ].map(field => [toACVMField(field)]),
+      );
+
+      expect(handlerArgs).toHaveLength(7);
+      const [payloadArg, originBlockArg] = handlerArgs!.slice(5);
+      expect(handlerArgs!.slice(0, 5)).toEqual([
+        contract,
+        { type: 'account', account },
+        typeId,
+        collectionId,
+        factTypeId,
+      ]);
+      expect((payloadArg as EphemeralArray<Fr>).readAll(service)).toEqual(payload);
+      expect(originBlockArg).toEqual(Option.some(originBlock));
+    });
+
+    it('returns a collection scope as the bare account address of the old wire', async () => {
+      const handler = {
+        isUtility: true,
+        getFactCollectionV2: () => Promise.resolve(Option.some(collectionUnder({ type: 'account', account }))),
+      } as unknown as Handler;
+
+      const wire = await buildACIRCallback(handler)['aztec_utl_getFactCollection'](
+        ...[contract.toField(), account.toField(), typeId, collectionId].map(field => [toACVMField(field)]),
+      );
+
+      // Some, contract, scope, type, id, and the facts array slot.
+      expect(wire).toHaveLength(6);
+      expect(wire.slice(0, 5)).toEqual(
+        [new Fr(1), contract.toField(), account.toField(), typeId, collectionId].map(toACVMField),
+      );
+    });
+
+    it('refuses to return a public scope through the old wire', async () => {
+      const handler = {
+        isUtility: true,
+        getFactCollectionsByTypeV2: () =>
+          Promise.resolve(EphemeralArray.fromValues(service, [collectionUnder({ type: 'public' })])),
+      } as unknown as Handler;
+
+      await expect(
+        buildACIRCallback(handler)['aztec_utl_getFactCollectionsByType'](
+          ...[contract.toField(), account.toField(), typeId].map(field => [toACVMField(field)]),
+        ),
+      ).rejects.toThrow('cannot return a public fact scope');
+    });
   });
 
   it('rejects a legacy name that collides with a live oracle', () => {

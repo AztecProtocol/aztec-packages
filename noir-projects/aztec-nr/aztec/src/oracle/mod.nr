@@ -47,6 +47,8 @@ pub mod contract_sync;
         quote { record_fact_oracle },
         quote { get_fact_collection_oracle },
         quote { get_fact_collections_by_type_oracle },
+        // TODO: cover once the test value synthesizer can build `FactScope`, whose fields are private.
+        quote { delete_fact_collection_oracle },
     ],
 )]
 pub mod fact_store;

@@ -1,9 +1,12 @@
 /* eslint-disable camelcase */
 import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 
+import type { FactScope } from '../../storage/fact_store/index.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import type { FactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
@@ -16,11 +19,15 @@ import {
   type RegistryParam,
 } from './oracle_registry.js';
 import {
+  ALIAS,
   AZTEC_ADDRESS,
+  BLOCK_REFERENCE,
   BOOL,
   EPHEMERAL_ARRAY,
+  FACT,
   FIELD,
   FIXED_BOUNDED_VEC,
+  OPTION,
   STRUCT,
   TX_HASH,
   type TypeMapping,
@@ -44,6 +51,26 @@ const LEGACY_MESSAGE_CONTEXT: TypeMapping<LegacyMessageContext> = STRUCT<LegacyM
 const LEGACY_PENDING_TAGGED_LOG: TypeMapping<LegacyPendingTaggedLog> = STRUCT<LegacyPendingTaggedLog>([
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: LEGACY_MESSAGE_CONTEXT },
+]);
+
+// The retired fact oracles carry scopes as bare account addresses, which are now account `FactScope`s.
+const accountScope = (account: AztecAddress): FactScope => ({ type: 'account', account });
+
+const LEGACY_FACT_SCOPE: TypeMapping<FactScope> = ALIAS(AZTEC_ADDRESS, {
+  unwrap: scope => {
+    if (scope.type !== 'account') {
+      throw new Error('A retired fact oracle cannot return a public fact scope');
+    }
+    return scope.account;
+  },
+});
+
+const LEGACY_FACT_COLLECTION: TypeMapping<FactCollection> = STRUCT([
+  { name: 'contractAddress', type: AZTEC_ADDRESS },
+  { name: 'scope', type: LEGACY_FACT_SCOPE },
+  { name: 'factCollectionTypeId', type: FIELD },
+  { name: 'factCollectionId', type: FIELD },
+  { name: 'facts', type: EPHEMERAL_ARRAY(FACT) },
 ]);
 
 // Ephemeral arrays bridged by an adapter never get a slot: a param built here is only read back by the handler, and a
@@ -103,6 +130,68 @@ export const LEGACY_ORACLE_REGISTRY: Record<string, LegacyOracleEntry> = {
     returnType: {
       legacyType: BOOL,
       mapping: statuses => statuses.readAll(neverMaterialized)[0].exists,
+    },
+  }),
+  aztec_utl_recordFact: legacyOracle({
+    modernOracle: 'aztec_utl_recordFactV2',
+    params: {
+      legacyType: [
+        { name: 'contractAddress', type: AZTEC_ADDRESS },
+        { name: 'scope', type: AZTEC_ADDRESS },
+        { name: 'factCollectionTypeId', type: FIELD },
+        { name: 'factCollectionId', type: FIELD },
+        { name: 'factTypeId', type: FIELD },
+        { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
+        { name: 'originBlock', type: OPTION(BLOCK_REFERENCE) },
+      ],
+      mapping: ([contractAddress, scope, ...rest]) => [contractAddress, accountScope(scope), ...rest],
+    },
+  }),
+  aztec_utl_deleteFactCollection: legacyOracle({
+    modernOracle: 'aztec_utl_deleteFactCollectionV2',
+    params: {
+      legacyType: [
+        { name: 'contractAddress', type: AZTEC_ADDRESS },
+        { name: 'scope', type: AZTEC_ADDRESS },
+        { name: 'factCollectionTypeId', type: FIELD },
+        { name: 'factCollectionId', type: FIELD },
+      ],
+      mapping: ([contractAddress, scope, ...rest]) => [contractAddress, accountScope(scope), ...rest],
+    },
+  }),
+  aztec_utl_getFactCollection: legacyOracle({
+    modernOracle: 'aztec_utl_getFactCollectionV2',
+    params: {
+      legacyType: [
+        { name: 'contractAddress', type: AZTEC_ADDRESS },
+        { name: 'scope', type: AZTEC_ADDRESS },
+        { name: 'factCollectionTypeId', type: FIELD },
+        { name: 'factCollectionId', type: FIELD },
+      ],
+      mapping: ([contractAddress, scope, ...rest]) => [contractAddress, accountScope(scope), ...rest],
+    },
+    returnType: {
+      legacyType: OPTION(LEGACY_FACT_COLLECTION),
+      mapping: collection => collection,
+    },
+  }),
+  aztec_utl_getFactCollectionsByType: legacyOracle({
+    modernOracle: 'aztec_utl_getFactCollectionsByTypeV2',
+    params: {
+      legacyType: [
+        { name: 'contractAddress', type: AZTEC_ADDRESS },
+        { name: 'scope', type: AZTEC_ADDRESS },
+        { name: 'factCollectionTypeId', type: FIELD },
+      ],
+      mapping: ([contractAddress, scope, factCollectionTypeId]) => [
+        contractAddress,
+        accountScope(scope),
+        factCollectionTypeId,
+      ],
+    },
+    returnType: {
+      legacyType: EPHEMERAL_ARRAY(LEGACY_FACT_COLLECTION),
+      mapping: collections => collections,
     },
   }),
 };
