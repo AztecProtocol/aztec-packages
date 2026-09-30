@@ -1,6 +1,6 @@
 #include "barretenberg/world_state_reference/merkle_tree_id.hpp"
 
-#include <stdexcept>
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <string>
 
 namespace bb::world_state {
@@ -19,7 +19,7 @@ std::string getMerkleTreeName(MerkleTreeId id)
     case MerkleTreeId::ARCHIVE:
         return "ArchiveTree";
     default:
-        throw std::invalid_argument("Unknown MerkleTreeId");
+        throw_or_abort("Unknown MerkleTreeId");
     }
 }
 

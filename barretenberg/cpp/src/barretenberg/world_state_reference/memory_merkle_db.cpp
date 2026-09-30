@@ -1,16 +1,19 @@
 #include "barretenberg/world_state_reference/memory_merkle_db.hpp"
 
-#include <stdexcept>
 #include <string>
 
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 
 namespace bb::world_state {
 
-MemoryMerkleDB::MemoryMerkleDB(size_t nullifier_tree_prefill, size_t public_data_tree_prefill)
+MemoryMerkleDB::MemoryMerkleDB(size_t nullifier_tree_prefill,
+                               size_t public_data_tree_prefill,
+                               std::span<const NullifierLeafValue> prefilled_nullifiers,
+                               std::span<const PublicDataLeafValue> prefilled_public_data)
     : state_{
-        .nullifier_tree = NullifierTree(NULLIFIER_TREE_HEIGHT, nullifier_tree_prefill),
-        .public_data_tree = PublicDataTree(PUBLIC_DATA_TREE_HEIGHT, public_data_tree_prefill),
+        .nullifier_tree = NullifierTree(NULLIFIER_TREE_HEIGHT, nullifier_tree_prefill, prefilled_nullifiers),
+        .public_data_tree = PublicDataTree(PUBLIC_DATA_TREE_HEIGHT, public_data_tree_prefill, prefilled_public_data),
         .note_hash_tree = NoteHashTree(NOTE_HASH_TREE_HEIGHT),
         .l1_to_l2_message_tree = L1ToL2MessageTree(L1_TO_L2_MSG_TREE_HEIGHT),
     }
@@ -38,8 +41,7 @@ SiblingPath MemoryMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
         return state_.l1_to_l2_message_tree.get_sibling_path(leaf_index);
     default:
-        throw std::runtime_error("get_sibling_path: unsupported tree id " +
-                                 std::to_string(static_cast<uint64_t>(tree_id)));
+        throw_or_abort("get_sibling_path: unsupported tree id " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
 }
 
@@ -51,8 +53,7 @@ GetLowIndexedLeafResponse MemoryMerkleDB::get_low_indexed_leaf(MerkleTreeId tree
     case MerkleTreeId::PUBLIC_DATA_TREE:
         return state_.public_data_tree.get_low_indexed_leaf(value);
     default:
-        throw std::runtime_error("get_low_indexed_leaf: unsupported tree id " +
-                                 std::to_string(static_cast<uint64_t>(tree_id)));
+        throw_or_abort("get_low_indexed_leaf: unsupported tree id " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
 }
 
@@ -68,8 +69,7 @@ FF MemoryMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) cons
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
         return state_.l1_to_l2_message_tree.get_leaf_value(leaf_index);
     default:
-        throw std::runtime_error("get_leaf_value: unsupported tree id " +
-                                 std::to_string(static_cast<uint64_t>(tree_id)));
+        throw_or_abort("get_leaf_value: unsupported tree id " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
 }
 
@@ -105,7 +105,7 @@ void MemoryMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> lea
         state_.l1_to_l2_message_tree.append_leaves(leaves);
         break;
     default:
-        throw std::runtime_error("append_leaves is only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE");
+        throw_or_abort("append_leaves is only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE");
     }
 }
 
@@ -119,7 +119,7 @@ void MemoryMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
         state_.note_hash_tree.pad_leaves(num_leaves);
         break;
     default:
-        throw std::runtime_error("Padding not supported for tree " + std::to_string(static_cast<uint64_t>(tree_id)));
+        throw_or_abort("Padding not supported for tree " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
 }
 
