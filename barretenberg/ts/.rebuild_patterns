@@ -6,3 +6,4 @@
 ^barretenberg/cpp/src/barretenberg/bbapi/bb_schema\.json$
 ^barretenberg/cpp/src/barretenberg/bbapi/bb_curve_constants\.json$
 ^barretenberg/cpp/src/barretenberg/cdb/cdb_schema\.json$
+^barretenberg/cpp/src/barretenberg/world_state_reference/wsdb_base_schema\.jsonc$
