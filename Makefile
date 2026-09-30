@@ -97,7 +97,7 @@ bench-labs: labs-bench
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy bb-bin-cross-copy ipc-runtime-cross
+release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy bb-wsdb-ref-cross-copy bb-bin-cross-copy ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -136,7 +136,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-bin bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-wsdb-ref bb-bin bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -278,6 +278,15 @@ bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-ts-cross-copy bb-cpp-cross
 bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
 	$(call build,$@,barretenberg/ts,build_cdb)
 
+# @aztec-foundation/wsdb-ref: the in-memory reference world state, run in-process through its
+# wasm module or its Node-API addon. Ordered after bb-cdb because every barretenberg/ts target
+# regenerates the same workspaces and installs into the same node_modules.
+bb-wsdb-ref: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-cdb
+	$(call build,$@,barretenberg/ts,build_wsdb_ref)
+
+bb-wsdb-ref-cross-copy: bb-wsdb-ref bb-avm-sim-cross-copy bb-cpp-cross
+	$(call build,$@,barretenberg/ts,cross_copy_wsdb_ref)
+
 # bb and bb-avm as npm packages (meta + one package per platform).
 bb-bin: bb-cpp-native
 	$(call build,$@,barretenberg/ts,build_bb_bin)
@@ -327,6 +336,9 @@ bb-acir-tests: bb-acir
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
 
+bb-wsdb-ref-tests: bb-wsdb-ref
+	$(call test,$@,barretenberg/ts,wsdb_ref)
+
 bb-sol-tests: bb-sol
 	$(call test,$@,barretenberg/sol)
 
@@ -339,7 +351,7 @@ bb-bbup-tests: bb-bbup
 bb-rs-tests: bb-rs
 	$(call test,$@,barretenberg/rust)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-wsdb-ref-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 

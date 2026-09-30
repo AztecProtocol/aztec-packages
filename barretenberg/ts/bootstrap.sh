@@ -6,6 +6,8 @@ BB_AVM_SIM_BINARY=bb-avm-sim
 BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
 BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
+WSDB_REF_PACKAGE=@aztec-foundation/wsdb-ref
+WSDB_REF_ADDON=wsdb_ref_napi.node
 
 hash=$(hash_str \
   $(bb.js/bootstrap.sh hash) \
@@ -70,13 +72,30 @@ function generate_bb_js_api_package {
     --package-wasm-threads-module barretenberg-threads.wasm
 }
 
-# bb-avm-sim, cdb and bb.js-api are gitignored workspaces declared in package.json, so
+# The in-memory reference world state over the wsdb base contract, fully generated: in-process
+# through its wasm module (node and browsers) or, opted into here with napi, its Node-API addon.
+# Both run the one FFI entry the bb build generates from the same schema (cpp/.../wsdb_ref).
+function generate_wsdb_ref_package {
+  node --experimental-strip-types --no-warnings \
+    "$ROOT/ipc-codegen/src/generate.ts" \
+    --schema "$ROOT/barretenberg/cpp/src/barretenberg/world_state_reference/wsdb_base_schema.jsonc" \
+    --lang ts \
+    --package "$ROOT/barretenberg/ts/wsdb-ref" \
+    --package-name "$WSDB_REF_PACKAGE" \
+    --package-transports napi,wasm \
+    --package-napi-addon "$WSDB_REF_ADDON" \
+    --package-napi-addon-env-var WSDB_REF_NAPI_PATH \
+    --package-wasm-module wsdb-ref.wasm
+}
+
+# bb-avm-sim, cdb, bb.js-api and wsdb-ref are gitignored workspaces declared in package.json, so
 # `yarn install --immutable` fails against the committed lockfile unless all exist.
 # Generate them together before installing, whichever one we're about to build.
 function generate_packages {
   generate_bb_avm_sim_package
   generate_cdb_package
   generate_bb_js_api_package
+  generate_wsdb_ref_package
 }
 
 # The wasm builds the bb.js-api package ships: threads (node, cross-origin isolated
@@ -170,6 +189,48 @@ function build_bb_js {
   (cd bb.js && ./bootstrap.sh)
 }
 
+# The single-thread module only: the reference world state runs no threads.
+function copy_wsdb_ref_wasm {
+  rm -rf wsdb-ref/wasm
+  mkdir -p wsdb-ref/wasm
+  cp "$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm" wsdb-ref/wasm/wsdb-ref.wasm
+}
+
+function copy_wsdb_ref_native {
+  local target_dir="wsdb-ref/build/$(arch)-$(os)"
+  mkdir -p "$target_dir"
+  cp "$ROOT/barretenberg/cpp/build/lib/$WSDB_REF_ADDON" "$target_dir/$WSDB_REF_ADDON"
+}
+
+function copy_wsdb_ref_cross {
+  if [ -n "${1:-}" ]; then
+    local cross_arch="$1"
+    mkdir -p "wsdb-ref/build/$cross_arch"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$WSDB_REF_ADDON" "wsdb-ref/build/$cross_arch/$WSDB_REF_ADDON"
+  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
+    for cross_arch in arm64-linux amd64-macos arm64-macos; do
+      mkdir -p "wsdb-ref/build/$cross_arch"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$WSDB_REF_ADDON" "wsdb-ref/build/$cross_arch/$WSDB_REF_ADDON"
+    done
+  else
+    echo "This task is expected to be run with an explicit arch or in an x86 release context."
+  fi
+}
+
+function prepare_wsdb_ref_arch_packages {
+  yarn workspace "$WSDB_REF_PACKAGE" run prepare_arch_packages "$@"
+}
+
+function build_wsdb_ref {
+  echo_header "wsdb-ref package build"
+  generate_packages
+  copy_wsdb_ref_wasm
+  copy_wsdb_ref_native
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$WSDB_REF_PACKAGE" build
+  prepare_wsdb_ref_arch_packages
+}
+
 function build_bb_avm_sim {
   echo_header "bb-avm-sim package build"
   generate_packages
@@ -230,8 +291,20 @@ function build {
   build_cdb
 }
 
+# `test_cmds wsdb_ref` lists the wsdb-ref package's tests alone: they need its build (bb-wsdb-ref),
+# which bb.js's tests do not.
 function test_cmds {
-  (cd bb.js && ./bootstrap.sh test_cmds)
+  case "${1:-}" in
+    wsdb_ref)
+      local backend
+      for backend in napi wasm; do
+        echo "$hash barretenberg/ts/scripts/wsdb_ref_test.sh $backend"
+      done
+      ;;
+    *)
+      (cd bb.js && ./bootstrap.sh test_cmds)
+      ;;
+  esac
 }
 
 function bench_cmds {
@@ -245,6 +318,14 @@ function test {
 # bb.js ships no native artifacts of its own; the bb binary it runs through comes from bb.js-api.
 function cross_copy_bb_js {
   cross_copy_bb_js_api "$@"
+}
+
+function cross_copy_wsdb_ref {
+  generate_packages
+  copy_wsdb_ref_cross "$@"
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$WSDB_REF_PACKAGE" build
+  prepare_wsdb_ref_arch_packages
 }
 
 function cross_copy_bb_avm_sim {
@@ -276,6 +357,12 @@ function get_projects {
   if [ -d cdb ]; then
     echo "$PWD/cdb"
   fi
+  if [ -d wsdb-ref ]; then
+    for package_dir in wsdb-ref/packages/*; do
+      [ -d "$package_dir" ] && echo "$PWD/$package_dir"
+    done
+    echo "$PWD/wsdb-ref"
+  fi
 }
 
 function release_bb_avm_sim {
@@ -289,6 +376,23 @@ function release_bb_avm_sim {
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
   (cd bb-avm-sim && retry "deploy_npm ${REF_NAME#v}")
+}
+
+function release_wsdb_ref {
+  generate_packages
+  copy_wsdb_ref_wasm
+  copy_wsdb_ref_native
+  copy_wsdb_ref_cross
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$WSDB_REF_PACKAGE" build
+  prepare_wsdb_ref_arch_packages
+  local package_dir
+  for package_dir in wsdb-ref/packages/*; do
+    # A platform whose addon was not built has only the generated manifest: nothing to publish.
+    [ -f "$package_dir/$WSDB_REF_ADDON" ] || continue
+    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
+  done
+  (cd wsdb-ref && retry "deploy_npm ${REF_NAME#v}")
 }
 
 function release_cdb {
@@ -333,12 +437,14 @@ function release {
   (cd bb.js && ./bootstrap.sh release)
   release_bb_avm_sim
   release_cdb
+  release_wsdb_ref
   release_bb_bin
 }
 
 export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
 export -f generate_bb_js_api_package copy_bb_js_api_wasm copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
 export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
+export -f generate_wsdb_ref_package copy_wsdb_ref_wasm copy_wsdb_ref_native copy_wsdb_ref_cross prepare_wsdb_ref_arch_packages build_wsdb_ref cross_copy_wsdb_ref release_wsdb_ref
 
 case "$cmd" in
   "")
