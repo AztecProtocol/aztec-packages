@@ -1,0 +1,270 @@
+// The world-state commands the protocol itself needs: reading tree state, membership and low-leaf
+// witnesses, appending and inserting leaves, and advancing the archive. Code written against this
+// contract runs against any world state that implements it: the in-memory reference
+// (@aztec-foundation/wsdb-ref, generated from this file) and a node world state, whose schema
+// extends this one with forks, block history and storage.
+//
+// Every definition here is the one the node world state already uses, so an extension can add to
+// it without redefining anything. Revisions and fork ids keep their full shape; an implementation
+// may answer anything but fork 0 at block 0 or the latest block (0xffffffff) with an error.
+//
+// A world state starts at the canonical genesis: empty trees, except the indexed trees' prefill,
+// whose last nullifiers are the protocol contracts' registration nullifiers, and an archive holding
+// the genesis block header hash (GENESIS_* in constants.nr). How it gets there is not part of this
+// contract.
+//
+// Tree ids: 0 nullifier, 1 note hash, 2 public data, 3 L1-to-L2 message, 4 archive.
+{
+  "service": "Wsdb",
+  "aliases": {
+    "MerkleTreeId": "u32",
+    "ForkId": "u64",
+    "BlockNumber": "u32",
+    "Fr": "bin32",
+    "LeafIndex": "u64",
+    "PublicDataSlot": "bin32",
+    "PublicDataValue": "bin32",
+    "Nullifier": "bin32",
+    "BlockHeaderHash": "bin32"
+  },
+  "types": {
+    "WorldStateRevision": {
+      "forkId": "ForkId",
+      "blockNumber": "BlockNumber",
+      "includeUncommitted": "bool"
+    },
+    "TreeStateReference": {
+      "treeId": "MerkleTreeId",
+      "root": "Fr",
+      "size": "LeafIndex"
+    },
+    "PublicDataLeafValue": {
+      "slot": "PublicDataSlot",
+      "value": "PublicDataValue"
+    },
+    "NullifierLeafValue": {
+      "nullifier": "Nullifier"
+    },
+    "IndexedPublicDataLeafValue": {
+      "leaf": "PublicDataLeafValue",
+      "nextIndex": "LeafIndex",
+      "nextKey": "Fr"
+    },
+    "IndexedNullifierLeafValue": {
+      "leaf": "NullifierLeafValue",
+      "nextIndex": "LeafIndex",
+      "nextKey": "Fr"
+    },
+    "PublicDataLeafUpdateWitnessData": {
+      "leaf": "IndexedPublicDataLeafValue",
+      "index": "LeafIndex",
+      "path": "Fr[]"
+    },
+    "NullifierLeafUpdateWitnessData": {
+      "leaf": "IndexedNullifierLeafValue",
+      "index": "LeafIndex",
+      "path": "Fr[]"
+    },
+    "SequentialInsertionResultPublicData": {
+      "lowLeafWitnessData": "PublicDataLeafUpdateWitnessData[]",
+      "insertionWitnessData": "PublicDataLeafUpdateWitnessData[]"
+    },
+    "SequentialInsertionResultNullifier": {
+      "lowLeafWitnessData": "NullifierLeafUpdateWitnessData[]",
+      "insertionWitnessData": "NullifierLeafUpdateWitnessData[]"
+    }
+  },
+  "error": {
+    "message": "string"
+  },
+  "commands": {
+    "GetTreeInfo": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision"
+      },
+      "response": {
+        "treeId": "MerkleTreeId",
+        "root": "Fr",
+        "size": "LeafIndex",
+        "depth": "u32"
+      }
+    },
+    "GetStateReference": {
+      "request": {
+        "revision": "WorldStateRevision"
+      },
+      "response": {
+        "state": "TreeStateReference[]"
+      }
+    },
+    "GetInitialStateReference": {
+      "request": {},
+      "response": {
+        "state": "TreeStateReference[]"
+      }
+    },
+    "GetLeafValue": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "value": "Fr?"
+      }
+    },
+    "GetPublicDataLeafValue": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "value": "PublicDataLeafValue?"
+      }
+    },
+    "GetNullifierLeafValue": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "value": "NullifierLeafValue?"
+      }
+    },
+    "GetPublicDataLeafPreimage": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "preimage": "IndexedPublicDataLeafValue?"
+      }
+    },
+    "GetNullifierLeafPreimage": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "preimage": "IndexedNullifierLeafValue?"
+      }
+    },
+    "GetSiblingPath": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "path": "Fr[]"
+      }
+    },
+    "FindLeafIndices": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leaves": "Fr[]",
+        "startIndex": "LeafIndex"
+      },
+      "response": {
+        "indices": "LeafIndex?[]"
+      }
+    },
+    "FindPublicDataLeafIndices": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leaves": "PublicDataLeafValue[]",
+        "startIndex": "LeafIndex"
+      },
+      "response": {
+        "indices": "LeafIndex?[]"
+      }
+    },
+    "FindNullifierLeafIndices": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leaves": "NullifierLeafValue[]",
+        "startIndex": "LeafIndex"
+      },
+      "response": {
+        "indices": "LeafIndex?[]"
+      }
+    },
+    "FindLowLeaf": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "key": "Fr"
+      },
+      "response": {
+        "alreadyPresent": "bool",
+        "index": "LeafIndex"
+      }
+    },
+    "AppendLeaves": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "leaves": "Fr[]",
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "SequentialInsertPublicData": {
+      "request": {
+        "leaves": "PublicDataLeafValue[]",
+        "forkId": "ForkId"
+      },
+      "response": {
+        "result": "SequentialInsertionResultPublicData"
+      }
+    },
+    "SequentialInsertNullifier": {
+      "request": {
+        "leaves": "NullifierLeafValue[]",
+        "forkId": "ForkId"
+      },
+      "response": {
+        "result": "SequentialInsertionResultNullifier"
+      }
+    },
+    "UpdateArchive": {
+      "request": {
+        "blockStateRef": "TreeStateReference[]",
+        "blockHeaderHash": "BlockHeaderHash",
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "CreateCheckpoint": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "CommitCheckpoint": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "RevertCheckpoint": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "CommitAllCheckpoints": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "RevertAllCheckpoints": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    }
+  }
+}
