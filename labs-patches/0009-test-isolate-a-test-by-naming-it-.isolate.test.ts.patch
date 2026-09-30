@@ -1,0 +1,471 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 09:35:47 +0000
+Subject: [PATCH] test: isolate a test by naming it *.isolate.test.ts
+
+A test that binds a port has to run in its own container, and which tests those are was
+a list of package prefixes in test_cmds. A list only works if whoever adds a test in a
+new package knows to extend it, and an unisolated test that spawns anvil passes until
+the day it races another one.
+
+Two were already in that position. cli/src/cmds/l1/attester_exit, added this month,
+fails intermittently with "Address already in use" before reaching an assertion, when
+it meets another anvil in the same window; it was found failing a bb PR it has nothing
+to do with. epoch-cache/src/epoch_cache.integration has been unisolated since April
+and has only been luckier.
+
+The suffix says it at the point someone writes the test, rather than somewhere else
+that has to be remembered. The package list stays, so nothing loses the isolation it
+has today; prefer the suffix for anything new, and an entry can leave the list by
+renaming its tests.
+
+Verified: the condition isolates both renamed tests, leaves ordinary ones shared, and
+keeps every package currently listed; the glob still enumerates both, 649 tests in all.
+
+diff --git a/yarn-project/bootstrap.sh b/yarn-project/bootstrap.sh
+index 35f7cf288f5d070fc6ce6cd9e5fd00e874a89d3d..a523ca15d2ff59bd00b0a6b15c6c511b1daf3684 100755
+--- a/yarn-project/bootstrap.sh
++++ b/yarn-project/bootstrap.sh
+@@ -392,8 +392,16 @@ function test_cmds {
+     local prefix=$(dep_hash "$test")
+     local cmd_env=""
+ 
+-    # These need isolation due to network stack usage (p2p, anvil, etc).
+-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
++    # A test that uses the network stack — anvil, a p2p listener, anything binding a port — must run
++    # in its own container, because these fan out onto one host and a fixed port is a fixed port.
++    #
++    # Name it *.isolate.test.ts and it gets that, wherever it lives. The package list below predates
++    # the suffix and is kept so existing tests keep their isolation; prefer the suffix for anything
++    # new, and migrate an entry out of the list by renaming its tests. A list has to be remembered by
++    # whoever adds a test in a new package, and a test that spawns anvil from a package nobody
++    # thought to list will pass until the day it races something.
++    if [[ "$test" =~ \.isolate\.test\.ts$ ]] ||
++      [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
+       prefix+=":ISOLATE=1:NAME=$test"
+     fi
+ 
+diff --git a/yarn-project/cli/src/cmds/l1/attester_exit.isolate.test.ts b/yarn-project/cli/src/cmds/l1/attester_exit.isolate.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3181a049e98b29e66a1857dc6ab9f46ca3e3cf9
+--- /dev/null
++++ b/yarn-project/cli/src/cmds/l1/attester_exit.isolate.test.ts
+@@ -0,0 +1,207 @@
++import { GovernanceAbi, RollupAbi, TestERC20Abi } from '@aztec-foundation/l1-artifacts';
++
++import { createExtendedL1Client } from '@aztec-labs/ethereum/client';
++import { DefaultL1ContractsConfig } from '@aztec-labs/ethereum/config';
++import { AttesterStatus, RollupContract } from '@aztec-labs/ethereum/contracts';
++import { deployAztecL1Contracts } from '@aztec-labs/ethereum/deploy-aztec-l1-contracts';
++import { type Anvil, EthCheatCodes, startAnvil } from '@aztec-labs/ethereum/test';
++import { SecretValue } from '@aztec-labs/foundation/config';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { EthAddress } from '@aztec-labs/foundation/eth-address';
++import { Signature } from '@aztec-labs/foundation/eth-signature';
++import { createLogger } from '@aztec-labs/foundation/log';
++import { DateProvider } from '@aztec-labs/foundation/timer';
++import { Command } from 'commander';
++import { mkdtemp, rm, writeFile } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { getContract } from 'viem';
++import { mnemonicToAccount } from 'viem/accounts';
++import { foundry } from 'viem/chains';
++
++import { injectCommands } from './index.js';
++import { initiateWithdrawByAttester, readAttesterExitAuthorizations } from './update_l1_validators.js';
++
++const mnemonic = 'test test test test test test test test test test test junk';
++const attester = mnemonicToAccount(mnemonic);
++const withdrawer = mnemonicToAccount(mnemonic, { addressIndex: 1 });
++const logger = createLogger('cli:test:attester-exit');
++
++describe('initiate-withdraw-by-attester command', () => {
++  it('requires a rollup and attester and accepts no recipient', () => {
++    const program = new Command();
++    injectCommands(program, () => {}, logger);
++    const command = program.commands.find(command => command.name() === 'initiate-withdraw-by-attester');
++    expect(command).toBeDefined();
++    expect(command?.options.find(option => option.long === '--rollup')?.mandatory).toBe(true);
++    expect(command?.options.find(option => option.long === '--attester')?.mandatory).toBe(true);
++    expect(command?.options.some(option => /recipient|withdrawer/.test(option.long ?? ''))).toBe(false);
++  });
++
++  it('rejects a signer that does not match the attester before contacting L1', async () => {
++    await expect(
++      initiateWithdrawByAttester({
++        rpcUrls: ['http://127.0.0.1:1'],
++        chainId: foundry.id,
++        mnemonic,
++        attesterAddress: EthAddress.fromString(withdrawer.address),
++        rollupAddress: EthAddress.ZERO,
++        log: () => {},
++        debugLogger: logger,
++      }),
++    ).rejects.toThrow('The transaction signer must match the attester address');
++  });
++});
++
++describe('initiate-withdraw-by-attester-batch command', () => {
++  it('requires a rollup and authorization file and exposes the up-to-limit mode', () => {
++    const program = new Command();
++    injectCommands(program, () => {}, logger);
++    const command = program.commands.find(command => command.name() === 'initiate-withdraw-by-attester-batch');
++    expect(command).toBeDefined();
++    expect(command?.options.find(option => option.long === '--rollup')?.mandatory).toBe(true);
++    expect(command?.options.find(option => option.long === '--authorizations')?.mandatory).toBe(true);
++    expect(command?.options.find(option => option.long === '--up-to-limit')).toBeDefined();
++  });
++
++  it('reads the JSON authorization format used by the batch command', async () => {
++    const directory = await mkdtemp(join(tmpdir(), 'attester-exit-'));
++    const path = join(directory, 'authorizations.json');
++    const signature = Signature.random();
++    await writeFile(
++      path,
++      JSON.stringify([{ attester: attester.address, deadline: '123456789', signature: signature.toString() }]),
++    );
++
++    try {
++      await expect(readAttesterExitAuthorizations(path)).resolves.toEqual([
++        {
++          attester: EthAddress.fromString(attester.address),
++          deadline: 123456789n,
++          signature: signature.toViemSignature(),
++        },
++      ]);
++    } finally {
++      await rm(directory, { recursive: true });
++    }
++  });
++});
++
++describe('attester exit through the client and CLI', () => {
++  let anvil: Anvil;
++  let rpcUrl: string;
++
++  afterAll(async () => {
++    await anvil?.stop();
++  });
++
++  it('deploys, exits as the attester, and pays only the withdrawer-selected recipient after both delays', async () => {
++    ({ anvil, rpcUrl } = await startAnvil());
++    const { l1ContractAddresses } = await deployAztecL1Contracts(
++      rpcUrl,
++      '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
++      foundry.id,
++      {
++        ...DefaultL1ContractsConfig,
++        vkTreeRoot: Fr.random(),
++        protocolContractsHash: Fr.random(),
++        genesisArchiveRoot: Fr.random(),
++        realVerifier: false,
++        aztecTargetCommitteeSize: 4,
++        entryQueueBootstrapValidatorSetSize: 21,
++        entryQueueBootstrapFlushSize: 21,
++        entryQueueMaxFlushSize: 21,
++        initialValidators: Array.from({ length: 21 }, (_, index) => ({
++          attester:
++            index === 0
++              ? EthAddress.fromString(attester.address)
++              : EthAddress.fromString(`0x${(1000 + index).toString(16).padStart(40, '0')}`),
++          withdrawer: EthAddress.fromString(withdrawer.address),
++          bn254SecretKey: new SecretValue(BigInt(index + 1)),
++        })),
++      },
++    );
++    const attesterClient = createExtendedL1Client([rpcUrl], attester, foundry);
++    const withdrawerClient = createExtendedL1Client([rpcUrl], withdrawer, foundry);
++    const rollup = new RollupContract(attesterClient, l1ContractAddresses.rollupAddress);
++    const target = EthAddress.fromString(attester.address);
++    const recipient = mnemonicToAccount(mnemonic, { addressIndex: 2 }).address;
++    const token = getContract({
++      address: (await rollup.getStakingAsset()).toString(),
++      abi: TestERC20Abi,
++      client: attesterClient,
++    });
++    const governance = getContract({
++      address: l1ContractAddresses.governanceAddress.toString(),
++      abi: GovernanceAbi,
++      client: attesterClient,
++    });
++    const ownerRollup = getContract({ address: rollup.address, abi: RollupAbi, client: withdrawerClient });
++    const original = await rollup.getAttesterView(target);
++    const recipientBalance = await token.read.balanceOf([recipient]);
++
++    const before = await rollup.getAttesterExitLimitState();
++    expect(before).toMatchObject({ validatorCount: 21n, committeeSize: 4n, used: 0n, allowance: 1n, canExit: true });
++    expect(await rollup.getAttesterExitWindow()).toBe(before.window);
++
++    const receipt = await initiateWithdrawByAttester({
++      rpcUrls: [rpcUrl],
++      chainId: foundry.id,
++      mnemonic,
++      attesterAddress: target,
++      rollupAddress: l1ContractAddresses.rollupAddress,
++      log: () => {},
++      debugLogger: logger,
++    });
++    expect(receipt.status).toBe('success');
++    const pending = await rollup.getAttesterView(target);
++    expect(pending.status).toBe(AttesterStatus.ZOMBIE);
++    expect(pending.exit.exists).toBe(true);
++    expect(pending.exit.isRecipient).toBe(false);
++    expect(pending.exit.recipientOrWithdrawer).toEqual(EthAddress.fromString(withdrawer.address));
++    expect(pending.exit.amount).toBe(original.effectiveBalance);
++    expect(await token.read.balanceOf([recipient])).toBe(recipientBalance);
++    expect(await rollup.getAttesterExitLimitState()).toMatchObject({
++      validatorCount: 20n,
++      used: 1n,
++      allowance: 0n,
++      canExit: false,
++    });
++    const withdrawal = await governance.read.getWithdrawal([pending.exit.withdrawalId]);
++
++    await expect(
++      attesterClient.simulateContract({
++        address: rollup.address,
++        abi: RollupAbi,
++        functionName: 'initiateWithdraw',
++        args: [attester.address, recipient],
++      }),
++    ).rejects.toThrow();
++
++    const selection = await ownerRollup.write.initiateWithdraw([attester.address, recipient]);
++    expect((await withdrawerClient.waitForTransactionReceipt({ hash: selection })).status).toBe('success');
++    const selected = await rollup.getAttesterView(target);
++    expect(selected.exit.withdrawalId).toBe(pending.exit.withdrawalId);
++    expect(selected.exit.exitableAt).toBe(pending.exit.exitableAt);
++    expect(selected.exit.recipientOrWithdrawer).toEqual(EthAddress.fromString(recipient));
++    expect(selected.exit.isRecipient).toBe(true);
++    expect(await governance.read.getWithdrawal([pending.exit.withdrawalId])).toEqual(withdrawal);
++
++    const unlock = pending.exit.exitableAt > withdrawal.unlocksAt ? pending.exit.exitableAt : withdrawal.unlocksAt;
++    const cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
++    await cheatCodes.warp(unlock - 1n);
++    await expect(
++      attesterClient.simulateContract({
++        address: rollup.address,
++        abi: RollupAbi,
++        functionName: 'finalizeWithdraw',
++        args: [attester.address],
++      }),
++    ).rejects.toThrow();
++    await cheatCodes.warp(unlock);
++    const finalized = await ownerRollup.write.finalizeWithdraw([attester.address]);
++    expect((await withdrawerClient.waitForTransactionReceipt({ hash: finalized })).status).toBe('success');
++    expect(await token.read.balanceOf([recipient])).toBe(recipientBalance + pending.exit.amount);
++    expect((await rollup.getAttesterView(target)).exit.exists).toBe(false);
++  }, 240_000);
++});
+diff --git a/yarn-project/epoch-cache/src/epoch_cache.integration.isolate.test.ts b/yarn-project/epoch-cache/src/epoch_cache.integration.isolate.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ea0c771941ca88a324e83c946834608f516b6c5a
+--- /dev/null
++++ b/yarn-project/epoch-cache/src/epoch_cache.integration.isolate.test.ts
+@@ -0,0 +1,205 @@
++import { getPublicClient } from '@aztec-labs/ethereum/client';
++import { DefaultL1ContractsConfig } from '@aztec-labs/ethereum/config';
++import { RollupContract } from '@aztec-labs/ethereum/contracts';
++import { deployAztecL1Contracts } from '@aztec-labs/ethereum/deploy-aztec-l1-contracts';
++import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec-labs/ethereum/test';
++import type { Anvil } from '@aztec-labs/ethereum/test';
++import { EpochNumber, SlotNumber } from '@aztec-labs/foundation/branded-types';
++import { SecretValue } from '@aztec-labs/foundation/config';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { EthAddress } from '@aztec-labs/foundation/eth-address';
++import { createLogger } from '@aztec-labs/foundation/log';
++import { TestDateProvider } from '@aztec-labs/foundation/timer';
++import type { Hex } from 'viem';
++import { privateKeyToAccount } from 'viem/accounts';
++import { foundry } from 'viem/chains';
++
++import { EpochCache } from './epoch_cache.js';
++
++const NUM_VALIDATORS = 4;
++
++/**
++ * Integration tests for the EpochCache against a real Anvil instance.
++ *
++ * These tests deploy L1 contracts with validators, then exercise the epoch cache's
++ * caching, TTL, finalization, and reorg-resilience behaviour.
++ */
++describe('EpochCache integration', () => {
++  let anvil: Anvil;
++  let rpcUrl: string;
++  let dateProvider: TestDateProvider;
++  let cheatCodes: EthCheatCodes;
++  let rollupCheatCodes: RollupCheatCodes;
++  let rollup: RollupContract;
++  let epochCache: EpochCache;
++
++  const deployerPrivateKey: Hex = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
++
++  const validatorKeys = [
++    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
++    '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
++    '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
++    '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
++  ] as const;
++
++  const validatorAddresses = validatorKeys.map(k => EthAddress.fromString(privateKeyToAccount(k).address));
++
++  beforeAll(async () => {
++    dateProvider = new TestDateProvider();
++
++    // Start Anvil with slotsInAnEpoch=8 so finalized = latest - 16 blocks.
++    // This keeps most epoch data non-finalized (TTL-cached) after warps.
++    ({ anvil, rpcUrl } = await startAnvil({
++      l1BlockTime: 1,
++      slotsInAnEpoch: 8,
++      dateProvider,
++    }));
++
++    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKey, foundry.id, {
++      ...DefaultL1ContractsConfig,
++      // Short L2 epochs: 4 slots * 12s = 48s per epoch
++      aztecSlotDuration: 12,
++      aztecEpochDuration: 4,
++      aztecTargetCommitteeSize: NUM_VALIDATORS,
++      vkTreeRoot: Fr.random(),
++      protocolContractsHash: Fr.random(),
++      genesisArchiveRoot: Fr.random(),
++      realVerifier: false,
++      initialValidators: validatorAddresses.map(attester => ({
++        attester,
++        withdrawer: attester,
++        bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
++      })),
++    });
++
++    cheatCodes = new EthCheatCodes([rpcUrl], dateProvider);
++    rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
++
++    const publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: foundry.id });
++    rollup = new RollupContract(publicClient, deployed.l1ContractAddresses.rollupAddress!);
++
++    epochCache = new EpochCache(
++      rollup,
++      {
++        l1StartBlock: await rollup.getL1StartBlock(),
++        l1GenesisTime: await rollup.getL1GenesisTime(),
++        slotDuration: await rollup.getSlotDuration(),
++        epochDuration: await rollup.getEpochDuration(),
++        ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
++        proofSubmissionEpochs: await rollup.getProofSubmissionEpochs(),
++        targetCommitteeSize: await rollup.getTargetCommitteeSize(),
++        rollupManaLimit: Number(await rollup.getManaLimit()),
++        lagInEpochsForValidatorSet: await rollup.getLagInEpochsForValidatorSet(),
++        lagInEpochsForRandao: await rollup.getLagInEpochsForRandao(),
++      },
++      dateProvider,
++    );
++  });
++
++  afterAll(async () => {
++    await cheatCodes?.setIntervalMining(0);
++    await anvil?.stop().catch(err => createLogger('cleanup').error(err));
++  });
++
++  it('returns committee for a finalized epoch and marks it as finalized', async () => {
++    const lagInEpochsForRandao = await rollup.getLagInEpochsForRandao();
++    const epochDuration = await rollup.getEpochDuration();
++
++    // Advance well past the lag so the epoch's sampling data is finalized.
++    const targetEpoch = EpochNumber(lagInEpochsForRandao + 2);
++    await rollupCheatCodes.advanceToEpoch(targetEpoch);
++    await rollupCheatCodes.setupEpoch();
++    // Mine enough blocks so finalized catches up (finalized = latest - 16 with slotsInAnEpoch=8).
++    // With 12s timestamps per block, we need enough blocks so that the finalized block's
++    // timestamp covers the sampling timestamp for the target epoch.
++    await cheatCodes.mine(30);
++
++    // Query the specific target epoch rather than 'now', because auto-mining may have
++    // advanced the dateProvider well past the target epoch.
++    const slotForEpoch = SlotNumber(Number(targetEpoch) * Number(epochDuration));
++    const { committee, seed, epoch } = await epochCache.getCommittee(slotForEpoch);
++
++    expect(committee).toBeDefined();
++    expect(committee!.length).toBe(NUM_VALIDATORS);
++    expect(seed).not.toBe(0n);
++    expect(epoch).toBe(targetEpoch);
++    expect(epochCache.isFinalized(targetEpoch)).toBe(true);
++  });
++
++  it('refreshes non-finalized data after TTL expires', async () => {
++    // Warp far ahead with a single block, creating a gap between latest and finalized.
++    const currentTs = (await rollup.client.getBlock()).timestamp;
++    await cheatCodes.warp(Number(currentTs) + 600);
++
++    // First fetch — works but may not be finalized (warp only mines one block).
++    const result1 = await epochCache.getCommittee('now');
++    expect(result1.committee).toBeDefined();
++
++    // Mine some blocks to advance finalized, then advance time past TTL.
++    await cheatCodes.mine(5);
++    dateProvider.advanceTime(DefaultL1ContractsConfig.ethereumSlotDuration);
++
++    // Re-query: cache entry is stale, so it should re-fetch from L1.
++    const result2 = await epochCache.getCommittee('now');
++    expect(result2.committee).toBeDefined();
++    // The entry was successfully re-fetched (we got a result without throwing).
++  });
++
++  it('picks up changed seed after an L1 rollback once the cache TTL expires', async () => {
++    const epochDuration = await rollup.getEpochDuration();
++
++    // Disable interval mining BEFORE the warp to avoid race conditions where
++    // Anvil auto-mines blocks between the warp and the disable call. Enable
++    // automine so transactions are still mined immediately.
++    await cheatCodes.setIntervalMining(0);
++    await cheatCodes.setAutomine(true);
++
++    // Advance to a known point. The warp creates a gap between latest and finalized,
++    // keeping the epoch's sampling data non-finalized (TTL-cached, not permanent).
++    const currentTs = (await rollup.client.getBlock()).timestamp;
++    await cheatCodes.warp(Number(currentTs) + 600);
++    await cheatCodes.mine(3);
++
++    // Call setupEpoch so the contract captures prevrandao for the current epoch.
++    await rollupCheatCodes.setupEpoch();
++
++    // Record the epoch and populate the cache.
++    const epochBefore = epochCache.getEpochNow();
++    const before = await epochCache.getCommittee('now');
++    expect(before.committee).toBeDefined();
++    expect(epochCache.isFinalized(epochBefore)).toBe(false);
++
++    // Record the L1 timestamp at which the cache entry was last refreshed.
++    const l1TsBefore = epochCache.getCachedLastRefreshL1Timestamp(epochBefore);
++    expect(l1TsBefore).toBeDefined();
++
++    // Rollback past the setupEpoch block and mine new blocks so the chain tip changes.
++    await cheatCodes.reorg(2);
++    await cheatCodes.mine(5);
++    await rollupCheatCodes.setupEpoch();
++
++    // Sync the dateProvider to the latest L1 block time since interval mining is off
++    // and the stdout-based sync may not update the dateProvider for automined blocks.
++    const latestBlock = await rollup.client.getBlock();
++    dateProvider.setTime(Number(latestBlock.timestamp) * 1000);
++
++    // Advance time well past TTL so the cached entry is stale.
++    // The TTL is one Ethereum slot (12s). We advance by 2x to ensure staleness
++    // regardless of small timestamp differences between the dateProvider and the
++    // L1 block timestamp stored in the cache entry.
++    dateProvider.advanceTime(DefaultL1ContractsConfig.ethereumSlotDuration * 2);
++
++    // Re-query the SAME epoch by passing an explicit slot number,
++    // so we don't accidentally query a different epoch if time advanced.
++    const slotForEpoch = SlotNumber(Number(epochBefore) * Number(epochDuration));
++    const after = await epochCache.getCommittee(slotForEpoch);
++    expect(after.committee).toBeDefined();
++    expect(after.epoch).toBe(before.epoch);
++
++    // The cache was refreshed: the L1 timestamp must have advanced because
++    // the chain was reorged and new blocks were mined.
++    const l1TsAfter = epochCache.getCachedLastRefreshL1Timestamp(epochBefore);
++    expect(l1TsAfter).toBeDefined();
++    expect(l1TsAfter).not.toBe(l1TsBefore);
++  });
++});
