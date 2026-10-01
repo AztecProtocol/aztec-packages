@@ -15,6 +15,10 @@ hash=$(hash_str $(../lmdblib/bootstrap.sh hash) $(cache_content_hash .rebuild_pa
 # ipc-codegen from the sparse clone cpp/CMakeLists.txt makes at configure time.
 IPC_CODEGEN_DIR="$PKG/cpp/build/_deps/aztec-packages-src/ipc-codegen"
 
+# Note this runs the codegen from the pinned release, not the working tree, so its flags must be
+# what that release accepts. --client and --out are implied by --package in later versions and are
+# still accepted there, but the pinned one requires --out; do not drop them until foundation.pin
+# moves past the release that made them optional.
 function generate_ts_package {
   node --experimental-strip-types --no-warnings \
     "$IPC_CODEGEN_DIR/src/generate.ts" \
