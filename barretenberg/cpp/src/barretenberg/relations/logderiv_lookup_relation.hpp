@@ -56,27 +56,17 @@ namespace bb {
  * \f]
  *
  * To not compute the inverse terms packed in \f$I_i\f$ for indices not included in the sum we introduce a
- * witness called inverse_exists, which is zero when either read_count\f$_i\f$ is nonzero (a boolean called
- * read_tag) or we have a read gate. This is represented by setting \f$\text{inverse_exists} = 1 - (1 -
- * \text{read_tag}) \cdot (1 - \text{is_read_gate})\f$. Since is_read_gate is only dependent on selector values,
- * we can assume that the verifier can check that it is boolean. However, if read_tag (which is a derived witness),
- * is not constrained to be boolean, one can set the inverse_exists to any value when is_read_gate = 0, because
- * inverse_exists is a linear function of read_tag then. Thus we have a third subrelation that ensures read_tag is
- * a boolean value.
+ * witness called inverse_exists, which is nonzero when the row holds table data that has been read (flagged by
+ * the derived witness read_tag) or a read gate. This is represented by setting \f$\text{inverse_exists} = 1 - (1 -
+ * \text{read_tag}) \cdot (1 - \text{is_read_gate})\f$, where is_read_gate depends only on selector values.
  *
  * <b>Subrelation 3 (Boolean check):</b>
  * \f[
  * \text{read_tag} \cdot \text{read_tag} - \text{read_tag} = 0
  * \f]
  *
- * Further constraining of read_tags and read_counts is not required:
- * - read_tags: tampering can only skip a table_term, which is disadvantageous for the cheating prover as it
- *   reduces the size of the lookup table.
- * - read_counts: soundness follows from the partial fraction decomposition of the lookup identity. After
- *   substituting random challenges (β, γ), each table_term and lookup_term evaluates to a distinct field element
- *   (Schwartz-Zippel). A lookup of a value not in the table creates a pole in the LHS (Σ 1/lookup_term) that no
- *   choice of read_counts can cancel on the RHS (Σ read_count/table_term), since the denominators are distinct.
- *   See Haböck (https://eprint.iacr.org/2022/1530.pdf), Section 4.
+ * This boolean check is a redundant legacy constraint for lookup soundness. On table rows, read_tag only scales the
+ * free read_count; it cannot add a value to the table.
  *
  * @note Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum across all rows of the
  * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
@@ -149,9 +139,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
      * lookup relation is active at a given row. We skip the inverse computation for all the rows that
      * \f$\text{read_count}_i = 0\f$ AND read_selector is 0.
      *
-     * @note read_tag is constructed such that \f$\text{read_tag}_i \in \{0, 1\}\f$. We add a subrelation to check
-     * that read_tag is a boolean value.
-     *
      * @tparam Accumulator Accumulator type for polynomial evaluations
      * @tparam AllEntities Type containing all polynomial entities
      * @param in All entities
@@ -164,11 +151,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         const auto row_has_write = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_tags]);
         const auto row_has_read = CoefficientAccumulator(in[AllEntities::EntityId::q_lookup]);
-        // Relation checking: is_read_gate == 1 || read_tag == 1
-        // Important note: the relation written below assumes that is_read_gate and read_tag are boolean values, which
-        // is guaranteed by the boolean_check subrelation. If not, fixing one of the two, the return value is a linear
-        // function in the other variable and can be set to an arbitrary value independent of the fixed value. See the
-        // boolean_check subrelation for more explanation.
+        // On a read gate the result is 1 regardless of read_tag; on a table row it equals read_tag.
         // 1 - (1 - row_has_write) * (1- row_has_read)
         //  degree                1             1                1                 1     =    2
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
@@ -303,8 +286,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
     /**
      * @brief Accumulate the subrelation contributions for reads from a lookup table
-     * @details Three subrelations are required per bus column, first to establish correctness of the precomputed
-     * inverses, second to establish the validity of the read, third establishes that read_tags is a boolean value.
+     * @details The first subrelation checks the precomputed inverses, the second checks the lookup identity, and the
+     * third enforces the legacy read_tag boolean check, which is redundant for lookup soundness.
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param params contains beta, gamma, and public_input_delta, ....
@@ -352,7 +335,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         tmp *= inverses;                 // degree 4(5)
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
 
-        // We should make sure that the read_tag is a boolean value
+        // Legacy read_tag boolean check, redundant for lookup soundness.
         const auto read_tag_m = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_tags]);
         const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
         // degree                          1         1                       0(1) =  2

@@ -33,6 +33,12 @@ AvmRecursionConstraintOutput create_avm2_recursion_constraints_goblin(UltraCircu
                                                                       const RecursionConstraint& input)
 {
     BB_ASSERT_EQ(input.proof_type, AVM);
+    // Unlike Honk recursion, this opcode cannot be disabled: the inner circuit's VK is fixed, so there is no valid
+    // placeholder proof to swap in when the predicate is false. Reject anything but a true predicate up front.
+    const bb::fr predicate_value =
+        input.predicate.is_constant ? input.predicate.value : builder.get_variable(input.predicate.index);
+    BB_ASSERT(builder.is_write_vk_mode() || predicate_value == 1,
+              "create_avm2_recursion_constraints_goblin: the AVM recursion opcode does not support a false predicate");
 
     // Construct in-circuit representations of the proof and public inputs
     const auto proof_fields = fields_from_witnesses(builder, input.proof);

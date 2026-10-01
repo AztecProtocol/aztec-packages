@@ -25,9 +25,9 @@ template <typename FF_> class TranslatorOpcodeConstraintShortRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // Skip evaluation when not at even indices in the minicircuit and not in the masking area
-        // as the contribution is zero in these regions.
-        return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
+        // Skip evaluation outside the genuine-op processing range (neither even nor odd minicircuit indices), where
+        // every contribution is zero. Mirrors TranslatorOpcodeConstraintRelation::skip.
+        return (in.lagrange_even_in_minicircuit + in.lagrange_odd_in_minicircuit).is_zero();
     }
     /**
      * @brief Enforces two constraints on the opcode value:

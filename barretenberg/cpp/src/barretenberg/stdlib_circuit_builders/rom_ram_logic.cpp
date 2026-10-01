@@ -438,6 +438,7 @@ void RomRamLogic_<ExecutionTrace>::init_RAM_element(CircuitBuilder* builder,
                           .record_witness = 0,
                           .gate_index = 0 };
     ram_array.state[index_value] = value_witness;
+    ram_array.num_initialized++;
     BB_ASSERT_LT(ram_array.access_count, UINT32_MAX, "RAM access count overflow");
     ram_array.access_count++;
     // mutates the gate_index
@@ -453,6 +454,9 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     BB_ASSERT_GT(ram_arrays.size(), ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
+    BB_ASSERT_EQ(ram_array.num_initialized,
+                 static_cast<uint32_t>(ram_array.state.size()),
+                 "read_RAM_array: every cell must be initialised before the first access");
     BB_ASSERT_GT(ram_array.state.size(), index);
     BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(ram_array.state[index]);
@@ -499,6 +503,9 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
     BB_ASSERT_GT(ram_arrays.size(), ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
+    BB_ASSERT_EQ(ram_array.num_initialized,
+                 static_cast<uint32_t>(ram_array.state.size()),
+                 "write_RAM_array: every cell must be initialised before the first access");
     BB_ASSERT_GT(ram_array.state.size(), index);
     BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
 

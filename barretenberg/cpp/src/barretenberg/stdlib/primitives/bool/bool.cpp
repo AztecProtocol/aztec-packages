@@ -34,6 +34,9 @@ bool_t<Builder>::bool_t(Builder* parent_context)
  * @param value A witness, which is constrained to be boolean inside of this constructor.
  * @param use_range_constraint In case we need to create `bool_t` in a loop, it is more efficient to apply the range
  * constraint gates instead of creating arithmetic gates.
+ * @warning With `use_range_constraint = true` the witness must also appear in some gate wire, otherwise the circuit
+ * is unsatisfiable (see `create_small_range_constraint`). The default path emits a boolean gate and has no such
+ * requirement.
  */
 template <typename Builder>
 bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_constraint)
