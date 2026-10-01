@@ -26,7 +26,13 @@ export async function createAsyncBackend(
         throw new Error('Native backend requires bb binary.');
       }
       logger(`Using native Unix socket backend: ${bbPath}`);
-      return await BarretenbergNativeSocketAsyncBackend.new(bbPath, options.threads, options.logger, options.unref);
+      return await BarretenbergNativeSocketAsyncBackend.new(
+        bbPath,
+        options.threads,
+        options.logger,
+        options.unref,
+        options.respawn,
+      );
     }
 
     case BackendType.NativeSharedMemory: {

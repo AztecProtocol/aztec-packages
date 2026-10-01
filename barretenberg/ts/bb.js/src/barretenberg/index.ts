@@ -225,8 +225,16 @@ export class BarretenbergSync extends SyncApi {
       barretenbergSyncSingletonPromise = BarretenbergSync.new(options);
     }
 
-    barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
-    return barretenbergSyncSingleton;
+    try {
+      barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
+      return barretenbergSyncSingleton;
+    } catch (error) {
+      // Clear the failure so the next call can try again, as the asynchronous singleton does.
+      // Caching it would make one bad spawn permanent for the life of the process.
+      barretenbergSyncSingleton = undefined;
+      barretenbergSyncSingletonPromise = undefined;
+      throw error;
+    }
   }
 
   static destroySingleton() {
