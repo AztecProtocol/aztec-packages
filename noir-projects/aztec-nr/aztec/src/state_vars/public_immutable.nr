@@ -1,15 +1,52 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
+    ephemeral::EphemeralArray,
+    facts::{Fact, FactScope, get_fact_collection, record_retractable_fact},
     nullifier::utils::compute_nullifier_existence_request,
-    oracle::nullifiers::check_nullifier_exists,
+    oracle::{block_reference::BlockReference, nullifiers::check_nullifier_exists, storage::storage_read},
     state_vars::StateVariable,
     utils::WithHash,
 };
 use crate::protocol::{
-    constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable,
+    abis::block_header::BlockHeader,
+    address::AztecAddress,
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
+    hash::{poseidon2_hash_with_separator, sha256_to_field},
+    traits::{Hash, Packable},
 };
 
 mod test;
+
+/// Fact-collection type ID of the `PublicImmutable` value caches.
+///
+/// Each `PublicImmutable` has its own collection in the [fact store](crate::facts), identified by its storage slot,
+/// which caches the value so that later reads need no node roundtrip.
+///
+/// ## Lifecycle
+///
+/// A collection is in one of two states:
+///
+/// - **Empty**: the value has not been read, so nothing is cached.
+/// - **Cached**: the collection holds a single `PUBLIC_IMMUTABLE_VALUE_READ` fact with the value.
+///
+/// The first read of an initialized `PublicImmutable` takes its collection from **Empty** to **Cached**. It only goes
+/// back to **Empty** if the block the value was read at is re-orged out, which retracts the fact. Reads never record a
+/// second fact, and collections are never deleted: an initialized `PublicImmutable` never changes, so a cached value
+/// never becomes stale (outside of reorgs).
+///
+/// ## Scope
+///
+/// Collections are in the [public scope](crate::facts::FactScope::public), because a `PublicImmutable` is not tied to
+/// any account and its value is public anyway. All accounts therefore share the cached value. This only reveals to
+/// them that the value has been read in this device before, not which account read it, and other contracts cannot
+/// access the collection.
+global PUBLIC_IMMUTABLE_CACHE_TYPE_ID: Field = sha256_to_field("AZTEC_NR::PUBLIC_IMMUTABLE_CACHE_TYPE_ID".as_bytes());
+
+/// Fact type ID of an observed `PublicImmutable` value.
+///
+/// A fact of this type states that the value was read from the node at the fact's origin block. Its payload is the
+/// packed value.
+global PUBLIC_IMMUTABLE_VALUE_READ: Field = sha256_to_field("AZTEC_NR::PUBLIC_IMMUTABLE_VALUE_READ".as_bytes());
 
 /// Immutable public values.
 ///
@@ -89,6 +126,8 @@ mod test;
 /// do not have access to the current network state, only the _past_ state at the anchor block. They _can_ perform
 /// historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
 /// that it has not been emitted since then.
+///
+/// A local cache for the immutable value reduces node roundtrips.
 pub struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
@@ -259,8 +298,12 @@ impl<T> PublicImmutable<T, UtilityContext> {
     where
         T: Packable + Eq,
     {
-        assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
-        WithHash::utility_public_storage_read(self.context, self.storage_slot)
+        read_value_if_initialized_at_block(
+            self.context.this_address(),
+            self.storage_slot,
+            self.compute_initialization_inner_nullifier(),
+            self.context.block_header(),
+        )
     }
 
     /// Returns `true` if the `PublicImmutable` has been initialized.
@@ -320,20 +363,120 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
         T: Packable + Eq,
     {
         let nullifier = self.compute_initialization_inner_nullifier();
+        let contract_address = self.context.this_address();
 
-        // Safety: We use this check to be able to test this function works properly on synthetic envs
-        // like TXE. We assert the returned value only to provide a clear error message. The actual
-        // constrained check that the nullifier exists is done below with `assert_nullifier_exists`
-        // We should improve our synthetic envs because this check forces an unnecesary roundtrip
-        let nullifier_exists = unsafe { check_nullifier_exists(nullifier) };
-        assert(nullifier_exists, "Trying to read from uninitialized PublicImmutable");
-
-        let nullifier_existence_request = compute_nullifier_existence_request(nullifier, self.context.this_address());
+        let nullifier_existence_request = compute_nullifier_existence_request(nullifier, contract_address);
         self.context.assert_nullifier_exists(nullifier_existence_request);
-        WithHash::historical_public_storage_read(
-            self.context.get_anchor_block_header(),
-            self.context.this_address(),
+
+        let anchor_block_header = self.context.get_anchor_block_header();
+        // Safety: `WithHash::verify_historical_public_storage_hint` asserts that the hint is the value stored at the
+        // anchor block.
+        let hint = unsafe {
+            read_value_if_initialized_at_block(
+                contract_address,
+                self.storage_slot,
+                nullifier,
+                anchor_block_header,
+            )
+        };
+
+        WithHash::verify_historical_public_storage_hint(
+            anchor_block_header,
+            contract_address,
             self.storage_slot,
-        )
+            hint,
+        );
+        hint
     }
+}
+
+/// Returns the value of a `PublicImmutable` as of `anchor_block_header`.
+///
+/// Fails if the `PublicImmutable` at `storage_slot` is not initialized at that block.
+///
+/// The value is only fetched from the node if it is not cached, and it is cached once fetched.
+unconstrained fn read_value_if_initialized_at_block<T>(
+    contract_address: AztecAddress,
+    storage_slot: Field,
+    initialization_nullifier: Field,
+    anchor_block_header: BlockHeader,
+) -> T
+where
+    T: Packable,
+{
+    let anchor_block_number = anchor_block_header.block_number();
+    read_cached_value(
+        contract_address,
+        storage_slot,
+        initialization_nullifier,
+        anchor_block_number,
+    )
+        .unwrap_or_else(|| {
+            assert(
+                check_nullifier_exists(initialization_nullifier),
+                "Trying to read from uninitialized PublicImmutable",
+            );
+
+            let value: T = storage_read(anchor_block_header, contract_address, storage_slot);
+            record_retractable_fact(
+                contract_address,
+                FactScope::public(),
+                PUBLIC_IMMUTABLE_CACHE_TYPE_ID,
+                storage_slot,
+                PUBLIC_IMMUTABLE_VALUE_READ,
+                EphemeralArray::from_array(value.pack()),
+                BlockReference { block_number: anchor_block_number, block_hash: anchor_block_header.hash() },
+            );
+
+            value
+        })
+}
+
+/// Returns the cached value of a `PublicImmutable`, if there is one.
+///
+/// Fails if the `PublicImmutable` at `storage_slot` is not initialized at the anchor block.
+unconstrained fn read_cached_value<T>(
+    contract_address: AztecAddress,
+    storage_slot: Field,
+    initialization_nullifier: Field,
+    anchor_block_number: u32,
+) -> Option<T>
+where
+    T: Packable,
+{
+    get_fact_collection(
+        contract_address,
+        FactScope::public(),
+        PUBLIC_IMMUTABLE_CACHE_TYPE_ID,
+        storage_slot,
+    )
+        .and_then(|collection| collection.facts.find(|fact: Fact| fact.fact_type_id == PUBLIC_IMMUTABLE_VALUE_READ))
+        .map(|value_read_fact: Fact| {
+            // The existence of a value read fact implies that the state variable was initialized at the time the value
+            // was read. It is possible however that the value was read from an anchor block _after_ the one we're
+            // currently using, in which case the initialization may not have yet occurred, so we must check for it
+            // explicitly.
+            // If the state variable _was_ already initialized by the anchor block, then we can still use the cached
+            // value, even if read from a block after the anchor, because the value is immutable.
+            if value_read_fact.origin_block.unwrap().block_number > anchor_block_number {
+                assert(
+                    check_nullifier_exists(initialization_nullifier),
+                    "Trying to read from uninitialized PublicImmutable",
+                );
+            }
+
+            let payload = value_read_fact.payload;
+            let cached_len = payload.len();
+            let packed_len = <T as Packable>::N;
+            assert(
+                cached_len == packed_len,
+                f"Cached PublicImmutable value at slot {storage_slot} has {cached_len} fields, expected {packed_len}",
+            );
+
+            let mut packed = [0; <T as Packable>::N];
+            for i in 0..packed.len() {
+                packed[i] = payload.get(i);
+            }
+            T::unpack(packed)
+        })
 }
