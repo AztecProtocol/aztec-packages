@@ -43,7 +43,13 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
  *      earns no premium. If that deposit front-ran the staker's own deposit of the same attester (the keys and proof
  *      of possession are public once the staker's transaction is), the attester is recorded and validating while the
  *      staker's deposit is refunded here: the premium is then backed by the reservation rather than by the deposited
- *      tokens, and the deposited tokens can only exit to the position. Accepted.
+ *      tokens, and the deposited tokens can only exit to the position. Accepted. The GSE's proof of possession binds
+ *      neither the attester nor the withdrawer, so the same public keys can also be registered first under another
+ *      attester: the staker's deposit then fails at flush and is refunded here, its attester stays recorded but never
+ *      validates and earns no premium (the GSE never registers it), and the operator recovers with `returnTokensToATP`,
+ *      `release` and a deposit with fresh keys. That only delays the genuine validator.
+ *
+ *      A slashed attester keeps its record, see `isAttester`.
  *
  *      Trust roots: the token, the rollup registry (only its rollups receive stake) and the staking registry are
  *      immutables of the implementation, set by the factory. The staker is not upgradeable: an upgradeable staker
@@ -254,6 +260,11 @@ contract PremiumATPStaker is IPremiumATPStaker {
 
   /**
    * @notice Returns whether `_attester` is recorded
+   * @dev Slashing does not clear the record: a fully slashed attester whose record remains still authenticates,
+   *      so the calculator pays it the premium for checkpoints it proposed before the slash and that are proven
+   *      after it (premiums follow state at proof time). It no longer validates, so it proposes nothing new, and its
+   *      reservation keeps the allocation locked until the operator releases it; the slashed tokens are lost to the
+   *      position.
    * @param _attester The attester
    * @return True if this staker deposited the attester from the allocation and has not released it
    */

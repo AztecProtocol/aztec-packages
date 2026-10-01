@@ -55,16 +55,27 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *
  *      Caching. Each distinct proposer is resolved once per call and cached in memory per attester, never per
  *      registry or position: a registry-keyed cache would let a forged position in the same proof inherit a premium
- *      that a genuine one earned. The calculator ignores `msg.sender` and reads only the GSE, which every rollup
- *      version shares. Lookups reflect state when the proof lands: an attester released before then earns the
- *      default for checkpoints it proposed earlier.
+ *      that a genuine one earned. The calculator binds the GSE as an immutable and ignores `msg.sender`: every
+ *      rollup sharing that GSE that configures this calculator gets the same policy, and replacing the GSE requires
+ *      deploying a new calculator.
+ *
+ *      State at proof time. Lookups reflect state when the proof lands, not when the checkpoint was proposed: an
+ *      attester released before then earns the default for checkpoints it proposed earlier, and an attester that
+ *      was slashed, even fully, still authenticates while its staker keeps the record, so it earns the premium for
+ *      checkpoints it proposed before the slash that are proven after it. Accepted: the attester was backed by the
+ *      allocation when it proposed, a slashed attester leaves the validator set so the exposure is bounded to
+ *      proposals already made, the position loses the slashed tokens, and the operator can release the record.
  *
  *      Residual risks, accepted. Tokens are fungible, so the guarantee is about amounts, not coins: the premium is
  *      backed by a reservation of the allocation, not necessarily by the deposited tokens (a front-run of the
  *      staker's own deposit leaves a recorded attester funded by someone else, while the staker's refund returns
  *      to the position, see `PremiumATPStaker`). A beneficiary chooses which of its validators the allocation
- *      backs, never more than the allocation covers. A provenance source paired with the wrong registry, or an
- *      entry with no source, pays only the default. A provenance source or registry owner that turns hostile is a
+ *      backs, never more than the allocation covers. The GSE's proof of possession does not bind the attester or
+ *      the withdrawer, so a third party can copy a pending deposit's public key and proof of possession and
+ *      register them first under another attester: the genuine deposit then fails at flush and is refunded to the
+ *      staker (recoverable with `returnTokensToATP`, `release` and fresh keys); no one gains a premium, the genuine
+ *      validator is only delayed. A provenance source paired with the wrong registry, or an entry with no source,
+ *      pays only the default. A provenance source or registry owner that turns hostile is a
  *      trust root failure that no check here can detect.
  */
 contract PremiumRewardCalculator is Ownable, ISequencerRewardCalculator {
