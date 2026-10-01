@@ -52,8 +52,11 @@ contract PremiumRewardCalculatorGasTest is PremiumUnitBase {
     // A withdrawer and a forged position both burn their stipend; the genuine factory rejects the position: fails at
     // the third probe. The most stipend a proposer can make the calculator forward.
     ExpensiveWithdrawerExpensivePosition,
-    // As above, but the forged position is a 64 KiB return bomb.
+    // As above, but the forged position returns more data than a probe accepts (16 KiB), successfully within the
+    // probe stipend.
     ExpensiveWithdrawerReturnBombPosition,
+    // As above, but the forged position's return bomb is 64 KiB: it runs out of the probe stipend expanding memory.
+    ExpensiveWithdrawerOutOfGasReturnBombPosition,
     // The withdrawer burns its stipend and returns nothing.
     BurningWithdrawer,
     // Not reachable without a hostile trust root: every one of the five probes burns its stipend, the first four
@@ -94,6 +97,11 @@ contract PremiumRewardCalculatorGasTest is PremiumUnitBase {
   /// forge-config: default.isolate = true
   function test_ExpensiveWithdrawersOfReturnBombPositionsFitTheStipend() external {
     _assertFitsTheStipend(Scenario.ExpensiveWithdrawerReturnBombPosition);
+  }
+
+  /// forge-config: default.isolate = true
+  function test_ExpensiveWithdrawersOfOutOfGasReturnBombPositionsFitTheStipend() external {
+    _assertFitsTheStipend(Scenario.ExpensiveWithdrawerOutOfGasReturnBombPosition);
   }
 
   /// forge-config: default.isolate = true
@@ -226,12 +234,25 @@ contract PremiumRewardCalculatorGasTest is PremiumUnitBase {
         ProbeTarget atp = new ProbeTarget();
         withdrawer.expensive(IATPStaker.getATP.selector, uint256(uint160(address(atp))));
         atp.expensive(IATP.getRegistry.selector, uint256(uint160(address(registry))));
-      } else if (_scenario == Scenario.ExpensiveWithdrawerReturnBombPosition) {
+      } else if (
+        _scenario == Scenario.ExpensiveWithdrawerReturnBombPosition
+          || _scenario == Scenario.ExpensiveWithdrawerOutOfGasReturnBombPosition
+      ) {
         ProbeTarget atp = new ProbeTarget();
         withdrawer.expensive(IATPStaker.getATP.selector, uint256(uint160(address(atp))));
+        bool fits = _scenario == Scenario.ExpensiveWithdrawerReturnBombPosition;
+        uint256 size = fits ? SUCCESSFUL_RETURN_BOMB_SIZE : 64 * 1024;
         atp.setResponse(
-          IATP.getRegistry.selector, ProbeTarget.Mode.ReturnSize, uint256(uint160(address(registry))), 64 * 1024
+          IATP.getRegistry.selector, ProbeTarget.Mode.ReturnSize, uint256(uint160(address(registry))), size
         );
+        // Under isolation this call is cold, as the calculator's probe is.
+        (bool success, uint256 returned) = _rawProbe(address(atp), IATP.getRegistry.selector, calculator.PROBE_GAS());
+        if (fits) {
+          assertTrue(success, "the oversized return must fit the probe stipend");
+          assertEq(returned, size, "oversized return data size");
+        } else {
+          assertFalse(success, "the return bomb must run out of the probe stipend");
+        }
       } else if (_scenario == Scenario.BurningWithdrawer) {
         withdrawer.setResponse(IATPStaker.getATP.selector, ProbeTarget.Mode.Burn, 0, 0);
       } else {

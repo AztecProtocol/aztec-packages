@@ -593,7 +593,7 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
     (, PremiumATPStaker staker) = _position();
     address genuine = _stake(staker);
 
-    uint256 caseCount = 14;
+    uint256 caseCount = 15;
     for (uint256 c = 0; c < caseCount; c++) {
       ProbeChain memory chain = _scriptedChain();
       (ProbeTarget target, bytes4 selector) = _probeTarget(chain, _probe);
@@ -605,18 +605,29 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
         target.setResponse(selector, ProbeTarget.Mode.Unset, 0, 0);
       } else if (c == 2) {
         target.setResponse(selector, ProbeTarget.Mode.Burn, 0, 0);
-      } else if (c <= 8) {
-        uint256[6] memory sizes = [uint256(0), 31, 33, 64, 64 * 1024, 1024 * 1024];
+      } else if (c <= 6) {
+        uint256[4] memory sizes = [uint256(0), 31, 33, 64];
         target.setResponse(selector, ProbeTarget.Mode.ReturnSize, expected, sizes[c - 3]);
-      } else if (c == 9) {
+      } else if (c == 7) {
+        // Oversized return data within the stipend: the call succeeds and is rejected for its size alone.
+        target.setResponse(selector, ProbeTarget.Mode.ReturnSize, expected, SUCCESSFUL_RETURN_BOMB_SIZE);
+        (bool success, uint256 size) = _rawProbe(address(target), selector, calculator.PROBE_GAS());
+        assertTrue(success, "the oversized return must fit the probe stipend");
+        assertEq(size, SUCCESSFUL_RETURN_BOMB_SIZE, "oversized return data size");
+      } else if (c <= 9) {
+        // Return bombs too large to expand memory for within the stipend: the probe runs out of gas.
+        target.setResponse(selector, ProbeTarget.Mode.ReturnSize, expected, c == 8 ? 64 * 1024 : 1024 * 1024);
+        (bool success,) = _rawProbe(address(target), selector, calculator.PROBE_GAS());
+        assertFalse(success, "the return bomb must run out of the probe stipend");
+      } else if (c == 10) {
         // Dirty: upper bits set on an address, a non-canonical bool.
         target.setResponse(selector, ProbeTarget.Mode.Answer, isBool ? 2 : expected | (1 << 160), 32);
-      } else if (c == 10) {
-        target.setResponse(selector, ProbeTarget.Mode.Answer, isBool ? 1 << 255 | 1 : expected | (1 << 255), 32);
       } else if (c == 11) {
+        target.setResponse(selector, ProbeTarget.Mode.Answer, isBool ? 1 << 255 | 1 : expected | (1 << 255), 32);
+      } else if (c == 12) {
         // Well formed but wrong: false, or zero.
         target.setResponse(selector, ProbeTarget.Mode.Answer, 0, 32);
-      } else if (c == 12) {
+      } else if (c == 13) {
         // Well formed but wrong: another contract.
         target.setResponse(selector, ProbeTarget.Mode.Answer, isBool ? 0 : uint256(uint160(address(staker))), 32);
       } else {

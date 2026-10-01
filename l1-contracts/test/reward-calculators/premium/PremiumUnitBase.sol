@@ -34,6 +34,9 @@ abstract contract PremiumUnitBase is Test {
   uint256 internal constant CLIFF = 100_000;
   uint256 internal constant LOCK = 1_000_000;
   Epoch internal constant EPOCH = Epoch.wrap(3);
+  // Return data larger than any probe accepts, yet small enough that returning it fits the probe stipend. Larger
+  // return bombs (64 KiB and up) run out of gas expanding memory inside the probe instead of returning.
+  uint256 internal constant SUCCESSFUL_RETURN_BOMB_SIZE = 16 * 1024;
 
   address internal governance = makeAddr("governance");
   address internal foundation = makeAddr("foundation");
@@ -123,5 +126,19 @@ abstract contract PremiumUnitBase is Test {
 
   function _rewardsOf(address[] memory _proposers) internal view returns (uint256[] memory) {
     return calculator.getSequencerRewards(EPOCH, _proposers, DEFAULT_REWARD, CHECKPOINT_REWARD);
+  }
+
+  /// @dev Calls `_selector` on `_target` with `_gas`, like a probe, without copying the return data, and returns
+  ///      whether the call succeeded and how much data it returned.
+  function _rawProbe(address _target, bytes4 _selector, uint256 _gas)
+    internal
+    view
+    returns (bool success, uint256 size)
+  {
+    bytes memory data = abi.encodeWithSelector(_selector);
+    assembly {
+      success := staticcall(_gas, _target, add(data, 0x20), mload(data), 0, 0)
+      size := returndatasize()
+    }
   }
 }
