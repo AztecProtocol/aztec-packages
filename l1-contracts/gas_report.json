@@ -90,7 +90,7 @@
     },
     "functions": {
       "getCanonicalRollup()": {
-        "calls": 1746,
+        "calls": 1752,
         "min": 1073,
         "mean": 4073,
         "median": 4073,
@@ -120,7 +120,7 @@
     },
     "functions": {
       "availableTo(address)": {
-        "calls": 873,
+        "calls": 876,
         "min": 20573,
         "mean": 20573,
         "median": 20573,
@@ -132,7 +132,7 @@
     "contract": "test/RollupWithPreheating.sol:RollupWithPreheating",
     "deployment": {
       "gas": 0,
-      "size": 45252
+      "size": 45414
     },
     "functions": {
       "archive()": {
@@ -143,7 +143,7 @@
         "max": 4641
       },
       "getCheckpoint(uint256)": {
-        "calls": 885,
+        "calls": 888,
         "min": 27497,
         "mean": 27497,
         "median": 27497,
@@ -151,20 +151,20 @@
       },
       "getCheckpointReward()": {
         "calls": 2595,
-        "min": 1040,
-        "mean": 1045,
-        "median": 1040,
-        "max": 5540
+        "min": 1216,
+        "mean": 1221,
+        "median": 1216,
+        "max": 5716
       },
       "getCollectiveProverRewardsForEpoch(uint256)": {
         "calls": 3,
-        "min": 5837,
-        "mean": 5837,
-        "median": 5837,
-        "max": 5837
+        "min": 5859,
+        "mean": 5859,
+        "median": 5859,
+        "max": 5859
       },
       "getCurrentEpoch()": {
-        "calls": 874,
+        "calls": 877,
         "min": 959,
         "mean": 959,
         "median": 959,
@@ -179,59 +179,59 @@
       },
       "getEpochDuration()": {
         "calls": 2,
-        "min": 2508,
-        "mean": 2508,
-        "median": 2508,
-        "max": 2508
+        "min": 2530,
+        "mean": 2530,
+        "median": 2530,
+        "max": 2530
       },
       "getEpochProofPublicInputs(uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],bytes)": {
         "calls": 5,
-        "min": 18669,
-        "mean": 49449,
-        "median": 64958,
-        "max": 71849
+        "min": 18670,
+        "mean": 49450,
+        "median": 64959,
+        "max": 71851
       },
       "getEthPerFeeAsset()": {
         "calls": 2,
-        "min": 11065,
-        "mean": 11065,
-        "median": 11065,
-        "max": 11065
+        "min": 11087,
+        "mean": 11087,
+        "median": 11087,
+        "max": 11087
       },
       "getFeeAssetPortal()": {
         "calls": 4672,
-        "min": 923,
-        "mean": 923,
-        "median": 923,
-        "max": 923
+        "min": 945,
+        "mean": 945,
+        "median": 945,
+        "max": 945
       },
       "getInbox()": {
         "calls": 9112,
-        "min": 900,
-        "mean": 900,
-        "median": 900,
-        "max": 900
+        "min": 922,
+        "mean": 922,
+        "median": 922,
+        "max": 922
       },
       "getL1FeesAt(uint256)": {
         "calls": 2,
-        "min": 9152,
-        "mean": 9152,
-        "median": 9152,
-        "max": 9152
+        "min": 9174,
+        "mean": 9174,
+        "median": 9174,
+        "max": 9174
       },
       "getManaMinFeeAt(uint256,bool)": {
         "calls": 2347,
-        "min": 27374,
-        "mean": 29032,
-        "median": 27374,
-        "max": 32392
+        "min": 27396,
+        "mean": 29054,
+        "median": 27396,
+        "max": 32414
       },
       "getManaTarget()": {
         "calls": 1026,
-        "min": 2459,
-        "mean": 2459,
-        "median": 2459,
-        "max": 2459
+        "min": 2481,
+        "mean": 2481,
+        "median": 2481,
+        "max": 2481
       },
       "getOutbox()": {
         "calls": 2,
@@ -242,10 +242,10 @@
       },
       "getPendingCheckpointNumber()": {
         "calls": 1681,
-        "min": 2462,
-        "mean": 2462,
-        "median": 2462,
-        "max": 2462
+        "min": 2484,
+        "mean": 2484,
+        "median": 2484,
+        "max": 2484
       },
       "getProvenCheckpointNumber()": {
         "calls": 1687,
@@ -256,17 +256,17 @@
       },
       "getProvingCostPerManaInEth()": {
         "calls": 1,
-        "min": 5795,
-        "mean": 5795,
-        "median": 5795,
-        "max": 5795
+        "min": 5662,
+        "mean": 5662,
+        "median": 5662,
+        "max": 5662
       },
       "getProvingCostPerManaInFeeAsset()": {
         "calls": 1,
-        "min": 14587,
-        "mean": 14587,
-        "median": 14587,
-        "max": 14587
+        "min": 14609,
+        "mean": 14609,
+        "median": 14609,
+        "max": 14609
       },
       "getSequencerRewards(address)": {
         "calls": 3,
@@ -291,10 +291,10 @@
       },
       "owner()": {
         "calls": 5185,
-        "min": 555,
-        "mean": 555,
-        "median": 555,
-        "max": 2555
+        "min": 577,
+        "mean": 577,
+        "median": 577,
+        "max": 2577
       },
       "propose((bytes32,(int256),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256),uint256),(bytes,bytes),address[],(uint8,bytes32,bytes32),bytes)": {
         "calls": 2350,
@@ -305,24 +305,24 @@
       },
       "prune()": {
         "calls": 7,
-        "min": 26733,
-        "mean": 33323,
-        "median": 33726,
-        "max": 38318
+        "min": 26755,
+        "mean": 33345,
+        "median": 33748,
+        "max": 38340
       },
       "setProvingCostPerMana(uint256)": {
         "calls": 1,
-        "min": 55865,
-        "mean": 55865,
-        "median": 55865,
-        "max": 55865
+        "min": 55887,
+        "mean": 55887,
+        "median": 55887,
+        "max": 55887
       },
       "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
-        "calls": 881,
-        "min": 60927,
-        "mean": 398098,
-        "median": 404414,
-        "max": 438370
+        "calls": 884,
+        "min": 60949,
+        "mean": 397959,
+        "median": 404247,
+        "max": 436997
       },
       "updateManaTarget(uint256)": {
         "calls": 512,
