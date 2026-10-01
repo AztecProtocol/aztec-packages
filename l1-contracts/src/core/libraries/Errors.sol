@@ -240,6 +240,7 @@ library Errors {
   error RewardLib__InvalidSequencerBps();
   error RewardLib__ZeroShares(address prover);
   error RewardLib__InvalidProtocolFeeRecipient();
+  error RewardLib__InsufficientGasForCalculator(uint256 required, uint256 available);
 
   // SlashingProposer
   error SlashingProposer__InvalidSignature();

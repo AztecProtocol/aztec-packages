@@ -17,6 +17,7 @@ import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.s
 import {CompressedChainTips, ChainTipsLib} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 
@@ -140,6 +141,27 @@ contract RewardLibWrapper {
 
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) external {
     handleRewardsAndFees(_args, _endEpoch, true);
+  }
+
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, address[] memory _committee)
+    external
+  {
+    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, _committee);
+  }
+
+  function setSequencerRewardCalculator(address _calculator) external returns (address) {
+    return RewardLib.setSequencerRewardCalculator(_calculator);
+  }
+
+  function getSequencerRewardCalculator() external view returns (address) {
+    return RewardLib.getSequencerRewardCalculator();
+  }
+
+  /// @dev The proposer index the reward path derives for `_slot`, from the same seed it uses.
+  function getProposerIndex(Epoch _epoch, Slot _slot, uint256 _committeeSize) external view returns (uint256) {
+    return ValidatorSelectionLib.computeProposerIndex(
+      _epoch, _slot, ValidatorSelectionLib.getSampleSeed(_epoch), _committeeSize
+    );
   }
 
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, bool _fullEpochProof) public {

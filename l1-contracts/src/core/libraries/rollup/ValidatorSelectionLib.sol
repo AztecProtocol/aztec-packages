@@ -325,9 +325,11 @@ library ValidatorSelectionLib {
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
+   * @return The reconstructed committee, empty if the target committee size is 0
    */
   function verifyAttestations(Epoch _epochNumber, CommitteeAttestations memory _attestations, bytes32 _digest)
     internal
+    returns (address[] memory)
   {
     (bytes32 committeeCommitment, uint256 targetCommitteeSize) = getCommitteeCommitmentAt(_epochNumber);
 
@@ -335,7 +337,7 @@ library ValidatorSelectionLib {
     // Note: This generally only happens in test setups; In production, the target committee is non-zero,
     // and one can see in `sampleValidators` that we will revert if the target committee size is not met.
     if (targetCommitteeSize == 0) {
-      return;
+      return new address[](0);
     }
 
     VerifyStack memory stack = VerifyStack({
@@ -392,6 +394,8 @@ library ValidatorSelectionLib {
     if (reconstructedCommitment != committeeCommitment) {
       revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
     }
+
+    return stack.reconstructedCommittee;
   }
 
   /**

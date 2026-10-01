@@ -641,6 +641,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardExtLib.getRewardConfig();
   }
 
+  /**
+   * @notice Returns the sequencer reward calculator consulted when epoch proofs pay checkpoint rewards
+   * @return The calculator, or zero if every checkpoint receives the default sequencer reward
+   */
+  function getSequencerRewardCalculator() external view override(IRollup) returns (address) {
+    return RewardExtLib.getSequencerRewardCalculator();
+  }
+
   function getCheckpointReward() external view override(IRollup) returns (uint256) {
     return RewardExtLib.getCheckpointReward();
   }
