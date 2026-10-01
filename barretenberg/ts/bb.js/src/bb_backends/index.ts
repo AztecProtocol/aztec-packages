@@ -47,6 +47,25 @@ export type BackendOptions = {
   maxClients?: number;
 
   /**
+   * @description Replace the bb process when it dies, on the next call (NativeUnixSocket only).
+   *
+   * There is no equivalent for the shared-memory backends, and no error either: a call to a bb
+   * process that has died never returns, because the receive loop cannot tell a dead server from a
+   * slow one. That is documented where it happens, in msgpack_client_wrapper.cpp. A caller that
+   * needs to survive a bb death should be on this backend.
+   *
+   * Calls that were in flight still fail, with an error carrying `retry: true`; only later calls
+   * see the replacement.
+   *
+   * Safe only for an owner whose every call stands alone, carrying what it needs in its arguments.
+   * A replacement process has none of the state a command sequence establishes: no SRS loaded over
+   * the connection, no Chonk accumulation, no batch-verifier session with its registered keys. An
+   * owner that runs any such sequence must leave this off, so a death fails loudly instead of the
+   * next call quietly running against a process that has forgotten everything.
+   */
+  respawn?: boolean;
+
+  /**
    * @description Specify exact backend to use
    * - If unset: tries backends in default order with fallback
    * - If set: must succeed with specified backend or throw error (no fallback)
