@@ -133,10 +133,19 @@ pub fn validate_contract_class_logs(
         // This mismatch would make it impossible to verify the contract class later, because the correct hash could no
         // longer be recomputed from the emitted blob data.
         // Note: The length is also validated to be <= `CONTRACT_CLASS_LOG_SIZE_IN_FIELDS` in the private kernel.
-        assert(
-            array_padded_with(log_fields, log_hash.inner.length, 0),
-            "Incorrect contract class log length",
-        );
+        let length = log_hash.inner.length;
+        assert(array_padded_with(log_fields, length, 0), "Incorrect contract class log length");
+
+        // Ensure the length does not also cover trailing zeros, so it is the unique minimal length for these fields.
+        // The contract emitting the log computes the length in an unconstrained hint, and the hash is the same for any
+        // length that covers the zero padding. A longer length would be charged as extra DA gas to the fee payer and
+        // emitted as extra fields in the blob.
+        if length != 0 {
+            assert(
+                log_fields[length - 1] != 0,
+                "Contract class log length must not cover trailing zeros",
+            );
+        }
     }
 }
 
