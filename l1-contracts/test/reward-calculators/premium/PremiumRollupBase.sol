@@ -74,7 +74,9 @@ abstract contract PremiumRollupBase is BN254Fixtures {
           normalFlushSizeQuotient: 1,
           maxQueueFlushSize: 48
         })
-      ).deploy();
+      );
+    _configureRollupBuilder(builder);
+    builder.deploy();
 
     rollup = Rollup(address(builder.getConfig().rollup));
     rollupRegistry = IRegistry(address(builder.getConfig().registry));
@@ -94,6 +96,9 @@ abstract contract PremiumRollupBase is BN254Fixtures {
     vm.prank(governance);
     calculator.setRegistryReward(address(atpRegistry), PREMIUM, address(factory));
   }
+
+  /// @dev Hook to adjust the rollup configuration before it is deployed.
+  function _configureRollupBuilder(RollupBuilder _builder) internal virtual {}
 
   function _mint(address _to, uint256 _amount) internal {
     deal(address(token), _to, token.balanceOf(_to) + _amount, true);

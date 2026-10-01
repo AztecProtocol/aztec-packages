@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 // solhint-disable func-name-mixedcase
 // solhint-disable comprehensive-interface
 
-import {Status} from "@aztec/core/interfaces/IStaking.sol";
+import {Exit, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -14,6 +14,7 @@ import {PremiumATP} from "@test/reward-calculators/premium/PremiumATP.sol";
 import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStaker.sol";
 import {FakeWithdrawer} from "@test/reward-calculators/premium/mocks/PremiumMocks.sol";
 import {PremiumRollupBase} from "@test/reward-calculators/premium/PremiumRollupBase.sol";
+import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
 
 /**
  * @notice The premium calculator and provenance-tracking positions over a real rollup and GSE: deposits go through
@@ -166,6 +167,46 @@ contract PremiumLifecycleTest is PremiumRollupBase {
     assertEq(atp.getClaimable(), 4 * threshold);
   }
 
+  // Attack: the staker's keys and proof of possession registered first under another attester.
+
+  function test_KeysRegisteredFirstUnderAnotherAttesterOnlyDelayTheGenuineValidator() external {
+    (PremiumATP atp, PremiumATPStaker staker) = _position(4);
+    address genuine = _newAttester();
+    address copy = _newAttester();
+    // The proof of possession binds neither the attester nor the withdrawer, so the attacker can copy them from the
+    // staker's pending transaction and register them first under an attester and withdrawer of its own.
+    keyOf[copy] = keyOf[genuine];
+    _liquidDeposit(attacker, copy, attacker);
+    _stake(staker, genuine);
+    _flush();
+
+    assertTrue(rollup.getStatus(copy) == Status.VALIDATING);
+    assertEq(_rewardOf(copy), DEFAULT_REWARD);
+    // The genuine deposit failed at flush and was refunded to the staker; its record earns nothing.
+    assertTrue(rollup.getStatus(genuine) == Status.NONE);
+    assertEq(gse.getWithdrawer(genuine), address(0));
+    assertTrue(staker.isAttester(genuine));
+    assertEq(_rewardOf(genuine), DEFAULT_REWARD);
+    assertEq(token.balanceOf(address(staker)), threshold);
+    assertEq(atp.getReserved(), threshold);
+
+    staker.returnTokensToATP();
+    vm.prank(operator);
+    staker.release(genuine);
+    assertEq(token.balanceOf(address(atp)), 4 * threshold);
+    assertEq(atp.getReserved(), 0);
+
+    // With fresh keys the genuine validator registers and earns the premium.
+    keyOf[genuine] = nextKey++;
+    _stake(staker, genuine);
+    _flush();
+    assertTrue(rollup.getStatus(genuine) == Status.VALIDATING);
+    assertEq(gse.getWithdrawer(genuine), address(staker));
+    assertEq(_rewardOf(genuine), PREMIUM);
+    assertEq(atp.getReserved(), threshold);
+    assertEq(_rewardOf(copy), DEFAULT_REWARD);
+  }
+
   // Attack: top up a fully staked position and claim beyond the reservation.
 
   function test_TopUpOfAFullyStakedPositionIsNotClaimable() external {
@@ -261,6 +302,61 @@ contract PremiumLifecycleTest is PremiumRollupBase {
     assertEq(atp.getClaimable(), 3 * threshold);
   }
 
+  // Slashing: premiums follow state at proof time.
+
+  function test_FullySlashedAttesterKeepsThePremiumUntilReleased() external {
+    (PremiumATP atp, PremiumATPStaker staker) = _position(2);
+    address slashed = _stake(staker);
+    address other = _stake(staker);
+    _flush();
+    uint256 activeBefore = rollup.getActiveAttesterCount();
+
+    vm.prank(rollup.getSlasher());
+    rollup.slash(slashed, threshold);
+
+    // It left the validator set with nothing at stake, so it cannot be sampled for new committees.
+    assertTrue(rollup.getStatus(slashed) == Status.NONE);
+    assertEq(gse.effectiveBalanceOf(address(rollup), slashed), 0);
+    assertFalse(rollup.getExit(slashed).exists);
+    assertEq(rollup.getActiveAttesterCount(), activeBefore - 1);
+    for (uint256 i = 0; i < rollup.getActiveAttesterCount(); i++) {
+      assertTrue(rollup.getAttesterAtIndex(i) != slashed, "slashed attester still in the validator set");
+    }
+
+    // Its GSE record and its staker record remain, so checkpoints it proposed before the slash and proven after it
+    // still earn the premium.
+    assertEq(gse.getWithdrawer(slashed), address(staker));
+    assertTrue(staker.isAttester(slashed));
+    assertEq(_rewardOf(slashed), PREMIUM);
+    assertEq(_rewardOf(other), PREMIUM);
+
+    // The reservation still covers it, and the slashed tokens are lost to the position.
+    assertEq(atp.getReserved(), 2 * threshold);
+    assertLe(atp.getClaimed() + atp.getReserved(), atp.getAllocation());
+    vm.warp(unlockStart + LOCK);
+    assertEq(atp.getClaimable(), 0);
+
+    vm.prank(operator);
+    staker.release(slashed);
+    assertEq(_rewardOf(slashed), DEFAULT_REWARD);
+    assertEq(_rewardOf(other), PREMIUM);
+    assertEq(atp.getReserved(), threshold);
+    assertLe(atp.getClaimed() + atp.getReserved(), atp.getAllocation());
+    // Releasing frees allocation, but the position holds nothing to claim: the slashed stake is gone.
+    assertEq(token.balanceOf(address(atp)), 0);
+    assertEq(atp.getClaimable(), 0);
+
+    // Exiting the other attester returns only its own stake.
+    _exit(staker, other);
+    vm.prank(operator);
+    staker.release(other);
+    assertEq(atp.getClaimable(), threshold);
+    vm.prank(beneficiary);
+    atp.claim();
+    assertEq(token.balanceOf(beneficiary), threshold);
+    assertLe(atp.getClaimed() + atp.getReserved(), atp.getAllocation());
+  }
+
   // Re-registration of an attester address is impossible with the real GSE.
 
   function test_ExitedAttesterCannotBeRegisteredAgain() external {
@@ -312,5 +408,76 @@ contract PremiumLifecycleTest is PremiumRollupBase {
 
   function _g2() internal pure returns (G2Point memory) {
     return G2Point(0, 0, 0, 0);
+  }
+}
+
+/**
+ * @notice An exit the attester initiates on a rollup with enough validators for an attester exit allowance: the
+ *         stake waits for the staker, its withdrawer, to name a recipient, which is always the position.
+ */
+contract PremiumAttesterExitLifecycleTest is PremiumRollupBase {
+  // With no committee to keep, the allowance is (validators - 1) / 20, so 21 validators allow one exit.
+  uint256 internal constant VALIDATORS = 21;
+
+  function _configureRollupBuilder(RollupBuilder _builder) internal override {
+    _builder.setTargetCommitteeSize(0);
+  }
+
+  function test_AttesterInitiatedExitPaysThePositionOnceTheStakerNamesIt() external {
+    (PremiumATP atp, PremiumATPStaker staker) = _position(1);
+    address attester = _stake(staker);
+    address fillerWithdrawer = makeAddr("filler withdrawer");
+    for (uint256 i = 1; i < VALIDATORS; i++) {
+      _liquidDeposit(makeAddr("filler depositor"), _newAttester(), fillerWithdrawer);
+    }
+    _flush();
+    vm.warp(block.timestamp + 1);
+    assertEq(rollup.getActiveAttesterCount(), VALIDATORS);
+
+    vm.prank(attester);
+    rollup.initiateWithdrawByAttester(attester);
+
+    // The exit names the withdrawer, not a recipient: the attester is a zombie until the staker names one.
+    assertTrue(rollup.getStatus(attester) == Status.ZOMBIE);
+    Exit memory exit = rollup.getExit(attester);
+    assertEq(exit.recipientOrWithdrawer, address(staker));
+    assertFalse(exit.isRecipient);
+    assertEq(_rewardOf(attester), PREMIUM);
+
+    _warpToFinalizable(attester);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__InitiateWithdrawNeeded.selector, attester));
+    rollup.finalizeWithdraw(attester);
+
+    // Only the withdrawer can name the recipient.
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotWithdrawer.selector, address(staker), attacker));
+    vm.prank(attacker);
+    rollup.initiateWithdraw(attester, attacker);
+
+    vm.prank(operator);
+    staker.initiateWithdraw(version, attester);
+    assertTrue(rollup.getStatus(attester) == Status.EXITING);
+    assertEq(rollup.getExit(attester).recipientOrWithdrawer, address(atp));
+
+    rollup.finalizeWithdraw(attester);
+    assertTrue(rollup.getStatus(attester) == Status.NONE);
+    assertEq(token.balanceOf(address(atp)), threshold);
+    assertEq(token.balanceOf(address(staker)), 0);
+    assertEq(token.balanceOf(beneficiary), 0);
+
+    // The returned stake stays reserved, and the premium stays, until the operator releases the attester.
+    vm.warp(unlockStart + LOCK);
+    assertEq(atp.getClaimable(), 0);
+    assertEq(_rewardOf(attester), PREMIUM);
+    vm.prank(operator);
+    staker.release(attester);
+    assertEq(_rewardOf(attester), DEFAULT_REWARD);
+    assertEq(atp.getClaimable(), threshold);
+  }
+
+  function _warpToFinalizable(address _attester) internal {
+    Exit memory exit = rollup.getExit(_attester);
+    uint256 localUnlock = Timestamp.unwrap(exit.exitableAt);
+    uint256 governanceUnlock = Timestamp.unwrap(gse.getGovernance().getWithdrawal(exit.withdrawalId).unlocksAt);
+    vm.warp((localUnlock > governanceUnlock ? localUnlock : governanceUnlock) + 1);
   }
 }
