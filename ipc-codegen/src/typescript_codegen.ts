@@ -446,6 +446,56 @@ ${conversions}
       )
       .join("\n");
 
+    // A schema that `extends` others also gets one interface per parent, holding only the commands
+    // visible at that level. They are structural, so a client generated from any schema further
+    // down the chain (another package, even) satisfies them: code typed against a parent's
+    // interface accepts every extension's client.
+    const commandsByName = new Map(schema.commands.map((c) => [c.name, c]));
+    const inherited = schema.inherited ?? [];
+    const inheritedInterfaces = inherited
+      .map((level) => {
+        const commands = level.commandNames.map((name) => {
+          const command = commandsByName.get(name);
+          if (!command) {
+            throw new Error(
+              `inherited command ${name} is missing from the merged schema`,
+            );
+          }
+          return command;
+        });
+        const asyncMethods = commands
+          .map(
+            (c) =>
+              `  ${this.toMethodName(c.name)}(command: ${this.typeName(c.name)}): Promise<${this.typeName(c.responseType)}>;`,
+          )
+          .join("\n");
+        const syncMethods = commands
+          .map(
+            (c) =>
+              `  ${this.toMethodName(c.name)}(command: ${this.typeName(c.name)}): ${this.typeName(c.responseType)};`,
+          )
+          .join("\n");
+        return `/** The ${level.name} command set this schema extends (asynchronous). */
+export interface Async${level.name}Api {
+${asyncMethods}
+  destroy(): Promise<void>;
+}
+
+/** The ${level.name} command set this schema extends (synchronous). */
+export interface Sync${level.name}Api {
+${syncMethods}
+  destroy(): void;
+}
+`;
+      })
+      .join("\n");
+    const asyncExtends = inherited.length
+      ? ` extends ${inherited.map((l) => `Async${l.name}Api`).join(", ")}`
+      : "";
+    const syncExtends = inherited.length
+      ? ` extends ${inherited.map((l) => `Sync${l.name}Api`).join(", ")}`
+      : "";
+
     const hashLine = schemaHash
       ? `\n/** Schema version hash for compatibility checking */\nexport const SCHEMA_HASH = '${schemaHash}';\n`
       : "";
@@ -510,13 +560,14 @@ export class ${this.errorClassName(schema.errorTypeName)} extends Error {
   }
 }
 
+${inheritedInterfaces}
 // Base API interfaces
-export interface AsyncApiBase {
+export interface AsyncApiBase${asyncExtends} {
 ${asyncApiMethods}
   destroy(): Promise<void>;
 }
 
-export interface SyncApiBase {
+export interface SyncApiBase${syncExtends} {
 ${syncApiMethods}
   destroy(): void;
 }

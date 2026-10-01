@@ -32,6 +32,10 @@ import {
   SchemaVisitor,
   friendlyToPositional,
   isFriendlySchema,
+  mergeExtendedSchema,
+  mergeImportedTypes,
+  parseExtends,
+  parseImports,
   stripJsonc,
   type CompiledSchema,
 } from "./schema_visitor.ts";
@@ -70,6 +74,8 @@ interface Args {
   packageTransports: string;
   packageIpcPathArgs: string;
   packageWasmModule: string;
+  packageNapiAddon: string;
+  packageNapiAddonEnvVar: string;
   packageWasmThreadsModule: string;
   ipcRuntimeDependency: string;
   cppNamespace: string;
@@ -77,6 +83,7 @@ interface Args {
   cppIncludeDir: string;
   uds: boolean;
   ffi: boolean;
+  napi: boolean;
   stripMethodPrefix: boolean;
   stripTypePrefix: boolean;
 }
@@ -100,7 +107,7 @@ Optional:
   --package-name <name>    TS package name for --package
   --binary-name <name>     Native service binary name for --package
   --binary-env-var <name>  Env var overriding the binary path for --package
-  --package-transports <t> Comma-separated transports for --package (uds,shm,wasm)
+  --package-transports <t> Comma-separated transports for --package (uds,shm,napi,wasm)
   --package-ipc-path-args <args>
                            Comma-separated binary args for IPC path; use {path}
   --package-wasm-module <file>
@@ -110,6 +117,12 @@ Optional:
                            WebAssembly.compileStreaming and cached by the browser
   --package-wasm-threads-module <file>
                            wasm transport: the threads module, shipped in wasm/
+  --package-napi-addon <file>
+                           napi transport: file name of the Node-API addon built from
+                           the C++ --napi output, shipped in the arch packages
+  --package-napi-addon-env-var <name>
+                           napi transport: env var overriding the addon path
+                           (default: <ADDON_STEM>_PATH)
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -122,6 +135,9 @@ Optional:
   --ffi                    In-process FFI. With --client (rust, zig): copy the FFI
                            client backend template. With --server (rust, cpp): emit
                            the exported FFI entry (ipc_ffi_entry) over the dispatch
+  --napi                   With --server --ffi (cpp): also emit <service>_napi.cpp, a
+                           Node-API addon over the FFI entry, for a TS package's
+                           napi transport (--package-transports napi)
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
@@ -144,6 +160,8 @@ function parseArgs(argv: string[]): Args {
     packageTransports: "uds",
     packageIpcPathArgs: "--socket,{path}",
     packageWasmModule: "",
+    packageNapiAddon: "",
+    packageNapiAddonEnvVar: "",
     packageWasmThreadsModule: "",
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
@@ -151,6 +169,7 @@ function parseArgs(argv: string[]): Args {
     cppIncludeDir: "",
     uds: false,
     ffi: false,
+    napi: false,
     stripMethodPrefix: false,
     stripTypePrefix: false,
   };
@@ -202,6 +221,12 @@ function parseArgs(argv: string[]): Args {
       case "--package-ipc-path-args":
         args.packageIpcPathArgs = takeValue();
         break;
+      case "--package-napi-addon":
+        args.packageNapiAddon = takeValue();
+        break;
+      case "--package-napi-addon-env-var":
+        args.packageNapiAddonEnvVar = takeValue();
+        break;
       case "--package-wasm-module":
         args.packageWasmModule = takeValue();
         break;
@@ -225,6 +250,9 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--ffi":
         args.ffi = true;
+        break;
+      case "--napi":
+        args.napi = true;
         break;
       case "--strip-method-prefix":
         args.stripMethodPrefix = true;
@@ -271,6 +299,12 @@ function parseArgs(argv: string[]): Args {
     );
     process.exit(1);
   }
+  if (args.napi && !(args.lang === "cpp" && args.server && args.ffi)) {
+    console.error(
+      `--napi emits a Node-API addon over the C++ FFI entry; pass --lang cpp --server --ffi`,
+    );
+    process.exit(1);
+  }
   if (args.ffi && args.lang === "cpp" && !args.server) {
     console.error(
       `--ffi for cpp emits the server-side FFI entry; pass --server`,
@@ -289,13 +323,72 @@ function computeSchemaHash(schemaJson: string): string {
   return createHash("sha256").update(schemaJson).digest("hex");
 }
 
+/**
+ * Read a schema file and resolve its `imports` and `extends` into one friendly schema. `seen`
+ * guards against a cycle. A schema using neither comes back as parsed, and `flattened` is false.
+ */
+function resolveSchemaFile(
+  schemaPath: string,
+  seen: string[] = [],
+): { parsed: any; flattened: boolean } {
+  if (seen.includes(schemaPath)) {
+    throw new Error(
+      `schema cycle: ${[...seen, schemaPath].map((p) => basename(p)).join(" -> ")}`,
+    );
+  }
+  const raw = JSON.parse(stripJsonc(readFileSync(schemaPath, "utf-8")));
+  const ext = parseExtends(raw?.extends);
+  const imports = parseImports(raw?.imports);
+  if (!ext && imports.length === 0) {
+    return { parsed: raw, flattened: false };
+  }
+  const load = (relativePath: string) =>
+    resolveSchemaFile(resolve(dirname(schemaPath), relativePath), [
+      ...seen,
+      schemaPath,
+    ]).parsed;
+  const { extends: _extends, imports: _imports, ...own } = raw;
+  let schema = own;
+  for (const path of imports) {
+    schema = mergeImportedTypes(schema, load(path), path);
+  }
+  if (ext) {
+    const parent = load(ext.schema);
+    if (!isFriendlySchema(parent)) {
+      throw new Error(
+        `${ext.schema}: only a friendly schema (with 'service') can be extended`,
+      );
+    }
+    schema = mergeExtendedSchema(parent, schema, ext);
+  }
+  return { parsed: schema, flattened: true };
+}
+
+/**
+ * The merged schema as a standalone file, for places that ship the wire contract (the server
+ * binding package): an `extends` chain is resolved, so the copy needs no sibling files.
+ */
+function flattenedSchemaText(parsed: any): string {
+  const { __inherited: _inherited, ...schema } = parsed;
+  return (
+    "// AUTOGENERATED by ipc-codegen: the merged form of a schema that uses 'extends'.\n" +
+    JSON.stringify(schema, null, 2) +
+    "\n"
+  );
+}
+
 function loadSchema(schemaPath: string): {
   compiled: CompiledSchema;
   schemaHash: string;
   service?: string;
+  /** The wire contract as a self-contained file: the schema itself, or its merged form. */
+  schemaText: string;
 } {
   const rawJson = readFileSync(schemaPath, "utf-8").trim();
-  const parsed = JSON.parse(stripJsonc(rawJson));
+  const { parsed, flattened } = resolveSchemaFile(schemaPath);
+  const schemaText = flattened
+    ? flattenedSchemaText(parsed)
+    : readFileSync(schemaPath, "utf-8");
   let commandsUnion: any;
   let responsesUnion: any;
   let service: string | undefined;
@@ -311,8 +404,12 @@ function loadSchema(schemaPath: string): {
   }
   const visitor = new SchemaVisitor();
   const compiled = visitor.visit(commandsUnion, responsesUnion);
-  const schemaHash = computeSchemaHash(rawJson);
-  return { compiled, schemaHash, service };
+  if (parsed.__inherited) {
+    compiled.inherited = parsed.__inherited;
+  }
+  // A schema that extends nothing keeps hashing its own text, so existing hashes do not move.
+  const schemaHash = computeSchemaHash(flattened ? schemaText : rawJson);
+  return { compiled, schemaHash, service, schemaText };
 }
 
 /** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
@@ -429,7 +526,7 @@ function generate(args: Args) {
   const absOut = resolve(args.out);
   mkdirSync(absOut, { recursive: true });
 
-  const { compiled, schemaHash, service } = loadSchema(absSchema);
+  const { compiled, schemaHash, service, schemaText } = loadSchema(absSchema);
   // Friendly schemas fold the type prefix and method-prefix stripping into
   // `service`: generated type names are `service + command`, method names are
   // the bare command. Positional schemas keep the legacy --prefix/--strip flags.
@@ -513,15 +610,31 @@ function generate(args: Args) {
           writePackage("src/index.ts", packageGen.generateIndex());
           // Ship the schema itself: it is the wire contract the package was
           // generated from, and lets consumers regenerate bindings.
-          writePackage(schemaFileName, readFileSync(absSchema, "utf-8"));
+          writePackage(schemaFileName, schemaText);
         } else {
-          const binaryName =
-            args.binaryName || toSnakeCase(prefix).replace(/_/g, "-");
           const transports = args.packageTransports
             .split(",")
             .map((t) => t.trim())
             .filter(Boolean);
+          const known = ["uds", "shm", "napi", "wasm"];
+          const unknown = transports.filter((t) => !known.includes(t));
+          if (unknown.length > 0) {
+            console.error(
+              `--package-transports: unknown transport(s) ${unknown.join(", ")} (known: ${known.join(", ")})`,
+            );
+            process.exit(1);
+          }
           const wasm = transports.includes("wasm");
+          const napi = transports.includes("napi");
+          const spawned = transports.some((t) => t === "uds" || t === "shm");
+          // Only a package that spawns the service has a binary: no bin launcher otherwise.
+          const binaryName = spawned
+            ? args.binaryName || toSnakeCase(prefix).replace(/_/g, "-")
+            : "";
+          if (napi && !args.packageNapiAddon) {
+            console.error(`--package-transports napi needs --package-napi-addon`);
+            process.exit(1);
+          }
           if (
             wasm &&
             !args.packageWasmModule &&
@@ -536,7 +649,9 @@ function generate(args: Args) {
             prefix,
             packageName,
             binaryName,
-            binaryEnvVar: args.binaryEnvVar || defaultBinaryEnvVar(binaryName),
+            binaryEnvVar: binaryName
+              ? args.binaryEnvVar || defaultBinaryEnvVar(binaryName)
+              : "",
             ipcRuntimeDependency: args.ipcRuntimeDependency,
             transports,
             ipcPathArgs: args.packageIpcPathArgs
@@ -545,6 +660,11 @@ function generate(args: Args) {
               .filter(Boolean),
             wasmModule: args.packageWasmModule || undefined,
             wasmThreadsModule: args.packageWasmThreadsModule || undefined,
+            napiAddon: napi ? args.packageNapiAddon : undefined,
+            napiAddonEnvVar: napi
+              ? args.packageNapiAddonEnvVar ||
+                defaultBinaryEnvVar(args.packageNapiAddon.replace(/\.node$/, ""))
+              : undefined,
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());
@@ -554,9 +674,14 @@ function generate(args: Args) {
             "src/react-native.ts",
             packageGen.generateReactNativeIndex(),
           );
-          writePackage("src/platform.ts", packageGen.generatePlatform());
-          if (transports.some((t) => t !== "wasm")) {
+          if (spawned || napi) {
+            writePackage("src/platform.ts", packageGen.generatePlatform());
+          }
+          if (spawned) {
             writePackage("src/process.ts", packageGen.generateProcess());
+          }
+          if (napi) {
+            writePackage("src/napi.ts", packageGen.generateNapi());
           }
           if (binaryName) {
             writePackage("src/bin.ts", packageGen.generateBin());
@@ -685,6 +810,14 @@ function generate(args: Args) {
               gen.generateFfiHeader(),
             ),
           );
+          if (args.napi) {
+            cppFiles.push(
+              writeFile(
+                `${toSnakeCase(prefix)}_napi.cpp`,
+                gen.generateNapiSource(),
+              ),
+            );
+          }
           cppFiles.push(
             writeFile(
               `${toSnakeCase(prefix)}_ffi.cpp`,

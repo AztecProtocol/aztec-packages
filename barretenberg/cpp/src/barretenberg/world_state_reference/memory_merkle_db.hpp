@@ -2,11 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <stack>
+#include <string>
 #include <vector>
 
 #include "barretenberg/aztec/aztec_hash_policy.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -86,26 +89,59 @@ template <typename HashingPolicy> class MemoryAppendOnlyTree {
  * @brief A full-height, sparse, indexed Merkle tree over a SparseMemoryTree.
  *
  * Used for the nullifier and public-data trees. The genesis state matches the WorldState's
- * ContentAddressedIndexedTree: `initial_size` prefill leaves, all LeafType::padding(i) for i in
- * [0, initial_size), linked as an ascending chain. Insert / low-leaf logic mirrors
- * IndexedMemoryTree, but the backing is sparse so it works at full tree height.
+ * ContentAddressedIndexedTree: `initial_size` prefill leaves, LeafType::padding(i) for the first
+ * initial_size - prefilled.size() of them followed by `prefilled`, linked as an ascending chain.
+ * Insert / low-leaf logic mirrors IndexedMemoryTree, but the backing is sparse so it works at full
+ * tree height.
  */
 template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
   public:
     using Leaf = crypto::merkle_tree::IndexedLeaf<LeafType>;
 
-    MemoryIndexedTree(size_t depth, size_t initial_size)
+    /**
+     * @brief Why `prefilled` cannot seed a tree of `initial_size` leaves, or nullopt when it can.
+     * @details The prefill must fit, and its keys must be strictly increasing and above the
+     * padding keys, since the genesis leaves form one ascending chain.
+     */
+    static std::optional<std::string> check_prefill(size_t initial_size, std::span<const LeafType> prefilled)
+    {
+        if (initial_size < 2) {
+            return "Indexed trees must have initial size > 1";
+        }
+        if (prefilled.size() > initial_size) {
+            return "Number of prefilled values can't be more than initial size";
+        }
+        size_t num_padding = initial_size - prefilled.size();
+        uint256_t previous =
+            num_padding > 0 ? static_cast<uint256_t>(LeafType::padding(num_padding - 1).get_key()) : uint256_t(0);
+        for (size_t i = 0; i < prefilled.size(); ++i) {
+            uint256_t key = static_cast<uint256_t>(prefilled[i].get_key());
+            if ((i > 0 || num_padding > 0) && key <= previous) {
+                return i == 0 ? "Prefilled values must not be the same as the default values"
+                              : "Prefilled values must be unique and sorted";
+            }
+            previous = key;
+        }
+        return std::nullopt;
+    }
+
+    MemoryIndexedTree(size_t depth, size_t initial_size, std::span<const LeafType> prefilled = {})
         : tree_(depth)
     {
-        BB_ASSERT_GT(initial_size, static_cast<size_t>(1), "Indexed trees must have initial size > 1");
+        auto problem = check_prefill(initial_size, prefilled);
+        BB_ASSERT(!problem.has_value(), problem.value_or(""));
+        size_t num_padding = initial_size - prefilled.size();
         leaves_.reserve(initial_size);
-        for (size_t i = 0; i < initial_size; ++i) {
+        for (size_t i = 0; i < num_padding; ++i) {
             leaves_.push_back(Leaf(LeafType::padding(i), /*nextIndex=*/0, /*nextKey=*/0));
+        }
+        for (const auto& value : prefilled) {
+            leaves_.push_back(Leaf(value, /*nextIndex=*/0, /*nextKey=*/0));
         }
         for (size_t i = 0; i < initial_size; ++i) {
             index_t next_index = i == (initial_size - 1) ? 0 : i + 1;
             leaves_[i].nextIndex = next_index;
-            leaves_[i].nextKey = leaves_[next_index].leaf.get_key();
+            leaves_[i].nextKey = leaves_[static_cast<size_t>(next_index)].leaf.get_key();
             tree_.update_element(i, HashingPolicy::hash(leaves_[i].get_hash_inputs()));
         }
     }
@@ -131,7 +167,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
     Leaf get_leaf_preimage(index_t leaf_index) const
     {
         BB_ASSERT_LT(leaf_index, leaves_.size(), "Leaf index out of bounds");
-        return leaves_[leaf_index];
+        return leaves_[static_cast<size_t>(leaf_index)];
     }
 
     FF get_leaf_value(index_t leaf_index) const { return tree_.get_node(0, leaf_index); }
@@ -149,7 +185,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
 
         FF key = leaf_to_insert.get_key();
         GetLowIndexedLeafResponse find_low_leaf_result = get_low_indexed_leaf(key);
-        Leaf& low_leaf = leaves_[find_low_leaf_result.index];
+        Leaf& low_leaf = leaves_[static_cast<size_t>(find_low_leaf_result.index)];
 
         result.low_leaf_witness_data.emplace_back(
             low_leaf, find_low_leaf_result.index, tree_.get_sibling_path(find_low_leaf_result.index));
@@ -175,7 +211,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
             tree_.update_element(find_low_leaf_result.index, HashingPolicy::hash(low_leaf.get_hash_inputs()));
             result.insertion_witness_data.emplace_back(Leaf::empty(), 0, SiblingPath{});
         } else {
-            throw std::runtime_error("Leaf is not updateable");
+            throw_or_abort("Leaf is not updateable");
         }
 
         return result;
@@ -224,7 +260,9 @@ class MemoryMerkleDB {
     static constexpr size_t DEFAULT_PUBLIC_DATA_TREE_PREFILL = 128;
 
     MemoryMerkleDB(size_t nullifier_tree_prefill = DEFAULT_NULLIFIER_TREE_PREFILL,
-                   size_t public_data_tree_prefill = DEFAULT_PUBLIC_DATA_TREE_PREFILL);
+                   size_t public_data_tree_prefill = DEFAULT_PUBLIC_DATA_TREE_PREFILL,
+                   std::span<const NullifierLeafValue> prefilled_nullifiers = {},
+                   std::span<const PublicDataLeafValue> prefilled_public_data = {});
 
     TreeRoots get_tree_roots() const;
 

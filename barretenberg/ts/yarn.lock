@@ -169,6 +169,55 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec-foundation/wsdb-ref-darwin-arm64@npm:0.1.0, @aztec-foundation/wsdb-ref-darwin-arm64@workspace:wsdb-ref/packages/wsdb-ref-darwin-arm64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/wsdb-ref-darwin-arm64@workspace:wsdb-ref/packages/wsdb-ref-darwin-arm64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/wsdb-ref-darwin-x64@npm:0.1.0, @aztec-foundation/wsdb-ref-darwin-x64@workspace:wsdb-ref/packages/wsdb-ref-darwin-x64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/wsdb-ref-darwin-x64@workspace:wsdb-ref/packages/wsdb-ref-darwin-x64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/wsdb-ref-linux-arm64@npm:0.1.0, @aztec-foundation/wsdb-ref-linux-arm64@workspace:wsdb-ref/packages/wsdb-ref-linux-arm64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/wsdb-ref-linux-arm64@workspace:wsdb-ref/packages/wsdb-ref-linux-arm64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/wsdb-ref-linux-x64@npm:0.1.0, @aztec-foundation/wsdb-ref-linux-x64@workspace:wsdb-ref/packages/wsdb-ref-linux-x64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/wsdb-ref-linux-x64@workspace:wsdb-ref/packages/wsdb-ref-linux-x64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/wsdb-ref@workspace:wsdb-ref":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/wsdb-ref@workspace:wsdb-ref"
+  dependencies:
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
+    "@aztec-foundation/wsdb-ref-darwin-arm64": "npm:0.1.0"
+    "@aztec-foundation/wsdb-ref-darwin-x64": "npm:0.1.0"
+    "@aztec-foundation/wsdb-ref-linux-arm64": "npm:0.1.0"
+    "@aztec-foundation/wsdb-ref-linux-x64": "npm:0.1.0"
+    "@types/node": "npm:^22.15.17"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.3.3"
+  dependenciesMeta:
+    "@aztec-foundation/wsdb-ref-darwin-arm64":
+      optional: true
+    "@aztec-foundation/wsdb-ref-darwin-x64":
+      optional: true
+    "@aztec-foundation/wsdb-ref-linux-arm64":
+      optional: true
+    "@aztec-foundation/wsdb-ref-linux-x64":
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@aztec/barretenberg-ts-packages@workspace:.":
   version: 0.0.0-use.local
   resolution: "@aztec/barretenberg-ts-packages@workspace:."
