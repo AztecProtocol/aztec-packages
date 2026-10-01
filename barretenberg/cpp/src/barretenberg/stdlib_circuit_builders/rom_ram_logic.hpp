@@ -127,10 +127,15 @@ struct RamTranscript {
     // used for RAM records, to compute the timestamp when performing a read/write. Note that the timestamp is _not_ a
     // global timestamp; rather, it is a timestamp for the RAM array in question.
     uint32_t access_count = 0;
+    // Number of cells written by init_RAM_element. Every cell must be initialised before the first read or write:
+    // the RAM relation binds a read only to the preceding sorted access on the same index, so an access that sorts
+    // before its cell's initialising write would be unconstrained.
+    uint32_t num_initialized = 0;
     // Used to check that the state hasn't changed in tests
     bool operator==(const RamTranscript& other) const noexcept
     {
-        return (state == other.state && records == other.records && access_count == other.access_count);
+        return (state == other.state && records == other.records && access_count == other.access_count &&
+                num_initialized == other.num_initialized);
     }
 };
 

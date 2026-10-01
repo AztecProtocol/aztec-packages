@@ -39,7 +39,12 @@ Point 2 above attests to the knowledge of a witness $(\iota^{inner}, \pi_{avm}^{
 So:
 $$
 \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{inner}, \pi^{inner})}) = \mathsf{h} = \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{outer}, \pi^{outer})})
-$$ that by the property of $\mathsf{Hash}$ implies $(\iota^{outer}, \pi_{avm}^{outer}) = (\iota^{inner}, \pi_{avm}^{inner})$, and therefore $\pi^{outer}_{avm}$ is a valid proof of the AVM for the public inputs $\iota^{outer}_{avm}$.
+$$
+Assuming collision resistance of $\mathsf{Hash}$, this binds the outer circuit to the same AVM proof and public inputs used by the inner circuit.
+
+## Goblin verification and deferred checks
+
+The inner circuit's Mega proof defers elliptic-curve operations to Goblin. On the same Fiat-Shamir transcript, the outer circuit checks the associated ECCVM and Translator proofs up to deferred openings. It returns a pairing-point accumulator and a TripleIPA opening; a consuming circuit must carry both through to final verification.
 
 ## Why is this useful?
 
