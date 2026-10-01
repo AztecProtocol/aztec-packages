@@ -46,10 +46,6 @@ impl<let N: u32> Writer<N> {
         }
     }
 
-    pub fn advance_offset(&mut self, offset: u32) {
-        self.offset += offset;
-    }
-
     pub fn finish(self) -> [Field; N] {
         assert_eq(self.offset, self.data.len(), "Writer did not write all data");
         self.data

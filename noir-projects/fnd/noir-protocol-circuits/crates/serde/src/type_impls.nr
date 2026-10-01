@@ -412,12 +412,15 @@ where
 
     #[inline_always]
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write_bool(self.is_some());
-        if self.is_some() {
-            self.unwrap_unchecked().stream_serialize(writer);
-        } else {
-            writer.advance_offset(<T as Serialize>::N);
+        let is_some = self.is_some();
+        writer.write_bool(is_some);
+        // A `None` must have an all-zero payload, so every `Option` value has exactly one encoding. Private function
+        // arguments are bound to the caller only through a hash of this encoding.
+        let payload = self.unwrap_unchecked().serialize();
+        if !is_some {
+            assert_eq(payload, [0; <T as Serialize>::N], "Option None payload must be zero");
         }
+        writer.write_array(payload);
     }
 }
 

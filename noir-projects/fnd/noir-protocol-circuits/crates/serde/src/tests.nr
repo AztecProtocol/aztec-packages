@@ -147,7 +147,7 @@ fn option_array_serialization() {
     assert_eq(Option::<_>::deserialize(opt_some.serialize()), opt_some);
 
     let opt_none = Option::none();
-    assert_eq(Option::<Field>::deserialize(opt_none.serialize()), opt_none);
+    assert_eq(Option::<[Field; 2]>::deserialize(opt_none.serialize()), opt_none);
 }
 
 #[test]
@@ -216,4 +216,103 @@ unconstrained fn bounded_vec_serialization_rejects_len_above_max() {
     let _ = OracleMock::mock("forged_bounded_vec").returns(([11, 22], 3));
     let invalid_vec = forged_bounded_vec_oracle();
     let _ = invalid_vec.serialize();
+}
+
+// The `forged_*` oracles return a `None` with a non-zero payload, e.g. `{ _is_some: false, _value: 123 }`. Noir source
+// cannot build one (`Option::none()` zeroes `_value`), but a circuit input or an oracle return can.
+#[oracle(forged_none)]
+unconstrained fn forged_none_oracle() -> Option<Field> {}
+
+#[oracle(forged_none_smol)]
+unconstrained fn forged_none_smol_oracle() -> Option<Smol> {}
+
+// A non-zero field anywhere in the payload is rejected.
+#[test(should_fail_with = "Option None payload must be zero")]
+unconstrained fn option_none_serialization_rejects_nonzero_struct_payload() {
+    let _ = OracleMock::mock("forged_none_smol").returns((false, Smol { a: 0, b: 8 }));
+    let _ = forged_none_smol_oracle().serialize();
+}
+
+#[derive(Deserialize, Eq, Serialize)]
+pub struct HasOption {
+    before: Field,
+    maybe: Option<Smol>,
+    after: Field,
+}
+
+#[oracle(forged_has_option)]
+unconstrained fn forged_has_option_oracle() -> HasOption {}
+
+// A forged `None` inside a derived-`Serialize` struct, the usual shape of a private function parameter.
+#[test(should_fail_with = "Option None payload must be zero")]
+unconstrained fn nested_option_none_serialization_rejects_nonzero_payload() {
+    let _ = OracleMock::mock("forged_has_option").returns((1, (false, Smol { a: 7, b: 8 }), 2));
+    let _ = forged_has_option_oracle().serialize();
+}
+
+// Constrained, like a private function's entrypoint: only the oracle call is unconstrained.
+#[test(should_fail_with = "Option None payload must be zero")]
+fn option_none_serialization_rejects_nonzero_payload_in_circuit() {
+    // Safety: test-only oracle standing in for an adversarial witness.
+    let forged = unsafe {
+        let _ = OracleMock::mock("forged_none").returns((false, 123));
+        forged_none_oracle()
+    };
+    let _ = forged.serialize();
+}
+
+// Clients encode a `None` argument as all zeros when computing the caller's `args_hash`, so `Option::none()` must too.
+#[test]
+fn canonical_option_none_serializes_to_zeros() {
+    assert_eq(Option::<Smol>::none().serialize(), [0; 3]);
+    assert_eq(Option::<i64>::none().serialize(), [0; 2]);
+    assert_eq(Option::<Fancier>::none().serialize(), [0; 24]);
+    assert_eq(Option::<BoundedVec<Field, 3>>::none().serialize(), [0; 5]);
+    assert_eq(Option::<Option<Smol>>::none().serialize(), [0; 4]);
+    assert_eq(Option::<[Option<Field>; 2]>::none().serialize(), [0; 5]);
+}
+
+// serialize -> deserialize recovers every honestly built `Option`.
+#[test]
+fn option_serialize_then_deserialize_round_trips() {
+    let some_smol = Option::some(Smol { a: 7, b: 8 });
+    assert_eq(Option::<Smol>::deserialize(some_smol.serialize()), some_smol);
+
+    let none_smol: Option<Smol> = Option::none();
+    assert_eq(Option::<Smol>::deserialize(none_smol.serialize()), none_smol);
+
+    let some_some = Option::some(Option::some(Smol { a: 7, b: 8 }));
+    assert_eq(Option::<Option<Smol>>::deserialize(some_some.serialize()), some_some);
+
+    let some_none: Option<Option<Smol>> = Option::some(Option::none());
+    assert_eq(Option::<Option<Smol>>::deserialize(some_none.serialize()), some_none);
+
+    let in_struct = HasOption { before: 1, maybe: Option::some(Smol { a: 7, b: 8 }), after: 2 };
+    assert_eq(HasOption::deserialize(in_struct.serialize()), in_struct);
+
+    let none_in_struct = HasOption { before: 1, maybe: Option::none(), after: 2 };
+    assert_eq(HasOption::deserialize(none_in_struct.serialize()), none_in_struct);
+}
+
+// deserialize -> serialize reproduces canonical encodings. Non-canonical ones do not round-trip: `[0, 7, 8]` decodes
+// to `Option::none()`.
+#[test]
+fn option_deserialize_then_serialize_round_trips_canonical_encodings() {
+    let some_smol = [1, 7, 8];
+    assert_eq(Option::<Smol>::deserialize(some_smol).serialize(), some_smol);
+
+    let none_smol = [0, 0, 0];
+    assert_eq(Option::<Smol>::deserialize(none_smol).serialize(), none_smol);
+
+    let some_some = [1, 1, 7, 8];
+    assert_eq(Option::<Option<Smol>>::deserialize(some_some).serialize(), some_some);
+
+    let some_none = [1, 0, 0, 0];
+    assert_eq(Option::<Option<Smol>>::deserialize(some_none).serialize(), some_none);
+
+    let in_struct = [1, 1, 7, 8, 2];
+    assert_eq(HasOption::deserialize(in_struct).serialize(), in_struct);
+
+    let none_in_struct = [1, 0, 0, 0, 2];
+    assert_eq(HasOption::deserialize(none_in_struct).serialize(), none_in_struct);
 }
