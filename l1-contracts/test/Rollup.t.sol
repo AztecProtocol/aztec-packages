@@ -7,6 +7,7 @@ import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
 import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -939,6 +940,32 @@ contract RollupTest is RollupBase {
       checkpoint2Data.batchedBlobInputs,
       checkpoint2Data.header.outHash
     );
+  }
+
+  function testEpochProofPublicInputsBindPublishedBlobCommitment() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    assertEq(uint8(data.blobCommitments[0]), 1);
+    bytes memory commitment = new bytes(Constants.BLS12_POINT_COMPRESSED_BYTES);
+    for (uint256 i = 0; i < commitment.length; i++) {
+      commitment[i] = data.blobCommitments[i + 1];
+    }
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: rollup.getCheckpoint(0).archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[1].inboxRollingHash,
+      proverId: address(0)
+    });
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    // FinalBlobAccumulator occupies the final seven fields: commitment hash, z, three y limbs, two c limbs.
+    uint256 hashIndex = publicInputs.length - 7;
+    // The epoch's first blob is hashed with the checkpoint-start flag (0x01), see BlobLib.calculateBlobCommitmentsHash.
+    assertEq(publicInputs[hashIndex], Hash.sha256ToField(abi.encodePacked(true, commitment)));
   }
 
   // getEpochProofPublicInputs is the view that the prover-publisher calls off-chain to validate its inputs before
