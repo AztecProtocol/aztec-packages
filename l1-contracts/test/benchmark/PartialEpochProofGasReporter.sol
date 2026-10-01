@@ -111,4 +111,32 @@ contract PartialEpochProofGasReporter is RollupWithPreheating {
   function gasReportSubmit32CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with the registry reduction calculator.
+   */
+  function gasReportSubmit1CheckpointWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with the registry reduction calculator.
+   */
+  function gasReportSubmit8CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with the registry reduction calculator.
+   */
+  function gasReportSubmit16CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with the registry reduction calculator.
+   */
+  function gasReportSubmit32CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
 }

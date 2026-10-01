@@ -81,6 +81,13 @@ import {
   GasReportingCalculator,
   GasBurningCalculator
 } from "@test/mock/SequencerRewardCalculatorMocks.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
+import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
+import {
+  MockATP,
+  MockATPStakerImplementation,
+  deployMainnetShapedATPStaker
+} from "@test/reward-calculators/mocks/ATPMocks.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -1078,5 +1085,117 @@ contract PartialEpochProofExtensionGasReportTest is PartialEpochProofGasReportBa
   function testGasReportSubmit8MoreCheckpoints() public {
     _gasReporter().gasReportSubmit8MoreCheckpoints(_compactSubmission(_getGasReportSubmission(16), 8));
     assertEq(rollup.getProvenCheckpointNumber(), 16);
+  }
+}
+
+/**
+ * @notice Gas of partial epoch proofs with the reference registry reduction calculator. Every validator is staked
+ *         through its own mainnet-shaped position (ERC1967 proxy staker, EIP-1167 clone ATP) of one of three
+ *         registries: one pays half the default, one a quarter of it, and one has no entry and pays the default.
+ */
+contract PartialEpochProofWithReductionCalculatorGasReportTest is PartialEpochProofCalculatorBase {
+  uint256 internal constant VALIDATOR_COUNT = 48;
+
+  address internal halfRegistry = makeAddr("half registry");
+  address internal quarterRegistry = makeAddr("quarter registry");
+  address internal unlistedRegistry = makeAddr("unlisted registry");
+
+  RegistryReductionCalculator internal reductionCalculator;
+  address[] internal validatorStakers;
+  mapping(address attester => address registry) internal registryOf;
+  mapping(address attester => uint256 index) internal validatorIndexOf;
+
+  function setUp() public override {
+    MockATP[3] memory atpImplementations =
+      [new MockATP(halfRegistry), new MockATP(quarterRegistry), new MockATP(unlistedRegistry)];
+    address stakerImplementation = address(new MockATPStakerImplementation());
+    for (uint256 i = 0; i < VALIDATOR_COUNT; i++) {
+      (address staker,) = deployMainnetShapedATPStaker(atpImplementations[i % 3], stakerImplementation);
+      validatorStakers.push(staker);
+      address attester = vm.addr(uint256(keccak256(abi.encode("attester", i + 1))));
+      registryOf[attester] = [halfRegistry, quarterRegistry, unlistedRegistry][i % 3];
+      validatorIndexOf[attester] = i;
+    }
+
+    super.setUp();
+
+    reductionCalculator = new RegistryReductionCalculator(IGSE(address(rollup.getGSE())), address(this));
+    // No reward is zero, so every checkpoint writes its coinbase balance as without a calculator.
+    uint256 defaultReward = _defaultReward();
+    reductionCalculator.setRegistryReward(halfRegistry, SafeCast.toUint96(defaultReward / 2));
+    reductionCalculator.setRegistryReward(quarterRegistry, SafeCast.toUint96(defaultReward / 4));
+    _setCalculator(address(reductionCalculator));
+  }
+
+  function testGasReportSubmit1CheckpointWithReductionCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit1CheckpointWithReductionCalculator(_getGasReportSubmission(1));
+    _assertReducedRewards(snapshot, 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithReductionCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit8CheckpointsWithReductionCalculator(_getGasReportSubmission(8));
+    _assertReducedRewards(snapshot, 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithReductionCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit16CheckpointsWithReductionCalculator(_getGasReportSubmission(16));
+    _assertReducedRewards(snapshot, 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithReductionCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit32CheckpointsWithReductionCalculator(_getGasReportSubmission(32));
+    _assertReducedRewards(snapshot, 32);
+  }
+
+  function testValidatorsResolveToTheirRegistries() public view {
+    address[] memory proposers = _checkpointProposers(32);
+    uint256 halfCount = 0;
+    uint256 quarterCount = 0;
+    for (uint256 i = 0; i < proposers.length; i++) {
+      assertEq(rollup.getGSE().getWithdrawer(proposers[i]), validatorStakers[_validatorIndex(proposers[i])]);
+      (bool resolved, address registry) = reductionCalculator.resolveRegistry(proposers[i]);
+      assertTrue(resolved);
+      assertEq(registry, registryOf[proposers[i]]);
+      halfCount += registry == halfRegistry ? 1 : 0;
+      quarterCount += registry == quarterRegistry ? 1 : 0;
+    }
+    // The fixture's proposers cover every kind of validator, so the reward assertions are not vacuous.
+    assertGt(halfCount, 0);
+    assertGt(quarterCount, 0);
+    assertGt(proposers.length - halfCount - quarterCount, 0);
+  }
+
+  function _validatorWithdrawer(uint256 _index) internal view override returns (address) {
+    return validatorStakers[_index];
+  }
+
+  function _assertReducedRewards(uint256 _snapshot, uint256 _length) internal {
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(_snapshot, _length, proposers);
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _reducedReward);
+  }
+
+  function _validatorIndex(address _attester) internal view returns (uint256) {
+    assertTrue(registryOf[_attester] != address(0), "not a validator");
+    return validatorIndexOf[_attester];
+  }
+
+  function _reducedReward(address _proposer) internal view returns (uint256) {
+    address registry = registryOf[_proposer];
+    assertTrue(registry != address(0), "not a validator");
+    uint256 defaultReward = _defaultReward();
+    if (registry == halfRegistry) {
+      return defaultReward / 2;
+    }
+    if (registry == quarterRegistry) {
+      return defaultReward / 4;
+    }
+    return defaultReward;
   }
 }
