@@ -128,6 +128,22 @@ fn incorrect_contract_class_log_length() {
     builder.execute_and_fail();
 }
 
+#[test(should_fail_with = "Contract class log length must not cover trailing zeros")]
+fn non_minimal_zero_padded_contract_class_log_length() {
+    let mut builder = TestBuilder::new();
+
+    // Add a contract class log.
+    let mut fixture_builder = FixtureBuilder::new();
+    fixture_builder.append_contract_class_logs(1);
+    builder.update_private_tail_accumulated_data(fixture_builder);
+
+    // Extend the length over a zero padding field. The hash is unchanged, but the log would be metered and emitted
+    // with one more field than it has.
+    builder.private_tail.end.contract_class_logs_hashes[0].inner.length += 1;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "tx expiration_timestamp is smaller than block timestamp")]
 fn expiration_timestamp_lower_than_block_timestamp() {
     let mut builder = TestBuilder::new();
