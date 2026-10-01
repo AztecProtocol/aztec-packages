@@ -84,10 +84,11 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     for i in 0..NumBlobs {
         let single_blob_fields = subarray(blobs_as_fields, i * FIELDS_PER_BLOB);
         let commitment_point = kzg_commitments_points[i];
-        // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
+        // The point is hinted, so validate that it is on the curve. `compress_to_blob_commitment` validates the
+        // encoding: canonical x, the sign of y, and (0,0) for infinity. G1 membership is not checked here: the
+        // compressed bytes identify the point up to sign, L1 binds them to a published commitment via
+        // `blob_commitments_hash`, and both signs of a G1 point are in G1.
         commitment_point.validate_on_curve();
-        // `validate_on_curve` doesn't validate the point at infinity, but `compress_to_blob_commitment`
-        // asserts the canonical (0,0) infinity encoding internally, so the hinted point is fully validated.
         let c_i = compress_to_blob_commitment(commitment_point);
 
         // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
@@ -148,58 +149,75 @@ mod tests {
     use protocol_test_utils::{pad_end, pad_end_with};
     use types::{constants::FIELDS_PER_BLOB, hash::sha256_to_field, traits::Empty};
 
-    #[test]
-    fn test_1_blob_batched() {
-        // We evaluate 1 blob of 400 items using the batch methods.
-        // This ensures a block with a single blob will work:
+    // A single blob of 400 fields and its batching inputs. The hardcoded values are generated from
+    // labs/yarn-project/blob-lib/src/blob_batching.test.ts; run it with AZTEC_GENERATE_TEST_DATA=1 to rewrite them.
+    struct SingleBlobFixture {
+        blob_fields: [Field; FIELDS_PER_BLOB],
+        num_fields: u32,
+        blob_fields_hash: Field,
+        kzg_commitment: BLSPoint,
+        final_challenges: FinalBlobBatchingChallenges,
+        expected_y: BLS12_381_Fr,
+    }
+
+    fn single_blob_fixture() -> SingleBlobFixture {
         let num_fields = 400;
         let mut blob_fields: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
         for i in 0..num_fields {
             blob_fields[i] = 123 + i as Field;
         }
 
-        // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
-        let blob_fields_hash_blob_400_from_ts =
-            0x10e7a5250a2eed72979690733b80804798338de751531bc3401be72c94d17fe6;
-        let kzg_commitment_x_limbs_blob_400_from_ts = [
+        let blob_fields_hash = 0x10e7a5250a2eed72979690733b80804798338de751531bc3401be72c94d17fe6;
+        let kzg_commitment_x_limbs = [
             0xcea8dc690c5b8ae96f9754900da08b,
             0xa4c96dfd4e5ca8fb6bfe4b4c5a14c3,
             0x9855cd30030b14f21ede36c07632d0,
             0x13fb86,
         ];
-        let kzg_commitment_y_limbs_blob_400_from_ts = [
+        let kzg_commitment_y_limbs = [
             0x63a5a3323551d4b4f6f037721df397,
             0x01c207e252b48e344836feca21738d,
             0x3faea573187a84ffda9855c15596b8,
             0x1962ca,
         ];
-        let z_blob_400_from_ts = 0x0385a84e8d5e59bde136bb296dbda99180c409974a07b2d7084d9c4e3b06dc69;
-        let gamma_limbs_blob_400_from_ts =
+        let z = 0x0385a84e8d5e59bde136bb296dbda99180c409974a07b2d7084d9c4e3b06dc69;
+        let gamma_limbs =
             [0xe2d69fdf2deace017adcce741873ca, 0x11e4e4c9035c35acd8ea601d46f020, 0x08e5];
-        let y_limbs_blob_400_from_ts =
-            [0xf63403f694f4e5f9341d1fc274a09c, 0x5c5064c1c1115988f901a3928433a4, 0x4ce5];
+        let y_limbs = [0xf63403f694f4e5f9341d1fc274a09c, 0x5c5064c1c1115988f901a3928433a4, 0x4ce5];
 
-        let kzg_commitment = BatchingBlobCommitment::from_limbs(
-            kzg_commitment_x_limbs_blob_400_from_ts,
-            kzg_commitment_y_limbs_blob_400_from_ts,
-        )
-            .point;
+        SingleBlobFixture {
+            blob_fields,
+            num_fields,
+            blob_fields_hash,
+            kzg_commitment: BatchingBlobCommitment::from_limbs(
+                kzg_commitment_x_limbs,
+                kzg_commitment_y_limbs,
+            )
+                .point,
+            final_challenges: FinalBlobBatchingChallenges {
+                // = z_0
+                z,
+                // = H(y_0, z_0)
+                gamma: BLS12_381_Fr::from_limbs(gamma_limbs),
+            },
+            expected_y: BLS12_381_Fr::from_limbs(y_limbs),
+        }
+    }
 
-        let final_challenges = FinalBlobBatchingChallenges {
-            // = z_0
-            z: z_blob_400_from_ts,
-            // = H(y_0, z_0)
-            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_blob_400_from_ts),
-        };
-
+    #[test]
+    fn test_1_blob_batched() {
+        // We evaluate 1 blob of 400 items using the batch methods.
+        // This ensures a block with a single blob will work:
+        let fixture = single_blob_fixture();
+        let final_challenges = fixture.final_challenges;
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
 
         // Evaluation: Can evaluate up to 3 blobs, but only 1 is needed and will be accumulated.
         let res = evaluate_blobs_and_batch::<3>(
-            pad_end(blob_fields),
-            num_fields,
-            blob_fields_hash_blob_400_from_ts,
-            pad_end_with([kzg_commitment], BLSPoint::point_at_infinity()),
+            pad_end(fixture.blob_fields),
+            fixture.num_fields,
+            fixture.blob_fields_hash,
+            pad_end_with([fixture.kzg_commitment], BLSPoint::point_at_infinity()),
             final_challenges,
             BlobAccumulator::empty(),
             challenge_z,
@@ -213,9 +231,9 @@ mod tests {
         // Since i = 1, gamma_pow = gamma^1 = gamma:
         assert_eq(res.gamma_pow_acc, final_challenges.gamma);
 
-        assert_eq(final_acc.y, BLS12_381_Fr::from_limbs(y_limbs_blob_400_from_ts));
+        assert_eq(final_acc.y, fixture.expected_y);
 
-        let blob_commitment = compress_to_blob_commitment(kzg_commitment);
+        let blob_commitment = compress_to_blob_commitment(fixture.kzg_commitment);
 
         // Since i = 1, blob_commitments_hash is just the sha256 hash of the checkpoint start flag (0x01: this blob
         // starts a checkpoint) and the single (compressed) commitment
@@ -516,5 +534,37 @@ mod tests {
             end_accumulator.blob_commitments_hash_acc,
             blob_commitments_hash_two_checkpoints_from_ts,
         );
+    }
+
+    // The circuit does not check G1 membership (see `evaluate_blobs_and_batch`). Shifting the real commitment C
+    // by a torsion point keeps its G1 component but changes the compressed bytes, so the hash L1 compares
+    // against the published commitment no longer matches.
+    #[test]
+    fn test_torsion_shifted_commitment_changes_blob_commitments_hash() {
+        let fixture = single_blob_fixture();
+        let final_challenges = fixture.final_challenges;
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
+
+        // (0, 2) has order 3.
+        let torsion =
+            BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::from(2), is_infinity: false };
+        let shifted_commitment = fixture.kzg_commitment + torsion;
+
+        let res = evaluate_blobs_and_batch::<1>(
+            fixture.blob_fields,
+            fixture.num_fields,
+            fixture.blob_fields_hash,
+            [shifted_commitment],
+            final_challenges,
+            BlobAccumulator::empty(),
+            challenge_z,
+        );
+        let final_acc = res.finalize();
+
+        // The published commitment is C or -C (the bytes fix the point up to sign); the hash matches neither.
+        let honest = compress_to_blob_commitment(fixture.kzg_commitment);
+        let negated = compress_to_blob_commitment(-fixture.kzg_commitment);
+        assert(final_acc.blob_commitments_hash != sha256_to_field([1].concat(honest.compressed)));
+        assert(final_acc.blob_commitments_hash != sha256_to_field([1].concat(negated.compressed)));
     }
 }

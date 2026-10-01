@@ -89,6 +89,29 @@ mod tests {
         assert_eq(reconstructed_y, point.y);
     }
 
+    // x = 6 + q: in range limb-wise and still on the curve, but not the canonical encoding of the point.
+    // Compression must reject it (`to_be_bytes` range-checks x against q), since L1 compares the bytes.
+    #[test(should_fail)]
+    fn non_canonical_x_is_rejected() {
+        let point = BLSPoint {
+            x: BLS12_381_Fq::from_limbs([
+                0xabfffeb153ffffb9feffffffffaab1,
+                0x4b84f38512bf6730d2a0f6b0f6241e,
+                0xea397fe69a4b1ba7b6434bacd76477,
+                0x1a0111,
+            ]),
+            y: BLS12_381_Fq::from_limbs([
+                0x7991ee2150c45aa818e09c22df3b39,
+                0xa9f859c6f15d3a7ced587ae40ecf69,
+                0x1462f2e82445342f837b384cb8f008,
+                0x5116d,
+            ]),
+            is_infinity: false,
+        };
+        point.validate_on_curve();
+        let _ = compress_to_blob_commitment(point);
+    }
+
     #[test]
     fn infinity_point_compression() {
         let point = BLSPoint::point_at_infinity();
