@@ -27,8 +27,9 @@ import {Math} from "@oz/utils/math/Math.sol";
  *      the default through `setRewardConfig` can never turn an entry into a premium. A calculator that pays premiums
  *      needs authenticated lookups.
  *
- *      The calculator does not trust `msg.sender` for anything and reads only the GSE, which is shared by every
- *      rollup version. Lookups reflect state when the proof lands. Per call, each distinct proposer is resolved once
+ *      The calculator binds the GSE as an immutable and ignores `msg.sender`: every rollup sharing that GSE that
+ *      configures this calculator gets the same policy, and replacing the GSE requires deploying a new calculator.
+ *      Lookups reflect state when the proof lands. Per call, each distinct proposer is resolved once
  *      and the result is cached in memory per attester.
  */
 contract RegistryReductionCalculator is Ownable, ISequencerRewardCalculator {
