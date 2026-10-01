@@ -1,5 +1,6 @@
 import { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { times } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -7,7 +8,7 @@ import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { type CircuitSimulator, WASMSimulator } from '@aztec/simulator/client';
+import { type CircuitSimulator, WASMSimulator, toACVMField } from '@aztec/simulator/client';
 import {
   HandshakeRegistryArtifact,
   getHistoricalStandardHandshakeRegistries,
@@ -75,6 +76,8 @@ import { NoteValidationRequest } from '../noir-structs/note_validation_request.j
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { TransientArrayService } from '../transient_array_service.js';
+import { ORACLE_REGISTRY } from './oracle_registry.js';
+import { FACT } from './oracle_type_mappings.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -1057,12 +1060,18 @@ describe('Utility Execution test suite', () => {
         expect(facts[0].factTypeId).toEqual(factTypeId);
         expect(facts[0].payload.readAll(service)).toEqual([new Fr(7)]);
         expect(facts[0].originBlock.isNone()).toBe(true);
+        // The None origin still occupies its discriminant and the origin's three fields on the wire, zero-filled.
+        expect(FACT.serialization!.fn(facts[0]).slice(-4)).toEqual(times(4, () => Fr.ZERO));
       });
 
       it('returns None for an unrecorded collection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const result = await oracle.getFactCollectionV2(contractAddress, accountScope(), typeId, collectionId);
         expect(result.isNone()).toBe(true);
+        // The None still occupies its discriminant and the collection's six fields on the wire, zero-filled.
+        expect(ORACLE_REGISTRY.aztec_utl_getFactCollectionV2.serializeReturn(result)).toEqual(
+          times(7, () => toACVMField(Fr.ZERO)),
+        );
       });
 
       it('returns only the surviving collections of a type after some are removed', async () => {

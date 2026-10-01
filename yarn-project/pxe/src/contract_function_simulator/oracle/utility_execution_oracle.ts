@@ -68,7 +68,7 @@ import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
+import { type FactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -880,7 +880,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
             collection.facts,
           ),
         )
-      : Option.none(emptyFactCollection(this.ephemeralArrayService));
+      : Option.none();
   }
 
   /** Returns every fact collection of `factCollectionTypeId`. */

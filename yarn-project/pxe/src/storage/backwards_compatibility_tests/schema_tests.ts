@@ -253,6 +253,21 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       // A collection with a non-retractable and a retractable fact.
       await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, changeSetId);
       await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, changeSetId);
+      // A collection under the public scope, with a non-retractable and a retractable fact.
+      const publicKey = FactCollectionKey.from({
+        contractAddress: contract,
+        scope: { type: 'public' },
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xccn),
+      });
+      await factStore.recordFact(publicKey, new Fr(4n), [new Fr(8n)], undefined, changeSetId);
+      await factStore.recordFact(
+        publicKey,
+        new Fr(5n),
+        [new Fr(10n)],
+        { blockNumber: 7, blockHash: new Fr(3n) },
+        changeSetId,
+      );
       await kvStore.transactionAsync(() => factStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({

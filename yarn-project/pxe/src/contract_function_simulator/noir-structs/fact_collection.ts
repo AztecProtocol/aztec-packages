@@ -1,8 +1,7 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { FactScope, FactWithOriginState, RetractableFactOrigin } from '../../storage/fact_store/index.js';
-import { OriginBlockState } from '../../storage/fact_store/index.js';
 import type { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EphemeralArray } from './ephemeral_array.js';
 import type { Fact } from './fact.js';
@@ -41,24 +40,9 @@ export function toNoirFactCollection(
         (fact: FactWithOriginState): Fact => ({
           factTypeId: fact.factTypeId,
           payload: EphemeralArray.fromValues(service, fact.payload),
-          originBlock: fact.originBlock
-            ? Option.some(fact.originBlock)
-            : Option.none<RetractableFactOrigin>({
-                blockNumber: 0,
-                blockHash: Fr.ZERO,
-                blockState: OriginBlockState.Pending,
-              }),
+          originBlock: fact.originBlock ? Option.some(fact.originBlock) : Option.none<RetractableFactOrigin>(),
         }),
       ),
     ),
   };
-}
-
-/**
- * An empty `FactCollection` used only as a serialization shape template for the `None` case of
- * `Option<FactCollection>`. Noir's `Option<T>` is fixed-width on the wire, so `None` must emit the same number of
- * field slots as `Some`.
- **/
-export function emptyFactCollection(service: EphemeralArrayService): FactCollection {
-  return toNoirFactCollection(service, AztecAddress.ZERO, { type: 'public' }, Fr.ZERO, Fr.ZERO, []);
 }
