@@ -52,7 +52,7 @@ library SequencerRewardCalculatorLib {
    * @return rewards The sequencer reward of each checkpoint, in the order of `_proposers`
    * @return total The sum of `rewards`
    *
-   * @custom:reverts Errors.RewardLib__InsufficientGasForCalculator if the full stipend cannot be forwarded
+   * @custom:reverts Errors.SequencerRewardCalculatorLib__InsufficientGas if the full stipend cannot be forwarded
    */
   function tryGetSequencerRewards(
     address _calculator,
@@ -70,7 +70,7 @@ library SequencerRewardCalculatorLib {
     {
       uint256 required = (stipend * 64) / 63 + 1 + CALCULATOR_CALL_GAS_RESERVE;
       uint256 available = gasleft();
-      require(available >= required, Errors.RewardLib__InsufficientGasForCalculator(required, available));
+      require(available >= required, Errors.SequencerRewardCalculatorLib__InsufficientGas(required, available));
     }
 
     assembly ("memory-safe") {

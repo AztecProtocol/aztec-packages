@@ -1028,8 +1028,8 @@ contract PartialEpochProofCalculatorStipendTest is PartialEpochProofCalculatorBa
     uint256 full = rollup.getSequencerRewards(proposer);
     vm.revertToState(snapshot);
 
-    // Any less gas and the submission reverts, with RewardLib__InsufficientGasForCalculator or out of gas; it never
-    // lands having given the calculator less than the stipend.
+    // Any less gas and the submission reverts, with SequencerRewardCalculatorLib__InsufficientGas or out of gas; it
+    // never lands having given the calculator less than the stipend.
     this.submitWithGas(submission, _smallestSufficientGas(submission));
     assertEq(rollup.getSequencerRewards(proposer), full, "the calculator ran with less than the stipend");
   }

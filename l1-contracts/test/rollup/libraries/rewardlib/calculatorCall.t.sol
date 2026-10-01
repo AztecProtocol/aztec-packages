@@ -235,7 +235,7 @@ contract CalculatorCallTest is Test {
     } catch (bytes memory reason) {
       if (reason.length > 0) {
         // forge-lint: disable-next-line(unsafe-typecast)
-        assertEq(bytes4(reason), Errors.RewardLib__InsufficientGasForCalculator.selector);
+        assertEq(bytes4(reason), Errors.SequencerRewardCalculatorLib__InsufficientGas.selector);
       }
     }
   }
@@ -263,7 +263,7 @@ contract CalculatorCallTest is Test {
     uint256 n = 32;
     address calculator = address(new GasReportingCalculator());
     address[] memory proposers = _proposers(n);
-    vm.expectPartialRevert(Errors.RewardLib__InsufficientGasForCalculator.selector);
+    vm.expectPartialRevert(Errors.SequencerRewardCalculatorLib__InsufficientGas.selector);
     harness.tryGetSequencerRewards{gas: _stipend(n)}(calculator, EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD);
   }
 
