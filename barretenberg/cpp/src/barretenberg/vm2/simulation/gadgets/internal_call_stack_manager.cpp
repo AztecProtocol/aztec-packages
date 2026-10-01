@@ -46,14 +46,14 @@ PC InternalCallStackManager::pop()
     if (internal_call_stack.empty()) {
         throw InternalCallStackException("Internal call stack is empty. Cannot pop.");
     }
-    // We need to restore the call ptr info to the previous call
-    const auto& prev_call_ptr = internal_call_stack.back();
+    // We need to restore the call ptr info to the previous call. Copy it out rather than binding a reference, since
+    // pop_back() ends the lifetime of the element and any reference into it dangles afterwards.
+    const InternalCallPtr prev_call_ptr = internal_call_stack.back();
+    internal_call_stack.pop_back();
 
     // Reset the id values
     call_id = return_call_id;
     return_call_id = prev_call_ptr.return_call_id;
-
-    internal_call_stack.pop_back();
 
     // Return the next pc of the previous call
     return prev_call_ptr.return_pc;
