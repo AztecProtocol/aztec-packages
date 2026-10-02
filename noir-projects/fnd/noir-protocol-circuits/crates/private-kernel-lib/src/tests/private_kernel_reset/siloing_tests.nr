@@ -223,6 +223,51 @@ fn terminal_reset_squashing_every_nullifier_is_rejected_by_tail() {
     validate_previous_kernel_for_tail(output, false);
 }
 
+// A note hash created before `end_setup` and nullified after it is the one linked pair the terminal reset does
+// not squash. The app links the note's unique hash, which it builds from a nonce it gets from an unconstrained
+// oracle. The two tests below run the reset and then the tail check, as `private_kernel_reset_tail_to_public`
+// does: the tail accepts the link only if it equals the unique hash the reset outputs for that note.
+fn build_previous_phase_pair(note_hash_index_for_nonce: u32) -> TestBuilder {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.set_protocol_nullifier();
+    builder.previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
+
+    builder.previous_kernel.append_note_hashes(1);
+    builder.previous_kernel.end_setup();
+
+    let note_hash = builder.previous_kernel.note_hashes.get(0);
+    let linked_note_hash =
+        builder.compute_output_unique_siloed_note_hash(note_hash, note_hash_index_for_nonce);
+    builder.previous_kernel.add_nullifier_for_note_hash(456, linked_note_hash.innermost());
+    builder.previous_kernel.append_public_call_requests(1);
+
+    builder
+}
+
+#[test]
+fn nullifier_linked_to_previous_phase_unique_note_hash_is_accepted_by_tail() {
+    let builder = build_previous_phase_pair(0);
+
+    let output = builder.execute_with_siloing();
+
+    // Nothing is squashed: the pair is emitted as-is.
+    assert_eq(output.end.note_hashes.length, 1);
+    assert_eq(output.end.nullifiers.length, 2);
+
+    validate_previous_kernel_for_tail(output, true);
+}
+
+#[test(should_fail_with = "Hinted siloed note hash does not match nullified note hash")]
+fn nullifier_linked_with_wrong_note_nonce_is_rejected_by_tail() {
+    // The note hash is at index 0. A nonce for index 1 gives a unique hash the reset does not output.
+    let builder = build_previous_phase_pair(1);
+
+    let output = builder.execute_with_siloing();
+
+    validate_previous_kernel_for_tail(output, true);
+}
+
 #[test(should_fail_with = "Propagated note hash does not match")]
 fn extra_note_hash_beyond_claimed_length() {
     let mut builder = TestBuilder::new();
