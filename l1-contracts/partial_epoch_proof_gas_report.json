@@ -3,43 +3,71 @@
     "contract": "test/RollupWithPreheating.sol:RollupWithPreheating",
     "deployment": {
       "gas": 0,
-      "size": 45252
+      "size": 45505
     },
     "functions": {
       "gasReportSubmit16Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1246780,
-        "mean": 1246780,
-        "median": 1246780,
-        "max": 1246780
+        "min": 1240270,
+        "mean": 1240270,
+        "median": 1240270,
+        "max": 1240270
+      },
+      "gasReportSubmit16CheckpointsWithCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+        "calls": 1,
+        "min": 1347463,
+        "mean": 1347463,
+        "median": 1347463,
+        "max": 1347463
       },
       "gasReportSubmit1Checkpoint((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 655296,
-        "mean": 655296,
-        "median": 655296,
-        "max": 655296
+        "min": 656934,
+        "mean": 656934,
+        "median": 656934,
+        "max": 656934
+      },
+      "gasReportSubmit1CheckpointWithCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+        "calls": 1,
+        "min": 677897,
+        "mean": 677897,
+        "median": 677897,
+        "max": 677897
       },
       "gasReportSubmit32Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1733221,
-        "mean": 1733221,
-        "median": 1733221,
-        "max": 1733221
+        "min": 1718336,
+        "mean": 1718336,
+        "median": 1718336,
+        "max": 1718336
+      },
+      "gasReportSubmit32CheckpointsWithCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+        "calls": 1,
+        "min": 1894409,
+        "mean": 1894409,
+        "median": 1894409,
+        "max": 1894409
       },
       "gasReportSubmit8Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 957357,
-        "mean": 957357,
-        "median": 957357,
-        "max": 957357
+        "min": 955286,
+        "mean": 955286,
+        "median": 955286,
+        "max": 955286
+      },
+      "gasReportSubmit8CheckpointsWithCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+        "calls": 1,
+        "min": 1018212,
+        "mean": 1018212,
+        "median": 1018212,
+        "max": 1018212
       },
       "gasReportSubmit8MoreCheckpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 910939,
-        "mean": 910939,
-        "median": 910939,
-        "max": 910939
+        "min": 908890,
+        "mean": 908890,
+        "median": 908890,
+        "max": 908890
       }
     }
   }

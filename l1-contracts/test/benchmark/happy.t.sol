@@ -69,6 +69,18 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {RewardConfig, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {
+  CALCULATOR_GAS_BASE,
+  CALCULATOR_GAS_PER_CHECKPOINT,
+  CALCULATOR_CALL_GAS_RESERVE
+} from "@aztec/core/libraries/rollup/SequencerRewardCalculatorLib.sol";
+import {ISequencerRewardCalculator} from "@aztec/core/interfaces/ISequencerRewardCalculator.sol";
+import {
+  TableCalculator,
+  GasReportingCalculator,
+  GasBurningCalculator
+} from "@test/mock/SequencerRewardCalculatorMocks.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -752,6 +764,307 @@ contract PartialEpochProofGasReportTest is PartialEpochProofGasReportBase {
   function testGasReportSubmit32Checkpoints() public {
     _gasReporter().gasReportSubmit32Checkpoints(_getGasReportSubmission(32));
     assertEq(rollup.getProvenCheckpointNumber(), 32);
+  }
+}
+
+abstract contract PartialEpochProofCalculatorBase is PartialEpochProofGasReportBase {
+  function _setCalculator(address _calculator) internal {
+    vm.prank(rollup.owner());
+    rollup.setSequencerRewardCalculator(_calculator);
+  }
+
+  function _defaultReward() internal view returns (uint256) {
+    RewardConfig memory config = rollup.getRewardConfig();
+    return BpsLib.mul(config.checkpointReward, config.sequencerBps);
+  }
+
+  /// @dev The proposer of each checkpoint, which the fixture also uses as its coinbase.
+  function _checkpointProposers(uint256 _length) internal view returns (address[] memory proposers) {
+    proposers = new address[](_length);
+    for (uint256 i = 0; i < _length; i++) {
+      proposers[i] = checkpointHeaders[i + 1].coinbase;
+    }
+  }
+
+  function _sequencerRewards(address[] memory _proposers) internal view returns (uint256[] memory rewards) {
+    rewards = new uint256[](_proposers.length);
+    for (uint256 i = 0; i < _proposers.length; i++) {
+      rewards[i] = rollup.getSequencerRewards(_proposers[i]);
+    }
+  }
+
+  /// @dev Sequencer rewards of `_proposers` after submitting `_length` checkpoints without a calculator, from the
+  ///      given snapshot. Leaves the state at that snapshot.
+  function _sequencerRewardsWithoutCalculator(uint256 _snapshot, uint256 _length, address[] memory _proposers)
+    internal
+    returns (uint256[] memory rewards)
+  {
+    vm.revertToState(_snapshot);
+    _setCalculator(address(0));
+    rollup.submitEpochRootProof(_getGasReportSubmission(_length));
+    rewards = _sequencerRewards(_proposers);
+    vm.revertToState(_snapshot);
+  }
+
+  /// @dev Asserts that each proposer received, over the default, the sum of what `_reward` returns for its
+  ///      checkpoints minus the default.
+  function _assertPremiums(
+    address[] memory _proposers,
+    uint256[] memory _with,
+    uint256[] memory _without,
+    function(address) internal view returns (uint256) _reward
+  ) internal view {
+    uint256 defaultReward = _defaultReward();
+    for (uint256 i = 0; i < _proposers.length; i++) {
+      uint256 expected = _without[i];
+      for (uint256 j = 0; j < _proposers.length; j++) {
+        if (_proposers[j] == _proposers[i]) {
+          expected = expected + _reward(_proposers[j]) - defaultReward;
+        }
+      }
+      assertEq(_with[i], expected, "sequencer rewards");
+    }
+  }
+}
+
+/**
+ * @notice Gas of partial epoch proofs with a table-lookup sequencer reward calculator, one storage read per proposer.
+ */
+contract PartialEpochProofWithCalculatorGasReportTest is PartialEpochProofCalculatorBase {
+  TableCalculator internal calculator;
+
+  function setUp() public override {
+    super.setUp();
+    calculator = new TableCalculator();
+    uint256 defaultReward = _defaultReward();
+    // A quarter of the validators earn a premium, a quarter half the default and a quarter a quarter of it. No reward
+    // is zero, so every checkpoint writes its coinbase balance as without a calculator, and the difference to the
+    // rows without a calculator is the cost of the calculator path.
+    for (uint256 i = 1; i <= 48; i++) {
+      address attester = vm.addr(uint256(keccak256(abi.encode("attester", i))));
+      if (i % 4 == 0) {
+        calculator.setReward(attester, 2 * defaultReward);
+      } else if (i % 4 == 1) {
+        calculator.setReward(attester, defaultReward / 2);
+      } else if (i % 4 == 2) {
+        calculator.setReward(attester, defaultReward / 4);
+      }
+    }
+    _setCalculator(address(calculator));
+  }
+
+  function testGasReportSubmit1CheckpointWithCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit1CheckpointWithCalculator(_getGasReportSubmission(1));
+    _assertCalculatorRewards(snapshot, 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit8CheckpointsWithCalculator(_getGasReportSubmission(8));
+    _assertCalculatorRewards(snapshot, 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit16CheckpointsWithCalculator(_getGasReportSubmission(16));
+    _assertCalculatorRewards(snapshot, 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit32CheckpointsWithCalculator(_getGasReportSubmission(32));
+    _assertCalculatorRewards(snapshot, 32);
+  }
+
+  function testCalculatorReceivesTheProposerOfEveryCheckpoint() public {
+    address[] memory proposers = _checkpointProposers(32);
+    vm.expectCall(
+      address(calculator),
+      abi.encodeCall(
+        ISequencerRewardCalculator.getSequencerRewards,
+        (Epoch.wrap(GAS_REPORT_EPOCH), proposers, _defaultReward(), rollup.getCheckpointReward())
+      ),
+      1
+    );
+    rollup.submitEpochRootProof(_getGasReportSubmission(32));
+  }
+
+  function testCompactExtensionWithCalculatorPreservesRewards() public {
+    rollup.submitEpochRootProof(_getGasReportSubmission(8));
+    uint256 snapshot = vm.snapshotState();
+    rollup.submitEpochRootProof(_getGasReportSubmission(16));
+    uint256 rewards = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH));
+    uint256[] memory sequencerRewards = _sequencerRewards(_checkpointProposers(16));
+    vm.revertToState(snapshot);
+    rollup.submitEpochRootProof(_compactSubmission(_getGasReportSubmission(16), 8));
+    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH)), rewards);
+    assertEq(_sequencerRewards(_checkpointProposers(16)), sequencerRewards);
+  }
+
+  function _assertCalculatorRewards(uint256 _snapshot, uint256 _length) internal {
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(_snapshot, _length, proposers);
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _tableReward);
+  }
+
+  function _tableReward(address _proposer) internal view returns (uint256) {
+    (bool exists, uint256 reward) = calculator.entries(_proposer);
+    return exists ? reward : _defaultReward();
+  }
+}
+
+/**
+ * @notice Through the rollup, the calculator runs with exactly the stipend, and a calculator that burns all of it
+ *         falls back to the default without failing a proof that was given enough gas.
+ */
+contract PartialEpochProofCalculatorStipendTest is PartialEpochProofCalculatorBase {
+  uint256 internal observedGas;
+
+  function testCalculatorRunsWithTheStipend1Checkpoint() public {
+    _assertStipend(1);
+  }
+
+  function testCalculatorRunsWithTheStipend8Checkpoints() public {
+    _assertStipend(8);
+  }
+
+  function testCalculatorRunsWithTheStipend16Checkpoints() public {
+    _assertStipend(16);
+  }
+
+  function testCalculatorRunsWithTheStipend32Checkpoints() public {
+    _assertStipend(32);
+  }
+
+  // Isolation runs every external call as its own transaction, so both submissions below start cold, as a real one.
+  /// forge-config: default.isolate = true
+  function testGasBurningCalculatorWithEnoughGas1Checkpoint() public {
+    _assertGasBurningCalculator(1);
+  }
+
+  /// forge-config: default.isolate = true
+  function testGasBurningCalculatorWithEnoughGas32Checkpoints() public {
+    _assertGasBurningCalculator(32);
+  }
+
+  /// forge-config: default.isolate = true
+  function testSmallestSufficientGasRunsTheCalculatorWithTheStipend1Checkpoint() public {
+    _assertSmallestSufficientGas(1);
+  }
+
+  /// forge-config: default.isolate = true
+  function testSmallestSufficientGasRunsTheCalculatorWithTheStipend32Checkpoints() public {
+    _assertSmallestSufficientGas(32);
+  }
+
+  function _assertStipend(uint256 _length) internal {
+    uint256 snapshot = vm.snapshotState();
+    _setCalculator(address(new GasReportingCalculator()));
+    rollup.submitEpochRootProof(_getGasReportSubmission(_length));
+
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(snapshot, _length, proposers);
+
+    // Every checkpoint was paid the gas the calculator saw on entry: recover it from the first proposer, whose
+    // balance without a calculator is its sequencer fees plus one default per checkpoint.
+    uint256 count = 0;
+    for (uint256 i = 0; i < _length; i++) {
+      if (proposers[i] == proposers[0]) {
+        count++;
+      }
+    }
+    uint256 fees = withoutCalculator[0] - count * _defaultReward();
+    observedGas = (withCalculator[0] - fees) / count;
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _observedGas);
+
+    uint256 stipend = CALCULATOR_GAS_BASE + CALCULATOR_GAS_PER_CHECKPOINT * _length;
+    assertLe(observedGas, stipend, "above the stipend");
+    // A bare fallback reads `gas()` a handful of opcodes after the call starts.
+    assertGe(observedGas, stipend - 100, "below the stipend");
+  }
+
+  function _assertGasBurningCalculator(uint256 _length) internal {
+    address[] memory proposers = _checkpointProposers(_length);
+    SubmitEpochRootProofArgs memory submission = _getGasReportSubmission(_length);
+    uint256 snapshot = vm.snapshotState();
+
+    // Gas and rewards of the same proof without a calculator. The proposers' reward balances start at zero, so the
+    // writes after the calculator call are fresh storage writes.
+    for (uint256 i = 0; i < _length; i++) {
+      assertEq(rollup.getSequencerRewards(proposers[i]), 0);
+    }
+    _setCalculator(address(0));
+    uint256 gasWithoutCalculator = this.submitAndMeasure(submission);
+    uint256[] memory withoutCalculator = _sequencerRewards(proposers);
+    vm.revertToState(snapshot);
+
+    // The calculator burns its whole stipend. The proof still lands given the cost of the proof without a calculator,
+    // the gas the rollup must be able to forward, and the proposer derivation; every checkpoint receives the default.
+    // The rollup delegates the proof to an external library and EIP-150 keeps back 1/64 of the gas it forwards, so
+    // the limit also grows by 1/63 of the proof's own cost, which EIP-8037 raises by repricing its fresh storage slots.
+    uint256 stipend = CALCULATOR_GAS_BASE + CALCULATOR_GAS_PER_CHECKPOINT * _length;
+    uint256 required = (stipend * 64) / 63 + 1 + CALCULATOR_CALL_GAS_RESERVE;
+    _setCalculator(address(new GasBurningCalculator()));
+    uint256 smallest = _smallestSufficientGas(submission);
+    emit log_named_uint(
+      "gas above the proof without a calculator, beyond the stipend", smallest - gasWithoutCalculator - stipend
+    );
+    assertLe(smallest, (gasWithoutCalculator * 64) / 63 + required + 10_000, "needs more than the stipend bound");
+
+    this.submitWithGas(submission, smallest);
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    assertEq(_sequencerRewards(proposers), withoutCalculator, "defaults not paid");
+  }
+
+  function _assertSmallestSufficientGas(uint256 _length) internal {
+    SubmitEpochRootProofArgs memory submission = _getGasReportSubmission(_length);
+    address proposer = _checkpointProposers(_length)[0];
+    _setCalculator(address(new GasReportingCalculator()));
+
+    uint256 snapshot = vm.snapshotState();
+    rollup.submitEpochRootProof(submission);
+    uint256 full = rollup.getSequencerRewards(proposer);
+    vm.revertToState(snapshot);
+
+    // Any less gas and the submission reverts, with SequencerRewardCalculatorLib__InsufficientGas or out of gas; it
+    // never lands having given the calculator less than the stipend.
+    this.submitWithGas(submission, _smallestSufficientGas(submission));
+    assertEq(rollup.getSequencerRewards(proposer), full, "the calculator ran with less than the stipend");
+  }
+
+  /// @dev Binary searches the smallest gas limit with which `_submission` lands. Leaves the state unchanged.
+  function _smallestSufficientGas(SubmitEpochRootProofArgs memory _submission) internal returns (uint256 low) {
+    uint256 snapshot = vm.snapshotState();
+    uint256 high = 10_000_000;
+    while (low < high) {
+      uint256 mid = (low + high) / 2;
+      try this.submitWithGas(_submission, mid) {
+        high = mid;
+      } catch {
+        low = mid + 1;
+      }
+      vm.revertToState(snapshot);
+    }
+  }
+
+  /// @dev Submissions go through these so that, under isolation, each one is its own transaction with a cold rollup
+  ///      and the gas limit applies to the rollup call alone.
+  function submitWithGas(SubmitEpochRootProofArgs memory _args, uint256 _gas) external {
+    rollup.submitEpochRootProof{gas: _gas}(_args);
+  }
+
+  function submitAndMeasure(SubmitEpochRootProofArgs memory _args) external returns (uint256) {
+    uint256 gasBefore = gasleft();
+    rollup.submitEpochRootProof(_args);
+    return gasBefore - gasleft();
+  }
+
+  function _observedGas(address) internal view returns (uint256) {
+    return observedGas;
   }
 }
 

@@ -6,6 +6,13 @@ import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
 import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
+import {RollupConfiguration} from "../../script/deploy/RollupConfiguration.sol";
+
+contract RollupConfigurationHarness is RollupConfiguration {
+  function getSequencerRewardCalculator(string memory _envName) external view returns (address) {
+    return _getSequencerRewardCalculator(_envName);
+  }
+}
 
 contract DeployAztecL1ContractsTest is Test {
   using stdJson for string;
@@ -65,6 +72,7 @@ contract DeployAztecL1ContractsTest is Test {
     vm.setEnv("AZTEC_MANA_TARGET", vm.toString(json.readUint(".AZTEC_MANA_TARGET")));
     vm.setEnv("AZTEC_PROVING_COST_PER_MANA", vm.toString(json.readUint(".AZTEC_PROVING_COST_PER_MANA")));
     vm.setEnv("AZTEC_INITIAL_ETH_PER_FEE_ASSET", vm.toString(json.readUint(".AZTEC_INITIAL_ETH_PER_FEE_ASSET")));
+    vm.setEnv("AZTEC_SEQUENCER_REWARD_CALCULATOR", json.readString(".AZTEC_SEQUENCER_REWARD_CALCULATOR"));
 
     // Slashing config
     vm.setEnv("AZTEC_SLASHER_ENABLED", vm.toString(json.readBool(".AZTEC_SLASHER_ENABLED")));
@@ -86,5 +94,19 @@ contract DeployAztecL1ContractsTest is Test {
   function test_SmokeTest() public {
     DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
     deployScript.run();
+
+    // The network defaults deploy without a sequencer reward calculator.
+    assertEq(deployScript.output().rollup.rollup.getSequencerRewardCalculator(), address(0));
+  }
+
+  // Unique variable names: the environment is shared with the deployments other tests run concurrently.
+  function test_SequencerRewardCalculatorConfiguration() public {
+    RollupConfigurationHarness configuration = new RollupConfigurationHarness();
+
+    assertEq(configuration.getSequencerRewardCalculator("TEST_UNSET_SEQUENCER_REWARD_CALCULATOR"), address(0));
+
+    address calculator = makeAddr("calculator");
+    vm.setEnv("TEST_SET_SEQUENCER_REWARD_CALCULATOR", vm.toString(calculator));
+    assertEq(configuration.getSequencerRewardCalculator("TEST_SET_SEQUENCER_REWARD_CALCULATOR"), calculator);
   }
 }

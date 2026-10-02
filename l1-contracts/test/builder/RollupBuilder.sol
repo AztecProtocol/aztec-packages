@@ -234,6 +234,11 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSequencerRewardCalculator(address _calculator) public returns (RollupBuilder) {
+    config.rollupConfigInput.sequencerRewardCalculator = _calculator;
+    return this;
+  }
+
   function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
     return this;

@@ -157,6 +157,12 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.version = 0; // Computed below
     config.provingCostPerMana = EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA"));
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET"));
+    config.sequencerRewardCalculator = _getSequencerRewardCalculator("AZTEC_SEQUENCER_REWARD_CALCULATOR");
+  }
+
+  /// @dev Optional: deployers that do not pass it get no calculator, so every checkpoint receives the default reward.
+  function _getSequencerRewardCalculator(string memory _envName) internal view returns (address) {
+    return vm.envOr(_envName, address(0));
   }
 
   /// @notice Compute rollup config version by hashing config + genesis state

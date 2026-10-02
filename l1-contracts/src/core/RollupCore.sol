@@ -310,6 +310,17 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
+   * @notice Replaces the sequencer reward calculator consulted when epoch proofs pay checkpoint rewards
+   * @dev Only callable by the contract owner. Any address is accepted: zero disables the calculator, and an address
+   *      that does not answer like an {ISequencerRewardCalculator} makes every checkpoint receive the default
+   *      sequencer reward. Emits {IRollupCore.SequencerRewardCalculatorUpdated} with the previous and new addresses.
+   * @param _calculator The new calculator, or zero for none
+   */
+  function setSequencerRewardCalculator(address _calculator) external override(IRollupCore) onlyOwner {
+    RewardExtLib.updateSequencerRewardCalculator(_calculator);
+  }
+
+  /**
    * @notice Updates the target mana (computational units) per slot
    * @dev Only callable by owner. The new target must be greater than or equal to the current target
    *      to avoid the ability for governance to use it directly to kill an old rollup.
@@ -701,7 +712,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     }
 
     // Constructor-only writer; post-deployment updates go through {setRewardConfig}.
-    RewardExtLib.initializeConfig(rewardConfig);
+    RewardExtLib.initializeConfig(rewardConfig, _config.sequencerRewardCalculator);
   }
 
   function _getRollupConfig() internal view virtual returns (RollupConfig memory) {
