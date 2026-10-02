@@ -165,7 +165,7 @@ contract RewardLibWrapper {
   }
 
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, bool _fullEpochProof) public {
-    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), _fullEpochProof);
+    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), _fullEpochProof, new address[](0));
   }
 
   function getSequencerRewards(address _sequencer) external view returns (uint256) {
