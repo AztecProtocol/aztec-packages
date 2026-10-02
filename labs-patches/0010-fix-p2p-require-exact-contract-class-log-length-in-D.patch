@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Fri, 2 Oct 2026 10:16:26 +0000
+Subject: [PATCH] fix(p2p): require exact contract class log length in
+ DataTxValidator
+
+The tx base requires a contract class log's length to be exactly its
+trimmed length: every field from the length on is zero, and the last
+field the length covers is not. The node only rejected a length shorter
+than that, so it admitted a tx whose length also covered trailing zero
+padding. Such a tx can be included but never proven, which makes its
+epoch unprovable.
+
+Require length === 1 + the index of the last non-zero field. Honest
+producers already emit the trimmed length.
+
+Fixes AztecProtocol/aztec-claude#2485
+
+diff --git a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts
+index 10bf7a707ff1b9e3d955fd2035be95abeb915521..36d750bfce6dc2cff877788c5104a5a4a8a9e9eb 100644
+--- a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts
++++ b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.test.ts
+@@ -237,9 +237,6 @@ describe('TxDataValidator', () => {
+     const goodTxs = await mockTxsWithCCLog(2);
+     const badTxs = await mockTxsWithCCLog(1);
+ 
+-    // The trailing fields of the emitted log can be zero.
+-    goodTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.length += 1;
+-
+     // Add an extra non-zero field.
+     const log = badTxs[0].contractClassLogFields[0];
+     const logHash = badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash;
+@@ -252,6 +249,19 @@ describe('TxDataValidator', () => {
+     await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
+   });
+ 
++  it('rejects txs whose contract class log length covers trailing zero fields', async () => {
++    const [txOneExtra, txFullSize] = await mockTxsWithCCLog(2);
++
++    // The hash covers the full padded log, so it still matches; only the length is inflated. The tx base rejects
++    // such a length, so the tx could never be proven.
++    txOneExtra.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.length += 1;
++    txFullSize.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.length =
++      CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
++
++    await expectInvalid(txOneExtra, TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
++    await expectInvalid(txFullSize, TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
++  });
++
+   describe('private log padding', () => {
+     // A log that emits 3 of its 16 fields, with non-zero values in the unpublished tail.
+     const junkPaddedLog = () => {
+diff --git a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts
+index 9ff8c62720fd0807068e34aac63857837b671c18..f8f242dc8ba83797a3026e2f920d67c0387f324c 100644
+--- a/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts
++++ b/yarn-project/p2p/src/msg_validators/tx_validator/data_validator.ts
+@@ -121,12 +121,14 @@ export class DataTxValidator implements TxValidator<Tx> {
+         }
+       }
+ 
+-      const expectedMinLength = 1 + tx.contractClassLogFields[i].fields.findLastIndex(f => !f.isZero());
+-      if (logHash.logHash.length < expectedMinLength) {
++      // The tx base requires the length to be exactly the trimmed length of the log: every field from the length on
++      // is zero, and the last field covered by the length is not. A tx with any other length cannot be proven.
++      const expectedLength = 1 + tx.contractClassLogFields[i].fields.findLastIndex(f => !f.isZero());
++      if (logHash.logHash.length !== expectedLength) {
+         this.#log.verbose(
+           `Rejecting tx ${tx
+             .getTxHash()
+-            .toString()} because of incorrect contract class log length. Expected the length to be at least ${expectedMinLength}. Got ${
++            .toString()} because of incorrect contract class log length. Expected ${expectedLength}. Got ${
+             logHash.logHash.length
+           }.`,
+         );
