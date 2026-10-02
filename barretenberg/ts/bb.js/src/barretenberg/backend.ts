@@ -336,7 +336,20 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    this.api.chonkStart({ kinds: this.circuitKinds });
+    // The accumulation is pipelined: every request is written in order and only the final
+    // chonkProve is awaited, so the round trips overlap instead of costing one each. That leaves
+    // promises nobody is awaiting, and a backend failure rejects all of them at once — without a
+    // handler those are unhandled rejections, which terminate the process rather than failing the
+    // proof. The first failure is kept because it says what actually broke; chonkProve's own error
+    // is only the tail of the same collapse.
+    let firstFailure: Error | undefined;
+    const pipelined = (call: Promise<unknown>) => {
+      void call.catch((err: unknown) => {
+        firstFailure ??= err instanceof Error ? err : new Error(String(err));
+      });
+    };
+
+    pipelined(this.api.chonkStart({ kinds: this.circuitKinds }));
 
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
@@ -351,21 +364,34 @@ export class AztecClientBackend {
         );
       }
 
-      this.api.chonkLoad({
-        circuit: {
-          name: functionName,
-          bytecode: bytecode,
-          verificationKey: vk,
-        },
-        kind: this.circuitKinds[i],
-      });
+      pipelined(
+        this.api.chonkLoad({
+          circuit: {
+            name: functionName,
+            bytecode: bytecode,
+            verificationKey: vk,
+          },
+          kind: this.circuitKinds[i],
+        }),
+      );
 
-      this.api.chonkAccumulate({
-        witness,
-      });
+      pipelined(
+        this.api.chonkAccumulate({
+          witness,
+        }),
+      );
     }
 
-    const proveResult = await this.api.chonkProve({});
+    let proveResult;
+    try {
+      proveResult = await this.api.chonkProve({});
+    } catch (err) {
+      throw firstFailure ?? err;
+    }
+    if (firstFailure !== undefined) {
+      // A step failed but the proof came back anyway: the result cannot be trusted.
+      throw firstFailure;
+    }
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
     if (this.circuitKinds[lastIdx] !== CircuitKind.HidingKernel) {
       throw new AztecClientBackendError(
