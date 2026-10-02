@@ -88,8 +88,9 @@ contract PremiumRewardCalculator is Ownable, ISequencerRewardCalculator {
   /// @notice Gas forwarded to each probe.
   /// @dev Per distinct proposer the calculator runs one GSE read and up to five probes. Genuine positions answer
   ///      each probe in at most about 5.3k gas when cold (an EIP-1167 delegation to a cold implementation and one
-  ///      cold storage read), so this leaves them a margin of about 1.9x. With it, even five probes that all burn
-  ///      their whole stipend fit `CALCULATOR_GAS_PER_CHECKPOINT` with about a quarter of the stipend to spare,
+  ///      cold storage read), or about 5.7k at EIP-8038's cold account access price, so this leaves them a margin of
+  ///      about 1.9x, or 1.8x under EIP-8038. With it, even five probes that all burn their whole stipend fit
+  ///      `CALCULATOR_GAS_PER_CHECKPOINT` with about a quarter of the stipend to spare,
   ///      although contracts the proposer can deploy can only make the first two probes expensive: the third asks
   ///      the provenance source, and after it every target is genuine code. A production deployment must re-derive
   ///      this from the probe costs of the production contracts (an ERC1967 proxy costs more than a clone).

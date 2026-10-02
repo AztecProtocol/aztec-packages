@@ -120,12 +120,12 @@ contract PremiumRewardCalculatorGasTest is PremiumUnitBase {
   }
 
   /// forge-config: default.isolate = true
-  function test_GenuineProbesLeaveAtLeastFortyFivePercentOfTheProbeStipend() external {
+  function test_GenuineProbesLeaveAtLeastFortyPercentOfTheProbeStipend() external {
     (PremiumATP atp, PremiumATPStaker staker) = _position();
     address attester = _stake(staker);
     // Cold, the first position to touch each implementation: an EIP-1167 delegation to a cold implementation and
-    // one cold storage read, about 5.3k gas.
-    uint256 limit = (calculator.PROBE_GAS() * 55) / 100;
+    // one cold storage read, about 5.3k gas, or about 5.7k at EIP-8038's cold account access price.
+    uint256 limit = (calculator.PROBE_GAS() * 60) / 100;
 
     uint256 getATP = _smallestStipend(address(staker), IATPStaker.getATP.selector, address(0), false, address(atp));
     uint256 getRegistry =
