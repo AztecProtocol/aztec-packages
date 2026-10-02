@@ -408,4 +408,73 @@ contract MultiProofTest is RollupBase {
 
     assertEq(activityScoreBefore, activityScoreAfter, "Proving an open epoch should not increase activity score");
   }
+
+  function testFullEpochProofUpgradesOpenEpochRegistration() public setUpFor("mixed_checkpoint_1") {
+    address alice = address(bytes20("alice"));
+    Epoch epoch = Epoch.wrap(1);
+
+    deal(address(testERC20), address(feeJuicePortal), 15e6 * 1e18);
+
+    // Start in epoch 1, booster can't boost in epoch 0.
+    warpToL2Slot(EPOCH_DURATION);
+    _proposeCheckpoint("mixed_checkpoint_1", EPOCH_DURATION, 15e6);
+
+    // The proof lands while epoch 1 is still running. It covers every checkpoint the epoch will have, but the
+    // contract cannot know that yet. The proverId is alice (but the actual prover could be anyone at all)
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, alice);
+    assertTrue(rollup.getHasSubmitted(epoch, 1, alice), "open-epoch proof not registered");
+    assertFalse(rollup.getHasSubmittedFullEpoch(epoch, 1, alice), "open-epoch proof registered as full epoch");
+
+    // Close epoch 1 without proposing anything else in it. The proof Alice submitted is now a full proof.
+    warpToL2Slot(2 * EPOCH_DURATION);
+    uint256 activityScoreBefore = rewardBooster.getActivityScore(alice).value;
+
+    // Alice submits the proof again
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, alice);
+
+    assertGt(
+      rewardBooster.getActivityScore(alice).value, activityScoreBefore, "full-finished resubmission did not bump score"
+    );
+    assertTrue(rollup.getHasSubmittedFullEpoch(epoch, 1, alice), "registration not upgraded to full epoch");
+
+    // Alice is the only registration, so she must be owed the whole pool. Counting her shares twice in summedShares
+    // would halve this.
+    uint256 pool = rollup.getCollectiveProverRewardsForEpoch(epoch);
+    assertGt(pool, 0, "empty prover pool");
+    assertEq(rollup.getSpecificProverRewardsForEpoch(epoch, alice), pool, "alice not owed the whole pool");
+
+    // The registration can be upgraded only once.
+    _proveCheckpointsFail(
+      "mixed_checkpoint_",
+      1,
+      1,
+      alice,
+      abi.encodeWithSelector(Errors.Rollup__ProverHaveAlreadySubmitted.selector, alice, epoch)
+    );
+  }
+
+  function testNonFullResubmissionOfOpenEpochProofReverts() public setUpFor("mixed_checkpoint_1") {
+    address alice = address(bytes20("alice"));
+    Epoch epoch = Epoch.wrap(1);
+
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
+
+    warpToL2Slot(EPOCH_DURATION);
+    _proposeCheckpoint("mixed_checkpoint_1", EPOCH_DURATION, 15e6);
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, alice);
+
+    // A second checkpoint lands in epoch 1, so the earlier proof does not cover the whole epoch.
+    _proposeCheckpoint("mixed_checkpoint_2", EPOCH_DURATION + 1, 15e6);
+    warpToL2Slot(2 * EPOCH_DURATION);
+
+    // Resubmitting it after the epoch closed would re-read alice's shares at the decayed score, so it must revert.
+    _proveCheckpointsFail(
+      "mixed_checkpoint_",
+      1,
+      1,
+      alice,
+      abi.encodeWithSelector(Errors.Rollup__ProverHaveAlreadySubmitted.selector, alice, epoch)
+    );
+    assertFalse(rollup.getHasSubmittedFullEpoch(epoch, 1, alice), "partial registration marked full epoch");
+  }
 }

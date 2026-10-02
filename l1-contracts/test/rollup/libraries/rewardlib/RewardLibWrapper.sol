@@ -178,6 +178,15 @@ contract RewardLibWrapper {
     RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, new address[](0), registryRewardOverrides);
   }
 
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, bool _fullEpochProof)
+    external
+  {
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory registryRewardOverrides;
+    RewardLib.handleRewardsAndFees(
+      _args, _endEpoch, _rollupConfig(), _fullEpochProof, new address[](0), registryRewardOverrides
+    );
+  }
+
   function handleRewardsAndFees(
     SubmitEpochRootProofArgs calldata _args,
     Epoch _endEpoch,
@@ -209,6 +218,14 @@ contract RewardLibWrapper {
     return RewardLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover) external view returns (bool) {
+    return RewardLib.getHasSubmittedFullEpoch(_epoch, _length, _prover);
+  }
+
+  function getActivityScore(address _prover) external view returns (uint256) {
+    return booster.getActivityScore(_prover).value;
+  }
+
   function getCurrentEpoch() external view returns (Epoch) {
     return currentEpoch;
   }
@@ -218,7 +235,7 @@ contract RewardLibWrapper {
   }
 
   function getProverShares(Epoch _epoch, uint256 _length, address _prover) external view returns (uint256) {
-    return RewardLib.getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover];
+    return RewardLib.getStorage().epochRewards[_epoch].subEpoch[_length].registrations[_prover].shares;
   }
 
   function getSummedShares(Epoch _epoch, uint256 _length) external view returns (uint256) {

@@ -273,6 +273,7 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) external view returns (uint256);
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) external view returns (bool);
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover) external view returns (bool);
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
   function getProofSubmissionEpochs() external view returns (uint256);
