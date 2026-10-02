@@ -42,6 +42,14 @@ contract FakeWithdrawer is IPremiumATPStaker {
   function isAttester(address) external pure override(IPremiumATPStaker) returns (bool) {
     return true;
   }
+
+  /**
+   * @notice Claims no GSE
+   * @return Always zero
+   */
+  function getGSE() external pure override(IPremiumATPStaker) returns (address) {
+    return address(0);
+  }
 }
 
 /**
@@ -154,15 +162,18 @@ contract MockStakingRollup is IHaveVersion {
 
   IERC20 internal immutable TOKEN;
   uint256 internal immutable ACTIVATION_THRESHOLD;
+  address internal immutable GSE;
   DepositArgs[] internal queue;
 
   /**
    * @param _token The staking asset
    * @param _activationThreshold The amount each deposit pulls
+   * @param _gse The GSE it reports
    */
-  constructor(IERC20 _token, uint256 _activationThreshold) {
+  constructor(IERC20 _token, uint256 _activationThreshold, address _gse) {
     TOKEN = _token;
     ACTIVATION_THRESHOLD = _activationThreshold;
+    GSE = _gse;
   }
 
   /**
@@ -179,6 +190,14 @@ contract MockStakingRollup is IHaveVersion {
    */
   function getActivationThreshold() external view returns (uint256) {
     return ACTIVATION_THRESHOLD;
+  }
+
+  /**
+   * @notice Returns the GSE it was deployed with
+   * @return The GSE
+   */
+  function getGSE() external view returns (address) {
+    return GSE;
   }
 
   /**

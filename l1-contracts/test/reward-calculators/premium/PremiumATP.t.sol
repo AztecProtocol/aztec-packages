@@ -7,6 +7,7 @@ pragma solidity >=0.8.27;
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Clones} from "@oz/proxy/Clones.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
@@ -481,6 +482,7 @@ contract PremiumATPTest is PremiumUnitBase {
       token,
       providerRegistry,
       IRegistry(address(rollupRegistry)),
+      IGSE(address(gse)),
       IStakingRegistry(address(stakingRegistry))
     );
     (, providerStaker) = _position(providerFactory, ALLOCATION);

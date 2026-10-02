@@ -2,6 +2,7 @@
 // Copyright 2026 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IPremiumATPFactory, IStakingRegistry} from "@test/reward-calculators/premium/IPremiumATP.sol";
 import {PremiumATP} from "@test/reward-calculators/premium/PremiumATP.sol";
@@ -22,12 +23,18 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
  *      from this factory only. `isATP` is set when a position is created and never cleared or set otherwise, so it
  *      is true exactly for positions this factory created. Every such position reports the factory's registry.
  *
+ *      The factory is bound to one GSE, an immutable it passes to its staker implementation, so every staker of its
+ *      positions deposits only into rollups on that GSE. A calculator accepts the factory as a provenance source only
+ *      if `getGSE()` is the calculator's own GSE: an attester address registers at most once per GSE, not across
+ *      GSEs, so a premium for a record on one GSE must not be payable on another (see `PremiumATPStaker`).
+ *
  *      Trust roots: minters decide who gets an allocation and how large it is, and the owner decides who mints.
  */
 contract PremiumATPFactory is Ownable, IPremiumATPFactory {
   using SafeERC20 for IERC20;
 
   IERC20 internal immutable TOKEN;
+  IGSE internal immutable GSE;
   PremiumATPRegistry internal immutable REGISTRY;
   PremiumATP internal immutable ATP_IMPLEMENTATION;
   PremiumATPStaker internal immutable STAKER_IMPLEMENTATION;
@@ -54,6 +61,7 @@ contract PremiumATPFactory is Ownable, IPremiumATPFactory {
   event MinterSet(address indexed minter, bool allowed);
 
   error PremiumATPFactory__NotMinter(address caller);
+  error PremiumATPFactory__InvalidGSE(address gse);
 
   modifier onlyMinter() {
     require(isMinter[msg.sender], PremiumATPFactory__NotMinter(msg.sender));
@@ -65,6 +73,7 @@ contract PremiumATPFactory is Ownable, IPremiumATPFactory {
    * @param _token The token of the allocations
    * @param _registry The registry of every position
    * @param _rollupRegistry The registry of the rollups stakers may deposit into
+   * @param _gse The GSE of the rollups stakers may deposit into, a contract
    * @param _stakingRegistry The provider staking registry stakers may stake through
    */
   constructor(
@@ -72,11 +81,14 @@ contract PremiumATPFactory is Ownable, IPremiumATPFactory {
     IERC20 _token,
     PremiumATPRegistry _registry,
     IRegistry _rollupRegistry,
+    IGSE _gse,
     IStakingRegistry _stakingRegistry
   ) Ownable(_owner) {
+    require(address(_gse).code.length > 0, PremiumATPFactory__InvalidGSE(address(_gse)));
     TOKEN = _token;
+    GSE = _gse;
     REGISTRY = _registry;
-    STAKER_IMPLEMENTATION = new PremiumATPStaker(_token, _rollupRegistry, _stakingRegistry);
+    STAKER_IMPLEMENTATION = new PremiumATPStaker(_token, _rollupRegistry, _gse, _stakingRegistry);
     ATP_IMPLEMENTATION = new PremiumATP(_registry, _token, address(STAKER_IMPLEMENTATION));
 
     isMinter[_owner] = true;
@@ -114,6 +126,13 @@ contract PremiumATPFactory is Ownable, IPremiumATPFactory {
    */
   function getRegistry() external view override(IPremiumATPFactory) returns (address) {
     return address(REGISTRY);
+  }
+
+  /**
+   * @inheritdoc IPremiumATPFactory
+   */
+  function getGSE() external view override(IPremiumATPFactory) returns (address) {
+    return address(GSE);
   }
 
   /**

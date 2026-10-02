@@ -258,6 +258,7 @@ contract PremiumRewardCalculatorGasTest is PremiumUnitBase {
       } else {
         ProbeTarget atp = new ProbeTarget();
         ProbeTarget source = new ProbeTarget();
+        source.answer(IPremiumATPFactory.getGSE.selector, address(gse));
         address ownRegistry = makeAddr(string.concat("registry of ", vm.toString(proposers[i])));
         vm.prank(governance);
         calculator.setRegistryReward(ownRegistry, PREMIUM, address(source));

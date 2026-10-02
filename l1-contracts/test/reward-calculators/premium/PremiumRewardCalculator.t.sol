@@ -327,7 +327,7 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
 
   function test_PositionFromAnAttackerFactoryOfTheSameRegistryEarnsTheDefault() external {
     PremiumATPFactory attackerFactory = new PremiumATPFactory(
-      attacker, token, registry, IRegistry(address(rollupRegistry)), IStakingRegistry(address(0))
+      attacker, token, registry, IRegistry(address(rollupRegistry)), IGSE(address(gse)), IStakingRegistry(address(0))
     );
     (PremiumATP atp, PremiumATPStaker staker) = _position(attackerFactory, 100 * THRESHOLD);
     address attester = _stake(staker);
@@ -385,7 +385,7 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
     gse.setWithdrawer(viaGenuineStaker, address(staker));
     // Same registry, position from another factory.
     PremiumATPFactory attackerFactory = new PremiumATPFactory(
-      attacker, token, registry, IRegistry(address(rollupRegistry)), IStakingRegistry(address(0))
+      attacker, token, registry, IRegistry(address(rollupRegistry)), IGSE(address(gse)), IStakingRegistry(address(0))
     );
     (, PremiumATPStaker forgedStaker) = _position(attackerFactory, ALLOCATION);
     address viaForgedPosition = _stake(forgedStaker);
@@ -661,6 +661,7 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
     chain.source.answer(IPremiumATPFactory.isATP.selector, true);
     chain.atp.answer(IPremiumATP.getStaker.selector, address(chain.withdrawer));
     chain.withdrawer.answer(IPremiumATPStaker.isAttester.selector, true);
+    chain.source.answer(IPremiumATPFactory.getGSE.selector, address(gse));
 
     gse.setWithdrawer(chain.attester, address(chain.withdrawer));
     vm.prank(governance);

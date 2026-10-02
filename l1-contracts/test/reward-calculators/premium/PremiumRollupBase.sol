@@ -25,7 +25,7 @@ import {MockSplitFactory, MockStakingRegistry} from "@test/reward-calculators/pr
 
 /**
  * @notice Premium positions over a real rollup and a real `GSE` (not `GSEWithSkip`), so deposits need valid BLS
- *         proofs of possession and an attester address can never register twice.
+ *         proofs of possession and an attester address can never register twice on that GSE (it can on another).
  */
 abstract contract PremiumRollupBase is BN254Fixtures {
   uint256 internal constant DEFAULT_REWARD = 50e18;
@@ -90,8 +90,9 @@ abstract contract PremiumRollupBase is BN254Fixtures {
     );
     stakingRegistry = new MockStakingRegistry(token, new MockSplitFactory(), rollupRegistry);
     stakingRegistry.registerProvider(providerAdmin, 500, makeAddr("provider rewards"));
-    factory =
-      new PremiumATPFactory(foundation, token, atpRegistry, rollupRegistry, IStakingRegistry(address(stakingRegistry)));
+    factory = new PremiumATPFactory(
+      foundation, token, atpRegistry, rollupRegistry, gse, IStakingRegistry(address(stakingRegistry))
+    );
     calculator = new PremiumRewardCalculator(IGSE(address(gse)), governance);
     vm.prank(governance);
     calculator.setRegistryReward(address(atpRegistry), PREMIUM, address(factory));

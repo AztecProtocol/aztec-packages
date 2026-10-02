@@ -20,6 +20,13 @@ interface IPremiumATPFactory {
    * @return The registry address
    */
   function getRegistry() external view returns (address);
+
+  /**
+   * @notice Returns the GSE every staker of this factory's positions is bound to: the only GSE whose rollups they
+   *         deposit into
+   * @return The GSE address
+   */
+  function getGSE() external view returns (address);
 }
 
 /**
@@ -64,6 +71,12 @@ interface IPremiumATPStaker is IATPStaker {
    * @return True if the attester is recorded
    */
   function isAttester(address _attester) external view returns (bool);
+
+  /**
+   * @notice Returns the GSE this staker is bound to: it deposits only into rollups on this GSE
+   * @return The GSE address
+   */
+  function getGSE() external view returns (address);
 }
 
 /**

@@ -82,6 +82,7 @@ import {
   GasBurningCalculator
 } from "@test/mock/SequencerRewardCalculatorMocks.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
 import {
   MockATP,
@@ -848,6 +849,31 @@ abstract contract PartialEpochProofCalculatorBase is PartialEpochProofGasReportB
 }
 
 /**
+ * @notice Deploys the fixture rollup's asset and GSE before the rollup, so that premium factories, which are bound to
+ *         one GSE and only accepted by calculators on it, can create the fixture validators' positions first.
+ */
+abstract contract PremiumCalculatorGasReportBase is PartialEpochProofCalculatorBase {
+  TestERC20 internal fixtureAsset;
+  GSEWithSkip internal fixtureGse;
+
+  function _deployFixtureGSE() internal returns (IGSE) {
+    fixtureAsset = new TestERC20("test", "TEST", address(this));
+    // The coin issuer needs some supply, as the builder's own asset has.
+    fixtureAsset.mint(address(this), 1e18);
+    fixtureGse = new GSEWithSkip(
+      address(this), fixtureAsset, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
+    );
+    fixtureGse.setCheckProofOfPossession(false);
+    return IGSE(address(fixtureGse));
+  }
+
+  function _configureRollupBuilder(RollupBuilder _builder) internal virtual override {
+    fixtureAsset.addMinter(address(_builder));
+    _builder.setTestERC20(fixtureAsset).setGSE(fixtureGse);
+  }
+}
+
+/**
  * @notice Gas of partial epoch proofs with a table-lookup sequencer reward calculator, one storage read per proposer.
  */
 contract PartialEpochProofWithCalculatorGasReportTest is PartialEpochProofCalculatorBase {
@@ -1321,7 +1347,7 @@ contract PartialEpochProofWithReductionCalculatorTwoMockStakersGasReportTest is 
  *      their attesters through the genuine staker, against a rollup stand-in: the fixture's validators are added
  *      with cheat deposits before any position could stake through the fixture's rollup.
  */
-contract PartialEpochProofWithPremiumCalculatorGasReportTest is PartialEpochProofCalculatorBase {
+contract PartialEpochProofWithPremiumCalculatorGasReportTest is PremiumCalculatorGasReportBase {
   enum Kind {
     Premium,
     Reduced,
@@ -1341,17 +1367,18 @@ contract PartialEpochProofWithPremiumCalculatorGasReportTest is PartialEpochProo
   mapping(address attester => bool validator) internal isPremiumFixtureValidator;
 
   function setUp() public override {
+    IGSE gse = _deployFixtureGSE();
     TestERC20 positionToken = new TestERC20("position", "POS", address(this));
-    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD);
+    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD, address(gse));
     IRegistry positionRollupRegistry = IRegistry(address(new MockRollupRegistry(stakingRollup)));
     UnlockSchedule memory schedule = UnlockSchedule({startTime: 0, cliffDuration: 0, lockDuration: 1});
     premiumRegistry = new PremiumATPRegistry(address(this), schedule);
     reducedRegistry = new PremiumATPRegistry(address(this), schedule);
     premiumFactory = new PremiumATPFactory(
-      address(this), positionToken, premiumRegistry, positionRollupRegistry, IStakingRegistry(address(0))
+      address(this), positionToken, premiumRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
     );
     reducedFactory = new PremiumATPFactory(
-      address(this), positionToken, reducedRegistry, positionRollupRegistry, IStakingRegistry(address(0))
+      address(this), positionToken, reducedRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
     );
     positionToken.mint(address(premiumFactory), VALIDATOR_COUNT * POSITION_THRESHOLD);
     positionToken.mint(address(reducedFactory), VALIDATOR_COUNT * POSITION_THRESHOLD);
@@ -1532,7 +1559,7 @@ contract PartialEpochProofWithPremiumCalculatorGasReportTest is PartialEpochProo
  * @dev The overrides bench configured 10e18 and 20e18, below the default; a premium calculator pays such entries
  *      without authentication, so this bench configures premiums above the default instead to run every probe.
  */
-contract PartialEpochProofWithPremiumCalculatorTwoPremiumStakersGasReportTest is PartialEpochProofCalculatorBase {
+contract PartialEpochProofWithPremiumCalculatorTwoPremiumStakersGasReportTest is PremiumCalculatorGasReportBase {
   uint256 internal constant VALIDATOR_COUNT = 48;
   uint256 internal constant POSITION_THRESHOLD = 100e18;
   uint96 internal constant FIRST_REWARD = 30e18;
@@ -1548,17 +1575,18 @@ contract PartialEpochProofWithPremiumCalculatorTwoPremiumStakersGasReportTest is
   mapping(address attester => address registry) internal registryOf;
 
   function setUp() public override {
+    IGSE gse = _deployFixtureGSE();
     TestERC20 positionToken = new TestERC20("position", "POS", address(this));
-    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD);
+    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD, address(gse));
     IRegistry positionRollupRegistry = IRegistry(address(new MockRollupRegistry(stakingRollup)));
     UnlockSchedule memory schedule = UnlockSchedule({startTime: 0, cliffDuration: 0, lockDuration: 1});
     firstRegistry = new PremiumATPRegistry(address(this), schedule);
     secondRegistry = new PremiumATPRegistry(address(this), schedule);
     firstFactory = new PremiumATPFactory(
-      address(this), positionToken, firstRegistry, positionRollupRegistry, IStakingRegistry(address(0))
+      address(this), positionToken, firstRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
     );
     secondFactory = new PremiumATPFactory(
-      address(this), positionToken, secondRegistry, positionRollupRegistry, IStakingRegistry(address(0))
+      address(this), positionToken, secondRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
     );
     firstStaker = _createPosition(positionToken, firstFactory);
     secondStaker = _createPosition(positionToken, secondFactory);

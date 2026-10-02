@@ -25,7 +25,8 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *        lower one's own reward;
  *      - an entry above the default without a provenance source: the default. The cap is applied at read time, so
  *        a later `setRewardConfig` that lowers the default never turns such an entry into a premium;
- *      - an entry above the default with a provenance source (the registry's factory): the entry if and only if
+ *      - an entry above the default with a provenance source (the registry's factory, bound to this calculator's
+ *        GSE): the entry if and only if
  *        (1) `source.isATP(atp)`, (2) `atp.getStaker() == withdrawer` and (3) `withdrawer.isAttester(attester)` all
  *        hold, else the default.
  *
@@ -37,14 +38,26 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *      (2) closes withdrawers that point at someone else's genuine position: a genuine position names only the
  *          staker it created;
  *      (3) closes liquid stake deposited with a genuine staker as withdrawer: that staker records only attesters it
- *          deposited after reserving the allocation, so for every position, premium-earning attesters x activation
- *          threshold <= reserved <= allocation - claimed (see `PremiumATPStaker`).
+ *          deposited after reserving the allocation, into rollups on its GSE, so for every position,
+ *          premium-earning attesters x activation threshold <= reserved <= allocation - claimed (see
+ *          `PremiumATPStaker`).
  *      The checks run in that order, so each one only trusts answers from contracts the previous checks
  *      authenticated: after (1) the position is genuine code, after (2) the withdrawer is the genuine staker.
  *
+ *      GSE binding. The GSE lets an attester address register at most once, but that rule is per GSE: after a GSE
+ *      upgrade the rollup registry holds rollups on two GSEs, and the same attester can validate on a rollup of each
+ *      with a genuine staker as its withdrawer on both, one registration made by the staker and the other by anyone
+ *      naming it, or with a higher activation threshold than the staker reserved. Answers (1) to (3) are the same
+ *      whichever GSE asks, so `setRegistryReward` accepts a provenance source only if its `getGSE()` is this
+ *      calculator's GSE, and every staker of a factory is bound to the factory's GSE and deposits only into rollups
+ *      on it: a record earns a premium only on the GSE whose activation threshold it reserved, and a registration of
+ *      the same address on another GSE pays the default there. The check runs once per entry, at configuration,
+ *      rather than as a sixth probe per proposer: the factory's GSE is an immutable, and every staker it creates
+ *      inherits it, so once (1) and (2) hold the staker's GSE is the factory's.
+ *
  *      Trust roots: this contract's owner (the table and the provenance source of each registry), each factory's
  *      owner and minters (who gets a position), each registry's owner (the unlock schedule), and the token, rollup
- *      registry and staking registry the factory binds its stakers to. Stakers are not upgradeable; an upgradeable
+ *      registry, GSE and staking registry the factory binds its stakers to. Stakers are not upgradeable; an upgradeable
  *      staker would make its upgrade authority a trust root too, and an implementation that lies in `isAttester`
  *      cannot be detected through the staker's own answers.
  *
@@ -57,7 +70,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *      registry or position: a registry-keyed cache would let a forged position in the same proof inherit a premium
  *      that a genuine one earned. The calculator binds the GSE as an immutable and ignores `msg.sender`: every
  *      rollup sharing that GSE that configures this calculator gets the same policy, and replacing the GSE requires
- *      deploying a new calculator.
+ *      deploying a new calculator and new factories bound to the new GSE.
  *
  *      State at proof time. Lookups reflect state when the proof lands, not when the checkpoint was proposed: an
  *      attester released before then earns the default for checkpoints it proposed earlier, and an attester that
@@ -120,6 +133,7 @@ contract PremiumRewardCalculator is Ownable, ISequencerRewardCalculator {
   error PremiumRewardCalculator__UnknownRegistry(address registry);
   error PremiumRewardCalculator__RewardAboveMaximum(uint256 reward, uint256 maximum);
   error PremiumRewardCalculator__InvalidProvenanceSource(address provenanceSource);
+  error PremiumRewardCalculator__ProvenanceSourceOnAnotherGSE(address provenanceSource, address gse);
 
   /**
    * @param _gse The GSE whose withdrawers are resolved
@@ -134,10 +148,12 @@ contract PremiumRewardCalculator is Ownable, ISequencerRewardCalculator {
    * @notice Sets the sequencer reward of validators staked through positions of `_registry`
    * @dev Zero is a valid reward. A reward above the default is paid only to authenticated positions of
    *      `_provenanceSource`, and never if the source is zero. Rewards above the rollup's validity bound are
-   *      rejected, since one such value would make the rollup discard the whole response.
+   *      rejected, since one such value would make the rollup discard the whole response. A source must report this
+   *      calculator's GSE from `getGSE()`, see the GSE binding in the contract documentation.
    * @param _registry The ATP registry, not zero
    * @param _sequencerReward The sequencer reward per checkpoint, at most `MAX_SEQUENCER_REWARD_PER_CHECKPOINT`
-   * @param _provenanceSource The factory of the registry's positions, a contract, or zero for none
+   * @param _provenanceSource The factory of the registry's positions, a contract bound to this calculator's GSE, or
+   *        zero for none
    */
   function setRegistryReward(address _registry, uint96 _sequencerReward, address _provenanceSource) external onlyOwner {
     require(_registry != address(0), PremiumRewardCalculator__ZeroRegistry());
@@ -145,10 +161,16 @@ contract PremiumRewardCalculator is Ownable, ISequencerRewardCalculator {
       _sequencerReward <= MAX_SEQUENCER_REWARD_PER_CHECKPOINT,
       PremiumRewardCalculator__RewardAboveMaximum(_sequencerReward, MAX_SEQUENCER_REWARD_PER_CHECKPOINT)
     );
-    require(
-      _provenanceSource == address(0) || _provenanceSource.code.length > 0,
-      PremiumRewardCalculator__InvalidProvenanceSource(_provenanceSource)
-    );
+    if (_provenanceSource != address(0)) {
+      require(_provenanceSource.code.length > 0, PremiumRewardCalculator__InvalidProvenanceSource(_provenanceSource));
+      address sourceGse;
+      try IPremiumATPFactory(_provenanceSource).getGSE() returns (address gse) {
+        sourceGse = gse;
+      } catch {}
+      require(
+        sourceGse == address(GSE), PremiumRewardCalculator__ProvenanceSourceOnAnotherGSE(_provenanceSource, sourceGse)
+      );
+    }
     entries[_registry] = Entry({exists: true, sequencerReward: _sequencerReward, provenanceSource: _provenanceSource});
     emit RegistryRewardSet(_registry, _sequencerReward, _provenanceSource);
   }

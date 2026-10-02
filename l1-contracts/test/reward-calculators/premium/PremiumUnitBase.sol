@@ -56,9 +56,9 @@ abstract contract PremiumUnitBase is Test {
 
   function setUp() public virtual {
     token = new TestERC20("staking", "STK", address(this));
-    rollup = new MockStakingRollup(token, THRESHOLD);
-    rollupRegistry = new MockRollupRegistry(rollup);
     gse = new FakeGSE();
+    rollup = new MockStakingRollup(token, THRESHOLD, address(gse));
+    rollupRegistry = new MockRollupRegistry(rollup);
     (registry, factory) = _deployFactory(foundation);
     calculator = new PremiumRewardCalculator(IGSE(address(gse)), governance);
     vm.prank(governance);
@@ -73,7 +73,7 @@ abstract contract PremiumUnitBase is Test {
       _owner, UnlockSchedule({startTime: UNLOCK_START, cliffDuration: CLIFF, lockDuration: LOCK})
     );
     atpFactory = new PremiumATPFactory(
-      _owner, token, atpRegistry, IRegistry(address(rollupRegistry)), IStakingRegistry(address(0))
+      _owner, token, atpRegistry, IRegistry(address(rollupRegistry)), IGSE(address(gse)), IStakingRegistry(address(0))
     );
   }
 
