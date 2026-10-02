@@ -146,6 +146,45 @@ mod tests {
         let _ = compress_to_blob_commitment(point);
     }
 
+    #[test(should_fail_with = "Non canonical y coordinate at infinity")]
+    fn modulus_y_infinity_point_fails() {
+        // y == modulus is zero modulo the field, but its limbs would set the sort flag and
+        // produce a 0xe0 prefix instead of the canonical 0xc0 infinity encoding.
+        let point =
+            BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::modulus(), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical x coordinate at infinity")]
+    fn modulus_x_infinity_point_fails() {
+        // Rejected by the infinity validator before `to_be_bytes` gets to range-check x.
+        let point =
+            BLSPoint { x: BLS12_381_Fq::modulus(), y: BLS12_381_Fq::zero(), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    // y of -2G plus the BLS12-381 field modulus, as 120-bit limbs. It is congruent to the canonical y
+    // but, as an integer, lies in [p, 2^381), so it still fits the limb range checks.
+    global NEG_2G_Y_PLUS_MODULUS: [u128; 4] = [
+        0x12628959142e3b97777e6868ab82e,
+        0x583e6099411cd725ec3fd00214ddf1,
+        0x47c73959917339a8f90ef9cb76a634,
+        0x1d9786,
+    ];
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn non_canonical_y_on_finite_point_fails() {
+        // A finite point whose y is a non-canonical representative passes the on-curve check (it is
+        // modular), but compressing it is unsatisfiable: the sort flag needs `-y`, and the modular
+        // subtraction cannot produce a valid limb vector from a y that is >= p.
+        let canonical = -(BLSPoint::one() + BLSPoint::one());
+        let y = BLS12_381_Fq::from_limbs_unsafe(NEG_2G_Y_PLUS_MODULUS);
+        assert_eq(y, canonical.y);
+        let point = BLSPoint { x: canonical.x, y, is_infinity: false };
+        point.validate_on_curve();
+        let _ = compress_to_blob_commitment(point);
+    }
+
     #[test]
     fn test_point_compression_greater() {
         // Note that this p is the negation of p from the test test_point_compression_not_greater...
