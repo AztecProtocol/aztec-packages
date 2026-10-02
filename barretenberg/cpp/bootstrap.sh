@@ -132,7 +132,7 @@ function build_native_objects {
   if ! cache_exists barretenberg-$native_preset-$hash.zst; then
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
-    cmake --build --preset "$native_preset" --target $targets nodejs_module
+    cmake --build --preset "$native_preset" --target $targets
   fi
 }
 

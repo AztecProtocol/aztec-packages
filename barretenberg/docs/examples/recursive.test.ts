@@ -117,6 +117,7 @@ describe('Recursive Aggregation Example', () => {
     expect(recursiveInputs.public_inputs).toEqual([2]);
   });
 
+  // Generous because CI runs this alongside a full bb build; see test_cmds in ../bootstrap.sh.
   it('should generate recursive proof', async () => {
     // docs:start:recursive_proof
     // Generate witness for recursive circuit
@@ -134,5 +135,5 @@ describe('Recursive Aggregation Example', () => {
     // Verify the recursive proof
     const isValid = await recursiveBackend.verifyProof(recursiveProofData);
     expect(isValid).toBe(true);
-  }, 360000);
+  }, 1200000);
 });

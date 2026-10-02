@@ -8,9 +8,9 @@ if [ -f "$HOME/.cargo/env" ]; then
   source "$HOME/.cargo/env"
 fi
 
-# Run PipeBackend tests (spawns bb binary)
-# Use --no-default-features to skip FFI (which requires libbb-external.a)
-denoise "cargo test --release --no-default-features --features native"
+# Transport tests (spawn bb and talk to it through ipc-runtime)
+# Transport tests only: --no-default-features skips FFI, which needs libbb-external.a
+denoise "cargo test --release --no-default-features --features ipc-runtime"
 
 # Run FFI backend tests (requires libbb-external.a from cpp build)
 # BB_LIB_DIR tells build.rs to use local lib instead of downloading

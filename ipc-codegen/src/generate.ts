@@ -73,6 +73,7 @@ interface Args {
   ffi: boolean;
   curveConstants: string;
   stripMethodPrefix: boolean;
+  stripTypePrefix: boolean;
 }
 
 function usage(): never {
@@ -101,6 +102,9 @@ Optional:
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
   --strip-method-prefix    Strip the prefix from generated method names in all
                            languages (e.g. BbCircuitProve -> circuitProve)
+  --strip-type-prefix      Strip the prefix from generated type and converter
+                           names too (e.g. BbCircuitProve -> CircuitProve).
+                           Wire tags always keep the full schema name.
   --uds                    Copy UDS backend templates (rust, zig only)
   --ffi                    Copy in-process FFI backend templates (rust, zig only)
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
@@ -132,6 +136,7 @@ function parseArgs(argv: string[]): Args {
     ffi: false,
     curveConstants: "",
     stripMethodPrefix: false,
+    stripTypePrefix: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -204,6 +209,9 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--strip-method-prefix":
         args.stripMethodPrefix = true;
+        break;
+      case "--strip-type-prefix":
+        args.stripTypePrefix = true;
         break;
       default:
         console.error(`Unknown flag: ${flag}`);
@@ -366,6 +374,7 @@ function generate(args: Args) {
       const serverPackage = !!args.packageDir && args.server && !args.client;
       const gen = new TypeScriptCodegen({
         stripMethodPrefix: stripMethodPrefix ? prefix : undefined,
+        stripTypePrefix: args.stripTypePrefix ? prefix : undefined,
       });
       writeFile("api_types.ts", gen.generateTypes(compiled, schemaHash));
       if (args.server) {
@@ -459,6 +468,7 @@ function generate(args: Args) {
       const gen = new RustCodegen({
         prefix,
         stripMethodPrefix: stripMethodPrefix,
+        stripTypePrefix: args.stripTypePrefix,
       });
       writeFile(
         `${toSnakeCase(prefix)}_types.rs`,
