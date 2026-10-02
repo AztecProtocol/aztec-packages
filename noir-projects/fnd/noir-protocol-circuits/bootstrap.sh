@@ -14,6 +14,8 @@ export BB=${BB:-$(../../../barretenberg/cpp/scripts/find-bb)}
 export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(../../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../../noir/bootstrap.sh hash)}
+# This script picks the nargo and bb invocations, so it is an input to every artifact it caches.
+export script_hash=$(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh")
 
 export key_dir=./target/keys
 mkdir -p $key_dir
@@ -82,7 +84,7 @@ function compile {
   # echo_stderr $program_hash_cmd
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"))
+  local hash=$(hash_str "$NOIR_HASH-$program_hash" $script_hash)
   # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
   # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
   # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
@@ -122,14 +124,17 @@ function generate_vk {
   # Add verification key to original json, similar to contracts.
   # This adds keyAsBytes and keyAsFields to the JSON artifact.
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-3")
+  # A VK is a function of bb, the bytecode, and the bb flags it is written with. The flags are chosen
+  # below from the circuit's kind, so the key carries the kind (which is what the pattern files
+  # decide) and this script (which maps a kind to flags).
+  local kind=$(circuit_kind "$name")
+  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-$kind" $script_hash)
   local key_path="$key_dir/$name.vk.data.json"
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     SECONDS=0
     local outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
     function write_vk {
-      local kind=$(circuit_kind "$name")
       case $kind in
         hiding|kernel|app)
           $BB write_vk --scheme chonk --circuit_kind $kind -b - -o $outdir ;;
@@ -157,20 +162,17 @@ function generate_vk {
     jq -n --arg vk "$vk_bytes" --argjson vk_fields "$vk_fields" --arg vk_hash "$vk_hash" \
       '{verificationKey: {bytes: $vk, fields: $vk_fields, hash: $vk_hash}}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
-
-    if echo "$name" | grep -qE "rollup_root"; then
-      # If we are a rollup root circuit, we also need to generate the solidity verifier.
-      local verifier_path="$key_dir/${name}_verifier.sol"
-      SECONDS=0
-      # Generate solidity verifier for this contract.
-      # TODO(AD) ensure this passes.
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
-      echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
-      # Include the verifier path if we create it.
-      cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
-    else
-      cache_upload vk-$hash.tar.gz $key_path &> /dev/null
-    fi
+    cache_upload vk-$hash.tar.gz $key_path &> /dev/null
+  fi
+  if [ "$kind" == "rollup_root" ]; then
+    # The root rollup circuit is verified on L1, so it also gets a solidity verifier. It is written on
+    # every build and never cached: it is the contract l1-contracts deploys, so it must always be what
+    # the flags below produce from the current VK.
+    local verifier_path="$key_dir/${name}_verifier.sol"
+    SECONDS=0
+    jq -r '.verificationKey.bytes' $key_path | xxd -r -p | \
+      $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
+    echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
   fi
   # VK was downloaded from cache, update the JSON artifact with VK information
   jq -s '.[0] * .[1]' "$json_path" "$key_path" > "${json_path}.tmp"
@@ -215,8 +217,9 @@ function build {
     mkdir -p $key_dir
     # The pin freezes bytecode AND VKs, but VKs depend on the current bb: a proof-system change can
     # alter the VK for unchanged bytecode, and a stale pinned VK makes proofs fail self-verification
-    # at proving time. Recompute each VK against the current bb (cached by BB_HASH and bytecode, so
-    # this is cheap until bb changes) and fail the build on any mismatch, forcing an explicit pin refresh.
+    # at proving time. Recompute each VK against the current bb (cached under generate_vk's key, so
+    # this is cheap until an input to the VK changes) and fail the build on any mismatch, forcing an
+    # explicit pin refresh.
     set +e
     ls target/*.json | xargs -n1 basename -s .json | grep -v simulated | \
       parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
