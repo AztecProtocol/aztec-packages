@@ -271,8 +271,10 @@ contract CalculatorCallTest is Test {
     assertEq(MAX_SEQUENCER_REWARD_PER_CHECKPOINT, 1_000_000e18);
     assertEq(CALCULATOR_GAS_BASE, 200_000);
     assertEq(CALCULATOR_GAS_PER_CHECKPOINT, 100_000);
-    // Covers the cold account access of the call (2_600) plus the opcodes between the gas check and the call.
-    assertGe(CALCULATOR_CALL_GAS_RESERVE, 2600);
+    // The worst case is an EIP-7702 delegated calculator: two cold account accesses at the EIP-8038 price of 3_000
+    // (2_600 before it). The SmallestSufficientGas tests check by measurement that the reserve also covers the
+    // opcodes between the gas check and the call.
+    assertGe(CALCULATOR_CALL_GAS_RESERVE, 2 * 3000);
   }
 
   function test_FuzzRandomResponse(bytes memory _response, uint8 _count) external {
