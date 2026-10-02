@@ -3,10 +3,10 @@ From: AztecBot <tech@aztec-labs.com>
 Date: Fri, 2 Oct 2026 10:29:55 +0000
 Subject: [PATCH] test: pin testnet compatibility to the v6 kernel VK tree root
 
-The private kernel's gas meter charges the teardown call's AVM startup gas, which changes the kernel circuits and so the VK tree root v6 builds.
+The private kernel circuits on v6 charge the teardown call's AVM startup gas and require a surviving nullifier link to resolve to a non-revertible note hash. Both change the kernel circuits and so the VK tree root v6 builds.
 
 diff --git a/yarn-project/aztec/src/testnet_compatibility.test.ts b/yarn-project/aztec/src/testnet_compatibility.test.ts
-index ecdee7d4db2b5c08293b8302a024738ea38b5db8..00c0ff8543be0bbea6f32ab652e223d2ca6d5aa5 100644
+index ecdee7d4db2b5c08293b8302a024738ea38b5db8..52fc8fa4e35f181ebecb175e83dcf88d55d84b50 100644
 --- a/yarn-project/aztec/src/testnet_compatibility.test.ts
 +++ b/yarn-project/aztec/src/testnet_compatibility.test.ts
 @@ -11,7 +11,7 @@ import { computeExpectedGenesisRoot } from './cli/cmds/standby.js';
@@ -14,7 +14,7 @@ index ecdee7d4db2b5c08293b8302a024738ea38b5db8..00c0ff8543be0bbea6f32ab652e223d2
  describe('Testnet compatibility', () => {
    it('has expected VK tree root', () => {
 -    const expectedRoots = [Fr.fromHexString('0x2d89003cc2dc62b06f07d83d3635c66c63fc43668369d30e7ee516f908ee10e3')];
-+    const expectedRoots = [Fr.fromHexString('0x21f06c3b82320ea5f80646751cdd9fa023dfd61400a42b8c952aa32e8f155793')];
++    const expectedRoots = [Fr.fromHexString('0x05b95d9ef57c61d1c6626545101db55ae2d1f98ecb618d1c220610c049ee522b')];
      expect(expectedRoots).toContainEqual(getVKTreeRoot());
    });
    it('has expected Protocol Contracts hash', () => {
