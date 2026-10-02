@@ -218,14 +218,14 @@ library RewardLib {
       SubEpochRewards storage $sr = $er.subEpoch[length];
       address prover = _args.args.proverId;
 
-      ProverRegistration memory previous_registration = $sr.registrations[prover];
+      ProverRegistration memory previousRegistration = $sr.registrations[prover];
       // There is a point in updating in 2 cases:
       // 1. This is the first time we are submitting, so shares are at 0
       // 2. A prover is submitting the same proof a second time after an epoch closed so they would get their activity
       // score bump. If the second check wasn't there, it would theoretically be possible (but unlikely) to block a
       // prover from increasing their activity score by submitting a proof for the epoch while it is ongoing
       require(
-        previous_registration.shares == 0 || (!previous_registration.fullEpoch && _fullEpochProof),
+        previousRegistration.shares == 0 || (!previousRegistration.fullEpoch && _fullEpochProof),
         Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
       );
       // The prover is only marked active if they have provided a full epoch proof
@@ -241,7 +241,7 @@ library RewardLib {
       require(shares > 0, Errors.RewardLib__ZeroShares(prover));
 
       $sr.registrations[prover] = ProverRegistration({shares: shares.toUint248(), fullEpoch: _fullEpochProof});
-      $sr.summedShares = $sr.summedShares - previous_registration.shares + shares;
+      $sr.summedShares = $sr.summedShares - previousRegistration.shares + shares;
     }
 
     if (length > $er.longestProvenLength) {
