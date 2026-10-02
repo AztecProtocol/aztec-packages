@@ -1004,6 +1004,8 @@ contract PartialEpochProofCalculatorStipendTest is PartialEpochProofCalculatorBa
 
     // The calculator burns its whole stipend. The proof still lands given the cost of the proof without a calculator,
     // the gas the rollup must be able to forward, and the proposer derivation; every checkpoint receives the default.
+    // The rollup delegates the proof to an external library and EIP-150 keeps back 1/64 of the gas it forwards, so
+    // the limit also grows by 1/63 of the proof's own cost, which EIP-8037 raises by repricing its fresh storage slots.
     uint256 stipend = CALCULATOR_GAS_BASE + CALCULATOR_GAS_PER_CHECKPOINT * _length;
     uint256 required = (stipend * 64) / 63 + 1 + CALCULATOR_CALL_GAS_RESERVE;
     _setCalculator(address(new GasBurningCalculator()));
@@ -1011,7 +1013,7 @@ contract PartialEpochProofCalculatorStipendTest is PartialEpochProofCalculatorBa
     emit log_named_uint(
       "gas above the proof without a calculator, beyond the stipend", smallest - gasWithoutCalculator - stipend
     );
-    assertLe(smallest, gasWithoutCalculator + required + 50_000, "needs more than the stipend bound");
+    assertLe(smallest, (gasWithoutCalculator * 64) / 63 + required + 10_000, "needs more than the stipend bound");
 
     this.submitWithGas(submission, smallest);
     assertEq(rollup.getProvenCheckpointNumber(), _length);
