@@ -99,6 +99,22 @@ struct less_than_equal {
     }
 };
 
+struct wrapping_multiplies {
+    template <typename T> T operator()(const T& a, const T& b) const
+    {
+        if constexpr (std::is_integral_v<T> && sizeof(T) < sizeof(int)) {
+            // Operands narrower than int are promoted to signed int, so a U16 product above
+            // INT_MAX is a signed-integer overflow rather than a wraparound.
+            // The optimiser narrows the multiply back to T before the overflow matters so the behavior
+            // today is consistent with wrapping. This is just defensive in case there is some optimiser
+            // that does not behave that way.
+            return static_cast<T>(static_cast<unsigned int>(a) * static_cast<unsigned int>(b));
+        } else {
+            return a * b;
+        }
+    }
+};
+
 struct checked_divides {
     template <typename T> auto operator()(T&& a, T&& b) const
     {
@@ -296,7 +312,7 @@ TaggedValue TaggedValue::operator-(const TaggedValue& other) const
 
 TaggedValue TaggedValue::operator*(const TaggedValue& other) const
 {
-    return std::visit(BinaryOperationVisitor<std::multiplies<>>(), value, other.value);
+    return std::visit(BinaryOperationVisitor<wrapping_multiplies>(), value, other.value);
 }
 
 TaggedValue TaggedValue::operator/(const TaggedValue& other) const
