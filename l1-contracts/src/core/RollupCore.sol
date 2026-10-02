@@ -242,6 +242,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Ownable(_governance) {
+    // Hashed before anything below can modify `_config` in memory. Including this contract's address means the
+    // deployer cannot choose the version and two deployments do not share one. The 32-bit truncation is still
+    // reachable by grinding CREATE2 salts, so it separates deployments rather than identifying them.
+    // Casting to bytes4 is intentional because the version is defined as the first 4 bytes of the hash.
+    // forge-lint: disable-next-line(unsafe-typecast)
+    VERSION = uint32(bytes4(keccak256(abi.encode(block.chainid, address(this), _config, _genesisState))));
+
     StakingLib.assertValidQueueConfig(_config.stakingQueueConfig);
 
     // queueSetSlasher schedules the replacement slasher to land at `block.timestamp +
@@ -294,13 +301,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // factored out into a helper the way the slasher and reward setup are.
     VK_TREE_ROOT = _genesisState.vkTreeRoot;
     PROTOCOL_CONTRACTS_HASH = _genesisState.protocolContractsHash;
-    VERSION = _config.version;
     FEE_ASSET = _feeAsset;
     EPOCH_PROOF_VERIFIER = _epochProofVerifier;
 
-    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, _config.version, INBOX_BUCKET_RING_SIZE)));
+    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, VERSION, INBOX_BUCKET_RING_SIZE)));
     INBOX = inbox;
-    OUTBOX = IOutbox(address(new Outbox(address(this), _config.version)));
+    OUTBOX = IOutbox(address(new Outbox(address(this), VERSION)));
     FEE_ASSET_PORTAL = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     STFLib.initialize(_genesisState);

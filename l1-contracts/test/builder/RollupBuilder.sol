@@ -124,7 +124,6 @@ contract RollupBuilder is Test {
     target.slashingDisableDuration = _source.slashingDisableDuration;
     target.manaTarget = _source.manaTarget;
     target.exitDelaySeconds = _source.exitDelaySeconds;
-    target.version = _source.version;
     target.provingCostPerMana = _source.provingCostPerMana;
     target.initialEthPerFeeAsset = _source.initialEthPerFeeAsset;
     target.rewardConfig = _source.rewardConfig;

@@ -125,7 +125,6 @@ library TestConstants {
     config.exitDelaySeconds = AZTEC_EXIT_DELAY_SECONDS;
     config.provingCostPerMana = AZTEC_PROVING_COST_PER_MANA;
     config.initialEthPerFeeAsset = AZTEC_INITIAL_ETH_PER_FEE_ASSET;
-    config.version = 0;
     config.rewardConfig = rewardConfig;
     config.rewardBoostConfig = rewardBoostConfig;
     config.stakingQueueConfig = stakingQueueConfig;
@@ -133,12 +132,6 @@ library TestConstants {
     config.slasherEnabled = false;
     config.localEjectionThreshold = 0;
     config.ethereumSlotDuration = ETHEREUM_SLOT_DURATION;
-
-    // For the version we derive it based on the config (with a 0 version)
-    // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
-    uint32 version =
-      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, getGenesisState(), config))));
-    config.version = version;
 
     return config;
   }
