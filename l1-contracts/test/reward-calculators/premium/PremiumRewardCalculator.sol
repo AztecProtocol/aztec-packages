@@ -87,9 +87,12 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *      the withdrawer, so a third party can copy a pending deposit's public key and proof of possession and
  *      register them first under another attester: the genuine deposit then fails at flush and is refunded to the
  *      staker (recoverable with `returnTokensToATP`, `release` and fresh keys); no one gains a premium, the genuine
- *      validator is only delayed. A provenance source paired with the wrong registry, or an entry with no source,
- *      pays only the default. A provenance source or registry owner that turns hostile is a
- *      trust root failure that no check here can detect.
+ *      validator is only delayed. The calculator decides how much a checkpoint pays, not to whom: rewards go to
+ *      the coinbase the proposer's node sets, so for a validator staked through a provider the premium follows the
+ *      provider's coinbase, which the protocol does not tie to the reward split (see
+ *      `PremiumATPStaker.stakeWithProvider`). A provenance source paired with the wrong registry, or an entry with no
+ *      source, pays only the default. A provenance source or registry owner that turns hostile is a trust root
+ *      failure that no check here can detect.
  */
 contract PremiumRewardCalculator is Ownable, ISequencerRewardCalculator {
   struct Entry {

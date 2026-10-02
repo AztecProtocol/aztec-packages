@@ -180,6 +180,13 @@ contract PremiumATPStaker is IPremiumATPStaker {
    *      this staker as its withdrawer. A staking registry that returns the attester is the preferred production
    *      path: it does not couple the staker to the queue's internals. Reverts if the rollup is not on the staker's
    *      GSE.
+   *
+   *      Where the premium goes. Sequencer rewards, the premium included, are paid to the coinbase of each
+   *      checkpoint, which the proposer's node sets. The staking registry creates a split contract between the
+   *      provider and `_userRewardsRecipient`, but nothing in the protocol requires the provider's node to use it as
+   *      its coinbase: the premium earned by a provider-run validator reaches the position's side only as far as the
+   *      provider is trusted to, exactly like the base sequencer rewards today. The guarantee of this staker is that
+   *      the premium is backed by the allocation, not who receives it.
    * @param _version The rollup version to deposit into
    * @param _providerIdentifier The provider
    * @param _expectedProviderTakeRate The provider take rate the operator agreed to
