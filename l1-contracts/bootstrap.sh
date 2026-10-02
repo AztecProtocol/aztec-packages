@@ -40,13 +40,13 @@ function download_solc {
   cache_upload "$artifact" "$solc_path"
 }
 
-# We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash \
+# We rely on noir-projects for the verifier contract. The noir hash covers the compiler that builds those
+# circuits, which the content patterns alone do not capture.
+export hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
   .rebuild_patterns \
-  ../noir/.rebuild_patterns \
   ../noir-projects/fnd/noir-protocol-circuits \
   ../barretenberg/cpp/.rebuild_patterns
-)
+))
 
 function build_src {
   echo_header "l1-contracts build_src"
