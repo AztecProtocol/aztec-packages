@@ -26,6 +26,10 @@ uint256 constant CALCULATOR_CALL_GAS_RESERVE = 10_000;
  * @author Aztec Labs
  * @notice Calls the governance-set sequencer reward calculator defensively, so that no calculator behaviour can make
  *         epoch proof submission revert or cost more than a bound fixed by the constants above.
+ * @dev The bound is on the calculator, not on the whole proof: a submission must carry enough gas to forward the full
+ *      stipend (see `tryGetSequencerRewards`) and, after the calculator has spent all of it, to finish the rest of the
+ *      proof. A transaction that passes the stipend check can still run out of gas later in reward distribution;
+ *      that depends only on the gas the submitter provided, never on what the calculator returned.
  */
 library SequencerRewardCalculatorLib {
   /**
@@ -41,7 +45,8 @@ library SequencerRewardCalculatorLib {
    *      The function reverts if the transaction does not leave enough gas to forward the full stipend. EIP-150
    *      would otherwise forward only 63/64 of what is left, which would let the submitter, rather than the
    *      calculator, decide whether the calculator runs out of gas and the defaults are paid. The requirement
-   *      depends on the constants and `n` only, never on the calculator.
+   *      depends on the constants and `n` only, never on the calculator. `CALCULATOR_CALL_GAS_RESERVE` covers the
+   *      call itself only; the gas the proof needs after the call is not part of this check.
    *
    * @param _calculator The sequencer reward calculator
    * @param _epoch The epoch whose checkpoints are being rewarded

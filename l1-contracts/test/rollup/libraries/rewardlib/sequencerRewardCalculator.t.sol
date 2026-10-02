@@ -46,6 +46,13 @@ contract SequencerRewardCalculatorTest is TestBase {
     uint256 claimed;
   }
 
+  struct FeeExpectation {
+    uint256[] sequencer;
+    uint256 prover;
+    uint256 protocol;
+    uint256 fees;
+  }
+
   function test_ZeroCalculatorMatchesLegacy(uint8 _count, uint96 _checkpointReward, uint32 _bps, uint256 _balance)
     external
   {
@@ -120,7 +127,7 @@ contract SequencerRewardCalculatorTest is TestBase {
 
     // Paid exactly, premiums included: there is no clamp below MAX_SEQUENCER_REWARD_PER_CHECKPOINT.
     assertEq(outcome.sequencerRewards, values, "values not paid exactly");
-    // The prover share does not depend on the calculator.
+    // Without a shortfall, the prover share does not depend on the calculator.
     assertEq(outcome.proverRewards, values.length * (checkpointReward - defaultReward), "prover share");
     // Only the desired draw is claimed.
     uint256 desired = values.length * (checkpointReward - defaultReward);
@@ -236,6 +243,95 @@ contract SequencerRewardCalculatorTest is TestBase {
     assertEq(outcome.sequencerRewards[0], 1);
     assertEq(outcome.proverRewards, 1);
     assertEq(outcome.claimed, 2);
+  }
+
+  function test_DefaultReturningCalculatorRoundsProportionallyUnderShortfall() external {
+    // The inputs of test_FailedCalculatorKeepsTheOriginalShortfallRounding with an accepted response equal to the
+    // 1 wei default: the response is scaled by 2/3 and rounds down, so the sequencer gets 1 wei less than on the
+    // default path. Only a shortfall with `checkpointReward * sequencerBps` not a multiple of 10_000 does this.
+    _deploy(3, 5000);
+    deal(address(feeAsset), address(wrapper.rewardDistributor()), 2);
+    wrapper.setSequencerRewardCalculator(address(new TableCalculator()));
+
+    Outcome memory outcome = _prove(1, committee);
+    assertEq(outcome.sequencerRewards[0], 0);
+    assertEq(outcome.proverRewards, 2);
+    assertEq(outcome.claimed, 2);
+  }
+
+  function test_UnderShortfallTheProverShareDependsOnTheCalculator() external {
+    // Reward 100 wei with a 50 wei default and 100 wei available: returning the default pays the prover its full
+    // 50 wei share, while returning 150 wei makes the desired draw 200 wei and scales both shares by half.
+    uint256[] memory values = new uint256[](1);
+    uint256[2] memory rewards = [uint256(50), 150];
+    uint256[2] memory proverShares = [uint256(50), 25];
+    for (uint256 i = 0; i < 2; i++) {
+      _deploy(100, 5000);
+      deal(address(feeAsset), address(wrapper.rewardDistributor()), 100);
+      values[0] = rewards[i];
+      wrapper.setSequencerRewardCalculator(address(new ListCalculator(values)));
+
+      Outcome memory outcome = _prove(1, committee);
+      assertEq(outcome.proverRewards, proverShares[i], "prover share");
+      assertEq(outcome.sequencerRewards[0], 100 - proverShares[i], "sequencer reward");
+    }
+  }
+
+  /// @dev Checkpoint rewards and fees together, over several checkpoints with distinct coinbases and nonzero
+  ///      protocol, prover and sequencer fees, on every reward path. `_mode` picks no calculator, a failing one, an
+  ///      accepted response, or an accepted response under a shortfall; `_extend` proves the epoch as a prefix
+  ///      followed by an extension, with the proven prefix sent compactly if `_compact`.
+  function test_FeesAndRewardsAcrossCheckpoints(
+    uint8 _mode,
+    bool _extend,
+    bool _compact,
+    uint256 _seed,
+    uint256 _balance
+  ) external {
+    uint256 n = 8;
+    uint256 mode = bound(_mode, 0, 3);
+    _deploy(100e18, 7000);
+    _setHeaders(n);
+    FeeExpectation memory e = _setCheckpointFees(n, _seed);
+
+    uint256[] memory values = _values(n, _seed);
+    ListCalculator calculator;
+    if (mode == 1) {
+      wrapper.setSequencerRewardCalculator(address(new RevertingCalculator(0)));
+    } else if (mode >= 2) {
+      calculator = new ListCalculator(values);
+      wrapper.setSequencerRewardCalculator(address(calculator));
+    }
+
+    uint256 balance;
+    if (mode == 2) {
+      balance = _fund(type(uint256).max, n);
+    } else if (mode == 3) {
+      balance = bound(_balance, 0, _calculated(values, type(uint256).max).claimed - 1);
+      deal(address(feeAsset), address(wrapper.rewardDistributor()), balance);
+    } else {
+      balance = _fund(_balance, n);
+    }
+
+    address recipient = makeAddr("protocolFeeRecipient");
+    wrapper.updateProtocolFeeRecipient(recipient);
+
+    uint256 remaining = balance;
+    if (_extend) {
+      remaining = _proveSegment(0, 3, values, calculator, _compact, remaining, e);
+      remaining = _proveSegment(3, n, values, calculator, _compact, remaining, e);
+    } else {
+      remaining = _proveSegment(0, n, values, calculator, _compact, remaining, e);
+    }
+
+    for (uint256 i = 0; i < n; i++) {
+      assertEq(wrapper.getSequencerRewards(_coinbase(i)), e.sequencer[i], "sequencer rewards and fees");
+    }
+    assertEq(wrapper.getCollectiveProverRewardsForEpoch(EPOCH), e.prover, "prover rewards and fees");
+    assertEq(feeAsset.balanceOf(recipient), e.protocol, "protocol fees");
+    assertEq(feeAsset.balanceOf(address(wrapper.feePortal())), 0, "fees claimed from the portal");
+    assertEq(feeAsset.balanceOf(address(wrapper.rewardDistributor())), remaining, "rewards claimed");
+    assertEq(feeAsset.balanceOf(address(wrapper)), balance - remaining + e.fees - e.protocol, "held by the rollup");
   }
 
   function test_PassesTheProposerOfEveryCheckpoint() external {
@@ -414,6 +510,79 @@ contract SequencerRewardCalculatorTest is TestBase {
     uint256 cap = (_checkpoints + 1) * (checkpointReward + 32 * MAX_SEQUENCER_REWARD_PER_CHECKPOINT);
     balance = bound(_balance, 0, cap);
     deal(address(feeAsset), address(wrapper.rewardDistributor()), balance);
+  }
+
+  /// @dev Proves checkpoints `[_from, _to)` on top of a proven `[0, _from)`, adding the expected checkpoint rewards to
+  ///      `_e`. A zero `_calculator` means the default split. Returns what is left in the distributor.
+  function _proveSegment(
+    uint256 _from,
+    uint256 _to,
+    uint256[] memory _values,
+    ListCalculator _calculator,
+    bool _compact,
+    uint256 _remaining,
+    FeeExpectation memory _e
+  ) internal returns (uint256) {
+    Outcome memory expected;
+    if (address(_calculator) != address(0)) {
+      uint256[] memory slice = new uint256[](_to - _from);
+      for (uint256 i = _from; i < _to; i++) {
+        slice[i - _from] = _values[i];
+      }
+      _calculator.setValues(slice);
+      expected = _calculated(slice, _remaining);
+    } else {
+      expected = _legacy(_to - _from, _remaining);
+    }
+    _e.prover += expected.proverRewards;
+    for (uint256 i = _from; i < _to; i++) {
+      _e.sequencer[i] += expected.sequencerRewards[i - _from];
+    }
+
+    args.end = _to - 1;
+    args.args.proverId = makeAddr(_from == 0 ? "prover0" : "prover1");
+    _submitPrefix(_to, _compact ? _from : 0);
+    return _remaining - expected.claimed;
+  }
+
+  /// @dev Gives every checkpoint a nonzero fee and checkpoints `1.._count - 1` nonzero mana, protocol fee and prover
+  ///      cost, sometimes enough to cap the prover fee at what the protocol fee leaves; checkpoint 0 keeps the zeroed
+  ///      genesis fee header, so all of its fee goes to its sequencer. Funds the fee portal with every fee and
+  ///      returns the fee split of each checkpoint, computed here.
+  function _setCheckpointFees(uint256 _count, uint256 _seed) internal returns (FeeExpectation memory e) {
+    e.sequencer = new uint256[](_count);
+    for (uint256 i = 0; i < _count; i++) {
+      uint256 r = uint256(keccak256(abi.encode(_seed, "fees", i)));
+      uint256 fee;
+      if (i == 0) {
+        fee = 1 + r % 1e24;
+      } else {
+        uint256 manaUsed = 1 + r % type(uint32).max;
+        uint256 protocolFeePerMana = 1 + (r >> 32) % 2 ** 40;
+        uint256 proverCost = 1 + (r >> 80) % 2 ** 62;
+        wrapper.addFeeHeader(
+          FeeHeader({
+            excessMana: 0,
+            manaUsed: manaUsed,
+            ethPerFeeAsset: 0,
+            protocolFee: protocolFeePerMana,
+            proverCost: proverCost
+          })
+        );
+        uint256 protocolFee = protocolFeePerMana * manaUsed;
+        fee = protocolFee + (r >> 160) % (2 * manaUsed * proverCost + 1);
+        uint256 proverFee = manaUsed * proverCost < fee - protocolFee ? manaUsed * proverCost : fee - protocolFee;
+        e.protocol += protocolFee;
+        e.prover += proverFee;
+        e.sequencer[i] = fee - protocolFee - proverFee;
+      }
+      if (i == 0) {
+        e.sequencer[i] = fee;
+      }
+      args.headers[i].accumulatedFees = fee;
+      e.fees += fee;
+    }
+    deal(address(feeAsset), address(wrapper.feePortal()), e.fees);
   }
 
   function _setHeaders(uint256 _count) internal {
