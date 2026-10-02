@@ -82,6 +82,7 @@ import {
   GasBurningCalculator
 } from "@test/mock/SequencerRewardCalculatorMocks.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
 import {
   MockATP,
@@ -90,6 +91,17 @@ import {
   deployMainnetShapedATPStaker,
   deployMockATPStaker
 } from "@test/reward-calculators/mocks/ATPMocks.sol";
+import {IStakingRegistry} from "@test/reward-calculators/premium/IPremiumATP.sol";
+import {PremiumATP} from "@test/reward-calculators/premium/PremiumATP.sol";
+import {PremiumATPFactory} from "@test/reward-calculators/premium/PremiumATPFactory.sol";
+import {PremiumATPRegistry, UnlockSchedule} from "@test/reward-calculators/premium/PremiumATPRegistry.sol";
+import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStaker.sol";
+import {PremiumRewardCalculator} from "@test/reward-calculators/premium/PremiumRewardCalculator.sol";
+import {
+  FakeWithdrawer,
+  MockRollupRegistry,
+  MockStakingRollup
+} from "@test/reward-calculators/premium/mocks/PremiumMocks.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -837,6 +849,31 @@ abstract contract PartialEpochProofCalculatorBase is PartialEpochProofGasReportB
 }
 
 /**
+ * @notice Deploys the fixture rollup's asset and GSE before the rollup, so that premium factories, which are bound to
+ *         one GSE and only accepted by calculators on it, can create the fixture validators' positions first.
+ */
+abstract contract PremiumCalculatorGasReportBase is PartialEpochProofCalculatorBase {
+  TestERC20 internal fixtureAsset;
+  GSEWithSkip internal fixtureGse;
+
+  function _deployFixtureGSE() internal returns (IGSE) {
+    fixtureAsset = new TestERC20("test", "TEST", address(this));
+    // The coin issuer needs some supply, as the builder's own asset has.
+    fixtureAsset.mint(address(this), 1e18);
+    fixtureGse = new GSEWithSkip(
+      address(this), fixtureAsset, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
+    );
+    fixtureGse.setCheckProofOfPossession(false);
+    return IGSE(address(fixtureGse));
+  }
+
+  function _configureRollupBuilder(RollupBuilder _builder) internal virtual override {
+    fixtureAsset.addMinter(address(_builder));
+    _builder.setTestERC20(fixtureAsset).setGSE(fixtureGse);
+  }
+}
+
+/**
  * @notice Gas of partial epoch proofs with a table-lookup sequencer reward calculator, one storage read per proposer.
  */
 contract PartialEpochProofWithCalculatorGasReportTest is PartialEpochProofCalculatorBase {
@@ -1298,5 +1335,346 @@ contract PartialEpochProofWithReductionCalculatorTwoMockStakersGasReportTest is 
     address registry = registryOf[_proposer];
     assertTrue(registry != address(0), "not a validator");
     return registry == firstRegistry ? FIRST_REWARD : SECOND_REWARD;
+  }
+}
+
+/**
+ * @notice Gas of partial epoch proofs with the premium calculator, and its rewards under a distributor shortfall.
+ * @dev A third of the validators are staked from genuine premium positions (five probes each), a third from genuine
+ *      positions of a registry with a reduction and no provenance source (two probes), and a third name a fake
+ *      withdrawer that points at a genuine premium position (four probes, rejected by the reverse staker check).
+ *      Every validator has its own position, so no proposer's lookups are warm from another's. The positions record
+ *      their attesters through the genuine staker, against a rollup stand-in: the fixture's validators are added
+ *      with cheat deposits before any position could stake through the fixture's rollup.
+ */
+contract PartialEpochProofWithPremiumCalculatorGasReportTest is PremiumCalculatorGasReportBase {
+  enum Kind {
+    Premium,
+    Reduced,
+    Forged
+  }
+
+  uint256 internal constant VALIDATOR_COUNT = 48;
+  uint256 internal constant POSITION_THRESHOLD = 100e18;
+
+  PremiumATPRegistry internal premiumRegistry;
+  PremiumATPRegistry internal reducedRegistry;
+  PremiumATPFactory internal premiumFactory;
+  PremiumATPFactory internal reducedFactory;
+  PremiumRewardCalculator internal premiumCalculator;
+  address[] internal premiumWithdrawers;
+  mapping(address attester => Kind kind) internal kindOf;
+  mapping(address attester => bool validator) internal isPremiumFixtureValidator;
+
+  function setUp() public override {
+    IGSE gse = _deployFixtureGSE();
+    TestERC20 positionToken = new TestERC20("position", "POS", address(this));
+    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD, address(gse));
+    IRegistry positionRollupRegistry = IRegistry(address(new MockRollupRegistry(stakingRollup)));
+    UnlockSchedule memory schedule = UnlockSchedule({startTime: 0, cliffDuration: 0, lockDuration: 1});
+    premiumRegistry = new PremiumATPRegistry(address(this), schedule);
+    reducedRegistry = new PremiumATPRegistry(address(this), schedule);
+    premiumFactory = new PremiumATPFactory(
+      address(this), positionToken, premiumRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
+    );
+    reducedFactory = new PremiumATPFactory(
+      address(this), positionToken, reducedRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
+    );
+    positionToken.mint(address(premiumFactory), VALIDATOR_COUNT * POSITION_THRESHOLD);
+    positionToken.mint(address(reducedFactory), VALIDATOR_COUNT * POSITION_THRESHOLD);
+
+    for (uint256 i = 0; i < VALIDATOR_COUNT; i++) {
+      address attester = vm.addr(uint256(keccak256(abi.encode("attester", i + 1))));
+      Kind kind = Kind(i % 3);
+      kindOf[attester] = kind;
+      isPremiumFixtureValidator[attester] = true;
+      PremiumATP atp =
+        (kind == Kind.Reduced ? reducedFactory : premiumFactory).createATP(address(this), POSITION_THRESHOLD);
+      if (kind == Kind.Forged) {
+        premiumWithdrawers.push(address(new FakeWithdrawer(address(atp))));
+        continue;
+      }
+      atp.updateStakerOperator(address(this));
+      PremiumATPStaker staker = PremiumATPStaker(atp.getStaker());
+      staker.stake(1, attester, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
+      premiumWithdrawers.push(address(staker));
+    }
+
+    super.setUp();
+
+    premiumCalculator = new PremiumRewardCalculator(IGSE(address(rollup.getGSE())), address(this));
+    // No reward is zero, so every checkpoint writes its coinbase balance as without a calculator.
+    uint256 defaultReward = _defaultReward();
+    premiumCalculator.setRegistryReward(
+      address(premiumRegistry), SafeCast.toUint96(2 * defaultReward), address(premiumFactory)
+    );
+    premiumCalculator.setRegistryReward(address(reducedRegistry), SafeCast.toUint96(defaultReward / 2), address(0));
+    _setCalculator(address(premiumCalculator));
+  }
+
+  function testGasReportSubmit1CheckpointWithPremiumCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit1CheckpointWithPremiumCalculator(_getGasReportSubmission(1));
+    _assertPremiumRewards(snapshot, 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithPremiumCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit8CheckpointsWithPremiumCalculator(_getGasReportSubmission(8));
+    _assertPremiumRewards(snapshot, 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithPremiumCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit16CheckpointsWithPremiumCalculator(_getGasReportSubmission(16));
+    _assertPremiumRewards(snapshot, 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithPremiumCalculator() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit32CheckpointsWithPremiumCalculator(_getGasReportSubmission(32));
+    _assertPremiumRewards(snapshot, 32);
+  }
+
+  function testProposersCoverEveryKindOfValidator() public view {
+    address[] memory proposers = _checkpointProposers(32);
+    uint256[3] memory counts;
+    for (uint256 i = 0; i < proposers.length; i++) {
+      Kind kind = _kindOf(proposers[i]);
+      counts[uint256(kind)]++;
+      address withdrawer = rollup.getGSE().getWithdrawer(proposers[i]);
+      if (kind != Kind.Forged) {
+        assertTrue(PremiumATPStaker(withdrawer).isAttester(proposers[i]));
+      }
+    }
+    // The reward assertions are not vacuous: a calculator that ran out of stipend would pay the default to all.
+    assertGt(counts[uint256(Kind.Premium)], 0);
+    assertGt(counts[uint256(Kind.Reduced)], 0);
+    assertGt(counts[uint256(Kind.Forged)], 0);
+  }
+
+  /// @dev Under a shortfall, premiums are scaled like every other sequencer reward, `available / desired`, and the
+  ///      prover pool receives the remainder of what was claimed.
+  function testShortfallScalesPremiumsProportionally() public {
+    uint256 n = 32;
+    address[] memory proposers = _checkpointProposers(n);
+    uint256 proverShare = n * (rollup.getCheckpointReward() - _defaultReward());
+    uint256[] memory rewards = new uint256[](n);
+    uint256 desired = proverShare;
+    for (uint256 i = 0; i < n; i++) {
+      rewards[i] = _premiumReward(proposers[i]);
+      desired += rewards[i];
+    }
+
+    // Without a shortfall: the fee parts of every balance, which the shortfall does not scale.
+    uint256 snapshot = vm.snapshotState();
+    rollup.submitEpochRootProof(_getGasReportSubmission(n));
+    uint256 proverFees = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH)) - proverShare;
+    uint256[] memory full = _sequencerRewards(proposers);
+    vm.revertToState(snapshot);
+
+    IRewardDistributor distributor = rollup.getRewardDistributor();
+    uint256 available = desired / 3;
+    deal(address(asset), address(distributor), available);
+    assertEq(distributor.availableTo(address(rollup)), available);
+
+    rollup.submitEpochRootProof(_getGasReportSubmission(n));
+
+    uint256 scaledTotal = _assertScaledSequencerRewards(proposers, rewards, full, available, desired);
+    assertEq(
+      rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH)),
+      available - scaledTotal + proverFees,
+      "prover rewards"
+    );
+    assertEq(asset.balanceOf(address(distributor)), 0, "the distributor kept tokens");
+  }
+
+  /// @dev Asserts every coinbase received its fee part plus `mulDiv(reward, available, desired)` per checkpoint it
+  ///      proposed, and returns the sum of the scaled rewards.
+  function _assertScaledSequencerRewards(
+    address[] memory _proposers,
+    uint256[] memory _rewards,
+    uint256[] memory _full,
+    uint256 _available,
+    uint256 _desired
+  ) internal view returns (uint256 scaledTotal) {
+    uint256 n = _proposers.length;
+    uint256[] memory scaled = new uint256[](n);
+    bool premiumSeen = false;
+    for (uint256 i = 0; i < n; i++) {
+      scaled[i] = Math.mulDiv(_rewards[i], _available, _desired);
+      scaledTotal += scaled[i];
+      premiumSeen = premiumSeen || _rewards[i] > _defaultReward();
+    }
+    assertTrue(premiumSeen, "no premium in the epoch");
+    uint256[] memory actual = _sequencerRewards(_proposers);
+    for (uint256 i = 0; i < n; i++) {
+      uint256 expected = _full[i];
+      for (uint256 j = 0; j < n; j++) {
+        if (_proposers[j] == _proposers[i]) {
+          expected = expected - _rewards[j] + scaled[j];
+        }
+      }
+      assertEq(actual[i], expected, "scaled sequencer rewards");
+    }
+  }
+
+  function _validatorWithdrawer(uint256 _index) internal view override returns (address) {
+    return premiumWithdrawers[_index];
+  }
+
+  function _assertPremiumRewards(uint256 _snapshot, uint256 _length) internal {
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(_snapshot, _length, proposers);
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _premiumReward);
+  }
+
+  function _kindOf(address _attester) internal view returns (Kind) {
+    assertTrue(isPremiumFixtureValidator[_attester], "not a validator");
+    return kindOf[_attester];
+  }
+
+  function _premiumReward(address _proposer) internal view returns (uint256) {
+    Kind kind = _kindOf(_proposer);
+    uint256 defaultReward = _defaultReward();
+    if (kind == Kind.Premium) {
+      return 2 * defaultReward;
+    }
+    if (kind == Kind.Reduced) {
+      return defaultReward / 2;
+    }
+    return defaultReward;
+  }
+}
+
+/**
+ * @notice Gas of partial epoch proofs with the premium calculator in the scenario of the removed in-rollup registry
+ *         reward overrides bench: two shared genuine premium positions, each of its own premium registry and factory.
+ *         Validators alternate between the two positions' stakers by index, and each staker records every attester
+ *         it is the withdrawer of, so every proposer is authenticated and earns its registry's premium. After the
+ *         first lookup through each position, every read but the per-attester `isAttester` record is warm. The
+ *         positions record their attesters against a rollup stand-in, as in the per-validator premium bench.
+ * @dev The overrides bench configured 10e18 and 20e18, below the default; a premium calculator pays such entries
+ *      without authentication, so this bench configures premiums above the default instead to run every probe.
+ */
+contract PartialEpochProofWithPremiumCalculatorTwoPremiumStakersGasReportTest is PremiumCalculatorGasReportBase {
+  uint256 internal constant VALIDATOR_COUNT = 48;
+  uint256 internal constant POSITION_THRESHOLD = 100e18;
+  uint96 internal constant FIRST_REWARD = 30e18;
+  uint96 internal constant SECOND_REWARD = 40e18;
+
+  PremiumATPRegistry internal firstRegistry;
+  PremiumATPRegistry internal secondRegistry;
+  PremiumATPFactory internal firstFactory;
+  PremiumATPFactory internal secondFactory;
+  PremiumATPStaker internal firstStaker;
+  PremiumATPStaker internal secondStaker;
+  PremiumRewardCalculator internal premiumCalculator;
+  mapping(address attester => address registry) internal registryOf;
+
+  function setUp() public override {
+    IGSE gse = _deployFixtureGSE();
+    TestERC20 positionToken = new TestERC20("position", "POS", address(this));
+    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD, address(gse));
+    IRegistry positionRollupRegistry = IRegistry(address(new MockRollupRegistry(stakingRollup)));
+    UnlockSchedule memory schedule = UnlockSchedule({startTime: 0, cliffDuration: 0, lockDuration: 1});
+    firstRegistry = new PremiumATPRegistry(address(this), schedule);
+    secondRegistry = new PremiumATPRegistry(address(this), schedule);
+    firstFactory = new PremiumATPFactory(
+      address(this), positionToken, firstRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
+    );
+    secondFactory = new PremiumATPFactory(
+      address(this), positionToken, secondRegistry, positionRollupRegistry, gse, IStakingRegistry(address(0))
+    );
+    firstStaker = _createPosition(positionToken, firstFactory);
+    secondStaker = _createPosition(positionToken, secondFactory);
+
+    for (uint256 i = 0; i < VALIDATOR_COUNT; i++) {
+      address attester = vm.addr(uint256(keccak256(abi.encode("attester", i + 1))));
+      registryOf[attester] = i % 2 == 0 ? address(firstRegistry) : address(secondRegistry);
+      PremiumATPStaker(_validatorWithdrawer(i))
+        .stake(1, attester, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
+    }
+
+    super.setUp();
+
+    premiumCalculator = new PremiumRewardCalculator(IGSE(address(rollup.getGSE())), address(this));
+    premiumCalculator.setRegistryReward(address(firstRegistry), FIRST_REWARD, address(firstFactory));
+    premiumCalculator.setRegistryReward(address(secondRegistry), SECOND_REWARD, address(secondFactory));
+    _setCalculator(address(premiumCalculator));
+  }
+
+  function testGasReportSubmit1CheckpointWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit1CheckpointWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(1));
+    _assertPremiumRewards(snapshot, 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit8CheckpointsWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(8));
+    _assertPremiumRewards(snapshot, 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit16CheckpointsWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(16));
+    _assertPremiumRewards(snapshot, 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit32CheckpointsWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(32));
+    _assertPremiumRewards(snapshot, 32);
+  }
+
+  function testEveryProposerIsAuthenticatedThroughOneOfTheTwoStakers() public view {
+    assertGt(FIRST_REWARD, _defaultReward(), "rewards are premiums");
+    address[] memory proposers = _checkpointProposers(32);
+    uint256 firstCount = 0;
+    for (uint256 i = 0; i < proposers.length; i++) {
+      address registry = registryOf[proposers[i]];
+      assertTrue(registry != address(0), "not a validator");
+      bool first = registry == address(firstRegistry);
+      PremiumATPStaker staker = first ? firstStaker : secondStaker;
+      assertEq(rollup.getGSE().getWithdrawer(proposers[i]), address(staker));
+      assertTrue(
+        premiumCalculator.isAuthenticated(
+          proposers[i], address(staker), staker.getATP(), address(first ? firstFactory : secondFactory)
+        )
+      );
+      firstCount += first ? 1 : 0;
+    }
+    // The fixture's proposers cover both positions, so the reward assertions are not vacuous.
+    assertGt(firstCount, 0);
+    assertGt(proposers.length - firstCount, 0);
+  }
+
+  function _createPosition(TestERC20 _token, PremiumATPFactory _factory) internal returns (PremiumATPStaker) {
+    uint256 allocation = VALIDATOR_COUNT / 2 * POSITION_THRESHOLD;
+    _token.mint(address(_factory), allocation);
+    PremiumATP atp = _factory.createATP(address(this), allocation);
+    atp.updateStakerOperator(address(this));
+    return PremiumATPStaker(atp.getStaker());
+  }
+
+  function _validatorWithdrawer(uint256 _index) internal view override returns (address) {
+    return _index % 2 == 0 ? address(firstStaker) : address(secondStaker);
+  }
+
+  function _assertPremiumRewards(uint256 _snapshot, uint256 _length) internal {
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(_snapshot, _length, proposers);
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _premiumReward);
+  }
+
+  function _premiumReward(address _proposer) internal view returns (uint256) {
+    address registry = registryOf[_proposer];
+    assertTrue(registry != address(0), "not a validator");
+    return registry == address(firstRegistry) ? FIRST_REWARD : SECOND_REWARD;
   }
 }
