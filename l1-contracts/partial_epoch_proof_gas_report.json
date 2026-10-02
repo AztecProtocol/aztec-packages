@@ -22,17 +22,17 @@
       },
       "gasReportSubmit16CheckpointsWithPremiumCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1633646,
-        "mean": 1633646,
-        "median": 1633646,
-        "max": 1633646
+        "min": 1633453,
+        "mean": 1633453,
+        "median": 1633453,
+        "max": 1633453
       },
       "gasReportSubmit16CheckpointsWithPremiumCalculatorTwoPremiumStakers((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1605159,
-        "mean": 1605159,
-        "median": 1605159,
-        "max": 1605159
+        "min": 1604427,
+        "mean": 1604427,
+        "median": 1604427,
+        "max": 1604427
       },
       "gasReportSubmit16CheckpointsWithReductionCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
@@ -64,17 +64,17 @@
       },
       "gasReportSubmit1CheckpointWithPremiumCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 700366,
-        "mean": 700366,
-        "median": 700366,
-        "max": 700366
+        "min": 700404,
+        "mean": 700404,
+        "median": 700404,
+        "max": 700404
       },
       "gasReportSubmit1CheckpointWithPremiumCalculatorTwoPremiumStakers((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 715086,
-        "mean": 715086,
-        "median": 715086,
-        "max": 715086
+        "min": 714982,
+        "mean": 714982,
+        "median": 714982,
+        "max": 714982
       },
       "gasReportSubmit1CheckpointWithReductionCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
@@ -106,17 +106,17 @@
       },
       "gasReportSubmit32CheckpointsWithPremiumCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 2430508,
-        "mean": 2430508,
-        "median": 2430508,
-        "max": 2430508
+        "min": 2430012,
+        "mean": 2430012,
+        "median": 2430012,
+        "max": 2430012
       },
       "gasReportSubmit32CheckpointsWithPremiumCalculatorTwoPremiumStakers((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 2320156,
-        "mean": 2320156,
-        "median": 2320156,
-        "max": 2320156
+        "min": 2319016,
+        "mean": 2319016,
+        "median": 2319016,
+        "max": 2319016
       },
       "gasReportSubmit32CheckpointsWithReductionCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
@@ -148,17 +148,17 @@
       },
       "gasReportSubmit8CheckpointsWithPremiumCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1174024,
-        "mean": 1174024,
-        "median": 1174024,
-        "max": 1174024
+        "min": 1173877,
+        "mean": 1173877,
+        "median": 1173877,
+        "max": 1173877
       },
       "gasReportSubmit8CheckpointsWithPremiumCalculatorTwoPremiumStakers((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1170298,
-        "mean": 1170298,
-        "median": 1170298,
-        "max": 1170298
+        "min": 1169970,
+        "mean": 1169970,
+        "median": 1169970,
+        "max": 1169970
       },
       "gasReportSubmit8CheckpointsWithReductionCalculator((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
