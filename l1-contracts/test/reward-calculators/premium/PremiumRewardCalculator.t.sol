@@ -25,6 +25,7 @@ import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStake
 import {PremiumRewardCalculator} from "@test/reward-calculators/premium/PremiumRewardCalculator.sol";
 import {FakeWithdrawer, ProbeTarget} from "@test/reward-calculators/premium/mocks/PremiumMocks.sol";
 import {PremiumUnitBase} from "@test/reward-calculators/premium/PremiumUnitBase.sol";
+import {FakeGSE} from "@test/reward-calculators/mocks/FakeGSE.sol";
 
 /**
  * @notice Unit tests of the reference premium calculator: configuration, the lookup rules, one test per way of
@@ -110,6 +111,32 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
     );
     vm.prank(governance);
     calculator.setRegistryReward(address(registry), PREMIUM, source);
+  }
+
+  function test_RevertWhen_ProvenanceSourceIsBoundToAnotherGSE() external {
+    PremiumRewardCalculator otherCalculator = new PremiumRewardCalculator(IGSE(address(new FakeGSE())), governance);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        PremiumRewardCalculator.PremiumRewardCalculator__ProvenanceSourceOnAnotherGSE.selector,
+        address(factory),
+        address(gse)
+      )
+    );
+    vm.prank(governance);
+    otherCalculator.setRegistryReward(address(registry), PREMIUM, address(factory));
+  }
+
+  function test_RevertWhen_ProvenanceSourceReportsNoGSE() external {
+    ProbeTarget source = new ProbeTarget();
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        PremiumRewardCalculator.PremiumRewardCalculator__ProvenanceSourceOnAnotherGSE.selector,
+        address(source),
+        address(0)
+      )
+    );
+    vm.prank(governance);
+    calculator.setRegistryReward(address(registry), PREMIUM, address(source));
   }
 
   function test_RevertWhen_RemovingAnUnknownRegistry() external {

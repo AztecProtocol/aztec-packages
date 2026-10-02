@@ -69,11 +69,19 @@ abstract contract PremiumUnitBase is Test {
     internal
     returns (PremiumATPRegistry atpRegistry, PremiumATPFactory atpFactory)
   {
+    return _deployFactoryOn(_owner, rollupRegistry);
+  }
+
+  /// @dev A registry and a factory bound to the shared GSE whose stakers deposit into `_rollupRegistry`'s rollup.
+  function _deployFactoryOn(address _owner, MockRollupRegistry _rollupRegistry)
+    internal
+    returns (PremiumATPRegistry atpRegistry, PremiumATPFactory atpFactory)
+  {
     atpRegistry = new PremiumATPRegistry(
       _owner, UnlockSchedule({startTime: UNLOCK_START, cliffDuration: CLIFF, lockDuration: LOCK})
     );
     atpFactory = new PremiumATPFactory(
-      _owner, token, atpRegistry, IRegistry(address(rollupRegistry)), IGSE(address(gse)), IStakingRegistry(address(0))
+      _owner, token, atpRegistry, IRegistry(address(_rollupRegistry)), IGSE(address(gse)), IStakingRegistry(address(0))
     );
   }
 

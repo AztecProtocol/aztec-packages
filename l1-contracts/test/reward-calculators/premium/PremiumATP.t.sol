@@ -17,6 +17,7 @@ import {PremiumATPFactory} from "@test/reward-calculators/premium/PremiumATPFact
 import {PremiumATPRegistry, UnlockSchedule} from "@test/reward-calculators/premium/PremiumATPRegistry.sol";
 import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStaker.sol";
 import {MockSplitFactory, MockStakingRegistry} from "@test/reward-calculators/premium/mocks/MockStakingRegistry.sol";
+import {MockRollupRegistry, MockStakingRollup} from "@test/reward-calculators/premium/mocks/PremiumMocks.sol";
 import {PremiumUnitBase} from "@test/reward-calculators/premium/PremiumUnitBase.sol";
 
 /**
@@ -58,6 +59,48 @@ contract PremiumATPTest is PremiumUnitBase {
     vm.prank(foundation);
     factory.createATP(beneficiary, ALLOCATION);
     assertTrue(factory.isATP(predicted));
+  }
+
+  function test_FactoryAndStakersAreBoundToTheFactorysGSE() external view {
+    assertEq(factory.getGSE(), address(gse));
+    assertEq(factory.getStakerImplementation().getGSE(), address(gse));
+    assertEq(staker.getGSE(), address(gse));
+  }
+
+  function test_RevertWhen_FactoryGSEHasNoCode() external {
+    address gseWithoutCode = makeAddr("gse without code");
+    vm.expectRevert(abi.encodeWithSelector(PremiumATPFactory.PremiumATPFactory__InvalidGSE.selector, gseWithoutCode));
+    new PremiumATPFactory(
+      foundation,
+      token,
+      registry,
+      IRegistry(address(rollupRegistry)),
+      IGSE(gseWithoutCode),
+      IStakingRegistry(address(0))
+    );
+  }
+
+  function test_RevertWhen_StakingIntoARollupOnAnotherGSE() external {
+    MockStakingRollup otherRollup = new MockStakingRollup(token, THRESHOLD, makeAddr("other gse"));
+    (, PremiumATPFactory otherFactory) = _deployFactoryOn(foundation, new MockRollupRegistry(otherRollup));
+    (PremiumATP otherAtp, PremiumATPStaker otherStaker) = _position(otherFactory, ALLOCATION);
+    address attester = _newAttester();
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        PremiumATPStaker.PremiumATPStaker__RollupOnAnotherGSE.selector, address(otherRollup), makeAddr("other gse")
+      )
+    );
+    vm.prank(operator);
+    otherStaker.stake(1, attester, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        PremiumATPStaker.PremiumATPStaker__RollupOnAnotherGSE.selector, address(otherRollup), makeAddr("other gse")
+      )
+    );
+    vm.prank(operator);
+    otherStaker.stakeWithProvider(1, 1, 500, beneficiary, false);
+    assertEq(otherAtp.getReserved(), 0);
+    assertFalse(otherStaker.isAttester(attester));
   }
 
   function test_RevertWhen_NonMinterCreatesAPosition(address _caller) external {
