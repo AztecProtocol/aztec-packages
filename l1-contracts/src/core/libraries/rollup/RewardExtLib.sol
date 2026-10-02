@@ -18,13 +18,7 @@ import {
   EthValue
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {
-  RewardLib,
-  RewardConfig,
-  MutableRewardConfig,
-  RegistryRewardOverride,
-  MAX_REGISTRY_REWARD_OVERRIDES
-} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {
@@ -40,11 +34,7 @@ library RewardExtLib {
   using FeeConfigLib for CompressedFeeConfig;
   using PriceLib for EthValue;
 
-  function initializeConfig(
-    RewardConfig memory _config,
-    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
-  ) external {
-    RewardLib.validateRegistryRewardOverrides(_registryRewardOverrides, _config);
+  function initializeConfig(RewardConfig memory _config) external {
     RewardLib.initializeConfig(_config);
   }
 

@@ -19,11 +19,7 @@ import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {ProposedHeader, ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  RewardLib,
-  RegistryRewardOverride,
-  MAX_REGISTRY_REWARD_OVERRIDES
-} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -115,11 +111,7 @@ library EpochProofLib {
    *              - proof: The validity proof bytes for the root rollup circuit
    * @param _config The rollup's deployment-time configuration
    */
-  function submitEpochRootProof(
-    SubmitEpochRootProofArgs calldata _args,
-    RollupConfig memory _config,
-    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
-  ) internal {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args, RollupConfig memory _config) internal {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
@@ -149,8 +141,7 @@ library EpochProofLib {
     // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
-    address[] memory committee =
-      verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
+    verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
 
     RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
@@ -189,7 +180,7 @@ library EpochProofLib {
     }
 
     // Activity score depends on whether the proof is a full epoch proof
-    RewardLib.handleRewardsAndFees(_args, endEpoch, _config, fullEpochProof, committee, _registryRewardOverrides);
+    RewardLib.handleRewardsAndFees(_args, endEpoch, _config, fullEpochProof);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -242,13 +233,12 @@ library EpochProofLib {
    *
    * @param _endCheckpointNumber The last checkpoint number in the epoch to verify attestations for
    * @param _attestations The committee attestations containing signatures and validator information
-   * @return The reconstructed committee
    */
   function verifyLastCheckpointAttestationsAndOutHash(
     uint256 _endCheckpointNumber,
     CommitteeAttestations memory _attestations,
     bytes32 _outHash
-  ) private returns (address[] memory) {
+  ) private {
     // Get the stored attestation hash and payload digest for the last checkpoint
     CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
 
@@ -273,12 +263,12 @@ library EpochProofLib {
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         if (isOpen) {
           // Skip attestation verification for escape hatch epochs
-          return new address[](0);
+          return;
         }
       }
     }
 
-    return ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
+    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
   }
 
   /**

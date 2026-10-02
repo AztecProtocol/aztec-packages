@@ -69,8 +69,6 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
-import {RegistryRewardOverride} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {MockATP, MockATPStaker} from "@test/mock/ATPMocks.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -754,68 +752,6 @@ contract PartialEpochProofGasReportTest is PartialEpochProofGasReportBase {
   function testGasReportSubmit32Checkpoints() public {
     _gasReporter().gasReportSubmit32Checkpoints(_getGasReportSubmission(32));
     assertEq(rollup.getProvenCheckpointNumber(), 32);
-  }
-}
-
-contract PartialEpochProofWithTwoOverridesGasReportTest is PartialEpochProofGasReportBase {
-  address internal firstRegistry = makeAddr("firstRegistry");
-  address internal secondRegistry = makeAddr("secondRegistry");
-  MockATPStaker internal firstStaker;
-  MockATPStaker internal secondStaker;
-
-  function setUp() public override {
-    firstStaker = new MockATPStaker(address(new MockATP(firstRegistry)));
-    secondStaker = new MockATPStaker(address(new MockATP(secondRegistry)));
-    super.setUp();
-  }
-
-  function _configureRollupBuilder(RollupBuilder _builder) internal override {
-    Config memory config = _builder.getConfig();
-    RollupConfigInput memory rollupConfig = config.rollupConfigInput;
-    rollupConfig.registryRewardOverrides[0] = RegistryRewardOverride({registry: firstRegistry, sequencerReward: 10e18});
-    rollupConfig.registryRewardOverrides[1] = RegistryRewardOverride({registry: secondRegistry, sequencerReward: 20e18});
-    _builder.setRollupConfigInput(rollupConfig);
-  }
-
-  function _validatorWithdrawer(uint256 _validatorIndex) internal view override returns (address) {
-    return _validatorIndex % 2 == 0 ? address(firstStaker) : address(secondStaker);
-  }
-
-  function testGasReportSubmit1CheckpointWithTwoOverrides() public {
-    _gasReporter().gasReportSubmit1CheckpointWithTwoOverrides(_getGasReportSubmission(1));
-    assertEq(rollup.getProvenCheckpointNumber(), 1);
-  }
-
-  function testGasReportSubmit8CheckpointsWithTwoOverrides() public {
-    _gasReporter().gasReportSubmit8CheckpointsWithTwoOverrides(_getGasReportSubmission(8));
-    assertEq(rollup.getProvenCheckpointNumber(), 8);
-  }
-
-  function testGasReportSubmit16CheckpointsWithTwoOverrides() public {
-    _gasReporter().gasReportSubmit16CheckpointsWithTwoOverrides(_getGasReportSubmission(16));
-    assertEq(rollup.getProvenCheckpointNumber(), 16);
-  }
-
-  function testGasReportSubmit32CheckpointsWithTwoOverrides() public {
-    _gasReporter().gasReportSubmit32CheckpointsWithTwoOverrides(_getGasReportSubmission(32));
-    assertEq(rollup.getProvenCheckpointNumber(), 32);
-  }
-
-  function testCompactExtensionWithTwoOverridesPreservesRewards() public {
-    rollup.submitEpochRootProof(_getGasReportSubmission(8));
-    uint256 snapshot = vm.snapshotState();
-    rollup.submitEpochRootProof(_getGasReportSubmission(16));
-    uint256 rewards = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH));
-    uint256[] memory sequencerRewards = new uint256[](16);
-    for (uint256 i = 0; i < 16; i++) {
-      sequencerRewards[i] = rollup.getSequencerRewards(checkpointHeaders[i + 1].coinbase);
-    }
-    vm.revertToState(snapshot);
-    rollup.submitEpochRootProof(_compactSubmission(_getGasReportSubmission(16), 8));
-    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH)), rewards);
-    for (uint256 i = 0; i < 16; i++) {
-      assertEq(rollup.getSequencerRewards(checkpointHeaders[i + 1].coinbase), sequencerRewards[i]);
-    }
   }
 }
 
