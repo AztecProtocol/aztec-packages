@@ -2,22 +2,22 @@
 
 | Proof submission | Gas |
 |---|---:|
-| 1 Checkpoint | 656,561 |
-| 1 Checkpoint With Calculator | 677,413 |
-| 1 Checkpoint With Reduction Calculator | 702,714 |
-| 1 Checkpoint With Reduction Calculator Two Mock Stakers | 692,948 |
-| 8 Checkpoints | 954,891 |
-| 8 Checkpoints With Calculator | 1,017,794 |
-| 8 Checkpoints With Reduction Calculator | 1,165,452 |
-| 8 Checkpoints With Reduction Calculator Two Mock Stakers | 1,086,512 |
-| 8 More Checkpoints | 908,450 |
-| 16 Checkpoints | 1,239,961 |
-| 16 Checkpoints With Calculator | 1,346,957 |
-| 16 Checkpoints With Reduction Calculator | 1,621,359 |
-| 16 Checkpoints With Reduction Calculator Two Mock Stakers | 1,474,987 |
-| 32 Checkpoints | 1,717,852 |
-| 32 Checkpoints With Calculator | 1,893,959 |
-| 32 Checkpoints With Reduction Calculator | 2,363,439 |
-| 32 Checkpoints With Reduction Calculator Two Mock Stakers | 2,130,609 |
+| 1 Checkpoint | 657,002 |
+| 1 Checkpoint With Calculator | 677,876 |
+| 1 Checkpoint With Reduction Calculator | 703,068 |
+| 1 Checkpoint With Reduction Calculator Two Mock Stakers | 693,411 |
+| 8 Checkpoints | 955,354 |
+| 8 Checkpoints With Calculator | 1,018,235 |
+| 8 Checkpoints With Reduction Calculator | 1,165,783 |
+| 8 Checkpoints With Reduction Calculator Two Mock Stakers | 1,086,975 |
+| 8 More Checkpoints | 908,913 |
+| 16 Checkpoints | 1,240,424 |
+| 16 Checkpoints With Calculator | 1,347,420 |
+| 16 Checkpoints With Reduction Calculator | 1,621,822 |
+| 16 Checkpoints With Reduction Calculator Two Mock Stakers | 1,475,450 |
+| 32 Checkpoints | 1,718,315 |
+| 32 Checkpoints With Calculator | 1,894,432 |
+| 32 Checkpoints With Reduction Calculator | 2,363,912 |
+| 32 Checkpoints With Reduction Calculator Two Mock Stakers | 2,131,104 |
 
 _Uses the mock epoch proof verifier._
