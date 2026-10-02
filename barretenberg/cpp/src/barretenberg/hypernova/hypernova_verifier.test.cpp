@@ -147,7 +147,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
     static constexpr size_t LOG_NUM_GATES = 4;
 
-    enum class TamperingMode : uint8_t { None, Instance };
+    enum class TamperingMode : uint8_t { None, Instance, RomReadOutOfBounds };
 
     template <typename Flavor>
     static std::shared_ptr<ProverInstance_<Flavor>> generate_instance(size_t log_num_gates = LOG_NUM_GATES)
@@ -156,6 +156,35 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         bb::MockCircuits::add_arithmetic_gates(builder, log_num_gates);
         bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
         bb::MockCircuits::add_lookup_gates(builder);
+        return std::make_shared<ProverInstance_<Flavor>>(builder);
+    }
+
+    /**
+     * @brief Build an instance that reads the last cell of a single-value ROM array through a witness index.
+     * @param out_of_bounds whether to move the index witness one past the end of the array. The circuit is built with
+     * the in-bounds read and the witness is overwritten afterwards, as the builder refuses to construct an
+     * out-of-bounds read.
+     */
+    template <typename Flavor>
+    static std::shared_ptr<ProverInstance_<Flavor>> generate_instance_with_rom_read(size_t log_num_gates,
+                                                                                    bool out_of_bounds)
+    {
+        typename Flavor::CircuitBuilder builder;
+        bb::MockCircuits::add_arithmetic_gates(builder, log_num_gates);
+        bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
+
+        const size_t rom_size = 5;
+        const size_t rom_id = builder.create_ROM_array(rom_size);
+        for (size_t i = 0; i < rom_size; ++i) {
+            builder.set_ROM_element(rom_id, i, builder.add_variable(FF(100 + i)));
+        }
+        const uint32_t index = builder.add_variable(FF(rom_size - 1));
+        builder.read_ROM_array(rom_id, index);
+
+        if (out_of_bounds) {
+            auto& variables = const_cast<std::vector<FF>&>(builder.get_variables());
+            variables[builder.real_variable_index[index]] = FF(rom_size);
+        }
         return std::make_shared<ProverInstance_<Flavor>>(builder);
     }
 
@@ -265,7 +294,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     /**
      * @brief Fold `num_instances` kernel instances with the prover, then verify the group natively and recursively.
      * @param use_previous_accumulator whether to start from a (valid) previous accumulator.
-     * @param mode whether to tamper the last instance.
+     * @param mode whether, and how, to make the last instance invalid.
      */
     static void test_folding(size_t num_instances, bool use_previous_accumulator, TamperingMode mode)
     {
@@ -274,7 +303,14 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         prover_instances.reserve(num_instances);
         vks.reserve(num_instances);
         for (size_t i = 0; i < num_instances; ++i) {
-            prover_instances.push_back(generate_instance<KernelFlavor>(LOG_NUM_GATES + i));
+            if (mode == TamperingMode::RomReadOutOfBounds) {
+                // Every instance reads the ROM array; only the last one reads out of bounds.
+                const bool out_of_bounds = (i == num_instances - 1);
+                prover_instances.push_back(
+                    generate_instance_with_rom_read<KernelFlavor>(LOG_NUM_GATES + i, out_of_bounds));
+            } else {
+                prover_instances.push_back(generate_instance<KernelFlavor>(LOG_NUM_GATES + i));
+            }
             vks.push_back(std::make_shared<KernelFlavor::VerificationKey>(prover_instances.back()->get_precomputed()));
         }
         if (mode == TamperingMode::Instance) {
@@ -346,7 +382,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             previous_recursive_accumulator.has_value() ? previous_recursive_accumulator : std::nullopt);
 
         // ---- Assertions ----
-        const bool tampered = (mode == TamperingMode::Instance);
+        const bool tampered = (mode != TamperingMode::None);
         for (size_t i = 0; i < num_instances; ++i) {
             const bool expected = !tampered || i != num_instances - 1;
             EXPECT_EQ(native_sumchecks[i], expected) << "native instance " << i;
@@ -488,6 +524,14 @@ TEST_F(HypernovaFoldingVerifierTests, TamperInstance)
 {
     BB_DISABLE_ASSERTS();
     test_folding(/*num_instances=*/3, /*use_previous_accumulator=*/false, TamperingMode::Instance);
+}
+
+// An instance whose witness reads a ROM array one index past its end fails its instance-to-accumulator sumcheck,
+// while the instances that read the same array in bounds fold.
+TEST_F(HypernovaFoldingVerifierTests, RomReadOutOfBounds)
+{
+    BB_DISABLE_ASSERTS();
+    test_folding(/*num_instances=*/3, /*use_previous_accumulator=*/false, TamperingMode::RomReadOutOfBounds);
 }
 
 // Pin the folding transcript manifest for a previous-accumulator + one-instance (2-claim) fold, for both the kernel
