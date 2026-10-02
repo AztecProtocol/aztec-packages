@@ -112,7 +112,7 @@ contract PremiumLifecycleTest is PremiumRollupBase {
     assertEq(_rewardOf(liquid), DEFAULT_REWARD);
     assertEq(_rewardOf(genuine), PREMIUM);
 
-    // The staker can exit the liquid stake, but only to the position, where it is never claimable: the position
+    // The staker can exit the liquid stake, but only to the position, where it raises nothing claimable: the position
     // pays at most its allocation.
     _exit(staker, liquid);
     vm.warp(unlockStart + LOCK);

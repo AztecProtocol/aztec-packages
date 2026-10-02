@@ -20,9 +20,11 @@ import {Math} from "@oz/utils/math/Math.sol";
  * @dev Invariant: `claimed + reserved <= allocation`. `reserveForStake` (staker only) refuses to reserve beyond
  *      `allocation - claimed`; `claim` pays at most `allocation - claimed - reserved`, and also at most what the
  *      schedule has unlocked and what the position holds. So the beneficiary never receives more than
- *      `allocation - reserved`, whatever else is sent to the position: tokens beyond the allocation (top-ups,
- *      donations, the excess of a front-run deposit) are never claimable. There is no sweep: stake returning from
- *      the rollup lands here and stays under the schedule and the reservation.
+ *      `allocation - reserved` in total, whatever else is sent to the position: tokens beyond the allocation
+ *      (top-ups, donations, the excess of a front-run deposit) never raise that bound. They are not kept apart
+ *      either: once a slash leaves the balance short of what the schedule and the reservation allow, such tokens
+ *      fill the hole and can be claimed, still within `allocation - claimed - reserved`. There is no sweep: stake
+ *      returning from the rollup lands here and stays under the schedule and the reservation.
  *
  *      Positions are EIP-1167 clones of one implementation, created and initialized by the factory in one
  *      transaction. Only the factory that deployed the implementation can initialize a clone, once; the
