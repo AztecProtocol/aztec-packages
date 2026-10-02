@@ -46,7 +46,9 @@ contract CalculatorCallTest is Test {
   uint256 internal constant DEFAULT_REWARD = 50e18;
   uint256 internal constant CHECKPOINT_REWARD = 100e18;
   Epoch internal constant EPOCH = Epoch.wrap(7);
-  // Caller-side cost of one harness call around the staticcall: cold access, calldata, encoding and the bounded copy.
+  // Caller-side cost of one harness call around the staticcall: account accesses, calldata, encoding and the bounded
+  // copy. At n = 32 it is about 15k, and about 23k under isolation (the default in recent forge versions), where each
+  // top-level call is its own transaction and starts with cold accounts.
   uint256 internal constant CALLER_OVERHEAD = 30_000;
 
   CalculatorCallHarness internal harness;
@@ -170,10 +172,8 @@ contract CalculatorCallTest is Test {
 
   function test_RevertDataIsNotCopied() external {
     uint256 n = 32;
-    uint256 stipend = _stipend(n);
-    uint256 gasBefore = gasleft();
-    _assertRejected(address(new RevertingCalculator(1 << 20)), n);
-    assertLe(gasBefore - gasleft(), stipend + CALLER_OVERHEAD, "revert data copied");
+    uint256 used = _rejectedCallGas(address(new RevertingCalculator(1 << 20)), n);
+    assertLe(used, _stipend(n) + CALLER_OVERHEAD, "revert data copied");
   }
 
   function test_RejectsStateChange() external {
@@ -191,10 +191,7 @@ contract CalculatorCallTest is Test {
     uint256[2] memory sizes = [uint256(1), 32];
     for (uint256 s = 0; s < sizes.length; s++) {
       uint256 n = sizes[s];
-      address calculator = address(new GasBurningCalculator());
-      uint256 gasBefore = gasleft();
-      _assertRejected(calculator, n);
-      uint256 used = gasBefore - gasleft();
+      uint256 used = _rejectedCallGas(address(new GasBurningCalculator()), n);
       assertGe(used, _stipend(n), "the calculator ran with the full stipend");
       assertLe(used, _stipend(n) + CALLER_OVERHEAD, "caller gas above stipend plus overhead");
     }
@@ -325,10 +322,8 @@ contract CalculatorCallTest is Test {
   }
 
   function _assertReturnBombBounded(uint256 _n, uint256 _size) internal {
-    address calculator = address(new ReturnBombCalculator(_size));
-    uint256 gasBefore = gasleft();
-    _assertRejected(calculator, _n);
-    assertLe(gasBefore - gasleft(), _stipend(_n) + CALLER_OVERHEAD, "return data copied");
+    uint256 used = _rejectedCallGas(address(new ReturnBombCalculator(_size)), _n);
+    assertLe(used, _stipend(_n) + CALLER_OVERHEAD, "return data copied");
   }
 
   function _assertSmallestSufficientGasForwardsTheFullStipend(address _calculator, uint256 _n) internal {
@@ -369,6 +364,15 @@ contract CalculatorCallTest is Test {
 
   function _assertRejected(address _calculator, uint256 _n) internal view {
     (bool accepted,,) = _call(_calculator, _n);
+    assertFalse(accepted, "malformed response accepted");
+  }
+
+  /// @dev Gas of one rejected harness call, excluding the derivation of the proposers.
+  function _rejectedCallGas(address _calculator, uint256 _n) internal view returns (uint256 used) {
+    address[] memory proposers = _proposers(_n);
+    uint256 gasBefore = gasleft();
+    (bool accepted,,) = harness.tryGetSequencerRewards(_calculator, EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD);
+    used = gasBefore - gasleft();
     assertFalse(accepted, "malformed response accepted");
   }
 
