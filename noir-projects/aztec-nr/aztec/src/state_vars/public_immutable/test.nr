@@ -9,6 +9,7 @@ use crate::{
 };
 use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::{Hash, Packable}};
 use crate::test::{helpers::test_environment::{PrivateContextOptions, TestEnvironment}, mocks::MockStruct};
+use std::test::OracleMock;
 
 global storage_slot: Field = 7;
 
@@ -265,6 +266,56 @@ unconstrained fn private_read_records_value_at_anchor_block() {
     });
 }
 
+#[test]
+unconstrained fn utility_read_does_not_fetch_cached_value() {
+    let env = TestEnvironment::new();
+    let value = MockStruct::new(5, 6);
+
+    env.public_context(|context| {
+        let state_var = in_public(context);
+        state_var.initialize(value);
+    });
+
+    let storage_read_mock = OracleMock::mock("aztec_utl_getFromPublicStorage").returns(value.pack());
+
+    env.utility_context(|context| {
+        let state_var = in_utility(context);
+        let _ = state_var.read();
+    });
+    assert_eq(storage_read_mock.times_called(), 1);
+
+    env.utility_context(|context| {
+        let state_var = in_utility(context);
+        assert_eq(state_var.read(), value);
+    });
+    assert_eq(storage_read_mock.times_called(), 1);
+}
+
+#[test]
+unconstrained fn private_read_does_not_fetch_cached_value() {
+    let env = TestEnvironment::new();
+    let value = MockStruct::new(5, 6);
+
+    env.public_context(|context| {
+        let state_var = in_public(context);
+        state_var.initialize(value);
+    });
+
+    let storage_read_mock = OracleMock::mock("aztec_utl_getFromPublicStorage").returns(value.pack());
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+        let _ = state_var.read();
+    });
+    assert_eq(storage_read_mock.times_called(), 1);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+        assert_eq(state_var.read(), value);
+    });
+    assert_eq(storage_read_mock.times_called(), 1);
+}
+
 #[test(should_fail_with = "Trying to read from uninitialized PublicImmutable")]
 unconstrained fn private_read_at_block_before_initialization_fails_despite_cache() {
     let env = TestEnvironment::new();
@@ -292,7 +343,7 @@ unconstrained fn private_read_at_block_before_initialization_fails_despite_cache
 }
 
 #[test]
-unconstrained fn private_read_at_earlier_anchor_block_reuses_cached_value() {
+unconstrained fn private_read_uses_value_cached_at_later_anchor_block() {
     let env = TestEnvironment::new();
     let value = MockStruct::new(5, 6);
 
