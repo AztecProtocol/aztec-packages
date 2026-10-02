@@ -241,6 +241,9 @@ library Errors {
   error RewardLib__ZeroShares(address prover);
   error RewardLib__InvalidProtocolFeeRecipient();
 
+  // SequencerRewardCalculatorLib
+  error SequencerRewardCalculatorLib__InsufficientGas(uint256 required, uint256 available);
+
   // SlashingProposer
   error SlashingProposer__InvalidSignature();
   error SlashingProposer__InvalidVoteLength(uint256 expected, uint256 actual);
