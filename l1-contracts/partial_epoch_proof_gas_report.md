@@ -2,14 +2,14 @@
 
 | Proof submission | Gas |
 |---|---:|
-| 1 Checkpoint | 656,493 |
-| 1 Checkpoint With Calculator | 677,434 |
-| 8 Checkpoints | 954,823 |
-| 8 Checkpoints With Calculator | 1,017,837 |
-| 8 More Checkpoints | 908,427 |
-| 16 Checkpoints | 1,240,004 |
-| 16 Checkpoints With Calculator | 1,347,000 |
-| 32 Checkpoints | 1,717,873 |
-| 32 Checkpoints With Calculator | 1,894,002 |
+| 1 Checkpoint | 656,934 |
+| 1 Checkpoint With Calculator | 677,897 |
+| 8 Checkpoints | 955,286 |
+| 8 Checkpoints With Calculator | 1,018,212 |
+| 8 More Checkpoints | 908,890 |
+| 16 Checkpoints | 1,240,270 |
+| 16 Checkpoints With Calculator | 1,347,463 |
+| 32 Checkpoints | 1,718,336 |
+| 32 Checkpoints With Calculator | 1,894,409 |
 
 _Uses the mock epoch proof verifier._
