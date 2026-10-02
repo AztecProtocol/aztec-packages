@@ -15,6 +15,12 @@ import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStake
 import {FakeWithdrawer} from "@test/reward-calculators/premium/mocks/PremiumMocks.sol";
 import {PremiumRollupBase} from "@test/reward-calculators/premium/PremiumRollupBase.sol";
 import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
  * @notice The premium calculator and provenance-tracking positions over a real rollup and GSE: deposits go through
@@ -355,6 +361,134 @@ contract PremiumLifecycleTest is PremiumRollupBase {
     atp.claim();
     assertEq(token.balanceOf(beneficiary), threshold);
     assertLe(atp.getClaimed() + atp.getReserved(), atp.getAllocation());
+  }
+
+  function test_PartialSlashThatEjectsReturnsTheRemainderToThePosition() external {
+    (PremiumATP atp, PremiumATPStaker staker) = _position(1);
+    address attester = _stake(staker);
+    _flush();
+
+    // Leaves less than the ejection threshold: the attester is removed with an exit for the rest, owed to its
+    // withdrawer, so it is a zombie until the staker names the recipient.
+    uint256 ejection = rollup.getEjectionThreshold();
+    if (rollup.getLocalEjectionThreshold() > ejection) {
+      ejection = rollup.getLocalEjectionThreshold();
+    }
+    uint256 slashAmount = threshold - ejection + 1;
+    assertLt(slashAmount, threshold);
+    vm.prank(rollup.getSlasher());
+    rollup.slash(attester, slashAmount);
+    assertTrue(rollup.getStatus(attester) == Status.ZOMBIE);
+    Exit memory exit = rollup.getExit(attester);
+    assertEq(exit.amount, threshold - slashAmount);
+    assertEq(exit.recipientOrWithdrawer, address(staker));
+    assertFalse(exit.isRecipient);
+    assertEq(_rewardOf(attester), PREMIUM);
+
+    vm.prank(operator);
+    staker.initiateWithdraw(version, attester);
+    assertEq(rollup.getExit(attester).recipientOrWithdrawer, address(atp));
+    vm.warp(block.timestamp + Timestamp.unwrap(rollup.getExitDelay()) + 1);
+    rollup.finalizeWithdraw(attester);
+    assertEq(token.balanceOf(address(atp)), threshold - slashAmount);
+    assertEq(token.balanceOf(address(staker)), 0);
+
+    // The reservation is unchanged by the slash and the exit, and covers the whole original stake until release.
+    assertEq(atp.getReserved(), threshold);
+    vm.warp(unlockStart + LOCK);
+    assertEq(atp.getClaimable(), 0);
+    assertEq(_rewardOf(attester), PREMIUM);
+    vm.prank(operator);
+    staker.release(attester);
+    assertEq(_rewardOf(attester), DEFAULT_REWARD);
+    assertEq(atp.getClaimable(), threshold - slashAmount);
+    assertLe(atp.getClaimed() + atp.getReserved(), atp.getAllocation());
+  }
+
+  function test_SlashDuringAnExitReducesWhatReturnsToThePosition() external {
+    (PremiumATP atp, PremiumATPStaker staker) = _position(1);
+    address attester = _stake(staker);
+    _flush();
+
+    vm.prank(operator);
+    staker.initiateWithdraw(version, attester);
+    assertTrue(rollup.getStatus(attester) == Status.EXITING);
+
+    uint256 slashAmount = threshold / 4;
+    vm.prank(rollup.getSlasher());
+    rollup.slash(attester, slashAmount);
+    assertEq(rollup.getExit(attester).amount, threshold - slashAmount);
+    assertEq(rollup.getExit(attester).recipientOrWithdrawer, address(atp));
+    assertEq(_rewardOf(attester), PREMIUM);
+
+    vm.warp(block.timestamp + Timestamp.unwrap(rollup.getExitDelay()) + 1);
+    rollup.finalizeWithdraw(attester);
+    assertEq(token.balanceOf(address(atp)), threshold - slashAmount);
+
+    assertEq(atp.getReserved(), threshold);
+    vm.warp(unlockStart + LOCK);
+    assertEq(atp.getClaimable(), 0);
+    vm.prank(operator);
+    staker.release(attester);
+    assertEq(_rewardOf(attester), DEFAULT_REWARD);
+    assertEq(atp.getClaimable(), threshold - slashAmount);
+    assertLe(atp.getClaimed() + atp.getReserved(), atp.getAllocation());
+  }
+
+  function test_AttesterThatMovesWithTheLatestRollupKeepsThePremiumAndExitsFromIt() external {
+    (PremiumATP atp, PremiumATPStaker staker) = _position(2);
+    address attester = _newAttester();
+    (G1Point memory pk1, G2Point memory pk2, G1Point memory pop) = _keys(attester);
+    vm.prank(operator);
+    staker.stake(version, attester, pk1, pk2, pop, true);
+    _flush();
+    assertEq(gse.effectiveBalanceOf(address(rollup), attester), threshold);
+    assertEq(_rewardOf(attester), PREMIUM);
+
+    // A new rollup becomes the latest: the bonus instance, and the attester with it, now belong to it.
+    Rollup next = _deployNextRollup();
+    uint256 nextVersion = next.getVersion();
+    assertEq(gse.getLatestRollup(), address(next));
+    assertEq(gse.effectiveBalanceOf(address(rollup), attester), 0);
+    assertEq(gse.effectiveBalanceOf(address(next), attester), threshold);
+
+    // The calculator reads the GSE, not its caller, so the premium follows the attester to the new rollup.
+    assertEq(gse.getWithdrawer(attester), address(staker));
+    assertEq(_rewardOf(attester), PREMIUM);
+    assertEq(atp.getReserved(), threshold);
+
+    // The exit goes through the new rollup and still pays the position.
+    vm.prank(operator);
+    staker.initiateWithdraw(nextVersion, attester);
+    assertTrue(next.getStatus(attester) == Status.EXITING);
+    assertEq(next.getExit(attester).recipientOrWithdrawer, address(atp));
+    vm.warp(block.timestamp + Timestamp.unwrap(next.getExitDelay()) + 1);
+    staker.finalizeWithdraw(nextVersion, attester);
+    assertEq(token.balanceOf(address(atp)), 2 * threshold);
+
+    assertEq(_rewardOf(attester), PREMIUM);
+    vm.warp(unlockStart + LOCK);
+    assertEq(atp.getClaimable(), threshold);
+    vm.prank(operator);
+    staker.release(attester);
+    assertEq(_rewardOf(attester), DEFAULT_REWARD);
+    assertEq(atp.getClaimable(), 2 * threshold);
+  }
+
+  /// @dev Deploys a rollup on the same GSE and registry with the next version and makes it the latest in both.
+  function _deployNextRollup() internal returns (Rollup next) {
+    RollupConfigInput memory input = TestConstants.getRollupConfigInput();
+    // forge-lint: disable-next-line(unsafe-typecast)
+    input.version = uint32(version + 1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setTestERC20(token).setGSE(gse)
+      .setRegistry(Registry(address(rollupRegistry))).setRollupConfigInput(input).setMakeCanonical(false)
+      .setMakeGovernance(false).setUpdateOwnerships(false);
+    builder.deploy();
+    next = Rollup(address(builder.getConfig().rollup));
+    vm.prank(Ownable(address(rollupRegistry)).owner());
+    rollupRegistry.addRollup(IHaveVersion(address(next)));
+    vm.prank(gse.owner());
+    gse.addRollup(address(next));
   }
 
   // Re-registration of an attester address is impossible with the real GSE.
