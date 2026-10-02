@@ -15,9 +15,7 @@ import {
   CheckpointPreflightArgs,
   FeeHeader,
   RollupConfigInput,
-  RollupStore,
-  RegistryRewardOverride,
-  MAX_REGISTRY_REWARD_OVERRIDES
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
@@ -645,15 +643,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getCheckpointReward() external view override(IRollup) returns (uint256) {
     return RewardExtLib.getCheckpointReward();
-  }
-
-  function getRegistryRewardOverrides()
-    external
-    view
-    override(IRollup)
-    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory)
-  {
-    return _getRegistryRewardOverrides();
   }
 
   function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {
