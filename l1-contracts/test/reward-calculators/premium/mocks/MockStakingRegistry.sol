@@ -12,6 +12,14 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 /**
+ * @notice The provider key queue's errors, with the names (and so the selectors) of `QueueLib` in
+ *         ignition-contracts.
+ */
+library QueueLib {
+  error QueueIsEmpty();
+}
+
+/**
  * @notice Stand-in for the reward split factory the StakingRegistry calls after a deposit.
  */
 contract MockSplitFactory {
@@ -26,8 +34,9 @@ contract MockSplitFactory {
 /**
  * @notice Mirrors the call structure of `StakingRegistry.stake` in ignition-contracts: the caller names the
  *         withdrawal address, the registry dequeues the provider's next key (first in, first out), pulls one
- *         activation threshold from the caller, deposits it into the rollup with that withdrawal address, then calls
- *         the split factory. It does not return the attester.
+ *         activation threshold from the caller, approves exactly that to the rollup and deposits it with that
+ *         withdrawal address, then calls the split factory. It does not return the attester. Provider identifiers
+ *         start at 1, and an unknown identifier (including 0) is rejected, as in the real registry.
  * @dev `behaviour` lets a test turn it into a hostile registry, to show what the staker's entry queue checks catch
  *      and that its reservation holds even when they do not.
  */
@@ -67,7 +76,7 @@ contract MockStakingRegistry is IStakingRegistry {
   IRegistry public immutable ROLLUP_REGISTRY;
 
   Behaviour public behaviour;
-  uint256 public nextProviderIdentifier;
+  uint256 public nextProviderIdentifier = 1;
   mapping(uint256 providerIdentifier => Provider provider) internal providers;
 
   event StakedWithProvider(
@@ -82,7 +91,6 @@ contract MockStakingRegistry is IStakingRegistry {
   error StakingRegistry__InvalidProviderIdentifier(uint256 providerIdentifier);
   error StakingRegistry__NotProviderAdmin();
   error StakingRegistry__UnexpectedTakeRate(uint256 expectedTakeRate, uint256 gotTakeRate);
-  error StakingRegistry__QueueIsEmpty();
 
   constructor(IERC20 _stakingAsset, MockSplitFactory _pullSplitFactory, IRegistry _rollupRegistry) {
     STAKING_ASSET = _stakingAsset;
@@ -139,7 +147,7 @@ contract MockStakingRegistry is IStakingRegistry {
 
     uint256 activationThreshold = IStaking(rollupAddress).getActivationThreshold();
     STAKING_ASSET.safeTransferFrom(msg.sender, address(this), activationThreshold);
-    STAKING_ASSET.approve(rollupAddress, type(uint256).max);
+    STAKING_ASSET.approve(rollupAddress, activationThreshold);
 
     Behaviour mode = behaviour;
     if (mode == Behaviour.SubstituteAttester) {
@@ -154,6 +162,7 @@ contract MockStakingRegistry is IStakingRegistry {
       );
     }
     if (mode == Behaviour.DepositTwice) {
+      STAKING_ASSET.approve(rollupAddress, activationThreshold);
       _deposit(rollupAddress, _dequeue(provider), _withdrawalAddress, _moveWithLatestRollup);
     }
 
@@ -176,7 +185,7 @@ contract MockStakingRegistry is IStakingRegistry {
   }
 
   function _dequeue(Provider storage _provider) internal returns (KeyStore memory key) {
-    require(_provider.next < _provider.keys.length, StakingRegistry__QueueIsEmpty());
+    require(_provider.next < _provider.keys.length, QueueLib.QueueIsEmpty());
     key = _provider.keys[_provider.next];
     _provider.next++;
   }

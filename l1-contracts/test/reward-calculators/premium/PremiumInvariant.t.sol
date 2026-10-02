@@ -38,6 +38,7 @@ contract PremiumPositionHandler is Test {
   address internal immutable BENEFICIARY;
   address internal immutable ATTACKER;
   address internal immutable PROVIDER_ADMIN;
+  uint256 internal immutable PROVIDER_ID;
 
   Key[] internal keys;
   uint256 internal nextKey;
@@ -48,6 +49,7 @@ contract PremiumPositionHandler is Test {
     Rollup _rollup,
     PremiumATP _atp,
     MockStakingRegistry _stakingRegistry,
+    uint256 _providerId,
     address _providerAdmin,
     address _attacker,
     Key[] memory _keys
@@ -63,6 +65,7 @@ contract PremiumPositionHandler is Test {
     BENEFICIARY = _atp.getBeneficiary();
     ATTACKER = _attacker;
     PROVIDER_ADMIN = _providerAdmin;
+    PROVIDER_ID = _providerId;
     for (uint256 i = 0; i < _keys.length; i++) {
       keys.push(_keys[i]);
     }
@@ -87,9 +90,9 @@ contract PremiumPositionHandler is Test {
       attester: attester, publicKeyG1: key.pk1, publicKeyG2: key.pk2, proofOfPossession: key.pop
     });
     vm.prank(PROVIDER_ADMIN);
-    STAKING_REGISTRY.addKeysToProvider(0, keyStores);
+    STAKING_REGISTRY.addKeysToProvider(PROVIDER_ID, keyStores);
     vm.prank(OPERATOR);
-    try STAKER.stakeWithProvider(VERSION, 0, 500, BENEFICIARY, false) {
+    try STAKER.stakeWithProvider(VERSION, PROVIDER_ID, 500, BENEFICIARY, false) {
       calls["stakeWithProvider"]++;
     } catch {}
   }
@@ -256,7 +259,7 @@ contract PremiumInvariantTest is PremiumRollupBase {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       handlerKeys[i] = PremiumPositionHandler.Key({pk1: key.pk1, pk2: key.pk2, pop: signRegistrationDigest(key.sk)});
     }
-    handler = new PremiumPositionHandler(rollup, atp, stakingRegistry, providerAdmin, attacker, handlerKeys);
+    handler = new PremiumPositionHandler(rollup, atp, stakingRegistry, providerId, providerAdmin, attacker, handlerKeys);
     targetContract(address(handler));
   }
 

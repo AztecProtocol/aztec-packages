@@ -50,6 +50,7 @@ abstract contract PremiumRollupBase is BN254Fixtures {
   uint256 internal unlockStart;
   PremiumATPRegistry internal atpRegistry;
   MockStakingRegistry internal stakingRegistry;
+  uint256 internal providerId;
   PremiumATPFactory internal factory;
   PremiumRewardCalculator internal calculator;
 
@@ -89,7 +90,7 @@ abstract contract PremiumRollupBase is BN254Fixtures {
       foundation, UnlockSchedule({startTime: unlockStart, cliffDuration: 0, lockDuration: LOCK})
     );
     stakingRegistry = new MockStakingRegistry(token, new MockSplitFactory(), rollupRegistry);
-    stakingRegistry.registerProvider(providerAdmin, 500, makeAddr("provider rewards"));
+    providerId = stakingRegistry.registerProvider(providerAdmin, 500, makeAddr("provider rewards"));
     factory = new PremiumATPFactory(
       foundation, token, atpRegistry, rollupRegistry, gse, IStakingRegistry(address(stakingRegistry))
     );
@@ -161,7 +162,7 @@ abstract contract PremiumRollupBase is BN254Fixtures {
     keyStores[0] =
       MockStakingRegistry.KeyStore({attester: _attester, publicKeyG1: pk1, publicKeyG2: pk2, proofOfPossession: pop});
     vm.prank(providerAdmin);
-    stakingRegistry.addKeysToProvider(0, keyStores);
+    stakingRegistry.addKeysToProvider(providerId, keyStores);
   }
 
   function _flush() internal {

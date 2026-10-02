@@ -107,7 +107,7 @@ contract PremiumGSEBindingTest is PremiumRollupBase {
       )
     );
     vm.prank(operator);
-    staker.stakeWithProvider(otherVersion, 0, 500, beneficiary, false);
+    staker.stakeWithProvider(otherVersion, providerId, 500, beneficiary, false);
 
     assertEq(atp.getReserved(), 0);
     assertFalse(staker.isAttester(attester));

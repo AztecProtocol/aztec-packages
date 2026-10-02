@@ -16,7 +16,11 @@ import {PremiumATP} from "@test/reward-calculators/premium/PremiumATP.sol";
 import {PremiumATPFactory} from "@test/reward-calculators/premium/PremiumATPFactory.sol";
 import {PremiumATPRegistry, UnlockSchedule} from "@test/reward-calculators/premium/PremiumATPRegistry.sol";
 import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStaker.sol";
-import {MockSplitFactory, MockStakingRegistry} from "@test/reward-calculators/premium/mocks/MockStakingRegistry.sol";
+import {
+  MockSplitFactory,
+  MockStakingRegistry,
+  QueueLib
+} from "@test/reward-calculators/premium/mocks/MockStakingRegistry.sol";
 import {MockRollupRegistry, MockStakingRollup} from "@test/reward-calculators/premium/mocks/PremiumMocks.sol";
 import {PremiumUnitBase} from "@test/reward-calculators/premium/PremiumUnitBase.sol";
 
@@ -27,6 +31,7 @@ import {PremiumUnitBase} from "@test/reward-calculators/premium/PremiumUnitBase.
 contract PremiumATPTest is PremiumUnitBase {
   PremiumATP internal atp;
   PremiumATPStaker internal staker;
+  uint256 internal providerId;
 
   function setUp() public override {
     super.setUp();
@@ -212,7 +217,7 @@ contract PremiumATPTest is PremiumUnitBase {
     vm.expectRevert(abi.encodeWithSelector(PremiumATPStaker.PremiumATPStaker__NotOperator.selector, _caller, operator));
     staker.stake(1, _newAttester(), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
     vm.expectRevert(abi.encodeWithSelector(PremiumATPStaker.PremiumATPStaker__NotOperator.selector, _caller, operator));
-    staker.stakeWithProvider(1, 0, 0, _caller, false);
+    staker.stakeWithProvider(1, 1, 0, _caller, false);
     vm.expectRevert(abi.encodeWithSelector(PremiumATPStaker.PremiumATPStaker__NotOperator.selector, _caller, operator));
     staker.initiateWithdraw(1, attester);
     vm.expectRevert(abi.encodeWithSelector(PremiumATPStaker.PremiumATPStaker__NotOperator.selector, _caller, operator));
@@ -424,19 +429,40 @@ contract PremiumATPTest is PremiumUnitBase {
   function test_StakeWithProviderRecordsTheProvidersAttester() external {
     (MockStakingRegistry stakingRegistry, PremiumATPStaker providerStaker, address[] memory keys) = _providerSetup();
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
 
     assertTrue(providerStaker.isAttester(keys[0]));
     assertFalse(providerStaker.isAttester(keys[1]));
     assertEq(providerStaker.getStake(keys[0]), THRESHOLD);
     assertEq(token.allowance(address(providerStaker), address(stakingRegistry)), 0);
+    assertEq(token.allowance(address(stakingRegistry), address(rollup)), 0);
     DepositArgs memory entry = rollup.getEntryQueueAt(rollup.getEntryQueueLength() - 1);
     assertEq(entry.attester, keys[0]);
     assertEq(entry.withdrawer, address(providerStaker));
 
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
     assertTrue(providerStaker.isAttester(keys[1]));
+  }
+
+  function test_RevertWhen_ProviderIsUnknown() external {
+    (, PremiumATPStaker providerStaker,) = _providerSetup();
+    vm.expectRevert(
+      abi.encodeWithSelector(MockStakingRegistry.StakingRegistry__InvalidProviderIdentifier.selector, uint256(0))
+    );
+    vm.prank(operator);
+    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+  }
+
+  function test_RevertWhen_ProviderHasNoKeysLeft() external {
+    (, PremiumATPStaker providerStaker,) = _providerSetup();
+    for (uint256 i = 0; i < 3; i++) {
+      vm.prank(operator);
+      providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
+    }
+    vm.expectRevert(QueueLib.QueueIsEmpty.selector);
+    vm.prank(operator);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
   }
 
   function test_RevertWhen_ProviderDepositsWithAnotherWithdrawer() external {
@@ -446,7 +472,7 @@ contract PremiumATPTest is PremiumUnitBase {
       abi.encodeWithSelector(PremiumATPStaker.PremiumATPStaker__UnexpectedWithdrawer.selector, address(stakingRegistry))
     );
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
   }
 
   function test_RevertWhen_ProviderDepositsTwice() external {
@@ -460,7 +486,7 @@ contract PremiumATPTest is PremiumUnitBase {
       )
     );
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
   }
 
   function test_RevertWhen_ProviderDoesNotDeposit() external {
@@ -471,14 +497,14 @@ contract PremiumATPTest is PremiumUnitBase {
       abi.encodeWithSelector(PremiumATPStaker.PremiumATPStaker__UnexpectedEntryQueueLength.selector, length + 1, length)
     );
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
   }
 
   function test_RevertWhen_ProviderTakeRateChanged() external {
     (, PremiumATPStaker providerStaker,) = _providerSetup();
     vm.expectRevert(abi.encodeWithSelector(MockStakingRegistry.StakingRegistry__UnexpectedTakeRate.selector, 400, 500));
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 400, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 400, beneficiary, false);
   }
 
   function test_HostileStakingRegistryCannotBreakTheReservation() external {
@@ -489,7 +515,7 @@ contract PremiumATPTest is PremiumUnitBase {
     stakingRegistry.setBehaviour(MockStakingRegistry.Behaviour.SubstituteAttester);
     token.mint(address(stakingRegistry), THRESHOLD);
     vm.prank(operator);
-    providerStaker.stakeWithProvider(1, 0, 500, beneficiary, false);
+    providerStaker.stakeWithProvider(1, providerId, 500, beneficiary, false);
     assertTrue(providerStaker.isAttester(keys[1]));
     PremiumATP providerAtp = PremiumATP(providerStaker.getATP());
     assertEq(providerAtp.getReserved(), THRESHOLD);
@@ -502,7 +528,8 @@ contract PremiumATPTest is PremiumUnitBase {
   {
     stakingRegistry = new MockStakingRegistry(token, new MockSplitFactory(), IRegistry(address(rollupRegistry)));
     address providerAdmin = makeAddr("provider admin");
-    stakingRegistry.registerProvider(providerAdmin, 500, makeAddr("provider rewards"));
+    providerId = stakingRegistry.registerProvider(providerAdmin, 500, makeAddr("provider rewards"));
+    assertEq(providerId, 1);
     keys = new address[](3);
     MockStakingRegistry.KeyStore[] memory keyStores = new MockStakingRegistry.KeyStore[](3);
     for (uint256 i = 0; i < 3; i++) {
@@ -515,7 +542,7 @@ contract PremiumATPTest is PremiumUnitBase {
       });
     }
     vm.prank(providerAdmin);
-    stakingRegistry.addKeysToProvider(0, keyStores);
+    stakingRegistry.addKeysToProvider(providerId, keyStores);
 
     PremiumATPRegistry providerRegistry = new PremiumATPRegistry(
       foundation, UnlockSchedule({startTime: UNLOCK_START, cliffDuration: CLIFF, lockDuration: LOCK})

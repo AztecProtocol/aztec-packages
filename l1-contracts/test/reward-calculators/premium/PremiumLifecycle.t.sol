@@ -51,7 +51,7 @@ contract PremiumLifecycleTest is PremiumRollupBase {
     _addProviderKey(attester);
 
     vm.prank(operator);
-    staker.stakeWithProvider(version, 0, 500, beneficiary, false);
+    staker.stakeWithProvider(version, providerId, 500, beneficiary, false);
     assertTrue(staker.isAttester(attester));
     assertEq(atp.getReserved(), threshold);
 
