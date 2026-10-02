@@ -29,6 +29,7 @@ import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
+import {IBooster} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -288,6 +289,33 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       AttestationLibHelper.packAttestations(ree1.attestations),
       Errors.Rollup__InvalidAttestations.selector
     );
+  }
+
+  function testFullEpochProofUpgradesRegistrationAfterTailInvalidation() public setup(4, 4) progressEpochsToInclusion {
+    address prover = address(0xcafe);
+    IBooster booster = IBooster(address(rollup.getRewardConfig().booster));
+
+    // The epoch ends with a valid checkpoint followed by one that has too few attestations.
+    ProposeTestData memory ree1 = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    ProposeTestData memory ree2 = _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 2, 4, TestFlagsLib.empty());
+    Epoch epoch = rollup.getEpochForCheckpoint(1);
+    assertEq(rollup.getEpochForCheckpoint(2), epoch, "checkpoints not in the same epoch");
+
+    timeCheater.cheat__progressEpoch();
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree1.attestations);
+    uint256 scoreBefore = booster.getActivityScore(prover).value;
+
+    // Checkpoint 2 is still pending, so a proof of checkpoint 1 does not cover the full epoch.
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, attestations, NO_REVERT);
+    assertTrue(rollup.getHasSubmitted(epoch, 1, prover), "proof not registered");
+    assertFalse(rollup.getHasSubmittedFullEpoch(epoch, 1, prover), "registered as full epoch");
+    assertEq(booster.getActivityScore(prover).value, scoreBefore, "score changed by a non-full proof");
+
+    // Without checkpoint 2, the same proof covers the full epoch.
+    _invalidateByAttestationCount(ree2, NO_REVERT);
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, attestations, NO_REVERT);
+    assertTrue(rollup.getHasSubmittedFullEpoch(epoch, 1, prover), "registration not upgraded");
+    assertGt(booster.getActivityScore(prover).value, scoreBefore, "score not increased");
   }
 
   function testCannotInvalidateProperProposal() public setup(4, 4) progressEpochsToInclusion {

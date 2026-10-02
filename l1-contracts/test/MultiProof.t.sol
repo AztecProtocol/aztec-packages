@@ -433,7 +433,7 @@ contract MultiProofTest is RollupBase {
     _proveCheckpoints("mixed_checkpoint_", 1, 1, alice);
 
     assertGt(
-      rewardBooster.getActivityScore(alice).value, activityScoreBefore, "full-finished resubmission did not bump score"
+      rewardBooster.getActivityScore(alice).value, activityScoreBefore, "full-epoch resubmission did not bump score"
     );
     assertTrue(rollup.getHasSubmittedFullEpoch(epoch, 1, alice), "registration not upgraded to full epoch");
 
