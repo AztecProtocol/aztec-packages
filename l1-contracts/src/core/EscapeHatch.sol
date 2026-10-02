@@ -624,14 +624,22 @@ contract EscapeHatch is IEscapeHatch {
     uint256 index = uint256(keccak256(abi.encode(targetHatch, seed))) % setSize;
     address proposer = $activeCandidates.getAddressFromIndexAtTimestamp(index, freezeTs);
 
+    CandidateInfo storage data = $candidateDatas[proposer];
+    Status status = data.status;
+
+    // The candidate was ACTIVE at the freeze, but may have called `initiateExit` since (EXITING), or
+    // also completed `leaveCandidateSet` (NONE): the latter is reachable when the exit happened while
+    // this contract was not the active escape hatch, as selection is skipped in that state and the
+    // snapshot still lists the candidate. A NONE candidate has had its bond refunded and cannot be
+    // designated proposer, so the hatch is left without a proposer, as if the snapshot were empty.
+    if (status == Status.NONE) {
+      return;
+    }
+
     $designatedProposer[targetHatch] = proposer;
 
-    CandidateInfo storage data = $candidateDatas[proposer];
-
-    // At snapshot time, the candidate must have been ACTIVE, but could have been changed to EXITING,
-    // if the candidate called `initiateExit` after the freeze. In that case, skip removal as already
-    // done. Any other status indicates a broken invariant and remove() will revert.
-    if (data.status != Status.EXITING) {
+    // An EXITING candidate has already been removed from the active set.
+    if (status != Status.EXITING) {
       $activeCandidates.remove(proposer);
     }
 

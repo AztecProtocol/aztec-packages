@@ -335,4 +335,75 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
       + config.proposingExitDelay;
     assertEq(infoAfterSelection.exitableAt, uint32(expectedExitableAt), "exitableAt should be end of proof window");
   }
+
+  modifier givenSelectedCandidateStatusIsNONE() {
+    _;
+  }
+
+  function test_GivenSelectedCandidateStatusIsNONE(EscapeHatchConfig memory _config)
+    external
+    givenHatchIsNotPrepared
+    givenSetIsStable
+    givenCandidateSetSizeIsNon_zeroAtSnapshotTime
+    givenCurrentTimeIsBeforeNextSnapshotTimestamp
+    givenSelectedCandidateStatusIsNONE
+    givenValidConfig(_config)
+  {
+    // it should set isHatchPrepared for the hatch
+    // it should not set designatedProposer
+    // it should not modify the candidate
+    // it should not emit CandidateSelected event
+    //
+    // A candidate in the historical snapshot can have fully left the set (status NONE, bond
+    // refunded) by the time selection runs: initiateExit skips selection while this contract
+    // is not the rollup's active escape hatch, so an exit in that state leaves the hatch
+    // unprepared, and the snapshot still contains the candidate once the hatch is active again.
+    // Such a candidate has nothing at stake and must not be designated proposer.
+
+    _deployWithFakeRollup();
+    _warpToSafeEpoch();
+
+    _joinCandidateSetWithConfig(CANDIDATE1);
+
+    // Warp forward to ensure candidate is in snapshot for selection
+    _warpForwardEpochs(config.frequency);
+
+    Hatch currentHatch = escapeHatch.getHatch(_getCurrentEpoch());
+    Hatch preparedHatch = currentHatch + Hatch.wrap(config.lagInHatches);
+    assertEq(escapeHatch.getCandidateCountForHatch(preparedHatch), 1, "Candidate should be in snapshot");
+
+    // Deactivate the hatch, then fully exit: selection is skipped, and we are before the next
+    // freeze so the exit is immediate.
+    fakeRollup.setEscapeHatch(address(0));
+
+    vm.prank(CANDIDATE1);
+    escapeHatch.initiateExit();
+    vm.prank(CANDIDATE1);
+    escapeHatch.leaveCandidateSet();
+
+    assertFalse(escapeHatch.isHatchPrepared(preparedHatch), "Hatch must not be prepared while inactive");
+    CandidateInfo memory info = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(uint8(info.status), uint8(Status.NONE), "Status should be NONE after leaving");
+    assertEq(info.amount, 0, "Bond should be refunded");
+    assertEq(escapeHatch.getCandidateCountForHatch(preparedHatch), 1, "Candidate should still be in snapshot");
+
+    // Reactivate the hatch, still within the selection window
+    fakeRollup.setEscapeHatch(address(escapeHatch));
+
+    vm.record();
+    vm.recordLogs();
+    escapeHatch.selectCandidates();
+
+    (, bytes32[] memory writes) = vm.accesses(address(escapeHatch));
+    assertEq(writes.length, 1, "Should only write isHatchPrepared");
+    assertEq(vm.getRecordedLogs().length, 0, "Should not emit any event");
+
+    assertTrue(escapeHatch.isHatchPrepared(preparedHatch), "Hatch should be prepared");
+    assertEq(escapeHatch.getDesignatedProposer(preparedHatch), address(0), "Should have no proposer");
+
+    info = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(uint8(info.status), uint8(Status.NONE), "Status should remain NONE");
+    assertEq(info.amount, 0, "Amount should remain zero");
+    assertFalse(escapeHatch.isCandidate(CANDIDATE1), "Candidate should not be in active set");
+  }
 }
