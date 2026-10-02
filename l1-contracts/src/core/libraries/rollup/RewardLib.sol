@@ -45,8 +45,8 @@ library BpsLib {
 
 struct ProverRegistration {
   uint248 shares;
-  // True when the registration comes from a full-epoch proof. Only such a proof updates the prover's activity score.
-  bool fullEpoch;
+  bool fullEpoch; // Set to true when the registration was submitted with a full epoch proof. Used for activity score
+    // bumping
 }
 
 struct SubEpochRewards {
@@ -219,9 +219,11 @@ library RewardLib {
       address prover = _args.args.proverId;
 
       ProverRegistration memory previousRegistration = $sr.registrations[prover];
-      // A prover registers once for each epoch and length. A full-epoch proof can replace a registration that is not
-      // full-epoch: the proverId is not bound to the sender, so anyone can register a prover with a proof that does
-      // not update its activity score. The replacement uses the shares of the prover's current score.
+      // There is a point in updating in 2 cases:
+      // 1. This is the first time we are submitting, so shares are at 0
+      // 2. A prover is submitting the same proof a second time after an epoch closed so they would get their activity
+      // score bump. If the second check wasn't there, it would theoretically be possible (but unlikely) to block a
+      // prover from increasing their activity score by submitting a proof for the epoch while it is ongoing
       require(
         previousRegistration.shares == 0 || (!previousRegistration.fullEpoch && _fullEpochProof),
         Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)

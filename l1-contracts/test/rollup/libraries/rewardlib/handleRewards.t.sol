@@ -78,7 +78,8 @@ contract HandleRewardsTest is RewardLibBase {
 
     uint256 rewardsBefore = wrapper.getCollectiveProverRewardsForEpoch(Epoch.wrap(0));
 
-    // The booster bumps at most once per epoch, so the full-epoch proof of epoch 0 lands in a new epoch.
+    // The booster bumps at most once per epoch and starts at epoch 0, so move on to the epoch where the full-finished
+    // proof of epoch 0 lands.
     wrapper.setCurrentEpoch(Epoch.wrap(lastEpoch + 2));
     uint256 scoreBefore = wrapper.getActivityScore(prover);
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0), true);
