@@ -3,13 +3,14 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { FactScope } from './fact_scope.js';
 import { FactStore } from './fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
 
 describe('FactStore', () => {
   let contract: AztecAddress;
-  let scope: AztecAddress;
-  let scopeB: AztecAddress;
+  let scope: FactScope;
+  let scopeB: FactScope;
   let factCollectionTypeId: Fr;
   let factTypeA: Fr;
   let factTypeB: Fr;
@@ -27,8 +28,8 @@ describe('FactStore', () => {
 
   beforeEach(async () => {
     contract = await AztecAddress.random();
-    scope = await AztecAddress.random();
-    scopeB = await AztecAddress.random();
+    scope = { type: 'account', account: await AztecAddress.random() };
+    scopeB = { type: 'account', account: await AztecAddress.random() };
     factCollectionTypeId = Fr.random();
     factTypeA = Fr.random();
     factTypeB = Fr.random();
@@ -200,6 +201,58 @@ describe('FactStore', () => {
 
       expect(collectionIdsOf(await store.getFactCollectionsByType(typeKey, CHANGE_SET))).toEqual([collectionId1]);
       expect(collectionIdsOf(await store.getFactCollectionsByType(typeKeyScopeB, CHANGE_SET))).toEqual([collectionId1]);
+    });
+  });
+
+  describe('public scope', () => {
+    const publicKey = (factCollectionId: Fr) =>
+      FactCollectionKey.from({
+        contractAddress: contract,
+        scope: { type: 'public' },
+        factCollectionTypeId,
+        factCollectionId,
+      });
+
+    it('keeps public collections apart from account collections with the same (contract, type, id)', async () => {
+      await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
+      await store.recordFact(publicKey(collectionId1), factTypeB, [Fr.random()], undefined, CHANGE_SET);
+      await commit();
+
+      const publicCollections = await store.getFactCollectionsByType(
+        FactCollectionTypeKey.from({ contractAddress: contract, scope: { type: 'public' }, factCollectionTypeId }),
+        CHANGE_SET,
+      );
+      expect(publicCollections.map(c => c.key)).toEqual([publicKey(collectionId1)]);
+      expect(publicCollections[0].facts.map(f => f.factTypeId)).toEqual([factTypeB]);
+      expect((await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts.map(f => f.factTypeId)).toEqual([
+        factTypeA,
+      ]);
+    });
+
+    it('retracts public facts above the target block', async () => {
+      const nonRetractable = Fr.random();
+      await store.recordFact(publicKey(collectionId1), factTypeA, [nonRetractable], undefined, CHANGE_SET);
+      await store.recordFact(
+        publicKey(collectionId1),
+        factTypeB,
+        [Fr.random()],
+        { blockNumber: 6, blockHash: Fr.random() },
+        CHANGE_SET,
+      );
+      await store.recordFact(
+        publicKey(collectionId2),
+        factTypeB,
+        [Fr.random()],
+        { blockNumber: 6, blockHash: Fr.random() },
+        CHANGE_SET,
+      );
+      await commit();
+
+      await rollbackTo(5);
+
+      const { facts } = (await store.getFactCollection(publicKey(collectionId1), CHANGE_SET))!;
+      expect(hexSet(facts.map(f => f.payload[0]))).toEqual(hexSet([nonRetractable]));
+      expect(await store.getFactCollection(publicKey(collectionId2), CHANGE_SET)).toBeUndefined();
     });
   });
 

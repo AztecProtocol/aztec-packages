@@ -1,6 +1,6 @@
 use crate::sync::rewindable_register::RewindableRegister;
 use aztec::{
-    facts::delete_fact_collection,
+    facts::{delete_fact_collection, FactScope},
     oracle::block_reference::BlockReference,
     protocol::{abis::block_header::BlockHeader, address::AztecAddress, hash::sha256_to_field, traits::Hash},
 };
@@ -48,7 +48,7 @@ impl SyncCursor {
     pub(crate) unconstrained fn clear(self) {
         delete_fact_collection(
             self.contract_address,
-            self.scope,
+            FactScope::account(self.scope),
             SYNC_CURSOR_TYPE_ID,
             SYNC_CURSOR_COLLECTION_ID,
         );

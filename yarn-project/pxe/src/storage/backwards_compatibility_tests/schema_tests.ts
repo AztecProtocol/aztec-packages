@@ -41,6 +41,7 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
+import type { FactScope } from '../fact_store/fact_scope.js';
 import { FactStore } from '../fact_store/fact_store.js';
 import { FactCollectionKey } from '../fact_store/fact_store_keys.js';
 import { NoteStore } from '../note_store/note_store.js';
@@ -227,7 +228,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const changeSetId = 'fixture-change-set';
       factStore.beginChangeSet(changeSetId);
       const contract = AztecAddress.fromBigIntUnsafe(100n);
-      const scope = AztecAddress.fromBigIntUnsafe(1n);
+      const scope: FactScope = { type: 'account', account: AztecAddress.fromBigIntUnsafe(1n) };
       const factCollectionTypeId = new Fr(7n);
       const keyA = FactCollectionKey.from({
         contractAddress: contract,
@@ -252,6 +253,21 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       // A collection with a non-retractable and a retractable fact.
       await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, changeSetId);
       await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, changeSetId);
+      // A collection under the public scope, with a non-retractable and a retractable fact.
+      const publicKey = FactCollectionKey.from({
+        contractAddress: contract,
+        scope: { type: 'public' },
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xccn),
+      });
+      await factStore.recordFact(publicKey, new Fr(4n), [new Fr(8n)], undefined, changeSetId);
+      await factStore.recordFact(
+        publicKey,
+        new Fr(5n),
+        [new Fr(10n)],
+        { blockNumber: 7, blockHash: new Fr(3n) },
+        changeSetId,
+      );
       await kvStore.transactionAsync(() => factStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
