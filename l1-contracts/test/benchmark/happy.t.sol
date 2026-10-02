@@ -1521,3 +1521,132 @@ contract PartialEpochProofWithPremiumCalculatorGasReportTest is PartialEpochProo
     return defaultReward;
   }
 }
+
+/**
+ * @notice Gas of partial epoch proofs with the premium calculator in the scenario of the removed in-rollup registry
+ *         reward overrides bench: two shared genuine premium positions, each of its own premium registry and factory.
+ *         Validators alternate between the two positions' stakers by index, and each staker records every attester
+ *         it is the withdrawer of, so every proposer is authenticated and earns its registry's premium. After the
+ *         first lookup through each position, every read but the per-attester `isAttester` record is warm. The
+ *         positions record their attesters against a rollup stand-in, as in the per-validator premium bench.
+ * @dev The overrides bench configured 10e18 and 20e18, below the default; a premium calculator pays such entries
+ *      without authentication, so this bench configures premiums above the default instead to run every probe.
+ */
+contract PartialEpochProofWithPremiumCalculatorTwoPremiumStakersGasReportTest is PartialEpochProofCalculatorBase {
+  uint256 internal constant VALIDATOR_COUNT = 48;
+  uint256 internal constant POSITION_THRESHOLD = 100e18;
+  uint96 internal constant FIRST_REWARD = 30e18;
+  uint96 internal constant SECOND_REWARD = 40e18;
+
+  PremiumATPRegistry internal firstRegistry;
+  PremiumATPRegistry internal secondRegistry;
+  PremiumATPFactory internal firstFactory;
+  PremiumATPFactory internal secondFactory;
+  PremiumATPStaker internal firstStaker;
+  PremiumATPStaker internal secondStaker;
+  PremiumRewardCalculator internal premiumCalculator;
+  mapping(address attester => address registry) internal registryOf;
+
+  function setUp() public override {
+    TestERC20 positionToken = new TestERC20("position", "POS", address(this));
+    MockStakingRollup stakingRollup = new MockStakingRollup(positionToken, POSITION_THRESHOLD);
+    IRegistry positionRollupRegistry = IRegistry(address(new MockRollupRegistry(stakingRollup)));
+    UnlockSchedule memory schedule = UnlockSchedule({startTime: 0, cliffDuration: 0, lockDuration: 1});
+    firstRegistry = new PremiumATPRegistry(address(this), schedule);
+    secondRegistry = new PremiumATPRegistry(address(this), schedule);
+    firstFactory = new PremiumATPFactory(
+      address(this), positionToken, firstRegistry, positionRollupRegistry, IStakingRegistry(address(0))
+    );
+    secondFactory = new PremiumATPFactory(
+      address(this), positionToken, secondRegistry, positionRollupRegistry, IStakingRegistry(address(0))
+    );
+    firstStaker = _createPosition(positionToken, firstFactory);
+    secondStaker = _createPosition(positionToken, secondFactory);
+
+    for (uint256 i = 0; i < VALIDATOR_COUNT; i++) {
+      address attester = vm.addr(uint256(keccak256(abi.encode("attester", i + 1))));
+      registryOf[attester] = i % 2 == 0 ? address(firstRegistry) : address(secondRegistry);
+      PremiumATPStaker(_validatorWithdrawer(i))
+        .stake(1, attester, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
+    }
+
+    super.setUp();
+
+    premiumCalculator = new PremiumRewardCalculator(IGSE(address(rollup.getGSE())), address(this));
+    premiumCalculator.setRegistryReward(address(firstRegistry), FIRST_REWARD, address(firstFactory));
+    premiumCalculator.setRegistryReward(address(secondRegistry), SECOND_REWARD, address(secondFactory));
+    _setCalculator(address(premiumCalculator));
+  }
+
+  function testGasReportSubmit1CheckpointWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit1CheckpointWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(1));
+    _assertPremiumRewards(snapshot, 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit8CheckpointsWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(8));
+    _assertPremiumRewards(snapshot, 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit16CheckpointsWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(16));
+    _assertPremiumRewards(snapshot, 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithPremiumCalculatorTwoPremiumStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit32CheckpointsWithPremiumCalculatorTwoPremiumStakers(_getGasReportSubmission(32));
+    _assertPremiumRewards(snapshot, 32);
+  }
+
+  function testEveryProposerIsAuthenticatedThroughOneOfTheTwoStakers() public view {
+    assertGt(FIRST_REWARD, _defaultReward(), "rewards are premiums");
+    address[] memory proposers = _checkpointProposers(32);
+    uint256 firstCount = 0;
+    for (uint256 i = 0; i < proposers.length; i++) {
+      address registry = registryOf[proposers[i]];
+      assertTrue(registry != address(0), "not a validator");
+      bool first = registry == address(firstRegistry);
+      PremiumATPStaker staker = first ? firstStaker : secondStaker;
+      assertEq(rollup.getGSE().getWithdrawer(proposers[i]), address(staker));
+      assertTrue(
+        premiumCalculator.isAuthenticated(
+          proposers[i], address(staker), staker.getATP(), address(first ? firstFactory : secondFactory)
+        )
+      );
+      firstCount += first ? 1 : 0;
+    }
+    // The fixture's proposers cover both positions, so the reward assertions are not vacuous.
+    assertGt(firstCount, 0);
+    assertGt(proposers.length - firstCount, 0);
+  }
+
+  function _createPosition(TestERC20 _token, PremiumATPFactory _factory) internal returns (PremiumATPStaker) {
+    uint256 allocation = VALIDATOR_COUNT / 2 * POSITION_THRESHOLD;
+    _token.mint(address(_factory), allocation);
+    PremiumATP atp = _factory.createATP(address(this), allocation);
+    atp.updateStakerOperator(address(this));
+    return PremiumATPStaker(atp.getStaker());
+  }
+
+  function _validatorWithdrawer(uint256 _index) internal view override returns (address) {
+    return _index % 2 == 0 ? address(firstStaker) : address(secondStaker);
+  }
+
+  function _assertPremiumRewards(uint256 _snapshot, uint256 _length) internal {
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(_snapshot, _length, proposers);
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _premiumReward);
+  }
+
+  function _premiumReward(address _proposer) internal view returns (uint256) {
+    address registry = registryOf[_proposer];
+    assertTrue(registry != address(0), "not a validator");
+    return registry == address(firstRegistry) ? FIRST_REWARD : SECOND_REWARD;
+  }
+}
