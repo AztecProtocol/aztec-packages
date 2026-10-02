@@ -773,6 +773,96 @@ TYPED_TEST(UltraHonkTests, RamMaliciousFieldWrap)
     TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
 }
 
+// Test that a malicious prover cannot extend the RAM sorted chain one index past the end of the array.
+// The forged read at index `size` is the first access to that index, so no consistency check ties its value to an
+// initialised cell, and the step from index `size - 1` satisfies the index-delta sub-relation. The only constraint
+// that rejects it is the gate fixing the final sorted record's index to `size - 1`.
+TYPED_TEST(UltraHonkTests, RamMaliciousReadPastEnd)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+
+    Builder circuit_builder;
+
+    // Build a small RAM: initialise [1, 2, 3].
+    const size_t ram_size = 3;
+    size_t ram_id = circuit_builder.create_RAM_array(ram_size);
+    circuit_builder.init_RAM_element(ram_id, 0, circuit_builder.add_variable(FF(1)));
+    circuit_builder.init_RAM_element(ram_id, 1, circuit_builder.add_variable(FF(2)));
+    circuit_builder.init_RAM_element(ram_id, 2, circuit_builder.add_variable(FF(3)));
+
+    // Read the last cell using a variable index, so that the read is the final record of the sorted chain.
+    uint32_t idx_witness = circuit_builder.add_variable(FF(ram_size - 1));
+    uint32_t read_val_w = circuit_builder.read_RAM_array(ram_id, idx_witness);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+
+    // Explicitly finalize so process_RAM_array runs and we can inspect the sorted gates.
+    circuit_builder.finalize_circuit();
+
+    // Locate the last sorted RAM consistency check gate (q_memory=1, q_3=1, q_1=q_2=q_m=0) and the last timestamp
+    // check gate (q_memory=1, q_1=1, q_4=1).
+    auto& mem = circuit_builder.blocks.memory;
+    size_t last_sorted = std::numeric_limits<size_t>::max();
+    size_t last_timestamp_check = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < mem.size(); ++i) {
+        if (mem.gate_selector_for(GateKind::Memory)[i] != 1) {
+            continue;
+        }
+        if (mem.q_3()[i] == 1 && mem.q_1()[i] == 0 && mem.q_2()[i] == 0 && mem.q_m()[i] == 0) {
+            last_sorted = i;
+        }
+        if (mem.q_1()[i] == 1 && mem.q_4()[i] == 1) {
+            last_timestamp_check = i;
+        }
+    }
+    ASSERT_NE(last_sorted, std::numeric_limits<size_t>::max()) << "no sorted RAM consistency gate found";
+    ASSERT_NE(last_timestamp_check, std::numeric_limits<size_t>::max()) << "no RAM timestamp check gate found";
+
+    // The final sorted record sits in the row after the last consistency check gate.
+    // RAM wire layout: w_l=index, w_r=timestamp, w_o=value, w_4=record.
+    const size_t final_sorted = last_sorted + 1;
+    uint32_t final_idx_w = mem.w_l()[final_sorted];
+    uint32_t final_val_w = mem.w_o()[final_sorted];
+    EXPECT_EQ(circuit_builder.get_variable(final_idx_w), FF(ram_size - 1));
+    // Timestamp check wire layout: w_o=timestamp delta, which must be zero when the index changes.
+    uint32_t timestamp_delta_w = mem.w_o()[last_timestamp_check];
+    EXPECT_EQ(circuit_builder.get_variable(timestamp_delta_w), FF(1));
+
+    // The timestamp deltas are range constrained to the maximum timestamp through a sorted list, which must stay a
+    // permutation of them. Locate the sorted entry that holds the delta of 1.
+    const uint64_t max_timestamp = ram_size; // `ram_size` initialisations and one read
+    const uint32_t sorted_deltas_tag = circuit_builder.range_lists.at(max_timestamp).tau_tag;
+    uint32_t sorted_delta_w = std::numeric_limits<uint32_t>::max();
+    for (uint32_t i = 0; i < circuit_builder.get_variables().size(); ++i) {
+        if (circuit_builder.real_variable_tags[circuit_builder.real_variable_index[i]] == sorted_deltas_tag &&
+            circuit_builder.get_variable(i) == FF(1)) {
+            sorted_delta_w = i;
+        }
+    }
+    ASSERT_NE(sorted_delta_w, std::numeric_limits<uint32_t>::max()) << "no sorted timestamp delta found";
+
+    // Build the malicious copy: move the read to index 3, returning 999.
+    // Sorted chain would become: [(0,0,1), (1,1,2), (2,2,3), final(3,3,999)].
+    Builder bad_builder = circuit_builder;
+    auto& vars = const_cast<std::vector<FF>&>(bad_builder.get_variables());
+    vars[bad_builder.real_variable_index[final_idx_w]] = FF(ram_size);
+    vars[bad_builder.real_variable_index[final_val_w]] = FF(999);
+    vars[bad_builder.real_variable_index[timestamp_delta_w]] = FF(0);
+    vars[bad_builder.real_variable_index[sorted_delta_w]] = FF(0);
+    vars[bad_builder.real_variable_index[idx_witness]] = FF(ram_size);
+    vars[bad_builder.real_variable_index[read_val_w]] = FF(999);
+
+    // Run CircuitChecker: expected error in the arithmetic sub-relation from the final index gate.
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    // Run full protocol.
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
+
 // Test malicious witness "out-of-bounds" RAM access
 TYPED_TEST(UltraHonkTests, RamOutOfBoundsRead)
 {
