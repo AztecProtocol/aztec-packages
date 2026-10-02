@@ -124,6 +124,10 @@ library RewardExtLib {
     return RewardLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover) external view returns (bool) {
+    return RewardLib.getHasSubmittedFullEpoch(_epoch, _length, _prover);
+  }
+
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool) {
     return RewardLib.getHasClaimed(_prover, _epoch);
   }

@@ -43,9 +43,15 @@ library BpsLib {
   }
 }
 
+struct ProverRegistration {
+  uint248 shares;
+  bool fullEpoch; // Set to true when the registration was submitted after the epoch is closed. Used for activity score
+    // bumping
+}
+
 struct SubEpochRewards {
   uint256 summedShares;
-  mapping(address prover => uint256 shares) shares;
+  mapping(address prover => ProverRegistration) registrations;
 }
 
 struct EpochRewards {
@@ -182,7 +188,7 @@ library RewardLib {
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
       SubEpochRewards storage se = e.subEpoch[e.longestProvenLength];
-      uint256 shares = se.shares[_prover];
+      uint256 shares = se.registrations[_prover].shares;
       if (shares > 0) {
         accumulatedRewards += (shares * e.rewards / se.summedShares);
       }
@@ -212,7 +218,16 @@ library RewardLib {
       SubEpochRewards storage $sr = $er.subEpoch[length];
       address prover = _args.args.proverId;
 
-      require($sr.shares[prover] == 0, Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch));
+      ProverRegistration memory previous_registration = $sr.registrations[prover];
+      // There is a point in updating in 2 cases:
+      // 1. This is the first time we are submitting, so shares are at 0
+      // 2. A prover is submitting the same proof a second time after an epoch closed so they would get their activity
+      // score bump. If the second check wasn't there, it would theoretically be possible (but unlikely) to block a
+      // prover from increasing their activity score by submitting a proof for the epoch while it is ongoing
+      require(
+        previous_registration.shares == 0 || (!previous_registration.fullEpoch && _fullEpochProof),
+        Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
+      );
       // The prover is only marked active if they have provided a full epoch proof
       uint256 shares = _fullEpochProof
         ? rewardStorage.config.booster.updateAndGetShares(prover)
@@ -225,8 +240,8 @@ library RewardLib {
       // back if a misbehaving booster ever crosses this layer.
       require(shares > 0, Errors.RewardLib__ZeroShares(prover));
 
-      $sr.shares[prover] = shares;
-      $sr.summedShares += shares;
+      $sr.registrations[prover] = ProverRegistration({shares: shares.toUint248(), fullEpoch: _fullEpochProof});
+      $sr.summedShares = $sr.summedShares - previous_registration.shares + shares;
     }
 
     if (length > $er.longestProvenLength) {
@@ -349,7 +364,11 @@ library RewardLib {
   }
 
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) internal view returns (bool) {
-    return getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover] > 0;
+    return getStorage().epochRewards[_epoch].subEpoch[_length].registrations[_prover].shares > 0;
+  }
+
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover) internal view returns (bool) {
+    return getStorage().epochRewards[_epoch].subEpoch[_length].registrations[_prover].fullEpoch;
   }
 
   function getHasClaimed(address _prover, Epoch _epoch) internal view returns (bool) {
@@ -376,11 +395,11 @@ library RewardLib {
 
     // Only if prover has shares will he get a reward. Also avoid a 0-div
     // in case of no shares at all.
-    if (se.shares[_prover] == 0) {
+    if (se.registrations[_prover].shares == 0) {
       return 0;
     }
 
-    return (se.shares[_prover] * er.rewards / se.summedShares);
+    return (se.registrations[_prover].shares * er.rewards / se.summedShares);
   }
 
   /**
