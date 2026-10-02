@@ -571,6 +571,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardExtLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover)
+    external
+    view
+    override(IRollup)
+    returns (bool)
+  {
+    return RewardExtLib.getHasSubmittedFullEpoch(_epoch, _length, _prover);
+  }
+
   function getHasClaimed(address _prover, Epoch _epoch) external view override(IRollup) returns (bool) {
     return RewardExtLib.getHasClaimed(_prover, _epoch);
   }
