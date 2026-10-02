@@ -54,8 +54,11 @@ import {
 
 import {
   type BlockReference,
+  type FactScope,
   type OriginBlockState,
   type RetractableFactOrigin,
+  factScopeFromFields,
+  factScopeToFields,
   originBlockStateFromNumber,
 } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
@@ -598,9 +601,19 @@ export const FACT: TypeMapping<Fact> = STRUCT([
   { name: 'originBlock', type: OPTION(RETRACTABLE_FACT_ORIGIN) },
 ]);
 
+export const FACT_SCOPE: TypeMapping<FactScope> = LEAF({
+  kind: 'fact-scope',
+  serialization: { fn: scope => factScopeToFields(scope) },
+  deserialization: {
+    fn: ([kindReader, accountReader]) =>
+      factScopeFromFields(kindReader.readField().toNumber(), accountReader.readField()),
+  },
+  shape: ['scalar', 'scalar'],
+});
+
 export const FACT_COLLECTION: TypeMapping<FactCollection> = STRUCT([
   { name: 'contractAddress', type: AZTEC_ADDRESS },
-  { name: 'scope', type: AZTEC_ADDRESS },
+  { name: 'scope', type: FACT_SCOPE },
   { name: 'factCollectionTypeId', type: FIELD },
   { name: 'factCollectionId', type: FIELD },
   { name: 'facts', type: EPHEMERAL_ARRAY(FACT) },

@@ -1,6 +1,6 @@
 use aztec::{
     ephemeral::EphemeralArray,
-    facts::{delete_fact_collection, Fact, FactCollection, get_fact_collection, record_retractable_fact},
+    facts::{delete_fact_collection, Fact, FactCollection, FactScope, get_fact_collection, record_retractable_fact},
     oracle::block_reference::BlockReference,
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
 };
@@ -16,7 +16,7 @@ global REWINDABLE_REGISTER_VALUE: Field = sha256_to_field("HANDSHAKE_REGISTRY::R
 /// pre-mutation value.
 pub(crate) struct RewindableRegister<T> {
     contract_address: AztecAddress,
-    scope: AztecAddress,
+    scope: FactScope,
     fact_collection_type_id: Field,
     fact_collection_id: Field,
 }
@@ -34,7 +34,7 @@ impl<T> RewindableRegister<T> {
         fact_collection_type_id: Field,
         fact_collection_id: Field,
     ) -> Self {
-        Self { contract_address, scope, fact_collection_type_id, fact_collection_id }
+        Self { contract_address, scope: FactScope::account(scope), fact_collection_type_id, fact_collection_id }
     }
 
     /// Returns the current value.
@@ -185,7 +185,7 @@ where
 
 mod test {
     use super::RewindableRegister;
-    use aztec::facts::get_fact_collection;
+    use aztec::facts::{FactScope, get_fact_collection};
     use aztec::oracle::block_reference::BlockReference;
     use aztec::protocol::address::AztecAddress;
     use aztec::test::helpers::test_environment::TestEnvironment;
@@ -258,7 +258,14 @@ mod test {
             register.write(1, BlockReference { block_number, block_hash: 0xabc });
 
             assert_eq(register.read().unwrap(), 1);
-            let facts = get_fact_collection(context.this_address(), scope, TYPE_ID, COLLECTION_ID).unwrap().facts;
+            let facts = get_fact_collection(
+                context.this_address(),
+                FactScope::account(scope),
+                TYPE_ID,
+                COLLECTION_ID,
+            )
+                .unwrap()
+                .facts;
             assert_eq(facts.len(), 1);
         });
     }
@@ -275,7 +282,14 @@ mod test {
 
             // All origins are above the proven tip, hence pending: none is finalized dead history, so every version
             // is kept as a reorg fallback.
-            let facts = get_fact_collection(context.this_address(), scope, TYPE_ID, COLLECTION_ID).unwrap().facts;
+            let facts = get_fact_collection(
+                context.this_address(),
+                FactScope::account(scope),
+                TYPE_ID,
+                COLLECTION_ID,
+            )
+                .unwrap()
+                .facts;
             assert_eq(facts.len(), 3);
         });
     }
@@ -294,7 +308,14 @@ mod test {
 
             // TXE finalizes every mined block, so all three origins are finalized and each write discards history
             // behind the newest finalized version, leaving the last two.
-            let facts = get_fact_collection(context.this_address(), scope, TYPE_ID, COLLECTION_ID).unwrap().facts;
+            let facts = get_fact_collection(
+                context.this_address(),
+                FactScope::account(scope),
+                TYPE_ID,
+                COLLECTION_ID,
+            )
+                .unwrap()
+                .facts;
             assert_eq(facts.len(), 2);
             assert_eq(facts.get(0).origin_block.unwrap().block_number, block_number - 1);
             assert_eq(facts.get(1).origin_block.unwrap().block_number, block_number);

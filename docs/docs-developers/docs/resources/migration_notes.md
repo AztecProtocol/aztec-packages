@@ -9,6 +9,28 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Fact collections are scoped by `FactScope`
+
+The `aztec::facts` functions now take the collection's scope as an `aztec::facts::FactScope` instead of an `AztecAddress`, and `FactCollection::scope` is a `FactScope`. `FactScope::account(address)` is the scope of a single account, as before. The new `FactScope::public()` is shared by all accounts: any execution of the contract can access its collections, whichever accounts are in scope.
+
+**Migration:**
+
+```diff
+- use aztec::facts::record_retractable_fact;
++ use aztec::facts::{FactScope, record_retractable_fact};
+
+- record_retractable_fact(contract_address, recipient, type_id, collection_id, fact_type_id, payload, origin_block);
++ record_retractable_fact(
++     contract_address,
++     FactScope::account(recipient),
++     type_id,
++     collection_id,
++     fact_type_id,
++     payload,
++     origin_block,
++ );
+```
+
 ### [Aztec Node] `getPredictedMinFees` leads with the fee the next block will charge
 
 The first entry of `getPredictedMinFees` is now the fee the node's public simulation would charge for the next block: the fee frozen into an in-progress checkpoint when the next block continues one, or the price of the slot the next block opens. The remaining entries are the L1 projections for the current slot and the following ones, unchanged. The node omits the leading entry when it cannot price the next block (for example during an L1 outage), in which case only the projections are returned.

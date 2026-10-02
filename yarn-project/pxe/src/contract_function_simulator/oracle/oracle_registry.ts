@@ -21,6 +21,7 @@ import {
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FACT_COLLECTION,
+  FACT_SCOPE,
   FIELD,
   FIXED_ARRAY,
   FUNCTION_SELECTOR,
@@ -354,10 +355,10 @@ export const ORACLE_REGISTRY = {
     params: [{ name: 'data', type: ARRAY(FIELD) }],
   }),
 
-  aztec_utl_recordFact: makeEntry({
+  aztec_utl_recordFactV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
       { name: 'factTypeId', type: FIELD },
@@ -366,29 +367,29 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
-  aztec_utl_deleteFactCollection: makeEntry({
+  aztec_utl_deleteFactCollectionV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
     ],
   }),
 
-  aztec_utl_getFactCollection: makeEntry({
+  aztec_utl_getFactCollectionV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
     ],
     returnType: OPTION(FACT_COLLECTION),
   }),
 
-  aztec_utl_getFactCollectionsByType: makeEntry({
+  aztec_utl_getFactCollectionsByTypeV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
     ],
     returnType: EPHEMERAL_ARRAY(FACT_COLLECTION),
