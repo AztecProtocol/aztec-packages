@@ -17,8 +17,8 @@ uint256 constant CALCULATOR_GAS_BASE = 200_000;
 uint256 constant CALCULATOR_GAS_PER_CHECKPOINT = 100_000;
 
 /// @dev Gas the rollup spends between its gas check and the calculator's first instruction. The call needs one cold
-///      account access (2_600), or two if the calculator is an EIP-7702 delegated account, plus a handful of opcodes;
-///      the rest is margin.
+///      account access, or two if the calculator is an EIP-7702 delegated account, plus a handful of opcodes; the rest
+///      is margin. A cold account access costs 2_600, and 3_000 under EIP-8038, so at most 6_000 for the two.
 uint256 constant CALCULATOR_CALL_GAS_RESERVE = 10_000;
 
 /**
