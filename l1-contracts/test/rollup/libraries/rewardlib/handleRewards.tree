@@ -8,6 +8,7 @@ HandleRewards
 │       └── when the proof is full epoch
 │           ├── it marks the registration as full epoch
 │           ├── it bumps the prover activity score
+│           ├── it stores the shares of the current activity score
 │           ├── it replaces the prover shares in summed shares
 │           └── it leaves longestProvenLength and the prover rewards unchanged
 └── given prover has not submitted

@@ -174,13 +174,10 @@ contract RewardLibWrapper {
   }
 
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) external {
-    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory registryRewardOverrides;
-    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, new address[](0), registryRewardOverrides);
+    handleRewardsAndFees(_args, _endEpoch, true);
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, bool _fullEpochProof)
-    external
-  {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, bool _fullEpochProof) public {
     RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory registryRewardOverrides;
     RewardLib.handleRewardsAndFees(
       _args, _endEpoch, _rollupConfig(), _fullEpochProof, new address[](0), registryRewardOverrides
