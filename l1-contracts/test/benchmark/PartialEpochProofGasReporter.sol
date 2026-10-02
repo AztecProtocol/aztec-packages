@@ -83,4 +83,32 @@ contract PartialEpochProofGasReporter is RollupWithPreheating {
   function gasReportSubmit32Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with a sequencer reward calculator.
+   */
+  function gasReportSubmit1CheckpointWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with a sequencer reward calculator.
+   */
+  function gasReportSubmit8CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with a sequencer reward calculator.
+   */
+  function gasReportSubmit16CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with a sequencer reward calculator.
+   */
+  function gasReportSubmit32CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
 }

@@ -34,8 +34,14 @@ library RewardExtLib {
   using FeeConfigLib for CompressedFeeConfig;
   using PriceLib for EthValue;
 
-  function initializeConfig(RewardConfig memory _config) external {
+  /**
+   * @notice Writes the reward configuration and the initial sequencer reward calculator at construction
+   * @param _config The full reward configuration, including the immutable distributor and booster
+   * @param _sequencerRewardCalculator The initial sequencer reward calculator, or zero for none
+   */
+  function initializeConfig(RewardConfig memory _config, address _sequencerRewardCalculator) external {
     RewardLib.initializeConfig(_config);
+    RewardLib.setSequencerRewardCalculator(_sequencerRewardCalculator);
   }
 
   /**
@@ -77,6 +83,16 @@ library RewardExtLib {
   function updateProtocolFeeRecipient(address _recipient) external {
     address oldRecipient = RewardLib.updateProtocolFeeRecipient(_recipient);
     emit IRollupCore.ProtocolFeeRecipientUpdated(oldRecipient, _recipient);
+  }
+
+  /**
+   * @notice Replaces the sequencer reward calculator and emits {IRollupCore.SequencerRewardCalculatorUpdated}
+   * @dev Accepts any address, including zero (no calculator). The event is emitted even if the value is unchanged.
+   * @param _calculator The new calculator, or zero for none
+   */
+  function updateSequencerRewardCalculator(address _calculator) external {
+    address oldCalculator = RewardLib.setSequencerRewardCalculator(_calculator);
+    emit IRollupCore.SequencerRewardCalculatorUpdated(oldCalculator, _calculator);
   }
 
   function claimSequencerRewards(address _sequencer, IERC20 _feeAsset) external returns (uint256) {
@@ -132,6 +148,14 @@ library RewardExtLib {
 
   function getRewardDistributor() external view returns (IRewardDistributor) {
     return RewardLib.getStorage().config.rewardDistributor;
+  }
+
+  /**
+   * @notice Returns the current sequencer reward calculator
+   * @return The calculator, or zero if every checkpoint receives the default sequencer reward
+   */
+  function getSequencerRewardCalculator() external view returns (address) {
+    return RewardLib.getSequencerRewardCalculator();
   }
 
   // FeeLib/STFLib/ProposeLib view wrappers - overflow from RollupOperationsExtLib
