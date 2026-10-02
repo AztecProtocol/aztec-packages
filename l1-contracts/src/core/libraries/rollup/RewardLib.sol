@@ -45,8 +45,8 @@ library BpsLib {
 
 struct ProverRegistration {
   uint248 shares;
-  bool fullEpoch; // Set to true when the registration was submitted with a full epoch proof. Used for activity score
-    // bumping
+  bool fullEpoch; // Set to true when the registration was submitted after the epoch is closed, with a proof of the
+    // full epoch. Used for activity score bumping
 }
 
 struct SubEpochRewards {
