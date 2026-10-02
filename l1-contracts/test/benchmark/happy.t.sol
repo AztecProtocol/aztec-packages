@@ -85,8 +85,10 @@ import {IGSE} from "@aztec/governance/GSE.sol";
 import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
 import {
   MockATP,
+  MockATPStaker,
   MockATPStakerImplementation,
-  deployMainnetShapedATPStaker
+  deployMainnetShapedATPStaker,
+  deployMockATPStaker
 } from "@test/reward-calculators/mocks/ATPMocks.sol";
 
 // solhint-disable comprehensive-interface
@@ -1197,5 +1199,104 @@ contract PartialEpochProofWithReductionCalculatorGasReportTest is PartialEpochPr
       return defaultReward / 4;
     }
     return defaultReward;
+  }
+}
+
+/**
+ * @notice Gas of partial epoch proofs with the registry reduction calculator in the scenario of the removed in-rollup
+ *         registry reward overrides bench: two shared mock ATP stakers, each pointing at a mock ATP of its own
+ *         registry, configured at 10e18 and 20e18. Validators alternate between the two stakers by index, so every
+ *         proposer is matched and, after the first lookup through each staker, the staker and ATP reads are warm.
+ */
+contract PartialEpochProofWithReductionCalculatorTwoMockStakersGasReportTest is PartialEpochProofCalculatorBase {
+  uint256 internal constant VALIDATOR_COUNT = 48;
+  uint96 internal constant FIRST_REWARD = 10e18;
+  uint96 internal constant SECOND_REWARD = 20e18;
+
+  address internal firstRegistry = makeAddr("firstRegistry");
+  address internal secondRegistry = makeAddr("secondRegistry");
+  MockATPStaker internal firstStaker;
+  MockATPStaker internal secondStaker;
+
+  RegistryReductionCalculator internal reductionCalculator;
+  mapping(address attester => address registry) internal registryOf;
+
+  function setUp() public override {
+    (firstStaker,) = deployMockATPStaker(firstRegistry);
+    (secondStaker,) = deployMockATPStaker(secondRegistry);
+    for (uint256 i = 0; i < VALIDATOR_COUNT; i++) {
+      address attester = vm.addr(uint256(keccak256(abi.encode("attester", i + 1))));
+      registryOf[attester] = i % 2 == 0 ? firstRegistry : secondRegistry;
+    }
+
+    super.setUp();
+
+    reductionCalculator = new RegistryReductionCalculator(IGSE(address(rollup.getGSE())), address(this));
+    reductionCalculator.setRegistryReward(firstRegistry, FIRST_REWARD);
+    reductionCalculator.setRegistryReward(secondRegistry, SECOND_REWARD);
+    _setCalculator(address(reductionCalculator));
+  }
+
+  function testGasReportSubmit1CheckpointWithReductionCalculatorTwoMockStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit1CheckpointWithReductionCalculatorTwoMockStakers(_getGasReportSubmission(1));
+    _assertReducedRewards(snapshot, 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithReductionCalculatorTwoMockStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit8CheckpointsWithReductionCalculatorTwoMockStakers(_getGasReportSubmission(8));
+    _assertReducedRewards(snapshot, 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithReductionCalculatorTwoMockStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit16CheckpointsWithReductionCalculatorTwoMockStakers(_getGasReportSubmission(16));
+    _assertReducedRewards(snapshot, 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithReductionCalculatorTwoMockStakers() public {
+    uint256 snapshot = vm.snapshotState();
+    _gasReporter().gasReportSubmit32CheckpointsWithReductionCalculatorTwoMockStakers(_getGasReportSubmission(32));
+    _assertReducedRewards(snapshot, 32);
+  }
+
+  function testEveryProposerResolvesToOneOfTheTwoRegistries() public view {
+    assertLt(SECOND_REWARD, _defaultReward(), "rewards are reductions");
+    address[] memory proposers = _checkpointProposers(32);
+    uint256 firstCount = 0;
+    for (uint256 i = 0; i < proposers.length; i++) {
+      address registry = registryOf[proposers[i]];
+      assertTrue(registry != address(0), "not a validator");
+      assertEq(
+        rollup.getGSE().getWithdrawer(proposers[i]),
+        registry == firstRegistry ? address(firstStaker) : address(secondStaker)
+      );
+      (bool resolved, address resolvedRegistry) = reductionCalculator.resolveRegistry(proposers[i]);
+      assertTrue(resolved);
+      assertEq(resolvedRegistry, registry);
+      firstCount += registry == firstRegistry ? 1 : 0;
+    }
+    // The fixture's proposers cover both registries, so the reward assertions are not vacuous.
+    assertGt(firstCount, 0);
+    assertGt(proposers.length - firstCount, 0);
+  }
+
+  function _validatorWithdrawer(uint256 _index) internal view override returns (address) {
+    return _index % 2 == 0 ? address(firstStaker) : address(secondStaker);
+  }
+
+  function _assertReducedRewards(uint256 _snapshot, uint256 _length) internal {
+    assertEq(rollup.getProvenCheckpointNumber(), _length);
+    address[] memory proposers = _checkpointProposers(_length);
+    uint256[] memory withCalculator = _sequencerRewards(proposers);
+    uint256[] memory withoutCalculator = _sequencerRewardsWithoutCalculator(_snapshot, _length, proposers);
+    _assertPremiums(proposers, withCalculator, withoutCalculator, _reducedReward);
+  }
+
+  function _reducedReward(address _proposer) internal view returns (uint256) {
+    address registry = registryOf[_proposer];
+    assertTrue(registry != address(0), "not a validator");
+    return registry == firstRegistry ? FIRST_REWARD : SECOND_REWARD;
   }
 }

@@ -139,4 +139,44 @@ contract PartialEpochProofGasReporter is RollupWithPreheating {
   function gasReportSubmit32CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit1CheckpointWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit8CheckpointsWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit16CheckpointsWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit32CheckpointsWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
 }
