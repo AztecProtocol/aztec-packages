@@ -1,0 +1,76 @@
+name: ClaudeBox CI Bot Smoke
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  aztec-foundation-ci-bot-smoke:
+    name: Aztec Foundation CI bot smoke
+    if: contains(github.event.pull_request.labels.*.name, 'ci-claudebox-bot-smoke')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Slack bot token
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.AZTEC_FOUNDATION_CI_SLACK_CHANNEL_ID || '' }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN is not configured"
+            exit 1
+          fi
+
+          auth_json=$(curl -fsS \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            https://slack.com/api/auth.test)
+          if [ "$(jq -r '.ok // false' <<<"$auth_json")" != "true" ]; then
+            echo "Slack auth.test failed"
+            jq -c '{ok,error,needed,provided}' <<<"$auth_json"
+            exit 1
+          fi
+
+          echo "Slack auth.test OK for user $(jq -r '.user_id' <<<"$auth_json")"
+
+          if [ "$EVENT_ACTION" != "labeled" ]; then
+            echo "Auth smoke complete; Slack hello post is limited to the label event"
+            exit 0
+          fi
+
+          if [ -z "${SLACK_CHANNEL_ID:-}" ]; then
+            echo "AZTEC_FOUNDATION_CI_SLACK_CHANNEL_ID repo variable not set; auth smoke complete without posting"
+            exit 0
+          fi
+
+          msg_json=$(jq -n \
+            --arg channel "$SLACK_CHANNEL_ID" \
+            --arg text "ClaudeBox CI bot smoke OK for PR #${PR_NUMBER}: ${PR_URL} (${RUN_URL})" \
+            '{channel: $channel, text: $text, unfurl_links: false, unfurl_media: false}')
+          post_json=$(curl -fsS \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "$msg_json" \
+            https://slack.com/api/chat.postMessage)
+          if [ "$(jq -r '.ok // false' <<<"$post_json")" != "true" ]; then
+            echo "Slack chat.postMessage failed"
+            jq -c '{ok,error,needed,provided}' <<<"$post_json"
+
+            echo "Inspecting target channel membership"
+            info_json=$(curl -fsS \
+              -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+              "https://slack.com/api/conversations.info?channel=${SLACK_CHANNEL_ID}" || echo '{"ok":false,"error":"http_error"}')
+            jq -c '{ok,error,needed,provided,is_member:(.channel.is_member // null)}' <<<"$info_json" || true
+
+            echo "Expected fix: manually add the Aztec Foundation CI Slack bot user to ${SLACK_CHANNEL_ID}, or reinstall the app with chat:write.public if this smoke should post to public channels without membership. Do not add channels:join just for this smoke."
+            exit 1
+          fi
+
+          echo "Slack post OK to ${SLACK_CHANNEL_ID}"
