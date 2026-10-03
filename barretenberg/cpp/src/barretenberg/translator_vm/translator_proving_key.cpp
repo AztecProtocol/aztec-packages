@@ -87,9 +87,21 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // Given the polynomials in group_i, transfer their elements, sorted in non-descending order, into the corresponding
     // ordered_range_constraint_i up to the given capacity and the remaining elements to the last range constraint.
     // Sorting is done by converting the elements to uint for efficiency.
+    //
+    // Pre-allocate the sorted uint vectors outside the lambda so the final copy can run in a separate parallel step.
+    // We sort using uint32_t vectors for 2 reasons:
+    // 1. It is faster to sort integers
+    // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
+    // from Montgomery
+    constexpr size_t NUM_RANGE_CONSTRAINT_GROUPS = Flavor::NUM_CONCATENATED_POLYS - 1;
+    std::array<std::vector<uint32_t>, NUM_RANGE_CONSTRAINT_GROUPS> ordered_uint_vecs;
+    for (auto& v : ordered_uint_vecs) {
+        v.resize(dyadic_circuit_size_without_masking);
+    }
+
     auto ordering_function = [&](size_t i) {
         const auto& group = to_be_concatenated_groups[i];
-        std::vector<uint32_t> ordered_vectors_uint(dyadic_circuit_size_without_masking);
+        auto& ordered_vectors_uint = ordered_uint_vecs[i];
 
         // Calculate how much space there is for values from the group polynomials given we also need to append the
         // additional steps
@@ -136,26 +148,12 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         std::advance(ordered_vector_it, free_space_before_runway);
         std::copy(sorted_elements.cbegin(), sorted_elements.cend(), ordered_vector_it);
 
-        // Sort the polynomial in nondescending order. We sort using the uint32_t vector for 2 reasons:
-        // 1. It is faster to sort integers
-        // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
-        // from Montgomery
+        // Sort the polynomial in nondescending order.
         std::sort(ordered_vectors_uint.begin(), ordered_vectors_uint.end());
         BB_ASSERT_EQ(ordered_vectors_uint.size(), dyadic_circuit_size_without_masking);
-
-        // All polynomials reserve the same amount of space at the end (max across all polynomials)
-        // so that lagrange_real_last marks the same position for all polynomials
-        // Place sorted values contiguously from position 1 to circuit_size - MAX_RANDOM_VALUES_PER_ORDERED
-        // Position 0 remains 0 (virtual zero). Last MAX_RANDOM_VALUES_PER_ORDERED positions reserved for random values.
-        size_t sorted_idx = 1; // Skip vec[0] (virtual zero at position 0)
-        for (size_t pos = 1; pos < circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; pos++) {
-            ordered_constraint_polynomials[i].at(pos) = FF(ordered_vectors_uint[sorted_idx]);
-            sorted_idx++;
-        }
     };
 
     // Construct the first NUM_CONCATENATED_POLYS - 1 polynomials (range constraint groups only)
-    constexpr size_t NUM_RANGE_CONSTRAINT_GROUPS = Flavor::NUM_CONCATENATED_POLYS - 1;
     parallel_for(NUM_RANGE_CONSTRAINT_GROUPS, ordering_function);
 
     // Advance the iterator into the extra range constraint past the last written element
@@ -171,15 +169,22 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator_uint.end());
 #endif
 
-    // Place sorted values for the 5th polynomial
-    // All polynomials reserve the same amount of space at the end
-    {
-        size_t sorted_idx = 1; // Skip vec[0] (virtual zero at position 0)
-        for (size_t pos = 1; pos < circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; pos++) {
-            proving_key->polynomials.ordered_range_constraints_4.at(pos) = FF(extra_denominator_uint[sorted_idx]);
-            sorted_idx++;
+    // Copy sorted values to all 5 polynomials in parallel. Uses parallel_for_range so that each of the N available
+    // threads gets a contiguous chunk of positions to write, covering all polynomials per chunk.
+    // All polynomials reserve the same amount of space at the end (max across all polynomials)
+    // so that lagrange_real_last marks the same position for all polynomials.
+    // Position 0 remains 0 (virtual zero). Last MAX_RANDOM_VALUES_PER_ORDERED positions reserved for random values.
+    const size_t copy_len = circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1;
+    parallel_for_range(copy_len, [&](size_t start, size_t end) {
+        for (size_t i = 0; i < NUM_RANGE_CONSTRAINT_GROUPS; i++) {
+            for (size_t pos = start + 1; pos <= end; pos++) {
+                ordered_constraint_polynomials[i].at(pos) = FF(ordered_uint_vecs[i][pos]);
+            }
         }
-    }
+        for (size_t pos = start + 1; pos <= end; pos++) {
+            proving_key->polynomials.ordered_range_constraints_4.at(pos) = FF(extra_denominator_uint[pos]);
+        }
+    });
 
     // Transfer randomness from concatenated to ordered polynomials such that the commitments and evaluations of all
     // ordered polynomials and their shifts are hidden
