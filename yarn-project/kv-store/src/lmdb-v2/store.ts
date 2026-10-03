@@ -34,8 +34,11 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   private open = false;
   private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
   private writerCtx = new AsyncLocalStorage<WriteTransaction>();
+  private readerCtx = new AsyncLocalStorage<ReadTransaction>();
   private writerQueue = new SerialQueue();
   private availableCursors: Semaphore;
+  // Cursors that took a reader slot of their own; cursors opened against a read-only transaction reuse its slot
+  private cursorsHoldingReaderSlot = new Set<number>();
 
   private constructor(
     private dataDir: string,
@@ -105,6 +108,14 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return currentWrite;
   }
 
+  /** Returns the read-only transaction of the enclosing {@link readOnlyTransaction} call, if there is one. */
+  public getCurrentReadTx(): ReadTransaction | undefined {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+    return this.readerCtx.getStore();
+  }
+
   openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     return new LMDBMap(this, name);
   }
@@ -159,6 +170,58 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     });
   }
 
+  /**
+   * Runs the callback against a real LMDB read transaction, so every read inside it — whether through the supplied
+   * transaction or through a container such as a map, which picks it up ambiently — observes the same snapshot of the
+   * store. Readers never block the writer and are not serialized against it, so a write may well commit while the
+   * callback runs; the callback simply does not see it.
+   *
+   * Keep the callback short. An open snapshot prevents LMDB from reusing the pages it references, so the data file
+   * grows for as long as it is held.
+   *
+   * Nested calls reuse the enclosing transaction: inside a write transaction the callback sees that transaction's
+   * uncommitted writes, and inside another read-only transaction it shares its snapshot.
+   */
+  async readOnlyTransaction<T extends Exclude<any, Promise<any>>>(
+    callback: (tx: ReadTransaction) => Promise<T>,
+  ): Promise<T> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
+    const currentWrite = this.getCurrentWriteTx();
+    if (currentWrite) {
+      return await callback(currentWrite);
+    }
+
+    const currentRead = this.getCurrentReadTx();
+    if (currentRead) {
+      return await callback(currentRead);
+    }
+
+    // An open snapshot holds an LMDB reader slot for its whole lifetime, so it competes with cursors for them
+    await this.availableCursors.acquire();
+    let txId: number | undefined;
+    try {
+      ({ tx: txId } = await this.sendMessage(LMDBMessageType.START_READ_TX, undefined));
+      const tx = new ReadTransaction(this, txId);
+      try {
+        return await this.readerCtx.run(tx, callback, tx);
+      } finally {
+        tx.close();
+      }
+    } finally {
+      if (typeof txId === 'number') {
+        // The store may have been closed underneath us, in which case the native side has already dropped every
+        // read transaction it was holding open.
+        await this.sendMessage(LMDBMessageType.CLOSE_READ_TX, { tx: txId }).catch(err =>
+          this.log.warn(`Failed to close read-only transaction`, { err, txId }),
+        );
+      }
+      this.availableCursors.release();
+    }
+  }
+
   clear(): Promise<void> {
     return Promise.resolve();
   }
@@ -188,7 +251,13 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
       throw new Error('Store is closed');
     }
 
-    if (msgType === LMDBMessageType.START_CURSOR) {
+    // A cursor bound to a read-only transaction iterates over a snapshot that already holds a reader slot, so it
+    // must not take one of its own.
+    const takesReaderSlot =
+      msgType === LMDBMessageType.START_CURSOR &&
+      typeof (body as LMDBRequestBody[LMDBMessageType.START_CURSOR]).txId !== 'number';
+
+    if (takesReaderSlot) {
       await this.availableCursors.acquire();
     }
 
@@ -197,14 +266,20 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
       ({ response } = await this.channel.sendMessage(msgType, body));
       return response;
     } finally {
-      if (
-        (msgType === LMDBMessageType.START_CURSOR && response === undefined) ||
-        msgType === LMDBMessageType.CLOSE_CURSOR ||
-        // it's possible for a START_CURSOR command to not return a cursor (e.g. db is empty)
-        (msgType === LMDBMessageType.START_CURSOR &&
-          typeof (response as LMDBResponseBody[LMDBMessageType.START_CURSOR]).cursor !== 'number')
-      ) {
-        this.availableCursors.release();
+      if (takesReaderSlot) {
+        // the response is undefined if the message failed, and a START_CURSOR may legitimately return no cursor at
+        // all (e.g. the db is empty), in which case there is nothing left to release the slot later on
+        const cursor = (response as LMDBResponseBody[LMDBMessageType.START_CURSOR] | undefined)?.cursor;
+        if (typeof cursor === 'number') {
+          this.cursorsHoldingReaderSlot.add(cursor);
+        } else {
+          this.availableCursors.release();
+        }
+      } else if (msgType === LMDBMessageType.CLOSE_CURSOR) {
+        const { cursor } = body as LMDBRequestBody[LMDBMessageType.CLOSE_CURSOR];
+        if (this.cursorsHoldingReaderSlot.delete(cursor)) {
+          this.availableCursors.release();
+        }
       }
     }
   }

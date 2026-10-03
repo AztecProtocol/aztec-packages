@@ -189,6 +189,13 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     });
   }
 
+  readOnlyTransaction<T>(callback: () => Promise<T>): Promise<T> {
+    // SQLite here is single-connection, so there is no separate snapshot to open: running the callback inside a
+    // regular transaction is what gives its reads a consistent view. The cost over the LMDB backend is that this
+    // serializes against writers instead of running alongside them.
+    return this.transactionAsync(callback);
+  }
+
   async clear(): Promise<void> {
     await this.runAsync('DELETE FROM data');
   }

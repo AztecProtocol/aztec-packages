@@ -21,6 +21,9 @@ export enum LMDBMessageType {
 
   CLOSE,
   COPY_STORE,
+
+  START_READ_TX,
+  CLOSE_READ_TX,
 }
 
 type Key = Uint8Array;
@@ -37,6 +40,11 @@ interface OpenDatabaseRequest {
 interface GetRequest {
   keys: Key[];
   db: string;
+  /**
+   * Id of an open read transaction to read against, or null to open a throwaway one for this read alone. Must always
+   * be present on the wire: the native decoder rejects messages with missing fields.
+   */
+  txId: number | null;
 }
 
 interface GetResponse {
@@ -54,6 +62,8 @@ interface StartCursorRequest {
   count: number | null;
   onePage: boolean | null;
   db: string;
+  /** Id of an open read transaction to iterate over, or null to open one dedicated to this cursor. */
+  txId: number | null;
 }
 
 interface AdvanceCursorRequest {
@@ -73,6 +83,10 @@ interface CloseCursorRequest {
 interface CopyStoreRequest {
   dstPath: string;
   compact: boolean;
+}
+
+interface CloseReadTxRequest {
+  tx: number;
 }
 
 export interface Batch {
@@ -101,6 +115,9 @@ export type LMDBRequestBody = {
 
   [LMDBMessageType.CLOSE]: void;
   [LMDBMessageType.COPY_STORE]: CopyStoreRequest;
+
+  [LMDBMessageType.START_READ_TX]: void;
+  [LMDBMessageType.CLOSE_READ_TX]: CloseReadTxRequest;
 };
 
 interface GetResponse {
@@ -134,6 +151,10 @@ interface BoolResponse {
   ok: true;
 }
 
+interface StartReadTxResponse {
+  tx: number;
+}
+
 interface StatsResponse {
   stats: Array<{
     name: string;
@@ -162,6 +183,9 @@ export type LMDBResponseBody = {
   [LMDBMessageType.CLOSE]: BoolResponse;
 
   [LMDBMessageType.COPY_STORE]: BoolResponse;
+
+  [LMDBMessageType.START_READ_TX]: StartReadTxResponse;
+  [LMDBMessageType.CLOSE_READ_TX]: BoolResponse;
 };
 
 export interface LMDBMessageChannel {
