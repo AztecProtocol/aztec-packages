@@ -1,8 +1,8 @@
 #include "blake3s.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include <cassert>
 #include <cstdint>
 #include <vector>
 
@@ -43,7 +43,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     PRINT_BYTESTRING("Circuit output: ", circuit_output);
     PRINT_BYTESTRING("Expected:       ", expected);
 
-    assert(circuit_output == expected);
-    assert(bb::CircuitChecker::check(builder));
+    BB_ASSERT(circuit_output == expected);
+    BB_ASSERT(bb::CircuitChecker::check(builder));
     return 0;
 }
