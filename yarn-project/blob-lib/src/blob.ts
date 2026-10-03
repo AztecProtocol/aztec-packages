@@ -82,8 +82,8 @@ export class Blob {
    * Create a Blob from a JSON object.
    *
    * Blobs will be in this form when requested from the blob client, or from
-   * the beacon chain via `getBlobSidecars`
-   * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
+   * the beacon chain via `getBlobs`
+   * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobs
    *
    * @param json - The JSON object to create the Blob from.
    * @returns A Blob created from the JSON object.

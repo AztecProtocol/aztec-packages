@@ -1,5 +1,5 @@
 /**
- * The relevant parts of a response from https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
+ * The relevant parts of a response from https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobs
  */
 export interface BlobJson {
   blob: string;

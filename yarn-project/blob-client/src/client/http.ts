@@ -773,8 +773,8 @@ async function parseBlobJsonsFromResponse(response: any, logger: Logger): Promis
   }
 }
 
-// Blobs will be in this form when requested from the blob client, or from the beacon chain via `getBlobSidecars`:
-// https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
+// Blobs will be in this form when requested from the blob client, or from the beacon chain via `getBlobs`:
+// https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobs
 // Here we attempt to parse the response data to Buffer, and check the lengths (via Blob's constructor), to avoid
 // throwing an error down the line when calling Blob.fromJson().
 async function parseBlobJson(rawHex: string): Promise<BlobJson> {
