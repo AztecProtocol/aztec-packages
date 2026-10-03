@@ -302,7 +302,6 @@ in_loadVk {
 ' "$TEMP_SOL" > "$TEMP_PROCESSED"
 
 # Build the final Solidity content
-FINAL_SOL=$(mktemp)
 
 # Start with SPDX license identifier
 echo "// SPDX-License-Identifier: Apache-2.0" > "$FINAL_SOL"
