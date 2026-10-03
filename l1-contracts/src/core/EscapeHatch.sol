@@ -42,6 +42,9 @@ contract EscapeHatch is IEscapeHatch {
   uint256 public constant LAG_IN_EPOCHS_FOR_SET_SIZE = 2;
 
   /// @notice Number of epochs to look back from the START of the hatch for stable RANDAO
+  /// @dev Must stay below LAG_IN_EPOCHS_FOR_SET_SIZE: the gap between the two is what puts the
+  ///      seed epoch after the epoch the candidate set freezes in, so the set is already closed
+  ///      by the time its entropy is revealed. `getSeed` enforces the consequence at runtime.
   uint256 public constant LAG_IN_EPOCHS_FOR_RANDAO = 1;
 
   // ============ Immutables ============
@@ -93,10 +96,6 @@ contract EscapeHatch is IEscapeHatch {
     uint256 _proposingExitDelay
   ) {
     // Validate configuration
-    // LAG_IN_EPOCHS_FOR_SET_SIZE must be greater than LAG_IN_EPOCHS_FOR_RANDAO
-    // to prevent bias from set manipulation
-    require(LAG_IN_EPOCHS_FOR_SET_SIZE > LAG_IN_EPOCHS_FOR_RANDAO, Errors.EscapeHatch__InvalidConfiguration());
-
     require(_lagInHatches >= 1, Errors.EscapeHatch__InvalidConfiguration());
 
     // ACTIVE_DURATION must be at least proofSubmissionEpochs + 1 to ensure
@@ -445,9 +444,8 @@ contract EscapeHatch is IEscapeHatch {
    * @return The number of candidates in the snapshot for this hatch
    */
   function getCandidateCountForHatch(Hatch _hatch) external view override(IEscapeHatch) returns (uint256) {
-    uint32 freezeTs = getSetTimestamp(_hatch);
-    require(freezeTs < block.timestamp, Errors.EscapeHatch__SetUnstable(_hatch));
-    return $activeCandidates.lengthAtTimestamp(freezeTs);
+    require(getSetTimestamp(_hatch) < block.timestamp, Errors.EscapeHatch__SetUnstable(_hatch));
+    return $activeCandidates.lengthAtTimestamp(_getSnapshotTimestamp(_hatch));
   }
 
   /**
@@ -475,9 +473,8 @@ contract EscapeHatch is IEscapeHatch {
     override(IEscapeHatch)
     returns (address)
   {
-    uint32 freezeTs = getSetTimestamp(_hatch);
-    require(freezeTs < block.timestamp, Errors.EscapeHatch__SetUnstable(_hatch));
-    return $activeCandidates.getAddressFromIndexAtTimestamp(_index, freezeTs);
+    require(getSetTimestamp(_hatch) < block.timestamp, Errors.EscapeHatch__SetUnstable(_hatch));
+    return $activeCandidates.getAddressFromIndexAtTimestamp(_index, _getSnapshotTimestamp(_hatch));
   }
 
   /**
@@ -603,7 +600,8 @@ contract EscapeHatch is IEscapeHatch {
     // Defense in depth: ensure we're past the freeze timestamp
     require(freezeTs < block.timestamp, Errors.EscapeHatch__SetUnstable(targetHatch));
 
-    uint256 setSize = $activeCandidates.lengthAtTimestamp(freezeTs);
+    uint32 snapshotTs = _getSnapshotTimestamp(targetHatch);
+    uint256 setSize = $activeCandidates.lengthAtTimestamp(snapshotTs);
     if (setSize == 0) {
       return;
     }
@@ -618,11 +616,18 @@ contract EscapeHatch is IEscapeHatch {
       return;
     }
 
-    // Get the seed timestamp and sample RANDAO
+    // Draw against the randao checkpointed for the seed epoch. If the rollup has no checkpoint
+    // for that epoch the only entropy on offer predates the freeze, which a candidate could have
+    // ground against, so leave the hatch closed rather than run a biasable draw.
     uint32 seedTs = getSeedTimestamp(targetHatch);
-    uint256 seed = ROLLUP.getSampleSeedAt(Timestamp.wrap(seedTs));
-    uint256 index = uint256(keccak256(abi.encode(targetHatch, seed))) % setSize;
-    address proposer = $activeCandidates.getAddressFromIndexAtTimestamp(index, freezeTs);
+    (bool exists, uint32 keyTs, uint224 randao) = ROLLUP.getCheckpointedRandaoAt(Timestamp.wrap(seedTs));
+    if (!exists || keyTs != seedTs) {
+      emit HatchPreparationSkipped(targetHatch, seedTs, keyTs);
+      return;
+    }
+
+    uint256 index = uint256(keccak256(abi.encode(targetHatch, randao))) % setSize;
+    address proposer = $activeCandidates.getAddressFromIndexAtTimestamp(index, snapshotTs);
 
     $designatedProposer[targetHatch] = proposer;
 
@@ -695,7 +700,40 @@ contract EscapeHatch is IEscapeHatch {
     return Timestamp.unwrap(ROLLUP.getTimestampForEpoch(seedEpoch)).toUint32();
   }
 
+  /**
+   * @notice Get the entropy a target hatch's proposer is drawn against
+   *
+   * @dev Reverts unless the rollup holds a randao checkpointed for the hatch's seed epoch, which
+   *      is the epoch after the one the candidate set freezes in. Anyone can guarantee such a
+   *      checkpoint exists by calling the rollup's permissionless `checkpointRandao` during that
+   *      epoch; without one there is no entropy that postdates the freeze and the hatch does not
+   *      open. The rollup's own `lagInEpochsForRandao` deliberately plays no part here: applying
+   *      it would move the entropy back to an epoch the candidate set was still open in.
+   *
+   * @param _hatch The target hatch (the one being prepared/proposed for)
+   *
+   * @return The seed for this hatch's proposer selection
+   *
+   * @custom:reverts EscapeHatch__EntropyNotReady if no randao is checkpointed for the seed epoch
+   */
+  function getSeed(Hatch _hatch) public view override(IEscapeHatch) returns (uint256) {
+    uint32 seedTs = getSeedTimestamp(_hatch);
+    (bool exists, uint32 keyTs, uint224 randao) = ROLLUP.getCheckpointedRandaoAt(Timestamp.wrap(seedTs));
+    require(exists && keyTs == seedTs, Errors.EscapeHatch__EntropyNotReady(_hatch, seedTs, keyTs));
+    return uint256(keccak256(abi.encode(_hatch, randao)));
+  }
+
   // ============ Internal Functions ============
+
+  /**
+   * @dev The candidate snapshot is read one second before the freeze timestamp. Snapshot lookups
+   *      are inclusive of their key, so reading at the freeze timestamp itself would admit joins
+   *      landing in that very block -- after the freeze is meant to have taken effect.
+   */
+  function _getSnapshotTimestamp(Hatch _hatch) internal view returns (uint32) {
+    return getSetTimestamp(_hatch) - 1;
+  }
+
   function _getHatch(Epoch _epoch) internal view returns (Hatch) {
     return Hatch.wrap(Epoch.unwrap(_epoch) / FREQUENCY);
   }

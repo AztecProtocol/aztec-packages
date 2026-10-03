@@ -16,6 +16,7 @@ contract EscapeHatchInitiateExitTest is EscapeHatchBase {
     // Warp to safe epoch because initiateExit() calls selectCandidates() internally
     _warpToSafeEpoch();
 
+    _checkpointSeedRandao();
     vm.expectRevert(abi.encodeWithSelector(Errors.EscapeHatch__NotInCandidateSet.selector, CANDIDATE1));
     vm.prank(CANDIDATE1);
     escapeHatch.initiateExit();
@@ -91,6 +92,7 @@ contract EscapeHatchInitiateExitTest is EscapeHatchBase {
 
     uint256 currentTime = block.timestamp;
 
+    _checkpointSeedRandao();
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.CandidateExitInitiated(CANDIDATE1, uint32(currentTime));
 
@@ -143,6 +145,7 @@ contract EscapeHatchInitiateExitTest is EscapeHatchBase {
     // The revert with NotInCandidateSet confirms CANDIDATE1 was selected and removed
     assertTrue(escapeHatch.isCandidate(CANDIDATE1), "not candidate before initiateExit");
 
+    _checkpointSeedRandao();
     vm.expectRevert(abi.encodeWithSelector(Errors.EscapeHatch__NotInCandidateSet.selector, CANDIDATE1));
     vm.prank(CANDIDATE1);
     escapeHatch.initiateExit();
@@ -196,6 +199,7 @@ contract EscapeHatchInitiateExitTest is EscapeHatchBase {
     Hatch nextTargetHatchNow = currentHatchNow + Hatch.wrap(1 + config.lagInHatches);
     uint256 expectedExitableAt = escapeHatch.getSetTimestamp(nextTargetHatchNow + Hatch.wrap(1));
 
+    _checkpointSeedRandao();
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.CandidateExitInitiated(CANDIDATE1, uint32(expectedExitableAt));
 

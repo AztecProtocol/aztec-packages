@@ -123,6 +123,7 @@ library Errors {
   error EscapeHatch__SetUnstable(Hatch hatch);
   error EscapeHatch__AlreadyValidated(Hatch hatch);
   error EscapeHatch__HatchTooEarly(Hatch hatch);
+  error EscapeHatch__EntropyNotReady(Hatch hatch, uint32 seedTimestamp, uint32 foundTimestamp);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -147,6 +148,7 @@ library Errors {
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
   error ValidatorSelection__EpochNotStable(uint256 queriedEpoch, uint32 currentTimestamp);
   error ValidatorSelection__InvalidLagInEpochs(uint256 lagInEpochsForValidatorSet, uint256 lagInEpochsForRandao);
+  error ValidatorSelection__RandaoNotStable(uint32 queriedTimestamp, uint32 currentTimestamp);
   error ValidatorSelection__EscapeHatchAlreadySet();
   error ValidatorSelection__EscapeHatchCannotBeZero();
   error ValidatorSelection__EscapeHatchRollupMismatch(address expected, address actual);

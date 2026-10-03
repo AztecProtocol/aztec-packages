@@ -29,6 +29,7 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
 
     _warpForwardEpochs(config.frequency);
 
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
     vm.expectRevert(
       abi.encodeWithSelector(Errors.EscapeHatch__InvalidStatus.selector, uint8(Status.EXITING), uint8(Status.PROPOSING))
@@ -56,12 +57,14 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
     _warpToSafeEpoch();
 
     // Prepare the hatch with no candidates (so no one gets selected as proposer)
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Now join candidate set (after hatch is prepared, they won't be selected)
     _joinCandidateSetWithConfig(CANDIDATE1);
 
     // Initiate exit (before freeze for next hatch) so exitableAt = current timestamp
+    _checkpointSeedRandao();
     vm.prank(CANDIDATE1);
     escapeHatch.initiateExit();
     _;
@@ -92,6 +95,7 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
     _warpToSafeEpoch();
 
     // Prepare hatch so CANDIDATE1 won't be selected as proposer when we call initiateExit
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     // Join candidate set
@@ -108,6 +112,7 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
     vm.warp(nextFreezeTimestamp);
 
     // Now call initiateExit - exitableAt will be pushed to first epoch of hatch after next
+    _checkpointSeedRandao();
     vm.prank(CANDIDATE1);
     escapeHatch.initiateExit();
 
@@ -196,6 +201,7 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
 
     _joinCandidateSetWithConfig(CANDIDATE1);
     _warpForwardEpochs(config.frequency);
+    _checkpointSeedRandao();
     escapeHatch.selectCandidates();
 
     Epoch currentEpoch = _getCurrentEpoch();

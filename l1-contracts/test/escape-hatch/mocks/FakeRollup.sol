@@ -81,6 +81,14 @@ contract FakeRollup {
     return uint256(keccak256(abi.encodePacked("seed", _ts)));
   }
 
+  function getCheckpointedRandaoAt(Timestamp _ts) external pure returns (bool, uint32, uint224) {
+    // Always an exact hit, so the fake stands in for a rollup whose randao is checkpointed every
+    // epoch. Tests covering a missing checkpoint use the real rollup.
+    return (true, uint32(Timestamp.unwrap(_ts)), uint224(uint256(keccak256(abi.encodePacked("randao", _ts)))));
+  }
+
+  function checkpointRandao() external {}
+
   function getEscapeHatch() external view returns (IEscapeHatch) {
     return IEscapeHatch(escapeHatchAddress);
   }
