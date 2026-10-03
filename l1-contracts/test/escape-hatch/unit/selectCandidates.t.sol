@@ -162,6 +162,134 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     _;
   }
 
+  function test_GivenRandaoCheckpointedAtOrBeforeTheFreezeDiffers(uint256 _randaoBeforeFreeze, uint256 _randaoAtFreeze)
+    external
+    givenHatchIsNotPrepared
+    givenSetIsStable
+    givenCandidateSetSizeIsNon_zeroAtSnapshotTime
+    givenCurrentTimeIsBeforeNextSnapshotTimestamp
+  {
+    // it should select the same proposer
+    //
+    // A RANDAO checkpointed at or before the freeze is known while the candidate set can still be
+    // changed, so a selection that depends on it lets candidates tune the set to pick the proposer.
+
+    _assertRollupRandaoLagIsNonZero();
+    (Hatch targetHatch, uint256 selectionTs) = _joinCandidatesForNextHatch();
+    uint256 freezeTs = escapeHatch.getSetTimestamp(targetHatch);
+    uint256 seedTs = escapeHatch.getSeedTimestamp(targetHatch);
+    uint256 randaoAfterFreeze = uint256(keccak256("randao after freeze"));
+
+    uint256 snapshot = vm.snapshotState();
+    _checkpointRandaoAt(freezeTs - EPOCH_DURATION, uint256(keccak256("randao before freeze")));
+    _checkpointRandaoAt(freezeTs, uint256(keccak256("randao at freeze")));
+    _checkpointRandaoAt(seedTs, randaoAfterFreeze);
+    vm.warp(selectionTs);
+    escapeHatch.selectCandidates();
+    address expected = escapeHatch.getDesignatedProposer(targetHatch);
+    vm.revertToState(snapshot);
+
+    _checkpointRandaoAt(freezeTs - EPOCH_DURATION, _randaoBeforeFreeze);
+    _checkpointRandaoAt(freezeTs, _randaoAtFreeze);
+    _checkpointRandaoAt(seedTs, randaoAfterFreeze);
+    vm.warp(selectionTs);
+    escapeHatch.selectCandidates();
+    assertEq(
+      escapeHatch.getDesignatedProposer(targetHatch), expected, "RANDAO known before the freeze changed the proposer"
+    );
+  }
+
+  function test_GivenRandaoCheckpointedAfterTheFreeze(uint256 _randaoAfterFreeze)
+    external
+    givenHatchIsNotPrepared
+    givenSetIsStable
+    givenCandidateSetSizeIsNon_zeroAtSnapshotTime
+    givenCurrentTimeIsBeforeNextSnapshotTimestamp
+  {
+    // it should compute deterministic index from hatch and the seed derived from that RANDAO
+
+    _assertRollupRandaoLagIsNonZero();
+    (Hatch targetHatch, uint256 selectionTs) = _joinCandidatesForNextHatch();
+    uint256 freezeTs = escapeHatch.getSetTimestamp(targetHatch);
+    uint256 seedTs = escapeHatch.getSeedTimestamp(targetHatch);
+
+    _checkpointRandaoAt(freezeTs - EPOCH_DURATION, uint256(keccak256("randao before freeze")));
+    _checkpointRandaoAt(freezeTs, uint256(keccak256("randao at freeze")));
+    _checkpointRandaoAt(seedTs, _randaoAfterFreeze);
+    vm.warp(selectionTs);
+    address expected = _expectedProposer(targetHatch, _randaoAfterFreeze);
+
+    escapeHatch.selectCandidates();
+    assertEq(escapeHatch.getDesignatedProposer(targetHatch), expected, "proposer not derived from post-freeze RANDAO");
+  }
+
+  function test_GivenNoRandaoCheckpointedAfterTheFreeze(uint256 _randaoAtFreeze)
+    external
+    givenHatchIsNotPrepared
+    givenSetIsStable
+    givenCandidateSetSizeIsNon_zeroAtSnapshotTime
+    givenCurrentTimeIsBeforeNextSnapshotTimestamp
+  {
+    // it should compute deterministic index from hatch and the seed derived from the previous checkpoint
+    //
+    // The rollup records no checkpoint for an epoch in which no transaction reaches it, so its lookup for
+    // the seed epoch returns the latest earlier checkpoint, which candidates may know before the freeze.
+
+    _assertRollupRandaoLagIsNonZero();
+    (Hatch targetHatch, uint256 selectionTs) = _joinCandidatesForNextHatch();
+    uint256 freezeTs = escapeHatch.getSetTimestamp(targetHatch);
+
+    _checkpointRandaoAt(freezeTs - EPOCH_DURATION, uint256(keccak256("randao before freeze")));
+    _checkpointRandaoAt(freezeTs, _randaoAtFreeze);
+    vm.warp(selectionTs);
+    address expected = _expectedProposer(targetHatch, _randaoAtFreeze);
+
+    escapeHatch.selectCandidates();
+    assertEq(escapeHatch.getDesignatedProposer(targetHatch), expected, "proposer not derived from previous checkpoint");
+  }
+
+  /// @dev With a zero rollup lag the escape hatch has nothing to compensate for, and the RANDAO tests
+  ///      would pass against a contract that ignores the lag.
+  function _assertRollupRandaoLagIsNonZero() internal view {
+    assertGt(rollup.getLagInEpochsForRandao(), 0, "rollup RANDAO lag must be non-zero for this test to be meaningful");
+  }
+
+  /// @dev Joins three candidates and returns the hatch prepared by the first selection of the next hatch,
+  ///      with the timestamp at which that selection runs. The candidates join well before the target
+  ///      hatch's freeze, so all three are in its snapshot.
+  function _joinCandidatesForNextHatch() internal returns (Hatch targetHatch, uint256 selectionTs) {
+    _warpToSafeEpoch();
+    _joinCandidateSet(CANDIDATE1);
+    _joinCandidateSet(CANDIDATE2);
+    _joinCandidateSet(CANDIDATE3);
+
+    Hatch nextHatch = escapeHatch.getCurrentHatch() + Hatch.wrap(1);
+    targetHatch = nextHatch + Hatch.wrap(config.lagInHatches);
+    selectionTs = Timestamp.unwrap(rollup.getTimestampForEpoch(escapeHatch.getFirstEpoch(nextHatch)));
+  }
+
+  /// @dev Records `_randao` in the rollup as the RANDAO of the epoch starting at `_epochStartTs`.
+  ///      Checkpoints must be recorded in increasing epoch order.
+  function _checkpointRandaoAt(uint256 _epochStartTs, uint256 _randao) internal {
+    vm.warp(_epochStartTs);
+    vm.prevrandao(_randao);
+    rollup.checkpointRandao();
+  }
+
+  /// @dev The candidate the escape hatch must designate for `_targetHatch` when `_randao` is the RANDAO the
+  ///      rollup's lookup returns for the hatch's seed epoch.
+  function _expectedProposer(Hatch _targetHatch, uint256 _randao) internal view returns (address) {
+    // The rollup derives an epoch's seed from the RANDAO checkpointed lagInEpochsForRandao epochs earlier,
+    // so the seed built from the seed epoch's RANDAO belongs to the epoch that many epochs later. The
+    // rollup stores only the low 224 bits of a RANDAO.
+    Epoch seedEpoch = rollup.getEpochAt(Timestamp.wrap(escapeHatch.getSeedTimestamp(_targetHatch)));
+    Epoch queriedEpoch = seedEpoch + Epoch.wrap(rollup.getLagInEpochsForRandao());
+    uint256 seed = uint256(keccak256(abi.encode(queriedEpoch, uint224(_randao))));
+    uint256 setSize = escapeHatch.getCandidateCountForHatch(_targetHatch);
+    uint256 index = uint256(keccak256(abi.encode(_targetHatch, seed))) % setSize;
+    return escapeHatch.getCandidateAtIndexForHatch(index, _targetHatch);
+  }
+
   modifier givenSelectedCandidateStatusIsACTIVE() {
     _;
   }
@@ -405,5 +533,14 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     assertEq(uint8(info.status), uint8(Status.NONE), "Status should remain NONE");
     assertEq(info.amount, 0, "Amount should remain zero");
     assertFalse(escapeHatch.isCandidate(CANDIDATE1), "Candidate should not be in active set");
+  }
+}
+
+/// @notice Selection tests under a rollup `lagInEpochsForRandao` of 1.
+/// @dev The escape hatch compensates for the rollup's lag when it queries the seed, so the
+///      freeze-before-RANDAO ordering must hold for any value.
+contract EscapeHatchSelectCandidatesRandaoLagOneTest is EscapeHatchSelectCandidatesTest {
+  function _lagInEpochsForRandao() internal pure override returns (uint256) {
+    return 1;
   }
 }

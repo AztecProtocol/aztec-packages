@@ -13,6 +13,12 @@ EscapeHatchSelectCandidatesTest
             │   ├── it should set isHatchPrepared for the hatch
             │   └── it should not set designatedProposer
             └── given current time is before next snapshot timestamp
+                ├── given RANDAO checkpointed at or before the freeze differs
+                │   └── it should select the same proposer
+                ├── given RANDAO checkpointed after the freeze
+                │   └── it should compute deterministic index from hatch and the seed derived from that RANDAO
+                ├── given no RANDAO checkpointed after the freeze
+                │   └── it should compute deterministic index from hatch and the seed derived from the previous checkpoint
                 ├── given selected candidate status is ACTIVE
                 │   ├── it should set isHatchPrepared for the hatch
                 │   ├── it should compute deterministic index from hatch and seed

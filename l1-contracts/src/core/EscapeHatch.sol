@@ -49,6 +49,9 @@ contract EscapeHatch is IEscapeHatch {
   // The rollup contract that the escape hatch belongs to
   IInstance internal immutable ROLLUP;
 
+  // The rollup samples the RANDAO for an epoch this many epochs before that epoch starts
+  uint256 internal immutable ROLLUP_LAG_IN_EPOCHS_FOR_RANDAO;
+
   // The lag defines how far in advance we pick the
   uint256 internal immutable LAG_IN_HATCHES;
 
@@ -123,6 +126,7 @@ contract EscapeHatch is IEscapeHatch {
     require(_proposingExitDelay <= 30 days, Errors.EscapeHatch__InvalidConfiguration());
 
     ROLLUP = IInstance(_rollup);
+    ROLLUP_LAG_IN_EPOCHS_FOR_RANDAO = IInstance(_rollup).getLagInEpochsForRandao();
     BOND_TOKEN = IERC20(_bondToken);
     BOND_SIZE = _bondSize;
     WITHDRAWAL_TAX = _withdrawalTax;
@@ -501,6 +505,15 @@ contract EscapeHatch is IEscapeHatch {
   }
 
   /**
+   * @notice Get the rollup's RANDAO lag that seed queries compensate for
+   *
+   * @return The rollup's `lagInEpochsForRandao`, as read from the rollup at construction
+   */
+  function getRollupLagInEpochsForRandao() external view override(IEscapeHatch) returns (uint256) {
+    return ROLLUP_LAG_IN_EPOCHS_FOR_RANDAO;
+  }
+
+  /**
    * @notice Get the bond token address
    *
    * @return The ERC20 token used for candidate bonds
@@ -618,9 +631,16 @@ contract EscapeHatch is IEscapeHatch {
       return;
     }
 
-    // Get the seed timestamp and sample RANDAO
-    uint32 seedTs = getSeedTimestamp(targetHatch);
-    uint256 seed = ROLLUP.getSampleSeedAt(Timestamp.wrap(seedTs));
+    // The rollup derives an epoch's seed from the RANDAO checkpointed ROLLUP_LAG_IN_EPOCHS_FOR_RANDAO epochs
+    // earlier, so query the epoch whose RANDAO sample lands on the seed epoch, which is after the freeze.
+    // The rollup only records a checkpoint when a transaction (a checkpoint proposal or `checkpointRandao`)
+    // reaches it during the seed epoch, and it records the prevrandao of whichever block carries the first such
+    // transaction, so the first caller chooses among that epoch's blocks. If no transaction reaches it, the
+    // lookup falls back to the previous checkpoint, which is for the freeze epoch or an earlier one and so may
+    // have been known before the freeze, letting candidates tune the set against it. `checkpointRandao` is
+    // permissionless, so anyone can prevent this by calling it during the seed epoch, unless L1 censors the call.
+    Epoch queriedEpoch = _getSeedEpoch(targetHatch) + Epoch.wrap(ROLLUP_LAG_IN_EPOCHS_FOR_RANDAO);
+    uint256 seed = ROLLUP.getSampleSeedAt(ROLLUP.getTimestampForEpoch(queriedEpoch));
     uint256 index = uint256(keccak256(abi.encode(targetHatch, seed))) % setSize;
     address proposer = $activeCandidates.getAddressFromIndexAtTimestamp(index, freezeTs);
 
@@ -688,22 +708,38 @@ contract EscapeHatch is IEscapeHatch {
    * @dev This is after the freeze timestamp to prevent manipulation of the
    *      candidate set based on known RANDAO values.
    *
+   *      Do not pass this timestamp to `ROLLUP.getSampleSeedAt`: the rollup subtracts its own
+   *      `lagInEpochsForRandao` from the epoch it is asked about, so that call returns a seed built from
+   *      a RANDAO checkpointed in the freeze epoch or earlier. `selectCandidates` queries the epoch that
+   *      many epochs later instead.
+   *
    * @param _hatch The target hatch (the one being prepared/proposed for)
    *
    * @return The timestamp at which the RANDAO seed is sampled for this hatch
    */
   function getSeedTimestamp(Hatch _hatch) public view override(IEscapeHatch) returns (uint32) {
+    return Timestamp.unwrap(ROLLUP.getTimestampForEpoch(_getSeedEpoch(_hatch))).toUint32();
+  }
+
+  // ============ Internal Functions ============
+
+  /**
+   * @notice Get the epoch whose RANDAO checkpoint seeds a target hatch
+   *
+   * @param _hatch The target hatch (the one being prepared/proposed for)
+   *
+   * @return The epoch during which the RANDAO that seeds this hatch's selection is checkpointed
+   */
+  function _getSeedEpoch(Hatch _hatch) internal view returns (Epoch) {
     require(Hatch.unwrap(_hatch) >= LAG_IN_HATCHES, Errors.EscapeHatch__HatchTooEarly(_hatch));
 
     Hatch samplingHatch = _hatch - Hatch.wrap(LAG_IN_HATCHES);
     Epoch firstEpoch = _getFirstEpoch(samplingHatch);
     require(Epoch.unwrap(firstEpoch) >= LAG_IN_EPOCHS_FOR_RANDAO, Errors.EscapeHatch__HatchTooEarly(_hatch));
 
-    Epoch seedEpoch = firstEpoch - Epoch.wrap(LAG_IN_EPOCHS_FOR_RANDAO);
-    return Timestamp.unwrap(ROLLUP.getTimestampForEpoch(seedEpoch)).toUint32();
+    return firstEpoch - Epoch.wrap(LAG_IN_EPOCHS_FOR_RANDAO);
   }
 
-  // ============ Internal Functions ============
   function _getHatch(Epoch _epoch) internal view returns (Hatch) {
     return Hatch.wrap(Epoch.unwrap(_epoch) / FREQUENCY);
   }
