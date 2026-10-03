@@ -200,7 +200,7 @@ describe('log_store_codec', () => {
       const txHash = TxHash.random();
       const blockHash = BlockHash.random();
       const blockTimestamp = 1234567890n;
-      const original = { txHash, blockHash, blockTimestamp, logData: [] };
+      const original = { txHash: txHash.toBuffer(), blockHash: blockHash.toBuffer(), blockTimestamp, logData: [] };
       const buf = encodeValue(original);
       const decoded = decodeValue(buf);
       expect(decoded.txHash.equals(txHash)).toBe(true);
@@ -214,7 +214,7 @@ describe('log_store_codec', () => {
       const blockHash = BlockHash.random();
       const blockTimestamp = 9999999999n;
       const logData = [Fr.random(), Fr.random(), Fr.random()];
-      const original = { txHash, blockHash, blockTimestamp, logData };
+      const original = { txHash: txHash.toBuffer(), blockHash: blockHash.toBuffer(), blockTimestamp, logData };
       const buf = encodeValue(original);
       const decoded = decodeValue(buf);
       expect(decoded.txHash.equals(txHash)).toBe(true);
@@ -230,7 +230,12 @@ describe('log_store_codec', () => {
       const txHash = TxHash.random();
       const blockHash = BlockHash.random();
       const blockTimestamp = 0n;
-      const original = { txHash, blockHash, blockTimestamp, logData: [Fr.random()] };
+      const original = {
+        txHash: txHash.toBuffer(),
+        blockHash: blockHash.toBuffer(),
+        blockTimestamp,
+        logData: [Fr.random()],
+      };
       const buf = encodeValue(original);
       // Convert to Uint8Array (not a Buffer).
       const uint8 = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);

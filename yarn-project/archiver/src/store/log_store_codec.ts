@@ -31,6 +31,19 @@ export type StoredLogValue = {
   logData: Fr[];
 };
 
+/**
+ * Input to {@link encodeValue}. The hashes come in already serialized because a whole block's logs
+ * share one `blockHash` and every log of a tx shares its `txHash`, so callers serialize each once.
+ */
+export type EncodeLogValueInput = {
+  /** 32-byte serialized tx hash. */
+  txHash: Buffer;
+  /** 32-byte serialized block hash. */
+  blockHash: Buffer;
+  blockTimestamp: bigint;
+  logData: Fr[];
+};
+
 /** Returns the 64-char lowercase hex representation of a field, stripping the `0x` prefix. */
 export function fieldHex(value: Fr | { toString: () => string }): string {
   // Fr.toString() and AztecAddress.toString() both return `0x` + 64 lowercase hex chars.
@@ -108,10 +121,10 @@ export function incKey(key: string): string {
   return key + HEX_SENTINEL;
 }
 
-export function encodeValue(value: StoredLogValue): Buffer {
+export function encodeValue(value: EncodeLogValueInput): Buffer {
   const head = Buffer.allocUnsafe(32 + 32 + 8 + 4);
-  value.txHash.toBuffer().copy(head, 0);
-  value.blockHash.toBuffer().copy(head, 32);
+  value.txHash.copy(head, 0);
+  value.blockHash.copy(head, 32);
   head.writeBigUInt64BE(value.blockTimestamp, 64);
   head.writeUInt32BE(value.logData.length, 72);
   const fieldBufs = value.logData.map(f => f.toBuffer());
