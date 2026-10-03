@@ -358,6 +358,118 @@ mod tests {
         assert_eq(final_acc.blob_commitments_hash, blob_commitments_hash_3_blobs_from_ts);
     }
 
+    unconstrained fn evaluate_blobs_and_batch_unconstrained<let NumBlobs: u32>(
+        blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
+        num_fields: u32,
+        blob_fields_hash: Field,
+        kzg_commitments_points: [BLSPoint; NumBlobs],
+        final_blob_challenges: FinalBlobBatchingChallenges,
+        start_accumulator: BlobAccumulator,
+        challenge_z: BLS12_381_Fr,
+    ) -> BlobAccumulator {
+        evaluate_blobs_and_batch(
+            blobs_as_fields,
+            num_fields,
+            blob_fields_hash,
+            kzg_commitments_points,
+            final_blob_challenges,
+            start_accumulator,
+            challenge_z,
+        )
+    }
+
+    /// Unconstrained execution takes shortcuts the circuit cannot: a batched inner product for the
+    /// barycentric sum, and a Jacobian-only scalar multiplication in the accumulator. Simulation
+    /// predicts the public inputs the circuit will then have to reproduce exactly, so the two paths
+    /// have to agree on every field of the accumulator.
+    ///
+    /// The start accumulator is non-empty so that the blobs go through `accumulate` (which does the
+    /// scalar multiplication) rather than `init`.
+    #[test]
+    fn constrained_and_unconstrained_evaluation_agree() {
+        let num_fields = FIELDS_PER_BLOB + 37;
+        let mut blob_fields = [0; FIELDS_PER_BLOB * 2];
+        for i in 0..num_fields {
+            blob_fields[i] = 8 + i as Field;
+        }
+
+        let commitments = [
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0xc1c8bbec58d7e25cc840d31e1a0361,
+                    0xdfebfabcadc58a67da75e8c3ee4a09,
+                    0x5504cd781b65efd4f539e321e4d17a,
+                    0x171570,
+                ],
+                [
+                    0x96af7267d106a96b4353b5ed0bf0a6,
+                    0xb785a85e0f1404abe16503604906e6,
+                    0x471e2147e13fe3eaa97ada6f828112,
+                    0x15e24d,
+                ],
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0xab3ed5948aa3d00fe77b1b2876ecd7,
+                    0x9d649e59ee9920f46f5f586bc9f6cb,
+                    0x001f300677e564710b67c3ef2b1f46,
+                    0x0ac039,
+                ],
+                [
+                    0xaa5703192a3733107a7f7ba1fa98ce,
+                    0xc67513549bde2e39d6b6607670cd6b,
+                    0x0727a2b1e640aec8dbc7709a0c38be,
+                    0x13ed3a,
+                ],
+            )
+                .point,
+        ];
+
+        let final_challenges = FinalBlobBatchingChallenges {
+            z: 0x1f4a21e3a1ab23739c164d0df1596c870180aab5f810c548097dd6371ac3186d,
+            gamma: BLS12_381_Fr::from_limbs([
+                0xf8b8cfdf51c20cc6ffc9820eb0d204,
+                0x36482d033a8c01a3089bba6714ca12,
+                0x14e8,
+            ]),
+        };
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
+
+        let mut start_accumulator = BlobAccumulator::empty();
+        start_accumulator.blob_commitments_hash_acc = 11;
+        start_accumulator.z_acc = 22;
+        start_accumulator.y_acc = challenge_z;
+        start_accumulator.c_acc = commitments[1];
+        start_accumulator.gamma_acc = 33;
+        start_accumulator.gamma_pow_acc = final_challenges.gamma;
+
+        let in_circuit = evaluate_blobs_and_batch(
+            blob_fields,
+            num_fields,
+            0x1c501e5d16d469f6b3e06418af17686f4d34f69fa4ed5d9690850a3e88f30810,
+            commitments,
+            final_challenges,
+            start_accumulator,
+            challenge_z,
+        );
+
+        // Safety: test code; the point of the test is to compare the two execution paths.
+        let simulated = unsafe {
+            evaluate_blobs_and_batch_unconstrained(
+                blob_fields,
+                num_fields,
+                0x1c501e5d16d469f6b3e06418af17686f4d34f69fa4ed5d9690850a3e88f30810,
+                commitments,
+                final_challenges,
+                start_accumulator,
+                challenge_z,
+            )
+        };
+
+        assert_eq(in_circuit, simulated);
+    }
+
     #[test]
     fn test_empty_blob() {
         let blob = [0; FIELDS_PER_BLOB];
