@@ -15,9 +15,7 @@ import {
   CheckpointPreflightArgs,
   FeeHeader,
   RollupConfigInput,
-  RollupStore,
-  RegistryRewardOverride,
-  MAX_REGISTRY_REWARD_OVERRIDES
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
@@ -571,6 +569,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardExtLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover)
+    external
+    view
+    override(IRollup)
+    returns (bool)
+  {
+    return RewardExtLib.getHasSubmittedFullEpoch(_epoch, _length, _prover);
+  }
+
   function getHasClaimed(address _prover, Epoch _epoch) external view override(IRollup) returns (bool) {
     return RewardExtLib.getHasClaimed(_prover, _epoch);
   }
@@ -634,17 +641,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardExtLib.getRewardConfig();
   }
 
-  function getCheckpointReward() external view override(IRollup) returns (uint256) {
-    return RewardExtLib.getCheckpointReward();
+  /**
+   * @notice Returns the sequencer reward calculator consulted when epoch proofs pay checkpoint rewards
+   * @return The calculator, or zero if every checkpoint receives the default sequencer reward
+   */
+  function getSequencerRewardCalculator() external view override(IRollup) returns (address) {
+    return RewardExtLib.getSequencerRewardCalculator();
   }
 
-  function getRegistryRewardOverrides()
-    external
-    view
-    override(IRollup)
-    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory)
-  {
-    return _getRegistryRewardOverrides();
+  function getCheckpointReward() external view override(IRollup) returns (uint256) {
+    return RewardExtLib.getCheckpointReward();
   }
 
   function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {

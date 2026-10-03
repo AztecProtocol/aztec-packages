@@ -18,13 +18,7 @@ import {
   EthValue
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {
-  RewardLib,
-  RewardConfig,
-  MutableRewardConfig,
-  RegistryRewardOverride,
-  MAX_REGISTRY_REWARD_OVERRIDES
-} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {
@@ -40,12 +34,14 @@ library RewardExtLib {
   using FeeConfigLib for CompressedFeeConfig;
   using PriceLib for EthValue;
 
-  function initializeConfig(
-    RewardConfig memory _config,
-    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
-  ) external {
-    RewardLib.validateRegistryRewardOverrides(_registryRewardOverrides, _config);
+  /**
+   * @notice Writes the reward configuration and the initial sequencer reward calculator at construction
+   * @param _config The full reward configuration, including the immutable distributor and booster
+   * @param _sequencerRewardCalculator The initial sequencer reward calculator, or zero for none
+   */
+  function initializeConfig(RewardConfig memory _config, address _sequencerRewardCalculator) external {
     RewardLib.initializeConfig(_config);
+    RewardLib.setSequencerRewardCalculator(_sequencerRewardCalculator);
   }
 
   /**
@@ -89,6 +85,16 @@ library RewardExtLib {
     emit IRollupCore.ProtocolFeeRecipientUpdated(oldRecipient, _recipient);
   }
 
+  /**
+   * @notice Replaces the sequencer reward calculator and emits {IRollupCore.SequencerRewardCalculatorUpdated}
+   * @dev Accepts any address, including zero (no calculator). The event is emitted even if the value is unchanged.
+   * @param _calculator The new calculator, or zero for none
+   */
+  function updateSequencerRewardCalculator(address _calculator) external {
+    address oldCalculator = RewardLib.setSequencerRewardCalculator(_calculator);
+    emit IRollupCore.SequencerRewardCalculatorUpdated(oldCalculator, _calculator);
+  }
+
   function claimSequencerRewards(address _sequencer, IERC20 _feeAsset) external returns (uint256) {
     return RewardLib.claimSequencerRewards(_sequencer, _feeAsset);
   }
@@ -124,6 +130,10 @@ library RewardExtLib {
     return RewardLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover) external view returns (bool) {
+    return RewardLib.getHasSubmittedFullEpoch(_epoch, _length, _prover);
+  }
+
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool) {
     return RewardLib.getHasClaimed(_prover, _epoch);
   }
@@ -138,6 +148,14 @@ library RewardExtLib {
 
   function getRewardDistributor() external view returns (IRewardDistributor) {
     return RewardLib.getStorage().config.rewardDistributor;
+  }
+
+  /**
+   * @notice Returns the current sequencer reward calculator
+   * @return The calculator, or zero if every checkpoint receives the default sequencer reward
+   */
+  function getSequencerRewardCalculator() external view returns (address) {
+    return RewardLib.getSequencerRewardCalculator();
   }
 
   // FeeLib/STFLib/ProposeLib view wrappers - overflow from RollupOperationsExtLib

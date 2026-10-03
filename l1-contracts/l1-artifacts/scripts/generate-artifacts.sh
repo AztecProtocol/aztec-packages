@@ -28,6 +28,7 @@ contracts=(
   "HonkVerifier"
   "IERC20"
   "Inbox"
+  "ISequencerRewardCalculator"
   "IVerifier"
   "MockVerifier"
   "NewGovernanceProposerPayload"

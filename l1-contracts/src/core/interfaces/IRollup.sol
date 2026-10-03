@@ -15,12 +15,7 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {
-  RewardConfig,
-  MutableRewardConfig,
-  RegistryRewardOverride,
-  MAX_REGISTRY_REWARD_OVERRIDES
-} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -121,7 +116,8 @@ struct RollupConfigInput {
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
   uint256 ethereumSlotDuration;
-  RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] registryRewardOverrides;
+  // Initial ISequencerRewardCalculator; zero for none.
+  address sequencerRewardCalculator;
 }
 
 /**
@@ -166,6 +162,7 @@ interface IRollupCore {
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
   event ProtocolFeeMarginUpdated(uint16 oldBps, uint16 newBps);
   event ProtocolFeeRecipientUpdated(address oldRecipient, address newRecipient);
+  event SequencerRewardCalculatorUpdated(address oldCalculator, address newCalculator);
 
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
@@ -202,6 +199,7 @@ interface IRollupCore {
   ) external;
 
   function setRewardConfig(MutableRewardConfig memory _config) external;
+  function setSequencerRewardCalculator(address _calculator) external;
   function updateManaTarget(uint256 _manaTarget) external;
 
   // solhint-disable-next-line func-name-mixedcase
@@ -273,6 +271,7 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) external view returns (uint256);
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) external view returns (bool);
+  function getHasSubmittedFullEpoch(Epoch _epoch, uint256 _length, address _prover) external view returns (bool);
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
   function getProofSubmissionEpochs() external view returns (uint256);
@@ -296,9 +295,6 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getEpochProofVerifier() external view returns (IVerifier);
 
   function getRewardConfig() external view returns (RewardConfig memory);
+  function getSequencerRewardCalculator() external view returns (address);
   function getCheckpointReward() external view returns (uint256);
-  function getRegistryRewardOverrides()
-    external
-    view
-    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory);
 }

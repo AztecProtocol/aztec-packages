@@ -40,13 +40,13 @@ function download_solc {
   cache_upload "$artifact" "$solc_path"
 }
 
-# We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash \
+# We rely on noir-projects for the verifier contract. The noir hash covers the compiler that builds those
+# circuits, which the content patterns alone do not capture.
+export hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
   .rebuild_patterns \
-  ../noir/.rebuild_patterns \
   ../noir-projects/fnd/noir-protocol-circuits \
   ../barretenberg/cpp/.rebuild_patterns
-)
+))
 
 function build_src {
   echo_header "l1-contracts build_src"
@@ -137,6 +137,13 @@ function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && scripts/check_contract_sizes.sh"
+  # generated/HonkVerifier.sol is restored from the cache on a $hash hit, so compare it with the verifier
+  # the circuits build wrote. Keyed on that verifier as well as $hash: under $hash alone the check would
+  # be skipped as already passed in the one case it exists for, a $hash that did not move when the
+  # verifier did.
+  local rollup_verifier_path=../noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
+  local verifier_hash=$(hash_str $hash $(sha256sum < $rollup_verifier_path | cut -d' ' -f1))
+  echo "$verifier_hash cd l1-contracts && cmp generated/HonkVerifier.sol $rollup_verifier_path"
   echo "$hash cd l1-contracts && forge test"
   echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
   echo "$hash:ISOLATE=1 cd l1-contracts && scripts/test_rollup_upgrade.sh"

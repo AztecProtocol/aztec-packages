@@ -108,6 +108,19 @@ fn non_empty_nullifier_beyond_claimed_length() {
     let _ = builder.execute();
 }
 
+#[test]
+fn nullifier_linked_to_note_hash_after_end_setup() {
+    let mut builder = TestBuilder::new();
+
+    // Every note hash in a private-only tx is non-revertible, including one created after the phase change.
+    builder.previous_kernel.end_setup();
+    builder.previous_kernel.append_siloed_unique_note_hashes(1);
+    let note_hash = builder.previous_kernel.note_hashes.get(0);
+    builder.previous_kernel.add_siloed_nullifier_for_note_hash(456, note_hash.innermost());
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "Cannot link a note hash emitted after a nullifier")]
 fn nullifier_emitted_after_its_note_hash() {
     let mut builder = TestBuilder::new();

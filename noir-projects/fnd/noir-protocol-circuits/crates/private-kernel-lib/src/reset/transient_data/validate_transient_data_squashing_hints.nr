@@ -132,7 +132,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
 
 mod tests {
     use crate::reset::transient_data::tests::TransientDataFixtureBuilder;
-    use types::{abis::nullifier::Nullifier, side_effect::Counted};
+    use types::{abis::nullifier::Nullifier, side_effect::Counted, utils::arrays::SortedTuple};
 
     // ===========
     // Note hashes
@@ -312,5 +312,36 @@ mod tests {
         builder.add_squashing_hint(1, 1);
 
         builder.validate();
+    }
+
+    #[test(should_fail_with = "Nullifier index hint exceeds claimed length")]
+    fn fails_duplicate_nullifier_index_with_sorted_tuple_from_inactive_hint() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(11, 2)]);
+
+        // Fill the nullifiers array, so that the claimed length equals the sentinel index of the inactive hints.
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 0 }.count(6),
+            Nullifier { value: 707, note_hash: 0 }.count(7),
+            Nullifier { value: 808, note_hash: 0 }.count(8),
+            Nullifier { value: 909, note_hash: 0 }.count(9),
+        ]);
+
+        // Both note hashes are squashed by the nullifier at index 0.
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(1, 0);
+
+        let mut derived_hints = builder.build_derived_hints();
+
+        // Hide the duplicate nullifier index by pointing the second sorted tuple to an inactive hint.
+        derived_hints.nullifier_index_sorted_tuples[1] = SortedTuple { elem: 5, original_index: 2 };
+
+        // Squash the nullifier at index 1, so that two nullifiers are removed for the two active hints.
+        derived_hints.nullifier_squash_flags[1] = true;
+        builder.keep_nullifiers([2, 3, 4]);
+
+        builder.validate_with_derived_hints(derived_hints);
     }
 }
