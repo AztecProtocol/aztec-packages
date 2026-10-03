@@ -1,0 +1,74 @@
+{
+  "defaultBenchmark": "chonk-prove",
+  "defaultFlow": "ecdsar1+transfer_1_recursions+sponsored_fpc",
+  "defaultRuns": 1,
+  "defaultThreads": "auto",
+  "defaultSrsSize": 524288,
+  "defaultGrumpkinSrsSize": 65536,
+  "targets": {
+    "macos": {
+      "label": "macOS Sequoia Chrome",
+      "chip": "Apple M-series BrowserStack desktop",
+      "firstProgressMs": 60000,
+      "browserstackWorker": {
+        "browser": "chrome",
+        "browser_version": "latest",
+        "os": "OS X",
+        "os_version": "Sequoia",
+        "resolution": "1920x1080"
+      }
+    },
+    "windows-chrome": {
+      "label": "Windows Chrome",
+      "chip": "BrowserStack Windows desktop",
+      "firstProgressMs": 60000,
+      "browserstackWorker": {
+        "browser": "chrome",
+        "browser_version": "latest",
+        "os": "Windows",
+        "os_version": "11",
+        "resolution": "1920x1080"
+      }
+    },
+    "iphone-15-pro": {
+      "label": "iPhone 15 Pro Safari",
+      "chip": "A17 Pro",
+      "firstProgressMs": 120000,
+      "benchOverrides": {
+        "memMaxPages": 16384
+      },
+      "browserstackWorker": {
+        "browser": "safari",
+        "device": "iPhone 15 Pro",
+        "os": "ios",
+        "os_version": "17"
+      }
+    },
+    "galaxy-s25-ultra": {
+      "label": "Galaxy S25 Ultra Chrome",
+      "chip": "Snapdragon 8 Elite",
+      "firstProgressMs": 90000,
+      "browserstackWorker": {
+        "browser": "chrome",
+        "device": "Samsung Galaxy S25 Ultra",
+        "os": "android",
+        "os_version": "15.0"
+      }
+    },
+    "pixel-9-pro-xl": {
+      "label": "Pixel 9 Pro XL Chrome",
+      "chip": "Google Tensor G4",
+      "firstProgressMs": 90000,
+      "browserstackWorker": {
+        "browser": "chrome",
+        "device": "Google Pixel 9 Pro XL",
+        "os": "android",
+        "os_version": "15.0"
+      }
+    }
+  },
+  "matrices": {
+    "customer-balanced": ["macos", "iphone-15-pro", "galaxy-s25-ultra", "pixel-9-pro-xl"],
+    "all": ["macos", "windows-chrome", "iphone-15-pro", "galaxy-s25-ultra", "pixel-9-pro-xl"]
+  }
+}
