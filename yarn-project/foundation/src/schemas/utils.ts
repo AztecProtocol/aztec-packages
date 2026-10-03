@@ -42,25 +42,48 @@ export function optional<T extends ZodTypeAny>(schema: T) {
 
 type ToJsonIs<T, TRet> = T extends { toJSON(): TRet } ? T : never;
 
+type HexHydratable = { fromString(str: string): any } | { fromBuffer(buf: Buffer): any };
+
+type HexInstanceOf<TClass> = TClass extends
+  | { fromString(str: string): infer TInstance }
+  | { fromBuffer(buf: Buffer): infer TInstance }
+  ? ToJsonIs<TInstance, string>
+  : never;
+
 /**
- * Creates a schema that accepts a hex string and uses it to hydrate an instance.
+ * Creates a schema that accepts a hex string and uses it to hydrate an instance. Validation and hydration run in
+ * a single zod transform (rather than a chain of refinements): each extra zod layer is measurable when parsing
+ * thousands of field elements from a JSON-RPC response.
  * @param klazz - Class that implements either fromString or fromBuffer.
  * @returns A schema for the class.
  */
-export function hexSchemaFor<TClass extends { fromString(str: string): any } | { fromBuffer(buf: Buffer): any }>(
+export function hexSchemaFor<TClass extends HexHydratable>(
   klazz: TClass,
   refinement?: (input: string) => boolean,
-): ZodType<
-  TClass extends { fromString(str: string): infer TInstance } | { fromBuffer(buf: Buffer): infer TInstance }
-    ? ToJsonIs<TInstance, string>
-    : never,
-  string
-> {
-  const stringSchema = refinement ? z.string().refine(refinement, `Not a valid instance`) : z.string();
-  const hexSchema = stringSchema.refine(isHex, 'Not a valid hex string');
-  return 'fromString' in klazz
-    ? hexSchema.transform(klazz.fromString.bind(klazz))
-    : hexSchema.transform(str => Buffer.from(withoutHexPrefix(str), 'hex')).transform(klazz.fromBuffer.bind(klazz));
+): ZodType<HexInstanceOf<TClass>, string> {
+  const construct =
+    'fromString' in klazz
+      ? (str: string) => klazz.fromString(str)
+      : (str: string) => klazz.fromBuffer(Buffer.from(withoutHexPrefix(str), 'hex'));
+  return z.string().transform((str, ctx) => {
+    const fail = (message: string) => {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+      return z.NEVER;
+    };
+    if (refinement && !refinement(str)) {
+      return fail(`Not a valid instance`);
+    }
+    // isHex is checked even though the class does its own parsing: several fromString implementations are laxer
+    // than hex (Fr.fromString also accepts decimal strings), and the wire format must not silently accept those.
+    if (!isHex(str)) {
+      return fail('Not a valid hex string');
+    }
+    try {
+      return construct(str);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+  });
 }
 
 /**

@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -29,6 +30,9 @@ import {
   tagHexForLog,
 } from './log_store_codec.js';
 
+/** How many per-tag range scans a single tag query runs concurrently. */
+const TAG_SCAN_CONCURRENCY = 8;
+
 /**
  * Indexes every emitted private and public log under a composite hex-string key
  * `[contractAddress (public only)]-tag-blockNumber-txIndexWithinBlock-logIndexWithinTx`,
@@ -43,6 +47,12 @@ import {
  * scan by block (block isn't the leading key segment).
  *
  * Contract-class logs are no longer stored or served by the log store.
+ *
+ * Tag queries run inside `db.transactionAsync` so the `referenceBlock` reorg check and every per-tag scan see the same
+ * snapshot of the store and cannot return a torn result. On lmdb-v2 that helper routes its callback through the store's
+ * single serial writer queue, so a query waits for any queued write (notably block ingestion) to commit first; that
+ * cost is accepted in exchange for the consistency. The per-tag scans within one query still run concurrently
+ * ({@link TAG_SCAN_CONCURRENCY} at a time), each on its own cursor over the transaction's snapshot.
  */
 export class LogStore {
   /** Primary map: composite private key (tag + tail = 96 hex chars + separators) -> serialized {@link StoredLogValue}. */
@@ -254,8 +264,12 @@ export class LogStore {
     const fromBlock = query.fromBlock ?? INITIAL_L2_BLOCK_NUM;
     const includeEffects = query.includeEffects === true;
 
-    const perTagResults: LogResult[][] = [];
-    for (const tagEntry of tags) {
+    const limit = query.limitPerTag ?? MAX_LOGS_PER_TAG;
+
+    // Each scan opens its own native cursor over the transaction's snapshot, so they overlap instead of queueing. The
+    // pool bound stays well under the store's concurrent-cursor budget (maxReaders - 1) so other components can still
+    // read while a query is in flight.
+    const perTagResults = await asyncPool(TAG_SCAN_CONCURRENCY, [...tags], async tagEntry => {
       const { tagHex, afterLog } = normalizeTagEntry(tagEntry);
       const prefix = contractHex !== undefined ? encodePublicPrefix(contractHex, tagHex) : tagHex;
 
@@ -275,7 +289,6 @@ export class LogStore {
         start = encodeKey(prefix, fromBlock, 0, 0);
       }
 
-      const limit = query.limitPerTag ?? MAX_LOGS_PER_TAG;
       const out: LogResult[] = [];
       for await (const [rawKey, rawVal] of primaryMap.entriesAsync({ start, end, limit })) {
         const tail = decodeKeyTail(rawKey);
@@ -290,8 +303,8 @@ export class LogStore {
           logIndexWithinTx: tail.logIndexWithinTx,
         });
       }
-      perTagResults.push(out);
-    }
+      return out;
+    });
 
     if (includeEffects) {
       // Dedupe by txHash across the entire page so a tx with many tagged logs costs one fetch.
