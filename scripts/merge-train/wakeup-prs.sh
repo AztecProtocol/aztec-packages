@@ -51,7 +51,10 @@ echo "$prs" | jq -c '.' | while IFS= read -r pr_json; do
   fi
 
   echo "PR #$pr_number: CI passed and automerge enabled, adding wakeup label"
-  gh pr edit "$pr_number" --add-label "ci-wakeup-pr-after-merge" || {
+  # REST, not `gh pr edit --add-label`: the latter's GraphQL query needs the `read:org` scope
+  # AZTEC_BOT_GITHUB_TOKEN does not carry.
+  jq -n '{ labels: ["ci-wakeup-pr-after-merge"] }' \
+    | gh api --method POST "repos/{owner}/{repo}/issues/$pr_number/labels" --input - >/dev/null || {
     echo "WARNING: Failed to add label to PR #$pr_number"
   }
 done
