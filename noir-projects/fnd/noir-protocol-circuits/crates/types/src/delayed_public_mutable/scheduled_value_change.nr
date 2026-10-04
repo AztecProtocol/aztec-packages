@@ -61,12 +61,20 @@ impl<T> ScheduledValueChange<T> {
     /// The value returned by `get_current_at` in private when called with a anchor block's timestamp is only safe to use
     /// if the transaction's `expiration_timestamp` property is set to a value lower or equal to the time horizon
     /// computed using the same anchor timestamp.
-    pub fn get_time_horizon(self, anchor_block_timestamp: u64, minimum_delay: u64) -> u64 {
+    pub fn get_time_horizon(self, anchor_block_timestamp: u64, minimum_delay: u64) -> u64
+    where
+        T: Eq,
+    {
         // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the
         // horizon (i.e. with a timestamp larger than the time horizon) may have a different current value.
         // Reading the current value in private typically requires constraining the maximum valid timestamp to be equal
         // to the time horizon.
-        if anchor_block_timestamp >= self.timestamp_of_change {
+        //
+        // A scheduled change with `post == pre` does not change the current value at its timestamp of change. An
+        // example is a cancellation, which schedules the current value. Such a change does not limit the time
+        // horizon. Only a change that is scheduled after the anchor block can give a different value, and
+        // `minimum_delay` limits that change in the same way as when the timestamp of change has passed.
+        if (anchor_block_timestamp >= self.timestamp_of_change) | (self.pre == self.post) {
             // Once the timestamp of change has passed (block with timestamp >= timestamp_of_change was mined),
             // the current value (post) will not change unless a new value change is scheduled. This did not happen at
             // the anchor timestamp (or else it would not be greater or equal to the timestamp of change), and
