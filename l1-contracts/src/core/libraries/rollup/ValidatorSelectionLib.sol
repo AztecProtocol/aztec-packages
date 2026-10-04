@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
-import {ValidatorSelectionStorage, MAXIMUM_COMMITTEE_SIZE} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
@@ -140,8 +140,6 @@ library ValidatorSelectionLib {
       Errors.ValidatorSelection__InvalidLagInEpochs(_lagInEpochsForValidatorSet, _lagInEpochsForRandao)
     );
     ValidatorSelectionStorage storage store = getStorage();
-    // RewardLib uses one bit per committee member in a uint256 cache, so changing this limit requires updating it.
-    require(_targetCommitteeSize <= MAXIMUM_COMMITTEE_SIZE);
     store.targetCommitteeSize = _targetCommitteeSize.toUint32();
     store.lagInEpochsForValidatorSet = _lagInEpochsForValidatorSet.toUint32();
     store.lagInEpochsForRandao = _lagInEpochsForRandao.toUint32();
@@ -327,7 +325,7 @@ library ValidatorSelectionLib {
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
-   * @return The reconstructed committee
+   * @return The reconstructed committee, empty if the target committee size is 0
    */
   function verifyAttestations(Epoch _epochNumber, CommitteeAttestations memory _attestations, bytes32 _digest)
     internal

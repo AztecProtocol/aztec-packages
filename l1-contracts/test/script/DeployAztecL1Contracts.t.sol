@@ -7,12 +7,10 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
 import {RollupConfiguration} from "../../script/deploy/RollupConfiguration.sol";
-import {RegistryRewardOverride, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 contract RollupConfigurationHarness is RollupConfiguration {
-  function getRegistryRewardOverride(string memory _envName) external view returns (RegistryRewardOverride memory) {
-    return _getRegistryRewardOverride(_envName);
+  function getSequencerRewardCalculator(string memory _envName) external view returns (address) {
+    return _getSequencerRewardCalculator(_envName);
   }
 }
 
@@ -74,9 +72,7 @@ contract DeployAztecL1ContractsTest is Test {
     vm.setEnv("AZTEC_MANA_TARGET", vm.toString(json.readUint(".AZTEC_MANA_TARGET")));
     vm.setEnv("AZTEC_PROVING_COST_PER_MANA", vm.toString(json.readUint(".AZTEC_PROVING_COST_PER_MANA")));
     vm.setEnv("AZTEC_INITIAL_ETH_PER_FEE_ASSET", vm.toString(json.readUint(".AZTEC_INITIAL_ETH_PER_FEE_ASSET")));
-
-    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_0", json.readString(".AZTEC_REGISTRY_REWARD_OVERRIDE_0"));
-    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_1", json.readString(".AZTEC_REGISTRY_REWARD_OVERRIDE_1"));
+    vm.setEnv("AZTEC_SEQUENCER_REWARD_CALCULATOR", json.readString(".AZTEC_SEQUENCER_REWARD_CALCULATOR"));
 
     // Slashing config
     vm.setEnv("AZTEC_SLASHER_ENABLED", vm.toString(json.readBool(".AZTEC_SLASHER_ENABLED")));
@@ -98,34 +94,19 @@ contract DeployAztecL1ContractsTest is Test {
   function test_SmokeTest() public {
     DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
     deployScript.run();
+
+    // The network defaults deploy without a sequencer reward calculator.
+    assertEq(deployScript.output().rollup.rollup.getSequencerRewardCalculator(), address(0));
   }
 
-  function test_RegistryRewardOverridesConfiguration() public {
-    address registry0 = makeAddr("registry0");
-    address registry1 = makeAddr("registry1");
-    uint256 sequencerReward0 = 10e18;
-    uint256 sequencerReward1 = 20e18;
-
-    vm.setEnv(
-      "AZTEC_REGISTRY_REWARD_OVERRIDE_0", string.concat(vm.toString(registry0), ",", vm.toString(sequencerReward0))
-    );
-    vm.setEnv("AZTEC_REGISTRY_REWARD_OVERRIDE_1", string.concat(vm.toString(registry1), ",0x1158e460913d00000"));
-
-    RollupConfigInput memory config =
-      new RollupConfiguration().getRollupConfiguration(IRewardDistributor(makeAddr("rewardDistributor")));
-
-    assertEq(config.registryRewardOverrides[0].registry, registry0);
-    assertEq(config.registryRewardOverrides[0].sequencerReward, sequencerReward0);
-    assertEq(config.registryRewardOverrides[1].registry, registry1);
-    assertEq(config.registryRewardOverrides[1].sequencerReward, sequencerReward1);
-  }
-
-  function test_RevertWhenRegistryRewardOverrideIsMalformed() public {
-    string memory envName = "TEST_MALFORMED_REGISTRY_REWARD_OVERRIDE";
-    vm.setEnv(envName, vm.toString(makeAddr("registry")));
+  // Unique variable names: the environment is shared with the deployments other tests run concurrently.
+  function test_SequencerRewardCalculatorConfiguration() public {
     RollupConfigurationHarness configuration = new RollupConfigurationHarness();
 
-    vm.expectRevert("Invalid registry reward override");
-    configuration.getRegistryRewardOverride(envName);
+    assertEq(configuration.getSequencerRewardCalculator("TEST_UNSET_SEQUENCER_REWARD_CALCULATOR"), address(0));
+
+    address calculator = makeAddr("calculator");
+    vm.setEnv("TEST_SET_SEQUENCER_REWARD_CALCULATOR", vm.toString(calculator));
+    assertEq(configuration.getSequencerRewardCalculator("TEST_SET_SEQUENCER_REWARD_CALCULATOR"), calculator);
   }
 }

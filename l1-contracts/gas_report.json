@@ -90,7 +90,7 @@
     },
     "functions": {
       "getCanonicalRollup()": {
-        "calls": 1740,
+        "calls": 1686,
         "min": 1073,
         "mean": 4073,
         "median": 4073,
@@ -120,7 +120,7 @@
     },
     "functions": {
       "availableTo(address)": {
-        "calls": 870,
+        "calls": 843,
         "min": 20573,
         "mean": 20573,
         "median": 20573,
@@ -132,7 +132,7 @@
     "contract": "test/RollupWithPreheating.sol:RollupWithPreheating",
     "deployment": {
       "gas": 0,
-      "size": 45603
+      "size": 45505
     },
     "functions": {
       "archive()": {
@@ -143,7 +143,7 @@
         "max": 4641
       },
       "getCheckpoint(uint256)": {
-        "calls": 882,
+        "calls": 855,
         "min": 27497,
         "mean": 27497,
         "median": 27497,
@@ -151,101 +151,101 @@
       },
       "getCheckpointReward()": {
         "calls": 2595,
-        "min": 1018,
-        "mean": 1023,
-        "median": 1018,
-        "max": 5518
+        "min": 1062,
+        "mean": 1067,
+        "median": 1062,
+        "max": 5562
       },
       "getCollectiveProverRewardsForEpoch(uint256)": {
         "calls": 3,
-        "min": 5970,
-        "mean": 5970,
-        "median": 5970,
-        "max": 5970
+        "min": 5881,
+        "mean": 5881,
+        "median": 5881,
+        "max": 5881
       },
       "getCurrentEpoch()": {
-        "calls": 871,
-        "min": 915,
-        "mean": 915,
-        "median": 915,
-        "max": 915
+        "calls": 844,
+        "min": 959,
+        "mean": 959,
+        "median": 959,
+        "max": 959
       },
       "getCurrentSlot()": {
         "calls": 100,
-        "min": 2715,
-        "mean": 2715,
-        "median": 2715,
-        "max": 2715
+        "min": 2737,
+        "mean": 2737,
+        "median": 2737,
+        "max": 2737
       },
       "getEpochDuration()": {
         "calls": 2,
-        "min": 2420,
-        "mean": 2420,
-        "median": 2420,
-        "max": 2420
+        "min": 2530,
+        "mean": 2530,
+        "median": 2530,
+        "max": 2530
       },
       "getEpochProofPublicInputs(uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],bytes)": {
         "calls": 5,
-        "min": 18669,
-        "mean": 49449,
-        "median": 64958,
-        "max": 71849
+        "min": 18670,
+        "mean": 49450,
+        "median": 64959,
+        "max": 71851
       },
       "getEthPerFeeAsset()": {
         "calls": 2,
-        "min": 11021,
-        "mean": 11021,
-        "median": 11021,
-        "max": 11021
+        "min": 11087,
+        "mean": 11087,
+        "median": 11087,
+        "max": 11087
       },
       "getFeeAssetPortal()": {
         "calls": 4672,
-        "min": 901,
-        "mean": 901,
-        "median": 901,
-        "max": 901
+        "min": 945,
+        "mean": 945,
+        "median": 945,
+        "max": 945
       },
       "getInbox()": {
         "calls": 9112,
-        "min": 856,
-        "mean": 856,
-        "median": 856,
-        "max": 856
+        "min": 922,
+        "mean": 922,
+        "median": 922,
+        "max": 922
       },
       "getL1FeesAt(uint256)": {
         "calls": 2,
-        "min": 9086,
-        "mean": 9086,
-        "median": 9086,
-        "max": 9086
+        "min": 9196,
+        "mean": 9196,
+        "median": 9196,
+        "max": 9196
       },
       "getManaMinFeeAt(uint256,bool)": {
         "calls": 2347,
-        "min": 27308,
-        "mean": 28966,
-        "median": 27308,
-        "max": 32326
+        "min": 27396,
+        "mean": 29054,
+        "median": 27396,
+        "max": 32414
       },
       "getManaTarget()": {
         "calls": 1026,
-        "min": 2612,
-        "mean": 2612,
-        "median": 2612,
-        "max": 2612
+        "min": 2481,
+        "mean": 2481,
+        "median": 2481,
+        "max": 2481
       },
       "getOutbox()": {
         "calls": 2,
-        "min": 856,
-        "mean": 856,
-        "median": 856,
-        "max": 856
+        "min": 878,
+        "mean": 878,
+        "median": 878,
+        "max": 878
       },
       "getPendingCheckpointNumber()": {
         "calls": 1681,
-        "min": 2440,
-        "mean": 2440,
-        "median": 2440,
-        "max": 2440
+        "min": 2484,
+        "mean": 2484,
+        "median": 2484,
+        "max": 2484
       },
       "getProvenCheckpointNumber()": {
         "calls": 1687,
@@ -256,31 +256,31 @@
       },
       "getProvingCostPerManaInEth()": {
         "calls": 1,
-        "min": 5729,
-        "mean": 5729,
-        "median": 5729,
-        "max": 5729
+        "min": 5662,
+        "mean": 5662,
+        "median": 5662,
+        "max": 5662
       },
       "getProvingCostPerManaInFeeAsset()": {
         "calls": 1,
-        "min": 14479,
-        "mean": 14479,
-        "median": 14479,
-        "max": 14479
+        "min": 14631,
+        "mean": 14631,
+        "median": 14631,
+        "max": 14631
       },
       "getSequencerRewards(address)": {
         "calls": 3,
-        "min": 6003,
-        "mean": 6003,
-        "median": 6003,
-        "max": 6003
+        "min": 6047,
+        "mean": 6047,
+        "median": 6047,
+        "max": 6047
       },
       "getTimestampForSlot(uint256)": {
         "calls": 2455,
-        "min": 2808,
-        "mean": 2808,
-        "median": 2808,
-        "max": 2808
+        "min": 2830,
+        "mean": 2830,
+        "median": 2830,
+        "max": 2830
       },
       "getVersion()": {
         "calls": 4936,
@@ -291,45 +291,45 @@
       },
       "owner()": {
         "calls": 5185,
-        "min": 533,
-        "mean": 533,
-        "median": 533,
-        "max": 2533
+        "min": 577,
+        "mean": 577,
+        "median": 577,
+        "max": 2577
       },
       "propose((bytes32,(int256),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256),uint256),(bytes,bytes),address[],(uint8,bytes32,bytes32),bytes)": {
         "calls": 2350,
         "min": 55426,
-        "mean": 266221,
+        "mean": 266212,
         "median": 283575,
-        "max": 324685
+        "max": 324661
       },
       "prune()": {
         "calls": 7,
-        "min": 26711,
-        "mean": 33301,
-        "median": 33704,
-        "max": 38296
+        "min": 26755,
+        "mean": 33345,
+        "median": 33748,
+        "max": 38340
       },
       "setProvingCostPerMana(uint256)": {
         "calls": 1,
-        "min": 55843,
-        "mean": 55843,
-        "median": 55843,
-        "max": 55843
+        "min": 55887,
+        "mean": 55887,
+        "median": 55887,
+        "max": 55887
       },
       "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
-        "calls": 878,
-        "min": 62769,
-        "mean": 401300,
-        "median": 407146,
-        "max": 441568
+        "calls": 851,
+        "min": 60949,
+        "mean": 398287,
+        "median": 404666,
+        "max": 437416
       },
       "updateManaTarget(uint256)": {
         "calls": 512,
-        "min": 29233,
-        "mean": 31905,
-        "median": 30546,
-        "max": 34624
+        "min": 29255,
+        "mean": 31927,
+        "median": 30568,
+        "max": 34646
       }
     }
   },

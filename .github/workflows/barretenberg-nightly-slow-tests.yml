@@ -40,15 +40,12 @@ jobs:
         run: |
           ./.github/ci3.sh barretenberg-nightly
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          export CI=1
-          ./ci3/slack_notify_with_claudebox_kickoff "#honk-team" \
+          ./ci3/slack_notify \
             "Nightly slow tests FAILED: <${RUN_URL}|View Run> (🤖)" \
-            "Nightly barretenberg slow tests failed. CI run: ${RUN_URL}. These are the bb tests excluded from the merge queue for being too slow (barretenberg/cpp/bootstrap.sh test_cmds_nightly). Investigate the failure, identify the root cause, and create a fix PR targeting next." \
-            --link "$RUN_URL"
+            "#honk-team"

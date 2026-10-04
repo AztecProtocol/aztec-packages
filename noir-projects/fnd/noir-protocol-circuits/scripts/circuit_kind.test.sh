@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Pins the scheme each protocol circuit is keyed and benched under. The build only runs the
-# classifier for a VK that misses the cache, so without this a change to the pattern files or to
-# circuit_kind that moves a circuit onto another flavor surfaces on the next cold-cache build.
+# Pins the scheme each protocol circuit is keyed and benched under, so a change to the pattern files
+# or to circuit_kind that moves a circuit onto another flavor fails here by name.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

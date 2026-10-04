@@ -131,6 +131,31 @@ fn non_empty_nullifier_beyond_claimed_length() {
     let _ = builder.execute();
 }
 
+#[test]
+fn nullifier_linked_to_non_revertible_note_hash() {
+    let mut builder = TestBuilder::new();
+
+    // A note hash created in the setup phase and nullified in the app phase. The link is its unique value.
+    builder.previous_kernel.append_siloed_unique_note_hashes(1);
+    builder.previous_kernel.end_setup();
+    let note_hash = builder.previous_kernel.note_hashes.get(0);
+    builder.previous_kernel.add_siloed_nullifier_for_note_hash(456, note_hash.innermost());
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "Linked note hash must be non-revertible")]
+fn nullifier_linked_to_revertible_note_hash() {
+    let mut builder = TestBuilder::new();
+
+    // A revertible note hash is output siloed only, so a link to that value passes the value check.
+    builder.previous_kernel.append_siloed_note_hashes(1);
+    let note_hash = builder.previous_kernel.note_hashes.get(0);
+    builder.previous_kernel.add_siloed_nullifier_for_note_hash(456, note_hash.innermost());
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "Cannot link a note hash emitted after a nullifier")]
 fn nullifier_emitted_after_its_note_hash() {
     let mut builder = TestBuilder::new();

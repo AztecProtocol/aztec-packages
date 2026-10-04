@@ -12,6 +12,8 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
+#include "barretenberg/srs/factories/get_grumpkin_crs.hpp"
+#include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <span>
 
@@ -107,6 +109,10 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 
 SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    if (num_points == 0 || num_points > srs::GRUMPKIN_G1_NUM_POINTS) {
+        throw_or_abort("SrsInitGrumpkinSrs: point count is outside the pinned Grumpkin CRS");
+    }
+
     // Validate buffer size before accessing raw pointer
     const size_t required_size = static_cast<size_t>(num_points) * sizeof(curve::Grumpkin::AffineElement);
     if (points_buf.size() < required_size) {
@@ -114,6 +120,8 @@ SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest&
                        " bytes) for num_points=" + std::to_string(num_points) + " (need " +
                        std::to_string(required_size) + ")");
     }
+
+    verify_grumpkin_crs_integrity(points_buf);
 
     // Parse Grumpkin affine elements from buffer
     std::vector<curve::Grumpkin::AffineElement> points(num_points);

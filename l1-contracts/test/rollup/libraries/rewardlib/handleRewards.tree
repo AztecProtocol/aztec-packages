@@ -1,6 +1,16 @@
 HandleRewards
 ├── given prover has already submitted
-│   └── it reverts with {Rollup__ProverHaveAlreadySubmitted}
+│   ├── given the existing registration is full epoch
+│   │   └── it reverts with {Rollup__ProverHaveAlreadySubmitted}
+│   └── given the existing registration is not full epoch
+│       ├── when the proof is not full epoch
+│       │   └── it reverts with {Rollup__ProverHaveAlreadySubmitted}
+│       └── when the proof is full epoch
+│           ├── it marks the registration as full epoch
+│           ├── it bumps the prover activity score
+│           ├── it stores the shares of the current activity score
+│           ├── it replaces the prover shares in summed shares
+│           └── it leaves longestProvenLength and the prover rewards unchanged
 └── given prover has not submitted
     ├── when length LE longest proven
     │   ├── it store the prover shares

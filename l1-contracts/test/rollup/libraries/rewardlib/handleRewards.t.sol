@@ -8,12 +8,92 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 contract HandleRewardsTest is RewardLibBase {
-  function test_GivenProverHasAlreadySubmitted() external prepare(400e18, 7000) {
+  modifier givenProverHasAlreadySubmitted() {
+    _;
+  }
+
+  function test_GivenTheExistingRegistrationIsFullEpoch()
+    external
+    prepare(400e18, 7000)
+    givenProverHasAlreadySubmitted
+  {
     // it reverts with {Rollup__ProverHaveAlreadySubmitted}
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0));
+    assertTrue(wrapper.getHasSubmittedFullEpoch(Epoch.wrap(0), 1, prover));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProverHaveAlreadySubmitted.selector, prover, Epoch.wrap(0)));
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0));
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProverHaveAlreadySubmitted.selector, prover, Epoch.wrap(0)));
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), false);
+  }
+
+  modifier givenTheExistingRegistrationIsNotFullEpoch() {
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), false);
+    assertTrue(wrapper.getHasSubmitted(Epoch.wrap(0), 1, prover));
+    assertFalse(wrapper.getHasSubmittedFullEpoch(Epoch.wrap(0), 1, prover));
+    _;
+  }
+
+  function test_WhenTheProofIsNotFullEpoch()
+    external
+    prepare(400e18, 7000)
+    givenProverHasAlreadySubmitted
+    givenTheExistingRegistrationIsNotFullEpoch
+  {
+    // it reverts with {Rollup__ProverHaveAlreadySubmitted}
+    wrapper.setCurrentEpoch(Epoch.wrap(1));
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProverHaveAlreadySubmitted.selector, prover, Epoch.wrap(0)));
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), false);
+  }
+
+  function test_WhenTheProofIsFullEpoch()
+    external
+    prepare(400e18, 7000)
+    givenProverHasAlreadySubmitted
+    givenTheExistingRegistrationIsNotFullEpoch
+  {
+    // it marks the registration as full epoch
+    // it bumps the prover activity score
+    // it stores the shares of the current activity score
+    // it replaces the prover shares in summed shares
+    // it leaves longestProvenLength and the prover rewards unchanged
+
+    // A second prover at the same length shows that only the upgraded prover's contribution to summedShares moves.
+    address otherProver = makeAddr("prover2");
+    args.args.proverId = otherProver;
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), false);
+    uint256 otherShares = wrapper.getProverShares(Epoch.wrap(0), 1, otherProver);
+
+    // A low score gives the minimum shares. Full-epoch proofs of the next epochs raise the score of the prover, so
+    // that the upgrade gives different shares.
+    args.args.proverId = prover;
+    uint256 sharesBefore = wrapper.getProverShares(Epoch.wrap(0), 1, prover);
+    uint256 lastEpoch = 560;
+    for (uint256 epoch = 1; epoch <= lastEpoch; epoch++) {
+      wrapper.setCurrentEpoch(Epoch.wrap(epoch + 1));
+      wrapper.handleRewardsAndFees(args, Epoch.wrap(epoch), true);
+    }
+
+    uint256 rewardsBefore = wrapper.getCollectiveProverRewardsForEpoch(Epoch.wrap(0));
+
+    // The booster bumps at most once per epoch and starts at epoch 0, so move on to the epoch where the full-finished
+    // proof of epoch 0 lands.
+    wrapper.setCurrentEpoch(Epoch.wrap(lastEpoch + 2));
+    uint256 scoreBefore = wrapper.getActivityScore(prover);
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), true);
+
+    uint256 shares = wrapper.getProverShares(Epoch.wrap(0), 1, prover);
+    assertTrue(wrapper.getHasSubmittedFullEpoch(Epoch.wrap(0), 1, prover), "registration not marked full epoch");
+    assertGt(wrapper.getActivityScore(prover), scoreBefore, "activity score not bumped");
+    assertGt(shares, sharesBefore, "shares not replaced");
+    assertEq(wrapper.getSummedShares(Epoch.wrap(0), 1), shares + otherShares, "summed shares counts prover twice");
+    assertEq(wrapper.getLongestProvenLength(Epoch.wrap(0)), 1, "longest proven length");
+    assertEq(wrapper.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), rewardsBefore, "prover rewards changed");
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProverHaveAlreadySubmitted.selector, prover, Epoch.wrap(0)));
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), true);
   }
 
   modifier givenProverHasNotSubmitted() {
