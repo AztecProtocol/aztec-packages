@@ -1,8 +1,8 @@
 use super::TestBuilder;
-use protocol_test_utils::assert_claimed_length_array_eq;
+use protocol_test_utils::{assert_claimed_length_array_eq, fixtures};
 use types::{
-    address::AztecAddress, constants::DEFAULT_UPDATE_DELAY, hash::create_protocol_nullifier,
-    traits::Empty,
+    address::AztecAddress, constants::DEFAULT_UPDATE_DELAY,
+    delayed_public_mutable::ScheduledValueChange, hash::create_protocol_nullifier, traits::Empty,
 };
 
 #[test]
@@ -73,6 +73,51 @@ fn expiration_timestamp_constrained_by_contract_updates() {
     let pi = builder.execute();
 
     // Verify the output uses the smaller contract update timestamp, not the private call's value
+    assert_eq(pi.expiration_timestamp, contract_update_horizon);
+}
+
+#[test]
+fn expiration_timestamp_constrained_by_pending_contract_update() {
+    let mut builder = TestBuilder::new();
+
+    let anchor_block_timestamp =
+        builder.private_call.anchor_block_header.global_variables.timestamp;
+
+    // The contract runs its original class. A change to a different class takes effect one second after the anchor
+    // block.
+    builder.private_call.updated_class_id_value_change = ScheduledValueChange::new(
+        builder.private_call.original_class_id,
+        fixtures::contracts::updated_contract.contract_class_id,
+        anchor_block_timestamp + 1,
+    );
+    builder.private_call.compute_update_tree_and_hints();
+
+    let pi = builder.execute();
+
+    // The class read at the anchor block is known only until the second before the change.
+    assert_eq(pi.expiration_timestamp, anchor_block_timestamp);
+}
+
+#[test]
+fn expiration_timestamp_not_constrained_by_pending_contract_update_to_same_class() {
+    let mut builder = TestBuilder::new();
+
+    let anchor_block_timestamp =
+        builder.private_call.anchor_block_header.global_variables.timestamp;
+    let contract_update_horizon = anchor_block_timestamp + DEFAULT_UPDATE_DELAY - 1;
+
+    // A change to the class the contract already runs takes effect one second after the anchor block. A cancelled
+    // update gives this state.
+    let class_id = builder.private_call.original_class_id;
+    builder.private_call.updated_class_id_value_change =
+        ScheduledValueChange::new(class_id, class_id, anchor_block_timestamp + 1);
+    builder.private_call.compute_update_tree_and_hints();
+
+    builder.private_call.expiration_timestamp = contract_update_horizon + 1000;
+
+    let pi = builder.execute();
+
+    // The scheduled change does not change the class, so the horizon is the same as with no scheduled change.
     assert_eq(pi.expiration_timestamp, contract_update_horizon);
 }
 
