@@ -30,6 +30,7 @@ pub mod internal {
     pub use crate::fns::constrained_ops::div;
     pub use crate::fns::constrained_ops::eq;
     pub use crate::fns::constrained_ops::from_field;
+    pub use crate::fns::constrained_ops::hash_seed_to_field;
     pub use crate::fns::constrained_ops::is_zero;
     pub use crate::fns::constrained_ops::is_zero_integer;
     pub use crate::fns::constrained_ops::mul;

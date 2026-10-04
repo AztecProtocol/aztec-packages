@@ -72,8 +72,9 @@ mod tests {
         assert_eq(flags[0], true);
         // is_infinity = false
         assert_eq(flags[1], false);
-        // is_greater = false: the BLS12-381 offset generator's y is the lower root (y < -y)
-        assert_eq(flags[2], false);
+        // is_greater says which of the two square roots y is (true when y > -y). It is a property
+        // of the sample point, not of the compression: this offset generator's y is the higher root.
+        assert_eq(flags[2], true);
         // Decompress back to the same point:
         let mut bytes = compress_to_blob_commitment(point).compressed;
         // Same as &= 0b0001_1111 - clear first three bits of our flags
@@ -84,7 +85,13 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+        // Pick the square root whose is_greater flag matches the one encoded in the compression.
+        let root = reconstructed_y_squared.__sqrt().unwrap();
+        let reconstructed_y = if (root > -root) == flags[2] {
+            root
+        } else {
+            -root
+        };
 
         assert_eq(reconstructed_y, point.y);
     }

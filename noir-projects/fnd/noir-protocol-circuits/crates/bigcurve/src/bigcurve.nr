@@ -1,4 +1,3 @@
-use crate::curve_jac::types::AffineTranscript;
 use crate::scalar_field::ScalarField;
 use bignum::BigNum;
 

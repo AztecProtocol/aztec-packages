@@ -35,26 +35,26 @@ pub global SECP256r1_PARAM: BigCurveParams<Secp256r1_Fq> = BigCurveParams {
     ],
     offset_generator: [
         Secp256r1_Fq::from_limbs([
-            0x221da828a9fac3f3182aab2336419f,
-            0x1d4b43fc35f66f89260a3e92036a69,
-            0x0865,
+            0x538444b1012b3744a30fa9af9df46f,
+            0xf00526683a0665de0040de98680555,
+            0xe60d,
         ]),
         Secp256r1_Fq::from_limbs([
-            0x0cb150c8de290839e3ba7ac9ca4e9a,
-            0x747dd91cdd0f0e456c02e570d40b9a,
-            0x56ef,
+            0x2b81837734a9753ace8f111f263771,
+            0x59019d43819fef08873736b8445b16,
+            0x8093,
         ]),
     ],
     offset_generator_final: [
         Secp256r1_Fq::from_limbs([
-            0x9145ddf08596099a7d522ff60feeff,
-            0x26f0893dce2ba7914f469b05749605,
-            0xcebf,
+            0xd5bc28188dfef913959576430e7370,
+            0xdda837433a0bc3067b4dbfc5734dde,
+            0x9e5e,
         ]),
         Secp256r1_Fq::from_limbs([
-            0xb9172e6de500d0d4b72cf2322515ac,
-            0x1fc60013458aa1f5666f15620c3dcf,
-            0x371d,
+            0x4aa64e460de7f6ea805ba9d8e9acba,
+            0xfc7684683e6149cdb9457e9b09c1a0,
+            0xe37a,
         ]),
     ],
 };

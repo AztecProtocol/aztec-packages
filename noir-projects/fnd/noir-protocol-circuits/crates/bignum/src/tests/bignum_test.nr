@@ -2,7 +2,7 @@ use crate::bignum::BigNum;
 use crate::bignum::{compute_quadratic_expression, evaluate_quadratic_expression, to_field};
 use crate::bignum::derive_bignum;
 use crate::constants::{GRUMPKIN_MODULUS, TWO_POW_120, TWO_POW_240};
-use crate::fns::constrained_ops::{from_field, validate_gt};
+use crate::fns::constrained_ops::{from_field, hash_seed_to_field, validate_gt};
 use crate::fns::expressions::{assert_product_limbs_fit_in_246_bits, validate_udiv_mod_expression};
 use crate::fns::unconstrained_helpers::{__helper_add, __quadratic_non_residue, __shr};
 use crate::fns::unconstrained_ops::{__easy_sqrt, __tonelli_shanks_sqrt};
@@ -81,7 +81,7 @@ global TEST_2048_PARAMS: BigNumParams<18, 2048> = BigNumParams {
     ],
 };
 
-#[derive_bignum(18, 2048, quote {TEST_2048_PARAMS})]
+#[derive_bignum(18, 2048, quote { TEST_2048_PARAMS })]
 pub struct BN2048 {
     limbs: [u128; 18],
 }
@@ -127,7 +127,7 @@ fn test_sub_underflow_regression() {
     assert(c.get_limbs() == [0, 0, 0]);
 }
 
-#[derive_bignum(2, 224, quote {SecP224r1_PARAMS})]
+#[derive_bignum(2, 224, quote { SecP224r1_PARAMS })]
 struct SecP224r1 {
     limbs: [u128; 2],
 }
@@ -440,6 +440,35 @@ fn test_validate_derive_from_seed() {
     assert(result_bn.get_limb(0) == 0x2469fc2c6b98cc4124308cd04858d9);
     assert(result_bn.get_limb(1) == 0x54cb58c2bf25863ff8a4b720f59eb4);
     assert(result_bn.get_limb(2) == 0x000000000000000000000000007243);
+}
+
+/// Seeds that differ only in leading zero bytes must hash to distinct fields:
+/// the packing commits to the seed length rather than reading the seed as a
+/// bare base-256 integer.
+#[test]
+fn test_hash_seed_to_field_leading_zero_regression() {
+    let h = hash_seed_to_field([1, 2]);
+    assert(h != hash_seed_to_field([0, 1, 2]));
+    assert(h != hash_seed_to_field([0, 0, 0, 0, 1, 2]));
+
+    // Largest pair that fits inside a single 31-byte chunk without the length byte.
+    let a: [u8; 30] = [3; 30];
+    let mut b: [u8; 31] = [3; 31];
+    b[0] = 0;
+    assert(hash_seed_to_field(a) != hash_seed_to_field(b));
+
+    // Multi-chunk pair whose shifted-out prefix is entirely zero.
+    let mut c: [u8; 32] = [0; 32];
+    c[31] = 5;
+    let mut d: [u8; 33] = [0; 33];
+    d[32] = 5;
+    assert(hash_seed_to_field(c) != hash_seed_to_field(d));
+}
+
+/// The seed length is packed as a single byte, so a seed of 256 bytes or more cannot be encoded.
+#[test(should_fail_with = "hash_seed_to_field: seed is too big")]
+fn test_hash_seed_to_field_rejects_256_byte_seed() {
+    let _: Field = hash_seed_to_field([0; 256]);
 }
 
 // ------------------------------ LIMB ACCESS TESTS ------------------------------

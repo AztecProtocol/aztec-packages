@@ -908,10 +908,12 @@ mod tests {
     }
 
     // ==================== SOUNDNESS TESTS ====================
-    // These tests verify that invalid hints are rejected by the constraints.
-    // The BigNum library's evaluate_quadratic_expression asserts `remainder == [0; N]`
-    // when the constraint is not satisfied. That assertion carries no message, so the
-    // `validate_*` tests below can only say `should_fail`.
+    // These tests check that the `validate_*` functions reject invalid hints. With an honest
+    // witness generator the rejection happens in bignum's unconstrained quotient hint, which
+    // asserts `remainder == [0; N]` without a message, so the tests below can only say
+    // `should_fail`. The constraint that binds a prover who supplies its own quotient is
+    // `validate_expression_is_zero`, covered by bignum's
+    // `test_evaluate_quadratic_expression_limb_overflow`.
 
     #[test(should_fail)]
     fn test_validate_factor_rejects_invalid_factor() {

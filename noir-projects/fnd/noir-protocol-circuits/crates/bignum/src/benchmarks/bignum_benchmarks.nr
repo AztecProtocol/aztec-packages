@@ -70,7 +70,7 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
             -a
         }
 
-        #[export] 
+        #[export]
         fn $sub_bench_name(a: $typ, b: $typ) -> $typ {
             a - b
         }
@@ -85,7 +85,7 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
             a / b
         }
 
-        #[export]  
+        #[export]
         fn $udiv_mod_bench_name(a: $typ, b: $typ) -> ($typ, $typ) {
             $BigNum::udiv_mod(a, b)
         }
@@ -138,7 +138,7 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
         #[export]
         fn $validate_in_field_bench_name(a: $typ) {
             $BigNum::validate_in_field(a)
-        }        
+        }
 
         #[export]
         fn $from_field_bench_name(a: Field) -> $typ {
@@ -151,22 +151,22 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
         }
 
         #[export]
-        fn $from_be_bytes_bench_name(a: [u8; ($MOD_BITS+7) / 8]) -> [u128; $N] {
+        fn $from_be_bytes_bench_name(a: [u8; ($MOD_BITS + 7) / 8]) -> [u128; $N] {
             crate::fns::serialization::from_be_bytes_unsafe(a)
         }
 
         #[export]
-        fn $to_be_bytes_bench_name(a: $typ) -> [u8; ($MOD_BITS+7) / 8] {
+        fn $to_be_bytes_bench_name(a: $typ) -> [u8; ($MOD_BITS + 7) / 8] {
             crate::fns::serialization::to_be_bytes_unsafe($BigNum::get_limbs(a))
         }
 
         #[export]
-        fn $from_le_bytes_bench_name(a: [u8; ($MOD_BITS+7) / 8]) -> [u128; $N] {
+        fn $from_le_bytes_bench_name(a: [u8; ($MOD_BITS + 7) / 8]) -> [u128; $N] {
             crate::fns::serialization::from_le_bytes_unsafe(a)
         }
 
         #[export]
-        fn $to_le_bytes_bench_name(a: $typ) -> [u8; ($MOD_BITS+7) / 8] {
+        fn $to_le_bytes_bench_name(a: $typ) -> [u8; ($MOD_BITS + 7) / 8] {
             crate::fns::serialization::to_le_bytes_unsafe($BigNum::get_limbs(a))
         }
 
@@ -200,23 +200,29 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
         }
 
         #[export]
-        fn $batch_invert_10_elements_bench_name(a: [$typ; 10]) -> [$typ; 10]{
-           // Safety: Benchmarking 
-           unsafe { crate::bignum::batch_invert(a) }                         
+        fn $batch_invert_10_elements_bench_name(a: [$typ; 10]) -> [$typ; 10] {
+            // Safety: Benchmarking
+            unsafe {
+                crate::bignum::batch_invert(a)
+            }
         }
 
         #[export]
-        fn $pow_bench_name(a: $typ, b: $typ) -> $typ{
-           // Safety: Benchmarking 
-           unsafe { $BigNum::__pow(a, b) }                         
+        fn $pow_bench_name(a: $typ, b: $typ) -> $typ {
+            // Safety: Benchmarking
+            unsafe {
+                $BigNum::__pow(a, b)
+            }
         }
 
         #[export]
         fn $sqrt_bench_name(a: $typ) -> Option<$typ> {
-           // Safety: Benchmarking 
-            unsafe { $BigNum::__sqrt(a) }
+            // Safety: Benchmarking
+            unsafe {
+                $BigNum::__sqrt(a)
+            }
         }
-   }
+    }
 }
 
 // the types we will be benchmarking

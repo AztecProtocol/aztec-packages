@@ -808,6 +808,29 @@ fn test_hash_to_curve_regression() {
     assert(P != Q);
 }
 
+/// Seeds that differ only in leading zero bytes must map to distinct points.
+/// The seed packing commits to the seed length, so `[1, 2]` and `[0, 1, 2]`
+/// are not read as the same base-256 integer.
+#[test]
+fn test_hash_to_curve_leading_zero_regression() {
+    let P = BN254::hash_to_curve([1, 2]);
+    assert(P != BN254::hash_to_curve([0, 1, 2]));
+    assert(P != BN254::hash_to_curve([0, 0, 0, 0, 1, 2]));
+
+    // Largest pair that fits inside a single 31-byte chunk without the length byte.
+    let a: [u8; 30] = [3; 30];
+    let mut b: [u8; 31] = [3; 31];
+    b[0] = 0;
+    assert(BN254::hash_to_curve(a) != BN254::hash_to_curve(b));
+
+    // Multi-chunk pair whose shifted-out prefix is entirely zero.
+    let mut c: [u8; 32] = [0; 32];
+    c[31] = 5;
+    let mut d: [u8; 33] = [0; 33];
+    d[32] = 5;
+    assert(BN254::hash_to_curve(c) != BN254::hash_to_curve(d));
+}
+
 // ------------------------------ POSSIBLE COMPLETENESS ISSUES TESTS ------------------------------
 
 /// Incomplete addition: -offset_generator collides with the accumulator

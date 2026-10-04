@@ -9,7 +9,7 @@ use crate::constants::TWO_POW_120;
 /// We return the lower 120-bit limb as a `u128` value,
 /// and the upper limbs as a `Field`, to avoid unnecessary conversions
 /// and potential overflows
-pub(crate) unconstrained fn __split_120_bits(mut x: Field) -> (u128, Field) {
+pub(crate) unconstrained fn __split_120_bits(x: Field) -> (u128, Field) {
     let low: u128 = (x as u128) % TWO_POW_120;
     let high: Field = ((x - low as Field) / TWO_POW_120 as Field);
     (low, high)
