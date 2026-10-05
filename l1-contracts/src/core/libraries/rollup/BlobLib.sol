@@ -114,8 +114,9 @@ library BlobLib {
     // which are different values:
     // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a checkpoint with m+1 blobs
     // inserted into the header, exists so a user can cross check blobs.
-    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob
-    // commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
+    // - blobCommitmentsHash := sha256( ...sha256(sha256(s_0, C_0), s_1, C_1) ... s_n, C_n) = iteratively calculated
+    // hash of all blob commitments in an epoch with n+1 blobs, where s_i is the byte 0x01 for each checkpoint's first
+    // blob and 0x00 otherwise (see calculateBlobCommitmentsHash()),
     //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
     // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0),
     // blobshash_1) ... blobshash_l) for an epoch with l+1 checkpoints.
@@ -157,10 +158,15 @@ library BlobLib {
    * @param _isFirstCheckpointOfEpoch - Whether this checkpoint is the first of an epoch (see below).
    *
    * The blobCommitmentsHash is an accumulated value calculated in the rollup circuits as:
-   *    blobCommitmentsHash_i := sha256(blobCommitmentsHash_(i - 1), C_i)
+   *    blobCommitmentsHash_i := sha256(blobCommitmentsHash_(i - 1), s_i, C_i)
    * for each blob commitment C_i in an epoch. For the first blob in the epoch (i = 0):
-   *    blobCommitmentsHash_i := sha256(C_0)
+   *    blobCommitmentsHash_i := sha256(0x01, C_0)
    * which is why we require _isFirstCheckpointOfEpoch here.
+   *
+   * s_i is one byte (abi.encodePacked encodes a bool as one byte): 0x01 for the first blob of each checkpoint, i.e. the
+   * first commitment passed to each call here, and 0x00 otherwise. The circuits derive it from each checkpoint's own
+   * data, so the final hash binds which checkpoint each blob was proposed with, not only the order of the epoch's
+   * blobs.
    *
    * Each blob commitment is injected into the rollup circuits and we rely on the L1 contracts to validate
    * these commitments correspond to real blobs. The input _blobCommitments below come from validateBlobs()
@@ -185,10 +191,14 @@ library BlobLib {
     // Blob commitments are collected and proven per root rollup proof => per epoch.
     if (_isFirstCheckpointOfEpoch) {
       // Initialize the blobCommitmentsHash
-      currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(_blobCommitments[i++]));
+      // true, packed as the byte 0x01: the checkpoint-start flag. The epoch's first blob always starts a checkpoint.
+      currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(true, _blobCommitments[i++]));
     }
     for (i; i < _blobCommitments.length; i++) {
-      currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(currentBlobCommitmentsHash, _blobCommitments[i]));
+      // i == 0 flags this proposal's first blob (packed as the byte 0x01, otherwise 0x00), so the hash binds where each
+      // checkpoint's blobs start. The circuits set the same flag on the first blob of each checkpoint they prove.
+      currentBlobCommitmentsHash =
+        Hash.sha256ToField(abi.encodePacked(currentBlobCommitmentsHash, i == 0, _blobCommitments[i]));
     }
   }
 

@@ -125,7 +125,8 @@ fn correct_end_blob_accumulator_with_max_blobs() {
 
     let mut builder = TestBuilder::default_with_blob_fields(blob_fields);
 
-    // All hardcoded values in this test are generated from yarn-project/blob-lib/src/blob_batching.test.ts
+    // All hardcoded values in this test are generated from labs/yarn-project/blob-lib/src/blob_batching.test.ts; run
+    // it with AZTEC_GENERATE_TEST_DATA=1 to rewrite them.
     let kzg_commitment_x_limbs_blob_0_from_ts = [
         0xc1c8bbec58d7e25cc840d31e1a0361,
         0xdfebfabcadc58a67da75e8c3ee4a09,
@@ -216,7 +217,7 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         0x10f1d0,
     ];
     let blob_commitments_hash_6_blobs_from_ts =
-        0x003aa7b42572dcb47fa231c81efe81564edeb146b9e13f38d84288fdbac693e7;
+        0x00d77eb1bef2a3b6d08486447a05aec760e600cd34691ee4bfd3e5e11e9d3b2b;
 
     // Init. injected values:
     // - Commitments are injected and checked for correctness on L1 via acc.v

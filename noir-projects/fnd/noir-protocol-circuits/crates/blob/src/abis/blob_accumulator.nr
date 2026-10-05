@@ -67,7 +67,7 @@ impl BlobAccumulator {
     * Init the first accumulation state of the epoch.
     *
     * First state of the accumulator:
-    * - blob_commitments_hash_acc := sha256(C_0)
+    * - blob_commitments_hash_acc := sha256(0x01, C_0) (the epoch's first blob starts a checkpoint, see accumulate())
     * - z_acc := z_0
     * - y_acc := gamma^0 * y_0 = y_0
     * - c_acc := gamma^0 * c_0 = c_0
@@ -84,7 +84,9 @@ impl BlobAccumulator {
             DOM_SEP__BLOB_HASHED_Y_LIMBS,
         );
         Self {
-            blob_commitments_hash_acc: sha256_to_field(first_output.c_i.compressed),
+            // 0x01: the checkpoint-start flag byte, which lets the hash bind how the epoch's blobs split into
+            // checkpoints. The epoch's first blob always starts a checkpoint.
+            blob_commitments_hash_acc: sha256_to_field([1].concat(first_output.c_i.compressed)),
             z_acc: first_output.z_i,
             y_acc: first_output.y_i,
             c_acc: first_output.c_i.point,
@@ -100,15 +102,21 @@ impl BlobAccumulator {
     * NB: blob_commitments_hash is written as v below
     *
     * Each accumulation:
-    * - blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, C_i)
+    * - blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, s_i, C_i)
     * - z_acc := poseidon2(z_acc, z_i)
     * - y_acc := y_acc + (gamma^i * y_i)
     * - c_acc := c_acc + (gamma^i * c_i)
     * - gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))
     * - gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow_acc
     *
+    * s_i is one byte: 0x01 if blob i is the first of its checkpoint (`is_checkpoint_start`), 0x00 otherwise. L1 derives
+    * the same byte from the blobs attached to each checkpoint proposal, so the final hash binds how the epoch's blobs
+    * are split into checkpoints, not just their order. Without it, a proposal could claim a neighbouring checkpoint's
+    * blob and still match the proof.
+    *
     * Final accumulated values (from last blob of last checkpoint of epoch):
-    * - blob_commitments_hash := blob_commitments_hash_acc (hash of all commitments (C_i s) to be checked on L1)
+    * - blob_commitments_hash := blob_commitments_hash_acc (hash of all commitments (C_i s) and checkpoint starts, to be
+    *   checked on L1)
     * - z := z_acc (final challenge, at which all blobs are evaluated)
     * - y := y_acc (final opening to be checked on L1)
     * - c := c_acc (final commitment to be checked on L1)
@@ -120,7 +128,12 @@ impl BlobAccumulator {
     * - Checking final gamma_acc == gamma in root circuit
     *
     */
-    pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
+    pub fn accumulate(
+        self,
+        other: BlobAccumulationInputs,
+        is_checkpoint_start: bool,
+        final_gamma: BLS12_381_Fr,
+    ) -> Self {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
         let hashed_y_i = poseidon2_hash_with_separator(
             other.y_i.get_limbs().map(|l| l as Field),
@@ -138,6 +151,7 @@ impl BlobAccumulator {
             blob_commitments_hash_acc: sha256_to_field(self
                 .blob_commitments_hash_acc
                 .to_be_bytes::<32>()
+                .concat([is_checkpoint_start as u8])
                 .concat(other.c_i.compressed)),
             z_acc: poseidon2_hash_with_separator([self.z_acc, other.z_i], DOM_SEP__BLOB_Z_ACC),
             y_acc: self.y_acc.add(other.y_i.mul(self.gamma_pow_acc)),
