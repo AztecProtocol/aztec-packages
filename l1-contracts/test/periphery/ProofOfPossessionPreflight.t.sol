@@ -4,9 +4,16 @@ pragma solidity >=0.8.27;
 import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
+import {Bn254LibWrapper} from "@aztec/governance/Bn254LibWrapper.sol";
 import {IBn254LibWrapper} from "@aztec/governance/interfaces/IBn254LibWrapper.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {ProofOfPossessionPreflight} from "@aztec/periphery/ProofOfPossessionPreflight.sol";
+import {
+  IProofOfPossessionPreflight,
+  PopPreflightResult,
+  PopPreflightStatus
+} from "@aztec/periphery/interfaces/IProofOfPossessionPreflight.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {BN254Fixtures} from "@test/shared/BN254Fixtures.t.sol";
@@ -38,6 +45,7 @@ contract ProofOfPossessionPreflightBase is BN254Fixtures {
   Governance internal governance;
   address internal instance = makeAddr("instance");
   uint256 internal attesterNonce;
+  ProofOfPossessionPreflight internal preflight;
 
   function setUp() public virtual override(BN254Fixtures) {
     super.setUp();
@@ -52,6 +60,20 @@ contract ProofOfPossessionPreflightBase is BN254Fixtures {
     gse.addRollup(instance);
 
     assertEq(gse.proofOfPossessionGasLimit(), DEFAULT_CAP, "unexpected default cap");
+
+    preflight = new ProofOfPossessionPreflight();
+  }
+
+  function _preflight(RegistrationTuple memory _t) internal view returns (PopPreflightResult memory) {
+    return preflight.checkProofOfPossession(gse, _t.pk1, _t.pk2, _t.sig);
+  }
+
+  function _preflightWithGas(RegistrationTuple memory _t, uint256 _gas)
+    internal
+    view
+    returns (PopPreflightResult memory)
+  {
+    return preflight.checkProofOfPossession{gas: _gas}(gse, _t.pk1, _t.pk2, _t.sig);
   }
 
   /**
@@ -174,4 +196,266 @@ contract ProofOfPossessionPreflightTest is ProofOfPossessionPreflightBase {
 
     assertFalse(_gseAccepts(t), "GSE accepted the tail key");
   }
+
+  function test_ValidKeyIsValid() external {
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+    PopPreflightResult memory result = _preflight(t);
+
+    assertEq(uint8(result.status), uint8(PopPreflightStatus.Valid), "status");
+    assertEq(result.cap, DEFAULT_CAP, "cap");
+    assertEq(result.wrapper, address(_wrapper()), "wrapper");
+    assertGt(result.gasUsed, 100_000, "gasUsed too low");
+    assertLt(result.gasUsed, _minimalCap(t), "gasUsed above the minimal cap");
+    assertTrue(_gseAccepts(t), "GSE rejected the tuple");
+  }
+
+  /// @notice Every fixture key gets the verdict GSE.deposit gives it.
+  function test_FixtureKeysMatchGse() external {
+    for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
+      RegistrationTuple memory t = _sampleKeyTuple(i);
+      PopPreflightStatus status = _preflight(t).status;
+      if (_gseAccepts(t)) {
+        assertEq(uint8(status), uint8(PopPreflightStatus.Valid), "accepted key not Valid");
+      } else {
+        assertEq(uint8(status), uint8(PopPreflightStatus.OverBudget), "rejected valid key not OverBudget");
+      }
+    }
+  }
+
+  function test_InvalidSignatureIsInvalid() external {
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+    t.sig = _sampleKeyTuple(1).sig;
+
+    _assertInvalid(t);
+  }
+
+  function test_WrongPk2IsInvalid() external {
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+    t.pk2 = fixtureData.sampleKeys[1].pk2;
+
+    _assertInvalid(t);
+  }
+
+  /// @notice A point off the curve makes a precompile fail and burn its gas; that is still Invalid, not OverBudget.
+  function test_OffCurvePointIsInvalid() external {
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+    t.sig = G1Point({x: 1, y: 3});
+
+    _assertInvalid(t);
+  }
+
+  function test_InfinityIsInvalid() external {
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+    t.pk2 = BN254Lib.g2Zero();
+
+    _assertInvalid(t);
+  }
+
+  /**
+   * @notice The tail key at the default 250k cap: over budget from Osaka on, valid before. Either way the preflight
+   *         agrees with GSE.deposit.
+   */
+  function test_TailKeyAtDefaultCap() external {
+    RegistrationTuple memory t = _tailKeyTuple();
+    PopPreflightResult memory result = _preflight(t);
+
+    emit log_named_uint("tail key gasUsed", result.gasUsed);
+    emit log_named_uint("tail key minimal cap", _minimalCap(t));
+
+    if (_isModexpRepriced()) {
+      assertEq(uint8(result.status), uint8(PopPreflightStatus.OverBudget), "status");
+      assertGt(result.gasUsed, DEFAULT_CAP, "gasUsed");
+      assertFalse(_gseAccepts(t), "GSE accepted the tuple");
+    } else {
+      assertEq(uint8(result.status), uint8(PopPreflightStatus.Valid), "status");
+      assertTrue(_gseAccepts(t), "GSE rejected the tuple");
+    }
+  }
+
+  /// @notice Once the GSE owner raises the cap above the tail key's cost, the key is valid and GSE accepts it.
+  function test_TailKeyIsValidAfterOwnerRaisesCap() external {
+    RegistrationTuple memory t = _tailKeyTuple();
+    _setCap(_minimalCap(t) - 1);
+    assertEq(uint8(_preflight(t).status), uint8(PopPreflightStatus.OverBudget), "status before");
+    assertFalse(_gseAccepts(t), "GSE accepted the tuple");
+
+    _setCap(300_000);
+    PopPreflightResult memory result = _preflight(t);
+    assertEq(uint8(result.status), uint8(PopPreflightStatus.Valid), "status after");
+    assertEq(result.cap, 300_000, "cap");
+    assertTrue(_gseAccepts(t), "GSE rejected the tuple");
+  }
+
+  /// @notice At a cap equal to the gas a key needs it is Valid, one gas below it is OverBudget, exactly as GSE.
+  function test_ExactBudgetBoundary() external {
+    RegistrationTuple[2] memory tuples = [_sampleKeyTuple(0), _tailKeyTuple()];
+    for (uint256 i = 0; i < tuples.length; i++) {
+      uint256 minimalCap = _minimalCap(tuples[i]);
+
+      _setCap(minimalCap);
+      assertEq(uint8(_preflight(tuples[i]).status), uint8(PopPreflightStatus.Valid), "status at the boundary");
+      assertTrue(_gseAccepts(tuples[i]), "GSE rejected the tuple at the boundary");
+
+      _setCap(minimalCap - 1);
+      assertEq(uint8(_preflight(tuples[i]).status), uint8(PopPreflightStatus.OverBudget), "status below the boundary");
+      assertFalse(_gseAccepts(tuples[i]), "GSE accepted the tuple below the boundary");
+    }
+  }
+
+  /// @notice For any cap, the preflight's verdict on the tail key matches GSE.deposit's.
+  function testFuzz_MatchesGseForAnyCap(uint256 _cap) external {
+    _cap = bound(_cap, 0, 400_000);
+    RegistrationTuple memory t = _tailKeyTuple();
+    _setCap(_cap);
+
+    PopPreflightStatus status = _preflight(t).status;
+    if (_gseAccepts(t)) {
+      assertEq(uint8(status), uint8(PopPreflightStatus.Valid), "accepted key not Valid");
+    } else {
+      assertEq(uint8(status), uint8(PopPreflightStatus.OverBudget), "rejected valid key not OverBudget");
+    }
+  }
+
+  function test_LowOuterGasIsInsufficientOuterGas() external view {
+    RegistrationTuple[3] memory tuples = [_sampleKeyTuple(0), _tailKeyTuple(), _invalidTuple()];
+    for (uint256 i = 0; i < tuples.length; i++) {
+      PopPreflightResult memory result = _preflightWithGas(tuples[i], 1_000_000);
+      assertEq(uint8(result.status), uint8(PopPreflightStatus.InsufficientOuterGas), "status");
+      assertEq(result.gasUsed, 0, "gasUsed");
+    }
+  }
+
+  /**
+   * @notice With any outer gas, the result is either InsufficientOuterGas or the verdict given with ample gas: too
+   *         little gas never shows up as a bad key, an over-budget key or a valid key.
+   */
+  function testFuzz_OuterGasNeverChangesTheVerdict(uint256 _outerGas, uint8 _which) external {
+    _outerGas = bound(_outerGas, 0, 3_000_000);
+    RegistrationTuple memory t = _tupleByIndex(_which % 3);
+    PopPreflightStatus expected = _preflight(t).status;
+
+    try preflight.checkProofOfPossession{
+      gas: _outerGas
+    }(gse, t.pk1, t.pk2, t.sig) returns (PopPreflightResult memory result) {
+      if (result.status != PopPreflightStatus.InsufficientOuterGas) {
+        assertEq(uint8(result.status), uint8(expected), "verdict changed with outer gas");
+      }
+    } catch (bytes memory reason) {
+      // Only running out of gas before the first check, which reverts without data.
+      assertEq(reason.length, 0, "unexpected revert");
+      assertLt(_outerGas, 30_000, "reverted with enough gas for the first check");
+    }
+  }
+
+  /// @notice At the smallest outer gas that gets past the gas check, the verdict is already the right one.
+  function test_SmallestSufficientOuterGasGivesTheVerdict() external {
+    for (uint256 i = 0; i < 3; i++) {
+      RegistrationTuple memory t = _tupleByIndex(i);
+      PopPreflightStatus expected = _preflight(t).status;
+
+      uint256 lo = 0;
+      uint256 hi = 10_000_000;
+      while (hi - lo > 1) {
+        uint256 mid = (lo + hi) / 2;
+        (bool ok, bytes memory ret) = address(preflight)
+        .staticcall{
+          gas: mid
+        }(abi.encodeCall(IProofOfPossessionPreflight.checkProofOfPossession, (gse, t.pk1, t.pk2, t.sig)));
+        if (ok && abi.decode(ret, (PopPreflightResult)).status != PopPreflightStatus.InsufficientOuterGas) {
+          hi = mid;
+        } else {
+          lo = mid;
+        }
+      }
+      emit log_named_uint("smallest sufficient outer gas", hi);
+      assertEq(uint8(_preflightWithGas(t, hi).status), uint8(expected), "verdict at the smallest sufficient gas");
+    }
+  }
+
+  function test_WrapperIsTheGseCreateAddressAtNonceOne() external {
+    address wrapper = vm.computeCreateAddress(address(gse), 1);
+    assertEq(preflight.bn254LibWrapperOf(address(gse)), wrapper, "derived address");
+    assertEq(wrapper.code, address(new Bn254LibWrapper()).code, "code at the derived address");
+
+    // GSE.deposit calls exactly this address with the cap as gas, and so does the preflight.
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+    bytes memory data = abi.encodeCall(IBn254LibWrapper.proofOfPossession, (t.pk1, t.pk2, t.sig));
+    vm.expectCall(wrapper, 0, DEFAULT_CAP, data);
+    _gseAccepts(t);
+    vm.expectCall(wrapper, 0, DEFAULT_CAP, data);
+    _preflight(t);
+  }
+
+  function test_AddressWithoutCodeReverts() external {
+    address noCode = makeAddr("noCode");
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(IProofOfPossessionPreflight.ProofOfPossessionPreflight__NotAGse.selector, noCode)
+    );
+    preflight.checkProofOfPossession(GSE(noCode), t.pk1, t.pk2, t.sig);
+  }
+
+  function test_NonGseContractReverts() external {
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IProofOfPossessionPreflight.ProofOfPossessionPreflight__NotAGse.selector, address(stakingAsset)
+      )
+    );
+    preflight.checkProofOfPossession(GSE(address(stakingAsset)), t.pk1, t.pk2, t.sig);
+  }
+
+  /// @notice A contract that reports a cap but never created a wrapper at nonce 1.
+  function test_NoCodeAtDerivedWrapperIsNoWrapper() external {
+    CapOnly capOnly = new CapOnly();
+    RegistrationTuple memory t = _sampleKeyTuple(0);
+
+    PopPreflightResult memory result = preflight.checkProofOfPossession(GSE(address(capOnly)), t.pk1, t.pk2, t.sig);
+    assertEq(uint8(result.status), uint8(PopPreflightStatus.NoWrapper), "status");
+    assertEq(result.cap, DEFAULT_CAP, "cap");
+    assertEq(result.wrapper, vm.computeCreateAddress(address(capOnly), 1), "wrapper");
+  }
+
+  /// @notice The preflight's result does not depend on where its code lives, as with an `eth_call` state override.
+  function test_WorksFromAnyAddress() external {
+    address elsewhere = makeAddr("elsewhere");
+    vm.etch(elsewhere, address(preflight).code);
+    RegistrationTuple[3] memory tuples = [_sampleKeyTuple(0), _tailKeyTuple(), _invalidTuple()];
+    for (uint256 i = 0; i < tuples.length; i++) {
+      PopPreflightResult memory here = _preflight(tuples[i]);
+      PopPreflightResult memory there =
+        IProofOfPossessionPreflight(elsewhere).checkProofOfPossession(gse, tuples[i].pk1, tuples[i].pk2, tuples[i].sig);
+      assertEq(uint8(there.status), uint8(here.status), "status");
+      assertEq(there.cap, here.cap, "cap");
+      assertEq(there.wrapper, here.wrapper, "wrapper");
+    }
+  }
+
+  function _assertInvalid(RegistrationTuple memory _t) internal {
+    PopPreflightResult memory result = _preflight(_t);
+    assertEq(uint8(result.status), uint8(PopPreflightStatus.Invalid), "status");
+    assertEq(result.cap, DEFAULT_CAP, "cap");
+    assertFalse(_gseAccepts(_t), "GSE accepted the tuple");
+  }
+
+  function _invalidTuple() internal view returns (RegistrationTuple memory t) {
+    t = _sampleKeyTuple(0);
+    t.sig = _sampleKeyTuple(1).sig;
+  }
+
+  function _tupleByIndex(uint256 _index) internal view returns (RegistrationTuple memory) {
+    if (_index == 0) {
+      return _sampleKeyTuple(0);
+    }
+    if (_index == 1) {
+      return _tailKeyTuple();
+    }
+    return _invalidTuple();
+  }
+}
+
+contract CapOnly {
+  uint64 public proofOfPossessionGasLimit = 250_000;
 }
