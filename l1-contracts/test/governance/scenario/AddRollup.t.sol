@@ -25,7 +25,7 @@ import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE, GSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
-import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
+import {RegisterNewRollupVersionPayload} from "@aztec/periphery/RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -45,6 +45,8 @@ contract BadRollup {
   function getGSE() external view returns (GSE) {
     return GSE(address(gse));
   }
+
+  function setValidatorSetSampleFloor() external {}
 }
 
 contract AddRollupTest is TestBase {

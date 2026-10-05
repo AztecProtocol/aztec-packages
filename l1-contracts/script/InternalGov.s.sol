@@ -12,7 +12,7 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {RegisterNewRollupVersionPayload} from "../test/governance/scenario/RegisterNewRollupVersionPayload.sol";
+import {RegisterNewRollupVersionPayload} from "@aztec/periphery/RegisterNewRollupVersionPayload.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Fakerollup} from "../test/governance/governance-proposer/mocks/Fakerollup.sol";
 import {StakingAssetHandler} from "../src/mock/StakingAssetHandler.sol";
