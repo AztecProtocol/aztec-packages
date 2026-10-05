@@ -37,6 +37,11 @@ contract StubRollup {
   }
 }
 
+/// @dev The payload reads only the proof-of-possession gas cap off the GSE, and only when it raises it.
+contract StubGSE {
+  uint64 public proofOfPossessionGasLimit = 250_000;
+}
+
 /// @dev The payload only reads `getRollup()` off the hatch, so a real EscapeHatch -- whose
 ///      constructor interrogates the rollup -- would add nothing but cost here.
 contract StubEscapeHatch {
@@ -57,9 +62,10 @@ contract V6UpgradePayloadTest is TestBase {
 
   IInstance internal outgoing; // canonical when the payload is deployed
   IInstance internal incoming; // the rollup the payload makes canonical
-  address internal gseAddr = address(0x65E);
+  address internal gseAddr;
 
   uint256 internal constant REWARD_PER_INSERTION = 1000e18;
+  uint64 internal constant POP_GAS_LIMIT = 300_000;
 
   /// @dev Day index of 2026-11-01, the month the v6 upgrade is prepared in.
   uint256 internal constant FIRST_DAY = 20_758;
@@ -75,6 +81,7 @@ contract V6UpgradePayloadTest is TestBase {
     // Owner is the test contract, standing in for governance: it lets the test register rollups
     // directly, which is what moves the canonical pointer the guard reads.
     registry = new Registry(address(this), IERC20(address(token)));
+    gseAddr = address(new StubGSE());
 
     outgoing = IInstance(address(new StubRollup(gseAddr)));
     incoming = IInstance(address(new StubRollup(gseAddr)));
@@ -215,9 +222,91 @@ contract V6UpgradePayloadTest is TestBase {
     assertEq(amountAfter, old.rewardsAvailable(), "recover amount is not rewardsAvailable at call time");
   }
 
+  function test_ActionListShapeWithPopGasLimitWindowAndRewarder() public {
+    V6UpgradePayload payload = _deployWithPopGasLimit({_window: true, _withRewarder: true, _popGasLimit: POP_GAS_LIMIT});
+    IPayload.Action[] memory a = payload.getActions();
+    assertEq(a.length, 7, "wrong action count");
+
+    _assertGuard(a[0], payload);
+    _assertWindow(a[1], payload);
+    _assertSetEscapeHatch(a[2], payload);
+    _assertAddRollup(a[3]);
+    _assertGseAddRollup(a[4]);
+    _assertRecover(a[5], payload);
+    _assertSetPopGasLimit(a[6]);
+  }
+
+  function test_ActionListShapeWithPopGasLimitOnly() public {
+    V6UpgradePayload payload =
+      _deployWithPopGasLimit({_window: false, _withRewarder: false, _popGasLimit: POP_GAS_LIMIT});
+    IPayload.Action[] memory a = payload.getActions();
+    assertEq(a.length, 5, "wrong action count");
+
+    _assertGuard(a[0], payload);
+    _assertSetEscapeHatch(a[1], payload);
+    _assertAddRollup(a[2]);
+    _assertGseAddRollup(a[3]);
+    _assertSetPopGasLimit(a[4]);
+  }
+
+  function test_ZeroPopGasLimitAddsNoAction() public {
+    bool[2] memory flags = [true, false];
+
+    for (uint256 i = 0; i < flags.length; i++) {
+      for (uint256 j = 0; j < flags.length; j++) {
+        V6UpgradePayload payload = _deploy({_window: flags[i], _withRewarder: flags[j]});
+        assertEq(payload.PROOF_OF_POSSESSION_GAS_LIMIT(), 0, "cap should be unset");
+
+        IPayload.Action[] memory actions = payload.getActions();
+        assertEq(actions.length, 4 + (flags[i] ? 1 : 0) + (flags[j] ? 1 : 0), "wrong action count");
+        for (uint256 k = 0; k < actions.length; k++) {
+          assertTrue(
+            bytes4(actions[k].data) != IGSECore.setProofOfPossessionGasLimit.selector, "cap action should be absent"
+          );
+        }
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------------------------
   // Constructor
   // ---------------------------------------------------------------------------------------------
+
+  /// @dev Zero means "no action"; anything else must raise the GSE's current cap of 250k, since a
+  ///      lower cap would start rejecting deposits that verify today.
+  function testFuzz_ConstructorAcceptsOnlyARaiseOfThePopGasLimit(uint64 _limit) public {
+    uint64 current = StubGSE(gseAddr).proofOfPossessionGasLimit();
+    if (_limit != 0 && _limit <= current) {
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          V6UpgradePayload.V6UpgradePayload__ProofOfPossessionGasLimitNotRaised.selector, current, _limit
+        )
+      );
+    }
+    V6UpgradePayload payload = _deployWithPopGasLimit({_window: false, _withRewarder: false, _popGasLimit: _limit});
+    if (_limit == 0 || _limit > current) {
+      assertEq(payload.PROOF_OF_POSSESSION_GAS_LIMIT(), _limit, "cap not recorded");
+    }
+  }
+
+  /// @dev Like the earmark, the GSE is only consulted when the action is used.
+  function test_ZeroPopGasLimitDoesNotReadTheGSE() public {
+    StubRollup bare = new StubRollup(address(0xdead));
+    IEscapeHatch bareHatch = IEscapeHatch(address(new StubEscapeHatch(address(bare))));
+    V6UpgradePayload payload = new V6UpgradePayload(
+      IRegistry(address(registry)),
+      IInstance(address(bare)),
+      bareHatch,
+      FlushRewarder(address(0)),
+      false,
+      0,
+      false,
+      0,
+      0,
+      0
+    );
+    assertEq(payload.PROOF_OF_POSSESSION_GAS_LIMIT(), 0, "cap should be unset");
+  }
 
   function test_ConstructorRevertsWhenRewarderServesAnotherRollup() public {
     // A rewarder bound to the INCOMING rollup, not the outgoing one it claims to replace.
@@ -228,13 +317,15 @@ contract V6UpgradePayloadTest is TestBase {
         V6UpgradePayload.V6UpgradePayload__FlushRewarderRollupMismatch.selector, address(incoming), address(outgoing)
       )
     );
-    new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, foreign, false, 0, false, 0, 0);
+    new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, foreign, false, 0, false, 0, 0, 0);
   }
 
   function test_ConstructorRevertsAgainstAnEmptyRegistry() public {
     Registry empty = new Registry(address(this), IERC20(address(token)));
     vm.expectRevert(abi.encodeWithSelector(Errors.Registry__NoRollupsRegistered.selector));
-    new V6UpgradePayload(IRegistry(address(empty)), incoming, hatch, FlushRewarder(address(0)), false, 0, false, 0, 0);
+    new V6UpgradePayload(
+      IRegistry(address(empty)), incoming, hatch, FlushRewarder(address(0)), false, 0, false, 0, 0, 0
+    );
   }
 
   function test_ConstructorRevertsWhenTheHatchServesAnotherRollup() public {
@@ -247,7 +338,7 @@ contract V6UpgradePayloadTest is TestBase {
       )
     );
     new V6UpgradePayload(
-      IRegistry(address(registry)), incoming, foreign, FlushRewarder(address(0)), false, 0, false, 0, 0
+      IRegistry(address(registry)), incoming, foreign, FlushRewarder(address(0)), false, 0, false, 0, 0, 0
     );
   }
 
@@ -373,13 +464,21 @@ contract V6UpgradePayloadTest is TestBase {
   // ---------------------------------------------------------------------------------------------
 
   function _deploy(bool _window, bool _withRewarder) internal returns (V6UpgradePayload) {
+    return _deployWithPopGasLimit({_window: _window, _withRewarder: _withRewarder, _popGasLimit: 0});
+  }
+
+  function _deployWithPopGasLimit(bool _window, bool _withRewarder, uint64 _popGasLimit)
+    internal
+    returns (V6UpgradePayload)
+  {
     FlushRewarder old = _withRewarder
       ? new FlushRewarder(address(this), outgoing, IERC20(address(token)), REWARD_PER_INSERTION)
       : FlushRewarder(address(0));
     if (_withRewarder) {
       token.mint(address(old), 1000e18);
     }
-    return new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, old, _window, 0, false, 0, 0);
+    return
+      new V6UpgradePayload(IRegistry(address(registry)), incoming, hatch, old, _window, 0, false, 0, 0, _popGasLimit);
   }
 
   function _haveVersion(IInstance _rollup) internal pure returns (IHaveVersion) {
@@ -422,6 +521,15 @@ contract V6UpgradePayloadTest is TestBase {
     assertEq(asset, address(_payload.NEW_FLUSH_REWARDER().REWARD_ASSET()), "recover asset");
     assertEq(to, address(_payload.NEW_FLUSH_REWARDER()), "recover recipient");
     assertEq(amount, _payload.OLD_FLUSH_REWARDER().rewardsAvailable(), "recover amount");
+  }
+
+  function _assertSetPopGasLimit(IPayload.Action memory _a) internal view {
+    assertEq(_a.target, gseAddr, "setProofOfPossessionGasLimit must target the GSE");
+    assertEq(
+      _a.data,
+      abi.encodeWithSelector(IGSECore.setProofOfPossessionGasLimit.selector, POP_GAS_LIMIT),
+      "setProofOfPossessionGasLimit calldata"
+    );
   }
 
   function _decodeRecover(bytes memory _data) internal pure returns (address, address, uint256) {

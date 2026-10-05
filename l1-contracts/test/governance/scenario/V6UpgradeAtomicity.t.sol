@@ -55,6 +55,9 @@ contract StandInRollup {
   function getGSE() external view returns (GSE) {
     return GSE(address(GSE_));
   }
+
+  /// @dev Lets a payload that installs a hatch execute in full. Unguarded: only governance calls it here.
+  function setEscapeHatch(address) external {}
 }
 
 /**
@@ -103,6 +106,7 @@ contract V6UpgradeAtomicityTest is TestBase {
   uint256 internal constant VALIDATOR_COUNT = 4;
   uint256 internal constant REWARD_PER_INSERTION = 1000e18;
   uint256 internal constant REWARDER_BALANCE = 390_000e18;
+  uint64 internal constant POP_GAS_LIMIT = 300_000;
 
   function setUp() external {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
@@ -165,6 +169,7 @@ contract V6UpgradeAtomicityTest is TestBase {
     uint256 versionsBefore = registry.numberOfVersions();
     uint256 oldRewarderBefore = token.balanceOf(address(oldRewarder));
     uint256 newRewarderBefore = token.balanceOf(address(payload.NEW_FLUSH_REWARDER()));
+    uint64 popGasLimitBefore = GSE(address(gse)).proofOfPossessionGasLimit();
 
     // The failing action is the payload's own self-targeted guard, so that is the target
     // `Governance` names when it refuses the whole execution.
@@ -180,6 +185,8 @@ contract V6UpgradeAtomicityTest is TestBase {
     // Action 3 (FlushRewarder.recover) did not run.
     assertEq(token.balanceOf(address(oldRewarder)), oldRewarderBefore, "old rewarder was drained");
     assertEq(token.balanceOf(address(payload.NEW_FLUSH_REWARDER())), newRewarderBefore, "new rewarder was funded");
+    // Action 4 (GSE.setProofOfPossessionGasLimit) did not run.
+    assertEq(GSE(address(gse)).proofOfPossessionGasLimit(), popGasLimitBefore, "GSE proof-of-possession cap moved");
 
     // And the proposal was not consumed: the Executed flag is rolled back with everything else, so
     // a rejected attempt leaves it executable until it expires on its own.
@@ -209,6 +216,24 @@ contract V6UpgradeAtomicityTest is TestBase {
     assertNotEq(address(registry.getCanonicalRollup()), address(target), "target became canonical");
   }
 
+  /// @dev The positive counterpart to the tests above: the payload executes in full through real
+  ///      governance, and the GSE leaves it with the raised proof-of-possession gas cap.
+  function test_ExecutionRaisesTheProofOfPossessionGasLimit() public {
+    FlushRewarder oldRewarder = _deployRewarder();
+    V6UpgradePayload payload = _deployV6Payload(oldRewarder);
+    address newRollup = address(payload.ROLLUP());
+    assertEq(GSE(address(gse)).proofOfPossessionGasLimit(), 250_000, "unexpected starting cap");
+
+    registry.transferOwnership(address(governance));
+    uint256 proposalId = _proposeAndQueue(IPayload(address(payload)));
+    governance.execute(proposalId);
+
+    assertTrue(governance.getProposalState(proposalId) == ProposalState.Executed, "proposal not executed");
+    assertEq(address(registry.getCanonicalRollup()), newRollup, "v6 is not canonical");
+    assertEq(gse.getLatestRollup(), newRollup, "GSE latest is not v6");
+    assertEq(GSE(address(gse)).proofOfPossessionGasLimit(), POP_GAS_LIMIT, "proof-of-possession gas cap not raised");
+  }
+
   // -----------------------------------------------------------------------------------------------
   // Helpers
   // -----------------------------------------------------------------------------------------------
@@ -227,7 +252,7 @@ contract V6UpgradeAtomicityTest is TestBase {
     // revert. The window itself is covered in test/periphery/V6UpgradePayload.t.sol.
     IEscapeHatch hatch = IEscapeHatch(address(new StubEscapeHatch(address(newRollup))));
     return new V6UpgradePayload(
-      IRegistry(address(registry)), IInstance(address(newRollup)), hatch, _old, false, 0, false, 0, 0
+      IRegistry(address(registry)), IInstance(address(newRollup)), hatch, _old, false, 0, false, 0, 0, POP_GAS_LIMIT
     );
   }
 

@@ -36,10 +36,18 @@ Nothing is canonical yet. The payload is what governance executes later; it perf
 | 7 | `Registry.addRollup(v6)` | makes v6 the canonical rollup |
 | 8 | `GSE.addRollup(v6)` | lets existing attesters follow without redepositing |
 | 9 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | carries the entry-queue flush incentive across (skipped if there is no old rewarder) |
+| 10 | `GSE.setProofOfPossessionGasLimit(300_000)` | raises the GSE's cap on BLS proof-of-possession verification from 250k; skipped when the configured value is zero |
 
 Actions 3–5 all act on the **outgoing** rollup and must precede action 7. The distributor resolves
 `canonicalRollup()` live off the registry, so once v6 is canonical the old rollup can no longer
 reach the implicit pool, and the retune would be settling a chain that has already stopped.
+
+Action 10 has no ordering constraint and goes last. The GSE verifies each new attester's proof of
+possession in a sub-call capped at this much gas, and a deposit whose verification does not fit is
+refunded and dropped from the entry queue. The cost varies per key, and since Osaka's modexp
+repricing about 1 in 28.6k honestly generated keys exceed 250k; at 300k it is about 1 in 2.5M. The
+cost of the raise is that a failing entry can burn at most 50k more gas in a flush. The GSE is
+shared, so the new cap applies to the outgoing rollup too, from the moment the payload executes.
 
 ## 1. Build
 
@@ -84,6 +92,7 @@ deploy these must be set:
 | `predecessorSequencerBps` | **TODO — mainnet** | set on Sepolia (8000) |
 | `predecessorCheckpointReward` | **TODO — mainnet** | set on Sepolia (100e18) |
 | `enforcePayloadExecutionWindow` | set | `true` on mainnet, `false` on Sepolia |
+| `proofOfPossessionGasLimit` | set | `300_000` on both chains; zero omits the action. The payload constructor reverts unless it exceeds the GSE's cap at deployment |
 
 Sepolia has no outstanding values; every TODO above is on the mainnet path.
 
@@ -149,6 +158,8 @@ BONUS=$(cast  call $GSE "BONUS_INSTANCE_ADDRESS()(address)" --rpc-url $RPC)
 
 cast call $GSE "ACTIVATION_THRESHOLD()(uint256)" --rpc-url $RPC   # expect 200_000e18
 cast call $GSE "EJECTION_THRESHOLD()(uint256)"   --rpc-url $RPC   # expect 100_000e18
+cast call $GSE "proofOfPossessionGasLimit()(uint64)" --rpc-url $RPC  # expect 250000, below the configured 300000
+cast call $GSE "owner()(address)"                --rpc-url $RPC   # governance, or action 10 reverts
 cast call $ROLLUP "getActiveAttesterCount()(uint256)" --rpc-url $RPC
 cast call $ROLLUP "getIsBootstrapped()(bool)"        --rpc-url $RPC
 
@@ -220,6 +231,9 @@ cast call <rollup> "getVersion()(uint256)"      --rpc-url $RPC  # not already in
 # the payload is bound to the rollup it succeeds; must equal the OUTGOING rollup, not the new one
 cast call <payload> "PREDECESSOR()(address)"    --rpc-url $RPC
 cast call $REG "getCanonicalRollup()(address)"  --rpc-url $RPC
+
+# the proof-of-possession gas cap the payload will set on the GSE
+cast call <payload> "PROOF_OF_POSSESSION_GAS_LIMIT()(uint64)" --rpc-url $RPC  # 300000
 ```
 
 ## 6. Governance proposal
@@ -302,6 +316,9 @@ cast call <payload> "..."  # payload holds none of the asset
 
 # the retune, read off the OUTGOING rollup
 cast call $ROLLUP "getRewardConfig()" --rpc-url $RPC
+
+# the proof-of-possession gas cap, shared by every rollup on the GSE
+cast call $GSE "proofOfPossessionGasLimit()(uint64)" --rpc-url $RPC  # 300000
 ```
 
 The distributor's **total balance not moving** is the check that matters for the reservation: the

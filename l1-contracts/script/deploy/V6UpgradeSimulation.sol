@@ -14,7 +14,7 @@ import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
-import {IGSE} from "@aztec/governance/GSE.sol";
+import {GSE, IGSE} from "@aztec/governance/GSE.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -59,6 +59,7 @@ contract V6UpgradeSimulation is Test {
     uint256 flushFundsToMove;
     uint256 oldFlushBalance;
     uint256 newFlushBalance;
+    uint64 proofOfPossessionGasLimit;
   }
 
   /// @notice Runs the whole lifecycle and reverts the snapshot afterwards.
@@ -91,6 +92,7 @@ contract V6UpgradeSimulation is Test {
     s.canonicalRollup = address(_registry.getCanonicalRollup());
     s.versions = _registry.numberOfVersions();
     s.bonusAttesters = _gse.getAttesterCountAtTime(_gse.getBonusInstanceAddress(), Timestamp.wrap(block.timestamp));
+    s.proofOfPossessionGasLimit = GSE(address(_gse)).proofOfPossessionGasLimit();
 
     IRewardDistributor distributor = _registry.getRewardDistributor();
     IERC20 rewardAsset = IERC20(Rollup(address(_payload.ROLLUP())).getFeeAsset());
@@ -208,6 +210,12 @@ contract V6UpgradeSimulation is Test {
     // The hatch is installed by the payload, not the deploy, so this is the only place the
     // installation is proved before the real execution.
     assertEq(address(Rollup(newRollup).getEscapeHatch()), _payload.ESCAPE_HATCH(), "escape hatch was not installed");
+
+    // The GSE is shared, so the new cap also governs the outgoing rollup's flushes from here on.
+    uint64 expectedPopGasLimit = _payload.PROOF_OF_POSSESSION_GAS_LIMIT() > 0
+      ? _payload.PROOF_OF_POSSESSION_GAS_LIMIT()
+      : _before.proofOfPossessionGasLimit;
+    assertEq(GSE(address(_gse)).proofOfPossessionGasLimit(), expectedPopGasLimit, "GSE proof-of-possession gas cap");
 
     _assertRewardDistributor(_payload, _registry, _before);
     _assertFlushRewarder(_payload, _before);

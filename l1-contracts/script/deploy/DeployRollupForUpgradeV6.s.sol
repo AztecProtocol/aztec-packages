@@ -161,6 +161,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     // London, DST-aware). Enforced as the payload's first action, so a rejected attempt reverts
     // the whole execution and leaves the proposal executable again when the window next opens.
     bool enforcePayloadExecutionWindow;
+    // The proof-of-possession gas cap the payload sets on the shared GSE, which applies to every
+    // rollup it serves, the outgoing one included. Zero omits the action and leaves the cap alone;
+    // otherwise the payload constructor rejects anything not above the GSE's cap at deployment.
+    uint64 proofOfPossessionGasLimit;
     // Reward-pool balance the payload reserves for the OUTGOING rollup before it stops being
     // canonical. Zero omits the reservation. Whatever is reserved is subtracted from what the new
     // rollup can claim, and the pool is live, so this must be set against the balance at execution
@@ -250,6 +254,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       escapeHatchLagInHatches: 1, // v5 production
       escapeHatchProposingExitDelay: 30 days, // v5 production; also the maximum the constructor allows
       enforcePayloadExecutionWindow: true,
+      // Up from the GSE's 250_000, which honest keys whose hashToPoint loop runs long exceed under
+      // Osaka modexp pricing (EIP-7883): about 1 in 28.6k keys at 250k, about 1 in 2.5M at 300k. A
+      // deposit that fails verification can burn at most 50k more gas in a flush as a result.
+      proofOfPossessionGasLimit: 300_000,
       earmarkAmountForPredecessor: 1_800_000e18,
       retunePredecessorRewards: true,
       predecessorSequencerBps: 7000, // v5 keeps the 7000 it already runs; only the reward below moves
@@ -452,6 +460,7 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     assertEq(p.RETUNE_PREDECESSOR_REWARDS(), c.retunePredecessorRewards, "retune flag");
     assertEq(p.PREDECESSOR_SEQUENCER_BPS(), c.predecessorSequencerBps, "predecessor sequencerBps");
     assertEq(p.PREDECESSOR_CHECKPOINT_REWARD(), c.predecessorCheckpointReward, "predecessor checkpointReward");
+    assertEq(p.PROOF_OF_POSSESSION_GAS_LIMIT(), c.proofOfPossessionGasLimit, "proofOfPossessionGasLimit");
 
     if (c.earmarkAmountForPredecessor > 0) {
       assertEq(address(p.REWARD_DISTRIBUTOR()), address(registry.getRewardDistributor()), "earmark distributor");
@@ -617,7 +626,8 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       _c.earmarkAmountForPredecessor,
       _c.retunePredecessorRewards,
       _c.predecessorSequencerBps,
-      _c.predecessorCheckpointReward
+      _c.predecessorCheckpointReward,
+      _c.proofOfPossessionGasLimit
     );
   }
 
