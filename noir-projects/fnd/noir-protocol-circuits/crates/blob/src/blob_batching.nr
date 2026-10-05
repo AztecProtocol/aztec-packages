@@ -124,6 +124,9 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
             } else {
                 end_accumulator = end_accumulator.accumulate(
                     BlobAccumulationInputs { z_i, y_i, c_i },
+                    // Flags this checkpoint's first blob (hashed as the byte 0x01, otherwise 0x00), so the hash binds
+                    // where each checkpoint's blobs start. L1 sets the same flag on the first blob of each proposal.
+                    i == 0,
                     final_blob_challenges.gamma,
                 );
             }
@@ -214,8 +217,10 @@ mod tests {
 
         let blob_commitment = compress_to_blob_commitment(kzg_commitment);
 
-        // Since i = 1, blob_commitments_hash is just the sha256 hash of the single (compressed) commitment
-        let expected_blob_commitments_hash = sha256_to_field(blob_commitment.compressed);
+        // Since i = 1, blob_commitments_hash is just the sha256 hash of the checkpoint start flag (0x01: this blob
+        // starts a checkpoint) and the single (compressed) commitment
+        let expected_blob_commitments_hash =
+            sha256_to_field([1].concat(blob_commitment.compressed));
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
 
         // Since i = 1, C = gamma^0 * C_0 = C_0
@@ -233,7 +238,8 @@ mod tests {
             blob_fields[i] = 456 + i as Field;
         }
 
-        // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
+        // The following hardcoded values are generated from labs/yarn-project/blob-lib/src/blob_batching.test.ts;
+        // run it with AZTEC_GENERATE_TEST_DATA=1 to rewrite them.
         let blob_fields_hash_3_blobs_from_ts =
             0x1c501e5d16d469f6b3e06418af17686f4d34f69fa4ed5d9690850a3e88f30810;
         let kzg_commitment_x_limbs_blob_0_from_ts = [
@@ -290,7 +296,7 @@ mod tests {
             0x16ed67,
         ];
         let blob_commitments_hash_3_blobs_from_ts =
-            0x00993920f366febbb5cd05c6436eda28a447447f58a1b7d713c21423790c395b;
+            0x00ce7791793c981c45d98738fa2e0aeed3e5819c39c1a6517f175b932a55b1ec;
 
         // Init. injected values:
         // - Commitments are injected and checked for correctness on L1 via acc.v
@@ -419,4 +425,96 @@ mod tests {
         );
     }
 
+    // Not inlined: inlining several calls to `evaluate_blobs_and_batch` into one test multiplies its compile time.
+    #[inline_never]
+    unconstrained fn accumulate_checkpoint<let NumBlobs: u32>(
+        commitments: [BLSPoint; NumBlobs],
+        start_accumulator: BlobAccumulator,
+    ) -> BlobAccumulator {
+        let final_challenges = FinalBlobBatchingChallenges::empty();
+        // The fewest fields that need `NumBlobs` blobs.
+        let num_fields = (NumBlobs - 1) * FIELDS_PER_BLOB + 1;
+        evaluate_blobs_and_batch(
+            [0; FIELDS_PER_BLOB * NumBlobs],
+            num_fields,
+            123, // Arbitrary blob fields hash.
+            commitments,
+            final_challenges,
+            start_accumulator,
+            BLS12_381_Fr::from(final_challenges.z),
+        )
+    }
+
+    // A checkpoint whose data spans [C_0, C_1], followed by a checkpoint with [C_2]. L1 must not accept this epoch's
+    // proof for proposals that split the same blobs as [C_0] then [C_1, C_2]: test_ShiftedSplitDoesNotMatchTheCircuits
+    // in l1-contracts computes both splits on L1 and checks them against this value.
+    #[test]
+    unconstrained fn test_commitments_hash_binds_checkpoint_boundaries() {
+        // The following hardcoded values are generated from labs/yarn-project/blob-lib/src/blob_batching.test.ts;
+        // run it with AZTEC_GENERATE_TEST_DATA=1 to rewrite them. The commitments are those of test_3_blobs_batched.
+        let kzg_commitment_x_limbs_blob_0_from_ts = [
+            0xc1c8bbec58d7e25cc840d31e1a0361,
+            0xdfebfabcadc58a67da75e8c3ee4a09,
+            0x5504cd781b65efd4f539e321e4d17a,
+            0x171570,
+        ];
+        let kzg_commitment_y_limbs_blob_0_from_ts = [
+            0x96af7267d106a96b4353b5ed0bf0a6,
+            0xb785a85e0f1404abe16503604906e6,
+            0x471e2147e13fe3eaa97ada6f828112,
+            0x15e24d,
+        ];
+        let kzg_commitment_x_limbs_blob_1_from_ts = [
+            0xab3ed5948aa3d00fe77b1b2876ecd7,
+            0x9d649e59ee9920f46f5f586bc9f6cb,
+            0x001f300677e564710b67c3ef2b1f46,
+            0x0ac039,
+        ];
+        let kzg_commitment_y_limbs_blob_1_from_ts = [
+            0xaa5703192a3733107a7f7ba1fa98ce,
+            0xc67513549bde2e39d6b6607670cd6b,
+            0x0727a2b1e640aec8dbc7709a0c38be,
+            0x13ed3a,
+        ];
+        let kzg_commitment_x_limbs_blob_2_from_ts = [
+            0x2d936449435dd85db10daa4a93572a,
+            0xba75b7a0c3065ee47dd17fa801cbcb,
+            0x308ba7a7145cd3d90a7801a23f0f6b,
+            0x0d4847,
+        ];
+        let kzg_commitment_y_limbs_blob_2_from_ts = [
+            0x5a51aa53fad565ecb91d04288a3a1b,
+            0xbd1bfcd6b075c4749ddf4251b4028c,
+            0x59dcc1d2a509604b557950b349a9f5,
+            0x0c6b4d,
+        ];
+        let blob_commitments_hash_two_checkpoints_from_ts =
+            0x00c2e3fd7e66a854ce9341649163496ca99c94794099e4bfe1bf084374f34f9a;
+
+        let c_0 = BatchingBlobCommitment::from_limbs(
+            kzg_commitment_x_limbs_blob_0_from_ts,
+            kzg_commitment_y_limbs_blob_0_from_ts,
+        )
+            .point;
+        let c_1 = BatchingBlobCommitment::from_limbs(
+            kzg_commitment_x_limbs_blob_1_from_ts,
+            kzg_commitment_y_limbs_blob_1_from_ts,
+        )
+            .point;
+        let c_2 = BatchingBlobCommitment::from_limbs(
+            kzg_commitment_x_limbs_blob_2_from_ts,
+            kzg_commitment_y_limbs_blob_2_from_ts,
+        )
+            .point;
+
+        let end_accumulator = accumulate_checkpoint(
+            [c_2],
+            accumulate_checkpoint([c_0, c_1], BlobAccumulator::empty()),
+        );
+
+        assert_eq(
+            end_accumulator.blob_commitments_hash_acc,
+            blob_commitments_hash_two_checkpoints_from_ts,
+        );
+    }
 }
