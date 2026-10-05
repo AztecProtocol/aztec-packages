@@ -1,0 +1,1023 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 11:49:59 +0100
+Subject: [PATCH] fix(bb-prover): replace a dead pooled bb verifier, by letting
+ the instance heal itself (#354)
+
+* fix(bb-prover): evict dead bb instances from the BBJsFactory pool
+
+A pooled bb instance whose process died was returned to the pool and handed
+out again, so every later borrow of it failed. The pool now checks
+BBJsApi.isAlive(): a dead instance is destroyed when it is returned or found
+idle, and a replacement is spawned when a borrower finds no idle instance
+while the pool is below its size. A failed spawn fails that borrow and is
+retried by the next one, and a failed pool initialization is retried too.
+
+Requires a bb.js release with Barretenberg.isAlive().
+
+* fix(bb-prover): report a dead bb verifier as unavailable, not as an invalid proof
+
+BBCircuitVerifier.verifyProof turned every error into { valid: false }, so a
+bb process that died was reported as an invalid transaction proof and counted
+as a verification failure. A call that fails because its bb died is now
+retried once on another pooled instance; if that bb dies too, or no instance
+can be started, verifyProof throws ProofVerifierUnavailableError. RPC
+admission then fails with that error instead of rejecting the tx as invalid,
+and QueuedIVCVerifier does not record it as a failed verification. A call
+that fails while bb is alive still means bb rejected the proof.
+
+* fix(bb-prover): replace a dead borrowed bb instance on return and keep a partly started pool
+
+A borrower waiting on a full pool was stranded when a borrowed instance died,
+because the eviction freed room without spawning anything. Returning a dead
+instance now spawns its replacement, which goes straight to a waiting
+borrower. A borrow whose replacement spawn fails waits for a borrowed
+instance instead of failing, and only throws when the pool holds none. Pool
+initialization keeps the instances that started and spawns the rest on
+demand, rather than destroying them all when one fails.
+
+* docs(bb-prover): state that verifyProof rejects when a proof cannot be checked
+
+ClientProtocolCircuitVerifier.verifyProof documents that it rejects, rather
+than reporting the proof invalid, when the proof could not be checked.
+BBCircuitVerifier's docs no longer claim that every failure while bb is alive
+is a rejection of the proof, and its failure log is structured.
+
+* fix(bb-prover): re-check waiting pool borrowers so a failed spawn cannot strand them
+
+A borrower waiting on an empty pool counted on an in-flight spawn or a
+borrowed instance to come back, and was never woken when the spawn failed or
+the instance died without a replacement. Waiting borrowers now re-check every
+second: they spawn an instance themselves when the pool is below its size,
+and throw when that fails while no instance exists or is being spawned. A
+dead instance's replacement is spawned in the background, so returning it
+does not hold up the verification that found it dead.
+
+* fix(bb-prover): spawn no pooled bb instance after the factory is destroyed
+
+A borrower re-checking after destroy(), or an eviction just before it, spawned a bb only to destroy it. The pool test that waits for a borrowed instance also plans enough failed spawns for re-checks that land before that instance returns.
+
+* fix(bb-prover): replace dead pooled bb instances from a periodic maintenance run
+
+The pool no longer spawns from the borrow path. Every second a maintenance run destroys the pooled instances whose bb
+died and spawns instances until the pool is back at poolSize, retrying failed spawns on the next run. A borrower skips
+dead instances and waits for a live one however long that takes, as it does while every instance is busy.
+
+destroy() does not wait for a spawn in flight; the spawn destroys its instance when it completes. QueuedIVCVerifier stops
+its verifier before draining its queue, so a verification waiting for a bb instance fails instead of blocking shutdown.
+
+* fix(bb-prover): destroy dead pooled bb instances a borrow dropped when the factory is destroyed
+
+destroy() retires every dead member as well as the idle ones, so a dead instance a borrow dropped between maintenance runs
+is destroyed. Dispose returns an instance to the pool as before; the borrow path skips it if it is dead.
+QueuedIVCVerifier.stop() drains its queue even if stopping the verifier fails.
+
+* test(bb-prover): drop a pool test that the failed-spawn waiting test covers
+
+* refactor(bb-prover): track borrowed pooled bb instances with a counter instead of a member list
+
+The idle queue is the only record of idle instances. Pool maintenance sweeps it, destroying dead instances and putting
+the live ones back, and spawns until idle, borrowed and spawning instances reach poolSize. A borrow destroys a dead
+instance it takes. Each instance is idle, borrowed or destroyed, so destroy() tears down the idle queue as on main.
+
+* refactor(bb-prover): count pooled bb instances with a single counter
+
+The count covers idle, borrowed and spawning instances: a spawn adds one, and a failed spawn or a destroyed dead instance
+removes one. Pool maintenance spawns up to poolSize from it, and the dispose code is main's again.
+
+* refactor(bb-prover): let the bb instance replace its own process, not the pool
+
+Keeps the verifier half of this branch and replaces the pool half with one option.
+
+A pooled instance now spawns with bb.js's `respawn`, so an instance whose bb process
+dies replaces it and the next borrower gets a working one. The pool needs no liveness
+check, no eviction and no maintenance loop: returning an instance unconditionally is
+correct again, exactly as it already is for the AVM simulator pool.
+
+The verification retry keys off the failure rather than a liveness query. bb.js marks
+an environmental failure with `retry: true`, feature-detected rather than imported, so
+the same check works across the bb.js and ipc-runtime package boundaries. Asking an
+instance whether it is still alive can only ever be a guess, since the process can die
+between the answer and the next call, and it would not distinguish a dead helper from
+a bad proof, which is what makes the node report one as the other.
+
+The double models the same thing: a death fails the call in flight, retryably, and
+leaves the instance usable, because a replacement process serves the next call.
+
+Needs a bb.js release carrying aztec-packages#25548, which adds `respawn` and the
+`retry` property. Until the pin moves this does not build, as the branch it adjusts
+did not. The bb.js side is tested there, including against a real bb.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* fix(bb-prover): honour the retry flag on the proving path too
+
+`ProvingError` was the only retryable failure the prover recognised, so a bb process
+that died mid-call surfaced as permanent and the job was not retried. Both the prover
+and the verifier now ask the same question of the error, and the classifier lives next
+to the backend that raises it rather than once per caller.
+
+`ProvingError.retry` still answers true, since the check is on the property rather
+than the class.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* fix(bb-prover): a pool that fails to start must not wedge the factory
+
+Reverting the pool to main's brought back main's permanent wedge, which #351 had also
+been fixing: initPromise caches its rejection, so one failed spawn made every later
+borrow fail for the life of the process. It is cleared on failure now, as the bb.js
+singleton's is, so the next borrow starts the pool again.
+
+A borrow also raced destruction, so a pool whose bb never comes up no longer holds up
+shutdown: the wait ends when the factory is destroyed and the borrow says so.
+
+The verifier spends its attempt budget on both halves. A bb that could not be started
+is worth another go, on the same terms a bb that died under the call gets; anything
+else, such as the factory being destroyed, will not improve by asking again. Either
+way no proof was checked, so neither is ever reported as the proof's fault.
+
+The double now fails a spawn retryably, as BBJsInstance.create does, rather than
+showing a test a permanent failure where production has a transient one.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* test(bb-prover): fail every spawn attempt in the per-call unavailable test
+
+A failed spawn is now retried, so failing it once let the second attempt
+succeed and the proof verify.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* refactor(bb-prover): share the retry check, and let the verifier opt into respawn
+
+The bb-prover and AVM pool copies of the retry check become one type guard in
+foundation, without a cast. Respawn is now an explicit BBJsFactory option the
+verifier sets, rather than implied by pooling, so a future pooled owner of
+stateful sessions does not get it by accident. The retry wording says attempts,
+since with respawn a retry usually lands on the same instance's new process.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* fix(bb-prover): race pool startup against destroy only while the pool is starting
+
+Every borrow raced the init promise against destroyedSignal, which stays
+pending until destroy(). Each race leaves a handler on it, so every
+verification leaked one for the life of the node: about 312 bytes, or ~300 MB
+per million verifications. Once the pool exists, destroy() already releases
+waiting borrowers through pool.cancel().
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* refactor(bb-prover): make the bb.js pool a queue of slots that start their bb on demand
+
+The pool had a separate startup phase that spawned every instance at once, and
+each failure mode it introduced needed its own patch: a cached startup failure
+that wedged the factory, a shutdown that hung while it ran, and a race against
+destroy that leaked a handler per borrow.
+
+Without that phase there is nothing to patch. The pool is a queue of slots,
+created up front; a borrower takes one and starts its bb if it has none. A
+borrower now waits only for a slot, which destroy() releases by cancelling the
+queue, or for its own bb to start, which bb.js bounds with its startup deadline.
+A bb that fails to start costs only its slot, which goes back empty, so the
+instances that did start are kept.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+* test(bb-prover): gate the start in the pool shutdown tests with promiseWithResolvers
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NuUzj3qpkpJor6GMpWB4T4
+
+---------
+
+Co-authored-by: Facundo <facundo@aztec-labs.com>
+Co-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+diff --git a/yarn-project/bb-prover/src/bb/bb_js_backend.test.ts b/yarn-project/bb-prover/src/bb/bb_js_backend.test.ts
+index c60fc88b29c319fc7dff767834f07a0d118fd5d2..e26fbd89a2c3e310206064ac93faf0b9f4ff65dd 100644
+--- a/yarn-project/bb-prover/src/bb/bb_js_backend.test.ts
++++ b/yarn-project/bb-prover/src/bb/bb_js_backend.test.ts
+@@ -1,5 +1,7 @@
++import { promiseWithResolvers } from '@aztec-labs/foundation/promise';
+ import { ProvingError } from '@aztec-labs/stdlib/errors';
+ 
++import { FakeBBJsFactory } from '../test/fake_bb_js.js';
+ import { BBJsInstance } from './bb_js_backend.js';
+ 
+ describe('BBJsInstance', () => {
+@@ -9,3 +11,56 @@ describe('BBJsInstance', () => {
+     expect(err.retry).toBe(true);
+   });
+ });
++
++describe('BBJsFactory pool', () => {
++  const tick = () => new Promise(resolve => setImmediate(resolve));
++
++  it('reuses its instances, starting no more than the pool holds', async () => {
++    const factory = new FakeBBJsFactory(1);
++    const borrow = async () => {
++      await using _instance = await factory.getInstance();
++      await tick();
++    };
++    await Promise.all([borrow(), borrow(), borrow()]);
++    expect(factory.created).toHaveLength(1);
++
++    await factory.destroy();
++    expect(factory.created[0].destroyCount).toBe(1);
++  });
++
++  it('gives a slot whose bb failed to start to the next borrower, which starts it again', async () => {
++    const factory = new FakeBBJsFactory(1);
++    factory.planNextInstance(new Error('spawn failed'));
++    await expect(factory.getInstance()).rejects.toThrow('spawn failed');
++
++    await using _instance = await factory.getInstance();
++    expect(factory.created).toHaveLength(1);
++  });
++
++  it('releases a borrower waiting for a slot at once on destroy, and one starting bb when its start ends', async () => {
++    const factory = new FakeBBJsFactory(1);
++    const start = promiseWithResolvers<void>();
++    factory.planNextInstance([], start.promise);
++    const starting = factory.getInstance();
++    const waiting = factory.getInstance();
++    await tick();
++
++    const destroying = factory.destroy();
++    await expect(waiting).rejects.toThrow(/destroyed/);
++    start.resolve();
++    await expect(starting).rejects.toThrow(/destroyed/);
++    await destroying;
++    expect(factory.created[0].destroyCount).toBe(1);
++  });
++
++  it('destroys an instance borrowed across destroy when it is released, rather than pooling it', async () => {
++    const factory = new FakeBBJsFactory(1);
++    const instance = await factory.getInstance();
++    await factory.destroy();
++    expect(factory.created[0].destroyCount).toBe(0);
++
++    await instance[Symbol.asyncDispose]();
++    expect(factory.created[0].destroyCount).toBe(1);
++    await expect(factory.getInstance()).rejects.toThrow(/destroyed/);
++  });
++});
+diff --git a/yarn-project/bb-prover/src/bb/bb_js_backend.ts b/yarn-project/bb-prover/src/bb/bb_js_backend.ts
+index e40427eae4788abc86bcd3c8c3c5da85a88198fb..c04d980eea7e108a250a1bacf237f264b28841d2 100644
+--- a/yarn-project/bb-prover/src/bb/bb_js_backend.ts
++++ b/yarn-project/bb-prover/src/bb/bb_js_backend.ts
+@@ -76,12 +76,19 @@ export interface BBJsApi {
+ export class BBJsInstance implements BBJsApi {
+   private constructor(private api: Barretenberg) {}
+ 
+-  /** Creates a new Barretenberg instance connected to a fresh bb process. */
+-  static async create(bbPath: string, logger?: LogFn, threads?: number): Promise<BBJsInstance> {
++  /**
++   * Creates a new Barretenberg instance connected to a fresh bb process.
++   *
++   * `respawn` lets the instance replace its bb process when it dies, so a long-lived instance stays
++   * usable instead of failing every later call. Only safe where the instance holds no state between
++   * calls, since a replacement has no Chonk accumulation and no batch-verifier session.
++   */
++  static async create(bbPath: string, logger?: LogFn, threads?: number, respawn?: boolean): Promise<BBJsInstance> {
+     const options: BackendOptions = {
+       bbPath,
+       backend: BackendType.NativeUnixSocket,
+       logger,
++      respawn,
+     };
+     if (threads !== undefined) {
+       options.threads = threads;
+@@ -251,17 +258,31 @@ export interface BBJsFactoryOptions {
+    * If omitted, every `getInstance()` call spawns a fresh bb that is destroyed on dispose.
+    */
+   poolSize?: number;
++  /**
++   * Let each instance replace its bb process when it dies. Only for callers whose calls stand alone:
++   * a replacement process remembers nothing, so state held across calls (a Chonk accumulation, a
++   * batch-verifier session) would be silently lost.
++   */
++  respawn?: boolean;
+   logger?: Logger;
+   threads?: number;
+   debugDir?: string;
+ }
+ 
++/** A place in a {@link BBJsFactory} pool: empty until a borrower first starts a bb in it. */
++type PoolSlot = { instance?: BBJsApi };
++
+ /**
+  * Manages bb.js instance lifecycle. By default every `getInstance()` call spawns a fresh
+  * bb process that is destroyed when the borrow is disposed. Pass `poolSize` to keep a fixed
+  * set of long-lived bb processes that are reused across calls — useful when the per-call
+  * bb startup cost dominates the workload (e.g. high-rate IVC verification).
+  *
++ * The pool is a queue of `poolSize` slots, each starting its bb on the first borrow that needs it.
++ * A borrower waits in exactly two places: for a slot, which destroy() releases by cancelling the
++ * queue, and for its slot's bb to start, which bb.js bounds with its own startup deadline. A bb that
++ * fails to start costs only that slot, which goes back empty for the next borrower to try again.
++ *
+  * Idiomatic usage:
+  * ```
+  * await using inst = await factory.getInstance();
+@@ -270,82 +291,86 @@ export interface BBJsFactoryOptions {
+  * ```
+  */
+ export class BBJsFactory {
+-  private readonly poolSize?: number;
+   private readonly logger?: Logger;
+   private readonly threads?: number;
+   private readonly debugDir?: string;
++  private readonly respawn: boolean;
+ 
+-  /** Available pooled instances when poolSize is set; otherwise undefined. */
+-  private pool?: FifoMemoryQueue<BBJsApi>;
+-  /** Lazily-resolved on first `getInstance()` call to prevent racing pool initialization. */
+-  private initPromise?: Promise<void>;
++  /** Slots not currently borrowed, when poolSize is set; otherwise undefined. */
++  private readonly slots?: FifoMemoryQueue<PoolSlot>;
+   private destroyed = false;
+ 
+   constructor(
+     private bbPath: string,
+     options: BBJsFactoryOptions = {},
+   ) {
+-    this.poolSize = options.poolSize;
++    this.respawn = options.respawn ?? false;
+     this.logger = options.logger;
+     this.threads = options.threads;
+     this.debugDir = options.debugDir;
+-    if (this.poolSize !== undefined && this.poolSize < 1) {
+-      throw new Error(`BBJsFactory poolSize must be >= 1, got ${this.poolSize}`);
++    if (options.poolSize !== undefined) {
++      if (options.poolSize < 1) {
++        throw new Error(`BBJsFactory poolSize must be >= 1, got ${options.poolSize}`);
++      }
++      this.slots = new FifoMemoryQueue<PoolSlot>();
++      for (let i = 0; i < options.poolSize; i++) {
++        this.slots.put({});
++      }
+     }
+   }
+ 
+   /**
+    * Acquire a bb instance. The returned object implements `BBJsApi` and `AsyncDisposable`.
+-   * With no pool: spawns a fresh bb that is destroyed on dispose. With a pool: borrows from
+-   * the pool and returns to it on dispose.
++   * With no pool: spawns a fresh bb that is destroyed on dispose. With a pool: borrows a slot,
++   * starting its bb if it has none, and returns the slot to the pool on dispose.
+    */
+   async getInstance(): Promise<BBJsApi & AsyncDisposable> {
+     if (this.destroyed) {
+       throw new Error('BBJsFactory has been destroyed');
+     }
+-    if (this.poolSize === undefined) {
++    if (!this.slots) {
+       // No pool: fresh-per-call, dispose destroys.
+       const instance = await this.createInstance();
+       return this.makeOwned(instance);
+     }
+-    if (!this.initPromise) {
+-      this.initPromise = this.initPool();
++    const slot = await this.slots.get();
++    if (!slot) {
++      throw new Error('BBJsFactory was destroyed while waiting for an instance');
+     }
+-    await this.initPromise;
+-    const pool = this.pool;
+-    if (!pool) {
+-      throw new Error('BBJsFactory has been destroyed');
++    let instance: BBJsApi;
++    try {
++      instance = slot.instance ??= await this.createInstance();
++    } catch (err) {
++      await this.release(slot);
++      throw err;
+     }
+-    const instance = await pool.get();
+-    if (!instance) {
+-      throw new Error('BBJsFactory was destroyed while waiting for an instance');
++    if (this.destroyed) {
++      await this.release(slot);
++      throw new Error('BBJsFactory has been destroyed');
+     }
+-    return this.makeBorrowed(instance);
++    return this.makeDisposable(instance, () => this.release(slot));
+   }
+ 
+   /**
+    * Tear down all pooled instances. Idempotent. No-op when no pool is configured (fresh-per-call
+-   * instances are destroyed by their own dispose callbacks). Instances currently held by an
+-   * in-flight pooled borrow are destroyed by their dispose callback when released.
++   * instances are destroyed by their own dispose callbacks). Instances in borrowed slots are
++   * destroyed when their borrow is released.
+    */
+   async destroy(): Promise<void> {
+     if (this.destroyed) {
+       return;
+     }
+     this.destroyed = true;
+-    const pool = this.pool;
+-    this.pool = undefined;
+-    if (!pool) {
++    if (!this.slots) {
+       return;
+     }
+     const idle: BBJsApi[] = [];
+-    while (pool.length() > 0) {
+-      const item = pool.getImmediate();
+-      if (item) {
+-        idle.push(item);
++    for (let slot = this.slots.getImmediate(); slot; slot = this.slots.getImmediate()) {
++      if (slot.instance) {
++        idle.push(slot.instance);
+       }
+     }
+-    pool.cancel();
++    this.slots.cancel();
+     // Aggregate teardown failures so a single bb child that fails to shut down doesn't mask others.
+     const results = await Promise.allSettled(idle.map(item => item.destroy()));
+     const errors = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').map(r => r.reason);
+@@ -354,37 +379,18 @@ export class BBJsFactory {
+     }
+   }
+ 
+-  private async initPool(): Promise<void> {
+-    // Use allSettled so that if any createInstance() rejects we can destroy the rest instead of
+-    // leaking bb child processes whose creation succeeded.
+-    const results = await Promise.allSettled(Array.from({ length: this.poolSize! }, () => this.createInstance()));
+-    const items: BBJsApi[] = [];
+-    const errors: unknown[] = [];
+-    for (const result of results) {
+-      if (result.status === 'fulfilled') {
+-        items.push(result.value);
+-      } else {
+-        errors.push(result.reason);
+-      }
+-    }
+-    if (errors.length > 0 || this.destroyed) {
+-      // Either creation failed or destroy() raced ahead — clean up everything we successfully spawned.
+-      await Promise.all(items.map(item => item.destroy()));
+-      if (errors.length > 0) {
+-        throw errors[0];
+-      }
+-      return;
+-    }
+-    const pool = new FifoMemoryQueue<BBJsApi>();
+-    for (const item of items) {
+-      pool.put(item);
++  /** Return a borrowed slot to the pool, or destroy its bb if the factory was destroyed meanwhile. */
++  private async release(slot: PoolSlot): Promise<void> {
++    if (!this.destroyed) {
++      this.slots!.put(slot);
++    } else {
++      await slot.instance?.destroy();
+     }
+-    this.pool = pool;
+   }
+ 
+-  private async createInstance(): Promise<BBJsApi> {
++  protected async createInstance(): Promise<BBJsApi> {
+     const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
+-    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads);
++    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads, this.respawn);
+     return this.maybeWrapDebug(raw);
+   }
+ 
+@@ -406,21 +412,6 @@ export class BBJsFactory {
+     return this.makeDisposable(instance, () => instance.destroy());
+   }
+ 
+-  /**
+-   * Wrap a pooled instance with an `AsyncDisposable` that returns it to the pool (or destroys it
+-   * if the factory was destroyed in the meantime). Destroy errors are propagated.
+-   */
+-  private makeBorrowed(instance: BBJsApi): BBJsApi & AsyncDisposable {
+-    return this.makeDisposable(instance, async () => {
+-      const pool = this.pool;
+-      if (pool && !this.destroyed) {
+-        pool.put(instance);
+-      } else {
+-        await instance.destroy();
+-      }
+-    });
+-  }
+-
+   private makeDisposable(instance: BBJsApi, onDispose: () => void | Promise<void>): BBJsApi & AsyncDisposable {
+     let disposed = false;
+     const dispose = async (): Promise<void> => {
+diff --git a/yarn-project/bb-prover/src/prover/server/bb_prover.ts b/yarn-project/bb-prover/src/prover/server/bb_prover.ts
+index d5a03f7dde31db244b6eef9b1fa10aa02db5cea8..6513bf3ce7ea88fcd75fdedb7cdadcf2d0da2557 100644
+--- a/yarn-project/bb-prover/src/prover/server/bb_prover.ts
++++ b/yarn-project/bb-prover/src/prover/server/bb_prover.ts
+@@ -9,6 +9,7 @@ import {
+   ULTRA_KECCAK_PROOF_LENGTH,
+ } from '@aztec-labs/constants';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { isRetryableError } from '@aztec-labs/foundation/error';
+ import { runInDirectory } from '@aztec-labs/foundation/fs';
+ import { createLogger } from '@aztec-labs/foundation/log';
+ import {
+@@ -449,7 +450,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
+       );
+     } catch (error) {
+       // Preserve retryability of the underlying failure (e.g. a transient bb startup error).
+-      const retry = error instanceof ProvingError && error.retry;
++      const retry = isRetryableError(error);
+       throw new ProvingError(`Failed to generate proof for ${circuitType}: ${error}`, error, retry);
+     }
+ 
+@@ -590,7 +591,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
+       ));
+     } catch (error) {
+       // Preserve retryability of the underlying failure (e.g. a transient bb startup error).
+-      const retry = error instanceof ProvingError && error.retry;
++      const retry = isRetryableError(error);
+       throw new ProvingError(`Failed to verify proof for ${circuitType}: ${error}`, error, retry);
+     }
+ 
+diff --git a/yarn-project/bb-prover/src/test/fake_bb_js.ts b/yarn-project/bb-prover/src/test/fake_bb_js.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ef675aa8349e7772b3ce25da4e27a80dba0106c1
+--- /dev/null
++++ b/yarn-project/bb-prover/src/test/fake_bb_js.ts
+@@ -0,0 +1,125 @@
++import type { AvmStat } from '@aztec-foundation/bb.js';
++
++import { type BBJsApi, BBJsFactory, type BBJsProofResult } from '../bb/bb_js_backend.js';
++
++/** How a {@link FakeBBJsInstance} answers one `verifyChonkProof` call. */
++export type FakeChonkVerifyOutcome = 'valid' | 'invalid' | 'bb-error' | 'die';
++
++function notImplemented(): Promise<never> {
++  return Promise.reject(new Error('Not implemented by FakeBBJsInstance'));
++}
++
++/** An error shaped like the one bb.js raises when the bb process died: retrying may help. */
++function retryable(message: string): Error {
++  return Object.assign(new Error(message), { retry: true });
++}
++
++/**
++ * A {@link BBJsApi} double whose bb process can die.
++ *
++ * A pooled instance is created with respawn, so a death fails only the call that was in flight and
++ * the next call is served by a replacement process. The double behaves the same way: `die` rejects
++ * once, retryably, and leaves the instance usable. Only `verifyChonkProof` is implemented.
++ */
++export class FakeBBJsInstance implements BBJsApi {
++  public destroyCount = 0;
++  public chonkVerifyCalls = 0;
++  private destroyed = false;
++
++  /** @param outcomes - Answers to successive `verifyChonkProof` calls; `valid` once they run out. */
++  constructor(private readonly outcomes: FakeChonkVerifyOutcome[] = []) {}
++
++  public verifyChonkProof(): Promise<{ verified: boolean; durationMs: number }> {
++    this.chonkVerifyCalls++;
++    if (this.destroyed) {
++      return Promise.reject(new Error('Backend connection closed'));
++    }
++    switch (this.outcomes.shift() ?? 'valid') {
++      case 'valid':
++        return Promise.resolve({ verified: true, durationMs: 1 });
++      case 'invalid':
++        return Promise.resolve({ verified: false, durationMs: 1 });
++      case 'bb-error':
++        return Promise.reject(new Error('bb rejected the proof input'));
++      case 'die':
++        return Promise.reject(retryable('Socket connection ended unexpectedly'));
++    }
++  }
++
++  public destroy(): Promise<void> {
++    this.destroyed = true;
++    this.destroyCount++;
++    return Promise.resolve();
++  }
++
++  public generateProof(): Promise<BBJsProofResult> {
++    return notImplemented();
++  }
++
++  public verifyProof(): Promise<{ verified: boolean; durationMs: number }> {
++    return notImplemented();
++  }
++
++  public computeGateCount(): Promise<{ circuitSize: number; durationMs: number }> {
++    return notImplemented();
++  }
++
++  public generateContract(): Promise<{ solidityCode: string; durationMs: number }> {
++    return notImplemented();
++  }
++
++  public generateAvmProof(): Promise<{ proof: Uint8Array[]; stats: AvmStat[]; durationMs: number }> {
++    return notImplemented();
++  }
++
++  public verifyAvmProof(): Promise<{ verified: boolean; durationMs: number }> {
++    return notImplemented();
++  }
++
++  public checkAvmCircuit(): Promise<{ passed: boolean; stats: AvmStat[]; durationMs: number }> {
++    return notImplemented();
++  }
++}
++
++/** A scripted {@link FakeBBJsFactory} spawn. */
++type PlannedSpawn = {
++  /** An error fails the spawn; outcomes script the created instance's verifications. */
++  next: FakeChonkVerifyOutcome[] | Error;
++  /** When set, the spawn completes only once it resolves. */
++  spawned?: Promise<void>;
++};
++
++/** A {@link BBJsFactory} that creates {@link FakeBBJsInstance}s instead of spawning bb. */
++export class FakeBBJsFactory extends BBJsFactory {
++  /** Every instance created, in creation order. */
++  public readonly created: FakeBBJsInstance[] = [];
++  private readonly plan: PlannedSpawn[] = [];
++
++  /** @param poolSize - Pooled instances to keep; when omitted, every borrow creates a fresh instance. */
++  constructor(poolSize?: number) {
++    super('/unused/bb', { poolSize });
++  }
++
++  /**
++   * Scripts the next creation: an error makes that spawn fail, outcomes script the created instance's verifications.
++   * With `spawned`, the spawn completes only once it resolves.
++   */
++  public planNextInstance(next: FakeChonkVerifyOutcome[] | Error, spawned?: Promise<void>): void {
++    this.plan.push({ next, spawned });
++  }
++
++  protected override async createInstance(): Promise<BBJsApi> {
++    const { next, spawned }: PlannedSpawn = this.plan.shift() ?? { next: [] };
++    if (spawned) {
++      await spawned;
++    }
++    if (next instanceof Error) {
++      // BBJsInstance.create wraps a failed spawn as retryable; the double must too, or a test
++      // sees a permanent failure where production sees a transient one.
++      throw Object.assign(next, { retry: true });
++    }
++    const instance = new FakeBBJsInstance(next);
++    this.created.push(instance);
++    return instance;
++  }
++}
+diff --git a/yarn-project/bb-prover/src/verifier/bb_verifier.test.ts b/yarn-project/bb-prover/src/verifier/bb_verifier.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d128c88dfed208eed90d494739ff5c85e1fb5a17
+--- /dev/null
++++ b/yarn-project/bb-prover/src/verifier/bb_verifier.test.ts
+@@ -0,0 +1,112 @@
++import { createLogger } from '@aztec-labs/foundation/log';
++import { promiseWithResolvers } from '@aztec-labs/foundation/promise';
++import { mockTx } from '@aztec-labs/stdlib/testing';
++import type { Tx } from '@aztec-labs/stdlib/tx';
++
++import type { BBJsFactory } from '../bb/bb_js_backend.js';
++import type { BBConfig } from '../config.js';
++import { FakeBBJsFactory } from '../test/fake_bb_js.js';
++import { BBCircuitVerifier, ProofVerifierUnavailableError } from './bb_verifier.js';
++import { QueuedIVCVerifier } from './queued_chonk_verifier.js';
++
++const config: BBConfig = {
++  bbBinaryPath: '/unused/bb',
++  bbWorkingDirectory: '/unused/bb-working-directory',
++  bbSkipCleanup: false,
++  numConcurrentIVCVerifiers: 1,
++  bbIVCConcurrency: 1,
++  bbChonkVerifyMaxBatch: 1,
++  bbChonkVerifyConcurrency: 1,
++};
++
++/** A BBCircuitVerifier over an injected bb.js factory. */
++class TestBBCircuitVerifier extends BBCircuitVerifier {
++  constructor(factory: BBJsFactory) {
++    super(config, createLogger('bb-prover:verifier:test'), factory);
++  }
++}
++
++describe('BBCircuitVerifier', () => {
++  let factory: FakeBBJsFactory;
++  let verifier: TestBBCircuitVerifier;
++  let tx: Tx;
++
++  beforeEach(async () => {
++    factory = new FakeBBJsFactory(1);
++    verifier = new TestBBCircuitVerifier(factory);
++    tx = await mockTx();
++  });
++
++  afterEach(async () => {
++    await verifier.stop();
++  });
++
++  it('accepts a proof bb verifies', async () => {
++    await expect(verifier.verifyProof(tx)).resolves.toMatchObject({ valid: true });
++  });
++
++  it('rejects a proof bb reports as not verified', async () => {
++    factory.planNextInstance(['invalid']);
++    await expect(verifier.verifyProof(tx)).resolves.toMatchObject({ valid: false });
++  });
++
++  it('rejects a proof bb errors on while alive', async () => {
++    factory.planNextInstance(['bb-error']);
++    await expect(verifier.verifyProof(tx)).resolves.toMatchObject({ valid: false });
++    expect(factory.created).toHaveLength(1);
++  });
++
++  it('retries after bb dies during verification, on the replacement process', async () => {
++    factory.planNextInstance(['die']);
++    await expect(verifier.verifyProof(tx)).resolves.toMatchObject({ valid: true });
++    // The instance replaced its own bb process, so the pool neither grew nor lost a member.
++    expect(factory.created).toHaveLength(1);
++    expect(factory.created[0].chonkVerifyCalls).toBe(2);
++    expect(factory.created[0].destroyCount).toBe(0);
++  });
++
++  it('reports the verifier unavailable, not the proof invalid, when bb dies on every attempt', async () => {
++    factory.planNextInstance(['die', 'die']);
++    await expect(verifier.verifyProof(tx)).rejects.toBeInstanceOf(ProofVerifierUnavailableError);
++  });
++
++  it('retries a failed spawn rather than rejecting the proof', async () => {
++    factory.planNextInstance(new Error('spawn failed'));
++    await expect(verifier.verifyProof(tx)).resolves.toMatchObject({ valid: true });
++  });
++
++  it('reports the verifier unavailable when a per-call bb instance cannot be started', async () => {
++    const perCallFactory = new FakeBBJsFactory();
++    // A failed spawn is retried, so the instance must fail to start on every attempt.
++    perCallFactory.planNextInstance(new Error('spawn failed'));
++    perCallFactory.planNextInstance(new Error('spawn failed'));
++    const perCallVerifier = new TestBBCircuitVerifier(perCallFactory);
++    await expect(perCallVerifier.verifyProof(tx)).rejects.toBeInstanceOf(ProofVerifierUnavailableError);
++  });
++
++  it('starts no more bb processes than the pool holds, however many verifications arrive', async () => {
++    const results = await Promise.all([1, 2, 3].map(() => verifier.verifyProof(tx)));
++    expect(results.every(r => r.valid)).toBe(true);
++    expect(factory.created).toHaveLength(1);
++  });
++
++  it('stops a queued verifier while verifications wait on a bb instance that is still starting', async () => {
++    // bb.js bounds how long a start can take; this one finishes only when the test lets it.
++    const start = promiseWithResolvers<void>();
++    factory.planNextInstance([], start.promise);
++    const queued = new QueuedIVCVerifier(verifier, 2);
++    const starting = expect(queued.verifyProof(tx)).rejects.toBeInstanceOf(ProofVerifierUnavailableError);
++    const waiting = expect(queued.verifyProof(tx)).rejects.toBeInstanceOf(ProofVerifierUnavailableError);
++    // Let one verification take the pool's only slot and the other queue for it.
++    await new Promise(resolve => setImmediate(resolve));
++
++    const stopping = queued.stop();
++    // The verification waiting for a slot is released at once; the one starting bb, when the start ends.
++    await waiting;
++    start.resolve();
++    await starting;
++    await stopping;
++    // The bb that finished starting after the stop was not left running.
++    expect(factory.created[0].destroyCount).toBe(1);
++  });
++});
+diff --git a/yarn-project/bb-prover/src/verifier/bb_verifier.ts b/yarn-project/bb-prover/src/verifier/bb_verifier.ts
+index 5183dabfd71a1e8c2aaf827c3a775d5e7dc7fa40..a3cdebd3695a34a2982e8cae5d1c25b211a70e46 100644
+--- a/yarn-project/bb-prover/src/verifier/bb_verifier.ts
++++ b/yarn-project/bb-prover/src/verifier/bb_verifier.ts
+@@ -1,3 +1,4 @@
++import { isRetryableError } from '@aztec-labs/foundation/error';
+ import { type Logger, createLogger } from '@aztec-labs/foundation/log';
+ import { Timer } from '@aztec-labs/foundation/timer';
+ import { ProtocolCircuitVks } from '@aztec-labs/noir-protocol-circuits-types/server/vks';
+@@ -14,24 +15,43 @@ import { Tx } from '@aztec-labs/stdlib/tx';
+ import type { VerificationKeyData } from '@aztec-labs/stdlib/vks';
+ import { promises as fs } from 'fs';
+ 
+-import { BBJsFactory } from '../bb/bb_js_backend.js';
++import { type BBJsApi, BBJsFactory } from '../bb/bb_js_backend.js';
+ import type { BBConfig } from '../config.js';
+ import { getUltraHonkFlavorForCircuit } from '../honk.js';
+ 
++/** Thrown when no live bb process could check a proof, so the proof was neither accepted nor rejected. */
++export class ProofVerifierUnavailableError extends Error {
++  constructor(message: string, options?: ErrorOptions) {
++    super(message, options);
++    this.name = 'ProofVerifierUnavailableError';
++  }
++}
++
+ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
++  /** bb instances a Chonk verification tries, while each one's bb dies under it, before the verifier is unavailable. */
++  private static readonly MAX_CHONK_VERIFY_ATTEMPTS = 2;
++
+   private bbJsFactory: BBJsFactory;
+ 
+-  private constructor(
++  protected constructor(
+     private config: BBConfig,
+     private logger: Logger,
++    bbJsFactory?: BBJsFactory,
+   ) {
+     // BB_NUM_IVC_VERIFIERS bounds the number of long-lived bb processes the pool keeps alive.
+     // If 0, fall back to spawning a fresh bb per verification.
+-    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, {
+-      poolSize: config.numConcurrentIVCVerifiers > 0 ? config.numConcurrentIVCVerifiers : undefined,
+-      logger,
+-      debugDir: config.bbDebugOutputDir,
+-    });
++    const poolSize = config.numConcurrentIVCVerifiers > 0 ? config.numConcurrentIVCVerifiers : undefined;
++    this.bbJsFactory =
++      bbJsFactory ??
++      new BBJsFactory(config.bbBinaryPath, {
++        poolSize,
++        // A pooled instance outlives the call that borrowed it, so it replaces a bb process that dies
++        // under it and the next borrower gets a working one. Each verification stands alone, so a
++        // replacement has nothing to carry over. A fresh-per-call instance has nothing to heal.
++        respawn: poolSize !== undefined,
++        logger,
++        debugDir: config.bbDebugOutputDir,
++      });
+   }
+ 
+   public stop(): Promise<void> {
+@@ -85,9 +105,13 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
+     } satisfies CircuitVerificationStats);
+   }
+ 
+-  /** Verify a Chonk (IVC) proof from a transaction via bb.js API. */
++  /**
++   * Verify a Chonk (IVC) proof from a transaction via bb.js API. Throws {@link ProofVerifierUnavailableError} when no
++   * live bb process could check the proof; any other failure returns `valid: false`.
++   */
+   public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
+     const proofType = 'Chonk';
++    const txHash = tx.getTxHash().toString();
+     try {
+       const totalTimer = new Timer();
+ 
+@@ -98,8 +122,11 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
+       const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
+       const fieldsAsBuffers = proofWithPubInputs.fieldsWithPublicInputs.map(f => new Uint8Array(f.toBuffer()));
+ 
+-      await using instance = await this.bbJsFactory.getInstance();
+-      const { verified, durationMs } = await instance.verifyChonkProof(fieldsAsBuffers, verificationKey.keyAsBytes);
++      const { verified, durationMs } = await this.verifyChonkProofOnLiveInstance(
++        fieldsAsBuffers,
++        verificationKey.keyAsBytes,
++        txHash,
++      );
+ 
+       if (!verified) {
+         throw new Error(`Failed to verify ${proofType} proof for ${circuit}!`);
+@@ -114,10 +141,59 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
+ 
+       return { valid: true, durationMs, totalDurationMs: totalTimer.ms() };
+     } catch (err) {
+-      this.logger.warn(`Failed to verify ${proofType} proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
++      if (err instanceof ProofVerifierUnavailableError) {
++        throw err;
++      }
++      this.logger.warn(`Failed to verify ${proofType} proof`, { txHash, err });
+       return { valid: false, durationMs: 0, totalDurationMs: 0 };
+     }
+   }
++
++  /**
++   * Runs a Chonk verification on a pooled bb instance. A call that failed for environmental reasons — its bb process
++   * died, or could not be started — is retried; any other failure is the verification's own verdict and is rethrown.
++   *
++   * The error says so itself, through the `retry` property bb.js sets. Asking the instance whether it is still alive
++   * would be a guess: the process can die between the answer and the next call.
++   */
++  private async verifyChonkProofOnLiveInstance(
++    fieldsWithPublicInputs: Uint8Array[],
++    verificationKey: Uint8Array,
++    txHash: string,
++  ): Promise<{ verified: boolean; durationMs: number }> {
++    for (let attempt = 1; ; attempt++) {
++      let borrowed: BBJsApi & AsyncDisposable;
++      try {
++        borrowed = await this.bbJsFactory.getInstance();
++      } catch (err) {
++        // A bb that could not be started is worth another go, within the same budget a death gets.
++        // Anything else — the factory destroyed under us — will not improve by asking again. Either
++        // way no proof was checked, so this is never the proof's fault.
++        if (isRetryableError(err) && attempt < BBCircuitVerifier.MAX_CHONK_VERIFY_ATTEMPTS) {
++          this.logger.warn('no bb instance available to verify a proof; retrying', { txHash, attempt });
++          continue;
++        }
++        throw new ProofVerifierUnavailableError('No bb instance available to verify the proof', { cause: err });
++      }
++
++      await using instance = borrowed;
++      try {
++        return await instance.verifyChonkProof(fieldsWithPublicInputs, verificationKey);
++      } catch (err) {
++        // Only an environmental failure is worth retrying; anything else is the verification's own
++        // verdict and belongs to the caller.
++        if (!isRetryableError(err)) {
++          throw err;
++        }
++        if (attempt >= BBCircuitVerifier.MAX_CHONK_VERIFY_ATTEMPTS) {
++          throw new ProofVerifierUnavailableError(`bb died while verifying the proof, on ${attempt} attempts`, {
++            cause: err,
++          });
++        }
++        this.logger.warn('bb died while verifying a proof; retrying', { txHash, attempt });
++      }
++    }
++  }
+ }
+ 
+ /** Split a buffer into 32-byte Uint8Array field elements. */
+diff --git a/yarn-project/bb-prover/src/verifier/queued_chonk_verifier.ts b/yarn-project/bb-prover/src/verifier/queued_chonk_verifier.ts
+index 1bb122f8388aecbec8282dca86f4423cb6bab5b1..7d1522be8905780e59bdace4d0a4426dbe65d1ef 100644
+--- a/yarn-project/bb-prover/src/verifier/queued_chonk_verifier.ts
++++ b/yarn-project/bb-prover/src/verifier/queued_chonk_verifier.ts
+@@ -102,7 +102,12 @@ export class QueuedIVCVerifier implements ClientProtocolCircuitVerifier {
+   }
+ 
+   async stop(): Promise<void> {
+-    await this.queue.end();
+-    await this.verifier.stop();
++    // Stopped first so that verifications waiting for a bb instance fail rather than keep the queue from draining. Queued
++    // verifications that have not started yet fail too.
++    try {
++      await this.verifier.stop();
++    } finally {
++      await this.queue.end();
++    }
+   }
+ }
+diff --git a/yarn-project/foundation/src/error/index.ts b/yarn-project/foundation/src/error/index.ts
+index 36d0783d188c65ff4fce34f56b220704d91437f0..1b3b597a0d56924057238ef052291bd90b2eb359 100644
+--- a/yarn-project/foundation/src/error/index.ts
++++ b/yarn-project/foundation/src/error/index.ts
+@@ -20,3 +20,15 @@ export class TimeoutError extends Error {
+ export class AbortError extends Error {
+   public override readonly name = 'AbortError';
+ }
++
++/**
++ * Whether a failure was environmental, and so may be retried: the process behind a call died, its
++ * connection broke, or it could not be started.
++ *
++ * The bare `retry` property is the contract, feature-detected rather than imported, so the same check
++ * holds across bb.js, ipc-runtime and ProvingError. An error without it failed for a reason retrying
++ * cannot fix.
++ */
++export function isRetryableError(err: unknown): boolean {
++  return err instanceof Error && 'retry' in err && err.retry === true;
++}
+diff --git a/yarn-project/simulator/src/public/avm_simulator_pool.ts b/yarn-project/simulator/src/public/avm_simulator_pool.ts
+index 9fffa9ea168bc32939b745a1f597b4db1de33dce..91421df242af7caaefdf85237931691941d8c886 100644
+--- a/yarn-project/simulator/src/public/avm_simulator_pool.ts
++++ b/yarn-project/simulator/src/public/avm_simulator_pool.ts
+@@ -1,6 +1,6 @@
+ import { AvmService } from '@aztec-foundation/bb-avm-sim';
+ 
+-import { AbortError } from '@aztec-labs/foundation/error';
++import { AbortError, isRetryableError } from '@aztec-labs/foundation/error';
+ import { type Logger, createLogger } from '@aztec-labs/foundation/log';
+ import { sleep } from '@aztec-labs/foundation/sleep';
+ 
+@@ -53,7 +53,7 @@ export interface AvmProcessHandle {
+  * lifecycle is invisible to the pool's callers.
+  */
+ function isProcessFailure(err: unknown): boolean {
+-  return err instanceof Error && (err as Error & { retry?: unknown }).retry === true;
++  return isRetryableError(err);
+ }
+ 
+ /** Sleep that wakes early (without throwing) when the signal aborts; callers re-check the signal. */
+diff --git a/yarn-project/stdlib/src/interfaces/server_circuit_prover.ts b/yarn-project/stdlib/src/interfaces/server_circuit_prover.ts
+index 459bb4196eec0c82500e5b878676e6dea5d9f502..4254dc59232edb93efc62b58edf31e548713c8fd 100644
+--- a/yarn-project/stdlib/src/interfaces/server_circuit_prover.ts
++++ b/yarn-project/stdlib/src/interfaces/server_circuit_prover.ts
+@@ -182,9 +182,10 @@ export type IVCProofVerificationResult = {
+  */
+ export interface ClientProtocolCircuitVerifier {
+   /**
+-   * Verifies the private protocol circuit's proof.
++   * Verifies the private protocol circuit's proof. Rejects, instead of reporting the proof invalid, when the proof
++   * could not be checked (for example, when the proving backend is unavailable).
+    * @param tx - The tx to verify the proof of
+-   * @returns True if the proof is valid, false otherwise
++   * @returns Whether the proof is valid, with verification timings
+    */
+   verifyProof(tx: Tx): Promise<IVCProofVerificationResult>;
+ 
