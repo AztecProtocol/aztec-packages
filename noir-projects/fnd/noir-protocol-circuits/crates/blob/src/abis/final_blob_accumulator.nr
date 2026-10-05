@@ -3,7 +3,8 @@ use bignum::BLS12_381_Fr;
 /**
 * Final values of a batched blob. Output in the root rollup circuit and validated on L1.
 *
-* - blob_commitments_hash = sha256( ...sha256(sha256(C_0), C_1) ... C_n)
+* - blob_commitments_hash = sha256( ...sha256(sha256(s_0, C_0), s_1, C_1) ... s_n, C_n), where s_i is the byte 0x01
+*   for the first blob of each checkpoint and 0x00 otherwise
 * - z = poseidon2( ...poseidon2(poseidon2(z_0, z_1), z_2) ... z_n)
 * - y = y_0 + gamma * y_1 + gamma^2 * y_2 + ... + gamma^n * y_n
 * - c = C_0 + gamma * C_1 + gamma^2 * C_2 + ... + gamma^n * C_n
