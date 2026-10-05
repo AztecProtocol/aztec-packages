@@ -11,7 +11,7 @@
 #
 # Ordering matters: this file is last-match-wins, so this broad rule sits above
 # the AVM block, which re-claims the AVM subtrees of barretenberg below.
-/barretenberg/ @iakovenkos @ledwards2225 @ludamad
+/barretenberg/ @iakovenkos @ludamad
 #####################################################
 
 #####################################################
@@ -55,26 +55,26 @@
 # Deliberately not covered: mock-protocol-circuits, the *-artifacts staging
 # packages, and the fnd-level bootstrap/gates-report/test-runner scripts. Those
 # are build, packaging and reporting plumbing rather than constraint logic.
-/noir-projects/fnd/noir-protocol-circuits/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/ @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
 
 # These decide which circuit variants get chonk keys rather than ultra-honk ones
-/noir-projects/fnd/chonk_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
-/noir-projects/fnd/chonk_tail_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
-/noir-projects/fnd/rollup_honk_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/chonk_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
+/noir-projects/fnd/chonk_tail_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
+/noir-projects/fnd/rollup_honk_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
 
 # Kernel circuits
-/noir-projects/fnd/noir-protocol-circuits/crates/private-kernel-*/ @LeilaWang @iakovenkos @ledwards2225 @iAmMichaelConnor
-/noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-public/ @LeilaWang @iakovenkos @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/private-kernel-*/ @LeilaWang @iakovenkos @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-public/ @LeilaWang @iakovenkos @iAmMichaelConnor
 
 # Rollup circuits
-/noir-projects/fnd/noir-protocol-circuits/crates/rollup-*/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
-/noir-projects/fnd/noir-protocol-circuits/crates/inbox-parity-*/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
-/noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-rollup/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
-/noir-projects/fnd/noir-protocol-circuits/crates/blob/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/rollup-*/ @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/inbox-parity-*/ @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-rollup/ @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/blob/ @LeilaWang @iakovenkos @IlyasRidhuan @iAmMichaelConnor
 #####################################################
 
 # Notify the protocol team of changes to the protocol contracts
-/noir-projects/fnd/noir-contracts/ @iAmMichaelConnor @IlyasRidhuan @ledwards2225
+/noir-projects/fnd/noir-contracts/ @iAmMichaelConnor @IlyasRidhuan
 
 # Stated after the protocol contracts rule above so that it is not shadowed by
 # it: this file is last-match-wins, and the AVM team owns the public context
