@@ -406,6 +406,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
+   * @notice Pins the earliest timestamp that validator-set sampling may read from
+   * @dev Called by governance in the transaction that makes this rollup canonical, after
+   *      `GSE.addRollup`. One-shot, and rejected while the GSE's latest rollup is not this one.
+   *      See {ValidatorSelectionLib.setValidatorSetSampleFloor} for why the floor is needed.
+   */
+  function setValidatorSetSampleFloor() external override(IValidatorSelectionCore) onlyOwner {
+    ValidatorOperationsExtLib.setValidatorSetSampleFloor();
+  }
+
+  /**
    * @notice Claims accumulated rewards for a sequencer (checkpoint proposer)
    * @dev Transfers all accumulated rewards to the recipient.
    * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address

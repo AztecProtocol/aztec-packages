@@ -101,6 +101,11 @@ library ValidatorOperationsExtLib {
     emit IValidatorSelectionCore.EscapeHatchSet(_escapeHatch);
   }
 
+  function setValidatorSetSampleFloor() external {
+    ValidatorSelectionLib.setValidatorSetSampleFloor();
+    emit IValidatorSelectionCore.ValidatorSetSampleFloorSet(uint32(ValidatorSelectionLib.getValidatorSetSampleFloor()));
+  }
+
   function invalidateBadAttestation(
     uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
@@ -148,6 +153,10 @@ library ValidatorOperationsExtLib {
 
   function getLagInEpochsForValidatorSet() external view returns (uint256) {
     return ValidatorSelectionLib.getLagInEpochsForValidatorSet();
+  }
+
+  function getValidatorSetSampleFloor() external view returns (uint256) {
+    return ValidatorSelectionLib.getValidatorSetSampleFloor();
   }
 
   function getLagInEpochsForRandao() external view returns (uint256) {
