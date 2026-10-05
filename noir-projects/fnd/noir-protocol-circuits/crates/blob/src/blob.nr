@@ -291,8 +291,12 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
 // Extracted into a standalone fn to enable testing of invalid fracs.
 pub fn validate_fracs(z: BLS12_381_Fr, fracs: [BLS12_381_Fr; FIELDS_PER_BLOB]) {
     for i in 0..FIELDS_PER_BLOB {
-        // frac <-- ROOTS[i] / (z + ROOTS[i].neg())
-        // frac * (z + ROOTS[i].neg()) - ROOTS[i] == 0
+        // frac <-- ROOTS[i] / (z - ROOTS[i])
+        // frac * (z - ROOTS[i]) - ROOTS[i] == 0
+        //
+        // `-ROOTS[i]` is read as `ROOTS[i ^ 1]`: the bit-reversed layout stores each root next to
+        // its negation, so the constant is a table lookup rather than a negation for the compiler
+        // to fold.
         //
         // Note: if z equals a root of unity w^i, the constraint becomes:
         //   fracs[i] * 0 - ROOTS[i] = 0  =>  -ROOTS[i] = 0
@@ -303,7 +307,7 @@ pub fn validate_fracs(z: BLS12_381_Fr, fracs: [BLS12_381_Fr; FIELDS_PER_BLOB]) {
         bignum::bignum::evaluate_quadratic_expression(
             [[fracs[i]]],
             [[false]],
-            [[z, ROOTS[i].neg()]],
+            [[z, ROOTS[i ^ 1]]],
             [[false, false]],
             [ROOTS[i]],
             [true],
@@ -724,7 +728,8 @@ mod tests {
     /// The halving reads a parent's two children as `2u` / `2u + 1` and its root as `ROOTS[2u]`.
     /// That only works because `ROOTS` is stored bit-reversed, which lands every root next to its
     /// own negation. Assuming natural order instead silently corrupts half the output, so pin the
-    /// property the indexing rests on.
+    /// property the indexing rests on. `validate_fracs` relies on it too, reading `-ROOTS[i]` as
+    /// `ROOTS[i ^ 1]`.
     #[test]
     unconstrained fn test_roots_are_stored_adjacent_to_their_negations() {
         for u in 0..(FIELDS_PER_BLOB / 2) {
