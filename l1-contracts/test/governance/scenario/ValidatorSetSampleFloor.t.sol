@@ -26,7 +26,7 @@ import {TestConstants} from "../../harnesses/TestConstants.sol";
  * timestamp its committee sampling actually reads from.
  */
 contract ValidatorSetSampleFloorTest is TestBase {
-  uint256 internal constant VALIDATOR_COUNT = 48;
+  uint256 internal constant VALIDATOR_COUNT = 60;
 
   Registry internal registry;
   GSE internal gse;
@@ -103,7 +103,14 @@ contract ValidatorSetSampleFloorTest is TestBase {
     return out;
   }
 
-  /// The two actions every upgrade payload has always had, and nothing else.
+  /// The floor only takes effect once the block that pinned it is sealed, so every test that wants
+  /// to sample against it has to leave that block first.
+  function _pinFloor() internal {
+    newRollup.setValidatorSetSampleFloor();
+    vm.warp(block.timestamp + 12);
+  }
+
+  /// Registers the successor exactly as an upgrade payload does, and nothing else.
   function _cutover() internal {
     registry.addRollup(IHaveVersion(address(newRollup)));
     gse.addRollup(address(newRollup));
@@ -131,9 +138,9 @@ contract ValidatorSetSampleFloorTest is TestBase {
     assertEq(newRollup.getEpochCommittee(newRollup.getCurrentEpoch()).length, targetCommitteeSize);
   }
 
-  function test_WhenAFloorIsPinned_TheSuccessorFormsACommitteeImmediately() external {
+  function test_WhenAFloorIsPinned_TheSuccessorFormsACommitteeFromTheNextBlock() external {
     _cutover();
-    newRollup.setValidatorSetSampleFloor();
+    _pinFloor();
 
     for (uint256 k = 0; k <= lag; k++) {
       assertEq(
@@ -149,7 +156,7 @@ contract ValidatorSetSampleFloorTest is TestBase {
   /// not collapse onto each other.
   function test_ClampedEpochsDoNotShareACommittee() external {
     _cutover();
-    newRollup.setValidatorSetSampleFloor();
+    _pinFloor();
 
     bytes32 first = keccak256(abi.encode(newRollup.getEpochCommittee(newRollup.getCurrentEpoch())));
     vm.warp(block.timestamp + epochSeconds);
@@ -162,7 +169,7 @@ contract ValidatorSetSampleFloorTest is TestBase {
   /// who joined after the floor must show up exactly as they would have without it.
   function test_TheClampBecomesInertOnceTheLagClears() external {
     _cutover();
-    newRollup.setValidatorSetSampleFloor();
+    _pinFloor();
     assertEq(newRollup.getSamplingSizeAt(Timestamp.wrap(block.timestamp)), VALIDATOR_COUNT);
 
     CheatDepositArgs[] memory extra = _validators("late-validator", 4);
@@ -178,6 +185,41 @@ contract ValidatorSetSampleFloorTest is TestBase {
       newRollup.getSamplingSizeAt(Timestamp.wrap(block.timestamp)),
       VALIDATOR_COUNT + extra.length,
       "sampling must track the validator set again once the floor is behind the lagged time"
+    );
+  }
+
+  /// A floor may only be sampled from once the block that pinned it is sealed.
+  ///
+  /// GSE snapshots are keyed by timestamp, and an equal-key checkpoint write overwrites in place
+  /// rather than appending, so "the set at time T" stays mutable for the whole of block T. Sampling
+  /// normally reads a lagged timestamp, which is always sealed. A floor at `block.timestamp` is not:
+  /// a committee latched against it could be silently rewritten by any exit later in the same block,
+  /// leaving the stored commitment disagreeing with what every observer recomputes.
+  function test_TheFloorCannotBeSampledInTheBlockThatPinnedIt() external {
+    _cutover();
+    newRollup.setValidatorSetSampleFloor();
+
+    // Still unclamped in this block, so nothing can be latched against a set that is still open.
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, targetCommitteeSize)
+    );
+    newRollup.setupEpoch();
+
+    vm.warp(block.timestamp + 12);
+    Epoch epoch = newRollup.getCurrentEpoch();
+    newRollup.setupEpoch();
+    (bytes32 latched,) = newRollup.getEpochCommitteeCommitment(epoch);
+    assertEq(latched, keccak256(abi.encode(newRollup.getEpochCommittee(epoch))), "latched and consistent");
+
+    // The floor is behind us now, so an exit cannot reach back and rewrite the set it reports.
+    address exiting = vm.addr(uint256(keccak256(abi.encode("validator", uint256(0)))));
+    vm.prank(exiting);
+    newRollup.initiateWithdraw(exiting, exiting);
+
+    assertEq(
+      latched,
+      keccak256(abi.encode(newRollup.getEpochCommittee(epoch))),
+      "a sealed floor must not move once a committee is latched against it"
     );
   }
 

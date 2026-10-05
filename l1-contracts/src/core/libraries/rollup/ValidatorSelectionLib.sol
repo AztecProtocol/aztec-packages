@@ -754,9 +754,12 @@ library ValidatorSelectionLib {
       Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))
     );
 
-    // The floor is only ever a past timestamp, so this cannot raise `ts` above the current block.
+    // Only clamp to a floor that is already sealed. GSE snapshots are keyed by timestamp and an
+    // equal-key checkpoint write overwrites in place, so the set "at" the current block is still
+    // mutable: anyone could exit after the committee was latched and change what the same sample
+    // time reports. A floor one block back can no longer be written to.
     uint32 floor = store.validatorSetSampleFloor;
-    return ts < floor ? floor : ts;
+    return (ts < floor && floor < block.timestamp) ? floor : ts;
   }
 
   /**
