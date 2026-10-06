@@ -108,6 +108,11 @@ function build_verifier {
       script/deploy/*.s.sol \
       test/script/*.t.sol
 
+    # Leave the artifact set fully built so `forge test` has nothing left to compile. When forge
+    # incrementally compiles a handful of leftover files on top of an explicit-path build, the
+    # resulting artifacts are inconsistent and the Rollup-deploying suites revert in setUp.
+    forge build
+
     cache_upload $artifact out cache generated
   fi
 }
