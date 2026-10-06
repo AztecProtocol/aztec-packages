@@ -238,9 +238,8 @@ contract RollupTest is RollupBase {
     bytes32[] memory extraBlobHashes = new bytes32[](6);
     for (uint256 i = 0; i < extraBlobHashes.length; i++) {
       extraBlobHashes[i] = bytes32(
-          uint256(sha256(abi.encode("extraBlob", i)))
-            & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        ) | 0x0100000000000000000000000000000000000000000000000000000000000000;
+        uint256(sha256(abi.encode("extraBlob", i))) & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      ) | 0x0100000000000000000000000000000000000000000000000000000000000000;
     }
 
     _proposeCheckpointWithExtraBlobs("mixed_checkpoint_1", 1, 1e6, extraBlobHashes);
@@ -270,7 +269,9 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeCheckpoint("mixed_checkpoint_1", 1);
     // we prove epoch 0
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenCheckpointNumber()")
+    stdstore.enable_packed_slots()
+      .target(address(rollup))
+      .sig("getProvenCheckpointNumber()")
       .checked_write(rollup.getPendingCheckpointNumber());
 
     // jump to epoch 1
@@ -368,30 +369,30 @@ contract RollupTest is RollupBase {
     uint256 proverFees = 1e6 * (1000 + 1500);
     // Then we also need the component that is for covering the gas
     proverFees += (Math.mulDiv(
-        Math.mulDiv(
-          L1_GAS_PER_EPOCH_VERIFIED,
-          rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(1))).baseFee,
-          rollup.getEpochDuration(),
+          Math.mulDiv(
+            L1_GAS_PER_EPOCH_VERIFIED,
+            rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(1))).baseFee,
+            rollup.getEpochDuration(),
+            Math.Rounding.Ceil
+          ),
+          1,
+          rollup.getManaTarget(),
           Math.Rounding.Ceil
-        ),
-        1,
-        rollup.getManaTarget(),
-        Math.Rounding.Ceil
-      )
-      * 1e6);
+        )
+        * 1e6);
 
     proverFees += (Math.mulDiv(
-        Math.mulDiv(
-          L1_GAS_PER_EPOCH_VERIFIED,
-          rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(2))).baseFee,
-          rollup.getEpochDuration(),
+          Math.mulDiv(
+            L1_GAS_PER_EPOCH_VERIFIED,
+            rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(2))).baseFee,
+            rollup.getEpochDuration(),
+            Math.Rounding.Ceil
+          ),
+          1,
+          rollup.getManaTarget(),
           Math.Rounding.Ceil
-        ),
-        1,
-        rollup.getManaTarget(),
-        Math.Rounding.Ceil
-      )
-      * 1e6);
+        )
+        * 1e6);
     // Convert ETH to fee asset using the price: feeAsset = eth * precision / ethPerFeeAsset
     proverFees = Math.mulDiv(
       proverFees, ETH_PER_FEE_ASSET_PRECISION, EthPerFeeAssetE12.unwrap(rollup.getEthPerFeeAsset()), Math.Rounding.Ceil
@@ -502,10 +503,9 @@ contract RollupTest is RollupBase {
         assertEq(provingCosts, FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset), "invalid proving costs");
       }
 
-      uint256 expectedProverReward =
-        rollup.getCheckpointReward() / 2 + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
-      uint256 expectedSequencerReward =
-        rollup.getCheckpointReward() / 2 + interim.feeAmount
+      uint256 expectedProverReward = rollup.getCheckpointReward() / 2
+        + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
+      uint256 expectedSequencerReward = rollup.getCheckpointReward() / 2 + interim.feeAmount
         - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
       assertEq(rollup.getSequencerRewards(header.coinbase), expectedSequencerReward, "invalid sequencer rewards");
@@ -778,7 +778,9 @@ contract RollupTest is RollupBase {
 
     // Set the pending checkpoint number to be Constants.MAX_CHECKPOINTS_PER_EPOCH + 2, so we don't revert early with a
     // different case
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingCheckpointNumber()")
+    stdstore.enable_packed_slots()
+      .target(address(rollup))
+      .sig("getPendingCheckpointNumber()")
       .checked_write(Constants.MAX_CHECKPOINTS_PER_EPOCH + 2);
 
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);

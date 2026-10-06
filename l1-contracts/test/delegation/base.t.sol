@@ -23,8 +23,11 @@ contract GSEBase is TestBase {
   uint256 internal EPOCH_DURATION_SECONDS;
 
   function setUp() public virtual {
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
-      .setEpochDuration(1).setSlotDuration(1);
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setSlashingQuorum(1)
+      .setSlashingRoundSize(1)
+      .setEpochDuration(1)
+      .setSlotDuration(1);
     builder.deploy();
 
     registry = builder.getConfig().registry;

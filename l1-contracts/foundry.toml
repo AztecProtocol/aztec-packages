@@ -11,6 +11,10 @@ evm_version = 'prague'
 optimizer = true
 optimizer_runs = 100
 match_path = "test/**/*.t.sol"
+# Run each test as one transaction rather than isolating every top-level call into its own. Per-call
+# isolation charges cold-access and intrinsic gas on each call, which pushes the large validator-set
+# tests past the gas limit and changes every number in the committed gas reports and benchmarks.
+isolate = false
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
 gas_reports = [
@@ -71,7 +75,6 @@ no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 [fmt]
 line_length = 120
 tab_width = 2
-variable_override_spacing = false
 wrap_comments = true
 number_underscore = "thousands"
 override_spacing = false

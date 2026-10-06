@@ -222,11 +222,11 @@ contract CalculatorCallTest is Test {
     address calculator = address(new GasReportingCalculator());
     // Either the call is refused for lack of gas, or the transaction runs out of gas after it, or the calculator
     // ran with the full stipend. It never runs with less.
-    try harness.tryGetSequencerRewards{
-      gas: gasLimit
-    }(
+    try harness.tryGetSequencerRewards{gas: gasLimit}(
       calculator, EPOCH, _proposers(n), DEFAULT_REWARD, CHECKPOINT_REWARD
-    ) returns (bool accepted, uint256[] memory rewards, uint256) {
+    ) returns (
+      bool accepted, uint256[] memory rewards, uint256
+    ) {
       assertTrue(accepted);
       assertEq(rewards[0], full, "the calculator ran with less than the stipend");
     } catch (bytes memory reason) {
@@ -335,9 +335,11 @@ contract CalculatorCallTest is Test {
     uint256 high = 2 * _stipend(_n);
     while (low < high) {
       uint256 mid = (low + high) / 2;
-      try harness.tryGetSequencerRewards{
-        gas: mid
-      }(_calculator, EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD) returns (bool, uint256[] memory, uint256) {
+      try harness.tryGetSequencerRewards{gas: mid}(
+        _calculator, EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD
+      ) returns (
+        bool, uint256[] memory, uint256
+      ) {
         high = mid;
       } catch {
         low = mid + 1;

@@ -480,9 +480,14 @@ contract PremiumLifecycleTest is PremiumRollupBase {
     RollupConfigInput memory input = TestConstants.getRollupConfigInput();
     // forge-lint: disable-next-line(unsafe-typecast)
     input.version = uint32(version + 1);
-    RollupBuilder builder = new RollupBuilder(address(this)).setTestERC20(token).setGSE(gse)
-      .setRegistry(Registry(address(rollupRegistry))).setRollupConfigInput(input).setMakeCanonical(false)
-      .setMakeGovernance(false).setUpdateOwnerships(false);
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setTestERC20(token)
+      .setGSE(gse)
+      .setRegistry(Registry(address(rollupRegistry)))
+      .setRollupConfigInput(input)
+      .setMakeCanonical(false)
+      .setMakeGovernance(false)
+      .setUpdateOwnerships(false);
     builder.deploy();
     next = Rollup(address(builder.getConfig().rollup));
     vm.prank(Ownable(address(rollupRegistry)).owner());

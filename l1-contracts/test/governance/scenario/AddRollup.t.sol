@@ -73,8 +73,11 @@ contract AddRollupTest is TestBase {
 
     // We need to make a timejump that is far enough that we can go at least 2 epochs in the past
     vm.warp(100_000);
-    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
-      .setStakingQueueConfig(stakingQueueConfig).setTargetCommitteeSize(0);
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setGovProposerN(7)
+      .setGovProposerM(10)
+      .setStakingQueueConfig(stakingQueueConfig)
+      .setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

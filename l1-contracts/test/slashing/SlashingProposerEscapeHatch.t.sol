@@ -83,10 +83,16 @@ contract SlashingProposerEscapeHatchTest is TestBase {
       });
     }
 
-    builder.setEpochDuration(EPOCH_DURATION).setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingQuorum(QUORUM)
-      .setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
-      .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setSlashAmountSmall(SLASHING_UNIT)
-      .setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherEnabled(true)
+    builder.setEpochDuration(EPOCH_DURATION)
+      .setTargetCommitteeSize(COMMITTEE_SIZE)
+      .setSlashingQuorum(QUORUM)
+      .setSlashingRoundSize(ROUND_SIZE)
+      .setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
+      .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS)
+      .setSlashAmountSmall(SLASHING_UNIT)
+      .setSlashAmountMedium(SLASHING_UNIT * 2)
+      .setSlashAmountLarge(SLASHING_UNIT * 3)
+      .setSlasherEnabled(true)
       .setValidators(initialValidators);
 
     builder.deploy();
@@ -175,7 +181,9 @@ contract SlashingProposerEscapeHatchTest is TestBase {
     Epoch protectedEpoch = slashingProposer.getSlashTargetEpoch(currentRound, 1);
     uint256 protectedHatch = Epoch.unwrap(protectedEpoch) / ESCAPE_FREQUENCY;
     address proposer = open ? address(0xBEEF) : address(0);
-    stdstore.target(address(escapeHatch)).sig("getDesignatedProposer(uint256)").with_key(protectedHatch)
+    stdstore.target(address(escapeHatch))
+      .sig("getDesignatedProposer(uint256)")
+      .with_key(protectedHatch)
       .checked_write(proposer);
 
     // Tally results

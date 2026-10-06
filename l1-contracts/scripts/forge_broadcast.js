@@ -5,13 +5,13 @@
 // speed. But a batched broadcast (forge's default sends many txs at once) can race the auto-miner:
 // it mines a block on the first ready tx and may leave txs that arrived just after the trigger
 // sitting in the pool, so forge waits forever for their receipts. We avoid the race without touching
-// anvil's mining mode by broadcasting one tx at a time (`--batch-size 1`) only when anvil has
-// automine ON: with a single tx in flight there is nothing for the auto-miner to strand.
+// anvil's mining mode by broadcasting one tx at a time (`--slow`) only when anvil has automine ON:
+// with a single tx in flight there is nothing for the auto-miner to strand.
 //
 // When anvil is in interval (or no) mining mode the race does not exist — the miner drains the whole
 // pool on each block — and serializing to one tx per block would stall the deploy for a full block
-// interval per transaction, blowing past the broadcast timeout. There (and on real chains) we keep a
-// larger batch size. A hard timeout guards against a broadcast hanging indefinitely.
+// interval per transaction, blowing past the broadcast timeout. There (and on real chains) we keep
+// forge's default batched sending. A hard timeout guards against a broadcast hanging indefinitely.
 //
 // A deploy that queues INITIAL_VALIDATORS does not activate them itself: once the deploy broadcast
 // has landed, this script runs FlushEntryQueue.s.sol against the deployed Rollup as a second,
@@ -27,7 +27,7 @@
 // the head block that callers estimate gas against (see the comment at the evm_mine call).
 //
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
-//        (without --broadcast or --batch-size — added automatically)
+//        (without --broadcast or --slow — added automatically)
 
 import { spawn } from "node:child_process";
 import { writeSync } from "node:fs";
@@ -76,7 +76,7 @@ const args = process.argv.slice(2);
 const rpcUrl = extractArg(args, "--rpc-url");
 
 // Broadcast one tx at a time only on an automining anvil, where batching races the auto-miner.
-// Interval-mining anvil and real chains keep a larger batch size: there is no race there, and
+// Interval-mining anvil and real chains keep forge's default batching: there is no race there, and
 // serializing would stall the deploy one block interval per tx.
 const [isAnvil, isAutomine] = rpcUrl
   ? await Promise.all([
@@ -87,7 +87,7 @@ const [isAnvil, isAutomine] = rpcUrl
     ])
   : [false, false];
 
-const batchSize = isAnvil && isAutomine ? "1" : "8";
+const serializeTxs = isAnvil && isAutomine;
 const timeoutMs =
   Number(process.env.FORGE_BROADCAST_TIMEOUT_MS) ||
   (isAnvil ? 120_000 : 1_200_000);
@@ -120,7 +120,7 @@ function runForge(forgeArgs) {
   });
 }
 
-const deploy = await runForge([...args, "--batch-size", batchSize]);
+const deploy = await runForge([...args, ...(serializeTxs ? ["--slow"] : [])]);
 let exitCode = deploy.code;
 let output = deploy.stdout;
 
@@ -142,8 +142,7 @@ if (exitCode === 0 && hasInitialValidators(process.env.INITIAL_VALIDATORS)) {
       "--private-key",
       privateKey,
       "--skip-simulation",
-      "--batch-size",
-      "1",
+      "--slow",
       ...(args.includes("--json") ? ["--json"] : []),
     ]);
     exitCode = flush.code;

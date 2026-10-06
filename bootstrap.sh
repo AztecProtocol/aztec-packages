@@ -16,7 +16,7 @@ export expected_min_node_version=24.12.0
 export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
 export expected_abs_wasi_version=27.0
-export expected_abs_foundry_version=1.4.1
+export expected_abs_foundry_version=1.8.5
 export expected_abs_yarn_version=4.13.0
 
 function ensure {

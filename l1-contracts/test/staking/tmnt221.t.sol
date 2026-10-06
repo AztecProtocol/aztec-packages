@@ -27,8 +27,11 @@ contract TestTMNT221 is TestBase {
       $registrations.push(registrations[i]);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setUpdateOwnerships(false).setCheckProofOfPossession(true)
-      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setUpdateOwnerships(false)
+      .setCheckProofOfPossession(true)
+      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT)
+      .deploy();
 
     INSTANCE = IInstance(address(builder.getConfig().rollup));
     STAKING_ASSET = builder.getConfig().testERC20;
