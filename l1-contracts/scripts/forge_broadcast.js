@@ -13,6 +13,18 @@
 // interval per transaction, blowing past the broadcast timeout. There (and on real chains) we keep a
 // larger batch size. A hard timeout guards against a broadcast hanging indefinitely.
 //
+// A deploy that queues INITIAL_VALIDATORS does not activate them itself: once the deploy broadcast
+// has landed, this script runs FlushEntryQueue.s.sol against the deployed Rollup as a second,
+// `--skip-simulation` broadcast. `Rollup.flushEntryQueue` requires a fixed amount of gas to be
+// *left* before every deposit (StakingLib.getFlushDepositGasFloor, about 1.1M at the default
+// proof-of-possession cap). forge's on-chain simulation sizes each transaction at the gas it
+// *used* times a multiplier, which is too little for a flush of a few entries, and it cannot be
+// overridden per transaction. With the simulation skipped forge takes each limit from
+// eth_estimateGas, which searches for the smallest limit at which the call succeeds and so includes
+// the floor. Skipping the simulation also makes forge send one transaction per block, so it is
+// confined to the one or two flush transactions; the deploy itself keeps forge's batched,
+// simulated broadcast.
+//
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
 //        (without --broadcast or --batch-size — added automatically)
 
@@ -38,6 +50,27 @@ function extractArg(args, flag) {
   return i >= 0 && i < args.length - 1 ? args[i + 1] : undefined;
 }
 
+// INITIAL_VALIDATORS is the JSON array the deploy script reads; unset, empty or "[]" means no validators. Anything
+// that is not valid JSON is treated as validators present, so a malformed value still gets its flush.
+function hasInitialValidators(value) {
+  if (value === undefined || value.trim() === "") return false;
+  try {
+    const parsed = JSON.parse(value);
+    return !Array.isArray(parsed) || parsed.length > 0;
+  } catch {
+    return true;
+  }
+}
+
+// The deploy scripts print `JSON DEPLOY RESULT: {...,"rollupAddress":"0x..",...}`; with --json the line sits inside
+// forge's JSON output with escaped quotes, so the match tolerates a backslash before each quote.
+function extractRollupAddress(stdout) {
+  const m = /rollupAddress\\?"\s*:\s*\\?"(0x[0-9a-fA-F]{40})/.exec(stdout);
+  return m ? m[1] : undefined;
+}
+
+const FLUSH_SCRIPT = "script/deploy/FlushEntryQueue.s.sol:FlushEntryQueue";
+
 const args = process.argv.slice(2);
 const rpcUrl = extractArg(args, "--rpc-url");
 
@@ -58,42 +91,65 @@ const timeoutMs =
   Number(process.env.FORGE_BROADCAST_TIMEOUT_MS) ||
   (isAnvil ? 120_000 : 1_200_000);
 
-const proc = spawn(
-  process.env.FORGE_BIN || "forge",
-  ["script", ...args, "--broadcast", "--batch-size", batchSize],
-  {
+// Runs one `forge script ... --broadcast`, bounded by the timeout. Resolves to the exit code and stdout.
+function runForge(forgeArgs) {
+  const proc = spawn(process.env.FORGE_BIN || "forge", ["script", ...forgeArgs, "--broadcast"], {
     stdio: ["ignore", "pipe", "inherit"],
+  });
+  const chunks = [];
+  proc.stdout.on("data", (chunk) => chunks.push(chunk));
+  return new Promise((resolve) => {
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      log(`Broadcast timed out after ${timeoutMs}ms; killing forge.`);
+      proc.kill("SIGTERM");
+      const sigkill = setTimeout(() => proc.kill("SIGKILL"), 5_000);
+      sigkill.unref?.();
+    }, timeoutMs);
+    timeout.unref?.();
+    proc.on("error", () => {
+      clearTimeout(timeout);
+      resolve({ code: 1, stdout: Buffer.concat(chunks) });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timeout);
+      resolve({ code: timedOut ? 1 : code ?? 1, stdout: Buffer.concat(chunks) });
+    });
+  });
+}
+
+const deploy = await runForge([...args, "--batch-size", batchSize]);
+let exitCode = deploy.code;
+let output = deploy.stdout;
+
+if (exitCode === 0 && hasInitialValidators(process.env.INITIAL_VALIDATORS)) {
+  const rollup = extractRollupAddress(output.toString());
+  const privateKey = extractArg(args, "--private-key");
+  if (!rollup || !rpcUrl || !privateKey) {
+    log("INITIAL_VALIDATORS set but no rollup address, --rpc-url or --private-key to flush with.");
+    exitCode = 1;
+  } else {
+    log(`Flushing the entry queue of ${rollup} (gas limits from eth_estimateGas).`);
+    const flush = await runForge([
+      FLUSH_SCRIPT,
+      "--sig",
+      "run(address)",
+      rollup,
+      "--rpc-url",
+      rpcUrl,
+      "--private-key",
+      privateKey,
+      "--skip-simulation",
+      "--batch-size",
+      "1",
+      ...(args.includes("--json") ? ["--json"] : []),
+    ]);
+    exitCode = flush.code;
+    output = Buffer.concat([output, flush.stdout]);
   }
-);
+}
 
-const stdout = [];
-proc.stdout.on("data", (chunk) => stdout.push(chunk));
-
-let timedOut = false;
-const exitCode = await new Promise((resolve) => {
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    log(`Broadcast timed out after ${timeoutMs}ms; killing forge.`);
-    proc.kill("SIGTERM");
-    const sigkill = setTimeout(() => proc.kill("SIGKILL"), 5_000);
-    sigkill.unref?.();
-  }, timeoutMs);
-  timeout.unref?.();
-  proc.on("error", () => {
-    clearTimeout(timeout);
-    resolve(1);
-  });
-  proc.on("close", (code) => {
-    clearTimeout(timeout);
-    resolve(timedOut ? 1 : code ?? 1);
-  });
-});
-
-log(
-  exitCode === 0
-    ? "Broadcast succeeded."
-    : `Broadcast failed (exit ${exitCode}).`
-);
-const data = Buffer.concat(stdout);
-if (data.length > 0) writeSync(1, data);
+log(exitCode === 0 ? "Broadcast succeeded." : `Broadcast failed (exit ${exitCode}).`);
+if (output.length > 0) writeSync(1, output);
 process.exit(exitCode);
