@@ -16,10 +16,10 @@ network running Glamsterdam.
 | File | Purpose |
 |---|---|
 | `PopGasBase.sol` | Shared helpers: a counting mirror of `hashToPoint` (checked against the library), and measurement of the wrapper frame (gas used, minimum stipend). |
-| `BN254G2TestLib.sol` | Test-only G2 scalar multiplication, used to build `pk2 = sk * G2` for test scalars. Checked against `bn254_constants.json`. |
+| `BN254G2TestLib.sol` | Test-only G2 scalar multiplication, used by the generator and by the CI test to build `pk2 = sk * G2` for test scalars. Checked against `bn254_constants.json`. |
 | `PopGasScan.t.sol` | Offline scan of `sk = 1..N` for long-tail keys and the attempt/sqrt-call histograms. Skipped unless `POP_GAS_SCAN_MAX` is set. |
 | `PopGasGenerate.t.sol` | Measures the corpus and prints one line per vector. Skipped unless `POP_GAS_GENERATE=true`. |
-| `PopGasVectors.t.sol` | Runs in CI. Checks every fixture vector: valid PoP, attempt counts and digest match the library, and recorded gas matches the active EVM version. It also checks that the model bounds every vector and that the published N values are consistent. |
+| `PopGasVectors.t.sol` | Runs in CI. Rebuilds every fixture vector's registration tuple from `sk` and checks it: valid PoP, attempt counts and digest match the library, and recorded gas matches the active EVM version. It also checks that the model bounds every vector and that the published N values are consistent. |
 | `../../../scripts/bn254_pop_gas_model.py` | Runs the generator per EVM version, fits the model, writes the fixture, and prints the tables below (stdlib only). |
 | `../../fixtures/bn254_pop_gas_vectors.json` | Calibration vectors and fitted model (format below). |
 
@@ -168,7 +168,13 @@ stipend, so the cost of a failing entry is bounded only by the cap.
 
 Every `sk` in the file is a public test scalar: a small integer or a published sample key. Never use any of these
 keys for a real validator. Field elements are `0x`-prefixed, zero-padded 32-byte hex strings. Counts and gas values
-are JSON numbers.
+are JSON numbers. The header and model are indented; each vector is one line, so a regeneration diffs as one line
+per vector.
+
+A vector stores the scalar and what `hashToPoint` does with it. The registration tuple is not stored: it is
+`pk1 = sk * G1`, `pk2 = sk * G2` and `signature = sk * digest`, which `PopGasVectorsTest` (and any other consumer)
+derives from `sk`. The 50 `sample-<i>` scalars are the `sampleKeys` of `bn254_constants.json`, in the same order,
+and that file carries their `pk1` and `pk2`.
 
 ```jsonc
 {
@@ -189,15 +195,12 @@ are JSON numbers.
     {
       "label": "tail-57193",                          // sample-<i> | small-<sk> | tail-<sk>
       "sk": "0x…df69",                                 // public test scalar
-      "pk1": { "x": "0x…", "y": "0x…" },               // sk * G1
-      "pk2": { "x0": "0x…", "x1": "0x…", "y0": "0x…", "y1": "0x…" }, // sk * G2; x = x0 + x1*u (x0 real)
-      "signature": { "x": "0x…", "y": "0x…" },         // sk * digest
-      "digest": { "x": "0x…", "y": "0x…" },            // hashToPoint(domain, pk1.x || pk1.y)
       "attempts": 95,                                  // hashToPoint loop iterations (keccak evaluations)
       "sqrtCalls": 18,                                 // attempts with x < p (modexp calls)
       "fieldRejections": 77,                           // attempts with x >= p; attempts = sqrtCalls + fieldRejections
       "swapped": false,                                // sqrt returned the larger root, so (y0, y1) were swapped
       "rootBit": 0,                                    // keccak(domain, message, 2^256-1) & 1: 0 smaller y, 1 larger
+      "digest": { "x": "0x…", "y": "0x…" },            // hashToPoint(domain, pk1.x || pk1.y)
       "gas": {
         "<evm>": { "verification": 263095, "minStipend": 264826 }
       }
@@ -206,8 +209,8 @@ are JSON numbers.
 }
 ```
 
-A differential test in other tooling can recompute `pk1`, `digest`, `attempts`, `sqrtCalls`, `fieldRejections`,
-`swapped` and `rootBit` from `sk` and compare them field by field. It can then check that
+A differential test in other tooling derives `pk1` from `sk`, runs its own `hashToPoint` on it, and compares
+`digest`, `attempts`, `sqrtCalls`, `fieldRejections`, `swapped` and `rootBit` field by field. It can then check that
 `bound(attempts, sqrtCalls) >= gas.<evm>.minStipend` and that `attempts <= N` implies a fit within the budget.
 
 ## Recommendation

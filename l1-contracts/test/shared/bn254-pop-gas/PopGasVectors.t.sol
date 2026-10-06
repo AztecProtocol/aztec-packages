@@ -5,14 +5,16 @@ pragma solidity >=0.8.27;
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Bn254LibWrapper} from "@aztec/governance/Bn254LibWrapper.sol";
 import {PopGasBase} from "./PopGasBase.sol";
+import {BN254G2TestLib} from "./BN254G2TestLib.sol";
 
 // solhint-disable comprehensive-interface
 
 /**
  * @notice Checks the calibration vectors in test/fixtures/bn254_pop_gas_vectors.json against the deployed code:
- *         every tuple is a valid proof of possession, the recorded hashToPoint attempt counts and digest match the
- *         library, and the recorded gas matches what the active EVM version charges. A mismatch in gas means the
- *         gas schedule (or the compiled verifier) changed and the cost model must be regenerated; see README.md.
+ *         the registration tuple rebuilt from each vector's scalar is a valid proof of possession, the recorded
+ *         hashToPoint attempt counts and digest match the library, and the recorded gas matches what the active EVM
+ *         version charges. A mismatch in gas means the gas schedule (or the compiled verifier) changed and the cost
+ *         model must be regenerated; see README.md.
  */
 contract PopGasVectorsTest is PopGasBase {
   string internal constant FIXTURE = "/test/fixtures/bn254_pop_gas_vectors.json";
@@ -25,10 +27,14 @@ contract PopGasVectorsTest is PopGasBase {
     uint256[] fieldRejections;
     bool[] swapped;
     uint256[] rootBit;
-    G1Point[] pk1;
-    G2Point[] pk2;
-    G1Point[] signature;
     G1Point[] digest;
+  }
+
+  /// @notice Registration tuple of a vector: pk1 = sk * G1, pk2 = sk * G2, signature = sk * digest.
+  struct Tuple {
+    G1Point pk1;
+    G2Point pk2;
+    G1Point signature;
   }
 
   /// @notice Conservative cost model: F + A * attempts + S * sqrtCalls + ceil(Q * attempts^2), Q = qNum / qDen.
@@ -45,7 +51,7 @@ contract PopGasVectorsTest is PopGasBase {
     assertGt(v.label.length, 0, "no vectors");
     for (uint256 i = 0; i < v.label.length; i++) {
       string memory label = v.label[i];
-      DigestStats memory stats = digestStats(v.pk1[i]);
+      DigestStats memory stats = digestStats(pk1Of(v.sk[i]));
       assertEq(stats.attempts, v.attempts[i], string.concat(label, ": attempts"));
       assertEq(stats.sqrtCalls, v.sqrtCalls[i], string.concat(label, ": sqrtCalls"));
       assertEq(stats.fieldRejections, v.fieldRejections[i], string.concat(label, ": fieldRejections"));
@@ -55,14 +61,8 @@ contract PopGasVectorsTest is PopGasBase {
       assertEq(stats.digest.x, v.digest[i].x, string.concat(label, ": digest.x"));
       assertEq(stats.digest.y, v.digest[i].y, string.concat(label, ": digest.y"));
 
-      G1Point memory pk1 = pk1Of(v.sk[i]);
-      assertEq(pk1.x, v.pk1[i].x, string.concat(label, ": pk1.x"));
-      assertEq(pk1.y, v.pk1[i].y, string.concat(label, ": pk1.y"));
-      G1Point memory sig = signatureOf(v.digest[i], v.sk[i]);
-      assertEq(sig.x, v.signature[i].x, string.concat(label, ": signature.x"));
-      assertEq(sig.y, v.signature[i].y, string.concat(label, ": signature.y"));
-
-      assertTrue(wrapper.proofOfPossession(v.pk1[i], v.pk2[i], v.signature[i]), string.concat(label, ": invalid PoP"));
+      Tuple memory t = _tuple(v, i);
+      assertTrue(wrapper.proofOfPossession(t.pk1, t.pk2, t.signature), string.concat(label, ": invalid PoP"));
     }
   }
 
@@ -99,7 +99,7 @@ contract PopGasVectorsTest is PopGasBase {
 
     for (uint256 i = 0; i < v.label.length; i++) {
       string memory label = v.label[i];
-      bytes memory data = abi.encodeCall(Bn254LibWrapper.proofOfPossession, (v.pk1[i], v.pk2[i], v.signature[i]));
+      bytes memory data = _calldata(v, i);
       assertEq(_gasUsed(data), expectedGas[i], string.concat(label, ": verification gas"));
       assertTrue(_validWith(data, expectedStipend[i]), string.concat(label, ": fails at recorded min stipend"));
       assertFalse(_validWith(data, expectedStipend[i] - 1), string.concat(label, ": passes below min stipend"));
@@ -147,7 +147,7 @@ contract PopGasVectorsTest is PopGasBase {
   }
 
   function _detectEvm(string memory _json, Vectors memory _v) internal view returns (string memory) {
-    uint256 used = _gasUsed(abi.encodeCall(Bn254LibWrapper.proofOfPossession, (_v.pk1[0], _v.pk2[0], _v.signature[0])));
+    uint256 used = _gasUsed(_calldata(_v, 0));
     string[] memory evms = vm.parseJsonStringArray(_json, ".evmVersions");
     for (uint256 i = 0; i < evms.length; i++) {
       if (vm.parseJsonUint(_json, string.concat(".vectors[0].gas.", evms[i], ".verification")) == used) {
@@ -174,7 +174,19 @@ contract PopGasVectorsTest is PopGasBase {
     return ok && ret.length == 32 && abi.decode(ret, (bool));
   }
 
-  /// @dev Parses each field as one column so the (large) fixture is passed to the JSON cheatcodes a few times only.
+  /// @dev The fixture stores the scalar and the digest only; the tuple is the scalar's multiples of G1, G2 and digest.
+  function _tuple(Vectors memory _v, uint256 _i) internal view returns (Tuple memory t) {
+    t.pk1 = pk1Of(_v.sk[_i]);
+    t.pk2 = BN254G2TestLib.mulGenerator(_v.sk[_i]);
+    t.signature = signatureOf(_v.digest[_i], _v.sk[_i]);
+  }
+
+  function _calldata(Vectors memory _v, uint256 _i) internal view returns (bytes memory) {
+    Tuple memory t = _tuple(_v, _i);
+    return abi.encodeCall(Bn254LibWrapper.proofOfPossession, (t.pk1, t.pk2, t.signature));
+  }
+
+  /// @dev Parses each field as one column so the fixture is passed to the JSON cheatcodes a few times only.
   function _load() internal view returns (string memory json, Vectors memory v) {
     json = vm.readFile(string.concat(vm.projectRoot(), FIXTURE));
     v.label = abi.decode(vm.parseJson(json, ".vectors[*].label"), (string[]));
@@ -184,17 +196,7 @@ contract PopGasVectorsTest is PopGasBase {
     v.fieldRejections = _column(json, "fieldRejections");
     v.swapped = abi.decode(vm.parseJson(json, ".vectors[*].swapped"), (bool[]));
     v.rootBit = _column(json, "rootBit");
-    v.pk1 = _g1Column(json, "pk1");
-    v.signature = _g1Column(json, "signature");
     v.digest = _g1Column(json, "digest");
-    uint256[] memory x0 = _column(json, "pk2.x0");
-    uint256[] memory x1 = _column(json, "pk2.x1");
-    uint256[] memory y0 = _column(json, "pk2.y0");
-    uint256[] memory y1 = _column(json, "pk2.y1");
-    v.pk2 = new G2Point[](x0.length);
-    for (uint256 i = 0; i < x0.length; i++) {
-      v.pk2[i] = G2Point({x0: x0[i], x1: x1[i], y0: y0[i], y1: y1[i]});
-    }
   }
 
   function _column(string memory _json, string memory _field) internal pure returns (uint256[] memory) {

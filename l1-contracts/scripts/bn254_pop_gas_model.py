@@ -183,21 +183,18 @@ def write_fixture(per_evm, analysis, path):
             w = by_label[evm][label]
             assert (w["attempts"], w["sqrtCalls"], w["pk1"], w["pk2"]) == (
                 v["attempts"], v["sqrtCalls"], v["pk1"], v["pk2"]), label
+        # pk1, pk2 and the signature are not stored: they are scalar multiples of sk that the consumer derives.
         vectors.append({
-            "attempts": v["attempts"],
-            "digest": {"x": hex32(v["digest"][0]), "y": hex32(v["digest"][1])},
-            "fieldRejections": v["fieldRejections"],
-            "gas": {evm: {"minStipend": by_label[evm][label]["minStipend"],
-                          "verification": by_label[evm][label]["gasUsed"]} for evm in EVMS},
             "label": label,
-            "pk1": {"x": hex32(v["pk1"][0]), "y": hex32(v["pk1"][1])},
-            "pk2": {"x0": hex32(v["pk2"][0]), "x1": hex32(v["pk2"][1]),
-                    "y0": hex32(v["pk2"][2]), "y1": hex32(v["pk2"][3])},
-            "rootBit": v["rootBit"],
-            "signature": {"x": hex32(v["signature"][0]), "y": hex32(v["signature"][1])},
             "sk": hex32(v["sk"]),
+            "attempts": v["attempts"],
             "sqrtCalls": v["sqrtCalls"],
+            "fieldRejections": v["fieldRejections"],
             "swapped": v["swapped"],
+            "rootBit": v["rootBit"],
+            "digest": {"x": hex32(v["digest"][0]), "y": hex32(v["digest"][1])},
+            "gas": {evm: {"verification": by_label[evm][label]["gasUsed"],
+                          "minStipend": by_label[evm][label]["minStipend"]} for evm in EVMS},
         })
     fixture = {
         "description": (
@@ -215,9 +212,20 @@ def write_fixture(per_evm, analysis, path):
             for cap in CAPS],
         "vectors": vectors,
     }
+    dump_fixture(fixture, path)
+
+
+def dump_fixture(fixture, path):
+    """Indented header and model, then one vector per line, so a regeneration diffs as one line per vector."""
+    head = {k: v for k, v in fixture.items() if k != "vectors"}
+    text = json.dumps(head, indent=2)
+    assert text.endswith("\n}")
+    lines = [text[:-2] + ',\n  "vectors": [']
+    rows = [json.dumps(v, separators=(",", ":")) for v in fixture["vectors"]]
+    lines += ["    " + row + ("," if i + 1 < len(rows) else "") for i, row in enumerate(rows)]
+    lines += ["  ]", "}"]
     with open(path, "w") as f:
-        json.dump(fixture, f, indent=2)
-        f.write("\n")
+        f.write("\n".join(lines) + "\n")
 
 
 def _int_model(c):
