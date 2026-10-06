@@ -136,7 +136,7 @@ contract Inbox is IInbox {
     require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
     require(_bucketSeq <= currentBucketSeq, Errors.Inbox__BucketOutOfWindow(_bucketSeq, currentBucketSeq));
     if (_bucketSeq > provenConsumedBucketSeq) {
-      // Only ROLLUP calls this, as part of a proof submission that is itself evented; the value is public state.
+      // Only ROLLUP calls this, during an evented proof submission; read it via getProvenConsumedBucketSeq().
       // forge-lint: disable-next-item(missing-events-arithmetic)
       provenConsumedBucketSeq = _bucketSeq;
     }

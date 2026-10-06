@@ -98,11 +98,15 @@ exclude_lints = [
   # call are the point, not an accident.
   "require-revert-in-loop",
   "calls-loop",
-  # Events are emitted after the external calls they describe (token transfers, deposits). State is
-  # settled before those calls, so a reentrant observer cannot act on a not-yet-emitted event.
+  # Flags every event emitted after an external call, because a reentrant callee could reorder logs.
+  # Many hits have no external call in the flagged function at all; where there is one, the callee is
+  # a protocol-wired contract (staking asset, GSE, Inbox, slasher, escape hatch) or a governance-approved
+  # payload target. Reentrancy that changes state is covered by reentrancy-eth and reentrancy-no-eth,
+  # which stay enabled.
   "reentrancy-events",
   # Addresses flagged here are wiring set once by constructors or by governance. A zero address there
-  # is a deployment mistake that the deploy scripts and tests catch, not a runtime hazard worth bytecode.
+  # is a deployment mistake, not a runtime hazard, and a revert for it costs bytecode in size-limited
+  # contracts.
   "missing-zero-check",
 ]
 
