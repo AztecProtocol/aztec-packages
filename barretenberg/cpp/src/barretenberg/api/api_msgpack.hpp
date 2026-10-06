@@ -30,7 +30,7 @@ int process_msgpack_commands(std::istream& input_stream);
  *  - existing file  → offline replay of bare length-prefixed commands
  *
  * All live transports use the shared ipc-runtime server (request-id envelope
- * framing, completion-order responses via run_reactor).
+ * framing), served by its serial run() loop: every bb handler responds inline.
  *
  * @param msgpack_input_file Input path as above
  * @param max_clients Maximum concurrent clients for IPC servers

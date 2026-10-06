@@ -1,5 +1,6 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/shm/mpsc_shm.hpp"
 #include "ipc_runtime/shm/spsc_shm.hpp"
 #include "ipc_runtime/shm_client.hpp"
 #include "ipc_runtime/shm_common.hpp"
@@ -11,6 +12,7 @@
 #include <csignal>
 #include <cstddef>
 #include <cstring>
+#include <fcntl.h>
 #include <functional>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -18,6 +20,7 @@
 #include <queue>
 #include <random>
 #include <sstream>
+#include <sys/mman.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
@@ -193,6 +196,43 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
  * A handler returning an empty vector must still produce a (zero-length)
  * response frame, otherwise the client deadlocks waiting for it.
  */
+// A segment is mappable from the moment its creator ftruncates it, before its control block is initialised. A client
+// that attached then could write state (its blocked flag) that the creator's initialisation overwrites, losing the wake
+// it was waiting for. Connecting must therefore refuse a segment that is sized but not yet initialised.
+TEST(ShmTest, ConnectRefusesSizedButUninitialisedSegments)
+{
+    auto make_zeroed = [](const std::string& name, size_t len) {
+        shm_unlink(name.c_str());
+        int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
+        ASSERT_GE(fd, 0);
+        ASSERT_EQ(ftruncate(fd, static_cast<off_t>(len)), 0);
+        ::close(fd);
+    };
+
+    std::string ring_name = "shm_uninit_ring_" + std::to_string(getpid());
+    make_zeroed(ring_name, sizeof(SpscCtrl) + 4096);
+    EXPECT_THROW(SpscShm::connect(ring_name), std::runtime_error);
+    shm_unlink(ring_name.c_str());
+
+    // Once create() has finished, the same name connects.
+    {
+        SpscShm created = SpscShm::create(ring_name, 4096);
+        EXPECT_NO_THROW(SpscShm::connect(ring_name));
+    }
+    SpscShm::unlink(ring_name);
+
+    // The MPSC doorbell: a producer must not attach before the consumer has published num_slots, even when the ring
+    // it would use is already initialised.
+    std::string base = "shm_uninit_mpsc_" + std::to_string(getpid());
+    make_zeroed(base + "_doorbell", sizeof(MpscDoorbell) + sizeof(std::atomic<uint32_t>));
+    {
+        SpscShm ring = SpscShm::create(base + "_ring_0", 4096);
+        EXPECT_THROW(MpscProducer::connect(base, 0), std::runtime_error);
+    }
+    shm_unlink((base + "_doorbell").c_str());
+    SpscShm::unlink(base + "_ring_0");
+}
+
 TEST(ShmTest, ZeroLengthResponseRoundTrip)
 {
     constexpr size_t RING_SIZE = 4UL * 1024;

@@ -85,8 +85,8 @@ class IpcServer {
      * reactor wakes promptly and sends it. Default is a no-op (a serial server
      * never blocks waiting on a cross-thread completion). Transports that back
      * run_reactor override this: sockets write the self-pipe; MPSC-SHM bumps the
-     * doorbell seq then futex_wakes (mirroring a publish — a bare wake without a
-     * seq bump would race).
+     * doorbell seq then futex_wakes a blocked reactor (mirroring a publish — a bare
+     * wake without a seq bump would race).
      */
     virtual void notify() {}
 
