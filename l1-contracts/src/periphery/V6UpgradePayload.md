@@ -14,12 +14,21 @@ Governance runs each as `target.call(data)` from its own address, in this order,
 |---|---|---|---|
 | 1 | `this.assertPredecessorIsCanonical()` | always | this payload only authorises a transition **from** the rollup that was canonical when it was deployed |
 | 2 | `this.assertWithinExecutionWindow()` | `ENFORCE_EXECUTION_WINDOW` | mainnet only: UK weekdays 08:00–17:00 London, so an upgrade is not executed unattended |
-| 3 | `v6.setEscapeHatch(ESCAPE_HATCH)` | always | installs the escape hatch, before v6 is canonical |
-| 4 | `Registry.addRollup(v6)` | always | makes v6 canonical |
-| 5 | `GSE.addRollup(v6)` | always | existing attesters follow without withdrawing and redepositing |
-| 6 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | a rewarder exists | carries the entry-queue flush incentive to the replacement |
+| 3 | `distributor.recoverFrom(v5, payload, EARMARK_AMOUNT)` | `EARMARK_AMOUNT > 0` | draws the reservation for the outgoing rollup while it can still reach the implicit pool |
+| 4 | `this.forwardEarmark()` | `EARMARK_AMOUNT > 0` | parks it in the outgoing rollup's own earmarked bucket |
+| 5 | `v5.setRewardConfig(...)` | `RETUNE_PREDECESSOR_REWARDS` | retunes the outgoing rollup's reward split |
+| 6 | `v6.setEscapeHatch(ESCAPE_HATCH)` | always | installs the escape hatch, before v6 is canonical |
+| 7 | `Registry.addRollup(v6)` | always | makes v6 canonical |
+| 8 | `GSE.addRollup(v6)` | always | existing attesters follow without withdrawing and redepositing |
+| 9 | `oldFlushRewarder.recover(asset, newRewarder, rewardsAvailable())` | a rewarder exists | carries the entry-queue flush incentive to the replacement |
+| 10 | `GSE.setProofOfPossessionGasLimit(PROOF_OF_POSSESSION_GAS_LIMIT)` | `PROOF_OF_POSSESSION_GAS_LIMIT > 0` | raises the cap on BLS proof-of-possession verification so honest keys with an expensive verification are not refunded and dropped |
 
-Four to six actions depending on chain. Sepolia has neither the window nor a rewarder.
+Four to ten actions depending on chain. Sepolia has neither the window nor a rewarder.
+
+Action 10 depends on nothing above it, and nothing above depends on it: the cap is only read when an
+entry queue is flushed, which cannot happen inside this transaction. It goes last so the other
+actions keep their positions whether or not it is present. The GSE is shared, so the new cap also
+applies to the outgoing rollup's flushes from the moment the payload executes.
 
 ## What it guarantees
 
@@ -41,7 +50,7 @@ Four to six actions depending on chain. Sepolia has neither the window nor a rew
 ## What it deliberately does not do
 
 - **No reward-distributor migration.** The distributor resolves the canonical rollup live off the
-  registry, so its implicit pool follows v6 the moment action 3 executes.
+  registry, so its implicit pool follows v6 the moment `Registry.addRollup` executes.
 - **No protocol fee margin or recipient.** The rollup launches with margin `0` and a placeholder
   recipient. Both are `onlyOwner` and now need their own proposal. **Set the recipient before, or
   in the same payload as, any non-zero margin**, or the fee tranche goes to an unrecoverable
@@ -58,6 +67,8 @@ cast call $REG "getCanonicalRollup()(address)"
 cast call <payload> "getActions()((address,bytes)[])"  # guard must be present, and first
 cast call <rollup> "owner()(address)"                  # governance, from construction
 cast call <slasher> "GOVERNANCE()(address)"            # governance -- NOT the deploy key
+cast call <payload> "PROOF_OF_POSSESSION_GAS_LIMIT()(uint64)"  # 300000; 0 means no cap action
+cast call <gse> "proofOfPossessionGasLimit()(uint64)"          # the cap it replaces, 250000 today
 ```
 
 A registration payload without that guard is the hazard the guard exists to remove.
@@ -74,6 +85,14 @@ A registration payload without that guard is the hazard the guard exists to remo
   surprise, not a lost-funds event.
 - **The execution window hardcodes the UK DST rule.** Derived from the rule rather than tabulated,
   so it has no expiry — but it would be wrong if the rule itself changed.
+- **The proof-of-possession gas cap is checked against the GSE only at deployment.** The constructor
+  rejects a non-zero value that does not exceed the cap it reads then, since a lower cap would start
+  rejecting keys that verify today. If governance changes the cap while the proposal is pending,
+  the action still sets the value in the payload. It sets no upper bound: the value is a reviewed
+  literal in the deploy table, and a higher cap only raises what a failing entry can burn in a flush.
+  It also does not make every honest key fit: the verification cost has an unbounded tail, so 300k
+  lowers the rejection rate (about 1 in 2.5M keys, against 1 in 28.6k at 250k, under Osaka pricing)
+  rather than removing it.
 - **`REGISTRY_ADDRESS` is an unvalidated deploy input.** Everything else is derived from it, so a
   wrong registry changes all of them together and silently.
 

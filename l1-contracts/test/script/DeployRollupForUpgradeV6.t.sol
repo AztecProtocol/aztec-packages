@@ -9,6 +9,8 @@ import {DeployAztecL1Contracts, DeployAztecL1ContractsOutput} from "../../script
 import {DeployRollupForUpgradeV6} from "../../script/deploy/DeployRollupForUpgradeV6.s.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
+import {IGSECore} from "@aztec/governance/GSE.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FlushRewarder} from "@aztec/periphery/FlushRewarder.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
@@ -57,6 +59,8 @@ contract DeployRollupForUpgradeV6Test is Test {
   /// @dev Where the v5 flush rewarder lives on mainnet, per the config table.
   address internal constant MAINNET_OLD_FLUSH_REWARDER = 0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e;
 
+  uint64 internal constant EXPECTED_POP_GAS_LIMIT = 300_000;
+
   Registry internal registry;
   Rollup internal outgoing;
 
@@ -99,6 +103,8 @@ contract DeployRollupForUpgradeV6Test is Test {
     // callable stand-alone -- which is how the runbook tells an operator to re-check a deploy.
     harness.verify(address(deployed));
     harness.verifyFlushRewarder(address(deployed), address(harness.deployedPayload()));
+
+    _assertPopGasLimitAction(harness.deployedPayload(), deployed);
   }
 
   function test_SepoliaConfigDeploysAndVerifies() public {
@@ -116,6 +122,7 @@ contract DeployRollupForUpgradeV6Test is Test {
     assertEq(address(payload.OLD_FLUSH_REWARDER()), address(0), "sepolia should have no old rewarder");
     assertEq(address(payload.NEW_FLUSH_REWARDER()), address(0), "sepolia should deploy no new rewarder");
     assertFalse(payload.ENFORCE_EXECUTION_WINDOW(), "sepolia should not enforce the window");
+    _assertPopGasLimitAction(payload, deployed);
   }
 
   /// @dev The Rollup constructor's `_governance` becomes BOTH the Ownable owner and the Slasher's
@@ -159,6 +166,19 @@ contract DeployRollupForUpgradeV6Test is Test {
   // -----------------------------------------------------------------------------------------------
   // Helpers
   // -----------------------------------------------------------------------------------------------
+
+  /// @dev Both chains raise the shared GSE's proof-of-possession gas cap to 300k, as the payload's
+  ///      last action.
+  function _assertPopGasLimitAction(V6UpgradePayload _payload, Rollup _rollup) internal view {
+    assertEq(_payload.PROOF_OF_POSSESSION_GAS_LIMIT(), EXPECTED_POP_GAS_LIMIT, "proofOfPossessionGasLimit");
+
+    IPayload.Action[] memory actions = _payload.getActions();
+    IPayload.Action memory last = actions[actions.length - 1];
+    assertEq(last.target, address(_rollup.getGSE()), "cap action does not target the GSE");
+    assertEq(
+      last.data, abi.encodeCall(IGSECore.setProofOfPossessionGasLimit, (EXPECTED_POP_GAS_LIMIT)), "cap action calldata"
+    );
+  }
 
   /**
    * @dev Put a flush rewarder bound to the outgoing rollup at the mainnet address the config names.

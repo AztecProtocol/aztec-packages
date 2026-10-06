@@ -96,6 +96,20 @@ contract V6UpgradePayload is IPayload {
   /// @notice The checkpoint reward to leave {PREDECESSOR} on.
   uint96 public immutable PREDECESSOR_CHECKPOINT_REWARD;
 
+  /// @notice The proof-of-possession gas cap to set on the GSE. Zero omits the action entirely.
+  /// @dev The GSE verifies each new attester's BLS proof of possession in a sub-call capped at this
+  ///      much gas, and a deposit whose verification does not fit is refunded and dropped. The
+  ///      verification cost varies per key, because `BN254Lib.hashToPoint` is a rejection-sampling
+  ///      loop with an unbounded tail, and the Osaka modexp repricing (EIP-7883) raised the cost of
+  ///      each of its iterations. Under that pricing about 1 in 28.6k honestly generated keys cost
+  ///      more than the GSE's original 250k cap, and about 1 in 2.5M cost more than 300k. The price
+  ///      of a higher cap is that an entry whose verification fails can burn more gas in the flush
+  ///      that processes it.
+  ///
+  ///      The GSE is shared, so the new cap applies to every rollup it serves, {PREDECESSOR}
+  ///      included, from the moment the payload executes.
+  uint64 public immutable PROOF_OF_POSSESSION_GAS_LIMIT;
+
   /// @notice Thrown when the supplied flush rewarder serves a rollup other than the outgoing one.
   error V6UpgradePayload__FlushRewarderRollupMismatch(address served, address outgoing);
 
@@ -107,6 +121,9 @@ contract V6UpgradePayload is IPayload {
 
   /// @notice Thrown when the supplied escape hatch was built for a different rollup.
   error V6UpgradePayload__EscapeHatchRollupMismatch(address served, address expected);
+
+  /// @notice Thrown when a non-zero proof-of-possession gas cap does not exceed the GSE's current one.
+  error V6UpgradePayload__ProofOfPossessionGasLimitNotRaised(uint64 current, uint64 proposed);
 
   /**
    * @notice Binds the payload to the rollup it will make canonical, and deploys the replacement
@@ -121,6 +138,8 @@ contract V6UpgradePayload is IPayload {
    * @param _retunePredecessorRewards Whether to rewrite the outgoing rollup's reward split
    * @param _predecessorSequencerBps The sequencer share to leave the outgoing rollup on
    * @param _predecessorCheckpointReward The checkpoint reward to leave the outgoing rollup on
+   * @param _proofOfPossessionGasLimit The proof-of-possession gas cap to set on the GSE, or zero to
+   *        leave it unchanged. When non-zero it must exceed the GSE's cap at deployment
    */
   constructor(
     IRegistry _registry,
@@ -131,7 +150,8 @@ contract V6UpgradePayload is IPayload {
     uint256 _earmarkAmount,
     bool _retunePredecessorRewards,
     uint16 _predecessorSequencerBps,
-    uint96 _predecessorCheckpointReward
+    uint96 _predecessorCheckpointReward,
+    uint64 _proofOfPossessionGasLimit
   ) {
     REGISTRY = _registry;
     ROLLUP = _rollup;
@@ -151,6 +171,19 @@ contract V6UpgradePayload is IPayload {
     RETUNE_PREDECESSOR_REWARDS = _retunePredecessorRewards;
     PREDECESSOR_SEQUENCER_BPS = _predecessorSequencerBps;
     PREDECESSOR_CHECKPOINT_REWARD = _predecessorCheckpointReward;
+
+    // The GSE accepts any value, and a cap below the cost of keys that verify today would start
+    // rejecting deposits that currently succeed, so this only ever raises it. Checked against the
+    // cap at deployment, because that is what voters compare the payload against. Like the other
+    // optional actions, the GSE is only read when the action is used.
+    if (_proofOfPossessionGasLimit > 0) {
+      uint64 currentLimit = _rollup.getGSE().proofOfPossessionGasLimit();
+      require(
+        _proofOfPossessionGasLimit > currentLimit,
+        V6UpgradePayload__ProofOfPossessionGasLimitNotRaised(currentLimit, _proofOfPossessionGasLimit)
+      );
+    }
+    PROOF_OF_POSSESSION_GAS_LIMIT = _proofOfPossessionGasLimit;
 
     // Read ONCE and bound as an immutable, so the rewarder check below and the execution-time
     // guard are talking about the same rollup by construction. Unconditional, so this reverts
@@ -199,12 +232,13 @@ contract V6UpgradePayload is IPayload {
     uint256 next = 0;
 
     bool earmark = EARMARK_AMOUNT > 0;
+    bool raiseProofOfPossessionGasLimit = PROOF_OF_POSSESSION_GAS_LIMIT > 0;
 
     // Always: predecessor guard, setEscapeHatch, Registry.addRollup, GSE.addRollup.
     IPayload.Action[] memory res = new IPayload
       .Action[](
       4 + (ENFORCE_EXECUTION_WINDOW ? 1 : 0) + (earmark ? 2 : 0) + (RETUNE_PREDECESSOR_REWARDS ? 1 : 0)
-        + (migrateFlushRewarder ? 1 : 0)
+        + (migrateFlushRewarder ? 1 : 0) + (raiseProofOfPossessionGasLimit ? 1 : 0)
     );
 
     // FIRST, before the window and before anything is written: this payload only authorises a
@@ -311,6 +345,17 @@ contract V6UpgradePayload is IPayload {
           address(NEW_FLUSH_REWARDER),
           OLD_FLUSH_REWARDER.rewardsAvailable()
         )
+      });
+    }
+
+    if (raiseProofOfPossessionGasLimit) {
+      // Raises the GSE's proof-of-possession gas cap; see {PROOF_OF_POSSESSION_GAS_LIMIT}. It does
+      // not depend on the registrations above and nothing above depends on it: the cap is read
+      // only when an entry queue is flushed, which cannot happen inside this transaction. It goes
+      // last so the transition's own actions keep their positions whether or not it is present.
+      res[next++] = Action({
+        target: address(ROLLUP.getGSE()),
+        data: abi.encodeCall(IGSECore.setProofOfPossessionGasLimit, (PROOF_OF_POSSESSION_GAS_LIMIT))
       });
     }
 
