@@ -7,6 +7,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
 import {RollupConfiguration} from "../../script/deploy/RollupConfiguration.sol";
+import {PreflightDeployChecks} from "./PreflightDeployChecks.sol";
 
 contract RollupConfigurationHarness is RollupConfiguration {
   function getSequencerRewardCalculator(string memory _envName) external view returns (address) {
@@ -14,7 +15,7 @@ contract RollupConfigurationHarness is RollupConfiguration {
   }
 }
 
-contract DeployAztecL1ContractsTest is Test {
+contract DeployAztecL1ContractsTest is PreflightDeployChecks {
   using stdJson for string;
 
   modifier skipWhenCoverage() {
@@ -97,6 +98,15 @@ contract DeployAztecL1ContractsTest is Test {
 
     // The network defaults deploy without a sequencer reward calculator.
     assertEq(deployScript.output().rollup.rollup.getSequencerRewardCalculator(), address(0));
+  }
+
+  function test_DeploysProofOfPossessionPreflight() public {
+    DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
+    deployScript.run();
+
+    _assertPreflightDeployed(
+      deployScript.output().proofOfPossessionPreflight, deployScript.output().gse, deployScript.deploymentJson()
+    );
   }
 
   // Unique variable names: the environment is shared with the deployments other tests run concurrently.

@@ -29,6 +29,7 @@ import {StakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {DateGatedRelayer} from "@aztec/periphery/DateGatedRelayer.sol";
+import {ProofOfPossessionPreflight} from "@aztec/periphery/ProofOfPossessionPreflight.sol";
 
 import {ZKPassportRootVerifier as ZKPassportVerifier} from "@zkpassport/ZKPassportRootVerifier.sol";
 
@@ -57,6 +58,7 @@ struct DeployAztecL1ContractsOutput {
   FeeAssetHandler feeAssetHandler;
   IZKPassportVerifier mockZkPassportVerifier;
   StakingAssetHandler stakingAssetHandler;
+  ProofOfPossessionPreflight proofOfPossessionPreflight;
 }
 
 /**
@@ -78,9 +80,17 @@ contract DeployAztecL1Contracts is Script, Test {
   /// @notice All deployed contract addresses
   DeployAztecL1ContractsOutput internal _output;
 
+  /// @notice The JSON written to stdout by the last run
+  string internal _deploymentJson;
+
   /// @notice Get deployment output
   function output() external view returns (DeployAztecL1ContractsOutput memory) {
     return _output;
+  }
+
+  /// @notice Get the JSON written to stdout by the last run
+  function deploymentJson() external view returns (string memory) {
+    return _deploymentJson;
   }
 
   /// @notice Address performing the deployment
@@ -122,6 +132,8 @@ contract DeployAztecL1Contracts is Script, Test {
     _deployRollup();
     _handoverToGovernance();
     _assertAccessControl();
+    // Deployed last so the addresses of the contracts above do not move.
+    _deployProofOfPossessionPreflight();
   }
 
   /// @notice Deploy fee and staking assets on test networks
@@ -158,6 +170,16 @@ contract DeployAztecL1Contracts is Script, Test {
   function _deployGSE() internal {
     GseConfiguration memory gseConfig = config.getGseConfiguration();
     _output.gse = new GSE(deployer, _output.stakingAsset, gseConfig.activationThreshold, gseConfig.ejectionThreshold);
+  }
+
+  /// @notice Deploy the read-only helper that checks a registration's proof of possession against the GSE's gas cap
+  function _deployProofOfPossessionPreflight() internal {
+    _output.proofOfPossessionPreflight = new ProofOfPossessionPreflight();
+    assertGt(
+      _output.proofOfPossessionPreflight.bn254LibWrapperOf(address(_output.gse)).code.length,
+      0,
+      "no BN254 wrapper at the address the preflight derives for the GSE"
+    );
   }
 
   /// @notice Deploy registry and reward distributor
@@ -297,8 +319,10 @@ contract DeployAztecL1Contracts is Script, Test {
     vm.serializeAddress(json, "feeAssetHandlerAddress", address(_output.feeAssetHandler));
     vm.serializeAddress(json, "stakingAssetHandlerAddress", address(_output.stakingAssetHandler));
     vm.serializeAddress(json, "zkPassportVerifierAddress", address(_output.mockZkPassportVerifier));
+    vm.serializeAddress(json, "proofOfPossessionPreflightAddress", address(_output.proofOfPossessionPreflight));
     // Rollup-related addresses
     string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(vm, json, _output.rollup);
+    _deploymentJson = finalJson;
     console.log("JSON DEPLOY RESULT:", finalJson);
   }
 

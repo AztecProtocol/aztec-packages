@@ -7,6 +7,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import {DeployAztecL1Contracts, DeployAztecL1ContractsOutput} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
 import {DeployRollupForUpgrade} from "../../script/deploy/DeployRollupForUpgrade.s.sol";
+import {PreflightDeployChecks} from "./PreflightDeployChecks.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 
@@ -14,11 +15,13 @@ import {Registry} from "@aztec/governance/Registry.sol";
  * @title DeployRollupForUpgradeTest
  * @notice Tests for the DeployRollupForUpgrade.s.sol script
  * @dev This test validates:
- *      1. The script deploys only Rollup and Verifier
+ *      1. The script deploys only Rollup and Verifier, plus the registration payload and a proof of possession
+ *         preflight helper
  *      2. It uses existing infrastructure contracts correctly
  *      3. The new rollup is properly registered (if deployer is owner)
+ *      4. The preflight helper is emitted and works against the reused GSE
  */
-contract DeployRollupForUpgradeTest is Test {
+contract DeployRollupForUpgradeTest is PreflightDeployChecks {
   using stdJson for string;
 
   modifier skipWhenCoverage() {
@@ -138,5 +141,13 @@ contract DeployRollupForUpgradeTest is Test {
 
     // Version count should be 2
     assertEq(registry.numberOfVersions(), 2);
+
+    // ============ STEP 4: Verify the proof of possession preflight helper ============
+    // The upgrade reuses the GSE and deploys its own helper for it.
+    assertEq(address(newRollup.getGSE()), address(initialOutput.gse));
+    assertTrue(address(upgradeDeploy.proofOfPossessionPreflight()) != address(initialOutput.proofOfPossessionPreflight));
+    _assertPreflightDeployed(
+      upgradeDeploy.proofOfPossessionPreflight(), initialOutput.gse, upgradeDeploy.deploymentJson()
+    );
   }
 }

@@ -17,6 +17,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
+import {ProofOfPossessionPreflight} from "@aztec/periphery/ProofOfPossessionPreflight.sol";
 import {RegisterNewRollupVersionPayload} from "@aztec/periphery/RegisterNewRollupVersionPayload.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
@@ -53,6 +54,12 @@ contract DeployRollupForUpgrade is Script {
   /// @notice Governance payload for registering the new rollup version
   RegisterNewRollupVersionPayload internal _payload;
 
+  /// @notice Read-only helper that checks a registration's proof of possession against the GSE's gas cap
+  ProofOfPossessionPreflight internal _proofOfPossessionPreflight;
+
+  /// @notice The JSON written to stdout by the last run
+  string internal _deploymentJson;
+
   /// @notice Get rollup deployment output
   function rollupOutput() external view returns (RollupAddressOutput memory) {
     return _rollupOutput;
@@ -61,6 +68,16 @@ contract DeployRollupForUpgrade is Script {
   /// @notice Get the deployed governance payload
   function payload() external view returns (RegisterNewRollupVersionPayload) {
     return _payload;
+  }
+
+  /// @notice Get the deployed proof of possession preflight helper
+  function proofOfPossessionPreflight() external view returns (ProofOfPossessionPreflight) {
+    return _proofOfPossessionPreflight;
+  }
+
+  /// @notice Get the JSON written to stdout by the last run
+  function deploymentJson() external view returns (string memory) {
+    return _deploymentJson;
   }
 
   /// @notice Deploy rollup and write output to stdout
@@ -74,11 +91,22 @@ contract DeployRollupForUpgrade is Script {
 
     // Deploy governance payload for registering this rollup via governance
     _payload = new RegisterNewRollupVersionPayload(input.registry, IInstance(address(_rollupOutput.rollup)));
-    vm.stopBroadcast();
 
-    // Write base rollup addresses to JSON, then add payload address
+    // The helper is stateless and takes the GSE as an argument, so a fresh one per upgrade is harmless and
+    // gives networks deployed before it existed an instance.
+    _proofOfPossessionPreflight = new ProofOfPossessionPreflight();
+    vm.stopBroadcast();
+    require(
+      _proofOfPossessionPreflight.bn254LibWrapperOf(address(input.gse)).code.length > 0,
+      "DeployRollupForUpgrade: no BN254 wrapper at the address the preflight derives for the GSE"
+    );
+
+    // Write base rollup addresses to JSON, then add payload and helper addresses
     DeployRollupLib.writeRollupAddressesToJson(vm, "rollup", _rollupOutput);
-    string memory finalJson = vm.serializeAddress("rollup", "payloadAddress", address(_payload));
+    vm.serializeAddress("rollup", "payloadAddress", address(_payload));
+    string memory finalJson =
+      vm.serializeAddress("rollup", "proofOfPossessionPreflightAddress", address(_proofOfPossessionPreflight));
+    _deploymentJson = finalJson;
     console.log("JSON DEPLOY RESULT:", finalJson);
   }
 
