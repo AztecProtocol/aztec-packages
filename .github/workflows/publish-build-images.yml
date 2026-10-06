@@ -92,9 +92,36 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Summary
+        env:
+          BRANCH: ${{ inputs.branch }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          {
+            echo "### Build images ($MODE)"
+            echo "Branch: \`$BRANCH\` at \`$SHA\`"
+            echo
+            for target in build devbox sysbox; do
+              echo "- \`aztecprotocol/$target:$TAG\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: resolve
+    runs-on: ubuntu-latest
+    environment: master
+    # Matches the AWS session below; the EC2 helpers cannot clean up after the credentials expire.
+    timeout-minutes: 120
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # Checked here rather than in resolve so that "Re-run failed jobs" cannot republish a tag.
       - name: Check Docker Hub tags
         env:
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ needs.resolve.outputs.tag }}
           MODE: ${{ inputs.mode }}
           ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
         run: |
@@ -125,32 +152,6 @@ jobs:
             fi
           fi
 
-      - name: Summary
-        env:
-          BRANCH: ${{ inputs.branch }}
-          SHA: ${{ steps.sha.outputs.sha }}
-          TAG: ${{ steps.tag.outputs.tag }}
-          MODE: ${{ inputs.mode }}
-        run: |
-          {
-            echo "### Build images ($MODE)"
-            echo "Branch: \`$BRANCH\` at \`$SHA\`"
-            echo
-            for target in build devbox sysbox; do
-              echo "- \`aztecprotocol/$target:$TAG\`"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  deploy:
-    needs: resolve
-    runs-on: ubuntu-latest
-    environment: master
-    # Matches the AWS session below; the EC2 helpers cannot clean up after the credentials expire.
-    timeout-minutes: 120
-    permissions:
-      id-token: write
-      contents: read
-    steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
@@ -192,16 +193,15 @@ jobs:
           AWS_SHUTDOWN_TIME: 90
         run: ./build-images/bootstrap.sh update_amis
 
-      # Uploaded even on failure so a baked AMI is not lost when its sibling arch fails.
       - name: Upload AMI ids
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ami-ids
           path: |
             ci3/aws/ami_id_amd64
             ci3/aws/ami_id_arm64
-          if-no-files-found: ignore
+          if-no-files-found: error
+          overwrite: true
 
   # Separate from deploy so the bot token never shares a job with the target branch's scripts.
   commit-amis:
@@ -237,7 +237,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: ci3/aws
 
-      # A plain (non-force) push from the resolved commit is rejected if the branch moved meanwhile;
+      # A plain (non-force) push from the resolved commit is rejected if the branch advanced meanwhile;
       # the AMI ids stay in the run's artifact and summary to commit by hand.
       - name: Commit and push AMI ids
         working-directory: src-ref
