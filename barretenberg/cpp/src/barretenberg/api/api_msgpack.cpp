@@ -2,10 +2,12 @@
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/generated/bb_dispatch.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -102,9 +104,15 @@ int execute_msgpack_run(const std::string& msgpack_input_file,
         // sequences (ChonkStart/Load/Accumulate/Prove) share IVC state.
         bb::bbapi::BBApiRequest request;
         auto handler = bb::bbapi::make_bb_handler(request);
-        server->run_reactor([&handler](int /*client_id*/,
-                                       std::span<const uint8_t> raw,
-                                       ipc::IpcServer::Respond respond) { handler(raw, std::move(respond)); });
+        // Every bb handler responds before it returns, so serve with the serial run() loop rather than run_reactor:
+        // the request stays a zero-copy span into the ring and the response is sent straight back, with none of the
+        // reactor's per-request copy, completion queue and cross-thread wake, which only a deferring handler needs.
+        server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
+            std::optional<std::vector<uint8_t>> response;
+            handler(raw, [&response](std::vector<uint8_t> r) { response = std::move(r); });
+            BB_ASSERT(response.has_value(), "bb handlers must respond before returning");
+            return std::move(*response);
+        });
 
         server->close();
         return 0;
