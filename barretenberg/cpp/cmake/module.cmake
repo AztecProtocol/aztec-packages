@@ -1,4 +1,4 @@
-# copyright 2019 Spilsbury Holdings
+# copyright 2026 Aztec Foundation
 #
 # usage: barretenberg_module(module_name [dependencies ...])
 #
