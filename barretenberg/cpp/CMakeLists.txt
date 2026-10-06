@@ -1,5 +1,5 @@
 # barretenberg
-# copyright 2026 Aztec Foundation
+# copyright 2019-2026 Aztec Foundation
 
 cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 

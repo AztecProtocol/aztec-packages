@@ -1,4 +1,4 @@
-# copyright 2026 Aztec Foundation
+# copyright 2019-2026 Aztec Foundation
 #
 # usage: barretenberg_module(module_name [dependencies ...])
 #
