@@ -51,17 +51,18 @@ This will launch x86 and arm machines to build the images, and then push them to
 
 ## Publishing via CI
 
-The `Publish build images` workflow (`.github/workflows/publish-build-images.yml`) builds the images on GitHub-hosted
-amd64 and arm64 runners and pushes them, plus the multi-arch manifests, to Docker Hub. It does not refresh the AMIs.
-Bump `version` in `bootstrap.sh`, push the commit, then dispatch the workflow on `next` with that commit's full SHA:
+The `Publish build images` workflow (`.github/workflows/publish-build-images.yml`) runs `./bootstrap.sh deploy` for a
+branch from CI and commits the new AMI ids back to that branch. Bump `version` in `bootstrap.sh` (and the tags in
+`ci3/aws/ami_update.sh`), push the branch, then dispatch the workflow on `next`:
 
 ```
-$ gh workflow run publish-build-images.yml --repo AztecProtocol/aztec-packages --ref next -f ref=<full commit sha>
+$ gh workflow run publish-build-images.yml --repo AztecProtocol/aztec-packages --ref next -f branch=<branch>
 ```
 
-The tag is the `version` at that commit. The workflow refuses a tag that already exists on Docker Hub, since CI AMIs
-cache images by tag; `-f allow_overwrite=true` overrides this. If only one architecture fails, use "Re-run failed
-jobs" so the tag check does not reject the architecture that was already pushed.
+The branch's scripts run with the Docker Hub credentials and the CI AWS role, so only dispatch for reviewed changes.
+The workflow refuses a tag that already exists on Docker Hub, since CI AMIs cache images by tag;
+`-f allow_overwrite=true` overrides this. If the images were published but the AMI step failed, rerun with
+`-f mode=amis-only`.
 
 ## Sysbox
 
