@@ -64,10 +64,9 @@ function build_src {
     # Clean
     rm -rf broadcast cache out serve
 
-    # Install
-    forge install
-
-    # Ensure libraries are at the correct version
+    # Check out the libraries at the revisions this repository records. `forge install` is not used for
+    # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
+    # names a revision that a shallow clone does not have.
     git submodule update --init --recursive ./lib
 
     # Compile contracts
