@@ -45,7 +45,7 @@ function build_ec2 {
   # Request new on-demand instance. The helper writes ip/iid into the state dir and the terminate
   # helper takes that same dir. SSH mode (KEY_NAME set) so we can drive the build over ssh.
   instance_name=build_image_$(echo -n "$branch" | tr -c 'a-zA-Z0-9-' '_')_$arch
-  local state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
+  state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
   trap 'aws_terminate_instance $state_dir || true' EXIT
   NO_SPOT=1 KEY_NAME=${KEY_NAME:-build-instance} aws_request_instance $instance_name $cpus $arch $state_dir
   local ip=$(cat $state_dir/ip)
