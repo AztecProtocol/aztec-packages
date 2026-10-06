@@ -1,0 +1,203 @@
+# Builds the CI build images (aztecprotocol/build, devbox, sysbox) from build-images/src at a given
+# commit, pushes the amd64 and arm64 images to Docker Hub, and publishes the multi-arch manifests.
+# The tag is the `version` in that commit's build-images/bootstrap.sh. Dispatch on next only:
+#   gh workflow run publish-build-images.yml --ref next -f ref=<full commit sha>
+# Existing tags are never overwritten unless allow_overwrite is set: CI AMIs cache the images by tag,
+# so a replaced tag would not reach hosts that already have it.
+name: Publish build images
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Full 40-character commit SHA to build build-images/src from"
+        required: true
+        type: string
+      allow_overwrite:
+        description: "Allow replacing a tag that already exists on Docker Hub"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: publish-build-images-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.ref == 'refs/heads/next'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Validate commit SHA
+        id: sha
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          if [[ ! "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::ref must be a full 40-character lowercase commit SHA"
+            exit 1
+          fi
+          echo "sha=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+          path: src-ref
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: build-images
+
+      - name: Read image tag
+        id: tag
+        run: |
+          versions=$(sed -n 's/^version="\(.*\)"$/\1/p' src-ref/build-images/bootstrap.sh)
+          if [[ ! "$versions" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected exactly one version=\"X.Y\" line in build-images/bootstrap.sh, got: $versions"
+            exit 1
+          fi
+          echo "tag=$versions" >> "$GITHUB_OUTPUT"
+
+      - name: Check tags are not yet published
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
+        run: |
+          existing=()
+          for target in build devbox sysbox; do
+            for tag in "$TAG" "$TAG-amd64" "$TAG-arm64"; do
+              status=$(curl -sS -o /dev/null -w '%{http_code}' \
+                "https://hub.docker.com/v2/namespaces/aztecprotocol/repositories/$target/tags/$tag")
+              case "$status" in
+                200) existing+=("aztecprotocol/$target:$tag") ;;
+                404) ;;
+                *) echo "::error::Docker Hub returned HTTP $status for aztecprotocol/$target:$tag"; exit 1 ;;
+              esac
+            done
+          done
+          if [ ${#existing[@]} -gt 0 ]; then
+            if [ "$ALLOW_OVERWRITE" = "true" ]; then
+              echo "::warning::Overwriting existing tags: ${existing[*]}"
+            else
+              echo "::error::Tags already exist on Docker Hub: ${existing[*]}. Bump version in build-images/bootstrap.sh, or set allow_overwrite."
+              exit 1
+            fi
+          fi
+
+      - name: Summary
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          {
+            echo "### Build images"
+            echo "Commit: \`$SHA\`"
+            echo
+            for target in build devbox sysbox; do
+              echo "- \`aztecprotocol/$target:$TAG\` (\`-amd64\`, \`-arm64\`)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    if: github.ref == 'refs/heads/next'
+    needs: resolve
+    name: build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    environment: master
+    timeout-minutes: 300
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          docker system prune -af
+          df -h /
+
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: src-ref
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: build-images
+
+      # Builds only via the Dockerfile; no script from the target commit runs in this job.
+      - name: Build images
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          ARCH: ${{ matrix.arch }}
+        working-directory: src-ref/build-images/src
+        run: |
+          for target in build devbox sysbox; do
+            docker build -t "aztecprotocol/$target:$TAG-$ARCH" --target "$target" .
+          done
+
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: printf '%s' "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+      - name: Push images
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          for target in build devbox sysbox; do
+            docker push "aztecprotocol/$target:$TAG-$ARCH"
+          done
+
+      - name: Log out of Docker Hub
+        if: always()
+        run: docker logout
+
+  manifests:
+    if: github.ref == 'refs/heads/next'
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    environment: master
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: printf '%s' "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+      - name: Publish manifests
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          echo "### Published manifests" >> "$GITHUB_STEP_SUMMARY"
+          for target in build devbox sysbox; do
+            image="aztecprotocol/$target:$TAG"
+            docker manifest rm "$image" || true
+            docker manifest create "$image" \
+              --amend "$image-amd64" \
+              --amend "$image-arm64"
+            docker manifest push "$image"
+            echo "- \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Log out of Docker Hub
+        if: always()
+        run: docker logout

@@ -49,6 +49,20 @@ This will launch x86 and arm machines to build the images, and then push them to
 - AMI id's will be updated in current working tree.
 - Commit the result.
 
+## Publishing via CI
+
+The `Publish build images` workflow (`.github/workflows/publish-build-images.yml`) builds the images on GitHub-hosted
+amd64 and arm64 runners and pushes them, plus the multi-arch manifests, to Docker Hub. It does not refresh the AMIs.
+Bump `version` in `bootstrap.sh`, push the commit, then dispatch the workflow on `next` with that commit's full SHA:
+
+```
+$ gh workflow run publish-build-images.yml --repo AztecProtocol/aztec-packages --ref next -f ref=<full commit sha>
+```
+
+The tag is the `version` at that commit. The workflow refuses a tag that already exists on Docker Hub, since CI AMIs
+cache images by tag; `-f allow_overwrite=true` overrides this. If only one architecture fails, use "Re-run failed
+jobs" so the tag check does not reject the architecture that was already pushed.
+
 ## Sysbox
 
 Internal aztec engineers use the mainframe.
