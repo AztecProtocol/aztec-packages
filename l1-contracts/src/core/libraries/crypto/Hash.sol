@@ -48,6 +48,8 @@ library Hash {
    * @return The hash of the provided data as a field element
    */
   function sha256ToField(bytes memory _data) internal pure returns (bytes32) {
+    // Dropping the top byte of the sha256 output keeps the result below the BN254 field modulus.
+    // forge-lint: disable-next-item(unsafe-typecast)
     return bytes32(bytes.concat(new bytes(1), bytes31(sha256(_data))));
   }
 
@@ -63,6 +65,8 @@ library Hash {
    * @return The updated rolling hash
    */
   function accumulateInboxRollingHash(bytes32 _rollingHash, bytes32 _leaf) internal pure returns (bytes32) {
+    // DOM_SEP__INBOX_ROLLING_HASH is a 4-byte domain separator, so it fits in uint32.
+    // forge-lint: disable-next-item(unsafe-typecast)
     return sha256ToField(abi.encodePacked(uint32(Constants.DOM_SEP__INBOX_ROLLING_HASH), _rollingHash, _leaf));
   }
 }

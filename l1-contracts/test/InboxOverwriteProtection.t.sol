@@ -87,8 +87,8 @@ contract InboxOverwriteProtectionTest is Test {
   function _openBuckets(InboxHarness _inbox, uint256 _count) internal {
     uint256 startSeq = _inbox.getCurrentBucketSeq();
     for (uint256 i = 0; i < _count; i++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + 12);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + 12);
       _send(_inbox, startSeq + i);
     }
     assertEq(_inbox.getCurrentBucketSeq(), startSeq + _count, "buckets opened");

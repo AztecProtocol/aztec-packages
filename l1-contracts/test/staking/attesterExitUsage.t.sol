@@ -85,7 +85,9 @@ contract AttesterExitUsageTest is GovernanceBase {
 
     vm.mockCall(
       address(gse),
-      abi.encodeWithSelector(GSE.getAttesterCountAtTime.selector, address(harness), Timestamp.wrap(block.timestamp)),
+      abi.encodeWithSelector(
+        GSE.getAttesterCountAtTime.selector, address(harness), Timestamp.wrap(vm.getBlockTimestamp())
+      ),
       abi.encode(_validatorCount)
     );
   }

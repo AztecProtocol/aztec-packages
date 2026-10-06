@@ -61,7 +61,7 @@ contract MinimalDelegationTest is GSEBase {
 
     Timestamps memory ts;
 
-    ts.ts1 = block.timestamp;
+    ts.ts1 = vm.getBlockTimestamp();
     ts.ts2 = ts.ts1 + EPOCH_DURATION_SECONDS;
     ts.ts3 = ts.ts2 + EPOCH_DURATION_SECONDS;
 

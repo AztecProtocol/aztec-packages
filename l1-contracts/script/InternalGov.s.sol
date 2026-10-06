@@ -149,7 +149,8 @@ contract GovScript is Test {
     emit log_named_decimal_uint("yeaCount         ", proposal.summedBallot.yea, 18);
     emit log_named_decimal_uint("nayCount         ", proposal.summedBallot.nay, 18);
 
-    Timestamp ts = Timestamp.wrap(block.timestamp) < pendingThrough ? Timestamp.wrap(block.timestamp) : pendingThrough;
+    Timestamp ts =
+      Timestamp.wrap(vm.getBlockTimestamp()) < pendingThrough ? Timestamp.wrap(vm.getBlockTimestamp()) : pendingThrough;
 
     emit log_named_decimal_uint("power            ", governance.powerAt(ME, ts), 18);
   }
@@ -354,10 +355,10 @@ contract GovScript is Test {
 
     lookAtProposal(0);
 
-    vm.warp(block.timestamp + 100);
+    vm.warp(vm.getBlockTimestamp() + 100);
     vote(0);
 
-    vm.warp(block.timestamp + 4000);
+    vm.warp(vm.getBlockTimestamp() + 4000);
 
     lookAtProposal(0);
 

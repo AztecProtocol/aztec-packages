@@ -92,7 +92,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         TestPoint memory expected = points[Slot.unwrap(nextSlot) - 1];
         L1FeesModel memory fees = model.getCurrentL1Fees();
 
-        assertEq(expected.checkpoint_header.l1_block_number, block.number, "invalid l1 block number");
+        assertEq(expected.checkpoint_header.l1_block_number, vm.getBlockNumber(), "invalid l1 block number");
         assertEq(expected.checkpoint_header.checkpoint_number, Slot.unwrap(nextSlot), "invalid checkpoint number");
         assertEq(expected.checkpoint_header.slot_number, Slot.unwrap(nextSlot), "invalid l2 slot number");
         assertEq(expected.outputs.l1_fee_oracle_output.base_fee, fees.base_fee, "baseFee mismatch");
@@ -136,9 +136,9 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         // For now, most of the checkpoint header is not actually stored in the fee model
         // but just needed to influence the other values and used for L1 state.
         assertEq(point.checkpoint_header.checkpoint_number, nextSlot, "invalid checkpoint number");
-        assertEq(point.checkpoint_header.l1_block_number, block.number, "invalid l1 block number");
+        assertEq(point.checkpoint_header.l1_block_number, vm.getBlockNumber(), "invalid l1 block number");
         assertEq(point.checkpoint_header.slot_number, nextSlot, "invalid l2 slot number");
-        assertEq(point.checkpoint_header.timestamp, block.timestamp, "invalid timestamp");
+        assertEq(point.checkpoint_header.timestamp, vm.getBlockTimestamp(), "invalid timestamp");
 
         assertEq(point.fee_header, feeHeader);
 

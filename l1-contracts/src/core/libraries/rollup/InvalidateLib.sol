@@ -219,6 +219,8 @@ library InvalidateLib {
     {
       IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
       if (address(escapeHatch) != address(0)) {
+        // Only the open flag is needed here.
+        // forge-lint: disable-next-item(unused-return)
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         require(!isOpen, Errors.Rollup__CannotInvalidateEscapeHatch());
       }

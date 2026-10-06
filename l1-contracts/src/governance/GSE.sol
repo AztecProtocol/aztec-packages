@@ -281,6 +281,8 @@ contract GSECore is IGSECore, Ownable {
   function addRollup(address _rollup) external override(IGSECore) onlyOwner {
     require(_rollup != address(0), Errors.GSE__InvalidRollupAddress(_rollup));
     require(!instances[_rollup].exists, Errors.GSE__RollupAlreadyRegistered(_rollup));
+    // The registration is recorded in the rollups checkpoint pushed below and is readable through the getters.
+    // forge-lint: disable-next-item(missing-events-access-control)
     instances[_rollup].exists = true;
     rollups.push(block.timestamp.toUint32(), uint224(uint160(_rollup)));
   }
@@ -370,6 +372,8 @@ contract GSECore is IGSECore, Ownable {
     ASSET.safeTransferFrom(msg.sender, address(this), ACTIVATION_THRESHOLD);
 
     Governance gov = getGovernance();
+    // The staking asset is the protocol's OZ ERC20, whose approve returns true or reverts.
+    // forge-lint: disable-next-item(unused-return)
     ASSET.approve(address(gov), ACTIVATION_THRESHOLD);
     gov.deposit(address(this), ACTIVATION_THRESHOLD);
 
@@ -501,6 +505,8 @@ contract GSECore is IGSECore, Ownable {
     uint256 amount = gov.getConfiguration().proposeConfig.lockAmount;
 
     ASSET.safeTransferFrom(msg.sender, address(this), amount);
+    // The staking asset is the protocol's OZ ERC20, whose approve returns true or reverts.
+    // forge-lint: disable-next-item(unused-return)
     ASSET.approve(address(gov), amount);
 
     gov.deposit(address(this), amount);

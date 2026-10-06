@@ -106,7 +106,7 @@ contract ProvingCostRateLimitTest is Test {
   function test_revertsWhen_oneSecondShortOfCooldown() public {
     rollup.setProvingCostPerMana(EthValue.wrap(1500));
 
-    uint256 nextAllowed = block.timestamp + PROVING_COST_UPDATE_INTERVAL;
+    uint256 nextAllowed = vm.getBlockTimestamp() + PROVING_COST_UPDATE_INTERVAL;
     vm.warp(nextAllowed - 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__ProvingCostCooldown.selector, nextAllowed));
     rollup.setProvingCostPerMana(EthValue.wrap(1500));
@@ -126,7 +126,7 @@ contract ProvingCostRateLimitTest is Test {
     value = next;
 
     for (uint256 i = 0; i < 9; i++) {
-      vm.warp(block.timestamp + PROVING_COST_UPDATE_INTERVAL);
+      vm.warp(vm.getBlockTimestamp() + PROVING_COST_UPDATE_INTERVAL);
       next = value * PROVING_COST_STEP_NUM / PROVING_COST_STEP_DEN;
       rollup.setProvingCostPerMana(EthValue.wrap(next));
       value = next;

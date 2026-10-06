@@ -63,7 +63,7 @@ contract InboxBucketsFuzzTest is Test {
     for (uint256 b = 0; b < L1_BLOCKS; b++) {
       if (b > 0) {
         vm.roll(block.number + 1);
-        vm.warp(block.timestamp + bound(_blockGaps[b], 1, 3600));
+        vm.warp(vm.getBlockTimestamp() + bound(_blockGaps[b], 1, 3600));
       }
       _sendBlock(b == rolloverBlock ? rolloverCount : bound(_msgsPerBlock[b], 0, 12), _seed);
     }
@@ -104,11 +104,13 @@ contract InboxBucketsFuzzTest is Test {
       uint256 sliceStart = (seq - seqBefore - 1) * cap;
       uint256 sliceSize = _count - sliceStart < cap ? _count - sliceStart : cap;
       assertEq(bucket.msgCount, sliceSize, "messages absorbed into bucket");
-      assertEq(bucket.timestamp, block.timestamp, "bucket carries the sending L1 block's timestamp");
+      assertEq(bucket.timestamp, vm.getBlockTimestamp(), "bucket carries the sending L1 block's timestamp");
       assertEq(bucket.totalMsgCount, totalBefore + sliceStart + sliceSize, "bucket cumulative total");
     }
 
-    batches.push(BlockBatch({timestamp: block.timestamp, firstSeq: seqBefore + 1, lastSeq: seqAfter, msgCount: _count}));
+    batches.push(
+      BlockBatch({timestamp: vm.getBlockTimestamp(), firstSeq: seqBefore + 1, lastSeq: seqAfter, msgCount: _count})
+    );
   }
 
   // Sends one message with fuzz-derived contents, checking the Inbox agrees on its leaf and compact index.

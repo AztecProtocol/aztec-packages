@@ -54,7 +54,7 @@ contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
     _addrs = boundUnique(_addrs);
     _index = uint224(bound(_index, 0, _addrs.length - 1));
 
-    uint256 ts = block.timestamp;
+    uint256 ts = vm.getBlockTimestamp();
     vm.warp(ts + 1000);
 
     // It should return the validator address from the snapshot
@@ -74,7 +74,7 @@ contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
     uint224 lastIndex = uint224(_addrs.length - 1);
     address lastValidator = _addrs[lastIndex];
 
-    uint256 ts = block.timestamp;
+    uint256 ts = vm.getBlockTimestamp();
     vm.warp(ts + 1);
 
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(lastIndex, (block.timestamp).toUint32()), lastValidator);

@@ -62,8 +62,8 @@ contract InboxRingDeadlockTest is Test {
   // fifth block with the one message past it, then one message per L1 block.
   function _driveTraffic(uint256 _targetBucketSeq, bool _forceProvenConsumed) internal {
     for (uint256 l1Block = 1; inbox.getCurrentBucketSeq() < _targetBucketSeq; l1Block++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + ETHEREUM_SLOT_DURATION);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + ETHEREUM_SLOT_DURATION);
 
       uint256 count = l1Block <= 4 ? MAX_MSGS_PER_BUCKET : 1;
       for (uint256 i = 0; i < count; i++) {

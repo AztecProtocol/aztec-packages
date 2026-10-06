@@ -58,15 +58,15 @@ contract DepositTest is GovernanceBase {
 
       sums[onBehalfOf] += amount;
       sum += amount;
-      vm.warp(block.timestamp + timeJump);
+      vm.warp(vm.getBlockTimestamp() + timeJump);
 
       vm.expectEmit(true, true, true, true, address(governance));
       emit IGovernance.Deposit(address(this), onBehalfOf, amount);
       governance.deposit(onBehalfOf, amount);
 
-      assertEq(governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp - 1)), sums[onBehalfOf] - amount);
+      assertEq(governance.powerAt(onBehalfOf, Timestamp.wrap(vm.getBlockTimestamp() - 1)), sums[onBehalfOf] - amount);
       assertEq(governance.powerNow(onBehalfOf), sums[onBehalfOf]);
-      assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp - 1)), sum - amount);
+      assertEq(governance.totalPowerAt(Timestamp.wrap(vm.getBlockTimestamp() - 1)), sum - amount);
       assertEq(governance.totalPowerNow(), sum);
 
       assertEq(token.balanceOf(address(this)), 0);

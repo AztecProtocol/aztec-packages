@@ -27,7 +27,7 @@ contract CheckpointedUintLibBase is TestBase {
   ) {
     for (uint256 i = 0; i < CHECKPOINT_COUNT; i++) {
       if (_insert[i] || (i > CHECKPOINT_COUNT / 2 && insertions == 0)) {
-        vm.warp(block.timestamp + bound(_timeBetween[i], 1, type(uint16).max));
+        vm.warp(vm.getBlockTimestamp() + bound(_timeBetween[i], 1, type(uint16).max));
         uint256 p = bound(_amounts[i], 1, type(uint16).max);
         user.add(p);
         sumBefore += p;

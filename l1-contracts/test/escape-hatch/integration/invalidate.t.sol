@@ -126,7 +126,7 @@ contract invalidateTest is EscapeHatchIntegrationBase {
     ProposedHeader memory header = full.checkpoint.header;
 
     // Jump to block time
-    vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));
+    vm.warp(max(vm.getBlockTimestamp(), Timestamp.unwrap(full.checkpoint.header.timestamp)));
 
     rollup.setupEpoch();
 

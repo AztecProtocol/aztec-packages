@@ -245,6 +245,8 @@ library FeeLib {
 
     config.provingCostPerMana = _provingCostPerMana;
     feeStore.config = config.compress();
+    // block.timestamp fits in uint64 for the next 500 billion years.
+    // forge-lint: disable-next-item(unsafe-typecast)
     feeStore.provingCostLastUpdate = uint64(block.timestamp);
   }
 
@@ -265,6 +267,8 @@ library FeeLib {
     FeeStore storage feeStore = getStorage();
     FeeConfig memory config = feeStore.config.decompress();
 
+    // protocolFeeMarginBps is stored as uint16 in the compressed config.
+    // forge-lint: disable-next-item(unsafe-typecast)
     oldBps = uint16(config.protocolFeeMarginBps);
 
     if (_bps == oldBps) {
@@ -286,6 +290,8 @@ library FeeLib {
 
     config.protocolFeeMarginBps = _bps;
     feeStore.config = config.compress();
+    // block.timestamp fits in uint64 for the next 500 billion years.
+    // forge-lint: disable-next-item(unsafe-typecast)
     feeStore.protocolMarginLastUpdate = uint64(block.timestamp);
 
     return (true, oldBps);
@@ -379,6 +385,8 @@ library FeeLib {
     }
 
     CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_checkpointOfInterest);
+    // manaTarget is stored as uint32 in the compressed config, so it fits in int256.
+    // forge-lint: disable-next-item(unsafe-typecast)
     uint256 excessMana =
       FeeLib.clampedAdd(parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
@@ -413,6 +421,8 @@ library FeeLib {
   }
 
   function getProtocolFeeMarginBps() internal view returns (uint16) {
+    // protocolFeeMarginBps is stored as uint16 in the compressed config.
+    // forge-lint: disable-next-item(unsafe-typecast)
     return uint16(getStorage().config.getProtocolFeeMarginBps());
   }
 
@@ -422,6 +432,8 @@ library FeeLib {
 
   function computeExcessMana(CompressedFeeHeader _feeHeader) internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
+    // manaTarget is stored as uint32 in the compressed config, so it fits in int256.
+    // forge-lint: disable-next-item(unsafe-typecast)
     return clampedAdd(_feeHeader.getExcessMana() + _feeHeader.getManaUsed(), -int256(feeStore.config.getManaTarget()));
   }
 
@@ -457,6 +469,8 @@ library FeeLib {
   function computeNewEthPerFeeAsset(uint256 _currentPrice, int256 _modifierBps) internal pure returns (uint256) {
     uint256 newPrice;
     if (_modifierBps >= 0) {
+      // _modifierBps is non-negative on this branch.
+      // forge-lint: disable-next-item(unsafe-typecast)
       newPrice = _currentPrice * (10_000 + uint256(_modifierBps)) / 10_000;
     } else {
       newPrice = _currentPrice * (10_000 - SignedMath.abs(_modifierBps)) / 10_000;

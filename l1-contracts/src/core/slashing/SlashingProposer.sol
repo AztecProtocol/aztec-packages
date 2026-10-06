@@ -485,6 +485,8 @@ contract SlashingProposer is EIP712 {
     if (actions.length > 0) {
       // Deploy payload contract and execute slashes
       IPayload slashPayload = _deploySlashPayload(_round, actions);
+      // Slasher.slash reverts on any failure and otherwise returns true.
+      // forge-lint: disable-next-item(unused-return)
       SLASHER.slash(slashPayload);
     }
 
@@ -670,6 +672,8 @@ contract SlashingProposer is EIP712 {
    */
   function _getCommitteeCommitment(Epoch _epoch) internal returns (bytes32) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+    // Only the commitment is needed; INSTANCE is the trusted rollup this proposer is bound to.
+    // forge-lint: disable-next-item(unused-return, reentrancy-no-eth)
     (bytes32 commitment,) = rollup.getEpochCommitteeCommitment(_epoch);
     return commitment;
   }
@@ -824,6 +828,8 @@ contract SlashingProposer is EIP712 {
 
         // Process votes 32 bytes at a time
         uint256 j;
+        // j starts at zero and advances by 32 per iteration.
+        // forge-lint: disable-next-item(uninitialized-local)
         for (; j + 31 < voteLength; j += 32) {
           // Process 32 bytes at once (128 validators)
           _process32BytesVotes(tallyMatrix, currentVote, j);
@@ -908,6 +914,8 @@ contract SlashingProposer is EIP712 {
           // Shift right by (slashAmount-1) * 64 bits, then mask to get 64-bit segment
           // Layout: [0-63: votes for 1 unit][64-127: votes for 2 units][128-191: votes for 3 units]
           uint256 votesForAmount = (packedVotes >> ((j - 1) << 6)) & 0xFFFFFFFFFFFFFFFF;
+          // voteCountForValidator starts at zero and accumulates across the slash amounts.
+          // forge-lint: disable-next-item(uninitialized-local)
           voteCountForValidator += votesForAmount;
 
           // Check if this slash amount has reached quorum
@@ -922,7 +930,9 @@ contract SlashingProposer is EIP712 {
               slashAmount = SLASH_AMOUNT_LARGE;
             }
 
-            // Record the slashing action
+            // Record the slashing action. actionCount starts at zero; slashAmount is assigned by every branch above
+            // because j is always 1, 2 or 3.
+            // forge-lint: disable-next-item(uninitialized-local)
             actions[actionCount] =
               SlashAction({validator: _committees[epochIndex][i % COMMITTEE_SIZE], slashAmount: slashAmount});
             ++actionCount;
@@ -1023,6 +1033,8 @@ contract SlashingProposer is EIP712 {
       if (address(escapeHatch) == address(0)) {
         continue;
       }
+      // Only the open flag is needed here.
+      // forge-lint: disable-next-item(unused-return)
       (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
       escapeHatchEpochs[epochIndex] = isOpen;
     }
@@ -1070,11 +1082,15 @@ contract SlashingProposer is EIP712 {
         validators[i] = _actions[i].validator;
         // Convert uint256 to uint96, checking for overflow
         require(_actions[i].slashAmount <= type(uint96).max, Errors.SlashingProposer__SlashAmountTooLarge());
+        // The require above bounds slashAmount to uint96.
+        // forge-lint: disable-next-item(unsafe-typecast)
         amounts[i] = uint96(_actions[i].slashAmount);
       }
     }
 
     // Compute salt for CREATE2 deployment, including round number
+    // validators and amounts are both sized by actionCount, so the packed layout cannot be ambiguous.
+    // forge-lint: disable-next-item(encode-packed-collision)
     salt = keccak256(abi.encodePacked(SlashRound.unwrap(_round), validators, amounts));
 
     // Compute predicted address using clone deterministic address prediction
@@ -1167,6 +1183,8 @@ contract SlashingProposer is EIP712 {
 
         // Extract most significant byte from word (big-endian order)
         // Shift right 248 bits (31 bytes) to get the leftmost byte
+        // A 256-bit word shifted right by 248 leaves at most 8 bits.
+        // forge-lint: disable-next-item(unsafe-typecast)
         uint8 currentByte = uint8(word >> 248);
 
         // Shift word left by 8 bits for next iteration, removing processed byte

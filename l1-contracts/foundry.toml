@@ -91,6 +91,19 @@ exclude_lints = [
   "mixed-case-function",
   "screaming-snake-case-const",
   "screaming-snake-case-immutable",
+
+  # Slots and epochs are derived from block.timestamp by design, so comparing against it is the protocol.
+  "block-timestamp",
+  # Loops over committees and validator sets check and call per member; the per-iteration revert and
+  # call are the point, not an accident.
+  "require-revert-in-loop",
+  "calls-loop",
+  # Events are emitted after the external calls they describe (token transfers, deposits). State is
+  # settled before those calls, so a reentrant observer cannot act on a not-yet-emitted event.
+  "reentrancy-events",
+  # Addresses flagged here are wiring set once by constructors or by governance. A zero address there
+  # is a deployment mistake that the deploy scripts and tests catch, not a runtime hazard worth bytecode.
+  "missing-zero-check",
 ]
 
 [rpc_endpoints]

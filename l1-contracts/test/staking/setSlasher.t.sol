@@ -82,7 +82,7 @@ contract SetSlasherTest is StakingBase {
     vm.prank(_owner());
     staking.queueSetSlasher(_first);
 
-    vm.warp(block.timestamp + 1 days);
+    vm.warp(vm.getBlockTimestamp() + 1 days);
     uint256 expectedReadyAt = block.timestamp + _delay();
 
     vm.expectEmit(true, true, true, true);
@@ -132,7 +132,7 @@ contract SetSlasherTest is StakingBase {
     _mockInitializedSlasher(_newSlasher);
     vm.prank(owner);
     staking.queueSetSlasher(_newSlasher);
-    uint256 readyAt = block.timestamp + delay;
+    uint256 readyAt = vm.getBlockTimestamp() + delay;
 
     vm.warp(block.timestamp + earlyOffset);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__SlasherNotReady.selector, Timestamp.wrap(readyAt)));

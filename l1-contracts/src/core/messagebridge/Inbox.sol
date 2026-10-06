@@ -103,6 +103,8 @@ contract Inbox is IInbox {
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to
     // make calls into arbitrary contracts.
+    // FEE_JUICE_ADDRESS is a small protocol constant that fits in 160 bits.
+    // forge-lint: disable-next-item(unsafe-typecast)
     address senderAddress = msg.sender == FEE_ASSET_PORTAL ? address(uint160(Constants.FEE_JUICE_ADDRESS)) : msg.sender;
 
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
@@ -134,6 +136,8 @@ contract Inbox is IInbox {
     require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
     require(_bucketSeq <= currentBucketSeq, Errors.Inbox__BucketOutOfWindow(_bucketSeq, currentBucketSeq));
     if (_bucketSeq > provenConsumedBucketSeq) {
+      // Only ROLLUP calls this, as part of a proof submission that is itself evented; the value is public state.
+      // forge-lint: disable-next-item(missing-events-arithmetic)
       provenConsumedBucketSeq = _bucketSeq;
     }
   }

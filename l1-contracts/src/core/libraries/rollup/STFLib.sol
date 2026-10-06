@@ -431,6 +431,8 @@ library STFLib {
     for (uint256 i = _checkpointNumber; i <= proven; i++) {
       uint256 encodedProverId = rollupStore.firstProvenBy[i];
       if (encodedProverId != 0) {
+        // The address lives in the low 160 bits; the truncation drops PROVER_ID_PRESENT_BIT above them.
+        // forge-lint: disable-next-item(unsafe-typecast)
         return address(uint160(encodedProverId));
       }
     }

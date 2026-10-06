@@ -122,7 +122,7 @@ contract Tmnt456Test is TestBase {
       vm.prank(proposer);
       slashingProposer.vote(voteData, sig);
 
-      vm.warp(block.timestamp + TestConstants.AZTEC_SLOT_DURATION);
+      vm.warp(vm.getBlockTimestamp() + TestConstants.AZTEC_SLOT_DURATION);
     }
   }
 

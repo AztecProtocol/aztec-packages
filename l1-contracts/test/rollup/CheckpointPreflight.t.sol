@@ -85,7 +85,7 @@ contract CheckpointPreflightTest is RollupBase {
   // Sends `_count` messages in a fresh L1 block `_secondsBack` seconds before the current time, then restores the
   // clock. Returns the bucket they landed in.
   function _seedMessagesAt(uint256 _timestamp, uint256 _count) internal returns (uint64 bucketSeq) {
-    uint256 now_ = block.timestamp;
+    uint256 now_ = vm.getBlockTimestamp();
     vm.roll(block.number + 1);
     vm.warp(_timestamp);
     bytes32[] memory contents = new bytes32[](_count);
@@ -164,7 +164,7 @@ contract CheckpointPreflightTest is RollupBase {
   // `propose` accepts that bucket as its hint.
   function testPreflightThenProposeOnFreshChain() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    uint64 seeded = _seedMessagesAt(block.timestamp - 100, 16);
+    uint64 seeded = _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     assertEq(seeded, 1, "messages opened bucket 1");
 
     DecoderBase.Full memory full = _buildHeader("mixed_checkpoint_1", 1);
@@ -191,7 +191,7 @@ contract CheckpointPreflightTest is RollupBase {
   // A consumed total inside a bucket has no snapshot to check against and is rejected before any hash comparison.
   function testPreflightRejectsInteriorTotal() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    _seedMessagesAt(block.timestamp - 100, 16);
+    _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     DecoderBase.Full memory full = _buildHeader("mixed_checkpoint_1", 1);
     full.checkpoint.header.inboxRollingHash = inbox.getBucket(1).rollingHash;
 
@@ -202,7 +202,7 @@ contract CheckpointPreflightTest is RollupBase {
   // A total past the newest bucket resolves to that bucket and is then rejected as a non-boundary.
   function testPreflightRejectsTotalPastNewestBucket() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    _seedMessagesAt(block.timestamp - 100, 16);
+    _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     DecoderBase.Full memory full = _buildHeader("mixed_checkpoint_1", 1);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InboxTotalNotAtBucketBoundary.selector, 17, 16));
@@ -212,7 +212,7 @@ contract CheckpointPreflightTest is RollupBase {
   // Wrong hash: preflight and `propose` reject the same header with the same error.
   function testPreflightAndProposeRejectWrongHash() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    _seedMessagesAt(block.timestamp - 100, 16);
+    _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     bytes32 bucketHash = inbox.getBucket(1).rollingHash;
     bytes32 wrongHash = bytes32(uint256(bucketHash) ^ 1);
 
@@ -266,7 +266,7 @@ contract CheckpointPreflightTest is RollupBase {
   // Censorship: a bucket at or before the cutoff must be consumed; both calls point at it.
   function testPreflightAndProposeEnforceCensorship() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    uint256 slotStart = block.timestamp;
+    uint256 slotStart = vm.getBlockTimestamp();
     uint256 cutoff = slotStart - SLOT_DURATION - TestConstants.ETHEREUM_SLOT_DURATION;
     _seedMessagesAt(cutoff - 24, 4); // bucket 1
     _seedMessagesAt(cutoff, 2); // bucket 2, exactly at the cutoff: mandatory
@@ -288,7 +288,7 @@ contract CheckpointPreflightTest is RollupBase {
   // A bucket past the cutoff is optional: stopping before it is accepted by both calls.
   function testPreflightAllowsSkippingBucketPastCutoff() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    uint256 slotStart = block.timestamp;
+    uint256 slotStart = vm.getBlockTimestamp();
     uint256 cutoff = slotStart - SLOT_DURATION - TestConstants.ETHEREUM_SLOT_DURATION;
     _seedMessagesAt(cutoff - 24, 4);
     _seedMessagesAt(cutoff + 1, 2);
@@ -303,7 +303,7 @@ contract CheckpointPreflightTest is RollupBase {
   // escapes censorship); one bucket further is rejected by both calls.
   function testPreflightAndProposeEnforceCap() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    uint256 slotStart = block.timestamp;
+    uint256 slotStart = vm.getBlockTimestamp();
     uint256 cutoff = slotStart - SLOT_DURATION - TestConstants.ETHEREUM_SLOT_DURATION;
     _seedMessagesAt(cutoff - 100, Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
     assertEq(inbox.getCurrentBucketSeq(), 5, "four full buckets plus the excess");
@@ -325,7 +325,7 @@ contract CheckpointPreflightTest is RollupBase {
   // Building on a published parent: the parent's stored total, not the caller, sets the floor.
   function testPreflightOnPublishedParent() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    _seedMessagesAt(block.timestamp - 100, 16);
+    _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     DecoderBase.Full memory first = _buildHeader("mixed_checkpoint_1", 1);
     first.checkpoint.header.inboxRollingHash = inbox.getBucket(1).rollingHash;
     _propose(first, _preflight(first.checkpoint.header, 16, 0));
@@ -357,7 +357,7 @@ contract CheckpointPreflightTest is RollupBase {
   // which prunes before validating.
   function testPreflightFollowsAutomaticPrune() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    _seedMessagesAt(block.timestamp - 100, 16);
+    _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     DecoderBase.Full memory first = _buildHeader("mixed_checkpoint_1", 1);
     first.checkpoint.header.inboxRollingHash = inbox.getBucket(1).rollingHash;
     _propose(first, 1);
@@ -385,7 +385,7 @@ contract CheckpointPreflightTest is RollupBase {
   // whose state override reflects a bundled invalidate transaction would see.
   function testPreflightFollowsInvalidatedParent() public setUpFor("mixed_checkpoint_1") {
     _warpToSlot(1);
-    _seedMessagesAt(block.timestamp - 100, 16);
+    _seedMessagesAt(vm.getBlockTimestamp() - 100, 16);
     DecoderBase.Full memory first = _buildHeader("mixed_checkpoint_1", 1);
     first.checkpoint.header.inboxRollingHash = inbox.getBucket(1).rollingHash;
     _propose(first, 1);

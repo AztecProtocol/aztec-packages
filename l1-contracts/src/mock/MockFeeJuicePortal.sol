@@ -20,6 +20,8 @@ contract MockFeeJuicePortal is IFeeJuicePortal {
     UNDERLYING = new TestERC20("test", "TEST", msg.sender);
   }
 
+  // Mock: intentionally a no-op.
+  // forge-lint: disable-next-item(empty-block)
   function distributeFees(address, uint256) external override(IFeeJuicePortal) {}
 
   function depositToAztecPublic(bytes32, uint256, bytes32)

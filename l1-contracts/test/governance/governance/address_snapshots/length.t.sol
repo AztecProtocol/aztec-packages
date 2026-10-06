@@ -16,7 +16,7 @@ contract AddressSnapshotLengthTest is AddressSnapshotsBase {
   }
 
   function test_WhenAddingValidators(address[] memory _addrs, uint16 _add2) public {
-    uint32 ts = uint32(block.timestamp);
+    uint32 ts = uint32(vm.getBlockTimestamp());
     uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
 
     _addrs = boundUnique(_addrs);
@@ -34,7 +34,7 @@ contract AddressSnapshotLengthTest is AddressSnapshotsBase {
 
   // It decrease the length
   function test_WhenRemovingValidators(address[] memory _addrs, uint16 _add2, uint16 _add3) public {
-    uint32 ts = uint32(block.timestamp);
+    uint32 ts = uint32(vm.getBlockTimestamp());
     uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
     uint32 ts3 = ts2 + uint32(bound(_add3, 1, 1000));
 

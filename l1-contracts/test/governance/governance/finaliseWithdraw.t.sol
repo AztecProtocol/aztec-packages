@@ -48,7 +48,7 @@ contract FinalizeWithdrawTest is GovernanceBase {
       }
 
       sum -= amount;
-      vm.warp(block.timestamp + timeJump);
+      vm.warp(vm.getBlockTimestamp() + timeJump);
 
       governance.initiateWithdraw(recipient, amount);
     }

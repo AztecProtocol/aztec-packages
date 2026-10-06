@@ -219,8 +219,8 @@ contract ProposeInboxConsumptionTest is Test {
     // One bucket per L1 block; after MIN_BUCKET_RING_SIZE + 1 buckets the ring has wrapped past bucket 1,
     // so a hint pointing at it must be rejected before any cutoff logic runs.
     for (uint256 i = 1; i <= MIN_BUCKET_RING_SIZE + 1; i++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + 1);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + 1);
       ringInbox.sendL2Message(
         DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + i)), version: version}),
         bytes32(uint256(0x2000 + i)),
@@ -264,8 +264,8 @@ contract ProposeInboxConsumptionTest is Test {
   function testResolveByTotalBelowRetainedWindowReverts() public {
     InboxHarness ringInbox = _deployInbox(MIN_BUCKET_RING_SIZE);
     for (uint256 i = 1; i <= MIN_BUCKET_RING_SIZE + 1; i++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + 1);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + 1);
       ringInbox.sendL2Message(
         DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + i)), version: version}),
         bytes32(uint256(0x2000 + i)),

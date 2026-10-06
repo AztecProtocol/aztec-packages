@@ -566,7 +566,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
     // We jump to the time of the block, always past the L1 block the messages above landed in.
-    vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
+    vm.warp(max(vm.getBlockTimestamp() + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
 
     rollup.setupEpoch();
 

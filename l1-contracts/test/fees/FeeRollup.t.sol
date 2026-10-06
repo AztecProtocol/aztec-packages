@@ -162,7 +162,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         + point.outputs.mana_min_fee_components_in_fee_asset.protocol_fee
     );
 
-    assertEq(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true), manaMinFee, "mana min fee mismatch");
+    assertEq(rollup.getManaMinFeeAt(Timestamp.wrap(vm.getBlockTimestamp()), true), manaMinFee, "mana min fee mismatch");
 
     uint256 manaSpent = point.checkpoint_header.mana_spent;
 
@@ -410,13 +410,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
 
-        L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
+        L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(vm.getBlockTimestamp()));
         uint256 ethPerFeeAsset = EthPerFeeAssetE12.unwrap(rollup.getEthPerFeeAsset());
 
         ManaMinFeeComponents memory components =
-          rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
+          rollup.getManaMinFeeComponentsAt(Timestamp.wrap(vm.getBlockTimestamp()), false);
         ManaMinFeeComponents memory componentsFeeAsset =
-          rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+          rollup.getManaMinFeeComponentsAt(Timestamp.wrap(vm.getBlockTimestamp()), true);
         FeeHeader memory parentFeeHeader = rollup.getFeeHeader(Slot.unwrap(nextSlot) - 1);
 
         Checkpoint memory b = getCheckpoint();
@@ -447,9 +447,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         // Want to check the fee header to see if they are as we want them.
 
         assertEq(point.checkpoint_header.checkpoint_number, nextSlot, "invalid checkpoint number");
-        assertEq(point.checkpoint_header.l1_block_number, block.number, "invalid l1 block number");
+        assertEq(point.checkpoint_header.l1_block_number, vm.getBlockNumber(), "invalid l1 block number");
         assertEq(point.checkpoint_header.slot_number, nextSlot, "invalid l2 slot number");
-        assertEq(point.checkpoint_header.timestamp, block.timestamp, "invalid timestamp");
+        assertEq(point.checkpoint_header.timestamp, vm.getBlockTimestamp(), "invalid timestamp");
 
         assertEq(point.fee_header, feeHeader);
 
