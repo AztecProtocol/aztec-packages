@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-version="3.0"
+version="3.1"
 arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
@@ -42,14 +42,13 @@ function build_ec2 {
     exit 1
   fi
 
-  # Request new instance.
+  # Request new on-demand instance. The helper writes ip/iid into the state dir and the terminate
+  # helper takes that same dir. SSH mode (KEY_NAME set) so we can drive the build over ssh.
   instance_name=build_image_$(echo -n "$branch" | tr -c 'a-zA-Z0-9-' '_')_$arch
-  ip_sir=$(NO_SPOT=1 aws_request_instance $instance_name $cpus $arch)
-  IFS=':' read -r -a parts <<< "$ip_sir"
-  ip="${parts[0]}"
-  sir="${parts[1]}"
-  iid="${parts[2]}"
-  trap 'aws_terminate_instance $iid $sir || true' EXIT
+  local state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
+  trap 'aws_terminate_instance $state_dir || true' EXIT
+  NO_SPOT=1 KEY_NAME=${KEY_NAME:-build-instance} aws_request_instance $instance_name $cpus $arch $state_dir
+  local ip=$(cat $state_dir/ip)
 
   ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     set -euo pipefail
