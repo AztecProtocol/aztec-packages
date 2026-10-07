@@ -179,6 +179,38 @@ library ValidatorSelectionLib {
   }
 
   /**
+   * @notice Pins the earliest timestamp that validator-set sampling may read from
+   * @dev Committee selection reads the validator set as it stood `lagInEpochsForValidatorSet` epochs
+   *      before the epoch starts. The GSE credits the shared "bonus" validators to whichever rollup
+   *      was its latest at the queried timestamp, and that attribution is historical: it is not
+   *      backdated when a new rollup is added. So for the first `lag + 1` epochs after an upgrade the
+   *      lagged timestamp still resolves to the previous rollup, this rollup's own bucket is empty,
+   *      and sampling reverts with `InsufficientValidatorSetSize` even though every validator has
+   *      already been inherited.
+   *
+   *      Pinning a floor here lets those epochs sample at the moment the inheritance took effect
+   *      instead. The floor is in the past, so the committee for any given epoch is still fixed and
+   *      agreed by every observer. It is also strictly more conservative than the lag it replaces --
+   *      the sample predates the epoch being sampled, so no one can stake after the upgrade and be
+   *      selected.
+   *
+   *      Governance calls this in the transaction that makes the rollup canonical, after
+   *      `GSE.addRollup`. Ordering it earlier pins a timestamp that still resolves to the previous
+   *      rollup, which is why that case is rejected rather than silently stored.
+   * @custom:reverts Errors.ValidatorSelection__SampleFloorAlreadySet if a floor is already pinned
+   * @custom:reverts Errors.ValidatorSelection__NotLatestRollupInGSE if the GSE's latest is not us
+   */
+  function setValidatorSetSampleFloor() internal {
+    ValidatorSelectionStorage storage store = getStorage();
+    require(store.validatorSetSampleFloor == 0, Errors.ValidatorSelection__SampleFloorAlreadySet());
+
+    address latest = StakingLib.getStorage().gse.getLatestRollup();
+    require(latest == address(this), Errors.ValidatorSelection__NotLatestRollupInGSE(address(this), latest));
+
+    store.validatorSetSampleFloor = block.timestamp.toUint32();
+  }
+
+  /**
    * @notice Performs epoch setup by sampling the committee and setting future seeds
    * @dev This function handles the epoch transition by:
    *      1. Retrieving the sample seed for the current epoch
@@ -597,6 +629,10 @@ library ValidatorSelectionLib {
     return getStorage().lagInEpochsForValidatorSet;
   }
 
+  function getValidatorSetSampleFloor() internal view returns (uint256) {
+    return getStorage().validatorSetSampleFloor;
+  }
+
   function getLagInEpochsForRandao() internal view returns (uint256) {
     return getStorage().lagInEpochsForRandao;
   }
@@ -709,13 +745,21 @@ library ValidatorSelectionLib {
   }
 
   function stableEpochToValidatorSetSampleTime(Epoch _epoch) private view returns (uint32) {
-    uint32 sub = getStorage().lagInEpochsForValidatorSet * TimeLib.getEpochDurationInSeconds().toUint32();
+    ValidatorSelectionStorage storage store = getStorage();
+    uint32 sub = store.lagInEpochsForValidatorSet * TimeLib.getEpochDurationInSeconds().toUint32();
     uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
+    // Stability is judged on the unclamped time, so an epoch is stable exactly when it was before.
     require(
       ts <= block.timestamp,
       Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))
     );
-    return ts;
+
+    // Only clamp to a floor that is already sealed. GSE snapshots are keyed by timestamp and an
+    // equal-key checkpoint write overwrites in place, so the set "at" the current block is still
+    // mutable: anyone could exit after the committee was latched and change what the same sample
+    // time reports. A floor one block back can no longer be written to.
+    uint32 floor = store.validatorSetSampleFloor;
+    return (ts < floor && floor < block.timestamp) ? floor : ts;
   }
 
   /**

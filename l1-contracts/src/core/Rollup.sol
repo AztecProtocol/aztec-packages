@@ -450,6 +450,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ValidatorOperationsExtLib.getLagInEpochsForValidatorSet();
   }
 
+  function getValidatorSetSampleFloor() external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getValidatorSetSampleFloor();
+  }
+
   function getLagInEpochsForRandao() external view override(IValidatorSelection) returns (uint256) {
     return ValidatorOperationsExtLib.getLagInEpochsForRandao();
   }

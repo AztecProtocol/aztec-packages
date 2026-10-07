@@ -150,6 +150,8 @@ library Errors {
   error ValidatorSelection__EscapeHatchAlreadySet();
   error ValidatorSelection__EscapeHatchCannotBeZero();
   error ValidatorSelection__EscapeHatchRollupMismatch(address expected, address actual);
+  error ValidatorSelection__SampleFloorAlreadySet();
+  error ValidatorSelection__NotLatestRollupInGSE(address expected, address actual);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);

@@ -12,20 +12,25 @@ struct ValidatorSelectionStorage {
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
   // Checkpointed map of epoch -> randao value
   Checkpoints.Trace224 randaos;
-  // The following 3 uint32s pack into a single slot (12 bytes)
+  // The following 4 uint32s pack into a single slot (16 bytes)
   uint32 targetCommitteeSize;
   uint32 lagInEpochsForValidatorSet;
   uint32 lagInEpochsForRandao;
+  // Lower bound on the validator-set sample timestamp. Zero until governance pins it, and zero
+  // leaves sampling untouched. See ValidatorSelectionLib.setValidatorSetSampleFloor.
+  uint32 validatorSetSampleFloor;
   // Checkpointed escape hatch addresses (key = timestamp, value = address as uint160)
   Checkpoints.Trace160 escapeHatchCheckpoints;
 }
 
 interface IValidatorSelectionCore {
   event EscapeHatchSet(address escapeHatch);
+  event ValidatorSetSampleFloorSet(uint32 floor);
 
   function setupEpoch() external;
   function checkpointRandao() external;
   function setEscapeHatch(address _escapeHatch) external;
+  function setValidatorSetSampleFloor() external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
@@ -48,6 +53,7 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
   function getSamplingSizeAt(Timestamp _ts) external view returns (uint256);
   function getLagInEpochsForValidatorSet() external view returns (uint256);
+  function getValidatorSetSampleFloor() external view returns (uint256);
   function getLagInEpochsForRandao() external view returns (uint256);
   function getCurrentSampleSeed() external view returns (uint256);
 
