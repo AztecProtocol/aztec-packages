@@ -36,6 +36,8 @@ EscapeHatchGettersTest
 │   └── it should return the timestamp when RANDAO seed is sampled for the target hatch
 ├── when calling getRollup
 │   └── it should return the ROLLUP address
+├── when calling getRollupLagInEpochsForRandao
+│   └── it should return the rollup's lagInEpochsForRandao
 ├── when calling getBondToken
 │   └── it should return the BOND_TOKEN address
 ├── when calling getBondSize

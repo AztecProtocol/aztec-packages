@@ -25,7 +25,7 @@ import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE, GSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
-import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
+import {RegisterNewRollupVersionPayload} from "@aztec/periphery/RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -113,14 +113,7 @@ contract AddRollupTest is TestBase {
     payload = IPayload(address(new RegisterNewRollupVersionPayload(registry, IInstance(address(newRollup)))));
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
 
-    for (uint256 i = 0; i < 10; i++) {
-      address proposer = rollup.getCurrentProposer();
-      vm.prank(proposer);
-      governanceProposer.signal(payload);
-      vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
-    }
-
-    governanceProposer.submitRoundWinner(0);
+    _signalAndSubmit(payload);
     proposal = governance.getProposal(0);
 
     GSEPayload gsePayload = GSEPayload(address(proposal.payload));
@@ -185,5 +178,117 @@ contract AddRollupTest is TestBase {
       assertNotEq(address(registry.getCanonicalRollup()), address(rollup));
       assertEq(address(registry.getCanonicalRollup()), address(newRollup));
     }
+  }
+
+  // Two registrations are accepted while `rollup` is canonical. Executing the newer one (C) first makes C
+  // canonical; the older one (B) is then stale and must not be able to execute and make B canonical.
+  function test_StaleRegistrationCannotRetakeCanonical() external {
+    BadRollup rollupB = new BadRollup(gse);
+    BadRollup rollupC = new BadRollup(gse);
+    RegisterNewRollupVersionPayload payloadB =
+      new RegisterNewRollupVersionPayload(registry, IInstance(address(rollupB)));
+    RegisterNewRollupVersionPayload payloadC =
+      new RegisterNewRollupVersionPayload(registry, IInstance(address(rollupC)));
+    assertEq(address(payloadB.PREDECESSOR()), address(rollup));
+    assertEq(address(payloadC.PREDECESSOR()), address(rollup));
+
+    // Voting power must be deposited before the first proposal snapshots it.
+    vm.prank(token.owner());
+    token.mint(EMPEROR, 10_000 ether);
+    vm.startPrank(EMPEROR);
+    token.approve(address(governance), 10_000 ether);
+    governance.deposit(EMPEROR, 10_000 ether);
+    vm.stopPrank();
+
+    vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
+    uint256 proposalB = _signalAndSubmit(IPayload(address(payloadB)));
+    uint256 proposalC = _signalAndSubmit(IPayload(address(payloadC)));
+
+    // B was proposed one round before C, so both are active once C is.
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(governance.getProposal(proposalC))) + 1);
+    vm.startPrank(EMPEROR);
+    governance.vote(proposalB, 10_000 ether, true);
+    governance.vote(proposalC, 10_000 ether, true);
+    vm.stopPrank();
+
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(governance.getProposal(proposalC))) + 1);
+    assertTrue(governance.getProposalState(proposalB) == ProposalState.Executable);
+    assertTrue(governance.getProposalState(proposalC) == ProposalState.Executable);
+
+    governance.execute(proposalC);
+    assertEq(address(registry.getCanonicalRollup()), address(rollupC));
+    assertEq(gse.getLatestRollup(), address(rollupC));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        RegisterNewRollupVersionPayload.PredecessorNotCanonical.selector, address(rollup), address(rollupC)
+      )
+    );
+    payloadB.assertPredecessorIsCanonical();
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CallFailed.selector, address(payloadB)));
+    governance.execute(proposalB);
+
+    assertEq(address(registry.getCanonicalRollup()), address(rollupC));
+    assertEq(gse.getLatestRollup(), address(rollupC));
+  }
+
+  // A payload deployed after an upgrade binds to the new canonical rollup and executes normally.
+  function test_SequentialRegistrationExecutes() external {
+    BadRollup rollupB = new BadRollup(gse);
+    RegisterNewRollupVersionPayload payloadB =
+      new RegisterNewRollupVersionPayload(registry, IInstance(address(rollupB)));
+    _deposit(EMPEROR, 10_000 ether);
+
+    vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
+    _voteAndExecute(_signalAndSubmit(IPayload(address(payloadB))));
+    assertEq(address(registry.getCanonicalRollup()), address(rollupB));
+
+    BadRollup rollupC = new BadRollup(gse);
+    RegisterNewRollupVersionPayload payloadC =
+      new RegisterNewRollupVersionPayload(registry, IInstance(address(rollupC)));
+    assertEq(address(payloadC.PREDECESSOR()), address(rollupB));
+
+    // rollupB is a stand-in with no checkpoint proposers, so the GovernanceProposer route is closed;
+    // propose by locking power instead.
+    address locker = address(uint160(bytes20("LOCKER")));
+    _deposit(locker, governance.getConfiguration().proposeConfig.lockAmount);
+    vm.prank(locker);
+    uint256 proposalC = governance.proposeWithLock(IPayload(address(payloadC)), locker);
+    _voteAndExecute(proposalC);
+
+    assertEq(address(registry.getCanonicalRollup()), address(rollupC));
+    assertEq(gse.getLatestRollup(), address(rollupC));
+  }
+
+  // Signals `_payload` in every remaining slot of the current round, then submits the round to Governance.
+  function _signalAndSubmit(IPayload _payload) internal returns (uint256 proposalId) {
+    uint256 round = governanceProposer.computeRound(rollup.getCurrentSlot());
+    while (governanceProposer.computeRound(rollup.getCurrentSlot()) == round) {
+      vm.prank(rollup.getCurrentProposer());
+      governanceProposer.signal(_payload);
+      vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
+    }
+
+    proposalId = governance.proposalCount();
+    governanceProposer.submitRoundWinner(round);
+  }
+
+  function _deposit(address _who, uint256 _amount) internal {
+    vm.prank(token.owner());
+    token.mint(_who, _amount);
+    vm.startPrank(_who);
+    token.approve(address(governance), _amount);
+    governance.deposit(_who, _amount);
+    vm.stopPrank();
+  }
+
+  // Votes `_proposalId` through with EMPEROR's power and executes it.
+  function _voteAndExecute(uint256 _proposalId) internal {
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(governance.getProposal(_proposalId))) + 1);
+    vm.prank(EMPEROR);
+    governance.vote(_proposalId, 10_000 ether, true);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(governance.getProposal(_proposalId))) + 1);
+    governance.execute(_proposalId);
   }
 }

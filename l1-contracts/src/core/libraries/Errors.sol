@@ -155,6 +155,7 @@ library Errors {
   error Staking__AlreadyQueued(address _attester);
   error Staking__QueueEmpty();
   error Staking__DepositOutOfGas();
+  error Staking__InsufficientFlushGas(uint256 required, uint256 available);
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
   error Staking__QueueAlreadyFlushed(Epoch epoch); // 0x21148c78
   error Staking__AlreadyRegistered(address instance, address attester);
