@@ -47,6 +47,33 @@ THEORETICAL_Q = 49 / 512  # 7 words per attempt, memory cost words^2 / 512
 
 FIXTURE = "test/fixtures/bn254_pop_gas_vectors.json"
 
+# Vectors committed to the fixture. The model is fitted on the whole corpus (every POPGAS_VEC and POPGAS_BULK
+# line); the fixture keeps a subset that reaches the corpus extremes of attempts and sqrt calls and covers both
+# root choices, both orderings of the sqrt result, and zero or many field rejections, so `PopGasVectorsTest`
+# exercises every branch without carrying the whole corpus. `select_fixture_vectors` checks that coverage.
+FIXTURE_LABELS = [
+    "small-12",      # 1 attempt, 1 sqrt call: the cheapest key, no rejections
+    "sample-40",     # 1 attempt, no rejections, smaller root, root bit 0
+    "small-8",       # 2 attempts, both sqrt calls, no rejections
+    "small-2",       # 2 attempts, one rejection
+    "small-6",       # 4 attempts, smaller root, root bit 0
+    "sample-12",     # 5 attempts, 3 sqrt calls
+    "sample-0",      # 15 attempts, 1 sqrt call: a typical key
+    "sample-36",     # 18 attempts, 7 sqrt calls: at the 250k key-tooling bound
+    "small-11",      # 31 attempts, 3 sqrt calls
+    "sample-4",      # 42 attempts, 7 sqrt calls
+    "tail-1216207",  # 59 attempts, 17 sqrt calls
+    "tail-31312",    # 93 attempts, 6 sqrt calls: many rejections, few sqrt calls
+    "tail-57193",    # 95 attempts, 18 sqrt calls
+    "tail-693083",   # 97 attempts, 23 sqrt calls
+    "tail-13154",    # 102 attempts, 10 sqrt calls
+    "tail-1745321",  # 111 attempts, 7 sqrt calls
+    "tail-1314687",  # 116 attempts, 24 sqrt calls: most sqrt calls in the corpus
+    "tail-241572",   # 128 attempts, 19 sqrt calls
+    "tail-865039",   # 138 attempts, 12 sqrt calls
+    "tail-723828",   # 139 attempts, 13 sqrt calls: most attempts in the corpus
+]
+
 
 def run_forge(evm, logs_dir):
     env = dict(os.environ, POP_GAS_GENERATE="true")
@@ -173,8 +200,23 @@ def hex32(v):
     return "0x" + format(v, "064x")
 
 
+def select_fixture_vectors(vectors):
+    """The FIXTURE_LABELS subset of the corpus, checked to cover every hashToPoint branch and both extremes."""
+    by_label = {v["label"]: v for v in vectors}
+    missing = [label for label in FIXTURE_LABELS if label not in by_label]
+    assert not missing, f"fixture labels not in the corpus: {missing}"
+    chosen = [by_label[label] for label in FIXTURE_LABELS]
+    root_cases = {(v["swapped"], v["rootBit"]) for v in chosen}
+    assert root_cases == {(s, b) for s in (False, True) for b in (0, 1)}, "missing a (swapped, rootBit) case"
+    assert any(v["fieldRejections"] == 0 for v in chosen) and any(v["fieldRejections"] > 0 for v in chosen)
+    for key in ("attempts", "sqrtCalls"):
+        extremes = {min(v[key] for v in vectors), max(v[key] for v in vectors)}
+        assert extremes <= {v[key] for v in chosen}, f"fixture does not reach the corpus extremes of {key}"
+    return chosen
+
+
 def write_fixture(per_evm, analysis, path):
-    labels = [v["label"] for v in per_evm[EVMS[0]][0]]
+    labels = [v["label"] for v in select_fixture_vectors(per_evm[EVMS[0]][0])]
     by_label = {evm: {v["label"]: v for v in per_evm[evm][0]} for evm in EVMS}
     vectors = []
     for label in labels:
@@ -183,6 +225,7 @@ def write_fixture(per_evm, analysis, path):
             w = by_label[evm][label]
             assert (w["attempts"], w["sqrtCalls"], w["pk1"], w["pk2"]) == (
                 v["attempts"], v["sqrtCalls"], v["pk1"], v["pk2"]), label
+        # pk1, pk2 and the signature are not stored: they are scalar multiples of sk that the consumer derives.
         vectors.append({
             "attempts": v["attempts"],
             "digest": {"x": hex32(v["digest"][0]), "y": hex32(v["digest"][1])},
@@ -190,11 +233,7 @@ def write_fixture(per_evm, analysis, path):
             "gas": {evm: {"minStipend": by_label[evm][label]["minStipend"],
                           "verification": by_label[evm][label]["gasUsed"]} for evm in EVMS},
             "label": label,
-            "pk1": {"x": hex32(v["pk1"][0]), "y": hex32(v["pk1"][1])},
-            "pk2": {"x0": hex32(v["pk2"][0]), "x1": hex32(v["pk2"][1]),
-                    "y0": hex32(v["pk2"][2]), "y1": hex32(v["pk2"][3])},
             "rootBit": v["rootBit"],
-            "signature": {"x": hex32(v["signature"][0]), "y": hex32(v["signature"][1])},
             "sk": hex32(v["sk"]),
             "sqrtCalls": v["sqrtCalls"],
             "swapped": v["swapped"],
