@@ -7,21 +7,20 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import {DeployAztecL1Contracts, DeployAztecL1ContractsOutput} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
 import {DeployRollupForUpgrade} from "../../script/deploy/DeployRollupForUpgrade.s.sol";
-import {PreflightDeployChecks} from "./PreflightDeployChecks.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
+import {ProofOfPossessionPreflight} from "@aztec/periphery/ProofOfPossessionPreflight.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 
 /**
  * @title DeployRollupForUpgradeTest
  * @notice Tests for the DeployRollupForUpgrade.s.sol script
  * @dev This test validates:
- *      1. The script deploys only Rollup and Verifier, plus the registration payload and a proof of possession
- *         preflight helper
+ *      1. The script deploys only Rollup and Verifier
  *      2. It uses existing infrastructure contracts correctly
  *      3. The new rollup is properly registered (if deployer is owner)
- *      4. The preflight helper is emitted and works against the reused GSE
  */
-contract DeployRollupForUpgradeTest is PreflightDeployChecks {
+contract DeployRollupForUpgradeTest is Test {
   using stdJson for string;
 
   modifier skipWhenCoverage() {
@@ -123,7 +122,9 @@ contract DeployRollupForUpgradeTest is PreflightDeployChecks {
     vm.setEnv("GENESIS_ARCHIVE_ROOT", vm.toString(uint256(keccak256("different_genesis"))));
 
     DeployRollupForUpgrade upgradeDeploy = new DeployRollupForUpgrade();
+    vm.startStateDiffRecording();
     upgradeDeploy.run();
+    VmSafe.AccountAccess[] memory upgradeAccesses = vm.stopAndReturnStateDiff();
 
     Rollup newRollup = upgradeDeploy.rollupOutput().rollup;
     uint256 newVersion = newRollup.getVersion();
@@ -142,12 +143,16 @@ contract DeployRollupForUpgradeTest is PreflightDeployChecks {
     // Version count should be 2
     assertEq(registry.numberOfVersions(), 2);
 
-    // ============ STEP 4: Verify the proof of possession preflight helper ============
-    // The upgrade reuses the GSE and deploys its own helper for it.
-    assertEq(address(newRollup.getGSE()), address(initialOutput.gse));
-    assertTrue(address(upgradeDeploy.proofOfPossessionPreflight()) != address(initialOutput.proofOfPossessionPreflight));
-    _assertPreflightDeployed(
-      upgradeDeploy.proofOfPossessionPreflight(), initialOutput.gse, upgradeDeploy.deploymentJson()
-    );
+    // ============ STEP 4: No proof of possession preflight helper ============
+    // Only a full deployment (a new GSE) deploys the helper; a rollup upgrade must not.
+    assertGt(address(initialOutput.proofOfPossessionPreflight).code.length, 0, "full deployment has no preflight");
+    bytes32 preflightCodeHash = keccak256(type(ProofOfPossessionPreflight).runtimeCode);
+    for (uint256 i = 0; i < upgradeAccesses.length; i++) {
+      if (upgradeAccesses[i].kind == VmSafe.AccountAccessKind.Create) {
+        assertNotEq(
+          keccak256(upgradeAccesses[i].deployedCode), preflightCodeHash, "upgrade deployed the preflight helper"
+        );
+      }
+    }
   }
 }
