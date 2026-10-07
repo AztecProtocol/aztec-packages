@@ -7,6 +7,13 @@ export interface IpcClientAsync {
   destroy(): Promise<void>;
 }
 
+/**
+ * Rewrites a failed call's error before the caller sees it, e.g. to blame a
+ * dead server process instead of the broken transport. Clients apply it on
+ * the rejection path only, so successful calls pay nothing for it.
+ */
+export type IpcErrorMapper = (err: unknown) => Promise<unknown>;
+
 export interface IpcClientSync {
   call(input: Uint8Array): Uint8Array;
   destroy(): void;

@@ -2,13 +2,14 @@ import * as net from "node:net";
 import { IpcTransportError } from "./errors.js";
 import {
   IpcClientAsync,
+  IpcErrorMapper,
   CONNECT_RETRY_BUDGET_MS,
   MAX_FRAME_SIZE,
 } from "./types.js";
 
 interface PendingCall {
   resolve: (resp: Uint8Array) => void;
-  reject: (err: Error) => void;
+  reject: (err: unknown) => void;
 }
 
 export interface UdsIpcClientConnectOptions {
@@ -31,6 +32,8 @@ export interface UdsIpcClientConnectOptions {
    * loop open long after the caller gave up.
    */
   signal?: AbortSignal;
+  /** Applied to every rejected call's error. */
+  mapError?: IpcErrorMapper;
 }
 
 /**
@@ -56,6 +59,7 @@ export class UdsIpcClient implements IpcClientAsync {
   private constructor(
     private conn: net.Socket,
     private readonly idleUnref: boolean,
+    private readonly mapError?: IpcErrorMapper,
   ) {
     conn.on("data", (chunk) => this.onData(chunk));
     conn.on("error", (err) =>
@@ -81,7 +85,7 @@ export class UdsIpcClient implements IpcClientAsync {
     );
     conn.setNoDelay(true);
     if (opts?.unref) conn.unref();
-    return new UdsIpcClient(conn, opts?.unref ?? false);
+    return new UdsIpcClient(conn, opts?.unref ?? false, opts?.mapError);
   }
 
   /** Number of in-flight calls awaiting a response. */
@@ -96,19 +100,25 @@ export class UdsIpcClient implements IpcClientAsync {
 
   async call(input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
-      throw new IpcTransportError("UdsIpcClient: call() after destroy()");
+      throw await this.mapped(
+        new IpcTransportError("UdsIpcClient: call() after destroy()"),
+      );
     }
     if (this.closed) {
-      throw new IpcTransportError(
-        "UdsIpcClient: call() on a closed/errored socket",
+      throw await this.mapped(
+        new IpcTransportError(
+          "UdsIpcClient: call() on a closed/errored socket",
+        ),
       );
     }
     // The peer rejects an oversized frame by closing the connection, which
     // reaches the caller as an unexplained EPIPE on the next write. Fail here
     // instead, naming the size that was refused.
     if (input.length + 8 > MAX_FRAME_SIZE) {
-      throw new IpcTransportError(
-        `UdsIpcClient: request of ${input.length} bytes exceeds MAX_FRAME_SIZE (${MAX_FRAME_SIZE})`,
+      throw await this.mapped(
+        new IpcTransportError(
+          `UdsIpcClient: request of ${input.length} bytes exceeds MAX_FRAME_SIZE (${MAX_FRAME_SIZE})`,
+        ),
       );
     }
     return new Promise<Uint8Array>((resolve, reject) => {
@@ -192,7 +202,17 @@ export class UdsIpcClient implements IpcClientAsync {
     this.closed = true;
     const pending = [...this.pending.values()];
     this.pending.clear();
-    for (const p of pending) p.reject(err);
+    for (const p of pending) {
+      if (this.mapError) {
+        this.mapError(err).then(p.reject, p.reject);
+      } else {
+        p.reject(err);
+      }
+    }
+  }
+
+  private async mapped(err: unknown): Promise<unknown> {
+    return this.mapError ? await this.mapError(err) : err;
   }
 }
 
