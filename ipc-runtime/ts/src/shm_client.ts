@@ -1,5 +1,5 @@
 import { loadIpcRuntimeNapi } from "./native_loader.js";
-import { IpcClientAsync, IpcClientSync } from "./types.js";
+import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
 
 /**
  * Minimum surface a NAPI msgpack client must expose. Satisfied by the
@@ -52,7 +52,7 @@ export class NapiShmSyncClient implements IpcClientSync {
 interface PendingCallback {
   requestId: number;
   resolve: (data: Uint8Array) => void;
-  reject: (error: Error) => void;
+  reject: (error: unknown) => void;
 }
 
 /** Request ids stay below 2^30 so V8 keeps them as small integers (no heap allocation per call). */
@@ -78,7 +78,10 @@ export class NapiShmAsyncClient implements IpcClientAsync {
   private nextRequestId = Math.floor(Math.random() * REQUEST_ID_SPACE);
   private destroyed = false;
 
-  constructor(private inner: NapiMsgpackClientAsync) {
+  constructor(
+    private inner: NapiMsgpackClientAsync,
+    private readonly mapError?: IpcErrorMapper,
+  ) {
     this.inner.setResponseCallback((requestId: number, response: Buffer) => {
       if (this.destroyed) {
         // Late response delivered after destroy(); the native close already
@@ -116,8 +119,11 @@ export class NapiShmAsyncClient implements IpcClientAsync {
 
   call(input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
-      return Promise.reject(
-        new Error("NapiShmAsyncClient: call() after destroy()"),
+      return new Promise((_, reject) =>
+        this.fail(
+          reject,
+          new Error("NapiShmAsyncClient: call() after destroy()"),
+        ),
       );
     }
     const buf = Buffer.isBuffer(input)
@@ -138,13 +144,22 @@ export class NapiShmAsyncClient implements IpcClientAsync {
         if (this.pending.length === 0) {
           this.inner.release();
         }
-        reject(
+        this.fail(
+          reject,
           err instanceof Error
             ? err
             : new Error(`SHM async call failed: ${String(err)}`),
         );
       }
     });
+  }
+
+  private fail(reject: (error: unknown) => void, err: unknown): void {
+    if (this.mapError) {
+      this.mapError(err).then(reject, reject);
+    } else {
+      reject(err);
+    }
   }
 
   async destroy(): Promise<void> {
@@ -157,7 +172,7 @@ export class NapiShmAsyncClient implements IpcClientAsync {
     const pending = this.pending;
     this.pending = [];
     for (const cb of pending) {
-      cb.reject(err);
+      this.fail(cb.reject, err);
     }
     // Stops the native poll thread and releases the TSFN reference taken
     // when the queue went 0 → 1 — without this, Node never exits when
@@ -171,6 +186,8 @@ export interface CreateNapiShmOptions {
   clientId?: number;
   /** Override addon path lookup. Rarely needed; useful for tests / unusual deployments. */
   customAddonPath?: string;
+  /** Applied to every rejected call's error. */
+  mapError?: IpcErrorMapper;
 }
 
 /**
@@ -204,5 +221,6 @@ export function createNapiShmAsyncClient(
     options.clientId === undefined
       ? new napi.MsgpackClientAsync(shmName)
       : new napi.MsgpackClientAsync(shmName, options.clientId),
+    options.mapError,
   );
 }

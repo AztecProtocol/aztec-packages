@@ -13,7 +13,7 @@ import {
   createNapiShmAsyncClient,
   createNapiShmSyncClient,
 } from "./shm_client.js";
-import { IpcClientAsync, IpcClientSync } from "./types.js";
+import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
 import { UdsIpcClient } from "./uds_client.js";
 
 export type SpawnedTransport = "uds" | "shm";
@@ -80,7 +80,9 @@ const EXIT_ATTRIBUTION_GRACE_MS = 250;
 /** POSIX shm segment names an shm server creates for `<name>.shm`. */
 function shmSegmentPaths(ipcPath: string): string[] {
   const shmName = ipcPath.replace(/\.shm$/, "");
-  return ["_request", "_response"].map((suffix) => `/dev/shm/${shmName}${suffix}`);
+  return ["_request", "_response"].map(
+    (suffix) => `/dev/shm/${shmName}${suffix}`,
+  );
 }
 
 /**
@@ -97,8 +99,7 @@ async function removeStaleIpcPath(
   ipcPath: string,
 ): Promise<void> {
   try {
-    const paths =
-      transport === "shm" ? shmSegmentPaths(ipcPath) : [ipcPath];
+    const paths = transport === "shm" ? shmSegmentPaths(ipcPath) : [ipcPath];
     await Promise.all(paths.map((p) => rm(p, { force: true })));
   } catch {
     // Best effort: a stale path we cannot remove surfaces as the server's own
@@ -172,9 +173,13 @@ function childReadyFailurePromise(
       const code = (err as NodeJS.ErrnoException).code;
       const retry = code !== "ENOENT" && code !== "EACCES";
       reject(
-        new IpcSpawnError(`Failed to spawn ${binaryName}: ${err.message}`, retry, {
-          cause: err,
-        }),
+        new IpcSpawnError(
+          `Failed to spawn ${binaryName}: ${err.message}`,
+          retry,
+          {
+            cause: err,
+          },
+        ),
       );
     });
     child.once("exit", (code, signal) => {
@@ -252,25 +257,20 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   }
 
   call(input: Uint8Array): Promise<Uint8Array> {
-    // Fast path for a live process: no async frame and no await on
-    // ensureUp(). This runs once per call, and a pipelined caller issuing
-    // thousands of calls feels every extra promise hop.
+    // Fast path for a live process: no async frame, no await on ensureUp(),
+    // and no extra promise. This runs once per call, and a pipelined caller
+    // issuing thousands of calls feels every extra promise hop. Errors are
+    // attributed by the client itself (see connectClient's mapError).
     const incarnation = this.current;
     if (incarnation !== undefined && !this.destroying) {
-      return incarnation.client.call(input).catch(async (err) => {
-        throw await this.attributeCallError(incarnation, err);
-      });
+      return incarnation.client.call(input);
     }
     return this.callWithRespawn(input);
   }
 
   private async callWithRespawn(input: Uint8Array): Promise<Uint8Array> {
     const incarnation = await this.ensureUp();
-    try {
-      return await incarnation.client.call(input);
-    } catch (err) {
-      throw await this.attributeCallError(incarnation, err);
-    }
+    return await incarnation.client.call(input);
   }
 
   sendProcessSignal(signal: NodeJS.Signals): void {
@@ -446,7 +446,9 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     const connectAbort = new AbortController();
     try {
       incarnation.client = await Promise.race([
-        this.connectClient(connectAbort.signal),
+        this.connectClient(connectAbort.signal, (err) =>
+          this.attributeCallError(incarnation as Incarnation, err),
+        ),
         childReadyFailure,
       ]);
     } catch (err) {
@@ -497,7 +499,10 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     }
   }
 
-  private async connectClient(signal?: AbortSignal): Promise<IpcClientAsync> {
+  private async connectClient(
+    signal: AbortSignal,
+    mapError: IpcErrorMapper,
+  ): Promise<IpcClientAsync> {
     const { options } = this;
     const timeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
     if (options.transport === "uds") {
@@ -510,6 +515,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
         connectTimeoutMs: timeoutMs,
         unref: options.unref,
         signal,
+        mapError,
       });
     }
     // The SHM client attaches to server-created rings, so creation can race
@@ -521,6 +527,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
         return createNapiShmAsyncClient(this.ipcPath.replace(/\.shm$/, ""), {
           clientId: options.clientId,
           customAddonPath: options.napiPath,
+          mapError,
         });
       } catch (err) {
         lastError = err;
@@ -600,7 +607,8 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
       : join(tmpdir(), `${instanceId}.log`);
 
     await removeStaleIpcPath("shm", ipcPath);
-    const logFile = logPath !== undefined ? await open(logPath, "a") : undefined;
+    const logFile =
+      logPath !== undefined ? await open(logPath, "a") : undefined;
     const child = spawnServerProcess(options, ipcPath, logFile?.fd);
     const childReadyFailure = childReadyFailurePromise(
       child,
