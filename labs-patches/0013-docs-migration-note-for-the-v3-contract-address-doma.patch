@@ -7,10 +7,10 @@ Subject: [PATCH] docs: migration note for the v3 contract address domain
 Every contract address on v6 differs from v5 because the address domain separator is rotated per protocol version; record the new separator value and the standard contracts' canonical addresses (old to new).
 
 diff --git a/docs/docs-developers/docs/resources/migration_notes.md b/docs/docs-developers/docs/resources/migration_notes.md
-index 59d503114eee476edeea4737288d6153d6e58650..7ae0ec169beaab28b11f1200eab2a2b50cf3f1fe 100644
+index 59d503114eee476edeea4737288d6153d6e58650..c6e0a92407940f033614bba8120ba1e09ee469ed 100644
 --- a/docs/docs-developers/docs/resources/migration_notes.md
 +++ b/docs/docs-developers/docs/resources/migration_notes.md
-@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
+@@ -9,6 +9,23 @@ Aztec is in active development. Each version may introduce breaking changes that
  
  ## TBD
  
@@ -23,11 +23,13 @@ index 59d503114eee476edeea4737288d6153d6e58650..7ae0ec169beaab28b11f1200eab2a2b5
 +| Contract            | v5 address (V2)                                                      | v6 address (V3)                                                      |
 +| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
 +| AuthRegistry        | `0x1ec33912c9f14470513e0eb23db81ddb2aa1ae3395e6ab4d3cba383f68dec3c5` | `0x193392554ff4cc24ac9acd5488a436e9e8eea429ae0edc8de082575b2c964399` |
-+| MultiCallEntrypoint | `0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6` | `0x063b74f69435c76e490b3dedd9238552228b523f233235152b236981cdf025f4` |
++| MultiCallEntrypoint | `0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6` | `0x24bf89a314dd934544c36ca1a622992d48c3f572a01d7d31bbccf83e94f33e18` |
 +| PublicChecks        | `0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe` | `0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a` |
-+| HandshakeRegistry   | `0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7` | `0x13833f89e250646a1ca08fef8b00bc96eb20df07bc0917bcdba3adedbdf99611` |
++| HandshakeRegistry   | `0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7` | `0x1348f15cc3a52173965ebf7321f752daa4d2106872e2618463c225bbf6cfbaa1` |
 +
-+`STANDARD_*_ADDRESS` in `@aztec-labs/standard-contracts` and `aztec::standard_addresses` carry the new values, so code that reads them needs only a recompile. The protocol contracts keep their magic addresses (`1`, `2`, ...), but the derived addresses behind them move too, which is why the genesis constants change with this release.
++`STANDARD_*_ADDRESS` in `@aztec-labs/standard-contracts` and `aztec::standard_addresses` carry the new values, so code that reads them needs only a recompile. HandshakeRegistry derives addresses itself, through `get_public_keys`, so the separator is compiled into its bytecode and the pinned standard-contract build is refreshed with it; that recompile also moves MultiCallEntrypoint's artifact hash and private functions root, so its address moves for reasons unrelated to the separator.
++
++The protocol contracts keep their magic addresses (`1`, `2`, ...). Their registration nullifiers are siloed by those magic addresses rather than by the derived ones, so the genesis constants move for a narrower reason: ContractInstanceRegistry calls `AztecAddress::compute` when it publishes an instance, so the separator is in its bytecode, its class id rotates, and exactly one of the six seeded registration nullifiers changes with it.
 +
  ### [Protocol] The protocol nullifier is derived from the tx request's salt alone; `tx_request_salt` becomes `protocol_nullifier`
  

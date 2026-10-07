@@ -13,9 +13,9 @@ namespace azteclabs::wsdb::world_state {
  *
  * Derived from the protocol contract artifacts: per protocol contract, the class registration nullifier siloed by
  * ContractClassRegistry and the instance publication nullifier siloed by ContractInstanceRegistry. Sorted ascending
- * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. These determine
- * GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT, so they are rewritten together
- * with those constants and never on their own.
+ * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. These determine the
+ * three roots below, and GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT in
+ * constants.nr, so all of them are rewritten together and never on their own.
  */
 inline std::vector<fr> genesis_protocol_nullifiers()
 {
@@ -27,6 +27,30 @@ inline std::vector<fr> genesis_protocol_nullifiers()
         fr("0x1cea539e01abaa5db980e7ff52ef0d2a7772310306ac625783ae435756ee326d"),
         fr("0x2c3a57c8d7c387652babd36c4d79ab03c0fe593e160315a4dc098f92caf592c3"),
     };
+}
+
+/**
+ * @brief The genesis roots the seed vector above produces.
+ *
+ * Measured from the protocol contract artifacts together with the seeds, so that this package can check its tree
+ * implementation against them without reaching for the protocol constants: the GENESIS_* macros in
+ * common/aztec_constants.hpp come from the release named in foundation.pin, which lags this tree whenever the genesis
+ * moves. constants.nr remains the protocol's source of truth, and is held to this same measurement by the script that
+ * writes this file.
+ */
+inline fr genesis_nullifier_tree_root()
+{
+    return fr("0x15c67f4d7495a669ed57c5a9468533c63ace43f86b787c52edabefec85e4afc0");
+}
+
+inline fr genesis_block_header_hash()
+{
+    return fr("0x199b52350e8f18eeb9cd455fd074bc6fa62ea6a8e3253e2c663aa4909bbd5718");
+}
+
+inline fr genesis_archive_root()
+{
+    return fr("0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4");
 }
 
 } // namespace azteclabs::wsdb::world_state
