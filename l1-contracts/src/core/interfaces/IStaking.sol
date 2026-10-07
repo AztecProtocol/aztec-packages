@@ -56,7 +56,18 @@ interface IStakingCore {
     G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external;
+  /**
+   * @notice Activates queued validators, up to the epoch's flush budget (and `_toAdd` when given)
+   * @dev Before every deposit the flush requires `StakingLib.getFlushDepositGasFloor` gas to be left (about 1.1M at
+   *      the default proof-of-possession cap) and reverts with `Staking__InsufficientFlushGas` otherwise. Size the
+   *      transaction with `eth_estimateGas`, which accounts for this, or leave that much headroom beyond the gas the
+   *      flush consumes. A limit derived from simulated gas used is not enough for a flush of a few entries.
+   */
   function flushEntryQueue() external;
+  /**
+   * @notice Same as `flushEntryQueue()`, processing at most `_toAdd` queued validators
+   * @param _toAdd The maximum number of entries to process
+   */
   function flushEntryQueue(uint256 _toAdd) external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finalizeWithdraw(address _attester) external;

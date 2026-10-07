@@ -68,6 +68,7 @@ interface IEscapeHatch is IEscapeHatchCore {
   function getSetTimestamp(Hatch _hatch) external view returns (uint32);
   function getSeedTimestamp(Hatch _hatch) external view returns (uint32);
   function getRollup() external view returns (address);
+  function getRollupLagInEpochsForRandao() external view returns (uint256);
   function getBondToken() external view returns (address);
   function getBondSize() external view returns (uint96);
   function getWithdrawalTax() external view returns (uint96);

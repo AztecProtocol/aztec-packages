@@ -11,6 +11,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {FakeRollup} from "./mocks/FakeRollup.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 /// @notice Configuration struct for EscapeHatch deployment
@@ -65,7 +66,7 @@ contract EscapeHatchBase is TestBase {
   function setUp() public virtual {
     // Deploy rollup with simple config
     RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
-      .setEpochDuration(4).setSlotDuration(12);
+      .setEpochDuration(4).setSlotDuration(12).setLagInEpochsForRandao(_lagInEpochsForRandao());
     builder.deploy();
 
     Config memory rollupConfig = builder.getConfig();
@@ -112,6 +113,11 @@ contract EscapeHatchBase is TestBase {
   }
 
   // ============ Helper Functions ============
+
+  /// @notice The rollup's `lagInEpochsForRandao` used by setUp; override to run a suite under another value
+  function _lagInEpochsForRandao() internal view virtual returns (uint256) {
+    return TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO;
+  }
 
   /// @notice Returns the current rollup address (real or fake)
   function _getRollup() internal view returns (address) {
