@@ -60,19 +60,14 @@ uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100;
 /*
  * L1 gas the fee model charges for proposing a checkpoint and for verifying an epoch proof.
  *
- * Placeholders. Both are sized against the Glamsterdam gas schedule (EIP-8037 state gas,
- * EIP-8038 state access repricing), measured by running the `BenchmarkRollupTest` gas report
- * under `forge --evm-version amsterdam`: `propose` costs ~500k and `submitEpochRootProof` ~3.5M,
- * against ~327k and ~1.5M on the pre-fork schedule.
- *
- * Neither number is a production measurement. The benchmark installs `MockVerifier` and submits
- * an empty proof, so the epoch figure omits both proof verification and the proof calldata, and
- * the harness measures a bare `propose` while the sequencer publishes through Multicall3's
- * `aggregate3` with `setupEpoch` folded in. Replace both with values measured on testnet once the
- * fork is live.
+ * Measured on Sepolia under the Glamsterdam gas schedule (EIP-8037 state gas, EIP-8038 state
+ * access repricing), with the sequencer publishing through Multicall3's `aggregate3`. A propose
+ * costs ~487k at the median and ~514k averaged per checkpoint once the `setupEpoch` folded into
+ * the first checkpoint of each epoch is included; 520k is the most expensive regular propose
+ * observed. The first proof submitted for an epoch costs ~2.36M at the median and ~2.51M at most.
  */
-uint256 constant L1_GAS_PER_CHECKPOINT_PROPOSED = 500_000;
-uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 4_000_000;
+uint256 constant L1_GAS_PER_CHECKPOINT_PROPOSED = 520_000;
+uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 2_500_000;
 
 // The uncongested baseline of the congestion multiplier is (1 + mu) * 1e9, where mu is the
 // protocol fee margin: congestionMultiplier scales this minimum by (10_000 + marginBps) / 10_000.
