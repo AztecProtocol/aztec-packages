@@ -2,5 +2,6 @@
   "default-address-pools": [
     { "base": "172.20.0.0/16", "size": 24 },
     { "base": "172.21.0.0/16", "size": 24 }
-  ]
+  ],
+  "features": { "containerd-snapshotter": false }
 }

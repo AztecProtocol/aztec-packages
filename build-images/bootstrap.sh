@@ -67,14 +67,11 @@ function build_ec2 {
 function update_manifests {
   for target in build devbox sysbox; do
     # We update the manifest to point to the latest arch specific images, pushed above.
-    local image=aztecprotocol/$target:$version
-    # Remove any old local manifest if present.
-    docker manifest rm $image || true
-    # Create new manifest and push.
-    docker manifest create $image \
-      --amend aztecprotocol/$target:$version-amd64 \
-      --amend aztecprotocol/$target:$version-arm64
-    docker manifest push $image
+    # imagetools, not `docker manifest`: current docker pushes each arch image as an OCI index (image plus
+    # provenance attestation), which `docker manifest create` rejects as "is a manifest list".
+    docker buildx imagetools create -t aztecprotocol/$target:$version \
+      aztecprotocol/$target:$version-amd64 \
+      aztecprotocol/$target:$version-arm64
   done
 }
 
