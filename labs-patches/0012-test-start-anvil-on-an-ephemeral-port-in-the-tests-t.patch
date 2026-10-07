@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Wed, 7 Oct 2026 20:07:17 +0000
+Subject: [PATCH] test: start anvil on an ephemeral port in the tests that run
+ outside isolation
+
+epoch-cache, sequencer-client and cli tests run on the host alongside
+each other, and startAnvil() without a port binds 8545, so two of them
+scheduled together fail with "Address already in use". Each reads the
+RPC URL back from startAnvil, so port 0 costs nothing.
+
+diff --git a/yarn-project/cli/src/cmds/l1/attester_exit.test.ts b/yarn-project/cli/src/cmds/l1/attester_exit.test.ts
+index d3181a049e98b29e66a1857dc6ab9f46ca3e3cf9..9c74c2b65f47996039469019dc09f8639b604963 100644
+--- a/yarn-project/cli/src/cmds/l1/attester_exit.test.ts
++++ b/yarn-project/cli/src/cmds/l1/attester_exit.test.ts
+@@ -96,7 +96,7 @@ describe('attester exit through the client and CLI', () => {
+   });
+ 
+   it('deploys, exits as the attester, and pays only the withdrawer-selected recipient after both delays', async () => {
+-    ({ anvil, rpcUrl } = await startAnvil());
++    ({ anvil, rpcUrl } = await startAnvil({ port: 0 }));
+     const { l1ContractAddresses } = await deployAztecL1Contracts(
+       rpcUrl,
+       '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
+diff --git a/yarn-project/epoch-cache/src/epoch_cache.integration.test.ts b/yarn-project/epoch-cache/src/epoch_cache.integration.test.ts
+index ea0c771941ca88a324e83c946834608f516b6c5a..3b56f005c07afbbfb6ad1e9001bb406466e18ac0 100644
+--- a/yarn-project/epoch-cache/src/epoch_cache.integration.test.ts
++++ b/yarn-project/epoch-cache/src/epoch_cache.integration.test.ts
+@@ -50,6 +50,7 @@ describe('EpochCache integration', () => {
+     // Start Anvil with slotsInAnEpoch=8 so finalized = latest - 16 blocks.
+     // This keeps most epoch data non-finalized (TTL-cached) after warps.
+     ({ anvil, rpcUrl } = await startAnvil({
++      port: 0,
+       l1BlockTime: 1,
+       slotsInAnEpoch: 8,
+       dateProvider,
+diff --git a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
+index ccb240a5d9e99fdeef00e5e21da550fadc76b9c6..9fc314dfe4f5275a307cb6fa3fa9dbfe68174856 100644
+--- a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
++++ b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
+@@ -36,7 +36,7 @@ describe('FeePredictor', () => {
+   beforeAll(async () => {
+     const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+ 
+-    ({ anvil, rpcUrl } = await startAnvil());
++    ({ anvil, rpcUrl } = await startAnvil({ port: 0 }));
+ 
+     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
+     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
