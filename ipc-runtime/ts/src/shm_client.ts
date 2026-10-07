@@ -1,4 +1,5 @@
 import { loadIpcRuntimeNapi } from "./native_loader.js";
+import { PendingQueue } from "./pending_queue.js";
 import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
 
 /**
@@ -49,33 +50,18 @@ export class NapiShmSyncClient implements IpcClientSync {
   }
 }
 
-interface PendingCallback {
-  requestId: number;
-  resolve: (data: Uint8Array) => void;
-  reject: (error: unknown) => void;
-}
-
-/** Request ids stay below 2^30 so V8 keeps them as small integers (no heap allocation per call). */
-const REQUEST_ID_SPACE = 2 ** 30;
-
 /**
  * Wraps the fire-and-forget async NAPI msgpack client behind the
- * `IpcClientAsync` interface. Pending calls are kept in issue order; the C++
- * background polling thread invokes `setResponseCallback` once per response
- * (in completion order), and this wrapper pairs it to its caller by the
- * echoed id. Servers that answer in order (e.g. a serial `run()` loop) always
- * match the head of the queue, so the common path is a shift and an integer
- * compare; out-of-order responses fall back to a search. Ids start at a
- * random point per client so a stale frame left in a recycled SHM ring slot
- * by a previous occupant is unlikely to pair with a live call.
+ * `IpcClientAsync` interface. The C++ background polling thread invokes
+ * `setResponseCallback` once per response (in completion order), and this
+ * wrapper pairs it to its caller by the echoed id (see PendingQueue).
  *
  * `acquire` / `release` are reference-count hooks the NAPI exposes so the
  * libuv loop is kept alive only while requests are outstanding — without
  * them a `node script.js` would never exit naturally.
  */
 export class NapiShmAsyncClient implements IpcClientAsync {
-  private pending: PendingCallback[] = [];
-  private nextRequestId = Math.floor(Math.random() * REQUEST_ID_SPACE);
+  private readonly pending = new PendingQueue();
   private destroyed = false;
 
   constructor(
@@ -88,7 +74,7 @@ export class NapiShmAsyncClient implements IpcClientAsync {
         // balanced the TSFN reference.
         return;
       }
-      const cb = this.takePending(requestId);
+      const cb = this.pending.take(requestId);
       if (cb) {
         cb.resolve(new Uint8Array(response));
         if (this.pending.length === 0) {
@@ -109,14 +95,6 @@ export class NapiShmAsyncClient implements IpcClientAsync {
     });
   }
 
-  private takePending(requestId: number): PendingCallback | undefined {
-    if (this.pending.length > 0 && this.pending[0].requestId === requestId) {
-      return this.pending.shift();
-    }
-    const i = this.pending.findIndex((p) => p.requestId === requestId);
-    return i === -1 ? undefined : this.pending.splice(i, 1)[0];
-  }
-
   call(input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
       return new Promise((_, reject) =>
@@ -130,12 +108,10 @@ export class NapiShmAsyncClient implements IpcClientAsync {
       ? input
       : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
     return new Promise<Uint8Array>((resolve, reject) => {
-      const requestId = this.nextRequestId;
-      this.nextRequestId = (requestId + 1) % REQUEST_ID_SPACE;
       if (this.pending.length === 0) {
         this.inner.acquire();
       }
-      this.pending.push({ requestId, resolve, reject });
+      const requestId = this.pending.push(resolve, reject);
       try {
         this.inner.call(requestId, buf);
       } catch (err: any) {
@@ -169,9 +145,7 @@ export class NapiShmAsyncClient implements IpcClientAsync {
     this.destroyed = true;
     // Reject anything still in flight.
     const err = new Error("ipc-runtime SHM client destroyed before response");
-    const pending = this.pending;
-    this.pending = [];
-    for (const cb of pending) {
+    for (const cb of this.pending.drain()) {
       this.fail(cb.reject, err);
     }
     // Stops the native poll thread and releases the TSFN reference taken

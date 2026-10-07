@@ -1,16 +1,12 @@
 import * as net from "node:net";
 import { IpcTransportError } from "./errors.js";
+import { PendingQueue } from "./pending_queue.js";
 import {
   IpcClientAsync,
   IpcErrorMapper,
   CONNECT_RETRY_BUDGET_MS,
   MAX_FRAME_SIZE,
 } from "./types.js";
-
-interface PendingCall {
-  resolve: (resp: Uint8Array) => void;
-  reject: (err: unknown) => void;
-}
 
 export interface UdsIpcClientConnectOptions {
   /**
@@ -44,14 +40,11 @@ export interface UdsIpcClientConnectOptions {
  *
  * Supports pipelining: each call carries a unique request id which the
  * server echoes on the response, so responses are paired to callers by id
- * and the server may complete requests in any order. Ids start at a random
- * point per connection.
+ * and the server may complete requests in any order (see PendingQueue).
  */
 export class UdsIpcClient implements IpcClientAsync {
   private buffer: Buffer = Buffer.alloc(0);
-  private pending = new Map<bigint, PendingCall>();
-  private nextRequestId =
-    (BigInt(Math.floor(Math.random() * 0xffffffff)) << 16n) + 1n;
+  private readonly pending = new PendingQueue();
   private destroyed = false;
   /** Set once the socket has errored/closed; new calls fail fast. */
   private closed = false;
@@ -90,7 +83,7 @@ export class UdsIpcClient implements IpcClientAsync {
 
   /** Number of in-flight calls awaiting a response. */
   get inflight(): number {
-    return this.pending.size;
+    return this.pending.length;
   }
 
   /** Underlying socket — exposed for ref/unref control (event-loop tuning). */
@@ -122,14 +115,14 @@ export class UdsIpcClient implements IpcClientAsync {
       );
     }
     return new Promise<Uint8Array>((resolve, reject) => {
-      const requestId = this.nextRequestId++;
-      if (this.idleUnref && this.pending.size === 0) {
+      if (this.idleUnref && this.pending.length === 0) {
         this.conn.ref();
       }
-      this.pending.set(requestId, { resolve, reject });
+      const requestId = this.pending.push(resolve, reject);
       const header = Buffer.allocUnsafe(12);
       header.writeUInt32LE(input.length + 8, 0); // length counts id + payload
-      header.writeBigUInt64LE(requestId, 4);
+      header.writeUInt32LE(requestId, 4); // u64 id; live ids fit in the low word
+      header.writeUInt32LE(0, 8);
       this.conn.write(header);
       this.conn.write(input);
     });
@@ -173,13 +166,14 @@ export class UdsIpcClient implements IpcClientAsync {
         return;
       }
       if (this.buffer.length < 4 + len) return;
-      const requestId = this.buffer.readBigUInt64LE(4);
+      // Live ids are below 2^30, so a nonzero high word can't match a call.
+      const requestId =
+        this.buffer.readUInt32LE(8) === 0 ? this.buffer.readUInt32LE(4) : -1;
       const payload = this.buffer.subarray(12, 4 + len);
       this.buffer = this.buffer.subarray(4 + len);
-      const next = this.pending.get(requestId);
+      const next = this.pending.take(requestId);
       if (next) {
-        this.pending.delete(requestId);
-        if (this.idleUnref && this.pending.size === 0) {
+        if (this.idleUnref && this.pending.length === 0) {
           this.conn.unref();
         }
         next.resolve(new Uint8Array(payload));
@@ -200,9 +194,7 @@ export class UdsIpcClient implements IpcClientAsync {
 
   private failAll(err: Error): void {
     this.closed = true;
-    const pending = [...this.pending.values()];
-    this.pending.clear();
-    for (const p of pending) {
+    for (const p of this.pending.drain()) {
       if (this.mapError) {
         this.mapError(err).then(p.reject, p.reject);
       } else {
