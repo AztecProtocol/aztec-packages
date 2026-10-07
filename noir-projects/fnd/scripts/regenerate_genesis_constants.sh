@@ -109,9 +109,9 @@ namespace azteclabs::wsdb::world_state {
  *
  * Derived from the protocol contract artifacts: per protocol contract, the class registration nullifier siloed by
  * ContractClassRegistry and the instance publication nullifier siloed by ContractInstanceRegistry. Sorted ascending
- * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. These determine
- * GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT, so they are rewritten together
- * with those constants and never on their own.
+ * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. These determine the
+ * three roots below, and GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT in
+ * constants.nr, so all of them are rewritten together and never on their own.
  */
 inline std::vector<fr> genesis_protocol_nullifiers()
 {
@@ -121,6 +121,34 @@ EOF
     cat <<'EOF'
     };
 }
+
+/**
+ * @brief The genesis roots the seed vector above produces.
+ *
+ * Measured from the protocol contract artifacts together with the seeds, so that this package can check its tree
+ * implementation against them without reaching for the protocol constants: the GENESIS_* macros in
+ * common/aztec_constants.hpp come from the release named in foundation.pin, which lags this tree whenever the genesis
+ * moves. constants.nr remains the protocol's source of truth, and is held to this same measurement by the script that
+ * writes this file.
+ */
+EOF
+    cat <<EOF
+inline fr genesis_nullifier_tree_root()
+{
+    return fr("$NULLIFIER_ROOT");
+}
+
+inline fr genesis_block_header_hash()
+{
+    return fr("$HEADER_HASH");
+}
+
+inline fr genesis_archive_root()
+{
+    return fr("$ARCHIVE_ROOT");
+}
+EOF
+    cat <<'EOF'
 
 } // namespace azteclabs::wsdb::world_state
 EOF
@@ -137,6 +165,9 @@ if [ "$check_only" = 1 ]; then
   done
   for seed in $SEEDS; do
     grep -q "$seed" "$seeds_hpp" || { echo "  stale: $seed missing from $seeds_hpp"; stale=1; }
+  done
+  for root in "$NULLIFIER_ROOT" "$HEADER_HASH" "$ARCHIVE_ROOT"; do
+    grep -q "$root" "$seeds_hpp" || { echo "  stale: $root missing from $seeds_hpp"; stale=1; }
   done
   grep -q "$ARCHIVE_ROOT" l1-contracts/test/fixtures/empty_checkpoint_1.json ||
     { echo "  stale: l1-contracts/test/fixtures/*_checkpoint_*.json (rerun with --fixtures)"; stale=1; }
