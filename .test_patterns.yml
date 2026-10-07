@@ -96,33 +96,9 @@ tests:
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  - regex: "src/automine/token/lending"
-    error_regex: "✕ Depositing"
-    owners:
-      - *mike
-  - regex: "src/automine/token/lending"
-    error_regex: "✕ Repay"
-    owners:
-      - *mike
   - regex: "src/single-node/cross-chain/l1_to_l2"
     owners:
       - *palla
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Claim secret is enough to consume the message"
-    owners:
-      - *mike
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Someone else can mint funds to me on my behalf"
-    owners:
-      - *mike
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Publicly deposit funds"
-    owners:
-      - *mike
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Can't claim funds"
-    owners:
-      - *mike
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
