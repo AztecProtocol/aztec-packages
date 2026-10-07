@@ -251,7 +251,20 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     return this.ipcPath;
   }
 
-  async call(input: Uint8Array): Promise<Uint8Array> {
+  call(input: Uint8Array): Promise<Uint8Array> {
+    // Fast path for a live process: no async frame and no await on
+    // ensureUp(). This runs once per call, and a pipelined caller issuing
+    // thousands of calls feels every extra promise hop.
+    const incarnation = this.current;
+    if (incarnation !== undefined && !this.destroying) {
+      return incarnation.client.call(input).catch(async (err) => {
+        throw await this.attributeCallError(incarnation, err);
+      });
+    }
+    return this.callWithRespawn(input);
+  }
+
+  private async callWithRespawn(input: Uint8Array): Promise<Uint8Array> {
     const incarnation = await this.ensureUp();
     try {
       return await incarnation.client.call(input);

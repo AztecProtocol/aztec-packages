@@ -205,8 +205,11 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
         // post-spin predicate check runs promptly — without this, every
         // low-concurrency request eats the full spin before its response is sent.
         uint32_t spin_seq = doorbell_->seq.load(std::memory_order_acquire);
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
-        do {
+        // Read the clock only every TIME_CHECK_INTERVAL iterations, as SpscShm's spin does: a clock_gettime per
+        // iteration dominated the loop.
+        constexpr uint32_t TIME_CHECK_INTERVAL = 256;
+        uint32_t iterations = 0;
+        while (true) {
             for (size_t i = 0; i < num_rings; i++) {
                 size_t idx = (last_served_ + 1 + i) % num_rings;
                 if (rings_[idx].available() > 0) {
@@ -219,7 +222,13 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
                 break; // a completion may be ready — fall through to the predicate check
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_duration);
+            if (++iterations >= TIME_CHECK_INTERVAL) {
+                iterations = 0;
+                if ((mono_ns_now() - start) >= spin_duration) {
+                    break;
+                }
+            }
+        }
 
         // Check after spin
         for (size_t i = 0; i < num_rings; i++) {
