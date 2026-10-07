@@ -23,7 +23,8 @@
 // eth_estimateGas, which searches for the smallest limit at which the call succeeds and so includes
 // the floor. Skipping the simulation also makes forge send one transaction per block, so it is
 // confined to the one or two flush transactions; the deploy itself keeps forge's batched,
-// simulated broadcast.
+// simulated broadcast. On anvil, an empty block is mined after the flush so the flush is never in
+// the head block that callers estimate gas against (see the comment at the evm_mine call).
 //
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
 //        (without --broadcast or --batch-size — added automatically)
@@ -147,6 +148,19 @@ if (exitCode === 0 && hasInitialValidators(process.env.INITIAL_VALIDATORS)) {
     ]);
     exitCode = flush.code;
     output = Buffer.concat([output, flush.stdout]);
+    if (exitCode === 0 && isAnvil) {
+      // Leave the flush out of the head block. anvil's eth_estimateGas against `latest` runs at the head
+      // block's timestamp, where a follow-up staking call (e.g. an attester exit) overwrites the
+      // timestamp-keyed GSE checkpoints the flush just pushed instead of pushing new ones. Its estimate
+      // then comes out ~25% below what it costs once mined, more than the 20% gas limit buffer that
+      // L1TxUtils adds.
+      try {
+        await rpc(rpcUrl, "evm_mine");
+      } catch (err) {
+        log(`Failed to mine a block after the flush: ${err.message}`);
+        exitCode = 1;
+      }
+    }
   }
 }
 
