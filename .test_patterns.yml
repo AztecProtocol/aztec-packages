@@ -15,9 +15,9 @@ names:
   - charlie: &charlie "UKUMA5J7K"
   - david: &david "U03T2QRT1NW"
   - grego: &grego "U0689QRCE9L"
-  - lasse: &lasse "U03E5SYLY3Z"
   - leila: &leila "UBLTU1NJ3"
   - luke: &luke "U03JYU7AQET"
+  - mike: &mike "U0B0GGF3Q7R"
   - mitch: &mitch "U06AY5G1NRK"
   - palla: &palla "U04TPBU26E8"
   - sean: &sean "U04DT239VQU"
@@ -116,30 +116,30 @@ tests:
   - regex: "src/automine/token/lending"
     error_regex: "✕ Depositing"
     owners:
-      - *lasse
+      - *mike
   - regex: "src/automine/token/lending"
     error_regex: "✕ Repay"
     owners:
-      - *lasse
+      - *mike
   - regex: "src/single-node/cross-chain/l1_to_l2"
     owners:
       - *palla
   - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
-      - *lasse
+      - *mike
   - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
-      - *lasse
+      - *mike
   - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Publicly deposit funds"
     owners:
-      - *lasse
+      - *mike
   - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Can't claim funds"
     owners:
-      - *lasse
+      - *mike
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
@@ -273,7 +273,7 @@ tests:
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
-      - *lasse
+      - *mike
 
   # http://ci.aztec-labs.com/6db6103599cb22e6
   # Under pipelining, the lazy validator's attestation can arrive after the
