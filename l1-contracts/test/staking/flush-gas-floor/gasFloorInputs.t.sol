@@ -41,7 +41,9 @@ contract FlushGasFloorInputsTest is TestBase {
     for (uint256 i = 0; i < N; i++) {
       regs.push(r[i]);
     }
-    RollupBuilder b = new RollupBuilder(address(this)).setUpdateOwnerships(false).setCheckProofOfPossession(true)
+    RollupBuilder b = new RollupBuilder(address(this))
+      .setUpdateOwnerships(false)
+      .setCheckProofOfPossession(true)
       .setStakingQueueConfig(
         StakingQueueConfig({
           bootstrapValidatorSetSize: 0,
@@ -50,7 +52,8 @@ contract FlushGasFloorInputsTest is TestBase {
           normalFlushSizeQuotient: 400,
           maxQueueFlushSize: 4
         })
-      ).deploy();
+      )
+      .deploy();
     INSTANCE = IInstance(address(b.getConfig().rollup));
     STAKING_ASSET = b.getConfig().testERC20;
 

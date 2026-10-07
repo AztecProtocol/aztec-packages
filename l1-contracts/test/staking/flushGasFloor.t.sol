@@ -59,7 +59,9 @@ contract FlushGasFloorTest is TestBase {
       regs.push(r[i]);
     }
 
-    RollupBuilder b = new RollupBuilder(address(this)).setUpdateOwnerships(false).setCheckProofOfPossession(true)
+    RollupBuilder b = new RollupBuilder(address(this))
+      .setUpdateOwnerships(false)
+      .setCheckProofOfPossession(true)
       .setStakingQueueConfig(
         StakingQueueConfig({
           bootstrapValidatorSetSize: 0,
@@ -68,7 +70,8 @@ contract FlushGasFloorTest is TestBase {
           normalFlushSizeQuotient: 400,
           maxQueueFlushSize: 4
         })
-      ).deploy();
+      )
+      .deploy();
     INSTANCE = IInstance(address(b.getConfig().rollup));
     GSE_ = INSTANCE.getGSE();
     STAKING_ASSET = b.getConfig().testERC20;
@@ -212,8 +215,7 @@ contract FlushGasFloorTest is TestBase {
         activated++;
       } else {
         _assertStateEq(_state(), before);
-        bool known =
-          ret.length == 0 || bytes4(ret) == Errors.Staking__InsufficientFlushGas.selector
+        bool known = ret.length == 0 || bytes4(ret) == Errors.Staking__InsufficientFlushGas.selector
           || bytes4(ret) == Errors.Staking__DepositOutOfGas.selector;
         assertTrue(known, "unexpected revert data");
       }

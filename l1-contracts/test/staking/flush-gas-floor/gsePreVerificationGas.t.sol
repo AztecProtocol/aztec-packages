@@ -59,10 +59,7 @@ contract GSEPreVerificationGasTest is TestBase {
     vm.roll(block.number + 1);
     vm.prank(rollup);
     // Reverts after the wrapper call (no governance); both gas probes have already printed.
-    try IGSEDeposit(address(PROBE))
-    .deposit{
-      gas: stipend
-    }(
+    try IGSEDeposit(address(PROBE)).deposit{gas: stipend}(
       regs[i].attester,
       withdrawer,
       regs[i].publicKeyInG1,
