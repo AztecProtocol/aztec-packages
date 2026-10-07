@@ -129,6 +129,7 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # nodejs_module hosts only the msgpack_client NAPI wrappers now (bb.js's SHM
     # transport). The lmdb_store kv-store NAPI moved to native-packages/kvdb.
     add_subdirectory(barretenberg/nodejs_module)
+    add_subdirectory(barretenberg/ignition_verification)
 endif()
 
 # Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`
