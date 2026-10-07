@@ -69,10 +69,10 @@ python3 scripts/bn254_pop_gas_model.py              # Foundry 1.8.4 on PATH
   and 70 long-tail keys from the scan. A bulk set of 2,000 more keys (`sk = 33..2032`) uses the G2 generator as `pk2`.
   The pairing then returns false at the same gas, because every precompile price here depends only on input sizes.
   The generator asserts that equality on every valid vector. The model is fitted on all 2,152 points.
-- **Committed subset**: the fixture keeps the vectors listed in `FIXTURE_LABELS` in the script, 20 keys that span
-  attempts 1..139 and sqrt calls 1..24, both root choices, both orderings of the sqrt result, and zero or many field
-  rejections. The script checks that coverage before writing. The other scalars stay in `PopGasGenerate.t.sol` and
-  are re-measured on every regeneration.
+- **Committed subset**: the fixture keeps the vectors listed in `FIXTURE_LABELS` in the script: keys that reach the
+  corpus extremes of attempts and sqrt calls and cover both root choices, both orderings of the sqrt result, and
+  zero or many field rejections. The script checks that coverage before writing. The other scalars stay in
+  `PopGasGenerate.t.sol` and are re-measured on every regeneration.
 - **Bytecode**: the compiled `Bn254LibWrapper` runtime code (prague or amsterdam target) is byte-identical, apart
   from the CBOR metadata, to the wrapper the mainnet GSE created (`0x656F9140B9e2d3769D47b575512d46039dCab4D3`,
   GSE `0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` at nonce 1). So these numbers apply to the deployed verifier.
@@ -128,6 +128,9 @@ stipend, so the cost of a failing entry is bounded only by the cap.
 Every `sk` in the file is a public test scalar: a small integer or a published sample key. Never use any of these
 keys for a real validator. Field elements are `0x`-prefixed, zero-padded 32-byte hex strings. Counts and gas values
 are JSON numbers.
+
+The `amsterdam` and `osaka` columns are identical: along this code path the two forks price every precompile the
+same, so a test run under either is matched to the first of the two in `evmVersions` and reported under that name.
 
 A vector stores the scalar and what `hashToPoint` does with it. The registration tuple is not stored: it is
 `pk1 = sk * G1`, `pk2 = sk * G2` and `signature = sk * digest`, which `PopGasVectorsTest` (and any other consumer)

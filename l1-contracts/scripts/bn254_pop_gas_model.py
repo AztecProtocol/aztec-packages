@@ -48,9 +48,9 @@ THEORETICAL_Q = 49 / 512  # 7 words per attempt, memory cost words^2 / 512
 FIXTURE = "test/fixtures/bn254_pop_gas_vectors.json"
 
 # Vectors committed to the fixture. The model is fitted on the whole corpus (every POPGAS_VEC and POPGAS_BULK
-# line); the fixture keeps a subset that spans attempts 1..139 and sqrt calls 1..24, both root choices, both
-# orderings of the sqrt result, and zero or many field rejections, so `PopGasVectorsTest` exercises every branch
-# without carrying all 152 tuples. `select_fixture_vectors` checks that coverage.
+# line); the fixture keeps a subset that reaches the corpus extremes of attempts and sqrt calls and covers both
+# root choices, both orderings of the sqrt result, and zero or many field rejections, so `PopGasVectorsTest`
+# exercises every branch without carrying the whole corpus. `select_fixture_vectors` checks that coverage.
 FIXTURE_LABELS = [
     "small-12",      # 1 attempt, 1 sqrt call: the cheapest key, no rejections
     "sample-40",     # 1 attempt, no rejections, smaller root, root bit 0

@@ -144,7 +144,7 @@ contract PopGasGenerateTest is PopGasBase {
     }
   }
 
-  function _logVector(string memory _label, uint256 _sk) internal {
+  function _logVector(string memory _label, uint256 _sk) internal view {
     G1Point memory pk1 = pk1Of(_sk);
     G2Point memory pk2 = BN254G2TestLib.mulGenerator(_sk);
     DigestStats memory stats = digestStats(pk1);
@@ -184,7 +184,7 @@ contract PopGasGenerateTest is PopGasBase {
     console.log(line);
   }
 
-  function _logPrecompiles() internal {
+  function _logPrecompiles() internal view {
     uint256 p = BN254Lib.BASE_FIELD_ORDER;
     bytes memory modexpInput = abi.encode(
       uint256(32),
