@@ -7,16 +7,16 @@ import { NapiShmAsyncClient, NapiMsgpackClientAsync } from "./shm_client.js";
  * testable without the native module or a live server.
  */
 class MockAddon implements NapiMsgpackClientAsync {
-  public deliver!: (requestId: bigint, response: Buffer) => void;
-  public sent: Array<{ requestId: bigint; input: Buffer }> = [];
+  public deliver!: (requestId: number, response: Buffer) => void;
+  public sent: Array<{ requestId: number; input: Buffer }> = [];
   public acquires = 0;
   public releases = 0;
   public closed = false;
 
-  setResponseCallback(cb: (requestId: bigint, response: Buffer) => void): void {
+  setResponseCallback(cb: (requestId: number, response: Buffer) => void): void {
     this.deliver = cb;
   }
-  call(requestId: bigint, input: Buffer): void {
+  call(requestId: number, input: Buffer): void {
     this.sent.push({ requestId, input });
   }
   acquire(): void {
@@ -40,7 +40,7 @@ test("shm async client discards a stale frame and still resolves the live call",
 
   // A leftover frame from a ring's previous occupant: unknown id. Must be
   // discarded — not resolve the live call, not reject anything.
-  addon.deliver(liveId ^ 0xdeadbeefn, Buffer.from([0xba, 0xad]));
+  addon.deliver(liveId ^ 0x5eadbee, Buffer.from([0xba, 0xad]));
 
   // The real response still pairs and resolves.
   addon.deliver(liveId, Buffer.from([9, 9]));
