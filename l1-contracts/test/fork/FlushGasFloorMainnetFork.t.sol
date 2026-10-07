@@ -133,7 +133,7 @@ contract FlushGasFloorMainnetForkTest is TestBase {
       vm.prank(flusher);
       rollup.flushEntryQueue{gas: AMPLE_GAS}(1);
       assertEq(rollup.getActiveAttesterCount(), baseActive + i + 1, "activated");
-      vm.warp(block.timestamp + rollup.getEpochDuration() * rollup.getSlotDuration());
+      vm.warp(vm.getBlockTimestamp() + rollup.getEpochDuration() * rollup.getSlotDuration());
     }
     assertEq(rollup.getEntryQueueLength(), 0, "queue drained by activation");
     for (uint256 i = 0; i < N; i++) {
