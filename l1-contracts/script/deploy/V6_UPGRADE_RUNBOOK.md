@@ -69,14 +69,23 @@ No noir-projects bootstrap is needed. From a clean clone:
 
 ```bash
 git clone --branch <release branch> --depth 1 https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-packages/l1-contracts
+cd aztec-packages
+git submodule update --init --recursive --depth 1 -- l1-contracts/lib
+cd l1-contracts
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' --use 0.8.30 \
-  --rpc-url $RPC     # add --private-key/--broadcast only for the real deploy
+  --gas-estimate-multiplier 1000 \
+  --rpc-url $RPC     # add --private-key/--broadcast/--slow only for the real deploy
 ```
 
-`--use 0.8.30` is needed because `foundry.toml` points `solc` at `./solc-0.8.30`, which only
-`./bootstrap.sh` fetches; forge downloads the same binary (`0.8.30+commit.73712a01`). The
-`lib/` submodules are fetched by forge on first run.
+- `--use 0.8.30`: `foundry.toml` points `solc` at `./solc-0.8.30`, which only `./bootstrap.sh`
+  fetches; forge downloads the same binary (`0.8.30+commit.73712a01`).
+- The submodule step is required: `forge script` does not fetch `lib/` (only `forge build` does).
+- `--gas-estimate-multiplier 1000`: forge sets each transaction's gas limit from its local
+  simulation (`evm_version = 'prague'`), which predates the fork that raised contract-creation
+  costs. Without the multiplier the verifier creation runs out of gas on-chain. Measured on Sepolia
+  after the fork: verifier 26.7M, rollup 84.8M, escape hatch 14.9M, payload 10.1M gas (136.5M
+  total); the multiplier's limits are 37.5M / 119.8M / 21.2M / 15.1M, all under the 200M block gas
+  limit. Only gas used is charged.
 
 > Run `forge script` on the deploy script, **not** `forge build`. A whole-project build also compiles
 > `DeployRollupLib.sol`, which imports `@generated/HonkVerifier.sol` and fails on a clean clone.
