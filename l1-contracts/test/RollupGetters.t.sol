@@ -339,4 +339,13 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(address(afterUpdate.rewardDistributor), initialDistributor, "rewardDistributor must be immutable");
     assertEq(address(afterUpdate.booster), initialBooster, "booster must be immutable");
   }
+
+  function test_getSequencerRewardCalculator() external setup(1, 1) {
+    vm.record();
+    address calculator = rollup.getSequencerRewardCalculator();
+    (, bytes32[] memory writes) = vm.accesses(address(rollup));
+
+    assertEq(calculator, address(0), "invalid initial calculator");
+    assertEq(writes.length, 0, "No writes should be done");
+  }
 }

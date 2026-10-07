@@ -15,5 +15,5 @@ unconstrained fn validate_public_calldata_wrapper(calldata_hash: Field) {
 }
 
 // TODO(F-498): review naming consistency
-#[oracle(aztec_prv_assertValidPublicCalldata)]
+#[oracle(aztec_protocol_prv_assertValidPublicCalldata)]
 unconstrained fn validate_public_calldata_oracle(_calldata_hash: Field) {}

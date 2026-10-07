@@ -7,7 +7,7 @@
 #include "barretenberg/avm/generated/avm_ipc_server.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
-#include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
+#include "barretenberg/vm2_wsdb/generated/wsdb_ipc_client.hpp"
 
 #include <atomic>
 

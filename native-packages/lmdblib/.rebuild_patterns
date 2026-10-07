@@ -1,0 +1,3 @@
+^native-packages/lmdblib/bootstrap\.sh$
+^native-packages/lmdblib/\.rebuild_patterns$
+^native-packages/lmdblib/cpp/

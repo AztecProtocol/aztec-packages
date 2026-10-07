@@ -116,12 +116,20 @@ function get_latest_run_id {
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
+# Dashboard section for the regular CI runs: runs on next itself are the post-merge runs (next has
+# no merge queue), so they get their own section; everything else is a PR run.
+if [ "$REF_NAME" == "next" ]; then
+  ci_run_dashboard="next"
+else
+  ci_run_dashboard="prs"
+fi
+
 function multi_job_run {
   if [[ -z "${CI_DASHBOARD:-}" ]]; then
     if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
       export CI_DASHBOARD=${TARGET_BRANCH:-local}
     else
-      export CI_DASHBOARD="prs"
+      export CI_DASHBOARD="$ci_run_dashboard"
     fi
   fi
   export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
@@ -162,7 +170,7 @@ case "$cmd" in
     watch_ci -s next,prs --user --watch
     ;;
   fast|barretenberg|barretenberg-full)
-    export CI_DASHBOARD="prs"
+    export CI_DASHBOARD="$ci_run_dashboard"
     # Route through multi_job_run (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
     # parent dashboard log, matching merge-queue. The job id stays "x-$cmd" so the
@@ -198,7 +206,7 @@ case "$cmd" in
     PARENT_LOG_ID=$RUN_ID bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*" 2>&1 | DUP=1 cache_log "CI run" $RUN_ID
     ;;
   full|full-no-test-cache)
-    export CI_DASHBOARD="prs"
+    export CI_DASHBOARD="$ci_run_dashboard"
     export AWS_SHUTDOWN_TIME=75
     multi_job_run "x-$cmd amd64 ci-$cmd"
     ;;
@@ -217,14 +225,8 @@ case "$cmd" in
   grind)
     # Grind a default of 5 times.
     export CI_DASHBOARD="local"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-    seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
-      'run $USER-x{}-full amd64 ci-full-no-test-cache'
+    multi_job_run \
+      $USER'-x'{1..${1:-5}}'-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.

@@ -39,7 +39,7 @@ function publish_one {
   pkg_json=$(tar -xOzf "$tgz" package/package.json)
   name=$(jq -r .name <<<"$pkg_json")
   version=$(jq -r .version <<<"$pkg_json")
-  if [[ ! "$name" =~ ^@(aztec|aztec-foundation|noir-lang)/ ]]; then
+  if [[ ! "$name" =~ ^@(aztec|aztec-foundation|aztec-labs|noir-lang)/ ]]; then
     echo_stderr "Refusing to publish unexpected package name '$name' from $(basename "$tgz")."
     exit 1
   fi
@@ -76,7 +76,7 @@ function publish_one {
 leaves=() dependents=()
 for tgz in "${tarballs[@]}"; do
   if tar -xOzf "$tgz" package/package.json \
-     | jq -e '([.dependencies//{}, .optionalDependencies//{}, .peerDependencies//{}] | add | keys[]) | select(startswith("@aztec-foundation/"))' >/dev/null 2>&1; then
+     | jq -e '([.dependencies//{}, .optionalDependencies//{}, .peerDependencies//{}] | add | keys[]) | select(startswith("@aztec-foundation/") or startswith("@aztec-labs/"))' >/dev/null 2>&1; then
     dependents+=("$tgz")
   else
     leaves+=("$tgz")

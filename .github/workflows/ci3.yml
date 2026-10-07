@@ -144,23 +144,6 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: ./.github/ci3_success.sh
 
-      - name: Notify Slack on backport CI failure
-        if: failure() && startsWith(github.event.pull_request.head.ref, 'backport-to-') && endsWith(github.event.pull_request.head.ref, '-staging')
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          PR_HTML_URL: ${{ github.event.pull_request.html_url }}
-          PR_NUM: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            TEXT="CI3 failed on backport PR: <${PR_HTML_URL}|#${PR_NUM} - ${PR_TITLE}>\n<${RUN_URL}|View Run>"
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
-          fi
-
       # Uses ci3/upload_benchmarks rather than github-action-benchmark: the action full-clones
       # the multi-GB data repo per upload; the script does a shallow sparse clone instead.
       - name: Upload benchmarks

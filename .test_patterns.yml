@@ -10,29 +10,23 @@
 # If an optional error_regex is provided, the output file must match for the test to be considered a flake.
 
 names:
-  - adam: &adam "U04BM8H25NJ"
-  - akosh: &akosh "U07PQ3Y4GHJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
   - david: &david "U03T2QRT1NW"
   - grego: &grego "U0689QRCE9L"
-  - lasse: &lasse "U03E5SYLY3Z"
+  - ilyas: &ilyas "U0B0Y0H46AW"
   - leila: &leila "UBLTU1NJ3"
-  - luke: &luke "U03JYU7AQET"
+  - mike: &mike "U0B0GGF3Q7R"
   - mitch: &mitch "U06AY5G1NRK"
   - palla: &palla "U04TPBU26E8"
-  - phil: &phil "U02G4KAD57Y"
-  - sean: &sean "U04DT239VQU"
-  - tom: &tom "U04LLT331NK"
-  - sergei: &sergei "U05RR81391B"
+  - tom: &tom "U0B0Y0L0E8J"
+  - sergei: &sergei "U0B11HXA212"
   - spyros: &spyros "U03FCET0DQE"
   - jan: &jan "U03FGA0BWNR"
-  - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
   - martin: &martin "U09MZMSNZ96"
   - nico: &nico "U06D2QSLY10"
   - lucas: &lucas "U05MW7WQ8LQ"
-  - suyash: &suyash "U08QFSL6LPM"
 
 flake_groups:
   # flake_error_threshold: Only use during times of expected instability (eg. pre-release crunch).
@@ -44,22 +38,10 @@ flake_groups:
 
 tests:
   # barretenberg
-  #
-  # Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
-  # Grind with: seq 1 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
-  # Logic failed: field_t::range_constraint
-  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
-  # Value of: result.valid
-  #   Actual: false
-  # Expected: true
-  - regex: "join_split_example_tests"
-    error_regex: "field_t::range_constraint"
-    owners:
-      - *luke
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
     error_regex: "Aborted.*core dumped"
     owners:
-      - *adam
+      - *sergei
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -102,7 +84,7 @@ tests:
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
-      - *sean
+      - *palla
   # bricked in new version of anvil added to build image (foundry 1.4.1).
   - regex: "src/composed/uniswap_trade_on_l1_from_l2.test.ts"
     skip: true
@@ -110,38 +92,14 @@ tests:
       - *alex
   - regex: "src/single-node/fees/private_payments"
     owners:
-      - *phil
+      - *palla
   - regex: "src/automine/token/access_control"
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  - regex: "src/automine/token/lending"
-    error_regex: "✕ Depositing"
-    owners:
-      - *lasse
-  - regex: "src/automine/token/lending"
-    error_regex: "✕ Repay"
-    owners:
-      - *lasse
   - regex: "src/single-node/cross-chain/l1_to_l2"
     owners:
       - *palla
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Claim secret is enough to consume the message"
-    owners:
-      - *lasse
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Someone else can mint funds to me on my behalf"
-    owners:
-      - *lasse
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Publicly deposit funds"
-    owners:
-      - *lasse
-  - regex: "src/single-node/cross-chain/token_bridge"
-    error_regex: "✕ Can't claim funds"
-    owners:
-      - *lasse
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
@@ -151,10 +109,6 @@ tests:
     error_regex: "guards against too many cursors"
     owners:
       - *palla
-  - regex: "ethereum/src/test/tx_delayer.test.ts"
-    error_regex: "delays a transaction until a given L1 timestamp"
-    owners:
-      - *esau
   - regex: "slasher/src/slasher_client.test.ts"
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
@@ -169,7 +123,6 @@ tests:
       - *palla
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     owners:
-      - *phil
       - *palla
   - regex: "sequencer-client/src/publisher/l1_publisher.integration.test.ts"
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
@@ -190,19 +143,14 @@ tests:
     error_regex: "something else"
     owners:
       - *charlie
-      - *adam
 
   - regex: "src/single-node/l1-reorgs/blocks.parallel.test.ts"
     owners:
-      - *phil
+      - *palla
 
   - regex: "src/single-node/l1-reorgs/messages.parallel.test.ts"
     owners:
-      - *phil
-
-  - regex: "src/multi-node/recovery/pipeline_prune.test.ts.*prunes uncheckpointed"
-    owners:
-      - *sean
+      - *palla
 
   # Asserts a late tx burst is redistributed across the checkpoint's last two blocks, but the proposer
   # seals the one-before-last block as soon as one tx is available and snapshots the mempool, so late
@@ -210,7 +158,7 @@ tests:
   # for the last block's tx window.
   - regex: "src/multi-node/block-production/redistribution.parallel.test.ts.*redistributes checkpoint budget"
     owners:
-      - *phil
+      - *palla
 
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
@@ -218,7 +166,7 @@ tests:
   - regex: "src/p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
-      - *phil
+      - *palla
 
   - regex: "src/single-node/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
@@ -239,7 +187,6 @@ tests:
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
-      - *phil
 
   - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
@@ -277,7 +224,7 @@ tests:
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
-      - *lasse
+      - *mike
 
   # http://ci.aztec-labs.com/6db6103599cb22e6
   # Under pipelining, the lazy validator's attestation can arrive after the
@@ -313,7 +260,7 @@ tests:
   - regex: "run_test.sh simple tx_stats_bench"
     error_regex: "✕ verifies transactions at 10 TPS"
     owners:
-      - *phil
+      - *palla
 
   # http://ci.aztec-labs.com/930ddc9ede87059f
   # Pipelining race: slasher doesn't record the duplicate proposal offense before

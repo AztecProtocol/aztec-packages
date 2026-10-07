@@ -1,4 +1,4 @@
-use crate::context::{PublicContext, UtilityContext};
+use crate::context::PublicContext;
 use crate::protocol::traits::Packable;
 use crate::state_vars::StateVariable;
 
@@ -40,15 +40,5 @@ impl<T> PublicMutable<T, PublicContext> {
         T: Packable,
     {
         self.context.storage_write(self.storage_slot, value);
-    }
-}
-
-impl<T> PublicMutable<T, UtilityContext> {
-    /// Returns the value at the anchor block.
-    pub unconstrained fn read(self) -> T
-    where
-        T: Packable,
-    {
-        self.context.storage_read(self.storage_slot)
     }
 }

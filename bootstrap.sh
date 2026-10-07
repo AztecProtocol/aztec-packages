@@ -307,6 +307,7 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
+(cd native-packages && ./format.sh staged)
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
 # Hooks are shared by every branch of this clone; older branches have neither of these.
@@ -500,7 +501,7 @@ function labs_bench_cmds {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- barretenberg/{ts,cpp,sol} noir-projects/fnd/noir-protocol-circuits l1-contracts
+    set -- barretenberg/{ts,cpp,sol} native-packages/wsdb noir-projects/fnd/noir-protocol-circuits l1-contracts
     parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
     labs_bench_cmds
     return
@@ -619,7 +620,9 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
-    wsdb
+    ipc-codegen
+    native-packages/kvdb
+    native-packages/wsdb
     barretenberg/ts
     barretenberg/rust
     noir
@@ -669,22 +672,24 @@ function private_release {
   ci3/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
-  # Route our scope to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs). Everything we publish is @aztec-foundation-scoped — the noir packages are renamed
-  # @noir-lang/* -> @aztec-foundation/noir-* on release. Exported so deploy_npm picks it up.
+  # Route our scopes to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs). We publish @aztec-foundation (the noir packages are renamed @noir-lang/* ->
+  # @aztec-foundation/noir-* on release) and, for the native packages that are moving to the labs
+  # org, @aztec-labs. Exported so deploy_npm picks it up.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
   (umask 077; {
     echo "@aztec-foundation:registry=$reg"
+    echo "@aztec-labs:registry=$reg"
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
   set -x
 
-  # Publish for real, in dependency order: the ipc-codegen-generated @aztec-foundation/wsdb has a runtime
+  # Publish for real, in dependency order: the ipc-codegen-generated @aztec-labs/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
+  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
   done

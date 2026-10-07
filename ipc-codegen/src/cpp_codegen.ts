@@ -554,9 +554,9 @@ template <typename Tag> struct Bin32Alias {
 
 namespace ${ns} {
 
-${aliasDecls}
-
 ${this.opts.wireNamespace ? `namespace ${this.opts.wireNamespace} {` : ""}
+
+${aliasDecls}
 
 ${structs}
 

@@ -100,6 +100,21 @@ unconstrained fn test_get_time_horizon_change_in_near_future() {
 }
 
 #[test]
+unconstrained fn test_get_time_horizon_change_to_same_value_in_near_future() {
+    let anchor_block_timestamp = 100;
+    let timestamp_of_change = 120;
+
+    let mut value_change: ScheduledValueChange<Field> =
+        ScheduledValueChange::new(1, 1, timestamp_of_change);
+
+    // The scheduled change does not change the value, so the timestamp of change does not shorten the time horizon.
+    let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, TEST_DELAY);
+    assert_eq(time_horizon, anchor_block_timestamp + TEST_DELAY);
+
+    assert_time_horizon_invariants(&mut value_change, anchor_block_timestamp, time_horizon);
+}
+
+#[test]
 unconstrained fn test_get_time_horizon_change_in_far_future() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 500;

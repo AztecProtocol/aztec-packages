@@ -53,62 +53,198 @@ contract PartialEpochProofGasReporter is RollupWithPreheating {
    * Reports submission gas for a fresh one-checkpoint epoch prefix.
    */
   function gasReportSubmit1Checkpoint(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for a fresh eight-checkpoint epoch prefix.
    */
   function gasReportSubmit8Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for checkpoints nine through sixteen after an eight-checkpoint prefix.
    */
   function gasReportSubmit8MoreCheckpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for a fresh sixteen-checkpoint epoch prefix.
    */
   function gasReportSubmit16Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for a complete thirty-two-checkpoint epoch.
    */
   function gasReportSubmit32Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
-   * Reports submission gas for a fresh one-checkpoint epoch prefix with two registry reward overrides.
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with a sequencer reward calculator.
    */
-  function gasReportSubmit1CheckpointWithTwoOverrides(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+  function gasReportSubmit1CheckpointWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
-   * Reports submission gas for a fresh eight-checkpoint epoch prefix with two registry reward overrides.
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with a sequencer reward calculator.
    */
-  function gasReportSubmit8CheckpointsWithTwoOverrides(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+  function gasReportSubmit8CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
-   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with two registry reward overrides.
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with a sequencer reward calculator.
    */
-  function gasReportSubmit16CheckpointsWithTwoOverrides(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+  function gasReportSubmit16CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
-   * Reports submission gas for a complete thirty-two-checkpoint epoch with two registry reward overrides.
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with a sequencer reward calculator.
    */
-  function gasReportSubmit32CheckpointsWithTwoOverrides(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
+  function gasReportSubmit32CheckpointsWithCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with the registry reduction calculator.
+   */
+  function gasReportSubmit1CheckpointWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with the registry reduction calculator.
+   */
+  function gasReportSubmit8CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with the registry reduction calculator.
+   */
+  function gasReportSubmit16CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with the registry reduction calculator.
+   */
+  function gasReportSubmit32CheckpointsWithReductionCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit1CheckpointWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit8CheckpointsWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit16CheckpointsWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with the registry reduction calculator and two
+   * shared mock ATP stakers.
+   */
+  function gasReportSubmit32CheckpointsWithReductionCalculatorTwoMockStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with the premium calculator.
+   */
+  function gasReportSubmit1CheckpointWithPremiumCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with the premium calculator.
+   */
+  function gasReportSubmit8CheckpointsWithPremiumCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with the premium calculator.
+   */
+  function gasReportSubmit16CheckpointsWithPremiumCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with the premium calculator.
+   */
+  function gasReportSubmit32CheckpointsWithPremiumCalculator(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh one-checkpoint epoch prefix with the premium calculator and two shared premium
+   * positions.
+   */
+  function gasReportSubmit1CheckpointWithPremiumCalculatorTwoPremiumStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh eight-checkpoint epoch prefix with the premium calculator and two shared premium
+   * positions.
+   */
+  function gasReportSubmit8CheckpointsWithPremiumCalculatorTwoPremiumStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a fresh sixteen-checkpoint epoch prefix with the premium calculator and two shared
+   * premium positions.
+   */
+  function gasReportSubmit16CheckpointsWithPremiumCalculatorTwoPremiumStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+  }
+
+  /**
+   * Reports submission gas for a complete thirty-two-checkpoint epoch with the premium calculator and two shared
+   * premium positions.
+   */
+  function gasReportSubmit32CheckpointsWithPremiumCalculatorTwoPremiumStakers(SubmitEpochRootProofArgs calldata _args)
+    external
+  {
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 }

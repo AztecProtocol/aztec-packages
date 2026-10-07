@@ -41,7 +41,7 @@ match is a hard error, because a half-applied regeneration leaves constants that
 
 1. `noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr` — the three `GENESIS_*` constants.
    Everything else derives from here: `aztec_constants.hpp`, `ConstantsGen.sol`, labs' `constants.gen.ts`.
-2. `barretenberg/cpp/src/barretenberg/world_state/genesis_protocol_nullifiers.hpp` — the seed vector the C++
+2. `native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp` — the seed vector the C++
    world-state test builds its genesis from.
 3. `l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json` — with `--fixtures`. All six move:
    checkpoint 1 of each family starts from the genesis archive, and checkpoint 2 chains off checkpoint 1.

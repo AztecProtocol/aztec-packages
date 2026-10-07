@@ -204,11 +204,11 @@ pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // prefunded public data and timestamp 0. Measured from a real world state and rewritten together by
 // `noir-projects/fnd/scripts/regenerate_genesis_constants.sh`; never edit one of them by hand.
 pub global GENESIS_NULLIFIER_TREE_ROOT: Field =
-    0x2100a1e7ddf20c7248d2bb0f96d6db30f93395b7c2482ca5ae5edd35ea53faf0;
+    0x01f99bba78e47cc1c36bd40d519514d2f6dae212ec32dda6dc8fc5005694cce8;
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x23fb9081d13557363ed24f35e7230609da6088ff4d0eb82178cd81741d4acc37;
+    0x21f2c9c95fd2ca2d6374e6e18b840e2021dfcacc7ccf83cc695760518c86e8de;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1479ce3d5411edfb256e0fc43401356f4dd5f3bc2d7b329500da03f988158c18;
+    0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 

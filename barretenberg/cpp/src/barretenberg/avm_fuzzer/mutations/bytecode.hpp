@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include <random>
 #include <vector>

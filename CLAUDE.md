@@ -9,7 +9,7 @@ All paths below are relative to the git root. When working inside a component, a
 
 `avm-transpiler/` transpiles Noir bytecode to AVM bytecode (Rust). `noir/` is the Noir compiler, a git submodule pointing to noir-lang/noir. `noir-projects/fnd/` holds the protocol circuits and protocol contracts written in Noir.
 
-`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
+`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `l1-contracts/script/deploy/` is the env-driven deployer for tests, spartan/CLI and testnets; mainnet rollup upgrades use bespoke pinned scripts (`DeployRollupForUpgradeV<N>.s.sol`, for example `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch and `DeployRollupForUpgradeV6.s.sol`), so its defaults are not mainnet configuration and findings against them are not mainnet findings. `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
 </components>
 
 <build_system>
@@ -29,6 +29,10 @@ The genesis nullifier tree is seeded with the protocol contracts' registration n
 
 A class id rotation also fails the deployed-network pins in `labs/yarn-project/aztec/src/{mainnet,testnet}_compatibility.test.ts`. Those record what a live network was deployed with and change only at a governance upgrade — do not update them to make the failure go away.
 </genesis_constants>
+
+<release_ports>
+Porting a change between `next` and a release line (a "backport" or "forward port") is done by ClaudeBox, not by CI in this repo. A PR labelled `port-to-<branch>` (e.g. `port-to-v6`, `port-to-next`) is picked up from the GitHub webhook when it merges, or when the label is added after merge, and ported onto a rolling `cb/…` branch with one PR into `<branch>`. Do not add backport workflows, staging-branch scripts, or ClaudeBox dispatch steps here. CI holds no ClaudeBox credential. Changes to port labels, targets or behavior go to [AztecProtocol/claudebox](https://github.com/AztecProtocol/claudebox): `claudebox-server/config.yml` (`merge_triggers`) and the `port-to-branch` skill.
+</release_ports>
 
 <git_workflow>
 

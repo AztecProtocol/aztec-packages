@@ -2,7 +2,7 @@
 #include "barretenberg/avm/avm_execute.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
+#include "barretenberg/vm2_wsdb/generated/wsdb_ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"

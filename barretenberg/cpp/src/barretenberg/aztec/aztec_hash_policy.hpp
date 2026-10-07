@@ -2,7 +2,7 @@
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 
 namespace bb::aztec {
 

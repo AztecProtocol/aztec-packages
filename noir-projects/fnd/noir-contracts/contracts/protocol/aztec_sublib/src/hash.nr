@@ -3,8 +3,8 @@
 use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{
-        DOM_SEP__FUNCTION_ARGS, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE,
-        DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+        DOM_SEP__FUNCTION_ARGS, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
+        DOM_SEP__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
     },
     hash::{poseidon2_hash_subarray, poseidon2_hash_with_separator, sha256_to_field},
     traits::ToField,

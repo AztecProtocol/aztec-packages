@@ -4,6 +4,7 @@
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 
 namespace bb::avm2 {
 namespace {

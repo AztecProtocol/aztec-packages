@@ -20,6 +20,12 @@ trap cleanup EXIT
 # Clean stale broadcast artifacts from previous runs to avoid nonce conflicts.
 rm -rf broadcast/
 
+# The deployer requires explicit genesis roots. Only 31 random bytes (top byte zero) so each value is always
+# below the BN254 scalar field modulus.
+export VK_TREE_ROOT="0x00$(openssl rand -hex 31)"
+export PROTOCOL_CONTRACTS_HASH="0x00$(openssl rand -hex 31)"
+export GENESIS_ARCHIVE_ROOT="0x00$(openssl rand -hex 31)"
+
 # Fixed port — this test runs with ISOLATE=1 so no conflicts.
 ANVIL_PORT="${ANVIL_PORT:-8545}"
 
@@ -51,8 +57,7 @@ if [[ -z "$registry_address" || "$registry_address" == "null" ]]; then
 fi
 
 echo "=== Testing run_rollup_upgrade.sh ==="
-# Use a different genesis to get a different rollup version. Only 31 random bytes (top byte zero) so the value is
-# always below the BN254 scalar field modulus; the rollup rejects a genesis archive root >= the field modulus.
+# Use a different genesis to get a different rollup version.
 export GENESIS_ARCHIVE_ROOT="0x00$(openssl rand -hex 31)"
 
 ./scripts/run_rollup_upgrade.sh "$registry_address"

@@ -1,22 +1,14 @@
 use crate::{
-    context::{inputs::PrivateContextInputs, NullifierExistenceRequest, ReturnsHash},
-    hash::hash_args,
+    context::{inputs::PrivateContextInputs, NullifierExistenceRequest},
     messaging::process_l1_to_l2_message,
     oracle::{
-        call_private_function::call_private_function_internal,
-        public_call::validate_public_calldata,
-        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
-        execution_cache,
-        logs::notify_created_contract_class_log,
-        nullifiers::notify_created_nullifier,
+        logs::notify_created_contract_class_log, nullifiers::notify_created_nullifier,
+        public_call::validate_public_calldata, tx_phase::notify_revertible_phase_start,
     },
 };
 use crate::protocol::{
     abis::{
         block_header::BlockHeader,
-        call_context::CallContext,
-        function_selector::FunctionSelector,
-        gas_settings::GasSettings,
         log_hash::LogHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
@@ -26,10 +18,9 @@ use crate::protocol::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_TX_LIFETIME, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     hash::poseidon2_hash,
@@ -40,8 +31,8 @@ use crate::protocol::{
 };
 
 /// Minimal PrivateContext for protocol contracts going to audit.
-/// Contains only the methods actually used by: fee_juice, auth_registry, contract_class_registry, contract_instance_registry
-#[derive(Eq)]
+/// Contains only the methods actually used by: fee_juice, auth_registry, contract_class_registry,
+/// contract_instance_registry
 pub struct PrivateContext {
     pub inputs: PrivateContextInputs,
     pub side_effect_counter: u32,
@@ -82,8 +73,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp
-            + MAX_TX_LIFETIME,
+            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME,
             nullifier_read_requests: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             anchor_block_header: inputs.anchor_block_header,
@@ -123,33 +113,6 @@ impl PrivateContext {
         self.inputs.tx_context.version
     }
 
-    /// Returns the gas settings for the current transaction.
-    pub fn gas_settings(self) -> GasSettings {
-        self.inputs.tx_context.gas_settings
-    }
-
-    /// Returns the function selector of the currently executing function.
-    pub fn selector(self) -> FunctionSelector {
-        self.inputs.call_context.function_selector
-    }
-
-    /// Returns the hash of the arguments passed to the current function.
-    pub fn get_args_hash(self) -> Field {
-        self.args_hash
-    }
-
-    /// Returns the anchor block header.
-    pub fn get_anchor_block_header(self) -> BlockHeader {
-        self.anchor_block_header
-    }
-
-    /// Sets the hash of the return values for this private function.
-    pub fn set_return_hash<let N: u32>(&mut self, serialized_return_values: [Field; N]) {
-        let return_hash = hash_args(serialized_return_values);
-        self.return_hash = return_hash;
-        execution_cache::store(serialized_return_values, return_hash);
-    }
-
     /// Builds the PrivateCircuitPublicInputs for this private function.
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
@@ -160,9 +123,7 @@ impl PrivateContext {
             is_fee_payer: self.is_fee_payer,
             expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray::empty(), // Not used by protocol contracts
-            nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(
-                self.nullifier_read_requests,
-            ),
+            nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(self.nullifier_read_requests),
             key_validation_requests_and_separators: ClaimedLengthArray::empty(), // Not used by protocol contracts
             note_hashes: ClaimedLengthArray::empty(), // Not used by protocol contracts
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
@@ -173,13 +134,10 @@ impl PrivateContext {
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             private_logs: ClaimedLengthArray::from_bounded_vec(self.private_logs),
-            contract_class_logs_hashes: ClaimedLengthArray::from_bounded_vec(
-                self.contract_class_logs_hashes,
-            ),
+            contract_class_logs_hashes: ClaimedLengthArray::from_bounded_vec(self.contract_class_logs_hashes),
             anchor_block_header: self.anchor_block_header,
             tx_context: self.inputs.tx_context,
-            expected_non_revertible_side_effect_counter: self
-                .expected_non_revertible_side_effect_counter,
+            expected_non_revertible_side_effect_counter: self.expected_non_revertible_side_effect_counter,
             expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
             protocol_nullifier: self.inputs.protocol_nullifier,
         }
@@ -192,30 +150,6 @@ impl PrivateContext {
         notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
-    pub fn in_revertible_phase(&mut self) -> bool {
-        let current_counter = self.side_effect_counter;
-
-        // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible =
-            unsafe { in_revertible_phase(current_counter) };
-
-        if is_revertible {
-            if (self.expected_revertible_side_effect_counter == 0)
-                | (current_counter < self.expected_revertible_side_effect_counter) {
-                self.expected_revertible_side_effect_counter = current_counter;
-            }
-        } else if current_counter > self.expected_non_revertible_side_effect_counter {
-            self.expected_non_revertible_side_effect_counter = current_counter;
-        }
-
-        is_revertible
-    }
-
-    /// Sets a deadline for when this transaction must be included in a block.
-    pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
-        self.expiration_timestamp = std::cmp::min(self.expiration_timestamp, expiration_timestamp);
-    }
-
     /// Pushes a new nullifier. Used by class_registry and instance_registry.
     pub fn push_nullifier(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
@@ -223,13 +157,9 @@ impl PrivateContext {
     }
 
     /// Asserts that a nullifier has been emitted. Used by instance_registry.
-    pub fn assert_nullifier_exists(
-        &mut self,
-        nullifier_existence_request: NullifierExistenceRequest,
-    ) {
+    pub fn assert_nullifier_exists(&mut self, nullifier_existence_request: NullifierExistenceRequest) {
         let nullifier = nullifier_existence_request.nullifier();
-        let contract_address =
-            nullifier_existence_request.maybe_contract_address().unwrap_or(AztecAddress::zero());
+        let contract_address = nullifier_existence_request.maybe_contract_address().unwrap_or(AztecAddress::zero());
 
         let request = Scoped::new(
             Counted::new(nullifier, self.next_counter()),
@@ -240,13 +170,7 @@ impl PrivateContext {
     }
 
     /// Consumes a message sent from Ethereum (L1) to Aztec (L2). Used by fee_juice.
-    pub fn consume_l1_to_l2_message(
-        &mut self,
-        content: Field,
-        secret: Field,
-        sender: EthAddress,
-        leaf_index: Field,
-    ) {
+    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
         let nullifier = process_l1_to_l2_message(
             self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),
@@ -265,8 +189,7 @@ impl PrivateContext {
     /// Emits a private log. Used by instance_registry.
     pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0 }
-            .count(counter);
+        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0 }.count(counter);
         self.private_logs.push(private_log);
     }
 
@@ -290,67 +213,7 @@ impl PrivateContext {
             notify_created_contract_class_log(contract_address, log_to_emit, length, counter);
         }
 
-        self.contract_class_logs_hashes.push(LogHash { value: log_hash, length: length }.count(
-            counter,
-        ));
-    }
-
-    /// Makes a read-only call to a private function. Used by auth_registry for authwit.
-    pub fn static_call_private_function<let ArgsCount: u32>(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ArgsCount],
-    ) -> ReturnsHash {
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-        self.call_private_function_with_args_hash(
-            contract_address,
-            function_selector,
-            args_hash,
-            true,
-        )
-    }
-
-    fn call_private_function_with_args_hash(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args_hash: Field,
-        is_static_call: bool,
-    ) -> ReturnsHash {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        let start_side_effect_counter = self.side_effect_counter;
-
-        // Safety: The oracle simulates the private call and returns the value of the side effects counter after
-        // execution of the call.
-        let (end_side_effect_counter, returns_hash) = unsafe {
-            call_private_function_internal(
-                contract_address,
-                function_selector,
-                args_hash,
-                start_side_effect_counter,
-                is_static_call,
-            )
-        };
-
-        self.private_call_requests.push(
-            PrivateCallRequest {
-                call_context: CallContext {
-                    msg_sender: self.this_address(),
-                    contract_address,
-                    function_selector,
-                    is_static_call,
-                },
-                args_hash,
-                returns_hash,
-                start_side_effect_counter,
-                end_side_effect_counter,
-            },
-        );
-
-        self.side_effect_counter = end_side_effect_counter + 1;
-        ReturnsHash::new(returns_hash)
+        self.contract_class_logs_hashes.push(LogHash { value: log_hash, length: length }.count(counter));
     }
 
     /// Enqueues a call to a public function with a calldata hash. Used by fee_juice and auth_registry.
@@ -373,8 +236,7 @@ impl PrivateContext {
             self.this_address()
         };
 
-        let call_request =
-            PublicCallRequest { msg_sender, contract_address, is_static_call, calldata_hash };
+        let call_request = PublicCallRequest { msg_sender, contract_address, is_static_call, calldata_hash };
 
         self.public_call_requests.push(Counted::new(call_request, counter));
     }
@@ -383,30 +245,5 @@ impl PrivateContext {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
         counter
-    }
-}
-
-impl Empty for PrivateContext {
-    fn empty() -> Self {
-        PrivateContext {
-            inputs: PrivateContextInputs::empty(),
-            side_effect_counter: 0 as u32,
-            min_revertible_side_effect_counter: 0 as u32,
-            is_fee_payer: false,
-            args_hash: 0,
-            return_hash: 0,
-            expiration_timestamp: 0,
-            nullifier_read_requests: BoundedVec::new(),
-            nullifiers: BoundedVec::new(),
-            private_call_requests: BoundedVec::new(),
-            public_call_requests: BoundedVec::new(),
-            public_teardown_call_request: PublicCallRequest::empty(),
-            l2_to_l1_msgs: BoundedVec::new(),
-            anchor_block_header: BlockHeader::empty(),
-            private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
-            expected_non_revertible_side_effect_counter: 0,
-            expected_revertible_side_effect_counter: 0,
-        }
     }
 }

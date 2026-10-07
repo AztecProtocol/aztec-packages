@@ -9,7 +9,7 @@
 #   1. noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
 #        GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH, GENESIS_ARCHIVE_ROOT.
 #        Source of truth: aztec_constants.hpp, ConstantsGen.sol and labs' constants.gen.ts all derive from it.
-#   2. barretenberg/cpp/src/barretenberg/world_state/genesis_protocol_nullifiers.hpp
+#   2. native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
 #        The seed vector the C++ world-state test builds its genesis from.
 #   3. l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json   (--fixtures)
 #        Checkpoint 1 of each family starts from the genesis archive; checkpoint 2 chains off checkpoint 1.
@@ -47,7 +47,7 @@ for arg in "$@"; do
 done
 
 constants_nr=noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
-seeds_hpp=barretenberg/cpp/src/barretenberg/world_state/genesis_protocol_nullifiers.hpp
+seeds_hpp=native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
 cpp_constants=barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp
 sol_constants=l1-contracts/src/core/libraries/ConstantsGen.sol
 ts_constants=labs/yarn-project/constants/src/constants.gen.ts
@@ -98,11 +98,11 @@ function write_seeds_header {
 // Regenerate with noir-projects/fnd/scripts/regenerate_genesis_constants.sh.
 #pragma once
 
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "field/field_element.hpp"
 
 #include <vector>
 
-namespace bb::world_state {
+namespace azteclabs::wsdb::world_state {
 
 /**
  * @brief The protocol contracts' registration nullifiers, seeded into the nullifier tree of a production genesis.
@@ -113,16 +113,16 @@ namespace bb::world_state {
  * GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT, so they are rewritten together
  * with those constants and never on their own.
  */
-inline std::vector<bb::fr> genesis_protocol_nullifiers()
+inline std::vector<fr> genesis_protocol_nullifiers()
 {
     return {
 EOF
-    for seed in $SEEDS; do echo "        bb::fr(\"$seed\"),"; done
+    for seed in $SEEDS; do echo "        fr(\"$seed\"),"; done
     cat <<'EOF'
     };
 }
 
-} // namespace bb::world_state
+} // namespace azteclabs::wsdb::world_state
 EOF
   } >"$file"
 }

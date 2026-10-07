@@ -9,11 +9,10 @@ import {CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {GenesisState, RegistryRewardOverride, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 interface IRollupConfiguration {
   function loadConfig() external;
@@ -27,9 +26,17 @@ interface IRollupConfiguration {
   function parseValidators() external view returns (CheatDepositArgs[] memory);
 }
 
+/// @title RollupConfiguration
+/// @author Aztec Labs
+/// @notice Reads rollup deployment configuration from environment variables for the env-driven deployer
+/// used by tests, the spartan/CLI tooling and testnets (`DeployAztecL1Contracts`, `DeployRollupForUpgrade`).
+/// @dev Mainnet rollup versions are deployed by bespoke pinned `DeployRollupForUpgradeV<N>.s.sol` scripts
+/// that hard-code their configuration instead of reading it here. Examples:
+///   - v5: `DeployRollupForUpgradeV5.s.sol` on the `v5-next` branch
+///   - v6: `DeployRollupForUpgradeV6.s.sol`
+/// The environment variables read below describe a test network, not mainnet.
 contract RollupConfiguration is IRollupConfiguration, Test {
   using stdJson for string;
-  using SafeCast for uint256;
 
   // Storage for loaded config
   string public networkName;
@@ -38,22 +45,43 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   function loadConfig() external {
     networkName = vm.envOr("NETWORK", string("local"));
     validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
+
+    _requireNetworkMatchesChain(networkName, block.chainid);
   }
 
+  /// @dev NETWORK selects the contract defaults and the chain id selects RPC and keys; a mismatch means one of
+  ///      them points at the wrong network.
+  function _requireNetworkMatchesChain(string memory _networkName, uint256 _chainId) internal pure {
+    bool isMainnetName = keccak256(bytes(_networkName)) == keccak256("mainnet");
+    require(!isMainnetName || _chainId == 1, "RollupConfiguration: NETWORK=mainnet requires chain id 1");
+    require(_chainId != 1 || isMainnetName, "RollupConfiguration: chain id 1 requires NETWORK=mainnet");
+  }
+
+  /// @dev A stub verifier accepts any proof, so it must be requested explicitly with REAL_VERIFIER=false.
   function useRealVerifier() external view returns (bool) {
-    return vm.envOr("REAL_VERIFIER", false);
+    return vm.envOr("REAL_VERIFIER", true);
   }
 
   function getFeeJuicePortalInitialBalance() external view returns (uint256) {
     return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
   }
 
+  /// @dev The genesis roots are immutable once the rollup is constructed and a zero root cannot match any node's
+  ///      view of the chain, so each one must be supplied explicitly.
   function getGenesisState() external view returns (GenesisState memory) {
-    return GenesisState({
+    GenesisState memory genesisState = GenesisState({
       vkTreeRoot: bytes32(vm.envOr("VK_TREE_ROOT", uint256(0))),
       protocolContractsHash: bytes32(vm.envOr("PROTOCOL_CONTRACTS_HASH", uint256(0))),
       genesisArchiveRoot: bytes32(vm.envOr("GENESIS_ARCHIVE_ROOT", uint256(0)))
     });
+    _requireGenesisState(genesisState);
+    return genesisState;
+  }
+
+  function _requireGenesisState(GenesisState memory _genesisState) internal pure {
+    require(_genesisState.vkTreeRoot != bytes32(0), "RollupConfiguration: VK_TREE_ROOT is unset");
+    require(_genesisState.protocolContractsHash != bytes32(0), "RollupConfiguration: PROTOCOL_CONTRACTS_HASH is unset");
+    require(_genesisState.genesisArchiveRoot != bytes32(0), "RollupConfiguration: GENESIS_ARCHIVE_ROOT is unset");
   }
 
   function getRewardConfiguration(IRewardDistributor _rewardDistributor) external pure returns (RewardConfig memory) {
@@ -129,24 +157,12 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.version = 0; // Computed below
     config.provingCostPerMana = EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA"));
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET"));
-    config.registryRewardOverrides[0] = _getRegistryRewardOverride("AZTEC_REGISTRY_REWARD_OVERRIDE_0");
-    config.registryRewardOverrides[1] = _getRegistryRewardOverride("AZTEC_REGISTRY_REWARD_OVERRIDE_1");
+    config.sequencerRewardCalculator = _getSequencerRewardCalculator("AZTEC_SEQUENCER_REWARD_CALCULATOR");
   }
 
-  function _getRegistryRewardOverride(string memory _envName)
-    internal
-    view
-    returns (RegistryRewardOverride memory registryRewardOverride)
-  {
-    string memory value = vm.envOr(_envName, string(""));
-    if (bytes(value).length == 0) {
-      return registryRewardOverride;
-    }
-
-    string[] memory fields = vm.split(value, ",");
-    require(fields.length == 2, "Invalid registry reward override");
-    registryRewardOverride.registry = vm.parseAddress(fields[0]);
-    registryRewardOverride.sequencerReward = vm.parseUint(fields[1]).toUint96();
+  /// @dev Optional: deployers that do not pass it get no calculator, so every checkpoint receives the default reward.
+  function _getSequencerRewardCalculator(string memory _envName) internal view returns (address) {
+    return vm.envOr(_envName, address(0));
   }
 
   /// @notice Compute rollup config version by hashing config + genesis state

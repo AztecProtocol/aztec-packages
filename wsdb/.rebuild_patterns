@@ -1,6 +1,0 @@
-^wsdb/bootstrap\.sh$
-^wsdb/package\.json$
-^wsdb/\.rebuild_patterns$
-^ipc-codegen/src/.*\.ts$
-^ipc-codegen/templates/
-^barretenberg/cpp/src/barretenberg/wsdb/wsdb_schema\.json$

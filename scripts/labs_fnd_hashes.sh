@@ -8,7 +8,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 out=$root/labs/labs-aztec-toolchain/fnd-hashes
-components="barretenberg/cpp noir barretenberg/ts wsdb ipc-runtime l1-contracts protocol/constants-codegen noir-projects/fnd"
+components="barretenberg/cpp noir barretenberg/ts native-packages/wsdb native-packages/kvdb ipc-runtime l1-contracts protocol/constants-codegen noir-projects/fnd"
 # The optional toolchain binaries this tree built (bb-avm is skipped by AVM=0 builds,
 # noir-execute by the noir-from-release flow); their presence is part of the toolchain's identity,
 # since labs falls back to the WASM simulator when noir-execute is absent.

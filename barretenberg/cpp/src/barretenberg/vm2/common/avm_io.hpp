@@ -8,7 +8,7 @@
 
 #include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/common/utils.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state_reference/merkle_tree_id.hpp" // For MerkleTreeId, WorldStateRevision and MSGPACK_ADD_ENUM(MerkleTreeId).

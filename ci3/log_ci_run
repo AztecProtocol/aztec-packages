@@ -9,6 +9,12 @@ if [ -z "${RUN_ID:-}" ]; then
   exit
 fi
 
+# Sliding TTL on the section ZSET: refreshed on every write below, so a section
+# lives as long as it sees runs and is dropped 90 days after its last one. This is
+# what lets the dashboard landing page prune retired org/repo/section combinations by
+# a simple EXISTS check rather than scanning timestamps.
+SECTION_TTL=$((60 * 60 * 24 * 90))
+
 if [ -z "${CI_DASHBOARD:-}" ]; then
   # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
   # CI runs are grouped by:
@@ -16,15 +22,26 @@ if [ -z "${CI_DASHBOARD:-}" ]; then
   # - Or by the target branch of the merge queue they enter.
   # - Or in the 'prs' group.
   if semver check "$REF_NAME"; then
-    range_key="ci-run-releases"
+    section="releases"
   elif [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-    range_key="ci-run-$TARGET_BRANCH"
+    section="$TARGET_BRANCH"
   else
-    range_key="ci-run-prs"
+    section="prs"
   fi
 else
-  range_key="ci-run-$CI_DASHBOARD"
+  section="$CI_DASHBOARD"
 fi
+
+# Scope the section by repository, so repositories sharing the dashboard don't collide
+# (and one repo's runs can't evict another's under the 1000-entry cap). The dashboard
+# string "<org>/<repo>/<section>" is what the landing page lists.
+repo="${GITHUB_REPOSITORY:-}"
+if [ -n "$repo" ]; then
+  dashboard="$repo/$section"
+else
+  dashboard="$section" # callers with no GITHUB_REPOSITORY keep the unscoped key
+fi
+range_key="ci-run-$dashboard"
 
 if [ "$status" = "RUNNING" ]; then
   msg=$(git log -1 --pretty=format:"%s")
@@ -46,7 +63,6 @@ if [ "$status" = "RUNNING" ]; then
   fi
 
   msg=$(pr_link "$msg")
-  dashboard="${range_key#ci-run-}"
 
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \
@@ -62,8 +78,9 @@ if [ "$status" = "RUNNING" ]; then
       --argjson instance_vcpus "$instance_vcpus" \
       --arg pr_number "$pr_number" \
       --arg dashboard "$dashboard" \
+      --arg repo "$repo" \
       --arg github_actor "${GITHUB_ACTOR:-}" \
-      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, github_actor: $github_actor, arch: $arch, spot: $spot, instance_type: $instance_type, instance_vcpus: $instance_vcpus, pr_number: $pr_number, dashboard: $dashboard}')
+      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, github_actor: $github_actor, arch: $arch, spot: $spot, instance_type: $instance_type, instance_vcpus: $instance_vcpus, pr_number: $pr_number, dashboard: $dashboard, repo: $repo}')
   # echo "$json" >&2
   redis_cli ZADD $range_key $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null
@@ -85,3 +102,8 @@ else
   # Add the updated entry with the same key.
   redis_cli ZADD $range_key $key "$json" &>/dev/null
 fi
+
+# Refresh the section's sliding TTL and register it in the landing page's index. Done on
+# both create and update so the window tracks last activity, not first.
+redis_cli EXPIRE $range_key $SECTION_TTL &>/dev/null
+redis_cli SADD ci-run-sections "$dashboard" &>/dev/null
