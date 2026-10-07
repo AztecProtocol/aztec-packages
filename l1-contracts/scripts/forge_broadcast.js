@@ -26,13 +26,67 @@
 // simulated broadcast. On anvil, an empty block is mined after the flush so the flush is never in
 // the head block that callers estimate gas against (see the comment at the evm_mine call).
 //
+// forge holds an exclusive lock on the script's recovery state (`cache/<script>/<chain>/run-latest.json.recovery.json`)
+// for the whole broadcast and exits immediately when another forge already holds it, so two deployments
+// started from the same project directory cannot overlap. Broadcasts from one directory are queued on a
+// lock file here so the second one waits instead of failing.
+//
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
 //        (without --broadcast or --slow — added automatically)
 
 import { spawn } from "node:child_process";
-import { writeSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
+import { join } from "node:path";
 
 const log = (msg) => process.stderr.write(`[forge_broadcast] ${msg}\n`);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err.code === "EPERM";
+  }
+}
+
+// Serializes broadcasts launched from the same project directory. The lock file records the holder's
+// pid; a lock left behind by a process that no longer exists is reclaimed.
+async function acquireBroadcastLock(projectDir) {
+  const dir = join(projectDir, "cache");
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, ".forge_broadcast.lock");
+  let waited = false;
+  for (;;) {
+    try {
+      const fd = openSync(path, "wx");
+      writeSync(fd, String(process.pid));
+      closeSync(fd);
+      if (waited) log("Lock acquired; starting broadcast.");
+      return () => {
+        try {
+          unlinkSync(path);
+        } catch {}
+      };
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+      let holder;
+      try {
+        holder = Number(readFileSync(path, "utf8"));
+      } catch {}
+      if (!holder || !isAlive(holder)) {
+        try {
+          unlinkSync(path);
+        } catch {}
+        continue;
+      }
+      if (!waited) log(`Waiting for broadcast held by pid ${holder} in ${projectDir}.`);
+      waited = true;
+      await sleep(250);
+    }
+  }
+}
 
 async function rpc(url, method, params = []) {
   const res = await fetch(url, {
@@ -120,6 +174,8 @@ function runForge(forgeArgs) {
   });
 }
 
+const releaseBroadcastLock = await acquireBroadcastLock(process.cwd());
+
 const deploy = await runForge([...args, ...(serializeTxs ? ["--slow"] : [])]);
 let exitCode = deploy.code;
 let output = deploy.stdout;
@@ -164,5 +220,6 @@ if (exitCode === 0 && hasInitialValidators(process.env.INITIAL_VALIDATORS)) {
 }
 
 log(exitCode === 0 ? "Broadcast succeeded." : `Broadcast failed (exit ${exitCode}).`);
+releaseBroadcastLock();
 if (output.length > 0) writeSync(1, output);
 process.exit(exitCode);
