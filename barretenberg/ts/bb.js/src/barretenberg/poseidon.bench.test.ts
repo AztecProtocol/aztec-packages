@@ -70,71 +70,40 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         .fill(0)
         .map(() => Fr.random().toBuffer());
 
-      // Benchmark 1: WASM (async)
-      let wasmTime = 0;
-      if (wasmApi) {
-        const wasmStart = performance.now();
+      // Each mode runs once untimed first, so the JIT has seen the exact call
+      // pattern being timed (a pipelined burst exercises different code paths
+      // from sequential awaits) and the timing reflects steady state.
+      const timed = async (run: () => Promise<void>) => {
+        await run();
+        const start = performance.now();
+        await run();
+        return performance.now() - start;
+      };
+      const sequential = (api: Barretenberg) => async () => {
         for (let i = 0; i < ITERATIONS; i++) {
-          await wasmApi.poseidon2Hash({ inputs });
+          await api.poseidon2Hash({ inputs });
         }
-        wasmTime = performance.now() - wasmStart;
-      }
-
-      // Benchmark 2: Native Socket (async with non-blocking I/O)
-      let nativeSocketTime = 0;
-      if (nativeSocketApi) {
-        const nativeSocketStart = performance.now();
-        for (let i = 0; i < ITERATIONS; i++) {
-          await nativeSocketApi.poseidon2Hash({ inputs });
-        }
-        nativeSocketTime = performance.now() - nativeSocketStart;
-      }
-
-      // Benchmark 3: Native Socket (async, request pipelined)
-      let nativeSocketPipelinedTime = 0;
-      if (nativeSocketApi) {
-        const nativeSocketPipelinedStart = performance.now();
-        // Use promise.all to pipeline requests
+      };
+      const pipelined = (api: Barretenberg) => async () => {
         const promises = [];
         for (let i = 0; i < ITERATIONS; i++) {
-          promises.push(nativeSocketApi.poseidon2Hash({ inputs }));
+          promises.push(api.poseidon2Hash({ inputs }));
         }
         await Promise.all(promises);
-        nativeSocketPipelinedTime = performance.now() - nativeSocketPipelinedStart;
-      }
+      };
 
-      // Benchmark 4: Native Shared Memory (async)
-      let nativeShmTime = 0;
-      if (nativeShmApi) {
-        const nativeShmStart = performance.now();
-        for (let i = 0; i < ITERATIONS; i++) {
-          await nativeShmApi.poseidon2Hash({ inputs });
-        }
-        nativeShmTime = performance.now() - nativeShmStart;
-      }
-
-      // Benchmark 5: Native Shared Memory (async, request pipelined)
-      let nativeShmPipelinedTime = 0;
-      if (nativeShmApi) {
-        const nativeShmPipelinedStart = performance.now();
-        // Use promise.all to pipeline requests
-        const promises = [];
-        for (let i = 0; i < ITERATIONS; i++) {
-          promises.push(nativeShmApi.poseidon2Hash({ inputs }));
-        }
-        await Promise.all(promises);
-        nativeShmPipelinedTime = performance.now() - nativeShmPipelinedStart;
-      }
-
-      // Benchmark 6: Native Shared Memory (sync)
-      let nativeShmSyncTime = 0;
-      if (nativeShmSyncApi) {
-        const nativeShmSyncStart = performance.now();
-        for (let i = 0; i < ITERATIONS; i++) {
-          nativeShmSyncApi.poseidon2Hash({ inputs });
-        }
-        nativeShmSyncTime = performance.now() - nativeShmSyncStart;
-      }
+      const wasmTime = wasmApi ? await timed(sequential(wasmApi)) : 0;
+      const nativeSocketTime = nativeSocketApi ? await timed(sequential(nativeSocketApi)) : 0;
+      const nativeSocketPipelinedTime = nativeSocketApi ? await timed(pipelined(nativeSocketApi)) : 0;
+      const nativeShmTime = nativeShmApi ? await timed(sequential(nativeShmApi)) : 0;
+      const nativeShmPipelinedTime = nativeShmApi ? await timed(pipelined(nativeShmApi)) : 0;
+      const nativeShmSyncTime = nativeShmSyncApi
+        ? await timed(async () => {
+            for (let i = 0; i < ITERATIONS; i++) {
+              nativeShmSyncApi!.poseidon2Hash({ inputs });
+            }
+          })
+        : 0;
 
       // Calculate metrics (all relative to WASM baseline)
       const nativeSocketOverhead = ((nativeSocketTime - wasmTime) / wasmTime) * 100;
