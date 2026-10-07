@@ -74,7 +74,6 @@ git submodule update --init --recursive --depth 1 -- l1-contracts/lib
 cd l1-contracts
 export FOUNDRY_SOLC_VERSION=0.8.30
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' \
-  --gas-estimate-multiplier 1000 \
   --rpc-url $RPC     # dry run; see Deploy for the broadcast flags
 ```
 
@@ -83,12 +82,16 @@ forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' \
   environment variable rather than `--use 0.8.30`: the flag covers compilation but not `--verify`,
   which reads `foundry.toml` again and fails with `solc ./solc-0.8.30 does not exist`.
 - The submodule step is required: `forge script` does not fetch `lib/` (only `forge build` does).
-- `--gas-estimate-multiplier 1000`: forge sets each transaction's gas limit from its local
-  simulation (`evm_version = 'prague'`), which predates the fork that raised contract-creation
-  costs. Without the multiplier the verifier creation runs out of gas on-chain. Measured on Sepolia
-  after the fork: verifier 26.7M, rollup 84.8M, escape hatch 14.9M, payload 10.1M gas (136.5M
-  total); the multiplier's limits are 37.5M / 119.8M / 21.2M / 15.1M, all under the 200M block gas
-  limit. Only gas used is charged.
+- Gas: forge sets each transaction's gas limit from its local simulation (`evm_version = 'prague'`),
+  which matches pre-Glamsterdam pricing, so the default limits are correct on mainnet before the
+  fork. Measured pre-fork on Sepolia: verifier 3.75M gas (limit 4.88M), rollup 11.98M (limit
+  15.58M). Do **not** add `--gas-estimate-multiplier` before Glamsterdam: the rollup's limit would
+  exceed the EIP-7825 per-transaction cap of 16,777,216 and the node would reject it after the
+  verifier had already been sent. The rollup's default limit sits about 1.2M under that cap.
+- After Glamsterdam, the default limits are far too low: on post-fork Sepolia the verifier creation
+  ran out of gas at its 4.88M limit. Measured there: verifier 26.7M, rollup 84.8M, escape hatch
+  14.9M, payload 10.1M gas, deployed with `--gas-estimate-multiplier 1000` under a 200M block gas
+  limit. Re-check that path against mainnet's post-fork rules before using it.
 
 > Run `forge script` on the deploy script, **not** `forge build`. A whole-project build also compiles
 > `DeployRollupLib.sol`, which imports `@generated/HonkVerifier.sol` and fails on a clean clone.
@@ -241,7 +244,7 @@ cd l1-contracts
 export FOUNDRY_SOLC_VERSION=0.8.30
 REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298 \
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol:DeployRollupForUpgradeV6 \
-  --gas-estimate-multiplier 1000 --rpc-url $RPC -vvv
+  --rpc-url $RPC -vvv
 ```
 
 `V6UpgradeSimulation` wraps the payload in a `GSEPayload` exactly as `GovernanceProposer` does,
@@ -258,7 +261,7 @@ genesis roots are the right ones — nothing on chain can.
 export FOUNDRY_SOLC_VERSION=0.8.30 ETHERSCAN_API_KEY=<key>
 REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298 \
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol:DeployRollupForUpgradeV6 \
-  --gas-estimate-multiplier 1000 --slow \
+  --slow \
   --rpc-url $RPC --private-key $KEY --broadcast --verify -vvv
 ```
 
