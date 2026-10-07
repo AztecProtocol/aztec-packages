@@ -29,7 +29,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
-import {HonkVerifier} from "@generated/HonkVerifier.sol";
+import {HonkVerifier} from "./HonkVerifier.sol";
 
 import {FlushRewarder} from "@aztec/periphery/FlushRewarder.sol";
 import {V6UpgradePayload} from "@aztec/periphery/V6UpgradePayload.sol";
@@ -197,7 +197,7 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       // zero, so a stale root deploys silently. See "Fill in the inputs" in V6_UPGRADE_RUNBOOK.md.
       // Source: `getVKTreeRoot()` and `protocolContractsHash` from the built packages,
       // `GENESIS_ARCHIVE_ROOT` from the protocol constants.
-      vkTreeRoot: 0x2d89003cc2dc62b06f07d83d3635c66c63fc43668369d30e7ee516f908ee10e3,
+      vkTreeRoot: 0x2b93bfe8572e35ace261fa350a4e40327ec2dc83d5d5e2966e161561d2e9e04d,
       protocolContractsHash: 0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378,
       genesisArchiveRoot: 0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6,
       ethereumSlotDuration: 12, // L1 slot time; no v5 equivalent, the v5 inbox took an explicit lag instead
