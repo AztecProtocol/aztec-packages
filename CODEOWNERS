@@ -1,7 +1,7 @@
-/.devcontainer/ @charlielye @ludamad
-/.github/ @charlielye @ludamad
-/build-images/ @charlielye @ludamad
-/ci3/ @charlielye @ludamad
+/.devcontainer/ @charlielye
+/.github/ @charlielye
+/build-images/ @charlielye
+/ci3/ @charlielye
 
 # Notify the Noir team of divergences to upstream
 /noir/noir-repo.patch @TomAFrench
@@ -11,7 +11,7 @@
 #
 # Ordering matters: this file is last-match-wins, so this broad rule sits above
 # the AVM block, which re-claims the AVM subtrees of barretenberg below.
-/barretenberg/ @iakovenkos @ludamad
+/barretenberg/ @iakovenkos
 #####################################################
 
 #####################################################
