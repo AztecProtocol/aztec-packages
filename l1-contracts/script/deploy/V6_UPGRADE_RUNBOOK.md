@@ -72,13 +72,16 @@ git clone --branch <release branch> --depth 1 https://github.com/AztecProtocol/a
 cd aztec-packages
 git submodule update --init --recursive --depth 1 -- l1-contracts/lib
 cd l1-contracts
-forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' --use 0.8.30 \
+export FOUNDRY_SOLC_VERSION=0.8.30
+forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' \
   --gas-estimate-multiplier 1000 \
-  --rpc-url $RPC     # add --private-key/--broadcast/--slow only for the real deploy
+  --rpc-url $RPC     # dry run; see Deploy for the broadcast flags
 ```
 
-- `--use 0.8.30`: `foundry.toml` points `solc` at `./solc-0.8.30`, which only `./bootstrap.sh`
-  fetches; forge downloads the same binary (`0.8.30+commit.73712a01`).
+- `FOUNDRY_SOLC_VERSION=0.8.30`: `foundry.toml` points `solc` at `./solc-0.8.30`, which only
+  `./bootstrap.sh` fetches; forge downloads the same binary (`0.8.30+commit.73712a01`). Use the
+  environment variable rather than `--use 0.8.30`: the flag covers compilation but not `--verify`,
+  which reads `foundry.toml` again and fails with `solc ./solc-0.8.30 does not exist`.
 - The submodule step is required: `forge script` does not fetch `lib/` (only `forge build` does).
 - `--gas-estimate-multiplier 1000`: forge sets each transaction's gas limit from its local
   simulation (`evm_version = 'prague'`), which predates the fork that raised contract-creation
@@ -235,9 +238,10 @@ Run without `--broadcast` first. This executes the whole script including `verif
 
 ```bash
 cd l1-contracts
+export FOUNDRY_SOLC_VERSION=0.8.30
 REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298 \
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol:DeployRollupForUpgradeV6 \
-  --rpc-url $RPC -vvv
+  --gas-estimate-multiplier 1000 --rpc-url $RPC -vvv
 ```
 
 `V6UpgradeSimulation` wraps the payload in a `GSEPayload` exactly as `GovernanceProposer` does,
@@ -251,10 +255,22 @@ genesis roots are the right ones — nothing on chain can.
 ## 5. Deploy
 
 ```bash
+export FOUNDRY_SOLC_VERSION=0.8.30 ETHERSCAN_API_KEY=<key>
 REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298 \
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol:DeployRollupForUpgradeV6 \
+  --gas-estimate-multiplier 1000 --slow \
   --rpc-url $RPC --private-key $KEY --broadcast --verify -vvv
 ```
+
+`--slow` sends each transaction only after the previous one is mined, so a failure stops the
+broadcast instead of leaving later transactions pending against a contract that does not exist.
+
+`--verify` submits every contract the broadcast created to Etherscan, including the seven the
+`Rollup` constructor deploys (`Slasher`, `SlashingProposer`, `SlashPayloadCloneable`,
+`RewardBooster`, `Inbox`, `FeeJuicePortal`, `Outbox`). If verification fails or is skipped, re-run it
+from the same checkout without sending anything: the same command with `--broadcast` replaced by
+`--resume`. The verified `HonkVerifier` source is the pinned file, so anyone can read its `VK_HASH`
+on Etherscan.
 
 Record the logged addresses: `rollup`, `verifier`, `inbox`, `outbox`, `feeJuicePortal`, `slasher`,
 `rewardBooster`, `escapeHatch`, `payload`, `newFlushRewarder`, `version`.
