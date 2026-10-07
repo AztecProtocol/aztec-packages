@@ -189,12 +189,10 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
   ///      overrides it.
   function _config() internal view virtual returns (Config memory c) {
     c = Config({
-      // STALE: read off a build at aztec-packages d521f0d940d096fbea5b62010d9c9c70f1dc0fd2, which
-      // was this branch's base before it was rebased. The protocol circuits have changed since, so
-      // `vkTreeRoot` no longer matches what this tree builds and must be regenerated before any
-      // deploy. The other two are expected to hold (no compiler bump, no transpiler or protocol
-      // contract change) but should be confirmed from the same rebuild. `run()` only guards against
-      // zero, so a stale root deploys silently. See "Fill in the inputs" in V6_UPGRADE_RUNBOOK.md.
+      // Read off the v6 release build at 9f7f5055e989b21a7da3f512e72f6f004ed09909, the same build
+      // the pinned ./HonkVerifier.sol and ConstantsGen.sol come from; all of them move together.
+      // `run()` only guards against zero, so a root from a different build deploys silently. See
+      // "Fill in the inputs" in V6_UPGRADE_RUNBOOK.md.
       // Source: `getVKTreeRoot()` and `protocolContractsHash` from the built packages,
       // `GENESIS_ARCHIVE_ROOT` from the protocol constants.
       vkTreeRoot: 0x2b93bfe8572e35ace261fa350a4e40327ec2dc83d5d5e2966e161561d2e9e04d,

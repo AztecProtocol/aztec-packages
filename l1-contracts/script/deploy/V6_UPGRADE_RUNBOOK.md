@@ -11,7 +11,8 @@ guarantees, and deliberately leaves alone.
 
 The deploy script deploys, in one broadcast:
 
-1. `HonkVerifier` — the real epoch proof verifier.
+1. `HonkVerifier` — the real epoch proof verifier, from the pinned `script/deploy/HonkVerifier.sol`
+   (see [Build](#1-build)), not from this tree's `generated/`.
 2. `Rollup` — owned by **governance** from construction. Deploying it also constructs its `Inbox`,
    `Outbox`, `FeeJuicePortal`, `Slasher` + `SlashingProposer`, and a fresh `RewardBooster`.
    **The owner argument is not only the owner:** it also becomes the Slasher's immutable
@@ -51,27 +52,43 @@ shared, so the new cap applies to the outgoing rollup too, from the moment the p
 
 ## 1. Build
 
-The script needs two generated artifacts that are not in git:
+The verifier and the protocol constants are **pinned in git**, not built from this tree:
 
-- `src/core/libraries/ConstantsGen.sol` — from `./scripts/remake-constants.sh`
-- `generated/HonkVerifier.sol` — copied by `l1-contracts/bootstrap.sh build_verifier` from
-  `noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol`, so
-  **noir-projects must have been bootstrapped first**
+- `script/deploy/HonkVerifier.sol` — the epoch proof verifier from the v6 release build at
+  `9f7f5055e989b21a7da3f512e72f6f004ed09909`; its provenance comment names that commit.
+  `DeployRollupForUpgradeV6.s.sol` imports it as `./HonkVerifier.sol`.
+- `src/core/libraries/ConstantsGen.sol` — from the same build.
 
-From the repo root:
+The verifier is a function of the protocol circuits, and the circuits this branch would build
+differ from the release's. A verifier built here has a different `VK_HASH` and rejects every proof
+the v6 nodes produce, so **do not replace the pinned file with this tree's `generated/HonkVerifier.sol`**.
+The verifier, `ConstantsGen.sol` and the three genesis roots in `_config()` come from one build and
+move together.
+
+No noir-projects bootstrap is needed. From a clean clone:
 
 ```bash
-make l1-contracts          # or: cd l1-contracts && ./bootstrap.sh
+git clone --branch <release branch> --depth 1 https://github.com/AztecProtocol/aztec-packages.git
+cd aztec-packages/l1-contracts
+forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' --use 0.8.30 \
+  --rpc-url $RPC     # add --private-key/--broadcast only for the real deploy
 ```
 
-This also fetches the pinned `solc-0.8.30` that `foundry.toml` points at. Then confirm:
+`--use 0.8.30` is needed because `foundry.toml` points `solc` at `./solc-0.8.30`, which only
+`./bootstrap.sh` fetches; forge downloads the same binary (`0.8.30+commit.73712a01`). The
+`lib/` submodules are fetched by forge on first run.
+
+> Run `forge script` on the deploy script, **not** `forge build`. A whole-project build also compiles
+> `DeployRollupLib.sol`, which imports `@generated/HonkVerifier.sol` and fails on a clean clone.
+> Do **not** hand-write a stub `generated/HonkVerifier.sol` to get past that: a stub compiles and
+> deploys a verifier that accepts every proof.
+
+Confirm the pin before broadcasting:
 
 ```bash
-cd l1-contracts && forge build --skip test
+grep -m1 VK_HASH script/deploy/HonkVerifier.sol
+# 0x1fd4eb1d14be45e05dc78c448eb4f29d7f63e4de95129c4a5e1058cd9837f8a6
 ```
-
-> Do **not** hand-write a stub `generated/HonkVerifier.sol`. A stub compiles and deploys a verifier
-> that accepts every proof.
 
 ## 2. Fill in the inputs
 
@@ -80,9 +97,9 @@ deploy these must be set:
 
 | Field | Status | Notes |
 |---|---|---|
-| `vkTreeRoot` | **STALE — both chains** | read off the build at `d521f0d9`, which is no longer this branch's base; the protocol circuits have moved since. Regenerate, see below |
-| `protocolContractsHash` | **recheck — both chains** | same build; expected to hold, but confirm from the same rebuild |
-| `genesisArchiveRoot` | **recheck — both chains** | same; expected to hold. Must be below the BN254 scalar field modulus |
+| `vkTreeRoot` | set | `0x2b93bfe8…d2e9e04d`, from the v6 release build at `9f7f5055`; see below |
+| `protocolContractsHash` | set | `0x0030cdae…e991b378`, same build |
+| `genesisArchiveRoot` | set | `0x2ef904bb…8113bfb6`, same build. Must be below the BN254 scalar field modulus |
 | `initialEthPerFeeAsset` | **TODO — mainnet** | E12 ETH-per-fee-asset price; a point-in-time market value, refresh at deploy time |
 | `sequencerRewardCalculator` | set | `address(0)` on both chains — v6 launches with no calculator, see below |
 | `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e`; zero on Sepolia |
@@ -94,8 +111,7 @@ deploy these must be set:
 | `proofOfPossessionGasLimit` | set | `300_000` on both chains; zero omits the action. The payload constructor reverts unless it exceeds the GSE's cap at deployment |
 
 Sepolia has no outstanding values. On mainnet only `initialEthPerFeeAsset` is an open decision; the
-three genesis values are not decisions but build outputs, and are stale because the branch was
-rebased, not because nobody has chosen them.
+three genesis values are not decisions but build outputs, pinned with the verifier.
 
 `run()` refuses to proceed while any of the three genesis roots is zero, so a forgotten root fails
 loudly. A *stale* root does not: it is non-zero and deploys happily. Nothing guards the rest either
@@ -135,27 +151,26 @@ touches rewards.
 The three genesis values are produced by the protocol circuits / node build, not by anything in
 `l1-contracts`. Get them from the same source the v6 release uses; do not carry v5's forward.
 
-The values currently in `_config()` were read off a full build of aztec-packages
-`d521f0d940d096fbea5b62010d9c9c70f1dc0fd2`, which **was this branch's base and no longer is**:
+The values in `_config()` were read off a full build (`make fast`) of the v6 release at
+`9f7f5055e989b21a7da3f512e72f6f004ed09909`, the same build the pinned verifier and
+`ConstantsGen.sol` come from:
 
-| Field | Value (from `d521f0d9`) | After the rebase |
-|---|---|---|
-| `vkTreeRoot` | `0x2d89003cc2dc62b06f07d83d3635c66c63fc43668369d30e7ee516f908ee10e3` | **moves** |
-| `protocolContractsHash` | `0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378` | expected to hold |
-| `genesisArchiveRoot` | `0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6` | expected to hold |
+| Field | Value |
+|---|---|
+| `vkTreeRoot` | `0x2b93bfe8572e35ace261fa350a4e40327ec2dc83d5d5e2966e161561d2e9e04d` |
+| `protocolContractsHash` | `0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378` |
+| `genesisArchiveRoot` | `0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6` |
+| verifier `VK_HASH` | `0x1fd4eb1d14be45e05dc78c448eb4f29d7f63e4de95129c4a5e1058cd9837f8a6` |
 
-`vkTreeRoot` moves because the protocol circuits changed between `d521f0d9` and this branch's
-current base — `private-kernel-lib` (gas meter, tail validator, transient-data reset), `blob`, and
-`types/src/hash.nr`. Circuit changes rotate the verification keys and therefore the tree root.
+Only `vkTreeRoot` differs from the earlier values read at `d521f0d9` (`0x2d89003c…908ee10e3`): the
+protocol circuits changed, rotating the verification keys. The Noir compiler, `avm-transpiler` and
+the protocol contracts did not change, so the other two hold.
 
-The other two are expected to hold: the Noir compiler was not bumped, `avm-transpiler` is unchanged,
-and nothing under the protocol contracts moved, so no protocol class id rotates. That is an
-expectation, not a guarantee — `types/src/hash.nr` is shared, so confirm both from the same rebuild
-rather than carrying them forward on this note.
-
-Regenerate whenever the deploy is cut from a different commit: rebuilding the protocol circuits
-moves `vkTreeRoot`, and rebuilding the protocol contracts moves all three. After `./bootstrap.sh`,
-the first two come from the built packages and the third from the protocol constants:
+Regenerate all of them, and re-pin the verifier and `ConstantsGen.sol`, if the release build moves
+to a commit that changes the protocol circuits or protocol contracts: rebuilding the circuits moves
+`vkTreeRoot` and the verifier, and rebuilding the protocol contracts moves all three roots. After
+`make fast` on the release build, the first two come from the built packages and the third from the
+protocol constants:
 
 ```bash
 # from labs/yarn-project/prover-node
