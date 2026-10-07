@@ -168,8 +168,7 @@ stipend, so the cost of a failing entry is bounded only by the cap.
 
 Every `sk` in the file is a public test scalar: a small integer or a published sample key. Never use any of these
 keys for a real validator. Field elements are `0x`-prefixed, zero-padded 32-byte hex strings. Counts and gas values
-are JSON numbers. The header and model are indented; each vector is one line, so a regeneration diffs as one line
-per vector.
+are JSON numbers.
 
 A vector stores the scalar and what `hashToPoint` does with it. The registration tuple is not stored: it is
 `pk1 = sk * G1`, `pk2 = sk * G2` and `signature = sk * digest`, which `PopGasVectorsTest` (and any other consumer)
@@ -195,12 +194,12 @@ and that file carries their `pk1` and `pk2`.
     {
       "label": "tail-57193",                          // sample-<i> | small-<sk> | tail-<sk>
       "sk": "0x…df69",                                 // public test scalar
+      "digest": { "x": "0x…", "y": "0x…" },            // hashToPoint(domain, pk1.x || pk1.y)
       "attempts": 95,                                  // hashToPoint loop iterations (keccak evaluations)
       "sqrtCalls": 18,                                 // attempts with x < p (modexp calls)
       "fieldRejections": 77,                           // attempts with x >= p; attempts = sqrtCalls + fieldRejections
       "swapped": false,                                // sqrt returned the larger root, so (y0, y1) were swapped
       "rootBit": 0,                                    // keccak(domain, message, 2^256-1) & 1: 0 smaller y, 1 larger
-      "digest": { "x": "0x…", "y": "0x…" },            // hashToPoint(domain, pk1.x || pk1.y)
       "gas": {
         "<evm>": { "verification": 263095, "minStipend": 264826 }
       }

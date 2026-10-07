@@ -87,157 +87,4109 @@
     }
   ],
   "vectors": [
-    {"label":"sample-0","sk":"0x0000000000000000000000000000000000000000000000000000000007777777","attempts":15,"sqrtCalls":1,"fieldRejections":14,"swapped":true,"rootBit":1,"digest":{"x":"0x1109e7114879f460499eaded8947fdbb52ccd7a0c3a4bd5a550cfcae3cd22296","y":"0x2ebce2259162f9f0f6eb12742ba403acd08fa7f1238dfaa608336f29126ef429"},"gas":{"amsterdam":{"verification":143267,"minStipend":145000},"osaka":{"verification":143267,"minStipend":145000},"prague":{"verification":140589,"minStipend":142322}}},
-    {"label":"sample-1","sk":"0x0000000000000000000000000000000000000000000000000000000007777778","attempts":1,"sqrtCalls":1,"fieldRejections":0,"swapped":true,"rootBit":1,"digest":{"x":"0x305c6893246bcf7ed491afc2a3159fee3099934d343dfd8a5e49640fdad4016a","y":"0x18d62830491746a078a2e021febd37cb664a4ee08e249645f39b91208b6bcdab"},"gas":{"amsterdam":{"verification":136045,"minStipend":137779},"osaka":{"verification":136045,"minStipend":137779},"prague":{"verification":133367,"minStipend":135101}}},
-    {"label":"sample-2","sk":"0x0000000000000000000000000000000000000000000000000000000007777779","attempts":6,"sqrtCalls":1,"fieldRejections":5,"swapped":false,"rootBit":1,"digest":{"x":"0x05f57760ae3cb088bf92f7f871b046e6e0d12487bd7de2e84f8fb24a917c1bd3","y":"0x2216151716edf85a503620303a49854dc6354eaec5976bbd3c4ceafddea839a4"},"gas":{"amsterdam":{"verification":138617,"minStipend":140351},"osaka":{"verification":138617,"minStipend":140351},"prague":{"verification":135939,"minStipend":137673}}},
-    {"label":"sample-3","sk":"0x000000000000000000000000000000000000000000000000000000000777777a","attempts":13,"sqrtCalls":4,"fieldRejections":9,"swapped":false,"rootBit":1,"digest":{"x":"0x1edb860c51cdb6873802cd702e735256e992dfa72701c15bee009d6f0e5668a0","y":"0x1e71654a823e58928afc6fa7f1e110cf73a6255d7db8a3486b4b6081142325b5"},"gas":{"amsterdam":{"verification":155967,"minStipend":157700},"osaka":{"verification":155967,"minStipend":157700},"prague":{"verification":145255,"minStipend":146988}}},
-    {"label":"sample-4","sk":"0x000000000000000000000000000000000000000000000000000000000777777b","attempts":42,"sqrtCalls":7,"fieldRejections":35,"swapped":false,"rootBit":1,"digest":{"x":"0x0d48fb43eb1e7c106a86f4812d368eb52d2acaf8952979261b5bbf4fa961b42f","y":"0x1ab47923b0d9a29ba0469e517994df2ee2c667b0c82c5e8cad79c44c8d2965ad"},"gas":{"amsterdam":{"verification":184772,"minStipend":186505},"osaka":{"verification":184772,"minStipend":186505},"prague":{"verification":166026,"minStipend":167759}}},
-    {"label":"sample-5","sk":"0x000000000000000000000000000000000000000000000000000000000777777c","attempts":11,"sqrtCalls":1,"fieldRejections":10,"swapped":true,"rootBit":1,"digest":{"x":"0x0a89e90b5fd4192fd933c0a9fb4ea97429c403ec88eb2cda47879a5bbd04526b","y":"0x19cf4d82b96592021fdaaf7185833066cc93d35ca84481a5a16d4152204a9afd"},"gas":{"amsterdam":{"verification":141200,"minStipend":142933},"osaka":{"verification":141200,"minStipend":142933},"prague":{"verification":138522,"minStipend":140255}}},
-    {"label":"sample-6","sk":"0x000000000000000000000000000000000000000000000000000000000777777d","attempts":9,"sqrtCalls":2,"fieldRejections":7,"swapped":false,"rootBit":0,"digest":{"x":"0x1588e3361e8b747ae7401a223febe95cba754691e99a914bf0ddca6def14ae3e","y":"0x0341aeb1d4c39ac6df0dab79d56cd171ceef3173f8c27fc293427b0c4381399b"},"gas":{"amsterdam":{"verification":144753,"minStipend":146487},"osaka":{"verification":144753,"minStipend":146487},"prague":{"verification":139397,"minStipend":141131}}},
-    {"label":"sample-7","sk":"0x000000000000000000000000000000000000000000000000000000000777777e","attempts":9,"sqrtCalls":1,"fieldRejections":8,"swapped":false,"rootBit":1,"digest":{"x":"0x051df2447b03557ab707c2d2b367464055e42dff96b2685a16df72e6da587a48","y":"0x25d6661cb8cf4cbb99b3d5a50c67284a91a89b045e0e550c5950fd83cd4442fb"},"gas":{"amsterdam":{"verification":140164,"minStipend":141898},"osaka":{"verification":140164,"minStipend":141898},"prague":{"verification":137486,"minStipend":139220}}},
-    {"label":"sample-8","sk":"0x000000000000000000000000000000000000000000000000000000000777777f","attempts":1,"sqrtCalls":1,"fieldRejections":0,"swapped":true,"rootBit":0,"digest":{"x":"0x27d3976ac9fde93a8456353450b46c4394e023981e57343dfe03d3941af1b320","y":"0x0d3d7f7fb28025a8de5580b24dabc386c9dcf27b9daebcb52ce067b81d44144f"},"gas":{"amsterdam":{"verification":136055,"minStipend":137789},"osaka":{"verification":136055,"minStipend":137789},"prague":{"verification":133377,"minStipend":135111}}},
-    {"label":"sample-9","sk":"0x0000000000000000000000000000000000000000000000000000000007777780","attempts":6,"sqrtCalls":1,"fieldRejections":5,"swapped":true,"rootBit":1,"digest":{"x":"0x28f0359ca2389e3b1b34b5048c9ab09402614457c908b39621be394488301c1d","y":"0x2661ffbbd6e8a42499c556360d60c561d17bc66d82336835f5f40ff7f75a59a9"},"gas":{"amsterdam":{"verification":138620,"minStipend":140354},"osaka":{"verification":138620,"minStipend":140354},"prague":{"verification":135942,"minStipend":137676}}},
-    {"label":"sample-10","sk":"0x0000000000000000000000000000000000000000000000000000000007777781","attempts":34,"sqrtCalls":8,"fieldRejections":26,"swapped":false,"rootBit":1,"digest":{"x":"0x22b860ad606d78be2a43eb1798c97fb88097e8aacc9970db759c0aa6a639044c","y":"0x20d66fedec7178e44dc27366a898e0fab4160e65f5fe2aa485d7601c8db0d21f"},"gas":{"amsterdam":{"verification":185178,"minStipend":186911},"osaka":{"verification":185178,"minStipend":186911},"prague":{"verification":163754,"minStipend":165487}}},
-    {"label":"sample-11","sk":"0x0000000000000000000000000000000000000000000000000000000007777782","attempts":42,"sqrtCalls":7,"fieldRejections":35,"swapped":true,"rootBit":0,"digest":{"x":"0x2224a3c91ec48d22f149af70544440e4294a63912581093839e7979f8941f027","y":"0x1094e3fe80c8755b16068cf0aaea15533b3149ee46b50eb35dfcb86d3010758f"},"gas":{"amsterdam":{"verification":184785,"minStipend":186518},"osaka":{"verification":184785,"minStipend":186518},"prague":{"verification":166039,"minStipend":167772}}},
-    {"label":"sample-12","sk":"0x0000000000000000000000000000000000000000000000000000000007777783","attempts":5,"sqrtCalls":3,"fieldRejections":2,"swapped":true,"rootBit":1,"digest":{"x":"0x07450aec341dd56ea95cfffec735a4fa96ec18dff9b3a0b6c29700a112015798","y":"0x2b3a80f53c726500a56110b8f608c3d7e77b6c48d9b1378cb10dd38643acdb4a"},"gas":{"amsterdam":{"verification":147263,"minStipend":148996},"osaka":{"verification":147263,"minStipend":148996},"prague":{"verification":139229,"minStipend":140962}}},
-    {"label":"sample-13","sk":"0x0000000000000000000000000000000000000000000000000000000007777784","attempts":15,"sqrtCalls":3,"fieldRejections":12,"swapped":true,"rootBit":0,"digest":{"x":"0x2f7ea7467712a093ee0e79183f3609ffa81b42ef218822460ebb662c88c595a6","y":"0x093d4a71f3aa663bbd2bb0fd59f1001db8b7d07af8ad1f4445ba0fd3b431fd01"},"gas":{"amsterdam":{"verification":152435,"minStipend":154168},"osaka":{"verification":152435,"minStipend":154168},"prague":{"verification":144401,"minStipend":146134}}},
-    {"label":"sample-14","sk":"0x0000000000000000000000000000000000000000000000000000000007777785","attempts":5,"sqrtCalls":1,"fieldRejections":4,"swapped":false,"rootBit":1,"digest":{"x":"0x0a2eddc68ba482b9320ed7756d9d93527b4cbbd1d8f4c4174365405dddcfe163","y":"0x24534845bccbe2f8a37513c3821c8481991773f166e20f5a28e60b83893af1ff"},"gas":{"amsterdam":{"verification":138102,"minStipend":139835},"osaka":{"verification":138102,"minStipend":139835},"prague":{"verification":135424,"minStipend":137157}}},
-    {"label":"sample-15","sk":"0x0000000000000000000000000000000000000000000000000000000007777786","attempts":1,"sqrtCalls":1,"fieldRejections":0,"swapped":true,"rootBit":0,"digest":{"x":"0x0a84584fb9742f4613bbd7fd376ec636a4375cff50961eb701bb32374925c9c8","y":"0x102b96fa00fc4c3617a4dbdeb9cf7041c27f481a5838aa8f4d3a52812d57fb20"},"gas":{"amsterdam":{"verification":136055,"minStipend":137789},"osaka":{"verification":136055,"minStipend":137789},"prague":{"verification":133377,"minStipend":135111}}},
-    {"label":"sample-16","sk":"0x0000000000000000000000000000000000000000000000000000000007777787","attempts":9,"sqrtCalls":3,"fieldRejections":6,"swapped":true,"rootBit":1,"digest":{"x":"0x11a9e5e0586a7719958938dd9aa339ac249d14ab2acc5356fe06dd74f53d59fa","y":"0x1852a74ce8df004036d239bfd611ce3f6e01de27317094a750e1bc549fa331a0"},"gas":{"amsterdam":{"verification":149325,"minStipend":151059},"osaka":{"verification":149325,"minStipend":151059},"prague":{"verification":141291,"minStipend":143025}}},
-    {"label":"sample-17","sk":"0x0000000000000000000000000000000000000000000000000000000007777788","attempts":7,"sqrtCalls":2,"fieldRejections":5,"swapped":false,"rootBit":1,"digest":{"x":"0x2bcfe98a4caf2b4254071854a41e5eb7144b977c703c978d177e984d4d78d1bc","y":"0x26c4002c2f90e80916862d341756e03a68bd5df4c5e08d6e3b272b5e4569d9ae"},"gas":{"amsterdam":{"verification":143712,"minStipend":145445},"osaka":{"verification":143712,"minStipend":145445},"prague":{"verification":138356,"minStipend":140089}}},
-    {"label":"sample-18","sk":"0x0000000000000000000000000000000000000000000000000000000007777789","attempts":8,"sqrtCalls":1,"fieldRejections":7,"swapped":false,"rootBit":1,"digest":{"x":"0x287383901a09bc5482e7ea8e9b31bb1c3c7559d33ce2077853bd67495724c1e4","y":"0x214f66d35b75516a15720c3867c6e13ee33c070dc827b55c1f4782706986a9cc"},"gas":{"amsterdam":{"verification":139648,"minStipend":141382},"osaka":{"verification":139648,"minStipend":141382},"prague":{"verification":136970,"minStipend":138704}}},
-    {"label":"sample-19","sk":"0x000000000000000000000000000000000000000000000000000000000777778a","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":false,"rootBit":1,"digest":{"x":"0x227b77b56b525ea6a499004f7d370bdd5bc27f70b540e638079b844f9ee1d0d1","y":"0x27a9ae6c8fcc076a2aeaa8dbc002fd1d6d1840c76fd24d335267685f0e8f4b7a"},"gas":{"amsterdam":{"verification":136557,"minStipend":138290},"osaka":{"verification":136557,"minStipend":138290},"prague":{"verification":133879,"minStipend":135612}}},
-    {"label":"sample-20","sk":"0x000000000000000000000000000000000000000000000000000000000777778b","attempts":10,"sqrtCalls":1,"fieldRejections":9,"swapped":false,"rootBit":1,"digest":{"x":"0x0d13233efd157b9908ddad0b8f926b5c32feb66b22116db2ba47f5530889e185","y":"0x2e8d50b98182661c249b990c752b6fdab860bc0b4d415535a2bb5b68b3c68919"},"gas":{"amsterdam":{"verification":140680,"minStipend":142414},"osaka":{"verification":140680,"minStipend":142414},"prague":{"verification":138002,"minStipend":139736}}},
-    {"label":"sample-21","sk":"0x000000000000000000000000000000000000000000000000000000000777778c","attempts":33,"sqrtCalls":6,"fieldRejections":27,"swapped":false,"rootBit":1,"digest":{"x":"0x0452640baf24ef1d3ae2c327fcec9b09f3da573d28b7a5f3a17aa0c1a9dbc868","y":"0x298d93be631b125a0813c33cc8d6c65d72e2bad9a54b63f96ac552aafdae0653"},"gas":{"amsterdam":{"verification":175500,"minStipend":177232},"osaka":{"verification":175500,"minStipend":177232},"prague":{"verification":159432,"minStipend":161164}}},
-    {"label":"sample-22","sk":"0x000000000000000000000000000000000000000000000000000000000777778d","attempts":3,"sqrtCalls":1,"fieldRejections":2,"swapped":true,"rootBit":0,"digest":{"x":"0x2179f03e6652a5df56cd3c4c5188c8b4c5227a0cf6f611ce4b40c304a09c86e4","y":"0x01bef591da885c831fc75f6671211b79b172e21758a51466e0a82d722294e548"},"gas":{"amsterdam":{"verification":137084,"minStipend":138818},"osaka":{"verification":137084,"minStipend":138818},"prague":{"verification":134406,"minStipend":136140}}},
-    {"label":"sample-23","sk":"0x000000000000000000000000000000000000000000000000000000000777778e","attempts":20,"sqrtCalls":2,"fieldRejections":18,"swapped":false,"rootBit":1,"digest":{"x":"0x280bc59b3d78ce3e2a6ae943f58e5d4e52c96dce47d8467d4c7af3f3aa223261","y":"0x27668c57839003d76ca090332b32a13338724466531c4d8e455782c36c402142"},"gas":{"amsterdam":{"verification":150431,"minStipend":152165},"osaka":{"verification":150431,"minStipend":152165},"prague":{"verification":145075,"minStipend":146809}}},
-    {"label":"sample-24","sk":"0x000000000000000000000000000000000000000000000000000000000777778f","attempts":18,"sqrtCalls":1,"fieldRejections":17,"swapped":false,"rootBit":1,"digest":{"x":"0x10054ff70e7223b035fd1831588bdedd1b4e15c19127e0798a782ad7a911f980","y":"0x2ee1eb0fc2eed45968323a28d83df564cee2004c6d8591053dce8229a37da8ed"},"gas":{"amsterdam":{"verification":144816,"minStipend":146550},"osaka":{"verification":144816,"minStipend":146550},"prague":{"verification":142138,"minStipend":143872}}},
-    {"label":"sample-25","sk":"0x0000000000000000000000000000000000000000000000000000000007777790","attempts":19,"sqrtCalls":4,"fieldRejections":15,"swapped":true,"rootBit":1,"digest":{"x":"0x1f3d7ef52d4705db9187234b7c903f23d5c6c1d834fe6804db3ea5b8c04b0148","y":"0x256b916dc2fc569654eb779642adf7cb954f5237b95d2f51d4908661daf12824"},"gas":{"amsterdam":{"verification":159074,"minStipend":160807},"osaka":{"verification":159074,"minStipend":160807},"prague":{"verification":148362,"minStipend":150095}}},
-    {"label":"sample-26","sk":"0x0000000000000000000000000000000000000000000000000000000007777791","attempts":26,"sqrtCalls":7,"fieldRejections":19,"swapped":false,"rootBit":0,"digest":{"x":"0x0e9378ea09e6c8e65899b569bca417cafd9d5886d693f85e258b0d678f2d897d","y":"0x0547527de005745f9bcd0bf22996b875c984fab109113c5efc573f0e4a30f2c7"},"gas":{"amsterdam":{"verification":176449,"minStipend":178182},"osaka":{"verification":176449,"minStipend":178182},"prague":{"verification":157703,"minStipend":159436}}},
-    {"label":"sample-27","sk":"0x0000000000000000000000000000000000000000000000000000000007777792","attempts":9,"sqrtCalls":2,"fieldRejections":7,"swapped":true,"rootBit":1,"digest":{"x":"0x2e93c643f347cbe700b8153ff16643a224018c434d9846cf52899b66835e9f8b","y":"0x2e8fe848c5a3180788220e3180d228f8b6df646df97ee653a64dc5f19d815552"},"gas":{"amsterdam":{"verification":144746,"minStipend":146480},"osaka":{"verification":144746,"minStipend":146480},"prague":{"verification":139390,"minStipend":141124}}},
-    {"label":"sample-28","sk":"0x0000000000000000000000000000000000000000000000000000000007777793","attempts":11,"sqrtCalls":3,"fieldRejections":8,"swapped":false,"rootBit":0,"digest":{"x":"0x2783dd2d730edad48785b86b2667f556a4418aa76dd866b944e3f8c2d8f1fe44","y":"0x0ae29d426531ccb4f61844231287a4e187d61e7f3e654575c1133b2ad2fe183b"},"gas":{"amsterdam":{"verification":150365,"minStipend":152098},"osaka":{"verification":150365,"minStipend":152098},"prague":{"verification":142331,"minStipend":144064}}},
-    {"label":"sample-29","sk":"0x0000000000000000000000000000000000000000000000000000000007777794","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":true,"rootBit":0,"digest":{"x":"0x004d7158d89d1ec299d9181ddab444236ffb962a82b4afa365b33e5255ce4d1a","y":"0x157bf6dab628773715fc73e2f89b5c3deb60c2329a841c730d3214d0bdecc2f9"},"gas":{"amsterdam":{"verification":136570,"minStipend":138303},"osaka":{"verification":136570,"minStipend":138303},"prague":{"verification":133892,"minStipend":135625}}},
-    {"label":"sample-30","sk":"0x0000000000000000000000000000000000000000000000000000000007777795","attempts":5,"sqrtCalls":2,"fieldRejections":3,"swapped":false,"rootBit":0,"digest":{"x":"0x1da230b895d2c5cd49181fec045679e0da283ad71cc91d851326c7037c3910ab","y":"0x09e795e25c050ffefe689604f59e01456768f044501b866888dc1c054d6b42b3"},"gas":{"amsterdam":{"verification":142691,"minStipend":144424},"osaka":{"verification":142691,"minStipend":144424},"prague":{"verification":137335,"minStipend":139068}}},
-    {"label":"sample-31","sk":"0x0000000000000000000000000000000000000000000000000000000007777796","attempts":23,"sqrtCalls":3,"fieldRejections":20,"swapped":true,"rootBit":1,"digest":{"x":"0x1bd2a84e449598b301ab2aa8ee001ffcdcef7624e04690ca2602be0fd9209077","y":"0x1d15a20b5a5bab07aef0e02fe95d7c4ef57394628ac7a1b6534f512423f8cdc7"},"gas":{"amsterdam":{"verification":156569,"minStipend":158302},"osaka":{"verification":156569,"minStipend":158302},"prague":{"verification":148535,"minStipend":150268}}},
-    {"label":"sample-32","sk":"0x0000000000000000000000000000000000000000000000000000000007777797","attempts":7,"sqrtCalls":1,"fieldRejections":6,"swapped":false,"rootBit":0,"digest":{"x":"0x2a321cf8a288ce4287d8db464494a0def09466201a2ab478f1de3ffdd02be48f","y":"0x0a2ef3d54588135b16d025060270fb09eff76b9768ae6d2cd7619098f8241736"},"gas":{"amsterdam":{"verification":139143,"minStipend":140876},"osaka":{"verification":139143,"minStipend":140876},"prague":{"verification":136465,"minStipend":138198}}},
-    {"label":"sample-33","sk":"0x0000000000000000000000000000000000000000000000000000000007777798","attempts":20,"sqrtCalls":3,"fieldRejections":17,"swapped":false,"rootBit":0,"digest":{"x":"0x12e8fbcd8e1f5377a65f9a7216c4cdcbc797d5585bd07a97154267019b9d2b1b","y":"0x08a8d3cdcdb583b72d6d73f64018bcf191d7539d798beeedd3a0c76ff9675c0f"},"gas":{"amsterdam":{"verification":155020,"minStipend":156754},"osaka":{"verification":155020,"minStipend":156754},"prague":{"verification":146986,"minStipend":148720}}},
-    {"label":"sample-34","sk":"0x0000000000000000000000000000000000000000000000000000000007777799","attempts":33,"sqrtCalls":4,"fieldRejections":29,"swapped":false,"rootBit":1,"digest":{"x":"0x2aea3591b1b76c496c85184062623ebb78539a8e9546e96c6642989b76cf835a","y":"0x1e0196f520917bba1ccb170b63be54b1b9bd3783851b77952646b8ec755c8f49"},"gas":{"amsterdam":{"verification":166342,"minStipend":168074},"osaka":{"verification":166342,"minStipend":168074},"prague":{"verification":155630,"minStipend":157362}}},
-    {"label":"sample-35","sk":"0x000000000000000000000000000000000000000000000000000000000777779a","attempts":3,"sqrtCalls":1,"fieldRejections":2,"swapped":false,"rootBit":0,"digest":{"x":"0x0bf1d4e65a95df5fb3694552a0b045443a71e3d3d734aad482507e48b0ace024","y":"0x0f8b615d5ebbdedb2eb9ca27dee42d1467e9d42aa5f0ab8a7a8b9c6694cb6502"},"gas":{"amsterdam":{"verification":137081,"minStipend":138815},"osaka":{"verification":137081,"minStipend":138815},"prague":{"verification":134403,"minStipend":136137}}},
-    {"label":"sample-36","sk":"0x000000000000000000000000000000000000000000000000000000000777779b","attempts":18,"sqrtCalls":7,"fieldRejections":11,"swapped":true,"rootBit":1,"digest":{"x":"0x1badfd010f0a7790eca8f87b30dafc0a356691642e5d02b898e4b5ce5a1c1169","y":"0x1a5ff65822d4cbb176db550096e22c0d3c1aa7aba3e499d9e69b6ae943b2d79e"},"gas":{"amsterdam":{"verification":172293,"minStipend":174027},"osaka":{"verification":172293,"minStipend":174027},"prague":{"verification":153547,"minStipend":155281}}},
-    {"label":"sample-37","sk":"0x000000000000000000000000000000000000000000000000000000000777779c","attempts":21,"sqrtCalls":4,"fieldRejections":17,"swapped":false,"rootBit":0,"digest":{"x":"0x0124c6dfe690c0169520bb5b561500b3fbf3fddb3d236e071d475acc4f55a457","y":"0x14103649847219606d144193302395d6f41b262b46be088de494d682f7c05a25"},"gas":{"amsterdam":{"verification":160118,"minStipend":161851},"osaka":{"verification":160118,"minStipend":161851},"prague":{"verification":149406,"minStipend":151139}}},
-    {"label":"sample-38","sk":"0x000000000000000000000000000000000000000000000000000000000777779d","attempts":7,"sqrtCalls":2,"fieldRejections":5,"swapped":true,"rootBit":0,"digest":{"x":"0x0b353b00e6edbf3673f5e940890d7229f737f60cefb54a6eb0a18dcf7d3c8579","y":"0x158695bef6228bcd9832b5c4fddc98f385c538858141b121efede67d6e45297b"},"gas":{"amsterdam":{"verification":143725,"minStipend":145458},"osaka":{"verification":143725,"minStipend":145458},"prague":{"verification":138369,"minStipend":140102}}},
-    {"label":"sample-39","sk":"0x000000000000000000000000000000000000000000000000000000000777779e","attempts":3,"sqrtCalls":1,"fieldRejections":2,"swapped":true,"rootBit":0,"digest":{"x":"0x0a2980ad8cdc2d5cbcbe72ba045ccc1ab4680f5f0c845336be52742dcbae61d3","y":"0x0565952c6b93d5e096502c65aa57e6a2ae64f4510b0e40ab7b83223ae1a2a42b"},"gas":{"amsterdam":{"verification":137084,"minStipend":138818},"osaka":{"verification":137084,"minStipend":138818},"prague":{"verification":134406,"minStipend":136140}}},
-    {"label":"sample-40","sk":"0x000000000000000000000000000000000000000000000000000000000777779f","attempts":1,"sqrtCalls":1,"fieldRejections":0,"swapped":false,"rootBit":0,"digest":{"x":"0x305f9d4af4951915191fe1d9f863810de8b81c563f726220507d8a61c8857e35","y":"0x007c750f80f5a936a46dca3749b28652c0adea5f168e8d3ec02c49044a216faa"},"gas":{"amsterdam":{"verification":136052,"minStipend":137786},"osaka":{"verification":136052,"minStipend":137786},"prague":{"verification":133374,"minStipend":135108}}},
-    {"label":"sample-41","sk":"0x00000000000000000000000000000000000000000000000000000000077777a0","attempts":3,"sqrtCalls":1,"fieldRejections":2,"swapped":false,"rootBit":1,"digest":{"x":"0x273cd7401e0ce5cf47c6d5c299fdac038557b9331c432d8386ea26b199b2149c","y":"0x25d67f6286daa2af93b7b5c1d1eca243d96da91abb6df722486ff0dfc5936c3c"},"gas":{"amsterdam":{"verification":137071,"minStipend":138805},"osaka":{"verification":137071,"minStipend":138805},"prague":{"verification":134393,"minStipend":136127}}},
-    {"label":"sample-42","sk":"0x00000000000000000000000000000000000000000000000000000000077777a1","attempts":12,"sqrtCalls":2,"fieldRejections":10,"swapped":true,"rootBit":0,"digest":{"x":"0x266624daafc5926a2b49a2740135d52d795b69928f95a1275d21aec30e98850c","y":"0x16c4cb24d91fc5236545e24d14f858ab9d69ddd8f654d92e08d804a5de0334ee"},"gas":{"amsterdam":{"verification":146305,"minStipend":148039},"osaka":{"verification":146305,"minStipend":148039},"prague":{"verification":140949,"minStipend":142683}}},
-    {"label":"sample-43","sk":"0x00000000000000000000000000000000000000000000000000000000077777a2","attempts":8,"sqrtCalls":1,"fieldRejections":7,"swapped":false,"rootBit":0,"digest":{"x":"0x19bdbb63d385cd27a46b66504e7e12a4724b724b7cbac8d7dc144f004af8367d","y":"0x08f9eff3c40c3bac3a89e7d9b0243351e55cc7ee8c4066775ac1d76530eba53e"},"gas":{"amsterdam":{"verification":139658,"minStipend":141392},"osaka":{"verification":139658,"minStipend":141392},"prague":{"verification":136980,"minStipend":138714}}},
-    {"label":"sample-44","sk":"0x00000000000000000000000000000000000000000000000000000000077777a3","attempts":7,"sqrtCalls":2,"fieldRejections":5,"swapped":true,"rootBit":1,"digest":{"x":"0x2c2e57e9e194ca08db459bb29b9132abe7ca3f902caef61ddc117e59f173f11e","y":"0x1f4cf8fa6b64dd0d5ceffe5cc154e9747769dab8bb9045e0b7675b1063d378e4"},"gas":{"amsterdam":{"verification":143715,"minStipend":145448},"osaka":{"verification":143715,"minStipend":145448},"prague":{"verification":138359,"minStipend":140092}}},
-    {"label":"sample-45","sk":"0x00000000000000000000000000000000000000000000000000000000077777a4","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":true,"rootBit":0,"digest":{"x":"0x120a789e6e726ecc7504115e65f02c59eb768feeed3f279f53b5e3564fcd000f","y":"0x07983ca543b184fbf590e23a7f3c0238e5c719ba77c4053b7911ba5f39d523c6"},"gas":{"amsterdam":{"verification":136570,"minStipend":138303},"osaka":{"verification":136570,"minStipend":138303},"prague":{"verification":133892,"minStipend":135625}}},
-    {"label":"sample-46","sk":"0x00000000000000000000000000000000000000000000000000000000077777a5","attempts":1,"sqrtCalls":1,"fieldRejections":0,"swapped":true,"rootBit":0,"digest":{"x":"0x27f3aa1eb65c4c15eed48ee7be89a1327e0c0cde922ee2123612167897ae5181","y":"0x0bfc7fedc8890b0130fbcb92a5796f1b01b188581338f1e843831a7abdc91616"},"gas":{"amsterdam":{"verification":136055,"minStipend":137789},"osaka":{"verification":136055,"minStipend":137789},"prague":{"verification":133377,"minStipend":135111}}},
-    {"label":"sample-47","sk":"0x00000000000000000000000000000000000000000000000000000000077777a6","attempts":6,"sqrtCalls":1,"fieldRejections":5,"swapped":true,"rootBit":0,"digest":{"x":"0x2417322e18cfd21cd4632c98fe3257d7bacdb864e1c2b0bf89a1f09e950444e9","y":"0x13d53c2ad66ceba494652e62d2c778bed9df2e8fd73e10da250f0a3bee4bdc22"},"gas":{"amsterdam":{"verification":138630,"minStipend":140364},"osaka":{"verification":138630,"minStipend":140364},"prague":{"verification":135952,"minStipend":137686}}},
-    {"label":"sample-48","sk":"0x00000000000000000000000000000000000000000000000000000000077777a7","attempts":4,"sqrtCalls":1,"fieldRejections":3,"swapped":true,"rootBit":1,"digest":{"x":"0x0dfe28384059dd8530b31393c1db302247ecaa6ff87811a6a15f195d06df0308","y":"0x22f9adc7cad6b43d578f09ba127f59f0943635dd1ad37a8d78e66ef585d228ae"},"gas":{"amsterdam":{"verification":137589,"minStipend":139323},"osaka":{"verification":137589,"minStipend":139323},"prague":{"verification":134911,"minStipend":136645}}},
-    {"label":"sample-49","sk":"0x00000000000000000000000000000000000000000000000000000000077777a8","attempts":14,"sqrtCalls":1,"fieldRejections":13,"swapped":true,"rootBit":1,"digest":{"x":"0x084d50920b59628e941c58af49748ddf28bfd3500b47a79526780fd83060e027","y":"0x25960635aebd2db1aa081031d68ab37b63e7f7a4b39eb684caf0362ac518425c"},"gas":{"amsterdam":{"verification":142750,"minStipend":144483},"osaka":{"verification":142750,"minStipend":144483},"prague":{"verification":140072,"minStipend":141805}}},
-    {"label":"small-1","sk":"0x0000000000000000000000000000000000000000000000000000000000000001","attempts":19,"sqrtCalls":2,"fieldRejections":17,"swapped":true,"rootBit":0,"digest":{"x":"0x26d7110c7dfa9bf7bb2559863bf3a1a9d7f78fa5b2dda0c679cbf5771db0fd7e","y":"0x102ca5656650e08eefac00918df70b3e16297df3175d4018f750d1676c925de3"},"gas":{"amsterdam":{"verification":149926,"minStipend":151659},"osaka":{"verification":149926,"minStipend":151659},"prague":{"verification":144570,"minStipend":146303}}},
-    {"label":"small-2","sk":"0x0000000000000000000000000000000000000000000000000000000000000002","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":true,"rootBit":0,"digest":{"x":"0x0f3a994a600375c3fc111f081406d68d377a43fd241aabac64a540d0a5cbe690","y":"0x0747cf590dea2cf864471495525370fb4e067041fb9075dfe9812b1bbb8467c9"},"gas":{"amsterdam":{"verification":136570,"minStipend":138303},"osaka":{"verification":136570,"minStipend":138303},"prague":{"verification":133892,"minStipend":135625}}},
-    {"label":"small-3","sk":"0x0000000000000000000000000000000000000000000000000000000000000003","attempts":5,"sqrtCalls":2,"fieldRejections":3,"swapped":false,"rootBit":0,"digest":{"x":"0x08da2b4490a1fdfaabd0339e9ac208b42badd36dfcc17e62db73fe9fa808bce7","y":"0x0eb774bf89a84a9c4757364161c3419a52352f31916a74f34d997729f9449b69"},"gas":{"amsterdam":{"verification":142691,"minStipend":144424},"osaka":{"verification":142691,"minStipend":144424},"prague":{"verification":137335,"minStipend":139068}}},
-    {"label":"small-4","sk":"0x0000000000000000000000000000000000000000000000000000000000000004","attempts":4,"sqrtCalls":2,"fieldRejections":2,"swapped":true,"rootBit":0,"digest":{"x":"0x085eaef17ac0811f4ca94b3386e209eeee9ad81fc040290806d44f35c17c9a49","y":"0x11cd2d26c47b2663d0a8ba72a7926b4c1f01693dc7d3c23af372853fbcb6d152"},"gas":{"amsterdam":{"verification":142178,"minStipend":143912},"osaka":{"verification":142178,"minStipend":143912},"prague":{"verification":136822,"minStipend":138556}}},
-    {"label":"small-5","sk":"0x0000000000000000000000000000000000000000000000000000000000000005","attempts":14,"sqrtCalls":3,"fieldRejections":11,"swapped":true,"rootBit":1,"digest":{"x":"0x09ce8e8fd96a4fc147e0dfba78e887cbe574b576e19a3d236bc18e28d7fcb256","y":"0x27396d1d2f08367e6aed6f1f703a632bce560b28ea5bcb464329172bc145de75"},"gas":{"amsterdam":{"verification":151908,"minStipend":153641},"osaka":{"verification":151908,"minStipend":153641},"prague":{"verification":143874,"minStipend":145607}}},
-    {"label":"small-6","sk":"0x0000000000000000000000000000000000000000000000000000000000000006","attempts":4,"sqrtCalls":1,"fieldRejections":3,"swapped":false,"rootBit":0,"digest":{"x":"0x2b94addef308b1feba8602f3e752354b356800552a8b9ce8ae6354cfbb0b1c64","y":"0x0561a4c5a03025d32500a5560db57dd0c50cf2fcef886ebf7f45c14d8c349182"},"gas":{"amsterdam":{"verification":137596,"minStipend":139330},"osaka":{"verification":137596,"minStipend":139330},"prague":{"verification":134918,"minStipend":136652}}},
-    {"label":"small-7","sk":"0x0000000000000000000000000000000000000000000000000000000000000007","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":true,"rootBit":0,"digest":{"x":"0x16db28700633b8a1260c9da868c57a674f893cb4c95b4719d10792a284e17ad8","y":"0x06547d16fe30eb89908611941c3ae01489bdbd84bedf9746bc4f9d817edae3e9"},"gas":{"amsterdam":{"verification":136570,"minStipend":138303},"osaka":{"verification":136570,"minStipend":138303},"prague":{"verification":133892,"minStipend":135625}}},
-    {"label":"small-8","sk":"0x0000000000000000000000000000000000000000000000000000000000000008","attempts":2,"sqrtCalls":2,"fieldRejections":0,"swapped":false,"rootBit":1,"digest":{"x":"0x0181879e9e4c824214a000241b5f0a2e56faaa96dd0dc573883408a9fc5824b0","y":"0x2e5223fcbd2f26504058af047e89d4e555652973a3a2011235b57b8036f996f0"},"gas":{"amsterdam":{"verification":141136,"minStipend":142869},"osaka":{"verification":141136,"minStipend":142869},"prague":{"verification":135780,"minStipend":137513}}},
-    {"label":"small-9","sk":"0x0000000000000000000000000000000000000000000000000000000000000009","attempts":14,"sqrtCalls":5,"fieldRejections":9,"swapped":true,"rootBit":1,"digest":{"x":"0x047d7bca30be01b7af9b047d889b6c42baa11c2156c3db1b7d3a7c42c0b10a57","y":"0x2355c7699095d64ccd57a87714a357d7dabc7c792caf7e7d96ad91e357b3fb43"},"gas":{"amsterdam":{"verification":161066,"minStipend":162799},"osaka":{"verification":161066,"minStipend":162799},"prague":{"verification":147676,"minStipend":149409}}},
-    {"label":"small-10","sk":"0x000000000000000000000000000000000000000000000000000000000000000a","attempts":20,"sqrtCalls":4,"fieldRejections":16,"swapped":false,"rootBit":1,"digest":{"x":"0x2bc932c0e6e0d916267169c278fec7521eeee828c9e161f8509859fd498ef5a0","y":"0x223110d6009d56cd23a828dc4c651b7311e9703565a61975fbb2c86dbff9e045"},"gas":{"amsterdam":{"verification":159589,"minStipend":161323},"osaka":{"verification":159589,"minStipend":161323},"prague":{"verification":148877,"minStipend":150611}}},
-    {"label":"small-11","sk":"0x000000000000000000000000000000000000000000000000000000000000000b","attempts":31,"sqrtCalls":3,"fieldRejections":28,"swapped":false,"rootBit":1,"digest":{"x":"0x12c340285376dcc569abd9fa94f09fa154cc8c309b35eff849fd0bf66d684ac6","y":"0x2ddbc8c0260f40d86bdd219dd993733401c73452e512bfb58cdd96f5f3fb0072"},"gas":{"amsterdam":{"verification":160722,"minStipend":162454},"osaka":{"verification":160722,"minStipend":162454},"prague":{"verification":152688,"minStipend":154420}}},
-    {"label":"small-12","sk":"0x000000000000000000000000000000000000000000000000000000000000000c","attempts":1,"sqrtCalls":1,"fieldRejections":0,"swapped":true,"rootBit":1,"digest":{"x":"0x18fe7bbf21f27bc113a592a862011e5ee517d04204b8265c90ce9902bfbea6e2","y":"0x1a51a5f914ea28fac7bc46fe47124ff2829b8671634dbf66a02649b26f26bc42"},"gas":{"amsterdam":{"verification":136045,"minStipend":137779},"osaka":{"verification":136045,"minStipend":137779},"prague":{"verification":133367,"minStipend":135101}}},
-    {"label":"small-13","sk":"0x000000000000000000000000000000000000000000000000000000000000000d","attempts":10,"sqrtCalls":3,"fieldRejections":7,"swapped":true,"rootBit":0,"digest":{"x":"0x0501d4de79e39073c932a06d947cc99b4243f0f47f99d6fe07b70b07c2916d62","y":"0x0617c7d731bbd41f22dbb54e5c09c5514a8c2b649e1ec8ad70096bb301e2c153"},"gas":{"amsterdam":{"verification":149851,"minStipend":151585},"osaka":{"verification":149851,"minStipend":151585},"prague":{"verification":141817,"minStipend":143551}}},
-    {"label":"small-14","sk":"0x000000000000000000000000000000000000000000000000000000000000000e","attempts":17,"sqrtCalls":2,"fieldRejections":15,"swapped":true,"rootBit":1,"digest":{"x":"0x2a779f9b7a3724088bd1cdd3567951148634881a13b056ecc4442f0952d674c7","y":"0x2bdb23fbdb3ff931a76b3cb44922b4decadcdf414cd2dbbd86714b0eae2d170d"},"gas":{"amsterdam":{"verification":148881,"minStipend":150614},"osaka":{"verification":148881,"minStipend":150614},"prague":{"verification":143525,"minStipend":145258}}},
-    {"label":"small-15","sk":"0x000000000000000000000000000000000000000000000000000000000000000f","attempts":16,"sqrtCalls":3,"fieldRejections":13,"swapped":false,"rootBit":0,"digest":{"x":"0x10f49cc2e515c8cc7069c7eadc0fbe5ffea440375de7c08123d51f2d4322324a","y":"0x04873a5ff58345942bc8e700ca76418cd55d612c366693a0ad9f28590d1dd602"},"gas":{"amsterdam":{"verification":152949,"minStipend":154683},"osaka":{"verification":152949,"minStipend":154683},"prague":{"verification":144915,"minStipend":146649}}},
-    {"label":"small-16","sk":"0x0000000000000000000000000000000000000000000000000000000000000010","attempts":9,"sqrtCalls":1,"fieldRejections":8,"swapped":true,"rootBit":1,"digest":{"x":"0x12c1b8be34d4ee22b36f5597b6baea81a28e8656a25fa10bbad4b403cbf57e16","y":"0x2b92943aba2e6521ae219f7e2ee9ed2ad82408f035f492b60ab4fb1ee8179dfe"},"gas":{"amsterdam":{"verification":140167,"minStipend":141901},"osaka":{"verification":140167,"minStipend":141901},"prague":{"verification":137489,"minStipend":139223}}},
-    {"label":"small-17","sk":"0x0000000000000000000000000000000000000000000000000000000000000011","attempts":3,"sqrtCalls":2,"fieldRejections":1,"swapped":true,"rootBit":0,"digest":{"x":"0x1361fbd59372dff51ac9dab6a5e2d22ddb322bc841c52f1498ab2465485bba0c","y":"0x09e480793413dd3e06f18e75b3df90f1ef55bd3848420becf2708ed1db614f88"},"gas":{"amsterdam":{"verification":141663,"minStipend":143397},"osaka":{"verification":141663,"minStipend":143397},"prague":{"verification":136307,"minStipend":138041}}},
-    {"label":"small-18","sk":"0x0000000000000000000000000000000000000000000000000000000000000012","attempts":4,"sqrtCalls":1,"fieldRejections":3,"swapped":true,"rootBit":1,"digest":{"x":"0x202b104c84e5c90762f2acd565bcc84408cb9b643c95bc1fbbf971fecc947f6e","y":"0x2d17a8a0e6aa5d49a80e3ef5e7cfbe9c4a4d4aea2dee165fb0bf1b0d3b09d4e2"},"gas":{"amsterdam":{"verification":137589,"minStipend":139323},"osaka":{"verification":137589,"minStipend":139323},"prague":{"verification":134911,"minStipend":136645}}},
-    {"label":"small-19","sk":"0x0000000000000000000000000000000000000000000000000000000000000013","attempts":7,"sqrtCalls":1,"fieldRejections":6,"swapped":false,"rootBit":1,"digest":{"x":"0x2689b6fa08184f923e8eec9a7a2d49cba8a1673aa3299b642746a76896b92c28","y":"0x2a088a43f920ff7accf3e4d2022e4005707e60ce73ec8a36c33a7a6819215c07"},"gas":{"amsterdam":{"verification":139133,"minStipend":140866},"osaka":{"verification":139133,"minStipend":140866},"prague":{"verification":136455,"minStipend":138188}}},
-    {"label":"small-20","sk":"0x0000000000000000000000000000000000000000000000000000000000000014","attempts":4,"sqrtCalls":2,"fieldRejections":2,"swapped":true,"rootBit":0,"digest":{"x":"0x2f335a7d141f7c6d68ce6c3bbb4068ac17c05d5ea4bb1a64b95b8e3f02e610ad","y":"0x10b81d3ba91f9eac7738309b1e93e157e98c8a3a28abf9048fb45c3c227b6fe9"},"gas":{"amsterdam":{"verification":142178,"minStipend":143912},"osaka":{"verification":142178,"minStipend":143912},"prague":{"verification":136822,"minStipend":138556}}},
-    {"label":"small-21","sk":"0x0000000000000000000000000000000000000000000000000000000000000015","attempts":13,"sqrtCalls":1,"fieldRejections":12,"swapped":true,"rootBit":1,"digest":{"x":"0x063b4fb699190d9e7cd6ab6ad4c4ccb98c41e82046dd081793e0ba7c18f5adf2","y":"0x1c74a68506ebedb7fa3558c065496d183d0d34f0aaf99d35f75cf2f21c6fec52"},"gas":{"amsterdam":{"verification":142233,"minStipend":143966},"osaka":{"verification":142233,"minStipend":143966},"prague":{"verification":139555,"minStipend":141288}}},
-    {"label":"small-22","sk":"0x0000000000000000000000000000000000000000000000000000000000000016","attempts":13,"sqrtCalls":1,"fieldRejections":12,"swapped":false,"rootBit":1,"digest":{"x":"0x11bd4ad9368700877ad40214c458e981e22253ba1a6f2b09fdb53986b05afffc","y":"0x302d5c35393a18f164fd36c7d6a6ff35c6266063b1241705e967ce718859d8de"},"gas":{"amsterdam":{"verification":142230,"minStipend":143963},"osaka":{"verification":142230,"minStipend":143963},"prague":{"verification":139552,"minStipend":141285}}},
-    {"label":"small-23","sk":"0x0000000000000000000000000000000000000000000000000000000000000017","attempts":6,"sqrtCalls":1,"fieldRejections":5,"swapped":true,"rootBit":0,"digest":{"x":"0x2fd7a7d1fb21ef6ce740bf9fdb08a57856b41b85e77c389dc75f4d2cd1ffbc01","y":"0x120490efc897d9e8108e2c610654a36b6acf6ac614a80bbe3bd39a58b1e85ed6"},"gas":{"amsterdam":{"verification":138630,"minStipend":140364},"osaka":{"verification":138630,"minStipend":140364},"prague":{"verification":135952,"minStipend":137686}}},
-    {"label":"small-24","sk":"0x0000000000000000000000000000000000000000000000000000000000000018","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":true,"rootBit":0,"digest":{"x":"0x16b23b870b4c0d4e9efe50dafac04725c2087711511afa2aa9e2373b91e84499","y":"0x105dbb9571777783a3a9fd173c90992cb9c465aa325ec14c706d1f0035061a82"},"gas":{"amsterdam":{"verification":136570,"minStipend":138303},"osaka":{"verification":136570,"minStipend":138303},"prague":{"verification":133892,"minStipend":135625}}},
-    {"label":"small-25","sk":"0x0000000000000000000000000000000000000000000000000000000000000019","attempts":3,"sqrtCalls":1,"fieldRejections":2,"swapped":true,"rootBit":0,"digest":{"x":"0x088ead75ec2c768f453ef443e6974e68e313bbc96675e2a9ad7bdae7b1ee56ed","y":"0x12a2ad56aba1f3c21effef810aedcef3c430e6d269d7cdb5f538fc11fb48556a"},"gas":{"amsterdam":{"verification":137084,"minStipend":138818},"osaka":{"verification":137084,"minStipend":138818},"prague":{"verification":134406,"minStipend":136140}}},
-    {"label":"small-26","sk":"0x000000000000000000000000000000000000000000000000000000000000001a","attempts":11,"sqrtCalls":2,"fieldRejections":9,"swapped":true,"rootBit":0,"digest":{"x":"0x18bbb426b8840be3e55f44448df43372ce86e3f0b0dc7f538f954b4d636eef5e","y":"0x0c196cdfa90e9347928c9da5843fa973a51bfc58ea84aa18a5750920206ca727"},"gas":{"amsterdam":{"verification":145789,"minStipend":147522},"osaka":{"verification":145789,"minStipend":147522},"prague":{"verification":140433,"minStipend":142166}}},
-    {"label":"small-27","sk":"0x000000000000000000000000000000000000000000000000000000000000001b","attempts":2,"sqrtCalls":1,"fieldRejections":1,"swapped":false,"rootBit":1,"digest":{"x":"0x2fe2f8208060ab75d1e994a2b430fec870b4ff625513567820d9acbed6e95cce","y":"0x1e836e80dc198206f129252fac0e128c08d097779ac2609ccefcb07473a055e5"},"gas":{"amsterdam":{"verification":136557,"minStipend":138290},"osaka":{"verification":136557,"minStipend":138290},"prague":{"verification":133879,"minStipend":135612}}},
-    {"label":"small-28","sk":"0x000000000000000000000000000000000000000000000000000000000000001c","attempts":10,"sqrtCalls":2,"fieldRejections":8,"swapped":false,"rootBit":0,"digest":{"x":"0x073f2120f057b1351033469d9799e61e4cd8bc758aced579887a4195400927bc","y":"0x03c0977c05bf40d383550f1bcfa6feec83a1270057b7d1acb6aeadfe7551f5db"},"gas":{"amsterdam":{"verification":145269,"minStipend":147003},"osaka":{"verification":145269,"minStipend":147003},"prague":{"verification":139913,"minStipend":141647}}},
-    {"label":"small-29","sk":"0x000000000000000000000000000000000000000000000000000000000000001d","attempts":19,"sqrtCalls":3,"fieldRejections":16,"swapped":false,"rootBit":0,"digest":{"x":"0x26034b25983f6bce0922bc79be934036b1beba68dfb37ea3a132c93c9ba00e83","y":"0x0cde184e59898712b28d714c1b912e7a88ce3d9f1c8270ae877e4700e280b7ec"},"gas":{"amsterdam":{"verification":154502,"minStipend":156235},"osaka":{"verification":154502,"minStipend":156235},"prague":{"verification":146468,"minStipend":148201}}},
-    {"label":"small-30","sk":"0x000000000000000000000000000000000000000000000000000000000000001e","attempts":7,"sqrtCalls":2,"fieldRejections":5,"swapped":false,"rootBit":1,"digest":{"x":"0x1970feae5a7c6db9eede97b2c80f98d88a4ccc6786e90fd32a261b059a5e6e51","y":"0x22fa3568ed21a2daf1ea505d7c92790a0a9dde4e6df0b0bd94bd47965cda393b"},"gas":{"amsterdam":{"verification":143712,"minStipend":145445},"osaka":{"verification":143712,"minStipend":145445},"prague":{"verification":138356,"minStipend":140089}}},
-    {"label":"small-31","sk":"0x000000000000000000000000000000000000000000000000000000000000001f","attempts":14,"sqrtCalls":3,"fieldRejections":11,"swapped":false,"rootBit":1,"digest":{"x":"0x24c0988a7cebed8ec761b12501d13618306fcb548a2c0de36d8a6f16b8a9a8c0","y":"0x24209c01b6a6794059faea756c78e9b17abaecc2440fc3c7d39a46bda13da2c7"},"gas":{"amsterdam":{"verification":151905,"minStipend":153638},"osaka":{"verification":151905,"minStipend":153638},"prague":{"verification":143871,"minStipend":145604}}},
-    {"label":"small-32","sk":"0x0000000000000000000000000000000000000000000000000000000000000020","attempts":14,"sqrtCalls":2,"fieldRejections":12,"swapped":false,"rootBit":1,"digest":{"x":"0x2117e317e8d4481c35d94495d9d8202d7424875ebcb735c45eded4062fe8ea3e","y":"0x2762901a05c3a3e8ea96d33aca39fb6e09f72f80f89f9d07b6115556a654c33c"},"gas":{"amsterdam":{"verification":147326,"minStipend":149059},"osaka":{"verification":147326,"minStipend":149059},"prague":{"verification":141970,"minStipend":143703}}},
-    {"label":"tail-13154","sk":"0x0000000000000000000000000000000000000000000000000000000000003362","attempts":102,"sqrtCalls":10,"fieldRejections":92,"swapped":true,"rootBit":0,"digest":{"x":"0x179b3c53aa8ccd8638a9a50181f4cf18227f656389ae62f313e3dfb9b08d4f5f","y":"0x14ba914a32034a090b84999a354557896fb730fc29004599af82d10674f361bc"},"gas":{"amsterdam":{"verification":230208,"minStipend":231939},"osaka":{"verification":230208,"minStipend":231939},"prague":{"verification":203428,"minStipend":205159}}},
-    {"label":"tail-31312","sk":"0x0000000000000000000000000000000000000000000000000000000000007a50","attempts":93,"sqrtCalls":6,"fieldRejections":87,"swapped":true,"rootBit":1,"digest":{"x":"0x115312e28ae6319828c372c3fc76740e1eccc6f2b406e17cac28356651086df4","y":"0x1ae2010d808a4bc895fa4309d42714490bd41296f13b6a3baad02c8994f5bfd9"},"gas":{"amsterdam":{"verification":207086,"minStipend":208817},"osaka":{"verification":207086,"minStipend":208817},"prague":{"verification":191018,"minStipend":192749}}},
-    {"label":"tail-36300","sk":"0x0000000000000000000000000000000000000000000000000000000000008dcc","attempts":113,"sqrtCalls":10,"fieldRejections":103,"swapped":true,"rootBit":1,"digest":{"x":"0x1b62e6e84c0be908128dafe8a506ae94aeee0e90331f2201b42ada6e562766d7","y":"0x2fcc71ffb88cf5a0b0289723030b2030e808a9197b3df94969efda25ac168875"},"gas":{"amsterdam":{"verification":236082,"minStipend":237813},"osaka":{"verification":236082,"minStipend":237813},"prague":{"verification":209302,"minStipend":211033}}},
-    {"label":"tail-57193","sk":"0x000000000000000000000000000000000000000000000000000000000000df69","attempts":95,"sqrtCalls":18,"fieldRejections":77,"swapped":false,"rootBit":1,"digest":{"x":"0x02ebb62e1aa0d4c1288909841a9cb55503a710e25ea18c345a81434fef419e4c","y":"0x2108b6daab76d09954f8b4d78c00ce7deb205aa46106322c5b55131d212787b6"},"gas":{"amsterdam":{"verification":263095,"minStipend":264826},"osaka":{"verification":263095,"minStipend":264826},"prague":{"verification":214891,"minStipend":216622}}},
-    {"label":"tail-84080","sk":"0x0000000000000000000000000000000000000000000000000000000000014870","attempts":115,"sqrtCalls":10,"fieldRejections":105,"swapped":false,"rootBit":0,"digest":{"x":"0x1101fd675a41bc0b17fd8733e73c90eb1b71eb18b5d2f4e0e80c02914f7a92dc","y":"0x0a63444b2ff389a3121469447a97bc4f2e1977b53885c0365b84a98e513fe5d4"},"gas":{"amsterdam":{"verification":237162,"minStipend":238892},"osaka":{"verification":237162,"minStipend":238892},"prague":{"verification":210382,"minStipend":212112}}},
-    {"label":"tail-103623","sk":"0x00000000000000000000000000000000000000000000000000000000000194c7","attempts":111,"sqrtCalls":14,"fieldRejections":97,"swapped":true,"rootBit":1,"digest":{"x":"0x27ddbd4fcd3330834dd5e94641d0bcd372ceb87159b3028465fd7925ee8814f5","y":"0x2559dd6c53dba8406305ef5e13aa6179af934c8ec6d2a5fa6a84f2833b0f78e2"},"gas":{"amsterdam":{"verification":253327,"minStipend":255057},"osaka":{"verification":253327,"minStipend":255057},"prague":{"verification":215835,"minStipend":217565}}},
-    {"label":"tail-150199","sk":"0x0000000000000000000000000000000000000000000000000000000000024ab7","attempts":126,"sqrtCalls":17,"fieldRejections":109,"swapped":true,"rootBit":1,"digest":{"x":"0x1d8dd6dda4cf8afc704ca9938333da18866933a8625a9f69371dd5277752644e","y":"0x1eb679ed42e94fa6b7ef6137308793810a8a5767d6965158707b37e847f74cce"},"gas":{"amsterdam":{"verification":275119,"minStipend":276849},"osaka":{"verification":275119,"minStipend":276849},"prague":{"verification":229593,"minStipend":231323}}},
-    {"label":"tail-241572","sk":"0x000000000000000000000000000000000000000000000000000000000003afa4","attempts":128,"sqrtCalls":19,"fieldRejections":109,"swapped":false,"rootBit":1,"digest":{"x":"0x219905f17df46cbb27cb370f53b1299ad2bdedfd211ebdd7bd3771198d0b6894","y":"0x1b2ef125559365c3239bf85cc7281130a28de2f032a5f2792600213269a83906"},"gas":{"amsterdam":{"verification":285351,"minStipend":287081},"osaka":{"verification":285351,"minStipend":287081},"prague":{"verification":234469,"minStipend":236199}}},
-    {"label":"tail-248352","sk":"0x000000000000000000000000000000000000000000000000000000000003ca20","attempts":113,"sqrtCalls":7,"fieldRejections":106,"swapped":true,"rootBit":1,"digest":{"x":"0x2ab601dd4f8759498263cae06e0c64eda9c99c577d96d9da3396ebd7dd879e9c","y":"0x2fe635025cb2ffa4b6f0c9c0810a489dcc745b40197130294f63dea65220a0ff"},"gas":{"amsterdam":{"verification":222345,"minStipend":224076},"osaka":{"verification":222345,"minStipend":224076},"prague":{"verification":203599,"minStipend":205330}}},
-    {"label":"tail-271935","sk":"0x000000000000000000000000000000000000000000000000000000000004263f","attempts":80,"sqrtCalls":17,"fieldRejections":63,"swapped":false,"rootBit":1,"digest":{"x":"0x1d8fc3ff1aad3239b2bee73fbe9b52b1bc71263a50061f26aa504486f6b13af8","y":"0x305fd9af0f314390fbcaf07678b9bcc4cfdde22b824f9b4132e63cd5c0f4bd84"},"gas":{"amsterdam":{"verification":250550,"minStipend":252282},"osaka":{"verification":250550,"minStipend":252282},"prague":{"verification":205024,"minStipend":206756}}},
-    {"label":"tail-286992","sk":"0x0000000000000000000000000000000000000000000000000000000000046110","attempts":110,"sqrtCalls":11,"fieldRejections":99,"swapped":false,"rootBit":1,"digest":{"x":"0x2a1939697afaeed41f66dd37aa9e92c056a4e1a7ecf94f01b971e405f4df19b5","y":"0x23f4a2b4fe75c12ea8bd8d38a77aee267c146b02ba992ab439631c20ddfe5ddf"},"gas":{"amsterdam":{"verification":239051,"minStipend":240782},"osaka":{"verification":239051,"minStipend":240782},"prague":{"verification":209593,"minStipend":211324}}},
-    {"label":"tail-299660","sk":"0x000000000000000000000000000000000000000000000000000000000004928c","attempts":110,"sqrtCalls":13,"fieldRejections":97,"swapped":true,"rootBit":0,"digest":{"x":"0x28a24724895afc32e96f287f70fe496f9abf40a6448bdd7714fbd5c2d8f448e4","y":"0x015fbd1ec2d3c8ad9dca4d0789d321a2d8a0c33a74802b512e3378df1e7e3904"},"gas":{"amsterdam":{"verification":248222,"minStipend":249953},"osaka":{"verification":248222,"minStipend":249953},"prague":{"verification":213408,"minStipend":215139}}},
-    {"label":"tail-317342","sk":"0x000000000000000000000000000000000000000000000000000000000004d79e","attempts":78,"sqrtCalls":17,"fieldRejections":61,"swapped":true,"rootBit":0,"digest":{"x":"0x0e68df90472826c5412e63d458941730a8048db886e3c4480cce79c375ee2b68","y":"0x160ab587f28f4b431af546e5ca0f784ce2e4f9f3cb0537c8033c1cdf95890718"},"gas":{"amsterdam":{"verification":249504,"minStipend":251236},"osaka":{"verification":249504,"minStipend":251236},"prague":{"verification":203978,"minStipend":205710}}},
-    {"label":"tail-368752","sk":"0x000000000000000000000000000000000000000000000000000000000005a070","attempts":111,"sqrtCalls":15,"fieldRejections":96,"swapped":true,"rootBit":1,"digest":{"x":"0x252af40d551e99bbb2d717bdc5212b7573a428f9f011b5a9425ca7ff8d23f53c","y":"0x195fa60925b675b6aca337d14b2a0e23d19c94cb58cd5d858ad5dc7853dd3449"},"gas":{"amsterdam":{"verification":257906,"minStipend":259636},"osaka":{"verification":257906,"minStipend":259636},"prague":{"verification":217736,"minStipend":219466}}},
-    {"label":"tail-417985","sk":"0x00000000000000000000000000000000000000000000000000000000000660c1","attempts":119,"sqrtCalls":16,"fieldRejections":103,"swapped":true,"rootBit":0,"digest":{"x":"0x0bc06550ef6c53c1a0528194e0d1b20604e41cf493404b2cbdf7d6051fc78dc0","y":"0x0e93929b9c5383f14cb47baf58a9033c80f0d888c5e3cf57cd7d122dbeaedbc4"},"gas":{"amsterdam":{"verification":266785,"minStipend":268516},"osaka":{"verification":266785,"minStipend":268516},"prague":{"verification":223937,"minStipend":225668}}},
-    {"label":"tail-436912","sk":"0x000000000000000000000000000000000000000000000000000000000006aab0","attempts":107,"sqrtCalls":18,"fieldRejections":89,"swapped":false,"rootBit":1,"digest":{"x":"0x2094e1d9fd41a9d80a22d3989655622741504605d120cfe7af0eaa5aa21bc9bf","y":"0x24c8ed73e7426aa1d2195522a88a96844c7ed5f82e54ac4dba665d3d15c1e4b6"},"gas":{"amsterdam":{"verification":269499,"minStipend":271230},"osaka":{"verification":269499,"minStipend":271230},"prague":{"verification":221295,"minStipend":223026}}},
-    {"label":"tail-441678","sk":"0x000000000000000000000000000000000000000000000000000000000006bd4e","attempts":96,"sqrtCalls":17,"fieldRejections":79,"swapped":false,"rootBit":0,"digest":{"x":"0x2c557578a78be2d707e9ff3a3f008935252662fdd23935a80e2435547069599c","y":"0x117fba981c0302acc11902316de0a14bdf36bd12ed4d677c55af3b94feb40fc9"},"gas":{"amsterdam":{"verification":259059,"minStipend":260790},"osaka":{"verification":259059,"minStipend":260790},"prague":{"verification":213533,"minStipend":215264}}},
-    {"label":"tail-447993","sk":"0x000000000000000000000000000000000000000000000000000000000006d5f9","attempts":107,"sqrtCalls":18,"fieldRejections":89,"swapped":true,"rootBit":1,"digest":{"x":"0x190418f4233f43c1f7693d4c5b443e88d93bf773c7c70ee6d491f3de0b1ee9bd","y":"0x2c53a6a4250115c27fcf01cdae4c52760035e04efe83ce3935a70b42c885a46e"},"gas":{"amsterdam":{"verification":269502,"minStipend":271233},"osaka":{"verification":269502,"minStipend":271233},"prague":{"verification":221298,"minStipend":223029}}},
-    {"label":"tail-459885","sk":"0x000000000000000000000000000000000000000000000000000000000007046d","attempts":111,"sqrtCalls":17,"fieldRejections":94,"swapped":true,"rootBit":0,"digest":{"x":"0x07e07c699b3cd6e5c4a706d765df20987fcb5fcf86e4826fefcff94bcf5f8a28","y":"0x108484338498707dc8aaf6c1efbf4d76b4fc5b1b44a176db89af6f119bd81816"},"gas":{"amsterdam":{"verification":267074,"minStipend":268804},"osaka":{"verification":267074,"minStipend":268804},"prague":{"verification":221548,"minStipend":223278}}},
-    {"label":"tail-530144","sk":"0x00000000000000000000000000000000000000000000000000000000000816e0","attempts":113,"sqrtCalls":13,"fieldRejections":100,"swapped":true,"rootBit":0,"digest":{"x":"0x01d3d2340b002a7c31b20b85d2fe892084eaa731f1787fe0ac0d2a2e124e3c7a","y":"0x06fd261f2617580fc6e37776a74f40cce4be87f351ae189948d5c6fa627e8023"},"gas":{"amsterdam":{"verification":249829,"minStipend":251560},"osaka":{"verification":249829,"minStipend":251560},"prague":{"verification":215015,"minStipend":216746}}},
-    {"label":"tail-681933","sk":"0x00000000000000000000000000000000000000000000000000000000000a67cd","attempts":120,"sqrtCalls":15,"fieldRejections":105,"swapped":false,"rootBit":0,"digest":{"x":"0x2b25d54fb499a27842512485a39a98bf4debef46faa5af8dbdcb007b94e2eb59","y":"0x16b187d358803c9e43e185a53bc49ca7ac3608a61da9f43dd53e0e5346d7fb88"},"gas":{"amsterdam":{"verification":262741,"minStipend":264471},"osaka":{"verification":262741,"minStipend":264471},"prague":{"verification":222571,"minStipend":224301}}},
-    {"label":"tail-693083","sk":"0x00000000000000000000000000000000000000000000000000000000000a935b","attempts":97,"sqrtCalls":23,"fieldRejections":74,"swapped":false,"rootBit":1,"digest":{"x":"0x1e5aabf906ea1fd40515981fffbe3f8af7f9c699f581500940a1e570a4a5b019","y":"0x2862bc1786322bd4f82c11ae3d96b49ec869e264bbf660ac74cdf34793e9876c"},"gas":{"amsterdam":{"verification":287056,"minStipend":288787},"osaka":{"verification":287056,"minStipend":288787},"prague":{"verification":225462,"minStipend":227193}}},
-    {"label":"tail-706579","sk":"0x00000000000000000000000000000000000000000000000000000000000ac813","attempts":100,"sqrtCalls":17,"fieldRejections":83,"swapped":true,"rootBit":1,"digest":{"x":"0x2214a4d1aa6cf81c096b5e6c7e2364fa9020183588778238c200303b106f0940","y":"0x2e423e377c6cc55ef96052c218a0868bd2f0a7ee3e528588b0f18d4b6ea37e47"},"gas":{"amsterdam":{"verification":261184,"minStipend":262915},"osaka":{"verification":261184,"minStipend":262915},"prague":{"verification":215658,"minStipend":217389}}},
-    {"label":"tail-711538","sk":"0x00000000000000000000000000000000000000000000000000000000000adb72","attempts":103,"sqrtCalls":17,"fieldRejections":86,"swapped":true,"rootBit":0,"digest":{"x":"0x0cac44b5e6a5dd5e1f80c0dfcf988782995837c0139513108959997d019dcbea","y":"0x055c7a35e5a1705e01a78a62fbb43686f462e2f1e27755202b6a01f24cf3c683"},"gas":{"amsterdam":{"verification":262795,"minStipend":264526},"osaka":{"verification":262795,"minStipend":264526},"prague":{"verification":217269,"minStipend":219000}}},
-    {"label":"tail-718617","sk":"0x00000000000000000000000000000000000000000000000000000000000af719","attempts":68,"sqrtCalls":17,"fieldRejections":51,"swapped":true,"rootBit":1,"digest":{"x":"0x0a94a17ac8278e6f26ccec3fa1295e0dd72ea386b2ff44e57c195b3871e74e42","y":"0x1a1355a8ce37efd0f9c8d0c87da3af3e582abf6035a706ca1a7dbc2ee8ba3b7d"},"gas":{"amsterdam":{"verification":244211,"minStipend":245943},"osaka":{"verification":244211,"minStipend":245943},"prague":{"verification":198685,"minStipend":200417}}},
-    {"label":"tail-723828","sk":"0x00000000000000000000000000000000000000000000000000000000000b0b74","attempts":139,"sqrtCalls":13,"fieldRejections":126,"swapped":true,"rootBit":0,"digest":{"x":"0x28a6d55bcc67ec14c05d25e1c06937cab5ad202e34b968330033825bb8ac5353","y":"0x0937dec7661f9748b238aebba638260b709f4476d02c0a981bcc3b40f1aa4180"},"gas":{"amsterdam":{"verification":263829,"minStipend":265559},"osaka":{"verification":263829,"minStipend":265559},"prague":{"verification":229015,"minStipend":230745}}},
-    {"label":"tail-814444","sk":"0x00000000000000000000000000000000000000000000000000000000000c6d6c","attempts":83,"sqrtCalls":18,"fieldRejections":65,"swapped":true,"rootBit":0,"digest":{"x":"0x0eef2f928e09240b68399525fbbef17acc97b833130765bf16002727a373e4fe","y":"0x087f1c8d78ae17cf0e8cb0172d5d7a3b1a258d70fbe8815d10b4d0dcdf6189d7"},"gas":{"amsterdam":{"verification":256732,"minStipend":258463},"osaka":{"verification":256732,"minStipend":258463},"prague":{"verification":208528,"minStipend":210259}}},
-    {"label":"tail-850189","sk":"0x00000000000000000000000000000000000000000000000000000000000cf90d","attempts":110,"sqrtCalls":10,"fieldRejections":100,"swapped":false,"rootBit":1,"digest":{"x":"0x04767c8e727cd35c95c2b6458a0a79bbbe839878c7c3518c3438fb63dae2e012","y":"0x2d60515169ab02cbac74ef475facf9dbe0b73d234721944c31807aed2b407e8c"},"gas":{"amsterdam":{"verification":234472,"minStipend":236203},"osaka":{"verification":234472,"minStipend":236203},"prague":{"verification":207692,"minStipend":209423}}},
-    {"label":"tail-865039","sk":"0x00000000000000000000000000000000000000000000000000000000000d330f","attempts":138,"sqrtCalls":12,"fieldRejections":126,"swapped":false,"rootBit":1,"digest":{"x":"0x00686c37feb20f34e2ac830f76259c7171cc074a0bd50f4d0b64c36e72314cfd","y":"0x256a705331425bae60706d1cbfb030ff690b5533a318a5c66d368fc79ca1dd12"},"gas":{"amsterdam":{"verification":258696,"minStipend":260426},"osaka":{"verification":258696,"minStipend":260426},"prague":{"verification":226560,"minStipend":228290}}},
-    {"label":"tail-884458","sk":"0x00000000000000000000000000000000000000000000000000000000000d7eea","attempts":101,"sqrtCalls":18,"fieldRejections":83,"swapped":true,"rootBit":0,"digest":{"x":"0x1d55f74fa56f7eb25c52b2c6ca07d0ec6d66d943e0a9051e9a9074c4ffee5e73","y":"0x13bc7a3d571b0027e01fd743eaa23592f2dd1d7be593a601df2b11db7c1b508a"},"gas":{"amsterdam":{"verification":266307,"minStipend":268038},"osaka":{"verification":266307,"minStipend":268038},"prague":{"verification":218103,"minStipend":219834}}},
-    {"label":"tail-894541","sk":"0x00000000000000000000000000000000000000000000000000000000000da64d","attempts":111,"sqrtCalls":16,"fieldRejections":95,"swapped":true,"rootBit":1,"digest":{"x":"0x1d760879d3907cc6da13f5cebc79b9bf36b1b3a1ca2c9b5213ff854502fb17ae","y":"0x24889703b84b23b882c6534601b72ddcf55620e24ecfbd6f8f9168e4db78d897"},"gas":{"amsterdam":{"verification":262485,"minStipend":264215},"osaka":{"verification":262485,"minStipend":264215},"prague":{"verification":219637,"minStipend":221367}}},
-    {"label":"tail-909548","sk":"0x00000000000000000000000000000000000000000000000000000000000de0ec","attempts":121,"sqrtCalls":15,"fieldRejections":106,"swapped":true,"rootBit":0,"digest":{"x":"0x25cda99f83431275c7d6420d428c263bf9935d106a8240414b1bd869e4e74e2e","y":"0x0db08f021770f4a101b95ce877a67412f3b54fdaa5b1c29fc7f8f43ab1be97a6"},"gas":{"amsterdam":{"verification":263281,"minStipend":265011},"osaka":{"verification":263281,"minStipend":265011},"prague":{"verification":223111,"minStipend":224841}}},
-    {"label":"tail-933917","sk":"0x00000000000000000000000000000000000000000000000000000000000e401d","attempts":87,"sqrtCalls":17,"fieldRejections":70,"swapped":true,"rootBit":1,"digest":{"x":"0x1acad4c0e23437f1cccfd2612394dbc29ad0d175657c4c8c8249579768061eff","y":"0x1cf4cddf4f88d7259c85e128c182264651f2f3c2fee94c106696779079cc7b11"},"gas":{"amsterdam":{"verification":254265,"minStipend":255996},"osaka":{"verification":254265,"minStipend":255996},"prague":{"verification":208739,"minStipend":210470}}},
-    {"label":"tail-998704","sk":"0x00000000000000000000000000000000000000000000000000000000000f3d30","attempts":117,"sqrtCalls":11,"fieldRejections":106,"swapped":true,"rootBit":1,"digest":{"x":"0x21eaa1d32de067831956e394ba431072404b73508458549419e0d0caf40a2bd6","y":"0x23c5a00717265e626bf404f24c1ce0e9f2220da7c28b6f7278f23a26be154654"},"gas":{"amsterdam":{"verification":242807,"minStipend":244537},"osaka":{"verification":242807,"minStipend":244537},"prague":{"verification":213349,"minStipend":215079}}},
-    {"label":"tail-1117023","sk":"0x0000000000000000000000000000000000000000000000000000000000110b5f","attempts":119,"sqrtCalls":15,"fieldRejections":104,"swapped":true,"rootBit":0,"digest":{"x":"0x2bedafa7c6d5492fcd639e18952bf7233fa9fade43e99e36b2306fef5fa7150f","y":"0x0059614de4944efcc0c663be42a45f4ede58463461467676c836b0d323f0b8e9"},"gas":{"amsterdam":{"verification":262206,"minStipend":263937},"osaka":{"verification":262206,"minStipend":263937},"prague":{"verification":222036,"minStipend":223767}}},
-    {"label":"tail-1133435","sk":"0x0000000000000000000000000000000000000000000000000000000000114b7b","attempts":115,"sqrtCalls":10,"fieldRejections":105,"swapped":true,"rootBit":0,"digest":{"x":"0x006f8758d2967a81df75e2d95158498c9f817ed1309318fb97581d23f09724bf","y":"0x0d2e6f23d4917e89fa27c031331fe63f7000d12d30d548b161c638f8f7a81c75"},"gas":{"amsterdam":{"verification":237165,"minStipend":238895},"osaka":{"verification":237165,"minStipend":238895},"prague":{"verification":210385,"minStipend":212115}}},
-    {"label":"tail-1147180","sk":"0x000000000000000000000000000000000000000000000000000000000011812c","attempts":110,"sqrtCalls":12,"fieldRejections":98,"swapped":true,"rootBit":1,"digest":{"x":"0x2d2316e9ed5944cd7e9a1d791b8f81fa2f73468331c3b9b8ace6008ccb95134a","y":"0x2f365679a4a4ef3cde5cbcf301d81938bab2c2331e7b185fa1fb2f8165c3d87c"},"gas":{"amsterdam":{"verification":243633,"minStipend":245364},"osaka":{"verification":243633,"minStipend":245364},"prague":{"verification":211497,"minStipend":213228}}},
-    {"label":"tail-1181788","sk":"0x000000000000000000000000000000000000000000000000000000000012085c","attempts":64,"sqrtCalls":18,"fieldRejections":46,"swapped":false,"rootBit":0,"digest":{"x":"0x2a41a09b1e89926b2c218e73a8e67aafe9f5a4be09a7df684841f917f5726d0e","y":"0x11e2b5eec5f2cf1b6209e368fb63b153d471aa8f2331fe7b67336696d464bbd6"},"gas":{"amsterdam":{"verification":246689,"minStipend":248421},"osaka":{"verification":246689,"minStipend":248421},"prague":{"verification":198485,"minStipend":200217}}},
-    {"label":"tail-1204211","sk":"0x0000000000000000000000000000000000000000000000000000000000125ff3","attempts":121,"sqrtCalls":17,"fieldRejections":104,"swapped":false,"rootBit":1,"digest":{"x":"0x25f634c71de6f0abb01055aa63734b0e5c5206396f12b71a6650185157bb7129","y":"0x2f7c686dc1e573192cfae2d3342f6665fd10aaa1c15782beea3a412d0a76071f"},"gas":{"amsterdam":{"verification":272426,"minStipend":274156},"osaka":{"verification":272426,"minStipend":274156},"prague":{"verification":226900,"minStipend":228630}}},
-    {"label":"tail-1216207","sk":"0x0000000000000000000000000000000000000000000000000000000000128ecf","attempts":59,"sqrtCalls":17,"fieldRejections":42,"swapped":false,"rootBit":1,"digest":{"x":"0x03ece06e85067f59bf110a584dc046d33656998db823f93534d60f498841d42f","y":"0x1c129d957f2aaab7cd38fe745d77b033c7e79ba1d0025de148f126c9fb2d4f61"},"gas":{"amsterdam":{"verification":239470,"minStipend":241202},"osaka":{"verification":239470,"minStipend":241202},"prague":{"verification":193944,"minStipend":195676}}},
-    {"label":"tail-1255357","sk":"0x00000000000000000000000000000000000000000000000000000000001327bd","attempts":94,"sqrtCalls":17,"fieldRejections":77,"swapped":true,"rootBit":1,"digest":{"x":"0x1a552a89efb6512e7aa0cf122c995c2863bdaa8418c6d16bcc79ee586767b9fa","y":"0x213390e8596524e719185dd88d9b2d022fb8cff44e04c0a5d5b9fbab3410f528"},"gas":{"amsterdam":{"verification":257987,"minStipend":259718},"osaka":{"verification":257987,"minStipend":259718},"prague":{"verification":212461,"minStipend":214192}}},
-    {"label":"tail-1267879","sk":"0x00000000000000000000000000000000000000000000000000000000001358a7","attempts":110,"sqrtCalls":11,"fieldRejections":99,"swapped":false,"rootBit":0,"digest":{"x":"0x1e1b3bd1126db1c4e6bafe8b3889eec7df662cea2e89d83a466b0ae99cd51b4a","y":"0x09262f23710d83f824a23f85093a4e31e8c83cfdd1bf66445adad860d33383a0"},"gas":{"amsterdam":{"verification":239061,"minStipend":240792},"osaka":{"verification":239061,"minStipend":240792},"prague":{"verification":209603,"minStipend":211334}}},
-    {"label":"tail-1290026","sk":"0x000000000000000000000000000000000000000000000000000000000013af2a","attempts":111,"sqrtCalls":11,"fieldRejections":100,"swapped":false,"rootBit":0,"digest":{"x":"0x0b45a2ad3c1cb19f23b00557d4f6c9e56b888a3cef5f2d77091c02b0502883d8","y":"0x0f51fd395fef9a9eeff1529d396c5bd26809e0f8380d349b167e783ad3befcd1"},"gas":{"amsterdam":{"verification":239597,"minStipend":241327},"osaka":{"verification":239597,"minStipend":241327},"prague":{"verification":210139,"minStipend":211869}}},
-    {"label":"tail-1314687","sk":"0x0000000000000000000000000000000000000000000000000000000000140f7f","attempts":116,"sqrtCalls":24,"fieldRejections":92,"swapped":false,"rootBit":1,"digest":{"x":"0x1770776b52291aa195cd79b04698edf031c93dba9b1488c1522d5304e8b71d17","y":"0x292e00d41c422600556365a638071a9dc8d66c58316b271973bcea9455af9b99"},"gas":{"amsterdam":{"verification":301794,"minStipend":303525},"osaka":{"verification":301794,"minStipend":303525},"prague":{"verification":237522,"minStipend":239253}}},
-    {"label":"tail-1318568","sk":"0x0000000000000000000000000000000000000000000000000000000000141ea8","attempts":61,"sqrtCalls":17,"fieldRejections":44,"swapped":false,"rootBit":1,"digest":{"x":"0x2250a0c88c752bc366f1e68dd3c16bd6c0e8b5d62de65f49ed1a9f45796a5484","y":"0x2fee6b5921624dfb64d6e68e549ade668efe48b7e2634ba3491ae8dfd482819c"},"gas":{"amsterdam":{"verification":240522,"minStipend":242254},"osaka":{"verification":240522,"minStipend":242254},"prague":{"verification":194996,"minStipend":196728}}},
-    {"label":"tail-1338099","sk":"0x0000000000000000000000000000000000000000000000000000000000146af3","attempts":96,"sqrtCalls":18,"fieldRejections":78,"swapped":false,"rootBit":1,"digest":{"x":"0x1093b12419cff8c65b5ec3664c738d75680fb012a56e6d6bdd2953a80ee0b018","y":"0x24ce7294e16e418a897ef1ee9837063f8a7f365d68bb01427c1f7967f88117d7"},"gas":{"amsterdam":{"verification":263628,"minStipend":265359},"osaka":{"verification":263628,"minStipend":265359},"prague":{"verification":215424,"minStipend":217155}}},
-    {"label":"tail-1351955","sk":"0x000000000000000000000000000000000000000000000000000000000014a113","attempts":119,"sqrtCalls":11,"fieldRejections":108,"swapped":true,"rootBit":1,"digest":{"x":"0x259b9847108a6bb505374ba2f7db4efcbd399c6aee82695c40305ed5e8873f2f","y":"0x1c6f1f6f04622ba194fbdcbbcb56c9a34e04233b5e952f60baf0b76d0dd66466"},"gas":{"amsterdam":{"verification":243880,"minStipend":245611},"osaka":{"verification":243880,"minStipend":245611},"prague":{"verification":214422,"minStipend":216153}}},
-    {"label":"tail-1412769","sk":"0x0000000000000000000000000000000000000000000000000000000000158ea1","attempts":120,"sqrtCalls":11,"fieldRejections":109,"swapped":true,"rootBit":1,"digest":{"x":"0x016c9b9d84f943a3f190d137fbc2ba56f5790973037af610c9def237c7e24ff1","y":"0x1d3a3929a8959d94a2d1c2f378c4607bbae22123e37b4ee80aeef35d6e237184"},"gas":{"amsterdam":{"verification":244418,"minStipend":246148},"osaka":{"verification":244418,"minStipend":246148},"prague":{"verification":214960,"minStipend":216690}}},
-    {"label":"tail-1459623","sk":"0x00000000000000000000000000000000000000000000000000000000001645a7","attempts":121,"sqrtCalls":13,"fieldRejections":108,"swapped":true,"rootBit":1,"digest":{"x":"0x002b180f995fb2947304ade1ac8d3c11060d0e12bbb4867eac6886c517a9d3a9","y":"0x24d454c9236d323a5184b1064630900de7c90ac0c455e42be8dfdf6701184ec6"},"gas":{"amsterdam":{"verification":254113,"minStipend":255843},"osaka":{"verification":254113,"minStipend":255843},"prague":{"verification":219299,"minStipend":221029}}},
-    {"label":"tail-1503562","sk":"0x000000000000000000000000000000000000000000000000000000000016f14a","attempts":115,"sqrtCalls":6,"fieldRejections":109,"swapped":true,"rootBit":1,"digest":{"x":"0x0d189049ba2a4c3996ff69e96b0b7e58b2fbaea3ff8e4235fd661e8e47132622","y":"0x2920ba90e2b032138d6ecfce0c3d57ca0bb8228739e3491ec6a32dda4ab1abf6"},"gas":{"amsterdam":{"verification":218839,"minStipend":220569},"osaka":{"verification":218839,"minStipend":220569},"prague":{"verification":202771,"minStipend":204501}}},
-    {"label":"tail-1531894","sk":"0x0000000000000000000000000000000000000000000000000000000000175ff6","attempts":102,"sqrtCalls":18,"fieldRejections":84,"swapped":false,"rootBit":1,"digest":{"x":"0x231a35f56baa07fa0a7bd1c37e5a87147d4fe95d1bacb8dda7340b23365047af","y":"0x22fea69f895f11e992d2727ed5a058a3c1fe4708b8283b65740fd58742367ddf"},"gas":{"amsterdam":{"verification":266827,"minStipend":268558},"osaka":{"verification":266827,"minStipend":268558},"prague":{"verification":218623,"minStipend":220354}}},
-    {"label":"tail-1556725","sk":"0x000000000000000000000000000000000000000000000000000000000017c0f5","attempts":85,"sqrtCalls":18,"fieldRejections":67,"swapped":false,"rootBit":0,"digest":{"x":"0x1b87ec13683f070410ada90b0b445e10b1a1723786dbf331c081b6464b885eb0","y":"0x045bb96e200a1f99acc4db989828d0ab517593e4cc19e67eef97b58623de70b0"},"gas":{"amsterdam":{"verification":257790,"minStipend":259521},"osaka":{"verification":257790,"minStipend":259521},"prague":{"verification":209586,"minStipend":211317}}},
-    {"label":"tail-1559796","sk":"0x000000000000000000000000000000000000000000000000000000000017ccf4","attempts":110,"sqrtCalls":10,"fieldRejections":100,"swapped":true,"rootBit":0,"digest":{"x":"0x123251c313243e62feaa144ab0d978122ada94e241cb60962f32c25ec5edc6da","y":"0x076587181681a31c9fea8c537564d4f83420b93390d2d1613d08047239fe1a4c"},"gas":{"amsterdam":{"verification":234485,"minStipend":236216},"osaka":{"verification":234485,"minStipend":236216},"prague":{"verification":207705,"minStipend":209436}}},
-    {"label":"tail-1560031","sk":"0x000000000000000000000000000000000000000000000000000000000017cddf","attempts":98,"sqrtCalls":18,"fieldRejections":80,"swapped":true,"rootBit":0,"digest":{"x":"0x0e63dca5dff9cc693f883214e8e65de870ee473ccdf0bc3859c08a0ecd296cd8","y":"0x0f7e621bee8cbd3bb2506384686c600513b232408688c79a2e0720524040e3cb"},"gas":{"amsterdam":{"verification":264707,"minStipend":266438},"osaka":{"verification":264707,"minStipend":266438},"prague":{"verification":216503,"minStipend":218234}}},
-    {"label":"tail-1583718","sk":"0x0000000000000000000000000000000000000000000000000000000000182a66","attempts":115,"sqrtCalls":13,"fieldRejections":102,"swapped":false,"rootBit":1,"digest":{"x":"0x2164db57f7eede544183858fbcb31e749d52513ac6b113079ff4684302aa5c06","y":"0x1f0bc30c03bece0278a61bb2527a4293c54f5c17cd4dc1f85e8886a40be0cacb"},"gas":{"amsterdam":{"verification":250889,"minStipend":252619},"osaka":{"verification":250889,"minStipend":252619},"prague":{"verification":216075,"minStipend":217805}}},
-    {"label":"tail-1640875","sk":"0x00000000000000000000000000000000000000000000000000000000001909ab","attempts":114,"sqrtCalls":15,"fieldRejections":99,"swapped":true,"rootBit":0,"digest":{"x":"0x1b5fce2dbc1baec7864f6d0ad6a7e1340199e1bc96ecd8e246e82b3c66f79f59","y":"0x143b359709a7329de74d38f9331400ba34f03051c66e0d7d8678a345fcebf0ba"},"gas":{"amsterdam":{"verification":259523,"minStipend":261254},"osaka":{"verification":259523,"minStipend":261254},"prague":{"verification":219353,"minStipend":221084}}},
-    {"label":"tail-1649310","sk":"0x0000000000000000000000000000000000000000000000000000000000192a9e","attempts":98,"sqrtCalls":19,"fieldRejections":79,"swapped":true,"rootBit":1,"digest":{"x":"0x1ee4bb899cc204e14207fd9ed3c9bd49c835e045b9596c4af8000049e6d604f6","y":"0x1b0d0c035e296ad64c0203e28dea074577364498f1654df70b47cab2519d0a6e"},"gas":{"amsterdam":{"verification":269276,"minStipend":271007},"osaka":{"verification":269276,"minStipend":271007},"prague":{"verification":218394,"minStipend":220125}}},
-    {"label":"tail-1667279","sk":"0x00000000000000000000000000000000000000000000000000000000001970cf","attempts":83,"sqrtCalls":17,"fieldRejections":66,"swapped":true,"rootBit":0,"digest":{"x":"0x063d29bdb3e1394ecaaf6f5a80c887f49eabd7741071e0dea633d2246f23c0a8","y":"0x068ff0a63529edb06838f3011172fda4bed9409e546160349f14986eab92446b"},"gas":{"amsterdam":{"verification":252153,"minStipend":253884},"osaka":{"verification":252153,"minStipend":253884},"prague":{"verification":206627,"minStipend":208358}}},
-    {"label":"tail-1671350","sk":"0x00000000000000000000000000000000000000000000000000000000001980b6","attempts":135,"sqrtCalls":13,"fieldRejections":122,"swapped":false,"rootBit":0,"digest":{"x":"0x070bd16c51bf91c6d2ae52eaa7cd97338e3424e68abde48047707f67658382c4","y":"0x0b9553c70ca025a2e83a31fcbad5977d2a20cf2bd360a65821ae65b5d9c6308e"},"gas":{"amsterdam":{"verification":261664,"minStipend":263394},"osaka":{"verification":261664,"minStipend":263394},"prague":{"verification":226850,"minStipend":228580}}},
-    {"label":"tail-1686148","sk":"0x000000000000000000000000000000000000000000000000000000000019ba84","attempts":86,"sqrtCalls":17,"fieldRejections":69,"swapped":true,"rootBit":1,"digest":{"x":"0x05d08e4b726f9194983003f49237cbf104009721a15e1282fc604dff6f0c4bc3","y":"0x2d45f3f7dc04d927fb0aebd9097a45543ea4b882b464414d2fcaa4788cc4af0f"},"gas":{"amsterdam":{"verification":253734,"minStipend":255466},"osaka":{"verification":253734,"minStipend":255466},"prague":{"verification":208208,"minStipend":209940}}},
-    {"label":"tail-1691595","sk":"0x000000000000000000000000000000000000000000000000000000000019cfcb","attempts":115,"sqrtCalls":12,"fieldRejections":103,"swapped":true,"rootBit":0,"digest":{"x":"0x03a66346a9f1c861d0e206b9775c8d7936e8768e85b9ac852929a4b5eef77a5e","y":"0x02a218e6adbf8cd4adba3169b9332294586aea80d192b7cb898f8cb5ef16fe87"},"gas":{"amsterdam":{"verification":246323,"minStipend":248053},"osaka":{"verification":246323,"minStipend":248053},"prague":{"verification":214187,"minStipend":215917}}},
-    {"label":"tail-1704727","sk":"0x00000000000000000000000000000000000000000000000000000000001a0317","attempts":111,"sqrtCalls":12,"fieldRejections":99,"swapped":true,"rootBit":0,"digest":{"x":"0x2890c41ef81058cda0c7632ad8c41d9b6e369a1abc4d44b821c38f58c525ed8a","y":"0x121fc686bd0a61816c78b4341157c39f982ff97529e61b2dfb66ea79eff7436a"},"gas":{"amsterdam":{"verification":244179,"minStipend":245909},"osaka":{"verification":244179,"minStipend":245909},"prague":{"verification":212043,"minStipend":213773}}},
-    {"label":"tail-1726966","sk":"0x00000000000000000000000000000000000000000000000000000000001a59f6","attempts":89,"sqrtCalls":21,"fieldRejections":68,"swapped":true,"rootBit":0,"digest":{"x":"0x0940257c3dfaf8f1e47a3e6b3d063efe4e52b3aaa36a277ab9277a7e7d40504e","y":"0x0ca3e9b428fcf8e27c54362bc6e7c7e254758506a092fef6a4d329217e6ff990"},"gas":{"amsterdam":{"verification":273654,"minStipend":275385},"osaka":{"verification":273654,"minStipend":275385},"prague":{"verification":217416,"minStipend":219147}}},
-    {"label":"tail-1745321","sk":"0x00000000000000000000000000000000000000000000000000000000001aa1a9","attempts":111,"sqrtCalls":7,"fieldRejections":104,"swapped":true,"rootBit":1,"digest":{"x":"0x0cb1c92c29e7ffedfa2defab764f2325d20db8fd439222c083edaab1e994ba71","y":"0x2220bf2a945cb832383bb7235b5ba3cfeab4124487271a3f4106172c4583e3e3"},"gas":{"amsterdam":{"verification":221274,"minStipend":223004},"osaka":{"verification":221274,"minStipend":223004},"prague":{"verification":202528,"minStipend":204258}}},
-    {"label":"tail-1781160","sk":"0x00000000000000000000000000000000000000000000000000000000001b2da8","attempts":110,"sqrtCalls":16,"fieldRejections":94,"swapped":true,"rootBit":1,"digest":{"x":"0x10335ca896622fa4855363520d65661cd6fcde2edf22421e1ff2f5cc8be6c912","y":"0x1ce81cfd503f31fc0e31ad0be5e63653d4476100fdd730536a070e52e8978027"},"gas":{"amsterdam":{"verification":261949,"minStipend":263680},"osaka":{"verification":261949,"minStipend":263680},"prague":{"verification":219101,"minStipend":220832}}},
-    {"label":"tail-1818309","sk":"0x00000000000000000000000000000000000000000000000000000000001bbec5","attempts":115,"sqrtCalls":12,"fieldRejections":103,"swapped":true,"rootBit":1,"digest":{"x":"0x22087a83947ab776e66d5c0823c86d1aa4fd26390c24a9e531e6e4722afe9624","y":"0x1e64fbeca9fd8d18c190a5d2fbe104892d6c6cb20368580cd928366fd1d1ca05"},"gas":{"amsterdam":{"verification":246313,"minStipend":248043},"osaka":{"verification":246313,"minStipend":248043},"prague":{"verification":214177,"minStipend":215907}}},
-    {"label":"tail-1843201","sk":"0x00000000000000000000000000000000000000000000000000000000001c2001","attempts":110,"sqrtCalls":11,"fieldRejections":99,"swapped":false,"rootBit":0,"digest":{"x":"0x149031762b0ab3453d7b73bf891573cb85736205ab9f073afb765069e25b3be7","y":"0x0a1cedb1fc952dca561f6e58279cb1070eaddc76f4404ec78b12a4c88f1990fd"},"gas":{"amsterdam":{"verification":239061,"minStipend":240792},"osaka":{"verification":239061,"minStipend":240792},"prague":{"verification":209603,"minStipend":211334}}},
-    {"label":"tail-1884493","sk":"0x00000000000000000000000000000000000000000000000000000000001cc14d","attempts":124,"sqrtCalls":13,"fieldRejections":111,"swapped":false,"rootBit":0,"digest":{"x":"0x011cc09160a69c01fc57122e8538c83d3cc774ef4f7a119fe849983fd502464a","y":"0x149a4d1feb24fe080531aa0ce70c17864d700306335ff3dd470135c34f178571"},"gas":{"amsterdam":{"verification":255733,"minStipend":257464},"osaka":{"verification":255733,"minStipend":257464},"prague":{"verification":220919,"minStipend":222650}}},
-    {"label":"tail-1955106","sk":"0x00000000000000000000000000000000000000000000000000000000001dd522","attempts":120,"sqrtCalls":12,"fieldRejections":108,"swapped":false,"rootBit":1,"digest":{"x":"0x18346015e8cd0285aae76e92162e4539b472d9719b06bb0044e4c0b98df9ee92","y":"0x2d1de5eff73c970492e3cf5ee304872842f544c7f66e943e8c62ca99978092aa"},"gas":{"amsterdam":{"verification":248994,"minStipend":250724},"osaka":{"verification":248994,"minStipend":250724},"prague":{"verification":216858,"minStipend":218588}}},
-    {"label":"tail-1982295","sk":"0x00000000000000000000000000000000000000000000000000000000001e3f57","attempts":79,"sqrtCalls":17,"fieldRejections":62,"swapped":false,"rootBit":1,"digest":{"x":"0x2c2335bf8acd97f607df200dbef95e71440a20243a1fcd3ad82b3515c6097345","y":"0x2ce59bbde35d33ad3171f24d0f8b36be794912540c27badcf019a5c74988e25c"},"gas":{"amsterdam":{"verification":250021,"minStipend":251752},"osaka":{"verification":250021,"minStipend":251752},"prague":{"verification":204495,"minStipend":206226}}}
+    {
+      "attempts": 15,
+      "digest": {
+        "x": "0x1109e7114879f460499eaded8947fdbb52ccd7a0c3a4bd5a550cfcae3cd22296",
+        "y": "0x2ebce2259162f9f0f6eb12742ba403acd08fa7f1238dfaa608336f29126ef429"
+      },
+      "fieldRejections": 14,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 145000,
+          "verification": 143267
+        },
+        "osaka": {
+          "minStipend": 145000,
+          "verification": 143267
+        },
+        "prague": {
+          "minStipend": 142322,
+          "verification": 140589
+        }
+      },
+      "label": "sample-0",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777777",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x305c6893246bcf7ed491afc2a3159fee3099934d343dfd8a5e49640fdad4016a",
+        "y": "0x18d62830491746a078a2e021febd37cb664a4ee08e249645f39b91208b6bcdab"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137779,
+          "verification": 136045
+        },
+        "osaka": {
+          "minStipend": 137779,
+          "verification": 136045
+        },
+        "prague": {
+          "minStipend": 135101,
+          "verification": 133367
+        }
+      },
+      "label": "sample-1",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777778",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 6,
+      "digest": {
+        "x": "0x05f57760ae3cb088bf92f7f871b046e6e0d12487bd7de2e84f8fb24a917c1bd3",
+        "y": "0x2216151716edf85a503620303a49854dc6354eaec5976bbd3c4ceafddea839a4"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 140351,
+          "verification": 138617
+        },
+        "osaka": {
+          "minStipend": 140351,
+          "verification": 138617
+        },
+        "prague": {
+          "minStipend": 137673,
+          "verification": 135939
+        }
+      },
+      "label": "sample-2",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777779",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 13,
+      "digest": {
+        "x": "0x1edb860c51cdb6873802cd702e735256e992dfa72701c15bee009d6f0e5668a0",
+        "y": "0x1e71654a823e58928afc6fa7f1e110cf73a6255d7db8a3486b4b6081142325b5"
+      },
+      "fieldRejections": 9,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 157700,
+          "verification": 155967
+        },
+        "osaka": {
+          "minStipend": 157700,
+          "verification": 155967
+        },
+        "prague": {
+          "minStipend": 146988,
+          "verification": 145255
+        }
+      },
+      "label": "sample-3",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777a",
+      "sqrtCalls": 4,
+      "swapped": false
+    },
+    {
+      "attempts": 42,
+      "digest": {
+        "x": "0x0d48fb43eb1e7c106a86f4812d368eb52d2acaf8952979261b5bbf4fa961b42f",
+        "y": "0x1ab47923b0d9a29ba0469e517994df2ee2c667b0c82c5e8cad79c44c8d2965ad"
+      },
+      "fieldRejections": 35,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 186505,
+          "verification": 184772
+        },
+        "osaka": {
+          "minStipend": 186505,
+          "verification": 184772
+        },
+        "prague": {
+          "minStipend": 167759,
+          "verification": 166026
+        }
+      },
+      "label": "sample-4",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777b",
+      "sqrtCalls": 7,
+      "swapped": false
+    },
+    {
+      "attempts": 11,
+      "digest": {
+        "x": "0x0a89e90b5fd4192fd933c0a9fb4ea97429c403ec88eb2cda47879a5bbd04526b",
+        "y": "0x19cf4d82b96592021fdaaf7185833066cc93d35ca84481a5a16d4152204a9afd"
+      },
+      "fieldRejections": 10,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 142933,
+          "verification": 141200
+        },
+        "osaka": {
+          "minStipend": 142933,
+          "verification": 141200
+        },
+        "prague": {
+          "minStipend": 140255,
+          "verification": 138522
+        }
+      },
+      "label": "sample-5",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777c",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 9,
+      "digest": {
+        "x": "0x1588e3361e8b747ae7401a223febe95cba754691e99a914bf0ddca6def14ae3e",
+        "y": "0x0341aeb1d4c39ac6df0dab79d56cd171ceef3173f8c27fc293427b0c4381399b"
+      },
+      "fieldRejections": 7,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 146487,
+          "verification": 144753
+        },
+        "osaka": {
+          "minStipend": 146487,
+          "verification": 144753
+        },
+        "prague": {
+          "minStipend": 141131,
+          "verification": 139397
+        }
+      },
+      "label": "sample-6",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777d",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 9,
+      "digest": {
+        "x": "0x051df2447b03557ab707c2d2b367464055e42dff96b2685a16df72e6da587a48",
+        "y": "0x25d6661cb8cf4cbb99b3d5a50c67284a91a89b045e0e550c5950fd83cd4442fb"
+      },
+      "fieldRejections": 8,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 141898,
+          "verification": 140164
+        },
+        "osaka": {
+          "minStipend": 141898,
+          "verification": 140164
+        },
+        "prague": {
+          "minStipend": 139220,
+          "verification": 137486
+        }
+      },
+      "label": "sample-7",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777e",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x27d3976ac9fde93a8456353450b46c4394e023981e57343dfe03d3941af1b320",
+        "y": "0x0d3d7f7fb28025a8de5580b24dabc386c9dcf27b9daebcb52ce067b81d44144f"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137789,
+          "verification": 136055
+        },
+        "osaka": {
+          "minStipend": 137789,
+          "verification": 136055
+        },
+        "prague": {
+          "minStipend": 135111,
+          "verification": 133377
+        }
+      },
+      "label": "sample-8",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777f",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 6,
+      "digest": {
+        "x": "0x28f0359ca2389e3b1b34b5048c9ab09402614457c908b39621be394488301c1d",
+        "y": "0x2661ffbbd6e8a42499c556360d60c561d17bc66d82336835f5f40ff7f75a59a9"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 140354,
+          "verification": 138620
+        },
+        "osaka": {
+          "minStipend": 140354,
+          "verification": 138620
+        },
+        "prague": {
+          "minStipend": 137676,
+          "verification": 135942
+        }
+      },
+      "label": "sample-9",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777780",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 34,
+      "digest": {
+        "x": "0x22b860ad606d78be2a43eb1798c97fb88097e8aacc9970db759c0aa6a639044c",
+        "y": "0x20d66fedec7178e44dc27366a898e0fab4160e65f5fe2aa485d7601c8db0d21f"
+      },
+      "fieldRejections": 26,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 186911,
+          "verification": 185178
+        },
+        "osaka": {
+          "minStipend": 186911,
+          "verification": 185178
+        },
+        "prague": {
+          "minStipend": 165487,
+          "verification": 163754
+        }
+      },
+      "label": "sample-10",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777781",
+      "sqrtCalls": 8,
+      "swapped": false
+    },
+    {
+      "attempts": 42,
+      "digest": {
+        "x": "0x2224a3c91ec48d22f149af70544440e4294a63912581093839e7979f8941f027",
+        "y": "0x1094e3fe80c8755b16068cf0aaea15533b3149ee46b50eb35dfcb86d3010758f"
+      },
+      "fieldRejections": 35,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 186518,
+          "verification": 184785
+        },
+        "osaka": {
+          "minStipend": 186518,
+          "verification": 184785
+        },
+        "prague": {
+          "minStipend": 167772,
+          "verification": 166039
+        }
+      },
+      "label": "sample-11",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777782",
+      "sqrtCalls": 7,
+      "swapped": true
+    },
+    {
+      "attempts": 5,
+      "digest": {
+        "x": "0x07450aec341dd56ea95cfffec735a4fa96ec18dff9b3a0b6c29700a112015798",
+        "y": "0x2b3a80f53c726500a56110b8f608c3d7e77b6c48d9b1378cb10dd38643acdb4a"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 148996,
+          "verification": 147263
+        },
+        "osaka": {
+          "minStipend": 148996,
+          "verification": 147263
+        },
+        "prague": {
+          "minStipend": 140962,
+          "verification": 139229
+        }
+      },
+      "label": "sample-12",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777783",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 15,
+      "digest": {
+        "x": "0x2f7ea7467712a093ee0e79183f3609ffa81b42ef218822460ebb662c88c595a6",
+        "y": "0x093d4a71f3aa663bbd2bb0fd59f1001db8b7d07af8ad1f4445ba0fd3b431fd01"
+      },
+      "fieldRejections": 12,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 154168,
+          "verification": 152435
+        },
+        "osaka": {
+          "minStipend": 154168,
+          "verification": 152435
+        },
+        "prague": {
+          "minStipend": 146134,
+          "verification": 144401
+        }
+      },
+      "label": "sample-13",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777784",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 5,
+      "digest": {
+        "x": "0x0a2eddc68ba482b9320ed7756d9d93527b4cbbd1d8f4c4174365405dddcfe163",
+        "y": "0x24534845bccbe2f8a37513c3821c8481991773f166e20f5a28e60b83893af1ff"
+      },
+      "fieldRejections": 4,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 139835,
+          "verification": 138102
+        },
+        "osaka": {
+          "minStipend": 139835,
+          "verification": 138102
+        },
+        "prague": {
+          "minStipend": 137157,
+          "verification": 135424
+        }
+      },
+      "label": "sample-14",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777785",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x0a84584fb9742f4613bbd7fd376ec636a4375cff50961eb701bb32374925c9c8",
+        "y": "0x102b96fa00fc4c3617a4dbdeb9cf7041c27f481a5838aa8f4d3a52812d57fb20"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137789,
+          "verification": 136055
+        },
+        "osaka": {
+          "minStipend": 137789,
+          "verification": 136055
+        },
+        "prague": {
+          "minStipend": 135111,
+          "verification": 133377
+        }
+      },
+      "label": "sample-15",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777786",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 9,
+      "digest": {
+        "x": "0x11a9e5e0586a7719958938dd9aa339ac249d14ab2acc5356fe06dd74f53d59fa",
+        "y": "0x1852a74ce8df004036d239bfd611ce3f6e01de27317094a750e1bc549fa331a0"
+      },
+      "fieldRejections": 6,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 151059,
+          "verification": 149325
+        },
+        "osaka": {
+          "minStipend": 151059,
+          "verification": 149325
+        },
+        "prague": {
+          "minStipend": 143025,
+          "verification": 141291
+        }
+      },
+      "label": "sample-16",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777787",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 7,
+      "digest": {
+        "x": "0x2bcfe98a4caf2b4254071854a41e5eb7144b977c703c978d177e984d4d78d1bc",
+        "y": "0x26c4002c2f90e80916862d341756e03a68bd5df4c5e08d6e3b272b5e4569d9ae"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 145445,
+          "verification": 143712
+        },
+        "osaka": {
+          "minStipend": 145445,
+          "verification": 143712
+        },
+        "prague": {
+          "minStipend": 140089,
+          "verification": 138356
+        }
+      },
+      "label": "sample-17",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777788",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 8,
+      "digest": {
+        "x": "0x287383901a09bc5482e7ea8e9b31bb1c3c7559d33ce2077853bd67495724c1e4",
+        "y": "0x214f66d35b75516a15720c3867c6e13ee33c070dc827b55c1f4782706986a9cc"
+      },
+      "fieldRejections": 7,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 141382,
+          "verification": 139648
+        },
+        "osaka": {
+          "minStipend": 141382,
+          "verification": 139648
+        },
+        "prague": {
+          "minStipend": 138704,
+          "verification": 136970
+        }
+      },
+      "label": "sample-18",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777789",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x227b77b56b525ea6a499004f7d370bdd5bc27f70b540e638079b844f9ee1d0d1",
+        "y": "0x27a9ae6c8fcc076a2aeaa8dbc002fd1d6d1840c76fd24d335267685f0e8f4b7a"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138290,
+          "verification": 136557
+        },
+        "osaka": {
+          "minStipend": 138290,
+          "verification": 136557
+        },
+        "prague": {
+          "minStipend": 135612,
+          "verification": 133879
+        }
+      },
+      "label": "sample-19",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777778a",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 10,
+      "digest": {
+        "x": "0x0d13233efd157b9908ddad0b8f926b5c32feb66b22116db2ba47f5530889e185",
+        "y": "0x2e8d50b98182661c249b990c752b6fdab860bc0b4d415535a2bb5b68b3c68919"
+      },
+      "fieldRejections": 9,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 142414,
+          "verification": 140680
+        },
+        "osaka": {
+          "minStipend": 142414,
+          "verification": 140680
+        },
+        "prague": {
+          "minStipend": 139736,
+          "verification": 138002
+        }
+      },
+      "label": "sample-20",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777778b",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 33,
+      "digest": {
+        "x": "0x0452640baf24ef1d3ae2c327fcec9b09f3da573d28b7a5f3a17aa0c1a9dbc868",
+        "y": "0x298d93be631b125a0813c33cc8d6c65d72e2bad9a54b63f96ac552aafdae0653"
+      },
+      "fieldRejections": 27,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 177232,
+          "verification": 175500
+        },
+        "osaka": {
+          "minStipend": 177232,
+          "verification": 175500
+        },
+        "prague": {
+          "minStipend": 161164,
+          "verification": 159432
+        }
+      },
+      "label": "sample-21",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777778c",
+      "sqrtCalls": 6,
+      "swapped": false
+    },
+    {
+      "attempts": 3,
+      "digest": {
+        "x": "0x2179f03e6652a5df56cd3c4c5188c8b4c5227a0cf6f611ce4b40c304a09c86e4",
+        "y": "0x01bef591da885c831fc75f6671211b79b172e21758a51466e0a82d722294e548"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138818,
+          "verification": 137084
+        },
+        "osaka": {
+          "minStipend": 138818,
+          "verification": 137084
+        },
+        "prague": {
+          "minStipend": 136140,
+          "verification": 134406
+        }
+      },
+      "label": "sample-22",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777778d",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 20,
+      "digest": {
+        "x": "0x280bc59b3d78ce3e2a6ae943f58e5d4e52c96dce47d8467d4c7af3f3aa223261",
+        "y": "0x27668c57839003d76ca090332b32a13338724466531c4d8e455782c36c402142"
+      },
+      "fieldRejections": 18,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 152165,
+          "verification": 150431
+        },
+        "osaka": {
+          "minStipend": 152165,
+          "verification": 150431
+        },
+        "prague": {
+          "minStipend": 146809,
+          "verification": 145075
+        }
+      },
+      "label": "sample-23",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777778e",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 18,
+      "digest": {
+        "x": "0x10054ff70e7223b035fd1831588bdedd1b4e15c19127e0798a782ad7a911f980",
+        "y": "0x2ee1eb0fc2eed45968323a28d83df564cee2004c6d8591053dce8229a37da8ed"
+      },
+      "fieldRejections": 17,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 146550,
+          "verification": 144816
+        },
+        "osaka": {
+          "minStipend": 146550,
+          "verification": 144816
+        },
+        "prague": {
+          "minStipend": 143872,
+          "verification": 142138
+        }
+      },
+      "label": "sample-24",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777778f",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 19,
+      "digest": {
+        "x": "0x1f3d7ef52d4705db9187234b7c903f23d5c6c1d834fe6804db3ea5b8c04b0148",
+        "y": "0x256b916dc2fc569654eb779642adf7cb954f5237b95d2f51d4908661daf12824"
+      },
+      "fieldRejections": 15,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 160807,
+          "verification": 159074
+        },
+        "osaka": {
+          "minStipend": 160807,
+          "verification": 159074
+        },
+        "prague": {
+          "minStipend": 150095,
+          "verification": 148362
+        }
+      },
+      "label": "sample-25",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777790",
+      "sqrtCalls": 4,
+      "swapped": true
+    },
+    {
+      "attempts": 26,
+      "digest": {
+        "x": "0x0e9378ea09e6c8e65899b569bca417cafd9d5886d693f85e258b0d678f2d897d",
+        "y": "0x0547527de005745f9bcd0bf22996b875c984fab109113c5efc573f0e4a30f2c7"
+      },
+      "fieldRejections": 19,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 178182,
+          "verification": 176449
+        },
+        "osaka": {
+          "minStipend": 178182,
+          "verification": 176449
+        },
+        "prague": {
+          "minStipend": 159436,
+          "verification": 157703
+        }
+      },
+      "label": "sample-26",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777791",
+      "sqrtCalls": 7,
+      "swapped": false
+    },
+    {
+      "attempts": 9,
+      "digest": {
+        "x": "0x2e93c643f347cbe700b8153ff16643a224018c434d9846cf52899b66835e9f8b",
+        "y": "0x2e8fe848c5a3180788220e3180d228f8b6df646df97ee653a64dc5f19d815552"
+      },
+      "fieldRejections": 7,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 146480,
+          "verification": 144746
+        },
+        "osaka": {
+          "minStipend": 146480,
+          "verification": 144746
+        },
+        "prague": {
+          "minStipend": 141124,
+          "verification": 139390
+        }
+      },
+      "label": "sample-27",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777792",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 11,
+      "digest": {
+        "x": "0x2783dd2d730edad48785b86b2667f556a4418aa76dd866b944e3f8c2d8f1fe44",
+        "y": "0x0ae29d426531ccb4f61844231287a4e187d61e7f3e654575c1133b2ad2fe183b"
+      },
+      "fieldRejections": 8,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 152098,
+          "verification": 150365
+        },
+        "osaka": {
+          "minStipend": 152098,
+          "verification": 150365
+        },
+        "prague": {
+          "minStipend": 144064,
+          "verification": 142331
+        }
+      },
+      "label": "sample-28",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777793",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x004d7158d89d1ec299d9181ddab444236ffb962a82b4afa365b33e5255ce4d1a",
+        "y": "0x157bf6dab628773715fc73e2f89b5c3deb60c2329a841c730d3214d0bdecc2f9"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "osaka": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "prague": {
+          "minStipend": 135625,
+          "verification": 133892
+        }
+      },
+      "label": "sample-29",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777794",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 5,
+      "digest": {
+        "x": "0x1da230b895d2c5cd49181fec045679e0da283ad71cc91d851326c7037c3910ab",
+        "y": "0x09e795e25c050ffefe689604f59e01456768f044501b866888dc1c054d6b42b3"
+      },
+      "fieldRejections": 3,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 144424,
+          "verification": 142691
+        },
+        "osaka": {
+          "minStipend": 144424,
+          "verification": 142691
+        },
+        "prague": {
+          "minStipend": 139068,
+          "verification": 137335
+        }
+      },
+      "label": "sample-30",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777795",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 23,
+      "digest": {
+        "x": "0x1bd2a84e449598b301ab2aa8ee001ffcdcef7624e04690ca2602be0fd9209077",
+        "y": "0x1d15a20b5a5bab07aef0e02fe95d7c4ef57394628ac7a1b6534f512423f8cdc7"
+      },
+      "fieldRejections": 20,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 158302,
+          "verification": 156569
+        },
+        "osaka": {
+          "minStipend": 158302,
+          "verification": 156569
+        },
+        "prague": {
+          "minStipend": 150268,
+          "verification": 148535
+        }
+      },
+      "label": "sample-31",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777796",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 7,
+      "digest": {
+        "x": "0x2a321cf8a288ce4287d8db464494a0def09466201a2ab478f1de3ffdd02be48f",
+        "y": "0x0a2ef3d54588135b16d025060270fb09eff76b9768ae6d2cd7619098f8241736"
+      },
+      "fieldRejections": 6,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 140876,
+          "verification": 139143
+        },
+        "osaka": {
+          "minStipend": 140876,
+          "verification": 139143
+        },
+        "prague": {
+          "minStipend": 138198,
+          "verification": 136465
+        }
+      },
+      "label": "sample-32",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777797",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 20,
+      "digest": {
+        "x": "0x12e8fbcd8e1f5377a65f9a7216c4cdcbc797d5585bd07a97154267019b9d2b1b",
+        "y": "0x08a8d3cdcdb583b72d6d73f64018bcf191d7539d798beeedd3a0c76ff9675c0f"
+      },
+      "fieldRejections": 17,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 156754,
+          "verification": 155020
+        },
+        "osaka": {
+          "minStipend": 156754,
+          "verification": 155020
+        },
+        "prague": {
+          "minStipend": 148720,
+          "verification": 146986
+        }
+      },
+      "label": "sample-33",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777798",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 33,
+      "digest": {
+        "x": "0x2aea3591b1b76c496c85184062623ebb78539a8e9546e96c6642989b76cf835a",
+        "y": "0x1e0196f520917bba1ccb170b63be54b1b9bd3783851b77952646b8ec755c8f49"
+      },
+      "fieldRejections": 29,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 168074,
+          "verification": 166342
+        },
+        "osaka": {
+          "minStipend": 168074,
+          "verification": 166342
+        },
+        "prague": {
+          "minStipend": 157362,
+          "verification": 155630
+        }
+      },
+      "label": "sample-34",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777799",
+      "sqrtCalls": 4,
+      "swapped": false
+    },
+    {
+      "attempts": 3,
+      "digest": {
+        "x": "0x0bf1d4e65a95df5fb3694552a0b045443a71e3d3d734aad482507e48b0ace024",
+        "y": "0x0f8b615d5ebbdedb2eb9ca27dee42d1467e9d42aa5f0ab8a7a8b9c6694cb6502"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138815,
+          "verification": 137081
+        },
+        "osaka": {
+          "minStipend": 138815,
+          "verification": 137081
+        },
+        "prague": {
+          "minStipend": 136137,
+          "verification": 134403
+        }
+      },
+      "label": "sample-35",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779a",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 18,
+      "digest": {
+        "x": "0x1badfd010f0a7790eca8f87b30dafc0a356691642e5d02b898e4b5ce5a1c1169",
+        "y": "0x1a5ff65822d4cbb176db550096e22c0d3c1aa7aba3e499d9e69b6ae943b2d79e"
+      },
+      "fieldRejections": 11,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 174027,
+          "verification": 172293
+        },
+        "osaka": {
+          "minStipend": 174027,
+          "verification": 172293
+        },
+        "prague": {
+          "minStipend": 155281,
+          "verification": 153547
+        }
+      },
+      "label": "sample-36",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779b",
+      "sqrtCalls": 7,
+      "swapped": true
+    },
+    {
+      "attempts": 21,
+      "digest": {
+        "x": "0x0124c6dfe690c0169520bb5b561500b3fbf3fddb3d236e071d475acc4f55a457",
+        "y": "0x14103649847219606d144193302395d6f41b262b46be088de494d682f7c05a25"
+      },
+      "fieldRejections": 17,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 161851,
+          "verification": 160118
+        },
+        "osaka": {
+          "minStipend": 161851,
+          "verification": 160118
+        },
+        "prague": {
+          "minStipend": 151139,
+          "verification": 149406
+        }
+      },
+      "label": "sample-37",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779c",
+      "sqrtCalls": 4,
+      "swapped": false
+    },
+    {
+      "attempts": 7,
+      "digest": {
+        "x": "0x0b353b00e6edbf3673f5e940890d7229f737f60cefb54a6eb0a18dcf7d3c8579",
+        "y": "0x158695bef6228bcd9832b5c4fddc98f385c538858141b121efede67d6e45297b"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 145458,
+          "verification": 143725
+        },
+        "osaka": {
+          "minStipend": 145458,
+          "verification": 143725
+        },
+        "prague": {
+          "minStipend": 140102,
+          "verification": 138369
+        }
+      },
+      "label": "sample-38",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779d",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 3,
+      "digest": {
+        "x": "0x0a2980ad8cdc2d5cbcbe72ba045ccc1ab4680f5f0c845336be52742dcbae61d3",
+        "y": "0x0565952c6b93d5e096502c65aa57e6a2ae64f4510b0e40ab7b83223ae1a2a42b"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138818,
+          "verification": 137084
+        },
+        "osaka": {
+          "minStipend": 138818,
+          "verification": 137084
+        },
+        "prague": {
+          "minStipend": 136140,
+          "verification": 134406
+        }
+      },
+      "label": "sample-39",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779e",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x305f9d4af4951915191fe1d9f863810de8b81c563f726220507d8a61c8857e35",
+        "y": "0x007c750f80f5a936a46dca3749b28652c0adea5f168e8d3ec02c49044a216faa"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137786,
+          "verification": 136052
+        },
+        "osaka": {
+          "minStipend": 137786,
+          "verification": 136052
+        },
+        "prague": {
+          "minStipend": 135108,
+          "verification": 133374
+        }
+      },
+      "label": "sample-40",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779f",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 3,
+      "digest": {
+        "x": "0x273cd7401e0ce5cf47c6d5c299fdac038557b9331c432d8386ea26b199b2149c",
+        "y": "0x25d67f6286daa2af93b7b5c1d1eca243d96da91abb6df722486ff0dfc5936c3c"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138805,
+          "verification": 137071
+        },
+        "osaka": {
+          "minStipend": 138805,
+          "verification": 137071
+        },
+        "prague": {
+          "minStipend": 136127,
+          "verification": 134393
+        }
+      },
+      "label": "sample-41",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a0",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 12,
+      "digest": {
+        "x": "0x266624daafc5926a2b49a2740135d52d795b69928f95a1275d21aec30e98850c",
+        "y": "0x16c4cb24d91fc5236545e24d14f858ab9d69ddd8f654d92e08d804a5de0334ee"
+      },
+      "fieldRejections": 10,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 148039,
+          "verification": 146305
+        },
+        "osaka": {
+          "minStipend": 148039,
+          "verification": 146305
+        },
+        "prague": {
+          "minStipend": 142683,
+          "verification": 140949
+        }
+      },
+      "label": "sample-42",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a1",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 8,
+      "digest": {
+        "x": "0x19bdbb63d385cd27a46b66504e7e12a4724b724b7cbac8d7dc144f004af8367d",
+        "y": "0x08f9eff3c40c3bac3a89e7d9b0243351e55cc7ee8c4066775ac1d76530eba53e"
+      },
+      "fieldRejections": 7,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 141392,
+          "verification": 139658
+        },
+        "osaka": {
+          "minStipend": 141392,
+          "verification": 139658
+        },
+        "prague": {
+          "minStipend": 138714,
+          "verification": 136980
+        }
+      },
+      "label": "sample-43",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a2",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 7,
+      "digest": {
+        "x": "0x2c2e57e9e194ca08db459bb29b9132abe7ca3f902caef61ddc117e59f173f11e",
+        "y": "0x1f4cf8fa6b64dd0d5ceffe5cc154e9747769dab8bb9045e0b7675b1063d378e4"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 145448,
+          "verification": 143715
+        },
+        "osaka": {
+          "minStipend": 145448,
+          "verification": 143715
+        },
+        "prague": {
+          "minStipend": 140092,
+          "verification": 138359
+        }
+      },
+      "label": "sample-44",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a3",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x120a789e6e726ecc7504115e65f02c59eb768feeed3f279f53b5e3564fcd000f",
+        "y": "0x07983ca543b184fbf590e23a7f3c0238e5c719ba77c4053b7911ba5f39d523c6"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "osaka": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "prague": {
+          "minStipend": 135625,
+          "verification": 133892
+        }
+      },
+      "label": "sample-45",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a4",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x27f3aa1eb65c4c15eed48ee7be89a1327e0c0cde922ee2123612167897ae5181",
+        "y": "0x0bfc7fedc8890b0130fbcb92a5796f1b01b188581338f1e843831a7abdc91616"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137789,
+          "verification": 136055
+        },
+        "osaka": {
+          "minStipend": 137789,
+          "verification": 136055
+        },
+        "prague": {
+          "minStipend": 135111,
+          "verification": 133377
+        }
+      },
+      "label": "sample-46",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a5",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 6,
+      "digest": {
+        "x": "0x2417322e18cfd21cd4632c98fe3257d7bacdb864e1c2b0bf89a1f09e950444e9",
+        "y": "0x13d53c2ad66ceba494652e62d2c778bed9df2e8fd73e10da250f0a3bee4bdc22"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 140364,
+          "verification": 138630
+        },
+        "osaka": {
+          "minStipend": 140364,
+          "verification": 138630
+        },
+        "prague": {
+          "minStipend": 137686,
+          "verification": 135952
+        }
+      },
+      "label": "sample-47",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a6",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 4,
+      "digest": {
+        "x": "0x0dfe28384059dd8530b31393c1db302247ecaa6ff87811a6a15f195d06df0308",
+        "y": "0x22f9adc7cad6b43d578f09ba127f59f0943635dd1ad37a8d78e66ef585d228ae"
+      },
+      "fieldRejections": 3,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 139323,
+          "verification": 137589
+        },
+        "osaka": {
+          "minStipend": 139323,
+          "verification": 137589
+        },
+        "prague": {
+          "minStipend": 136645,
+          "verification": 134911
+        }
+      },
+      "label": "sample-48",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a7",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 14,
+      "digest": {
+        "x": "0x084d50920b59628e941c58af49748ddf28bfd3500b47a79526780fd83060e027",
+        "y": "0x25960635aebd2db1aa081031d68ab37b63e7f7a4b39eb684caf0362ac518425c"
+      },
+      "fieldRejections": 13,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 144483,
+          "verification": 142750
+        },
+        "osaka": {
+          "minStipend": 144483,
+          "verification": 142750
+        },
+        "prague": {
+          "minStipend": 141805,
+          "verification": 140072
+        }
+      },
+      "label": "sample-49",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000077777a8",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 19,
+      "digest": {
+        "x": "0x26d7110c7dfa9bf7bb2559863bf3a1a9d7f78fa5b2dda0c679cbf5771db0fd7e",
+        "y": "0x102ca5656650e08eefac00918df70b3e16297df3175d4018f750d1676c925de3"
+      },
+      "fieldRejections": 17,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 151659,
+          "verification": 149926
+        },
+        "osaka": {
+          "minStipend": 151659,
+          "verification": 149926
+        },
+        "prague": {
+          "minStipend": 146303,
+          "verification": 144570
+        }
+      },
+      "label": "small-1",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x0f3a994a600375c3fc111f081406d68d377a43fd241aabac64a540d0a5cbe690",
+        "y": "0x0747cf590dea2cf864471495525370fb4e067041fb9075dfe9812b1bbb8467c9"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "osaka": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "prague": {
+          "minStipend": 135625,
+          "verification": 133892
+        }
+      },
+      "label": "small-2",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 5,
+      "digest": {
+        "x": "0x08da2b4490a1fdfaabd0339e9ac208b42badd36dfcc17e62db73fe9fa808bce7",
+        "y": "0x0eb774bf89a84a9c4757364161c3419a52352f31916a74f34d997729f9449b69"
+      },
+      "fieldRejections": 3,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 144424,
+          "verification": 142691
+        },
+        "osaka": {
+          "minStipend": 144424,
+          "verification": 142691
+        },
+        "prague": {
+          "minStipend": 139068,
+          "verification": 137335
+        }
+      },
+      "label": "small-3",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 4,
+      "digest": {
+        "x": "0x085eaef17ac0811f4ca94b3386e209eeee9ad81fc040290806d44f35c17c9a49",
+        "y": "0x11cd2d26c47b2663d0a8ba72a7926b4c1f01693dc7d3c23af372853fbcb6d152"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 143912,
+          "verification": 142178
+        },
+        "osaka": {
+          "minStipend": 143912,
+          "verification": 142178
+        },
+        "prague": {
+          "minStipend": 138556,
+          "verification": 136822
+        }
+      },
+      "label": "small-4",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000004",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 14,
+      "digest": {
+        "x": "0x09ce8e8fd96a4fc147e0dfba78e887cbe574b576e19a3d236bc18e28d7fcb256",
+        "y": "0x27396d1d2f08367e6aed6f1f703a632bce560b28ea5bcb464329172bc145de75"
+      },
+      "fieldRejections": 11,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 153641,
+          "verification": 151908
+        },
+        "osaka": {
+          "minStipend": 153641,
+          "verification": 151908
+        },
+        "prague": {
+          "minStipend": 145607,
+          "verification": 143874
+        }
+      },
+      "label": "small-5",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 4,
+      "digest": {
+        "x": "0x2b94addef308b1feba8602f3e752354b356800552a8b9ce8ae6354cfbb0b1c64",
+        "y": "0x0561a4c5a03025d32500a5560db57dd0c50cf2fcef886ebf7f45c14d8c349182"
+      },
+      "fieldRejections": 3,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 139330,
+          "verification": 137596
+        },
+        "osaka": {
+          "minStipend": 139330,
+          "verification": 137596
+        },
+        "prague": {
+          "minStipend": 136652,
+          "verification": 134918
+        }
+      },
+      "label": "small-6",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x16db28700633b8a1260c9da868c57a674f893cb4c95b4719d10792a284e17ad8",
+        "y": "0x06547d16fe30eb89908611941c3ae01489bdbd84bedf9746bc4f9d817edae3e9"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "osaka": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "prague": {
+          "minStipend": 135625,
+          "verification": 133892
+        }
+      },
+      "label": "small-7",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000007",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x0181879e9e4c824214a000241b5f0a2e56faaa96dd0dc573883408a9fc5824b0",
+        "y": "0x2e5223fcbd2f26504058af047e89d4e555652973a3a2011235b57b8036f996f0"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 142869,
+          "verification": 141136
+        },
+        "osaka": {
+          "minStipend": 142869,
+          "verification": 141136
+        },
+        "prague": {
+          "minStipend": 137513,
+          "verification": 135780
+        }
+      },
+      "label": "small-8",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000008",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 14,
+      "digest": {
+        "x": "0x047d7bca30be01b7af9b047d889b6c42baa11c2156c3db1b7d3a7c42c0b10a57",
+        "y": "0x2355c7699095d64ccd57a87714a357d7dabc7c792caf7e7d96ad91e357b3fb43"
+      },
+      "fieldRejections": 9,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 162799,
+          "verification": 161066
+        },
+        "osaka": {
+          "minStipend": 162799,
+          "verification": 161066
+        },
+        "prague": {
+          "minStipend": 149409,
+          "verification": 147676
+        }
+      },
+      "label": "small-9",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000009",
+      "sqrtCalls": 5,
+      "swapped": true
+    },
+    {
+      "attempts": 20,
+      "digest": {
+        "x": "0x2bc932c0e6e0d916267169c278fec7521eeee828c9e161f8509859fd498ef5a0",
+        "y": "0x223110d6009d56cd23a828dc4c651b7311e9703565a61975fbb2c86dbff9e045"
+      },
+      "fieldRejections": 16,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 161323,
+          "verification": 159589
+        },
+        "osaka": {
+          "minStipend": 161323,
+          "verification": 159589
+        },
+        "prague": {
+          "minStipend": 150611,
+          "verification": 148877
+        }
+      },
+      "label": "small-10",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000a",
+      "sqrtCalls": 4,
+      "swapped": false
+    },
+    {
+      "attempts": 31,
+      "digest": {
+        "x": "0x12c340285376dcc569abd9fa94f09fa154cc8c309b35eff849fd0bf66d684ac6",
+        "y": "0x2ddbc8c0260f40d86bdd219dd993733401c73452e512bfb58cdd96f5f3fb0072"
+      },
+      "fieldRejections": 28,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 162454,
+          "verification": 160722
+        },
+        "osaka": {
+          "minStipend": 162454,
+          "verification": 160722
+        },
+        "prague": {
+          "minStipend": 154420,
+          "verification": 152688
+        }
+      },
+      "label": "small-11",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000b",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x18fe7bbf21f27bc113a592a862011e5ee517d04204b8265c90ce9902bfbea6e2",
+        "y": "0x1a51a5f914ea28fac7bc46fe47124ff2829b8671634dbf66a02649b26f26bc42"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137779,
+          "verification": 136045
+        },
+        "osaka": {
+          "minStipend": 137779,
+          "verification": 136045
+        },
+        "prague": {
+          "minStipend": 135101,
+          "verification": 133367
+        }
+      },
+      "label": "small-12",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000c",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 10,
+      "digest": {
+        "x": "0x0501d4de79e39073c932a06d947cc99b4243f0f47f99d6fe07b70b07c2916d62",
+        "y": "0x0617c7d731bbd41f22dbb54e5c09c5514a8c2b649e1ec8ad70096bb301e2c153"
+      },
+      "fieldRejections": 7,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 151585,
+          "verification": 149851
+        },
+        "osaka": {
+          "minStipend": 151585,
+          "verification": 149851
+        },
+        "prague": {
+          "minStipend": 143551,
+          "verification": 141817
+        }
+      },
+      "label": "small-13",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000d",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 17,
+      "digest": {
+        "x": "0x2a779f9b7a3724088bd1cdd3567951148634881a13b056ecc4442f0952d674c7",
+        "y": "0x2bdb23fbdb3ff931a76b3cb44922b4decadcdf414cd2dbbd86714b0eae2d170d"
+      },
+      "fieldRejections": 15,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 150614,
+          "verification": 148881
+        },
+        "osaka": {
+          "minStipend": 150614,
+          "verification": 148881
+        },
+        "prague": {
+          "minStipend": 145258,
+          "verification": 143525
+        }
+      },
+      "label": "small-14",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000e",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 16,
+      "digest": {
+        "x": "0x10f49cc2e515c8cc7069c7eadc0fbe5ffea440375de7c08123d51f2d4322324a",
+        "y": "0x04873a5ff58345942bc8e700ca76418cd55d612c366693a0ad9f28590d1dd602"
+      },
+      "fieldRejections": 13,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 154683,
+          "verification": 152949
+        },
+        "osaka": {
+          "minStipend": 154683,
+          "verification": 152949
+        },
+        "prague": {
+          "minStipend": 146649,
+          "verification": 144915
+        }
+      },
+      "label": "small-15",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000f",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 9,
+      "digest": {
+        "x": "0x12c1b8be34d4ee22b36f5597b6baea81a28e8656a25fa10bbad4b403cbf57e16",
+        "y": "0x2b92943aba2e6521ae219f7e2ee9ed2ad82408f035f492b60ab4fb1ee8179dfe"
+      },
+      "fieldRejections": 8,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 141901,
+          "verification": 140167
+        },
+        "osaka": {
+          "minStipend": 141901,
+          "verification": 140167
+        },
+        "prague": {
+          "minStipend": 139223,
+          "verification": 137489
+        }
+      },
+      "label": "small-16",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000010",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 3,
+      "digest": {
+        "x": "0x1361fbd59372dff51ac9dab6a5e2d22ddb322bc841c52f1498ab2465485bba0c",
+        "y": "0x09e480793413dd3e06f18e75b3df90f1ef55bd3848420becf2708ed1db614f88"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 143397,
+          "verification": 141663
+        },
+        "osaka": {
+          "minStipend": 143397,
+          "verification": 141663
+        },
+        "prague": {
+          "minStipend": 138041,
+          "verification": 136307
+        }
+      },
+      "label": "small-17",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000011",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 4,
+      "digest": {
+        "x": "0x202b104c84e5c90762f2acd565bcc84408cb9b643c95bc1fbbf971fecc947f6e",
+        "y": "0x2d17a8a0e6aa5d49a80e3ef5e7cfbe9c4a4d4aea2dee165fb0bf1b0d3b09d4e2"
+      },
+      "fieldRejections": 3,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 139323,
+          "verification": 137589
+        },
+        "osaka": {
+          "minStipend": 139323,
+          "verification": 137589
+        },
+        "prague": {
+          "minStipend": 136645,
+          "verification": 134911
+        }
+      },
+      "label": "small-18",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000012",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 7,
+      "digest": {
+        "x": "0x2689b6fa08184f923e8eec9a7a2d49cba8a1673aa3299b642746a76896b92c28",
+        "y": "0x2a088a43f920ff7accf3e4d2022e4005707e60ce73ec8a36c33a7a6819215c07"
+      },
+      "fieldRejections": 6,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 140866,
+          "verification": 139133
+        },
+        "osaka": {
+          "minStipend": 140866,
+          "verification": 139133
+        },
+        "prague": {
+          "minStipend": 138188,
+          "verification": 136455
+        }
+      },
+      "label": "small-19",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000013",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 4,
+      "digest": {
+        "x": "0x2f335a7d141f7c6d68ce6c3bbb4068ac17c05d5ea4bb1a64b95b8e3f02e610ad",
+        "y": "0x10b81d3ba91f9eac7738309b1e93e157e98c8a3a28abf9048fb45c3c227b6fe9"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 143912,
+          "verification": 142178
+        },
+        "osaka": {
+          "minStipend": 143912,
+          "verification": 142178
+        },
+        "prague": {
+          "minStipend": 138556,
+          "verification": 136822
+        }
+      },
+      "label": "small-20",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000014",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 13,
+      "digest": {
+        "x": "0x063b4fb699190d9e7cd6ab6ad4c4ccb98c41e82046dd081793e0ba7c18f5adf2",
+        "y": "0x1c74a68506ebedb7fa3558c065496d183d0d34f0aaf99d35f75cf2f21c6fec52"
+      },
+      "fieldRejections": 12,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 143966,
+          "verification": 142233
+        },
+        "osaka": {
+          "minStipend": 143966,
+          "verification": 142233
+        },
+        "prague": {
+          "minStipend": 141288,
+          "verification": 139555
+        }
+      },
+      "label": "small-21",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000015",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 13,
+      "digest": {
+        "x": "0x11bd4ad9368700877ad40214c458e981e22253ba1a6f2b09fdb53986b05afffc",
+        "y": "0x302d5c35393a18f164fd36c7d6a6ff35c6266063b1241705e967ce718859d8de"
+      },
+      "fieldRejections": 12,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 143963,
+          "verification": 142230
+        },
+        "osaka": {
+          "minStipend": 143963,
+          "verification": 142230
+        },
+        "prague": {
+          "minStipend": 141285,
+          "verification": 139552
+        }
+      },
+      "label": "small-22",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000016",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 6,
+      "digest": {
+        "x": "0x2fd7a7d1fb21ef6ce740bf9fdb08a57856b41b85e77c389dc75f4d2cd1ffbc01",
+        "y": "0x120490efc897d9e8108e2c610654a36b6acf6ac614a80bbe3bd39a58b1e85ed6"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 140364,
+          "verification": 138630
+        },
+        "osaka": {
+          "minStipend": 140364,
+          "verification": 138630
+        },
+        "prague": {
+          "minStipend": 137686,
+          "verification": 135952
+        }
+      },
+      "label": "small-23",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000017",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x16b23b870b4c0d4e9efe50dafac04725c2087711511afa2aa9e2373b91e84499",
+        "y": "0x105dbb9571777783a3a9fd173c90992cb9c465aa325ec14c706d1f0035061a82"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "osaka": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "prague": {
+          "minStipend": 135625,
+          "verification": 133892
+        }
+      },
+      "label": "small-24",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000018",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 3,
+      "digest": {
+        "x": "0x088ead75ec2c768f453ef443e6974e68e313bbc96675e2a9ad7bdae7b1ee56ed",
+        "y": "0x12a2ad56aba1f3c21effef810aedcef3c430e6d269d7cdb5f538fc11fb48556a"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138818,
+          "verification": 137084
+        },
+        "osaka": {
+          "minStipend": 138818,
+          "verification": 137084
+        },
+        "prague": {
+          "minStipend": 136140,
+          "verification": 134406
+        }
+      },
+      "label": "small-25",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000019",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 11,
+      "digest": {
+        "x": "0x18bbb426b8840be3e55f44448df43372ce86e3f0b0dc7f538f954b4d636eef5e",
+        "y": "0x0c196cdfa90e9347928c9da5843fa973a51bfc58ea84aa18a5750920206ca727"
+      },
+      "fieldRejections": 9,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 147522,
+          "verification": 145789
+        },
+        "osaka": {
+          "minStipend": 147522,
+          "verification": 145789
+        },
+        "prague": {
+          "minStipend": 142166,
+          "verification": 140433
+        }
+      },
+      "label": "small-26",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000001a",
+      "sqrtCalls": 2,
+      "swapped": true
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x2fe2f8208060ab75d1e994a2b430fec870b4ff625513567820d9acbed6e95cce",
+        "y": "0x1e836e80dc198206f129252fac0e128c08d097779ac2609ccefcb07473a055e5"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138290,
+          "verification": 136557
+        },
+        "osaka": {
+          "minStipend": 138290,
+          "verification": 136557
+        },
+        "prague": {
+          "minStipend": 135612,
+          "verification": 133879
+        }
+      },
+      "label": "small-27",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000001b",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 10,
+      "digest": {
+        "x": "0x073f2120f057b1351033469d9799e61e4cd8bc758aced579887a4195400927bc",
+        "y": "0x03c0977c05bf40d383550f1bcfa6feec83a1270057b7d1acb6aeadfe7551f5db"
+      },
+      "fieldRejections": 8,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 147003,
+          "verification": 145269
+        },
+        "osaka": {
+          "minStipend": 147003,
+          "verification": 145269
+        },
+        "prague": {
+          "minStipend": 141647,
+          "verification": 139913
+        }
+      },
+      "label": "small-28",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000001c",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 19,
+      "digest": {
+        "x": "0x26034b25983f6bce0922bc79be934036b1beba68dfb37ea3a132c93c9ba00e83",
+        "y": "0x0cde184e59898712b28d714c1b912e7a88ce3d9f1c8270ae877e4700e280b7ec"
+      },
+      "fieldRejections": 16,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 156235,
+          "verification": 154502
+        },
+        "osaka": {
+          "minStipend": 156235,
+          "verification": 154502
+        },
+        "prague": {
+          "minStipend": 148201,
+          "verification": 146468
+        }
+      },
+      "label": "small-29",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000001d",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 7,
+      "digest": {
+        "x": "0x1970feae5a7c6db9eede97b2c80f98d88a4ccc6786e90fd32a261b059a5e6e51",
+        "y": "0x22fa3568ed21a2daf1ea505d7c92790a0a9dde4e6df0b0bd94bd47965cda393b"
+      },
+      "fieldRejections": 5,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 145445,
+          "verification": 143712
+        },
+        "osaka": {
+          "minStipend": 145445,
+          "verification": 143712
+        },
+        "prague": {
+          "minStipend": 140089,
+          "verification": 138356
+        }
+      },
+      "label": "small-30",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000001e",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 14,
+      "digest": {
+        "x": "0x24c0988a7cebed8ec761b12501d13618306fcb548a2c0de36d8a6f16b8a9a8c0",
+        "y": "0x24209c01b6a6794059faea756c78e9b17abaecc2440fc3c7d39a46bda13da2c7"
+      },
+      "fieldRejections": 11,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 153638,
+          "verification": 151905
+        },
+        "osaka": {
+          "minStipend": 153638,
+          "verification": 151905
+        },
+        "prague": {
+          "minStipend": 145604,
+          "verification": 143871
+        }
+      },
+      "label": "small-31",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000001f",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 14,
+      "digest": {
+        "x": "0x2117e317e8d4481c35d94495d9d8202d7424875ebcb735c45eded4062fe8ea3e",
+        "y": "0x2762901a05c3a3e8ea96d33aca39fb6e09f72f80f89f9d07b6115556a654c33c"
+      },
+      "fieldRejections": 12,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 149059,
+          "verification": 147326
+        },
+        "osaka": {
+          "minStipend": 149059,
+          "verification": 147326
+        },
+        "prague": {
+          "minStipend": 143703,
+          "verification": 141970
+        }
+      },
+      "label": "small-32",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000020",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 102,
+      "digest": {
+        "x": "0x179b3c53aa8ccd8638a9a50181f4cf18227f656389ae62f313e3dfb9b08d4f5f",
+        "y": "0x14ba914a32034a090b84999a354557896fb730fc29004599af82d10674f361bc"
+      },
+      "fieldRejections": 92,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 231939,
+          "verification": 230208
+        },
+        "osaka": {
+          "minStipend": 231939,
+          "verification": 230208
+        },
+        "prague": {
+          "minStipend": 205159,
+          "verification": 203428
+        }
+      },
+      "label": "tail-13154",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000003362",
+      "sqrtCalls": 10,
+      "swapped": true
+    },
+    {
+      "attempts": 93,
+      "digest": {
+        "x": "0x115312e28ae6319828c372c3fc76740e1eccc6f2b406e17cac28356651086df4",
+        "y": "0x1ae2010d808a4bc895fa4309d42714490bd41296f13b6a3baad02c8994f5bfd9"
+      },
+      "fieldRejections": 87,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 208817,
+          "verification": 207086
+        },
+        "osaka": {
+          "minStipend": 208817,
+          "verification": 207086
+        },
+        "prague": {
+          "minStipend": 192749,
+          "verification": 191018
+        }
+      },
+      "label": "tail-31312",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000007a50",
+      "sqrtCalls": 6,
+      "swapped": true
+    },
+    {
+      "attempts": 113,
+      "digest": {
+        "x": "0x1b62e6e84c0be908128dafe8a506ae94aeee0e90331f2201b42ada6e562766d7",
+        "y": "0x2fcc71ffb88cf5a0b0289723030b2030e808a9197b3df94969efda25ac168875"
+      },
+      "fieldRejections": 103,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 237813,
+          "verification": 236082
+        },
+        "osaka": {
+          "minStipend": 237813,
+          "verification": 236082
+        },
+        "prague": {
+          "minStipend": 211033,
+          "verification": 209302
+        }
+      },
+      "label": "tail-36300",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000008dcc",
+      "sqrtCalls": 10,
+      "swapped": true
+    },
+    {
+      "attempts": 95,
+      "digest": {
+        "x": "0x02ebb62e1aa0d4c1288909841a9cb55503a710e25ea18c345a81434fef419e4c",
+        "y": "0x2108b6daab76d09954f8b4d78c00ce7deb205aa46106322c5b55131d212787b6"
+      },
+      "fieldRejections": 77,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 264826,
+          "verification": 263095
+        },
+        "osaka": {
+          "minStipend": 264826,
+          "verification": 263095
+        },
+        "prague": {
+          "minStipend": 216622,
+          "verification": 214891
+        }
+      },
+      "label": "tail-57193",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000df69",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 115,
+      "digest": {
+        "x": "0x1101fd675a41bc0b17fd8733e73c90eb1b71eb18b5d2f4e0e80c02914f7a92dc",
+        "y": "0x0a63444b2ff389a3121469447a97bc4f2e1977b53885c0365b84a98e513fe5d4"
+      },
+      "fieldRejections": 105,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 238892,
+          "verification": 237162
+        },
+        "osaka": {
+          "minStipend": 238892,
+          "verification": 237162
+        },
+        "prague": {
+          "minStipend": 212112,
+          "verification": 210382
+        }
+      },
+      "label": "tail-84080",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000014870",
+      "sqrtCalls": 10,
+      "swapped": false
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x27ddbd4fcd3330834dd5e94641d0bcd372ceb87159b3028465fd7925ee8814f5",
+        "y": "0x2559dd6c53dba8406305ef5e13aa6179af934c8ec6d2a5fa6a84f2833b0f78e2"
+      },
+      "fieldRejections": 97,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 255057,
+          "verification": 253327
+        },
+        "osaka": {
+          "minStipend": 255057,
+          "verification": 253327
+        },
+        "prague": {
+          "minStipend": 217565,
+          "verification": 215835
+        }
+      },
+      "label": "tail-103623",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000194c7",
+      "sqrtCalls": 14,
+      "swapped": true
+    },
+    {
+      "attempts": 126,
+      "digest": {
+        "x": "0x1d8dd6dda4cf8afc704ca9938333da18866933a8625a9f69371dd5277752644e",
+        "y": "0x1eb679ed42e94fa6b7ef6137308793810a8a5767d6965158707b37e847f74cce"
+      },
+      "fieldRejections": 109,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 276849,
+          "verification": 275119
+        },
+        "osaka": {
+          "minStipend": 276849,
+          "verification": 275119
+        },
+        "prague": {
+          "minStipend": 231323,
+          "verification": 229593
+        }
+      },
+      "label": "tail-150199",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000024ab7",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 128,
+      "digest": {
+        "x": "0x219905f17df46cbb27cb370f53b1299ad2bdedfd211ebdd7bd3771198d0b6894",
+        "y": "0x1b2ef125559365c3239bf85cc7281130a28de2f032a5f2792600213269a83906"
+      },
+      "fieldRejections": 109,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 287081,
+          "verification": 285351
+        },
+        "osaka": {
+          "minStipend": 287081,
+          "verification": 285351
+        },
+        "prague": {
+          "minStipend": 236199,
+          "verification": 234469
+        }
+      },
+      "label": "tail-241572",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000003afa4",
+      "sqrtCalls": 19,
+      "swapped": false
+    },
+    {
+      "attempts": 113,
+      "digest": {
+        "x": "0x2ab601dd4f8759498263cae06e0c64eda9c99c577d96d9da3396ebd7dd879e9c",
+        "y": "0x2fe635025cb2ffa4b6f0c9c0810a489dcc745b40197130294f63dea65220a0ff"
+      },
+      "fieldRejections": 106,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 224076,
+          "verification": 222345
+        },
+        "osaka": {
+          "minStipend": 224076,
+          "verification": 222345
+        },
+        "prague": {
+          "minStipend": 205330,
+          "verification": 203599
+        }
+      },
+      "label": "tail-248352",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000003ca20",
+      "sqrtCalls": 7,
+      "swapped": true
+    },
+    {
+      "attempts": 80,
+      "digest": {
+        "x": "0x1d8fc3ff1aad3239b2bee73fbe9b52b1bc71263a50061f26aa504486f6b13af8",
+        "y": "0x305fd9af0f314390fbcaf07678b9bcc4cfdde22b824f9b4132e63cd5c0f4bd84"
+      },
+      "fieldRejections": 63,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 252282,
+          "verification": 250550
+        },
+        "osaka": {
+          "minStipend": 252282,
+          "verification": 250550
+        },
+        "prague": {
+          "minStipend": 206756,
+          "verification": 205024
+        }
+      },
+      "label": "tail-271935",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000004263f",
+      "sqrtCalls": 17,
+      "swapped": false
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x2a1939697afaeed41f66dd37aa9e92c056a4e1a7ecf94f01b971e405f4df19b5",
+        "y": "0x23f4a2b4fe75c12ea8bd8d38a77aee267c146b02ba992ab439631c20ddfe5ddf"
+      },
+      "fieldRejections": 99,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 240782,
+          "verification": 239051
+        },
+        "osaka": {
+          "minStipend": 240782,
+          "verification": 239051
+        },
+        "prague": {
+          "minStipend": 211324,
+          "verification": 209593
+        }
+      },
+      "label": "tail-286992",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000046110",
+      "sqrtCalls": 11,
+      "swapped": false
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x28a24724895afc32e96f287f70fe496f9abf40a6448bdd7714fbd5c2d8f448e4",
+        "y": "0x015fbd1ec2d3c8ad9dca4d0789d321a2d8a0c33a74802b512e3378df1e7e3904"
+      },
+      "fieldRejections": 97,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 249953,
+          "verification": 248222
+        },
+        "osaka": {
+          "minStipend": 249953,
+          "verification": 248222
+        },
+        "prague": {
+          "minStipend": 215139,
+          "verification": 213408
+        }
+      },
+      "label": "tail-299660",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000004928c",
+      "sqrtCalls": 13,
+      "swapped": true
+    },
+    {
+      "attempts": 78,
+      "digest": {
+        "x": "0x0e68df90472826c5412e63d458941730a8048db886e3c4480cce79c375ee2b68",
+        "y": "0x160ab587f28f4b431af546e5ca0f784ce2e4f9f3cb0537c8033c1cdf95890718"
+      },
+      "fieldRejections": 61,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 251236,
+          "verification": 249504
+        },
+        "osaka": {
+          "minStipend": 251236,
+          "verification": 249504
+        },
+        "prague": {
+          "minStipend": 205710,
+          "verification": 203978
+        }
+      },
+      "label": "tail-317342",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000004d79e",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x252af40d551e99bbb2d717bdc5212b7573a428f9f011b5a9425ca7ff8d23f53c",
+        "y": "0x195fa60925b675b6aca337d14b2a0e23d19c94cb58cd5d858ad5dc7853dd3449"
+      },
+      "fieldRejections": 96,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 259636,
+          "verification": 257906
+        },
+        "osaka": {
+          "minStipend": 259636,
+          "verification": 257906
+        },
+        "prague": {
+          "minStipend": 219466,
+          "verification": 217736
+        }
+      },
+      "label": "tail-368752",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000005a070",
+      "sqrtCalls": 15,
+      "swapped": true
+    },
+    {
+      "attempts": 119,
+      "digest": {
+        "x": "0x0bc06550ef6c53c1a0528194e0d1b20604e41cf493404b2cbdf7d6051fc78dc0",
+        "y": "0x0e93929b9c5383f14cb47baf58a9033c80f0d888c5e3cf57cd7d122dbeaedbc4"
+      },
+      "fieldRejections": 103,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 268516,
+          "verification": 266785
+        },
+        "osaka": {
+          "minStipend": 268516,
+          "verification": 266785
+        },
+        "prague": {
+          "minStipend": 225668,
+          "verification": 223937
+        }
+      },
+      "label": "tail-417985",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000660c1",
+      "sqrtCalls": 16,
+      "swapped": true
+    },
+    {
+      "attempts": 107,
+      "digest": {
+        "x": "0x2094e1d9fd41a9d80a22d3989655622741504605d120cfe7af0eaa5aa21bc9bf",
+        "y": "0x24c8ed73e7426aa1d2195522a88a96844c7ed5f82e54ac4dba665d3d15c1e4b6"
+      },
+      "fieldRejections": 89,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 271230,
+          "verification": 269499
+        },
+        "osaka": {
+          "minStipend": 271230,
+          "verification": 269499
+        },
+        "prague": {
+          "minStipend": 223026,
+          "verification": 221295
+        }
+      },
+      "label": "tail-436912",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000006aab0",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 96,
+      "digest": {
+        "x": "0x2c557578a78be2d707e9ff3a3f008935252662fdd23935a80e2435547069599c",
+        "y": "0x117fba981c0302acc11902316de0a14bdf36bd12ed4d677c55af3b94feb40fc9"
+      },
+      "fieldRejections": 79,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 260790,
+          "verification": 259059
+        },
+        "osaka": {
+          "minStipend": 260790,
+          "verification": 259059
+        },
+        "prague": {
+          "minStipend": 215264,
+          "verification": 213533
+        }
+      },
+      "label": "tail-441678",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000006bd4e",
+      "sqrtCalls": 17,
+      "swapped": false
+    },
+    {
+      "attempts": 107,
+      "digest": {
+        "x": "0x190418f4233f43c1f7693d4c5b443e88d93bf773c7c70ee6d491f3de0b1ee9bd",
+        "y": "0x2c53a6a4250115c27fcf01cdae4c52760035e04efe83ce3935a70b42c885a46e"
+      },
+      "fieldRejections": 89,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 271233,
+          "verification": 269502
+        },
+        "osaka": {
+          "minStipend": 271233,
+          "verification": 269502
+        },
+        "prague": {
+          "minStipend": 223029,
+          "verification": 221298
+        }
+      },
+      "label": "tail-447993",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000006d5f9",
+      "sqrtCalls": 18,
+      "swapped": true
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x07e07c699b3cd6e5c4a706d765df20987fcb5fcf86e4826fefcff94bcf5f8a28",
+        "y": "0x108484338498707dc8aaf6c1efbf4d76b4fc5b1b44a176db89af6f119bd81816"
+      },
+      "fieldRejections": 94,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 268804,
+          "verification": 267074
+        },
+        "osaka": {
+          "minStipend": 268804,
+          "verification": 267074
+        },
+        "prague": {
+          "minStipend": 223278,
+          "verification": 221548
+        }
+      },
+      "label": "tail-459885",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000007046d",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 113,
+      "digest": {
+        "x": "0x01d3d2340b002a7c31b20b85d2fe892084eaa731f1787fe0ac0d2a2e124e3c7a",
+        "y": "0x06fd261f2617580fc6e37776a74f40cce4be87f351ae189948d5c6fa627e8023"
+      },
+      "fieldRejections": 100,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 251560,
+          "verification": 249829
+        },
+        "osaka": {
+          "minStipend": 251560,
+          "verification": 249829
+        },
+        "prague": {
+          "minStipend": 216746,
+          "verification": 215015
+        }
+      },
+      "label": "tail-530144",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000816e0",
+      "sqrtCalls": 13,
+      "swapped": true
+    },
+    {
+      "attempts": 120,
+      "digest": {
+        "x": "0x2b25d54fb499a27842512485a39a98bf4debef46faa5af8dbdcb007b94e2eb59",
+        "y": "0x16b187d358803c9e43e185a53bc49ca7ac3608a61da9f43dd53e0e5346d7fb88"
+      },
+      "fieldRejections": 105,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 264471,
+          "verification": 262741
+        },
+        "osaka": {
+          "minStipend": 264471,
+          "verification": 262741
+        },
+        "prague": {
+          "minStipend": 224301,
+          "verification": 222571
+        }
+      },
+      "label": "tail-681933",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000a67cd",
+      "sqrtCalls": 15,
+      "swapped": false
+    },
+    {
+      "attempts": 97,
+      "digest": {
+        "x": "0x1e5aabf906ea1fd40515981fffbe3f8af7f9c699f581500940a1e570a4a5b019",
+        "y": "0x2862bc1786322bd4f82c11ae3d96b49ec869e264bbf660ac74cdf34793e9876c"
+      },
+      "fieldRejections": 74,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 288787,
+          "verification": 287056
+        },
+        "osaka": {
+          "minStipend": 288787,
+          "verification": 287056
+        },
+        "prague": {
+          "minStipend": 227193,
+          "verification": 225462
+        }
+      },
+      "label": "tail-693083",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000a935b",
+      "sqrtCalls": 23,
+      "swapped": false
+    },
+    {
+      "attempts": 100,
+      "digest": {
+        "x": "0x2214a4d1aa6cf81c096b5e6c7e2364fa9020183588778238c200303b106f0940",
+        "y": "0x2e423e377c6cc55ef96052c218a0868bd2f0a7ee3e528588b0f18d4b6ea37e47"
+      },
+      "fieldRejections": 83,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 262915,
+          "verification": 261184
+        },
+        "osaka": {
+          "minStipend": 262915,
+          "verification": 261184
+        },
+        "prague": {
+          "minStipend": 217389,
+          "verification": 215658
+        }
+      },
+      "label": "tail-706579",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000ac813",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 103,
+      "digest": {
+        "x": "0x0cac44b5e6a5dd5e1f80c0dfcf988782995837c0139513108959997d019dcbea",
+        "y": "0x055c7a35e5a1705e01a78a62fbb43686f462e2f1e27755202b6a01f24cf3c683"
+      },
+      "fieldRejections": 86,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 264526,
+          "verification": 262795
+        },
+        "osaka": {
+          "minStipend": 264526,
+          "verification": 262795
+        },
+        "prague": {
+          "minStipend": 219000,
+          "verification": 217269
+        }
+      },
+      "label": "tail-711538",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000adb72",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 68,
+      "digest": {
+        "x": "0x0a94a17ac8278e6f26ccec3fa1295e0dd72ea386b2ff44e57c195b3871e74e42",
+        "y": "0x1a1355a8ce37efd0f9c8d0c87da3af3e582abf6035a706ca1a7dbc2ee8ba3b7d"
+      },
+      "fieldRejections": 51,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 245943,
+          "verification": 244211
+        },
+        "osaka": {
+          "minStipend": 245943,
+          "verification": 244211
+        },
+        "prague": {
+          "minStipend": 200417,
+          "verification": 198685
+        }
+      },
+      "label": "tail-718617",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000af719",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 139,
+      "digest": {
+        "x": "0x28a6d55bcc67ec14c05d25e1c06937cab5ad202e34b968330033825bb8ac5353",
+        "y": "0x0937dec7661f9748b238aebba638260b709f4476d02c0a981bcc3b40f1aa4180"
+      },
+      "fieldRejections": 126,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 265559,
+          "verification": 263829
+        },
+        "osaka": {
+          "minStipend": 265559,
+          "verification": 263829
+        },
+        "prague": {
+          "minStipend": 230745,
+          "verification": 229015
+        }
+      },
+      "label": "tail-723828",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000b0b74",
+      "sqrtCalls": 13,
+      "swapped": true
+    },
+    {
+      "attempts": 83,
+      "digest": {
+        "x": "0x0eef2f928e09240b68399525fbbef17acc97b833130765bf16002727a373e4fe",
+        "y": "0x087f1c8d78ae17cf0e8cb0172d5d7a3b1a258d70fbe8815d10b4d0dcdf6189d7"
+      },
+      "fieldRejections": 65,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 258463,
+          "verification": 256732
+        },
+        "osaka": {
+          "minStipend": 258463,
+          "verification": 256732
+        },
+        "prague": {
+          "minStipend": 210259,
+          "verification": 208528
+        }
+      },
+      "label": "tail-814444",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000c6d6c",
+      "sqrtCalls": 18,
+      "swapped": true
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x04767c8e727cd35c95c2b6458a0a79bbbe839878c7c3518c3438fb63dae2e012",
+        "y": "0x2d60515169ab02cbac74ef475facf9dbe0b73d234721944c31807aed2b407e8c"
+      },
+      "fieldRejections": 100,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 236203,
+          "verification": 234472
+        },
+        "osaka": {
+          "minStipend": 236203,
+          "verification": 234472
+        },
+        "prague": {
+          "minStipend": 209423,
+          "verification": 207692
+        }
+      },
+      "label": "tail-850189",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000cf90d",
+      "sqrtCalls": 10,
+      "swapped": false
+    },
+    {
+      "attempts": 138,
+      "digest": {
+        "x": "0x00686c37feb20f34e2ac830f76259c7171cc074a0bd50f4d0b64c36e72314cfd",
+        "y": "0x256a705331425bae60706d1cbfb030ff690b5533a318a5c66d368fc79ca1dd12"
+      },
+      "fieldRejections": 126,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 260426,
+          "verification": 258696
+        },
+        "osaka": {
+          "minStipend": 260426,
+          "verification": 258696
+        },
+        "prague": {
+          "minStipend": 228290,
+          "verification": 226560
+        }
+      },
+      "label": "tail-865039",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000d330f",
+      "sqrtCalls": 12,
+      "swapped": false
+    },
+    {
+      "attempts": 101,
+      "digest": {
+        "x": "0x1d55f74fa56f7eb25c52b2c6ca07d0ec6d66d943e0a9051e9a9074c4ffee5e73",
+        "y": "0x13bc7a3d571b0027e01fd743eaa23592f2dd1d7be593a601df2b11db7c1b508a"
+      },
+      "fieldRejections": 83,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 268038,
+          "verification": 266307
+        },
+        "osaka": {
+          "minStipend": 268038,
+          "verification": 266307
+        },
+        "prague": {
+          "minStipend": 219834,
+          "verification": 218103
+        }
+      },
+      "label": "tail-884458",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000d7eea",
+      "sqrtCalls": 18,
+      "swapped": true
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x1d760879d3907cc6da13f5cebc79b9bf36b1b3a1ca2c9b5213ff854502fb17ae",
+        "y": "0x24889703b84b23b882c6534601b72ddcf55620e24ecfbd6f8f9168e4db78d897"
+      },
+      "fieldRejections": 95,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 264215,
+          "verification": 262485
+        },
+        "osaka": {
+          "minStipend": 264215,
+          "verification": 262485
+        },
+        "prague": {
+          "minStipend": 221367,
+          "verification": 219637
+        }
+      },
+      "label": "tail-894541",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000da64d",
+      "sqrtCalls": 16,
+      "swapped": true
+    },
+    {
+      "attempts": 121,
+      "digest": {
+        "x": "0x25cda99f83431275c7d6420d428c263bf9935d106a8240414b1bd869e4e74e2e",
+        "y": "0x0db08f021770f4a101b95ce877a67412f3b54fdaa5b1c29fc7f8f43ab1be97a6"
+      },
+      "fieldRejections": 106,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 265011,
+          "verification": 263281
+        },
+        "osaka": {
+          "minStipend": 265011,
+          "verification": 263281
+        },
+        "prague": {
+          "minStipend": 224841,
+          "verification": 223111
+        }
+      },
+      "label": "tail-909548",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000de0ec",
+      "sqrtCalls": 15,
+      "swapped": true
+    },
+    {
+      "attempts": 87,
+      "digest": {
+        "x": "0x1acad4c0e23437f1cccfd2612394dbc29ad0d175657c4c8c8249579768061eff",
+        "y": "0x1cf4cddf4f88d7259c85e128c182264651f2f3c2fee94c106696779079cc7b11"
+      },
+      "fieldRejections": 70,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 255996,
+          "verification": 254265
+        },
+        "osaka": {
+          "minStipend": 255996,
+          "verification": 254265
+        },
+        "prague": {
+          "minStipend": 210470,
+          "verification": 208739
+        }
+      },
+      "label": "tail-933917",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000e401d",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 117,
+      "digest": {
+        "x": "0x21eaa1d32de067831956e394ba431072404b73508458549419e0d0caf40a2bd6",
+        "y": "0x23c5a00717265e626bf404f24c1ce0e9f2220da7c28b6f7278f23a26be154654"
+      },
+      "fieldRejections": 106,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 244537,
+          "verification": 242807
+        },
+        "osaka": {
+          "minStipend": 244537,
+          "verification": 242807
+        },
+        "prague": {
+          "minStipend": 215079,
+          "verification": 213349
+        }
+      },
+      "label": "tail-998704",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000f3d30",
+      "sqrtCalls": 11,
+      "swapped": true
+    },
+    {
+      "attempts": 119,
+      "digest": {
+        "x": "0x2bedafa7c6d5492fcd639e18952bf7233fa9fade43e99e36b2306fef5fa7150f",
+        "y": "0x0059614de4944efcc0c663be42a45f4ede58463461467676c836b0d323f0b8e9"
+      },
+      "fieldRejections": 104,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 263937,
+          "verification": 262206
+        },
+        "osaka": {
+          "minStipend": 263937,
+          "verification": 262206
+        },
+        "prague": {
+          "minStipend": 223767,
+          "verification": 222036
+        }
+      },
+      "label": "tail-1117023",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000110b5f",
+      "sqrtCalls": 15,
+      "swapped": true
+    },
+    {
+      "attempts": 115,
+      "digest": {
+        "x": "0x006f8758d2967a81df75e2d95158498c9f817ed1309318fb97581d23f09724bf",
+        "y": "0x0d2e6f23d4917e89fa27c031331fe63f7000d12d30d548b161c638f8f7a81c75"
+      },
+      "fieldRejections": 105,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 238895,
+          "verification": 237165
+        },
+        "osaka": {
+          "minStipend": 238895,
+          "verification": 237165
+        },
+        "prague": {
+          "minStipend": 212115,
+          "verification": 210385
+        }
+      },
+      "label": "tail-1133435",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000114b7b",
+      "sqrtCalls": 10,
+      "swapped": true
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x2d2316e9ed5944cd7e9a1d791b8f81fa2f73468331c3b9b8ace6008ccb95134a",
+        "y": "0x2f365679a4a4ef3cde5cbcf301d81938bab2c2331e7b185fa1fb2f8165c3d87c"
+      },
+      "fieldRejections": 98,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 245364,
+          "verification": 243633
+        },
+        "osaka": {
+          "minStipend": 245364,
+          "verification": 243633
+        },
+        "prague": {
+          "minStipend": 213228,
+          "verification": 211497
+        }
+      },
+      "label": "tail-1147180",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000011812c",
+      "sqrtCalls": 12,
+      "swapped": true
+    },
+    {
+      "attempts": 64,
+      "digest": {
+        "x": "0x2a41a09b1e89926b2c218e73a8e67aafe9f5a4be09a7df684841f917f5726d0e",
+        "y": "0x11e2b5eec5f2cf1b6209e368fb63b153d471aa8f2331fe7b67336696d464bbd6"
+      },
+      "fieldRejections": 46,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 248421,
+          "verification": 246689
+        },
+        "osaka": {
+          "minStipend": 248421,
+          "verification": 246689
+        },
+        "prague": {
+          "minStipend": 200217,
+          "verification": 198485
+        }
+      },
+      "label": "tail-1181788",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000012085c",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 121,
+      "digest": {
+        "x": "0x25f634c71de6f0abb01055aa63734b0e5c5206396f12b71a6650185157bb7129",
+        "y": "0x2f7c686dc1e573192cfae2d3342f6665fd10aaa1c15782beea3a412d0a76071f"
+      },
+      "fieldRejections": 104,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 274156,
+          "verification": 272426
+        },
+        "osaka": {
+          "minStipend": 274156,
+          "verification": 272426
+        },
+        "prague": {
+          "minStipend": 228630,
+          "verification": 226900
+        }
+      },
+      "label": "tail-1204211",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000125ff3",
+      "sqrtCalls": 17,
+      "swapped": false
+    },
+    {
+      "attempts": 59,
+      "digest": {
+        "x": "0x03ece06e85067f59bf110a584dc046d33656998db823f93534d60f498841d42f",
+        "y": "0x1c129d957f2aaab7cd38fe745d77b033c7e79ba1d0025de148f126c9fb2d4f61"
+      },
+      "fieldRejections": 42,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 241202,
+          "verification": 239470
+        },
+        "osaka": {
+          "minStipend": 241202,
+          "verification": 239470
+        },
+        "prague": {
+          "minStipend": 195676,
+          "verification": 193944
+        }
+      },
+      "label": "tail-1216207",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000128ecf",
+      "sqrtCalls": 17,
+      "swapped": false
+    },
+    {
+      "attempts": 94,
+      "digest": {
+        "x": "0x1a552a89efb6512e7aa0cf122c995c2863bdaa8418c6d16bcc79ee586767b9fa",
+        "y": "0x213390e8596524e719185dd88d9b2d022fb8cff44e04c0a5d5b9fbab3410f528"
+      },
+      "fieldRejections": 77,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 259718,
+          "verification": 257987
+        },
+        "osaka": {
+          "minStipend": 259718,
+          "verification": 257987
+        },
+        "prague": {
+          "minStipend": 214192,
+          "verification": 212461
+        }
+      },
+      "label": "tail-1255357",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001327bd",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x1e1b3bd1126db1c4e6bafe8b3889eec7df662cea2e89d83a466b0ae99cd51b4a",
+        "y": "0x09262f23710d83f824a23f85093a4e31e8c83cfdd1bf66445adad860d33383a0"
+      },
+      "fieldRejections": 99,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 240792,
+          "verification": 239061
+        },
+        "osaka": {
+          "minStipend": 240792,
+          "verification": 239061
+        },
+        "prague": {
+          "minStipend": 211334,
+          "verification": 209603
+        }
+      },
+      "label": "tail-1267879",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001358a7",
+      "sqrtCalls": 11,
+      "swapped": false
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x0b45a2ad3c1cb19f23b00557d4f6c9e56b888a3cef5f2d77091c02b0502883d8",
+        "y": "0x0f51fd395fef9a9eeff1529d396c5bd26809e0f8380d349b167e783ad3befcd1"
+      },
+      "fieldRejections": 100,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 241327,
+          "verification": 239597
+        },
+        "osaka": {
+          "minStipend": 241327,
+          "verification": 239597
+        },
+        "prague": {
+          "minStipend": 211869,
+          "verification": 210139
+        }
+      },
+      "label": "tail-1290026",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000013af2a",
+      "sqrtCalls": 11,
+      "swapped": false
+    },
+    {
+      "attempts": 116,
+      "digest": {
+        "x": "0x1770776b52291aa195cd79b04698edf031c93dba9b1488c1522d5304e8b71d17",
+        "y": "0x292e00d41c422600556365a638071a9dc8d66c58316b271973bcea9455af9b99"
+      },
+      "fieldRejections": 92,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 303525,
+          "verification": 301794
+        },
+        "osaka": {
+          "minStipend": 303525,
+          "verification": 301794
+        },
+        "prague": {
+          "minStipend": 239253,
+          "verification": 237522
+        }
+      },
+      "label": "tail-1314687",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000140f7f",
+      "sqrtCalls": 24,
+      "swapped": false
+    },
+    {
+      "attempts": 61,
+      "digest": {
+        "x": "0x2250a0c88c752bc366f1e68dd3c16bd6c0e8b5d62de65f49ed1a9f45796a5484",
+        "y": "0x2fee6b5921624dfb64d6e68e549ade668efe48b7e2634ba3491ae8dfd482819c"
+      },
+      "fieldRejections": 44,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 242254,
+          "verification": 240522
+        },
+        "osaka": {
+          "minStipend": 242254,
+          "verification": 240522
+        },
+        "prague": {
+          "minStipend": 196728,
+          "verification": 194996
+        }
+      },
+      "label": "tail-1318568",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000141ea8",
+      "sqrtCalls": 17,
+      "swapped": false
+    },
+    {
+      "attempts": 96,
+      "digest": {
+        "x": "0x1093b12419cff8c65b5ec3664c738d75680fb012a56e6d6bdd2953a80ee0b018",
+        "y": "0x24ce7294e16e418a897ef1ee9837063f8a7f365d68bb01427c1f7967f88117d7"
+      },
+      "fieldRejections": 78,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 265359,
+          "verification": 263628
+        },
+        "osaka": {
+          "minStipend": 265359,
+          "verification": 263628
+        },
+        "prague": {
+          "minStipend": 217155,
+          "verification": 215424
+        }
+      },
+      "label": "tail-1338099",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000146af3",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 119,
+      "digest": {
+        "x": "0x259b9847108a6bb505374ba2f7db4efcbd399c6aee82695c40305ed5e8873f2f",
+        "y": "0x1c6f1f6f04622ba194fbdcbbcb56c9a34e04233b5e952f60baf0b76d0dd66466"
+      },
+      "fieldRejections": 108,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 245611,
+          "verification": 243880
+        },
+        "osaka": {
+          "minStipend": 245611,
+          "verification": 243880
+        },
+        "prague": {
+          "minStipend": 216153,
+          "verification": 214422
+        }
+      },
+      "label": "tail-1351955",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000014a113",
+      "sqrtCalls": 11,
+      "swapped": true
+    },
+    {
+      "attempts": 120,
+      "digest": {
+        "x": "0x016c9b9d84f943a3f190d137fbc2ba56f5790973037af610c9def237c7e24ff1",
+        "y": "0x1d3a3929a8959d94a2d1c2f378c4607bbae22123e37b4ee80aeef35d6e237184"
+      },
+      "fieldRejections": 109,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 246148,
+          "verification": 244418
+        },
+        "osaka": {
+          "minStipend": 246148,
+          "verification": 244418
+        },
+        "prague": {
+          "minStipend": 216690,
+          "verification": 214960
+        }
+      },
+      "label": "tail-1412769",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000158ea1",
+      "sqrtCalls": 11,
+      "swapped": true
+    },
+    {
+      "attempts": 121,
+      "digest": {
+        "x": "0x002b180f995fb2947304ade1ac8d3c11060d0e12bbb4867eac6886c517a9d3a9",
+        "y": "0x24d454c9236d323a5184b1064630900de7c90ac0c455e42be8dfdf6701184ec6"
+      },
+      "fieldRejections": 108,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 255843,
+          "verification": 254113
+        },
+        "osaka": {
+          "minStipend": 255843,
+          "verification": 254113
+        },
+        "prague": {
+          "minStipend": 221029,
+          "verification": 219299
+        }
+      },
+      "label": "tail-1459623",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001645a7",
+      "sqrtCalls": 13,
+      "swapped": true
+    },
+    {
+      "attempts": 115,
+      "digest": {
+        "x": "0x0d189049ba2a4c3996ff69e96b0b7e58b2fbaea3ff8e4235fd661e8e47132622",
+        "y": "0x2920ba90e2b032138d6ecfce0c3d57ca0bb8228739e3491ec6a32dda4ab1abf6"
+      },
+      "fieldRejections": 109,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 220569,
+          "verification": 218839
+        },
+        "osaka": {
+          "minStipend": 220569,
+          "verification": 218839
+        },
+        "prague": {
+          "minStipend": 204501,
+          "verification": 202771
+        }
+      },
+      "label": "tail-1503562",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000016f14a",
+      "sqrtCalls": 6,
+      "swapped": true
+    },
+    {
+      "attempts": 102,
+      "digest": {
+        "x": "0x231a35f56baa07fa0a7bd1c37e5a87147d4fe95d1bacb8dda7340b23365047af",
+        "y": "0x22fea69f895f11e992d2727ed5a058a3c1fe4708b8283b65740fd58742367ddf"
+      },
+      "fieldRejections": 84,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 268558,
+          "verification": 266827
+        },
+        "osaka": {
+          "minStipend": 268558,
+          "verification": 266827
+        },
+        "prague": {
+          "minStipend": 220354,
+          "verification": 218623
+        }
+      },
+      "label": "tail-1531894",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000175ff6",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 85,
+      "digest": {
+        "x": "0x1b87ec13683f070410ada90b0b445e10b1a1723786dbf331c081b6464b885eb0",
+        "y": "0x045bb96e200a1f99acc4db989828d0ab517593e4cc19e67eef97b58623de70b0"
+      },
+      "fieldRejections": 67,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 259521,
+          "verification": 257790
+        },
+        "osaka": {
+          "minStipend": 259521,
+          "verification": 257790
+        },
+        "prague": {
+          "minStipend": 211317,
+          "verification": 209586
+        }
+      },
+      "label": "tail-1556725",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000017c0f5",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x123251c313243e62feaa144ab0d978122ada94e241cb60962f32c25ec5edc6da",
+        "y": "0x076587181681a31c9fea8c537564d4f83420b93390d2d1613d08047239fe1a4c"
+      },
+      "fieldRejections": 100,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 236216,
+          "verification": 234485
+        },
+        "osaka": {
+          "minStipend": 236216,
+          "verification": 234485
+        },
+        "prague": {
+          "minStipend": 209436,
+          "verification": 207705
+        }
+      },
+      "label": "tail-1559796",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000017ccf4",
+      "sqrtCalls": 10,
+      "swapped": true
+    },
+    {
+      "attempts": 98,
+      "digest": {
+        "x": "0x0e63dca5dff9cc693f883214e8e65de870ee473ccdf0bc3859c08a0ecd296cd8",
+        "y": "0x0f7e621bee8cbd3bb2506384686c600513b232408688c79a2e0720524040e3cb"
+      },
+      "fieldRejections": 80,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 266438,
+          "verification": 264707
+        },
+        "osaka": {
+          "minStipend": 266438,
+          "verification": 264707
+        },
+        "prague": {
+          "minStipend": 218234,
+          "verification": 216503
+        }
+      },
+      "label": "tail-1560031",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000017cddf",
+      "sqrtCalls": 18,
+      "swapped": true
+    },
+    {
+      "attempts": 115,
+      "digest": {
+        "x": "0x2164db57f7eede544183858fbcb31e749d52513ac6b113079ff4684302aa5c06",
+        "y": "0x1f0bc30c03bece0278a61bb2527a4293c54f5c17cd4dc1f85e8886a40be0cacb"
+      },
+      "fieldRejections": 102,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 252619,
+          "verification": 250889
+        },
+        "osaka": {
+          "minStipend": 252619,
+          "verification": 250889
+        },
+        "prague": {
+          "minStipend": 217805,
+          "verification": 216075
+        }
+      },
+      "label": "tail-1583718",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000182a66",
+      "sqrtCalls": 13,
+      "swapped": false
+    },
+    {
+      "attempts": 114,
+      "digest": {
+        "x": "0x1b5fce2dbc1baec7864f6d0ad6a7e1340199e1bc96ecd8e246e82b3c66f79f59",
+        "y": "0x143b359709a7329de74d38f9331400ba34f03051c66e0d7d8678a345fcebf0ba"
+      },
+      "fieldRejections": 99,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 261254,
+          "verification": 259523
+        },
+        "osaka": {
+          "minStipend": 261254,
+          "verification": 259523
+        },
+        "prague": {
+          "minStipend": 221084,
+          "verification": 219353
+        }
+      },
+      "label": "tail-1640875",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001909ab",
+      "sqrtCalls": 15,
+      "swapped": true
+    },
+    {
+      "attempts": 98,
+      "digest": {
+        "x": "0x1ee4bb899cc204e14207fd9ed3c9bd49c835e045b9596c4af8000049e6d604f6",
+        "y": "0x1b0d0c035e296ad64c0203e28dea074577364498f1654df70b47cab2519d0a6e"
+      },
+      "fieldRejections": 79,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 271007,
+          "verification": 269276
+        },
+        "osaka": {
+          "minStipend": 271007,
+          "verification": 269276
+        },
+        "prague": {
+          "minStipend": 220125,
+          "verification": 218394
+        }
+      },
+      "label": "tail-1649310",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000192a9e",
+      "sqrtCalls": 19,
+      "swapped": true
+    },
+    {
+      "attempts": 83,
+      "digest": {
+        "x": "0x063d29bdb3e1394ecaaf6f5a80c887f49eabd7741071e0dea633d2246f23c0a8",
+        "y": "0x068ff0a63529edb06838f3011172fda4bed9409e546160349f14986eab92446b"
+      },
+      "fieldRejections": 66,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 253884,
+          "verification": 252153
+        },
+        "osaka": {
+          "minStipend": 253884,
+          "verification": 252153
+        },
+        "prague": {
+          "minStipend": 208358,
+          "verification": 206627
+        }
+      },
+      "label": "tail-1667279",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001970cf",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 135,
+      "digest": {
+        "x": "0x070bd16c51bf91c6d2ae52eaa7cd97338e3424e68abde48047707f67658382c4",
+        "y": "0x0b9553c70ca025a2e83a31fcbad5977d2a20cf2bd360a65821ae65b5d9c6308e"
+      },
+      "fieldRejections": 122,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 263394,
+          "verification": 261664
+        },
+        "osaka": {
+          "minStipend": 263394,
+          "verification": 261664
+        },
+        "prague": {
+          "minStipend": 228580,
+          "verification": 226850
+        }
+      },
+      "label": "tail-1671350",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001980b6",
+      "sqrtCalls": 13,
+      "swapped": false
+    },
+    {
+      "attempts": 86,
+      "digest": {
+        "x": "0x05d08e4b726f9194983003f49237cbf104009721a15e1282fc604dff6f0c4bc3",
+        "y": "0x2d45f3f7dc04d927fb0aebd9097a45543ea4b882b464414d2fcaa4788cc4af0f"
+      },
+      "fieldRejections": 69,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 255466,
+          "verification": 253734
+        },
+        "osaka": {
+          "minStipend": 255466,
+          "verification": 253734
+        },
+        "prague": {
+          "minStipend": 209940,
+          "verification": 208208
+        }
+      },
+      "label": "tail-1686148",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000019ba84",
+      "sqrtCalls": 17,
+      "swapped": true
+    },
+    {
+      "attempts": 115,
+      "digest": {
+        "x": "0x03a66346a9f1c861d0e206b9775c8d7936e8768e85b9ac852929a4b5eef77a5e",
+        "y": "0x02a218e6adbf8cd4adba3169b9332294586aea80d192b7cb898f8cb5ef16fe87"
+      },
+      "fieldRejections": 103,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 248053,
+          "verification": 246323
+        },
+        "osaka": {
+          "minStipend": 248053,
+          "verification": 246323
+        },
+        "prague": {
+          "minStipend": 215917,
+          "verification": 214187
+        }
+      },
+      "label": "tail-1691595",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000019cfcb",
+      "sqrtCalls": 12,
+      "swapped": true
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x2890c41ef81058cda0c7632ad8c41d9b6e369a1abc4d44b821c38f58c525ed8a",
+        "y": "0x121fc686bd0a61816c78b4341157c39f982ff97529e61b2dfb66ea79eff7436a"
+      },
+      "fieldRejections": 99,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 245909,
+          "verification": 244179
+        },
+        "osaka": {
+          "minStipend": 245909,
+          "verification": 244179
+        },
+        "prague": {
+          "minStipend": 213773,
+          "verification": 212043
+        }
+      },
+      "label": "tail-1704727",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001a0317",
+      "sqrtCalls": 12,
+      "swapped": true
+    },
+    {
+      "attempts": 89,
+      "digest": {
+        "x": "0x0940257c3dfaf8f1e47a3e6b3d063efe4e52b3aaa36a277ab9277a7e7d40504e",
+        "y": "0x0ca3e9b428fcf8e27c54362bc6e7c7e254758506a092fef6a4d329217e6ff990"
+      },
+      "fieldRejections": 68,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 275385,
+          "verification": 273654
+        },
+        "osaka": {
+          "minStipend": 275385,
+          "verification": 273654
+        },
+        "prague": {
+          "minStipend": 219147,
+          "verification": 217416
+        }
+      },
+      "label": "tail-1726966",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001a59f6",
+      "sqrtCalls": 21,
+      "swapped": true
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x0cb1c92c29e7ffedfa2defab764f2325d20db8fd439222c083edaab1e994ba71",
+        "y": "0x2220bf2a945cb832383bb7235b5ba3cfeab4124487271a3f4106172c4583e3e3"
+      },
+      "fieldRejections": 104,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 223004,
+          "verification": 221274
+        },
+        "osaka": {
+          "minStipend": 223004,
+          "verification": 221274
+        },
+        "prague": {
+          "minStipend": 204258,
+          "verification": 202528
+        }
+      },
+      "label": "tail-1745321",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001aa1a9",
+      "sqrtCalls": 7,
+      "swapped": true
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x10335ca896622fa4855363520d65661cd6fcde2edf22421e1ff2f5cc8be6c912",
+        "y": "0x1ce81cfd503f31fc0e31ad0be5e63653d4476100fdd730536a070e52e8978027"
+      },
+      "fieldRejections": 94,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 263680,
+          "verification": 261949
+        },
+        "osaka": {
+          "minStipend": 263680,
+          "verification": 261949
+        },
+        "prague": {
+          "minStipend": 220832,
+          "verification": 219101
+        }
+      },
+      "label": "tail-1781160",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001b2da8",
+      "sqrtCalls": 16,
+      "swapped": true
+    },
+    {
+      "attempts": 115,
+      "digest": {
+        "x": "0x22087a83947ab776e66d5c0823c86d1aa4fd26390c24a9e531e6e4722afe9624",
+        "y": "0x1e64fbeca9fd8d18c190a5d2fbe104892d6c6cb20368580cd928366fd1d1ca05"
+      },
+      "fieldRejections": 103,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 248043,
+          "verification": 246313
+        },
+        "osaka": {
+          "minStipend": 248043,
+          "verification": 246313
+        },
+        "prague": {
+          "minStipend": 215907,
+          "verification": 214177
+        }
+      },
+      "label": "tail-1818309",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001bbec5",
+      "sqrtCalls": 12,
+      "swapped": true
+    },
+    {
+      "attempts": 110,
+      "digest": {
+        "x": "0x149031762b0ab3453d7b73bf891573cb85736205ab9f073afb765069e25b3be7",
+        "y": "0x0a1cedb1fc952dca561f6e58279cb1070eaddc76f4404ec78b12a4c88f1990fd"
+      },
+      "fieldRejections": 99,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 240792,
+          "verification": 239061
+        },
+        "osaka": {
+          "minStipend": 240792,
+          "verification": 239061
+        },
+        "prague": {
+          "minStipend": 211334,
+          "verification": 209603
+        }
+      },
+      "label": "tail-1843201",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001c2001",
+      "sqrtCalls": 11,
+      "swapped": false
+    },
+    {
+      "attempts": 124,
+      "digest": {
+        "x": "0x011cc09160a69c01fc57122e8538c83d3cc774ef4f7a119fe849983fd502464a",
+        "y": "0x149a4d1feb24fe080531aa0ce70c17864d700306335ff3dd470135c34f178571"
+      },
+      "fieldRejections": 111,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 257464,
+          "verification": 255733
+        },
+        "osaka": {
+          "minStipend": 257464,
+          "verification": 255733
+        },
+        "prague": {
+          "minStipend": 222650,
+          "verification": 220919
+        }
+      },
+      "label": "tail-1884493",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001cc14d",
+      "sqrtCalls": 13,
+      "swapped": false
+    },
+    {
+      "attempts": 120,
+      "digest": {
+        "x": "0x18346015e8cd0285aae76e92162e4539b472d9719b06bb0044e4c0b98df9ee92",
+        "y": "0x2d1de5eff73c970492e3cf5ee304872842f544c7f66e943e8c62ca99978092aa"
+      },
+      "fieldRejections": 108,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 250724,
+          "verification": 248994
+        },
+        "osaka": {
+          "minStipend": 250724,
+          "verification": 248994
+        },
+        "prague": {
+          "minStipend": 218588,
+          "verification": 216858
+        }
+      },
+      "label": "tail-1955106",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001dd522",
+      "sqrtCalls": 12,
+      "swapped": false
+    },
+    {
+      "attempts": 79,
+      "digest": {
+        "x": "0x2c2335bf8acd97f607df200dbef95e71440a20243a1fcd3ad82b3515c6097345",
+        "y": "0x2ce59bbde35d33ad3171f24d0f8b36be794912540c27badcf019a5c74988e25c"
+      },
+      "fieldRejections": 62,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 251752,
+          "verification": 250021
+        },
+        "osaka": {
+          "minStipend": 251752,
+          "verification": 250021
+        },
+        "prague": {
+          "minStipend": 206226,
+          "verification": 204495
+        }
+      },
+      "label": "tail-1982295",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001e3f57",
+      "sqrtCalls": 17,
+      "swapped": false
+    }
   ]
 }

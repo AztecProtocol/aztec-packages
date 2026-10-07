@@ -185,16 +185,16 @@ def write_fixture(per_evm, analysis, path):
                 v["attempts"], v["sqrtCalls"], v["pk1"], v["pk2"]), label
         # pk1, pk2 and the signature are not stored: they are scalar multiples of sk that the consumer derives.
         vectors.append({
-            "label": label,
-            "sk": hex32(v["sk"]),
             "attempts": v["attempts"],
-            "sqrtCalls": v["sqrtCalls"],
-            "fieldRejections": v["fieldRejections"],
-            "swapped": v["swapped"],
-            "rootBit": v["rootBit"],
             "digest": {"x": hex32(v["digest"][0]), "y": hex32(v["digest"][1])},
-            "gas": {evm: {"verification": by_label[evm][label]["gasUsed"],
-                          "minStipend": by_label[evm][label]["minStipend"]} for evm in EVMS},
+            "fieldRejections": v["fieldRejections"],
+            "gas": {evm: {"minStipend": by_label[evm][label]["minStipend"],
+                          "verification": by_label[evm][label]["gasUsed"]} for evm in EVMS},
+            "label": label,
+            "rootBit": v["rootBit"],
+            "sk": hex32(v["sk"]),
+            "sqrtCalls": v["sqrtCalls"],
+            "swapped": v["swapped"],
         })
     fixture = {
         "description": (
@@ -212,20 +212,9 @@ def write_fixture(per_evm, analysis, path):
             for cap in CAPS],
         "vectors": vectors,
     }
-    dump_fixture(fixture, path)
-
-
-def dump_fixture(fixture, path):
-    """Indented header and model, then one vector per line, so a regeneration diffs as one line per vector."""
-    head = {k: v for k, v in fixture.items() if k != "vectors"}
-    text = json.dumps(head, indent=2)
-    assert text.endswith("\n}")
-    lines = [text[:-2] + ',\n  "vectors": [']
-    rows = [json.dumps(v, separators=(",", ":")) for v in fixture["vectors"]]
-    lines += ["    " + row + ("," if i + 1 < len(rows) else "") for i, row in enumerate(rows)]
-    lines += ["  ]", "}"]
     with open(path, "w") as f:
-        f.write("\n".join(lines) + "\n")
+        json.dump(fixture, f, indent=2)
+        f.write("\n")
 
 
 def _int_model(c):
