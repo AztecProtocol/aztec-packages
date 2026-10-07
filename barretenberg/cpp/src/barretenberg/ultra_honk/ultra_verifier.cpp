@@ -222,6 +222,16 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
 
+    if constexpr (!IsRecursive) {
+        using Point = typename PairingPoints::Point;
+        const bool p0_at_infinity = inputs.pairing_inputs.P0() == Point::infinity();
+        const bool p1_at_infinity = inputs.pairing_inputs.P1() == Point::infinity();
+        if (p0_at_infinity != p1_at_infinity) {
+            info("UltraVerifier: recursive pairing accumulator is mixed-infinity");
+            return Output{};
+        }
+    }
+
     // Aggregate pairing points
     PairingPoints pi_pairing_points = inputs.pairing_inputs;
     pi_pairing_points.aggregate(pcs_pairing_points);
