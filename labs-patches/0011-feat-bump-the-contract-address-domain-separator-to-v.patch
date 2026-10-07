@@ -133,7 +133,7 @@ index 770190591b2e87ee23abc0693442f0299145ce26..d549329345b6425ed571ced6bf2330b3
   * @param instance - A contract instance for which to calculate the deployment address.
   */
 diff --git a/yarn-project/stdlib/src/keys/derivation.test.ts b/yarn-project/stdlib/src/keys/derivation.test.ts
-index 333db5ec48255fa983faf9a813ecdc0ce52c469a..bb0caa233bbfe9c74005aef927b4f4cd0ba336ed 100644
+index 26e89897d233a4bac53e768d1c23cd9f5df088f7..7e9452f5b6fb772ca333a8e0af8843fe3128517b 100644
 --- a/yarn-project/stdlib/src/keys/derivation.test.ts
 +++ b/yarn-project/stdlib/src/keys/derivation.test.ts
 @@ -31,7 +31,7 @@ describe('🔑', () => {
@@ -153,7 +153,7 @@ index 333db5ec48255fa983faf9a813ecdc0ce52c469a..bb0caa233bbfe9c74005aef927b4f4cd
 +    expect(address).toMatchInlineSnapshot(`"0x23877639c7424d1d2a9f514e59ee662b3154a730b783caf822d196b625ba4355"`);
  
      // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-     updateInlineTestData(
+     updateInlineFndTestData(
 diff --git a/yarn-project/stdlib/src/keys/derivation.ts b/yarn-project/stdlib/src/keys/derivation.ts
 index d939ae7bde97f512e843adbbbd3bfd26ac4ffa08..c85ac6eca3d8167a2646bd41a27a8b5cc03b8427 100644
 --- a/yarn-project/stdlib/src/keys/derivation.ts
