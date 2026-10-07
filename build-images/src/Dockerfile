@@ -112,10 +112,9 @@ RUN apt update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install clang 18/20.
+# Install clang 20.
 RUN wget https://apt.llvm.org/llvm.sh && \
     chmod +x llvm.sh && \
-    ./llvm.sh 18 all && \
     ./llvm.sh 20 all && \
     rm llvm.sh
 
