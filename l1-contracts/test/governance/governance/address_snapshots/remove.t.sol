@@ -23,7 +23,7 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     // It updates the snapshot for that index
     // It maintains historical values correctly
 
-    uint32 ts = uint32(block.timestamp);
+    uint32 ts = uint32(vm.getBlockTimestamp());
     uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
 
     validatorSet.add(address(1));
@@ -61,7 +61,7 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     // It maintains correct order of remaining validators
     // It updates snapshots correctly for each removal
 
-    uint32 ts = uint32(block.timestamp);
+    uint32 ts = uint32(vm.getBlockTimestamp());
     uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
     uint32 ts3 = ts2 + uint32(bound(_add3, 1, 1000));
 

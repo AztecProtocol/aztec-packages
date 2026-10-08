@@ -170,7 +170,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     vm.store(address(rollup), feeStoreSlot, bytes32(newConfig));
 
     // Warp to slot 1
-    vm.warp(block.timestamp + SLOT_DURATION);
+    vm.warp(vm.getBlockTimestamp() + SLOT_DURATION);
 
     // The fee computation succeeds because intermediate values are uint256
     ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -235,7 +235,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     assertEq(modifiedFeeHeader.ethPerFeeAsset, 100, "ethPerFeeAsset not set correctly");
 
     // Warp to slot 1
-    vm.warp(block.timestamp + SLOT_DURATION);
+    vm.warp(vm.getBlockTimestamp() + SLOT_DURATION);
 
     // Fee computation succeeds (uint256 intermediates), but protocolFee exceeds uint64
     ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -306,7 +306,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     assertEq(modifiedFeeHeader.ethPerFeeAsset, ethPerFeeAsset, "ethPerFeeAsset changed unexpectedly");
 
     // Warp to slot 1
-    vm.warp(block.timestamp + SLOT_DURATION);
+    vm.warp(vm.getBlockTimestamp() + SLOT_DURATION);
 
     // The congestionMultiplier is capped at e^100 instead of overflowing the Taylor series.
     ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -402,7 +402,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     assertTrue(expectedExcess > maxUint48, "computed excessMana should overflow uint48");
 
     // Warp to slot 1
-    vm.warp(block.timestamp + SLOT_DURATION);
+    vm.warp(vm.getBlockTimestamp() + SLOT_DURATION);
 
     // Fee queries still work (they operate on uint256 internally, no compression)
     uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);

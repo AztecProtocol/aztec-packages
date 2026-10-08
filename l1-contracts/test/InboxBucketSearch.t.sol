@@ -38,8 +38,8 @@ contract InboxBucketSearchTest is Test {
   // Opens one bucket per L1 block, each holding `_sizes[i]` messages.
   function _openBuckets(uint256[] memory _sizes) internal {
     for (uint256 i = 0; i < _sizes.length; i++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + 12);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + 12);
       for (uint256 j = 0; j < _sizes[i]; j++) {
         _send(inbox.getTotalMessagesInserted());
       }
@@ -50,8 +50,8 @@ contract InboxBucketSearchTest is Test {
   // wrap past its oldest entries.
   function _openSingleMessageBuckets(uint256 _count) internal {
     for (uint256 i = 0; i < _count; i++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + 12);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + 12);
       _send(inbox.getTotalMessagesInserted());
       inbox.markProvenConsumed(inbox.getCurrentBucketSeq() - 1);
     }

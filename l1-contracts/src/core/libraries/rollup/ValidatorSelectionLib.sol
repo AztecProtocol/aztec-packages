@@ -176,6 +176,8 @@ library ValidatorSelectionLib {
     // the current epoch. This prevents a same-block action from retroactively classifying
     // an in-flight epoch as an escape-hatch epoch.
     Epoch nextEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp() + Epoch.wrap(1);
+    // Timestamps fit in uint96.
+    // forge-lint: disable-next-item(unsafe-typecast)
     uint96 nextEpochTs = uint96(Timestamp.unwrap(nextEpoch.toTimestamp()));
     store.escapeHatchCheckpoints.push(nextEpochTs, uint160(_escapeHatch));
   }
@@ -512,6 +514,8 @@ library ValidatorSelectionLib {
     // If the most recently stored epoch is less than the epoch we are querying, then we need to store randao for
     // later use. We truncate to save storage costs.
     if (mostRecentTs < ts) {
+      // Truncated on purpose to fit the checkpoint value slot (see above).
+      // forge-lint: disable-next-item(unsafe-typecast)
       store.randaos.push(ts, uint224(block.prevrandao));
     }
   }
@@ -622,6 +626,8 @@ library ValidatorSelectionLib {
    * @return The escape hatch contract interface that was active at the start of the epoch
    */
   function getEscapeHatchForEpoch(Epoch _epoch) internal view returns (IEscapeHatch) {
+    // Timestamps fit in uint96.
+    // forge-lint: disable-next-item(unsafe-typecast)
     uint96 ts = uint96(Timestamp.unwrap(TimeLib.toTimestamp(_epoch)));
     return IEscapeHatch(address(getStorage().escapeHatchCheckpoints.upperLookupRecent(ts)));
   }
@@ -703,6 +709,8 @@ library ValidatorSelectionLib {
   function stableEpochToRandaoSampleTime(Epoch _epoch) private view returns (uint32) {
     uint32 sub = getStorage().lagInEpochsForRandao * TimeLib.getEpochDurationInSeconds().toUint32();
     uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
+    // block.timestamp only appears in the error payload and fits in uint32 until 2106.
+    // forge-lint: disable-next-item(unsafe-typecast)
     require(
       ts <= block.timestamp,
       Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))
@@ -713,6 +721,8 @@ library ValidatorSelectionLib {
   function stableEpochToValidatorSetSampleTime(Epoch _epoch) private view returns (uint32) {
     uint32 sub = getStorage().lagInEpochsForValidatorSet * TimeLib.getEpochDurationInSeconds().toUint32();
     uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
+    // block.timestamp only appears in the error payload and fits in uint32 until 2106.
+    // forge-lint: disable-next-item(unsafe-typecast)
     require(
       ts <= block.timestamp,
       Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))

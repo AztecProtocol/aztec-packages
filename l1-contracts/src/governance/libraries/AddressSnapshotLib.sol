@@ -240,7 +240,7 @@ library AddressSnapshotLib {
   {
     uint256 size = lengthAtTimestamp(_self, _timestamp);
     address[] memory vals = new address[](size);
-    for (uint256 i; i < size;) {
+    for (uint256 i = 0; i < size;) {
       vals[i] = getAddressFromIndexAtTimestamp(_self, i, _timestamp);
 
       unchecked {

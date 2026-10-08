@@ -80,7 +80,7 @@ contract SlashLegacyTest is StakingBase {
     vm.mockCall(NEW_SLASHER, abi.encodeWithSignature("PROPOSER()"), abi.encode(address(0xBEEF)));
     vm.prank(owner);
     staking.queueSetSlasher(NEW_SLASHER);
-    vm.warp(block.timestamp + delay);
+    vm.warp(vm.getBlockTimestamp() + delay);
 
     uint256 expectedUntil = block.timestamp + window;
     vm.expectEmit(true, true, true, true, address(staking));

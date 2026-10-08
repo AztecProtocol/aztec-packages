@@ -501,6 +501,8 @@ library StakingLib {
 
     // Approve the GSE to spend the total stake amount needed for all deposits.
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
+    // The staking asset is the protocol's OZ ERC20, whose approve returns true or reverts.
+    // forge-lint: disable-next-item(unused-return)
     store.stakingAsset.approve(address(store.gse), amount * numToDequeue);
     // Read once per flush: only the GSE owner can change the cap, and nothing the flush calls can reach the owner.
     uint256 requiredGas = getFlushDepositGasFloor(store.gse.proofOfPossessionGasLimit());
@@ -540,6 +542,8 @@ library StakingLib {
         );
       }
     }
+    // The staking asset is the protocol's OZ ERC20, whose approve returns true or reverts.
+    // forge-lint: disable-next-item(unused-return)
     store.stakingAsset.approve(address(store.gse), 0);
 
     store.availableValidatorFlushes -= depositCount.toUint32();

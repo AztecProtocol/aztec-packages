@@ -30,6 +30,8 @@ contract MultiAdder is IMultiAdder {
     STAKING = IInstance(_staking);
 
     IERC20 stakingAsset = STAKING.getStakingAsset();
+    // The staking asset is the protocol's OZ ERC20, whose approve returns true or reverts.
+    // forge-lint: disable-next-item(unused-return)
     stakingAsset.approve(address(STAKING), type(uint256).max);
   }
 

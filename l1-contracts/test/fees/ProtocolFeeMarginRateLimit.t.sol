@@ -180,7 +180,7 @@ contract ProtocolFeeMarginRateLimitTest is Test {
   function test_revertsWhen_oneSecondShortOfCooldown() public {
     rollup.setProtocolFeeMargin(1000);
 
-    uint256 nextAllowed = block.timestamp + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
+    uint256 nextAllowed = vm.getBlockTimestamp() + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
     vm.warp(nextAllowed - 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__ProtocolFeeMarginCooldown.selector, nextAllowed));
     rollup.setProtocolFeeMargin(1100);
@@ -200,7 +200,7 @@ contract ProtocolFeeMarginRateLimitTest is Test {
     assertEq(rollup.getProtocolFeeMargin(), 1000);
 
     // But it stamps the cooldown: the next increase reverts until 30 days after the DECREASE.
-    uint256 nextAllowed = block.timestamp + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
+    uint256 nextAllowed = vm.getBlockTimestamp() + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
     vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__ProtocolFeeMarginCooldown.selector, nextAllowed));
     rollup.setProtocolFeeMargin(1100);
 
@@ -258,7 +258,7 @@ contract ProtocolFeeMarginRateLimitTest is Test {
 
   function test_idempotentAtNonZero_noRevertNoEventNoStamp() public {
     rollup.setProtocolFeeMargin(1000);
-    uint256 nextAllowed = block.timestamp + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
+    uint256 nextAllowed = vm.getBlockTimestamp() + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL;
 
     // Same-value call inside the cooldown window must not revert, emit, or change state.
     vm.warp(block.timestamp + PROTOCOL_FEE_MARGIN_UPDATE_INTERVAL / 2);

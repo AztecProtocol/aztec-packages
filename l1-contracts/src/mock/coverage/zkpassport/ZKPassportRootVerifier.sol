@@ -29,6 +29,8 @@ contract ZKPassportRootVerifier {
     rootRegistry = _rootRegistry;
   }
 
+  // Mock: intentionally a no-op.
+  // forge-lint: disable-next-item(empty-block)
   function addSubVerifier(bytes32, ZKPassportSubVerifier) external pure {}
 
   function addHelper(bytes32 _version, address _helper) external {

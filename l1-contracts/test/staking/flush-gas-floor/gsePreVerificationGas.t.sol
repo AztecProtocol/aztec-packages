@@ -55,8 +55,8 @@ contract GSEPreVerificationGasTest is TestBase {
   function _deposit(uint256 i, address withdrawer, bool moveWithLatest, uint256 stipend) internal {
     // Advance the block so each attester's size/history checkpoints append a fresh slot
     // (the production worst case), rather than overwriting a same-timestamp checkpoint.
-    vm.warp(block.timestamp + 12);
-    vm.roll(block.number + 1);
+    vm.warp(vm.getBlockTimestamp() + 12);
+    vm.roll(vm.getBlockNumber() + 1);
     vm.prank(rollup);
     // Reverts after the wrapper call (no governance); both gas probes have already printed.
     try IGSEDeposit(address(PROBE)).deposit{gas: stipend}(

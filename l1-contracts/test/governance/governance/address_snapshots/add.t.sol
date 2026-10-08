@@ -27,7 +27,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     // It creates a checkpoint for the next epoch
     // It does not change the current epoch
 
-    uint32 ts = uint32(block.timestamp);
+    uint32 ts = uint32(vm.getBlockTimestamp());
     uint32 ts2 = ts + _add2;
 
     assertEq(validatorSet.lengthAtTimestamp(ts - 1), 0);
@@ -86,7 +86,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
 
     _addrs = boundUnique(_addrs);
 
-    uint32 ts = uint32(block.timestamp);
+    uint32 ts = uint32(vm.getBlockTimestamp());
     uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
     uint32 ts3 = ts2 + uint32(bound(_add3, 1, 1000));
 

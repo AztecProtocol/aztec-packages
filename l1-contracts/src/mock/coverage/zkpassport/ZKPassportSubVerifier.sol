@@ -17,5 +17,7 @@ contract ZKPassportSubVerifier {
     rootVerifier = _rootVerifier;
   }
 
+  // Mock: intentionally a no-op.
+  // forge-lint: disable-next-item(empty-block)
   function addProofVerifiers(ProofVerifier[] memory) external pure {}
 }

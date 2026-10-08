@@ -87,7 +87,7 @@ contract EscapeHatchInitiateExitTest is EscapeHatchBase {
     uint256 nextFreezeTimestamp = escapeHatch.getSetTimestamp(nextTargetHatch);
 
     // Bound time offset to stay strictly before freeze
-    vm.warp(bound(_timeOffset, block.timestamp, nextFreezeTimestamp - 1));
+    vm.warp(bound(_timeOffset, vm.getBlockTimestamp(), nextFreezeTimestamp - 1));
 
     uint256 currentTime = block.timestamp;
 

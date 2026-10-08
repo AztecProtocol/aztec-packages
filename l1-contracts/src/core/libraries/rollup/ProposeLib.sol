@@ -329,6 +329,8 @@ library ProposeLib {
     {
       bytes32 archive = _args.archive;
       if (v.isEscapeHatch) {
+        // Checkpoint numbers grow by one per checkpoint and cannot approach 2^128.
+        // forge-lint: disable-next-item(unsafe-typecast)
         v.escapeHatch.updateSubmittedArchive(v.escapeHatchProposer, uint128(checkpointNumber), archive);
       }
 

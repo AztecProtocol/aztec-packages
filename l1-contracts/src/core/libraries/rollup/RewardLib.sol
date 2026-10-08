@@ -106,6 +106,8 @@ library RewardLib {
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
     // A Cuauhxicalli ("eagle gourd bowl") is a ceremonial Aztec vessel used to hold offerings.
+    // The sentinel is a 12-byte literal, so the bytes20 conversion is lossless.
+    // forge-lint: disable-next-item(unsafe-typecast)
     rewardStorage.protocolFeeRecipient = address(bytes20("CUAUHXICALLI"));
   }
 
@@ -387,8 +389,8 @@ library RewardLib {
     uint256 checkpointReward = rewardStorage.config.checkpointReward;
     Bps sequencerBps = rewardStorage.config.sequencerBps;
 
-    uint256 sequencerTotal;
-    uint256 desired;
+    uint256 sequencerTotal = 0;
+    uint256 desired = 0;
     // Escape-hatch epochs and zero-size committees have no proposers to pass, so they never reach the calculator.
     if (_committee.length > 0 && rewardStorage.sequencerRewardCalculator != address(0)) {
       uint256 defaultReward = BpsLib.mul(checkpointReward, sequencerBps);

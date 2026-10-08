@@ -205,10 +205,10 @@ contract RollupTest is RollupBase {
       Slot slot = rollup.getCurrentSlot();
       Timestamp ts = rollup.getTimestampForSlot(slot);
 
-      assertLe(ts, block.timestamp, "Invalid timestamp");
+      assertLe(ts, vm.getBlockTimestamp(), "Invalid timestamp");
 
-      vm.warp(block.timestamp + 12);
-      vm.roll(block.number + 1);
+      vm.warp(vm.getBlockTimestamp() + 12);
+      vm.roll(vm.getBlockNumber() + 1);
     }
   }
 
@@ -330,7 +330,7 @@ contract RollupTest is RollupBase {
     header.gasFees.feePerL2Gas = 1;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, Timestamp.unwrap(header.timestamp)));
+    vm.warp(max(vm.getBlockTimestamp(), Timestamp.unwrap(header.timestamp)));
 
     skipBlobCheck(address(rollup));
 
@@ -424,15 +424,15 @@ contract RollupTest is RollupBase {
     interim.manaUsed = 1e6;
 
     // Progress time as necessary
-    vm.warp(max(block.timestamp, Timestamp.unwrap(header.timestamp)));
+    vm.warp(max(vm.getBlockTimestamp(), Timestamp.unwrap(header.timestamp)));
 
-    interim.time = block.timestamp;
+    interim.time = vm.getBlockTimestamp();
 
     {
       assertEq(testERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
 
       // We jump to the time of the block. (unless it is in the past)
-      vm.warp(max(block.timestamp, Timestamp.unwrap(header.timestamp)));
+      vm.warp(max(vm.getBlockTimestamp(), Timestamp.unwrap(header.timestamp)));
 
       uint256 coinbaseBalance = testERC20.balanceOf(header.coinbase);
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
@@ -756,7 +756,7 @@ contract RollupTest is RollupBase {
 
     Timestamp realTs = header.timestamp;
 
-    vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
+    vm.warp(max(vm.getBlockTimestamp(), Timestamp.unwrap(realTs)));
 
     header.gasFees.feePerL2Gas = uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 

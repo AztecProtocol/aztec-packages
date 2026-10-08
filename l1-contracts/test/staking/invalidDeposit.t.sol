@@ -85,7 +85,7 @@ contract InvalidPointsFlushEntryQueueTest is StakingBase, BN254Fixtures {
     assertEq(active, 0, "invalid active attester count before");
     while (staking.getEntryQueueLength() > 0) {
       staking.flushEntryQueue{gas: 15_000_000}();
-      vm.warp(block.timestamp + epochSeconds);
+      vm.warp(vm.getBlockTimestamp() + epochSeconds);
     }
 
     assertEq(staking.getActiveAttesterCount(), fixtureData.sampleKeys.length / 2, "invalid active attester count after");

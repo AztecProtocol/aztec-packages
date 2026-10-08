@@ -168,10 +168,10 @@ library AttestationLib {
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
     address[] memory addresses = new address[](_length);
 
-    uint256 signersIndex;
+    uint256 signersIndex = 0;
     uint256 dataPtr;
-    uint256 currentByte;
-    uint256 bitMask;
+    uint256 currentByte = 0;
+    uint256 bitMask = 0;
 
     assembly {
       // Skip length

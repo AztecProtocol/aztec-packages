@@ -118,7 +118,7 @@ library EpochProofLib {
 
     (Epoch endEpoch, Epoch currentEpoch, uint256 provenBeforeSubmission) = assertAcceptable(_args.start, _args.end);
     {
-      uint256 firstHeaderToVerify;
+      uint256 firstHeaderToVerify = 0;
       if (provenBeforeSubmission >= _args.start) {
         uint256 provenPrefixLength = provenBeforeSubmission - _args.start + 1;
         uint256 accountedPrefixLength = RewardLib.getLongestProvenLength(endEpoch);
@@ -262,6 +262,8 @@ library EpochProofLib {
     {
       IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
       if (address(escapeHatch) != address(0)) {
+        // Only the open flag is needed here.
+        // forge-lint: disable-next-item(unused-return)
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         if (isOpen) {
           // Skip attestation verification for escape hatch epochs
@@ -624,9 +626,12 @@ library EpochProofLib {
     pure
     returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
   {
+    // Splits the 32-byte input into 120/120/16-bit limbs; every cast keeps exactly the bits it selects.
+    // forge-lint: disable-start(unsafe-typecast)
     firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
     secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
     thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
+    // forge-lint: disable-end(unsafe-typecast)
   }
 
   /**

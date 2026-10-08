@@ -175,7 +175,7 @@ contract InboxBucketsTest is Test {
     IInbox.InboxBucket memory bucket1 = inbox.getBucket(1);
 
     vm.roll(block.number + 1);
-    vm.warp(block.timestamp + 12);
+    vm.warp(vm.getBlockTimestamp() + 12);
 
     bytes32 leaf3 = _send(inbox, 3);
 
@@ -240,8 +240,8 @@ contract InboxBucketsTest is Test {
 
     // One bucket per L1 block; after MIN_BUCKET_RING_SIZE + 1 buckets the ring has wrapped past bucket 1.
     for (uint256 i = 1; i <= MIN_BUCKET_RING_SIZE + 1; i++) {
-      vm.roll(block.number + 1);
-      vm.warp(block.timestamp + 12);
+      vm.roll(vm.getBlockNumber() + 1);
+      vm.warp(vm.getBlockTimestamp() + 12);
       _send(ringInbox, i);
       // Evicting a ring slot requires the proven chain to have consumed it, so keep consumption trailing the sends.
       ringInbox.markProvenConsumed(uint64(i - 1));

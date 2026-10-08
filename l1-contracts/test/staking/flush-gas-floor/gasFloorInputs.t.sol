@@ -141,7 +141,7 @@ contract FlushGasFloorInputsTest is TestBase {
   function test_trace_invalidDepositRefundFlush() public {
     while (INSTANCE.getEntryQueueLength() > 0) {
       INSTANCE.flushEntryQueue();
-      vm.warp(block.timestamp + INSTANCE.getEpochDuration() * INSTANCE.getSlotDuration());
+      vm.warp(vm.getBlockTimestamp() + INSTANCE.getEpochDuration() * INSTANCE.getSlotDuration());
     }
     uint256 at = INSTANCE.getActivationThreshold();
     STAKING_ASSET.mint(address(this), at);

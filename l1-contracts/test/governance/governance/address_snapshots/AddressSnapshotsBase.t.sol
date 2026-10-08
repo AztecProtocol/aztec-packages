@@ -82,7 +82,7 @@ contract AddressSnapshotsBase is TestBase {
   }
 
   function setUp() public {
-    vm.warp(block.timestamp + 1000);
+    vm.warp(vm.getBlockTimestamp() + 1000);
     GENESIS_TIME = block.timestamp;
     TimeLib.initialize(
       GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS, TestConstants.ETHEREUM_SLOT_DURATION

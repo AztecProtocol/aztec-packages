@@ -142,6 +142,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     if (isUnhinged[msg.sender]) {
       // Unhinged users skip proof verification
+      // Test-network faucet; the staking asset is an OZ ERC20 that reverts on a failed transfer.
+      // forge-lint: disable-next-item(erc20-unchecked-transfer)
       STAKING_ASSET.transfer(msg.sender, faucetAmount);
       emit Claimed(msg.sender, faucetAmount, bytes32(0));
       return;
@@ -151,6 +153,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     bytes32 nullifier = _validatePassportProof(msg.sender, _params);
 
     // Transfer tokens to caller
+    // Test-network faucet; the staking asset is an OZ ERC20 that reverts on a failed transfer.
+    // forge-lint: disable-next-item(erc20-unchecked-transfer)
     STAKING_ASSET.transfer(msg.sender, faucetAmount);
     emit Claimed(msg.sender, faucetAmount, nullifier);
   }

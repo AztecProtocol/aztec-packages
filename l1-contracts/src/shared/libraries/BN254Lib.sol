@@ -41,6 +41,8 @@ library BN254Lib {
   uint256 public constant GROUP_ORDER =
     21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_617;
 
+  // The literal is 22 bytes, so it fits in bytes32 without truncation.
+  // forge-lint: disable-next-item(unsafe-typecast)
   bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_V1");
 
   error AddPointFail();

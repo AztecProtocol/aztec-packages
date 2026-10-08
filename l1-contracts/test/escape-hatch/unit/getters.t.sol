@@ -198,7 +198,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
 
     // Warp to EXACTLY the freeze timestamp
     vm.warp(freezeTs);
-    assertEq(block.timestamp, freezeTs, "Should be at exact freeze timestamp");
+    assertEq(vm.getBlockTimestamp(), freezeTs, "Should be at exact freeze timestamp");
 
     // At exact freeze timestamp, query should REVERT (snapshot not yet finalized).
     // This ensures determinism: we only read from strictly past timestamps where
