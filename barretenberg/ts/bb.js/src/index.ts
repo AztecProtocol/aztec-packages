@@ -57,4 +57,4 @@ export {
   SECP256R1_G1_GENERATOR,
 } from './generated/curve_constants.js';
 
-export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';
+export { findBbBinary } from './bb_backends/node/platform.js';
