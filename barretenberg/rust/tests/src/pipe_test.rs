@@ -5,7 +5,9 @@
 //! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
+use barretenberg_rs::Fr;
+#[cfg(test)]
+use crate::utils::spawn_bb;
 #[cfg(test)]
 use crate::utils::get_bb_binary_path;
 #[cfg(test)]
@@ -16,9 +18,7 @@ fn test_pipe_blake2s() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     let expected: [u8; 32] = [
@@ -43,13 +43,11 @@ fn test_pipe_pedersen_hash() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
+        Fr::from_u64(4),
+        Fr::from_u64(8),
     ];
 
     let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
@@ -66,13 +64,11 @@ fn test_pipe_poseidon2_hash() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
+        Fr::from_u64(4),
+        Fr::from_u64(8),
     ];
 
     let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
@@ -89,9 +85,7 @@ fn test_pipe_grumpkin_add() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     // Grumpkin generator point (from precomputed_generators_grumpkin_impl.hpp)
     // x = 0x2df8b940e5890e4e1377e05373fae69a1d754f6935e6a780b666947431f2cdcd
@@ -109,10 +103,10 @@ fn test_pipe_grumpkin_add() {
         0x27, 0xca, 0x7e, 0xef, 0xb2, 0xc1, 0x90, 0x83,
     ];
 
-    use barretenberg_rs::GrumpkinPoint;
+    use barretenberg_rs::generated::bb_types::GrumpkinPoint;
     let point_a = GrumpkinPoint {
-        x: generator_x.to_vec(),
-        y: generator_y.to_vec(),
+        x: generator_x.into(),
+        y: generator_y.into(),
     };
     let point_b = point_a.clone();
 
@@ -129,9 +123,7 @@ fn test_pipe_error_response() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     // Create an invalid point (off-curve) to trigger an error
     // This point has x=1, y=1 which is NOT on the Grumpkin curve
@@ -148,10 +140,10 @@ fn test_pipe_error_response() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
     ];
 
-    use barretenberg_rs::GrumpkinPoint;
+    use barretenberg_rs::generated::bb_types::GrumpkinPoint;
     let invalid_point = GrumpkinPoint {
-        x: invalid_x.to_vec(),
-        y: invalid_y.to_vec(),
+        x: invalid_x.into(),
+        y: invalid_y.into(),
     };
 
     // This should fail because the point is not on the curve

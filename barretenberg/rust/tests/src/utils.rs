@@ -1,7 +1,10 @@
 //! Utility functions and helpers for tests
 
+use std::path::Path;
+use std::process::{Child, Command, Stdio};
 use std::time::Instant;
-use barretenberg_rs::Fr;
+
+use barretenberg_rs::{ipc_runtime::IpcClient, Backend, BarretenbergError, BbApi, Fr, Result};
 
 /// Generate a pseudo-random Fr for testing (NOT cryptographically secure)
 pub fn random_fr() -> Fr {
@@ -14,7 +17,7 @@ pub fn random_fr() -> Fr {
     let mut bytes = [0u8; 32];
     bytes[0..16].copy_from_slice(&nanos.to_le_bytes());
     bytes[16..24].copy_from_slice(&(nanos >> 64).to_le_bytes()[0..8]);
-    Fr(bytes)
+    Fr::from_be_bytes(bytes)
 }
 
 /// Timer for performance measurements
@@ -52,6 +55,58 @@ impl Default for Timer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// A `bb msgpack run` child driven over its stdin/stdout pipe.
+pub struct BbProcess {
+    client: IpcClient,
+    child: Option<Child>,
+}
+
+impl BbProcess {
+    pub fn spawn(bb_path: impl AsRef<Path>) -> Self {
+        use std::os::fd::AsRawFd;
+
+        let child = Command::new(bb_path.as_ref())
+            .args(["msgpack", "run"])
+            .env("HARDWARE_CONCURRENCY", "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .expect("Failed to spawn bb");
+        let out_fd = child.stdin.as_ref().unwrap().as_raw_fd();
+        let in_fd = child.stdout.as_ref().unwrap().as_raw_fd();
+        // SAFETY: both descriptors belong to `child`, which outlives the
+        // client; the client duplicates them.
+        let client = unsafe { IpcClient::from_fds(in_fd, out_fd) }.expect("Failed to connect to bb");
+        Self { client, child: Some(child) }
+    }
+}
+
+impl Backend for BbProcess {
+    fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
+        self.client.call(input).map_err(|e| BarretenbergError::Backend(e.to_string()))
+    }
+
+    fn destroy(&mut self) -> Result<()> {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        Ok(())
+    }
+}
+
+impl Drop for BbProcess {
+    fn drop(&mut self) {
+        let _ = self.destroy();
+    }
+}
+
+/// Spawn bb and wrap it in a client.
+pub fn spawn_bb(bb_path: &str) -> BbApi<BbProcess> {
+    BbApi::new(BbProcess::spawn(bb_path))
 }
 
 /// Get path to BB binary for testing

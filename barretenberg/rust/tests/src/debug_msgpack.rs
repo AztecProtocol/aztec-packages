@@ -1,7 +1,7 @@
 //! Debug msgpack serialization format
 
 #[cfg(test)]
-use barretenberg_rs::{generated_types::*, Fr};
+use barretenberg_rs::{generated::bb_types::*, Fr};
 
 #[test]
 fn test_msgpack_format() {

@@ -1,7 +1,6 @@
-//! Extra constructors / accessors on the generated `Fr` type that downstream
-//! callers (tests, ports of TS helpers) already depend on. Kept as a separate
-//! impl block here rather than inside `bb_types.rs` so the generated
-//! file stays a pure regen target.
+//! Constructors and accessors on the generated `Fr` type. Kept as a separate
+//! impl block here rather than inside `bb_types.rs` so the generated file
+//! stays a pure regen target.
 
 use crate::generated::bb_types::{Bin32, Fr};
 

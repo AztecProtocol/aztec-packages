@@ -1,7 +1,7 @@
 //! FFI backend tests
 //!
 //! These tests use FfiBackend which links directly to libbarretenberg.
-//! They parallel the PipeBackend tests but use direct FFI calls for better performance.
+//! They parallel the pipe transport tests but use direct FFI calls for better performance.
 //!
 //! Enable with: cargo test --features ffi
 
