@@ -81,6 +81,11 @@ contract FakeRollup {
     return uint256(keccak256(abi.encodePacked("seed", _ts)));
   }
 
+  function getLagInEpochsForRandao() external pure returns (uint256) {
+    // The fake seed above is a function of the queried timestamp itself, so it carries no lag
+    return 0;
+  }
+
   function getEscapeHatch() external view returns (IEscapeHatch) {
     return IEscapeHatch(escapeHatchAddress);
   }

@@ -41,11 +41,14 @@ contract SetEscapeHatchOneShotTest is EscapeHatchIntegrationBase {
   function test_revertsWhenHatchPointsAtDifferentRollup() external setup(2, 2) {
     // An EscapeHatch bound to a foreign rollup must not be acceptable. Once installed it would
     // become a permanent alternate proposal route the current rollup cannot reach or replace.
-    // Mock the IInstance read the EscapeHatch constructor performs so we can build a hatch
+    // Mock the IInstance reads the EscapeHatch constructor performs so we can build a hatch
     // pointing at a foreign address without deploying a second rollup.
     address fakeRollup = address(0xC0FFEE);
     vm.mockCall(
       fakeRollup, abi.encodeWithSelector(bytes4(keccak256("getProofSubmissionEpochs()"))), abi.encode(uint256(1))
+    );
+    vm.mockCall(
+      fakeRollup, abi.encodeWithSelector(bytes4(keccak256("getLagInEpochsForRandao()"))), abi.encode(uint256(2))
     );
 
     EscapeHatch foreignHatch = new EscapeHatch(

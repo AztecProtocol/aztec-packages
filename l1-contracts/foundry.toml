@@ -49,6 +49,7 @@ remappings = [
 fs_permissions = [
   { access = "read-write", path = "./test/fixtures/mainnet_atp_reduction_calculator.json" },
   { access = "read", path = "./test/fixtures/bn254_constants.json" },
+  { access = "read", path = "./test/fixtures/bn254_pop_gas_vectors.json" },
   { access = "read", path = "./test/fixtures/mixed_checkpoint_1.json" },
   { access = "read", path = "./test/fixtures/mixed_checkpoint_2.json" },
   { access = "read", path = "./test/fixtures/single_tx_checkpoint_1.json" },

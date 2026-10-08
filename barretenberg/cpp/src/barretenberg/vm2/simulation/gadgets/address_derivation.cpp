@@ -22,7 +22,7 @@ namespace bb::avm2::simulation {
  *   4. public_keys_hash          = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH,
  *                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash,
  *                                    tagging_key_hash, message_signing_key_hash, fallback_key_hash)
- *   5. preaddress                = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
+ *   5. preaddress                = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address)
  *   6. preaddress_public_key     = preaddress * G1  (Grumpkin scalar multiplication)
  *   7. address                   = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
  *  and we add the output to the local cache.
@@ -72,7 +72,7 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
                                            instance.public_keys.fallback_key_hash });
 
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PREADDRESS_POSEIDON2] in address_derivation.pil.
-    FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
+    FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address });
 
     // Note: the below ecc calls assume points are on the curve. We know preaddress_public_key is (by definition),
     // but it may be possible that incoming_viewing_key is not.

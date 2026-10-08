@@ -94,10 +94,11 @@ contract Tmnt395Test is TestBase {
       INSTANCE.deposit(attester1, withdrawer, pk1, pk2, sigma, true);
     }
 
-    vm.expectRevert(abi.encodeWithSelector(CoreErrors.Staking__DepositOutOfGas.selector));
+    // Too little gas for the proof-of-possession check to get its full cap: the whole flush reverts.
+    vm.expectPartialRevert(CoreErrors.Staking__InsufficientFlushGas.selector);
     INSTANCE.flushEntryQueue{gas: 600_000}();
 
-    INSTANCE.flushEntryQueue{gas: 1_800_000}();
+    INSTANCE.flushEntryQueue{gas: 5_000_000}();
 
     // Ensure that only one of the attesters were added
     assertEq(INSTANCE.getActiveAttesterCount(), 1, "invalid active attester count");

@@ -6,16 +6,9 @@ import {TestBase} from "@test/base/Base.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
-import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-
-struct RegistrationData {
-  address attester;
-  G1Point proofOfPossession;
-  G1Point publicKeyInG1;
-  G2Point publicKeyInG2;
-}
+import {RegistrationData, RegistrationDataLib} from "@test/shared/RegistrationData.sol";
 
 contract TestTMNT221 is TestBase {
   IInstance public INSTANCE;
@@ -29,12 +22,7 @@ contract TestTMNT221 is TestBase {
   uint256 public constant GAS_LIMIT = 16_000_000;
 
   function setUp() public {
-    string memory root = vm.projectRoot();
-    string memory path = string.concat(root, "/script/registration_data.json");
-    string memory json = vm.readFile(path);
-    bytes memory jsonBytes = vm.parseJson(json);
-    RegistrationData[] memory registrations = abi.decode(jsonBytes, (RegistrationData[]));
-
+    RegistrationData[] memory registrations = RegistrationDataLib.load(vm, VALIDATOR_COUNT);
     for (uint256 i = 0; i < registrations.length; i++) {
       $registrations.push(registrations[i]);
     }
