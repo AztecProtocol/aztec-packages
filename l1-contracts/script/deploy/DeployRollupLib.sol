@@ -173,7 +173,8 @@ library DeployRollupLib {
     uint256 stakeNeeded = activationThreshold * initialValidators.length;
     TestERC20(address(input.stakingAsset)).mint(address(multiAdder), stakeNeeded);
 
-    uint256 chunkSize = 16;
+    // Keeps each `addValidators` transaction under the per-transaction gas cap under the Glamsterdam gas schedule.
+    uint256 chunkSize = 8;
     for (uint256 i = 0; i < initialValidators.length; i += chunkSize) {
       uint256 end = i + chunkSize > initialValidators.length ? initialValidators.length : i + chunkSize;
       uint256 chunkLen = end - i;
@@ -185,17 +186,9 @@ library DeployRollupLib {
 
       multiAdder.addValidators(chunk, 0);
     }
-
-    uint256 flushChunkSize = 16;
-    while (true) {
-      uint256 queueLength = rollup.getEntryQueueLength();
-      if (queueLength == 0) break;
-
-      uint256 availableFlushes = rollup.getAvailableValidatorFlushes();
-      if (availableFlushes == 0) break;
-
-      rollup.flushEntryQueue(flushChunkSize);
-    }
+    // The queued validators are activated by `FlushEntryQueue.s.sol`, which `scripts/forge_broadcast.js` runs as a
+    // separate broadcast once this one has landed. Flushing inside this broadcast would have its gas limit sized
+    // from the simulated gas used, which is below the floor `flushEntryQueue` requires for a flush of a few entries.
   }
 
   function _transferOwnership(RollupAddressInput memory input, Rollup rollup) private {

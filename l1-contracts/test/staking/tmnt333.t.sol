@@ -59,7 +59,7 @@ contract Tmnt333Test is StakingBase {
     uint256 flushableValidators = staking.getAvailableValidatorFlushes();
     assertEq(flushableValidators, 125, "invalid flushable validators");
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__DepositOutOfGas.selector));
+    vm.expectPartialRevert(Errors.Staking__InsufficientFlushGas.selector);
     staking.flushEntryQueue{gas: FUSAKA_GAS_LIMIT}();
 
     uint256 epochs = stakingQueueConfig.bootstrapValidatorSetSize / stakingQueueConfig.bootstrapFlushSize;

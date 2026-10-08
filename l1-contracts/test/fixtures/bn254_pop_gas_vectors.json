@@ -1,0 +1,631 @@
+{
+  "description": "BN254 proof-of-possession calibration vectors for Bn254LibWrapper.proofOfPossession. Every sk is a public test scalar: never use any of these keys for a real validator. See test/shared/bn254-pop-gas/README.md for the field definitions.",
+  "domainSeparator": "AZTEC_BLS_POP_BN254_V1",
+  "evmVersions": [
+    "amsterdam",
+    "osaka",
+    "prague"
+  ],
+  "model": {
+    "amsterdam": {
+      "minStipend": {
+        "F": 132694,
+        "A": 515,
+        "S": 4580,
+        "QNumerator": 95975,
+        "QDenominator": 1000000
+      },
+      "verification": {
+        "F": 130960,
+        "A": 515,
+        "S": 4580,
+        "QNumerator": 95952,
+        "QDenominator": 1000000
+      }
+    },
+    "osaka": {
+      "minStipend": {
+        "F": 132694,
+        "A": 515,
+        "S": 4580,
+        "QNumerator": 95975,
+        "QDenominator": 1000000
+      },
+      "verification": {
+        "F": 130960,
+        "A": 515,
+        "S": 4580,
+        "QNumerator": 95952,
+        "QDenominator": 1000000
+      }
+    },
+    "prague": {
+      "minStipend": {
+        "F": 132694,
+        "A": 515,
+        "S": 1902,
+        "QNumerator": 95975,
+        "QDenominator": 1000000
+      },
+      "verification": {
+        "F": 130960,
+        "A": 515,
+        "S": 1902,
+        "QNumerator": 95952,
+        "QDenominator": 1000000
+      }
+    }
+  },
+  "maxIterations": [
+    {
+      "cap": 250000,
+      "marginPercent": 10,
+      "amsterdam": 18,
+      "osaka": 18,
+      "prague": 38
+    },
+    {
+      "cap": 300000,
+      "marginPercent": 10,
+      "amsterdam": 26,
+      "osaka": 26,
+      "prague": 56
+    },
+    {
+      "cap": 500000,
+      "marginPercent": 10,
+      "amsterdam": 62,
+      "osaka": 62,
+      "prague": 130
+    },
+    {
+      "cap": 1000000,
+      "marginPercent": 10,
+      "amsterdam": 150,
+      "osaka": 150,
+      "prague": 313
+    }
+  ],
+  "vectors": [
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x18fe7bbf21f27bc113a592a862011e5ee517d04204b8265c90ce9902bfbea6e2",
+        "y": "0x1a51a5f914ea28fac7bc46fe47124ff2829b8671634dbf66a02649b26f26bc42"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137779,
+          "verification": 136045
+        },
+        "osaka": {
+          "minStipend": 137779,
+          "verification": 136045
+        },
+        "prague": {
+          "minStipend": 135101,
+          "verification": 133367
+        }
+      },
+      "label": "small-12",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000c",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 1,
+      "digest": {
+        "x": "0x305f9d4af4951915191fe1d9f863810de8b81c563f726220507d8a61c8857e35",
+        "y": "0x007c750f80f5a936a46dca3749b28652c0adea5f168e8d3ec02c49044a216faa"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 137786,
+          "verification": 136052
+        },
+        "osaka": {
+          "minStipend": 137786,
+          "verification": 136052
+        },
+        "prague": {
+          "minStipend": 135108,
+          "verification": 133374
+        }
+      },
+      "label": "sample-40",
+      "rootBit": 0,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779f",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x0181879e9e4c824214a000241b5f0a2e56faaa96dd0dc573883408a9fc5824b0",
+        "y": "0x2e5223fcbd2f26504058af047e89d4e555652973a3a2011235b57b8036f996f0"
+      },
+      "fieldRejections": 0,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 142869,
+          "verification": 141136
+        },
+        "osaka": {
+          "minStipend": 142869,
+          "verification": 141136
+        },
+        "prague": {
+          "minStipend": 137513,
+          "verification": 135780
+        }
+      },
+      "label": "small-8",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000008",
+      "sqrtCalls": 2,
+      "swapped": false
+    },
+    {
+      "attempts": 2,
+      "digest": {
+        "x": "0x0f3a994a600375c3fc111f081406d68d377a43fd241aabac64a540d0a5cbe690",
+        "y": "0x0747cf590dea2cf864471495525370fb4e067041fb9075dfe9812b1bbb8467c9"
+      },
+      "fieldRejections": 1,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "osaka": {
+          "minStipend": 138303,
+          "verification": 136570
+        },
+        "prague": {
+          "minStipend": 135625,
+          "verification": 133892
+        }
+      },
+      "label": "small-2",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 4,
+      "digest": {
+        "x": "0x2b94addef308b1feba8602f3e752354b356800552a8b9ce8ae6354cfbb0b1c64",
+        "y": "0x0561a4c5a03025d32500a5560db57dd0c50cf2fcef886ebf7f45c14d8c349182"
+      },
+      "fieldRejections": 3,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 139330,
+          "verification": 137596
+        },
+        "osaka": {
+          "minStipend": 139330,
+          "verification": 137596
+        },
+        "prague": {
+          "minStipend": 136652,
+          "verification": 134918
+        }
+      },
+      "label": "small-6",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "sqrtCalls": 1,
+      "swapped": false
+    },
+    {
+      "attempts": 5,
+      "digest": {
+        "x": "0x07450aec341dd56ea95cfffec735a4fa96ec18dff9b3a0b6c29700a112015798",
+        "y": "0x2b3a80f53c726500a56110b8f608c3d7e77b6c48d9b1378cb10dd38643acdb4a"
+      },
+      "fieldRejections": 2,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 148996,
+          "verification": 147263
+        },
+        "osaka": {
+          "minStipend": 148996,
+          "verification": 147263
+        },
+        "prague": {
+          "minStipend": 140962,
+          "verification": 139229
+        }
+      },
+      "label": "sample-12",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777783",
+      "sqrtCalls": 3,
+      "swapped": true
+    },
+    {
+      "attempts": 15,
+      "digest": {
+        "x": "0x1109e7114879f460499eaded8947fdbb52ccd7a0c3a4bd5a550cfcae3cd22296",
+        "y": "0x2ebce2259162f9f0f6eb12742ba403acd08fa7f1238dfaa608336f29126ef429"
+      },
+      "fieldRejections": 14,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 145000,
+          "verification": 143267
+        },
+        "osaka": {
+          "minStipend": 145000,
+          "verification": 143267
+        },
+        "prague": {
+          "minStipend": 142322,
+          "verification": 140589
+        }
+      },
+      "label": "sample-0",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000007777777",
+      "sqrtCalls": 1,
+      "swapped": true
+    },
+    {
+      "attempts": 18,
+      "digest": {
+        "x": "0x1badfd010f0a7790eca8f87b30dafc0a356691642e5d02b898e4b5ce5a1c1169",
+        "y": "0x1a5ff65822d4cbb176db550096e22c0d3c1aa7aba3e499d9e69b6ae943b2d79e"
+      },
+      "fieldRejections": 11,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 174027,
+          "verification": 172293
+        },
+        "osaka": {
+          "minStipend": 174027,
+          "verification": 172293
+        },
+        "prague": {
+          "minStipend": 155281,
+          "verification": 153547
+        }
+      },
+      "label": "sample-36",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777779b",
+      "sqrtCalls": 7,
+      "swapped": true
+    },
+    {
+      "attempts": 31,
+      "digest": {
+        "x": "0x12c340285376dcc569abd9fa94f09fa154cc8c309b35eff849fd0bf66d684ac6",
+        "y": "0x2ddbc8c0260f40d86bdd219dd993733401c73452e512bfb58cdd96f5f3fb0072"
+      },
+      "fieldRejections": 28,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 162454,
+          "verification": 160722
+        },
+        "osaka": {
+          "minStipend": 162454,
+          "verification": 160722
+        },
+        "prague": {
+          "minStipend": 154420,
+          "verification": 152688
+        }
+      },
+      "label": "small-11",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000000b",
+      "sqrtCalls": 3,
+      "swapped": false
+    },
+    {
+      "attempts": 42,
+      "digest": {
+        "x": "0x0d48fb43eb1e7c106a86f4812d368eb52d2acaf8952979261b5bbf4fa961b42f",
+        "y": "0x1ab47923b0d9a29ba0469e517994df2ee2c667b0c82c5e8cad79c44c8d2965ad"
+      },
+      "fieldRejections": 35,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 186505,
+          "verification": 184772
+        },
+        "osaka": {
+          "minStipend": 186505,
+          "verification": 184772
+        },
+        "prague": {
+          "minStipend": 167759,
+          "verification": 166026
+        }
+      },
+      "label": "sample-4",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000777777b",
+      "sqrtCalls": 7,
+      "swapped": false
+    },
+    {
+      "attempts": 59,
+      "digest": {
+        "x": "0x03ece06e85067f59bf110a584dc046d33656998db823f93534d60f498841d42f",
+        "y": "0x1c129d957f2aaab7cd38fe745d77b033c7e79ba1d0025de148f126c9fb2d4f61"
+      },
+      "fieldRejections": 42,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 241202,
+          "verification": 239470
+        },
+        "osaka": {
+          "minStipend": 241202,
+          "verification": 239470
+        },
+        "prague": {
+          "minStipend": 195676,
+          "verification": 193944
+        }
+      },
+      "label": "tail-1216207",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000128ecf",
+      "sqrtCalls": 17,
+      "swapped": false
+    },
+    {
+      "attempts": 93,
+      "digest": {
+        "x": "0x115312e28ae6319828c372c3fc76740e1eccc6f2b406e17cac28356651086df4",
+        "y": "0x1ae2010d808a4bc895fa4309d42714490bd41296f13b6a3baad02c8994f5bfd9"
+      },
+      "fieldRejections": 87,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 208817,
+          "verification": 207086
+        },
+        "osaka": {
+          "minStipend": 208817,
+          "verification": 207086
+        },
+        "prague": {
+          "minStipend": 192749,
+          "verification": 191018
+        }
+      },
+      "label": "tail-31312",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000007a50",
+      "sqrtCalls": 6,
+      "swapped": true
+    },
+    {
+      "attempts": 95,
+      "digest": {
+        "x": "0x02ebb62e1aa0d4c1288909841a9cb55503a710e25ea18c345a81434fef419e4c",
+        "y": "0x2108b6daab76d09954f8b4d78c00ce7deb205aa46106322c5b55131d212787b6"
+      },
+      "fieldRejections": 77,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 264826,
+          "verification": 263095
+        },
+        "osaka": {
+          "minStipend": 264826,
+          "verification": 263095
+        },
+        "prague": {
+          "minStipend": 216622,
+          "verification": 214891
+        }
+      },
+      "label": "tail-57193",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000000df69",
+      "sqrtCalls": 18,
+      "swapped": false
+    },
+    {
+      "attempts": 97,
+      "digest": {
+        "x": "0x1e5aabf906ea1fd40515981fffbe3f8af7f9c699f581500940a1e570a4a5b019",
+        "y": "0x2862bc1786322bd4f82c11ae3d96b49ec869e264bbf660ac74cdf34793e9876c"
+      },
+      "fieldRejections": 74,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 288787,
+          "verification": 287056
+        },
+        "osaka": {
+          "minStipend": 288787,
+          "verification": 287056
+        },
+        "prague": {
+          "minStipend": 227193,
+          "verification": 225462
+        }
+      },
+      "label": "tail-693083",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000a935b",
+      "sqrtCalls": 23,
+      "swapped": false
+    },
+    {
+      "attempts": 102,
+      "digest": {
+        "x": "0x179b3c53aa8ccd8638a9a50181f4cf18227f656389ae62f313e3dfb9b08d4f5f",
+        "y": "0x14ba914a32034a090b84999a354557896fb730fc29004599af82d10674f361bc"
+      },
+      "fieldRejections": 92,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 231939,
+          "verification": 230208
+        },
+        "osaka": {
+          "minStipend": 231939,
+          "verification": 230208
+        },
+        "prague": {
+          "minStipend": 205159,
+          "verification": 203428
+        }
+      },
+      "label": "tail-13154",
+      "rootBit": 0,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000003362",
+      "sqrtCalls": 10,
+      "swapped": true
+    },
+    {
+      "attempts": 111,
+      "digest": {
+        "x": "0x0cb1c92c29e7ffedfa2defab764f2325d20db8fd439222c083edaab1e994ba71",
+        "y": "0x2220bf2a945cb832383bb7235b5ba3cfeab4124487271a3f4106172c4583e3e3"
+      },
+      "fieldRejections": 104,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 223004,
+          "verification": 221274
+        },
+        "osaka": {
+          "minStipend": 223004,
+          "verification": 221274
+        },
+        "prague": {
+          "minStipend": 204258,
+          "verification": 202528
+        }
+      },
+      "label": "tail-1745321",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000001aa1a9",
+      "sqrtCalls": 7,
+      "swapped": true
+    },
+    {
+      "attempts": 116,
+      "digest": {
+        "x": "0x1770776b52291aa195cd79b04698edf031c93dba9b1488c1522d5304e8b71d17",
+        "y": "0x292e00d41c422600556365a638071a9dc8d66c58316b271973bcea9455af9b99"
+      },
+      "fieldRejections": 92,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 303525,
+          "verification": 301794
+        },
+        "osaka": {
+          "minStipend": 303525,
+          "verification": 301794
+        },
+        "prague": {
+          "minStipend": 239253,
+          "verification": 237522
+        }
+      },
+      "label": "tail-1314687",
+      "rootBit": 1,
+      "sk": "0x0000000000000000000000000000000000000000000000000000000000140f7f",
+      "sqrtCalls": 24,
+      "swapped": false
+    },
+    {
+      "attempts": 128,
+      "digest": {
+        "x": "0x219905f17df46cbb27cb370f53b1299ad2bdedfd211ebdd7bd3771198d0b6894",
+        "y": "0x1b2ef125559365c3239bf85cc7281130a28de2f032a5f2792600213269a83906"
+      },
+      "fieldRejections": 109,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 287081,
+          "verification": 285351
+        },
+        "osaka": {
+          "minStipend": 287081,
+          "verification": 285351
+        },
+        "prague": {
+          "minStipend": 236199,
+          "verification": 234469
+        }
+      },
+      "label": "tail-241572",
+      "rootBit": 1,
+      "sk": "0x000000000000000000000000000000000000000000000000000000000003afa4",
+      "sqrtCalls": 19,
+      "swapped": false
+    },
+    {
+      "attempts": 138,
+      "digest": {
+        "x": "0x00686c37feb20f34e2ac830f76259c7171cc074a0bd50f4d0b64c36e72314cfd",
+        "y": "0x256a705331425bae60706d1cbfb030ff690b5533a318a5c66d368fc79ca1dd12"
+      },
+      "fieldRejections": 126,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 260426,
+          "verification": 258696
+        },
+        "osaka": {
+          "minStipend": 260426,
+          "verification": 258696
+        },
+        "prague": {
+          "minStipend": 228290,
+          "verification": 226560
+        }
+      },
+      "label": "tail-865039",
+      "rootBit": 1,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000d330f",
+      "sqrtCalls": 12,
+      "swapped": false
+    },
+    {
+      "attempts": 139,
+      "digest": {
+        "x": "0x28a6d55bcc67ec14c05d25e1c06937cab5ad202e34b968330033825bb8ac5353",
+        "y": "0x0937dec7661f9748b238aebba638260b709f4476d02c0a981bcc3b40f1aa4180"
+      },
+      "fieldRejections": 126,
+      "gas": {
+        "amsterdam": {
+          "minStipend": 265559,
+          "verification": 263829
+        },
+        "osaka": {
+          "minStipend": 265559,
+          "verification": 263829
+        },
+        "prague": {
+          "minStipend": 230745,
+          "verification": 229015
+        }
+      },
+      "label": "tail-723828",
+      "rootBit": 0,
+      "sk": "0x00000000000000000000000000000000000000000000000000000000000b0b74",
+      "sqrtCalls": 13,
+      "swapped": true
+    }
+  ]
+}

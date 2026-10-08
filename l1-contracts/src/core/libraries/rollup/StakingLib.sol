@@ -29,6 +29,58 @@ import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
+/*
+ * Gas floor for each `GSE.deposit` call made by `StakingLib.flushEntryQueue`.
+ *
+ * `GSE.deposit` verifies the proof of possession through an external call capped at the GSE's
+ * `proofOfPossessionGasLimit`. If that call receives less than the cap, the verifier can fail with non-empty revert
+ * data, which `flushEntryQueue` cannot tell apart from a genuinely invalid deposit, so it would refund and drop a
+ * valid entry. The flush therefore requires, before each call, enough gas that the verifier is guaranteed its full
+ * cap through both EIP-150 63/64 boundaries (Rollup -> GSE and GSE -> verifier). See
+ * `StakingLib.getFlushDepositGasFloor` for the derivation.
+ *
+ * The floor covers the verifier call only. A flush that clears it can still run out of gas later in the deposit
+ * (the attester's storage writes, the stake transfer, `Governance.deposit`). Those failures must reach
+ * `flushEntryQueue` as EMPTY revert data, so that it reverts the whole flush with `Staking__DepositOutOfGas` instead
+ * of refunding the entry. That holds because `GSE.deposit` makes its external calls either directly, which bubbles
+ * the callee's revert data unchanged, or through `SafeERC20`, which re-raises the callee's raw revert data; nothing
+ * on that path wraps a failed sub-call in a custom error. Changes to the GSE, the staking asset or the Governance
+ * deposit path must preserve this.
+ *
+ * The values are fixed and sized for the Glamsterdam gas schedule (EIP-8037 state gas, EIP-8038 repricing), measured
+ * against the `amsterdam` EVM (see `test/staking/flush-gas-floor/`). Under EIP-8037 the new storage slots that
+ * `GSE.deposit` writes before the verifier call dominate `FLUSH_GSE_PRE_CHECK_GAS`, and the new balance slot of a
+ * fresh withdrawer dominates `FLUSH_REFUND_GAS_RESERVE`. On earlier schedules (Prague, Osaka) the same path costs far
+ * less, so the floor is larger than needed there: honest flushes still activate, they only need a higher gas limit.
+ * The values MUST be re-derived at every later fork that reprices storage writes, account access or calls, and
+ * whenever the storage the GSE writes before the verifier changes. A floor that is too low lets a flush caller
+ * starve the verifier again. A floor that is too high only raises the gas limit an honest flusher must set, since
+ * unused gas is not charged, until it exceeds what one transaction can carry.
+ */
+
+/// @dev Gas `GSE.deposit` spends from its entry until the verifier call: the registration checks, the attester
+///      checkpoint writes and the `ownedPKs` write. Sized for Glamsterdam: measured at 682_620 under `amsterdam`
+///      (154_300 under `osaka`), the rest is margin. Follows EIP-8037 state gas for new storage slots and the deployed
+///      GSE's storage layout.
+uint256 constant FLUSH_GSE_PRE_CHECK_GAS = 700_000;
+
+/// @dev Gas the GSE spends between its last pre-check instruction and the verifier's first instruction, excluding the
+///      forwarded cap: one cold account access to the verifier and the argument encoding. Measured at about 2_700
+///      under `amsterdam`. Any shortfall is covered by the margin in `FLUSH_GSE_PRE_CHECK_GAS`, which sits behind the
+///      same 63/64 boundary.
+uint256 constant FLUSH_POP_CALL_GAS_RESERVE = 3000;
+
+/// @dev Gas the Rollup spends between its `gasleft()` check and the GSE's first instruction, excluding the forwarded
+///      gas: the comparison and a call to the GSE, which is warm because the flush has already called it. Measured at
+///      about 700.
+uint256 constant FLUSH_GSE_CALL_GAS_RESERVE = 2000;
+
+/// @dev Gas for the refund branch after a deposit fails with revert data: the stake transfer to a withdrawer that may
+///      not hold the staking asset yet (a new balance slot under EIP-8037) and the `FailedDeposit` event. Measured at
+///      about 131_000 under `amsterdam`. A GSE that fails during or before verification has spent at most the rest of
+///      the floor, so this part of the forwarded gas comes back to the Rollup.
+uint256 constant FLUSH_REFUND_GAS_RESERVE = 150_000;
+
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
 // Zombie -> Not participating as validator, but have funds in setup,
@@ -419,6 +471,10 @@ library StakingLib {
    *      - On failure: refunds their stake and emits FailedDeposit event
    *
    *      The function will revert if:
+   *      - Less than `getFlushDepositGasFloor` gas is left right before any GSE deposit call, so that the caller's
+   *        gas limit cannot starve the proof-of-possession check of a valid entry into a refund. Callers must
+   *        therefore size the transaction with `eth_estimateGas`, which accounts for the floor, or leave that much
+   *        gas beyond what the flush consumes; a limit derived from simulated gas used fails for small flushes.
    *      - A deposit fails due to out of gas (to prevent queue draining attacks)
    *
    *      The function approves the GSE contract to spend the total stake amount needed for all deposits,
@@ -446,21 +502,25 @@ library StakingLib {
     // Approve the GSE to spend the total stake amount needed for all deposits.
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
     store.stakingAsset.approve(address(store.gse), amount * numToDequeue);
+    // Read once per flush: only the GSE owner can change the cap, and nothing the flush calls can reach the owner.
+    uint256 requiredGas = getFlushDepositGasFloor(store.gse.proofOfPossessionGasLimit());
+    address gse = address(store.gse);
     uint256 depositCount = 0;
     for (uint256 i = 0; i < numToDequeue; i++) {
       DepositArgs memory args = store.entryQueue.dequeue();
-      (bool success, bytes memory data) = address(store.gse)
-        .call(
-          abi.encodeWithSelector(
-            IGSECore.deposit.selector,
-            args.attester,
-            args.withdrawer,
-            args.publicKeyInG1,
-            args.publicKeyInG2,
-            args.proofOfPossession,
-            args.moveWithLatestRollup
-          )
-        );
+      bytes memory depositCall = abi.encodeWithSelector(
+        IGSECore.deposit.selector,
+        args.attester,
+        args.withdrawer,
+        args.publicKeyInG1,
+        args.publicKeyInG2,
+        args.proofOfPossession,
+        args.moveWithLatestRollup
+      );
+      // Kept immediately before the call: `FLUSH_GSE_CALL_GAS_RESERVE` only covers the instructions in between.
+      uint256 availableGas = gasleft();
+      require(availableGas >= requiredGas, Errors.Staking__InsufficientFlushGas(requiredGas, availableGas));
+      (bool success, bytes memory data) = gse.call(depositCall);
       if (success) {
         depositCount++;
         emit IStakingCore.Deposit(
@@ -813,6 +873,51 @@ library StakingLib {
 
   function getCachedAvailableValidatorFlushes() internal view returns (uint256) {
     return getStorage().availableValidatorFlushes;
+  }
+
+  /**
+   * @notice The least gas `flushEntryQueue` must hold right before each `GSE.deposit` call, so that the
+   *         proof-of-possession verifier inside it is guaranteed its full gas cap.
+   * @dev Derivation. Under EIP-150 a frame forwards at most all but one 64th of the gas it holds at a CALL, counted
+   *      after the CALL's own upfront charges (account access, memory): a callee asking for `X` receives
+   *      `min(X, G - G / 64)`. A frame that must hand `X` to its callee therefore has to hold `G >= X * 64 / 63` at
+   *      the CALL, which `X * 64 / 63 + 1` rounds up in integer arithmetic. Two such boundaries sit between the flush
+   *      and the verifier, and the floor walks back through them:
+   *
+   *        1. GSE -> verifier. The GSE calls the verifier with `{gas: cap}`, so at that CALL it must hold
+   *           `cap * 64 / 63 + 1`, plus `FLUSH_POP_CALL_GAS_RESERVE` for what it spends between holding that amount
+   *           and the CALL being charged (argument encoding, cold access to the verifier).
+   *        2. Inside the GSE. Before it reaches the verifier, `GSE.deposit` spends `FLUSH_GSE_PRE_CHECK_GAS` on its
+   *           checks and storage writes, so at its entry it must hold that much more.
+   *        3. Rollup -> GSE. `flushEntryQueue` calls the GSE without a gas argument, so the GSE receives all but one
+   *           64th of what the Rollup holds at the CALL: the Rollup must hold the GSE entry amount `* 64 / 63 + 1`,
+   *           plus `FLUSH_GSE_CALL_GAS_RESERVE` for what it spends between the `gasleft()` read and the CALL being
+   *           charged.
+   *        4. Refund. `FLUSH_REFUND_GAS_RESERVE` is added last and unscaled. It is forwarded to the GSE with
+   *           everything else and comes back because the GSE does not consume it on the failure paths that end in a
+   *           refund: a deposit rejected before the verifier spends far less than `FLUSH_GSE_PRE_CHECK_GAS`, and a
+   *           deposit rejected by the verifier with its full cap consumes at most the GSE entry amount, so at least
+   *           63/64 of the reserve returns, on top of the 1/64 the Rollup kept at the CALL. A deposit that runs out
+   *           of gas after the verifier reverts with empty data and the whole flush reverts, so no refund is
+   *           attempted. The reserve is needed because the retained 1/64 alone (about 15k at the default cap) does
+   *           not cover the refund branch.
+   *
+   *      At the default 250k cap: 253_969 + 3_000 = 256_969 at the verifier CALL, 956_969 at the GSE entry, and
+   *      972_159 + 2_000 + 150_000 = 1_124_159 at the Rollup. A floor of `cap * 64 / 63` plus a reserve, without
+   *      `FLUSH_GSE_PRE_CHECK_GAS`, would be about 285k and would let the Rollup pass its check while the verifier is
+   *      still starved: the GSE spends the pre-check gas inside its own frame, behind the Rollup -> GSE boundary.
+   *
+   *      The constants are sized for the Glamsterdam gas schedule (see their definitions). All arithmetic is uint256
+   *      and checked, and a `uint64` cap cannot overflow it, so an absurdly large cap yields a floor no transaction
+   *      can meet and every flush that reaches a deposit reverts with `Staking__InsufficientFlushGas` until the cap
+   *      is lowered.
+   * @param _proofOfPossessionGasLimit The GSE's current `proofOfPossessionGasLimit`
+   * @return The gas floor checked before each deposit call
+   */
+  function getFlushDepositGasFloor(uint256 _proofOfPossessionGasLimit) internal pure returns (uint256) {
+    uint256 gseGasAtVerifierCall = (_proofOfPossessionGasLimit * 64) / 63 + 1 + FLUSH_POP_CALL_GAS_RESERVE;
+    uint256 gseGasAtEntry = FLUSH_GSE_PRE_CHECK_GAS + gseGasAtVerifierCall;
+    return (gseGasAtEntry * 64) / 63 + 1 + FLUSH_GSE_CALL_GAS_RESERVE + FLUSH_REFUND_GAS_RESERVE;
   }
 
   /// @notice Enforces invariants on a {StakingQueueConfig}.

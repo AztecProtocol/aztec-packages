@@ -434,6 +434,18 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     assertEq(escapeHatch.getRollup(), address(_getRollup()), "Should return rollup address");
   }
 
+  function test_WhenCallingGetRollupLagInEpochsForRandao(EscapeHatchConfig memory _config)
+    external
+    givenValidConfig(_config)
+  {
+    // it should return the rollup's lagInEpochsForRandao
+    assertEq(
+      escapeHatch.getRollupLagInEpochsForRandao(),
+      IValidatorSelection(_getRollup()).getLagInEpochsForRandao(),
+      "Should return the rollup's RANDAO lag"
+    );
+  }
+
   function test_WhenCallingGetBondToken(EscapeHatchConfig memory _config) external givenValidConfig(_config) {
     // it should return the BOND_TOKEN address
     assertEq(escapeHatch.getBondToken(), address(bondToken), "Should return bond token address");
