@@ -135,7 +135,7 @@ loudly. A *stale* root does not: it is non-zero and deploys happily. Nothing gua
 ### Sequencer reward policy
 
 v5 carried per-registry reward reductions for the auction and genesis-sale ATP registries inside
-the rollup. AZIP-28 removed that: the rollup now calls a governance-set `ISequencerRewardCalculator`
+the rollup. AZIP-31 removed that: the rollup now calls a governance-set `ISequencerRewardCalculator`
 once per epoch proof, and `sequencerRewardCalculator` is the address it starts with.
 
 **v6 launches with `address(0)` on both chains, which means every proposer earns the default
