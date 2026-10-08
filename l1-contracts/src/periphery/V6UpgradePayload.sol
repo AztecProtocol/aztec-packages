@@ -24,8 +24,8 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
  *      to perform these steps.
  *
  *      Extend `getActions` to bundle further governance-gated calls (for example
- *      `setProtocolFeeRecipient` / `setProtocolFeeMargin`, which cannot be set any other way once
- *      the deploy script has handed rollup ownership to governance).
+ *      `setProtocolFeeRecipient` / `setProtocolFeeMargin`, which cannot be set any other way because
+ *      the rollup is owned by governance from construction).
  */
 contract V6UpgradePayload is IPayload {
   /// @notice London-local hour the window opens, inclusive.

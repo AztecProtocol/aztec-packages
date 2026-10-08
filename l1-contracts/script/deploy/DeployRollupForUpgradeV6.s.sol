@@ -50,13 +50,15 @@ import {V6UpgradeSimulation} from "./V6UpgradeSimulation.sol";
  *      `REGISTRY_ADDRESS` is the only environment input. Every configuration value is a literal in
  *      {_config} below, so reviewing this file is sufficient to review the deployment: there are no
  *      env-var defaults and no `network-defaults.json` fallbacks that could change what is
- *      deployed. {verify} reads each value back off the deployed contracts and asserts it matches
- *      the table, so a typo in the table or a drift in how the Rollup consumes it fails loudly.
+ *      deployed. {verify} reads values back off the deployed contracts and asserts they match the
+ *      table, so a typo in the table or a drift in how the Rollup consumes it fails loudly. It does
+ *      not read back the entry-queue config, the reward-boost parameters, `ethereumSlotDuration`
+ *      or the verifier's bytecode and `VK_HASH`; check those against the table and the pinned
+ *      ./HonkVerifier.sol by other means.
  *
- *      Deploy order matters: the rollup is constructed owned by the deployer, the EscapeHatch is
- *      deployed and registered while that is still true, and only then is ownership handed to
- *      governance. Anything owner-gated that is not done before that line can only be done by a
- *      governance proposal afterwards.
+ *      The rollup is constructed owned by governance, so the deployer never holds owner rights
+ *      over it and nothing owner-gated happens in this script. The EscapeHatch is deployed here
+ *      but installed by the payload, and anything else owner-gated needs a governance proposal.
  *
  *      Not covered here, deliberately: the protocol fee margin and recipient keep their
  *      constructor values (0 and a placeholder address). Setting them is a governance call, so it
