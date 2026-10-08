@@ -134,19 +134,12 @@ loudly. A *stale* root does not: it is non-zero and deploys happily. Nothing gua
 
 ### Sequencer reward policy
 
-v5 carried per-registry reward reductions for the auction and genesis-sale ATP registries inside
-the rollup. AZIP-31 removed that: the rollup now calls a governance-set `ISequencerRewardCalculator`
-once per epoch proof, and `sequencerRewardCalculator` is the address it starts with.
+Under AZIP-31 the rollup can call a governance-set `ISequencerRewardCalculator` once per epoch
+proof, and `sequencerRewardCalculator` is the address it starts with.
 
-**v6 launches with `address(0)` on both chains, which means every proposer earns the default
-sequencer share — ATP positions included.** This is a deliberate choice, not an omission. No
-production calculator exists yet; the two reference implementations
-(`RegistryReductionCalculator`, `PremiumRewardCalculator`) are test fixtures under
-`test/reward-calculators/` and are not built into `src`. Reinstating the reduction is a follow-up
-governance payload that calls `setSequencerRewardCalculator`, which needs no redeploy.
-
-**If that follow-up slips, ATP holders are paid the full default in the interim.** Whoever signs
-off on this upgrade should know that and agree to it.
+**v6 launches with `address(0)` on both chains, so every proposer earns the default sequencer
+share.** Installing a calculator later is a governance action, `setSequencerRewardCalculator`, and
+needs no redeploy.
 
 Nothing about the calculator path is loud, so if a later deploy does set one:
 

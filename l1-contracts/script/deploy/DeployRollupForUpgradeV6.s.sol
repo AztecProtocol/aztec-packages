@@ -289,9 +289,7 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
         // Leaving the mainnet address here would make the payload constructor revert, since it
         // reads the outgoing rewarder's asset and rate.
       c.oldFlushRewarder = address(0);
-      // No calculator on Sepolia either. The ATP registries any reduction policy would key on are
-      // a mainnet arrangement, so Sepolia has nothing to express and the mainnet value of zero
-      // already applies; this line records that as a decision rather than an omission.
+      // No sequencer reward calculator on Sepolia either, matching mainnet.
       c.sequencerRewardCalculator = address(0);
       // Admit 12 validators per epoch rather than mainnet's 4, so testnet's queue drains at a
       // rate that suits testing. All three move together: the bootstrap phase returns
