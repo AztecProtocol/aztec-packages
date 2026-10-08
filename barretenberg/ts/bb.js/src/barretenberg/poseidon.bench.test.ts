@@ -73,7 +73,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
       // Each mode runs once untimed first, so the JIT has seen the exact call
       // pattern being timed (a pipelined burst exercises different code paths
       // from sequential awaits) and the timing reflects steady state.
-      const timed = async (run: () => Promise<void>) => {
+      const timed = async (run: () => Promise<void> | void) => {
         await run();
         const start = performance.now();
         await run();
@@ -98,7 +98,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
       const nativeShmTime = nativeShmApi ? await timed(sequential(nativeShmApi)) : 0;
       const nativeShmPipelinedTime = nativeShmApi ? await timed(pipelined(nativeShmApi)) : 0;
       const nativeShmSyncTime = nativeShmSyncApi
-        ? await timed(async () => {
+        ? await timed(() => {
             for (let i = 0; i < ITERATIONS; i++) {
               nativeShmSyncApi!.poseidon2Hash({ inputs });
             }
