@@ -5,7 +5,9 @@
 //! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
+use barretenberg_rs::Fr;
+#[cfg(test)]
+use crate::utils::spawn_bb;
 #[cfg(test)]
 use crate::utils::get_bb_binary_path;
 #[cfg(test)]
@@ -16,9 +18,7 @@ fn test_blake2s() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     let expected: [u8; 32] = [
@@ -43,9 +43,7 @@ fn test_blake2s_to_field() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     // Blake2sToField returns the hash reduced to a field element
@@ -54,7 +52,7 @@ fn test_blake2s_to_field() {
         20, 232, 66, 122, 55, 70, 227, 140, 193, 28, 146, 32, 181, 158, 18, 66,
     ];
 
-    let expected = Fr(expected_field);
+    let expected = Fr::from_be_bytes(expected_field);
 
     let response = api.blake2s_to_field(input).expect("Blake2sToField failed");
     let result = Fr::from_buffer_reduce(&response.field);

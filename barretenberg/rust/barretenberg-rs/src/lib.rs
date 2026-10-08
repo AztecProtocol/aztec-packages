@@ -15,7 +15,7 @@
 //! let client = IpcClient::from_path("/tmp/bb.sock")?;
 //! let mut api = BbApi::new(client);
 //!
-//! let response = api.blake2s(b"hello world".to_vec())?;
+//! let response = api.blake2s(b"hello world")?;
 //! println!("Hash: {:?}", response.hash);
 //! ```
 //!
@@ -60,50 +60,14 @@ pub mod generated {
 }
 
 mod fr_ext;
-pub mod legacy;
-pub mod legacy_types;
-#[cfg(feature = "ipc-runtime")]
-pub mod legacy_pipe;
 
 pub use generated::backend::Backend;
 pub use generated::bb_client::BbApi;
-pub use generated::bb_types::{Bin32, Command, Response};
-// Pre-codegen value shapes: byte-valued points and a constructible Fr. The
-// generated equivalents remain available as `generated::bb_types::*`.
-#[allow(deprecated)]
-pub use legacy_types::{
-    Bn254G1Point, Bn254G2Point, Fr, GrumpkinPoint, Secp256k1Point, Secp256r1Point,
-};
+pub use generated::bb_types::{Bin32, Command, Fq, Fr, Response};
 pub use generated::error::{IpcError as BarretenbergError, Result};
-
-// Pre-codegen surface kept around so external consumers can migrate at their
-// own pace; see [`legacy`] for the deprecation notes and the typed-scalar
-// replacements on [`BbApi`].
-#[allow(deprecated)]
-pub use legacy::BarretenbergApi;
-
-// Preserved module path for callers that imported types via
-// `barretenberg_rs::generated_types::*`. Explicit re-exports shadow the glob,
-// so the byte-valued shapes win for the types whose fields changed.
-pub mod generated_types {
-    pub use crate::generated::bb_types::*;
-    #[allow(deprecated)]
-    pub use crate::legacy_types::{
-        Bn254G1Point, Bn254G2Point, Fr, GrumpkinPoint, Secp256k1Point, Secp256r1Point,
-    };
-}
 
 #[cfg(feature = "ffi")]
 pub use generated::ffi_backend::FfiBackend;
-
-// Pre-codegen module path.
-pub mod backends {
-    #[cfg(feature = "ffi")]
-    pub use crate::generated::ffi_backend::FfiBackend;
-    #[allow(deprecated)]
-    #[cfg(feature = "ipc-runtime")]
-    pub use crate::legacy_pipe::PipeBackend;
-}
 
 // Re-exported so callers get a transport without taking a separate dependency.
 #[cfg(feature = "ipc-runtime")]
