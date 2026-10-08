@@ -66,31 +66,6 @@ function crate_published {
   curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/$1/$2" | jq -e '.version.num' &>/dev/null
 }
 
-# barretenberg-rs takes its transport from the ipc-runtime crate, so that crate
-# has to be on crates.io at the same version first. It is published from here
-# rather than from ipc-runtime/bootstrap.sh because that release also runs for
-# private releases, which must never reach crates.io.
-function release_ipc_runtime_crate {
-  local version=$1
-  local crate_dir=$root/ipc-runtime/rust
-
-  if crate_published ipc-runtime $version; then
-    echo "ipc-runtime@$version already published on crates.io. Skipping."
-    return 0
-  fi
-
-  # The crate compiles the C++ runtime itself, so it ships a copy of the sources.
-  rm -rf $crate_dir/cpp
-  mkdir -p $crate_dir/cpp
-  cp -r $root/ipc-runtime/cpp/ipc_runtime $crate_dir/cpp/
-  find $crate_dir/cpp -name '*.test.cpp' -delete
-  sed -i "0,/^version = \".*\"/s//version = \"$version\"/" $crate_dir/Cargo.toml
-
-  # Verification builds the packaged crate on its own, which proves the copied
-  # sources are complete.
-  (cd $crate_dir && retry "denoise 'do_or_dryrun cargo publish --allow-dirty'")
-}
-
 function release {
   echo_header "barretenberg-rs release"
 
@@ -108,8 +83,8 @@ function release {
     generate
   fi
 
-  release_ipc_runtime_crate $version
-  # Pin the exact build published alongside this one.
+  # ipc-runtime's release (which runs first) publishes its crate at this
+  # version; pin that exact build.
   sed -i -E "s|^(ipc-runtime = \{ path = \"[^\"]*\", version = \")[^\"]*|\1=$version|" barretenberg-rs/Cargo.toml
 
   # Check if this version is already published on crates.io (idempotent re-runs).

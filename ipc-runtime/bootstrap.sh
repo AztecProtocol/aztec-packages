@@ -67,10 +67,42 @@ function cross_copy {
   ./ts/scripts/copy_cross.sh "$@"
 }
 
+function crate_published {
+  curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/ipc-runtime/$1" | jq -e '.version.num' &>/dev/null
+}
+
+# Publish the Rust crate to crates.io. barretenberg-rs depends on it at the
+# same version, and its release runs after this one.
+function release_crate {
+  local version=$1
+
+  if crate_published $version; then
+    echo "ipc-runtime@$version already published on crates.io. Skipping."
+    return 0
+  fi
+
+  # The crate compiles the C++ runtime itself, so it ships a copy of the sources.
+  rm -rf rust/cpp
+  mkdir -p rust/cpp
+  cp -r cpp/ipc_runtime rust/cpp/
+  find rust/cpp -name '*.test.cpp' -delete
+  sed -i "0,/^version = \".*\"/s//version = \"$version\"/" rust/Cargo.toml
+
+  # Verification builds the packaged crate on its own, which proves the copied
+  # sources are complete.
+  (cd rust && retry "denoise 'do_or_dryrun cargo publish --allow-dirty'")
+}
+
 function release {
+  local version=${REF_NAME#v}
   cross_copy
-  cd ts
-  retry "deploy_npm ${REF_NAME#v}"
+  (cd ts && retry "deploy_npm $version")
+
+  # Private releases also run this function but publish only to the internal
+  # npm registry; crates.io is public-only.
+  if "$root/ci3/assert_public_release" 2>/dev/null; then
+    release_crate $version
+  fi
 }
 
 case "$cmd" in
