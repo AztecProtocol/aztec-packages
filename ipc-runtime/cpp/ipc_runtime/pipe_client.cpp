@@ -1,5 +1,6 @@
 #include "ipc_runtime/pipe_client.hpp"
 #include "ipc_runtime/constants.hpp"
+#include "ipc_runtime/stream_io.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <climits>
@@ -113,7 +114,7 @@ bool PipeClient::send(uint64_t request_id, const void* data, size_t len, uint64_
         errno = EINVAL;
         return false;
     }
-    if (len > MAX_FRAME_SIZE) {
+    if (len > MAX_FRAME_SIZE - FRAME_ID_SIZE) {
         errno = EMSGSIZE;
         return false;
     }
@@ -152,10 +153,9 @@ std::span<const uint8_t> PipeClient::receive(uint64_t timeout_ns, uint64_t& requ
         return {};
     }
 
-    // A corrupt/malicious prefix must not drive the allocation below. A frame
-    // shorter than the request-id field means the peer speaks the id-less
-    // protocol — close rather than misparse.
-    if (msg_len > MAX_FRAME_SIZE || msg_len < FRAME_ID_SIZE) {
+    // A frame shorter than the request-id field means the peer speaks the
+    // id-less protocol — close rather than misparse.
+    if (msg_len < FRAME_ID_SIZE) {
         close_internal();
         return {};
     }
@@ -168,13 +168,9 @@ std::span<const uint8_t> PipeClient::receive(uint64_t timeout_ns, uint64_t& requ
     }
     msg_len -= static_cast<uint32_t>(FRAME_ID_SIZE);
 
-    // Ensure buffer is large enough. Keep at least one byte so data() is
-    // non-null for zero-length messages (null data() signals failure).
-    if (recv_buffer_.size() < msg_len || recv_buffer_.empty()) {
-        recv_buffer_.resize(std::max<size_t>(msg_len, 1));
-    }
-
-    if (read_exact(recv_buffer_.data(), msg_len, timeout_ns, partial) != 1) {
+    if (read_payload(recv_buffer_, 0, msg_len, [&](uint8_t* dst, size_t n) {
+            return read_exact(dst, n, timeout_ns, partial);
+        }) != 1) {
         // Prefix consumed but payload incomplete — stream desynced.
         close_internal();
         return {};

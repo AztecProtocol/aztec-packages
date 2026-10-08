@@ -1,5 +1,6 @@
 import * as net from "node:net";
-import { IpcTransportError } from "./errors.js";
+import { IpcError, IpcTransportError } from "./errors.js";
+import { FrameReader } from "./frame_reader.js";
 import { PendingQueue } from "./pending_queue.js";
 import {
   IpcClientAsync,
@@ -43,7 +44,7 @@ export interface UdsIpcClientConnectOptions {
  * and the server may complete requests in any order (see PendingQueue).
  */
 export class UdsIpcClient implements IpcClientAsync {
-  private buffer: Buffer = Buffer.alloc(0);
+  private frames = new FrameReader();
   private readonly pending = new PendingQueue();
   private destroyed = false;
   /** Set once the socket has errored/closed; new calls fail fast. */
@@ -104,14 +105,13 @@ export class UdsIpcClient implements IpcClientAsync {
         ),
       );
     }
-    // The peer rejects an oversized frame by closing the connection, which
-    // reaches the caller as an unexplained EPIPE on the next write. Fail here
-    // instead, naming the size that was refused.
+    // The u32 length prefix cannot describe a larger frame. This is the
+    // caller's error and the connection is still healthy, so it is not a
+    // transport error (which would retire the server) and is not mapped.
     if (input.length + 8 > MAX_FRAME_SIZE) {
-      throw await this.mapped(
-        new IpcTransportError(
-          `UdsIpcClient: request of ${input.length} bytes exceeds MAX_FRAME_SIZE (${MAX_FRAME_SIZE})`,
-        ),
+      throw new IpcError(
+        `UdsIpcClient: request of ${input.length} bytes exceeds the ${MAX_FRAME_SIZE}-byte frame limit`,
+        /*retry=*/ false,
       );
     }
     return new Promise<Uint8Array>((resolve, reject) => {
@@ -136,23 +136,10 @@ export class UdsIpcClient implements IpcClientAsync {
   }
 
   private onData(chunk: Buffer): void {
-    this.buffer =
-      this.buffer.length === 0
-        ? Buffer.from(chunk)
-        : Buffer.concat([this.buffer, chunk]);
-    while (this.buffer.length >= 4) {
-      const len = this.buffer.readUInt32LE(0);
-      if (len > MAX_FRAME_SIZE) {
-        // Corrupt/malicious frame — close instead of buffering up to the
-        // claimed size.
-        this.conn.destroy();
-        this.failAll(
-          new IpcTransportError(
-            `UdsIpcClient: oversized frame (${len} bytes exceeds MAX_FRAME_SIZE)`,
-          ),
-        );
-        return;
-      }
+    this.frames.push(chunk);
+    for (;;) {
+      const len = this.frames.peekLength();
+      if (len === undefined) return;
       if (len < 8) {
         // Shorter than the request-id field: the server speaks the id-less
         // protocol. Fail loudly instead of misparsing.
@@ -165,12 +152,12 @@ export class UdsIpcClient implements IpcClientAsync {
         );
         return;
       }
-      if (this.buffer.length < 4 + len) return;
+      const frame = this.frames.next();
+      if (frame === undefined) return;
       // Live ids are below 2^30, so a nonzero high word can't match a call.
       const requestId =
-        this.buffer.readUInt32LE(8) === 0 ? this.buffer.readUInt32LE(4) : -1;
-      const payload = this.buffer.subarray(12, 4 + len);
-      this.buffer = this.buffer.subarray(4 + len);
+        frame.readUInt32LE(8) === 0 ? frame.readUInt32LE(4) : -1;
+      const payload = frame.subarray(12);
       const next = this.pending.take(requestId);
       if (next) {
         if (this.idleUnref && this.pending.length === 0) {

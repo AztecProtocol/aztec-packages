@@ -61,7 +61,7 @@ inline std::span<const uint8_t> ring_receive_msg(SpscShm& ring, uint64_t timeout
     // legally publish more than capacity/2 - 4 bytes, so a larger prefix
     // means the ring is corrupt — and a frame shorter than the request-id
     // field means the peer speaks the id-less protocol.
-    if (msg_len > MAX_FRAME_SIZE || msg_len > ring.capacity() / 2 - 4 || msg_len < FRAME_ID_SIZE) {
+    if (msg_len > ring.capacity() / 2 - 4 || msg_len < FRAME_ID_SIZE) {
         throw std::runtime_error("ring_receive_msg: invalid length prefix (" + std::to_string(msg_len) +
                                  " bytes) — corrupt ring or protocol mismatch");
     }

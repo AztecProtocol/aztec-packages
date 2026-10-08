@@ -23,11 +23,12 @@ export interface IpcClientSync {
 // keep the two in sync.
 
 /**
- * Maximum length-prefix value accepted on receive. A frame claiming more
- * than this is treated as corruption and the connection is closed instead
- * of buffering the claimed size.
+ * Largest frame the wire format can express: the u32 length prefix counts the
+ * request id plus the payload, so a payload can be at most MAX_FRAME_SIZE - 8
+ * bytes. Stream receivers buffer only what has arrived, so nothing smaller is
+ * imposed; SHM is bounded separately by its ring capacity.
  */
-export const MAX_FRAME_SIZE = 1024 * 1024 * 1024; // 1 GiB
+export const MAX_FRAME_SIZE = 0xffffffff;
 
 /**
  * Total budget (ms) for connect() retry loops, covering the window where
