@@ -22,7 +22,7 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_DOM_SEP__PUBLIC_KEYS_HASH = FF(777457226);
     const auto constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH = FF(3452068255UL);
     const auto constants_DOM_SEP__PARTIAL_ADDRESS = FF(2103633018);
-    const auto constants_DOM_SEP__CONTRACT_ADDRESS_V2 = FF(4099338721UL);
+    const auto constants_DOM_SEP__CONTRACT_ADDRESS_V3 = FF(993442748);
     const auto address_derivation_X3 = in.get(C::address_derivation_incoming_viewing_key_x) *
                                        in.get(C::address_derivation_incoming_viewing_key_x) *
                                        in.get(C::address_derivation_incoming_viewing_key_x);
@@ -91,7 +91,7 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
                    (static_cast<View>(in.get(C::address_derivation_preaddress_domain_separator)) -
-                    CView(constants_DOM_SEP__CONTRACT_ADDRESS_V2));
+                    CView(constants_DOM_SEP__CONTRACT_ADDRESS_V3));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
