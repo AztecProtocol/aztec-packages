@@ -47,6 +47,7 @@ contracts=(
   "GSE"
   "MockZKPassportVerifier"
   "DateGatedRelayer"
+  "ProofOfPossessionPreflight"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.

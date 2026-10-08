@@ -9,6 +9,8 @@ import {DeployAztecL1Contracts, DeployAztecL1ContractsOutput} from "../../script
 import {DeployRollupForUpgrade} from "../../script/deploy/DeployRollupForUpgrade.s.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
+import {ProofOfPossessionPreflight} from "@aztec/periphery/ProofOfPossessionPreflight.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 
 /**
  * @title DeployRollupForUpgradeTest
@@ -120,7 +122,9 @@ contract DeployRollupForUpgradeTest is Test {
     vm.setEnv("GENESIS_ARCHIVE_ROOT", vm.toString(uint256(keccak256("different_genesis"))));
 
     DeployRollupForUpgrade upgradeDeploy = new DeployRollupForUpgrade();
+    vm.startStateDiffRecording();
     upgradeDeploy.run();
+    VmSafe.AccountAccess[] memory upgradeAccesses = vm.stopAndReturnStateDiff();
 
     Rollup newRollup = upgradeDeploy.rollupOutput().rollup;
     uint256 newVersion = newRollup.getVersion();
@@ -138,5 +142,17 @@ contract DeployRollupForUpgradeTest is Test {
 
     // Version count should be 2
     assertEq(registry.numberOfVersions(), 2);
+
+    // ============ STEP 4: No proof of possession preflight helper ============
+    // Only a full deployment (a new GSE) deploys the helper; a rollup upgrade must not.
+    assertGt(address(initialOutput.proofOfPossessionPreflight).code.length, 0, "full deployment has no preflight");
+    bytes32 preflightCodeHash = keccak256(type(ProofOfPossessionPreflight).runtimeCode);
+    for (uint256 i = 0; i < upgradeAccesses.length; i++) {
+      if (upgradeAccesses[i].kind == VmSafe.AccountAccessKind.Create) {
+        assertNotEq(
+          keccak256(upgradeAccesses[i].deployedCode), preflightCodeHash, "upgrade deployed the preflight helper"
+        );
+      }
+    }
   }
 }
