@@ -189,15 +189,15 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
   ///      overrides it.
   function _config() internal view virtual returns (Config memory c) {
     c = Config({
-      // Read off the v6 release build at 9f7f5055e989b21a7da3f512e72f6f004ed09909, the same build
+      // Read off the v6 release build at 42fae4eb3feb5a493f2e8a2baf78b4716e323c40, the same build
       // the pinned ./HonkVerifier.sol and ConstantsGen.sol come from; all of them move together.
       // `run()` only guards against zero, so a root from a different build deploys silently. See
       // "Fill in the inputs" in V6_UPGRADE_RUNBOOK.md.
       // Source: `getVKTreeRoot()` and `protocolContractsHash` from the built packages,
       // `GENESIS_ARCHIVE_ROOT` from the protocol constants.
-      vkTreeRoot: 0x2b93bfe8572e35ace261fa350a4e40327ec2dc83d5d5e2966e161561d2e9e04d,
-      protocolContractsHash: 0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378,
-      genesisArchiveRoot: 0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6,
+      vkTreeRoot: 0x22fff5de6ce590153df4468f7f0b152188a803d91b3c9c648b91d93d5913f219,
+      protocolContractsHash: 0x0f54271c52865841a77aaa66036eed901aff22fdce9f08e123ec8b205c9854d7,
+      genesisArchiveRoot: 0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4,
       ethereumSlotDuration: 12, // L1 slot time; no v5 equivalent, the v5 inbox took an explicit lag instead
       aztecSlotDuration: 72,
       aztecEpochDuration: 32,

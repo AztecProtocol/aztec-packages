@@ -55,7 +55,7 @@ shared, so the new cap applies to the outgoing rollup too, from the moment the p
 The verifier and the protocol constants are **pinned in git**, not built from this tree:
 
 - `script/deploy/HonkVerifier.sol` — the epoch proof verifier from the v6 release build at
-  `9f7f5055e989b21a7da3f512e72f6f004ed09909`; its provenance comment names that commit.
+  `42fae4eb3feb5a493f2e8a2baf78b4716e323c40`; its provenance comment names that commit.
   `DeployRollupForUpgradeV6.s.sol` imports it as `./HonkVerifier.sol`.
 - `src/core/libraries/ConstantsGen.sol` — from the same build.
 
@@ -112,9 +112,9 @@ deploy these must be set:
 
 | Field | Status | Notes |
 |---|---|---|
-| `vkTreeRoot` | set | `0x2b93bfe8…d2e9e04d`, from the v6 release build at `9f7f5055`; see below |
-| `protocolContractsHash` | set | `0x0030cdae…e991b378`, same build |
-| `genesisArchiveRoot` | set | `0x2ef904bb…8113bfb6`, same build. Must be below the BN254 scalar field modulus |
+| `vkTreeRoot` | set | `0x22fff5de…5913f219`, from the v6 release build at `42fae4eb`; see below |
+| `protocolContractsHash` | set | `0x0f54271c…5c9854d7`, same build |
+| `genesisArchiveRoot` | set | `0x29eb2c52…3d41e5c4`, same build. Must be below the BN254 scalar field modulus |
 | `initialEthPerFeeAsset` | **TODO — mainnet** | E12 ETH-per-fee-asset price; a point-in-time market value, refresh at deploy time |
 | `sequencerRewardCalculator` | set | `address(0)` on both chains — v6 launches with no calculator, see below |
 | `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e`; zero on Sepolia |
@@ -167,19 +167,20 @@ The three genesis values are produced by the protocol circuits / node build, not
 `l1-contracts`. Get them from the same source the v6 release uses; do not carry v5's forward.
 
 The values in `_config()` were read off a full build (`make fast`) of the v6 release at
-`9f7f5055e989b21a7da3f512e72f6f004ed09909`, the same build the pinned verifier and
+`42fae4eb3feb5a493f2e8a2baf78b4716e323c40`, the same build the pinned verifier and
 `ConstantsGen.sol` come from:
 
 | Field | Value |
 |---|---|
-| `vkTreeRoot` | `0x2b93bfe8572e35ace261fa350a4e40327ec2dc83d5d5e2966e161561d2e9e04d` |
-| `protocolContractsHash` | `0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378` |
-| `genesisArchiveRoot` | `0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6` |
+| `vkTreeRoot` | `0x22fff5de6ce590153df4468f7f0b152188a803d91b3c9c648b91d93d5913f219` |
+| `protocolContractsHash` | `0x0f54271c52865841a77aaa66036eed901aff22fdce9f08e123ec8b205c9854d7` |
+| `genesisArchiveRoot` | `0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4` |
 | verifier `VK_HASH` | `0x1fd4eb1d14be45e05dc78c448eb4f29d7f63e4de95129c4a5e1058cd9837f8a6` |
 
-Only `vkTreeRoot` differs from the earlier values read at `d521f0d9` (`0x2d89003c…908ee10e3`): the
-protocol circuits changed, rotating the verification keys. The Noir compiler, `avm-transpiler` and
-the protocol contracts did not change, so the other two hold.
+All three moved when the release build advanced to `42fae4eb`, which changes protocol circuit
+sources, including `types/src/address/aztec_address.nr` and `types/src/constants.nr`. The verifier
+did not: `VK_HASH` is unchanged and the pinned file only gained a new provenance comment. It still
+differs from the verifier this branch's own circuits build, which is what the pin exists for.
 
 Regenerate all of them, and re-pin the verifier and `ConstantsGen.sol`, if the release build moves
 to a commit that changes the protocol circuits or protocol contracts: rebuilding the circuits moves

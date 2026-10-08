@@ -3,7 +3,7 @@
 // Copyright 2022 Aztec
 pragma solidity ^0.8.27;
 
-// Note: copied from v6@9f7f5055e989b21a7da3f512e72f6f004ed09909
+// Note: copied from v6@42fae4eb3feb5a493f2e8a2baf78b4716e323c40
 
 interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
