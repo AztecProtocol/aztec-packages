@@ -262,9 +262,14 @@ void SpscShm::publish(size_t n)
     // synchronizes with the data and wrap_head writes above.
     ctrl_->head.store(head + total_advance, std::memory_order_release);
 
-    if (ctrl_->consumer_blocked.load(std::memory_order_acquire)) {
-        // Ensure that head update is visible before waking consumer.
-        std::atomic_thread_fence(std::memory_order_release);
+    // The wake is skipped unless the consumer has flagged that it is about to
+    // sleep. That is a store-then-load on each side (here head then the flag;
+    // the waiter the flag then head), and release/acquire lets each load run
+    // ahead of its own store, so both sides could miss the other's write and
+    // the consumer sleep on published data. A seq_cst fence on both sides
+    // guarantees at least one of them sees the other.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    if (ctrl_->consumer_blocked.load(std::memory_order_relaxed)) {
         futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
     }
 }
@@ -321,9 +326,9 @@ void SpscShm::release(size_t n)
     uint64_t new_tail = tail + total_release;
     ctrl_->tail.store(new_tail, std::memory_order_release);
 
-    if (ctrl_->producer_blocked.load(std::memory_order_acquire)) {
-        // Ensure that tail update is visible before waking producer.
-        std::atomic_thread_fence(std::memory_order_release);
+    // Pairs with the fence in wait_for_space(); see publish().
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    if (ctrl_->producer_blocked.load(std::memory_order_relaxed)) {
         futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
     }
 }
@@ -416,6 +421,9 @@ bool SpscShm::wait_for_data(size_t need, uint64_t timeout_ns)
     uint32_t head_now = static_cast<uint32_t>(ctrl_->head.load(std::memory_order_acquire));
 
     ctrl_->consumer_blocked.store(true, std::memory_order_release);
+    // Pairs with the fence in publish(): the flag must be visible before the
+    // re-check reads head.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
 
     if (check_available()) {
         ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
@@ -521,6 +529,9 @@ bool SpscShm::wait_for_space(size_t need, uint64_t timeout_ns)
 
     // Wait on futex for consumer to signal freed space
     ctrl_->producer_blocked.store(true, std::memory_order_release);
+    // Pairs with the fence in release(): the flag must be visible before the
+    // re-check reads tail.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
 
     if (check_space()) {
         ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
