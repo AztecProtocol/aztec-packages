@@ -15,7 +15,7 @@ include "../scalar_mul.pil";
  *   4. public_keys_hash          = H(DOM_SEP__PUBLIC_KEYS_HASH,
  *                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash, tagging_key_hash,
  *                                    message_signing_key_hash, fallback_key_hash)
- *   5. preaddress                = H(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
+ *   5. preaddress                = H(DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address)
  *   6. preaddress_public_key     = preaddress * G1
  *   7. address                   = (preaddress_public_key + incoming_viewing_key).x
  *
@@ -127,7 +127,7 @@ namespace address_derivation;
     //   4. public_keys_hash          = H(DOM_SEP__PUBLIC_KEYS_HASH,
     //                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash,
     //                                    tagging_key_hash, message_signing_key_hash, fallback_key_hash)
-    //   5. preaddress                = H(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
+    //   5. preaddress                = H(DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address)
     //
 
     // Lookup constant support: Can be removed when we support constants in lookups.
@@ -148,7 +148,7 @@ namespace address_derivation;
     pol commit public_keys_hash_domain_separator;
     sel * (public_keys_hash_domain_separator - constants.DOM_SEP__PUBLIC_KEYS_HASH) = 0;
     pol commit preaddress_domain_separator;
-    sel * (preaddress_domain_separator - constants.DOM_SEP__CONTRACT_ADDRESS_V2) = 0;
+    sel * (preaddress_domain_separator - constants.DOM_SEP__CONTRACT_ADDRESS_V3) = 0;
 
     // 1. Computation of salted initialization hash
     pol commit salted_init_hash;
@@ -226,8 +226,8 @@ namespace address_derivation;
     pol commit preaddress;
 
     // We have 3 inputs, hence a single Poseidon2 round:
-    //  preaddress = H(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
-    //   Round 1 (start, input_len=3, end): (DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
+    //  preaddress = H(DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address)
+    //   Round 1 (start, input_len=3, end): (DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address)
 
     // Enforces the single round of preaddress. Since input_len=3 fills exactly one permutation,
     // this start lookup is also the final round and no separate end lookup is needed (the poseidon trace

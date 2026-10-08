@@ -76,7 +76,7 @@ TEST(AddressDerivationTraceGenTest, TraceGeneration)
                 ROW_FIELD_EQ(address_derivation_single_public_key_hash_domain_separator,
                              DOM_SEP__SINGLE_PUBLIC_KEY_HASH),
                 ROW_FIELD_EQ(address_derivation_public_keys_hash_domain_separator, DOM_SEP__PUBLIC_KEYS_HASH),
-                ROW_FIELD_EQ(address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V2),
+                ROW_FIELD_EQ(address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V3),
                 ROW_FIELD_EQ(address_derivation_g1_x, EmbeddedCurvePoint::one().x()),
                 ROW_FIELD_EQ(address_derivation_g1_y, EmbeddedCurvePoint::one().y()),
                 ROW_FIELD_EQ(address_derivation_const_two, 2),

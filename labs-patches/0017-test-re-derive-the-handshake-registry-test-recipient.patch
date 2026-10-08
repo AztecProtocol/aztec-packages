@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Wed, 7 Oct 2026 21:21:09 -0300
+Subject: [PATCH] test: re-derive the handshake registry test recipient with
+ the v3 separator
+
+RecipientSignature::verify first checks the recipient against
+AztecAddress::compute(public_keys, partial_address). The fixture's recipient
+was that address under CONTRACT_ADDRESS_V2, so every test now fails there,
+and interactive_signature_rejects_off_curve_signing_key fails with the wrong
+message. The signature commits to the chain, registry and ephemeral key but
+not the recipient, so only the address changes.
+
+diff --git a/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/recipient_signature.nr b/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/recipient_signature.nr
+index 9e8ab5192c6d32b3b071d53c6bee547b4d6950f6..1910167547862a0e060a574ceb8dc1833fce5586 100644
+--- a/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/recipient_signature.nr
++++ b/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/recipient_signature.nr
+@@ -168,7 +168,7 @@ mod test {
+             ),
+         };
+         let recipient = AztecAddress::from_field(
+-            0x1b94108a8172e103629879215c11f224522aa1bd0e4d50505c041c500f82d15b,
++            0x1866b3a27833a08ad11e6a93fc45227aca73ef01e8df719a11f078ab9bfef2c4,
+         );
+         let chain_id = 0x7a69;
+         let version = 1;
