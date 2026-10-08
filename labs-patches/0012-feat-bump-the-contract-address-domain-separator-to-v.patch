@@ -6,20 +6,20 @@ Subject: [PATCH] feat!: bump the contract address domain separator to v3
 Rename DOM_SEP__CONTRACT_ADDRESS_V2 to DOM_SEP__CONTRACT_ADDRESS_V3 (993442748, hash_to_u32("az_dom_sep", "contract_address_v3")) so v6 contract addresses cannot collide with v5 ones, and refresh the address test vectors, the noir_test_gen snapshot and the standard-contract address tables that derive from it.
 
 diff --git a/noir-projects/aztec-nr/aztec/src/standard_addresses.nr b/noir-projects/aztec-nr/aztec/src/standard_addresses.nr
-index 8ea6b15103c98c606e740718a216211fa9f543a2..1b8553a00d13f89d8f8089940e958e1f2cae7b38 100644
+index 2335167fd4ffda0d04c955c7544429f1de444e74..9e6628e3b2874670259a162728b1a5243ed41f9c 100644
 --- a/noir-projects/aztec-nr/aztec/src/standard_addresses.nr
 +++ b/noir-projects/aztec-nr/aztec/src/standard_addresses.nr
 @@ -2,17 +2,17 @@
  use protocol_types::{address::AztecAddress, traits::FromField};
  
  pub global STANDARD_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
--    0x1ec33912c9f14470513e0eb23db81ddb2aa1ae3395e6ab4d3cba383f68dec3c5,
-+    0x193392554ff4cc24ac9acd5488a436e9e8eea429ae0edc8de082575b2c964399,
+-    0x2e05e8fbfb2ce9a31e4b4ae5097c01b79d9b3529b1e861016c9c9a5d62fdf7c9,
++    0x0be10329556fe4509df7237c5bca1d697bf9967bd2470e91f9eacd87eaae1b14,
  );
  
  pub global STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(
--    0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6,
-+    0x063b74f69435c76e490b3dedd9238552228b523f233235152b236981cdf025f4,
+-    0x09b93e8efd54a70cd718bc4d8ecf52c51db8150d300c8877c56796ee8c505137,
++    0x20371f16e7e6e10ecf4a7163845f6c47c883c77bb50e4d963da273e37d2b8723,
  );
  
  pub global STANDARD_PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(
@@ -28,14 +28,14 @@ index 8ea6b15103c98c606e740718a216211fa9f543a2..1b8553a00d13f89d8f8089940e958e1f
  );
  
  pub global STANDARD_HANDSHAKE_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
--    0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7,
-+    0x13833f89e250646a1ca08fef8b00bc96eb20df07bc0917bcdba3adedbdf99611,
+-    0x24d2effac2983dfcae3aea48019aa10b80a7d2cfddc52cdbd9b90745ed0b0fc7,
++    0x29de142cc0919dc45cb6fc7a992e740a0eb1972f68f53f91c933e30f3d3feb27,
  );
 diff --git a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
-index 0219b7218fba0b917972a902fd22cbdc3b110901..1a8a867c5e505ff4199be444938587ea7c8b144a 100644
+index 41a5e7ba73fe97bc09aaa1131ea38c02e177af87..ad72839a170f128039f8687665e0c8a354eded3a 100644
 --- a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
 +++ b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
-@@ -20,7 +20,7 @@ use crate::protocol::constants::{
+@@ -21,7 +21,7 @@ use crate::protocol::constants::{
      DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z,
      DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC,
      DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
@@ -44,7 +44,7 @@ index 0219b7218fba0b917972a902fd22cbdc3b110901..1a8a867c5e505ff4199be444938587ea
      DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FBSK_M, DOM_SEP__FUNCTION_ARGS,
      DOM_SEP__HANDSHAKE_FORGERY_PROTECTION, DOM_SEP__INITIALIZER, DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE,
      DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__MSSK_M, DOM_SEP__NHK_M,
-@@ -71,7 +71,7 @@ global PROTOCOL_DOMAIN_SEPARATORS: [u32; 59] = [
+@@ -72,7 +72,7 @@ global PROTOCOL_DOMAIN_SEPARATORS: [u32; 59] = [
      DOM_SEP__PUBLIC_KEYS_HASH,
      DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
      DOM_SEP__PARTIAL_ADDRESS,
@@ -85,24 +85,24 @@ index a762988924af77a5a32b71b9a0661c237db4a1b5..ea2f7e36ce2836ffa1e294236fa6f871
    "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000000315",
    "contract_class_id": "ContractClassId { inner: 0x07a63b1343bb8515d1115202c71cdc95f9bcda9c2237bdfc25435b89ffa06b46 }",
 diff --git a/yarn-project/standard-contracts/src/standard_contract_data.ts b/yarn-project/standard-contracts/src/standard_contract_data.ts
-index f6af2f01a14e49a0b238a5e86e2a874fe694a66f..09bd527febf33c8f1e8196a5c44dae5bfd7b11c4 100644
+index 88ac2e2e353d5599d907ea6840a2d493417a2f5e..c0e491a1374db42e93b5b5bdbeac37cedcb1a130 100644
 --- a/yarn-project/standard-contracts/src/standard_contract_data.ts
 +++ b/yarn-project/standard-contracts/src/standard_contract_data.ts
 @@ -20,13 +20,13 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
  };
  
  export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
--  AuthRegistry: AztecAddress.fromStringUnsafe('0x1ec33912c9f14470513e0eb23db81ddb2aa1ae3395e6ab4d3cba383f68dec3c5'),
-+  AuthRegistry: AztecAddress.fromStringUnsafe('0x193392554ff4cc24ac9acd5488a436e9e8eea429ae0edc8de082575b2c964399'),
+-  AuthRegistry: AztecAddress.fromStringUnsafe('0x2e05e8fbfb2ce9a31e4b4ae5097c01b79d9b3529b1e861016c9c9a5d62fdf7c9'),
++  AuthRegistry: AztecAddress.fromStringUnsafe('0x0be10329556fe4509df7237c5bca1d697bf9967bd2470e91f9eacd87eaae1b14'),
    MultiCallEntrypoint: AztecAddress.fromStringUnsafe(
--    '0x2b48f1a970a1411924daef8cf51cd86ee7e79615b9240cdc40853bb5a90b83b6',
-+    '0x063b74f69435c76e490b3dedd9238552228b523f233235152b236981cdf025f4',
+-    '0x09b93e8efd54a70cd718bc4d8ecf52c51db8150d300c8877c56796ee8c505137',
++    '0x20371f16e7e6e10ecf4a7163845f6c47c883c77bb50e4d963da273e37d2b8723',
    ),
 -  PublicChecks: AztecAddress.fromStringUnsafe('0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe'),
 +  PublicChecks: AztecAddress.fromStringUnsafe('0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a'),
    HandshakeRegistry: AztecAddress.fromStringUnsafe(
--    '0x06196e77f13813a124c9049d41540b6d61c010a9dea5270fbd59d1f01225bff7',
-+    '0x13833f89e250646a1ca08fef8b00bc96eb20df07bc0917bcdba3adedbdf99611',
+-    '0x24d2effac2983dfcae3aea48019aa10b80a7d2cfddc52cdbd9b90745ed0b0fc7',
++    '0x29de142cc0919dc45cb6fc7a992e740a0eb1972f68f53f91c933e30f3d3feb27',
    ),
  };
  

@@ -170,15 +170,9 @@ void assert_fork_state_unchanged(const WorldState& ws,
 TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
 {
     // The canonical genesis of a production network: the protocol contracts' registration nullifiers seeded into an
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/world_state/world_state.test.cpp
     // otherwise empty world state. These leaves determine the GENESIS_* constants asserted below, so the header and
     // the constants are regenerated together.
     std::vector<bb::fr> prefilled_nullifiers = genesis_protocol_nullifiers();
-=======
-    // otherwise empty world state. The roots asserted below are measured from the same artifacts as the seeds and
-    // travel with them in genesis_protocol_nullifiers.hpp, so the two cannot drift apart.
-    std::vector<fr> prefilled_nullifiers = genesis_protocol_nullifiers();
->>>>>>> a36ddcc1c4c (feat!: bump the contract address domain separator to v3 (#25521)):native-packages/wsdb/cpp/src/world_state/world_state.test.cpp
     WorldState ws(thread_pool_size,
                   data_dir,
                   map_size,
@@ -194,11 +188,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         // appended, so the tree size stays 128 while the root reflects the seeded values.
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/world_state/world_state.test.cpp
         EXPECT_EQ(info.meta.root, bb::fr(GENESIS_NULLIFIER_TREE_ROOT));
-=======
-        EXPECT_EQ(info.meta.root, genesis_nullifier_tree_root());
->>>>>>> a36ddcc1c4c (feat!: bump the contract address domain separator to v3 (#25521)):native-packages/wsdb/cpp/src/world_state/world_state.test.cpp
     }
 
     {
@@ -227,18 +217,11 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         EXPECT_EQ(info.meta.size, 1);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::ARCHIVE));
         // this is the expected archive tree root at genesis
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/world_state/world_state.test.cpp
         EXPECT_EQ(info.meta.root, bb::fr(GENESIS_ARCHIVE_ROOT));
 
         // The leaf at index 0 is the genesis block hash.
         assert_leaf_value(
             ws, WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, 0, bb::fr(GENESIS_BLOCK_HEADER_HASH));
-=======
-        EXPECT_EQ(info.meta.root, genesis_archive_root());
-
-        // The leaf at index 0 is the genesis block hash.
-        assert_leaf_value(ws, committed_revision(), MerkleTreeId::ARCHIVE, 0, genesis_block_header_hash());
->>>>>>> a36ddcc1c4c (feat!: bump the contract address domain separator to v3 (#25521)):native-packages/wsdb/cpp/src/world_state/world_state.test.cpp
     }
 }
 
