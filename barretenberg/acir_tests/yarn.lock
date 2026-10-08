@@ -3822,13 +3822,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"os-tmpdir@npm:~1.0.2":
-  version: 1.0.2
-  resolution: "os-tmpdir@npm:1.0.2"
-  checksum: 10c0/f438450224f8e2687605a8dd318f0db694b6293c5d835ae509a69e97c8de38b6994645337e5577f5001115470414638978cc49da1cdcc25106dad8738dc69990
-  languageName: node
-  linkType: hard
-
 "p-limit@npm:^2.2.0":
   version: 2.3.0
   resolution: "p-limit@npm:2.3.0"
@@ -4816,13 +4809,13 @@ __metadata:
   resolution: "sol-test@workspace:sol-test"
   dependencies:
     ethers: "npm:^6.8.1"
-    solc: "npm:^0.8.27"
+    solc: "npm:0.8.37"
   languageName: unknown
   linkType: soft
 
-"solc@npm:^0.8.27":
-  version: 0.8.28
-  resolution: "solc@npm:0.8.28"
+"solc@npm:0.8.37":
+  version: 0.8.37
+  resolution: "solc@npm:0.8.37"
   dependencies:
     command-exists: "npm:^1.2.8"
     commander: "npm:^8.1.0"
@@ -4830,10 +4823,10 @@ __metadata:
     js-sha3: "npm:0.8.0"
     memorystream: "npm:^0.3.1"
     semver: "npm:^5.5.0"
-    tmp: "npm:0.0.33"
+    tmp: "npm:0.2.6"
   bin:
     solcjs: solc.js
-  checksum: 10c0/83f06f81f28794102a3cc8d12bfb02044fb146478e148821f0fcf1d4cd97fd5ece7cb29f2a0d3fbaf075f9861bbf03592006db0118ac9f97689915a2265ce78f
+  checksum: 10c0/aac3f4490cc55d2ebee0e64a522b698e4e13f57b22699f24d72aa9d2287791aad7c3be17f3232183993b8dee1365ba9326a894c60aa9a816cf9dbc0bc8bae740
   languageName: node
   linkType: hard
 
@@ -5173,12 +5166,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tmp@npm:0.0.33":
-  version: 0.0.33
-  resolution: "tmp@npm:0.0.33"
-  dependencies:
-    os-tmpdir: "npm:~1.0.2"
-  checksum: 10c0/69863947b8c29cabad43fe0ce65cec5bb4b481d15d4b4b21e036b060b3edbf3bc7a5541de1bacb437bb3f7c4538f669752627fdf9b4aaf034cebd172ba373408
+"tmp@npm:0.2.6":
+  version: 0.2.6
+  resolution: "tmp@npm:0.2.6"
+  checksum: 10c0/fa5b9bfbe60f70904aba5c96b4970e9158d99867891302d10320fe35eee1e45f42946fded4cf5c8514baa087bebee44419029b7deb227da05a68b5205a12d8ab
   languageName: node
   linkType: hard
 
