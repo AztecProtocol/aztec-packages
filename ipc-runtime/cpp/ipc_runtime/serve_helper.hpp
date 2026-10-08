@@ -36,8 +36,9 @@ struct ServerOptions {
  * @brief Construct an IpcServer based on the input path's suffix.
  *
  * Recognised inputs:
- *  - "-"      → IpcServer::create_pipe(STDIN_FILENO, STDOUT_FILENO) — serve the
- *               process's own stdio (parent spawned us with piped stdio)
+ *  - "-"      → IpcServer::create_pipe over the process's own stdin and a
+ *               duplicate of stdout (parent spawned us with piped stdio). fd 1 is
+ *               then pointed at stderr so stray stdout writes can't corrupt frames.
  *  - "*.sock" → IpcServer::create_socket(path, opts.socket_backlog)
  *  - "*.shm"  → IpcServer::create_mpsc_shm(<basename>, opts.max_shm_clients,
  *                                          opts.shm_request_ring_size,

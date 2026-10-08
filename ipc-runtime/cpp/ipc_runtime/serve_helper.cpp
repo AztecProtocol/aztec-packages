@@ -1,7 +1,11 @@
 #include "ipc_runtime/serve_helper.hpp"
 
+#include <cerrno>
+#include <cstdio>
+#include <fcntl.h>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <unistd.h>
 
 namespace ipc {
@@ -20,7 +24,19 @@ std::unique_ptr<IpcServer> make_server(const std::string& input_path, const Serv
     // "-" is the conventional CLI spelling for stdio: serve the process's own
     // stdin/stdout (a parent spawned us with piped stdio, PipeBackend-style).
     if (input_path == "-") {
-        return IpcServer::create_pipe(STDIN_FILENO, STDOUT_FILENO);
+        // stdout becomes the frame stream, so anything else the process writes
+        // there (std::cout, printf, a library's diagnostics) would corrupt it.
+        // Serve on a private duplicate and point fd 1 at stderr instead.
+        std::fflush(stdout);
+        int frame_out = ::fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
+        if (frame_out < 0 || ::dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
+            int err = errno;
+            if (frame_out >= 0) {
+                ::close(frame_out);
+            }
+            throw std::system_error(err, std::generic_category(), "make_server: cannot take stdout for the pipe");
+        }
+        return IpcServer::create_pipe(STDIN_FILENO, frame_out);
     }
     if (ends_with(input_path, ".sock")) {
         return IpcServer::create_socket(input_path, opts.socket_backlog);
