@@ -271,7 +271,7 @@ The consumer's `peek()` automatically skips padding, so callers never see it.
 Instead of busy-waiting forever:
 1. **Producer**: Spins briefly checking for space, then sleeps on the `tail` futex (armed against the current tail value)
 2. **Consumer**: Spins briefly checking for data, then sleeps on the `head` futex (armed against the current head value)
-3. **Wakeup**: Before sleeping, the waiter sets `consumer_blocked`/`producer_blocked` and re-checks the ring; it clears the flag when it wakes. The other side calls `futex_wake` after publishing/releasing only while that flag is set, so a busy channel makes no syscalls at all. `futex_wait` re-checks the armed value atomically under the futex bucket lock, so a publish/release that races the sleep returns `EAGAIN` instead of sleeping.
+3. **Wakeup**: Before sleeping, the waiter sets `consumer_blocked`/`producer_blocked` and re-checks the ring; it clears the flag when it wakes. The other side calls `futex_wake` after publishing/releasing only while that flag is set, so a busy channel makes no syscalls at all. Each side stores (data index or flag) and then loads the other's, so both put a `seq_cst` fence between the two: release/acquire alone lets the load run ahead of the store, and both sides could then miss each other. `futex_wait` re-checks the armed value atomically under the futex bucket lock, so a publish/release that races the sleep returns `EAGAIN` instead of sleeping.
 
 This provides:
 - Low latency when active (spin catches transitions, and no wake syscalls)

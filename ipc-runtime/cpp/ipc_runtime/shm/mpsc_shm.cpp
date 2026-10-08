@@ -274,6 +274,10 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
 
     // Set blocked flag RIGHT BEFORE futex_wait
     doorbell_->consumer_blocked.store(true, std::memory_order_release);
+    // Pairs with the fences after the producers' seq bumps: either a producer
+    // sees this flag and wakes us, or the seq it bumped is visible to the
+    // futex_wait comparison below and we do not sleep.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq, remaining_timeout);
     // Clear blocked flag RIGHT AFTER futex_wait returns
     doorbell_->consumer_blocked.store(false, std::memory_order_relaxed);
@@ -338,7 +342,8 @@ void MpscConsumer::notify()
     doorbell_->seq.fetch_add(1, std::memory_order_release);
     // Same conditional wake as MpscProducer::publish: only a consumer actually blocked on the doorbell needs the
     // syscall.
-    if (doorbell_->consumer_blocked.load(std::memory_order_acquire)) {
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    if (doorbell_->consumer_blocked.load(std::memory_order_relaxed)) {
         futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
     }
 }
@@ -468,7 +473,9 @@ void MpscProducer::publish(size_t n)
     // then wake only if the consumer is blocked on the futex.
     doorbell_->seq.fetch_add(1, std::memory_order_release);
 
-    if (doorbell_->consumer_blocked.load(std::memory_order_acquire)) {
+    // Store-then-load against the consumer's flag-then-seq; see SpscShm::publish.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    if (doorbell_->consumer_blocked.load(std::memory_order_relaxed)) {
         futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
     }
 }
