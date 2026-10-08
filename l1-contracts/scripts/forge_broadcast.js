@@ -31,12 +31,31 @@
 // started from the same project directory cannot overlap. Broadcasts from one directory are queued on a
 // lock file here so the second one waits instead of failing.
 //
+// forge (as of 1.8) records its remappings as absolute paths in `cache/solidity-files-cache.json`
+// and discards the whole cache when they differ from the project's, so a project directory copied away
+// from where it was built (the l1-artifacts bundle copied to a temp deploy directory, a release image)
+// recompiles every script it runs from scratch. Besides the time spent, the chain keeps moving while
+// forge compiles: on an interval-mining anvil the flush lands a dozen or more blocks after the rollup's
+// genesis. Before broadcasting, the cache's recorded paths are rebased onto the current directory so
+// the prebuilt artifacts are reused.
+//
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
 //        (without --broadcast or --slow — added automatically)
 
 import { spawn } from "node:child_process";
-import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
-import { join } from "node:path";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
+import { isAbsolute, join, sep } from "node:path";
 
 const log = (msg) => process.stderr.write(`[forge_broadcast] ${msg}\n`);
 
@@ -85,6 +104,44 @@ async function acquireBroadcastLock(projectDir) {
       waited = true;
       await sleep(250);
     }
+  }
+}
+
+function commonDir(paths) {
+  const split = paths.map((p) => p.split(sep).filter((part, i) => i === 0 || part !== ""));
+  const common = [];
+  for (let i = 0; split.every((parts) => i < parts.length && parts[i] === split[0][i]); i++) common.push(split[0][i]);
+  return common.join(sep);
+}
+
+// Rewrites the absolute paths in forge's compilation cache from the directory the cache was built in to
+// `projectDir`, so a copied project reuses its prebuilt artifacts. The build directory is the deepest
+// directory holding every remapping target; the cache is left untouched unless every target lies strictly
+// below it and exists under `projectDir` at the same relative path.
+function rebaseForgeCache(projectDir) {
+  const path = join(projectDir, "cache", "solidity-files-cache.json");
+  let text, cache;
+  try {
+    text = readFileSync(path, "utf8");
+    cache = JSON.parse(text);
+  } catch {
+    return;
+  }
+  const targets = (Array.isArray(cache.remappings) ? cache.remappings : [])
+    .map((r) => String(r).slice(String(r).indexOf("=") + 1))
+    .filter((target) => isAbsolute(target));
+  if (targets.length === 0) return;
+  const builtIn = commonDir(targets);
+  if (!builtIn || builtIn === sep || builtIn === projectDir) return;
+  const rebasedTargets = targets.map((target) => target.slice(builtIn.length));
+  if (!rebasedTargets.every((rel) => rel.length > 1 && existsSync(projectDir + rel))) return;
+  const tmp = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, text.replaceAll(builtIn + sep, projectDir + sep));
+    renameSync(tmp, path);
+    log(`Rebased the forge cache from ${builtIn} onto ${projectDir}.`);
+  } catch (err) {
+    log(`Could not rebase the forge cache onto ${projectDir}, forge will recompile: ${err.message}`);
   }
 }
 
@@ -175,6 +232,7 @@ function runForge(forgeArgs) {
 }
 
 const releaseBroadcastLock = await acquireBroadcastLock(process.cwd());
+rebaseForgeCache(realpathSync(process.cwd()));
 
 const deploy = await runForge([...args, ...(serializeTxs ? ["--slow"] : [])]);
 let exitCode = deploy.code;
