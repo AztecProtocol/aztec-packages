@@ -226,12 +226,6 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       rewardBoost: RewardBoostConfig({
         increment: 101_400, maxScore: 367_500, a: 250_000, minimum: 10_000, k: 1_000_000
       }), // AZIP-5; same as v5
-        // Deliberately none at genesis. v5 production carried the per-registry reductions for the
-        // auction and genesis-sale ATP registries in the rollup itself; AZIP-31 moved that policy out
-        // to a calculator contract, and no production calculator exists yet (the reference
-        // implementations are test fixtures). v6 therefore launches paying every proposer the default
-        // sequencer share, and governance installs a calculator in a follow-up payload via
-        // `setSequencerRewardCalculator`. Until that lands, ATP positions earn the default.
       sequencerRewardCalculator: address(0),
       slasherEnabled: true,
       slashingRoundSizeInEpochs: 4,
