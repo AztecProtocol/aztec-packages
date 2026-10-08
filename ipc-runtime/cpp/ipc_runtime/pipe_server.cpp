@@ -1,5 +1,6 @@
 #include "ipc_runtime/pipe_server.hpp"
 #include "ipc_runtime/constants.hpp"
+#include "ipc_runtime/stream_io.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <climits>
@@ -194,10 +195,9 @@ std::span<const uint8_t> PipeServer::receive(int client_id, uint64_t& request_id
         total_read += static_cast<size_t>(n);
     }
 
-    // A corrupt/malicious prefix must not drive the allocation below. A frame
-    // shorter than the request-id field means the peer speaks the id-less
-    // protocol — treat as a fatal desync rather than misparse.
-    if (msg_len > MAX_FRAME_SIZE || msg_len < FRAME_ID_SIZE) {
+    // A frame shorter than the request-id field means the peer speaks the
+    // id-less protocol — treat as a fatal desync rather than misparse.
+    if (msg_len < FRAME_ID_SIZE) {
         fprintf(stderr, "ipc: pipe peer sent an invalid frame (len=%u) — protocol mismatch?\n", msg_len);
         disconnect();
         return {};
@@ -219,28 +219,26 @@ std::span<const uint8_t> PipeServer::receive(int client_id, uint64_t& request_id
     }
     msg_len -= static_cast<uint32_t>(FRAME_ID_SIZE);
 
-    if (recv_buffer_.size() < msg_len || recv_buffer_.empty()) {
-        // Keep at least one byte so data() is non-null for zero-length messages
-        // (null data() signals failure).
-        recv_buffer_.resize(std::max<size_t>(msg_len, 1));
-    }
-
-    total_read = 0;
-    while (total_read < msg_len) {
-        ssize_t n = ::read(in_fd_, recv_buffer_.data() + total_read, msg_len - total_read);
-        if (n < 0) {
-            if (errno == EINTR) {
-                continue; // Interrupted, retry
+    int result = read_payload(recv_buffer_, 0, msg_len, [this](uint8_t* dst, size_t n) {
+        size_t got = 0;
+        while (got < n) {
+            ssize_t r = ::read(in_fd_, dst + got, n - got);
+            if (r < 0) {
+                if (errno == EINTR) {
+                    continue; // Interrupted, retry
+                }
+                return -1;
             }
-            disconnect();
-            return {};
+            if (r == 0) {
+                return 0; // Peer closed mid-message
+            }
+            got += static_cast<size_t>(r);
         }
-        if (n == 0) {
-            // Peer closed mid-message.
-            disconnect();
-            return {};
-        }
-        total_read += static_cast<size_t>(n);
+        return 1;
+    });
+    if (result != 1) {
+        disconnect();
+        return {};
     }
 
     return std::span<const uint8_t>(recv_buffer_.data(), msg_len);
@@ -260,7 +258,7 @@ bool PipeServer::send(int client_id, uint64_t request_id, const void* data, size
         errno = EINVAL;
         return false;
     }
-    if (len > MAX_FRAME_SIZE) {
+    if (len > MAX_FRAME_SIZE - FRAME_ID_SIZE) {
         errno = EMSGSIZE;
         return false;
     }

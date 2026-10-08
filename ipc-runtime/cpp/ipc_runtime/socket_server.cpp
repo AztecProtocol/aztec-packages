@@ -1,5 +1,6 @@
 #include "ipc_runtime/socket_server.hpp"
 #include "ipc_runtime/constants.hpp"
+#include "ipc_runtime/stream_io.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <climits>
@@ -148,7 +149,7 @@ bool SocketServer::send(int client_id, uint64_t request_id, const void* data, si
         return false;
     }
 
-    if (len > MAX_FRAME_SIZE) {
+    if (len > MAX_FRAME_SIZE - FRAME_ID_SIZE) {
         errno = EMSGSIZE;
         return false;
     }
@@ -231,10 +232,9 @@ std::span<const uint8_t> SocketServer::receive(int client_id, uint64_t& request_
         total_read += static_cast<size_t>(n);
     }
 
-    // A corrupt/malicious prefix must not drive the allocation below. A frame
-    // shorter than the request-id field means the peer speaks the id-less
-    // protocol — disconnect rather than misparse.
-    if (msg_len > MAX_FRAME_SIZE || msg_len < FRAME_ID_SIZE) {
+    // A frame shorter than the request-id field means the peer speaks the
+    // id-less protocol — disconnect rather than misparse.
+    if (msg_len < FRAME_ID_SIZE) {
         fprintf(stderr, "ipc: client %d sent an invalid frame (len=%u) — protocol mismatch?\n", client_id, msg_len);
         disconnect_client(client_id);
         return {};
@@ -256,33 +256,30 @@ std::span<const uint8_t> SocketServer::receive(int client_id, uint64_t& request_
     }
     msg_len -= static_cast<uint32_t>(FRAME_ID_SIZE);
 
-    // Resize buffer if needed to fit length prefix + message
-    size_t total_size = sizeof(uint32_t) + msg_len;
-    if (recv_buffer.size() < total_size) {
-        recv_buffer.resize(total_size);
-    }
-
-    // Store length prefix in buffer
-    std::memcpy(recv_buffer.data(), &msg_len, sizeof(uint32_t));
-
-    // Read message data - must loop until all bytes received (MSG_WAITALL unreliable on macOS)
-    total_read = 0;
-    while (total_read < msg_len) {
-        ssize_t n = ::recv(fd, recv_buffer.data() + sizeof(uint32_t) + total_read, msg_len - total_read, 0);
-        if (n < 0) {
-            if (errno == EINTR) {
-                continue; // Interrupted, retry
+    // Read message data after the stored length prefix - must loop until all
+    // bytes received (MSG_WAITALL unreliable on macOS).
+    int result = read_payload(recv_buffer, sizeof(uint32_t), msg_len, [fd](uint8_t* dst, size_t n) {
+        size_t got = 0;
+        while (got < n) {
+            ssize_t r = ::recv(fd, dst + got, n - got, 0);
+            if (r < 0) {
+                if (errno == EINTR) {
+                    continue; // Interrupted, retry
+                }
+                return -1;
             }
-            disconnect_client(client_id);
-            return {};
+            if (r == 0) {
+                return 0; // Client disconnected mid-message
+            }
+            got += static_cast<size_t>(r);
         }
-        if (n == 0) {
-            // Client disconnected mid-message
-            disconnect_client(client_id);
-            return {};
-        }
-        total_read += static_cast<size_t>(n);
+        return 1;
+    });
+    if (result != 1) {
+        disconnect_client(client_id);
+        return {};
     }
+    std::memcpy(recv_buffer.data(), &msg_len, sizeof(uint32_t));
 
     return std::span<const uint8_t>(recv_buffer.data() + sizeof(uint32_t), msg_len);
 }

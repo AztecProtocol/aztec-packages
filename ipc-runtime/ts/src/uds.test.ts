@@ -1,5 +1,5 @@
 // In-process UDS transport tests: UdsIpcServer + UdsIpcClient round-trips,
-// zero-length responses, disconnect handling and oversized-frame rejection.
+// zero-length responses, disconnect handling and truncated/oversized frames.
 // Run via `yarn test` (node --test against the compiled dest/ output).
 
 import { test } from "node:test";
@@ -8,6 +8,7 @@ import * as net from "node:net";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { IpcError, IpcTransportError } from "./errors.js";
 import { UdsIpcClient } from "./uds_client.js";
 import { UdsIpcServer } from "./uds_server.js";
 
@@ -85,15 +86,15 @@ test("disconnect rejects pending calls and fails fast afterwards", async () => {
   }
 });
 
-test("client rejects oversized frame from server", async () => {
-  const socketPath = tmpSocketPath("oversize_cli");
-  // Raw server that answers any request with a corrupt 0xFFFFFFFF length
-  // prefix.
+test("client fails pending calls when the server closes mid-frame", async () => {
+  const socketPath = tmpSocketPath("midframe_cli");
+  // Raw server that claims a ~4 GiB response, sends a few bytes of it and
+  // hangs up.
   const rawServer = net.createServer((conn) => {
     conn.once("data", () => {
-      const bogus = Buffer.allocUnsafe(4);
-      bogus.writeUInt32LE(0xffffffff, 0);
-      conn.write(bogus);
+      const partial = Buffer.alloc(12 + 16);
+      partial.writeUInt32LE(0xffffffff, 0);
+      conn.end(partial);
     });
   });
   await new Promise<void>((resolve) =>
@@ -102,11 +103,33 @@ test("client rejects oversized frame from server", async () => {
 
   const client = await UdsIpcClient.connect(socketPath);
   try {
-    await assert.rejects(client.call(new Uint8Array([1])), /oversized frame/);
+    await assert.rejects(client.call(new Uint8Array([1])), IpcTransportError);
   } finally {
     await client.destroy();
     rawServer.close();
     fs.rmSync(socketPath, { force: true });
+  }
+});
+
+test("a request too large for the frame header rejects without breaking the connection", async () => {
+  const socketPath = tmpSocketPath("too_large");
+  const server = await UdsIpcServer.listen(socketPath, (_id, req) => req);
+  const client = await UdsIpcClient.connect(socketPath);
+  try {
+    // Only the length is consulted before the request is refused, so a stand-in
+    // avoids allocating 4 GiB.
+    const tooLarge = { length: 2 ** 32 } as unknown as Uint8Array;
+    await assert.rejects(client.call(tooLarge), (err: unknown) => {
+      assert.ok(err instanceof IpcError);
+      assert.ok(!(err instanceof IpcTransportError));
+      assert.equal(err.retry, false);
+      return true;
+    });
+    const payload = new Uint8Array([4, 5, 6]);
+    assert.deepEqual(await client.call(payload), payload);
+  } finally {
+    await client.destroy();
+    await server.close();
   }
 });
 
@@ -166,33 +189,26 @@ test("client fails loudly on an id-less (old-protocol) frame", async () => {
   }
 });
 
-test("server drops connection on oversized frame", async () => {
-  const socketPath = tmpSocketPath("oversize_srv");
+test("server keeps serving after a client closes mid-frame", async () => {
+  const socketPath = tmpSocketPath("midframe_srv");
   const server = await UdsIpcServer.listen(socketPath, (_id, req) => req);
   const conn = net.createConnection(socketPath);
-  try {
+  const client = await (async () => {
     await new Promise<void>((resolve, reject) => {
       conn.once("connect", () => resolve());
       conn.once("error", reject);
     });
-    const bogus = Buffer.allocUnsafe(4);
-    bogus.writeUInt32LE(0xffffffff, 0);
-    conn.write(bogus);
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("server did not close the connection")),
-        5000,
-      );
-      conn.once("close", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      conn.once("error", () => {
-        /* RST is fine — close follows */
-      });
-    });
+    const partial = Buffer.alloc(12 + 16);
+    partial.writeUInt32LE(0xffffffff, 0);
+    conn.end(partial);
+    return UdsIpcClient.connect(socketPath);
+  })();
+  try {
+    const payload = new Uint8Array([1, 2, 3]);
+    assert.deepEqual(await client.call(payload), payload);
   } finally {
     conn.destroy();
+    await client.destroy();
     await server.close();
   }
 });

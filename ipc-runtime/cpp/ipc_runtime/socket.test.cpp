@@ -1,5 +1,7 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/stream_io.hpp"
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
@@ -216,11 +218,53 @@ TEST(SocketTest, ZeroLengthResponseRoundTrip)
     server->close();
 }
 
-// A corrupt/malicious length prefix must cause the server to drop the
-// connection, not allocate the claimed amount.
-TEST(SocketTest, ServerRejectsOversizedLengthPrefix)
+// Stream frames have no size cap below the u32 length field, so a corrupt
+// prefix can claim ~4 GiB. The payload buffer must grow with the bytes that
+// actually arrive rather than allocating the claimed size up front.
+TEST(StreamIoTest, ReadPayloadGrowsWithReceivedBytesNotClaimedLength)
 {
-    std::string path = test_socket_path("oversize_srv");
+    constexpr size_t claimed = 0xFFFFFFF7; // largest payload a u32 frame can carry
+    constexpr size_t supplied = 3 * PAYLOAD_READ_CHUNK + 17;
+    size_t delivered = 0;
+    std::vector<uint8_t> buffer;
+    int result = read_payload(buffer, 4, claimed, [&](uint8_t* dst, size_t n) {
+        if (delivered + n > supplied) {
+            return 0; // peer closes before the claimed length arrives
+        }
+        std::memset(dst, 0xab, n);
+        delivered += n;
+        return 1;
+    });
+    EXPECT_EQ(result, 0);
+    EXPECT_LE(buffer.size(), 4 + 2 * supplied + PAYLOAD_READ_CHUNK);
+}
+
+TEST(StreamIoTest, ReadPayloadReadsExactLengthAndKeepsZeroLengthNonNull)
+{
+    std::vector<uint8_t> source(5 * PAYLOAD_READ_CHUNK + 3);
+    for (size_t i = 0; i < source.size(); i++) {
+        source[i] = static_cast<uint8_t>(i * 31);
+    }
+    size_t pos = 0;
+    auto reader = [&](uint8_t* dst, size_t n) {
+        std::memcpy(dst, source.data() + pos, n);
+        pos += n;
+        return 1;
+    };
+    std::vector<uint8_t> buffer;
+    ASSERT_EQ(read_payload(buffer, 0, source.size(), reader), 1);
+    EXPECT_TRUE(std::equal(source.begin(), source.end(), buffer.begin()));
+
+    std::vector<uint8_t> empty;
+    ASSERT_EQ(read_payload(empty, 0, 0, reader), 1);
+    EXPECT_NE(empty.data(), nullptr);
+}
+
+// A peer that claims a huge frame and then hangs up mid-payload must cost the
+// server only that connection: it disconnects the client and keeps serving.
+TEST(SocketTest, ServerDropsClientThatClosesMidFrame)
+{
+    std::string path = test_socket_path("midframe_srv");
     auto server = IpcServer::create_socket(path, 2);
     ASSERT_TRUE(server->listen());
 
@@ -228,7 +272,7 @@ TEST(SocketTest, ServerRejectsOversizedLengthPrefix)
         server->run([](int, std::span<const uint8_t> req) { return std::vector<uint8_t>(req.begin(), req.end()); });
     });
 
-    // Raw client so we can write a bogus frame.
+    // Raw client so we can write a truncated frame.
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     ASSERT_GE(fd, 0);
     struct sockaddr_un addr;
@@ -237,28 +281,34 @@ TEST(SocketTest, ServerRejectsOversizedLengthPrefix)
     std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
     ASSERT_EQ(::connect(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)), 0);
 
-    uint32_t bogus_len = 0x7FFFFFFF; // ~2 GiB, way over MAX_FRAME_SIZE
-    ASSERT_EQ(::send(fd, &bogus_len, sizeof(bogus_len), 0), static_cast<ssize_t>(sizeof(bogus_len)));
-
-    // Server should close the connection. recv with a timeout so a buggy
-    // server (waiting for 2 GiB of payload) fails the test instead of hanging.
-    struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    uint8_t buf[4];
-    ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
-    EXPECT_EQ(n, 0) << "server should have closed the connection on oversized frame";
+    uint32_t claimed_len = 0xFFFFFFFF;
+    uint64_t request_id = 7;
+    uint8_t payload[16] = {};
+    ASSERT_EQ(::send(fd, &claimed_len, sizeof(claimed_len), 0), static_cast<ssize_t>(sizeof(claimed_len)));
+    ASSERT_EQ(::send(fd, &request_id, sizeof(request_id), 0), static_cast<ssize_t>(sizeof(request_id)));
+    ASSERT_EQ(::send(fd, payload, sizeof(payload), 0), static_cast<ssize_t>(sizeof(payload)));
     ::close(fd);
+
+    auto client = IpcClient::create_socket(path);
+    ASSERT_TRUE(client->connect());
+    const std::vector<uint8_t> request = { 1, 2, 3 };
+    ASSERT_TRUE(client->send(request.data(), request.size(), 2'000'000'000ULL));
+    auto resp = client->receive(2'000'000'000ULL);
+    ASSERT_NE(resp.data(), nullptr);
+    EXPECT_EQ(std::vector<uint8_t>(resp.begin(), resp.end()), request);
+    client->release(resp.size());
+    client->close();
 
     server->request_shutdown();
     server_thread.join();
     server->close();
 }
 
-// Same on the client side: a bogus length prefix from the server must be
-// rejected (connection closed), not trusted as an allocation size.
-TEST(SocketTest, ClientRejectsOversizedLengthPrefix)
+// Same on the client side: a server that claims a huge frame and closes
+// mid-payload is an error, not a hang or an up-front allocation.
+TEST(SocketTest, ClientErrorsWhenServerClosesMidFrame)
 {
-    std::string path = test_socket_path("oversize_cli");
+    std::string path = test_socket_path("midframe_cli");
 
     int listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     ASSERT_GE(listen_fd, 0);
@@ -275,19 +325,19 @@ TEST(SocketTest, ClientRejectsOversizedLengthPrefix)
         if (conn_fd < 0) {
             return;
         }
-        uint32_t bogus_len = 0x7FFFFFFF;
-        ::send(conn_fd, &bogus_len, sizeof(bogus_len), 0);
-        // Leave the connection open: a buggy client would block waiting for
-        // ~2 GiB of payload (bounded by its receive timeout).
-        uint8_t buf[1];
-        ::recv(conn_fd, buf, sizeof(buf), 0); // returns when client closes
+        uint32_t claimed_len = 0xFFFFFFFF;
+        uint64_t request_id = 7;
+        uint8_t payload[16] = {};
+        ::send(conn_fd, &claimed_len, sizeof(claimed_len), 0);
+        ::send(conn_fd, &request_id, sizeof(request_id), 0);
+        ::send(conn_fd, payload, sizeof(payload), 0);
         ::close(conn_fd);
     });
 
     auto client = IpcClient::create_socket(path);
     ASSERT_TRUE(client->connect());
     auto resp = client->receive(2'000'000'000ULL);
-    EXPECT_EQ(resp.data(), nullptr) << "oversized frame must be an error";
+    EXPECT_EQ(resp.data(), nullptr) << "a truncated frame must be an error";
 
     client->close();
     fake_server.join();
