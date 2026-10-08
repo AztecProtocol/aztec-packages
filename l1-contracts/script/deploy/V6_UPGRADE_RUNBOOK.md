@@ -115,7 +115,7 @@ deploy these must be set:
 | `vkTreeRoot` | set | `0x22fff5de…5913f219`, from the v6 release build at `42fae4eb`; see below |
 | `protocolContractsHash` | set | `0x0f54271c…5c9854d7`, same build |
 | `genesisArchiveRoot` | set | `0x29eb2c52…3d41e5c4`, same build. Must be below the BN254 scalar field modulus |
-| `initialEthPerFeeAsset` | **TODO — mainnet** | E12 ETH-per-fee-asset price; a point-in-time market value, refresh at deploy time |
+| `initialEthPerFeeAsset` | set | mainnet `5_934_240` (0.0000059342 ETH per AZTEC, from the AZTEC/ETH Uniswap v4 pool at block 26148995, 2026-10-08); Sepolia `10_000_000`. E12 ETH-per-fee-asset price |
 | `sequencerRewardCalculator` | set | `address(0)` on both chains — v6 launches with no calculator, see below |
 | `oldFlushRewarder` | set (mainnet) | `0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e`; zero on Sepolia |
 | `earmarkAmountForPredecessor` | set | mainnet 1,800,000e18; Sepolia 5,000,000e18. Zero would omit both earmark actions |
@@ -125,8 +125,8 @@ deploy these must be set:
 | `enforcePayloadExecutionWindow` | set | `true` on mainnet, `false` on Sepolia |
 | `proofOfPossessionGasLimit` | set | `300_000` on both chains; zero omits the action. The payload constructor reverts unless it exceeds the GSE's cap at deployment |
 
-Sepolia has no outstanding values. On mainnet only `initialEthPerFeeAsset` is an open decision; the
-three genesis values are not decisions but build outputs, pinned with the verifier.
+Neither chain has outstanding values. The three genesis values are not decisions but build outputs,
+pinned with the verifier.
 
 `run()` refuses to proceed while any of the three genesis roots is zero, so a forgotten root fails
 loudly. A *stale* root does not: it is non-zero and deploys happily. Nothing guards the rest either

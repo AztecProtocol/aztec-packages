@@ -105,8 +105,8 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
     uint256 entryQueueNormalFlushSizeMin;
     uint256 entryQueueNormalFlushSizeQuotient;
     uint256 entryQueueMaxFlushSize;
-    // Fees. `initialEthPerFeeAsset` is an E12 fixed-point ETH-per-fee-asset price and is therefore
-    // a point-in-time market value that must be refreshed before the deploy.
+    // Fees. `initialEthPerFeeAsset` is an E12 fixed-point ETH-per-fee-asset price, a point-in-time
+    // market value; the mainnet literal records where and when it was read.
     uint256 manaTarget;
     uint256 provingCostPerMana;
     uint256 initialEthPerFeeAsset;
@@ -218,7 +218,9 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       entryQueueMaxFlushSize: 4, // v5 production: 4
       manaTarget: 75_000_000, // v5 production: 75_000_000
       provingCostPerMana: 12_500_000, // v5 production: 12_500_000 (set by AZIP-16)
-      initialEthPerFeeAsset: 10_000_000, // v5 production: 9_512_195, priced 2026-06-11. TODO: refresh before v6 deploy
+        // AZTEC/ETH Uniswap v4 pool 0xce2899b16743cfd5a954d8122d5e07f410305b1aebee39fd73d9f3b9ebf10c2f
+        // at mainnet block 26148995 (2026-10-08): 0.0000059342 ETH per AZTEC. v5 production: 9_512_195.
+      initialEthPerFeeAsset: 5_934_240,
       sequencerBps: 9000, // 90% sequencer / 10% prover. v5 production: 7000
       checkpointReward: 500e18, // same as v5
       rewardBoost: RewardBoostConfig({
@@ -283,9 +285,8 @@ contract DeployRollupForUpgradeV6 is Script, StdAssertions {
       // The Sepolia distributor was funded with ~100.98M FEE, all of it un-earmarked, so this
       // draws from the implicit pool with room to spare.
       c.earmarkAmountForPredecessor = 5_000_000e18;
-      // Pinned rather than inherited so the mainnet TODO below does not read as outstanding here:
-      // testnet fees are not priced against a real market, and this value only sets the starting
-      // point the fee oracle moves from.
+      // Set here rather than inherited from the mainnet market price: testnet fees are not priced
+      // against a real market, and this value only sets the starting point the fee oracle moves from.
       c.initialEthPerFeeAsset = 10_000_000;
       c.retunePredecessorRewards = true;
       c.predecessorSequencerBps = 8000; // 80% sequencer / 20% prover, down from the 9000 v6 runs on
