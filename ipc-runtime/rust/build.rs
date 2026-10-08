@@ -33,7 +33,12 @@ fn collect_sources(dir: &Path, out: &mut Vec<PathBuf>) {
 
 fn main() {
     let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let cpp_dir = crate_dir.join("../cpp");
+    // In the repo the sources sit beside this crate. A published crate has no
+    // sibling directory, so its release step copies them into cpp/ instead.
+    let cpp_dir = [crate_dir.join("../cpp"), crate_dir.join("cpp")]
+        .into_iter()
+        .find(|dir| dir.join("ipc_runtime").is_dir())
+        .expect("ipc-runtime C++ sources not found in ../cpp or cpp");
     let src_dir = cpp_dir.join("ipc_runtime");
 
     let mut sources = Vec::new();
