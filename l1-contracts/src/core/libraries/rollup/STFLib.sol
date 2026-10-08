@@ -120,21 +120,21 @@ library STFLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     // Write to checkpoint 0's slot in the circular buffer
     rollupStore.tempCheckpointLogs[0] = TempCheckpointLog({
-        headerHash: bytes32(0),
-        blobCommitmentsHash: bytes32(0),
-        outHash: bytes32(0),
-        attestationsHash: bytes32(0),
-        payloadDigest: bytes32(0),
-        slotNumber: Slot.wrap(0),
-        feeHeader: FeeHeader({
-          excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, protocolFee: 0, proverCost: 0
-        }),
-        // Genesis Inbox consumption base case, matching the Inbox's genesis bucket-0 sentinel {0, 0, 0}, so
-        // checkpoint 1 validates its consumption against it.
-        inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0,
-        inboxConsumedBucket: 0
-      }).compress();
+      headerHash: bytes32(0),
+      blobCommitmentsHash: bytes32(0),
+      outHash: bytes32(0),
+      attestationsHash: bytes32(0),
+      payloadDigest: bytes32(0),
+      slotNumber: Slot.wrap(0),
+      feeHeader: FeeHeader({
+        excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, protocolFee: 0, proverCost: 0
+      }),
+      // Genesis Inbox consumption base case, matching the Inbox's genesis bucket-0 sentinel {0, 0, 0}, so
+      // checkpoint 1 validates its consumption against it.
+      inboxRollingHash: bytes32(0),
+      inboxMsgTotal: 0,
+      inboxConsumedBucket: 0
+    }).compress();
   }
 
   /**

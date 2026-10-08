@@ -219,9 +219,14 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount == 0 ? 1 : _validatorCount;
 
-    builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(MANA_TARGET)
-      .setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
-      .setValidators(initialValidators).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
+    builder = new RollupBuilder(address(this))
+      .setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET)
+      .setSlotDuration(SLOT_DURATION)
+      .setEpochDuration(EPOCH_DURATION)
+      .setMintFeeAmount(1e30)
+      .setValidators(initialValidators)
+      .setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
       .setStakingQueueConfig(stakingQueueConfig);
 
     _configureRollupBuilder(builder);
@@ -230,9 +235,14 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
       // For tally slashing, we need a round size that's a multiple of epoch duration
       uint256 tallyRoundSize = EPOCH_DURATION * 2; // 64; // 2 * EPOCH_DURATION (32) = 64
       uint256 tallyQuorum = tallyRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
-      builder.setSlasherEnabled(true).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
-        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashAmountSmall(1e18)
-        .setSlashAmountMedium(2e18).setSlashAmountLarge(3e18);
+      builder.setSlasherEnabled(true)
+        .setSlashingQuorum(tallyQuorum)
+        .setSlashingRoundSize(tallyRoundSize)
+        .setSlashingLifetimeInRounds(5)
+        .setSlashingExecutionDelayInRounds(1)
+        .setSlashAmountSmall(1e18)
+        .setSlashAmountMedium(2e18)
+        .setSlashAmountLarge(3e18);
     }
 
     builder.deploy();
@@ -377,12 +387,14 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
 
     Signature memory attestationsAndSignersSignature;
     if (proposer != address(0)) {
-      attestationsAndSignersSignature = createAttestation(
+      attestationsAndSignersSignature =
+      createAttestation(
         proposer,
         AttestationLib.getAttestationsAndSignersDigest(
           AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
         )
-      ).signature;
+      )
+      .signature;
     }
 
     return Checkpoint({

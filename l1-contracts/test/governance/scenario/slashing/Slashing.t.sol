@@ -167,11 +167,17 @@ contract SlashingTest is TestBase {
     }
 
     uint256 roundSize = ROUND_SIZE_IN_EPOCHS * EPOCH_DURATION;
-    RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)
-      .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
-      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds).setSlasherEnabled(true)
-      .setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1).setSlashingOffsetInRounds(2)
-      .setEpochDuration(EPOCH_DURATION).setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setValidators(initialValidators)
+      .setTargetCommitteeSize(COMMITTEE_SIZE)
+      .setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
+      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds)
+      .setSlasherEnabled(true)
+      .setSlashingRoundSize(roundSize)
+      .setSlashingQuorum(roundSize / 2 + 1)
+      .setSlashingOffsetInRounds(2)
+      .setEpochDuration(EPOCH_DURATION)
+      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

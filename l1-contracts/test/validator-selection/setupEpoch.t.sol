@@ -117,7 +117,10 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
     // Overwrite the flushable epoch to 0 to force our ability to add more validators this epoch
     // Now reset the next flushable epoch to 0
-    stdstore.enable_packed_slots().target(address(rollup)).sig(IStaking.getNextFlushableEpoch.selector).depth(0)
+    stdstore.enable_packed_slots()
+      .target(address(rollup))
+      .sig(IStaking.getNextFlushableEpoch.selector)
+      .depth(0)
       .checked_write(uint256(0));
 
     // Add a couple of extra validators during this epoch, the sampled validator set should not change
@@ -155,9 +158,8 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     rollup.setupEpoch();
 
     // Check that the sample seed has been set for two epochs next
-    uint256 nextEpochTimestamp =
-      block.timestamp + TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO * TestConstants.AZTEC_EPOCH_DURATION
-      * TestConstants.AZTEC_SLOT_DURATION;
+    uint256 nextEpochTimestamp = block.timestamp + TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
+      * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
     uint256 nextEpochSeed = IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(nextEpochTimestamp));
     assertEq(
       nextEpochSeed,

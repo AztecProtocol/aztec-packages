@@ -75,8 +75,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
     {
       DecoderBase.Full memory full = load(_name);
       Slot slotNumber = full.checkpoint.header.slotNumber;
-      uint256 initialTime =
-        Timestamp.unwrap(full.checkpoint.header.timestamp) - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
+      uint256 initialTime = Timestamp.unwrap(full.checkpoint.header.timestamp) - Slot.unwrap(slotNumber)
+        * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),
@@ -97,8 +97,10 @@ contract ValidatorSelectionTestBase is DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = Math.max(_validatorCount, 1);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlasherEnabled(enableSlasher)
-      .setStakingQueueConfig(stakingQueueConfig).setValidators(initialValidators)
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setSlasherEnabled(enableSlasher)
+      .setStakingQueueConfig(stakingQueueConfig)
+      .setValidators(initialValidators)
       .setTargetCommitteeSize(_targetCommitteeSize);
     builder.deploy();
 

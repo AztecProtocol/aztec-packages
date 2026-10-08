@@ -55,8 +55,12 @@ contract PremiumGSEBindingTest is PremiumRollupBase {
       normalFlushSizeQuotient: 1,
       maxQueueFlushSize: 48
     });
-    RollupBuilder builder = new RollupBuilder(address(this)).setTestERC20(token).setGSE(otherGse)
-      .setRegistry(Registry(address(rollupRegistry))).setRollupConfigInput(input).setMakeCanonical(false)
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setTestERC20(token)
+      .setGSE(otherGse)
+      .setRegistry(Registry(address(rollupRegistry)))
+      .setRollupConfigInput(input)
+      .setMakeCanonical(false)
       .setUpdateOwnerships(false);
     builder.deploy();
     otherRollup = Rollup(address(builder.getConfig().rollup));

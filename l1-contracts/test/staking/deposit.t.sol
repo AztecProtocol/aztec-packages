@@ -84,7 +84,10 @@ contract DepositTest is StakingBase {
     stakingAsset.approve(address(staking), type(uint256).max);
 
     // Now reset the next flushable epoch to 0
-    stdstore.enable_packed_slots().target(address(staking)).sig(IStaking.getNextFlushableEpoch.selector).depth(0)
+    stdstore.enable_packed_slots()
+      .target(address(staking))
+      .sig(IStaking.getNextFlushableEpoch.selector)
+      .depth(0)
       .checked_write(uint256(0));
     staking.deposit({
       _attester: ATTESTER,

@@ -89,10 +89,9 @@ contract TipsTest is Test {
     assertEq(c.getProven(), b.getProven() + 1, "c.getProven != b.getProven + 1");
   }
 
-  function test_updateProvenCheckpointNumberOversized(
-    uint128 _pendingCheckpointNumber,
-    uint256 _provenCheckpointNumber
-  ) public {
+  function test_updateProvenCheckpointNumberOversized(uint128 _pendingCheckpointNumber, uint256 _provenCheckpointNumber)
+    public
+  {
     ChainTips memory a = ChainTips({pending: _pendingCheckpointNumber, proven: 0});
     uint256 provenCheckpointNumber = bound(_provenCheckpointNumber, uint256(type(uint128).max) + 1, type(uint256).max);
 

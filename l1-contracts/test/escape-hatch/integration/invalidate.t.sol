@@ -185,7 +185,8 @@ contract invalidateTest is EscapeHatchIntegrationBase {
       AttestationLib.getAttestationsAndSignersDigest(
         AttestationLibHelper.packAttestations(data.attestations), signers, address(rollup)
       )
-    ).signature;
+    )
+    .signature;
 
     // Propose the checkpoint
     vm.prank(proposer);

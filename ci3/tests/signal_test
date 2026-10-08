@@ -73,8 +73,8 @@ if ! docker info &>/dev/null; then
   exit 0
 fi
 
-if ! docker image inspect aztecprotocol/build:3.0 &>/dev/null; then
-  echo "SKIP: aztecprotocol/build:3.0 image not available"
+if ! docker image inspect aztecprotocol/build:3.1 &>/dev/null; then
+  echo "SKIP: aztecprotocol/build:3.1 image not available"
   exit 0
 fi
 

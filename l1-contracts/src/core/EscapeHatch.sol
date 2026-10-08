@@ -667,7 +667,7 @@ contract EscapeHatch is IEscapeHatch {
 
     // exitableAt = end of hatch opening + proof submission window + proposing exit delay
     Epoch exitableEpoch =
-    _getFirstEpoch(targetHatch) + Epoch.wrap(ACTIVE_DURATION) + Epoch.wrap(ROLLUP.getProofSubmissionEpochs());
+      _getFirstEpoch(targetHatch) + Epoch.wrap(ACTIVE_DURATION) + Epoch.wrap(ROLLUP.getProofSubmissionEpochs());
     data.exitableAt = (Timestamp.unwrap(ROLLUP.getTimestampForEpoch(exitableEpoch)) + PROPOSING_EXIT_DELAY).toUint32();
 
     emit CandidateSelected(targetHatch, proposer);

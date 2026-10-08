@@ -170,14 +170,11 @@ contract PremiumRewardCalculatorGasTest is PremiumUnitBase {
     return high;
   }
 
-  function _probeAnswers(
-    address _target,
-    bytes4 _selector,
-    address _arg,
-    bool _isBool,
-    address _expected,
-    uint256 _gas
-  ) internal view returns (bool) {
+  function _probeAnswers(address _target, bytes4 _selector, address _arg, bool _isBool, address _expected, uint256 _gas)
+    internal
+    view
+    returns (bool)
+  {
     if (_isBool) {
       (bool ok, bool result) = probeMeter.probeBool(_target, _selector, _arg, _gas);
       return ok && result == (_expected != address(0));

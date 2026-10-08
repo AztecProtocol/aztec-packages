@@ -42,10 +42,11 @@ contract MainnetProbeMeter {
   {
     uint256 stipend = CALCULATOR_GAS_BASE + CALCULATOR_GAS_PER_CHECKPOINT * _proposers.length;
     uint256 gasBefore = gasleft();
-    try ISequencerRewardCalculator(_calculator)
-    .getSequencerRewards{
-      gas: stipend
-    }(Epoch.wrap(0), _proposers, _defaultReward, 2 * _defaultReward) returns (uint256[] memory result) {
+    try ISequencerRewardCalculator(_calculator).getSequencerRewards{gas: stipend}(
+      Epoch.wrap(0), _proposers, _defaultReward, 2 * _defaultReward
+    ) returns (
+      uint256[] memory result
+    ) {
       gasUsed = gasBefore - gasleft();
       return (true, result, gasUsed);
     } catch {

@@ -5,13 +5,13 @@
 // speed. But a batched broadcast (forge's default sends many txs at once) can race the auto-miner:
 // it mines a block on the first ready tx and may leave txs that arrived just after the trigger
 // sitting in the pool, so forge waits forever for their receipts. We avoid the race without touching
-// anvil's mining mode by broadcasting one tx at a time (`--batch-size 1`) only when anvil has
-// automine ON: with a single tx in flight there is nothing for the auto-miner to strand.
+// anvil's mining mode by broadcasting one tx at a time (`--slow`) only when anvil has automine ON:
+// with a single tx in flight there is nothing for the auto-miner to strand.
 //
 // When anvil is in interval (or no) mining mode the race does not exist — the miner drains the whole
 // pool on each block — and serializing to one tx per block would stall the deploy for a full block
-// interval per transaction, blowing past the broadcast timeout. There (and on real chains) we keep a
-// larger batch size. A hard timeout guards against a broadcast hanging indefinitely.
+// interval per transaction, blowing past the broadcast timeout. There (and on real chains) we keep
+// forge's default batched sending. A hard timeout guards against a broadcast hanging indefinitely.
 //
 // A deploy that queues INITIAL_VALIDATORS does not activate them itself: once the deploy broadcast
 // has landed, this script runs FlushEntryQueue.s.sol against the deployed Rollup as a second,
@@ -26,13 +26,124 @@
 // simulated broadcast. On anvil, an empty block is mined after the flush so the flush is never in
 // the head block that callers estimate gas against (see the comment at the evm_mine call).
 //
+// forge holds an exclusive lock on the script's recovery state (`cache/<script>/<chain>/run-latest.json.recovery.json`)
+// for the whole broadcast and exits immediately when another forge already holds it, so two deployments
+// started from the same project directory cannot overlap. Broadcasts from one directory are queued on a
+// lock file here so the second one waits instead of failing.
+//
+// forge (as of 1.8) records its remappings as absolute paths in `cache/solidity-files-cache.json`
+// and discards the whole cache when they differ from the project's, so a project directory copied away
+// from where it was built (the l1-artifacts bundle copied to a temp deploy directory, a release image)
+// recompiles every script it runs from scratch. Besides the time spent, the chain keeps moving while
+// forge compiles: on an interval-mining anvil the flush lands a dozen or more blocks after the rollup's
+// genesis. Before broadcasting, the cache's recorded paths are rebased onto the current directory so
+// the prebuilt artifacts are reused.
+//
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
-//        (without --broadcast or --batch-size — added automatically)
+//        (without --broadcast or --slow — added automatically)
 
 import { spawn } from "node:child_process";
-import { writeSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
+import { isAbsolute, join, sep } from "node:path";
 
 const log = (msg) => process.stderr.write(`[forge_broadcast] ${msg}\n`);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err.code === "EPERM";
+  }
+}
+
+// Serializes broadcasts launched from the same project directory. The lock file records the holder's
+// pid; a lock left behind by a process that no longer exists is reclaimed.
+async function acquireBroadcastLock(projectDir) {
+  const dir = join(projectDir, "cache");
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, ".forge_broadcast.lock");
+  let waited = false;
+  for (;;) {
+    try {
+      const fd = openSync(path, "wx");
+      writeSync(fd, String(process.pid));
+      closeSync(fd);
+      if (waited) log("Lock acquired; starting broadcast.");
+      return () => {
+        try {
+          unlinkSync(path);
+        } catch {}
+      };
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+      let holder;
+      try {
+        holder = Number(readFileSync(path, "utf8"));
+      } catch {}
+      if (!holder || !isAlive(holder)) {
+        try {
+          unlinkSync(path);
+        } catch {}
+        continue;
+      }
+      if (!waited) log(`Waiting for broadcast held by pid ${holder} in ${projectDir}.`);
+      waited = true;
+      await sleep(250);
+    }
+  }
+}
+
+function commonDir(paths) {
+  const split = paths.map((p) => p.split(sep).filter((part, i) => i === 0 || part !== ""));
+  const common = [];
+  for (let i = 0; split.every((parts) => i < parts.length && parts[i] === split[0][i]); i++) common.push(split[0][i]);
+  return common.join(sep);
+}
+
+// Rewrites the absolute paths in forge's compilation cache from the directory the cache was built in to
+// `projectDir`, so a copied project reuses its prebuilt artifacts. The build directory is the deepest
+// directory holding every remapping target; the cache is left untouched unless every target lies strictly
+// below it and exists under `projectDir` at the same relative path.
+function rebaseForgeCache(projectDir) {
+  const path = join(projectDir, "cache", "solidity-files-cache.json");
+  let text, cache;
+  try {
+    text = readFileSync(path, "utf8");
+    cache = JSON.parse(text);
+  } catch {
+    return;
+  }
+  const targets = (Array.isArray(cache.remappings) ? cache.remappings : [])
+    .map((r) => String(r).slice(String(r).indexOf("=") + 1))
+    .filter((target) => isAbsolute(target));
+  if (targets.length === 0) return;
+  const builtIn = commonDir(targets);
+  if (!builtIn || builtIn === sep || builtIn === projectDir) return;
+  const rebasedTargets = targets.map((target) => target.slice(builtIn.length));
+  if (!rebasedTargets.every((rel) => rel.length > 1 && existsSync(projectDir + rel))) return;
+  const tmp = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, text.replaceAll(builtIn + sep, projectDir + sep));
+    renameSync(tmp, path);
+    log(`Rebased the forge cache from ${builtIn} onto ${projectDir}.`);
+  } catch (err) {
+    log(`Could not rebase the forge cache onto ${projectDir}, forge will recompile: ${err.message}`);
+  }
+}
 
 async function rpc(url, method, params = []) {
   const res = await fetch(url, {
@@ -76,7 +187,7 @@ const args = process.argv.slice(2);
 const rpcUrl = extractArg(args, "--rpc-url");
 
 // Broadcast one tx at a time only on an automining anvil, where batching races the auto-miner.
-// Interval-mining anvil and real chains keep a larger batch size: there is no race there, and
+// Interval-mining anvil and real chains keep forge's default batching: there is no race there, and
 // serializing would stall the deploy one block interval per tx.
 const [isAnvil, isAutomine] = rpcUrl
   ? await Promise.all([
@@ -87,7 +198,7 @@ const [isAnvil, isAutomine] = rpcUrl
     ])
   : [false, false];
 
-const batchSize = isAnvil && isAutomine ? "1" : "8";
+const serializeTxs = isAnvil && isAutomine;
 const timeoutMs =
   Number(process.env.FORGE_BROADCAST_TIMEOUT_MS) ||
   (isAnvil ? 120_000 : 1_200_000);
@@ -120,7 +231,10 @@ function runForge(forgeArgs) {
   });
 }
 
-const deploy = await runForge([...args, "--batch-size", batchSize]);
+const releaseBroadcastLock = await acquireBroadcastLock(process.cwd());
+rebaseForgeCache(realpathSync(process.cwd()));
+
+const deploy = await runForge([...args, ...(serializeTxs ? ["--slow"] : [])]);
 let exitCode = deploy.code;
 let output = deploy.stdout;
 
@@ -142,8 +256,7 @@ if (exitCode === 0 && hasInitialValidators(process.env.INITIAL_VALIDATORS)) {
       "--private-key",
       privateKey,
       "--skip-simulation",
-      "--batch-size",
-      "1",
+      "--slow",
       ...(args.includes("--json") ? ["--json"] : []),
     ]);
     exitCode = flush.code;
@@ -165,5 +278,6 @@ if (exitCode === 0 && hasInitialValidators(process.env.INITIAL_VALIDATORS)) {
 }
 
 log(exitCode === 0 ? "Broadcast succeeded." : `Broadcast failed (exit ${exitCode}).`);
+releaseBroadcastLock();
 if (output.length > 0) writeSync(1, output);
 process.exit(exitCode);

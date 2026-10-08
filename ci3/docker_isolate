@@ -79,7 +79,7 @@ cid=$(docker run -d \
   -e TEST_TIMING_FILE \
   -e RUN_ID \
   "${arg_env_vars[@]}" \
-  aztecprotocol/build:3.0 \
+  aztecprotocol/build:3.1 \
   /bin/bash -c "$cmd")
 set +x
 # At this point we know it's started, and can handle SIGTERM to kill the container.

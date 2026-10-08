@@ -645,12 +645,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     if (_flags.invalidAddressAttestation) {
       if (ree.proposer != address(0)) {
-        ree.attestationsAndSignersSignature = _createAttestation(
+        ree.attestationsAndSignersSignature =
+        _createAttestation(
           ree.proposer,
           AttestationLib.getAttestationsAndSignersDigest(
             AttestationLibHelper.packAttestations(ree.attestations), ree.signers, address(rollup)
           )
-        ).signature;
+        )
+        .signature;
       }
       // Change the last element in the committee (since it don't need a sig as we have enough earlier)
       // to be a random address instead of the expected one.
@@ -698,12 +700,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     // The proposer signs over the `attestations` and `signers`. Will always be done.
     if (ree.proposer != address(0) && !_flags.invalidAttestationAndSignersSignature) {
-      ree.attestationsAndSignersSignature = _createAttestation(
+      ree.attestationsAndSignersSignature =
+      _createAttestation(
         ree.proposer,
         AttestationLib.getAttestationsAndSignersDigest(
           AttestationLibHelper.packAttestations(ree.attestations), ree.signers, address(rollup)
         )
-      ).signature;
+      )
+      .signature;
     } else if (ree.proposer != address(0) && _flags.invalidAttestationAndSignersSignature) {
       // Use a signature that is not the proposers!
       address invalidSigner;
@@ -713,12 +717,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
           break;
         }
       }
-      ree.attestationsAndSignersSignature = _createAttestation(
+      ree.attestationsAndSignersSignature =
+      _createAttestation(
         invalidSigner,
         AttestationLib.getAttestationsAndSignersDigest(
           AttestationLibHelper.packAttestations(ree.attestations), ree.signers, address(rollup)
         )
-      ).signature;
+      )
+      .signature;
     }
 
     emit log("Time to propose");

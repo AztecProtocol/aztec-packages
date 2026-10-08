@@ -29,7 +29,7 @@ library BpsLib {
 struct ProverRegistration {
   uint248 shares;
   bool fullEpoch; // Set to true when the registration was submitted after the epoch is closed, with a proof of the
-    // full epoch. Used for activity score bumping
+  // full epoch. Used for activity score bumping
 }
 
 struct SubEpochRewards {
@@ -268,8 +268,8 @@ library RewardLib {
         {
           uint256 toSequencer =
             (v.sequencerCheckpointRewards.length > 0
-                ? v.sequencerCheckpointRewards[i - provenLength]
-                : v.sequencerCheckpointReward) + v.sequencerFee;
+                  ? v.sequencerCheckpointRewards[i - provenLength]
+                  : v.sequencerCheckpointReward) + v.sequencerFee;
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
           }

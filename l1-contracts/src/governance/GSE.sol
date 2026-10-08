@@ -644,9 +644,9 @@ contract GSECore is IGSECore, Ownable {
     // We validate the proof of possession using an external contract to limit gas potentially "sacrificed"
     // in case of failure.
     require(
-      BN254_LIB_WRAPPER.proofOfPossession{
-        gas: proofOfPossessionGasLimit
-      }(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+      BN254_LIB_WRAPPER.proofOfPossession{gas: proofOfPossessionGasLimit}(
+        _publicKeyInG1, _publicKeyInG2, _proofOfPossession
+      ),
       Errors.GSE__InvalidProofOfPossession()
     );
   }
