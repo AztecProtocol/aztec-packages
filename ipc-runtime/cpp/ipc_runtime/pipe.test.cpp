@@ -1,15 +1,20 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/serve_helper.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <csignal>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <fcntl.h>
 #include <functional>
 #include <gtest/gtest.h>
+#include <iostream>
 #include <mutex>
 #include <queue>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
@@ -134,6 +139,65 @@ TEST(PipeTest, ServesEchoOverFdPair)
     client->close();
     server_thread.join();
     server->close();
+}
+
+// Serving "-" makes the process's stdout the frame stream, so anything else
+// the process prints there (std::cout, printf, a raw write to fd 1) would
+// corrupt it. make_server must take stdout for itself and send the rest to
+// stderr. Runs in a child because it rewires the process's stdio.
+TEST(PipeTest, StdioServerKeepsStrayStdoutOutOfTheFrameStream)
+{
+    PipeLink link;
+    ASSERT_GE(link.server_in, 0);
+
+    pid_t pid = fork();
+    ASSERT_GE(pid, 0);
+    if (pid == 0) {
+        ::dup2(link.server_in, STDIN_FILENO);
+        ::dup2(link.server_out, STDOUT_FILENO);
+        ::close(link.server_in);
+        ::close(link.server_out);
+        ::close(link.client_in);
+        ::close(link.client_out);
+        // Keep the stray output off the test runner's terminal.
+        int devnull = ::open("/dev/null", O_WRONLY);
+        ::dup2(devnull, STDERR_FILENO);
+
+        auto server = make_server("-", ServerOptions{});
+        if (!server || !server->listen()) {
+            _exit(2);
+        }
+        server->run([](int, std::span<const uint8_t> req) {
+            std::cout << "stray cout" << std::endl;
+            std::printf("stray printf\n");
+            std::fflush(stdout);
+            [[maybe_unused]] ssize_t n = ::write(STDOUT_FILENO, "stray write\n", 12);
+            return std::vector<uint8_t>(req.begin(), req.end());
+        });
+        _exit(0);
+    }
+
+    ::close(link.server_in);
+    ::close(link.server_out);
+    link.server_in = link.server_out = -1;
+
+    auto client = IpcClient::create_pipe(link.client_in, link.client_out);
+    ASSERT_TRUE(client->connect());
+    for (uint32_t i = 0; i < 3; i++) {
+        ASSERT_TRUE(client->send(&i, sizeof(i), 1'000'000'000ULL));
+        auto resp = client->receive(5'000'000'000ULL);
+        ASSERT_EQ(resp.size(), sizeof(uint32_t)) << "response " << i << " was corrupted by stray stdout";
+        uint32_t got = 0;
+        std::memcpy(&got, resp.data(), sizeof(got));
+        EXPECT_EQ(got, i);
+        client->release(resp.size());
+    }
+    client->close();
+    link.client_in = link.client_out = -1;
+
+    int status = 0;
+    ASSERT_EQ(::waitpid(pid, &status, 0), pid);
+    EXPECT_TRUE(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
 TEST(PipeTest, PipelinedExplicitIdsEchoInOrder)
