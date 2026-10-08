@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Safe Rust bindings to the ipc-runtime C ABI (UDS + MPSC-SHM transport)."
 license = "Apache-2.0"
+repository = "https://github.com/AztecProtocol/aztec-packages/tree/next/ipc-runtime"
+# cpp/ is not checked in: the release step copies ../cpp/ipc_runtime there so
+# the published crate can build without the rest of the repo.
+include = ["src/**/*.rs", "build.rs", "cpp/ipc_runtime/**"]
 
 [lib]
 name = "ipc_runtime"
