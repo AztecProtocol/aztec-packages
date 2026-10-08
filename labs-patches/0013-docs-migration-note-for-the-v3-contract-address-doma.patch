@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iAmMichaelConnor <mike@aztec.foundation>
+Date: Mon, 21 Sep 2026 22:15:48 +0000
+Subject: [PATCH] docs: migration note for the v3 contract address domain
+ separator
+
+Every contract address on v6 differs from v5 because the address domain separator is rotated per protocol version; record the new separator value and the standard contracts' canonical addresses (old to new).
+
+diff --git a/docs/docs-developers/docs/resources/migration_notes.md b/docs/docs-developers/docs/resources/migration_notes.md
+index 3e6965eabfbcae66ce9b00fd44d52148f554f42b..1bcd1dbe8499c1cc1a61e6390bffbf66d7825abd 100644
+--- a/docs/docs-developers/docs/resources/migration_notes.md
++++ b/docs/docs-developers/docs/resources/migration_notes.md
+@@ -9,6 +9,23 @@ Aztec is in active development. Each version may introduce breaking changes that
+ 
+ ## TBD
+ 
++### [Protocol] The contract address domain separator is bumped to V3; every contract address changes
++
++The domain separator that goes into contract address derivation (`preaddress = poseidon2(DOM_SEP__CONTRACT_ADDRESS_Vn, public_keys_hash, partial_address)`) is bumped: `DOM_SEP__CONTRACT_ADDRESS_V2` (`4099338721`) is replaced by `DOM_SEP__CONTRACT_ADDRESS_V3 = 993442748` (`hash_to_u32("az_dom_sep", "contract_address_v3")`). Every protocol version rotates this separator on purpose: an address can never exist on two rollup instances, so funds cannot be sent to an address that is live on one rollup and dead on another. As a result, every contract address, including account addresses, differs from the address the same class, salt, initialization and public keys produced under V2. The `V` number is the separator revision, not the protocol version.
++
++Nothing needs to change in contract code, but anything that hard-codes an address must be updated. The canonical addresses of the standard contracts, which are deterministic in their pinned artifacts and the separator, move to:
++
++| Contract            | V2 address                                                           | V3 address                                                           |
++| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
++| AuthRegistry        | `0x2e05e8fbfb2ce9a31e4b4ae5097c01b79d9b3529b1e861016c9c9a5d62fdf7c9` | `0x2ba8714679fbee823f108f366f878ce3249861637de705b0ac7cfbd0f81b3a9c` |
++| MultiCallEntrypoint | `0x09b93e8efd54a70cd718bc4d8ecf52c51db8150d300c8877c56796ee8c505137` | `0x265552a432ba2f9420ce5283bec14d7385e7a4accaff6c82648efe312d42fcc2` |
++| PublicChecks        | `0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe` | `0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a` |
++| HandshakeRegistry   | `0x24d2effac2983dfcae3aea48019aa10b80a7d2cfddc52cdbd9b90745ed0b0fc7` | `0x198aa5f21f7a13761f4729c544fb6edcae73a484d57b248b6390eb0dc5c06040` |
++
++`STANDARD_*_ADDRESS` in `@aztec-labs/standard-contracts` and `aztec::standard_addresses` carry the new values, so code that reads them needs only a recompile. HandshakeRegistry derives addresses itself, through `get_public_keys`, so the separator is compiled into its bytecode and the pinned standard-contract build is refreshed with it. That recompile also picks up the current aztec-nr in AuthRegistry and MultiCallEntrypoint, whose bytecode changes with it, so their artifact hashes and addresses move for that reason as well as for the separator. PublicChecks' bytecode is unchanged by the recompile; its address moves through the separator alone.
++
++The protocol contracts keep their magic addresses (`1`, `2`, ...). Their registration nullifiers are siloed by those magic addresses rather than by the derived ones, so the genesis constants move for a narrower reason: ContractInstanceRegistry calls `AztecAddress::compute` when it publishes an instance, so the separator is in its bytecode, its class id rotates, and exactly one of the six seeded registration nullifiers changes with it.
++
+ ### [Aztec.nr] `Writer::advance_offset` is removed
+ 
+ Write the skipped fields instead, e.g. with their own `stream_serialize`:

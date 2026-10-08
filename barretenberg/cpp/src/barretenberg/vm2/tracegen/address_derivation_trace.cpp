@@ -26,7 +26,7 @@ namespace bb::avm2::tracegen {
  *   3. incoming_viewing_key_hash = Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, ivpk.x, ivpk.y)
  *   4. public_keys_hash          = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH, npk_hash, ivpk_m_hash, ovpk_hash, tpk_hash,
  *                                  mspk_hash, fbpk_hash)
- *   5. preaddress                = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
+ *   5. preaddress                = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address)
  *   6. preaddress_public_key     = preaddress * G1  (Grumpkin scalar multiplication)
  *   7. address                   = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
  *
@@ -78,7 +78,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_partial_address_domain_separator, DOM_SEP__PARTIAL_ADDRESS },
                 { C::address_derivation_single_public_key_hash_domain_separator, DOM_SEP__SINGLE_PUBLIC_KEY_HASH },
                 { C::address_derivation_public_keys_hash_domain_separator, DOM_SEP__PUBLIC_KEYS_HASH },
-                { C::address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V2 },
+                { C::address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V3 },
                 { C::address_derivation_g1_x, g1.x() },
                 { C::address_derivation_g1_y, g1.y() },
                 { C::address_derivation_const_two, 2 },

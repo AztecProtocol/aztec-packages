@@ -8,7 +8,7 @@ use crate::{
         DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS,
         DOM_SEP__BLOB_Z_ACC, DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH,
         DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET,
-        DOM_SEP__CONTRACT_ADDRESS_V2, DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__EVENT_COMMITMENT,
+        DOM_SEP__CONTRACT_ADDRESS_V3, DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__EVENT_COMMITMENT,
         DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FBSK_M, DOM_SEP__FUNCTION_ARGS,
         DOM_SEP__HANDSHAKE_FORGERY_PROTECTION, DOM_SEP__INBOX_ROLLING_HASH, DOM_SEP__INITIALIZER,
         DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE, DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH,
@@ -204,7 +204,7 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_KEYS_HASH, "public_keys_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, "single_public_key_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PARTIAL_ADDRESS, "partial_address");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__CONTRACT_ADDRESS_V2, "contract_address_v2");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__CONTRACT_ADDRESS_V3, "contract_address_v3");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOCK_HEADER_HASH, "block_header_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PROTOCOL_NULLIFIER, "protocol_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_TX_HASH, "public_tx_hash");

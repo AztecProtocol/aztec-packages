@@ -54,7 +54,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
 
-    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };
+    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address };
     FF preaddress = poseidon2::hash(preaddress_inputs);
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
@@ -109,7 +109,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
 
-    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };
+    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address };
     FF preaddress = poseidon2::hash(preaddress_inputs);
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
@@ -127,7 +127,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     instance.public_keys.nullifier_key_hash = FF(0xdeadbeef);
 
     public_keys_hash = hash_public_keys(instance.public_keys);
-    preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };
+    preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V3, public_keys_hash, partial_address };
     preaddress = poseidon2::hash(preaddress_inputs);
     preaddress_public_key = g1 * Fq(preaddress);
     address_point = preaddress_public_key + instance.public_keys.incoming_viewing_key;

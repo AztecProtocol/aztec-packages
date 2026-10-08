@@ -204,11 +204,11 @@ pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // prefunded public data and timestamp 0. Measured from a real world state and rewritten together by
 // `noir-projects/fnd/scripts/regenerate_genesis_constants.sh`; never edit one of them by hand.
 pub global GENESIS_NULLIFIER_TREE_ROOT: Field =
-    0x01f99bba78e47cc1c36bd40d519514d2f6dae212ec32dda6dc8fc5005694cce8;
+    0x15c67f4d7495a669ed57c5a9468533c63ace43f86b787c52edabefec85e4afc0;
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x21f2c9c95fd2ca2d6374e6e18b840e2021dfcacc7ccf83cc695760518c86e8de;
+    0x199b52350e8f18eeb9cd455fd074bc6fa62ea6a8e3253e2c663aa4909bbd5718;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6;
+    0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -769,7 +769,7 @@ pub global DOM_SEP__SINGLE_PUBLIC_KEY_HASH: u32 = 3452068255;
 // Address
 pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 2103633018;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V2: u32 = 4099338721;
+pub global DOM_SEP__CONTRACT_ADDRESS_V3: u32 = 993442748;
 
 // ---------------------------------------------------------------
 

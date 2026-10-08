@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Thu, 8 Oct 2026 05:24:33 +0000
+Subject: [PATCH] test: pin testnet compatibility to the v3 contract address
+ roots
+
+The v3 contract address domain separator changes the VK tree root, the
+protocol contracts hash and the genesis archive root, so the v6 line pins
+the values it produces under v3.
+
+diff --git a/yarn-project/aztec/src/testnet_compatibility.test.ts b/yarn-project/aztec/src/testnet_compatibility.test.ts
+index b40b8d4e99b8ac5fc12bda5733f901c440f62a17..85e2da8786f166048737749b076891d41e761f84 100644
+--- a/yarn-project/aztec/src/testnet_compatibility.test.ts
++++ b/yarn-project/aztec/src/testnet_compatibility.test.ts
+@@ -11,12 +11,12 @@ import { computeExpectedGenesisRoot } from './cli/cmds/standby.js';
+  */
+ describe('Testnet compatibility', () => {
+   it('has expected VK tree root', () => {
+-    const expectedRoots = [Fr.fromHexString('0x031139abb5b9f51ca0e55a6e2022d567029f50acc9428506f05c91ae27e7f75d')];
++    const expectedRoots = [Fr.fromHexString('0x13eeb174d4119b221a22721853261759f57a65a57e864ad78b840b23cde69e02')];
+     expect(expectedRoots).toContainEqual(getVKTreeRoot());
+   });
+   it('has expected Protocol Contracts hash', () => {
+     expect(protocolContractsHash).toEqual(
+-      Fr.fromHexString('0x0030cdae9792549b9edb5b865f4e10e91bb87565f22ab80d405213f7e991b378'),
++      Fr.fromHexString('0x0f54271c52865841a77aaa66036eed901aff22fdce9f08e123ec8b205c9854d7'),
+     );
+   });
+   // A node computes this at startup from the network's genesis flags, and stays in standby until the rollup's archive
+@@ -28,7 +28,7 @@ describe('Testnet compatibility', () => {
+     );
+ 
+     expect(genesisArchiveRoot).toEqual(
+-      Fr.fromHexString('0x2ef904bbd5edc11a43cf48c4270edbf631d14aeaddafe307f8fa959e8113bfb6'),
++      Fr.fromHexString('0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4'),
+     );
+   });
+ });
