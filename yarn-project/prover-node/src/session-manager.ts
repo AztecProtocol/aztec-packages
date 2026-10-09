@@ -45,6 +45,11 @@ export type SessionManagerConfig = {
   tickIntervalMs: number;
   /** Forwarded to every session: delay before top-tree proving, letting late reorgs settle. */
   finalizationDelayMs: number | undefined;
+  /**
+   * Never open full sessions on our own; prove only the epochs requested through `startProof`. For a prover
+   * that serves paid partial-epoch proofs without competing for full epochs.
+   */
+  disableFullEpochProving?: boolean;
 };
 
 export type SessionManagerDeps = {
@@ -235,9 +240,11 @@ export class SessionManager {
 
     this.recreateInvalidSessions();
 
-    const implicatedEpochs = await this.epochsForTrigger(trigger);
-    for (const epoch of implicatedEpochs) {
-      await this.openFullSessionIfReady(epoch);
+    if (!this.deps.config.disableFullEpochProving) {
+      const implicatedEpochs = await this.epochsForTrigger(trigger);
+      for (const epoch of implicatedEpochs) {
+        await this.openFullSessionIfReady(epoch);
+      }
     }
 
     if (trigger.kind === 'start-proof') {
