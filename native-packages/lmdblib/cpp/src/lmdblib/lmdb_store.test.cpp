@@ -9,7 +9,9 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include "lmdblib/fixtures.hpp"
@@ -338,6 +340,80 @@ TEST_F(LMDBStoreTest, can_share_a_read_transaction_between_gets_and_cursors)
     cursor->read_next(static_cast<uint64_t>(numKeys), entries);
     ASSERT_EQ(entries.size(), static_cast<size_t>(numKeys));
     EXPECT_EQ(entries[0].first, get_key(0));
+}
+
+TEST_F(LMDBStoreTest, try_create_shared_read_transaction_does_not_wait_and_keeps_permits_free)
+{
+    const uint32_t maxReaders = 3;
+    LMDBStore::Ptr store = std::make_unique<LMDBStore>(_directory, _mapSize, maxReaders, 1);
+
+    std::vector<LMDBStore::ReadTransaction::SharedPtr> held;
+    for (uint32_t i = 0; i < maxReaders - 1; i++) {
+        held.push_back(store->try_create_shared_read_transaction(1));
+        ASSERT_NE(held.back(), nullptr);
+    }
+    EXPECT_EQ(store->try_create_shared_read_transaction(1), nullptr);
+
+    held.push_back(store->try_create_shared_read_transaction());
+    ASSERT_NE(held.back(), nullptr);
+    EXPECT_EQ(store->try_create_shared_read_transaction(), nullptr);
+
+    held.pop_back();
+    held.pop_back();
+    EXPECT_NE(store->try_create_shared_read_transaction(1), nullptr);
+}
+
+TEST_F(LMDBStoreTest, reader_permit_is_returned_when_a_read_transaction_fails_to_begin)
+{
+    const uint32_t maxReaders = 2;
+    int toParent[2];
+    int toChild[2];
+    ASSERT_EQ(pipe(toParent), 0);
+    ASSERT_EQ(pipe(toChild), 0);
+
+    // Another process occupies every slot in the environment's reader table, so mdb_txn_begin fails here
+    pid_t pid = fork();
+    ASSERT_GE(pid, 0);
+    if (pid == 0) {
+        {
+            auto env = std::make_shared<LMDBEnvironment>(_directory, _mapSize, 1, maxReaders);
+            std::vector<std::unique_ptr<LMDBReadTransaction>> txs;
+            for (uint32_t i = 0; i < maxReaders; i++) {
+                env->wait_for_reader();
+                txs.push_back(std::make_unique<LMDBReadTransaction>(env));
+            }
+            char c = 'r';
+            if (write(toParent[1], &c, 1) != 1 || read(toChild[0], &c, 1) != 1) {
+                _exit(1);
+            }
+        }
+        _exit(0);
+    }
+
+    char c = 0;
+    ASSERT_EQ(read(toParent[0], &c, 1), 1);
+
+    LMDBStore::Ptr store = std::make_unique<LMDBStore>(_directory, _mapSize, maxReaders, 1);
+    // more failed attempts than there are permits, so a leaked permit would surface as a nullptr here
+    EXPECT_THROW(store->create_shared_read_transaction(), std::runtime_error);
+    for (uint32_t i = 0; i < maxReaders; i++) {
+        EXPECT_THROW(store->try_create_shared_read_transaction(), std::runtime_error);
+    }
+
+    ASSERT_EQ(write(toChild[1], &c, 1), 1);
+    int status = 0;
+    ASSERT_EQ(waitpid(pid, &status, 0), pid);
+    ASSERT_TRUE(WIFEXITED(status));
+    ASSERT_EQ(WEXITSTATUS(status), 0);
+    for (int fd : { toParent[0], toParent[1], toChild[0], toChild[1] }) {
+        close(fd);
+    }
+
+    std::vector<LMDBStore::ReadTransaction::SharedPtr> held;
+    for (uint32_t i = 0; i < maxReaders; i++) {
+        held.push_back(store->try_create_shared_read_transaction());
+        EXPECT_NE(held.back(), nullptr);
+    }
 }
 
 TEST_F(LMDBStoreTest, can_not_read_from_non_existent_database)

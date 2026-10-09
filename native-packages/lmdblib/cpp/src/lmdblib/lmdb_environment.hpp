@@ -49,6 +49,13 @@ class LMDBEnvironment {
 
     void wait_for_reader();
 
+    /**
+     * @brief Takes a reader permit without blocking.
+     * @param keepFree How many permits must remain available after this one is taken
+     * @return false, taking nothing, if fewer than `keepFree + 1` permits are available
+     */
+    bool try_wait_for_reader(uint32_t keepFree = 0);
+
     void release_reader();
 
     void wait_for_writer();
@@ -84,6 +91,16 @@ class LMDBEnvironment {
                 _condition.wait(lock, [&] { return _current < _maxAllowed; });
             }
             ++_current;
+        }
+
+        bool try_wait(uint32_t keepFree)
+        {
+            std::unique_lock lock(_lock);
+            if (static_cast<uint64_t>(_current) + keepFree >= _maxAllowed) {
+                return false;
+            }
+            ++_current;
+            return true;
         }
 
         void release()
