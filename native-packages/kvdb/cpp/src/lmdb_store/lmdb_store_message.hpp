@@ -28,6 +28,9 @@ enum LMDBStoreMessageType {
 
     CLOSE,
     COPY_STORE,
+
+    START_READ_TX,
+    CLOSE_READ_TX,
 };
 
 struct OpenDatabaseRequest {
@@ -39,7 +42,9 @@ struct OpenDatabaseRequest {
 struct GetRequest {
     lmdblib::KeysVector keys;
     std::string db;
-    MSGPACK_DEFINE_MAP(keys, db);
+    // When set, read through the snapshot of this open read transaction instead of a fresh one
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(keys, db, txId);
 };
 
 struct GetResponse {
@@ -78,7 +83,9 @@ struct StartCursorRequest {
     std::optional<uint32_t> count;
     std::optional<bool> onePage;
     std::string db;
-    MSGPACK_DEFINE_MAP(key, reverse, count, onePage, db);
+    // When set, iterate over the snapshot of this open read transaction instead of a fresh one
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(key, reverse, count, onePage, db, txId);
 };
 
 struct StartCursorResponse {
@@ -137,6 +144,16 @@ struct CopyStoreRequest {
     std::string dstPath;
     std::optional<bool> compact;
     MSGPACK_DEFINE_MAP(dstPath, compact);
+};
+
+struct StartReadTxResponse {
+    uint64_t tx;
+    MSGPACK_DEFINE_MAP(tx);
+};
+
+struct CloseReadTxRequest {
+    uint64_t tx;
+    MSGPACK_DEFINE_MAP(tx);
 };
 
 } // namespace azteclabs::kvdb::lmdb_store
