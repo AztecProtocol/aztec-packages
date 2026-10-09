@@ -26,13 +26,15 @@ namespace ipc {
  */
 struct alignas(64) MpscDoorbell {
     // Producer-written (written by producers in publish()). Consumers wait on
-    // this seq with a futex; producers bump it and wake unconditionally.
+    // this seq with a futex; producers bump it and wake it while consumer_blocked is set.
     alignas(64) std::atomic<uint32_t> seq;
     // Number of producer slots (= num_producers). Written once by the consumer at
     // create(); read by clients to bound the slot-claim scan. Kept here (offset 4)
     // so `seq` stays at offset 0 and the doorbell mapping/wakeup path is unchanged.
     std::atomic<uint32_t> num_slots;
-    std::array<uint8_t, 56> _pad0;
+    // Set by the consumer right before futex_wait, cleared right after; producers wake only while it is set.
+    std::atomic<bool> consumer_blocked;
+    std::array<uint8_t, 55> _pad0;
 };
 static_assert(sizeof(MpscDoorbell) == 64, "MpscDoorbell layout must stay 64 bytes (seq at offset 0)");
 
@@ -146,8 +148,8 @@ class MpscConsumer {
      * @brief Wake the consumer blocked in wait_for_data, without delivering ring
      * data.
      *
-     * Bumps the doorbell seq (release) then futex_wakes it — identical to the
-     * doorbell ring in MpscProducer::publish. The seq bump is what makes a
+     * Bumps the doorbell seq (release), then futex_wakes it if the consumer is
+     * blocked — identical to the doorbell ring in MpscProducer::publish. The seq bump is what makes a
      * consumer that is mid-wait see a value change and return from futex_wait
      * instead of sleeping; a bare futex_wake (as in wakeup_all) would race.
      */

@@ -88,7 +88,9 @@ void MsgpackClientAsync::poll_responses()
             tsfn_.NonBlockingCall(response_data, [](Napi::Env env, Napi::Function js_callback, Completion* completion) {
                 auto js_buffer =
                     Napi::Buffer<uint8_t>::Copy(env, completion->payload.data(), completion->payload.size());
-                js_callback.Call({ Napi::BigInt::New(env, completion->request_id), js_buffer });
+                // Live ids are below 2^30 (see NapiShmAsyncClient); a larger id is a stale
+                // frame and only needs to not match, so the double conversion is fine.
+                js_callback.Call({ Napi::Number::New(env, static_cast<double>(completion->request_id)), js_buffer });
                 delete completion;
             });
         if (status != napi_ok) {
@@ -102,18 +104,14 @@ Napi::Value MsgpackClientAsync::call(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 2 || !info[0].IsBigInt() || !info[1].IsBuffer()) {
-        throw Napi::TypeError::New(env, "Expected (request_id: bigint, payload: Buffer)");
+    if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsBuffer()) {
+        throw Napi::TypeError::New(env, "Expected (request_id: number, payload: Buffer)");
     }
     if (shutdown_.load(std::memory_order_acquire)) {
         throw Napi::Error::New(env, "Client is closed");
     }
 
-    bool lossless = false;
-    uint64_t request_id = info[0].As<Napi::BigInt>().Uint64Value(&lossless);
-    if (!lossless) {
-        throw Napi::TypeError::New(env, "request_id must fit in an unsigned 64-bit integer");
-    }
+    uint64_t request_id = info[0].As<Napi::Number>().Uint32Value();
     auto input_buffer = info[1].As<Napi::Buffer<uint8_t>>();
     const uint8_t* input_data = input_buffer.Data();
     size_t input_len = input_buffer.Length();

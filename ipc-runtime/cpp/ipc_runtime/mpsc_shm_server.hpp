@@ -124,8 +124,7 @@ class MpscShmServer : public IpcServer {
         // ring is corrupt — error out instead of waiting for it. A frame
         // shorter than the request-id field means the peer speaks the id-less
         // protocol.
-        if (msg_len > MAX_FRAME_SIZE || msg_len > request_ring_size_ / 2 - sizeof(uint32_t) ||
-            msg_len < FRAME_ID_SIZE) {
+        if (msg_len > request_ring_size_ / 2 - sizeof(uint32_t) || msg_len < FRAME_ID_SIZE) {
             throw std::runtime_error("MpscShmServer::receive: invalid length prefix (" + std::to_string(msg_len) +
                                      " bytes) — corrupt ring or protocol mismatch");
         }

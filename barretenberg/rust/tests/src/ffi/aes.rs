@@ -3,7 +3,7 @@
 //! Ported from zkpassport/aztec-packages bb_rs aes_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, BbApi};
 
 /// Apply PKCS#7 padding to input data (for testing purposes)
 #[cfg(test)]
@@ -44,7 +44,7 @@ fn remove_pkcs7_padding(data: &[u8]) -> Result<Vec<u8>, &'static str> {
 #[test]
 fn test_aes_encrypt_decrypt_roundtrip() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let plaintext = b"Hello, AES world! This is a test message for encryption.";
     let key = [
@@ -61,7 +61,7 @@ fn test_aes_encrypt_decrypt_roundtrip() {
     let length = padded_plaintext.len() as u32;
 
     let encrypt_response = api
-        .aes_encrypt(&padded_plaintext, &iv, &key, length)
+        .aes_encrypt(&padded_plaintext, iv, key, length)
         .expect("aes_encrypt failed");
     let ciphertext = &encrypt_response.ciphertext;
 
@@ -69,7 +69,7 @@ fn test_aes_encrypt_decrypt_roundtrip() {
     assert!(!ciphertext.is_empty());
 
     let decrypt_response = api
-        .aes_decrypt(ciphertext, &iv, &key, length)
+        .aes_decrypt(ciphertext, iv, key, length)
         .expect("aes_decrypt failed");
     let decrypted_with_padding = &decrypt_response.plaintext;
 
@@ -86,7 +86,7 @@ fn test_aes_encrypt_decrypt_roundtrip() {
 #[test]
 fn test_aes_buffer_encrypt_decrypt() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let plaintext = b"AES buffer test message";
     let key = [
@@ -103,12 +103,12 @@ fn test_aes_buffer_encrypt_decrypt() {
     let length = padded_plaintext.len() as u32;
 
     let encrypt_response = api
-        .aes_encrypt(&padded_plaintext, &iv, &key, length)
+        .aes_encrypt(&padded_plaintext, iv, key, length)
         .expect("aes_encrypt failed");
     assert!(!encrypt_response.ciphertext.is_empty());
 
     let decrypt_response = api
-        .aes_decrypt(&encrypt_response.ciphertext, &iv, &key, length)
+        .aes_decrypt(&encrypt_response.ciphertext, iv, key, length)
         .expect("aes_decrypt failed");
     let decrypted_with_padding = &decrypt_response.plaintext;
 
@@ -124,7 +124,7 @@ fn test_aes_buffer_encrypt_decrypt() {
 #[test]
 fn test_aes_different_keys_produce_different_outputs() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let plaintext = b"Test message for key difference";
     let key1 = [
@@ -145,10 +145,10 @@ fn test_aes_different_keys_produce_different_outputs() {
     let length = padded_plaintext.len() as u32;
 
     let encrypt_response1 = api
-        .aes_encrypt(&padded_plaintext, &iv, &key1, length)
+        .aes_encrypt(&padded_plaintext, iv, key1, length)
         .expect("aes_encrypt failed");
     let encrypt_response2 = api
-        .aes_encrypt(&padded_plaintext, &iv, &key2, length)
+        .aes_encrypt(&padded_plaintext, iv, key2, length)
         .expect("aes_encrypt failed");
 
     // Different keys should produce different ciphertexts
@@ -160,7 +160,7 @@ fn test_aes_different_keys_produce_different_outputs() {
 #[test]
 fn test_aes_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let plaintext = b"Deterministic test message";
     let key = [
@@ -176,10 +176,10 @@ fn test_aes_deterministic() {
     let length = padded_plaintext.len() as u32;
 
     let encrypt_response1 = api
-        .aes_encrypt(&padded_plaintext, &iv, &key, length)
+        .aes_encrypt(&padded_plaintext, iv, key, length)
         .expect("aes_encrypt failed");
     let encrypt_response2 = api
-        .aes_encrypt(&padded_plaintext, &iv, &key, length)
+        .aes_encrypt(&padded_plaintext, iv, key, length)
         .expect("aes_encrypt failed");
 
     // Encryption should be deterministic for the same inputs

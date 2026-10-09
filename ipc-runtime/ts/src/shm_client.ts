@@ -1,5 +1,6 @@
 import { loadIpcRuntimeNapi } from "./native_loader.js";
-import { IpcClientAsync, IpcClientSync } from "./types.js";
+import { PendingQueue } from "./pending_queue.js";
+import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
 
 /**
  * Minimum surface a NAPI msgpack client must expose. Satisfied by the
@@ -24,8 +25,8 @@ export interface NapiMsgpackClientSync {
 }
 
 export interface NapiMsgpackClientAsync {
-  setResponseCallback(cb: (requestId: bigint, response: Buffer) => void): void;
-  call(requestId: bigint, input: Buffer): void;
+  setResponseCallback(cb: (requestId: number, response: Buffer) => void): void;
+  call(requestId: number, input: Buffer): void;
   acquire(): void;
   release(): void;
   /** Stop the native poll thread, release any held TSFN ref, close the client. */
@@ -49,42 +50,34 @@ export class NapiShmSyncClient implements IpcClientSync {
   }
 }
 
-interface PendingCallback {
-  resolve: (data: Uint8Array) => void;
-  reject: (error: Error) => void;
-}
-
 /**
  * Wraps the fire-and-forget async NAPI msgpack client behind the
- * `IpcClientAsync` interface. Owns a map of pending calls keyed by request
- * id; the C++ background polling thread invokes `setResponseCallback` once
- * per response (in completion order), and this wrapper pairs it to its
- * caller by the echoed id. Ids start at a random point per client so a
- * stale frame left in a recycled SHM ring slot by a previous occupant
- * cannot pair with a live call.
+ * `IpcClientAsync` interface. The C++ background polling thread invokes
+ * `setResponseCallback` once per response (in completion order), and this
+ * wrapper pairs it to its caller by the echoed id (see PendingQueue).
  *
  * `acquire` / `release` are reference-count hooks the NAPI exposes so the
  * libuv loop is kept alive only while requests are outstanding — without
  * them a `node script.js` would never exit naturally.
  */
 export class NapiShmAsyncClient implements IpcClientAsync {
-  private readonly pending = new Map<bigint, PendingCallback>();
-  private nextRequestId =
-    (BigInt(Math.floor(Math.random() * 0xffffffff)) << 16n) + 1n;
+  private readonly pending = new PendingQueue();
   private destroyed = false;
 
-  constructor(private inner: NapiMsgpackClientAsync) {
-    this.inner.setResponseCallback((requestId: bigint, response: Buffer) => {
+  constructor(
+    private inner: NapiMsgpackClientAsync,
+    private readonly mapError?: IpcErrorMapper,
+  ) {
+    this.inner.setResponseCallback((requestId: number, response: Buffer) => {
       if (this.destroyed) {
         // Late response delivered after destroy(); the native close already
         // balanced the TSFN reference.
         return;
       }
-      const cb = this.pending.get(requestId);
+      const cb = this.pending.take(requestId);
       if (cb) {
-        this.pending.delete(requestId);
         cb.resolve(new Uint8Array(response));
-        if (this.pending.size === 0) {
+        if (this.pending.length === 0) {
           this.inner.release();
         }
       } else {
@@ -104,34 +97,45 @@ export class NapiShmAsyncClient implements IpcClientAsync {
 
   call(input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
-      return Promise.reject(
-        new Error("NapiShmAsyncClient: call() after destroy()"),
+      return new Promise((_, reject) =>
+        this.fail(
+          reject,
+          new Error("NapiShmAsyncClient: call() after destroy()"),
+        ),
       );
     }
     const buf = Buffer.isBuffer(input)
       ? input
       : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
     return new Promise<Uint8Array>((resolve, reject) => {
-      const requestId = this.nextRequestId++;
-      if (this.pending.size === 0) {
+      if (this.pending.length === 0) {
         this.inner.acquire();
       }
-      this.pending.set(requestId, { resolve, reject });
+      const requestId = this.pending.push(resolve, reject);
       try {
         this.inner.call(requestId, buf);
       } catch (err: any) {
-        // Send failed — unwind the map entry we just added.
-        this.pending.delete(requestId);
-        if (this.pending.size === 0) {
+        // Send failed — unwind the entry we just added.
+        this.pending.pop();
+        if (this.pending.length === 0) {
           this.inner.release();
         }
-        reject(
+        this.fail(
+          reject,
           err instanceof Error
             ? err
             : new Error(`SHM async call failed: ${String(err)}`),
         );
       }
     });
+  }
+
+  private fail(reject: (error: unknown) => void, err: unknown): void {
+    if (this.mapError) {
+      this.mapError(err).then(reject, reject);
+    } else {
+      reject(err);
+    }
   }
 
   async destroy(): Promise<void> {
@@ -141,12 +145,11 @@ export class NapiShmAsyncClient implements IpcClientAsync {
     this.destroyed = true;
     // Reject anything still in flight.
     const err = new Error("ipc-runtime SHM client destroyed before response");
-    for (const cb of this.pending.values()) {
-      cb.reject(err);
+    for (const cb of this.pending.drain()) {
+      this.fail(cb.reject, err);
     }
-    this.pending.clear();
     // Stops the native poll thread and releases the TSFN reference taken
-    // when the map went 0 → 1 — without this, Node never exits when
+    // when the queue went 0 → 1 — without this, Node never exits when
     // destroyed with calls in flight.
     this.inner.close();
   }
@@ -157,6 +160,8 @@ export interface CreateNapiShmOptions {
   clientId?: number;
   /** Override addon path lookup. Rarely needed; useful for tests / unusual deployments. */
   customAddonPath?: string;
+  /** Applied to every rejected call's error. */
+  mapError?: IpcErrorMapper;
 }
 
 /**
@@ -190,5 +195,6 @@ export function createNapiShmAsyncClient(
     options.clientId === undefined
       ? new napi.MsgpackClientAsync(shmName)
       : new napi.MsgpackClientAsync(shmName, options.clientId),
+    options.mapError,
   );
 }

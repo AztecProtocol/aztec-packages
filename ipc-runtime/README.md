@@ -228,7 +228,7 @@ definition of the transport limits and defaults:
 
 | Constant | Value | Meaning |
 |----------|-------|---------|
-| `MAX_FRAME_SIZE` | 256 MiB | Max length prefix accepted on receive; larger frames close the connection / fail the ring instead of allocating. |
+| `MAX_FRAME_SIZE` | 4 GiB − 1 | The u32 length prefix's limit (it counts the 8-byte id plus the payload). Stream transports impose nothing smaller and grow receive buffers only as bytes arrive; SHM frames are bounded by half the ring capacity. |
 | `CONNECT_RETRY_BUDGET_MS` | 5000 | Total client connect retry budget (all transports). |
 | `DEFAULT_RING_SIZE` | 4 MiB | SHM ring size per direction per client. |
 | `SOCKET_BACKLOG` | 10 | Default UDS listen backlog. |

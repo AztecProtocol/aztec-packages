@@ -1,2 +1,0 @@
-barretenberg_module(ipc common)
-set_target_properties(ipc_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)

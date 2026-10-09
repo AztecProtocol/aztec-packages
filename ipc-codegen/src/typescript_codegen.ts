@@ -23,15 +23,49 @@ import {
   dedupeStructsByName,
 } from "./naming.ts";
 
+/**
+ * Above this length a fixed-size array is emitted as `T[]`, not a tuple.
+ *
+ * Pairs are the extension-field coordinates (Fq2), which callers build as
+ * two-element literals and pass positionally, so the arity carries its weight
+ * in the type. Longer fixed arrays are filled programmatically and read better
+ * as plain arrays — and typing them as tuples would reject the array
+ * expressions callers already pass.
+ */
+const TUPLE_SIZE_LIMIT = 2;
+
 export class TypeScriptCodegen {
   private errorTypeName: string = "ErrorResponse";
   /** Prefix to strip from command names when generating method names (e.g. "Bb" -> BbCircuitProve becomes circuitProve) */
   private methodPrefix: string = "";
+  /** Prefix to strip from generated type and converter names (e.g. "Bb" -> BbCircuitProve becomes CircuitProve) */
+  private typePrefix: string = "";
 
-  constructor(options?: { stripMethodPrefix?: string }) {
+  constructor(options?: { stripMethodPrefix?: string; stripTypePrefix?: string }) {
     if (options?.stripMethodPrefix) {
       this.methodPrefix = options.stripMethodPrefix;
     }
+    if (options?.stripTypePrefix) {
+      this.typePrefix = options.stripTypePrefix;
+    }
+  }
+
+  /**
+   * The generated identifier for a schema name: PascalCase, with the service
+   * prefix stripped when asked. Wire strings always keep the schema name, so
+   * this must never be used where a tag is emitted.
+   */
+  private typeName(schemaName: string): string {
+    let name = schemaName;
+    if (this.typePrefix && name.startsWith(this.typePrefix)) {
+      const rest = name.slice(this.typePrefix.length);
+      // Only strip when what remains still starts a PascalCase word, so a
+      // command legitimately beginning with the prefix letters is untouched.
+      if (rest && rest[0] === rest[0].toUpperCase()) {
+        name = rest;
+      }
+    }
+    return toPascalCase(name);
   }
 
   /** Strip the method prefix and convert to camelCase for API method names */
@@ -41,6 +75,19 @@ export class TypeScriptCodegen {
       name = name.slice(this.methodPrefix.length);
     }
     return toCamelCase(name);
+  }
+
+  /**
+   * A fixed-size array is a tuple: `[T, T]` rather than `T[]`. That preserves
+   * the arity in the type, and keeps a readonly tuple literal assignable,
+   * which a plain array type would reject. Long arrays stay `T[]` so the
+   * emitted types remain readable.
+   */
+  private fixedArrayType(element: string, size?: number): string {
+    if (size === undefined || size > TUPLE_SIZE_LIMIT) {
+      return `${element}[]`;
+    }
+    return `[${Array(size).fill(element).join(", ")}]`;
   }
 
   private primitiveType(type: Type): string {
@@ -91,16 +138,16 @@ export class TypeScriptCodegen {
           return "Uint8Array";
         }
         const inner = this.mapType(type.element!);
-        return type.element!.kind === "optional"
-          ? `(${inner})[]`
-          : `${inner}[]`;
+        const element =
+          type.element!.kind === "optional" ? `(${inner})` : inner;
+        return this.fixedArrayType(element, type.size);
       }
 
       case "optional":
         return `${this.mapType(type.element!)} | null`;
 
       case "struct":
-        return toPascalCase(type.struct!.name);
+        return this.typeName(type.struct!.name);
     }
 
     throw new Error(`Unsupported type kind: ${type.kind}`);
@@ -126,14 +173,15 @@ export class TypeScriptCodegen {
           return "Uint8Array";
         }
         const inner = this.mapMsgpackType(type.element!);
-        return inner.includes("|") ? `(${inner})[]` : `${inner}[]`;
+        const element = inner.includes("|") ? `(${inner})` : inner;
+        return this.fixedArrayType(element, type.size);
       }
 
       case "optional":
         return `${this.mapMsgpackType(type.element!)} | null`;
 
       case "struct":
-        return `Msgpack${toPascalCase(type.struct!.name)}`;
+        return `Msgpack${this.typeName(type.struct!.name)}`;
     }
 
     throw new Error(`Unsupported msgpack type kind: ${type.kind}`);
@@ -169,7 +217,7 @@ export class TypeScriptCodegen {
 
   // Generate public interface
   private generateInterface(struct: Struct): string {
-    const tsName = toPascalCase(struct.name);
+    const tsName = this.typeName(struct.name);
     const fields = struct.fields.map((f) => this.generateField(f)).join("\n");
 
     return `export interface ${tsName} {
@@ -179,7 +227,7 @@ ${fields}
 
   // Generate msgpack interface (internal)
   private generateMsgpackInterface(struct: Struct): string {
-    const tsName = toPascalCase(struct.name);
+    const tsName = this.typeName(struct.name);
     const fields = struct.fields
       .map((f) => this.generateMsgpackField(f))
       .join("\n");
@@ -191,7 +239,7 @@ ${fields}
 
   // Generate to* conversion function
   private generateToFunction(struct: Struct): string {
-    const tsName = toPascalCase(struct.name);
+    const tsName = this.typeName(struct.name);
 
     if (struct.fields.length === 0) {
       return `function to${tsName}(o: Msgpack${tsName}): ${tsName} {
@@ -225,7 +273,7 @@ ${conversions}
 
   // Generate from* conversion function
   private generateFromFunction(struct: Struct): string {
-    const tsName = toPascalCase(struct.name);
+    const tsName = this.typeName(struct.name);
 
     if (struct.fields.length === 0) {
       return `function from${tsName}(o: ${tsName}): Msgpack${tsName} {
@@ -289,7 +337,24 @@ ${conversions}
           return value;
         }
         const elem = this.generateConverter(dir, type.element!, "v");
-        return elem === "v" ? value : `${value}.map((v: any) => ${elem})`;
+        if (elem === "v") {
+          return value;
+        }
+        const mapped = `${value}.map((v: any) => ${elem})`;
+        // map() widens a tuple to an array, so re-assert the arity for the
+        // fixed-size case; the length itself is fixed by the schema.
+        const target =
+          type.kind === "array"
+            ? dir === "to"
+              ? this.fixedArrayType(this.mapType(type.element!), type.size)
+              : this.fixedArrayType(
+                  this.mapMsgpackType(type.element!),
+                  type.size,
+                )
+            : undefined;
+        return target && target.startsWith("[")
+          ? `(${mapped} as ${target})`
+          : mapped;
       }
       case "optional": {
         const inner = this.generateConverter(dir, type.element!, value);
@@ -298,7 +363,7 @@ ${conversions}
           : `${value} != null ? ${inner} : null`;
       }
       case "struct":
-        return `${dir}${toPascalCase(type.struct!.name)}(${value})`;
+        return `${dir}${this.typeName(type.struct!.name)}(${value})`;
     }
     return value;
   }
@@ -363,13 +428,13 @@ ${conversions}
     const asyncApiMethods = schema.commands
       .map(
         (c) =>
-          `  ${this.toMethodName(c.name)}(command: ${toPascalCase(c.name)}): Promise<${toPascalCase(c.responseType)}>;`,
+          `  ${this.toMethodName(c.name)}(command: ${this.typeName(c.name)}): Promise<${this.typeName(c.responseType)}>;`,
       )
       .join("\n");
     const syncApiMethods = schema.commands
       .map(
         (c) =>
-          `  ${this.toMethodName(c.name)}(command: ${toPascalCase(c.name)}): ${toPascalCase(c.responseType)};`,
+          `  ${this.toMethodName(c.name)}(command: ${this.typeName(c.name)}): ${this.typeName(c.responseType)};`,
       )
       .join("\n");
 
@@ -441,8 +506,8 @@ ${syncApiMethods}
   // Generate API method
   private generateAsyncApiMethod(command: Command): string {
     const methodName = this.toMethodName(command.name);
-    const cmdType = toPascalCase(command.name);
-    const respType = toPascalCase(command.responseType);
+    const cmdType = this.typeName(command.name);
+    const respType = this.typeName(command.responseType);
 
     return `  ${methodName}(command: ${cmdType}): Promise<${respType}> {
     const msgpackCommand = from${cmdType}(command);
@@ -460,8 +525,8 @@ ${syncApiMethods}
 
   private generateSyncApiMethod(command: Command): string {
     const methodName = this.toMethodName(command.name);
-    const cmdType = toPascalCase(command.name);
-    const respType = toPascalCase(command.responseType);
+    const cmdType = this.typeName(command.name);
+    const respType = this.typeName(command.responseType);
 
     return `  ${methodName}(command: ${cmdType}): ${respType} {
     const msgpackCommand = from${cmdType}(command);
@@ -567,8 +632,8 @@ ${methods}
 
     // Add command types and their conversion functions
     for (const cmd of schema.commands) {
-      const cmdType = toPascalCase(cmd.name);
-      const respType = toPascalCase(cmd.responseType);
+      const cmdType = this.typeName(cmd.name);
+      const respType = this.typeName(cmd.responseType);
       types.add(cmdType);
       types.add(respType);
       types.add(`from${cmdType}`);
@@ -588,14 +653,14 @@ ${methods}
   /** Generate a server handler interface and dispatch function */
   generateServerApi(schema: CompiledSchema): string {
     this.errorTypeName = schema.errorTypeName;
-    const errorType = toPascalCase(this.errorTypeName);
+    const errorType = this.typeName(this.errorTypeName);
 
     // Generate handler interface
     const handlerMethods = schema.commands
       .map((c) => {
         const methodName = this.toMethodName(c.name);
-        const cmdType = toPascalCase(c.name);
-        const respType = toPascalCase(c.responseType);
+        const cmdType = this.typeName(c.name);
+        const respType = this.typeName(c.responseType);
         return `  ${methodName}(command: ${cmdType}): Promise<${respType}>;`;
       })
       .join("\n");
@@ -604,8 +669,8 @@ ${methods}
     const dispatchCases = schema.commands
       .map((c) => {
         const methodName = this.toMethodName(c.name);
-        const cmdType = toPascalCase(c.name);
-        const respType = toPascalCase(c.responseType);
+        const cmdType = this.typeName(c.name);
+        const respType = this.typeName(c.responseType);
         return `      case '${c.name}': {
         const cmd = to${cmdType}(payload);
         const result = await handler.${methodName}(cmd);
@@ -617,8 +682,8 @@ ${methods}
     const typeImports = new Set<string>();
     const valueImports = new Set<string>();
     for (const cmd of schema.commands) {
-      const cmdType = toPascalCase(cmd.name);
-      const respType = toPascalCase(cmd.responseType);
+      const cmdType = this.typeName(cmd.name);
+      const respType = this.typeName(cmd.responseType);
       typeImports.add(cmdType);
       typeImports.add(respType);
       valueImports.add(`to${cmdType}`);
