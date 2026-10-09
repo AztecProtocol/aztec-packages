@@ -21,7 +21,6 @@ barretenberg_module_with_sources(
   DEPENDENCIES crypto_merkle_tree world_state_reference
 )
 
-# vm2_sim needs -fPIC because it's linked into the nodejs_module shared library
 set_target_properties(vm2_sim_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Build vm2 module with sources mutually exclusive from vm2_sim
