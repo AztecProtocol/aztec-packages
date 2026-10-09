@@ -9,8 +9,12 @@ guarantees, and deliberately leaves alone.
 
 ## What this does
 
-The deploy script deploys, in one broadcast:
+The deploy script deploys, in one broadcast of ten transactions:
 
+0. Six external libraries the `Rollup` links against (`AttesterExitExtLib`,
+   `ValidatorOperationsExtLib`, `SlasherDeploymentExtLib`, `RollupOperationsExtLib`, `RewardExtLib`,
+   `EpochProofExtLib`), via the CREATE2 deployer. They go out first and account for about 33M of the
+   roughly 58M gas the broadcast uses.
 1. `HonkVerifier` — the real epoch proof verifier, from the pinned `script/deploy/HonkVerifier.sol`
    (see [Build](#1-build)), not from this tree's `generated/`.
 2. `Rollup` — owned by **governance** from construction. Deploying it also constructs its `Inbox`,
@@ -85,7 +89,9 @@ forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' \
 - Gas: forge sets each transaction's gas limit from its local simulation (`evm_version = 'prague'`),
   which matches pre-Glamsterdam pricing, so the default limits are correct on mainnet before the
   fork. Measured pre-fork on Sepolia: verifier 3.75M gas (limit 4.88M), rollup 11.98M (limit
-  15.58M). Do **not** add `--gas-estimate-multiplier` before Glamsterdam: the rollup's limit would
+  15.58M). A mainnet dry run (2026-10-08) estimated 58.4M gas across all ten transactions, each
+  limit under the cap, the largest being the rollup at 15.58M; budget roughly 0.25-0.4 ETH at
+  4-6 gwei. Do **not** add `--gas-estimate-multiplier` before Glamsterdam: the rollup's limit would
   exceed the EIP-7825 per-transaction cap of 16,777,216 and the node would reject it after the
   verifier had already been sent. The rollup's default limit sits about 1.2M under that cap.
 - After Glamsterdam, the default limits are far too low: on post-fork Sepolia the verifier creation
@@ -203,6 +209,7 @@ REG=0x35b22e09Ee0390539439E24f06Da43D83f90e298
 ROLLUP=$(cast call $REG "getCanonicalRollup()(address)"    --rpc-url $RPC)
 GSE=$(cast    call $ROLLUP "getGSE()(address)"             --rpc-url $RPC)
 RD=$(cast     call $REG "getRewardDistributor()(address)"  --rpc-url $RPC)
+TOKEN=$(cast  call $ROLLUP "getFeeAsset()(address)"        --rpc-url $RPC)
 BONUS=$(cast  call $GSE "BONUS_INSTANCE_ADDRESS()(address)" --rpc-url $RPC)
 
 cast call $GSE "ACTIVATION_THRESHOLD()(uint256)" --rpc-url $RPC   # expect 200_000e18
@@ -212,21 +219,30 @@ cast call $GSE "owner()(address)"                --rpc-url $RPC   # governance, 
 cast call $ROLLUP "getActiveAttesterCount()(uint256)" --rpc-url $RPC
 cast call $ROLLUP "getIsBootstrapped()(bool)"        --rpc-url $RPC
 
-# must be 0, or funds earmarked to the outgoing rollup strand when it stops being canonical
+# the reservation's headroom: the implicit pool plus what is already earmarked to the outgoing
+# rollup must cover the earmark amount (1,800,000e18), or action 3 reverts
+cast call $TOKEN "balanceOf(address)(uint256)" $RD --rpc-url $RPC
 cast call $RD "totalEarmarkedBalance()(uint256)" --rpc-url $RPC
 cast call $RD "specificRecipientBalance(address)(uint256)" $ROLLUP --rpc-url $RPC
+cast call $RD "availableTo(address)(uint256)" $ROLLUP --rpc-url $RPC   # >= 1,800,000e18
 
 # how much the payload will actually move (balance minus unclaimed debt)
 cast call 0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e "rewardsAvailable()(uint256)" --rpc-url $RPC
+cast call 0x5B98cA4dcE7b59CCf241D12f81d3d2eCF14e410e "owner()(address)" --rpc-url $RPC  # governance, or action 9 reverts
 ```
 
 Baseline measured 2026-09-15 (block 25980374), for comparison rather than as expected constants:
 attesters 3187, all in the bonus instance; `isBootstrapped` true; distributor holds ~98.98M with
 `totalEarmarkedBalance` 0; flush rewarder holds 390,000e18 of which 378,900e18 is movable.
+Re-measured 2026-10-08 (block 26149128): attesters 3090; distributor holds 85.76M with
+`totalEarmarkedBalance` 0; 363,900e18 movable from the flush rewarder.
 
-`totalEarmarkedBalance` is the one to re-check immediately before the proposal executes —
-`subsidizeAddress` is permissionless, so anyone can earmark funds to the outgoing rollup after
-this check and strand them.
+`totalEarmarkedBalance` does **not** need to be 0. Earmarks are keyed by address and stay
+claimable by their recipient whether or not it is canonical, and `subsidizeAddress` (which anyone
+can call) raises the distributor's balance and `totalEarmarkedBalance` by the same amount, so it
+cannot shrink the implicit pool. A donation earmarked to the outgoing rollup before execution
+simply adds to the reservation. What matters is `availableTo($ROLLUP)` covering the earmark
+amount, checked above.
 
 ## 4. Dry run
 
@@ -284,11 +300,17 @@ forge script script/deploy/V6UpgradeSimulation.sol:V6UpgradeSimulation \
 Sanity-check by hand that the rollup is inert and correctly owned:
 
 ```bash
-cast call <rollup> "owner()(address)"           --rpc-url $RPC  # governance
 cast call <rollup> "getEscapeHatch()(address)"  --rpc-url $RPC  # ZERO until the payload executes
 cast call <payload> "ESCAPE_HATCH()(address)"  --rpc-url $RPC  # the hatch it will install
 cast call <rollup> "owner()(address)"          --rpc-url $RPC  # governance, from construction
 cast call <rollup> "getVersion()(uint256)"      --rpc-url $RPC  # not already in the registry
+
+# the rollup uses the pinned verifier. `verify` does not check this, and the verifier is immutable,
+# so a wrong one cannot be fixed after the payload executes. The two hashes must be equal
+# (HonkVerifier has no immutables, so its runtime code is exactly the compiled artifact).
+cast call <rollup> "getEpochProofVerifier()(address)" --rpc-url $RPC  # == the logged verifier
+cast code <verifier> --rpc-url $RPC | cast keccak
+forge inspect script/deploy/HonkVerifier.sol:HonkVerifier deployedBytecode | cast keccak
 
 # the payload is bound to the rollup it succeeds; must equal the OUTGOING rollup, not the new one
 cast call <payload> "PREDECESSOR()(address)"    --rpc-url $RPC
@@ -310,15 +332,15 @@ cast call <governance> "getProposal(uint256)" <id> --rpc-url $RPC
 On mainnet the configured delays are long (voting delay, then voting duration, then execution
 delay — on the order of weeks in total), so expect the proposal to sit before it is executable.
 
-Before execution, re-run the `totalEarmarkedBalance` and `rewardsAvailable` checks from step 3 —
-both can move while the proposal is pending, and `rewardsAvailable` is read at execution time. So
-is the earmark amount's headroom: `subsidizeAddress` is permissionless, so anyone can raise
-`totalEarmarkedBalance` and shrink the implicit pool the reservation draws from.
+Before execution, re-run the reservation-headroom and `rewardsAvailable` checks from step 3. Both
+can move while the proposal is pending: the canonical rollup's reward claims draw the implicit pool
+down, and `rewardsAvailable` is read at execution time. A non-zero or growing
+`totalEarmarkedBalance` on its own is not a reason to hold the execution; see step 3.
 
 ### Executing on mainnet: office hours only
 
 The mainnet payload will only execute **Monday to Friday, 08:00–17:00 London**, DST included —
-08:00–17:00 UTC in winter, 07:00–16:00 UTC in summer. Outside that the first action reverts and
+08:00–17:00 UTC in winter, 07:00–16:00 UTC in summer. Outside that the window check (action 2) reverts and
 the whole execution rolls back, including the `Executed` flag, so the proposal stays executable and
 can simply be retried when the window next opens. Nothing is consumed by a rejected attempt.
 
@@ -374,10 +396,10 @@ cast call <newFlushRewarder> "rewardsAvailable()(uint256)" --rpc-url $RPC
 cast call $TOKEN "balanceOf(address)(uint256)" $RD              --rpc-url $RPC  # same as before
 cast call $RD "totalEarmarkedBalance()(uint256)"               --rpc-url $RPC  # up by the amount
 cast call $RD "specificRecipientBalance(address)(uint256)" $ROLLUP --rpc-url $RPC  # up by the amount
-cast call <payload> "..."  # payload holds none of the asset
+cast call $TOKEN "balanceOf(address)(uint256)" <payload>         --rpc-url $RPC  # 0
 
-# the retune, read off the OUTGOING rollup
-cast call $ROLLUP "getRewardConfig()" --rpc-url $RPC
+# the retune, read off the OUTGOING rollup: (distributor, 7000, booster, 50e18)
+cast call $ROLLUP "getRewardConfig()((address,uint32,address,uint96))" --rpc-url $RPC
 
 # the proof-of-possession gas cap, shared by every rollup on the GSE
 cast call $GSE "proofOfPossessionGasLimit()(uint64)" --rpc-url $RPC  # 300000
@@ -399,8 +421,9 @@ only visible to whichever rollup is currently canonical.
   every claim. The first margin increase is exempt from the 30-day cooldown but capped at
   5000 bps by the ×3/2 step on the fee multiplier.
 - **Reward distributor migration.** Not needed: the distributor resolves the canonical rollup live
-  off the registry, so its implicit pool follows v6 the moment action 1 executes. This holds only
-  while `totalEarmarkedBalance` is 0.
+  off the registry, so its implicit pool follows v6 the moment action 7 (`Registry.addRollup`)
+  executes. Balances earmarked to other addresses, including the reservation for the outgoing
+  rollup, stay with their recipients and are not part of what v6 inherits.
 - **Registry address pinning.** `REGISTRY_ADDRESS` is an unvalidated env input. Everything else —
   fee asset, staking asset, GSE, governance, reward distributor — is derived from it, so a wrong
   registry silently changes all of them together. Double-check it on the command line.
