@@ -7,28 +7,62 @@ LMDBStoreBase::LMDBStoreBase(
     , _environment(std::make_shared<LMDBEnvironment>(_dbDirectory, mapSizeKb, maxDbs, maxNumReaders, ephemeral))
 {}
 LMDBStoreBase::~LMDBStoreBase() = default;
+// A transaction returns its permit from its destructor, which never runs if its constructor (mdb_txn_begin) throws
 LMDBStoreBase::ReadTransaction::Ptr LMDBStoreBase::create_read_transaction() const
 {
     _environment->wait_for_reader();
-    return std::make_unique<ReadTransaction>(_environment);
+    try {
+        return std::make_unique<ReadTransaction>(_environment);
+    } catch (...) {
+        _environment->release_reader();
+        throw;
+    }
 }
 
 LMDBStoreBase::ReadTransaction::SharedPtr LMDBStoreBase::create_shared_read_transaction() const
 {
     _environment->wait_for_reader();
-    return std::make_shared<ReadTransaction>(_environment);
+    try {
+        return std::make_shared<ReadTransaction>(_environment);
+    } catch (...) {
+        _environment->release_reader();
+        throw;
+    }
+}
+
+LMDBStoreBase::ReadTransaction::SharedPtr LMDBStoreBase::try_create_shared_read_transaction(uint32_t keepFree) const
+{
+    if (!_environment->try_wait_for_reader(keepFree)) {
+        return nullptr;
+    }
+    try {
+        return std::make_shared<ReadTransaction>(_environment);
+    } catch (...) {
+        _environment->release_reader();
+        throw;
+    }
 }
 
 LMDBStoreBase::DBCreationTransaction::Ptr LMDBStoreBase::create_db_transaction() const
 {
     _environment->wait_for_writer();
-    return std::make_unique<DBCreationTransaction>(_environment);
+    try {
+        return std::make_unique<DBCreationTransaction>(_environment);
+    } catch (...) {
+        _environment->release_writer();
+        throw;
+    }
 }
 
 LMDBStoreBase::WriteTransaction::Ptr LMDBStoreBase::create_write_transaction() const
 {
     _environment->wait_for_writer();
-    return std::make_unique<WriteTransaction>(_environment);
+    try {
+        return std::make_unique<WriteTransaction>(_environment);
+    } catch (...) {
+        _environment->release_writer();
+        throw;
+    }
 }
 
 void LMDBStoreBase::copy_store(const std::string& dstPath, bool compact)

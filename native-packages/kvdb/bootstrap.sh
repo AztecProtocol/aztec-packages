@@ -32,6 +32,18 @@ function build {
   yarn build
 }
 
+# Emit test commands for the CI test engine: the addon's message protocol, driven over msgpack from node.
+function test_cmds {
+  echo "$hash:TIMEOUT=120s cd native-packages/kvdb/ts && node --test test/*.test.mjs"
+}
+
+# Manual: build then run the tests directly.
+function test {
+  echo_header "kvdb test"
+  build
+  test_cmds | filter_test_cmds | parallelize
+}
+
 function clean {
   rm -rf ts/dest ts/build ts/packages ts/node_modules node_modules cpp/build
 }
@@ -47,7 +59,7 @@ function release {
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f build_native build clean release
+export -f build_native build test_cmds test clean release
 
 case "$cmd" in
   "")
