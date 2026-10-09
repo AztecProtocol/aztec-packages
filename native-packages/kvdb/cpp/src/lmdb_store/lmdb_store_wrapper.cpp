@@ -19,6 +19,9 @@ using namespace azteclabs::kvdb::lmdb_store;
 const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
 const uint64_t DEFAULT_MAX_READERS = 16;
 const uint64_t DEFAULT_CURSOR_PAGE_SIZE = 10;
+// Reader permits a new read transaction must leave free, so that requests which open their own short-lived read
+// transaction can always make progress while long-lived ones are held open
+const uint32_t READ_TX_RESERVED_READERS = 1;
 
 LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
@@ -142,7 +145,13 @@ BoolResponse LMDBStoreWrapper::open_database(const OpenDatabaseRequest& req)
 StartReadTxResponse LMDBStoreWrapper::start_read_tx()
 {
     verify_store();
-    ReadTxData data{ _store->create_shared_read_transaction(), std::make_shared<std::mutex>() };
+    // Waiting for a permit here could park every libuv worker, starving the CLOSE_READ_TX that would free one
+    auto tx = _store->try_create_shared_read_transaction(READ_TX_RESERVED_READERS);
+    if (!tx) {
+        throw std::runtime_error("No reader slot available to start a read transaction, close an open read "
+                                 "transaction or cursor and retry");
+    }
+    ReadTxData data{ std::move(tx), std::make_shared<std::mutex>() };
     uint64_t id = data.tx->id();
     {
         std::lock_guard<std::mutex> lock(_read_tx_mutex);
@@ -153,11 +162,14 @@ StartReadTxResponse LMDBStoreWrapper::start_read_tx()
 
 BoolResponse LMDBStoreWrapper::close_read_tx(const CloseReadTxRequest& req)
 {
+    if (!req.tx.has_value()) {
+        throw std::runtime_error("CLOSE_READ_TX request is missing the read transaction id");
+    }
     // Moved out so that, if this was the last reference, the transaction is aborted after the registry lock is released
     ReadTxData closed;
     {
         std::lock_guard<std::mutex> lock(_read_tx_mutex);
-        auto it = _read_txs.find(req.tx);
+        auto it = _read_txs.find(req.tx.value());
         if (it == _read_txs.end()) {
             return { false };
         }

@@ -69,13 +69,15 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     /**
      * @brief Opens a read transaction that stays open until CLOSE_READ_TX (or CLOSE) and returns its id. It holds one
-     * of the environment's reader slots for its whole lifetime and blocks while none is free.
+     * of the environment's reader slots for its whole lifetime.
+     * @throws std::runtime_error without waiting if taking a slot would leave none free for other reads
      */
     StartReadTxResponse start_read_tx();
 
     /**
      * @brief Unregisters a read transaction. Cursors already opened against it keep it alive until they are closed.
      * @return ok is false if no read transaction with this id was open
+     * @throws std::runtime_error if the request carries no id
      */
     BoolResponse close_read_tx(const CloseReadTxRequest& req);
 

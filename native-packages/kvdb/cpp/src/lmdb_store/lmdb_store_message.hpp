@@ -152,7 +152,8 @@ struct StartReadTxResponse {
 };
 
 struct CloseReadTxRequest {
-    uint64_t tx;
+    // Optional only so that a request without it is rejected rather than read as an indeterminate id
+    std::optional<uint64_t> tx;
     MSGPACK_DEFINE_MAP(tx);
 };
 
