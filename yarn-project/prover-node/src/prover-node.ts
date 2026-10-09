@@ -501,6 +501,11 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       bindings: this.log.getBindings(),
     });
     this.sessionManager = this.createSessionManager(this.publishingService);
+    if (this.config.proverNodeDisableFullEpochProving) {
+      this.log.info('Full epoch proving disabled: proving only the epochs requested through startProof', {
+        proverNodeDisableFullEpochProving: true,
+      });
+    }
     // SessionManager owns its own periodic tick; start it here so it begins picking up
     // epochs that become complete by time (no fresh checkpoint event) and advances once
     // the previous epoch is proven on L1.
@@ -580,6 +585,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         maxPendingJobs: this.config.proverNodeMaxPendingJobs,
         tickIntervalMs: this.config.proverNodePollingIntervalMs,
         finalizationDelayMs: this.config.proverNodeEpochProvingDelayMs,
+        disableFullEpochProving: !!this.config.proverNodeDisableFullEpochProving,
       },
       onSessionFailed: async session => {
         await this.tryUploadEpochFailure(session.getId(), session.getCheckpoints());

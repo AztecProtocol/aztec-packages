@@ -41,6 +41,7 @@ export type SpecificProverNodeConfig = {
   proverNodeFailedEpochStore: string | undefined;
   proverNodeEpochProvingDelayMs: number | undefined;
   proverNodeDisableProofPublish?: boolean;
+  proverNodeDisableFullEpochProving?: boolean;
   txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
@@ -97,6 +98,13 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
   proverNodeDisableProofPublish: {
     env: 'PROVER_NODE_DISABLE_PROOF_PUBLISH',
     description: 'Whether the prover node skips publishing proofs to L1',
+    ...booleanConfigHelper(false),
+  },
+  proverNodeDisableFullEpochProving: {
+    env: 'PROVER_NODE_DISABLE_FULL_EPOCH_PROVING',
+    description:
+      'Whether the prover node skips proving complete epochs on its own. It still proves partial epochs requested ' +
+      'through the startProof admin API, e.g. by a sidecar that pays for early withdrawal proofs.',
     ...booleanConfigHelper(false),
   },
   proofSubmissionTargetAddress: {
