@@ -855,6 +855,36 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
+     * @brief Compute sum_i limbs[i] * 2^(i * NUM_LIMB_BITS) for limbs below 2^256
+     * @details Each shifted limb is assembled from two 256-bit shifts by compile-time amounts, which is cheaper than
+     * shifting 512-bit integers.
+     */
+    static uint512_t combine_limbs(const std::array<uint256_t, NUM_LIMBS>& limbs)
+    {
+        static_assert(NUM_LIMB_BITS * (NUM_LIMBS - 1) < 256);
+        uint512_t result(limbs[0]);
+        result += uint512_t(limbs[1] << NUM_LIMB_BITS, limbs[1] >> (256 - NUM_LIMB_BITS));
+        result += uint512_t(limbs[2] << (NUM_LIMB_BITS * 2), limbs[2] >> (256 - (NUM_LIMB_BITS * 2)));
+        result += uint512_t(limbs[3] << (NUM_LIMB_BITS * 3), limbs[3] >> (256 - (NUM_LIMB_BITS * 3)));
+        return result;
+    }
+
+    /**
+     * @brief Split the low NUM_LIMBS * NUM_LIMB_BITS bits of a value into NUM_LIMB_BITS-bit limbs
+     * @details Equivalent to value.slice(i * NUM_LIMB_BITS, (i + 1) * NUM_LIMB_BITS) for each limb, using 256-bit
+     * operations.
+     */
+    static std::array<uint256_t, NUM_LIMBS> split_into_limbs(const uint512_t& value)
+    {
+        static_assert(NUM_LIMB_BITS * (NUM_LIMBS - 1) < 256 && NUM_LIMB_BITS * NUM_LIMBS > 256);
+        constexpr uint256_t limb_mask = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+        return { value.lo & limb_mask,
+                 (value.lo >> NUM_LIMB_BITS) & limb_mask,
+                 (value.lo >> (NUM_LIMB_BITS * 2)) & limb_mask,
+                 ((value.lo >> (NUM_LIMB_BITS * 3)) | (value.hi << (256 - (NUM_LIMB_BITS * 3)))) & limb_mask };
+    }
+
+    /**
      * @brief Reduce a value modulo the target modulus, skipping the division when it is already reduced
      */
     static uint512_t reduce_value(const uint512_t& value)

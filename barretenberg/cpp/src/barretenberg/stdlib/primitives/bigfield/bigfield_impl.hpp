@@ -145,11 +145,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
 {
     BB_ASSERT((can_overflow == true && maximum_bitlength == 0) ||
               (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
-    std::array<uint256_t, NUM_LIMBS> limbs;
-    limbs[0] = value.slice(0, NUM_LIMB_BITS).lo;
-    limbs[1] = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo;
-    limbs[2] = value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo;
-    limbs[3] = value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo;
+    const std::array<uint256_t, NUM_LIMBS> limbs = split_into_limbs(value);
 
     field_t<Builder> limb_0(ctx);
     field_t<Builder> limb_1(ctx);
@@ -303,20 +299,18 @@ template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, 
 
 template <typename Builder, typename T> uint512_t bigfield<Builder, T>::get_value() const
 {
-    uint512_t t0 = uint256_t(binary_basis_limbs[0].element.get_value());
-    uint512_t t1 = uint256_t(binary_basis_limbs[1].element.get_value());
-    uint512_t t2 = uint256_t(binary_basis_limbs[2].element.get_value());
-    uint512_t t3 = uint256_t(binary_basis_limbs[3].element.get_value());
-    return t0 + (t1 << (NUM_LIMB_BITS)) + (t2 << (2 * NUM_LIMB_BITS)) + (t3 << (3 * NUM_LIMB_BITS));
+    return combine_limbs({ uint256_t(binary_basis_limbs[0].element.get_value()),
+                           uint256_t(binary_basis_limbs[1].element.get_value()),
+                           uint256_t(binary_basis_limbs[2].element.get_value()),
+                           uint256_t(binary_basis_limbs[3].element.get_value()) });
 }
 
 template <typename Builder, typename T> uint512_t bigfield<Builder, T>::get_maximum_value() const
 {
-    uint512_t t0 = uint512_t(binary_basis_limbs[0].maximum_value);
-    uint512_t t1 = uint512_t(binary_basis_limbs[1].maximum_value) << NUM_LIMB_BITS;
-    uint512_t t2 = uint512_t(binary_basis_limbs[2].maximum_value) << (NUM_LIMB_BITS * 2);
-    uint512_t t3 = uint512_t(binary_basis_limbs[3].maximum_value) << (NUM_LIMB_BITS * 3);
-    return t0 + t1 + t2 + t3;
+    return combine_limbs({ binary_basis_limbs[0].maximum_value,
+                           binary_basis_limbs[1].maximum_value,
+                           binary_basis_limbs[2].maximum_value,
+                           binary_basis_limbs[3].maximum_value });
 }
 
 template <typename Builder, typename T>
