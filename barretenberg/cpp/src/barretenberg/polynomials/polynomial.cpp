@@ -208,6 +208,14 @@ template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_en
     coefficients_.end_ = new_end_index;
 }
 
+template <typename Fr> void Polynomial<Fr>::rebase_backed_range(const size_t new_start, const size_t new_end)
+{
+    BB_ASSERT_LTE(new_start, new_end);
+    BB_ASSERT_LTE(new_end - new_start, size());
+    coefficients_.start_ = new_start;
+    coefficients_.end_ = new_end;
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
     Polynomial result;

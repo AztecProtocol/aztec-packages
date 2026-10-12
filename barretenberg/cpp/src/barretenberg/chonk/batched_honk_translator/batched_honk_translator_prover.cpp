@@ -48,9 +48,8 @@ void joint_partially_evaluate(MegaZKSource& mega_zk_source,
     std::vector<FoldJob> jobs;
     auto add_jobs = [&](auto& source, auto& dest) {
         for (auto [source_poly, dest_poly] : zip_view(source.get_all(), dest.get_all())) {
-            // One output per source pair (2k, 2k+1); an odd trailing slot folds against an implicit zero.
-            const size_t limit = source_poly.end_index();
-            jobs.push_back({ &source_poly, &dest_poly, (limit / 2) + (limit % 2) });
+            const auto [begin, end] = folded_backed_range(source_poly);
+            jobs.push_back({ &source_poly, &dest_poly, end - begin });
         }
     };
     add_jobs(mega_zk_source, mega_zk_dest);
@@ -60,8 +59,7 @@ void joint_partially_evaluate(MegaZKSource& mega_zk_source,
 
     parallel_for(jobs.size(), [&](size_t j) {
         const FoldJob& job = jobs[j];
-        fold_stride2(*job.source, *job.dest, /*begin=*/0, /*end=*/job.num_outputs, round_challenge);
-        job.dest->shrink_end_index(job.num_outputs);
+        fold_stride2_backed(*job.source, *job.dest, round_challenge);
     });
 
     // Halve the active-row prefix to track the folded trace (only tables that carry it).

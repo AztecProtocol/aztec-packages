@@ -654,8 +654,8 @@ template <typename Flavor> class SumcheckProver {
      *
      * Per polynomial, output k folds the adjacent source pair: dst[k] = src[2k] + r * (src[2k+1] - src[2k]).
      * The per-output kernel (scalar tail + WASM SIMD bulk, virtual-zero prefix handling, in-place aliasing)
-     * lives in `bb::fold_stride2`; this method just halves each polynomial's active extent around it. The
-     * number of outputs is ceil(limit/2) = (limit / 2) + (limit % 2), matching the shrunk end index.
+     * lives in `bb::fold_stride2`; this method just halves each polynomial's backed range [start, end) to
+     * [floor(start/2), ceil(end/2)) around it (see `bb::fold_stride2_backed`).
      */
     static void partially_evaluate(auto& source_polynomials,
                                    PartiallyEvaluatedMultivariates& dest_polynomials,
@@ -665,14 +665,9 @@ template <typename Flavor> class SumcheckProver {
         auto dest_view = dest_polynomials.get_all();
         parallel_for(source_view.size(), [&](size_t j) {
             BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
-            const auto& poly = source_view[j];
-            auto& dest = dest_view[j];
-            const size_t limit = poly.end_index();
-            // One output per source pair (2k, 2k+1); when limit is odd the last source slot is unpaired
-            // and folds against an implicit zero, so we round up: ceil(limit / 2).
-            const size_t num_outputs = (limit / 2) + (limit % 2);
-            fold_stride2(poly, dest, /*begin=*/0, /*end=*/num_outputs, round_challenge);
-            dest.shrink_end_index(num_outputs);
+            // One output per source pair (2k, 2k+1); an unpaired slot at either end of the backed range folds
+            // against an implicit zero.
+            fold_stride2_backed(source_view[j], dest_view[j], round_challenge);
         });
         // Halve the active-row prefix to track the folded trace; the loop above leaves the member untouched, so this
         // reads the pre-round value even when source and dest alias (see partially_evaluate_in_place).

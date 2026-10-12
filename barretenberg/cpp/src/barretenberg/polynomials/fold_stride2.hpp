@@ -9,6 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 
 namespace bb {
 
@@ -113,6 +114,41 @@ void fold_stride2(
     }
 #endif
     fold_scalar(k, end);
+}
+
+/**
+ * @brief Backed range [⌊start/2⌋, ⌈end/2⌉) of the fold of a polynomial backed on [start, end); empty if the source is.
+ */
+template <typename Fr> std::pair<size_t, size_t> folded_backed_range(const Polynomial<Fr>& src)
+{
+    if (src.size() == 0) {
+        return { 0, 0 };
+    }
+    return { src.start_index() / 2, (src.end_index() / 2) + (src.end_index() % 2) };
+}
+
+/**
+ * @brief Fold `src` at `challenge` over its whole support: writes `dst[k]` for k in `folded_backed_range(src)`.
+ * @details `dst` is either a distinct polynomial backed on a range that starts at the folded start and covers the
+ * folded end (its end index is shrunk to the folded end), or `src` itself. In the in-place case the backed range is
+ * moved down to the folded range over the same buffer: output k is stored at offset k - ⌊start/2⌋ while iteration k
+ * reads offsets 2k - start and 2k + 1 - start, and k - ⌊start/2⌋ < 2k - start + 2 for every k >= ⌊start/2⌋, so no
+ * output overwrites a source slot a later iteration still reads.
+ */
+template <typename Fr> void fold_stride2_backed(const Polynomial<Fr>& src, Polynomial<Fr>& dst, const Fr& challenge)
+{
+    const auto [begin, end] = folded_backed_range(src);
+    if (&src == &dst) {
+        const Polynomial<Fr> source = src.share();
+        dst.rebase_backed_range(begin, end);
+        fold_stride2(source, dst, begin, end, challenge);
+        return;
+    }
+    if (begin == end) {
+        return;
+    }
+    fold_stride2(src, dst, begin, end, challenge);
+    dst.shrink_end_index(end);
 }
 
 } // namespace bb
