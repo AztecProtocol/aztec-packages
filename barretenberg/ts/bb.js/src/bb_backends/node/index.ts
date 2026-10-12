@@ -19,6 +19,10 @@ export async function createAsyncBackend(
     wasmPath: options.wasmPath ?? process.env.BB_WASM_PATH,
   };
 
+  if (options.reactor && type !== BackendType.NativeUnixSocket) {
+    throw new Error(`The reactor option needs the NativeUnixSocket backend, not ${type}.`);
+  }
+
   switch (type) {
     case BackendType.NativeUnixSocket: {
       const bbPath = findBbBinary(options.bbPath);

@@ -78,6 +78,34 @@ void ChonkBatchVerifier::enqueue(VerifyRequest request)
     }
 }
 
+void ChonkBatchVerifier::wait_for_room()
+{
+    std::unique_lock lock(mutex_);
+    room_cv_.wait(lock, [this] { return shutdown_ || queue_.size() < MAX_QUEUE_SIZE; });
+}
+
+std::vector<uint64_t> ChonkBatchVerifier::discard_queued()
+{
+    std::vector<uint64_t> ids;
+    {
+        std::lock_guard lock(mutex_);
+        ids.reserve(queue_.size());
+        for (const auto& request : queue_) {
+            ids.push_back(request.request_id);
+            in_flight_ids_.erase(request.request_id);
+        }
+        queue_.clear();
+    }
+    room_cv_.notify_all();
+    return ids;
+}
+
+size_t ChonkBatchVerifier::num_vks() const
+{
+    std::lock_guard lock(mutex_);
+    return vks_.size();
+}
+
 void ChonkBatchVerifier::stop()
 {
     std::thread coordinator_thread;
@@ -97,6 +125,7 @@ void ChonkBatchVerifier::stop()
         }
     }
     cv_.notify_one();
+    room_cv_.notify_all();
     if (coordinator_thread.joinable()) {
         coordinator_thread.join();
     }
@@ -159,6 +188,7 @@ void ChonkBatchVerifier::coordinator_loop()
                 auto end = queue_.begin() + static_cast<ptrdiff_t>(take);
                 batch.assign(std::make_move_iterator(queue_.begin()), std::make_move_iterator(end));
                 queue_.erase(queue_.begin(), end);
+                room_cv_.notify_all();
             }
 
             if (batch.empty()) {

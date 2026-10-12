@@ -191,6 +191,54 @@ TEST(SocketTest, EchoRoundTrip)
     server->close();
 }
 
+// A reactor handler that throws without responding has broken its contract:
+// the server stops, runs on_stop, and run_reactor returns rather than waiting
+// forever for a response that will never come. Responses already pending are
+// still sent.
+TEST(SocketTest, ReactorStopsWhenAHandlerThrowsWithoutResponding)
+{
+    std::string path = test_socket_path("reactor_throw");
+    auto server = IpcServer::create_socket(path, 1);
+    ASSERT_TRUE(server->listen());
+
+    std::promise<IpcServer::Respond> held;
+    bool on_stop_ran = false;
+    std::thread server_thread([&] {
+        server->run_reactor(
+            [&](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+                if (req[0] == 1) {
+                    held.set_value(std::move(respond)); // answered later, from another thread
+                    return;
+                }
+                throw std::runtime_error("handler bug");
+            },
+            [&] { on_stop_ran = true; });
+    });
+
+    auto client = IpcClient::create_socket(path);
+    ASSERT_TRUE(client->connect());
+    std::vector<uint8_t> deferred = { 1 };
+    std::vector<uint8_t> throws = { 2 };
+    ASSERT_TRUE(client->send(10, deferred.data(), deferred.size(), 1'000'000'000ULL));
+    ASSERT_TRUE(client->send(11, throws.data(), throws.size(), 1'000'000'000ULL));
+
+    // The reactor is now stopping but waits for the deferred response.
+    auto respond = held.get_future().get();
+    std::thread([respond = std::move(respond)] { respond({ 42 }); }).join();
+
+    uint64_t id = 0;
+    auto resp = client->receive(5'000'000'000ULL, id);
+    ASSERT_EQ(resp.size(), 1U);
+    EXPECT_EQ(id, 10U);
+    EXPECT_EQ(resp[0], 42);
+    client->release(resp.size());
+
+    server_thread.join();
+    EXPECT_TRUE(on_stop_ran);
+    client->close();
+    server->close();
+}
+
 // A handler returning an empty vector must still produce a (zero-length)
 // response frame, otherwise the client deadlocks waiting for it.
 TEST(SocketTest, ZeroLengthResponseRoundTrip)

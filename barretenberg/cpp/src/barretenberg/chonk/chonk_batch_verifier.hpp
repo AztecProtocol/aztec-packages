@@ -69,6 +69,20 @@ class ChonkBatchVerifier {
     void enqueue(VerifyRequest request);
 
     /**
+     * @brief Block until the queue has room for another proof, or the processor is shutting down.
+     */
+    void wait_for_room();
+
+    /**
+     * @brief Drop every proof still waiting in the queue, unchecked, and return their request ids. Proofs already
+     * taken into a batch are unaffected and still get results.
+     */
+    std::vector<uint64_t> discard_queued();
+
+    /** @brief Number of verification keys given at start. */
+    size_t num_vks() const;
+
+    /**
      * @brief Stop the processor, flushing remaining proofs.
      */
     void stop();
@@ -102,8 +116,9 @@ class ChonkBatchVerifier {
     uint32_t batch_size_ = 8;
     ResultCallback on_result_;
 
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::condition_variable cv_;
+    std::condition_variable room_cv_;
     std::condition_variable stopped_cv_;
     std::deque<VerifyRequest> queue_;
     std::unordered_set<uint64_t> in_flight_ids_;

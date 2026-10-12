@@ -299,8 +299,14 @@ class IpcServer {
      * All scheduling policy — concurrency, ordering, and any inline-vs-deferred
      * fast path — lives in the handler, not here. A handler that responds inline
      * on the reactor thread degrades this to a serial loop.
+     *
+     * Before returning, run_reactor waits until every request has been
+     * answered. `on_stop`, if given, runs on the reactor thread once serving
+     * stops (shutdown requested, or a fatal error) and before that wait: a
+     * handler with work queued behind its callers can answer it there rather
+     * than finish it all.
      */
-    void run_reactor(const AsyncHandler& handler)
+    void run_reactor(const AsyncHandler& handler, const std::function<void()>& on_stop = {})
     {
         struct Completion {
             int client_id;
@@ -330,7 +336,15 @@ class IpcServer {
                 ready.swap(completed);
             }
             for (auto& c : ready) {
-                send(c.client_id, c.request_id, c.response.data(), c.response.size());
+                // A response that can't be sent (e.g. larger than the ring) is
+                // lost to its client, but must not unwind this frame while
+                // other responders still reference it.
+                try {
+                    send(c.client_id, c.request_id, c.response.data(), c.response.size());
+                } catch (const std::exception& e) {
+                    fprintf(stderr, "ipc: failed to send response to client %d: %s\n", c.client_id, e.what());
+                    fflush(stderr);
+                }
             }
         };
 
@@ -364,18 +378,42 @@ class IpcServer {
             // reactor locals by reference, valid because run_reactor does not
             // return until inflight hits 0 (quiesce) and the final respond drives
             // it there.
-            Respond respond =
-                [this, client_id, request_id, buf, &mtx, &completed, &inflight](std::vector<uint8_t> response) {
-                    {
-                        std::lock_guard<std::mutex> lock(mtx);
-                        completed.push_back({ client_id, request_id, std::move(response) });
-                    }
-                    inflight.fetch_sub(1, std::memory_order_release);
-                    notify();
-                };
+            // notify() before the decrement: once inflight reaches 0 the
+            // reactor may return and the server be destroyed, so this must
+            // not touch the server afterwards. `answered` lets the reactor
+            // release a request whose handler threw without responding.
+            auto answered = std::make_shared<std::atomic<bool>>(false);
+            Respond respond = [this, client_id, request_id, buf, answered, &mtx, &completed, &inflight](
+                                  std::vector<uint8_t> response) {
+                if (answered->exchange(true)) {
+                    return;
+                }
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    completed.push_back({ client_id, request_id, std::move(response) });
+                }
+                notify();
+                inflight.fetch_sub(1, std::memory_order_release);
+            };
 
-            handler(client_id, std::span<const uint8_t>(*buf), std::move(respond));
+            try {
+                handler(client_id, std::span<const uint8_t>(*buf), std::move(respond));
+            } catch (const std::exception& e) {
+                // As in run(): a handler that throws has broken its contract to
+                // respond, so shut down cleanly (still answering what is in
+                // flight below) rather than let the exception unwind this frame.
+                fprintf(stderr, "ipc: fatal error serving client %d: %s\n", client_id, e.what());
+                fflush(stderr);
+                shutdown_requested_.store(true, std::memory_order_release);
+                if (!answered->exchange(true)) {
+                    inflight.fetch_sub(1, std::memory_order_release);
+                }
+            }
             drain_and_send(); // emit immediately if the handler responded inline
+        }
+
+        if (on_stop) {
+            on_stop();
         }
 
         // Quiesce before returning: in-flight handlers capture this frame's state

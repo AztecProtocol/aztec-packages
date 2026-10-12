@@ -4,7 +4,17 @@
 #include <iosfwd>
 #include <string>
 
+#if !defined(__wasm__) && !defined(_WIN32)
+namespace ipc {
+class IpcServer;
+}
+#endif
+
 namespace bb {
+
+namespace bbapi {
+struct BBApiRequest;
+}
 
 /**
  * @brief Process msgpack API commands from an input stream (offline replay / wasm).
@@ -42,6 +52,15 @@ int process_msgpack_commands(std::istream& input_stream);
  * @param reactor Serve with run_reactor() so handlers may respond later (live transports only)
  * @return int Status code: 0 for success, non-zero for errors
  */
+#if !defined(__wasm__) && !defined(_WIN32)
+/**
+ * @brief Serve bb's msgpack API on a listening server with its run_reactor() loop, until the server shuts down.
+ * @details Commands may respond after their handler returns (ChonkBatchVerifierVerify does). When serving stops,
+ * proofs still queued for batch verification are answered as unchecked before this waits for every response.
+ */
+void serve_msgpack_reactor(ipc::IpcServer& server, bbapi::BBApiRequest& request);
+#endif
+
 int execute_msgpack_run(const std::string& msgpack_input_file,
                         int max_clients = 1,
                         size_t request_ring_size = 1024UL * 1024,

@@ -390,10 +390,17 @@ class ChonkBatchVerifierService {
     using Completion = std::function<void(std::optional<VerifyResult>)>;
 
     /**
-     * @brief Queue a proof whose result goes to `done`, called on the verifier's thread. Needs a service started
-     * without a result FIFO. Throws, without calling `done`, if the proof can't be queued (e.g. the queue is full).
+     * @brief Queue a proof whose result goes to `done`, usually called on the verifier's thread. Needs a service
+     * started without a result FIFO. Waits while the queue is full. Throws, without calling `done`, if the proof can't
+     * be queued: the service isn't running, or `vk_index` names no registered key.
      */
     void verify(uint32_t vk_index, ChonkProof proof, Completion done);
+
+    /**
+     * @brief Answer every proof still waiting for a batch with nullopt, unchecked; proofs already in a batch still get
+     * results. Lets a shutdown finish after the current batch rather than after the whole queue.
+     */
+    void abandon_queued();
 
   private:
     void deliver(VerifyResult result);

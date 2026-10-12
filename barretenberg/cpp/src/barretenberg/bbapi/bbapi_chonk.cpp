@@ -494,6 +494,13 @@ void ChonkBatchVerifierService::verify(uint32_t vk_index, ChonkProof proof, Comp
     if (has_result_fifo_) {
         throw_or_abort("ChonkBatchVerifierService: started with a result FIFO; queue proofs with enqueue()");
     }
+    // A key the caller never registered is the caller's mistake, not a verdict on the proof.
+    if (vk_index >= verifier_.num_vks()) {
+        throw_or_abort("ChonkBatchVerifierService: no verification key at index " + std::to_string(vk_index));
+    }
+    // Wait rather than refuse: the caller then needs no cap of its own on proofs in flight, and the wait reaches it as
+    // backpressure on the connection.
+    verifier_.wait_for_room();
     uint64_t id = 0;
     {
         std::lock_guard lock(completions_mutex_);
@@ -525,7 +532,34 @@ void ChonkBatchVerifierService::deliver(VerifyResult result)
         done = std::move(it->second);
         completions_.erase(it);
     }
-    done(std::move(result));
+    try {
+        done(std::move(result));
+    } catch (...) {
+        // `done` must answer exactly once; if delivering the verdict failed, report the proof unchecked instead.
+        done(std::nullopt);
+    }
+}
+
+void ChonkBatchVerifierService::abandon_queued()
+{
+    if (has_result_fifo_) {
+        return;
+    }
+    std::vector<uint64_t> discarded = verifier_.discard_queued();
+    std::vector<Completion> abandoned;
+    {
+        std::lock_guard lock(completions_mutex_);
+        for (uint64_t id : discarded) {
+            auto it = completions_.find(id);
+            if (it != completions_.end()) {
+                abandoned.push_back(std::move(it->second));
+                completions_.erase(it);
+            }
+        }
+    }
+    for (auto& done : abandoned) {
+        done(std::nullopt);
+    }
 }
 
 void ChonkBatchVerifierService::enqueue(VerifyRequest request)
@@ -546,6 +580,10 @@ void ChonkBatchVerifierService::stop()
     if (!running_.exchange(false)) {
         return;
     }
+
+    // Without a FIFO, callers are waiting on each answer: give queued proofs theirs now rather than after the whole
+    // queue is checked. With one, the FIFO's reader expects every queued proof's result before the stream closes.
+    abandon_queued();
 
     // Stop the processor first; callbacks synchronously write remaining results.
     verifier_.stop();
@@ -726,8 +764,9 @@ void chonk_batch_verifier_verify(BBApiRequest& request,
         throw_or_abort("ChonkBatchVerifierVerify: service not running. Call ChonkBatchVerifierStart first.");
     }
 
-    // A proof that fails to deserialize (wrong length, an off-curve or non-canonical commitment) is malformed: that is
-    // a verdict on it, not a failure to check it.
+    // A proof too short to split into its parts is malformed: that is a verdict on it, not a failure to check it.
+    // Other malformations, such as off-curve commitments, are caught while the proof is checked and also give a
+    // verdict.
     ChonkProof proof;
     try {
         proof = ChonkProof::from_field_elements(proof_fields);
