@@ -22,7 +22,8 @@
 
 namespace bb {
 
-template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& circuit)
+template <typename Flavor>
+ProverInstance_<Flavor>::ProverInstance_(Circuit& circuit, CopiedCircuitData copied_circuit_data)
 {
     BB_BENCH_NAME("ProverInstance(Circuit&)");
     vinfo("Constructing ProverInstance");
@@ -84,9 +85,18 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_alloc");
     }
 
+    if constexpr (Flavor::HasLogDerivLookup) {
+        // Built before the trace so that with CopiedCircuitData::RELEASE the lookup tables and their gate records are
+        // freed before the trace is populated.
+        construct_lookup_polynomials(circuit);
+        if (copied_circuit_data == CopiedCircuitData::RELEASE) {
+            std::deque<plookup::BasicTable>().swap(circuit.get_lookup_tables());
+        }
+    }
+
     // Construct and add to proving key the wire, selector and copy constraint polynomials
     vinfo("populating trace...");
-    TraceToPolynomials<Flavor>::populate(circuit, polynomials);
+    TraceToPolynomials<Flavor>::populate(circuit, polynomials, copied_circuit_data);
 
     if constexpr (Flavor::HasDataBus) {
         BB_BENCH_NAME("constructing databus polynomials");
@@ -96,10 +106,6 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     // Set the lagrange polynomials (lagrange_first at first active row after disabled region)
     polynomials.lagrange_first().at(TRACE_OFFSET) = 1;
     polynomials.lagrange_last().at(final_active_wire_idx) = 1;
-
-    if constexpr (Flavor::HasLogDerivLookup) {
-        construct_lookup_polynomials(circuit);
-    }
 
     // Public inputs
     metadata.num_public_inputs = circuit.blocks.pub_inputs.size();

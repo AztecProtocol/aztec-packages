@@ -19,15 +19,19 @@
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
+#include <atomic>
+
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProverPolynomials& polynomials)
+void TraceToPolynomials<Flavor>::populate(Builder& builder,
+                                          typename Flavor::ProverPolynomials& polynomials,
+                                          CopiedCircuitData copied_circuit_data)
 {
 
     BB_BENCH_NAME("trace populate");
 
-    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials);
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, copied_circuit_data);
 
     if constexpr (Flavor::HasEccOpQueue) {
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
@@ -45,7 +49,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
 
 template <class Flavor>
 CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
-    Builder& builder, ProverPolynomials& polynomials)
+    Builder& builder, ProverPolynomials& polynomials, CopiedCircuitData copied_circuit_data)
 {
 
     BB_BENCH_NAME("construct_trace_data");
@@ -55,10 +59,63 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
     auto selectors = polynomials.get_selectors();
 
-    // Two-phase parallelisation. Phase 1 fans out over blocks to populate wires and emit copy-cycle
-    // nodes; phase 2 fans out over a flattened (block, selector) task list to fill selectors.
+    // Two-phase parallelisation. Phase 1 fans out over a flattened (block, selector) task list to fill selectors;
+    // phase 2 fans out over row chunks of all blocks to populate wires and record copy-cycle cells.
     auto blocks_array = builder.blocks.get();
     const size_t num_blocks = blocks_array.size();
+
+    // Phase 1: parallel selector filling across a flattened task list. It runs before the wire pass so that the wire
+    // pass can release each block's gate data once it is done with it.
+    // Non-gate selectors (q_m/q_c/q_l/q_r/q_o/q_4/q_5) come from every block via codegen-emitted
+    // `get_block_non_gate_selectors(block)`. Gate selectors come from the codegen's
+    // `get_gate_blocks(blocks)` × `GATE_KINDS` parallel arrays — one task per flavor gate
+    // selector, sourced from the unique block that owns the matching `GateKind`.
+    {
+        BB_BENCH_NAME("populate_selectors");
+        struct SelectorTask {
+            Selector<FF>* source;
+            size_t target_poly_idx;
+            uint32_t trace_offset;
+            uint32_t block_size;
+        };
+
+        const auto& polynomials_ref = polynomials;
+        const size_t num_non_gate = polynomials_ref.get_non_gate_selectors().size();
+
+        std::vector<SelectorTask> selector_tasks;
+        for (auto& block : blocks_array) {
+            const uint32_t offset = block.trace_offset();
+            const uint32_t block_size = static_cast<uint32_t>(block.size());
+            auto non_gate = Flavor::Generated::get_block_non_gate_selectors(block);
+            for (size_t i = 0; i < non_gate.size(); ++i) {
+                selector_tasks.emplace_back(SelectorTask{ &non_gate[i], i, offset, block_size });
+            }
+        }
+
+        auto gate_blocks = Flavor::Generated::get_gate_blocks(builder.blocks);
+        constexpr auto& gate_kinds = Flavor::Generated::GATE_KINDS;
+        for (size_t i = 0; i < gate_kinds.size(); ++i) {
+            auto& block = gate_blocks[i];
+            selector_tasks.emplace_back(SelectorTask{ &block.gate_selector_for(gate_kinds[i]),
+                                                      num_non_gate + i,
+                                                      block.trace_offset(),
+                                                      static_cast<uint32_t>(block.size()) });
+        }
+
+        parallel_for(selector_tasks.size(), [&](size_t task_idx) {
+            const auto& task = selector_tasks[task_idx];
+            const auto& source = *task.source;
+            auto& poly = selectors[task.target_poly_idx];
+            // Bulk-copy the range that lands inside the polynomial's backing store (tile-wise, no
+            // per-element virtual call); rows clamped off by the store bounds would previously have
+            // been dropped by set_if_valid_index and must be zero.
+            const size_t dst_begin = std::max<size_t>(task.trace_offset, poly.start_index());
+            const size_t dst_end = std::min<size_t>(task.trace_offset + task.block_size, poly.end_index());
+            if (dst_begin < dst_end) {
+                source.copy_into(&poly.at(dst_begin), dst_begin - task.trace_offset, dst_end - dst_begin);
+            }
+        });
+    }
 
     // Wire cells are laid out flat in (block, row, wire) order; cell_offsets[b] is the first cell of block b. This is
     // the order in which nodes are appended to each variable's copy cycle.
@@ -70,8 +127,10 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
     // The real variable index of every wire cell.
     std::vector<uint32_t> cell_real_var_idx(cell_offsets[num_blocks]);
 
-    // Phase 1: populate the wires and record each cell's real variable index, in parallel over row chunks of all
-    // blocks (the blocks differ greatly in size).
+    // Phase 2: populate the wires and record each cell's real variable index, in parallel over row chunks of all
+    // blocks (the blocks differ greatly in size). With CopiedCircuitData::RELEASE, the task that finishes a block's
+    // last chunk frees the block's gate data: the copy-cycle phases below read only the recorded cells and the blocks'
+    // offsets and sizes.
     {
         BB_BENCH_NAME("populate_wires_and_emit_cycles");
         constexpr uint32_t ROWS_PER_TASK = 1 << 12;
@@ -86,6 +145,10 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
             for (uint32_t row_begin = 0; row_begin < block_size; row_begin += ROWS_PER_TASK) {
                 row_tasks.push_back({ block_idx, row_begin, std::min(row_begin + ROWS_PER_TASK, block_size) });
             }
+        }
+        std::vector<std::atomic<uint32_t>> chunks_left(num_blocks);
+        for (const RowTask& task : row_tasks) {
+            chunks_left[task.block_idx].fetch_add(1, std::memory_order_relaxed);
         }
         parallel_for(row_tasks.size(), [&](size_t task_idx) {
             const RowTask& task = row_tasks[task_idx];
@@ -107,10 +170,14 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
                     *cell++ = real_var_idx;
                 }
             }
+            if (copied_circuit_data == CopiedCircuitData::RELEASE &&
+                chunks_left[task.block_idx].fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                block.free_data();
+            }
         });
     }
 
-    // Phases 1.5 and 1.6 split the variables into one contiguous range per thread. Each thread scans all cells in
+    // Phases 2.5 and 2.6 split the variables into one contiguous range per thread. Each thread scans all cells in
     // order and handles only its own variables, so every copy cycle is counted and filled by one thread, in cell order.
     {
         BB_BENCH_NAME("counting copy_cycles");
@@ -162,58 +229,6 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
                         }
                     }
                 }
-            }
-        });
-    }
-
-    // Phase 2: parallel selector filling across a flattened task list.
-    // Non-gate selectors (q_m/q_c/q_l/q_r/q_o/q_4/q_5) come from every block via codegen-emitted
-    // `get_block_non_gate_selectors(block)`. Gate selectors come from the codegen's
-    // `get_gate_blocks(blocks)` × `GATE_KINDS` parallel arrays — one task per flavor gate
-    // selector, sourced from the unique block that owns the matching `GateKind`.
-    {
-        BB_BENCH_NAME("populate_selectors");
-        struct SelectorTask {
-            Selector<FF>* source;
-            size_t target_poly_idx;
-            uint32_t trace_offset;
-            uint32_t block_size;
-        };
-
-        const auto& polynomials_ref = polynomials;
-        const size_t num_non_gate = polynomials_ref.get_non_gate_selectors().size();
-
-        std::vector<SelectorTask> selector_tasks;
-        for (auto& block : blocks_array) {
-            const uint32_t offset = block.trace_offset();
-            const uint32_t block_size = static_cast<uint32_t>(block.size());
-            auto non_gate = Flavor::Generated::get_block_non_gate_selectors(block);
-            for (size_t i = 0; i < non_gate.size(); ++i) {
-                selector_tasks.emplace_back(SelectorTask{ &non_gate[i], i, offset, block_size });
-            }
-        }
-
-        auto gate_blocks = Flavor::Generated::get_gate_blocks(builder.blocks);
-        constexpr auto& gate_kinds = Flavor::Generated::GATE_KINDS;
-        for (size_t i = 0; i < gate_kinds.size(); ++i) {
-            auto& block = gate_blocks[i];
-            selector_tasks.emplace_back(SelectorTask{ &block.gate_selector_for(gate_kinds[i]),
-                                                      num_non_gate + i,
-                                                      block.trace_offset(),
-                                                      static_cast<uint32_t>(block.size()) });
-        }
-
-        parallel_for(selector_tasks.size(), [&](size_t task_idx) {
-            const auto& task = selector_tasks[task_idx];
-            const auto& source = *task.source;
-            auto& poly = selectors[task.target_poly_idx];
-            // Bulk-copy the range that lands inside the polynomial's backing store (tile-wise, no
-            // per-element virtual call); rows clamped off by the store bounds would previously have
-            // been dropped by set_if_valid_index and must be zero.
-            const size_t dst_begin = std::max<size_t>(task.trace_offset, poly.start_index());
-            const size_t dst_end = std::min<size_t>(task.trace_offset + task.block_size, poly.end_index());
-            if (dst_begin < dst_end) {
-                source.copy_into(&poly.at(dst_begin), dst_begin - task.trace_offset, dst_end - dst_begin);
             }
         });
     }

@@ -16,6 +16,7 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/polynomials/polynomial_stats.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/trace_to_polynomials/copied_circuit_data.hpp"
 
 namespace bb {
 
@@ -75,7 +76,12 @@ template <typename Flavor_> class ProverInstance_ {
         return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
     }
 
-    ProverInstance_(Circuit& circuit);
+    /**
+     * @param copied_circuit_data With CopiedCircuitData::RELEASE, the circuit's trace blocks and lookup tables are
+     * freed once they have been copied into the polynomials; the circuit can then not be checked or turned into another
+     * instance.
+     */
+    ProverInstance_(Circuit& circuit, CopiedCircuitData copied_circuit_data = CopiedCircuitData::KEEP);
 
     ProverInstance_() = default;
     ProverInstance_(const ProverInstance_&) = delete;

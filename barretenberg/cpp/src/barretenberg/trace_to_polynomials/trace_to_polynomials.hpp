@@ -9,6 +9,7 @@
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/trace_to_polynomials/copied_circuit_data.hpp"
 
 namespace bb {
 
@@ -28,15 +29,20 @@ template <class Flavor> class TraceToPolynomials {
      * @note By default, this method constructs an execution trace that is sorted by gate type.
      *
      * @param builder
+     * @param copied_circuit_data With RELEASE, each trace block's gate data is freed as soon as it has been copied
      */
-    static void populate(Builder& builder, ProverPolynomials&);
+    static void populate(Builder& builder,
+                         ProverPolynomials&,
+                         CopiedCircuitData copied_circuit_data = CopiedCircuitData::KEEP);
 
   private:
     /**
      * @brief Populate wire polynomials, selector polynomials and copy cycles from raw circuit data
      * @return CopyCycles copy cycles (CSR form) describing the copy constraints in the circuit
      */
-    static CopyCycles populate_wires_and_selectors_and_compute_copy_cycles(Builder& builder, ProverPolynomials&);
+    static CopyCycles populate_wires_and_selectors_and_compute_copy_cycles(Builder& builder,
+                                                                           ProverPolynomials&,
+                                                                           CopiedCircuitData copied_circuit_data);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

@@ -714,6 +714,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
      */
     void free_data()
     {
+        if (data_freed_) {
+            return;
+        }
         cached_size_ = num_rows_;
         data_freed_ = true;
         tiles.clear();
