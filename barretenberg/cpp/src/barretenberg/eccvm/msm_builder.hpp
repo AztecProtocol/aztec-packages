@@ -261,8 +261,9 @@ class ECCVMMSMMBuilder {
         std::span<Element> p3_trace(&points_to_normalize[num_point_adds_and_doubles * 2], num_point_adds_and_doubles);
         // `is_double_or_add` records whether an entry in the p1/p2/p3 trace represents a point addition or
         // doubling. if it is `true`, then we are doubling (i.e., the condition is that `p3 = p1.dbl()`), else we are
-        // adding (i.e., the condition is that `p3 = p1 + p2`).
-        std::vector<bool> is_double_or_add(num_point_adds_and_doubles);
+        // adding (i.e., the condition is that `p3 = p1 + p2`). One byte per entry, so that MSMs filled in parallel
+        // never write to a shared word.
+        std::vector<uint8_t> is_double_or_add(num_point_adds_and_doubles);
         // accumulator_trace tracks the value of the ECCVM accumulator for each row
         std::span<Element> accumulator_trace(&points_to_normalize[num_point_adds_and_doubles * 3], num_accumulators);
 
@@ -270,10 +271,10 @@ class ECCVMMSMMBuilder {
         constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         accumulator_trace[0] = offset_generator;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/973): Reinstate multitreading?
         // populate point trace, and the components of the MSM execution trace that do not relate to affine point
-        // operations
-        for (size_t msm_idx = 0; msm_idx < msms.size(); msm_idx++) {
+        // operations. Each MSM starts from the offset generator and owns a disjoint range of rows and trace entries,
+        // so the MSMs are processed in parallel.
+        parallel_for(msms.size(), [&](size_t msm_idx) {
             Element accumulator = offset_generator; // for every MSM, we start with the same `offset_generator`
             const auto& msm = msms[msm_idx]; // which MSM we are processing. This is of type `std::vector<ScalarMul>`.
             size_t msm_row_index = msm_row_counts[msm_idx]; // the row where the given MSM starts
@@ -327,7 +328,7 @@ class ECCVMMSMMBuilder {
                         p1_trace[trace_index] = p1;
                         p2_trace[trace_index] = p2;
                         p3_trace[trace_index] = accumulator;
-                        is_double_or_add[trace_index] = false;
+                        is_double_or_add[trace_index] = 0;
                         trace_index++;
                     }
                     // Now, `row.add_state` has been fully processed and we fill in the rest of the members of `row`.
@@ -367,7 +368,7 @@ class ECCVMMSMMBuilder {
                         p2_trace[trace_index] = accumulator; // dummy
                         accumulator = accumulator.dbl();
                         p3_trace[trace_index] = accumulator;
-                        is_double_or_add[trace_index] = true;
+                        is_double_or_add[trace_index] = 1;
                         trace_index++;
                     }
                     accumulator_trace[msm_row_index] = accumulator;
@@ -401,7 +402,7 @@ class ECCVMMSMMBuilder {
                             p1_trace[trace_index] = p1;
                             p2_trace[trace_index] = add_state.point;
                             p3_trace[trace_index] = accumulator;
-                            is_double_or_add[trace_index] = false;
+                            is_double_or_add[trace_index] = 0;
                             trace_index++;
                         }
                         row.q_add = false;
@@ -416,7 +417,7 @@ class ECCVMMSMMBuilder {
                     }
                 }
             }
-        }
+        });
 
         // Normalize the points in the point trace
         parallel_for_range(points_to_normalize.size(), [&](size_t start, size_t end) {
@@ -441,7 +442,7 @@ class ECCVMMSMMBuilder {
         // complete the computation of the ECCVM execution trace, by adding the affine intermediate point data
         // i.e. row.accumulator_x, row.accumulator_y, row.add_state[0...3].collision_inverse,
         // row.add_state[0...3].lambda
-        for (size_t msm_idx = 0; msm_idx < msms.size(); msm_idx++) {
+        parallel_for(msms.size(), [&](size_t msm_idx) {
             const auto& msm = msms[msm_idx];
             size_t trace_index = ((msm_row_counts[msm_idx] - 1) * ADDITIONS_PER_ROW);
             size_t msm_row_index = msm_row_counts[msm_idx];
@@ -522,7 +523,7 @@ class ECCVMMSMMBuilder {
                     }
                 }
             }
-        }
+        });
 
         // populate the final row in the MSM execution trace.
         // we always require 1 extra row at the end of the trace, because the x and y coordinates of the accumulator for

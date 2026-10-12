@@ -7,6 +7,7 @@
 #pragma once
 
 #include "./eccvm_builder_types.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 
@@ -191,6 +192,17 @@ class ECCVMTranscriptBuilder {
             msm_count_at_transition_inverse_trace[0] = 0;
         }
 
+        // The scalar multiplications P * mul_scalar_full do not depend on the VM state, so compute them up front in
+        // parallel; the sequential pass below only accumulates them.
+        std::vector<Element> mul_products(num_vm_entries);
+        parallel_for_range(num_vm_entries, [&](size_t start, size_t end) {
+            for (size_t i = std::max<size_t>(start, 1); i < end; ++i) {
+                if (vm_operations[i].op_code.mul) {
+                    mul_products[i] = Element(vm_operations[i].base_point) * vm_operations[i].mul_scalar_full;
+                }
+            }
+        });
+
         // during the first iteration over the ECCOpQueue, the operations are being performed using Jacobian (a.k.a.
         // projective) coordinates and the base point coordinates are recorded in the transcript. at the same time, the
         // transcript logic is being populated (starting from index 1, since index 0 is the hiding op handled above)
@@ -243,7 +255,7 @@ class ECCVMTranscriptBuilder {
             // then finally if this is an add. note that this mutates `updated_state`. (note that the middle option
             // depends on the first.)
             if (is_mul) {
-                process_mul(entry, updated_state, state);
+                process_mul(mul_products[i], updated_state, state);
             }
 
             if (msm_transition) {
@@ -398,19 +410,17 @@ class ECCVMTranscriptBuilder {
     /**
      * @brief Process scalar multiplication from the ECCOpQueue.
      *
-     * @details If the entry indicates a multiplication operation, the
-     * base point from the ECCOpQueue is multiplied by the corresponding full scalar. The result is added to the
-     * 'msm_accumulator' field of the updated state.
+     * @details If the entry indicates a multiplication operation, the product of its base point and full scalar is
+     * added to the 'msm_accumulator' field of the updated state.
      *
-     * @param entry Current ECCOpQueue entry
+     * @param mul_product The base point of the current ECCOpQueue entry multiplied by its full scalar
      * @param updated_state The state of the ECCVM to be updated with the result of the multiplication
      * @param state The current state of the ECCVM
      */
-    static void process_mul(const ECCVMOperation& entry, VMState& updated_state, const VMState& state)
+    static void process_mul(const Element& mul_product, VMState& updated_state, const VMState& state)
     {
-        const auto P = typename CycleGroup::element(entry.base_point);
         const auto R = typename CycleGroup::element(state.msm_accumulator);
-        updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
+        updated_state.msm_accumulator = R + mul_product;
     }
 
     /**
