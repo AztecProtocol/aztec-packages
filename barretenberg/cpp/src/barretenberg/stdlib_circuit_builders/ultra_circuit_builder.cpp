@@ -2034,6 +2034,21 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     return buffer;
 }
 
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::free_construction_data()
+{
+    for (auto& block : blocks.get()) {
+        block.free_data();
+    }
+    this->free_variables();
+    std::deque<plookup::BasicTable>().swap(lookup_tables);
+    rom_ram_logic = RomRamLogic{};
+    std::vector<uint32_t>().swap(memory_read_records);
+    std::vector<uint32_t>().swap(memory_write_records);
+    std::vector<uint32_t>().swap(rom_logup_records);
+    range_lists.clear();
+    std::vector<cached_partial_non_native_field_multiplication>().swap(cached_partial_non_native_field_multiplications);
+}
+
 template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 template class UltraCircuitBuilder_<MegaExecutionTraceBlocks>;
 
