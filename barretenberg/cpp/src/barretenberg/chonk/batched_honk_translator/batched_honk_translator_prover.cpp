@@ -4,9 +4,13 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/polynomials/fold_stride2.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
+
+#include <algorithm>
+#include <vector>
 
 // Short-monomial translator relation definitions: the joint sumcheck round (TransProverRound) is templated on
 // TranslatorShortMonomialFlavor, so this TU instantiates the short relations' prover-side accumulate. The short
@@ -19,6 +23,62 @@
 #include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 
 namespace bb {
+
+namespace {
+
+/**
+ * @brief Partially evaluate the MegaZK and translator tables at the same round challenge in one parallel region.
+ * @details Equivalent to SumcheckProver::partially_evaluate on each circuit's tables, but the polynomials of both
+ * circuits form a single work list scheduled largest-first, so the smaller circuit's folds fill the tail of the larger
+ * one's instead of each circuit paying its own load-imbalance tail and parallel_for dispatch. Source and destination
+ * may alias (in-place rounds).
+ */
+template <typename FF, typename MegaZKSource, typename MegaZKDest, typename TranslatorSource, typename TranslatorDest>
+void joint_partially_evaluate(MegaZKSource& mega_zk_source,
+                              MegaZKDest& mega_zk_dest,
+                              TranslatorSource& translator_source,
+                              TranslatorDest& translator_dest,
+                              const FF& round_challenge)
+{
+    struct FoldJob {
+        const Polynomial<FF>* source;
+        Polynomial<FF>* dest;
+        size_t num_outputs;
+    };
+    std::vector<FoldJob> jobs;
+    auto add_jobs = [&](auto& source, auto& dest) {
+        for (auto [source_poly, dest_poly] : zip_view(source.get_all(), dest.get_all())) {
+            // One output per source pair (2k, 2k+1); an odd trailing slot folds against an implicit zero.
+            const size_t limit = source_poly.end_index();
+            jobs.push_back({ &source_poly, &dest_poly, (limit / 2) + (limit % 2) });
+        }
+    };
+    add_jobs(mega_zk_source, mega_zk_dest);
+    add_jobs(translator_source, translator_dest);
+    std::stable_sort(
+        jobs.begin(), jobs.end(), [](const FoldJob& a, const FoldJob& b) { return a.num_outputs > b.num_outputs; });
+
+    parallel_for(jobs.size(), [&](size_t j) {
+        const FoldJob& job = jobs[j];
+        fold_stride2(*job.source, *job.dest, /*begin=*/0, /*end=*/job.num_outputs, round_challenge);
+        job.dest->shrink_end_index(job.num_outputs);
+    });
+
+    // Halve the active-row prefix to track the folded trace (only tables that carry it).
+    auto halve_active_prefix = [](auto& source, auto& dest) {
+        if constexpr (requires {
+                          source.row_skip_active_prefix_end;
+                          dest.row_skip_active_prefix_end;
+                      }) {
+            dest.row_skip_active_prefix_end =
+                (source.row_skip_active_prefix_end / 2) + (source.row_skip_active_prefix_end % 2);
+        }
+    };
+    halve_active_prefix(mega_zk_source, mega_zk_dest);
+    halve_active_prefix(translator_source, translator_dest);
+}
+
+} // namespace
 
 BatchedHonkTranslatorProver::BatchedHonkTranslatorProver(std::shared_ptr<MegaZKProverInstance> mega_zk_instance,
                                                          std::shared_ptr<MegaZKVK> mega_zk_vk,
@@ -201,18 +261,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     {
         const FF u = do_round(mega_zk_polys, translator_polys, 0);
         {
-            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
-            {
-                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/partially_evaluate");
-                MegaZKSumcheck::partially_evaluate(mega_zk_polys, mega_zk_partial, u);
-            }
-        }
-        {
-            BB_BENCH_NAME("joint_sumcheck/translator");
-            {
-                BB_BENCH_NAME("joint_sumcheck/translator/partially_evaluate");
-                TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
-            }
+            BB_BENCH_NAME("joint_sumcheck/partially_evaluate");
+            joint_partially_evaluate(mega_zk_polys, mega_zk_partial, translator_polys, translator_partial, u);
         }
         rdp.update_evaluations(u, 0);
         mega_zk_round.advance_round();
@@ -224,18 +274,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     for (size_t round_idx = 1; round_idx < mega_zk_log_n; round_idx++) {
         const FF u = do_round(mega_zk_partial, translator_partial, round_idx);
         {
-            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
-            {
-                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/partially_evaluate_in_place");
-                MegaZKSumcheck::partially_evaluate_in_place(mega_zk_partial, u);
-            }
-        }
-        {
-            BB_BENCH_NAME("joint_sumcheck/translator");
-            {
-                BB_BENCH_NAME("joint_sumcheck/translator/partially_evaluate_in_place");
-                TransSumcheck::partially_evaluate_in_place(translator_partial, u);
-            }
+            BB_BENCH_NAME("joint_sumcheck/partially_evaluate_in_place");
+            joint_partially_evaluate(mega_zk_partial, mega_zk_partial, translator_partial, translator_partial, u);
         }
         rdp.update_evaluations(u, round_idx);
         mega_zk_round.advance_round();
