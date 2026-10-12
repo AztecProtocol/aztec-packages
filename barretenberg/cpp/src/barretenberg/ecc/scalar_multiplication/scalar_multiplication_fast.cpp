@@ -294,8 +294,126 @@ template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_
  *        On return, `s.result_len` holds the deduplicated count and the surviving
  *        (point, bucket) pairs occupy curr_pts/curr_buckets[0..result_len).
  */
+/**
+ * @brief Scalar (non-SIMD) drain: curr_pts[pair_dest[k]] = lhs[k] + rhs[k] for k < pair_count, where the operands
+ *        live as plain field elements in the packed-drain backing (see `scalar_drain_slot`).
+ *
+ * @details Montgomery's trick fused with the affine-add finish: a forward pass forms dx = x2 - x1 and the running
+ *          prefix products, one field inversion inverts the full product, and a backward pass peels off each
+ *          1 / dx_k, completes the slope and writes the sum straight to its destination slot. Six multiplications
+ *          per pair, with every intermediate held in registers rather than in packed VectorField temporaries.
+ */
+template <typename Curve>
+inline void drain_batch_scalar(ThreadScratch<Curve>& s, size_t pair_count) noexcept
+{
+    using BaseField = typename Curve::BaseField;
+    if (pair_count == 0) {
+        return;
+    }
+    auto& lx = s.lhs.x.vector_fields;
+    auto& ly = s.lhs.y.vector_fields;
+    auto& rx = s.rhs.x.vector_fields;
+    auto& ry = s.rhs.y.vector_fields;
+    auto& dxs = s.add_scratch.dx.vector_fields;
+    auto& prefix = s.add_scratch.inv.vector_fields;
+    constexpr size_t W = bb::VectorField<typename BaseField::Params>::SIZE;
+
+    BaseField acc = BaseField::one();
+    for (size_t k = 0; k < pair_count; ++k) {
+        const size_t g = k / W;
+        const size_t l = k % W;
+        const BaseField dx = rx[g].elts[l] - lx[g].elts[l];
+        dxs[g].elts[l] = dx;
+        prefix[g].elts[l] = acc;
+        acc *= dx;
+    }
+    if (acc.is_zero()) {
+        throw_or_abort("batch_invert: attempted to invert zero");
+    }
+    acc = acc.invert();
+    for (size_t k = pair_count; k-- > 0;) {
+        const size_t g = k / W;
+        const size_t l = k % W;
+        const BaseField inv = acc * prefix[g].elts[l];
+        acc *= dxs[g].elts[l];
+        const BaseField& x1 = lx[g].elts[l];
+        const BaseField& y1 = ly[g].elts[l];
+        const BaseField slope = (ry[g].elts[l] - y1) * inv;
+        const BaseField x3 = slope.sqr() - (x1 + rx[g].elts[l]);
+        auto& dst = s.curr_pts[s.pair_dest[k]];
+        dst.y = slope * (x1 - x3) - y1;
+        dst.x = x3;
+    }
+}
+
+/**
+ * @brief Scalar (non-SIMD) twin of tree_reduce_in_place's level walk: identical pairing and compaction, with the
+ *        queued operands written as plain field elements into the packed-drain backing and drained by
+ *        drain_batch_scalar.
+ */
+template <typename Curve> void tree_reduce_in_place_scalar(ThreadScratch<Curve>& s, size_t initial_len) noexcept
+{
+    using BaseField = typename Curve::BaseField;
+    constexpr size_t W = bb::VectorField<typename BaseField::Params>::SIZE;
+    auto& lx = s.lhs.x.vector_fields;
+    auto& ly = s.lhs.y.vector_fields;
+    auto& rx = s.rhs.x.vector_fields;
+    auto& ry = s.rhs.y.vector_fields;
+    size_t curr_len = initial_len;
+
+    while (true) {
+        size_t i = 0;
+        size_t next_len = 0;
+        size_t pair_count = 0;
+        bool made_pair = false;
+
+        while (i < curr_len) {
+            if (i + 1 < curr_len && s.curr_buckets[i] == s.curr_buckets[i + 1]) {
+                const size_t g = pair_count / W;
+                const size_t l = pair_count % W;
+                lx[g].elts[l] = s.curr_pts[i].x;
+                ly[g].elts[l] = s.curr_pts[i].y;
+                rx[g].elts[l] = s.curr_pts[i + 1].x;
+                ry[g].elts[l] = s.curr_pts[i + 1].y;
+                s.curr_buckets[next_len] = s.curr_buckets[i];
+                s.pair_dest[pair_count] = static_cast<uint32_t>(next_len);
+                ++next_len;
+                ++pair_count;
+                i += 2;
+                made_pair = true;
+
+                if (pair_count >= BATCH_CAPACITY) {
+                    drain_batch_scalar<Curve>(s, pair_count);
+                    pair_count = 0;
+                }
+            } else {
+                s.curr_pts[next_len] = s.curr_pts[i];
+                s.curr_buckets[next_len] = s.curr_buckets[i];
+                ++next_len;
+                ++i;
+            }
+        }
+
+        drain_batch_scalar<Curve>(s, pair_count);
+
+        if (!made_pair) {
+            break;
+        }
+
+        curr_len = next_len;
+    }
+
+    s.result_len = curr_len;
+}
+
 template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {
+    // Without SIMD a VectorField is just W scalar field elements, so the packed drain only adds data movement;
+    // run the fused scalar drain instead.
+    if constexpr (!bb::simd_available_v<typename Curve::BaseField::Params>) {
+        tree_reduce_in_place_scalar<Curve>(s, initial_len);
+        return;
+    }
     size_t curr_len = initial_len;
 
     // The drain spans (lhs/rhs) are scratch shared with the Stage-6b reduction, which leaves a non-zero
