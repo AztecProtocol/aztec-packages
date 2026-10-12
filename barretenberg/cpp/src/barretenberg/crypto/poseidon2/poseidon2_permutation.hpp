@@ -88,15 +88,21 @@ template <typename Params> class Poseidon2Permutation {
     {
         // for t = 4
         // Computes: result[i] = (D_i - 1) * input[i] + sum = D_i * input[i] + (sum of other elements)
-        // where D_i are the actual diagonal values and internal_matrix_diagonal_minus_one[i] = D_i - 1
-        auto sum = input[0];
-        for (size_t i = 1; i < t; ++i) {
-            sum += input[i];
-        }
-        for (size_t i = 0; i < t; ++i) {
-            input[i] *= internal_matrix_diagonal_minus_one[i];
-            input[i] += sum;
-        }
+        // where D_i are the actual diagonal values and internal_matrix_diagonal_minus_one[i] = D_i - 1.
+        // result[0] is formed as D_0 * input[0] + (input[1] + input[2] + input[3]) so that it depends on input[0]
+        // through a single multiplication and addition.
+        static_assert(t == 4, "Only t=4 is supported");
+        FF sum_rest = input[1] + input[2];
+        sum_rest += input[3];
+        const FF sum = input[0] + sum_rest;
+        const FF scaled_0 = input[0] * internal_matrix_diagonal_0;
+        const FF scaled_1 = input[1] * internal_matrix_diagonal_minus_one[1];
+        const FF scaled_2 = input[2] * internal_matrix_diagonal_minus_one[2];
+        const FF scaled_3 = input[3] * internal_matrix_diagonal_minus_one[3];
+        input[0] = scaled_0 + sum_rest;
+        input[1] = scaled_1 + sum;
+        input[2] = scaled_2 + sum;
+        input[3] = scaled_3 + sum;
     }
 
     static constexpr void matrix_multiplication_external(State& input)
@@ -120,34 +126,30 @@ template <typename Params> class Poseidon2Permutation {
 
     static constexpr void apply_sbox(State& input)
     {
-        for (auto& in : input) {
-            apply_single_sbox(in);
-        }
+        // The four S-boxes are evaluated stage by stage so that their independent multiplications interleave.
+        static_assert(t == 4, "Only t=4 is supported");
+        FF x4_0 = input[0].sqr();
+        FF x4_1 = input[1].sqr();
+        FF x4_2 = input[2].sqr();
+        FF x4_3 = input[3].sqr();
+        x4_0.self_sqr();
+        x4_1.self_sqr();
+        x4_2.self_sqr();
+        x4_3.self_sqr();
+        input[0] *= x4_0;
+        input[1] *= x4_1;
+        input[2] *= x4_2;
+        input[3] *= x4_3;
     }
 
     /**
-     * @brief One external round on a state held in locals: add round constants, full S-box layer, external matrix.
-     * @details The four S-boxes are written out stage by stage so that their independent multiplications interleave.
+     * @brief One external round on a state held in locals: add round constants, S-box layer, external matrix.
      */
     static constexpr void external_round(FF& s0, FF& s1, FF& s2, FF& s3, const RoundConstants& rc)
     {
-        s0 += rc[0];
-        s1 += rc[1];
-        s2 += rc[2];
-        s3 += rc[3];
-        FF s0_4 = s0.sqr();
-        FF s1_4 = s1.sqr();
-        FF s2_4 = s2.sqr();
-        FF s3_4 = s3.sqr();
-        s0_4.self_sqr();
-        s1_4.self_sqr();
-        s2_4.self_sqr();
-        s3_4.self_sqr();
-        s0 *= s0_4;
-        s1 *= s1_4;
-        s2 *= s2_4;
-        s3 *= s3_4;
         State state{ s0, s1, s2, s3 };
+        add_round_constants(state, rc);
+        apply_sbox(state);
         matrix_multiplication_external(state);
         s0 = state[0];
         s1 = state[1];
