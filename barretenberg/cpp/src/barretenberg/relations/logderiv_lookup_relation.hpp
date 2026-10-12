@@ -220,6 +220,43 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return Accumulator(result);
     }
 
+    /**
+     * @brief Prover-only variant of compute_lookup_term: the same degree-2 polynomial, with the challenge powers
+     * applied to the degree-2 coefficient forms before the single conversion to evaluations.
+     */
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    static Accumulator compute_lookup_term_in_coefficient_basis(const AllEntities& in, const Parameters& params)
+    {
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+
+        const auto gamma = ParameterCoefficientAccumulator(params.gamma);
+
+        auto w_1 = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2 = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3 = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+
+        auto w_1_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto w_2_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto w_3_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+
+        auto table_index = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        auto negative_column_1_step_size = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        auto negative_column_2_step_size = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
+        auto negative_column_3_step_size = CoefficientAccumulator(in[AllEntities::EntityId::q_c]);
+
+        auto derived_table_entry_1 = (negative_column_1_step_size * w_1_shift) + (w_1 + gamma);
+        auto derived_table_entry_2 = (negative_column_2_step_size * w_2_shift) + w_2;
+        auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
+        auto table_index_entry = table_index * params.beta_cube;
+
+        auto result = derived_table_entry_2 * params.beta;
+        result += derived_table_entry_3 * params.beta_sqr;
+        result += derived_table_entry_1;
+        result += table_index_entry;
+        return Accumulator(result);
+    }
+
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
     {
@@ -348,6 +385,44 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const Accumulator inverses(inverses_m);
         const auto read_counts_m = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_counts]); // Degree 1
         const auto read_selector_m = CoefficientAccumulator(in[AllEntities::EntityId::q_lookup]);         // Degree 1
+
+        // Prover fast path (guarded on ::LENGTH so it never enters the verifiers, which keep the straight-line
+        // computation below). A row is typically either a lookup gate (q_lookup) or a table row (read counts / tags),
+        // so the terms carrying an identically-zero read selector, read count or read tag are exact zeros and are
+        // dropped; the lookup term's challenge powers are applied in the coefficient basis.
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            const auto read_tag_m = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_tags]);
+            const bool has_read_selector = !read_selector_m.is_zero();
+            const bool has_read_counts = !read_counts_m.is_zero();
+            const bool has_read_tag = !read_tag_m.is_zero();
+
+            const auto lookup_term = compute_lookup_term_in_coefficient_basis<Accumulator>(in, params);
+            const auto table_term = compute_table_term<Accumulator>(in, params);
+            const Accumulator inverse_exists =
+                has_read_tag ? compute_inverse_exists<Accumulator>(in) : Accumulator(read_selector_m);
+
+            const Accumulator logderiv_first_term =
+                (lookup_term * table_term * inverses - inverse_exists) * scaling_factor;
+            std::get<0>(accumulator) += ShortView(logderiv_first_term);
+
+            Accumulator tmp;
+            if (has_read_selector) {
+                tmp = Accumulator(read_selector_m) * table_term;
+                if (has_read_counts) {
+                    tmp -= (Accumulator(read_counts_m) * lookup_term);
+                }
+            } else {
+                tmp = -(Accumulator(read_counts_m) * lookup_term);
+            }
+            tmp *= inverses;
+            std::get<1>(accumulator) += tmp;
+
+            if (has_read_tag) {
+                const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
+                std::get<2>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
+            }
+            return;
+        }
 
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);   // Degree 2
         const auto lookup_term = compute_lookup_term<Accumulator>(in, params); // Degree 2
