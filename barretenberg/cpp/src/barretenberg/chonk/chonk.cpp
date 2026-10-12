@@ -499,10 +499,8 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
 
-    // Free circuit block memory now that trace data has been copied to prover polynomials
-    for (auto& block : circuit.blocks.get()) {
-        block.free_data();
-    }
+    // Free the circuit-construction data now that the circuit has been copied to prover polynomials
+    circuit.free_construction_data();
 
     if (precomputed_vk) {
 #ifndef NDEBUG
@@ -531,10 +529,9 @@ HonkProof Chonk::instance_to_accumulator(ClientCircuit& circuit,
 #ifndef NDEBUG
     debug_incoming_circuit<InstanceFlavor>(circuit, prover_instance, vk);
 #endif
-    // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials.
-    for (auto& block : circuit.blocks.get()) {
-        block.free_data();
-    }
+    // Free the circuit-construction data (trace blocks, witnesses, lookup and memory records) now that the circuit has
+    // been copied to prover polynomials.
+    circuit.free_construction_data();
 
     // Run sumcheck on the incoming instance; the folding prover caches the resulting claim. The claims of the whole
     // group are batched together once, when the group's last circuit is accumulated (see prove_multilinear_batching).
