@@ -16,6 +16,64 @@ namespace bb::stdlib {
 
 using namespace bb::plookup;
 
+namespace {
+/**
+ * @brief Append the plookup rows for one run of slices of `normalize_and_rotate` (see the table in that method)
+ * @details Each row records the running input (C1) and normalized (C2) accumulators, the most significant normalized
+ * digit of the slice (C3) and the slice's key/value lookup entry, then divides both accumulators by 11^{bit_slice}.
+ * This is a runtime loop: it runs for every lane of every round, and a compact body keeps it in the instruction cache.
+ *
+ * @param input running input accumulator, shared by the right and left runs (updated)
+ * @param normalized normalized value of this run's slices
+ * @param limb_bits number of base-11 digits in this run
+ * @param num_lookups number of slices (lookup rows) in this run
+ * @param max_bits_per_table maximum number of base-11 digits per slice
+ */
+void append_normalize_lookup_rows(plookup::ReadData<bb::fr>& lookup,
+                                  uint256_t& input,
+                                  uint256_t normalized,
+                                  const size_t limb_bits,
+                                  const size_t num_lookups,
+                                  const size_t max_bits_per_table)
+{
+    constexpr uint64_t base = 11;
+    for (size_t i = 0; i < num_lookups; ++i) {
+        const size_t num_bits_processed = i * max_bits_per_table;
+
+        // How many bits can this slice contain?
+        // We want to implicitly range-constrain `normalized < 11^{limb_bits}`,
+        // which means potentially using a lookup table that is not of size 11^{max_bits_per_table}
+        // for the most-significant slice
+        const size_t bit_slice =
+            (num_bits_processed + max_bits_per_table > limb_bits) ? limb_bits % max_bits_per_table : max_bits_per_table;
+
+        // current column values are tracked via 'input' and 'normalized'
+        lookup[ColumnIdx::C1].push_back(input);
+        lookup[ColumnIdx::C2].push_back(normalized);
+
+        const uint64_t divisor = numeric::pow64(base, bit_slice);
+        const uint64_t msb_divisor = divisor / base;
+
+        // compute the value of the most significant bit of this slice and store in C3
+        const auto [normalized_quotient, normalized_slice] = normalized.divmod(divisor);
+
+        // 256-bit divisions are expensive! cast to u64s when we don't need the extra bits
+        const uint64_t normalized_msb = (static_cast<uint64_t>(normalized_slice) / msb_divisor);
+        lookup[ColumnIdx::C3].push_back(normalized_msb);
+
+        // We need to provide a key/value object for this lookup in order for the Builder
+        // to compute the plookup sorted list commitment
+        const auto [input_quotient, input_slice] = input.divmod(divisor);
+        lookup.lookup_entries.push_back(
+            { { static_cast<uint64_t>(input_slice), 0 }, { normalized_slice, normalized_msb } });
+
+        // reduce the input and output by 11^{bit_slice}
+        input = input_quotient;
+        normalized = normalized_quotient;
+    }
+}
+} // namespace
+
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
  *        This method also extracts the most significant bit of the normalised limb.
@@ -100,53 +158,15 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
      **/
     plookup::ReadData<bb::fr> lookup;
 
-    // compute plookup witness values for a given slice
-    // (same lambda can be used to compute witnesses for left and right slices)
-    auto compute_lookup_witnesses_for_limb = [&]<size_t limb_bits, size_t num_lookups>(uint256_t& normalized) {
-        // (use a constexpr loop to make some pow and div operations compile-time)
-        bb::constexpr_for<0, num_lookups, 1>([&]<size_t i> {
-            constexpr size_t num_bits_processed = i * max_bits_per_table;
+    constexpr size_t num_lookups = num_right_tables + num_left_tables;
+    for (auto& column : lookup.columns) {
+        column.reserve(num_lookups);
+    }
+    lookup.lookup_entries.reserve(num_lookups);
 
-            // How many bits can this slice contain?
-            // We want to implicitly range-constrain `normalized < 11^{limb_bits}`,
-            // which means potentially using a lookup table that is not of size 11^{max_bits_per_table}
-            // for the most-significant slice
-            constexpr size_t bit_slice = (num_bits_processed + max_bits_per_table > limb_bits)
-                                             ? limb_bits % max_bits_per_table
-                                             : max_bits_per_table;
-
-            // current column values are tracked via 'input' and 'normalized'
-            lookup[ColumnIdx::C1].push_back(input);
-            lookup[ColumnIdx::C2].push_back(normalized);
-
-            constexpr uint64_t divisor = numeric::pow64(static_cast<uint64_t>(BASE), bit_slice);
-            constexpr uint64_t msb_divisor = divisor / static_cast<uint64_t>(BASE);
-
-            // compute the value of the most significant bit of this slice and store in C3
-            const auto [normalized_quotient, normalized_slice] = normalized.divmod(divisor);
-
-            // 256-bit divisions are expensive! cast to u64s when we don't need the extra bits
-            const uint64_t normalized_msb = (static_cast<uint64_t>(normalized_slice) / msb_divisor);
-            lookup[ColumnIdx::C3].push_back(normalized_msb);
-
-            // We need to provide a key/value object for this lookup in order for the Builder
-            // to compute the plookup sorted list commitment
-            const auto [input_quotient, input_slice] = input.divmod(divisor);
-            lookup.lookup_entries.push_back(
-                { { static_cast<uint64_t>(input_slice), 0 }, { normalized_slice, normalized_msb } });
-
-            // reduce the input and output by 11^{bit_slice}
-            input = input_quotient;
-            normalized = normalized_quotient;
-        });
-    };
-
-    // template lambda syntax is a little funky.
-    // Need to explicitly write `.template operator()` (instead of just `()`).
-    // Otherwise compiler cannot distinguish between `>` symbol referring to closing the template parameter list,
-    // OR `>` being a greater-than operator :/
-    compute_lookup_witnesses_for_limb.template operator()<right_bits, num_right_tables>(right_normalized);
-    compute_lookup_witnesses_for_limb.template operator()<left_bits, num_left_tables>(left_normalized);
+    // compute plookup witness values for the right slices, then the left slices
+    append_normalize_lookup_rows(lookup, input, right_normalized, right_bits, num_right_tables, max_bits_per_table);
+    append_normalize_lookup_rows(lookup, input, left_normalized, left_bits, num_left_tables, max_bits_per_table);
 
     // Call builder method to create plookup constraints.
     // The MultiTable table index can be derived from `lane_idx`
