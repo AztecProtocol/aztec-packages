@@ -78,11 +78,15 @@ A registration payload without that guard is the hazard the guard exists to remo
 - **Once any other registration executes, this payload is dead.** Intended — voters re-approve
   "v6 succeeds X" explicitly rather than letting execution order decide — but it means a patched
   replacement needs a fresh deploy and a full governance cycle, not a quick swap.
-- **`totalEarmarkedBalance` is not enforced on-chain.** A non-zero earmark at execution shrinks the
-  implicit pool v6 inherits. It is recoverable by governance via `recoverFrom`, and it is *not*
-  enforced here on purpose: `subsidizeAddress` is permissionless, so a 1-wei call from anyone would
-  otherwise block the upgrade indefinitely. Check it before execution; treat it as an accounting
-  surprise, not a lost-funds event.
+- **Existing earmarks are left alone.** v6 inherits the implicit pool, `balance -
+  totalEarmarkedBalance`, and whatever is earmarked to other addresses at execution stays
+  earmarked to them. Earmarks are keyed by address, so a recipient that stops being canonical can
+  still claim its own, and governance can recover any of them via `recoverFrom`. The payload's own
+  reservation adds `EARMARK_AMOUNT` to v5's earmark, so `totalEarmarkedBalance` is non-zero after
+  execution by design. `subsidizeAddress` is permissionless but cannot shrink the implicit pool: it
+  raises the balance and the earmarked total by the same amount. The only thing that can make the
+  reservation revert is the implicit pool plus v5's existing earmark falling below
+  `EARMARK_AMOUNT` by execution.
 - **The execution window hardcodes the UK DST rule.** Derived from the rule rather than tabulated,
   so it has no expiry — but it would be wrong if the rule itself changed.
 - **The proof-of-possession gas cap is checked against the GSE only at deployment.** The constructor
