@@ -66,6 +66,14 @@ export type BackendOptions = {
   respawn?: boolean;
 
   /**
+   * @description Start bb with `msgpack run --reactor` (NativeUnixSocket only), so a command may respond once its
+   * work completes rather than before bb reads the next request. Needed by `chonkBatchVerifierVerify`, which responds
+   * with each proof's verdict once its batch is checked while further proofs keep arriving. Costs a copy and a
+   * cross-thread wake per request, so leave it off unless such commands are used.
+   */
+  reactor?: boolean;
+
+  /**
    * @description Specify exact backend to use
    * - If unset: tries backends in default order with fallback
    * - If set: must succeed with specified backend or throw error (no fallback)

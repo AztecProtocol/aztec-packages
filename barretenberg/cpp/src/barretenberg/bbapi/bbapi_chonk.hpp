@@ -19,8 +19,11 @@
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 #endif
 
+#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -357,12 +360,13 @@ struct ChonkDecompressProof {
 
 #ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 /**
- * @brief FIFO-streaming batch verification service for Chonk proofs.
+ * @brief Batch verification service for Chonk proofs.
  *
- * Wraps ChonkBatchVerifier and streams results over a named pipe (FIFO)
- * as size-delimited msgpack payloads: [4-byte big-endian length][msgpack payload].
+ * Wraps ChonkBatchVerifier. Started with a result FIFO, it streams each result over that named pipe as size-delimited
+ * msgpack payloads ([4-byte big-endian length][msgpack payload]) for proofs queued with enqueue(). Started without one,
+ * it hands each result to the completion given to verify().
  *
- * Lifecycle: start() → enqueue() × N → stop()
+ * Lifecycle: start() → enqueue() or verify() × N → stop()
  */
 class ChonkBatchVerifierService {
   public:
@@ -380,8 +384,19 @@ class ChonkBatchVerifierService {
     void fail_request(uint64_t request_id, std::string error_message);
     void stop();
     bool is_running() const { return running_.load(); }
+    bool has_result_fifo() const { return has_result_fifo_; }
+
+    /** Receives a proof's result, or nullopt if the service stopped without checking it. */
+    using Completion = std::function<void(std::optional<VerifyResult>)>;
+
+    /**
+     * @brief Queue a proof whose result goes to `done`, called on the verifier's thread. Needs a service started
+     * without a result FIFO. Throws, without calling `done`, if the proof can't be queued (e.g. the queue is full).
+     */
+    void verify(uint32_t vk_index, ChonkProof proof, Completion done);
 
   private:
+    void deliver(VerifyResult result);
     bool write_result(VerifyResult result);
     bool ensure_fifo_open();
     void close_fifo_locked();
@@ -394,6 +409,11 @@ class ChonkBatchVerifierService {
     int fifo_fd_ = -1;
     std::atomic_bool running_ = false;
     std::atomic_bool fifo_failed_ = false;
+    bool has_result_fifo_ = false;
+
+    std::mutex completions_mutex_;
+    std::unordered_map<uint64_t, Completion> completions_;
+    uint64_t next_completion_id_ = 0;
 };
 #endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
@@ -441,6 +461,23 @@ struct ChonkBatchVerifierQueue {
     SERIALIZATION_FIELDS(request_id, vk_index, proof_fields);
     bool operator==(const ChonkBatchVerifierQueue&) const = default;
 };
+
+/** A proof's outcome from the batch verifier: whether bb checked it and found it valid. */
+struct ChonkBatchVerdict {
+    bool verified = false;
+    double time_in_verify_ms = 0;
+};
+
+/**
+ * @brief Queue a proof with a batch verifier service started without a result FIFO, and report it to `done` once
+ * checked: on the verifier's thread, or inline for a proof too malformed to queue (a verdict of not verified).
+ * @details `done` gets nullopt if the service stops without checking the proof. Throws, without calling `done`, when
+ * the proof can't be queued at all (service not running, queue full); that is not a verdict on the proof.
+ */
+void chonk_batch_verifier_verify(BBApiRequest& request,
+                                 uint32_t vk_index,
+                                 std::vector<bb::fr> proof_fields,
+                                 std::function<void(std::optional<ChonkBatchVerdict>)> done);
 
 /**
  * @struct ChonkBatchVerifierStop

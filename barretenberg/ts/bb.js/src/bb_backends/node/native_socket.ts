@@ -24,6 +24,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     logger?: (msg: string) => void,
     unref?: boolean,
     respawn?: boolean,
+    reactor?: boolean,
   ): Promise<BarretenbergNativeSocketAsyncBackend> {
     // If threads not set use num cpu cores, max 16.
     const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
@@ -35,6 +36,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       transport: 'uds',
       logger,
       env: { HARDWARE_CONCURRENCY: hwc },
+      extraArgs: reactor ? ['--reactor'] : undefined,
       unref: true,
       unrefStdio: unref,
       respawn,

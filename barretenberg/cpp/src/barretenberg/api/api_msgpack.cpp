@@ -77,7 +77,8 @@ int process_msgpack_commands(std::istream& input_stream)
 int execute_msgpack_run(const std::string& msgpack_input_file,
                         [[maybe_unused]] int max_clients,
                         [[maybe_unused]] size_t request_ring_size,
-                        [[maybe_unused]] size_t response_ring_size)
+                        [[maybe_unused]] size_t response_ring_size,
+                        [[maybe_unused]] bool reactor)
 {
 #if !defined(__wasm__) && !defined(_WIN32)
     // Live transports: stdio pipe ("" / "-"), UDS (*.sock), MPSC-SHM (*.shm),
@@ -104,15 +105,30 @@ int execute_msgpack_run(const std::string& msgpack_input_file,
         // sequences (ChonkStart/Load/Accumulate/Prove) share IVC state.
         bb::bbapi::BBApiRequest request;
         auto handler = bb::bbapi::make_bb_handler(request);
-        // Every bb handler responds before it returns, so serve with the serial run() loop rather than run_reactor:
-        // the request stays a zero-copy span into the ring and the response is sent straight back, with none of the
-        // reactor's per-request copy, completion queue and cross-thread wake, which only a deferring handler needs.
-        server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
-            std::optional<std::vector<uint8_t>> response;
-            handler(raw, [&response](std::vector<uint8_t> r) { response = std::move(r); });
-            BB_ASSERT(response.has_value(), "bb handlers must respond before returning");
-            return std::move(*response);
-        });
+        if (reactor) {
+            // Handlers still run one at a time on the reactor thread, so the shared request context needs no locking;
+            // only their responses may come later, from another thread.
+            request.deferred_responses = true;
+            server->run_reactor(
+                [&handler](int /*client_id*/, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
+                    try {
+                        handler(raw, respond);
+                    } catch (const std::exception& e) {
+                        // Only decoding the envelope throws here, before any handler has taken `respond`.
+                        respond(bbapi::detail::make_error(e.what()));
+                    }
+                });
+        } else {
+            // Every handler responds before it returns, so the serial run() loop is enough: the request stays a
+            // zero-copy span into the ring and the response is sent straight back, with none of the reactor's
+            // per-request copy, completion queue and cross-thread wake.
+            server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
+                std::optional<std::vector<uint8_t>> response;
+                handler(raw, [&response](std::vector<uint8_t> r) { response = std::move(r); });
+                BB_ASSERT(response.has_value(), "bb handlers must respond before returning");
+                return std::move(*response);
+            });
+        }
 
         server->close();
         return 0;

@@ -475,17 +475,57 @@ void ChonkBatchVerifierService::start(std::vector<std::shared_ptr<MegaZKFlavor::
     (void)std::signal(SIGPIPE, SIG_IGN);
 #endif
     fifo_path_ = fifo_path;
+    has_result_fifo_ = !fifo_path.empty();
     fifo_failed_.store(false);
 
     try {
         verifier_.start(
-            std::move(vks), num_cores, batch_size, [this](VerifyResult result) { write_result(std::move(result)); });
+            std::move(vks), num_cores, batch_size, [this](VerifyResult result) { deliver(std::move(result)); });
     } catch (...) {
         running_.store(false);
         throw;
     }
 
-    info("ChonkBatchVerifierService started, fifo=", fifo_path);
+    info("ChonkBatchVerifierService started, fifo=", has_result_fifo_ ? fifo_path : "(none)");
+}
+
+void ChonkBatchVerifierService::verify(uint32_t vk_index, ChonkProof proof, Completion done)
+{
+    if (has_result_fifo_) {
+        throw_or_abort("ChonkBatchVerifierService: started with a result FIFO; queue proofs with enqueue()");
+    }
+    uint64_t id = 0;
+    {
+        std::lock_guard lock(completions_mutex_);
+        id = next_completion_id_++;
+        completions_.emplace(id, std::move(done));
+    }
+    try {
+        verifier_.enqueue(VerifyRequest{ .request_id = id, .vk_index = vk_index, .proof = std::move(proof) });
+    } catch (...) {
+        std::lock_guard lock(completions_mutex_);
+        completions_.erase(id);
+        throw;
+    }
+}
+
+void ChonkBatchVerifierService::deliver(VerifyResult result)
+{
+    if (has_result_fifo_) {
+        write_result(std::move(result));
+        return;
+    }
+    Completion done;
+    {
+        std::lock_guard lock(completions_mutex_);
+        auto it = completions_.find(result.request_id);
+        if (it == completions_.end()) {
+            return;
+        }
+        done = std::move(it->second);
+        completions_.erase(it);
+    }
+    done(std::move(result));
 }
 
 void ChonkBatchVerifierService::enqueue(VerifyRequest request)
@@ -509,6 +549,16 @@ void ChonkBatchVerifierService::stop()
 
     // Stop the processor first; callbacks synchronously write remaining results.
     verifier_.stop();
+
+    // Anything the processor never reached was not checked, which is not a verdict on it.
+    std::unordered_map<uint64_t, Completion> unchecked;
+    {
+        std::lock_guard lock(completions_mutex_);
+        unchecked.swap(completions_);
+    }
+    for (auto& [id, done] : unchecked) {
+        done(std::nullopt);
+    }
 
     {
         std::lock_guard lock(fifo_mutex_);
@@ -637,6 +687,9 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest&
     if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
         throw_or_abort("ChonkBatchVerifierQueue: service not running. Call ChonkBatchVerifierStart first.");
     }
+    if (!request.batch_verifier_service->has_result_fifo()) {
+        throw_or_abort("ChonkBatchVerifierQueue: service started without a result FIFO; use ChonkBatchVerifierVerify.");
+    }
 
     ChonkProof proof;
     try {
@@ -664,6 +717,35 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest&
     return {};
 }
 
+void chonk_batch_verifier_verify(BBApiRequest& request,
+                                 uint32_t vk_index,
+                                 std::vector<bb::fr> proof_fields,
+                                 std::function<void(std::optional<ChonkBatchVerdict>)> done)
+{
+    if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
+        throw_or_abort("ChonkBatchVerifierVerify: service not running. Call ChonkBatchVerifierStart first.");
+    }
+
+    // A proof that fails to deserialize (wrong length, an off-curve or non-canonical commitment) is malformed: that is
+    // a verdict on it, not a failure to check it.
+    ChonkProof proof;
+    try {
+        proof = ChonkProof::from_field_elements(proof_fields);
+    } catch (...) {
+        done(ChonkBatchVerdict{ .verified = false });
+        return;
+    }
+
+    request.batch_verifier_service->verify(
+        vk_index, std::move(proof), [done = std::move(done)](std::optional<VerifyResult> result) {
+            if (!result) {
+                done(std::nullopt);
+                return;
+            }
+            done(ChonkBatchVerdict{ .verified = result->verified(), .time_in_verify_ms = result->time_in_verify_ms });
+        });
+}
+
 ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& request) &&
 {
     if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
@@ -685,6 +767,14 @@ ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest&
 ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& /*request*/) &&
 {
     throw_or_abort("ChonkBatchVerifierQueue is not supported on this platform (wasm/Windows)");
+}
+
+void chonk_batch_verifier_verify(BBApiRequest& /*request*/,
+                                 uint32_t /*vk_index*/,
+                                 std::vector<bb::fr> /*proof_fields*/,
+                                 std::function<void(std::optional<ChonkBatchVerdict>)> /*done*/)
+{
+    throw_or_abort("ChonkBatchVerifierVerify is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& /*request*/) &&

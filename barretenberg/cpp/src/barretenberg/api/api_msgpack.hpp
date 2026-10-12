@@ -30,17 +30,22 @@ int process_msgpack_commands(std::istream& input_stream);
  *  - existing file  → offline replay of bare length-prefixed commands
  *
  * All live transports use the shared ipc-runtime server (request-id envelope
- * framing), served by its serial run() loop: every bb handler responds inline.
+ * framing). By default it is served by the serial run() loop, where every bb
+ * handler responds inline. With `reactor`, it is served by run_reactor(), so a
+ * handler may respond after returning and responses go out as they complete;
+ * ChonkBatchVerifierVerify needs this.
  *
  * @param msgpack_input_file Input path as above
  * @param max_clients Maximum concurrent clients for IPC servers
  * @param request_ring_size Request ring size for shared memory
  * @param response_ring_size Response ring size for shared memory
+ * @param reactor Serve with run_reactor() so handlers may respond later (live transports only)
  * @return int Status code: 0 for success, non-zero for errors
  */
 int execute_msgpack_run(const std::string& msgpack_input_file,
                         int max_clients = 1,
                         size_t request_ring_size = 1024UL * 1024,
-                        size_t response_ring_size = 1024UL * 1024);
+                        size_t response_ring_size = 1024UL * 1024,
+                        bool reactor = false);
 
 } // namespace bb

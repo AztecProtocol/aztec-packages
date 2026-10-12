@@ -32,6 +32,7 @@ export async function createAsyncBackend(
         options.logger,
         options.unref,
         options.respawn,
+        options.reactor,
       );
     }
 

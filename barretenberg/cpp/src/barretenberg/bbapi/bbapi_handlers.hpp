@@ -167,6 +167,9 @@ void handle_chonk_batch_verifier_start(BBApiRequest& ctx,
 void handle_chonk_batch_verifier_queue(BBApiRequest& ctx,
                                        wire::BbChonkBatchVerifierQueue&& cmd,
                                        Responder<wire::BbChonkBatchVerifierQueueResponse> respond);
+void handle_chonk_batch_verifier_verify(BBApiRequest& ctx,
+                                        wire::BbChonkBatchVerifierVerify&& cmd,
+                                        Responder<wire::BbChonkBatchVerifierVerifyResponse> respond);
 void handle_chonk_batch_verifier_stop(BBApiRequest& ctx,
                                       wire::BbChonkBatchVerifierStop&& cmd,
                                       Responder<wire::BbChonkBatchVerifierStopResponse> respond);
