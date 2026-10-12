@@ -13,6 +13,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
+#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
@@ -125,8 +126,18 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         for (size_t i = start; i < end; ++i) {
             const size_t poly_idx = i + gp_start;
             // TODO: consider avoiding get_row if possible.
-            if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                row = full_polynomials.get_row_for_permutation_arg(poly_idx);
+            if constexpr (std::is_same_v<GrandProdRelation, UltraPermutationRelation<FF>>) {
+                // Write the permutation argument's columns (wires, ids, sigmas) straight into the reused row
+                // rather than building and copying a whole row; the relation reads no other entries.
+                for (auto [row_value, polynomial] : zip_view(row.get_wires(), full_polynomials.get_wires())) {
+                    row_value = polynomial[poly_idx];
+                }
+                for (auto [row_value, polynomial] : zip_view(row.get_ids(), full_polynomials.get_ids())) {
+                    row_value = polynomial[poly_idx];
+                }
+                for (auto [row_value, polynomial] : zip_view(row.get_sigmas(), full_polynomials.get_sigmas())) {
+                    row_value = polynomial[poly_idx];
+                }
             } else if constexpr (requires { full_polynomials.get_row_for_grand_product(poly_idx); }) {
                 row = full_polynomials.get_row_for_grand_product(poly_idx);
             } else {
