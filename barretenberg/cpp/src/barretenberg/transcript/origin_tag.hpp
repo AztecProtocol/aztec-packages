@@ -72,7 +72,24 @@ struct OriginTag {
     // Unique per-object ID for debugging: when a tag merge fails, the error message includes
     // the IDs of both tags so you can trace which specific field elements were involved.
     static inline std::atomic<uint64_t> next_tag_id{ 0 };
-    uint64_t tag_id = next_tag_id.fetch_add(1, std::memory_order_relaxed);
+    uint64_t tag_id = allocate_tag_id();
+
+    /**
+     * @brief Return an ID that no other tag has been given.
+     * @details Each thread reserves IDs from next_tag_id in blocks, so constructing a tag needs no atomic
+     * read-modify-write (tags are created for every stdlib field operation).
+     */
+    static uint64_t allocate_tag_id()
+    {
+        constexpr uint64_t ID_BLOCK_SIZE = 1ULL << 16;
+        thread_local uint64_t next_id = 0;
+        thread_local uint64_t block_end = 0;
+        if (next_id == block_end) {
+            next_id = next_tag_id.fetch_add(ID_BLOCK_SIZE, std::memory_order_relaxed);
+            block_end = next_id + ID_BLOCK_SIZE;
+        }
+        return next_id++;
+    }
 
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);
     static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
