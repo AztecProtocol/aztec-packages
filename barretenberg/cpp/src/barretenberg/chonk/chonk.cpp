@@ -659,6 +659,9 @@ void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
 #ifndef NDEBUG
             verify_decider_natively();
 #endif
+            // The decider proof is the last use of the final accumulator's polynomials.
+            prover_accumulator.non_shifted_polynomial = ProverAccumulator::Polynomial{};
+            prover_accumulator.shifted_polynomial = ProverAccumulator::Polynomial{};
             goblin.prove_batch_merge();
         }
         break;
@@ -746,10 +749,13 @@ ChonkProof Chonk::prove()
     goblin.prove_eccvm();
     vinfo("finished eccvm proving.");
 
-    // Phase 4: Build translator proving key from ECCVM-derived challenges.
-    TranslatorCircuitBuilder translator_builder(
-        goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue);
-    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
+    // Phase 4: Build translator proving key from ECCVM-derived challenges. The key copies the circuit into its
+    // polynomials, so the circuit builder is released before proving.
+    auto translator_key = [&] {
+        TranslatorCircuitBuilder translator_builder(
+            goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue);
+        return std::make_shared<TranslatorProvingKey>(translator_builder);
+    }();
 
     // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
     vinfo("prove translator and joint...");
