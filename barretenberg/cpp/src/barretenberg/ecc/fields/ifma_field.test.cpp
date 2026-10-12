@@ -99,4 +99,44 @@ TEST_F(FieldIfma, FoldStride2MatchesScalar)
     }
 }
 
+TEST_F(FieldIfma, AddScaledBatchTileMatchesScalar)
+{
+    constexpr size_t TILE = field_ifma::MAX_TILE;
+    constexpr size_t NUM_SOURCES = 23;
+    std::vector<std::vector<fr>> sources(NUM_SOURCES, std::vector<fr>(TILE));
+    std::vector<fr> scalars(NUM_SOURCES);
+    std::vector<size_t> begins(NUM_SOURCES);
+    std::vector<size_t> ends(NUM_SOURCES);
+    for (size_t k = 0; k < NUM_SOURCES; ++k) {
+        for (size_t i = 0; i < TILE; ++i) {
+            // Every fourth source is zero over most of the tile (selector-like), exercising the zero-block skip.
+            sources[k][i] = (k % 4 == 0 && i < 200) ? fr::zero() : edge_or_random(i + k);
+        }
+        scalars[k] = (k % 5 == 0) ? fr::one() : edge_or_random(k);
+        // Ranges with unaligned and empty-tail ends, including the full tile.
+        begins[k] = (k == 0) ? 0 : (k * 13) % 61;
+        ends[k] = (k == 1) ? TILE : TILE - ((k * 7) % 53);
+    }
+    std::vector<fr> dst(TILE);
+    for (size_t i = 0; i < TILE; ++i) {
+        dst[i] = edge_or_random(i + 3);
+    }
+    std::vector<fr> expected = dst;
+    std::vector<field_ifma::ScaledSource> scaled;
+    for (size_t k = 0; k < NUM_SOURCES; ++k) {
+        for (size_t i = begins[k]; i < ends[k]; ++i) {
+            expected[i] += scalars[k] * sources[k][i];
+        }
+        scaled.push_back({ .data = &sources[k][begins[k]].data[0],
+                           .begin = begins[k],
+                           .end = ends[k],
+                           .scalar = &scalars[k].data[0],
+                           .unit = scalars[k] == fr::one() });
+    }
+    field_ifma::add_scaled_batch_tile<fr::Params>(&dst[0].data[0], TILE, scaled.data(), scaled.size());
+    for (size_t i = 0; i < TILE; ++i) {
+        expect_reduced_equal(expected[i], dst[i]);
+    }
+}
+
 #endif // BB_FIELD_IFMA

@@ -57,3 +57,36 @@ TEST(FoldStride2, MatchesFormula)
         }
     }
 }
+
+TEST(AddScaledBatch, MatchesSequentialAddScaled)
+{
+    const size_t n = 3000;
+    std::vector<Polynomial<fr>> sources;
+    std::vector<fr> scalars;
+    for (size_t k = 0; k < 9; ++k) {
+        const size_t start = (k * 37) % 300;
+        const size_t size = n - start - ((k * 101) % 700);
+        Polynomial<fr> p(size, n, start);
+        for (size_t i = start; i < start + size; ++i) {
+            // Zero stretches like selector columns.
+            p.at(i) = (k % 3 == 0 && (i / 64) % 2 == 0) ? fr::zero() : fr::random_element(&engine);
+        }
+        sources.push_back(std::move(p));
+        scalars.push_back(k == 0 ? fr::one() : fr::random_element(&engine));
+    }
+    Polynomial<fr> dst(n, n);
+    for (size_t i = 0; i < n; ++i) {
+        dst.at(i) = fr::random_element(&engine);
+    }
+    std::vector<fr> expected(n);
+    for (size_t i = 0; i < n; ++i) {
+        expected[i] = dst[i];
+        for (size_t k = 0; k < sources.size(); ++k) {
+            expected[i] += scalars[k] * sources[k][i];
+        }
+    }
+    add_scaled_batch(dst, sources, std::span<const fr>(scalars));
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(dst[i], expected[i]) << i;
+    }
+}

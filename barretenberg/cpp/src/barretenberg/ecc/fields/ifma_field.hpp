@@ -332,6 +332,81 @@ BB_FIELD_IFMA_TARGET void fold_stride2(const uint64_t* src, uint64_t* dst, size_
     }
 }
 
+/**
+ * @brief One source of `add_scaled_batch_tile`: tile elements [begin, end) gain scalar * src, where `data` points at
+ *        the source element for tile index `begin`. A unit scalar (`unit`) adds src without multiplying.
+ */
+struct ScaledSource {
+    const uint64_t* data;
+    size_t begin;
+    size_t end;
+    const uint64_t* scalar;
+    bool unit;
+};
+
+/**
+ * @brief dst[i] += sum over sources of scalar * src[i] for a tile of n <= MAX_TILE elements (n a multiple of 8), on raw
+ *        4-limb elements in [0, 2p). Outputs are in [0, p).
+ *
+ * @details The tile is held in 52-bit form for the whole batch, so every dst element is converted once. Blocks of
+ *          eight source elements that are all zero (selector columns) are skipped, as are the lanes of a block outside
+ *          the source's range (masked loads, which also never touch memory outside it). Each block is reduced after
+ *          every third term, keeping it below 2p + 3 * 2p < 9p as `canonical` needs.
+ */
+inline constexpr size_t MAX_TILE = 256;
+
+template <typename Params>
+BB_FIELD_IFMA_TARGET void add_scaled_batch_tile(uint64_t* dst,
+                                                size_t n,
+                                                const ScaledSource* sources,
+                                                size_t num_sources)
+{
+    const size_t num_blocks = n / 8;
+    V5 acc[MAX_TILE / 8];
+    uint8_t terms[MAX_TILE / 8];
+    for (size_t b = 0; b < num_blocks; ++b) {
+        acc[b] = load8(dst + (32 * b));
+        terms[b] = 0;
+    }
+    for (size_t s = 0; s < num_sources; ++s) {
+        const ScaledSource& src = sources[s];
+        const V5 scalar = broadcast(src.scalar);
+        for (size_t b = src.begin / 8; b * 8 < src.end; ++b) {
+            const size_t lo = b * 8;
+            // Mask of the 64-bit words of the block's eight elements that lie in [begin, end).
+            const size_t first = (src.begin > lo) ? src.begin - lo : 0;
+            const size_t last = std::min<size_t>(8, src.end - lo);
+            const uint32_t elements = ((1U << last) - 1U) & ~((1U << first) - 1U);
+            // Element pointer arithmetic stays within the source when every lane is live.
+            const uint64_t* base = src.data - (4 * src.begin) + (4 * lo);
+            __m512i z[4];
+            __m512i any = _mm512_setzero_si512();
+            for (size_t j = 0; j < 4; ++j) {
+                const uint32_t pair = (elements >> (2 * j)) & 3U;
+                const __mmask8 words =
+                    static_cast<__mmask8>(((pair & 1U) != 0 ? 0x0FU : 0U) | ((pair & 2U) != 0 ? 0xF0U : 0U));
+                z[j] = _mm512_maskz_loadu_epi64(words, base + (8 * j));
+                any = _mm512_or_si512(any, z[j]);
+            }
+            if (_mm512_test_epi64_mask(any, any) == 0) {
+                continue;
+            }
+            V5 v = transpose_in(z[0], z[1], z[2], z[3]);
+            if (!src.unit) {
+                v = mont_mul<Params>(v, scalar);
+            }
+            acc[b] = add(acc[b], v);
+            if (++terms[b] == 3) {
+                acc[b] = canonical<Params>(acc[b]);
+                terms[b] = 0;
+            }
+        }
+    }
+    for (size_t b = 0; b < num_blocks; ++b) {
+        store8(canonical<Params>(acc[b]), dst + (32 * b));
+    }
+}
+
 } // namespace bb::field_ifma
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays, cppcoreguidelines-pro-bounds-constant-array-index)
