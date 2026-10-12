@@ -196,6 +196,10 @@ struct BBApiRequest {
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error
     std::string error_message;
+    // Whether the server can send a response after its handler returns (bb msgpack run --reactor). Handlers that
+    // respond later, from another thread, need it; under a server that sends each response before reading the next
+    // request they would stall it.
+    bool deferred_responses = false;
 #ifdef BB_HAS_BATCH_VERIFIER_SERVICE
     // Batch verifier service instance (persists across RPC calls)
     std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;

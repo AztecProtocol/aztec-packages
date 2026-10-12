@@ -638,6 +638,16 @@
       },
       "response": {}
     },
+    "ChonkBatchVerifierVerify": {
+      "request": {
+        "vk_index": "u32",
+        "proof_fields": "fr[]"
+      },
+      "response": {
+        "verified": "bool",
+        "time_in_verify_ms": "f64"
+      }
+    },
     "ChonkBatchVerifierStop": {
       "request": {},
       "response": {}

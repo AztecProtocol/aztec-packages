@@ -159,6 +159,24 @@ void handle_chonk_batch_verifier_queue(BBApiRequest& ctx,
     respond.ok({});
 }
 
+void handle_chonk_batch_verifier_verify(BBApiRequest& ctx,
+                                        wire::BbChonkBatchVerifierVerify&& cmd,
+                                        Responder<wire::BbChonkBatchVerifierVerifyResponse> respond)
+{
+    if (!ctx.deferred_responses) {
+        throw_or_abort(
+            "ChonkBatchVerifierVerify responds once the proof is checked, which needs bb msgpack run --reactor");
+    }
+    chonk_batch_verifier_verify(
+        ctx, cmd.vk_index, fr_vec_from_wire(cmd.proof_fields), [respond](std::optional<ChonkBatchVerdict> verdict) {
+            if (!verdict) {
+                respond.error("ChonkBatchVerifierVerify: the batch verifier stopped before checking the proof");
+                return;
+            }
+            respond.ok({ .verified = verdict->verified, .time_in_verify_ms = verdict->time_in_verify_ms });
+        });
+}
+
 void handle_chonk_batch_verifier_stop(BBApiRequest& ctx,
                                       wire::BbChonkBatchVerifierStop&& /*cmd*/,
                                       Responder<wire::BbChonkBatchVerifierStopResponse> respond)
