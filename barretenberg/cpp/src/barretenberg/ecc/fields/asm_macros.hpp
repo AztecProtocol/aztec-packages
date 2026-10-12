@@ -454,23 +454,52 @@
 
 
 /**
+ * One Montgomery reduction step (ADX) on a 4-limb accumulator (u0, u1, u2, u3): k = u0 * r_inv mod 2^64, then
+ * u = (u + k * p) / 2^64. The new top limb is written into u0's register (u0 is zero after adding lo(k * p0)), so
+ * the accumulator becomes (u1, u2, u3, u0).
+ *
+ * k is computed with imulq, which clobbers the flags: no carry may be pending when this step starts. Both chains
+ * restart from a zeroing xor. Bounds: u < 2^256 on entry, so u + k * p < 2^256 + 2^64 * p < 2^320; neither chain
+ * carries out of the top limb, both flags are 0 on exit, and the new u < 2^192 + p.
+ * Uses rdi, rcx as scratch.
+ **/
+#define SQR_REDUCE_STEP(u0, u1, u2, u3)                                                                                 \
+        "movq " u0 ", %%rdx                         \n\t" /* rdx = u[0] */                                              \
+        "imulq %[r_inv], %%rdx                      \n\t" /* rdx = k = u[0] * r_inv mod 2^64 */                         \
+        "xorl %%edi, %%edi                          \n\t" /* CF = OF = 0 */                                             \
+        "mulxq %[modulus_0], %%rdi, %%rcx           \n\t" /* (rdi, rcx) = k * p[0] */                                   \
+        "adcxq %%rdi, " u0 "                        \n\t" /* u[0] += lo(k*p0) -> 0 mod 2^64 */                          \
+        "adoxq %%rcx, " u1 "                        \n\t" /* u[1] += hi(k*p0) */                                        \
+        "mulxq %[modulus_1], %%rdi, %%rcx           \n\t" /* (rdi, rcx) = k * p[1] */                                   \
+        "adcxq %%rdi, " u1 "                        \n\t" /* u[1] += lo(k*p1) + CF */                                   \
+        "adoxq %%rcx, " u2 "                        \n\t" /* u[2] += hi(k*p1) + OF */                                   \
+        "mulxq %[modulus_2], %%rdi, %%rcx           \n\t" /* (rdi, rcx) = k * p[2] */                                   \
+        "adcxq %%rdi, " u2 "                        \n\t" /* u[2] += lo(k*p2) + CF */                                   \
+        "adoxq %%rcx, " u3 "                        \n\t" /* u[3] += hi(k*p2) + OF */                                   \
+        "mulxq %[modulus_3], %%rdi, " u0 "          \n\t" /* (rdi, top) = k * p[3]; top replaces the zeroed u[0] */     \
+        "adcxq %%rdi, " u3 "                        \n\t" /* u[3] += lo(k*p3) + CF */                                   \
+        "adoxq %[zero_reference], " u0 "            \n\t" /* top += OF  (OF -> 0) */                                    \
+        "adcxq %[zero_reference], " u0 "            \n\t" /* top += CF  (CF -> 0) */
+
+/**
  * Montgomery squaring (ADX): computes a^2 * R^{-1} mod p, with output in [0, 2p).
  *
  * Uses the identity a^2 = 2 * sum_{i<j} a[i]*a[j] + sum_i a[i]^2 to halve the multiplies.
- * Then applies 4 rounds of Montgomery reduction, identical to MUL.
  *
  * Phase 1: Compute the 6 cross-products a[i]*a[j] (i<j), accumulate into r[1..6].
  * Phase 2: Double r[1..6] via self-addition (two interleaved 3-limb carry chains).
- * Phase 3: Add the 4 squared terms a[i]^2 into r[0..7], completing a^2.
- * Phase 4: Four rounds of Montgomery reduction (same as MUL), shifting out r[0..3].
+ * Phase 3: Add the 4 squared terms a[i]^2 into r[0..7], completing a^2 = T = T_hi * R + T_lo.
+ * Phase 4: Montgomery-reduce the low half only: four SQR_REDUCE_STEPs turn T_lo into U = (T_lo + K*p) / R, where
+ *          K < R is the unique value with T_lo + K*p = 0 mod R. Since T + K*p = 0 mod R as well,
+ *          (T + K*p) / R = T_hi + U, so the result is U + T_hi. K, and hence every output bit, is the same as for
+ *          the interleaved reduction of the whole of T.
  *
- * Flag management: the macro intentionally reuses CF/OF across phases rather than
- * explicitly clearing them. However, the effective carry structure is local to specific
- * adcx/adox chains and should be understood instruction-by-instruction. Each flag is
- * simply consumed by the next adcx (for CF) or adox (for OF) instruction — flags do
- * not "belong to" registers or phases in any deeper sense.
+ * The reduction of T_lo only needs r[0..3], so it does not wait for the high half of the product; T_hi is
+ * added at the very end.
  *
  * Input: a < 2p < 2^{255}, so a[3] < 2^{63}, p[3] < 2^{62}.
+ * Bounds: U < (R + R*p) / R = p + 1, and T_hi + U = (T + K*p) / R < (4p^2 + R*p) / R < 2p since 4p < R, so the
+ * final addition does not carry out.
  * Output: a^2 * R^{-1} mod p in [0, 2p), stored in (r12, r13, r14, r15).
  **/
 #define SQR(a)                                                                                                          \
@@ -584,417 +613,129 @@
                                                                                                                         \
         /* Post-phase 3: (r8,r9,..,r15) = a^2 as 8-limb number. OF12 = 0. CF10 pending. */                              \
                                                                                                                         \
-        /* ===================================================================================== */                     \
-        /* PHASE 4: Montgomery reduction — 4 rounds, identical structure to MUL. */                                     \
-        /*  */                                                                                                          \
-        /* Each round i: k_i = r[i] * (-p^{-1}) mod 2^{64}, add k_i*p, shift out r[i]. */                               \
-        /* The total is (a^2 + K*p) / R where K = sum(k_i * 2^{64i}). */                                                \
-        /* Since a < 2p: a^2 < 4p^2, K < R, and 4p < R, so output < 2p. */                                              \
-        /*  */                                                                                                          \
-        /* CF and OF from Phase 3 are reused (not reset). Each round's adcx/adox */                                     \
-        /* instructions consume and produce flags in interleaved order — understand the */                              \
-        /* flag state instruction-by-instruction. Per-limb totals for k_i*p: */                                         \
-        /* r[i] += lo(ki*p0)  -> zeroed mod 2^{64} */                                                                   \
-        /* r[i+1] += hi(ki*p0) + lo(ki*p1) */                                                                           \
-        /* r[i+2] += hi(ki*p1) + lo(ki*p2) */                                                                           \
-        /* r[i+3] += hi(ki*p2) + lo(ki*p3) */                                                                           \
-        /* r[i+4] += hi(ki*p3) */                                                                                       \
-        /* ===================================================================================== */                     \
                                                                                                                         \
-        /* --- Reduction round 0: reduce r[0] (r8) -------------------------------------------- */                      \
-        /* Register map: r8=r[0] r9=r[1] r10=r[2] r11=r[3] r12=r[4] r13=r[5] r14=r[6] r15=r[7] */                       \
-        /*  */                                                                                                          \
-        /* Per-limb totals for k0*p: */                                                                                 \
-        /* r[0] += lo(k0*p0)  -> zeroed mod 2^{64} */                                                                   \
-        /* r[1] += hi(k0*p0) + lo(k0*p1) */                                                                             \
-        /* r[2] += hi(k0*p1) + lo(k0*p2) */                                                                             \
-        /* r[3] += hi(k0*p2) + lo(k0*p3) */                                                                             \
-        /* r[4] += hi(k0*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[4], r[5], r[6], r[7], then r[1], r[2], r[3] */                                         \
-        /* adox sequence (OF): r[0], r[1], r[2], r[3] */                                                                \
-        /* {CF=CF10 from Phase 3, OF=OF12=0} */                                                                         \
-        "movq %%r8, %%rdx                          \n\t" /* rdx = r[0] */                                               \
-        "mulxq %[r_inv], %%rdx, %%rdi              \n\t" /* rdx = k0 = r[0] * r_inv */                                  \
-        "mulxq %[modulus_0], %%rdi, %%rcx          \n\t" /* (rdi, rcx) = k0 * p[0] */                                   \
-        "adoxq %%rdi, %%r8                         \n\t" /* r[0] += lo(k0*p0) + OF12=0 -> 0 mod 2^64 {OF->OF1} */       \
-        "mulxq %[modulus_3], %%r8, %%rdi           \n\t" /* (r8, rdi) = k0 * p[3] */                                    \
-        "adcxq %%rdi, %%r12                        \n\t" /* r[4] += hi(k0*p3) + CF10  {CF->CF1} */                      \
-        "adoxq %%rcx, %%r9                         \n\t" /* r[1] += hi(k0*p0) + OF1   {OF->OF2} */                      \
-        "adcxq %[zero_reference], %%r13            \n\t" /* r[5] += CF1               {CF->CF2} */                      \
-        "adcxq %[zero_reference], %%r14            \n\t" /* r[6] += CF2               {CF->CF3} */                      \
-        "mulxq %[modulus_1], %%rdi, %%rcx          \n\t" /* (rdi, rcx) = k0 * p[1] */                                   \
-        "adcxq %[zero_reference], %%r15            \n\t" /* r[7] += CF3               {CF->CF4} */                      \
-        /* adcx flushes CF through r[5..7]; CF4=0 since r[7] < 2^{62}+2+1 < 2^{64}. */                                  \
-        "adoxq %%rcx, %%r10                        \n\t" /* r[2] += hi(k0*p1) + OF2   {OF->OF3} */                      \
-        "adcxq %%rdi, %%r9                         \n\t" /* r[1] += lo(k0*p1) + CF4=0 {CF->CF5}  (CF4=0: safe) */       \
-        "adoxq %%r8, %%r11                         \n\t" /* r[3] += lo(k0*p3) + OF3   {OF->OF4} */                      \
-        "mulxq %[modulus_2], %%rdi, %%rcx          \n\t" /* (rdi, rcx) = k0 * p[2] */                                   \
-        "adcxq %%rdi, %%r10                        \n\t" /* r[2] += lo(k0*p2) + CF5   {CF->CF6} */                      \
-        "adcxq %%rcx, %%r11                        \n\t" /* r[3] += hi(k0*p2) + CF6   {CF->CF7} */                      \
+        /* Post-phase 3: CF10 is still pending into r[4]; propagate it through T_hi = (r12, r13, r14, r15). */          \
+        "adcxq %[zero_reference], %%r12             \n\t" /* r[4] += CF10 */                                            \
+        "adcxq %[zero_reference], %%r13             \n\t" /* r[5] += CF */                                              \
+        "adcxq %[zero_reference], %%r14             \n\t" /* r[6] += CF */                                              \
+        "adcxq %[zero_reference], %%r15             \n\t" /* r[7] += CF  (r[7] < 2^62 + 3: CF -> 0) */                  \
                                                                                                                         \
-        /* --- Reduction round 1: reduce r[1] (r9) -------------------------------------------- */                      \
-        /* Per-limb totals for k1*p: */                                                                                 \
-        /* r[1] += lo(k1*p0)  -> zeroed mod 2^{64} */                                                                   \
-        /* r[2] += hi(k1*p0) + lo(k1*p1) */                                                                             \
-        /* r[3] += hi(k1*p1) + lo(k1*p2) */                                                                             \
-        /* r[4] += hi(k1*p2) + lo(k1*p3) */                                                                             \
-        /* r[5] += hi(k1*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[4], r[5], r[6], r[7], then r[1], r[2], r[3] */                                         \
-        /* adox sequence (OF): r[4], r[5], r[6], r[7], then r[2], r[3] */                                               \
-        /* {CF=CF7, OF=OF4} */                                                                                          \
-        "movq %%r9, %%rdx                          \n\t" /* rdx = r[1] */                                               \
-        "mulxq %[r_inv], %%rdx, %%rdi              \n\t" /* rdx = k1 = r[1] * r_inv */                                  \
-        "mulxq %[modulus_2], %%rdi, %%rcx          \n\t" /* (rdi, rcx) = k1 * p[2] */                                   \
-        "adoxq %%rcx, %%r12                        \n\t" /* r[4] += hi(k1*p2) + OF4   {OF->OF5} */                      \
-        "mulxq %[modulus_3], %%r8, %%rcx           \n\t" /* (r8, rcx)  = k1 * p[3] */                                   \
-        "adcxq %%r8, %%r12                         \n\t" /* r[4] += lo(k1*p3) + CF7   {CF->CF8} */                      \
-        "adoxq %%rcx, %%r13                        \n\t" /* r[5] += hi(k1*p3) + OF5   {OF->OF6} */                      \
-        "adcxq %[zero_reference], %%r13            \n\t" /* r[5] += CF8               {CF->CF9} */                      \
-        "adoxq %[zero_reference], %%r14            \n\t" /* r[6] += OF6               {OF->OF7} */                      \
-        "adcxq %[zero_reference], %%r14            \n\t" /* r[6] += CF9               {CF->CF10} */                     \
-        "adoxq %[zero_reference], %%r15            \n\t" /* r[7] += OF7               {OF->OF8} */                      \
-        "adcxq %[zero_reference], %%r15            \n\t" /* r[7] += CF10              {CF->CF11} */                     \
-        /* adcx/adox flush CF/OF through r[5..7]. CF11=0 and OF8=0 because each */                                      \
-        /* flush adds at most 1 to r[5..7], and r[7] < 2^{62}+2+4 < 2^{64}. */                                          \
-        "mulxq %[modulus_0], %%r8, %%rcx           \n\t" /* (r8, rcx)  = k1 * p[0] */                                   \
-        "adcxq %%r8, %%r9                          \n\t" /* r[1] += lo(k1*p0) + CF11=0 -> 0 mod 2^64 {CF->CF12} */      \
-        "adoxq %%rcx, %%r10                        \n\t" /* r[2] += hi(k1*p0) + OF8=0 {OF->OF9}  (OF8=0: safe) */       \
-        "mulxq %[modulus_1], %%r8, %%rcx           \n\t" /* (r8, rcx)  = k1 * p[1] */                                   \
-        "adcxq %%r8, %%r10                         \n\t" /* r[2] += lo(k1*p1) + CF12  {CF->CF13} */                     \
-        "adoxq %%rcx, %%r11                        \n\t" /* r[3] += hi(k1*p1) + OF9   {OF->OF10} */                     \
-        "adcxq %%rdi, %%r11                        \n\t" /* r[3] += lo(k1*p2) + CF13  {CF->CF14} */                     \
+        /* ====================================================================================  */                     \
+        /* PHASE 4: U = (T_lo + K*p) / R with T_lo = (r8, r9, r10, r11); result = T_hi + U. */                          \
+        /* ====================================================================================  */                     \
+        SQR_REDUCE_STEP("%%r8", "%%r9", "%%r10", "%%r11")                                                               \
+        SQR_REDUCE_STEP("%%r9", "%%r10", "%%r11", "%%r8")                                                               \
+        SQR_REDUCE_STEP("%%r10", "%%r11", "%%r8", "%%r9")                                                               \
+        SQR_REDUCE_STEP("%%r11", "%%r8", "%%r9", "%%r10")                                                               \
+        /* U = (r8, r9, r10, r11) <= p. Add T_hi: the sum is < 2p < 2^{255}, no carry out. */                           \
+        "addq %%r8, %%r12                           \n\t" /* r[0] = U[0] + T_hi[0] */                                   \
+        "adcq %%r9, %%r13                           \n\t" /* r[1] = U[1] + T_hi[1] + CF */                              \
+        "adcq %%r10, %%r14                          \n\t" /* r[2] = U[2] + T_hi[2] + CF */                              \
+        "adcq %%r11, %%r15                          \n\t" /* r[3] = U[3] + T_hi[3] + CF */                              \
                                                                                                                         \
-        /* --- Reduction round 2: reduce r[2] (r10) ------------------------------------------- */                      \
-        /* Per-limb totals for k2*p: */                                                                                 \
-        /* r[2] += lo(k2*p0)  -> zeroed mod 2^{64} */                                                                   \
-        /* r[3] += hi(k2*p0) + lo(k2*p1) */                                                                             \
-        /* r[4] += hi(k2*p1) + lo(k2*p2) */                                                                             \
-        /* r[5] += hi(k2*p2) + lo(k2*p3) */                                                                             \
-        /* r[6] += hi(k2*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[4], r[5], r[6], r[7], then r[2], r[3] */                                               \
-        /* adox sequence (OF): r[4], r[5], r[6], r[7], then r[3], r[4], r[5] */                                         \
-        /* {CF=CF14, OF=OF10} */                                                                                        \
-        "movq %%r10, %%rdx                         \n\t" /* rdx = r[2] */                                               \
-        "mulxq %[r_inv], %%rdx, %%rdi              \n\t" /* rdx = k2 = r[2] * r_inv */                                  \
-        "mulxq %[modulus_1], %%rdi, %%rcx          \n\t" /* (rdi, rcx) = k2 * p[1] */                                   \
-        "mulxq %[modulus_2], %%r8, %%r9            \n\t" /* (r8, r9)   = k2 * p[2] */                                   \
-        "adoxq %%rcx, %%r12                        \n\t" /* r[4] += hi(k2*p1) + OF10  {OF->OF11} */                     \
-        "adcxq %%r8, %%r12                         \n\t" /* r[4] += lo(k2*p2) + CF14  {CF->CF15} */                     \
-        "adoxq %%r9, %%r13                         \n\t" /* r[5] += hi(k2*p2) + OF11  {OF->OF12} */                     \
-        "mulxq %[modulus_3], %%r8, %%r9            \n\t" /* (r8, r9)   = k2 * p[3] */                                   \
-        "adcxq %%r8, %%r13                         \n\t" /* r[5] += lo(k2*p3) + CF15  {CF->CF16} */                     \
-        "adoxq %%r9, %%r14                         \n\t" /* r[6] += hi(k2*p3) + OF12  {OF->OF13} */                     \
-        "adcxq %[zero_reference], %%r14            \n\t" /* r[6] += CF16              {CF->CF17} */                     \
-        "adoxq %[zero_reference], %%r15            \n\t" /* r[7] += OF13              {OF->OF14} */                     \
-        "adcxq %[zero_reference], %%r15            \n\t" /* r[7] += CF17              {CF->CF18} */                     \
-        /* adcx/adox flush CF/OF through r[6..7]. CF18=0 and OF14=0 because each */                                     \
-        /* flush adds at most 1, and r[7] < 2^{62}+2+4+2 < 2^{64}. */                                                   \
-        "mulxq %[modulus_0], %%r8, %%r9            \n\t" /* (r8, r9)   = k2 * p[0] */                                   \
-        "adcxq %%r8, %%r10                         \n\t" /* r[2] += lo(k2*p0) + CF18=0 -> 0 mod 2^64 {CF->CF19} */      \
-        "adoxq %%r9, %%r11                         \n\t" /* r[3] += hi(k2*p0) + OF14=0 {OF->OF15}  (OF14=0: safe) */    \
-        "adcxq %%rdi, %%r11                        \n\t" /* r[3] += lo(k2*p1) + CF19  {CF->CF20} */                     \
-        "adoxq %[zero_reference], %%r12            \n\t" /* r[4] += OF15              {OF->OF16} */                     \
-        "adoxq %[zero_reference], %%r13            \n\t" /* r[5] += OF16              {OF->OF17} */                     \
-                                                                                                                        \
-        /* --- Reduction round 3: reduce r[3] (r11) ------------------------------------------- */                      \
-        /* Per-limb totals for k3*p: */                                                                                 \
-        /* r[3] += lo(k3*p0)  -> zeroed mod 2^{64} */                                                                   \
-        /* r[4] += hi(k3*p0) + lo(k3*p1) */                                                                             \
-        /* r[5] += hi(k3*p1) + lo(k3*p2) */                                                                             \
-        /* r[6] += hi(k3*p2) + lo(k3*p3) */                                                                             \
-        /* r[7] += hi(k3*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[4], r[5], r[6], r[7] */                                                                \
-        /* adox sequence (OF): r[3], r[4], r[5], r[6], r[7] */                                                          \
-        /* {CF=CF20, OF=OF17} */                                                                                        \
-        /* OF17=0: OF15 (from r[3] += hi(k2*p0)) flushes through r[4] and r[5] at lines above, */                       \
-        /* dissipating to 0 since neither limb is near 2^64. */                                                         \
-        "movq %%r11, %%rdx                         \n\t" /* rdx = r[3] */                                               \
-        "mulxq %[r_inv], %%rdx, %%rdi              \n\t" /* rdx = k3 = r[3] * r_inv */                                  \
-        "mulxq %[modulus_0], %%rdi, %%rcx          \n\t" /* (rdi, rcx) = k3 * p[0] */                                   \
-        "mulxq %[modulus_1], %%r8, %%r9            \n\t" /* (r8, r9)   = k3 * p[1] */                                   \
-        "adoxq %%rdi, %%r11                        \n\t" /* r[3] += lo(k3*p0) + OF17 -> 0 mod 2^64 {OF->OF18} */        \
-        "adcxq %%r8, %%r12                         \n\t" /* r[4] += lo(k3*p1) + CF20  {CF->CF21} */                     \
-        "adoxq %%rcx, %%r12                        \n\t" /* r[4] += hi(k3*p0) + OF18  {OF->OF19} */                     \
-        "adcxq %%r9, %%r13                         \n\t" /* r[5] += hi(k3*p1) + CF21  {CF->CF22} */                     \
-        "mulxq %[modulus_2], %%r8, %%r9            \n\t" /* (r8, r9)   = k3 * p[2] */                                   \
-        "mulxq %[modulus_3], %%r10, %%r11          \n\t" /* (r10, r11) = k3 * p[3] */                                   \
-        "adoxq %%r8, %%r13                         \n\t" /* r[5] += lo(k3*p2) + OF19  {OF->OF20} */                     \
-        "adcxq %%r10, %%r14                        \n\t" /* r[6] += lo(k3*p3) + CF22  {CF->CF23} */                     \
-        "adoxq %%r9, %%r14                         \n\t" /* r[6] += hi(k3*p2) + OF20  {OF->OF21} */                     \
-        "adcxq %%r11, %%r15                        \n\t" /* r[7] += hi(k3*p3) + CF23  {CF->CF24} */                     \
-        /* Result = (a^2 + K*p)/R < 2p < 2^{255}, so r[7] < 2^{63}. */                                                  \
-        /* Since r[7] + hi(k3*p3) + CF23 < 2^{63} + 2^{62} + 1 < 2^{64}, CF24 = 0. */                                   \
-        "adoxq %[zero_reference], %%r15            \n\t" /* r[7] += OF21              {OF->OF22} */                     \
-        /* r[7] < 2^{63} + 1 < 2^{64}, so OF22 = 0. Both terminal flags are zero. */                                    \
-                                                                                                                        \
-        /* Output in (r12, r13, r14, r15) = (r[4], r[5], r[6], r[7]). */                                                \
-        /* Since S < 2p < 2^{255}, the top limb r[7] < 2^{63}. Valid input for another SQR/MUL. */
+        /* Output in (r12, r13, r14, r15). Top limb < 2^{63}: valid input for another SQR/MUL. */
+
+/**
+ * One CIOS product row (ADX): (t0, t1, t2, t3, t4) = (t0, t1, t2, t3) + ai * b, where t4 is a fresh top limb.
+ *
+ * The low halves of ai * b[j] are added on the CF chain, the high halves on the OF chain. Both chains start from a
+ * zeroing xor, so the row depends only on the register values of t and not on flags produced by earlier rows.
+ * Bounds: the accumulator is < 2^256 on entry and b[3] < 2^63, so t4 = hi(ai * b[3]) + CF + OF < 2^63 + 2 and
+ * neither chain carries out of t4; both flags are 0 on exit.
+ * Uses r8, r9 as scratch and r11 as a zero register.
+ **/
+#define MUL_ROW(ai, b, t0, t1, t2, t3, t4)                                                                              \
+        "xorl %%r11d, %%r11d                        \n\t" /* r11 = 0; CF = OF = 0 */                                    \
+        "movq " ai ", %%rdx                         \n\t" /* rdx = a[i] */                                              \
+        "mulxq 0(" b "), %%r8, %%r9                 \n\t" /* (r8, r9) = a[i] * b[0] */                                  \
+        "adcxq %%r8, " t0 "                         \n\t" /* t[0] += lo(ai*b0) */                                       \
+        "adoxq %%r9, " t1 "                         \n\t" /* t[1] += hi(ai*b0) */                                       \
+        "mulxq 8(" b "), %%r8, %%r9                 \n\t" /* (r8, r9) = a[i] * b[1] */                                  \
+        "adcxq %%r8, " t1 "                         \n\t" /* t[1] += lo(ai*b1) + CF */                                  \
+        "adoxq %%r9, " t2 "                         \n\t" /* t[2] += hi(ai*b1) + OF */                                  \
+        "mulxq 16(" b "), %%r8, %%r9                \n\t" /* (r8, r9) = a[i] * b[2] */                                  \
+        "adcxq %%r8, " t2 "                         \n\t" /* t[2] += lo(ai*b2) + CF */                                  \
+        "adoxq %%r9, " t3 "                         \n\t" /* t[3] += hi(ai*b2) + OF */                                  \
+        "mulxq 24(" b "), %%r8, " t4 "              \n\t" /* (r8, t[4]) = a[i] * b[3] */                                \
+        "adcxq %%r8, " t3 "                         \n\t" /* t[3] += lo(ai*b3) + CF */                                  \
+        "adoxq %%r11, " t4 "                        \n\t" /* t[4] += OF  (OF -> 0) */                                   \
+        "adcxq %%r11, " t4 "                        \n\t" /* t[4] += CF  (CF -> 0) */
+
+/**
+ * One CIOS reduction step (ADX) on (t0, t1, t2, t3, t4): k = t0 * r_inv mod 2^64, t += k * p. Afterwards t0 = 0 and
+ * the caller drops it, so the accumulator becomes (t1, t2, t3, t4).
+ *
+ * k is computed with imulq (lower latency than mulxq and only the low half is needed). imulq clobbers the flags, so
+ * no carry may be pending when this step starts; the step then restarts both chains from a zeroing xor.
+ * Bounds: t < 2^256 + 2^64 * 2p on entry (see MUL), so t + k * p < 2^64 * (2^256 / 2^64 + 3p) < 2^320: neither chain
+ * carries out of t4 and both flags are 0 on exit.
+ * Uses r8, r9 as scratch and r11 as a zero register.
+ **/
+#define MUL_REDUCE_STEP(t0, t1, t2, t3, t4)                                                                             \
+        "movq " t0 ", %%rdx                         \n\t" /* rdx = t[0] */                                              \
+        "imulq %[r_inv], %%rdx                      \n\t" /* rdx = k = t[0] * r_inv mod 2^64 */                         \
+        "xorl %%r11d, %%r11d                        \n\t" /* r11 = 0; CF = OF = 0 */                                    \
+        "mulxq %[modulus_0], %%r8, %%r9             \n\t" /* (r8, r9) = k * p[0] */                                     \
+        "adcxq %%r8, " t0 "                         \n\t" /* t[0] += lo(k*p0) -> 0 mod 2^64 */                          \
+        "adoxq %%r9, " t1 "                         \n\t" /* t[1] += hi(k*p0) */                                        \
+        "mulxq %[modulus_1], %%r8, %%r9             \n\t" /* (r8, r9) = k * p[1] */                                     \
+        "adcxq %%r8, " t1 "                         \n\t" /* t[1] += lo(k*p1) + CF */                                   \
+        "adoxq %%r9, " t2 "                         \n\t" /* t[2] += hi(k*p1) + OF */                                   \
+        "mulxq %[modulus_2], %%r8, %%r9             \n\t" /* (r8, r9) = k * p[2] */                                     \
+        "adcxq %%r8, " t2 "                         \n\t" /* t[2] += lo(k*p2) + CF */                                   \
+        "adoxq %%r9, " t3 "                         \n\t" /* t[3] += hi(k*p2) + OF */                                   \
+        "mulxq %[modulus_3], %%r8, %%r9             \n\t" /* (r8, r9) = k * p[3] */                                     \
+        "adcxq %%r8, " t3 "                         \n\t" /* t[3] += lo(k*p3) + CF */                                   \
+        "adoxq %%r9, " t4 "                         \n\t" /* t[4] += hi(k*p3) + OF  (OF -> 0) */                        \
+        "adcxq %%r11, " t4 "                        \n\t" /* t[4] += CF  (CF -> 0) */
 
 /**
  * Montgomery multiplication (ADX): computes a * b * R^{-1} mod p, with output in [0, 2p).
  *
- * Same CIOS algorithm as the non-ADX variant (see above), but uses the ADX extension to run
- * two independent carry chains simultaneously:
+ * CIOS: for i = 0..3, t += a[i] * b (MUL_ROW), then t += k_i * p with k_i = t[i] * r_inv mod 2^64 and the zeroed
+ * low limb is dropped (MUL_REDUCE_STEP). Uses the ADX extension to run two independent carry chains:
  *   - adcxq reads/writes only CF (carry flag)
  *   - adoxq reads/writes only OF (overflow flag)
  *   - mulxq, movq preserve both CF and OF
- *   - xorq clears both CF and OF to 0
+ *   - xorl reg, reg clears both CF and OF and is a zeroing idiom, so it breaks the dependency on earlier flags
  *
- * This eliminates the need for addq resets between cross-terms, enabling better ILP.
- * The partial products are computed in a different order than non-ADX (for parallelism),
- * but the per-limb totals are identical.
+ * Every row and reduction step ends with both chains flushed into its top limb (each top limb provably does not
+ * overflow), and the next one restarts them with a zeroing xor. The only dependencies between steps are therefore
+ * the limb registers themselves, and the serial path of each round is t[i] -> k_i -> k_i * p[0..1] -> t[i+1].
  *
- * Flag management: within each round, adcx and adox instructions are interleaved to add
- * partial products into accumulator limbs. The instruction order is chosen for ILP, not
- * algebraic order — understand the flag state instruction-by-instruction. Each flag is
- * simply consumed by the next adcx (CF) or adox (OF); flags do not "belong to" limbs.
+ * The k_i are the unique digits of K < R with a*b + K*p = 0 mod R, so the result (a*b + K*p) / R is bit-identical
+ * to any other CIOS/SOS schedule.
  *
- * Modulus assumption: p < 2^{254}, so p[3] < 2^{62}. All bit-width bounds below rely on this.
+ * Modulus assumption: p < 2^{254}, so p[3] < 2^{62}; inputs a, b < 2p < 2^{255}.
+ * Bounds: before row i the accumulator is < 2p (4 limbs); after the row it is < 2p + 2^64 * 2p, after the reduction
+ * step (before the shift) < 2^64 * 2^256, so the 5-limb accumulator never overflows. The result is < 2p.
  *
- * At certain points the top limb is known to be < 2^64, so the outgoing flag = 0;
- * this is annotated inline and is critical for correctness of the subsequent additions.
- *
- * Cross-round flag propagation: rounds are NOT flag-independent. Each round's terminal
- * (CF, OF) are consumed by the first (adcxq, adoxq) of the next round. Between rounds,
- * only movq and mulxq appear, which preserve flags.
- *
- * Notation in flag trace comments: {CF=n, OF=n} tracks the flag state entering each
- * instruction. "CF_i" / "OF_i" denotes the i-th flag value produced within the current round.
- *
- * Result is stored in (%%r12, %%r13, %%r14, %%r15) for STORE_FIELD_ELEMENT.
+ * Register map (rotating): round 0 uses t = (r13, r14, r15, r10, r12); round i uses the same registers rotated by
+ * i, and the result ends up in (r12, r13, r14, r15) for STORE_FIELD_ELEMENT.
  **/
 #define MUL(a1, a2, a3, a4, b)                                                                                          \
-        /* ===================================================================================== */                     \
-        /* ROUND 0: accumulate a[0]*b, then reduce by k0*p. Shift out r[0]. */                                          \
-        /* Register map: r13=r[0]  r14=r[1]  r15=r[2]  r10=r[3]  r12=r[4] */                                            \
-        /* ===================================================================================== */                     \
-        "movq " a1 ", %%rdx                        \n\t" /* rdx = a[0] */                                               \
-        "xorq %%r8, %%r8                           \n\t" /* clear r8; sets CF=0, OF=0 */                                \
+        /* Round 0, row: (r13, r14, r15, r10, r12) = a[0] * b. A single carry chain suffices. */                        \
+        "xorl %%r11d, %%r11d                        \n\t" /* r11 = 0; CF = OF = 0 */                                    \
+        "movq " a1 ", %%rdx                         \n\t" /* rdx = a[0] */                                              \
+        "mulxq 0(" b "), %%r13, %%r14               \n\t" /* (t[0], t[1]) = a[0] * b[0] */                              \
+        "mulxq 8(" b "), %%r8, %%r15                \n\t" /* (r8, t[2]) = a[0] * b[1] */                                \
+        "adcxq %%r8, %%r14                          \n\t" /* t[1] += lo(a0*b1) */                                       \
+        "mulxq 16(" b "), %%r8, %%r10               \n\t" /* (r8, t[3]) = a[0] * b[2] */                                \
+        "adcxq %%r8, %%r15                          \n\t" /* t[2] += lo(a0*b2) + CF */                                  \
+        "mulxq 24(" b "), %%r8, %%r12               \n\t" /* (r8, t[4]) = a[0] * b[3] */                                \
+        "adcxq %%r8, %%r10                          \n\t" /* t[3] += lo(a0*b3) + CF */                                  \
+        "adcxq %%r11, %%r12                         \n\t" /* t[4] += CF  (t[4] < 2^63 + 1: CF -> 0) */                  \
+        MUL_REDUCE_STEP("%%r13", "%%r14", "%%r15", "%%r10", "%%r12")                                                    \
+        /* Round 1: t = (r14, r15, r10, r12, r13) */                                                                    \
+        MUL_ROW(a2, b, "%%r14", "%%r15", "%%r10", "%%r12", "%%r13")                                                     \
+        MUL_REDUCE_STEP("%%r14", "%%r15", "%%r10", "%%r12", "%%r13")                                                    \
+        /* Round 2: t = (r15, r10, r12, r13, r14) */                                                                    \
+        MUL_ROW(a3, b, "%%r15", "%%r10", "%%r12", "%%r13", "%%r14")                                                     \
+        MUL_REDUCE_STEP("%%r15", "%%r10", "%%r12", "%%r13", "%%r14")                                                    \
+        /* Round 3: t = (r10, r12, r13, r14, r15) */                                                                    \
+        MUL_ROW(a4, b, "%%r10", "%%r12", "%%r13", "%%r14", "%%r15")                                                     \
+        MUL_REDUCE_STEP("%%r10", "%%r12", "%%r13", "%%r14", "%%r15")                                                    \
                                                                                                                         \
-        /* --- a[0] * b: four independent multiplies ------------------------------------------- */                     \
-        "mulxq 0(" b "), %%r13, %%r14              \n\t" /* (r13, r14) = a[0] * b[0]  -> (r[0], r[1]) */                \
-        "mulxq 8(" b "), %%r8, %%r9                \n\t" /* (r8, r9)   = a[0] * b[1] */                                 \
-        "mulxq 16(" b "), %%r15, %%r10             \n\t" /* (r15, r10) = a[0] * b[2]  -> (r[2], r[3]) */                \
-        "mulxq 24(" b "), %%rdi, %%r12             \n\t" /* (rdi, r12) = a[0] * b[3]  -> r12 = r[4] = hi(a0*b3) */      \
-                                                                                                                        \
-        /* --- k0 computation ------------------------------------------------------------------ */                     \
-        "movq %%r13, %%rdx                         \n\t" /* rdx = r[0] */                                               \
-        "mulxq %[r_inv], %%rdx, %%r11              \n\t" /* rdx = k0 = r[0] * r_inv mod 2^64 */                         \
-                                                                                                                        \
-        /* --- Assemble a[0]*b cross-terms + k0*p reduction ------------------------------------ */                     \
-        /*  */                                                                                                          \
-        /* Per-limb totals for a[0]*b (from cross-terms added by adcxq/adoxq): */                                       \
-        /* r[1] += lo(a0*b1),   r[2] += hi(a0*b1),   r[3] += lo(a0*b3) */                                               \
-        /* (hi(a0*b0), lo(a0*b2), hi(a0*b2), hi(a0*b3) already in r[1..4] from mulxq outputs) */                        \
-        /*  */                                                                                                          \
-        /* Per-limb totals for k0*p: */                                                                                 \
-        /* r[0] += lo(k0*p0)  -> zeroed mod 2^64 */                                                                     \
-        /* r[1] += hi(k0*p0) + lo(k0*p1) */                                                                             \
-        /* r[2] += hi(k0*p1) + lo(k0*p2) */                                                                             \
-        /* r[3] += hi(k0*p2) + lo(k0*p3) */                                                                             \
-        /* r[4] += hi(k0*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[1], r[2], r[3], r[4], then r[1], r[2], r[3] */                                         \
-        /* adox sequence (OF): r[3], r[4], r[0], r[1], r[2] */                                                          \
-        /*  */                                                                                                          \
-        /* {CF=0, OF=0} */                                                                                              \
-        "adcxq %%r8, %%r14                         \n\t" /* r[1] += lo(a0*b1)         {CF->CF1} */                      \
-        "adoxq %%rdi, %%r10                        \n\t" /* r[3] += lo(a0*b3)         {OF->OF1} */                      \
-        "adcxq %%r9, %%r15                         \n\t" /* r[2] += hi(a0*b1) + CF1   {CF->CF2} */                      \
-                                                                                                                        \
-        "mulxq %[modulus_3], %%rdi, %%r11          \n\t" /* (rdi, r11) = k0 * p[3] */                                   \
-        "mulxq %[modulus_0], %%r8, %%r9            \n\t" /* (r8, r9)   = k0 * p[0] */                                   \
-        "adcxq %%rdi, %%r10                        \n\t" /* r[3] += lo(k0*p3) + CF2   {CF->CF3} */                      \
-        "adoxq %%r11, %%r12                        \n\t" /* r[4] += hi(k0*p3) + OF1   {OF->OF2} */                      \
-        /* r[4] = hi(a0*b3) + hi(k0*p3) + OF1 < 2^63 + 2^62 + 1 < 2^64  (b[3],p[3]<2^63) */                             \
-        /* OF2 = 0. */                                                                                                  \
-        "adcxq %[zero_reference], %%r12            \n\t" /* r[4] += CF3               {CF->CF4} */                      \
-        /* r[4] < 2^63 + 2^62 + 2 < 2^64, so CF4 = 0 */                                                                 \
-        "adoxq %%r8, %%r13                         \n\t" /* r[0] += lo(k0*p0) + OF2=0 -> 0 mod 2^64  {OF->OF3} */       \
-        "adcxq %%r9, %%r14                         \n\t" /* r[1] += hi(k0*p0) + CF4=0 {CF->CF5}  (CF4=0: safe) */       \
-        "mulxq %[modulus_1], %%rdi, %%r11          \n\t" /* (rdi, r11) = k0 * p[1] */                                   \
-        "mulxq %[modulus_2], %%r8, %%r9            \n\t" /* (r8, r9)   = k0 * p[2] */                                   \
-        "adoxq %%rdi, %%r14                        \n\t" /* r[1] += lo(k0*p1) + OF3   {OF->OF4} */                      \
-        "adcxq %%r11, %%r15                        \n\t" /* r[2] += hi(k0*p1) + CF5   {CF->CF6} */                      \
-        "adoxq %%r8, %%r15                         \n\t" /* r[2] += lo(k0*p2) + OF4   {OF->OF5} */                      \
-        "adcxq %%r9, %%r10                         \n\t" /* r[3] += hi(k0*p2) + CF6   {CF->CF7} */                      \
-                                                                                                                        \
-        /* Post-round 0: terminal flags (CF7, OF5) flow into round 1. */                                                \
-        /* Top limb r[4] <= 2^63 + 2^62 + 2 < 2^64 (same as non-ADX). */                                                \
-                                                                                                                        \
-        /* ===================================================================================== */                     \
-        /* ROUND 1: accumulate a[1]*b, then reduce by k1*p. Shift out r[1]. */                                          \
-        /* Register map: r14=r[1]  r15=r[2]  r10=r[3]  r12=r[4]  r13=r[5] */                                            \
-        /*  */                                                                                                          \
-        /* Per-limb totals for a[1]*b: */                                                                               \
-        /* r[1] += lo(a1*b0),   r[2] += hi(a1*b0) + lo(a1*b1) */                                                        \
-        /* r[3] += hi(a1*b1) + lo(a1*b2),   r[4] += hi(a1*b2) + lo(a1*b3) */                                            \
-        /* r[5]  = hi(a1*b3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* Per-limb totals for k1*p (same decomposition, shifted by one): */                                            \
-        /* r[1] += lo(k1*p0)  -> zeroed mod 2^64 */                                                                     \
-        /* r[2] += hi(k1*p0) + lo(k1*p1) */                                                                             \
-        /* r[3] += hi(k1*p1) + lo(k1*p2) */                                                                             \
-        /* r[4] += hi(k1*p2) + lo(k1*p3) */                                                                             \
-        /* r[5] += hi(k1*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[4], r[5], r[1], r[2], r[3], r[4], r[5], r[2], r[3] */                                  \
-        /* adox sequence (OF): r[3], r[4], r[5], r[2], r[3], r[4], r[5], r[1], r[2] */                                  \
-        /* ===================================================================================== */                     \
-        "movq " a2 ", %%rdx                        \n\t" /* rdx = a[1] */                                               \
-        "mulxq 16(" b "), %%r8, %%r9               \n\t" /* (r8, r9)   = a[1] * b[2] */                                 \
-        "mulxq 24(" b "), %%rdi, %%r13             \n\t" /* (rdi, r13) = a[1] * b[3]  -> r13 = r[5] = hi(a1*b3) */      \
-        /* {CF=CF7 from R0, OF=OF5 from R0} */                                                                          \
-        "adoxq %%r8, %%r10                         \n\t" /* r[3] += lo(a1*b2) + OF    {OF->OF1} */                      \
-        "adcxq %%rdi, %%r12                        \n\t" /* r[4] += lo(a1*b3) + CF    {CF->CF1} */                      \
-        "adoxq %%r9, %%r12                         \n\t" /* r[4] += hi(a1*b2) + OF1   {OF->OF2} */                      \
-        "adcxq %[zero_reference], %%r13            \n\t" /* r[5] += CF1               {CF->CF2} */                      \
-        /* r[5] = hi(a1*b3) + CF1 < 2^63 + 1 < 2^64, so CF2 = 0 */                                                      \
-        "adoxq %[zero_reference], %%r13            \n\t" /* r[5] += OF2               {OF->OF3} */                      \
-        /* r[5] < 2^63 + 2 < 2^64, so OF3 = 0. Wrap-around is safe. */                                                  \
-        "mulxq 0(" b "), %%r8, %%r9                \n\t" /* (r8, r9)   = a[1] * b[0] */                                 \
-        "mulxq 8(" b "), %%rdi, %%r11              \n\t" /* (rdi, r11) = a[1] * b[1] */                                 \
-        "adcxq %%r8, %%r14                         \n\t" /* r[1] += lo(a1*b0) + CF2=0 {CF->CF3}  (CF2=0: safe) */       \
-        "adoxq %%r9, %%r15                         \n\t" /* r[2] += hi(a1*b0) + OF3=0 {OF->OF4}  (OF3=0: safe) */       \
-        "adcxq %%rdi, %%r15                        \n\t" /* r[2] += lo(a1*b1) + CF3   {CF->CF4} */                      \
-        "adoxq %%r11, %%r10                        \n\t" /* r[3] += hi(a1*b1) + OF4   {OF->OF5} */                      \
-                                                                                                                        \
-        /* --- k1 * p reduction ---------------------------------------------------------------- */                     \
-        "movq %%r14, %%rdx                         \n\t" /* rdx = r[1] */                                               \
-        "mulxq %[r_inv], %%rdx, %%r8               \n\t" /* rdx = k1 = r[1] * r_inv mod 2^64 */                         \
-        "mulxq %[modulus_2], %%r8, %%r9            \n\t" /* (r8, r9)   = k1 * p[2] */                                   \
-        "mulxq %[modulus_3], %%rdi, %%r11          \n\t" /* (rdi, r11) = k1 * p[3] */                                   \
-        "adcxq %%r8, %%r10                         \n\t" /* r[3] += lo(k1*p2) + CF4   {CF->CF5} */                      \
-        "adoxq %%r9, %%r12                         \n\t" /* r[4] += hi(k1*p2) + OF5   {OF->OF6} */                      \
-        "adcxq %%rdi, %%r12                        \n\t" /* r[4] += lo(k1*p3) + CF5   {CF->CF6} */                      \
-        "adoxq %%r11, %%r13                        \n\t" /* r[5] += hi(k1*p3) + OF6   {OF->OF7} */                      \
-        "adcxq %[zero_reference], %%r13            \n\t" /* r[5] += CF6               {CF->CF7} */                      \
-        /* r[5] <= 2^63 + 2^62 + 4 < 2^64, so CF7 = 0. Wrap safe. */                                                    \
-        "mulxq %[modulus_0], %%r8, %%r9            \n\t" /* (r8, r9)   = k1 * p[0] */                                   \
-        "mulxq %[modulus_1], %%rdi, %%r11          \n\t" /* (rdi, r11) = k1 * p[1] */                                   \
-        "adoxq %%r8, %%r14                         \n\t" /* r[1] += lo(k1*p0) + OF7   {OF->OF8}  -> 0 mod 2^64 */       \
-        "adcxq %%rdi, %%r15                        \n\t" /* r[2] += lo(k1*p1) + CF7=0 {CF->CF8}  (CF7=0: safe) */       \
-        "adoxq %%r9, %%r15                         \n\t" /* r[2] += hi(k1*p0) + OF8   {OF->OF9} */                      \
-        "adcxq %%r11, %%r10                        \n\t" /* r[3] += hi(k1*p1) + CF8   {CF->CF9} */                      \
-                                                                                                                        \
-        /* Post-round 1: terminal (CF9, OF9) flow into round 2. */                                                      \
-        /* Top limb r[5] <= 2^63 + 2^62 + 4 < 2^64. Invariant holds. */                                                 \
-                                                                                                                        \
-        /* ===================================================================================== */                     \
-        /* ROUND 2: accumulate a[2]*b, then reduce by k2*p. Shift out r[2]. */                                          \
-        /* Register map: r15=r[2]  r10=r[3]  r12=r[4]  r13=r[5]  r14=r[6] */                                            \
-        /*  */                                                                                                          \
-        /* Per-limb totals for a[2]*b: */                                                                               \
-        /* r[2] += lo(a2*b0),   r[3] += hi(a2*b0) + lo(a2*b1) */                                                        \
-        /* r[4] += hi(a2*b1) + lo(a2*b2),   r[5] += hi(a2*b2) + lo(a2*b3) */                                            \
-        /* r[6]  = hi(a2*b3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* Per-limb totals for k2*p: */                                                                                 \
-        /* r[2] += lo(k2*p0)  -> zeroed mod 2^64 */                                                                     \
-        /* r[3] += hi(k2*p0) + lo(k2*p1) */                                                                             \
-        /* r[4] += hi(k2*p1) + lo(k2*p2) */                                                                             \
-        /* r[5] += hi(k2*p2) + lo(k2*p3) */                                                                             \
-        /* r[6] += hi(k2*p3) */                                                                                         \
-        /*  */                                                                                                          \
-        /* adcx sequence (CF): r[4], r[5], r[6], r[2], r[3], r[4], r[5], r[6], r[3] */                                  \
-        /* adox sequence (OF): r[3], r[4], r[5], r[6], r[3], r[4], r[5], r[6], r[2] */                                  \
-        /* ===================================================================================== */                     \
-        "movq " a3 ", %%rdx                        \n\t" /* rdx = a[2] */                                               \
-        "mulxq 8(" b "), %%rdi, %%r11              \n\t" /* (rdi, r11) = a[2] * b[1] */                                 \
-        "mulxq 16(" b "), %%r8, %%r9               \n\t" /* (r8, r9)   = a[2] * b[2] */                                 \
-        /* {CF=CF9 from R1, OF=OF9 from R1} */                                                                          \
-        "adoxq %%rdi, %%r10                        \n\t" /* r[3] += lo(a2*b1) + OF    {OF->OF1} */                      \
-        "adcxq %%r11, %%r12                        \n\t" /* r[4] += hi(a2*b1) + CF    {CF->CF1} */                      \
-        "adoxq %%r8, %%r12                         \n\t" /* r[4] += lo(a2*b2) + OF1   {OF->OF2} */                      \
-        "adcxq %%r9, %%r13                         \n\t" /* r[5] += hi(a2*b2) + CF1   {CF->CF2} */                      \
-        "mulxq 24(" b "), %%rdi, %%r14             \n\t" /* (rdi, r14) = a[2] * b[3]  -> r14 = r[6] = hi(a2*b3) */      \
-        "mulxq 0(" b "), %%r8, %%r9                \n\t" /* (r8, r9)   = a[2] * b[0] */                                 \
-        "adoxq %%rdi, %%r13                        \n\t" /* r[5] += lo(a2*b3) + OF2   {OF->OF3} */                      \
-        "adcxq %[zero_reference], %%r14            \n\t" /* r[6] += CF2               {CF->CF3} */                      \
-        /* r[6] = hi(a2*b3) + CF2 < 2^63 + 1 < 2^64, so CF3 = 0 */                                                      \
-        "adoxq %[zero_reference], %%r14            \n\t" /* r[6] += OF3               {OF->OF4} */                      \
-        /* r[6] < 2^63 + 2 < 2^64, so OF4 = 0. Wrap-around is safe. */                                                  \
-        "adcxq %%r8, %%r15                         \n\t" /* r[2] += lo(a2*b0) + CF3=0 {CF->CF4}  (CF3=0: safe) */       \
-        "adoxq %%r9, %%r10                         \n\t" /* r[3] += hi(a2*b0) + OF4=0 {OF->OF5}  (OF4=0: safe) */       \
-                                                                                                                        \
-        /* --- k2 * p reduction ---------------------------------------------------------------- */                     \
-        "movq %%r15, %%rdx                         \n\t" /* rdx = r[2] */                                               \
-        "mulxq %[r_inv], %%rdx, %%r8               \n\t" /* rdx = k2 = r[2] * r_inv mod 2^64 */                         \
-        "mulxq %[modulus_1], %%rdi, %%r11          \n\t" /* (rdi, r11) = k2 * p[1] */                                   \
-        "mulxq %[modulus_2], %%r8, %%r9            \n\t" /* (r8, r9)   = k2 * p[2] */                                   \
-        "adcxq %%rdi, %%r10                        \n\t" /* r[3] += lo(k2*p1) + CF4   {CF->CF5} */                      \
-        "adoxq %%r11, %%r12                        \n\t" /* r[4] += hi(k2*p1) + OF5   {OF->OF6} */                      \
-        "adcxq %%r8, %%r12                         \n\t" /* r[4] += lo(k2*p2) + CF5   {CF->CF6} */                      \
-        "adoxq %%r9, %%r13                         \n\t" /* r[5] += hi(k2*p2) + OF6   {OF->OF7} */                      \
-        "mulxq %[modulus_3], %%rdi, %%r11          \n\t" /* (rdi, r11) = k2 * p[3] */                                   \
-        "mulxq %[modulus_0], %%r8, %%r9            \n\t" /* (r8, r9)   = k2 * p[0] */                                   \
-        "adcxq %%rdi, %%r13                        \n\t" /* r[5] += lo(k2*p3) + CF6   {CF->CF7} */                      \
-        "adoxq %%r11, %%r14                        \n\t" /* r[6] += hi(k2*p3) + OF7   {OF->OF8} */                      \
-        "adcxq %[zero_reference], %%r14            \n\t" /* r[6] += CF7               {CF->CF8} */                      \
-        /* r[6] <= 2^63 + 2^62 + 4 < 2^64, so CF8 = 0. Wrap safe. */                                                    \
-        "adoxq %%r8, %%r15                         \n\t" /* r[2] += lo(k2*p0) + OF8   {OF->OF9}  -> 0 mod 2^64 */       \
-        "adcxq %%r9, %%r10                         \n\t" /* r[3] += hi(k2*p0) + CF8=0 {CF->CF9}  (CF8=0: safe) */       \
-                                                                                                                        \
-        /* Post-round 2: terminal (CF9, OF9) flow into round 3. */                                                      \
-        /* Top limb r[6] <= 2^63 + 2^62 + 4 < 2^64. Invariant holds. */                                                 \
-                                                                                                                        \
-        /* ===================================================================================== */                     \
-        /* ROUND 3: accumulate a[3]*b, then reduce by k3*p. Shift out r[3]. */                                          \
-        /* Register map: r10=r[3]  r12=r[4]  r13=r[5]  r14=r[6]  r15=r[7] */                                            \
-        /* Tighter bound: a[3] < 2^63 (not 2^64), so hi(a3*b3) < 2^62. */                                               \
-        /* ===================================================================================== */                     \
-        "movq " a4 ", %%rdx                        \n\t" /* rdx = a[3] (< 2^63) */                                      \
-        "mulxq 0(" b "), %%r8, %%r9                \n\t" /* (r8, r9)   = a[3] * b[0] */                                 \
-        "mulxq 8(" b "), %%rdi, %%r11              \n\t" /* (rdi, r11) = a[3] * b[1] */                                 \
-        /* {CF=CF9 from R2, OF=OF9 from R2} */                                                                          \
-        "adoxq %%r8, %%r10                         \n\t" /* r[3] += lo(a3*b0) + OF    {OF->OF1} */                      \
-        "adcxq %%r9, %%r12                         \n\t" /* r[4] += hi(a3*b0) + CF    {CF->CF1} */                      \
-        "adoxq %%rdi, %%r12                        \n\t" /* r[4] += lo(a3*b1) + OF1   {OF->OF2} */                      \
-        "adcxq %%r11, %%r13                        \n\t" /* r[5] += hi(a3*b1) + CF1   {CF->CF2} */                      \
-                                                                                                                        \
-        "mulxq 16(" b "), %%r8, %%r9               \n\t" /* (r8, r9)   = a[3] * b[2] */                                 \
-        "mulxq 24(" b "), %%rdi, %%r15             \n\t" /* (rdi, r15) = a[3] * b[3]  -> r15 = r[7] = hi(a3*b3) */      \
-        "adoxq %%r8, %%r13                         \n\t" /* r[5] += lo(a3*b2) + OF2   {OF->OF3} */                      \
-        "adcxq %%r9, %%r14                         \n\t" /* r[6] += hi(a3*b2) + CF2   {CF->CF3} */                      \
-        "adoxq %%rdi, %%r14                        \n\t" /* r[6] += lo(a3*b3) + OF3   {OF->OF4} */                      \
-        "adcxq %[zero_reference], %%r15            \n\t" /* r[7] += CF3               {CF->CF4} */                      \
-        /* r[7] = hi(a3*b3) + CF3 < 2^62 + 1 < 2^64, so CF4 = 0 */                                                      \
-        "adoxq %[zero_reference], %%r15            \n\t" /* r[7] += OF4               {OF->OF5} */                      \
-        /* r[7] < 2^62 + 2 < 2^64, so OF5 = 0. Wrap-around is safe. */                                                  \
-                                                                                                                        \
-        /* --- k3 * p reduction ---------------------------------------------------------------- */                     \
-        /*  */                                                                                                          \
-        /* Per-limb totals for k3*p: */                                                                                 \
-        /* r[3] += lo(k3*p0)  -> zeroed mod 2^64 */                                                                     \
-        /* r[4] += hi(k3*p0) + lo(k3*p1) */                                                                             \
-        /* r[5] += hi(k3*p1) + lo(k3*p2) */                                                                             \
-        /* r[6] += hi(k3*p2) + lo(k3*p3) */                                                                             \
-        /* r[7] += hi(k3*p3) */                                                                                         \
-        "movq %%r10, %%rdx                         \n\t" /* rdx = r[3] */                                               \
-        "mulxq %[r_inv], %%rdx, %%r8               \n\t" /* rdx = k3 = r[3] * r_inv mod 2^64 */                         \
-        "mulxq %[modulus_0], %%r8, %%r9            \n\t" /* (r8, r9)   = k3 * p[0] */                                   \
-        "mulxq %[modulus_1], %%rdi, %%r11          \n\t" /* (rdi, r11) = k3 * p[1] */                                   \
-        /* {CF=CF4=0, OF=OF5=0} (both zero — see bounds on r[7] above) */                                               \
-        "adoxq %%r8, %%r10                         \n\t" /* r[3] += lo(k3*p0) + OF5=0 {OF->OF6}  -> 0 mod 2^64 */       \
-        "adcxq %%r9, %%r12                         \n\t" /* r[4] += hi(k3*p0) + CF4=0 {CF->CF5} */                      \
-        "adoxq %%rdi, %%r12                        \n\t" /* r[4] += lo(k3*p1) + OF6   {OF->OF7} */                      \
-        "adcxq %%r11, %%r13                        \n\t" /* r[5] += hi(k3*p1) + CF5   {CF->CF6} */                      \
-                                                                                                                        \
-        "mulxq %[modulus_2], %%r8, %%r9            \n\t" /* (r8, r9)   = k3 * p[2] */                                   \
-        "mulxq %[modulus_3], %%rdi, %%rdx          \n\t" /* (rdi, rdx) = k3 * p[3]  (overwrites rdx; last mulxq) */     \
-        "adoxq %%r8, %%r13                         \n\t" /* r[5] += lo(k3*p2) + OF7   {OF->OF8} */                      \
-        "adcxq %%r9, %%r14                         \n\t" /* r[6] += hi(k3*p2) + CF6   {CF->CF7} */                      \
-        "adoxq %%rdi, %%r14                        \n\t" /* r[6] += lo(k3*p3) + OF8   {OF->OF9} */                      \
-        "adcxq %%rdx, %%r15                        \n\t" /* r[7] += hi(k3*p3) + CF7   {CF->CF8} */                      \
-        /* r[7] < (2^62 + 2) + 2^62 + 1 = 2^63 + 3 < 2^64, so CF8 = 0  (p[3]<2^62) */                                   \
-        "adoxq %[zero_reference], %%r15            \n\t" /* r[7] += OF9               {OF->OF10} */                     \
-        /* r[7] < 2^63 + 4 < 2^64, so OF10 = 0. Terminal flags are both 0. */                                           \
-                                                                                                                        \
-        /* Output in (r12, r13, r14, r15) = (r[4], r[5], r[6], r[7]). */                                                \
-        /* Since S < 2p < 2^255, the top limb r[7] < 2^63. Valid input for another MUL. */
+        /* Output in (r12, r13, r14, r15) < 2p < 2^{255}: valid input for another MUL. */
 
 #endif
