@@ -557,6 +557,105 @@ class ECCVMFlavor {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
+     * @brief The entities read by the numerator and denominator of ECCVMSetRelation.
+     */
+    template <typename Entities> static auto get_grand_product_entities(Entities& entities)
+    {
+        return RefArray{ entities.lagrange_first,
+                         entities.msm_accumulator_x_shift,
+                         entities.msm_accumulator_y_shift,
+                         entities.msm_add1,
+                         entities.msm_add2,
+                         entities.msm_add3,
+                         entities.msm_add4,
+                         entities.msm_count,
+                         entities.msm_pc,
+                         entities.msm_pc_shift,
+                         entities.msm_round,
+                         entities.msm_size_of_msm,
+                         entities.msm_slice1,
+                         entities.msm_slice2,
+                         entities.msm_slice3,
+                         entities.msm_slice4,
+                         entities.msm_transition_shift,
+                         entities.precompute_pc,
+                         entities.precompute_point_transition,
+                         entities.precompute_round,
+                         entities.precompute_s1hi,
+                         entities.precompute_s1lo,
+                         entities.precompute_s2hi,
+                         entities.precompute_s2lo,
+                         entities.precompute_s3hi,
+                         entities.precompute_s3lo,
+                         entities.precompute_s4hi,
+                         entities.precompute_s4lo,
+                         entities.precompute_scalar_sum,
+                         entities.precompute_select,
+                         entities.precompute_skew,
+                         entities.precompute_tx,
+                         entities.precompute_ty,
+                         entities.transcript_Px,
+                         entities.transcript_Py,
+                         entities.transcript_base_infinity,
+                         entities.transcript_msm_count,
+                         entities.transcript_msm_transition,
+                         entities.transcript_msm_x,
+                         entities.transcript_msm_y,
+                         entities.transcript_mul,
+                         entities.transcript_pc,
+                         entities.transcript_pc_shift,
+                         entities.transcript_z1,
+                         entities.transcript_z1zero,
+                         entities.transcript_z2,
+                         entities.transcript_z2zero };
+    }
+
+    /**
+     * @brief The entities read by ECCVMLookupRelation when computing the log-derivative inverses (operation
+     * existence, lookup terms and table terms).
+     */
+    template <typename Entities> static auto get_logderivative_inverse_entities(Entities& entities)
+    {
+        return RefArray{ entities.msm_add,
+                         entities.msm_skew,
+                         entities.msm_pc,
+                         entities.msm_count,
+                         entities.msm_slice1,
+                         entities.msm_slice2,
+                         entities.msm_slice3,
+                         entities.msm_slice4,
+                         entities.msm_x1,
+                         entities.msm_x2,
+                         entities.msm_x3,
+                         entities.msm_x4,
+                         entities.msm_y1,
+                         entities.msm_y2,
+                         entities.msm_y3,
+                         entities.msm_y4,
+                         entities.precompute_select,
+                         entities.precompute_pc,
+                         entities.precompute_tx,
+                         entities.precompute_ty,
+                         entities.precompute_round };
+    }
+
+    /**
+     * @brief Returns the first row index from which every given polynomial is zero.
+     */
+    static size_t get_zero_row_start(const auto& polynomials)
+    {
+        size_t zero_row_start = 0;
+        for (const Polynomial& polynomial : polynomials) {
+            size_t end = polynomial.end_index();
+            while (end > zero_row_start && end > polynomial.start_index() && polynomial.get(end - 1).is_zero()) {
+                --end;
+            }
+            zero_row_start = std::max(zero_row_start, end);
+        }
+        return zero_row_start;
+    }
+
+    /**
      * @brief A container for the prover polynomials.
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
@@ -585,6 +684,44 @@ class ECCVMFlavor {
             }
             return result;
         }
+        /**
+         * @brief Returns, at one point of the boolean hypercube, only the evaluations read by the numerator and
+         * denominator of ECCVMSetRelation (the grand product computation). All other entries of the returned AllValues
+         * are left uninitialized.
+         */
+        [[nodiscard]] AllValues get_row_for_grand_product(const size_t row_idx) const
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] :
+                 zip_view(get_grand_product_entities(result), get_grand_product_entities(*this))) {
+                result_field = polynomial.get(row_idx);
+            }
+            return result;
+        }
+
+        /**
+         * @brief Returns the first row index from which every polynomial read by get_row_for_grand_product is zero.
+         * All rows at or beyond it are identical, so they share one grand product numerator and denominator.
+         */
+        [[nodiscard]] size_t get_grand_product_zero_row_start() const
+        {
+            return get_zero_row_start(get_grand_product_entities(*this));
+        }
+
+        /**
+         * @brief Returns, at one point of the boolean hypercube, only the evaluations read by ECCVMLookupRelation when
+         * computing the log-derivative inverses. All other entries of the returned AllValues are left uninitialized.
+         */
+        [[nodiscard]] AllValues get_row_for_logderivative_inverse(const size_t row_idx) const
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] :
+                 zip_view(get_logderivative_inverse_entities(result), get_logderivative_inverse_entities(*this))) {
+                result_field = polynomial.get(row_idx);
+            }
+            return result;
+        }
+
         // Set all shifted polynomials based on their to-be-shifted counterpart
         void set_shifted()
         {
@@ -935,6 +1072,20 @@ class ECCVMFlavor {
                 }
             });
             this->set_shifted();
+        }
+    };
+
+    /**
+     * @brief The prover polynomials as seen by compute_logderivative_inverse: rows carry only the columns that
+     * ECCVMLookupRelation reads to compute the inverses.
+     */
+    struct LogDerivativeInverseView {
+        const ProverPolynomials& polynomials;
+        Polynomial& lookup_inverses;
+
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        {
+            return polynomials.get_row_for_logderivative_inverse(row_idx);
         }
     };
 

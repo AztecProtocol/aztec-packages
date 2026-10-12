@@ -658,3 +658,89 @@ TEST_F(ECCVMTests, WitnessPolynomialsMasked)
     check_masked(polynomials.z_perm, "z_perm");
     check_masked(polynomials.lookup_inverses, "lookup_inverses");
 }
+
+/**
+ * @brief The narrow row getters used by the grand product and log-derivative inverse computations read every column
+ * their relations use (for both the full and the short-monomial relations): on every row they produce the same
+ * relation values as the full get_row, and every row at or beyond the grand product zero-row start produces the values
+ * of that start row.
+ */
+TEST_F(ECCVMTests, NarrowRowGettersMatchFullRow)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMFlavor::ProverPolynomials polynomials(builder);
+    const auto params = RelationParameters<FF>::get_random();
+    const size_t num_rows = polynomials.get_polynomial_size();
+    const size_t zero_row_start = polynomials.get_grand_product_zero_row_start();
+    EXPECT_LT(zero_row_start, num_rows);
+
+    const auto check_relations = [&]<typename SetRelation, typename LookupRelation>() {
+        using SetAccumulator = std::tuple_element_t<0, typename SetRelation::SumcheckArrayOfValuesOverSubrelations>;
+        using LookupAccumulator = typename LookupRelation::ValueAccumulator0;
+        const auto set_values = [&](const auto& row) {
+            return std::array<FF, 2>{
+                SetRelation::template compute_grand_product_numerator<SetAccumulator>(row, params),
+                SetRelation::template compute_grand_product_denominator<SetAccumulator>(row, params)
+            };
+        };
+        const auto lookup_values = [&](const auto& row) {
+            std::array<FF, LookupRelation::NUM_LOOKUP_TERMS + LookupRelation::NUM_TABLE_TERMS + 1> values;
+            values[0] = FF(static_cast<uint64_t>(LookupRelation::operation_exists_at_row(row)));
+            bb::constexpr_for<0, LookupRelation::NUM_LOOKUP_TERMS, 1>([&]<size_t i>() {
+                values[1 + i] = LookupRelation::template compute_lookup_term<LookupAccumulator, i>(row, params);
+            });
+            bb::constexpr_for<0, LookupRelation::NUM_TABLE_TERMS, 1>([&]<size_t i>() {
+                values[1 + LookupRelation::NUM_LOOKUP_TERMS + i] =
+                    LookupRelation::template compute_table_term<LookupAccumulator, i>(row, params);
+            });
+            return values;
+        };
+
+        const auto zero_row_values = set_values(polynomials.get_row_for_grand_product(zero_row_start));
+        for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
+            const auto full_row = polynomials.get_row(row_idx);
+            const auto full_set_values = set_values(full_row);
+            ASSERT_EQ(full_set_values, set_values(polynomials.get_row_for_grand_product(row_idx))) << "row " << row_idx;
+            ASSERT_EQ(lookup_values(full_row), lookup_values(polynomials.get_row_for_logderivative_inverse(row_idx)))
+                << "row " << row_idx;
+            if (row_idx >= zero_row_start) {
+                ASSERT_EQ(full_set_values, zero_row_values) << "row " << row_idx;
+            }
+        }
+    };
+    check_relations.template operator()<ECCVMSetRelation<FF>, ECCVMFlavor::LookupRelation>();
+    check_relations.template operator()<ECCVMSetShortRelation<FF>, ECCVMShortMonomialFlavor::LookupRelation>();
+}
+
+/**
+ * @brief The ECCVM prover's grand product and log-derivative inverses (narrow rows, zero-tail extension) equal the
+ * generic full-row computations.
+ */
+TEST_F(ECCVMTests, ProverGrandProductAndInversesMatchGeneric)
+{
+    using Flavor = ECCVMShortMonomialFlavor;
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    Flavor::ProverPolynomials polynomials(builder);
+    auto params = RelationParameters<FF>::get_random();
+    const size_t num_rows = polynomials.get_polynomial_size();
+
+    compute_logderivative_inverse<FF, Flavor::LookupRelation, Flavor::ProverPolynomials, true>(
+        polynomials, params, Flavor::TRACE_OFFSET);
+    const Polynomial<FF> expected_inverses = polynomials.lookup_inverses.full();
+    compute_grand_products<Flavor>(polynomials, params);
+    const Polynomial<FF> expected_z_perm = polynomials.z_perm.full();
+
+    for (size_t i = Flavor::TRACE_OFFSET; i < num_rows; ++i) {
+        polynomials.lookup_inverses.at(i) = 0;
+        polynomials.z_perm.at(i) = 0;
+    }
+    Flavor::LogDerivativeInverseView lookup_view{ polynomials, polynomials.lookup_inverses };
+    compute_logderivative_inverse<FF, Flavor::LookupRelation, Flavor::LogDerivativeInverseView, true>(
+        lookup_view, params, Flavor::TRACE_OFFSET);
+    ECCVMProver::compute_grand_product(polynomials, params);
+
+    for (size_t i = 0; i < num_rows; ++i) {
+        ASSERT_EQ(polynomials.lookup_inverses.get(i), expected_inverses[i]) << "row " << i;
+        ASSERT_EQ(polynomials.z_perm.get(i), expected_z_perm[i]) << "row " << i;
+    }
+}

@@ -53,6 +53,9 @@ class ECCVMProver {
     Proof export_proof();
     Proof construct_proof();
 
+    static void compute_grand_product(Flavor::ProverPolynomials& polynomials,
+                                      bb::RelationParameters<FF>& relation_parameters);
+
     // The ECCVM PCS pipeline collects all univariate opening claims, reduces them with one Shplonk, then opens the
     // sumcheck multilinears and reduced univariate claim with TripleIPA.
     void append_libra_opening_claims();
