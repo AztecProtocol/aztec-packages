@@ -260,15 +260,41 @@ void add_scaled_batch(Polynomial<Fr>& dst,
     BB_ASSERT_LTE(dst.start_index(), min_start);
     BB_ASSERT_GTE(dst.end_index(), max_end);
 
-    const size_t union_size = max_end - min_start;
-    parallel_for([&](const ThreadChunk& chunk) {
+    // Split the index range so that every thread visits the same number of source entries: sources of different
+    // lengths overlap mostly at low indices, so equal index ranges would leave the low chunks with most of the work.
+    auto work_below = [&](size_t idx) {
+        size_t work = 0;
+        for (const auto& src : sources) {
+            work += std::clamp(idx, src.start_index, src.end_index()) - src.start_index;
+        }
+        return work;
+    };
+    const size_t num_threads = get_num_cpus();
+    const size_t total_work = work_below(max_end);
+    std::vector<size_t> chunk_starts(num_threads + 1, max_end);
+    chunk_starts[0] = min_start;
+    for (size_t chunk = 1; chunk < num_threads; ++chunk) {
+        const size_t target = (total_work / num_threads) * chunk;
+        size_t lo = chunk_starts[chunk - 1];
+        size_t hi = max_end;
+        while (lo < hi) {
+            const size_t mid = lo + ((hi - lo) / 2);
+            if (work_below(mid) < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        chunk_starts[chunk] = lo;
+    }
+
+    parallel_for(num_threads, [&](size_t thread_idx) {
         BB_BENCH_TRACY_NAME("add_scaled_batch/chunk");
-        auto chunk_indices = chunk.range(union_size, min_start);
-        if (chunk_indices.empty()) {
+        const size_t chunk_start = chunk_starts[thread_idx];
+        const size_t chunk_end = chunk_starts[thread_idx + 1];
+        if (chunk_start >= chunk_end) {
             return;
         }
-        const size_t chunk_start = chunk_indices.front();
-        const size_t chunk_end = chunk_indices.back() + 1;
 
         // Walk the chunk in L1-sized tiles and apply every source to a tile before moving on, so each dst
         // element is loaded and stored once per tile rather than once per source.
