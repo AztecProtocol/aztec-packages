@@ -855,6 +855,14 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
+     * @brief Reduce a value modulo the target modulus, skipping the division when it is already reduced
+     */
+    static uint512_t reduce_value(const uint512_t& value)
+    {
+        return (value < modulus_u512) ? value : value % modulus_u512;
+    }
+
+    /**
      * @brief Compute the maximum number of bits for quotient range proof to protect against CRT underflow
      *
      * @details When multiplying a and b, we need to check that: a * b = q * p + r, and each side of the equation
@@ -871,8 +879,21 @@ template <typename Builder, typename T> class bigfield {
         for (const auto& r : remainders_max) {
             base -= r;
         }
-        base /= modulus_u512;
-        return static_cast<size_t>(base.get_msb() - 1);
+        const auto quotient_max_bits = [](const uint1024_t& remainder_bound) {
+            return static_cast<size_t>((remainder_bound / modulus_u512).get_msb() - 1);
+        };
+        // The bounds for a single default remainder and for no remainder are fixed, so their bit lengths are computed
+        // once
+        static const uint1024_t default_remainder_base = get_maximum_crt_product() - DEFAULT_MAXIMUM_REMAINDER;
+        static const size_t default_remainder_bits = quotient_max_bits(default_remainder_base);
+        static const size_t zero_remainder_bits = quotient_max_bits(get_maximum_crt_product());
+        if (base == default_remainder_base) {
+            return default_remainder_bits;
+        }
+        if (base == get_maximum_crt_product()) {
+            return zero_remainder_bits;
+        }
+        return quotient_max_bits(base);
     }
 
     /**
@@ -1052,17 +1073,6 @@ template <typename Builder, typename T> class bigfield {
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
                                                                              const bigfield& b,
                                                                              const std::vector<bigfield>& to_add);
-    /**
-     * @brief Compute the maximum possible value of quotient of a*b+\sum(to_add)
-     *
-     * @param as Multiplicands
-     * @param bs Multipliers
-     * @param to_add Added elements
-     * @return uint512_t The maximum value of quotient
-     */
-    static uint512_t compute_maximum_quotient_value(const std::vector<uint512_t>& as,
-                                                    const std::vector<uint512_t>& bs,
-                                                    const std::vector<uint512_t>& to_add);
 
     /**
      * @brief Check for 2 conditions (CRT modulus is overflown or the maximum quotient doesn't fit into range proof).

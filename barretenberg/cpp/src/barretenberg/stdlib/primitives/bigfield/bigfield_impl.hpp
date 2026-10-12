@@ -500,8 +500,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     other.reduction_check();
 
     if (is_constant() && other.is_constant()) {
-        uint512_t left = get_value() % modulus_u512;
-        uint512_t right = other.get_value() % modulus_u512;
+        uint512_t left = reduce_value(get_value());
+        uint512_t right = reduce_value(other.get_value());
         uint512_t out = (left + modulus_u512 - right) % modulus_u512;
 
         auto result = bigfield(ctx, uint256_t(out.lo));
@@ -510,8 +510,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     }
 
     if (other.is_constant()) {
-        uint512_t right = other.get_value() % modulus_u512;
-        uint512_t neg_right = (modulus_u512 - right) % modulus_u512;
+        uint512_t right = reduce_value(other.get_value());
+        uint512_t neg_right = (right == 0) ? uint512_t(0) : modulus_u512 - right;
         bigfield summand = bigfield(ctx, uint256_t(neg_right.lo));
         summand.set_origin_tag(OriginTag(other.get_origin_tag()));
         return operator+(summand);
@@ -1495,7 +1495,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 {
     // Check the basics
     BB_ASSERT_EQ(mul_left.size(), mul_right.size());
-    BB_ASSERT((divisor.get_value() % modulus_u512) != 0, "bigfield: Division by zero in msub_div");
+    BB_ASSERT(reduce_value(divisor.get_value()) != 0, "bigfield: Division by zero in msub_div");
 
     OriginTag new_tag = divisor.get_origin_tag();
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
@@ -1541,8 +1541,8 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 
     // Compute the sum of products
     for (size_t i = 0; i < num_multiplications; ++i) {
-        const native mul_left_native(uint512_t(mul_left[i].get_value() % modulus_u512).lo);
-        const native mul_right_native(uint512_t(mul_right[i].get_value() % modulus_u512).lo);
+        const native mul_left_native(reduce_value(mul_left[i].get_value()).lo);
+        const native mul_right_native(reduce_value(mul_right[i].get_value()).lo);
         product_native += (mul_left_native * -mul_right_native);
         products_constant = products_constant && mul_left[i].is_constant() && mul_right[i].is_constant();
     }
@@ -1551,11 +1551,11 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     native sub_native(0);
     bool sub_constant = true;
     for (const auto& sub : to_sub) {
-        sub_native += (uint512_t(sub.get_value() % modulus_u512).lo);
+        sub_native += (reduce_value(sub.get_value()).lo);
         sub_constant = sub_constant && sub.is_constant();
     }
 
-    native divisor_native(uint512_t(divisor.get_value() % modulus_u512).lo);
+    native divisor_native(reduce_value(divisor.get_value()).lo);
 
     // Compute the result
     const native result_native = (product_native - sub_native) / divisor_native;
@@ -1717,8 +1717,8 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
 template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::operator==(const bigfield& other) const
 {
     Builder* ctx = context ? context : other.get_context();
-    auto lhs = get_value() % modulus_u512;
-    auto rhs = other.get_value() % modulus_u512;
+    auto lhs = reduce_value(get_value());
+    auto rhs = reduce_value(other.get_value());
     bool is_equal_raw = (lhs == rhs);
     if (is_constant() && other.is_constant()) {
         return is_equal_raw;
@@ -1732,7 +1732,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     is_equal.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
 
     bigfield diff = (*this) - other;
-    native diff_native = native((diff.get_value() % modulus_u512).lo);
+    native diff_native = native(reduce_value(diff.get_value()).lo);
     native inverse_native = is_equal_raw ? 0 : diff_native.invert();
 
     bigfield inverse = bigfield::from_witness(ctx, inverse_native);
@@ -1758,7 +1758,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 template <typename Builder, typename T> void bigfield<Builder, T>::reduction_check() const
 {
     if (is_constant()) {
-        uint256_t reduced_value = (get_value() % modulus_u512).lo;
+        uint256_t reduced_value = reduce_value(get_value()).lo;
         bigfield reduced(context, uint256_t(reduced_value));
         // Save tags
         const auto origin_tags = std::vector({ binary_basis_limbs[0].element.get_origin_tag(),
@@ -1839,7 +1839,7 @@ void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::s
 {
     // For constant bigfields, just verify the value is in range (no circuit constraints needed)
     if (is_constant()) {
-        BB_ASSERT((get_value() % modulus_u512).lo < upper_limit, msg);
+        BB_ASSERT(reduce_value(get_value()).lo < upper_limit, msg);
         return;
     }
 
@@ -2041,8 +2041,8 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         return;
     } else {
         // Catch the error if the reduced value of the two elements are not equal
-        uint512_t lhs_reduced_value = get_value() % modulus_u512;
-        uint512_t rhs_reduced_value = other.get_value() % modulus_u512;
+        uint512_t lhs_reduced_value = reduce_value(get_value());
+        uint512_t rhs_reduced_value = reduce_value(other.get_value());
         if ((lhs_reduced_value != rhs_reduced_value) && !get_context()->failed()) {
             get_context()->failure(msg);
         }
@@ -2775,29 +2775,6 @@ std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_quotient_remainder
 }
 
 template <typename Builder, typename T>
-uint512_t bigfield<Builder, T>::compute_maximum_quotient_value(const std::vector<uint512_t>& as,
-                                                               const std::vector<uint512_t>& bs,
-                                                               const std::vector<uint512_t>& to_add)
-{
-    BB_ASSERT_EQ(as.size(), bs.size());
-    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
-
-    uint512_t add_values(0);
-    for (const auto& add_element : to_add) {
-        add_values += add_element;
-    }
-    uint1024_t product_sum(0);
-    for (size_t i = 0; i < as.size(); i++) {
-        product_sum += uint1024_t(as[i]) * uint1024_t(bs[i]);
-    }
-    const uint1024_t add_right(add_values);
-    const uint1024_t modulus(target_basis.modulus);
-
-    const auto [quotient_1024, remainder_1024] = (product_sum + add_right).divmod(modulus);
-
-    return quotient_1024.lo;
-}
-template <typename Builder, typename T>
 std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const std::vector<uint512_t>& as_max,
                                                                           const std::vector<uint512_t>& bs_max,
                                                                           const std::vector<bigfield>& to_add,
@@ -2818,11 +2795,17 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
     for (auto& added_element : to_add) {
         to_add_max.push_back(added_element.get_maximum_value());
     }
-    // Get maximum value of quotient
-    const uint512_t maximum_quotient = compute_maximum_quotient_value(as_max, bs_max, to_add_max);
-
-    // Check if the quotient can fit into the range proof
-    if (maximum_quotient >= (uint512_t(1) << num_quotient_bits)) {
+    // Check if the maximum quotient floor((sum as_max * bs_max + sum to_add_max) / p) can fit into the range proof.
+    // floor(x / p) >= 2^k exactly when x >= p * 2^k, so no division is needed.
+    uint1024_t maximum_product_sum(0);
+    for (size_t i = 0; i < as_max.size(); i++) {
+        maximum_product_sum += uint1024_t(as_max[i]) * uint1024_t(bs_max[i]);
+    }
+    uint512_t maximum_add_sum(0);
+    for (const auto& add_max : to_add_max) {
+        maximum_add_sum += add_max;
+    }
+    if (maximum_product_sum + uint1024_t(maximum_add_sum) >= (uint1024_t(modulus_u512) << num_quotient_bits)) {
         return std::pair<bool, size_t>(true, 0);
     }
     return std::pair<bool, size_t>(false, num_quotient_bits);
