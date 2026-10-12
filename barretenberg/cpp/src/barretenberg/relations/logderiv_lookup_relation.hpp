@@ -284,14 +284,24 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         BB_BENCH_NAME("Lookup::compute_logderivative_inverse");
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
 
-        const size_t num_rows = circuit_size - start_index;
+        // Lookup gates and read tags only occur inside the inverse polynomial's backing range (it is allocated to
+        // cover both the lookup block and the table data). Each thread fills a slice of that range and then inverts
+        // it in place; inverses are unique, so slice-wise batch inversion matches a whole-polynomial one.
+        const size_t backing_start = inverse_polynomial.start_index();
+        const size_t backing_size = inverse_polynomial.size();
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads(num_rows, min_iterations_per_thread);
+        size_t num_threads = bb::calculate_num_threads(backing_size, min_iterations_per_thread);
 
         parallel_for(num_threads, [&](ThreadChunk chunk) {
             BB_BENCH_TRACY_NAME("Lookup::compute_inverses/chunk");
-            for (size_t j : chunk.range(num_rows)) {
-                size_t i = j + start_index;
+            auto range = chunk.range(backing_size, backing_start);
+            if (range.empty()) {
+                return;
+            }
+            const size_t chunk_begin = *range.begin();
+            const size_t row_begin = std::max(chunk_begin, start_index);
+            const size_t row_end = std::min(chunk_begin + range.size(), circuit_size);
+            for (size_t i = row_begin; i < row_end; ++i) {
                 // We only compute the inverse if this row contains a lookup gate or data that has been looked up
                 if (polynomials.q_lookup().get(i) == 1 || polynomials.lookup_read_tags().get(i) == 1) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
@@ -301,10 +311,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                     inverse_polynomial.at(i) = value;
                 }
             }
+            // Compute the inverse polynomial I in place on this slice by inverting the product at each row
+            FF::batch_invert(std::span<FF>(&inverse_polynomial.at(chunk_begin), range.size()));
         });
-
-        // Compute inverse polynomial I in place by inverting the product at each row
-        FF::batch_invert(inverse_polynomial.coeffs());
     };
 
     /**
