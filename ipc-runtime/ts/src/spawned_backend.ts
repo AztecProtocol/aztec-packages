@@ -33,6 +33,14 @@ export interface SpawnedProcessBackendOptions {
    * still reject (with retry=true); only later calls see the fresh process.
    */
   respawn?: boolean;
+  /**
+   * Exit the host process (code 1) as soon as the server dies unexpectedly,
+   * rather than failing later calls. For servers whose state the host cannot
+   * run without (e.g. a database), where a crash should restart the host as an
+   * in-process crash would have. Not combinable with `respawn`; a death during
+   * destroy() is expected and never exits.
+   */
+  exitOnDeath?: boolean;
   /** SHM only: fixed client slot id. When unset the client self-allocates a free slot. */
   clientId?: number;
   /** SHM only: override the native addon path. */
@@ -101,6 +109,12 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   static async spawn(
     options: SpawnedProcessBackendOptions,
   ): Promise<SpawnedProcessBackend> {
+    if (options.respawn && options.exitOnDeath) {
+      throw new IpcError(
+        `respawn and exitOnDeath are mutually exclusive`,
+        /*retry=*/ false,
+      );
+    }
     if (options.respawn && options.transport === "shm") {
       throw new IpcError(
         `respawn is not supported over the shm transport`,
@@ -378,6 +392,10 @@ export class SpawnedProcessBackend implements IpcClientAsync {
         this.logPath,
       );
       console.error(this.exitError.message);
+      if (this.options.exitOnDeath) {
+        console.error(`${this.options.binaryName} is required; exiting`);
+        process.exit(1);
+      }
     } else {
       console.error(
         `${this.options.binaryName} exited unexpectedly (code=${code}, signal=${signal}); will respawn on next call`,

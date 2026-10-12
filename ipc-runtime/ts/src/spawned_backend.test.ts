@@ -47,7 +47,11 @@ function shellScript(name: string, body: string): string {
 }
 
 function spawnPidEcho(
-  opts: { respawn?: boolean; connectTimeoutMs?: number } = {},
+  opts: {
+    respawn?: boolean;
+    exitOnDeath?: boolean;
+    connectTimeoutMs?: number;
+  } = {},
 ) {
   return SpawnedProcessBackend.spawn({
     binaryPath: process.execPath,
@@ -113,6 +117,39 @@ test("without respawn, death rejects in-flight and later calls with a retryable 
   // Still down: same classified error, no zombie respawn.
   await assert.rejects(callPid(backend), IpcProcessExitedError);
   await backend.destroy();
+});
+
+test("with exitOnDeath, a death exits the host process without waiting for a call", async (t) => {
+  const exit = t.mock.method(process, "exit", () => undefined);
+  const backend = await spawnPidEcho({ exitOnDeath: true });
+  const pid = parseInt(await callPid(backend), 10);
+
+  process.kill(pid, "SIGKILL");
+
+  assert.ok(
+    await waitFor(() => exit.mock.callCount() > 0, 2_000),
+    "process.exit was not called",
+  );
+  assert.deepEqual(exit.mock.calls[0].arguments, [1]);
+  await backend.destroy();
+});
+
+test("with exitOnDeath, destroy() does not exit the host process", async (t) => {
+  const exit = t.mock.method(process, "exit", () => undefined);
+  const backend = await spawnPidEcho({ exitOnDeath: true });
+  const pid = parseInt(await callPid(backend), 10);
+
+  await backend.destroy();
+
+  assert.equal(processAlive(pid), false);
+  assert.equal(exit.mock.callCount(), 0);
+});
+
+test("respawn and exitOnDeath together are rejected", async () => {
+  await assert.rejects(
+    spawnPidEcho({ respawn: true, exitOnDeath: true }),
+    /mutually exclusive/,
+  );
 });
 
 test("with respawn, the next call after a death transparently gets a fresh process", async () => {
