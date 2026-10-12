@@ -307,6 +307,13 @@ void add_scaled_batch(Polynomial<Fr>& dst,
                 const size_t idx_start = std::max(tile_start, src.start_index);
                 const size_t idx_end = std::min(tile_end, src.end_index());
 
+                // A unit scalar needs no multiplication
+                if (c == Fr::one()) {
+                    for (size_t i = idx_start; i < idx_end; ++i) {
+                        dst.at(i) += src[i];
+                    }
+                    continue;
+                }
                 // Zero coefficients (common in selector columns) contribute nothing, so skip their multiply.
                 for (size_t i = idx_start; i < idx_end; ++i) {
                     const Fr& value = src[i];
