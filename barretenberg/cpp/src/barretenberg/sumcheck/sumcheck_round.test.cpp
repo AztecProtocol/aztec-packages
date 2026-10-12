@@ -1043,3 +1043,85 @@ TEST(SumcheckRound, RowParallelSkipFiresMatchesScalarMega)
 {
     check_row_parallel_matches_scalar<MegaFlavor>({ static_cast<size_t>(MegaFlavor::EntityId::q_arith) });
 }
+
+/**
+ * @brief The prover-side accumulation of every relation must agree with the verifier-side value evaluation, and the
+ * prover-only subrelation batching must leave the batched round univariate unchanged.
+ *
+ * @details One edge of random polynomials makes every relation active. Each subrelation univariate of length L is
+ * compared, at the points 0..L-1, against the value-based `accumulate` applied to the entity evaluations at that point.
+ * The batched path (see HasProverSubrelationBatching) moves the weighted subrelation sums into the first accumulator,
+ * so it is compared after `batch_over_relations`.
+ */
+template <typename Flavor> void check_prover_relation_paths()
+{
+    using FF = typename Flavor::FF;
+    using Round = SumcheckProverRound<Flavor>;
+    using Utils = bb::RelationUtils<Flavor>;
+
+    std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
+    typename Flavor::ProverPolynomials prover_polynomials;
+    for (auto [prover_poly, random_poly] : zip_view(prover_polynomials.get_all(), random_polynomials)) {
+        random_poly = bb::Polynomial<FF>::random(2);
+        prover_poly = random_poly.share();
+    }
+    const auto relation_parameters = bb::RelationParameters<FF>::get_random();
+    const FF scaling_factor = FF::random_element();
+    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> alphas;
+    for (auto& alpha : alphas) {
+        alpha = FF::random_element();
+    }
+    GateSeparatorPolynomial<FF> gate_separators(std::vector<FF>{ FF::random_element() }, 1);
+
+    auto edges = Round::make_extended_edges(prover_polynomials);
+    Round::load_edge(edges, prover_polynomials, 0);
+
+    Round round(2);
+    typename Round::SumcheckTupleOfTuplesOfUnivariates unbatched{};
+    round.accumulate_relation_univariates_public(unbatched, edges, relation_parameters, scaling_factor);
+
+    // Unbatched univariates against the value-based evaluation at each point of their domain.
+    constexpr size_t MAX_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
+    for (size_t point = 0; point < MAX_LENGTH; ++point) {
+        typename Flavor::AllValues values;
+        for (auto [value, poly] : zip_view(values.get_all(), prover_polynomials.get_all())) {
+            value = poly[0] + FF(point) * (poly[1] - poly[0]);
+        }
+        typename Utils::RelationEvaluations evaluations;
+        Utils::zero_elements(evaluations);
+        Utils::template accumulate_relation_evaluations_without_skipping<>(
+            values, evaluations, relation_parameters, scaling_factor);
+        constexpr_for<0, Flavor::NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
+            const auto& relation_univariates = std::get<relation_idx>(unbatched);
+            const auto& relation_values = std::get<relation_idx>(evaluations);
+            constexpr_for<0, std::tuple_size_v<std::decay_t<decltype(relation_univariates)>>, 1>(
+                [&]<size_t subrelation_idx>() {
+                    const auto& univariate = std::get<subrelation_idx>(relation_univariates);
+                    if (point < univariate.LENGTH) {
+                        EXPECT_EQ(univariate.value_at(point), relation_values[subrelation_idx])
+                            << "relation " << relation_idx << " subrelation " << subrelation_idx << " point " << point;
+                    }
+                });
+        });
+    }
+
+    const auto subrelation_batching = Round::compute_subrelation_batching(alphas);
+    typename Round::SumcheckTupleOfTuplesOfUnivariates batched{};
+    round.accumulate_relation_univariates_public(
+        batched, edges, relation_parameters, scaling_factor, &subrelation_batching);
+
+    using RoundUnivariate = typename Round::SumcheckRoundUnivariate;
+    const auto expected = Round::template batch_over_relations<RoundUnivariate>(unbatched, alphas, gate_separators);
+    const auto result = Round::template batch_over_relations<RoundUnivariate>(batched, alphas, gate_separators);
+    EXPECT_EQ(result, expected);
+}
+
+TEST(SumcheckRound, ProverRelationPathsMega)
+{
+    check_prover_relation_paths<MegaFlavor>();
+}
+
+TEST(SumcheckRound, ProverRelationPathsMegaZK)
+{
+    check_prover_relation_paths<MegaZKFlavor>();
+}
