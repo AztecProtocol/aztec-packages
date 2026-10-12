@@ -84,6 +84,7 @@ template <typename Params> struct Consts {
     }
     static constexpr std::array<uint64_t, 5> P = times(1);
     static constexpr std::array<uint64_t, 5> P2 = times(2);
+    static constexpr std::array<uint64_t, 5> P4 = times(4);
     // -p^-1 mod 2^52.
     static constexpr uint64_t PINV = Params::r_inv & M52;
     // floor(2^52 / (floor(p / 2^208) + 1)): quotient estimate for `canonical`.
@@ -186,6 +187,17 @@ BB_FIELD_IFMA_INLINE V5 sub_plus(const V5& a, const V5& b, const std::array<uint
     return r;
 }
 
+// a + k - b - c, with k a constant multiple of p (as normalised limbs) that is at least b + c.
+BB_FIELD_IFMA_INLINE V5 sub2_plus(const V5& a, const V5& b, const V5& c, const std::array<uint64_t, 5>& k)
+{
+    V5 r;
+    for (size_t i = 0; i < 5; ++i) {
+        r.l[i] = _mm512_sub_epi64(_mm512_sub_epi64(_mm512_add_epi64(a.l[i], bcast(k[i])), b.l[i]), c.l[i]);
+    }
+    normalise(r);
+    return r;
+}
+
 /**
  * @brief Fully reduce v (normalised, v < 9p) into [0, p).
  *
@@ -277,13 +289,23 @@ BB_FIELD_IFMA_INLINE void load8_even_odd(const uint64_t* src, V5& even, V5& odd)
                        _mm512_shuffle_i64x2(z[6], z[7], 0xEE));
 }
 
+// 52-bit limbs (normalised, value below 2^256) back to four 64-bit limb columns.
+BB_FIELD_IFMA_INLINE void to_columns(const V5& v, __m512i& c0, __m512i& c1, __m512i& c2, __m512i& c3)
+{
+    c0 = _mm512_or_si512(v.l[0], _mm512_slli_epi64(v.l[1], 52));
+    c1 = _mm512_or_si512(_mm512_srli_epi64(v.l[1], 12), _mm512_slli_epi64(v.l[2], 40));
+    c2 = _mm512_or_si512(_mm512_srli_epi64(v.l[2], 24), _mm512_slli_epi64(v.l[3], 28));
+    c3 = _mm512_or_si512(_mm512_srli_epi64(v.l[3], 36), _mm512_slli_epi64(v.l[4], 16));
+}
+
 // Inverse of `load8` for a value below 2^256.
 BB_FIELD_IFMA_INLINE void store8(const V5& v, uint64_t* dst)
 {
-    const __m512i c0 = _mm512_or_si512(v.l[0], _mm512_slli_epi64(v.l[1], 52));
-    const __m512i c1 = _mm512_or_si512(_mm512_srli_epi64(v.l[1], 12), _mm512_slli_epi64(v.l[2], 40));
-    const __m512i c2 = _mm512_or_si512(_mm512_srli_epi64(v.l[2], 24), _mm512_slli_epi64(v.l[3], 28));
-    const __m512i c3 = _mm512_or_si512(_mm512_srli_epi64(v.l[3], 36), _mm512_slli_epi64(v.l[4], 16));
+    __m512i c0;
+    __m512i c1;
+    __m512i c2;
+    __m512i c3;
+    to_columns(v, c0, c1, c2, c3);
     // Columns hold lanes e0 e2 e1 e3 e4 e6 e5 e7; rebuild the unpack stage of `transpose_in`.
     const __m512i lo_idx = _mm512_setr_epi64(0, 1, 8, 9, 2, 3, 10, 11);
     const __m512i hi_idx = _mm512_setr_epi64(4, 5, 12, 13, 6, 7, 14, 15);
@@ -295,6 +317,36 @@ BB_FIELD_IFMA_INLINE void store8(const V5& v, uint64_t* dst)
     _mm512_storeu_si512(dst + 8, _mm512_unpackhi_epi64(t0, t1));
     _mm512_storeu_si512(dst + 16, _mm512_unpacklo_epi64(t2, t3));
     _mm512_storeu_si512(dst + 24, _mm512_unpackhi_epi64(t2, t3));
+}
+
+/**
+ * @brief Eight elements held limb-major, lane j of `limb[i]` being 64-bit limb i of element j (256 bytes, the same
+ *        footprint as eight bb field elements). Stored values are below 2^256.
+ */
+struct alignas(64) Columns {
+    uint64_t limb[4][8];
+};
+
+BB_FIELD_IFMA_INLINE V5 load_columns(const Columns& c)
+{
+    return from_columns(_mm512_load_si512(c.limb[0]),
+                        _mm512_load_si512(c.limb[1]),
+                        _mm512_load_si512(c.limb[2]),
+                        _mm512_load_si512(c.limb[3]));
+}
+
+// v must be normalised and below 2^256.
+BB_FIELD_IFMA_INLINE void store_columns(const V5& v, Columns& c)
+{
+    __m512i c0;
+    __m512i c1;
+    __m512i c2;
+    __m512i c3;
+    to_columns(v, c0, c1, c2, c3);
+    _mm512_store_si512(c.limb[0], c0);
+    _mm512_store_si512(c.limb[1], c1);
+    _mm512_store_si512(c.limb[2], c2);
+    _mm512_store_si512(c.limb[3], c3);
 }
 
 // One element broadcast to all lanes. `limbs` must be < 2^256.

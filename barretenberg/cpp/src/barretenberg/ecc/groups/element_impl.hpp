@@ -11,6 +11,7 @@
 #include "barretenberg/ecc/groups/affine_add_packed.hpp"
 #include "barretenberg/ecc/groups/booth_recode.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/groups/two_round_fold_ifma.hpp"
 #include "element.hpp"
 #include <cstdint>
 
@@ -2189,6 +2190,16 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_two_round_fold(
             t, [&](size_t i) { work_elements[i] = points[3 * t + i]; }, thread_heuristics::FF_COPY_COST);
         return work_elements;
     }
+
+#ifdef BB_FIELD_IFMA
+    if constexpr (field_ifma::Consts<typename Fq::Params>::supported && !T::has_a) {
+        if (field_ifma::available()) {
+            detail::two_round_fold_ifma<element, affine_element, Fq, detail::FoldOp, LOOKUP_SIZE>(
+                points, t, ops, work_elements.data());
+            return work_elements;
+        }
+    }
+#endif
 
     if constexpr (simd_available_v<typename Fq::Params> && !T::has_a) {
         parallel_for_range(t, [&](size_t start, size_t end) {
