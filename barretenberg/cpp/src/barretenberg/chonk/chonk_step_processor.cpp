@@ -91,6 +91,9 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
 {
     const acir_format::ProgramMetadata metadata{ .ivc = ivc };
     auto circuit = acir_format::create_circuit<Chonk::ClientCircuit>(step.program, metadata);
+    // The circuit holds everything accumulation needs: free the constraint system and witness before accumulating,
+    // which is when memory use peaks.
+    step.program = acir_format::AcirProgram{};
 
     info("Chonk: accumulating ", step.name);
     if (detail::use_memory_profile) {
