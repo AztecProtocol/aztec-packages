@@ -80,6 +80,36 @@ template <typename Builder> class keccak {
         return output;
     };
 
+    // Number of base-11 digits whose place value fits in a single uint256_t limb (in 32 bits on wasm, where only
+    // 64-bit native division is available), so dividing by BASE^BASE_CHUNK_DIGITS takes the single-limb divmod path.
+#if defined(__wasm__)
+    static constexpr size_t BASE_CHUNK_DIGITS = 9;
+#else
+    static constexpr size_t BASE_CHUNK_DIGITS = 18;
+#endif
+
+    /**
+     * @brief Compute input.divmod(BASE^exponent) for a divisor that may span several limbs
+     * @details floor(floor(x / a) / b) = floor(x / (a * b)), so dividing by BASE^exponent in single-limb chunks of
+     * BASE^BASE_CHUNK_DIGITS gives the same quotient as one wide division, without the bitwise shift-subtract loop a
+     * multi-limb divisor needs. The remainder is recovered from the quotient.
+     *
+     * @return {input / BASE^exponent, input % BASE^exponent}
+     */
+    template <size_t exponent>
+    static constexpr std::pair<uint256_t, uint256_t> divmod_base_power(const uint256_t& input)
+    {
+        uint256_t quotient = input;
+        size_t remaining = exponent;
+        while (remaining > 0) {
+            const size_t chunk_digits = remaining < BASE_CHUNK_DIGITS ? remaining : BASE_CHUNK_DIGITS;
+            quotient = quotient.divmod(numeric::pow64(static_cast<uint64_t>(BASE), chunk_digits)).first;
+            remaining -= chunk_digits;
+        }
+        constexpr uint256_t divisor = BASE.pow(exponent);
+        return { quotient, input - quotient * divisor };
+    }
+
     /**
      * @brief Normalize a base-11 integer where each base value can be > 1
      *
@@ -93,14 +123,9 @@ template <typename Builder> class keccak {
      */
     static constexpr uint256_t normalize_sparse(uint256_t input)
     {
-        // Peel off the base-11 digits in chunks of NORMALIZE_CHUNK_DIGITS so that only one wide division is needed
-        // per chunk and the per-digit work is native 64-bit arithmetic. The chunk base fits in a single limb (and in
-        // 32 bits on wasm, where only 64-bit native division is available).
-#if defined(__wasm__)
-        constexpr size_t NORMALIZE_CHUNK_DIGITS = 9;
-#else
-        constexpr size_t NORMALIZE_CHUNK_DIGITS = 18;
-#endif
+        // Peel off the base-11 digits in chunks of BASE_CHUNK_DIGITS so that only one wide division is needed per
+        // chunk and the per-digit work is native 64-bit arithmetic.
+        constexpr size_t NORMALIZE_CHUNK_DIGITS = BASE_CHUNK_DIGITS;
         constexpr uint64_t chunk_base = numeric::pow64(11, NORMALIZE_CHUNK_DIGITS);
         uint256_t out = 0;
         uint256_t chunk_place = 1;

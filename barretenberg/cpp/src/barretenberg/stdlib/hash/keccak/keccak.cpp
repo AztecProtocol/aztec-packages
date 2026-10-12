@@ -52,8 +52,7 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
     // get the numerical value of the left and right bit slices
     // (lookup table input values derived from left / right)
     uint256_t input = limb.get_value();
-    constexpr uint256_t slice_divisor = BASE.pow(right_bits);
-    const auto [left, right] = input.divmod(slice_divisor);
+    const auto [left, right] = divmod_base_power<right_bits>(input);
 
     // compute the normalized values for the left and right bit slices
     // (lookup table output values derived from left_normalised / right_normalized)
@@ -298,13 +297,11 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
      * KECCAK_THETA_OUTPUT currently splices its input into 16 4-bit slices (in base 11 i.e. from 0 to 11^4 - 1)
      * This ensures that sliced_D is correctly range constrained to be < 11^64 = 11^{KECCAK_LANE_SIZE}
      */
-    static constexpr uint256_t divisor = BASE.pow(KECCAK_LANE_SIZE);
     static constexpr uint256_t multiplicand = BASE.pow(KECCAK_LANE_SIZE + 1);
     for (size_t i = 0; i < 5; ++i) {
         uint256_t D_native = D[i].get_value();
         const auto [D_quotient, lo_native] = D_native.divmod(BASE);
-        const uint256_t hi_native = D_quotient / divisor;
-        const uint256_t mid_native = D_quotient - hi_native * divisor;
+        const auto [hi_native, mid_native] = divmod_base_power<KECCAK_LANE_SIZE>(D_quotient);
 
         field_ct hi(witness_ct(internal.context, hi_native));
         field_ct mid(witness_ct(internal.context, mid_native));
