@@ -267,20 +267,27 @@ void add_scaled_batch(Polynomial<Fr>& dst,
         if (chunk_indices.empty()) {
             return;
         }
-        auto chunk_start = chunk_indices.front();
-        auto chunk_end = chunk_indices.back();
+        const size_t chunk_start = chunk_indices.front();
+        const size_t chunk_end = chunk_indices.back() + 1;
 
-        for (size_t k = 0; k < sources.size(); ++k) {
-            const auto& src = sources[k];
-            const Fr& c = scalars[k];
-            const size_t src_start = src.start_index;
-            const size_t src_end = src.end_index();
+        // Walk the chunk in L1-sized tiles and apply every source to a tile before moving on, so each dst
+        // element is loaded and stored once per tile rather than once per source.
+        constexpr size_t TILE_SIZE = 256;
+        for (size_t tile_start = chunk_start; tile_start < chunk_end; tile_start += TILE_SIZE) {
+            const size_t tile_end = std::min(tile_start + TILE_SIZE, chunk_end);
+            for (size_t k = 0; k < sources.size(); ++k) {
+                const auto& src = sources[k];
+                const Fr& c = scalars[k];
+                const size_t idx_start = std::max(tile_start, src.start_index);
+                const size_t idx_end = std::min(tile_end, src.end_index());
 
-            const size_t idx_start = std::max(chunk_start, src_start);
-            const size_t idx_end = std::min(chunk_end + 1, src_end);
-
-            for (size_t i = idx_start; i < idx_end; ++i) {
-                dst.at(i) += c * src[i];
+                // Zero coefficients (common in selector columns) contribute nothing, so skip their multiply.
+                for (size_t i = idx_start; i < idx_end; ++i) {
+                    const Fr& value = src[i];
+                    if (!value.is_zero()) {
+                        dst.at(i) += c * value;
+                    }
+                }
             }
         }
     });
