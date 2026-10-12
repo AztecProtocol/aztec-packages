@@ -79,6 +79,31 @@ template <typename FF_> class ArithmeticRelationImpl {
         auto q_m_m = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
 
         auto q_arith_sub_1 = q_arith_m - FF(1);
+
+        // Prover fast path (guarded on ::LENGTH so it never enters the verifiers, which keep the straight-line
+        // computation below) for the common case q_arith == 1 on the whole edge: subrelation 2 carries the factor
+        // q_arith - 1 and vanishes, (q_arith - 3) * (-1/2) == 1, the w_4_shift term drops and the q_arith scaling is
+        // the gate separator itself. The q_m product is identically zero (and skipped) when q_m vanishes on the edge.
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            if (q_arith_sub_1.is_zero()) {
+                auto w_r_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+                auto w_o_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+                auto q_l_m = CoefficientAccumulator(in[AllEntities::EntityId::q_l]);
+                auto q_r_m = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+                auto q_o_m = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+                auto q_4_m = CoefficientAccumulator(in[AllEntities::EntityId::q_4]);
+                auto q_c_m = CoefficientAccumulator(in[AllEntities::EntityId::q_c]);
+
+                auto linear_terms = (q_l_m * w_l_m) + (q_r_m * w_r_m) + (q_o_m * w_o_m) + (q_4_m * w_4_m) + q_c_m;
+                auto identity = Accumulator(linear_terms);
+                if (!q_m_m.is_zero()) {
+                    identity += Accumulator(w_r_m * w_l_m) * Accumulator(q_m_m);
+                }
+                std::get<0>(evals) += identity * scaling_factor;
+                return;
+            }
+        }
+
         auto scaled_q_arith = q_arith_m * scaling_factor;
         // Subrelation 1
         {
