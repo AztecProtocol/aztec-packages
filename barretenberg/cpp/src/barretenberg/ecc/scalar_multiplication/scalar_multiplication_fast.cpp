@@ -1,5 +1,6 @@
 #include "./scalar_multiplication_fast.hpp"
 
+#include "./batch_affine_ifma.hpp"
 #include "./pippenger_arena_layout.hpp"
 #include "./pippenger_constantine.hpp"
 #include "./pippenger_dedup.hpp"
@@ -406,11 +407,89 @@ template <typename Curve> void tree_reduce_in_place_scalar(ThreadScratch<Curve>&
     s.result_len = curr_len;
 }
 
+#ifdef BB_MSM_IFMA
+// Pairs per IFMA drain. The queue (operands held limb-major for the vector kernel) lives in a per-thread heap buffer
+// rather than in the MSM arena, so the arena layout is the same with and without IFMA.
+inline constexpr size_t IFMA_BATCH_CAPACITY = 256;
+
+/**
+ * @brief tree_reduce_in_place's level walk with the batch-affine drain run by the AVX-512 IFMA kernel
+ *        (`ifma::drain`). Identical pairing and compaction; only the drain arithmetic differs.
+ */
+template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s, size_t initial_len) noexcept
+{
+    using BaseField = typename Curve::BaseField;
+    using AffineElement = typename Curve::AffineElement;
+    using Buffer = ifma::DrainBuffer<IFMA_BATCH_CAPACITY>;
+    static thread_local std::unique_ptr<Buffer> thread_buffer;
+    if (!thread_buffer) {
+        thread_buffer = std::make_unique<Buffer>();
+    }
+    Buffer& buf = *thread_buffer;
+    AffineElement* pts = s.curr_pts.data();
+    size_t curr_len = initial_len;
+
+    while (true) {
+        size_t i = 0;
+        size_t next_len = 0;
+        size_t pair_count = 0;
+        bool made_pair = false;
+
+        while (i < curr_len) {
+            if (i + 1 < curr_len && s.curr_buckets[i] == s.curr_buckets[i + 1]) {
+                for (size_t l = 0; l < 4; ++l) {
+                    buf.lx[l][pair_count] = pts[i].x.data[l];
+                    buf.ly[l][pair_count] = pts[i].y.data[l];
+                    buf.rx[l][pair_count] = pts[i + 1].x.data[l];
+                    buf.ry[l][pair_count] = pts[i + 1].y.data[l];
+                }
+                s.curr_buckets[next_len] = s.curr_buckets[i];
+                buf.pair_dest[pair_count] = static_cast<uint32_t>(next_len);
+                ++next_len;
+                ++pair_count;
+                i += 2;
+                made_pair = true;
+
+                if (pair_count >= IFMA_BATCH_CAPACITY) {
+                    ifma::drain<BaseField>(buf, pair_count, pts);
+                    pair_count = 0;
+                }
+            } else {
+                pts[next_len] = pts[i];
+                s.curr_buckets[next_len] = s.curr_buckets[i];
+                ++next_len;
+                ++i;
+            }
+        }
+
+        if (pair_count > 0) {
+            ifma::drain<BaseField>(buf, pair_count, pts);
+        }
+
+        if (!made_pair) {
+            break;
+        }
+
+        curr_len = next_len;
+    }
+
+    s.result_len = curr_len;
+}
+#endif
+
 template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {
     // Without SIMD a VectorField is just W scalar field elements, so the packed drain only adds data movement;
     // run the fused scalar drain instead.
     if constexpr (!bb::simd_available_v<typename Curve::BaseField::Params>) {
+#ifdef BB_MSM_IFMA
+        if constexpr (ifma::Consts<typename Curve::BaseField::Params>::supported) {
+            if (ifma::ifma_available()) {
+                tree_reduce_in_place_ifma<Curve>(s, initial_len);
+                return;
+            }
+        }
+#endif
         tree_reduce_in_place_scalar<Curve>(s, initial_len);
         return;
     }

@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
+#include "barretenberg/ecc/scalar_multiplication/batch_affine_ifma.hpp"
 #include "barretenberg/ecc/scalar_multiplication/pippenger_arena_layout.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -2272,3 +2273,67 @@ TEST(ScalarMultiplication, SmallInputsExplicit)
 
     EXPECT_EQ(result, grumpkin::g1::affine_element(expected));
 }
+
+#ifdef BB_MSM_IFMA
+// The IFMA drain must produce the affine sums, fully reduced, for every batch size (scalar small-batch path, partial
+// lane groups, full queue) and for operands in coarse form [p, 2p).
+template <typename Curve> void ifma_drain_matches_affine_add()
+{
+    using AffineElement = typename Curve::AffineElement;
+    using Element = typename Curve::Element;
+    using BaseField = typename Curve::BaseField;
+    if (!scalar_multiplication::ifma::ifma_available()) {
+        GTEST_SKIP() << "CPU lacks AVX-512 IFMA";
+    }
+    constexpr size_t CAP = 256;
+    auto buf = std::make_unique<scalar_multiplication::ifma::DrainBuffer<CAP>>();
+    const uint256_t modulus = BaseField::modulus;
+    // Raw (Montgomery-form) value + p, i.e. the same element in coarse form, when that stays below 2p.
+    const auto coarse = [&](const BaseField& f) {
+        const BaseField r = f.reduce_once();
+        const uint256_t v = uint256_t(r.data[0], r.data[1], r.data[2], r.data[3]) + modulus;
+        return BaseField{ v.data[0], v.data[1], v.data[2], v.data[3] };
+    };
+    for (size_t n : { 1UL, 2UL, 5UL, 6UL, 7UL, 8UL, 9UL, 15UL, 16UL, 17UL, 63UL, 64UL, 65UL, 200UL, CAP }) {
+        std::vector<AffineElement> lhs(n);
+        std::vector<AffineElement> rhs(n);
+        std::vector<AffineElement> out(2 * n);
+        for (size_t k = 0; k < n; ++k) {
+            lhs[k] = AffineElement(Element::random_element(&engine));
+            rhs[k] = AffineElement(Element::random_element(&engine));
+            AffineElement l = lhs[k];
+            AffineElement r = rhs[k];
+            if (k % 3 == 1) {
+                l.x = coarse(l.x);
+                r.y = coarse(r.y);
+            }
+            for (size_t i = 0; i < 4; ++i) {
+                buf->lx[i][k] = l.x.data[i];
+                buf->ly[i][k] = l.y.data[i];
+                buf->rx[i][k] = r.x.data[i];
+                buf->ry[i][k] = r.y.data[i];
+            }
+            buf->pair_dest[k] = static_cast<uint32_t>((2 * n) - 1 - (2 * k)); // scattered destinations
+        }
+        scalar_multiplication::ifma::drain<BaseField>(*buf, n, out.data());
+        for (size_t k = 0; k < n; ++k) {
+            const AffineElement& got = out[(2 * n) - 1 - (2 * k)];
+            EXPECT_EQ(got, AffineElement(Element(lhs[k]) + Element(rhs[k]))) << "n=" << n << " k=" << k;
+            if (n > scalar_multiplication::ifma::SMALL_DRAIN_MAX_PAIRS) {
+                EXPECT_LT(uint256_t(got.x.data[0], got.x.data[1], got.x.data[2], got.x.data[3]), modulus);
+                EXPECT_LT(uint256_t(got.y.data[0], got.y.data[1], got.y.data[2], got.y.data[3]), modulus);
+            }
+        }
+    }
+}
+
+TEST(ScalarMultiplicationIfma, DrainMatchesAffineAddBn254)
+{
+    ifma_drain_matches_affine_add<curve::BN254>();
+}
+
+TEST(ScalarMultiplicationIfma, DrainMatchesAffineAddGrumpkin)
+{
+    ifma_drain_matches_affine_add<curve::Grumpkin>();
+}
+#endif
