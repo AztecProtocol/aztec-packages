@@ -175,4 +175,44 @@ TEST_F(ThreadTest, SpawnedThreadsCanUseParallelFor)
         }
     }
 }
+
+// Many back-to-back parallel_for calls of varying size and duration, including empty iterations and calls short enough
+// that the caller finishes before the workers wake up. Every iteration must run exactly once per call.
+TEST_F(ThreadTest, ManyConsecutiveParallelFors)
+{
+    constexpr size_t num_calls = 20000;
+    constexpr size_t max_iterations = 37;
+    std::vector<std::atomic<size_t>> counts(max_iterations);
+    size_t expected_total = 0;
+    for (size_t call = 0; call < num_calls; ++call) {
+        const size_t num_iterations = call % max_iterations;
+        // Every 1000th call does enough work per iteration that idle threads fall back to sleeping.
+        const size_t work = (call % 1000 == 0) ? 200000 : (call % 7);
+        parallel_for(num_iterations, [&](size_t i) {
+            volatile size_t sink = 0;
+            for (size_t j = 0; j < work; ++j) {
+                sink = sink + j;
+            }
+            counts[i].fetch_add(1, std::memory_order_relaxed);
+        });
+        expected_total += num_iterations;
+        if (call % 5000 == 0) {
+            // Leave the pool idle long enough for the workers to block.
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+    size_t total = 0;
+    for (size_t i = 0; i < max_iterations; ++i) {
+        total += counts[i].load();
+    }
+    EXPECT_EQ(total, expected_total);
+    for (size_t i = 0; i + 1 < max_iterations; ++i) {
+        // Iteration i runs in every call with num_iterations > i.
+        size_t expected = 0;
+        for (size_t call = 0; call < num_calls; ++call) {
+            expected += (call % max_iterations > i) ? 1 : 0;
+        }
+        EXPECT_EQ(counts[i].load(), expected);
+    }
+}
 } // namespace bb
