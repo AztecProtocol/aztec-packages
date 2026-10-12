@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -205,21 +206,27 @@ template <typename Curve> class GeminiProver_ {
          */
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
-            Polynomial A_0_pos(actual_data_size_, full_batched_size);
+            // Every coefficient of A₀₊ and A₀₋ is written by the single pass below
+            Polynomial A_0_pos(actual_data_size_, full_batched_size, Polynomial::DontZeroMemory::FLAG);
+            Polynomial A_0_neg(actual_data_size_, full_batched_size, Polynomial::DontZeroMemory::FLAG);
 
-            if (has_unshifted()) {
-                A_0_pos += batched_unshifted;
-            }
+            const Fr r_inv = r_challenge.invert();
+            const bool with_unshifted = has_unshifted();
+            const bool with_shifted = has_to_be_shifted_by_one();
+            parallel_for_heuristic(
+                actual_data_size_,
+                [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                    for (size_t i = start; i < end; ++i) {
+                        // A₀₊ = F + G/r, A₀₋ = F − G/r
+                        const Fr f = with_unshifted ? batched_unshifted[i] : Fr::zero();
+                        const Fr g_over_r = with_shifted ? batched_to_be_shifted_by_one[i] * r_inv : Fr::zero();
+                        A_0_pos.at(i) = f + g_over_r;
+                        A_0_neg.at(i) = f - g_over_r;
+                    }
+                },
+                thread_heuristics::FF_MULTIPLICATION_COST + (2 * thread_heuristics::FF_ADDITION_COST));
 
-            Polynomial A_0_neg = A_0_pos;
-
-            Fr r_inv = r_challenge.invert();
-            if (has_to_be_shifted_by_one()) {
-                A_0_pos.add_scaled(batched_to_be_shifted_by_one, r_inv);
-                A_0_neg.add_scaled(batched_to_be_shifted_by_one, -r_inv);
-            }
-
-            return { A_0_pos, A_0_neg };
+            return { std::move(A_0_pos), std::move(A_0_neg) };
         };
     };
 
