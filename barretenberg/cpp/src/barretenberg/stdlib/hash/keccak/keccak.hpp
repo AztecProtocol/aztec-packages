@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include <array>
 
@@ -92,18 +93,30 @@ template <typename Builder> class keccak {
      */
     static constexpr uint256_t normalize_sparse(uint256_t input)
     {
-        std::array<uint64_t, 64> out_bits;
-        size_t count = 0;
+        // Peel off the base-11 digits in chunks of NORMALIZE_CHUNK_DIGITS so that only one wide division is needed
+        // per chunk and the per-digit work is native 64-bit arithmetic. The chunk base fits in a single limb (and in
+        // 32 bits on wasm, where only 64-bit native division is available).
+#if defined(__wasm__)
+        constexpr size_t NORMALIZE_CHUNK_DIGITS = 9;
+#else
+        constexpr size_t NORMALIZE_CHUNK_DIGITS = 18;
+#endif
+        constexpr uint64_t chunk_base = numeric::pow64(11, NORMALIZE_CHUNK_DIGITS);
+        uint256_t out = 0;
+        uint256_t chunk_place = 1;
         while (input > 0) {
-            const auto [quotient, slice] = input.divmod(BASE);
-            uint64_t bit = static_cast<uint64_t>(slice) & 1;
-            out_bits[count++] = bit;
+            const auto [quotient, chunk] = input.divmod(chunk_base);
+            uint64_t remaining = chunk;
+            uint64_t normalized_chunk = 0;
+            uint64_t digit_place = 1;
+            for (size_t i = 0; i < NORMALIZE_CHUNK_DIGITS && remaining > 0; ++i) {
+                normalized_chunk += ((remaining % 11) & 1) * digit_place;
+                remaining /= 11;
+                digit_place *= 11;
+            }
+            out += chunk_place * uint256_t(normalized_chunk);
+            chunk_place *= uint256_t(chunk_base);
             input = quotient;
-        }
-        uint256_t out;
-        for (size_t i = 0; i < count; ++i) {
-            out *= BASE;
-            out += out_bits[count - 1 - i];
         }
         return out;
     }
