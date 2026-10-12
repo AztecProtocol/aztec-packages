@@ -1,9 +1,11 @@
 #pragma once
 
+#include "barretenberg/ecc/fields/ifma_field.hpp"
 #include "barretenberg/ecc/fields/vector_field.hpp"
 #include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -76,18 +78,41 @@ void fold_stride2(
         }
     }
 #endif
-    for (; k < end; ++k) {
-        const Fr even = src[2 * k];
-        const Fr odd = src[2 * k + 1];
-        // Equal neighbours (constant selector runs, zero padding inside the active extent) fold to themselves, so
-        // skip the multiplication. Only bit-identical representations are short-cut.
-        if (even.data[0] == odd.data[0] && even.data[1] == odd.data[1] && even.data[2] == odd.data[2] &&
-            even.data[3] == odd.data[3]) {
-            dst[ScalarIndex{ k }] = even;
-        } else {
-            dst[ScalarIndex{ k }] = even + challenge * (odd - even);
+    const auto fold_scalar = [&](const size_t from, const size_t to) {
+        for (size_t i = from; i < to; ++i) {
+            const Fr even = src[2 * i];
+            const Fr odd = src[2 * i + 1];
+            // Equal neighbours (constant selector runs, zero padding inside the active extent) fold to themselves, so
+            // skip the multiplication. Only bit-identical representations are short-cut.
+            if (even.data[0] == odd.data[0] && even.data[1] == odd.data[1] && even.data[2] == odd.data[2] &&
+                even.data[3] == odd.data[3]) {
+                dst[ScalarIndex{ i }] = even;
+            } else {
+                dst[ScalarIndex{ i }] = even + challenge * (odd - even);
+            }
+        }
+    };
+#ifdef BB_FIELD_IFMA
+    // AVX-512 IFMA bulk over the outputs whose source pairs and destination lie inside the backing memory; the
+    // virtual-zero prefix and the tail keep the scalar loop. Outputs are produced in increasing k as in the scalar
+    // loop, which keeps the in-place case (src aliasing dst) safe.
+    if constexpr (field_ifma::Consts<typename Fr::Params>::supported) {
+        if (field_ifma::available()) {
+            const size_t bulk_begin = std::min(end, std::max({ k, (src.start_index() + 1) / 2, dst.start_index() }));
+            const size_t bulk_limit = std::max(bulk_begin, std::min({ end, src.end_index() / 2, dst.end_index() }));
+            const size_t bulk_end = bulk_begin + ((bulk_limit - bulk_begin) & ~size_t{ 7 });
+            if (bulk_end > bulk_begin) {
+                fold_scalar(k, bulk_begin);
+                field_ifma::fold_stride2<typename Fr::Params>(&src.data()[(2 * bulk_begin) - src.start_index()].data[0],
+                                                              &dst.data()[bulk_begin - dst.start_index()].data[0],
+                                                              bulk_end - bulk_begin,
+                                                              &challenge.data[0]);
+                k = bulk_end;
+            }
         }
     }
+#endif
+    fold_scalar(k, end);
 }
 
 } // namespace bb
