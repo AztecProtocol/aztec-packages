@@ -129,6 +129,12 @@ class SingleBusLookupRelationImpl {
         const auto& read_counts = polynomials[ReadCountsId];
 
         const auto& q_busread = polynomials.q_busread();
+        const auto& w_l = polynomials.w_l();
+        const auto& w_r = polynomials.w_r();
+        const auto& databus_id = polynomials.databus_id();
+        const auto& value_column = polynomials[ValueId];
+        const FF& gamma = relation_parameters.gamma;
+        const FF& beta = relation_parameters.beta;
 
         // A row needs an inverse only if it is a read gate (q_busread != 0) or has a non-zero read count, so only
         // rows inside the backing ranges of q_busread and read_counts are visited; both are zero elsewhere. Each
@@ -154,11 +160,10 @@ class SingleBusLookupRelationImpl {
                 const bool is_read = q_busread[i] == 1 && column_selector[i] == 1;
                 const bool nonzero_read_count = read_counts[i] > 0;
                 if (is_read || nonzero_read_count) {
-                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-                    auto row = polynomials.get_row(i);
-                    auto value = compute_lookup_term<FF>(row, relation_parameters) *
-                                 compute_table_term<FF>(row, relation_parameters);
-                    inverse_polynomial.at(i) = value;
+                    // compute_lookup_term · compute_table_term at row i, reading only the four columns they use
+                    const FF lookup_term = (w_r[i] * beta) + w_l[i] + gamma;
+                    const FF table_term = (databus_id[i] * beta) + value_column[i] + gamma;
+                    inverse_polynomial.at(i) = lookup_term * table_term;
                 }
             };
             const size_t read_begin = std::max(row_begin, q_busread.start_index());
