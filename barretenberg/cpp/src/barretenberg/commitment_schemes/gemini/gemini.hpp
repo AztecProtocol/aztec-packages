@@ -183,17 +183,31 @@ template <typename Curve> class GeminiProver_ {
                     batched, std::span<const PolynomialSpan<const Fr>>(sources), std::span<const Fr>(scalars));
             };
 
-            Polynomial full_batched(full_batched_size);
-
-            if (has_unshifted()) {
+            const bool with_unshifted = has_unshifted();
+            const bool with_shifted = has_to_be_shifted_by_one();
+            if (with_unshifted) {
                 batch(batched_unshifted, unshifted);
-                full_batched += batched_unshifted;
+            }
+            if (with_shifted) {
+                batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
             }
 
-            if (has_to_be_shifted_by_one()) {
-                batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
-                full_batched += batched_to_be_shifted_by_one.shifted();
-            }
+            // A₀[i] = F[i] + G[i + 1], written in one pass; coefficients from actual_data_size_ on are zero
+            Polynomial full_batched(full_batched_size, Polynomial::DontZeroMemory::FLAG);
+            parallel_for_heuristic(
+                full_batched_size,
+                [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                    for (size_t i = start; i < end; ++i) {
+                        if (i >= actual_data_size_) {
+                            full_batched.at(i) = Fr::zero();
+                            continue;
+                        }
+                        const Fr f = with_unshifted ? batched_unshifted[i] : Fr::zero();
+                        const bool shifted_in_range = with_shifted && (i + 1 < actual_data_size_);
+                        full_batched.at(i) = shifted_in_range ? f + batched_to_be_shifted_by_one[i + 1] : f;
+                    }
+                },
+                thread_heuristics::FF_ADDITION_COST + thread_heuristics::FF_COPY_COST);
 
             return full_batched;
         }
