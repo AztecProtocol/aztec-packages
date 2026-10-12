@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -370,6 +371,27 @@ class AcirFormatConverter {
             gate.value);
     }
 
+    /**
+     * @brief Same as add_opcode for an AssertZero opcode.
+     */
+    void add_assert_zero(const Acir::Opcode::AssertZero& arg)
+    {
+        const size_t i = num_opcodes_++;
+        update_max_witness_index_from_expression(arg.value, af_);
+        assert_zero_to_constraints(arg, af_, i, batched_eq_assert_zeros_, is_mega_);
+    }
+
+    /**
+     * @brief Same as add_opcode for a BrilligCall opcode, given the witness indices it references.
+     */
+    void add_brillig_call(const std::vector<uint32_t>& witness_indices)
+    {
+        num_opcodes_++;
+        for (const uint32_t witness_idx : witness_indices) {
+            update_max_witness_index(witness_idx, af_);
+        }
+    }
+
     AcirFormat finalize(const Acir::PublicInputs& public_parameters, const Acir::PublicInputs& return_values) &&
     {
         BB_ASSERT_LT(
@@ -511,6 +533,63 @@ class MsgpackReader {
     }
 
     /**
+     * @brief Decode the next opcode straight from the msgpack bytes and add it to `converter`, for the opcodes that
+     * dominate ACIR programs (AssertZero, RANGE, MemoryOp, BrilligCall).
+     *
+     * @details The opcode is decoded into the same Acir:: values the generic decoder produces (the reused AssertZero
+     * keeps its coefficient buffers between opcodes), so the conversion is unchanged. Returns false without advancing
+     * and without touching `converter` if the opcode is of another kind or has an unexpected layout; the caller then
+     * decodes it with read().
+     */
+    bool try_read_common_opcode(AcirFormatConverter& converter)
+    {
+        size_t pos = offset_;
+        std::string_view name;
+        if (!read_map_size(pos, 1) || !read_str(pos, name)) {
+            return false;
+        }
+        if (name == "AssertZero") {
+            if (!read_expression(pos, assert_zero_.value)) {
+                return false;
+            }
+            converter.add_assert_zero(assert_zero_);
+        } else if (name == "BrilligCall") {
+            if (!read_brillig_call_witnesses(pos, witness_indices_)) {
+                return false;
+            }
+            converter.add_brillig_call(witness_indices_);
+        } else if (name == "MemoryOp") {
+            Acir::Opcode::MemoryOp mem_op;
+            if (!read_array_size(pos, 2) || !read_uint(pos, mem_op.block_id.value) || !read_array_size(pos, 3) ||
+                !read_bool(pos, mem_op.op.read) || !read_uint(pos, mem_op.op.index.value) ||
+                !read_uint(pos, mem_op.op.value.value)) {
+                return false;
+            }
+            converter.add_opcode(Acir::Opcode{ .value = std::move(mem_op) });
+        } else if (name == "BlackBoxFuncCall") {
+            Acir::BlackBoxFuncCall::RANGE range;
+            std::string_view func_name;
+            std::string_view input_kind;
+            if (!read_map_size(pos, 1) || !read_str(pos, func_name) || func_name != "RANGE" ||
+                !read_array_size(pos, 2) || !read_map_size(pos, 1) || !read_str(pos, input_kind) ||
+                input_kind != "Witness") {
+                return false;
+            }
+            Acir::FunctionInput::Witness input;
+            if (!read_uint(pos, input.value.value) || !read_uint(pos, range.num_bits)) {
+                return false;
+            }
+            range.input.value = input;
+            converter.add_opcode(Acir::Opcode{
+                .value = Acir::Opcode::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall{ .value = range } } });
+        } else {
+            return false;
+        }
+        offset_ = pos;
+        return true;
+    }
+
+    /**
      * @brief Advance past the next object without materialising it.
      */
     void skip()
@@ -554,10 +633,275 @@ class MsgpackReader {
         return result;
     }
 
+    // Primitive readers for try_read_common_opcode: each reads one object at `pos` and advances past it, or returns
+    // false if the object there is not of the expected type (pos is then unspecified).
+
+    uint8_t marker_at(size_t pos) const { return static_cast<uint8_t>(data_[pos]); }
+
+    bool read_header(size_t& pos, uint8_t fix_marker, uint8_t marker16, uint8_t marker32, uint32_t& length) const
+    {
+        if (pos >= size_) {
+            return false;
+        }
+        const uint8_t marker = marker_at(pos);
+        if ((marker & 0xf0) == fix_marker) {
+            length = marker & 0x0f;
+            pos += 1;
+            return true;
+        }
+        const size_t num_bytes = marker == marker16 ? 2 : marker == marker32 ? 4 : 0;
+        if (num_bytes == 0 || pos + 1 + num_bytes > size_) {
+            return false;
+        }
+        length = read_big_endian(pos + 1, num_bytes);
+        pos += 1 + num_bytes;
+        return true;
+    }
+
+    bool read_array(size_t& pos, uint32_t& length) const { return read_header(pos, 0x90, 0xdc, 0xdd, length); }
+
+    bool read_array_size(size_t& pos, uint32_t expected_length) const
+    {
+        uint32_t length = 0;
+        return read_array(pos, length) && length == expected_length;
+    }
+
+    bool read_map_size(size_t& pos, uint32_t expected_length) const
+    {
+        uint32_t length = 0;
+        return read_header(pos, 0x80, 0xde, 0xdf, length) && length == expected_length;
+    }
+
+    bool read_uint(size_t& pos, uint32_t& value) const
+    {
+        if (pos >= size_) {
+            return false;
+        }
+        const uint8_t marker = marker_at(pos);
+        if (marker <= 0x7f) {
+            value = marker;
+            pos += 1;
+            return true;
+        }
+        const size_t num_bytes = marker == 0xcc ? 1 : marker == 0xcd ? 2 : marker == 0xce ? 4 : 0;
+        if (num_bytes == 0 || pos + 1 + num_bytes > size_) {
+            return false;
+        }
+        value = read_big_endian(pos + 1, num_bytes);
+        pos += 1 + num_bytes;
+        return true;
+    }
+
+    bool read_bool(size_t& pos, bool& value) const
+    {
+        if (pos >= size_ || (marker_at(pos) != 0xc2 && marker_at(pos) != 0xc3)) {
+            return false;
+        }
+        value = marker_at(pos) == 0xc3;
+        pos += 1;
+        return true;
+    }
+
+    bool read_str(size_t& pos, std::string_view& str) const
+    {
+        if (pos >= size_) {
+            return false;
+        }
+        const uint8_t marker = marker_at(pos);
+        size_t length = 0;
+        size_t header = 1;
+        if ((marker & 0xe0) == 0xa0) {
+            length = marker & 0x1f;
+        } else if (marker == 0xd9 && pos + 2 <= size_) {
+            length = marker_at(pos + 1);
+            header = 2;
+        } else {
+            return false;
+        }
+        if (pos + header + length > size_) {
+            return false;
+        }
+        str = std::string_view(&data_[pos + header], length);
+        pos += header + length;
+        return true;
+    }
+
+    bool read_bin(size_t& pos, std::vector<uint8_t>& bytes) const
+    {
+        uint32_t length = 0;
+        size_t header = 0;
+        if (pos + 2 <= size_ && marker_at(pos) == 0xc4) {
+            length = marker_at(pos + 1);
+            header = 2;
+        } else if (pos + 3 <= size_ && marker_at(pos) == 0xc5) {
+            length = read_big_endian(pos + 1, 2);
+            header = 3;
+        } else {
+            return false;
+        }
+        if (pos + header + length > size_) {
+            return false;
+        }
+        const auto* payload = reinterpret_cast<const uint8_t*>(&data_[pos + header]);
+        bytes.assign(payload, payload + length);
+        pos += header + length;
+        return true;
+    }
+
+    /**
+     * @brief Resize `terms`, moving the coefficient buffers of dropped terms to `spare_buffers_` and handing them to
+     * new terms, so that a reused expression stops allocating once it has seen its largest sizes.
+     */
+    template <typename Terms> void resize_terms(Terms& terms, size_t new_size)
+    {
+        for (size_t i = new_size; i < terms.size(); ++i) {
+            spare_buffers_.push_back(std::move(std::get<0>(terms[i])));
+        }
+        const size_t old_size = terms.size();
+        terms.resize(new_size);
+        for (size_t i = old_size; i < new_size && !spare_buffers_.empty(); ++i) {
+            std::get<0>(terms[i]) = std::move(spare_buffers_.back());
+            spare_buffers_.pop_back();
+        }
+    }
+
+    // Expression = [mul_terms: [[coefficient, witness, witness]], linear_combinations: [[coefficient, witness]], q_c]
+    bool read_expression(size_t& pos, Acir::Expression& expr)
+    {
+        uint32_t num_terms = 0;
+        if (!read_array_size(pos, 3) || !read_array(pos, num_terms)) {
+            return false;
+        }
+        resize_terms(expr.mul_terms, num_terms);
+        for (auto& [coefficient, lhs, rhs] : expr.mul_terms) {
+            if (!read_array_size(pos, 3) || !read_bin(pos, coefficient) || !read_uint(pos, lhs.value) ||
+                !read_uint(pos, rhs.value)) {
+                return false;
+            }
+        }
+        if (!read_array(pos, num_terms)) {
+            return false;
+        }
+        resize_terms(expr.linear_combinations, num_terms);
+        for (auto& [coefficient, witness] : expr.linear_combinations) {
+            if (!read_array_size(pos, 2) || !read_bin(pos, coefficient) || !read_uint(pos, witness.value)) {
+                return false;
+            }
+        }
+        return read_bin(pos, expr.q_c);
+    }
+
+    // Collects the witness indices of an Expression, as update_max_witness_index_from_expression visits them.
+    bool read_expression_witnesses(size_t& pos, std::vector<uint32_t>& witness_indices)
+    {
+        uint32_t num_terms = 0;
+        if (!read_array_size(pos, 3) || !read_array(pos, num_terms)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < num_terms; ++i) {
+            uint32_t lhs = 0;
+            uint32_t rhs = 0;
+            if (!read_array_size(pos, 3) || !read_bin(pos, coefficient_) || !read_uint(pos, lhs) ||
+                !read_uint(pos, rhs)) {
+                return false;
+            }
+            witness_indices.push_back(lhs);
+            witness_indices.push_back(rhs);
+        }
+        if (!read_array(pos, num_terms)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < num_terms; ++i) {
+            uint32_t witness = 0;
+            if (!read_array_size(pos, 2) || !read_bin(pos, coefficient_) || !read_uint(pos, witness)) {
+                return false;
+            }
+            witness_indices.push_back(witness);
+        }
+        return read_bin(pos, coefficient_);
+    }
+
+    // BrilligCall = [id, inputs, outputs, predicate]; collects the witness indices that
+    // update_max_witness_index_from_opcode visits.
+    bool read_brillig_call_witnesses(size_t& pos, std::vector<uint32_t>& witness_indices)
+    {
+        witness_indices.clear();
+        uint32_t id = 0;
+        uint32_t num_inputs = 0;
+        if (!read_array_size(pos, 4) || !read_uint(pos, id) || !read_array(pos, num_inputs)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < num_inputs; ++i) {
+            std::string_view kind;
+            if (!read_map_size(pos, 1) || !read_str(pos, kind)) {
+                return false;
+            }
+            if (kind == "Single") {
+                if (!read_expression_witnesses(pos, witness_indices)) {
+                    return false;
+                }
+            } else if (kind == "Array") {
+                uint32_t num_expressions = 0;
+                if (!read_array(pos, num_expressions)) {
+                    return false;
+                }
+                for (uint32_t j = 0; j < num_expressions; ++j) {
+                    if (!read_expression_witnesses(pos, witness_indices)) {
+                        return false;
+                    }
+                }
+            } else if (kind == "MemoryArray") {
+                uint32_t block_id = 0;
+                if (!read_uint(pos, block_id)) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        uint32_t num_outputs = 0;
+        if (!read_array(pos, num_outputs)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < num_outputs; ++i) {
+            std::string_view kind;
+            if (!read_map_size(pos, 1) || !read_str(pos, kind)) {
+                return false;
+            }
+            if (kind == "Simple") {
+                uint32_t witness = 0;
+                if (!read_uint(pos, witness)) {
+                    return false;
+                }
+                witness_indices.push_back(witness);
+            } else if (kind == "Array") {
+                uint32_t num_witnesses = 0;
+                if (!read_array(pos, num_witnesses)) {
+                    return false;
+                }
+                for (uint32_t j = 0; j < num_witnesses; ++j) {
+                    uint32_t witness = 0;
+                    if (!read_uint(pos, witness)) {
+                        return false;
+                    }
+                    witness_indices.push_back(witness);
+                }
+            } else {
+                return false;
+            }
+        }
+        return read_expression_witnesses(pos, witness_indices);
+    }
+
     const char* data_;
     size_t size_;
     size_t offset_ = 0;
     msgpack::zone zone_;
+    // Reused decoding targets of try_read_common_opcode.
+    Acir::Opcode::AssertZero assert_zero_;
+    std::vector<std::vector<uint8_t>> spare_buffers_;
+    std::vector<uint8_t> coefficient_;
+    std::vector<uint32_t> witness_indices_;
 };
 
 /**
@@ -597,6 +941,9 @@ std::optional<AcirFormat> compact_program_to_acir_format(const std::vector<uint8
             return std::nullopt;
         }
         for (uint32_t i = 0; i < *num_opcodes; ++i) {
+            if (reader.try_read_common_opcode(converter)) {
+                continue;
+            }
             Acir::Opcode opcode;
             reader.read(opcode);
             converter.add_opcode(opcode);
