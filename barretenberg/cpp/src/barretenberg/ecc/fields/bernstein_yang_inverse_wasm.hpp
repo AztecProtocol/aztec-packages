@@ -164,35 +164,7 @@ inline void Wasm9x29::reduce_to_canonical(const Wasm9x29& p) noexcept
 
 inline DivstepMatrix Wasm9x29::compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept
 {
-    i64 u = 1, v = 0, q = 0, r = 1;
-    for (int i = 0; i < BATCH; ++i) {
-        if (g_lo & 1) {
-            if (delta > 0) {
-                u64 nf = g_lo, ng = (g_lo - f_lo) >> 1;
-                i64 nu = q << 1, nv = r << 1, nq = q - u, nr = r - v;
-                f_lo = nf;
-                g_lo = ng;
-                u = nu;
-                v = nv;
-                q = nq;
-                r = nr;
-                delta = 1 - delta;
-            } else {
-                g_lo = (g_lo + f_lo) >> 1;
-                q = q + u;
-                r = r + v;
-                u <<= 1;
-                v <<= 1;
-                delta = delta + 1;
-            }
-        } else {
-            g_lo >>= 1;
-            u <<= 1;
-            v <<= 1;
-            delta = delta + 1;
-        }
-    }
-    return { u, v, q, r };
+    return compute_divsteps_vartime<BATCH>(delta, f_lo, g_lo);
 }
 
 // Streamed schoolbook: for each limb position i compute
