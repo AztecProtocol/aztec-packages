@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/groups/affine_add_packed.hpp"
 #include "barretenberg/ecc/groups/booth_recode.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "element.hpp"
@@ -1762,6 +1763,218 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     return work_elements;
 }
 
+namespace detail {
+/**
+ * @brief WASM-SIMD replay of batch_two_round_fold's op schedule over the output range [start, end).
+ *
+ * @details Same arithmetic as the scalar fold_point_range in batch_two_round_fold, but every coordinate column (the
+ * three bases' lookup tables, the accumulator, the operand, the batch-affine scratch) lives in packed VectorField
+ * form for the whole schedule: the points are packed once on entry and unpacked once on exit, and each op runs its
+ * field arithmetic VECTOR_FIELD_WIDTH points at a time with one field inversion (batch_invert). The `safe` ops (whose
+ * operands may hit a batch-affine edge case) unpack the two columns and run the projective formulas per point.
+ *
+ * @param points  The 4t SRS points (quarters P0, P1, P2, P3).
+ * @param ops     The op schedule built by batch_two_round_fold; ends initialised (its result is not the identity).
+ * @param out     work_elements; out[start..end) receives the folded points.
+ */
+template <typename Element, typename AffineElement, typename Fq>
+void two_round_fold_range_packed(std::span<const AffineElement> points,
+                                 const size_t t,
+                                 std::span<const FoldOp> ops,
+                                 const size_t start,
+                                 const size_t end,
+                                 AffineElement* out)
+{
+    using Params = typename Fq::Params;
+    using Vec = VectorField<Params>;
+    using PointSpan = VectorAffineElementPushSpan<Params>;
+    constexpr size_t W = Vec::SIZE;
+    constexpr size_t NUM_TERMS = 4;
+    constexpr size_t NUM_MULTIPLIED_BASES = 3;
+    constexpr size_t LOOKUP_SIZE = BOOTH_ENDO_LOOKUP_SIZE;
+
+    const size_t num_groups = (end - start) / W;
+    // Coordinate columns: x and y of every lookup-table entry, of the accumulator and of the operand, plus the four
+    // batch-affine scratch columns.
+    constexpr size_t NUM_COLUMNS = (2 * NUM_MULTIPLIED_BASES * LOOKUP_SIZE) + 2 + 2 + 4;
+    std::vector<Vec> backing(NUM_COLUMNS * num_groups);
+    size_t next_column = 0;
+    const auto column = [&]() {
+        std::span<Vec> col(backing.data() + (next_column * num_groups), num_groups);
+        ++next_column;
+        return col;
+    };
+    const auto make_point_span = [&]() {
+        auto x_col = column();
+        auto y_col = column();
+        return PointSpan(x_col, y_col);
+    };
+
+    std::array<std::array<PointSpan, LOOKUP_SIZE>, NUM_MULTIPLIED_BASES> tables;
+    for (auto& base_table : tables) {
+        for (auto& entry : base_table) {
+            entry = make_point_span();
+        }
+    }
+    PointSpan accum = make_point_span();
+    PointSpan to_add = make_point_span();
+    const std::array<std::span<Vec>, 4> scratch_columns{ column(), column(), column(), column() };
+    BatchAffineAddScratch<Params> add_scratch{ VectorFieldPushSpan<Params>(scratch_columns[0]),
+                                               VectorFieldPushSpan<Params>(scratch_columns[1]),
+                                               VectorFieldPushSpan<Params>(scratch_columns[2]),
+                                               VectorFieldPushSpan<Params>(scratch_columns[3]) };
+    BatchAffineDoubleScratch<Params> dbl_scratch{ VectorFieldPushSpan<Params>(scratch_columns[0]),
+                                                  VectorFieldPushSpan<Params>(scratch_columns[1]),
+                                                  VectorFieldPushSpan<Params>(scratch_columns[3]) };
+
+    const auto pack_quarter = [&](size_t quarter, PointSpan& dst) {
+        dst.reset();
+        for (size_t i = start; i < end; ++i) {
+            const AffineElement& p = points[(quarter * t) + i];
+            dst.push_point(p.x, p.y);
+        }
+    };
+
+    // Lookup tables [1·B, ..., 8·B] for the three multiplied bases.
+    for (size_t base = 0; base < NUM_MULTIPLIED_BASES; ++base) {
+        auto& table = tables[base];
+        pack_quarter(base, table[0]);
+        batch_affine_double(table[0], table[1], dbl_scratch);
+        for (size_t j = 2; j < LOOKUP_SIZE; ++j) {
+            batch_affine_add(table[0], table[j - 1], table[j], add_scratch);
+        }
+    }
+
+    // dst = ±magnitude·B for the op's term; term 2 is φ applied to base 0 (x scaled by β).
+    constexpr Fq beta = Fq::cube_root_of_unity();
+    const Vec beta_vec = Vec::broadcast(beta);
+    const auto fill_to_add = [&](size_t term, uint32_t digit, PointSpan& dst) {
+        const uint32_t magnitude = digit & 0x7FFFFFFFU;
+        const bool flip_y = ((digit >> 31) != 0) ^ (term == 2);
+        static constexpr std::array<size_t, NUM_TERMS> term_to_base{ 0, 1, 0, 2 };
+        const PointSpan& entry = tables[term_to_base[term]][magnitude - 1];
+        zip_for_each(entry.x, entry.y, dst.x, dst.y, [&](const auto& tx, const auto& ty, auto& ox, auto& oy) {
+            if (term == 2) {
+                if constexpr (std::is_same_v<std::decay_t<decltype(tx)>, Vec>) {
+                    ox = tx * beta_vec;
+                } else {
+                    ox = tx * beta;
+                }
+            } else {
+                ox = tx;
+            }
+            oy = flip_y ? -ty : ty;
+        });
+    };
+
+    // accum ← 2·accum + operand (dbl = true) or accum + operand, per point with the projective formulas.
+    const auto pointwise_safe = [&](const PointSpan& operand, bool dbl) {
+        const auto step = [&](Fq& ax, Fq& ay, const Fq& bx, const Fq& by) {
+            Element acc{ AffineElement(ax, ay) };
+            if (dbl) {
+                acc.self_dbl();
+            }
+            acc += AffineElement(bx, by);
+            const AffineElement result(acc);
+            ax = result.x;
+            ay = result.y;
+        };
+        for (size_t g = 0; g < accum.num_full_vectors(); ++g) {
+            auto ax = accum.x[g].to_array();
+            auto ay = accum.y[g].to_array();
+            const auto bx = operand.x[g].to_array();
+            const auto by = operand.y[g].to_array();
+            for (size_t lane = 0; lane < W; ++lane) {
+                step(ax[lane], ay[lane], bx[lane], by[lane]);
+            }
+            accum.x[g] = Vec(ax);
+            accum.y[g] = Vec(ay);
+        }
+        for (size_t i = 0; i < accum.tail(); ++i) {
+            step(accum.x.tail_elem(i), accum.y.tail_elem(i), operand.x.tail_elem(i), operand.y.tail_elem(i));
+        }
+    };
+
+    // accum ← 2·accum + operand via the chord-only path of batch_affine_combined_double_add_impl:
+    //   λ1 = (y2 − y1) / (x2 − x1), x3 = λ1² − x1 − x2, λ2 = −λ1 − 2·y1 / (x3 − x1),
+    //   x4 = λ2² − x1 − x3, y4 = λ2·(x1 − x4) − y1.
+    auto& s = add_scratch;
+    const auto combined_double_add = [&](const PointSpan& operand) {
+        zip_for_each(
+            accum.x,
+            accum.y,
+            operand.x,
+            operand.y,
+            s.dx,
+            s.dy,
+            s.xsum,
+            [](const auto& x1, const auto& y1, const auto& x2, const auto& y2, auto& dx, auto& dy, auto& xsum) {
+                dx = x2 - x1;
+                dy = y2 - y1;
+                xsum = x1 + x2;
+            });
+        batch_invert(s.dx, s.inv);
+        // dy ← λ1, dx ← x3 − x1.
+        zip_for_each(accum.x,
+                     s.inv,
+                     s.xsum,
+                     s.dy,
+                     s.dx,
+                     [](const auto& x1, const auto& inv, const auto& xsum, auto& dy, auto& dx) {
+                         const auto lambda1 = dy * inv;
+                         dy = lambda1;
+                         dx = lambda1 * lambda1 - xsum - x1;
+                     });
+        batch_invert(s.dx, s.inv);
+        zip_for_each(accum.x,
+                     accum.y,
+                     s.dy,
+                     s.dx,
+                     s.inv,
+                     [](auto& x1, auto& y1, const auto& lambda1, const auto& x3_minus_x1, const auto& inv) {
+                         const auto lambda2 = -lambda1 - ((y1 + y1) * inv);
+                         const auto x4 = lambda2 * lambda2 - x1 - (x3_minus_x1 + x1);
+                         const auto y4 = lambda2 * (x1 - x4) - y1;
+                         x1 = x4;
+                         y1 = y4;
+                     });
+    };
+
+    for (const FoldOp& op : ops) {
+        switch (op.kind) {
+        case FoldOpKind::DBL:
+            batch_affine_double(accum, accum, dbl_scratch);
+            break;
+        case FoldOpKind::SEED:
+            fill_to_add(op.term, op.digit, accum);
+            break;
+        case FoldOpKind::COMBINED:
+            fill_to_add(op.term, op.digit, to_add);
+            if (op.safe) {
+                pointwise_safe(to_add, /*dbl=*/true);
+            } else {
+                combined_double_add(to_add);
+            }
+            break;
+        case FoldOpKind::ADD:
+            fill_to_add(op.term, op.digit, to_add);
+            if (op.safe) {
+                pointwise_safe(to_add, /*dbl=*/false);
+            } else {
+                batch_affine_add(to_add, accum, accum, add_scratch);
+            }
+            break;
+        }
+    }
+
+    // Constant tail: + P3.
+    pack_quarter(3, to_add);
+    batch_affine_add(to_add, accum, accum, add_scratch);
+
+    accum.for_each_point([&](const Fq& x, const Fq& y, size_t k) { out[start + k] = AffineElement(x, y); });
+}
+} // namespace detail
+
 template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_two_round_fold(
     const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& u1, const Fr& u2) noexcept
@@ -1974,6 +2187,14 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_two_round_fold(
         // output is then the constant P3 quarter.
         parallel_for_heuristic(
             t, [&](size_t i) { work_elements[i] = points[3 * t + i]; }, thread_heuristics::FF_COPY_COST);
+        return work_elements;
+    }
+
+    if constexpr (simd_available_v<typename Fq::Params> && !T::has_a) {
+        parallel_for_range(t, [&](size_t start, size_t end) {
+            detail::two_round_fold_range_packed<element, affine_element, Fq>(
+                points, t, ops, start, end, work_elements.data());
+        });
         return work_elements;
     }
 
