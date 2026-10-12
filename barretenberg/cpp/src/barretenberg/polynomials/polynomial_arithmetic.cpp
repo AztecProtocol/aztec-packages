@@ -168,13 +168,16 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
         if (range.empty()) {
             return;
         }
-        size_t start = *range.begin();
-        Fr z_acc = z.pow(static_cast<uint64_t>(start));
-        for (size_t i : range) {
-            Fr work_var = z_acc * coeffs[i];
-            evaluations[chunk.thread_index] += work_var;
-            z_acc *= z;
+        // Horner's rule over the chunk gives sum_i coeffs[start + i] * z^i with one multiplication per
+        // coefficient; scaling by z^start then places the chunk. Accumulate locally and store once so threads
+        // do not write to adjacent elements of `evaluations` on every iteration.
+        const size_t start = *range.begin();
+        Fr chunk_eval = Fr::zero();
+        for (size_t i = start + range.size(); i > start; --i) {
+            chunk_eval *= z;
+            chunk_eval += coeffs[i - 1];
         }
+        evaluations[chunk.thread_index] = chunk_eval * z.pow(static_cast<uint64_t>(start));
     });
 
     Fr r = Fr::zero();
