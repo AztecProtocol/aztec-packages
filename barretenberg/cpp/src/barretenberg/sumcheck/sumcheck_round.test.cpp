@@ -1125,3 +1125,136 @@ TEST(SumcheckRound, ProverRelationPathsMegaZK)
 {
     check_prover_relation_paths<MegaZKFlavor>();
 }
+
+/**
+ * @brief Prover relation paths on edges whose selectors take gate-like values.
+ * @details Prover-only fast paths branch on selector factors that vanish or are constant on the edge (gate-type
+ * gating in the memory and lookup relations, the q_arith == 1 arithmetic path). Random polynomials never exercise
+ * those branches, so each trial gives every selector a zero, small-constant or mixed value per edge and checks every
+ * relation that does not skip the edge point by point against the value-based (verifier) accumulation, and the batched
+ * round univariate against the unbatched one.
+ */
+template <typename Flavor>
+void check_prover_relation_paths_with_gate_selectors(const std::vector<typename Flavor::EntityId>& selectors,
+                                                     const size_t num_trials)
+{
+    using FF = typename Flavor::FF;
+    using Round = SumcheckProverRound<Flavor>;
+    using Utils = bb::RelationUtils<Flavor>;
+    using EntityId = typename Flavor::EntityId;
+
+    auto& engine = numeric::get_debug_randomness();
+    // A gate-like value: mostly 0 or 1, sometimes 2, 3 or a random field element.
+    auto gate_value = [&]() {
+        const uint32_t pick = engine.get_random_uint32() % 8;
+        return pick < 3
+                   ? FF(0)
+                   : (pick < 6 ? FF(1)
+                               : (pick == 6 ? FF(2 + (engine.get_random_uint32() % 2)) : FF::random_element(&engine)));
+    };
+
+    const auto relation_parameters = bb::RelationParameters<FF>::get_random();
+    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> alphas;
+    for (auto& alpha : alphas) {
+        alpha = FF::random_element(&engine);
+    }
+    GateSeparatorPolynomial<FF> gate_separators(std::vector<FF>{ FF::random_element(&engine) }, 1);
+    const auto subrelation_batching = Round::compute_subrelation_batching(alphas);
+
+    for (size_t trial = 0; trial < num_trials; ++trial) {
+        std::vector<bb::Polynomial<FF>> polynomials(Flavor::NUM_ALL_ENTITIES);
+        typename Flavor::ProverPolynomials prover_polynomials;
+        for (auto [prover_poly, poly] : zip_view(prover_polynomials.get_all(), polynomials)) {
+            poly = bb::Polynomial<FF>::random(2);
+            prover_poly = poly.share();
+        }
+        for (const EntityId selector : selectors) {
+            auto& poly = polynomials[static_cast<size_t>(selector)];
+            // Half of the edges are constant (the same gate type on both rows), the rest mixed.
+            poly.at(0) = gate_value();
+            poly.at(1) = (engine.get_random_uint32() % 2 == 0) ? poly.at(0) : gate_value();
+        }
+        const FF scaling_factor = FF::random_element(&engine);
+
+        auto edges = Round::make_extended_edges(prover_polynomials);
+        Round::load_edge(edges, prover_polynomials, 0);
+
+        Round round(2);
+        typename Round::SumcheckTupleOfTuplesOfUnivariates unbatched{};
+        round.accumulate_relation_univariates_public(unbatched, edges, relation_parameters, scaling_factor);
+
+        for (size_t point = 0; point < Flavor::MAX_PARTIAL_RELATION_LENGTH; ++point) {
+            typename Flavor::AllValues values;
+            for (auto [value, poly] : zip_view(values.get_all(), prover_polynomials.get_all())) {
+                value = poly[0] + FF(point) * (poly[1] - poly[0]);
+            }
+            typename Utils::RelationEvaluations evaluations;
+            Utils::zero_elements(evaluations);
+            Utils::template accumulate_relation_evaluations_without_skipping<>(
+                values, evaluations, relation_parameters, scaling_factor);
+            constexpr_for<0, Flavor::NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
+                using Relation = std::tuple_element_t<relation_idx, typename Flavor::Relations>;
+                // A skipped edge is only valid for an honest witness, which these random wires are not.
+                if constexpr (isSkippable<Relation, decltype(edges)>) {
+                    if (Relation::skip(edges)) {
+                        return;
+                    }
+                }
+                const auto& relation_univariates = std::get<relation_idx>(unbatched);
+                const auto& relation_values = std::get<relation_idx>(evaluations);
+                constexpr_for<0, std::tuple_size_v<std::decay_t<decltype(relation_univariates)>>, 1>(
+                    [&]<size_t subrelation_idx>() {
+                        const auto& univariate = std::get<subrelation_idx>(relation_univariates);
+                        if (point < univariate.LENGTH) {
+                            EXPECT_EQ(univariate.value_at(point), relation_values[subrelation_idx])
+                                << "trial " << trial << " relation " << relation_idx << " subrelation "
+                                << subrelation_idx << " point " << point;
+                        }
+                    });
+            });
+        }
+
+        typename Round::SumcheckTupleOfTuplesOfUnivariates batched{};
+        round.accumulate_relation_univariates_public(
+            batched, edges, relation_parameters, scaling_factor, &subrelation_batching);
+        using RoundUnivariate = typename Round::SumcheckRoundUnivariate;
+        const auto expected = Round::template batch_over_relations<RoundUnivariate>(unbatched, alphas, gate_separators);
+        const auto result = Round::template batch_over_relations<RoundUnivariate>(batched, alphas, gate_separators);
+        EXPECT_EQ(result, expected) << "trial " << trial;
+    }
+}
+
+TEST(SumcheckRound, ProverRelationPathsWithGateSelectorsMega)
+{
+    using EntityId = MegaFlavor::EntityId;
+    check_prover_relation_paths_with_gate_selectors<MegaFlavor>({ EntityId::q_m,
+                                                                  EntityId::q_c,
+                                                                  EntityId::q_l,
+                                                                  EntityId::q_r,
+                                                                  EntityId::q_o,
+                                                                  EntityId::q_4,
+                                                                  EntityId::q_arith,
+                                                                  EntityId::q_delta_range,
+                                                                  EntityId::q_memory,
+                                                                  EntityId::q_nnf,
+                                                                  EntityId::q_lookup,
+                                                                  EntityId::q_busread,
+                                                                  EntityId::lookup_read_counts,
+                                                                  EntityId::lookup_read_tags },
+                                                                400);
+}
+
+TEST(SumcheckRound, ProverRelationPathsWithGateSelectorsMegaZK)
+{
+    using EntityId = MegaZKFlavor::EntityId;
+    check_prover_relation_paths_with_gate_selectors<MegaZKFlavor>({ EntityId::q_m,
+                                                                    EntityId::q_c,
+                                                                    EntityId::q_l,
+                                                                    EntityId::q_r,
+                                                                    EntityId::q_o,
+                                                                    EntityId::q_4,
+                                                                    EntityId::q_arith,
+                                                                    EntityId::q_delta_range,
+                                                                    EntityId::q_busread },
+                                                                  100);
+}
