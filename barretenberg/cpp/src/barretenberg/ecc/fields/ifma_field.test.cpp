@@ -99,6 +99,38 @@ TEST_F(FieldIfma, FoldStride2MatchesScalar)
     }
 }
 
+TEST_F(FieldIfma, EvaluateMatchesHorner)
+{
+    for (const size_t n : { size_t{ 16 }, size_t{ 160 }, size_t{ 1024 } }) {
+        std::vector<fr> coeffs(n);
+        for (size_t i = 0; i < n; ++i) {
+            coeffs[i] = edge_or_random(i);
+        }
+        for (const fr& z : { fr::zero(), fr::one(), -fr::one(), fr::random_element(&engine) }) {
+            fr expected = fr::zero();
+            for (size_t i = n; i > 0; --i) {
+                expected = (expected * z) + coeffs[i - 1];
+            }
+            std::array<fr, 8> z_pows;
+            z_pows[0] = fr::one();
+            for (size_t j = 1; j < 8; ++j) {
+                z_pows[j] = z_pows[j - 1] * z;
+            }
+            const fr z8 = z_pows[7] * z;
+            const fr z16 = z8.sqr();
+            std::array<fr, 8> terms;
+            field_ifma::evaluate<fr::Params>(
+                &coeffs[0].data[0], n, &z_pows[0].data[0], &z8.data[0], &z16.data[0], &terms[0].data[0]);
+            fr sum = fr::zero();
+            for (const fr& t : terms) {
+                EXPECT_LT((uint256_t{ t.data[0], t.data[1], t.data[2], t.data[3] }), fr::modulus);
+                sum += t;
+            }
+            EXPECT_EQ(sum, expected);
+        }
+    }
+}
+
 TEST_F(FieldIfma, AddScaledBatchTileMatchesScalar)
 {
     constexpr size_t TILE = field_ifma::MAX_TILE;

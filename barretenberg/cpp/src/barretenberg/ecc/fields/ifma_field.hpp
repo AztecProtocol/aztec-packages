@@ -333,6 +333,37 @@ BB_FIELD_IFMA_TARGET void fold_stride2(const uint64_t* src, uint64_t* dst, size_
 }
 
 /**
+ * @brief Horner evaluation split over 16 interleaved chains: writes eight elements t_0 .. t_7 (in [0, p), 4-limb
+ *        layout) to `out` whose sum is sum_i coeffs[i] * z^i for i < n. coeffs are raw 4-limb elements in [0, 2p) and
+ *        n must be a multiple of 16; `z_pows` holds z^0 .. z^7, `z8` = z^8 and `z16` = z^16, each below 2p.
+ *
+ * @details Lane j of chain A accumulates sum_m coeffs[16m + j] z^(16m) and chain B sum_m coeffs[16m + 8 + j] z^(16m)
+ *          by Horner's rule from the top, so two independent multiplications are in flight per step. Then
+ *          t_j = z^j (A_j + z^8 B_j).
+ */
+template <typename Params>
+BB_FIELD_IFMA_TARGET void evaluate(
+    const uint64_t* coeffs, size_t n, const uint64_t* z_pows, const uint64_t* z8, const uint64_t* z16, uint64_t* out)
+{
+    const V5 z16v = broadcast(z16);
+    V5 a;
+    V5 b;
+    for (size_t i = 0; i < 5; ++i) {
+        a.l[i] = _mm512_setzero_si512();
+        b.l[i] = _mm512_setzero_si512();
+    }
+    // The accumulators stay below 4.9p (fixed point of x -> 0.19 * 2x + 1 + 2).
+    for (size_t i = n; i != 0;) {
+        i -= 16;
+        a = add(mont_mul<Params>(a, z16v), load8(coeffs + (4 * i)));
+        b = add(mont_mul<Params>(b, z16v), load8(coeffs + (4 * (i + 8))));
+    }
+    // a + z^8 b < 4.9p + 2.9p; reduce before the last multiplication.
+    const V5 lanes = canonical<Params>(add(a, mont_mul<Params>(b, broadcast(z8))));
+    store8(canonical<Params>(mont_mul<Params>(lanes, load8(z_pows))), out);
+}
+
+/**
  * @brief One source of `add_scaled_batch_tile`: tile elements [begin, end) gain scalar * src, where `data` points at
  *        the source element for tile index `begin`. A unit scalar (`unit`) adds src without multiplying.
  */

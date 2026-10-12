@@ -8,10 +8,12 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/fields/ifma_field.hpp"
 #include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/accumulator.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include <array>
 #include <math.h>
 #include <memory.h>
 
@@ -173,6 +175,39 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
         // interleaved so that their multiplication chains overlap. Accumulate locally and store once so threads
         // do not write to adjacent elements of `evaluations` on every iteration.
         const size_t start = *range.begin();
+#ifdef BB_FIELD_IFMA
+        // AVX-512 IFMA: sixteen interleaved Horner chains over the largest multiple of 16 coefficients, the rest by
+        // scalar Horner, then the chunk is placed at z^start as below.
+        if constexpr (field_ifma::Consts<typename Fr::Params>::supported) {
+            if (field_ifma::available()) {
+                const size_t bulk_size = range.size() & ~size_t{ 15 };
+                std::array<Fr, 8> z_pows;
+                z_pows[0] = Fr::one();
+                for (size_t j = 1; j < 8; ++j) {
+                    z_pows[j] = z_pows[j - 1] * z;
+                }
+                const Fr z8 = z_pows[7] * z;
+                const Fr z16 = z8.sqr();
+                std::array<Fr, 8> terms;
+                field_ifma::evaluate<typename Fr::Params>(&coeffs[start].data[0],
+                                                          bulk_size,
+                                                          &z_pows[0].data[0],
+                                                          &z8.data[0],
+                                                          &z16.data[0],
+                                                          &terms[0].data[0]);
+                Fr tail_eval = Fr::zero();
+                for (size_t i = range.size(); i > bulk_size; --i) {
+                    tail_eval = (tail_eval * z) + coeffs[start + i - 1];
+                }
+                Fr chunk_eval = tail_eval * z.pow(static_cast<uint64_t>(bulk_size));
+                for (const Fr& term : terms) {
+                    chunk_eval += term;
+                }
+                evaluations[chunk.thread_index] = chunk_eval * z.pow(static_cast<uint64_t>(start));
+                return;
+            }
+        }
+#endif
         const size_t low_size = range.size() / 2;
         const size_t high_size = range.size() - low_size;
         const Fr* low = coeffs + start;
