@@ -89,12 +89,20 @@ void add_batched_linear_quotients(std::span<Fr> quotient, std::span<const Linear
             const size_t hi = chunk_start(chunk + 1);
             for (size_t j = 0; j < num_terms; ++j) {
                 const auto& term = terms[j];
-                const size_t end = std::min(hi, quotient_size(term));
-                Fr acc = Fr::zero();
-                for (size_t k = end; k > lo; --k) {
-                    acc = acc * term.root + term.coefficients[k];
+                const size_t end = std::max(std::min(hi, quotient_size(term)), lo);
+                // Horner's rule on the two halves of the chunk, interleaved so that the two multiplication chains
+                // overlap
+                const size_t low_size = (end - lo) / 2;
+                const size_t high_size = (end - lo) - low_size;
+                const Fr* low = term.coefficients.data() + lo;
+                const Fr* high = low + low_size;
+                Fr low_acc = Fr::zero();
+                Fr high_acc = (high_size > low_size) ? high[high_size] : Fr::zero();
+                for (size_t k = low_size; k > 0; --k) {
+                    low_acc = (low_acc * term.root) + low[k];
+                    high_acc = (high_acc * term.root) + high[k];
                 }
-                chunk_horner[(chunk * num_terms) + j] = acc;
+                chunk_horner[(chunk * num_terms) + j] = low_acc + (term.root.pow(low_size) * high_acc);
             }
         });
         for (size_t j = 0; j < num_terms; ++j) {
@@ -114,23 +122,47 @@ void add_batched_linear_quotients(std::span<Fr> quotient, std::span<const Linear
     parallel_for(num_chunks, [&](size_t chunk) {
         const size_t lo = chunk_start(chunk);
         const size_t hi = chunk_start(chunk + 1);
-        for (size_t j = 0; j < num_terms; ++j) {
-            const auto& term = terms[j];
-            const size_t end = std::min(hi, quotient_size(term));
-            Fr q = boundary_values[(chunk * num_terms) + j];
+        // Runs the recurrence of one term for i = from, …, to + 1
+        auto run_single = [&](const LinearQuotientTerm<Fr>& term, Fr& q, size_t from, size_t to) {
             if (term.scalar == Fr::one()) {
-                for (size_t i = end; i > lo; --i) {
+                for (size_t i = from; i > to; --i) {
                     q = q * term.root + term.coefficients[i];
                     quotient[i - 1] += q;
                 }
             } else {
-                for (size_t i = end; i > lo; --i) {
+                for (size_t i = from; i > to; --i) {
                     q = q * term.root + term.coefficients[i];
                     quotient[i - 1] += term.scalar * q;
                 }
             }
+        };
+        // Terms are processed in pairs so that two independent recurrences overlap
+        for (size_t j = 0; j < num_terms; j += 2) {
+            const auto& term_a = terms[j];
+            const size_t end_a = std::max(std::min(hi, quotient_size(term_a)), lo);
+            Fr q_a = boundary_values[(chunk * num_terms) + j];
+            if (j + 1 == num_terms) {
+                run_single(term_a, q_a, end_a, lo);
+                if (chunk == 0) {
+                    lowest_coefficients[j] = q_a;
+                }
+                continue;
+            }
+            const auto& term_b = terms[j + 1];
+            const size_t end_b = std::max(std::min(hi, quotient_size(term_b)), lo);
+            Fr q_b = boundary_values[(chunk * num_terms) + j + 1];
+            // The longer term runs alone down to the end of the shorter one
+            const size_t common_end = std::min(end_a, end_b);
+            run_single(term_a, q_a, end_a, common_end);
+            run_single(term_b, q_b, end_b, common_end);
+            for (size_t i = common_end; i > lo; --i) {
+                q_a = q_a * term_a.root + term_a.coefficients[i];
+                q_b = q_b * term_b.root + term_b.coefficients[i];
+                quotient[i - 1] += (term_a.scalar * q_a) + (term_b.scalar * q_b);
+            }
             if (chunk == 0) {
-                lowest_coefficients[j] = q;
+                lowest_coefficients[j] = q_a;
+                lowest_coefficients[j + 1] = q_b;
             }
         }
     });
