@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/batched_linear_quotient.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
@@ -72,30 +73,28 @@ template <typename Curve> class ShplonkProver_ {
         }
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
-        Polynomial tmp(max_poly_size);
+
+        std::vector<LinearQuotientTerm<Fr>> terms;
+        terms.reserve((2 * opening_claims.size()) + libra_opening_claims.size() + sumcheck_round_claims.size());
+        auto add_term =
+            [&](const ProverOpeningClaim<Curve>& claim, const Fr& root, const Fr& evaluation, Fr& nu_power) {
+                BB_ASSERT_EQ(claim.polynomial.start_index(), size_t{ 0 });
+                terms.push_back({ .coefficients = claim.polynomial.coeffs(),
+                                  .root = root,
+                                  .evaluation = evaluation,
+                                  .scalar = nu_power });
+                nu_power *= nu;
+            };
 
         Fr current_nu = Fr::one();
 
         size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
-
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
-                tmp = claim.polynomial;
-                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
-                tmp.factor_roots(-claim.opening_pair.challenge);
-                // Add the claim quotient to the batched quotient polynomial
-                Q.add_scaled(tmp, current_nu);
-                current_nu *= nu;
+                add_term(claim, -claim.opening_pair.challenge, gemini_fold_pos_evaluations[fold_idx++], current_nu);
             }
-
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            tmp.factor_roots(claim.opening_pair.challenge);
-            // Add the claim quotient to the batched quotient polynomial
-            Q.add_scaled(tmp, current_nu);
-            current_nu *= nu;
+            add_term(claim, claim.opening_pair.challenge, claim.opening_pair.evaluation, current_nu);
         }
         // Libra and sumcheck opening claims are batched immediately after the Gemini fold claims, reusing the same
         // batching challenge nu. They start at nu^{2 * virtual_log_n}.  Guard on either Libra or sumcheck claims being
@@ -105,29 +104,13 @@ template <typename Curve> class ShplonkProver_ {
             // rounds, each opened at two points (±r^{2^i}), including the dummy padding folds.
             current_nu = nu.pow(2 * virtual_log_n);
         }
-
-        for (const auto& claim : libra_opening_claims) {
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            tmp.factor_roots(claim.opening_pair.challenge);
-
-            // Add the claim quotient to the batched quotient polynomial
-            Q.add_scaled(tmp, current_nu);
-            current_nu *= nu;
+        for (const auto& claim_set : { libra_opening_claims, sumcheck_round_claims }) {
+            for (const auto& claim : claim_set) {
+                add_term(claim, claim.opening_pair.challenge, claim.opening_pair.evaluation, current_nu);
+            }
         }
 
-        for (const auto& claim : sumcheck_round_claims) {
-
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            tmp.factor_roots(claim.opening_pair.challenge);
-
-            // Add the claim quotient to the batched quotient polynomial
-            Q.add_scaled(tmp, current_nu);
-            current_nu *= nu;
-        }
+        add_batched_linear_quotients(Q.coeffs(), std::span<const LinearQuotientTerm<Fr>>(terms));
         // Return batched quotient polynomial Q(X)
         return Q;
     };
@@ -182,24 +165,34 @@ template <typename Curve> class ShplonkProver_ {
         // s.t. G(r) = 0
         Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
 
+        // G -= ∑ⱼ sⱼ⋅fⱼ(X) is applied in one batched pass; the constant ∑ⱼ sⱼ⋅vⱼ is accumulated separately. A Gemini
+        // fold polynomial opened at both ±r^{2^j} enters once, with the sum of its two scaling factors.
+        std::vector<PolynomialSpan<const Fr>> sources;
+        std::vector<Fr> scalars;
+        sources.reserve(num_opening_claims);
+        scalars.reserve(num_opening_claims);
+        Fr constant_term = Fr::zero();
+
         Fr current_nu = Fr::one();
         size_t idx = 0;
 
         size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
-
+            Fr claim_scaling_factor = Fr::zero();
             if (claim.gemini_fold) {
                 // G -= νʲ ⋅ ( fⱼ(X) − vⱼ₊) / ( z + xⱼ ), where vⱼ₊ is the positive fold evaluation
                 Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z + xⱼ )
-                G.add_scaled(claim.polynomial, -scaling_factor);
-                G.at(0) = G[0] + scaling_factor * gemini_fold_pos_evaluations[fold_idx++];
+                claim_scaling_factor += scaling_factor;
+                constant_term += scaling_factor * gemini_fold_pos_evaluations[fold_idx++];
 
                 current_nu *= nu_challenge;
             }
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            G.add_scaled(claim.polynomial, -scaling_factor);
-            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
+            claim_scaling_factor += scaling_factor;
+            constant_term += scaling_factor * claim.opening_pair.evaluation;
+            sources.emplace_back(claim.polynomial);
+            scalars.emplace_back(-claim_scaling_factor);
 
             current_nu *= nu_challenge;
         }
@@ -213,22 +206,22 @@ template <typename Curve> class ShplonkProver_ {
             current_nu = nu_challenge.pow(2 * virtual_log_n);
         }
 
-        for (const auto& claim : libra_opening_claims) {
-            // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            G.add_scaled(claim.polynomial, -scaling_factor);
-            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
-            current_nu *= nu_challenge;
+        for (const auto& claim_set : { libra_opening_claims, sumcheck_opening_claims }) {
+            for (const auto& claim : claim_set) {
+                // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
+                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
+                constant_term += scaling_factor * claim.opening_pair.evaluation;
+                sources.emplace_back(claim.polynomial);
+                scalars.emplace_back(-scaling_factor);
+                current_nu *= nu_challenge;
+            }
         }
 
-        for (const auto& claim : sumcheck_opening_claims) {
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            G.add_scaled(claim.polynomial, -scaling_factor);
-            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
-            current_nu *= nu_challenge;
-        }
+        add_scaled_batch(G, std::span<const PolynomialSpan<const Fr>>(sources), std::span<const Fr>(scalars));
+        G.at(0) = G[0] + constant_term;
+
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
-        return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
+        return { .polynomial = std::move(G), .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
     /**
      * @brief Compute evaluations of fold polynomials Fold_i at r^{2^i} for i>0.
