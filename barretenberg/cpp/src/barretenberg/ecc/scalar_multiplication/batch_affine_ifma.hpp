@@ -274,11 +274,22 @@ template <size_t CAP> struct DrainBuffer {
     alignas(64) uint64_t dx[5][CAP];
     alignas(64) uint64_t pre[5][CAP];
     uint32_t pair_dest[CAP];
+
+    template <typename BaseField>
+    void push(size_t k, const BaseField& x1, const BaseField& y1, const BaseField& x2, const BaseField& y2) noexcept
+    {
+        for (size_t i = 0; i < 4; ++i) {
+            lx[i][k] = x1.data[i];
+            ly[i][k] = y1.data[i];
+            rx[i][k] = x2.data[i];
+            ry[i][k] = y2.data[i];
+        }
+    }
 };
 
 /**
- * @brief Batch affine addition with one shared inversion: out[pair_dest[k]] = lhs[k] + rhs[k] for k < n, where the
- *        operands sit in `buf` and `out` points to affine elements laid out as {x, y} bb field elements.
+ * @brief Batch affine addition with one shared inversion: sink(k, x3, y3) receives lhs[k] + rhs[k] for each of the n
+ *        pairs queued in `buf`.
  *
  * @details The pairs are spread over 8 independent Montgomery prefix chains, one per lane: pair k belongs to lane k % 8
  *          at step k / 8. The forward pass forms dx and the running prefix products, the 8 chain products are inverted
@@ -288,8 +299,8 @@ template <size_t CAP> struct DrainBuffer {
  *          into [0, p). The caller guarantees lhs.x != rhs.x for every pair (so no dx is zero), as for the scalar
  *          drain.
  */
-template <typename BaseField, typename AffineElement, size_t CAP>
-BB_IFMA_TARGET void drain_vector(DrainBuffer<CAP>& buf, size_t n, AffineElement* out)
+template <typename BaseField, size_t CAP, typename Sink>
+BB_IFMA_TARGET void drain_vector(DrainBuffer<CAP>& buf, size_t n, Sink&& sink)
 {
     using Params = typename BaseField::Params;
     using C = Consts<Params>;
@@ -369,11 +380,9 @@ BB_IFMA_TARGET void drain_vector(DrainBuffer<CAP>& buf, size_t n, AffineElement*
         store64(y3, oy[0], oy[1], oy[2], oy[3]);
         const size_t live = std::min<size_t>(8, n - k);
         for (size_t l = 0; l < live; ++l) {
-            AffineElement& dst = out[buf.pair_dest[k + l]];
-            for (size_t i = 0; i < 4; ++i) {
-                dst.x.data[i] = ox[i][l];
-                dst.y.data[i] = oy[i][l];
-            }
+            sink(k + l,
+                 BaseField{ ox[0][l], ox[1][l], ox[2][l], ox[3][l] },
+                 BaseField{ oy[0][l], oy[1][l], oy[2][l], oy[3][l] });
         }
     }
 }
@@ -382,8 +391,8 @@ BB_IFMA_TARGET void drain_vector(DrainBuffer<CAP>& buf, size_t n, AffineElement*
 // what it saves; such drains run the scalar formulas on the same queue.
 inline constexpr size_t SMALL_DRAIN_MAX_PAIRS = 6;
 
-template <typename BaseField, typename AffineElement, size_t CAP>
-void drain_small(const DrainBuffer<CAP>& buf, size_t n, AffineElement* out)
+template <typename BaseField, size_t CAP, typename Sink>
+void drain_small(const DrainBuffer<CAP>& buf, size_t n, Sink&& sink)
 {
     const auto lhs_x = [&](size_t k) { return BaseField{ buf.lx[0][k], buf.lx[1][k], buf.lx[2][k], buf.lx[3][k] }; };
     const auto rhs_x = [&](size_t k) { return BaseField{ buf.rx[0][k], buf.rx[1][k], buf.rx[2][k], buf.rx[3][k] }; };
@@ -407,23 +416,33 @@ void drain_small(const DrainBuffer<CAP>& buf, size_t n, AffineElement* out)
         const BaseField y2{ buf.ry[0][k], buf.ry[1][k], buf.ry[2][k], buf.ry[3][k] };
         const BaseField slope = (y2 - y1) * inv;
         const BaseField x3 = slope.sqr() - (x1 + rhs_x(k));
-        auto& dst = out[buf.pair_dest[k]];
-        dst.y = slope * (x1 - x3) - y1;
-        dst.x = x3;
+        sink(k, x3, slope * (x1 - x3) - y1);
     }
 }
 
 /**
- * @brief out[pair_dest[k]] = lhs[k] + rhs[k] for the n queued pairs (affine, one shared inversion).
+ * @brief sink(k, x3, y3) receives lhs[k] + rhs[k] (affine) for each of the n queued pairs; one shared inversion.
  */
-template <typename BaseField, typename AffineElement, size_t CAP>
-void drain(DrainBuffer<CAP>& buf, size_t n, AffineElement* out)
+template <typename BaseField, size_t CAP, typename Sink> void drain(DrainBuffer<CAP>& buf, size_t n, Sink&& sink)
 {
     if (n <= SMALL_DRAIN_MAX_PAIRS) {
-        drain_small<BaseField>(buf, n, out);
+        drain_small<BaseField>(buf, n, sink);
     } else {
-        drain_vector<BaseField>(buf, n, out);
+        drain_vector<BaseField>(buf, n, sink);
     }
+}
+
+/**
+ * @brief out[pair_dest[k]] = lhs[k] + rhs[k] for the n queued pairs, `out` an array of affine elements.
+ */
+template <typename BaseField, size_t CAP, typename AffineElement>
+void drain_to(DrainBuffer<CAP>& buf, size_t n, AffineElement* out)
+{
+    drain<BaseField>(buf, n, [&](size_t k, const BaseField& x, const BaseField& y) {
+        AffineElement& dst = out[buf.pair_dest[k]];
+        dst.x = x;
+        dst.y = y;
+    });
 }
 
 } // namespace bb::scalar_multiplication::ifma

@@ -2307,15 +2307,10 @@ template <typename Curve> void ifma_drain_matches_affine_add()
                 l.x = coarse(l.x);
                 r.y = coarse(r.y);
             }
-            for (size_t i = 0; i < 4; ++i) {
-                buf->lx[i][k] = l.x.data[i];
-                buf->ly[i][k] = l.y.data[i];
-                buf->rx[i][k] = r.x.data[i];
-                buf->ry[i][k] = r.y.data[i];
-            }
+            buf->push(k, l.x, l.y, r.x, r.y);
             buf->pair_dest[k] = static_cast<uint32_t>((2 * n) - 1 - (2 * k)); // scattered destinations
         }
-        scalar_multiplication::ifma::drain<BaseField>(*buf, n, out.data());
+        scalar_multiplication::ifma::drain_to<BaseField>(*buf, n, out.data());
         for (size_t k = 0; k < n; ++k) {
             const AffineElement& got = out[(2 * n) - 1 - (2 * k)];
             EXPECT_EQ(got, AffineElement(Element(lhs[k]) + Element(rhs[k]))) << "n=" << n << " k=" << k;

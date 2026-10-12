@@ -412,6 +412,15 @@ template <typename Curve> void tree_reduce_in_place_scalar(ThreadScratch<Curve>&
 // rather than in the MSM arena, so the arena layout is the same with and without IFMA.
 inline constexpr size_t IFMA_BATCH_CAPACITY = 256;
 
+inline ifma::DrainBuffer<IFMA_BATCH_CAPACITY>& ifma_drain_buffer()
+{
+    static thread_local std::unique_ptr<ifma::DrainBuffer<IFMA_BATCH_CAPACITY>> thread_buffer;
+    if (!thread_buffer) {
+        thread_buffer = std::make_unique<ifma::DrainBuffer<IFMA_BATCH_CAPACITY>>();
+    }
+    return *thread_buffer;
+}
+
 /**
  * @brief tree_reduce_in_place's level walk with the batch-affine drain run by the AVX-512 IFMA kernel
  *        (`ifma::drain`). Identical pairing and compaction; only the drain arithmetic differs.
@@ -420,12 +429,7 @@ template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s
 {
     using BaseField = typename Curve::BaseField;
     using AffineElement = typename Curve::AffineElement;
-    using Buffer = ifma::DrainBuffer<IFMA_BATCH_CAPACITY>;
-    static thread_local std::unique_ptr<Buffer> thread_buffer;
-    if (!thread_buffer) {
-        thread_buffer = std::make_unique<Buffer>();
-    }
-    Buffer& buf = *thread_buffer;
+    auto& buf = ifma_drain_buffer();
     AffineElement* pts = s.curr_pts.data();
     size_t curr_len = initial_len;
 
@@ -437,12 +441,7 @@ template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s
 
         while (i < curr_len) {
             if (i + 1 < curr_len && s.curr_buckets[i] == s.curr_buckets[i + 1]) {
-                for (size_t l = 0; l < 4; ++l) {
-                    buf.lx[l][pair_count] = pts[i].x.data[l];
-                    buf.ly[l][pair_count] = pts[i].y.data[l];
-                    buf.rx[l][pair_count] = pts[i + 1].x.data[l];
-                    buf.ry[l][pair_count] = pts[i + 1].y.data[l];
-                }
+                buf.push(pair_count, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
                 s.curr_buckets[next_len] = s.curr_buckets[i];
                 buf.pair_dest[pair_count] = static_cast<uint32_t>(next_len);
                 ++next_len;
@@ -451,7 +450,7 @@ template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s
                 made_pair = true;
 
                 if (pair_count >= IFMA_BATCH_CAPACITY) {
-                    ifma::drain<BaseField>(buf, pair_count, pts);
+                    ifma::drain_to<BaseField>(buf, pair_count, pts);
                     pair_count = 0;
                 }
             } else {
@@ -463,7 +462,7 @@ template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s
         }
 
         if (pair_count > 0) {
-            ifma::drain<BaseField>(buf, pair_count, pts);
+            ifma::drain_to<BaseField>(buf, pair_count, pts);
         }
 
         if (!made_pair) {
@@ -474,6 +473,34 @@ template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s
     }
 
     s.result_len = curr_len;
+}
+
+/**
+ * @brief Stage 6b twin of batch_affine_add_indexed_scalar on the IFMA drain: (x, y)[dst] += (x, y)[src] for every
+ *        (dst, src) pair, one inversion per IFMA_BATCH_CAPACITY pairs.
+ *
+ * @details Same preconditions as the scalar kernel (distinct x per pair, distinct dst indices, dst set disjoint from
+ *          src set), so draining in chunks never reads a slot an earlier chunk wrote.
+ */
+template <typename BaseField>
+void batch_affine_add_indexed_ifma(BaseField* x,
+                                   BaseField* y,
+                                   const std::pair<uint32_t, uint32_t>* pairs,
+                                   size_t num_pairs) noexcept
+{
+    auto& buf = ifma_drain_buffer();
+    for (size_t base = 0; base < num_pairs; base += IFMA_BATCH_CAPACITY) {
+        const size_t n = std::min(IFMA_BATCH_CAPACITY, num_pairs - base);
+        const auto* chunk = pairs + base;
+        for (size_t k = 0; k < n; ++k) {
+            const auto [dst, src] = chunk[k];
+            buf.push(k, x[src], y[src], x[dst], y[dst]);
+        }
+        ifma::drain<BaseField>(buf, n, [&](size_t k, const BaseField& x3, const BaseField& y3) {
+            x[chunk[k].first] = x3;
+            y[chunk[k].first] = y3;
+        });
+    }
 }
 #endif
 
@@ -916,6 +943,14 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                 return;
             }
         }
+#ifdef BB_MSM_IFMA
+        if constexpr (ifma::Consts<BaseParams>::supported) {
+            if (ifma::ifma_available()) {
+                batch_affine_add_indexed_ifma(dense_x, dense_y, reals, count);
+                return;
+            }
+        }
+#endif
         bb::group_elements::batch_affine_add_indexed_scalar(s.dense_buckets, reals, count, inv_scratch);
     };
     auto batched_double = [&](size_t count) {
