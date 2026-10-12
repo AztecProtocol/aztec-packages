@@ -4,7 +4,9 @@
 #include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include <array>
 #include <cstddef>
+#include <cstdint>
 
 namespace bb {
 
@@ -48,6 +50,26 @@ void fold_stride2(
         using Vec = VectorField<typename Fr::Params>;
         const Vec challenge_vec = Vec::broadcast(challenge);
         for (; k + WIDTH <= end; k += WIDTH) {
+            // A block whose WIDTH source pairs are all bit-identical (constant selector runs, zero padding) folds to
+            // the even values; copy them instead of packing and multiplying.
+            if (2 * k >= src.start_index() && 2 * (k + WIDTH) <= src.end_index()) {
+                const Fr* pairs = src.data() + (2 * k - src.start_index());
+                uint64_t diff = 0;
+                for (size_t j = 0; j < 2 * WIDTH; j += 2) {
+                    diff |= (pairs[j].data[0] ^ pairs[j + 1].data[0]) | (pairs[j].data[1] ^ pairs[j + 1].data[1]) |
+                            (pairs[j].data[2] ^ pairs[j + 1].data[2]) | (pairs[j].data[3] ^ pairs[j + 1].data[3]);
+                }
+                if (diff == 0) {
+                    std::array<Fr, WIDTH> evens;
+                    for (size_t lane = 0; lane < WIDTH; ++lane) {
+                        evens[lane] = pairs[2 * lane];
+                    }
+                    for (size_t lane = 0; lane < WIDTH; ++lane) {
+                        dst[ScalarIndex{ k + lane }] = evens[lane];
+                    }
+                    continue;
+                }
+            }
             const Vec even = Vec::from_lanes([&](size_t lane) { return src[2 * (k + lane)]; });
             const Vec odd = Vec::from_lanes([&](size_t lane) { return src[2 * (k + lane) + 1]; });
             dst[ContiguousVectorIndex<WIDTH>{ k }] = even + (odd - even) * challenge_vec;
