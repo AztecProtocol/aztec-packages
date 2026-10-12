@@ -77,7 +77,9 @@ void ChonkAPI::prove(const Flags& flags,
     BB_BENCH_NAME("ChonkAPI::prove");
     bbapi::BBApiRequest request;
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
-    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
+    // Steps stay compressed until their turn: only the step being accumulated holds its decompressed bytecode and
+    // witness.
+    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load(input_path);
 
     std::vector<CircuitKind> kinds;
     kinds.reserve(raw_steps.size());
@@ -88,6 +90,7 @@ void ChonkAPI::prove(const Flags& flags,
     info("Chonk: starting with ", raw_steps.size(), " circuits");
 
     for (auto& step : raw_steps) {
+        step.self_decompress();
         bbapi::ChonkLoad{
             .circuit = { .name = step.function_name,
                          .bytecode = std::move(step.bytecode),
