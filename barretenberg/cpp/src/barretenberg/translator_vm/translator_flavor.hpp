@@ -1146,6 +1146,33 @@ class TranslatorFlavor {
             }
             return result;
         }
+        /**
+         * @brief Returns, at one point of the boolean hypercube, only the evaluations read by the numerator and
+         * denominator of TranslatorPermutationRelation (the grand product computation). All other entries of the
+         * returned AllValues are left uninitialized.
+         */
+        [[nodiscard]] AllValues get_row_for_grand_product(size_t row_idx) const
+        {
+            const auto value_at = [row_idx](const Polynomial& polynomial) {
+                return (row_idx >= polynomial.start_index() && row_idx < polynomial.end_index()) ? polynomial[row_idx]
+                                                                                                 : FF(0);
+            };
+            AllValues result;
+            result.concatenated_range_constraints_0 = value_at(this->concatenated_range_constraints_0);
+            result.concatenated_range_constraints_1 = value_at(this->concatenated_range_constraints_1);
+            result.concatenated_range_constraints_2 = value_at(this->concatenated_range_constraints_2);
+            result.concatenated_range_constraints_3 = value_at(this->concatenated_range_constraints_3);
+            result.ordered_extra_range_constraints_numerator =
+                value_at(this->ordered_extra_range_constraints_numerator);
+            result.ordered_range_constraints_0 = value_at(this->ordered_range_constraints_0);
+            result.ordered_range_constraints_1 = value_at(this->ordered_range_constraints_1);
+            result.ordered_range_constraints_2 = value_at(this->ordered_range_constraints_2);
+            result.ordered_range_constraints_3 = value_at(this->ordered_range_constraints_3);
+            result.ordered_range_constraints_4 = value_at(this->ordered_range_constraints_4);
+            result.lagrange_masking = value_at(this->lagrange_masking);
+            result.lagrange_ordered_masking = value_at(this->lagrange_ordered_masking);
+            return result;
+        }
         // Set all shifted polynomials based on their to-be-shifted counterpart.
         // Uses get_all_to_be_shifted() (86 entries for Sumcheck), not get_to_be_shifted() (9 entries for PCS).
         void set_shifted()

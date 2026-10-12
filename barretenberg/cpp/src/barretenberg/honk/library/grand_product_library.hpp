@@ -127,6 +127,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             // TODO: consider avoiding get_row if possible.
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(poly_idx);
+            } else if constexpr (requires { full_polynomials.get_row_for_grand_product(poly_idx); }) {
+                row = full_polynomials.get_row_for_grand_product(poly_idx);
             } else {
                 row = full_polynomials.get_row(poly_idx);
             }
