@@ -169,15 +169,22 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
             return;
         }
         // Horner's rule over the chunk gives sum_i coeffs[start + i] * z^i with one multiplication per
-        // coefficient; scaling by z^start then places the chunk. Accumulate locally and store once so threads
+        // coefficient; scaling by z^start then places the chunk. The two halves of the chunk are evaluated
+        // interleaved so that their multiplication chains overlap. Accumulate locally and store once so threads
         // do not write to adjacent elements of `evaluations` on every iteration.
         const size_t start = *range.begin();
-        Fr chunk_eval = Fr::zero();
-        for (size_t i = start + range.size(); i > start; --i) {
-            chunk_eval *= z;
-            chunk_eval += coeffs[i - 1];
+        const size_t low_size = range.size() / 2;
+        const size_t high_size = range.size() - low_size;
+        const Fr* low = coeffs + start;
+        const Fr* high = low + low_size;
+        Fr low_eval = Fr::zero();
+        Fr high_eval = (high_size > low_size) ? high[low_size] : Fr::zero();
+        for (size_t i = low_size; i > 0; --i) {
+            low_eval = (low_eval * z) + low[i - 1];
+            high_eval = (high_eval * z) + high[i - 1];
         }
-        evaluations[chunk.thread_index] = chunk_eval * z.pow(static_cast<uint64_t>(start));
+        evaluations[chunk.thread_index] =
+            (low_eval + high_eval * z.pow(static_cast<uint64_t>(low_size))) * z.pow(static_cast<uint64_t>(start));
     });
 
     Fr r = Fr::zero();
