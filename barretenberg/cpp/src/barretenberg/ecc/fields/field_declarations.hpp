@@ -275,8 +275,18 @@ template <class Params_> struct alignas(32) field {
     }
 
     static constexpr field zero() { return field(0, 0, 0, 0); }
-    static constexpr field neg_one() { return -field(1); }
-    static constexpr field one() { return field(1); }
+    // The constexpr locals force the Montgomery conversion to happen at compile time; returning field(1) directly
+    // performs it at runtime on every call.
+    static constexpr field neg_one()
+    {
+        constexpr field result = -field(1);
+        return result;
+    }
+    static constexpr field one()
+    {
+        constexpr field result(1);
+        return result;
+    }
 
     static constexpr field coset_generator()
     {
