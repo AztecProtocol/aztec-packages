@@ -56,7 +56,15 @@ void fold_stride2(
 #endif
     for (; k < end; ++k) {
         const Fr even = src[2 * k];
-        dst[ScalarIndex{ k }] = even + challenge * (src[2 * k + 1] - even);
+        const Fr odd = src[2 * k + 1];
+        // Equal neighbours (constant selector runs, zero padding inside the active extent) fold to themselves, so
+        // skip the multiplication. Only bit-identical representations are short-cut.
+        if (even.data[0] == odd.data[0] && even.data[1] == odd.data[1] && even.data[2] == odd.data[2] &&
+            even.data[3] == odd.data[3]) {
+            dst[ScalarIndex{ k }] = even;
+        } else {
+            dst[ScalarIndex{ k }] = even + challenge * (odd - even);
+        }
     }
 }
 
