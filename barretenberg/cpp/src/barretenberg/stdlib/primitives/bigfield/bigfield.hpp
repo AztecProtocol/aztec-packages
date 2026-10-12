@@ -670,17 +670,20 @@ template <typename Builder, typename T> class bigfield {
      * @details We need it for division. If we always add this element during division, then we never run into the
      * formula-breaking situation
      */
-    static constexpr bigfield unreduced_zero()
+    static bigfield unreduced_zero()
     {
-        uint512_t multiple_of_modulus = ((get_maximum_unreduced_value() / modulus_u512) + 1) * modulus_u512;
-        auto msb = multiple_of_modulus.get_msb();
+        // The multiple of the modulus is a fixed value, so it is computed once
+        static const uint512_t multiple_of_modulus =
+            ((get_maximum_unreduced_value() / modulus_u512) + 1) * modulus_u512;
+        static const uint256_t prime_basis_value = (multiple_of_modulus % uint512_t(field_t<Builder>::modulus)).lo;
+        const auto msb = multiple_of_modulus.get_msb();
 
         bigfield result(nullptr, uint256_t(0));
         result.binary_basis_limbs[0] = Limb(bb::fr(multiple_of_modulus.slice(0, NUM_LIMB_BITS).lo));
         result.binary_basis_limbs[1] = Limb(bb::fr(multiple_of_modulus.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo));
         result.binary_basis_limbs[2] = Limb(bb::fr(multiple_of_modulus.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo));
         result.binary_basis_limbs[3] = Limb(bb::fr(multiple_of_modulus.slice(3 * NUM_LIMB_BITS, msb + 1).lo));
-        result.prime_basis_limb = field_t<Builder>((multiple_of_modulus % uint512_t(field_t<Builder>::modulus)).lo);
+        result.prime_basis_limb = field_t<Builder>(prime_basis_value);
         return result;
     }
 
@@ -788,7 +791,14 @@ template <typename Builder, typename T> class bigfield {
         return start_index;
     }
 
-    static constexpr uint512_t get_maximum_unreduced_value()
+    static uint512_t get_maximum_unreduced_value()
+    {
+        // The bound only depends on the moduli, so it is computed once
+        static const uint512_t maximum_unreduced_value = compute_maximum_unreduced_value();
+        return maximum_unreduced_value;
+    }
+
+    static uint512_t compute_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
         uint1024_t maximum_product = get_maximum_crt_product();
@@ -818,12 +828,15 @@ template <typename Builder, typename T> class bigfield {
     }
 
     // If we encounter this maximum value of a bigfield we stop execution
-    static constexpr uint512_t get_prohibited_value()
+    static uint512_t get_prohibited_value()
     {
-        uint1024_t maximum_product = get_maximum_crt_product();
-        uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
-        const size_t arbitrary_secure_margin = 20;
-        return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
+        static const uint512_t prohibited_value = [] {
+            uint1024_t maximum_product = get_maximum_crt_product();
+            uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
+            const size_t arbitrary_secure_margin = 20;
+            return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
+        }();
+        return prohibited_value;
     }
 
     /**
@@ -835,9 +848,9 @@ template <typename Builder, typename T> class bigfield {
      *
      * @return uint1024_t Maximum product of two bigfield elements in CRT form
      */
-    static constexpr uint1024_t get_maximum_crt_product()
+    static uint1024_t get_maximum_crt_product()
     {
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        static const uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
         return maximum_product;
     }
 

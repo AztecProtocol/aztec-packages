@@ -570,9 +570,11 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      *
      * Start by setting constant_to_add = p
      **/
-    uint1024_t constant_to_add_factor =
-        (uint1024_t(limb_3_maximum_value) << (NUM_LIMB_BITS * 3)) / uint1024_t(modulus_u512) + uint1024_t(1);
-    uint512_t constant_to_add = constant_to_add_factor.lo * modulus_u512;
+    // (limb_3_maximum_value < 2^256, so the shifted value fits in 256 + 3 * NUM_LIMB_BITS < 512 bits)
+    static_assert(256 + (NUM_LIMB_BITS * 3) < 512);
+    uint512_t constant_to_add_factor =
+        (uint512_t(limb_3_maximum_value) << (NUM_LIMB_BITS * 3)) / modulus_u512 + uint512_t(1);
+    uint512_t constant_to_add = constant_to_add_factor * modulus_u512;
 
     /**
      * Step 3: Compute offset terms t0, t1, t2, t3 that we add to our result to ensure each limb is positive
