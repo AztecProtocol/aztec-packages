@@ -171,4 +171,47 @@ TEST_F(FieldIfma, AddScaledBatchTileMatchesScalar)
     }
 }
 
+template <size_t N> void check_small_products()
+{
+    for (size_t trial = 0; trial < 64; ++trial) {
+        std::array<fr, N> a;
+        std::array<fr, N> b;
+        for (size_t i = 0; i < N; ++i) {
+            a[i] = edge_or_random((trial * N) + i);
+            b[i] = edge_or_random((trial * N) + i + 7);
+        }
+        const fr s = edge_or_random(trial + 3);
+        // Guard elements around the arrays must be left untouched by the masked stores.
+        struct alignas(32) Guarded {
+            fr before;
+            std::array<fr, N> values;
+            fr after;
+        };
+        Guarded prod{ fr(17), a, fr(19) };
+        Guarded scaled{ fr(17), a, fr(19) };
+        Guarded squared{ fr(17), a, fr(19) };
+        field_ifma::mul_assign_n<fr::Params, N>(&prod.values[0].data[0], &b[0].data[0]);
+        field_ifma::mul_assign_scalar_n<fr::Params, N>(&scaled.values[0].data[0], &s.data[0]);
+        field_ifma::sqr_assign_n<fr::Params, N>(&squared.values[0].data[0]);
+        for (size_t i = 0; i < N; ++i) {
+            expect_reduced_equal(a[i] * b[i], prod.values[i]);
+            expect_reduced_equal(a[i] * s, scaled.values[i]);
+            expect_reduced_equal(a[i].sqr(), squared.values[i]);
+        }
+        for (const Guarded* g : { &prod, &scaled, &squared }) {
+            EXPECT_EQ(g->before, fr(17));
+            EXPECT_EQ(g->after, fr(19));
+        }
+    }
+}
+
+TEST_F(FieldIfma, SmallElementwiseProductsMatchScalar)
+{
+    check_small_products<4>();
+    check_small_products<5>();
+    check_small_products<6>();
+    check_small_products<7>();
+    check_small_products<8>();
+}
+
 #endif // BB_FIELD_IFMA

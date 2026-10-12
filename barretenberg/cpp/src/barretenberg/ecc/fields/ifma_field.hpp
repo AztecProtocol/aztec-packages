@@ -298,8 +298,8 @@ BB_FIELD_IFMA_INLINE void to_columns(const V5& v, __m512i& c0, __m512i& c1, __m5
     c3 = _mm512_or_si512(_mm512_srli_epi64(v.l[3], 36), _mm512_slli_epi64(v.l[4], 16));
 }
 
-// Inverse of `load8` for a value below 2^256.
-BB_FIELD_IFMA_INLINE void store8(const V5& v, uint64_t* dst)
+// Inverse of `transpose_in` for a value below 2^256: z_k = elements 2k, 2k + 1 in the 4-limb layout.
+BB_FIELD_IFMA_INLINE void transpose_out(const V5& v, __m512i* z)
 {
     __m512i c0;
     __m512i c1;
@@ -313,10 +313,20 @@ BB_FIELD_IFMA_INLINE void store8(const V5& v, uint64_t* dst)
     const __m512i t1 = _mm512_permutex2var_epi64(c1, lo_idx, c3);
     const __m512i t2 = _mm512_permutex2var_epi64(c0, hi_idx, c2);
     const __m512i t3 = _mm512_permutex2var_epi64(c1, hi_idx, c3);
-    _mm512_storeu_si512(dst, _mm512_unpacklo_epi64(t0, t1));
-    _mm512_storeu_si512(dst + 8, _mm512_unpackhi_epi64(t0, t1));
-    _mm512_storeu_si512(dst + 16, _mm512_unpacklo_epi64(t2, t3));
-    _mm512_storeu_si512(dst + 24, _mm512_unpackhi_epi64(t2, t3));
+    z[0] = _mm512_unpacklo_epi64(t0, t1);
+    z[1] = _mm512_unpackhi_epi64(t0, t1);
+    z[2] = _mm512_unpacklo_epi64(t2, t3);
+    z[3] = _mm512_unpackhi_epi64(t2, t3);
+}
+
+// Inverse of `load8` for a value below 2^256.
+BB_FIELD_IFMA_INLINE void store8(const V5& v, uint64_t* dst)
+{
+    __m512i z[4];
+    transpose_out(v, z);
+    for (size_t j = 0; j < 4; ++j) {
+        _mm512_storeu_si512(dst + (8 * j), z[j]);
+    }
 }
 
 /**
@@ -382,6 +392,59 @@ BB_FIELD_IFMA_TARGET void fold_stride2(const uint64_t* src, uint64_t* dst, size_
         const V5 r = add(mont_mul<Params>(sub_plus(odd, even, C::P2), uv), even);
         store8(canonical<Params>(r), dst + (4 * k));
     }
+}
+
+/**
+ * @brief Load the first N <= 8 elements at `src` (32-byte 4-limb layout) without touching memory past them; unused
+ *        lanes are zero. Lane order as in `load8`.
+ */
+template <size_t N> BB_FIELD_IFMA_INLINE V5 load_n(const uint64_t* src)
+{
+    static_assert(N >= 1 && N <= 8);
+    __m512i z[4];
+    for (size_t j = 0; j < 4; ++j) {
+        constexpr auto mask = [](size_t pair) {
+            return static_cast<__mmask8>(((2 * pair) < N ? 0x0FU : 0U) | ((2 * pair) + 1 < N ? 0xF0U : 0U));
+        };
+        z[j] = _mm512_maskz_loadu_epi64(mask(j), src + (8 * j));
+    }
+    return transpose_in(z[0], z[1], z[2], z[3]);
+}
+
+// Store the first N <= 8 lanes of `v` (value below 2^256) to `dst` without touching memory past them.
+template <size_t N> BB_FIELD_IFMA_INLINE void store_n(const V5& v, uint64_t* dst)
+{
+    static_assert(N >= 1 && N <= 8);
+    __m512i z[4];
+    transpose_out(v, z);
+    for (size_t j = 0; j < 4; ++j) {
+        constexpr auto mask = [](size_t pair) {
+            return static_cast<__mmask8>(((2 * pair) < N ? 0x0FU : 0U) | ((2 * pair) + 1 < N ? 0xF0U : 0U));
+        };
+        _mm512_mask_storeu_epi64(dst + (8 * j), mask(j), z[j]);
+    }
+}
+
+/**
+ * @brief a[i] *= b[i] for i < N <= 8, on raw 4-limb elements in [0, 2p) (the results are below 1.8p). Element-wise
+ *        products of short univariates in the sumcheck relations.
+ */
+template <typename Params, size_t N> BB_FIELD_IFMA_TARGET void mul_assign_n(uint64_t* a, const uint64_t* b)
+{
+    store_n<N>(mont_mul<Params>(load_n<N>(a), load_n<N>(b)), a);
+}
+
+// a[i] *= s for i < N <= 8 (results below 1.8p).
+template <typename Params, size_t N> BB_FIELD_IFMA_TARGET void mul_assign_scalar_n(uint64_t* a, const uint64_t* s)
+{
+    store_n<N>(mont_mul<Params>(load_n<N>(a), broadcast(s)), a);
+}
+
+// a[i] = a[i]^2 for i < N <= 8 (results below 1.8p).
+template <typename Params, size_t N> BB_FIELD_IFMA_TARGET void sqr_assign_n(uint64_t* a)
+{
+    const V5 v = load_n<N>(a);
+    store_n<N>(mont_mul<Params>(v, v), a);
 }
 
 /**
