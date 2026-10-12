@@ -14,6 +14,20 @@
 namespace bb {
 
 /**
+ * @brief One output of the fold: `even + challenge * (odd - even)`. Equal neighbours (constant selector runs, zero
+ * padding inside the active extent) fold to themselves, so the multiplication is skipped; only bit-identical
+ * representations are short-cut.
+ */
+template <typename Fr> inline Fr fold_pair(const Fr& even, const Fr& odd, const Fr& challenge)
+{
+    if (even.data[0] == odd.data[0] && even.data[1] == odd.data[1] && even.data[2] == odd.data[2] &&
+        even.data[3] == odd.data[3]) {
+        return even;
+    }
+    return even + challenge * (odd - even);
+}
+
+/**
  * @brief Stride-2 linear-interpolation fold: `dst[k] = src[2k] + challenge * (src[2k+1] - src[2k])`
  *        for every output index `k` in `[begin, end)`.
  *
@@ -81,16 +95,7 @@ void fold_stride2(
 #endif
     const auto fold_scalar = [&](const size_t from, const size_t to) {
         for (size_t i = from; i < to; ++i) {
-            const Fr even = src[2 * i];
-            const Fr odd = src[2 * i + 1];
-            // Equal neighbours (constant selector runs, zero padding inside the active extent) fold to themselves, so
-            // skip the multiplication. Only bit-identical representations are short-cut.
-            if (even.data[0] == odd.data[0] && even.data[1] == odd.data[1] && even.data[2] == odd.data[2] &&
-                even.data[3] == odd.data[3]) {
-                dst[ScalarIndex{ i }] = even;
-            } else {
-                dst[ScalarIndex{ i }] = even + challenge * (odd - even);
-            }
+            dst[ScalarIndex{ i }] = fold_pair(src[2 * i], src[(2 * i) + 1], challenge);
         }
     };
 #ifdef BB_FIELD_IFMA
@@ -126,6 +131,66 @@ template <typename Fr> std::pair<size_t, size_t> folded_backed_range(const Polyn
     }
     return { src.start_index() / 2, (src.end_index() / 2) + (src.end_index() % 2) };
 }
+
+/**
+ * @brief Backed range [⌊start/4⌋, ⌈end/4⌉) of two successive folds of a polynomial backed on [start, end).
+ */
+template <typename Fr> std::pair<size_t, size_t> twice_folded_backed_range(const Polynomial<Fr>& src)
+{
+    if (src.size() == 0) {
+        return { 0, 0 };
+    }
+    return { src.start_index() / 4, (src.end_index() / 4) + (src.end_index() % 4 != 0 ? 1 : 0) };
+}
+
+/**
+ * @brief Fold `src` at `first_challenge` and the result at `second_challenge` in one pass, without materializing the
+ * intermediate fold: `dst[k] = fold(fold(src[4k], src[4k+1]), fold(src[4k+2], src[4k+3]))` for k in
+ * `twice_folded_backed_range(src)`. Every output is computed exactly as two `fold_stride2_backed` calls would.
+ * @details `dst` is a distinct polynomial backed on a range that starts at the twice-folded start and covers the
+ * twice-folded end; its end index is shrunk to the latter.
+ */
+template <typename Fr>
+void fold_stride4_backed(const Polynomial<Fr>& src,
+                         Polynomial<Fr>& dst,
+                         const Fr& first_challenge,
+                         const Fr& second_challenge)
+{
+    const auto [begin, end] = twice_folded_backed_range(src);
+    if (begin == end) {
+        return;
+    }
+    for (size_t k = begin; k < end; ++k) {
+        const Fr even = fold_pair(src[4 * k], src[(4 * k) + 1], first_challenge);
+        const Fr odd = fold_pair(src[(4 * k) + 2], src[(4 * k) + 3], first_challenge);
+        dst[ScalarIndex{ k }] = fold_pair(even, odd, second_challenge);
+    }
+    dst.shrink_end_index(end);
+}
+
+/**
+ * @brief Read-only view of a polynomial folded at a challenge, `view[k] = fold(src[2k], src[2k+1])`, computed on
+ * access. Stands in for a partially evaluated table that is never materialized.
+ */
+template <typename Fr> class FoldedPolynomialView {
+  public:
+    FoldedPolynomialView() = default;
+    FoldedPolynomialView(const Polynomial<Fr>& source, const Fr& challenge)
+        : source(&source)
+        , challenge(challenge)
+        , range(folded_backed_range(source))
+    {}
+
+    Fr operator[](const size_t k) const { return fold_pair((*source)[2 * k], (*source)[(2 * k) + 1], challenge); }
+    size_t start_index() const { return range.first; }
+    size_t end_index() const { return range.second; }
+    size_t size() const { return range.second - range.first; }
+
+  private:
+    const Polynomial<Fr>* source = nullptr;
+    Fr challenge{};
+    std::pair<size_t, size_t> range{ 0, 0 };
+};
 
 /**
  * @brief Fold `src` at `challenge` over its whole support: writes `dst[k]` for k in `folded_backed_range(src)`.

@@ -10,6 +10,7 @@
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
 #include <algorithm>
+#include <optional>
 #include <vector>
 
 // Short-monomial translator relation definitions: the joint sumcheck round (TransProverRound) is templated on
@@ -27,18 +28,20 @@ namespace bb {
 namespace {
 
 /**
- * @brief Partially evaluate the MegaZK and translator tables at the same round challenge in one parallel region.
- * @details Equivalent to SumcheckProver::partially_evaluate on each circuit's tables, but the polynomials of both
- * circuits form a single work list scheduled largest-first, so the smaller circuit's folds fill the tail of the larger
- * one's instead of each circuit paying its own load-imbalance tail and parallel_for dispatch. Source and destination
- * may alias (in-place rounds).
+ * @brief Partially evaluate the MegaZK and translator tables in one parallel region: at one round challenge, or (with
+ * `second_challenge`) at the first two round challenges straight from the full polynomials.
+ * @details Equivalent to SumcheckProver::partially_evaluate (respectively partially_evaluate_first_two_rounds) on each
+ * circuit's tables, but the polynomials of both circuits form a single work list scheduled largest-first, so the
+ * smaller circuit's folds fill the tail of the larger one's instead of each circuit paying its own load-imbalance tail
+ * and parallel_for dispatch. Source and destination may alias for a single fold (in-place rounds).
  */
 template <typename FF, typename MegaZKSource, typename MegaZKDest, typename TranslatorSource, typename TranslatorDest>
 void joint_partially_evaluate(MegaZKSource& mega_zk_source,
                               MegaZKDest& mega_zk_dest,
                               TranslatorSource& translator_source,
                               TranslatorDest& translator_dest,
-                              const FF& round_challenge)
+                              const FF& round_challenge,
+                              const std::optional<FF>& second_challenge = std::nullopt)
 {
     struct FoldJob {
         const Polynomial<FF>* source;
@@ -48,7 +51,8 @@ void joint_partially_evaluate(MegaZKSource& mega_zk_source,
     std::vector<FoldJob> jobs;
     auto add_jobs = [&](auto& source, auto& dest) {
         for (auto [source_poly, dest_poly] : zip_view(source.get_all(), dest.get_all())) {
-            const auto [begin, end] = folded_backed_range(source_poly);
+            const auto [begin, end] = second_challenge.has_value() ? twice_folded_backed_range(source_poly)
+                                                                   : folded_backed_range(source_poly);
             jobs.push_back({ &source_poly, &dest_poly, end - begin });
         }
     };
@@ -59,7 +63,11 @@ void joint_partially_evaluate(MegaZKSource& mega_zk_source,
 
     parallel_for(jobs.size(), [&](size_t j) {
         const FoldJob& job = jobs[j];
-        fold_stride2_backed(*job.source, *job.dest, round_challenge);
+        if (second_challenge.has_value()) {
+            fold_stride4_backed(*job.source, *job.dest, round_challenge, *second_challenge);
+        } else {
+            fold_stride2_backed(*job.source, *job.dest, round_challenge);
+        }
     });
 
     // Halve the active-row prefix to track the folded trace (only tables that carry it).
@@ -180,9 +188,11 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     auto& mega_zk_params = mega_zk_inst->relation_parameters;
     auto& translator_polys = translator_key->proving_key->polynomials;
 
-    // Allocate partially evaluated polynomial tables (populated by the first partially_evaluate call).
-    MegaZKPartialEvals mega_zk_partial(mega_zk_polys, static_cast<size_t>(1) << mega_zk_log_n);
-    TransPartialEvals translator_partial(translator_polys, static_cast<size_t>(1) << JOINT_LOG_N);
+    // Allocate partially evaluated polynomial tables, sized for the state after two rounds: round 1 reads the full
+    // polynomials folded on access, and the tables are populated after it.
+    BB_ASSERT(mega_zk_log_n >= 2);
+    MegaZKPartialEvals mega_zk_partial(mega_zk_polys, static_cast<size_t>(1) << mega_zk_log_n, /*num_folds=*/2);
+    TransPartialEvals translator_partial(translator_polys, static_cast<size_t>(1) << JOINT_LOG_N, /*num_folds=*/2);
 
     // Type aliases for static partial-evaluation helpers from SumcheckProver.
     using MegaZKSumcheck = SumcheckProver<MegaZKFlavor>;
@@ -254,22 +264,37 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         return send_round(round_idx);
     };
 
-    // ==================== Round 0: bootstraps mega_zk_partial and translator_partial ====================
-    // PartiallyEvaluatedMultivariates only allocates output buffers; values are populated here.
+    // ============ Rounds 0 and 1: bootstrap mega_zk_partial and translator_partial ============
+    // Round 0 reads the full polynomials and round 1 reads them folded at u_0 on access; the tables are populated
+    // after round 1 from the full polynomials (PartiallyEvaluatedMultivariates only allocates output buffers).
     {
-        const FF u = do_round(mega_zk_polys, translator_polys, 0);
-        {
-            BB_BENCH_NAME("joint_sumcheck/partially_evaluate");
-            joint_partially_evaluate(mega_zk_polys, mega_zk_partial, translator_polys, translator_partial, u);
-        }
-        rdp.update_evaluations(u, 0);
+        const FF u_0 = do_round(mega_zk_polys, translator_polys, 0);
+        rdp.update_evaluations(u_0, 0);
         mega_zk_round.advance_round();
         mega_zk_round.excluded_head_size = 2; // After round 0, disabled zone collapses to 1 edge pair
-        update_round_state(0, u);
+        update_round_state(0, u_0);
+
+        using MegaZKFolded = FoldedMultivariatesBase<MegaZKFlavor::AllEntities<FoldedPolynomialView<FF>>,
+                                                     MegaZKFlavor::ProverPolynomials,
+                                                     FF>;
+        using TransFolded = FoldedMultivariatesBase<TranslatorFlavor::AllEntities<FoldedPolynomialView<FF>>,
+                                                    TranslatorFlavor::ProverPolynomials,
+                                                    FF>;
+        const MegaZKFolded mega_zk_folded(mega_zk_polys, u_0);
+        const TransFolded translator_folded(translator_polys, u_0);
+        const FF u_1 = do_round(mega_zk_folded, translator_folded, 1);
+        {
+            BB_BENCH_NAME("joint_sumcheck/partially_evaluate");
+            joint_partially_evaluate(
+                mega_zk_polys, mega_zk_partial, translator_polys, translator_partial, u_0, std::optional<FF>(u_1));
+        }
+        rdp.update_evaluations(u_1, 1);
+        mega_zk_round.advance_round();
+        update_round_state(1, u_1);
     }
 
-    // ==================== Real rounds 1..mega_zk_log_n-1 ====================
-    for (size_t round_idx = 1; round_idx < mega_zk_log_n; round_idx++) {
+    // ==================== Real rounds 2..mega_zk_log_n-1 ====================
+    for (size_t round_idx = 2; round_idx < mega_zk_log_n; round_idx++) {
         const FF u = do_round(mega_zk_partial, translator_partial, round_idx);
         {
             BB_BENCH_NAME("joint_sumcheck/partially_evaluate_in_place");

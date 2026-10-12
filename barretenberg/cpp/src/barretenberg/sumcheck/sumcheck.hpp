@@ -308,6 +308,9 @@ template <typename Flavor> class SumcheckProver {
     // both inherit from AllEntities
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
+    // Native Ultra/Mega flavors run the second round on the full polynomials folded on access, so their partially
+    // evaluated tables are first built after two rounds, at a quarter of the trace size instead of half.
+    static constexpr bool DEFERS_FIRST_FOLD = HasLazyShortEdges<Flavor> && !Flavor::HasZK;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using ZKData = ZKSumcheckData<Flavor>;
     using Transcript = typename Flavor::Transcript;
@@ -407,7 +410,10 @@ template <typename Flavor> class SumcheckProver {
 
         multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
-        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
+        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. Flavors that defer the
+        // first fold also run the second round here, on the full polynomials folded on access, and populate the table
+        // after it with \f$ n/4 \f$ rows.
+        size_t first_table_round = 1;
         PartiallyEvaluatedMultivariates partially_evaluated_polynomials = [&] {
             BB_BENCH_NAME("sumcheck loop 0");
             auto round_univariate =
@@ -418,13 +424,39 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
             multivariate_challenge.emplace_back(round_challenge);
 
+            if constexpr (DEFERS_FIRST_FOLD) {
+                if (multivariate_d > 1) {
+                    gate_separators.partially_evaluate(round_challenge);
+                    round.advance_round();
+
+                    using FoldedMultivariates =
+                        FoldedMultivariatesBase<typename Flavor::template AllEntities<FoldedPolynomialView<FF>>,
+                                                ProverPolynomials,
+                                                FF>;
+                    const FoldedMultivariates folded_polynomials(full_polynomials, round_challenge);
+                    round_univariate =
+                        round.compute_univariate(folded_polynomials, relation_parameters, gate_separators, alphas);
+                    transcript->send_to_verifier("Sumcheck:univariate_1", round_univariate);
+                    const FF second_challenge = transcript->template get_challenge<FF>("Sumcheck:u_1");
+                    multivariate_challenge.emplace_back(second_challenge);
+
+                    // Populate the book-keeping table
+                    auto result =
+                        partially_evaluate_first_two_rounds(full_polynomials, round_challenge, second_challenge);
+                    gate_separators.partially_evaluate(second_challenge);
+                    round.advance_round();
+                    first_table_round = 2;
+                    return result;
+                }
+            }
+
             // Populate the book-keeping table
             auto result = partially_evaluate_first_round(full_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.advance_round();
             return result;
         }();
-        for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
+        for (size_t round_idx = first_table_round; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
@@ -691,6 +723,26 @@ template <typename Flavor> class SumcheckProver {
     {
         PartiallyEvaluatedMultivariates partially_evaluated_polynomials(full_polynomials, multivariate_n);
         partially_evaluate(full_polynomials, partially_evaluated_polynomials, round_challenge);
+        return partially_evaluated_polynomials;
+    }
+
+    /**
+     * @brief Build the book-keeping table after the first two rounds directly from the full polynomials.
+     * @details Each entry equals what partially_evaluate_first_round followed by partially_evaluate_in_place would
+     * store (see `bb::fold_stride4_backed`), without materializing the table of the first round.
+     */
+    PartiallyEvaluatedMultivariates partially_evaluate_first_two_rounds(ProverPolynomials& full_polynomials,
+                                                                        const FF& first_challenge,
+                                                                        const FF& second_challenge)
+    {
+        PartiallyEvaluatedMultivariates partially_evaluated_polynomials(
+            full_polynomials, multivariate_n, /*num_folds=*/2);
+        auto source_view = full_polynomials.get_all();
+        auto dest_view = partially_evaluated_polynomials.get_all();
+        parallel_for(source_view.size(), [&](size_t j) {
+            BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
+            fold_stride4_backed(source_view[j], dest_view[j], first_challenge, second_challenge);
+        });
         return partially_evaluated_polynomials;
     }
 
