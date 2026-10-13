@@ -198,9 +198,11 @@ the first two come from the built packages and the third from the protocol const
 are in the `labs` submodule (aztec-node,
 [`aztec-labs-eng/aztec-node`](https://github.com/aztec-labs-eng/aztec-node)). The shallow clone in
 [Build](#1-build) does not fetch it, and `.gitmodules` sets it to `update = none`, so a plain
-`git submodule update --init labs` does nothing. From the repo root:
+`git submodule update --init labs` does nothing. `make fast` also builds barretenberg and the noir
+protocol circuits, so the other submodules are needed too. From the repo root:
 
 ```bash
+git submodule update --init --recursive --depth 1   # everything except labs
 git -c submodule.labs.update=checkout submodule update --init labs
 make fast
 ```
@@ -309,8 +311,8 @@ on Etherscan.
 Record the logged addresses: `rollup`, `verifier`, `inbox`, `outbox`, `feeJuicePortal`, `slasher`,
 `rewardBooster`, `escapeHatch`, `payload`, `newFlushRewarder`, `version`.
 
-Re-run the checks against the deployed contracts at any time. Each `verify*` function reads
-`REGISTRY_ADDRESS`:
+Re-run the checks against the deployed contracts at any time. `verify` and `verifyFlushRewarder`
+read `REGISTRY_ADDRESS`:
 
 ```bash
 export REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298
@@ -353,9 +355,13 @@ Propose the **payload address**, not the rollup. There are two ways to make a pr
   `signal(payload)` on the `GovernanceProposer`. Once a round has reached quorum and its execution
   delay has passed, anyone calls `submitRoundWinner(round)`. This wraps the payload in a
   `GSEPayload` and proposes it to `Governance`. The deploy simulation (step 4) models this path.
-- **`Governance.proposeWithLock`** (or `GSE.proposeWithLock`). This withdraws `lockAmount` of the
-  proposer's deposited power, finalisable after `lockDelay`; its NatSpec reserves it for a
-  compromised `GovernanceProposer`. It does **not** wrap the payload in a `GSEPayload`, so the
+- **`GSE.proposeWithLock`.** Only whitelisted beneficiaries can hold power in `Governance`, and the
+  GSE is expected to be the only one, so the proposer calls the GSE after approving it for
+  `lockAmount` of the staking asset. The GSE pulls `lockAmount`, deposits it into `Governance` and
+  calls `Governance.proposeWithLock`, which creates the proposal and starts a withdrawal of the
+  same amount to the `_to` address, finalisable after `lockDelay`. Read `lockAmount` and
+  `lockDelay` from `getConfiguration()`. The NatSpec reserves this path for a compromised
+  `GovernanceProposer`. It does **not** wrap the payload in a `GSEPayload`, so the
   `GSEPayload.amIValid` check is not appended.
 
 The proposal id is in the `Proposed(proposalId, proposal)` event that `Governance` emits. With
