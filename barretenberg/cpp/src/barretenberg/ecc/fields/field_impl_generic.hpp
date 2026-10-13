@@ -865,9 +865,10 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     // 2^{-29} mod p, and our choice of limb-representation is smaller than p. In fact, it is empirically smaller than
     // p/2 for Fq and Fr.)
     //
-    // Therefore, this whole sum is bounded by 4p^2 + (2^261 - 1)*p. Dividing by 2^261 and taking
-    // the integral part (corresponding to taking the top half of the limbs), and noting that 4p^2 / 2^261 << 1, we
-    // conclude that the result is in [0, p]. In particular, this implies that we are safely in [0, 2p), as desired.
+    // Therefore, the Yuval terms add less than r_inv_wasm * 2^261 < 2^260 * p (this needs r_inv_wasm < p/2), the final
+    // reduction adds less than 2^261 * p, and the whole sum is bounded by 4p^2 + 2^260 * p + 2^261 * p. Dividing by
+    // 2^261 and taking the integral part (corresponding to taking the top half of the limbs), and noting that
+    // 4p^2 / 2^261 < p / 32 (since 4p < 2^256), we conclude that the result is below 1.5p + p/32 < 2p, as desired.
     //
     // Note that the above analysis is soft, and it is overwhelmingly likely that the result is in [0, p). However, the
     // only guarantee we require is that it is in [0, 2p), as with 254-bit fields we work with the coarse

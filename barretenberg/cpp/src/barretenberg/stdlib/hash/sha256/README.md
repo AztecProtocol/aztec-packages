@@ -1,16 +1,6 @@
 # SHA-256 Circuit Implementation
 
-## Overview
-
 Circuit-friendly implementation of the SHA-256 compression function using lookup tables and sparse form arithmetic.
-
-## Contents
-
-1. [API](#api)
-2. [Algorithm](#algorithm) - Standard SHA-256 compression function
-3. [Implementation](#implementation) - Circuit-specific techniques
-4. [Testing](#testing) - Verification approach
-5. [Security Considerations](#security-considerations)
 
 ## API
 
@@ -35,41 +25,7 @@ Applies the SHA-256 compression function to a single 512-bit message block.
 
 ## Algorithm
 
-Standard SHA-256 compression function (FIPS 180-4):
-
-### Message Schedule Extension
-
-Extends the 16 input words to 64 words:
-
-```
-W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]  (mod 2³²)  for i = 16..63
-
-σ₀(x) = ROTR⁷(x) ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
-σ₁(x) = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)
-```
-
-### Compression Rounds
-
-64 rounds updating 8 working variables (a, b, c, d, e, f, g, h) initialized from h_init:
-
-```
-T1 = h + Σ₁(e) + Ch(e,f,g) + K[i] + W[i]
-T2 = Σ₀(a) + Maj(a,b,c)
-(a,b,c,d,e,f,g,h) = (T1+T2, a, b, c, d+T1, e, f, g)
-
-Σ₀(a) = ROTR²(a) ⊕ ROTR¹³(a) ⊕ ROTR²²(a)
-Σ₁(e) = ROTR⁶(e) ⊕ ROTR¹¹(e) ⊕ ROTR²⁵(e)
-Ch(e,f,g) = (e ∧ f) ⊕ (¬e ∧ g)
-Maj(a,b,c) = (a ∧ b) ⊕ (a ∧ c) ⊕ (b ∧ c)
-
-K[i] are the 64 SHA-256 round constants (FIPS 180-4)
-```
-
-### Final Addition
-
-```
-H[i] = H[i] + (a,b,c,d,e,f,g,h)[i]  (mod 2³²)
-```
+Standard SHA-256 compression function (FIPS 180-4). See [crypto/sha256/README.md](../../../crypto/sha256/README.md) for the message schedule (σ₀, σ₁), the round function (Σ₀, Σ₁, Ch, Maj) and the final addition.
 
 ## Implementation
 
@@ -78,7 +34,7 @@ H[i] = H[i] + (a,b,c,d,e,f,g,h)[i]  (mod 2³²)
 XOR and bitwise operations are expensive in circuits. We use "sparse form" to convert them to additions:
 
 - Each bit is stored in its own digit (base B, one digit per bit position)
-- XOR of bits becomes addition of digits (mod B)
+- XOR becomes digit-wise addition. The base is large enough that digits never carry, and the output table maps each digit to the result bit (parity for XOR).
 
 Two sparse bases are used across three contexts:
 
@@ -123,11 +79,11 @@ See `plookup_tables/sha256.hpp` for detailed table documentation.
 | σ₀ + σ₁ | `extend_witness()` |
 | Σ₁ + Ch | `choose_with_sigma1()` |
 | Σ₀ + Maj | `majority_with_sigma0()` |
-| mod 2³² addition | `add_normalize()` |
+| mod 2³² addition | `hash_utils::add_normalize_unsafe()` (`stdlib/hash/hash_utils.hpp`) |
 
 ## Testing
 
-Correctness is verified through a layered approach:
+Correctness is checked at three levels:
 
 ### Native Implementation (`crypto/sha256/`)
 
@@ -222,6 +178,8 @@ For efficiency, we want to compute `e_sparse + SPARSE_MULT * Σ₁(e_sparse)` in
 Two correction factors fix this:
 - **L1 correction**: `δ1 = c1 - B^11 * c0`, baked into C3 via `limb1_table_correction` in `get_choose_input_table()`
 - **L2 correction**: `δ2 = c2 - B^22 * c0`, returned by `get_choose_rotation_multipliers()` and applied explicitly in `choose_with_sigma1()`
+
+`majority_with_sigma0()` (Maj + Σ₀) uses the same scheme, with the explicit correction on L1 (`sparse_L1_acc`).
 
 ### Computation Flow
 

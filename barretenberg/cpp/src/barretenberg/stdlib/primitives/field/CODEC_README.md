@@ -21,16 +21,17 @@ low_limb:  136 bits (2 × 68-bit bigfield limbs combined)
 high_limb: 118 bits (remaining 2 × 68-bit limbs, but only 118 bits used)
 ```
 
-This matches the internal representation of `stdlib::bigfield` which uses four 68-bit limbs.
+This matches the internal representation of `stdlib::bigfield`; see [bigfield](../bigfield/README.md) for the limb layout.
 
 ## Canonical Representation
 
-**Both codecs reject non-canonical values** (values ≥ `fq::modulus`):
+All three codecs reject non-canonical values (values ≥ the field modulus):
 
 | Codec | Enforcement | Method |
 |-------|-------------|--------|
 | `FrCodec` | Native assertion | `BB_ASSERT_LT(value, fq::modulus)` |
 | `StdlibCodec` | In-circuit constraint | `bigfield::assert_is_in_field()` |
+| `U256Codec` | Native assertion | `BB_ASSERT_LT(value, fr::modulus)` or `BB_ASSERT_LT(value, fq::modulus)` |
 
 This ensures consistent behavior whether verification happens natively or in-circuit.
 
@@ -50,16 +51,11 @@ The point at infinity is represented as `(0, 0)` with **all limbs zero**.
 
 | Context | Curve | Method | Why it's Sound |
 |---------|-------|--------|----------------|
-| **Native** | All | `for each limb: if (limb != 0) return false` | Direct limb-by-limb zero check. |
-| **Circuit** | BN254 | `sum(limbs) == 0` | Sum of 4 valid limbs (2×136-bit + 2×118-bit) ≤ 2^138, cannot wrap to 0 mod Fr (254 bits). Only all-zero limbs satisfy this. |
-| **Circuit** | Grumpkin | `x² - 5y² == 0` | Equation `x² = 5y²` requires 5 to be a quadratic residue in `bb::fr`, which is not the case since `fr`'s modulus is == 2 mod 5.
+| Native | All | `for each limb: if (limb != 0) return false` | Direct limb-by-limb zero check. |
+| Circuit (Ultra `element`) | BN254 | `sum(limbs) == 0` | Sums the 8 binary-basis limbs of x and y (68 bits each). The sum is below 2^72, so it cannot wrap to 0 mod Fr (254 bits). Only all-zero limbs satisfy this. |
+| Circuit (`cycle_group`) | Grumpkin | `x² + 5y² == 0` | A non-zero solution requires −5 to be a quadratic residue in `bb::fr`. It is not, because `fr`'s modulus is 2 mod 5 and 1 mod 4. |
 
-**Note for BN254 Goblin/Mega**: The infinity check operates on raw limbs before range constraints. However,
-the full protocol ensures soundness:
-- Valid infinity `(0,0)`: all limbs zero → passes infinity check and range constraints ✓
-- Invalid attack: limbs summing to Fr → violates Translator range constraints (need out-of-range limbs) ✗
-
-The downstream range constraints in Translator ensure that only canonical `(0,0)` can pass as infinity.
+**Mega (`goblin_element`)**: there is no in-circuit infinity flag or check. `(0,0)` is the canonical infinity, and the ECCVM enforces it.
 
 ## Ultra vs Mega Arithmetization
 
@@ -116,8 +112,8 @@ so the main threat is:
 
 | Scenario | Risk | Impact |
 |----------|------|--------|
-| **Native OK, Recursive FAILS** | **HIGH (DoS)** | Attacker crafts proof passing cheap native check, then expensive recursive verification fails. Wastes resources, can block IVC chains. |
-| **Recursive OK, Native FAILS** | Low | Unlikely in practice since native verification precedes recursive. Would be caught at native step. |
+| Native OK, Recursive FAILS | High (DoS) | Attacker crafts proof passing cheap native check, then expensive recursive verification fails. Wastes resources, can block IVC chains. |
+| Recursive OK, Native FAILS | Low | Unlikely in practice since native verification precedes recursive. Would be caught at native step. |
 
 ### Ensuring Consistency
 
@@ -159,9 +155,9 @@ checks. This creates a verification inconsistency:
 
 | Verification Path | Check | Result on Aliased Coords |
 |-------------------|-------|--------------------------|
-| Native | Strict <q | **REJECT** |
-| Ultra Recursive | Strict <q (via `assert_is_in_field()`) | **REJECT** |
-| Goblin (Mega+Merge+ECCVM+Translator) | Only <254 bits | **ACCEPT** ⚠️ |
+| Native | Strict <q | rejects |
+| Ultra Recursive | Strict <q (via `assert_is_in_field()`) | rejects |
+| Goblin (Mega+Merge+ECCVM+Translator) | Only <254 bits | ACCEPTS (bug) |
 
 **Impact**: A prover could craft a proof using aliased $\mathbb{F}_q$ representations that:
 - **Passes** Goblin verification (Mega recursive → Merge → ECCVM → Translator)
@@ -174,20 +170,22 @@ This violates the consistency requirement that all verification paths accept/rej
 The `assert_equal` constraints in `biggroup_goblin.hpp` provide partial protection:
 
 ```cpp
-// biggroup_goblin.hpp:181-190
+// biggroup_goblin.hpp, goblin_element::operator-
 op_tuple = builder->queue_ecc_add_accum(other.get_value());
 x_lo.assert_equal(other._x.limbs[0]);
 x_hi.assert_equal(other._x.limbs[1]);
 ```
 
 For an honest prover, `get_value()` auto-reduces field values, so aliased inputs would cause
-these constraints to fail. However, **these constraints can be avoided**.
+these constraints to fail. However, **these constraints can be avoided**: only `operator-` (and
+one other site in `biggroup_goblin.hpp`) adds them. `operator+` and `batch_mul` queue the op
+without comparing the limbs.
 
 
 ### Relevant Code Locations
 
-- Translation data flow: `goblin_verifier.cpp:48-59`
-- ECCVM accumulated_result: `eccvm_verifier.cpp:244-256`
-- Translator receives accumulated_result: `translator_verifier.cpp:122-126, 159-160`
-- TranslatorAccumulatorTransferRelation: `translator_extra_relations_impl.hpp`
-- Op queue dual representation: `ecc_op_queue.hpp:198-207`
+- Translation data flow: `goblin_verifier.cpp`, `GoblinVerifier_::reduce_to_pairing_check_and_triple_ipa_opening`
+- ECCVM accumulated_result: `eccvm_verifier.cpp`, `ECCVMVerifier_::compute_accumulated_result`
+- Translator receives accumulated_result: `translator_verifier.cpp`, `put_translation_data_in_relation_parameters`
+- TranslatorAccumulatorTransferRelation: `translator_extra_relations.hpp`, `translator_extra_relations_impl.hpp`
+- Op queue dual representation: `ecc_op_queue.hpp`, `ECCOpQueue` class comment (ECCVM and Ultra formats)

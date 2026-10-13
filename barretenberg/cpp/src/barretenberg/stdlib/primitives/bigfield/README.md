@@ -8,11 +8,10 @@ $\renewcommand{\prime}[1]{#1_{\textsf{prime}}}$
 
 # Bigfield in Barretenberg
 
-> $\textcolor{orange}{\textsf{Warning}}$: This document is intended to provide an overview of the bigfield multiplication and addition operations in barretenberg. It is not a complete specification and does not cover all edge cases or optimizations. The source code should be consulted for a complete understanding of the implementation.
+> $\textcolor{orange}{\textsf{Warning}}$: This is an overview of bigfield multiplication, addition, subtraction and division. It does not cover all edge cases or optimizations. The code is normative.
 
 ### Notation
 
-A table that summarizes the notation used in this document:
 | Symbol | Description |
 |---------------|-----------------------------------------------------------------------------------------------|
 | $n$ | Modulus of the native field |
@@ -41,7 +40,7 @@ r &= a \cdot b \ \textsf{ mod } \ p.
 \end{aligned}
 $$
 
-Using the Chinese Remainder Theorem (CRT), we know that if equation $(1)$ holds modulo $2^T$ and modulo $n$, then it must also hold modulo $M = 2^T \cdot n$. Further, if it holds modulo $M$ and both sides of the equation are less than $M$, then it must also hold over integers. This means that the quotient $q$ and the remainder $r$ were computed correctly, and hence we can conclude that $a \cdot b = r \textsf{ mod } p$. In other words, $r$ is the correct multiplication result of $a$ and $b$ in the bigfield $\mathbb{F}_p$. Mathematically, this can be expressed as follows:
+By the Chinese Remainder Theorem (CRT), if equation $(1)$ holds modulo $2^T$ and modulo $n$, it holds modulo $M = 2^T \cdot n$. If both sides are also less than $M$, it holds over the integers, so $a \cdot b = r \textsf{ mod } p$:
 
 $$
 \begin{aligned}
@@ -91,7 +90,7 @@ a \equiv (
 ).
 $$
 
-The orange values indicate the default maximum bit sizes of the limbs. The most-significant limb $a_3$ can be either have $L$ bits or $|p| - 3L$ bits, depending on whether overflow is allowed or not. The other limbs $a_2, a_1, a_0$ always start with $L$ bits each.
+The orange values indicate the default maximum bit sizes of the limbs. The most-significant limb $a_3$ can have either $L$ bits or $|p| - 3L$ bits, depending on whether overflow is allowed or not. The other limbs $a_2, a_1, a_0$ always start with $L$ bits each.
 
 We allow overflow in these limbs to enable efficient multiplication and addition operations. To ensure that the bigfield elements are within the permissible limits, we track the maximum values of the limbs. Let $\textcolor{orange}{A_0}, \textcolor{orange}{A_1}, \textcolor{orange}{A_2}, \textcolor{orange}{A_3}$ be the maximum values of the limbs $a_0, a_1, a_2, a_3$ respectively:
 
@@ -140,9 +139,11 @@ This is known as full reduction. We need to check the following conditions in th
 3. Enforce range constraint on quotient $q < 2^L$ (must fit in one limb)
 4. Enforce range constraint on remainder $r < \const{p}$
 
-The last step of checking $r < \const{p}$ is very expensive in circuits. Instead, we perform a relaxed condition on $r < 2^s$ where $s := |\const{p}|$. This is enough for operations where you care more about not overflowing rather than getting an exact value mod $p$. Checking $r < 2^s$ is much cheaper in circuits because it simply implies clearing higher bits.
+The last step of checking $r < \const{p}$ is very expensive in circuits. Instead, we perform a relaxed condition on $r < 2^s$ where $s := |\const{p}|$. This is enough for operations where you care more about not overflowing rather than getting an exact value mod $p$. Checking $r < 2^s$ is much cheaper in circuits because it is a range constraint of the top limb to $|p| - 3L$ bits (`NUM_LAST_LIMB_BITS`).
 
-This relaxed check is knowns as _lazy reduction_. It suffices because in addition chains, if we keep reducing intermediate values to lie within a safe range above $p$ (like $2^s$), then the final result can be reduced mod $p$ at the end.
+This relaxed check is known as _lazy reduction_. It suffices because in addition chains, if we keep reducing intermediate values to lie within a safe range above $p$ (like $2^s$), then the final result can be reduced mod $p$ at the end.
+
+The code reduces an element (`reduction_check` calls `self_reduce`) when its maximum value exceeds `get_maximum_unreduced_value()` (about $\sqrt{M}$), or when any limb's maximum value exceeds `MAX_UNREDUCED_LIMB_BITS` (78) bits. `self_reduce` uses a one-limb quotient and the relaxed $r < 2^s$ check. Strict reduction to $r < p$ is a separate, more expensive call: `assert_is_in_field` (or `assert_less_than`).
 
 ### Details on Bigfield Addition
 
@@ -172,35 +173,17 @@ $$
 \end{aligned}
 $$
 
-It is worth noting that we cannot do better than 4 gates because we have a total of 15 witnesses (5 each for $x, y$ and $z$) that can fit in $\lceil 15/4 \rceil = 4$ gates (4 wires per gate).
+It is worth noting that we cannot do better than 4 gates because we have a total of 15 witnesses (5 each for $a, b$ and $c$) that can fit in $\lceil 15/4 \rceil = 4$ gates (4 wires per gate).
 
 #### Tracking Maximum Values due to Addition
 
-When we add two bigfield elements $a$ and $b$, we need to track the maximum values of the limbs of the result. Suppose $a$ and $b$ are two bigfield elements represented as:
-
-$$
-\begin{aligned}
-a &\equiv (\underbrace{\qquad a_3 \qquad}_{\textcolor{orange}{< \ A_3}} \ \| \ \underbrace{\qquad a_2 \qquad}_{\textcolor{orange}{< \ A_2}} \ \| \ \underbrace{\qquad a_1 \qquad}_{\textcolor{orange}{< \ A_1}} \ \| \ \underbrace{\qquad a_0 \qquad}_{\textcolor{orange}{< \ A_0}}), \\
-b &\equiv (\underbrace{\qquad b_3 \qquad}_{\textcolor{orange}{< \ B_3}} \ \| \ \underbrace{\qquad b_2 \qquad}_{\textcolor{orange}{< \ B_2}} \ \| \ \underbrace{\qquad b_1 \qquad}_{\textcolor{orange}{< \ B_1}} \ \| \ \underbrace{\qquad b_0 \qquad}_{\textcolor{orange}{< \ B_0}}).
-\end{aligned}
-$$
-
-When we add $a$ and $b$, the maximum value of the sum $c = a + b$ is given by:
+Limb maxima add. If $A_i$ and $B_i$ are the maximum values of the limbs of $a$ and $b$, the maximum value of $c = a + b$ is:
 
 $$
 \textcolor{orange}{C} = \textcolor{orange}{\underbrace{(A_0 + B_0)}_{C_0}} + 2^L \cdot \textcolor{orange}{\underbrace{(A_1 + B_1)}_{C_1}} + 2^{2L} \cdot \textcolor{orange}{\underbrace{(A_2 + B_2)}_{C_2}} + 2^{3L} \cdot \textcolor{orange}{\underbrace{(A_3 + B_3)}_{C_3}}.
 $$
 
-Adding two bigfield elements with default maximum values of the limbs, each limb would overflow by 1 bit. As a result, the resulting bigfield element $c$ would have the following maximum values of the limbs:
-
-$$
-\begin{aligned}
-\textcolor{orange}{C_i} &= (2^L - 1) + (2^L - 1) = 2^{L+1} - 2 \ \implies \ \textsf{overflow by 1 bit} \\
-\end{aligned}
-$$
-
-for $i = 0, 1, 2, 3$. The maximum value of the most-significant limb $\textcolor{orange}{C_3}$ would depend on whether overflow is allowed or not.
-The overflow bit is carried over to the next limb, so the maximum value of the resulting bigfield element $c$ would be affected by the overflow of the most significant limb. Thus, the resulting bigfield element $c$ would also overflow by 1 bit.
+Each limb grows by at most one bit per addition. For default limb maxima, $C_i = 2^{L+1} - 2$ for $i = 0, 1, 2$. $C_3$ depends on whether overflow is allowed for the most-significant limb ($L$ or $|p| - 3L$ bits).
 
 ### Details on Bigfield Multiplication
 
@@ -325,10 +308,8 @@ $$
 X_{\textsf{low}} \equiv 0 \ \textsf{mod} \ 2^{T/2} \quad \textsf{and} \quad X_{\textsf{high}} \equiv 0 \ \textsf{mod} \ 2^{T/2}.
 $$
 
-This means that the carries $\textcolor{skyblue}{C_{\textsf{low}}}$ and $\textcolor{skyblue}{C_{\textsf{high}}}$ must be small positive integers. We can enforce this by range-constrainting them to be less $\textcolor{skyblue}{b_{\textsf{low}}}$ and $\textcolor{skyblue}{b_{\textsf{high}}}$ bits respectively. To determine these bit sizes of the carries, we need to analyze the maximum values of the limbs involved in the computation of $X_{\textsf{low}}$ and $X_{\textsf{high}}$. Before we do that, we take a quick detour to describe the gate constraints for multiplication.
+This means that the carries $\textcolor{skyblue}{C_{\textsf{low}}}$ and $\textcolor{skyblue}{C_{\textsf{high}}}$ must be small positive integers. We can enforce this by range-constraining them to be less than $\textcolor{skyblue}{b_{\textsf{low}}}$ and $\textcolor{skyblue}{b_{\textsf{high}}}$ bits respectively. To determine these bit sizes of the carries, we need to analyze the maximum values of the limbs involved in the computation of $X_{\textsf{low}}$ and $X_{\textsf{high}}$. Before we do that, we take a quick detour to describe the gate constraints for multiplication.
 
-> .
->
 > #### Gate constraints for multiplication:
 >
 > As per the analysis, $X_{\textsf{low}}$ requires 3 witness-witness multiplications and $X_{\textsf{high}}$ requires 7 witness-witness multiplications. A simple Plonk gate can perform 1 witness-witness multiplication. Using this naive gate would require a total of at least 10 gates (ignoring any extra additions which will cost additional gates). We define two custom gates that can each perform 4 and 3 witness-witness multiplications respectively, so we would need just 3 such gates for multiplications. We rearrange the above equations to use these custom gates as follows:
@@ -381,8 +362,6 @@ This means that the carries $\textcolor{skyblue}{C_{\textsf{low}}}$ and $\textco
 >
 > The output of this custom multiplication function is the two carry outputs $C_{\textsf{low}}$ and $C_{\textsf{high}}$.
 > Note that we need to range-constrain these carries $C_{\textsf{low}}$ and $C_{\textsf{high}}$ to appropriate number of bits (max allowed bits - $2L$). These range constraints (if any) need to be applied outside the custom multiplication function.
->
-> .
 
 #### Tracking Maximum Values due to Multiplication
 
@@ -440,9 +419,7 @@ $$
 > \end{aligned}
 > $$
 >
-> This means that the maximum limb size that must be allowed is $Q = \left\lfloor\frac{253.5 - 68 - 10 - 3}{2}\right\rfloor = 86$.
->
-> .
+> With $k = 10$ (`MAX_ADDITION_LOG`), the maximum limb size that must be allowed is $Q = \left\lfloor\frac{253.5 - 68 - 10 - 3}{2}\right\rfloor = 86$ (`MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW`).
 
 #### Range Constraints on Carry Outputs
 
@@ -460,29 +437,29 @@ The third term is to be subtracted from the sum of the first two terms, so we ne
 $$
 \begin{aligned}
 \left((a \cdot b) \ \textsf{mod} \ 2^T + (q \cdot \const{(-p)}) \ \textsf{mod} \ 2^T\right)
-&\equiv \ell_{\textsf{low}} + \const{2^L} \cdot \ell_{\textsf{high}}, \\
+&\equiv \ell_{\textsf{low}} + \const{2^{2L}} \cdot \ell_{\textsf{high}}, \\
 (r \ \textsf{mod} \ 2^T)
-&\equiv r_{\textsf{low}} + \const{2^L} \cdot r_{\textsf{high}}.
+&\equiv r_{\textsf{low}} + \const{2^{2L}} \cdot r_{\textsf{high}}.
 \end{aligned}
 $$
 
-First, we argue that underflow in the higher limb is not possible. This is because the remainder $r$ is restricted to be in the range $[0, 2^{|p|})$ while $\ell_{\textsf{high}} \in [0, 2^T)$. For the lower limb, we we must protect against underflow in an extreme case where $h_{\textsf{lo}} = 0$. In that case, we must borrow $\textcolor{orange}{R_{\textsf{low}}}$ from the higher limb to ensure that the result is non-negative. We can write the result $X$ in terms of borrowed value as follows:
+First, we argue that underflow in the higher limb is not possible. This is because the remainder $r$ is restricted to be in the range $[0, 2^{|p|})$ while $\ell_{\textsf{high}} \in [0, 2^T)$. For the lower limb, we must protect against underflow in the extreme case where $\ell_{\textsf{low}} = 0$. In that case, we borrow $\lceil \textcolor{orange}{R_{\textsf{lo}}} / \const{2^{2L}} \rceil$ from the higher limb. The borrow adds a multiple of $\const{2^{2L}}$ to the lower limb, which keeps the result non-negative. We can write the result $X$ in terms of borrowed value as follows:
 
 $$
 \begin{aligned}
-X_{\textsf{low}} &= 0 + \textcolor{orange}{R_{\textsf{lo}}} - r_{\textsf{low}},\\
-X_{\textsf{high}} &= h_{\textsf{high}} - \left\lfloor\frac{\textcolor{orange}{R_{\textsf{lo}}}}{\const{2^{2L}}}\right\rfloor - r_{\textsf{high}}.
+X_{\textsf{low}} &= 0 + \left\lceil\frac{\textcolor{orange}{R_{\textsf{lo}}}}{\const{2^{2L}}}\right\rceil \cdot \const{2^{2L}} - r_{\textsf{low}},\\
+X_{\textsf{high}} &= \ell_{\textsf{high}} - \left\lceil\frac{\textcolor{orange}{R_{\textsf{lo}}}}{\const{2^{2L}}}\right\rceil - r_{\textsf{high}}.
 \end{aligned}
 $$
 
-This works because we know $r_{\textsf{low}} < \textcolor{orange}{R_{\textsf{lo}}}$ which ensures that $X_{\textsf{low}}$ is non-negative. Naturally, we need to adjust the higher limb by removing the borrowed value from it.
+This works because $r_{\textsf{low}} < \textcolor{orange}{R_{\textsf{lo}}} \le \lceil \textcolor{orange}{R_{\textsf{lo}}} / \const{2^{2L}} \rceil \cdot \const{2^{2L}}$, which ensures that $X_{\textsf{low}}$ is non-negative (`borrow_lo_value` in `unsafe_evaluate_multiply_add`). Naturally, we need to adjust the higher limb by removing the borrowed value from it.
 
 Finally, the maximum values of the limbs of the result $X$ are given by:
 
 $$
 \begin{aligned}
 X_{\textsf{low}} &< \textcolor{orange}{D_{\textsf{lo}}} + \textcolor{orange}{E_{\textsf{lo}}} + \textcolor{orange}{R_{\textsf{lo}}}, \\
-X_{\textsf{high}} &< \textcolor{orange}{D_{\textsf{hi}}} + \textcolor{orange}{E_{\textsf{hi}}}.
+X_{\textsf{high}} &< \textcolor{orange}{D_{\textsf{hi}}} + \textcolor{orange}{E_{\textsf{hi}}} + \left\lfloor\frac{\textcolor{orange}{D_{\textsf{lo}}} + \textcolor{orange}{E_{\textsf{lo}}} + \textcolor{orange}{R_{\textsf{lo}}}}{\const{2^{2L}}}\right\rfloor.
 \end{aligned}
 $$
 
@@ -491,11 +468,11 @@ and thus the carry outputs (in terms of bits) are bounded by:
 $$
 \begin{aligned}
 \textcolor{skyblue}{C_{\textsf{low}}} &< \left\lfloor\frac{\textcolor{orange}{D_{\textsf{lo}}} + \textcolor{orange}{E_{\textsf{lo}}} + \textcolor{orange}{R_{\textsf{lo}}}}{\const{2^{2L}}}\right\rfloor, \\
-\textcolor{skyblue}{C_{\textsf{high}}} &< \left\lfloor\frac{\textcolor{orange}{D_{\textsf{hi}}} + \textcolor{orange}{E_{\textsf{hi}}}}{\const{2^{2L}}}\right\rfloor.
+\textcolor{skyblue}{C_{\textsf{high}}} &< \left\lfloor\frac{\textcolor{orange}{D_{\textsf{hi}}} + \textcolor{orange}{E_{\textsf{hi}}} + \textcolor{orange}{C_{\textsf{low,max}}}}{\const{2^{2L}}}\right\rfloor.
 \end{aligned}
 $$
 
-Note that we do not include the term $(\textcolor{orange}{R_{\textsf{lo}}} / \const{2^{2L}})$ in the carry output bound of $\textcolor{skyblue}{C_{\textsf{high}}}$ as it is unlikely to contribute to the underflow of $X_{\textsf{high}}$.
+The high bound includes the low carry $\textcolor{orange}{C_{\textsf{low,max}}} = \lfloor (\textcolor{orange}{D_{\textsf{lo}}} + \textcolor{orange}{E_{\textsf{lo}}} + \textcolor{orange}{R_{\textsf{lo}}}) / \const{2^{2L}} \rfloor$, which carries $R_{\textsf{lo}}$ into $X_{\textsf{high}}$. The code computes it as `max_lo_carry` and adds it to `max_hi`; any added summands contribute to both bounds too.
 
 #### Checking $X = 0 \textsf{ mod } n$
 
@@ -505,7 +482,7 @@ $$
 \begin{aligned}
 X &= \left((a \cdot b) + (q \cdot \const{(-p)}) - r\right) \textsf{ mod } n \\
 &= (a \textsf{ mod } n) \cdot (b \textsf{ mod } n) + (q \textsf{ mod } n) \cdot (\const{(-p)} \textsf{ mod } n) - (r \textsf{ mod } n) \\
-&= a_{\textsf{prime}} \rmul b_{\textsf{prime}} + q_{\textsf{prime}} \rmul \const{(n - p)} - r_{\textsf{prime}},
+&= a_{\textsf{prime}} \rmul b_{\textsf{prime}} + q_{\textsf{prime}} \rmul \const{(-p \bmod n)} - r_{\textsf{prime}},
 \end{aligned}
 $$
 
@@ -513,11 +490,11 @@ To check that $X \equiv 0 \textsf{ mod } n$, we can use the following constraint
 
 $$
 \begin{aligned}
-a_{\textsf{prime}} \rmul b_{\textsf{prime}} + q_{\textsf{prime}} \rmul \const{(n - p)} - r_{\textsf{prime}} = 0.
+a_{\textsf{prime}} \rmul b_{\textsf{prime}} + q_{\textsf{prime}} \rmul \const{(-p \bmod n)} - r_{\textsf{prime}} = 0.
 \end{aligned}
 $$
 
-This can be enforced in the circuit by adding a simple multiplication gate.
+This can be enforced in the circuit by adding a simple multiplication gate. The constant $(-p \bmod n)$ is `negative_prime_modulus_mod_native_basis`. It is not $n - p$, which is negative when $p > n$ (for example secp256k1).
 
 #### Checking CRT Modulus
 
@@ -605,13 +582,14 @@ $$
 \textcolor{skyblue}{C_{\textsf{high}}} &< \left\lfloor\frac{
   \left(\textcolor{orange}{D_{\textsf{hi}}} + \sum_{j=1}^{m} \textcolor{orange}{D_{j, \textsf{hi}}}\right) +
   \left(\sum_{i=1}^{k} \textcolor{orange}{C_{i, \textsf{hi}}}\right) +
-  \textcolor{orange}{E_{\textsf{hi}}}
+  \textcolor{orange}{E_{\textsf{hi}}} +
+  \textcolor{orange}{C_{\textsf{low,max}}}
   }{\const{2^{2L}}}
   \right\rfloor.
 \end{aligned}
 $$
 
-where $\textcolor{orange}{D_{i, \textsf{lo}}}$ and $\textcolor{orange}{D_{i, \textsf{hi}}}$ are the maximum values of the limbs of the products $a_j \cdot b_j$ for $j = 1, \ldots, m$, and $\textcolor{orange}{C_{i, \textsf{lo}}}$ and $\textcolor{orange}{C_{i, \textsf{hi}}}$ are the maximum values of the limbs of the summands $c_i$ for $i = 1, \ldots, k$. We also need to update the maximum value of the quotient $q$ to account for the additional products and sums:
+where $\textcolor{orange}{D_{i, \textsf{lo}}}$ and $\textcolor{orange}{D_{i, \textsf{hi}}}$ are the maximum values of the limbs of the products $a_j \cdot b_j$ for $j = 1, \ldots, m$, and $\textcolor{orange}{C_{i, \textsf{lo}}}$ and $\textcolor{orange}{C_{i, \textsf{hi}}}$ are the maximum values of the limbs of the summands $c_i$ for $i = 1, \ldots, k$. $\textcolor{orange}{C_{\textsf{low,max}}}$ is the bound on $C_{\textsf{low}}$ above. We also need to update the maximum value of the quotient $q$ to account for the additional products and sums:
 
 $$
 \begin{aligned}
@@ -646,8 +624,6 @@ $$
 
 where $s$ is the smallest integer such that the above condition holds. This ensures that we do not have any underflows when we subtract $b$ from $(a + \const{s \cdot p})$. Note that the result of the modular subtraction remains $c$ because we are adding a multiple of the modulus $\const{p}$ to $a$ before subtracting $b$.
 
-> .
->
 > **Computing the multiple $s$:**
 >
 > To compute the multiple $s$, we first look at the subtraction formula:
@@ -690,10 +666,8 @@ where $s$ is the smallest integer such that the above condition holds. This ensu
 > $$
 >
 > where $\textcolor{orange}{B_i}$ are the maximum values of the limbs of $b$.
-> Now we can compute the constant $S = \const{s \cdot p}$ such that the most-significant limb of $S$ is atleast $(\lceil\textsf{log}_2(\textcolor{olive}{\beta_3})\rceil + \const{L})$ bits long.
+> Now we can compute the constant $S = \const{s \cdot p}$ such that the most-significant limb of $S$ is at least $(\lceil\textsf{log}_2(\textcolor{olive}{\beta_3})\rceil + \const{L})$ bits long.
 > This would ensure that we can always subtract $b$ from $(a + S)$ without underflows.
->
-> .
 
 Once we have computed the constant term $\const{s \cdot p}$, we must also ensure that none of the limb subtraction leads to limb-underflow. To do this, we modify the constant term $\const{s \cdot p}$ such that:
 
@@ -702,10 +676,10 @@ $$
 \begin{array}{c|c|c|c|c}
 & \text{Limb 3} & \text{Limb 2} & \text{Limb 1} & \text{Limb 0} \\[2pt] \hline \\[-4pt]
 S = \const{s \cdot p} & \const{S_3} & \const{S_2} & \const{S_1} & \const{S_0} \\[2pt] \hline \\[-4pt]
-S' = \const{s \cdot p} & (\const{S_3} - \textcolor{olive}{\beta_3}) &
-(\const{S_2} + \textcolor{olive}{\beta_3 \cdot 2^{L}} - \textcolor{olive}{\beta_2}) &
-(\const{S_1} + \textcolor{olive}{\beta_2 \cdot 2^{L}} - \textcolor{olive}{\beta_1}) &
-(\const{S_0} + \textcolor{olive}{\beta_1 \cdot 2^{L}} - \textcolor{olive}{\beta_0}) & \\[2pt] \hline
+S' = \const{s \cdot p} & (\const{S_3} - \textcolor{olive}{\beta_2}) &
+(\const{S_2} + \textcolor{olive}{\beta_2 \cdot 2^{L}} - \textcolor{olive}{\beta_1}) &
+(\const{S_1} + \textcolor{olive}{\beta_1 \cdot 2^{L}} - \textcolor{olive}{\beta_0}) &
+(\const{S_0} + \textcolor{olive}{\beta_0 \cdot 2^{L}}) & \\[2pt] \hline
 \end{array}
 \end{aligned}
 $$
@@ -726,7 +700,7 @@ where $\textcolor{orange}{A_i}$ are the maximum values of the limbs of $a$.
 
 ### Details on Bigfield Division
 
-Let $a, b \in [0, 2^T)$ be two bigfield elements and we want compute modular division $\frac{a}{b} \textsf{ mod } p$. Let $c$ be the result of the division. We can compute $c$ as follows:
+Let $a, b \in [0, 2^T)$ be two bigfield elements and we want to compute modular division $\frac{a}{b} \textsf{ mod } p$. Let $c$ be the result of the division. We can compute $c$ as follows:
 
 $$
 c = \left( \frac{a}{b} \right) \textsf{ mod } p = a \cdot b^{-1} \textsf{ mod } p. \tag{D1}
@@ -763,7 +737,7 @@ q' &= \frac{b \cdot c + \const{u \cdot p} - a}{\const{p}}.
 \end{aligned}
 $$
 
-Note that $q' \equiv q \textsf{ mod } p$. We can now rewrite the division condition as follows:
+Note that $q' = q + u$. We can now rewrite the division condition as follows:
 
 $$
 \begin{aligned}
@@ -791,5 +765,17 @@ Only additional constraint we need to add is that the denominator $b$ must not b
 > The value $\textsf{max}(a)$ indicates the maximum possible value of a bigfield that obeys the CRT modulus (as $a$ is the input to the division operation).
 > Thus, $\textsf{max}(a) < \sqrt{2^T \cdot n}$.
 > Using this value of $u$ ensures that we do not have any underflows when we subtract $a$ from $(b \cdot c + \const{u \cdot p})$.
->
-> .
+
+### Code map
+
+| Operation | Code (`bigfield.hpp`, `bigfield_impl.hpp`) |
+| --- | --- |
+| Addition and subtraction gates | builder `evaluate_non_native_field_addition`, `evaluate_non_native_field_subtraction` |
+| Multiplication | `unsafe_evaluate_multiply_add`, which calls the builder's `evaluate_non_native_field_multiplication` |
+| Sums of products | `unsafe_evaluate_multiple_multiply_add`, `mult_madd` (at most `MAXIMUM_SUMMAND_COUNT` = 16 terms) |
+| Lazy reduction | `reduction_check`, `self_reduce`, `get_maximum_unreduced_value`, `get_prohibited_value` |
+| Strict reduction to $[0, p)$ | `assert_is_in_field`, `assert_less_than` |
+| Carry range checks | `range_constrain_two_limbs` when both carries fit in 70 bits |
+| Bound on additions per limb ($k$ above) | `MAX_ADDITION_LOG` = 10 |
+
+`goblin_field.hpp` wraps BN254 coordinates in Mega (Goblin) circuits instead of `bigfield`. It skips these checks: the Translator range-constrains the coordinates, and ECCVM outputs are well-formed.

@@ -20,23 +20,32 @@ Each 512-bit block is processed through 64 rounds:
 
 **Message Schedule (W)**
 - W[0..15]: Input block (16 × 32-bit words)
-- W[16..63]: Extended via σ₀ and σ₁ functions
+- W[16..63]: Extended via σ₀ and σ₁:
+
+```
+W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]  (mod 2³²)  for i = 16..63
+
+σ₀(x) = ROTR⁷(x) ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
+σ₁(x) = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)
+```
 
 **Compression Function**
+
+The 8 working variables (a, b, c, d, e, f, g, h) start from the current hash state. All additions are mod 2³².
 ```
 For i = 0 to 63:
-    S1 = ROTR⁶(e) ⊕ ROTR¹¹(e) ⊕ ROTR²⁵(e)
+    Σ₁ = ROTR⁶(e) ⊕ ROTR¹¹(e) ⊕ ROTR²⁵(e)
     Ch = (e ∧ f) ⊕ (¬e ∧ g)
-    temp1 = h + S1 + Ch + K[i] + W[i]
+    temp1 = h + Σ₁ + Ch + K[i] + W[i]
 
-    S0 = ROTR²(a) ⊕ ROTR¹³(a) ⊕ ROTR²²(a)
+    Σ₀ = ROTR²(a) ⊕ ROTR¹³(a) ⊕ ROTR²²(a)
     Maj = (a ∧ b) ⊕ (a ∧ c) ⊕ (b ∧ c)
-    temp2 = S0 + Maj
+    temp2 = Σ₀ + Maj
 
     (a,b,c,d,e,f,g,h) = (temp1+temp2, a, b, c, d+temp1, e, f, g)
 ```
 
-**Output**: Add compressed values to running hash state.
+**Output**: Add the working variables to the running hash state: `H[i] = H[i] + (a,b,c,d,e,f,g,h)[i]  (mod 2³²)`.
 
 ### Constants
 
@@ -58,7 +67,7 @@ std::array<uint32_t, 8> sha256_block(
 
 ## Test Vectors
 
-5 NIST test vectors in `sha256.test.cpp`:
+5 NIST test vectors in `sha256.test.cpp` (`misc_sha256.test_NIST_vector_one` to `misc_sha256.test_NIST_vector_five`):
 - "abc"
 - "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
 - Single byte 0xBD

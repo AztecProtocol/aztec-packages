@@ -26,7 +26,7 @@ formula.
 Fix an arbitrary "S-box" function $\sigma : \mathbb{F} \to \mathbb{F}$. For
 Poseidon2 on BN254, $\sigma(x) = x^5$. The theorem does **not** use any
 property of $\sigma$ other than that it is a deterministic function. The same
-soundness argument therefore works for any choice of $\sigma$. (Somewhat surprisingly, it works for the zero function!)
+soundness argument therefore works for any choice of $\sigma$, including the zero function.
 
 Define the $3 \times 3$ matrix $A$ acting on $\mathbb{F}^3$ by
 
@@ -35,7 +35,7 @@ $$A = \mathrm{diag}(D_2, D_3, D_4) + (J - I),$$
 where $J$ is the $3 \times 3$ all-ones matrix and $I$ the $3 \times 3$
 identity. Equivalently, for $\vec{v} \in \mathbb{F}^3$ and $i \in \{1, 2, 3\}$,
 
-$$(A \vec{v})_i = D_i\, v_i + \sum_{j \ne i} v_j.$$
+$$(A \vec{v})_i = D_{i+1}\, v_i + \sum_{j \ne i} v_j.$$
 
 Written out:
 
@@ -78,69 +78,35 @@ The *row commitments* the prover supplies are
 
 $$(s_0,\ s_1,\ s_2,\ s_3),$$
 
-the four observed-lane values *before* each S-box. Crucially, the prover does
+the four observed-lane values *before* each S-box. The prover does
 **not** commit $\vec{v}_0$. The *row output* is the full final state
 
 $$\mathrm{out} := (s_4, \vec{v}_4) \in \mathbb{F} \times \mathbb{F}^3.$$
 
-## A Crucial Point: Treating the $s_k$ as Independent (or why is the reconstruction of the hidden $\vec{v}_0$ linear?)
+## Why the System Is Linear in $\vec{v}_0$
 
-Before stating the theorem, it is essential to be precise about what is "committed" versus "derived" — otherwise the statement is wrong. 
-
-A naive reading of the dynamical system says: starting from $(s_0, \vec{v}_0)$
-together with the round constants, the entire iteration is determined. So
-$s_1, s_2, s_3$ are **functions** of $(s_0, \vec{v}_0)$, computed by cascading
-$\sigma$ four times. Under this reading, the map $\vec{v}_0 \mapsto (s_1, s_2, s_3)$
-(with $s_0, c_k$ fixed) is **highly nonlinear** — each $s_{k+1}$ depends on
-$\sigma(s_k + c_k)$, which depends on $\sigma(s_{k-1} + c_{k-1})$, and so on,
-giving a tower of $\sigma$'s with combined degree $5^3$ if $\sigma(x) = x^5$.
-
-That naive reading is **not** what the circuit checks. The compressed-row
-relation does *not* receive $\vec{v}_0$ and recompute the iteration. Instead, the
-prover commits **four independent wires** $(s_0, s_1, s_2, s_3)$, and the
-relation asks:
-
-> Does there exist a $\vec{v}_0 \in \mathbb{F}^3$ such that the four committed
-> values $(s_0, s_1, s_2, s_3)$, together with the recurrence, are
-> consistent — and if so, is that $\vec{v}_0$ unique?
-
-Under this question, $u_k = \sigma(s_k + c_k)$ for $k = 0, 1, 2, 3$ are
-**fixed scalars** computed from the committed wires $s_k$ and the publicly
-known round constants. They do not "cascade through $\sigma$" in $\vec{v}_0$,
-because the $s_k$ are committed independently rather than derived from
-$\vec{v}_0$. With the $u_k$ treated as constants, the constraints
+The relation treats $s_0, \dots, s_3$ as four independent committed wires. It does not
+receive $\vec{v}_0$ and recompute the iteration. So $u_k = \sigma(s_k + c_k)$ are known
+scalars, computed from the committed wires and the public round constants, and the
+constraints on $\vec{v}_0$ are linear:
 
 $$
 \begin{aligned}
 s_1 &= D_1 u_0 + \vec{1}^\top \vec{v}_0, \\
 s_2 &= D_1 u_1 + \vec{1}^\top (A \vec{v}_0 + u_0 \vec{1}), \\
-s_3 &= D_1 u_2 + \vec{1}^\top (A^2 \vec{v}_0 + A u_0 \vec{1} + u_1 \vec{1}),
+s_3 &= D_1 u_2 + \vec{1}^\top (A^2 \vec{v}_0 + A u_0 \vec{1} + u_1 \vec{1}).
 \end{aligned}
 $$
 
-become a **linear system in $\vec{v}_0$**. This is the system the proof inverts.
+Committing each $s_k$ keeps the per-variable degree at 5: each $u_k$ is one $\sigma$
+applied to one wire, instead of a cascade of degree $5^k$ in $\vec{v}_0$.
 
-Two consequences of this design choice:
+The recurrence is checked, not assumed. Part (1) below proves only that each committed
+lane-0 chain recovers a unique $\vec{v}_0$, not that the chain is honest. The subrelations
+$A_0, \dots, A_3$ reject a dishonest chain when its output fails the successor-row constraints.
 
-* **Per-variable degree stays at 5.** Because the $s_k$ are independent
-  wires, each $u_k$ is a single $\sigma$ applied to one wire — degree 5 in
-  that wire — rather than a cascade that would push the degree to $5^k$. The
-  cost is committing three extra wires per row; the benefit is that the
-  relation polynomial has manageable degree.
-
-* **The recurrence is checked, not assumed.** What forces the prover to use
-  the *correct* $s_1, s_2, s_3$ (i.e. the values that the honest dynamics
-  would produce) is precisely the four subrelations $A_0, A_1, A_2, A_3$
-  that constrain consistency between the committed $s_k$, the unique
-  $\vec{v}_0$ recovered from them, and the adjacent row. Row-locally, every
-  committed lane-0 chain recovers a unique hidden state; globally, a dishonest
-  chain is rejected when its resulting output fails to match the successor row
-  constraints.
-
-With this understanding in place, "the map $\vec{v}_0 \mapsto (s_1, s_2, s_3)$"
-in the theorem below means **the linear-in-$\vec{v}_0$ component of the system
-above**, with the committed-wire S-box outputs $u_0, u_1, u_2$ treated as
-known scalars. This map is genuinely affine in $\vec{v}_0$.
+In the theorem, "the map $\vec{v}_0 \mapsto (s_1, s_2, s_3)$" means this affine system, with
+$u_0, u_1, u_2$ held fixed.
 
 ## The Theorem
 
@@ -190,7 +156,7 @@ The relation commits only the lane-0 chain $(s_0, s_1, s_2, s_3)$ on each
 compressed row. Part (1) says the prover gets no freedom in $\vec{v}_0$ — it is
 forced by the committed values together with the publicly fixed round
 constants. Part (2) says the row's output state is a fixed linear function of
-seven quantities, four of which are already committed wires and three of
+seven quantities, three of which are already committed wires and four of
 which are S-box outputs of committed wires; this is exactly what the four
 interior subrelations check.
 
@@ -245,52 +211,40 @@ $$
 
 The question reduces to: **when is $K$ invertible?**
 
-### A is Diagonalizable with Eigenvalues $D_2, D_3, D_4$
+### $K = L \cdot V$ with $L$ Unit Lower-Triangular
 
-A short calculation gives the characteristic polynomial of $A$:
-
-$$\det(A - x I) = (D_2 - x)(D_3 - x)(D_4 - x).$$
-
-So the eigenvalues of $A$ are exactly $D_2, D_3, D_4$. When they are pairwise
-distinct, $A$ is diagonalizable: there is an invertible $P$ with
-
-$$A = P\, \mathrm{diag}(D_2, D_3, D_4)\, P^{-1}.$$
-
-### $K$ Invertible $\iff$ Vandermonde Invertible
-
-Using $A^k = P\, \mathrm{diag}(D_2^k, D_3^k, D_4^k)\, P^{-1}$,
-
-$$\vec{1}^\top A^k = (P^\top \vec{1})^\top \mathrm{diag}(D_2^k, D_3^k, D_4^k)\, P^{-1}.$$
-
-Set $\vec{w} := P^\top \vec{1} = (w_1, w_2, w_3) \in \mathbb{F}^3$. Stacking the
-three rows for $k = 0, 1, 2$,
+Write $\vec{D} = (D_2, D_3, D_4)^\top$, $\vec{D}^2$ for its entrywise square, and
+$\Sigma = D_2 + D_3 + D_4$. Since $A = \mathrm{diag}(\vec{D}) + J - I$ and
+$\vec{1}^\top J = 3 \cdot \vec{1}^\top$, the rows of $K$ are
 
 $$
-K = \begin{bmatrix} w_1 & w_2 & w_3 \\ w_1 D_2 & w_2 D_3 & w_3 D_4 \\ w_1 D_2^2 & w_2 D_3^2 & w_3 D_4^2 \end{bmatrix} P^{-1}.
+\begin{aligned}
+\vec{1}^\top &= \vec{1}^\top, \\
+\vec{1}^\top A &= \vec{D}^\top + 2 \cdot \vec{1}^\top, \\
+\vec{1}^\top A^2 &= (\vec{D}^2)^\top + \vec{D}^\top + (\Sigma + 4) \cdot \vec{1}^\top.
+\end{aligned}
 $$
 
-The middle matrix factors as
+The rows of $V$ are $\vec{1}^\top$, $\vec{D}^\top$ and $(\vec{D}^2)^\top$, so
 
 $$
-\begin{bmatrix} w_1 & w_2 & w_3 \\ w_1 D_2 & w_2 D_3 & w_3 D_4 \\ w_1 D_2^2 & w_2 D_3^2 & w_3 D_4^2 \end{bmatrix} = \begin{bmatrix} 1 & 1 & 1 \\ D_2 & D_3 & D_4 \\ D_2^2 & D_3^2 & D_4^2 \end{bmatrix} \begin{bmatrix} w_1 & 0 & 0 \\ 0 & w_2 & 0 \\ 0 & 0 & w_3 \end{bmatrix} = V \cdot \mathrm{diag}(\vec{w}),
+K = L \cdot V, \qquad
+L = \begin{bmatrix} 1 & 0 & 0 \\ 2 & 1 & 0 \\ \Sigma + 4 & 1 & 1 \end{bmatrix}.
 $$
 
-so $K = V \cdot \mathrm{diag}(\vec{w}) \cdot P^{-1}$ and therefore
-
-$$\det(K) = \det(V) \cdot w_1 w_2 w_3 \cdot \det(P^{-1}).$$
-
-Since $P$ is invertible, $\det(P^{-1}) \ne 0$, so $K$ is invertible iff
-$\det(V) \ne 0$ **and** every $w_i \ne 0$.
+$L$ is unit lower-triangular, so $\det(K) = \det(V)$:
 
 * $\det(V) = (D_3 - D_2)(D_4 - D_2)(D_4 - D_3) \ne 0$ iff $D_2, D_3, D_4$ are
   pairwise distinct. *(This is the static_assert in `poseidon2_quad_params.hpp`.)*
-* $w_i = (P^\top \vec{1})_i$ is the projection of $\vec{1}$ onto the
-  $i$-th left eigenvector of $A$. For this specific $A = \mathrm{diag}(D) + J - I$,
-  each eigenvector on a distinct eigenvalue has nonzero coordinate sum, so
-  $w_i \ne 0$ automatically.
 
 Therefore $K$ is invertible exactly when $D_2, D_3, D_4$ are pairwise
 distinct.
+
+This is the reduction the code uses. `build_tables` in `poseidon2_quad_params.hpp`
+holds $L^{-1}$ as the matrix `Bw`; the comments there call the result the
+"row-reduced Vandermonde system". In the README, the system $V \vec{v}_0 = \vec{b}$ has
+$b_2 = w_o - 2 w_r + \dots$ and $b_3 = w_4 - w_o - (\Sigma + 2) w_r + \dots$: these apply $L^{-1}$
+to the committed wires. The entry coefficients $D_j^2 + D_j + \Sigma + 4$ are the third row of $K$.
 
 ## Proof of Part (2): The Closed Form $C$
 
@@ -315,83 +269,21 @@ it against direct four-step iteration.
 
 * **$D_2, D_3, D_4$ pairwise distinct.** Asserted at compile time in
   `poseidon2_quad_params.hpp`.
-* **The all-ones vector has nonzero projection onto every left eigenvector of
-  $A$.** Automatic for $A = \mathrm{diag}(D) + J - I$ when the $D_i$ are
-  distinct, but worth flagging as a side condition; it is what lets
-  "Vandermonde invertible" suffice without a separate runtime check.
 * **$\sigma$ is deterministic.** Used implicitly when we treat $u_k$ as a
   function of $(s_k, c_k)$. No other property of $\sigma$ matters — in
   particular the soundness argument is independent of the algebraic degree of
   the S-box.
 
-That is the entire mathematical content of the soundness proof.
+## Remark: Generalization
 
-## Generalization: What Other Matrices Would Work?
+The proof uses little structure of $A$. Replace $\mathbb{F}^3$ by $\mathbb{F}^n$, and let
+the hidden lanes update as $\vec{v}_{k+1} = A \vec{v}_k + u_k \vec{b}$ and the observed lane as
+$s_{k+1} = D_1 u_k + \vec{c}^\top \vec{v}_k$. Poseidon2 has $n = 3$ and $\vec{b} = \vec{c} = \vec{1}$.
 
-The proof above used very little structure of $A$. Stripped to its essentials,
-the construction works for any $3 \times 3$ matrix that satisfies a single
-*observability* condition. Stated for general dimension $n$ in place of $3$:
+Running $n$ steps, the linear part of $\vec{v}_0 \mapsto (s_1, \ldots, s_n)$ is the
+**observability matrix** $K$ with rows $\vec{c}^\top A^k$ for $k = 0, \dots, n-1$. The construction is sound iff $K$ is
+invertible, i.e. iff $(A, \vec{c}^\top)$ is *observable*. $\vec{b}$ does not appear in the
+condition: it affects the driver-only piece, not recoverability of $\vec{v}_0$.
 
-### The Abstract Setup
-
-Replace $\mathbb{F}^3$ by $\mathbb{F}^n$, and choose:
-
-* an $n \times n$ matrix $A$ over $\mathbb{F}$ (the hidden-lane update),
-* a column vector $\vec{b} \in \mathbb{F}^n$ (the *input direction*,
-  controlling how the driver $u$ enters the hidden lanes: $\vec{v}_{k+1} = A \vec{v}_k + u_k \vec{b}$),
-* a row vector $\vec{c}^\top \in \mathbb{F}^n$ (the *output direction*,
-  controlling how the hidden lanes feed back to the observed lane:
-  $s_{k+1} = D_1 u_k + \vec{c}^\top \vec{v}_k$).
-
-In Poseidon2's case, $n = 3$ and $\vec{b} = \vec{c} = \vec{1}$, but
-nothing in the proof actually requires $\vec{b} = \vec{c}$, nor that
-either equals the all-ones vector.
-
-### The Key Condition
-
-Running the system $n$ steps, the linear part of the map
-$\vec{v}_0 \mapsto (s_1, \ldots, s_n)$ is the **observability matrix**
-
-$$
-K = \begin{bmatrix} \vec{c}^\top \\ \vec{c}^\top A \\ \vdots \\ \vec{c}^\top A^{n-1} \end{bmatrix}.
-$$
-
-The construction is sound iff $K$ is invertible — equivalently, iff the pair
-$(A, \vec{c}^\top)$ is *observable*. Note that $\vec{b}$ does not appear in
-the condition: the input direction affects the driver-only piece but not
-recoverability of $\vec{v}_0$.
-
-When $A$ is diagonalizable with distinct eigenvalues $\lambda_1, \ldots, \lambda_n$,
-the same factorization as in the Poseidon2 proof shows $K$ is invertible iff:
-
-1. The $\lambda_i$ are pairwise distinct (Vandermonde nondegeneracy), **and**
-2. $\vec{c}$ has nonzero projection onto every left eigenvector of $A$.
-
-So observability of $(A, \vec{c}^\top)$ — a single condition — splits into
-"distinct eigenvalues" + "output not orthogonal to any eigenvector" in the
-diagonalizable case. Poseidon2 satisfies both: condition (1) by the static
-assertion that $D_2, D_3, D_4$ are distinct, condition (2) automatically
-because eigenvectors of $\mathrm{diag}(D) + J - I$ on distinct eigenvalues
-have nonzero coordinate sum.
-
-### Quick Examples
-
-**Works:** any pure-diagonal $A = \mathrm{diag}(\lambda_1, \ldots, \lambda_n)$
-with distinct $\lambda_i$ and $\vec{c}$ entrywise nonzero; companion matrices
-of separable polynomials with $\vec{c} = \vec{e}_1$; generic circulants over a
-field containing the relevant roots of unity.
-
-**Fails:** $A = \lambda I$ (every vector is an eigenvector, $K$ has rank 1);
-any $A$ with a repeated eigenvalue when $\vec{c}^\top$ annihilates the
-difference of two eigenvectors on that eigenvalue (then $\vec{v}_0$ and a
-shift by that difference produce identical lane-0 chains — a free witness
-channel for the prover).
-
-### Takeaway
-
-The Poseidon2 quad-row layout is one instance of a general phenomenon: any
-observable single-input single-output linear system of dimension $n$ admits
-an $n$-step compression where only the observed lane is committed and the
-hidden state is recovered by inverting the observability matrix. The
-Vandermonde appears as a clean sufficient condition when $A$ is diagonalizable;
-the underlying requirement is just observability.
+When $A$ is diagonalizable, $K$ is invertible iff the eigenvalues of $A$ are pairwise distinct
+(Vandermonde nondegeneracy) and $\vec{c}$ has nonzero projection onto every left eigenvector of $A$.
