@@ -43,7 +43,7 @@ $$ that by the property of $\mathsf{Hash}$ implies $(\iota^{outer}, \pi_{avm}^{o
 
 ## Why is this useful?
 
-$\mathsf{C}^{outer}$ is not proven on its own. Its constraints are added directly to the public base rollup circuit, which takes the AVM proof and public inputs as witnesses (`dsl/avm2_recursion_constraint.cpp`). So the rollup circuit contains the verifier for $\mathsf{C}^{inner}$, not the one of the AVM. Hence, if the cost of verifying $\mathsf{C}^{inner}$ in-circuit plus the cost of generating a proof for $\mathsf{C}^{inner}$ is smaller than the cost of verifying the AVM proof directly in the rollup circuit, then the 2-step recursive verification is more efficient than a single recursive verification.
+$\mathsf{C}^{outer}$ is not proven on its own. Its constraints are added directly to the public base rollup circuit, which takes the AVM proof and public inputs as witnesses (`vm2/dsl/avm2_recursion_constraint.cpp`). So the rollup circuit contains the verifier for $\mathsf{C}^{inner}$, not the one of the AVM. Hence, if the cost of verifying $\mathsf{C}^{inner}$ in-circuit plus the cost of generating a proof for $\mathsf{C}^{inner}$ is smaller than the cost of verifying the AVM proof directly in the rollup circuit, then the 2-step recursive verification is more efficient than a single recursive verification.
 
 We arithmetize $\mathsf{C}^{inner}$ using `MegaBuilder`. In this way the large MSM required by $\mathsf{V}_{avm}$ is performed using `Goblin`, which means it doesn't have a direct impact on $\mathsf{C}^{inner}$, but rather its impact is split over different components, making it more manageable.
 

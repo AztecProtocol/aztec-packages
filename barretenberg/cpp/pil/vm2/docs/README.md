@@ -459,7 +459,7 @@ flowchart TB
 
 ## Generated C++ files
 
-The PIL-to-C++ compilation step (via [bb-pilcom](../../../../../bb-pilcom)) generates, per PIL namespace `<ns>`, the files `<ns>.hpp`, `<ns>_impl.hpp` and `<ns>.cpp`, plus `lookups_<ns>.{hpp,cpp}` and `perms_<ns>.hpp` (header-only) for its interactions. These files live in [`barretenberg/cpp/src/barretenberg/vm2/generated/relations/`](../../../src/barretenberg/vm2/generated/relations) and each implements a _relation_ — Barretenberg's term for a named group of constraint polynomials (subrelations). For example, the `gt` namespace in `gt.pil` produces `gt.hpp`, `gt_impl.hpp` and `gt.cpp`.
+The PIL-to-C++ compilation step (via [bb-pilcom](../../../../../bb-pilcom)) generates, per PIL namespace `<ns>` (except `poseidon2_perm`; see [Optimized Poseidon2](#optimized-poseidon2)), the files `<ns>.hpp`, `<ns>_impl.hpp` and `<ns>.cpp`, plus `lookups_<ns>.{hpp,cpp}` and `perms_<ns>.hpp` (header-only) for its interactions. These files live in [`barretenberg/cpp/src/barretenberg/vm2/generated/relations/`](../../../src/barretenberg/vm2/generated/relations) and each implements a _relation_ — Barretenberg's term for a named group of constraint polynomials (subrelations). For example, the `gt` namespace in `gt.pil` produces `gt.hpp`, `gt_impl.hpp` and `gt.cpp`.
 
 Regenerate the C++ after every PIL change with `barretenberg/cpp/scripts/avm2_gen.sh`. If you add or remove columns, the AVM proof length changes and the build fails a `static_assert` in `vm2/constraining/flavor.hpp`. Then run `barretenberg/cpp/scripts/bump_avm_proof_length.sh` (see its header).
 
@@ -507,7 +507,7 @@ On a valid trace, `tmp` is zero on every row, contributing nothing to the sum. A
 
 For most relations the generated code is the most convenient thing to audit: every PIL constraint corresponds to an identifiable block. There is one important exception.
 
-The [Poseidon2 permutation](../poseidon2_perm.pil) has 64 rounds, each with 4 state elements, producing a large number of nearly identical subrelation blocks in the generated file. The verbosity slows down compilation significantly without changing any semantics. For this reason the `accumulate` function for Poseidon2 is **hand-written** rather than generated; it lives in [`barretenberg/cpp/src/barretenberg/vm2/optimized/relations/poseidon2_perm_impl.hpp`](../../../src/barretenberg/vm2/optimized/relations/poseidon2_perm_impl.hpp) bb-pilcom does not generate this file; `generated/relations/relations_impls.hpp` includes the hand-written one from `vm2/optimized/relations/`.
+The [Poseidon2 permutation](../poseidon2_perm.pil) has 64 rounds, each with 4 state elements, producing a large number of nearly identical subrelation blocks in the generated file. The verbosity slows down compilation significantly without changing any semantics. For this reason the `accumulate` function for Poseidon2 is **hand-written** rather than generated; it lives in [`barretenberg/cpp/src/barretenberg/vm2/optimized/relations/poseidon2_perm_impl.hpp`](../../../src/barretenberg/vm2/optimized/relations/poseidon2_perm_impl.hpp). bb-pilcom skips the `poseidon2_perm` namespace entirely (`get_optimized_relations_file_names` in `bb-pilcom/bb-pil-backend/src/file_writer.rs`), so `poseidon2_perm.hpp`, `poseidon2_perm.cpp` and `poseidon2_perm_impl.hpp` are all hand-maintained in `vm2/optimized/relations/`; the generated `flavor_variables.hpp` and `relations_impls.hpp` include them from there.
 
 ## Further reading
 
