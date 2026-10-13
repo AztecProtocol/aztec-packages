@@ -571,7 +571,7 @@ Since our scalars are at most 128 bits long after endomorphism, we can represent
 secp256r1 has no efficient endomorphism, so `secp256r1_ecdsa_mul` (`biggroup_secp256r1.hpp`) computes $u_1 \cdot G + u_2 \cdot Q$ with two different strategies:
 
 - $u_1 \cdot G$ (fixed base): `secp256r1_fixed_base_mul` slices $u_1$ into 8-bit windows. Each window reads a precomputed table of $k \cdot 2^{8i} \cdot G + \textsf{offset}_i$ (`plookup_tables/secp256r1_fixed_base.hpp`). There are no doublings: one table read and one chain-add per window, then one offset subtraction.
-- $u_2 \cdot Q$ (variable base): "fake GLV". The prover supplies a hint $T_2$, claimed to equal $u_2 \cdot Q$, and integers $(\alpha_2, \beta_2)$ from a half-GCD of $(n, u_2)$ with $\beta_2 \cdot u_2 \equiv \alpha_2 \pmod n$ and $|\alpha_2|, |\beta_2| < 2^{128}$. The circuit range-constrains $\alpha_2$ and $|\beta_2|$ to 128 bits, asserts $\beta_2 \neq 0$, checks the congruence, and checks $\alpha_2 \cdot Q - \beta_2 \cdot T_2 = \mathcal{O}$ as a 128-bit 2-MSM with the generic `batch_mul` below.
+- $u_2 \cdot Q$ (variable base): "fake GLV". The prover supplies a hint $T_2$, claimed to equal $u_2 \cdot Q$, and integers $(\alpha_2, \beta_2)$ from a half-GCD of $(n, u_2)$ with $\beta_2 \cdot u_2 \equiv \alpha_2 \pmod n$ and $|\alpha_2|, |\beta_2| < 2^{128}$. The circuit range-constrains $\alpha_2$ and $|\beta_2|$ to 128 bits, asserts $\beta_2 \neq 0$, checks the congruence, and checks $\alpha_2 \cdot Q - \beta_2 \cdot T_2 = \mathcal{O}$ as a 128-bit 2-MSM with the generic `batch_mul` below (called with `with_edgecases = false`, so the two points are not masked).
 
 The fake-GLV path cannot handle $u_2 \in \{0, \pm 1\}$. In that case the function computes with $u_2 = 2$ and returns the flag `u2_is_acceptable = false` in `Secp256r1EcdsaMulResult`.
 
@@ -809,7 +809,7 @@ $$
 
 Adding this offset generator ensures that the two points being added have distinct $x$-coordinates during the addition operation in the Montgomery ladder.
 
-> Note: $\windex{G_{\textsf{offset}}}$ is deterministic (`compute_offset_generators`) and independent of the masking point $\textcolor{olive}{G_{\textsf{mask}}}$. A prover who knows it could try to construct inputs that hit the point at infinity. As with masking, that breaks only the prover's own proof: the constraints still pin the MSM output. `scalar_mul` (used to aggregate pairing points in the recursive verifier) calls `batch_mul` with `with_edgecases = false`, so its input point is not masked. The pairing points are derived using verifier-chosen randomness, so nobody can steer them onto the offset generator's edge cases.
+> Note: $\windex{G_{\textsf{offset}}}$ is deterministic (`compute_offset_generators`) and independent of the masking point $\textcolor{olive}{G_{\textsf{mask}}}$. A prover who knows it could try to construct inputs that hit the point at infinity. As with masking, that breaks only the prover's own proof: every point addition and ladder step constrains the two x-coordinates to differ (`assert_is_not_equal`), so a trace in which two added points share an x-coordinate is unsatisfiable. `scalar_mul` (used to aggregate pairing points in the recursive verifier) calls `batch_mul` with `with_edgecases = false`, so its input point is not masked. The pairing points are derived using verifier-chosen randomness, so nobody can steer them onto the offset generator's edge cases.
 
 In summary, the modified MSM computation becomes:
 

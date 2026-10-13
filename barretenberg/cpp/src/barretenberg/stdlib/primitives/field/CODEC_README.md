@@ -177,8 +177,8 @@ x_hi.assert_equal(other._x.limbs[1]);
 ```
 
 For an honest prover, `get_value()` auto-reduces field values, so aliased inputs would cause
-these constraints to fail. However, **these constraints can be avoided**: only `operator-` (and
-one other site in `biggroup_goblin.hpp`) adds them. `operator+` and `batch_mul` queue the op
+these constraints to fail. However, **these constraints can be avoided**: only `operator-` adds them (once on
+`other`'s limbs after `queue_ecc_add_accum`, once on the result's limbs after `queue_ecc_eq`). `operator+` and `batch_mul` queue the op
 without comparing the limbs.
 
 

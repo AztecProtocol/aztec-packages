@@ -173,7 +173,7 @@ $$
 \end{aligned}
 $$
 
-It is worth noting that we cannot do better than 4 gates because we have a total of 15 witnesses (5 each for $a, b$ and $c$) that can fit in $\lceil 15/4 \rceil = 4$ gates (4 wires per gate).
+We cannot do better than 4 gates because we have a total of 15 witnesses (5 each for $a, b$ and $c$) that can fit in $\lceil 15/4 \rceil = 4$ gates (4 wires per gate).
 
 #### Tracking Maximum Values due to Addition
 
