@@ -132,27 +132,6 @@ struct PedersenHash {
 };
 
 /**
- * @struct PedersenHashBuffer
- * @brief Compute Pedersen hash of raw buffer
- */
-struct PedersenHashBuffer {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenHashBuffer";
-
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenHashBufferResponse";
-        grumpkin::fq hash;
-        SERIALIZATION_FIELDS(hash);
-        bool operator==(const Response&) const = default;
-    };
-
-    std::vector<uint8_t> input;
-    uint32_t hash_index;
-    Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(input, hash_index);
-    bool operator==(const PedersenHashBuffer&) const = default;
-};
-
-/**
  * @struct Blake2s
  * @brief Compute Blake2s hash
  */
