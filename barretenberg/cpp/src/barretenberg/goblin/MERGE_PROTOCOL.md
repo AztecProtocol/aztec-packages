@@ -4,16 +4,18 @@
 1. [Overview](#overview)
 2. [Mathematical Foundation](#mathematical-foundation)
 3. [Trace Layout Alignment](#trace-layout-alignment)
+   - [MegaZK circuit trace layout](#megazk-circuit-trace-layout)
+   - [Translator mini-circuit layout](#translator-mini-circuit-layout)
+   - [The merge protocol shift](#the-merge-protocol-shift)
 4. [Protocol Description](#protocol-description)
-5. [Degree Check Mechanism](#degree-check-mechanism)
-6. [Concatenation Check](#concatenation-check)
-7. [Implementation Details](#implementation-details)
-8. [Usage Examples](#usage-examples)
-9. [Security Considerations](#security-considerations)
+5. [Implementation Details](#implementation-details)
+6. [Security Considerations](#security-considerations)
+7. [Merge Flow Through CHONK](#merge-flow-through-chonk)
+8. [References](#references)
 
 ## Overview
 
-The **Merge Protocol** is a component of the CHONK proving system used in Aztec. It proves the
+The **Merge Protocol** is a component of the CHONK proving system used in Aztec [[3](#ref-stackproofs)]. It proves the
 correct construction and concatenation of the ECC (Elliptic Curve Cryptography) operation-queue
 polynomials.
 
@@ -40,21 +42,13 @@ shared operation queue. The (latest) Merge Protocol proves that:
 2. **The left table has bounded degree** (so subtables do not overlap and the appended subtable lands
    at the expected fixed location).
 
-### Role in Goblin
-
-The Merge Protocol is one of the components in a full Goblin proof:
-- **ECCVM (Elliptic Curve Virtual Machine)**: Proves correct execution of ECC operations
-- **Translator**: Translates operations between BN254 and Grumpkin curves
-- **Merge / Batch Merge**: Prove correct accumulation of operation tables (batch merge for the
-  cumulative accumulation, the latest merge for the final hiding-kernel append)
-
 ## Mathematical Foundation
 
 ### Notation
 
 | Symbol | Code identifier | Meaning | Bound / value |
 |---|---|---|---|
-| $j$ | wire index | op-queue column index | $j \in \lbrace 1,2,3,4\rbrace$ (`NUM_WIRES`) |
+| $j$ | wire index | op-queue column index | $j \in \lbrace 1,2,3,4\rbrace$ (`NUM_WIRES`); proof labels such as `MERGED_TABLE_0..3` index from 0 |
 | $L_j$ | `left_table` | left table: the aggregate up to and including the tail subtable, $T_{\text{tail},j}$ | $\deg(L_j) < \ell$ |
 | $R_j$ | `right_table` | right table: the hiding kernel's subtable $t_j$ | carries `APPEND_TRACE_OFFSET` leading zeros |
 | $M_j$ | `merged_table` | full merged table $T_j = L_j + X^\ell R_j$ | |
@@ -70,12 +64,12 @@ The Merge Prover convinces the verifier that for each column $j = 1, 2, 3, 4$:
 **1. Concatenation Identity:**
 $$M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$$
 
-where $\ell$ is the size of the left table (called `shift_size` in the code).
+where $\ell$ is the size of the left table (`fixed_append_shift_size` in the prover, `shift_size` in the verifier).
 
 **2. Degree Bound:**
 $$\deg(L_j(X)) < \ell$$
 
-where $\ell =$ `shift_size` that prevents overlapping of different subtables.
+This bound on $\ell$ prevents overlapping of different subtables.
 
 ### Merge Settings
 
@@ -108,24 +102,24 @@ These three share commitments across proof layers, so their leading-zero structu
 
 ### MegaZK circuit trace layout
 
-Constants (from `constants.hpp` and `flavor/mega_flavor.hpp`):
+Constants (from `constants.hpp` and `flavor/mega_zk_flavor.hpp`):
 
 - `NUM_ZERO_ROWS = 1` — single leading zero row that makes wire polynomials shiftable.
 - `NUM_MASKED_ROWS = 3` — ZK masking rows, only populated with random values when `Flavor::HasZK`.
-- `TRACE_OFFSET = NUM_MASKED_ROWS + 1 = 4` — number of rows disabled in Sumcheck (rows `[0, 4)`); equivalently, the first row where the Sumcheck gate separator is non-zero is `TRACE_OFFSET = 4`.
+- `MegaZKFlavor::TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1 = 4` — number of rows disabled in Sumcheck (rows `[0, 4)`); equivalently, the first row where the Sumcheck gate separator is non-zero is `TRACE_OFFSET = 4`. The non-ZK `MegaFlavor` has `TRACE_OFFSET = 0` and no masking rows.
 
 The first block (always `ecc_op`) has `trace_offset() = TRACE_OFFSET + NUM_ZERO_ROWS = 5`:
 
 ```
 Row 0:     zero row (shiftability)
-Rows 1-3:  masking rows in ZK flavors (MegaZKFlavor); zero otherwise
+Rows 1-3:  masking rows
 Row 4:     first active Sumcheck row; lagrange_first = 1 here
 Row 5+:    ecc_op block data starts
 ```
 
 Note the gap between row 4 and row 5. `lagrange_first` is placed at row 4 — the first row where the gate separator fires — and enforces the permutation boundary condition `lagrange_first` $\cdot z_{\text{perm}} = 0$, pinning $z_{\text{perm}}(4) = 0$. The first ecc_op witness values begin one row later at the ecc_op block's trace offset.
 
-The Mega `ecc_op_wire_*` polynomials are **not shiftable** (`start_index = 0`) and **not masked** — they rely on random ops placed into the op queue itself for ZK. The regular wires `w_l, w_r, w_o, w_4` are shiftable (`start_index = NUM_ZERO_ROWS = 1`) and masked iff `HasZK`. Both copies hold identical values at rows 5+; the `EccOpQueueRelation` constrains them to agree wherever `lagrange_ecc_op = 1`.
+The Mega `ecc_op_wire_*` polynomials are **not shiftable** (`start_index = 0`) and **not masked** — they rely on random ops placed into the op queue itself for ZK. The regular wires `w_l, w_r, w_o, w_4` are shiftable (`start_index = NUM_ZERO_ROWS = 1`) and masked iff `HasZK`. `ecc_op_wire` holds the ecc_op block from row `TRACE_OFFSET` (4), so `ecc_op_wire[row] = w[row + NUM_ZERO_ROWS]`. `EccOpQueueRelation` enforces `ecc_op_wire = w_shift` where `lagrange_ecc_op = 1`. This gives `ecc_op_wire` exactly `APPEND_TRACE_OFFSET = 4` leading zeros.
 
 ### Translator mini-circuit layout
 
@@ -137,28 +131,13 @@ Constants (from `translator_vm/translator_flavor.hpp`):
 ```
 Row 0:    zero (shiftability)
 Row 1:    zero (RANDOMNESS_START - 1)
-Row 2:    first op's data (x_lo, x_hi, y_lo, op)
-Row 3:    first op's data (y_hi, z_1, z_2, 0)
+Row 2:    first op's data (op, x_lo, x_hi, y_lo)
+Row 3:    first op's data (0, y_hi, z_1, z_2)
 ```
 
 Each op occupies `NUM_ROWS_PER_OP = 2` rows, with the split `(op, x_lo, x_hi, y_lo)` on the even row and `(0, y_hi, z_1, z_2)` on the odd row. Rows 0 and 1 — together one op-slot's worth of zeros — form the leading gap. The op queue wires (`x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`) are shiftable with `start_index = 1`.
 
 Critically, **the Translator does not commit to its op queue wires**. Instead, the commitment comes from the merge protocol's output $[M_j]$, so $[M_j]$ must commit to a polynomial with exactly `RANDOMNESS_START` leading zeros followed by the op-queue data.
-
-### MegaAvmFlavor
-
-The AVM recursive verifier uses `MegaAvmFlavor` which overrides the Mega preamble:
-
-- `TRACE_OFFSET = 1` (no masking — `MegaAvmFlavor` inherits `HasZK = false` from `MegaFlavor`).
-- Block offsets start at `TRACE_OFFSET + NUM_ZERO_ROWS = 2`.
-
-```
-Row 0:    zero (shiftability)
-Row 1:    first active Sumcheck row (no masking)
-Row 2+:   ecc_op block data
-```
-
-By construction this yields exactly 2 leading zeros in the ecc_op_wire commitments, matching the Translator's `RANDOMNESS_START = 2` without any merge-protocol shift adjustment.
 
 ### The merge protocol shift
 
@@ -166,8 +145,9 @@ The latest merge appends the hiding kernel's subtable at a **fixed offset**. The
 computed in `MergeProver`'s constructor:
 
 ```cpp
-const size_t append_offset = op_queue->get_append_offset();
-fixed_append_shift_size = UltraEccOpsTable::ZK_ULTRA_OPS + (append_offset * UltraEccOpsTable::NUM_ROWS_PER_OP);
+BB_ASSERT_EQ(op_queue->get_current_subtable_size(), HIDING_KERNEL_ULTRA_OPS, "...");
+const size_t append_offset = op_queue->get_append_offset_for_prover();
+fixed_append_shift_size = ECCOpQueue::compute_fixed_append_offset(append_offset);
 op_queue->merge_fixed_append(append_offset);
 ```
 
@@ -188,8 +168,7 @@ and the same shift $\ell$ governs the concatenation. The shift $\ell$ = `fixed_a
 **not** sent in the proof: the verifier recomputes it from the fixed hiding-kernel op count
 (`ECCOpQueue::compute_fixed_append_offset(ECCOpQueue::get_append_offset_for_verifier())`, driven by
 `HIDING_KERNEL_ULTRA_OPS`), and the prover asserts its own hiding subtable matches. This pinning is a
-zero-knowledge requirement — a prover-supplied `shift_size` would leak the private op-queue extent —
-so the merge proof carries one field fewer than a transcript-supplied shift would.
+zero-knowledge requirement — a prover-supplied `shift_size` would leak the private op-queue extent.
 
 ### Commitment Propagation
 
@@ -274,34 +253,13 @@ This proves $\deg(L_j) < \ell$. The exponent $\kappa^{\ell-1}$ forces $\deg(G) \
 if $\deg(G) > \ell - 1$, the LHS (a polynomial of degree $\leq \ell - 1$ in $\kappa$) cannot match
 the RHS (which would contain negative powers of $\kappa$).
 
-#### Verify Shplonk Opening
-Reduce all 13 claims to one batched KZG opening claim and verify it:
-- $[L_1], \ldots, [L_4]$ and $[R_1], \ldots, [R_4]$ (from the input commitments)
-- $[M_1], \ldots, [M_4]$ (from the proof)
-- $[G]$ (from the proof)
-
-The verifier returns the merged table commitments $[M_j]$ and the resulting pairing points.
-
-
-## Degree Check Mechanism
-
-Without a degree check, $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ does not guarantee that $L_j$ stays
-within its $\ell$ rows; a malicious prover could let the left table bleed into the region reserved for
-the appended hiding-kernel subtable. The degree check enforces $\deg(L_j) < \ell$ so the append lands
-at exactly the fixed location.
-
-**Method:** Use the reversed-polynomial identity (based on Thakur's degree check protocol
-[[6](#ref-thakur)], Section 6.2). For $\deg(L_j) < \ell$:
+Without the degree check, a malicious prover could let the left table bleed into the region reserved for
+the appended hiding-kernel subtable. The check uses the reversed-polynomial identity (based on Thakur's
+degree check protocol [[4](#ref-thakur)], Section 6.2). For $\deg(L_j) < \ell$:
 $$L_j^{\ast}(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^{\ast}(\kappa^{-1}) = \kappa^{-(\ell-1)} \cdot L_j(\kappa)$$
 
-**Batching:** Check all 4 columns simultaneously with one reversed polynomial of size $\ell$:
-$$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
-
-**Verification:** Check $\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$, where
-$l_i = L_i(\kappa)$.
-
-**Implementation** (`merge_prover.cpp`): $G$ is the reverse of the $\alpha$-batched left table,
-allocated at the fixed left-table size:
+In `merge_prover.cpp`, $G$ is the reverse of the $\alpha$-batched left table, allocated at the fixed
+left-table size:
 ```cpp
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
     const std::array<Polynomial, NUM_WIRES>& left_table,
@@ -315,13 +273,14 @@ MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
 }
 ```
 
-## Concatenation Check
+#### Verify Shplonk Opening
+Reduce all 13 claims to one batched KZG opening claim and verify it:
+- $[L_1], \ldots, [L_4]$ and $[R_1], \ldots, [R_4]$ (from the input commitments)
+- $[M_1], \ldots, [M_4]$ (from the proof)
+- $[G]$ (from the proof)
 
-Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking, at the random evaluation point $\kappa$,
-$$l_j + \kappa^\ell \cdot r_j = m_j \qquad (j = 1,\ldots,4).$$
+The verifier returns the merged table commitments $[M_j]$ and the resulting pairing points.
 
-A single shift $\ell$ governs all three polynomials. The polynomial identity holds for all $X$ if and
-only if it holds at random $\kappa$ (Schwartz–Zippel lemma).
 
 ## Implementation Details
 
@@ -353,10 +312,22 @@ $[L_j]$ and $[R_j]$ are not part of the merge proof; they are taken from the sha
 
 The Merge Protocol achieves soundness through:
 
-1. **Thakur Degree Check** [[6](#ref-thakur)]: Reversed polynomial technique ensures $\deg(L_j) < \ell$
+1. **Thakur Degree Check** [[4](#ref-thakur)]: Reversed polynomial technique ensures $\deg(L_j) < \ell$
 2. **Schwartz-Zippel Lemma**: Polynomial identities checked at random points
 3. **Batching Security**: We are using Shplonk to batch different opening claims.
 4. **KZG Commitment Security**: Based on the hardness of the discrete logarithm problem on BN254
+
+### Degree Checks: Merge vs Translator
+
+The merge degree check bounds the size of $L$ for the final append; it does **not** bound the
+cumulative size of all accumulated operations. That cumulative bound — which prevents the prover from
+accumulating more ops than the Translator circuit can handle at its fixed size — is enforced by the
+Translator:
+
+- **Critical constraint**: $\deg(M_j) <$ `MINI_CIRCUIT_SIZE` for Translator soundness.
+- Enforced by `TranslatorZeroConstraintsRelationImpl` (`translator_extra_relations_impl.hpp`) together
+  with $M_j$ being opened at a random point, which forces it to be zero outside the Translator circuit
+  bounds (see [[5](#ref-gemini-note)]).
 
 
 ### ZK Considerations
@@ -367,7 +338,7 @@ The Merge Protocol, as described above, is **not inherently zero-knowledge**. Th
 - Commitments to $[L_j]$, $[R_j]$, $[M_j]$, $[G]$
 - Evaluations $l_j$, $r_j$, $m_j$, $g$ at challenge points $\kappa$ and $\kappa^{-1}$
 
-These commitments and evaluations could potentially leak information about the ECC operations in the queue.
+These commitments and evaluations can leak information about the ECC operations in the queue.
 
 #### ZK-ification in CHONK
 
@@ -399,7 +370,7 @@ via two `queue_ecc_random_op()` calls. These are part of $R = t$, the hiding ker
 
 ##### Degree-of-Freedom Analysis
 
-**Shared Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_{j, \text{shifted}}(u)$ re-use $[M_j]$. Here $u^\prime$ is the Translator sumcheck evaluation challenge.
+**Shared Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Here $u$ is the MegaZK sumcheck evaluation challenge and $u^\prime$ is the Translator sumcheck evaluation challenge. Shifted evaluations $M_{j, \text{shifted}}(u^\prime)$ re-use $[M_j]$.
 
 **Total Randomness Available:**
 - 4 $M_j$ wires (op queue columns), each with 10 random coefficients (6 from $L_j$ batch-merge ZK prefix, 4 from $R_j$ hiding kernel)
@@ -407,11 +378,13 @@ via two `queue_ecc_random_op()` calls. These are part of $R = t$, the hiding ker
 
 Let $r = (r_1, \ldots, r_{40}) \in \mathbb{F}^{40}$ denote these coefficients.
 
+The batch merge proof also reveals values that depend on the ZK prefix (`ZK_COLUMN_j` commitments, `C_EVAL_*` and `MERGED_EVAL_*` evaluations). It is verified recursively inside the hiding kernel and is not part of the Chonk proof, so those values are not observable and are not counted below.
+
 The verifier observes the following.
 
 1. Per wire $j \in \lbrace 1, 2, 3, 4\rbrace$ observables:
-    - Commitments $[L_j], [R_j]$ (**shared**: committed once in the kernel's Oink phase and reused by both Merge and Translator)
-        - Note that the commitment $[M_j]$ can be determined from $\ell$, $L_j(\tau)$ and $R_j(\tau)$.
+    - Commitments $[L_j]$ (from `HidingKernelIO` public inputs) and $[R_j]$ (from MegaZK Oink)
+        - Note that the commitment $[M_j]$ can be determined from $\ell$, $L_j(\tau)$ and $R_j(\tau)$, where $\tau$ is the SRS trapdoor.
     - Merge: $L_j(\kappa)$
     - Merge: $R_j(\kappa)$
         - Note: $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$ (not an independent constraint)
@@ -474,7 +447,7 @@ we can write
 $v_k(r, X) = \sum_{i=1}^{40} A_{k,i}(X) r_i + c_k(X)$.
 
 
-Collecting these, say $N=32$, observable values into a vector $v(r, X)\in\mathbb{F}^N$, we can write $v(r, X) = A(X) r + c(X)$ for $A(X) \in \mathbb{F}^{N \times 40}$ and $c(X) \in \mathbb{F}^N$. Here, $X$ denotes the tuple of challenges $(\kappa, u, u', z)$ at which the polynomials $L_j, R_j, M_j, G, Q$ are queried.
+Collecting these $n_{\mathrm{obs}} = 32$ observable values into a vector $v(r, X)\in\mathbb{F}^{n_{\mathrm{obs}}}$, we can write $v(r, X) = A(X) r + c(X)$ for $A(X) \in \mathbb{F}^{n_{\mathrm{obs}} \times 40}$ and $c(X) \in \mathbb{F}^{n_{\mathrm{obs}}}$. Here, $X$ denotes the tuple of challenges $(\kappa, u, u', z)$ at which the polynomials $L_j, R_j, M_j, G, Q$ are queried.
 
 Thus, the number of linear equations in $r$ induced by this transcript of observable values can be bounded as follows.
 
@@ -571,132 +544,22 @@ Further, in both worlds, commitments and opening proofs are generated by running
 - `Chonk::hide_op_queue_content_in_hiding()` (2 random non-ops appended in the hiding kernel)
 - `ECCOpQueue::random_op_ultra_only()`
 
+## Merge Flow Through CHONK
+
+This protocol runs once per Chonk proof. Each kernel extends a running hash over the op-queue subtable
+commitments; after the tail, the [Batch Merge Protocol](./BATCH_MERGE_PROTOCOL.md) proves
+$T_{\text{zk}} \Vert T_1 \Vert \cdots \Vert T_N = T_{\text{tail}}$ and the hiding kernel verifies it
+recursively. Then `Goblin::prove_merge`, called from `Chonk::prove`, appends the hiding kernel's
+subtable to $T_{\text{tail}}$ with this protocol. The Translator reuses the merged commitments $[M_j]$.
+
+See the [Chonk README](../chonk/README.md) for the full flow: [Merge Protocol](../chonk/README.md#merge-protocol)
+for the steps and the final op-queue layout, [ECC Op Table Continuity](../chonk/README.md#ecc-op-table-continuity)
+for the running hash, and the verifier walkthrough in [Proof Structure](../chonk/README.md#proof-structure).
+
 ## References
 
 1. **Shplonk**: [Paper](https://eprint.iacr.org/2020/081)
 2. **KZG Commitments**: [Paper](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
-3. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
+3. <a name="ref-stackproofs"></a>**Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
 4. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
-5. **A note on the soundness of an optimized gemini variant**: [Paper](https://eprint.iacr.org/2025/1793.pdf)
-
-## Merge Flow Through CHONK
-
-### Overview
-
-Op-queue merges in Chonk are **delayed**. Circuits are accumulated one at a time, each contributing a
-subtable of ECC ops; no merge proof runs per kernel. Instead:
-
-1. **Per kernel — running hash.** Each kernel extends a running Poseidon2 hash over the `ecc_op_wire`
-   column commitments of the circuits it recursively verifies (`BatchMergeRecursiveVerifier::ecc_op_hash_step`),
-   propagated through `KernelIO.ecc_op_hash`. This is the only op-queue work a non-final kernel does.
-2. **After the tail — batch merge.** Once the tail circuit has been accumulated, a single
-   [Batch Merge Protocol](./BATCH_MERGE_PROTOCOL.md) proves that the whole accumulated table equals the
-   concatenation of all per-circuit subtables, preceded by a zero-knowledge prefix
-   $T_{\text{zk}}$: $T_{\text{zk}} \Vert T_1 \Vert \cdots \Vert T_N = T_{\text{tail}}$. The hiding
-   kernel recursively verifies this proof (`Goblin::recursively_verify_batch_merge`), checking the
-   prover's column commitments against the running hash, and outputs $[T_{\text{tail},j}]$ in
-   `HidingKernelIO.ecc_op_tables`.
-3. **Final (latest) merge — this protocol.** In `Chonk::prove`, after the hiding kernel's own subtable
-   has been added, `Goblin::prove_merge` appends it to $T_{\text{tail}}$ at the fixed location:
-   $$M_j = L_j + X^\ell R_j, \qquad L_j = T_{\text{tail},j}, \quad R_j = t_{\text{hiding},j}.$$
-   The Chonk verifier recursively verifies this single APPEND step using $[L_j]$ from
-   `HidingKernelIO.ecc_op_tables` and $[R_j]$ from the hiding kernel's MegaZK Oink commitments.
-
-So this protocol is invoked exactly once per IVC. The cumulative concatenation across all circuits is
-the batch merge's job; the final pairwise append is this protocol's job.
-
-#### Final Op Queue Structure
-
-Reading from low to high degree, the final merged table is
-
-$$T_j = \big[  \underbrace{T_{\text{zk},j}}_{\text{ZK prefix}} \mid T_{1,j} \mid T_{2,j} \mid \cdots \mid T_{\text{tail},j} \mid \text{zero padding} \mid \underbrace{t_{\text{hiding},j}}_{\text{fixed offset}}  \big]$$
-
-- $T_{\text{zk},j}$ — the batch-merge ZK prefix (`ZK_ULTRA_OPS` rows): 1 no-op, 3 random Ultra-only ops, 1 valid hiding op.
-- $T_{1,j}, \ldots, T_{\text{tail},j}$ — the per-circuit subtables, in accumulation (chronological) order, concatenated by the batch merge.
-- $t_{\text{hiding},j}$ — the hiding kernel's subtable, ending in 2 random non-ops, appended by this protocol at a **fixed** offset so the total table size is constant.
-
-The zero padding between $T_{\text{tail}}$ and the fixed offset makes the merged table size independent
-of transaction complexity (see [Constant Merged Table Size](../chonk/README.md#constant-merged-table-size-for-zk)).
-
-#### Mathematical Formula for the Final Table
-
-The batch merge establishes the aggregate up to the tail. With $s_0 = $ `ZK_ULTRA_OPS` the prefix size
-and $k_i = s_0 + \sum_{m<i} s_m$ the running offset of subtable $i$:
-
-$$T_{\text{tail},j}(X) = T_{\text{zk},j}(X) + \sum_{i=1}^{N} X^{k_i}  T_{i,j}(X).$$
-
-The final (latest) merge then appends the hiding subtable at the fixed offset $\ell$:
-
-$$M_j(X) = T_{\text{tail},j}(X) + X^{\ell}\, t_{\text{hiding},j}(X), \qquad
-\ell = \texttt{ZK\_ULTRA\_OPS} + \texttt{append\_offset} \cdot \texttt{NUM\_ROWS\_PER\_OP}.$$
-
-The concatenation and degree checks that establish $T_{\text{tail}}$ live in the
-[Batch Merge Protocol](./BATCH_MERGE_PROTOCOL.md); this document's checks establish the final append.
-
-#### Final Goblin Proof Generation
-
-The Goblin part of the Chonk proof comprises three protocols over the shared transcript
-(`Goblin` + `Chonk::prove`):
-
-1. **MERGE PROTOCOL** (this protocol) — the final APPEND of the hiding kernel's subtable:
-   - $L = T_{\text{tail}}$ (the batch-merged aggregate, including the ZK prefix);
-   - $R = t_{\text{hiding}}$ (the hiding kernel's subtable, ending in 2 random non-ops);
-   - proves $M = L + X^\ell R$ and $\deg(L) < \ell$.
-
-2. **ECCVM PROTOCOL** — proves the ECC operations executed correctly. It covers the real ops plus the
-   single valid hiding op, and excludes the random Ultra-only non-ops (which are not pushed to the
-   ECCVM table).
-
-3. **TRANSLATOR PROTOCOL** — proves BN254 ↔ Grumpkin translation correctness. It reuses the merged
-   table commitments $[M_j]$ and enforces the cumulative
-   degree bound below.
-
-In Chonk these are produced jointly with the hiding kernel's MegaZK proof; see the
-[Batched Honk + Translator README](../chonk/batched_honk_translator/README.md).
-
-#### Degree Checks: Merge vs Translator
-
-The merge degree check bounds the size of $L$ for the final append; it does **not** bound the
-cumulative size of all accumulated operations. That cumulative bound — which prevents the prover from
-accumulating more ops than the Translator circuit can handle at its fixed size — is enforced by the
-Translator:
-
-- **Critical constraint**: $\deg(M_j) <$ `MINI_CIRCUIT_SIZE` for Translator soundness.
-- Enforced by `TranslatorZeroConstraintsRelationImpl` (`translator_extra_relations_impl.hpp`) together
-  with $M_j$ being opened at a random point, which forces it to be zero outside the Translator circuit
-  bounds (see [A note on the soundness of an optimized gemini variant](https://eprint.iacr.org/2025/1793.pdf)).
-
-### Consistency Enforcement
-
-The op-queue history is bound across circuits without per-kernel merges:
-
-- **Running ECC-op hash.** Each kernel folds the `ecc_op_wire` commitments of the circuits it verifies
-  into a running Poseidon2 hash (`BatchMergeRecursiveVerifier::ecc_op_hash_step`) and propagates it via
-  `KernelIO.ecc_op_hash`. The hiding kernel passes the final hash to the batch merge verifier, which
-  checks the prover's per-subtable commitments against it. (`KernelIO` carries the running hash, not
-  per-kernel merged-table commitments.)
-- **Subtable reset.** A kernel's own ECC-op subtable begins with an eq-and-reset
-  (`circuit.queue_ecc_eq()`) so the preceding circuit's subtable cannot bleed into the kernel's ECC-op
-  accumulator.
-- **Final-merge inputs.** The latest merge's $[L_j] = [T_{\text{tail},j}]$ come from
-  `HidingKernelIO.ecc_op_tables` (the batch-merge output, bound to the hiding kernel proof), and
-  $[R_j] = [t_{\text{hiding},j}]$ are the hiding kernel's `ecc_op_wire` commitments from MegaZK Oink.
-  Both are bound to the shared transcript before merge verification, so they cannot be substituted.
-- **Fiat–Shamir / VK binding.** All challenges depend on the VK hash and prior transcript state, so any
-  tampering invalidates the proof.
-
-### Final Chonk Verification
-
-`Chonk::verify` / `ChonkVerifier::reduce_to_triple_ipa_opening` verify the proof on a shared transcript in this
-order:
-
-1. **MegaZK Oink** of the hiding kernel → extracts `HidingKernelIO` (pairing points, kernel
-   return-data commitment, `ecc_op_tables` $= [T_{\text{tail}}]$).
-2. **Databus consistency** check on the hiding kernel.
-3. **Merge** (this protocol) — final APPEND of the hiding kernel's subtable onto $[T_{\text{tail}}]$.
-4. **ECCVM** → reduces to a deferred TripleIPA opening (one Grumpkin IPA claim after the eq/shift/pow batching) and yields the translation challenges.
-5. **Translator Oink + joint sumcheck + joint PCS**.
-6. **Pairing aggregation** over the public-input, merge, and batched-PCS pairing points; the IPA claim
-   is carried for deferred verification.
-
-See the [Chonk README](../chonk/README.md) for the full verifier walkthrough.
+5. <a name="ref-gemini-note"></a>**A note on the soundness of an optimized gemini variant**: [Paper](https://eprint.iacr.org/2025/1793.pdf)

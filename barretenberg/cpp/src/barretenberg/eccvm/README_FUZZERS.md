@@ -1,219 +1,59 @@
 # ECCVM Fuzzer
 
-This document describes the ECCVM (Elliptic Curve Circuit Virtual Machine) fuzzer implementation, which provides comprehensive testing of the ECCVM circuit builder and trace checker.
+`eccvm.fuzzer.cpp` builds an `ECCOpQueue` from random input, constructs an `ECCVMCircuitBuilder` from it, and checks the trace with `ECCVMTraceChecker::check`. It does not construct a proof.
 
-## Overview
+## Input format
 
-The ECCVM fuzzer generates random ECC operations to test the ECCVM circuit builder. It checks the correctness of the trace without constructing the full proof.
-
-
-## Architecture
-
-### Data Structures
-
-The fuzzer operates on the following data structures:
+The input is a sequence of 67-byte `FuzzerTuple`s. The number of operations is `Size / sizeof(FuzzerTuple)`; shorter inputs are ignored.
 
 ```cpp
-// Operation types for the fuzzer
-enum class OpType : uint8_t { 
-    ADD = 0,           // Add a point to the accumulator
-    MUL = 1,           // Multiply a point by a scalar and add to accumulator
-    EQ_AND_RESET = 2,  // Check equality and reset accumulator
-    MERGE = 3,         // Merge operation (used internally)
-    EMPTY_ROW = 4,     // Insert empty row for testing
-    MAX_OP = 5 
-};
+enum class OpType : uint8_t { ADD = 0, MUL = 1, EQ_AND_RESET = 2, MERGE = 3, EMPTY_ROW = 4, MAX_OP = 5 };
 
-struct FieldVMDataChunk {
-    std::array<uint8_t, 64> data;  // 64 bytes of FieldVM data
-};
-
-struct SingleOp {
-    OpType op_type;        // Operation type
-    uint8_t generator_index; // Generator index and top bit for negating the generator
-    uint8_t scalar_index;    // Scalar index (0-255)
-};
-
-struct FuzzerTuple {
-    FieldVMDataChunk fieldvm_data;  // FieldVM data for scalar computation
-    SingleOp operation;              // ECCVM operation
-};
+struct FieldVMDataChunk { std::array<uint8_t, 64> data; }; // input for FieldVM scalar computation
+struct SingleOp { OpType op_type; uint8_t generator_index; uint8_t scalar_index; };
+struct FuzzerTuple { FieldVMDataChunk fieldvm_data; SingleOp operation; };
 ```
 
-### Operation Flow
+The fuzzer prepares its inputs as follows:
 
-1. **Input Processing**: The fuzzer processes `FuzzerTuple` structures containing FieldVM data and ECC operations.
+1. It runs a `FieldVM` over the concatenated 64-byte chunks, with at most 65536 steps. Inversion, square root, batch inversion, power and division are disabled. The 32 elements of the FieldVM state are the candidate scalars.
+2. It builds 4 points. Each point is a linear combination of 4 derived base generators, with the first 16 candidate scalars as coefficients.
+3. It appends a hiding op whose `Px`, `Py` are the first two candidate scalars (not curve points).
 
-2. **FieldVM Computation**: Uses FieldVM to precompute scalars from the input data with controlled settings:
-   - Disabled heavy operations (inversion, square root, batch inversion, power, division)
-   - Limited to 65536 steps for performance
+Each `SingleOp` then runs one operation:
 
-3. **Point Generation**: Creates base generators and linear combinations for testing.
+| `op_type` | Effect |
+| --- | --- |
+| `ADD` | `add_accumulate` of the selected point |
+| `MUL` | `mul_accumulate` of the selected point by candidate scalar `scalar_index % 32` |
+| `EQ_AND_RESET` | `eq_and_reset()` |
+| `MERGE` | `eq_and_reset()`, then `merge()` |
+| `EMPTY_ROW` | `empty_row_for_testing()` |
+| other | no operation |
 
-4. **Operation Execution**: Processes operations through the ECCOpQueue:
-   - ADD: Adds points to accumulator
-   - MUL: Multiplies points by scalars and adds to accumulator
-   - EQ_AND_RESET: Checks equality and resets accumulator
-   - MERGE: Merges operations
-   - EMPTY_ROW: Inserts empty rows for testing
+For `ADD` and `MUL`, the low 7 bits of `generator_index` select one of the 4 points (`(generator_index & 0x7F) % 4`), and the top bit negates it.
 
-5. **Circuit Validation**: Uses `ECCVMTraceChecker::check()` to validate the circuit.
+After the last tuple, the fuzzer always appends `eq_and_reset()` and `merge()`.
 
-## Conditional Skip Optimization
+If the check fails, the fuzzer prints the operation sequence and stops at `assert(result == true)`. There is no exception handling.
 
-The fuzzer includes conditional skip optimization that is only enabled in fuzzing builds:
+## Effects of the `FUZZING` macro
 
-### Fuzzing Builds (`FUZZING` macro defined)
-- Skip optimization is enabled for performance
-- Relations with `skip` methods are skipped when their skip condition is met
-- Currently only `ECCVMSetRelation` has a skip method
+The `fuzzing` preset defines `FUZZING`. It changes two things:
 
-### Production Builds (default)
-- Skip optimization is disabled for maximum security
-- All relations are always accumulated
-- Ensures no performance optimizations affect correctness
+- `ECCVMTraceChecker::check` takes a third argument, `disable_fixed_dyadic_trace_size`. The fuzzer passes `true`, so the trace is not padded to the fixed ECCVM size.
+- The trace checker skips rows where `Relation::skip` returns true, as sumcheck does. Without `FUZZING` it evaluates every relation on every row. The trace checker runs six relations through this path (Transcript, PointTable, Wnaf, MSM, Set, Bools); of these only `ECCVMSetRelation` has `skip`. It evaluates `ECCVMLookupRelation` separately, on every row.
 
-### Skip Conditions
+The production sumcheck prover uses `skip` in every build.
 
-Currently, only `ECCVMSetRelation` implements skip optimization:
+## Build and run
 
-```cpp
-template <typename AllEntities> inline static bool skip(const AllEntities& in)
-{
-    // Skip when no non-trivial copy constraints and no transcript operations
-    return (in.z_perm - in.z_perm_shift).is_zero() && 
-           in.transcript_mul.is_zero() && 
-           in.lagrange_last.is_zero();
-}
-```
-
-## Build Configuration
-
-### Compilation Flags
+From `barretenberg/cpp`:
 
 ```bash
-# For fuzzing builds (with skip optimization)
-clang++ -DFUZZING -fsanitize=fuzzer -O2 -g eccvm.fuzzer.cpp -o eccvm_fuzzer
-
-# For production builds (without skip optimization)
-clang++ -O2 -g eccvm.fuzzer.cpp -o eccvm_fuzzer
+cmake --preset fuzzing && cmake --build build-fuzzing --target eccvm_eccvm_fuzzer
+mkdir -p corpus
+timeout --signal=INT 360 ./build-fuzzing/bin/eccvm_eccvm_fuzzer -max_total_time=300 -workers=1 -jobs=1 corpus/
 ```
 
-### Function Signature
-
-The fuzzer function signature changes based on build configuration:
-
-```cpp
-// Fuzzing builds
-bool ECCVMTraceChecker::check(Builder& builder, 
-                             numeric::RNG* engine_ptr,
-                             bool disable_fixed_dyadic_trace_size);
-
-// Production builds  
-bool ECCVMTraceChecker::check(Builder& builder, 
-                             numeric::RNG* engine_ptr);
-```
-
-## Usage
-
-### Running the Fuzzer
-
-```bash
-# Basic fuzzing run
-./eccvm_fuzzer
-
-# Run with specific corpus directory
-./eccvm_fuzzer corpus/
-
-# Run with custom parameters
-./eccvm_fuzzer -max_len=1024 -timeout=30 corpus/
-```
-
-### Fuzzer Parameters
-
-- **Input Size**: Must be at least `sizeof(FuzzerTuple)` bytes
-- **Number of Operations**: Determined by `Size / sizeof(FuzzerTuple)`
-- **FieldVM Data**: 64 bytes per operation for scalar computation
-- **Generator Indices**: 0-255 range, with modulo operations for safety
-- **Scalar Indices**: 0-255 range, used to select precomputed scalars
-
-## Error Handling
-
-The fuzzer includes comprehensive error handling:
-
-1. **Input Validation**: Checks minimum input size and valid operation count
-2. **Bounds Checking**: All array accesses are bounds-checked
-3. **Exception Handling**: Catches and reports exceptions without crashing
-4. **Circuit Validation**: Reports detailed failure information when circuit check fails
-
-### Error Reporting
-
-When the circuit validation fails, the fuzzer reports:
-- Number of operations
-- Operation sequence that caused failure
-- Generator indices
-- Detailed operation information including infinity checks and negation flags
-
-## Performance Considerations
-
-### Fuzzing Builds
-- **Skip Optimization**: Reduces computation for inactive relations
-- **FieldVM Settings**: Disabled heavy operations for better performance
-- **Controlled Data Size**: Limited FieldVM data to prevent excessive computation
-
-### Production Builds
-- **Maximum Security**: All relations always accumulated
-- **No Performance Optimizations**: Ensures correctness over speed
-
-## Testing Strategy
-
-The fuzzer is designed to test:
-
-1. **Basic Operations**: ADD, MUL, EQ_AND_RESET operations
-2. **Edge Cases**: Points at infinity, negation, empty operations
-3. **Complex Sequences**: Multiple operations with various combinations
-4. **Circuit Correctness**: Validation through ECCVMTraceChecker
-5. **Memory Safety**: Proper bounds checking and error handling
-
-## Integration with LibFuzzer
-
-The fuzzer integrates seamlessly with LibFuzzer:
-
-1. **Automatic Discovery**: LibFuzzer automatically detects and uses the fuzzer
-2. **Corpus Management**: Works with LibFuzzer's corpus management features
-3. **Crash Reporting**: Integrates with LibFuzzer's crash reporting
-4. **Performance Metrics**: Provides performance data for optimization
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Compilation Errors**: Ensure all required headers are included
-2. **Runtime Errors**: Check that input data is properly aligned
-3. **Performance Issues**: Verify skip optimization is enabled in fuzzing builds
-4. **Memory Issues**: Check for proper bounds checking and error handling
-
-### Debugging
-
-Enable debug output by setting environment variables:
-
-```bash
-export FUZZER_DEBUG=1
-./eccvm_fuzzer
-```
-
-## Contributing
-
-When modifying the fuzzer:
-
-1. **Test Thoroughly**: Run extensive fuzzing tests after changes
-2. **Maintain Security**: Ensure all security considerations are preserved
-3. **Update Documentation**: Keep this README up to date
-4. **Performance**: Benchmark changes to ensure no performance regression
-5. **Skip Optimization**: Only enable skip optimization in fuzzing builds
-
-## References
-
-- [LibFuzzer Documentation](https://llvm.org/docs/LibFuzzer.html)
-- [ECCVM Circuit Documentation](../README.md)
-- [Barretenberg Fuzzing Guide](../../../docs/fuzzing.md)
+See the [Barretenberg fuzzing guide](../../../docs/Fuzzing.md) for corpus, crash and coverage options, and [the ECCVM README](README.md) for the circuit.

@@ -6,28 +6,11 @@ pairwise (latest) merge that this protocol hands off to is documented in
 
 During Chonk, circuits perform BN254 elliptic-curve operations that are delegated to Goblin rather than executed directly in the circuit. Each circuit exposes four `ecc_op_wire` commitments, one for each operation-table column.
 
-There are two distinct merge mechanisms:
+The [Merge Protocol](./MERGE_PROTOCOL.md) proves one pairwise append, $M_j(X) = L_j(X) + X^\ell R_j(X)$ with $\deg(L_j) < \ell$, where $\ell$ is the fixed append shift (`compute_fixed_append_offset`), which is also the padded length of $L_j$. The Batch Merge Protocol proves, in one proof, that a committed aggregate table is the concatenation of all accumulated subtables bound by a running commitment hash, with a zero-knowledge prefix prepended by the batch merge prover. Chonk uses both: batch merge establishes the aggregate up to the tail, and the latest merge then appends the hiding-kernel table.
 
-- The **Merge Protocol** in `MERGE_PROTOCOL.md` proves the latest pairwise merge relation. It checks one step of the form
-  $$
-  M_j(X) = L_j(X) + X^\ell R_j(X)
-  $$
-  for each column $j \in \lbrace 1,2,3,4\rbrace$, together with a degree check for the left table. It should be read as the latest-merge protocol, including the soundness and degree-of-freedom analysis for that final merge.
-- The **Batch Merge Protocol** proves, in one proof, that a committed aggregate table is the concatenation of all accumulated subtables bound by a running commitment hash, with a zero-knowledge prefix prepended by the batch merge prover.
+## Statement
 
-The batch merge protocol therefore does not replace the latest merge proof. Batch merge establishes the accumulated table up to the batch-merge output: all subtables bound by the running hash, plus the ZK prefix. The latest merge protocol is then responsible for the final pairwise merge involving the hiding-kernel table.
-
-## Relation to the Merge Protocol
-
-The Merge Protocol proves only a current/latest merge step. Given commitments to two tables $L_j$ and $R_j$, it proves that the output commitment opens to
-
-$$
-M_j(X) = L_j(X) + X^\ell R_j(X)
-$$
-
-for each wire column $j$, where $\ell$ is the unshifted size of $L_j$.
-
-The Batch Merge Protocol proves a different statement. It receives a running hash that binds a sequence of subtable commitments and proves that the output aggregate commitment opens to the concatenation of every accumulated subtable, preceded by the batch-merge ZK prefix:
+The Batch Merge Protocol receives a running hash that binds a sequence of subtable commitments and proves that the output aggregate commitment opens to the concatenation of every accumulated subtable, preceded by the batch-merge ZK prefix:
 
 $$
 F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} f_{i,j}(X),
@@ -42,11 +25,6 @@ Here:
 - $f_{i,j}$ is the $j$-th column of the $i$-th accumulated subtable.
 - $s_0$ is the fixed ZK-prefix size.
 - $s_i$ is the claimed size bound for subtable $i$.
-
-Thus:
-
-- Merge Protocol: latest pairwise merge only.
-- Batch Merge Protocol: batched merge of all accumulated subtables plus the ZK prefix.
 
 ## Running Commitment Hash
 
@@ -120,7 +98,7 @@ $$
 3. Create and commit to the ZK-prefix columns $[C_{0,j}]$ using `ECCOpQueue::construct_zk_columns()`.
 4. Send $N$ and the subtable sizes $s_i$ for all $M$ possible subtable slots.
 5. Construct and commit to the merged table columns $[F_j]$.
-6. Derive batching challenges $1,\alpha,\alpha^2,\ldots$.
+6. Derive the batching challenges $\alpha_{i,j} := \alpha^{4i+j-1}$ (so $\alpha_{0,1} = 1$).
 7. Construct the degree-check polynomial over the active slots
    $$
    G(X) = \sum_{i=0}^{N}\sum_{j=1}^{4}
@@ -159,11 +137,7 @@ $$
 G(\kappa^{-1}) = \sum_{i=0}^{M}\sum_{j=1}^{4} \alpha_{i,j}\, \kappa^{1-\sigma_i} C_{i,j}(\kappa)
 $$
 
-This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. In particular, unused slots have $\sigma_i=0$ which means the right hand side has a term of the form
-$$
-X^{-1} C_{i,j}(X^{-1})
-$$
-Unless $C_{i,j} = 0$ such a terms contributes negative powers of $X$, which means the right hand side is not a polynomial, while the left hand side is (because it was committed to).
+This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. For an unused slot ($\sigma_i = 0$), the reversed term $X^{-1} C_{i,j}(X^{-1})$ in the definition of $G$ is a polynomial only if $C_{i,j} = 0$. Since $[G]$ is a commitment to a polynomial, $C_{i,j}$ must be 0.
 
 
 #### Hash Consistency Check
@@ -195,15 +169,6 @@ $$
 The prover therefore does not send $s_0$ as a variable size. The verifier uses the constant prefix size when computing concatenation offsets and degree-check powers.
 
 This prefix is the beginning-side ZK contribution. The hiding kernel later contributes the final random non-ops at the end of the table, and the latest Merge Protocol proves the corresponding final merge step. See `MERGE_PROTOCOL.md` for the latest-merge soundness and degree-of-freedom analysis.
-
-## Layout Notes
-
-The batch merge algebra above is written without duplicating the trace-layout discussion from `MERGE_PROTOCOL.md`. The implementation must still produce commitments with the layout expected downstream by the latest merge, Translator, and ECCVM checks.
-
-The important separation is:
-
-- Batch merge proves the hash-bound accumulated subtables plus the ZK prefix.
-- Latest merge proves the final append relation for the current hiding-kernel table and performs the final layout alignment discussed in `MERGE_PROTOCOL.md`.
 
 ## Soundness Considerations
 
