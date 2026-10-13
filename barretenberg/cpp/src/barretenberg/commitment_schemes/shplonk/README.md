@@ -8,7 +8,7 @@ Shplonk reduces multiple polynomial opening claims (each at a single point) into
 
 ### Protocol
 
-Given claims $ \{(f_j, x_j, v_j)\} $ where $ f_j(x_j) = v_j $:
+Given $ n $ claims $ \{(f_j, x_j, v_j)\} $ where $ f_j(x_j) = v_j $:
 
 1. **Prover** batches claims with challenge $ \nu $ and computes quotient polynomial:
 
@@ -18,7 +18,7 @@ Given claims $ \{(f_j, x_j, v_j)\} $ where $ f_j(x_j) = v_j $:
 
 3. **Verifier** receives evaluation challenge $ z $ and computes:
 
-   $$ [G] = [Q] - \sum_{j=1}^m \frac{\nu^{j-1}}{z - x_j} [f_j] + \left(\sum_{j=1}^m \frac{\nu^{j-1} v_j}{z - x_j}\right) [1] $$
+   $$ [G] = [Q] - \sum_{j=1}^n \frac{\nu^{j-1}}{z - x_j} [f_j] + \left(\sum_{j=1}^n \frac{\nu^{j-1} v_j}{z - x_j}\right) [1] $$
 
 4. **Verifier** checks that $ G(z) = 0 $ using KZG or IPA
 
@@ -33,7 +33,7 @@ MSM(commitments, scalars) where:
 ```
 
 Where:
-- $ s_i = -\sum_{j: f_j \text{ uses } [f_i]} \frac{\nu^{j-1} \cdot a_j}{z - x_j} $ (scalar for commitment $ [f_i] $)
+- $ s_i = -\sum_j \frac{\nu^{j-1} \cdot a_j}{z - x_j} $ (scalar for commitment $ [f_i] $): if $ [f_i] $ appears in several claims $ j $ with coefficient $ a_j $, its scalar sums over those claims
 - $ \theta = \sum_j \frac{\nu^{j-1} \cdot v_j}{z - x_j} $ (scalar for identity $ [1] $)
 
 **Key Methods in `ShplonkVerifier_`:**
@@ -67,13 +67,17 @@ Shplemini combines Gemini and Shplonk into a single protocol, providing:
 The `ShpleminiVerifier::compute_batch_opening_claim()` method orchestrates the full verification:
 
 ```
+0. Draw the Gemini batching challenge ρ
+
 1. Receive Gemini data from transcript
-   ├─ Fold commitments [A₁], ..., [Aₘ₋₁]
+   ├─ Fold commitments [A₁], ..., [A_{d−1}]
    ├─ Evaluation challenge r
-   └─ Negative evaluations A₀(-r), A₁(-r²), ..., Aₘ₋₁(-r^{2^{m-1}})
+   └─ Negative evaluations A₀(-r), A₁(-r²), ..., A_{d−1}(-r^{2^{d-1}})
+
+1b. (ZK) Receive the SmallSubgroupIPA evaluations
 
 2. Receive Shplonk data from transcript
-   ├─ Batching challenge ν
+   ├─ Batching challenge ν (powers from compute_shplonk_batching_challenge_powers)
    ├─ Quotient commitment [Q]
    └─ Evaluation challenge z
 
@@ -86,7 +90,7 @@ The `ShpleminiVerifier::compute_batch_opening_claim()` method orchestrates the f
    ├─ Shifted commitments with scalar:   -ρⁱ ⋅ s₁
    └─ Fold commitments [Aⱼ] with scalar from Gemini
 
-5. Compute positive fold evaluations A₀(r), A₁(r²), ... from Gemini relation
+5. Compute positive fold evaluations A₀(r), A₁(r²), ... from Gemini relation (see ../gemini/README.md)
 
 6. (Optional) Handle ZK data via SmallSubgroupIPA
 
@@ -104,20 +108,10 @@ The `ShpleminiVerifier::compute_batch_opening_claim()` method orchestrates the f
 
 ### Handling Shifted Polynomials
 
-When a polynomial $ g $ is the "shift" of another polynomial $ f $ (i.e., $ g(X) = f(X)/X $), Shplemini uses different scalars:
-
-| Batch | Scalar Formula | Intuition |
-|-------|----------------|-----------|
-| Unshifted $ f $ | $ \frac{1}{z-r} + \frac{\nu}{z+r} $ | Direct batching at $ \pm r $ |
-| Shifted $ g = f/X $ | $ \frac{1}{r}\left(\frac{1}{z-r} - \frac{\nu}{z+r}\right) $ | Accounts for $ 1/X $ factor |
-
+When a polynomial $ g $ is the "shift" of another polynomial $ f $ (i.e., $ g(X) = f(X)/X $), Shplemini uses the different scalars $ s_0 $ and $ s_1 $ from step 3 above.
 The shifted scalar differs by a factor of $ r^{-1} $ and uses subtraction instead of addition, which comes from the Gemini relation for $ A_0 = F + G/X $.
 
-### Key Features
-
-- **Batch Opening**: Combines multiple polynomial commitments into one claim
-- **ZK Support**: When `HasZK=true`, handles Libra masking polynomials
-- **Repeated Commitment Optimization**: Combines scalars for duplicate commitments
+`remove_repeated_commitments` combines the scalars of commitments that appear more than once.
 
 ### Output Structure
 
@@ -134,16 +128,21 @@ struct ShpleminiVerifierOutput_ {
 
 | File | Description |
 |------|-------------|
-| `shplonk.hpp` | Shplonk prover implementation |
+| `shplonk.hpp` | Shplonk prover and verifier (`ShplonkProver_`, `ShplonkVerifier_`) |
 | `shplonk.test.cpp` | Shplonk unit tests |
 | `shplemini.hpp` | Shplemini prover and verifier |
 | `shplemini.test.cpp` | Shplemini unit tests |
+| `shplemini_concatenated.test.cpp` | Shplemini with concatenated (Translator-style) commitments |
+| `shplemini_zk_mask_rank.test.cpp` | Checks `tail_halving_support()` against the support assumed by the masking argument |
+| `sparse_masking_poly.hpp` | `tail_halving_support()`: support of the sparse `gemini_masking_poly` |
+| `SHPLEMINI_ZK_MASKING.md` | Proof sketch that the sparse Gemini mask keeps Shplemini zero-knowledge |
 
 ## Key Types
 
 - `ShplonkProver_<Curve>` - Shplonk prover
 - `ShpleminiProver_<Curve>` - Combined Gemini + Shplonk prover
-- `ShpleminiVerifier_<Curve, HasZK>` - Verifier (templated on ZK flag)
+- `ShpleminiVerifier_<Curve, HasZK = false, HasGeminiMasking = HasZK>` - Verifier.
+  `HasGeminiMasking` decides whether a `gemini_masking_poly` commitment sits between `Shplonk:Q` and the first entity commitment. MegaZK sets it to false. See [SHPLEMINI_ZK_MASKING.md](SHPLEMINI_ZK_MASKING.md).
 - `ShpleminiVerifierOutput_<Curve, HasZK>` - Verifier output
 
 ## Usage
@@ -173,8 +172,8 @@ auto [batch_opening_claim, consistency_checked /* only for ZK flavors*/ ] =
         repeated_commitments,
         libra_commitments,      // For ZK flavors
         libra_evaluation,        // For ZK flavors
-        sumcheck_round_commitments, // ECCVM commited sumcheck
-        sumcheck_round_evaluations // ECCVM commited sumcheck
+        sumcheck_round_commitments, // committed sumcheck (joint BatchedHonkTranslator)
+        sumcheck_round_evaluations  // committed sumcheck (joint BatchedHonkTranslator)
     );
 ```
 
