@@ -42,7 +42,7 @@ If a bb/proof-system change can affect VKs, refresh in this order:
    BB=$(realpath ../../../barretenberg/cpp/build/bin/bb-avm) ./bootstrap.sh pin-standard-build
    (cd ../../yarn-project && yarn workspace @aztec-labs/standard-contracts generate)   # rewrites stamps; exits non-zero on drift
    ```
-   `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `make labs-fast` from the repo root once to recompile the labs dependents against the final addresses. Then commit the pin **together with** the two regenerated stamp files:
+   `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `make fast-labs` from the repo root once to recompile the labs dependents against the final addresses. Then commit the pin **together with** the two regenerated stamp files:
    - `labs/yarn-project/standard-contracts/src/standard_contract_data.ts`
    - `labs/noir-projects/aztec-nr/aztec/src/standard_addresses.nr`
 

@@ -69,8 +69,8 @@ server->run([](int client_id, std::span<const uint8_t> request) {
 class IpcClient {
 public:
     virtual bool connect() = 0;
-    virtual bool send(const void* data, size_t len, uint64_t timeout_ns) = 0;   // 0 = infinite
-    virtual std::span<const uint8_t> receive(uint64_t timeout_ns) = 0;          // empty on error/timeout
+    virtual bool send(const void* data, size_t len, uint64_t timeout_ns) = 0;   // sockets ignore it; SHM: 0 = non-blocking
+    virtual std::span<const uint8_t> receive(uint64_t timeout_ns) = 0;          // empty on error/timeout; same timeout rule
     virtual void release(size_t message_size) = 0;
     virtual void close() = 0;
     // factories: see the table above
@@ -88,9 +88,9 @@ auto client = bb::ipc::IpcClient::create_socket("/tmp/my.sock");
 if (!client->connect()) { /* handle failure */ }
 
 std::vector<uint8_t> request = encode_request();
-if (!client->send(request.data(), request.size(), /*timeout_ns=*/0)) { /* handle failure */ }
+if (!client->send(request.data(), request.size(), /*timeout_ns=*/1'000'000'000)) { /* handle failure */ }
 
-auto response = client->receive(/*timeout_ns=*/0);
+auto response = client->receive(/*timeout_ns=*/1'000'000'000);
 if (response.empty()) { /* handle failure or timeout */ }
 handle(response);
 client->release(response.size());
