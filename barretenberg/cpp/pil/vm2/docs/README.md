@@ -148,7 +148,7 @@ Source code folder: [vm2/constraining](../../../src/barretenberg/vm2/constrainin
 
 # Circuit Architecture
 
-Most zkVMs (for example, many RISC-based ones) are minimal opcode interpreters plus a few “gadgets” or “precompiles” (special subtraces for things like Poseidon2). Chain-specific concepts and hashes such as Keccak are compiled into opcodes. A minimal VM is good for development time and security, but its overhead is high: the trace is narrow and long.
+Many zkVMs (for example, RISC-based ones) are minimal opcode interpreters plus a few “gadgets” or “precompiles” (special subtraces for things like Poseidon2). Chain-specific concepts and hashes such as Keccak are compiled into opcodes. A minimal VM is good for development time and security, but its overhead is high: the trace is narrow and long.
 
 The AVM is **not** like that. For reasons that are beyond the scope of this document, the AVM
 
