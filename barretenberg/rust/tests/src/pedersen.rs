@@ -35,30 +35,6 @@ fn test_pedersen_hash() {
 }
 
 #[test]
-fn test_pedersen_hash_buffer() {
-    require_bb_binary!();
-    let bb_path = get_bb_binary_path();
-
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
-
-    let mut input = vec![0u8; 123];
-    input[0..4].copy_from_slice(&321u32.to_be_bytes());
-    input[119..123].copy_from_slice(&456u32.to_be_bytes());
-
-    let response = api
-        .pedersen_hash_buffer(input.as_slice(), 0)
-        .expect("PedersenHashBuffer failed");
-    let result = Fr::from_buffer_reduce(&response.hash);
-
-    // Print result for snapshot comparison
-    println!("Pedersen hash buffer result: {:?}", hex::encode(&result.0));
-
-    api.destroy().expect("Failed to destroy backend");
-}
-
-#[test]
 fn test_pedersen_commit() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();

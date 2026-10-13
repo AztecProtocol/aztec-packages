@@ -15,10 +15,6 @@ The length term avoids trivial collisions arising from the `x(P) = x(-P)` symmet
 - `hash(const std::vector<Fq>& inputs, const GeneratorContext context)`
   - Hashes a vector of field elements using generators from `context`.
 
-- `hash_buffer(const std::vector<uint8_t>& input, const GeneratorContext context)`
-  - Converts an arbitrary byte buffer into field elements by splitting into 31-byte chunks, followed by hashing.
-  - For >2 chunks it hashes iteratively: `r = hash(e0,e1); r = hash(r,e2); ...`.
-
 ### Commitment
 - `commit_native(const std::vector<Fq>& inputs, GeneratorContext context)`
   - Computes $Commit(inputs)$ using generators from `context`.
@@ -28,7 +24,6 @@ The length term avoids trivial collisions arising from the `x(P) = x(-P)` symmet
 - `DeriveLengthGenerator`: verifies that the `"pedersen_hash_length"` generator matches a known point.
 - `Hash`: regression test for `hash({1,1})`.
 - `HashWithIndex`: regression test for `hash({1,1}, offset=5)`.
-- `Hash32Bytes`: checks iterative hashing performed within `hash_buffer` on a 32=31+1 byte input.
 
 ### Commitment tests
 - `Commitment`: regression test for `commit_native({1,1})`.
