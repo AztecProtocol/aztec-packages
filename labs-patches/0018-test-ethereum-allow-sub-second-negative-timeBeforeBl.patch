@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Tue, 13 Oct 2026 15:28:16 +0000
+Subject: [PATCH] test(ethereum): allow sub-second negative timeBeforeBlockMs
+ in the fee analyzer stats test
+
+The analyzer subtracts the snapshot time (ms) from the mined block's
+timestamp (whole seconds), so a block mined in the same second as the
+snapshot gives a negative value of up to 1 s. With the test runners'
+100 ms viem polling the analyzer sees the very next block of the 1 s
+anvil, and the stats test failed whenever that block landed in the
+snapshot's second. Assert > -1000 ms, the bound that still shows the
+block was mined after the snapshot.
+
+diff --git a/yarn-project/ethereum/src/l1_tx_utils/l1_fee_analyzer.test.ts b/yarn-project/ethereum/src/l1_tx_utils/l1_fee_analyzer.test.ts
+index 2465a91e0c9c6ec821b8df0fc221ed982817d0d5..9e09f9ef77430dee5d1331e19e0a842170495f90 100644
+--- a/yarn-project/ethereum/src/l1_tx_utils/l1_fee_analyzer.test.ts
++++ b/yarn-project/ethereum/src/l1_tx_utils/l1_fee_analyzer.test.ts
+@@ -320,7 +320,10 @@ describe('L1FeeAnalyzer', () => {
+ 
+       const stats = analyzer.getAnalysisStats();
+       expect(stats.totalAnalyses).toBe(3);
+-      expect(stats.avgTimeBeforeBlockMs).toBeGreaterThan(0);
++      // Block timestamps have whole-second resolution and the snapshot time has millisecond resolution, so a block
++      // mined in the same second as the snapshot yields a negative time of up to 1 s. Anything above -1000 ms still
++      // means every analysis was completed against a block mined after its snapshot.
++      expect(stats.avgTimeBeforeBlockMs).toBeGreaterThan(-1000);
+       expect(stats.avgBlobsInBlock).toBeGreaterThanOrEqual(0);
+       expect(stats.blocksBlobsFull).toBeGreaterThanOrEqual(0);
+     }, 15000);
