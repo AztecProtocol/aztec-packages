@@ -107,9 +107,9 @@ barretenberg/cpp/bootstrap.sh test_cmds
 The output is filtered to remove tests marked `skip` in the root `.test_patterns.yml` file. You'll get something like:
 
 ```
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates_with_shifts
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_boolean_gates
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupXorConstraint
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupAndConstraint
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupFixedBaseScalarMul
 ```
 
 The first field is the "test hash" (see [Cache](#cache)). Run the rest of the line from the repository root to run the test manually.
@@ -127,7 +127,7 @@ Flaky tests are managed in one place, the root `.test_patterns.yml` file. For ex
       - *adam
 ```
 
-Each entry's `regex` is matched against the test command. A matching failure alerts the listed owners in Slack (#aztec3-ci) instead of failing the build. With `error_regex`, only failures whose output matches are treated as flakes. `skip: true` disables a test outright; reserve it for tests that fail constantly. A failing test with no matching owner fails the build.
+Each entry's `regex` is matched against the test command. A matching failure is reported as a flake instead of failing the build; in merge-queue runs it also alerts the listed owners in Slack (#aztec3-ci). With `error_regex`, only failures whose output matches are treated as flakes. `skip: true` disables a test outright; reserve it for tests that fail constantly. A failing test with no matching owner fails the build.
 
 If you hit a flaky test, add an entry here and notify the owning team.
 
@@ -171,7 +171,7 @@ seq 1 64 | parallel --bar --halt now,fail=1 "barretenberg/cpp/scripts/run_test.s
 
 ## Running CI
 
-GitHub Actions runs CI on every push to a non-draft PR (`.github/workflows/ci3.yml`). The flow is `ci3.yml` → `.github/ci3.sh` → `ci.sh <mode>` → `./bootstrap.sh ci-<mode>` on a fresh EC2 instance. `.github/ci3_labels_to_env.sh` picks the mode from the PR labels (see below); the default is `fast`.
+GitHub Actions runs CI on every push to a non-draft PR (`.github/workflows/ci3.yml`; PRs from forks go through `ci3-external.yml`). The flow is `ci3.yml` → `.github/ci3.sh` → `ci.sh <mode>` → `./bootstrap.sh ci-<mode>` on a fresh EC2 instance. `.github/ci3_labels_to_env.sh` picks the mode from the PR labels (see below); the default is `fast`.
 
 To stop CI running on every push, mark the PR as draft:
 
@@ -303,7 +303,7 @@ Example: `barretenberg/acir_tests/bootstrap.sh`.
 After a test passes in CI, it does not run again until its redis key changes. The key is the whole test line, test hash plus command:
 
 ```
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupXorConstraint
 ```
 
 Labs test commands come through `labs/`, prefixed with `cd labs`.
@@ -328,4 +328,4 @@ All work happens in a single environment, defined in `build-images/src/Dockerfil
 - `devbox` - `build` plus development tools. This is the official devcontainer.
 - `sysbox` - Like `devbox`, but built to run on the internal mainframe under the sysbox runtime.
 
-`build-images/bootstrap.sh` builds the images and pushes them to Docker Hub. It also updates the AWS AMIs, which embed the build and devbox images so instances do not have to pull them. See [build-images/README.md](build-images/README.md).
+`build-images/bootstrap.sh` builds the images locally; `build-images/bootstrap.sh deploy` builds them on EC2, pushes them to Docker Hub and updates the AWS AMIs, which embed the build and devbox images so instances do not have to pull them. See [build-images/README.md](build-images/README.md).

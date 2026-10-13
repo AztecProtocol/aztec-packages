@@ -22,7 +22,7 @@ The projects in this repo are released via npm ([@aztec-foundation](https://www.
 ## Build
 
 ```
-./bootstrap.sh install_deps   # install toolchains, then restart your shell
+./bootstrap.sh install_deps   # install toolchains (starts a fresh shell when done)
 ./bootstrap.sh check          # check toolchain versions
 ./bootstrap.sh                # build with the cache (make fast); ./bootstrap.sh gentle on a laptop
 ```
