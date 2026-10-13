@@ -18,6 +18,10 @@ barretenberg/cpp/scripts/chonk_inputs.sh download
 
 This populates `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`; `ls barretenberg/cpp/chonk-pinned-flows` lists the flows. The pin lives in `barretenberg/cpp/scripts/chonk-inputs.hash`. The root `chonk-inputs` skill covers the pin, its refresh (the `ci-refresh-chonk` label) and the inventory.
 
+### Inputs from an external app
+
+To benchmark an external app's flow, capture it with the aztec-node `capture-app-flow` skill (`labs/.claude/skills/capture-app-flow/SKILL.md` when the `labs` submodule is checked out), then prove it here. The capture writes one `<flow>_<step>/ivc-inputs.msgpack` per step; pass one file per `--ivc_inputs_path`. Prove each capture with the `bb` that shipped with the app's Aztec version, not a `bb` built from this tree. The C++ decoder for these files is `barretenberg/cpp/src/barretenberg/chonk/private_execution_steps.hpp`.
+
 ## Step 2: Build bb
 
 ```bash
