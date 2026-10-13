@@ -335,7 +335,7 @@ $$
 \iff \big(|c_j| = |\delta| \ \text{ or }\ 2c_j = -\delta\big)\ \wedge\ c_k = 0\ (k \neq j).
 $$
 
-These are the `others_zero(t)` and magnitude checks behind `FoldOp.safe`.
+These are the `others_zero(j)` and magnitude checks behind `FoldOp.safe`.
 
 ### Clamping the simulation
 

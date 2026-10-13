@@ -63,9 +63,9 @@ See [`logderiv_lookup_relation.hpp`](./logderiv_lookup_relation.hpp) for the imp
 
 Instead of storing raw table values in wires, we store **accumulators**. The actual table entry is recovered as:
 
-$$d_i = w_i + s_i \cdot w_i^{\text{shift}}$$
+$$d_i = w_i - s_i \cdot w_i^{\text{shift}}$$
 
-where $w_i^{\text{shift}}$ is the shifted wire of the same column and $s_i$ is the step size, stored negated in $q_r$, $q_m$, $q_c$. This handles the case where table entries represent limbs of values too large for direct lookup. By storing accumulators, we avoid additional gates to reconstruct full-size values from limbs.
+where $w_i^{\text{shift}}$ is the shifted wire of the same column and $s_i$ is the step size. The gate stores $-s_i$ in $q_r$, $q_m$, $q_c$, and the relation computes $w_i + q_{\cdot}\, w_i^{\text{shift}}$. This handles the case where table entries represent limbs of values too large for direct lookup. By storing accumulators, we avoid additional gates to reconstruct full-size values from limbs.
 
 See `bb::plookup::get_lookup_accumulators()` for implementation details.
 

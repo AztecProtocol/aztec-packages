@@ -93,7 +93,7 @@ Such that:
 
 
 **Notation:**
-Let $H$ be a subgroup of size $m+1$, with generator $g$, Lagrange basis $L_0(X),\ldots,L_m(X)$ (with $L_i(g^j) = \delta_{ij}$) and vanishing polynomial $Z_H(X)$. Let $cm$ be a commitment scheme for polys of degree at most $n$ for some $n\geq m+3$ (e.g. KZG).
+Let $H$ be a subgroup of size $m+1$, with generator $g$, Lagrange basis $L_0(X),\ldots,L_m(X)$ (with $L_i(g^j) = \delta_{ij}$; `small_subgroup_ipa.hpp` calls $L_0$ and $L_m$ `lagrange_first` and `lagrange_last`, written $L_1$ and $L_{|H|}$ there) and vanishing polynomial $Z_H(X)$. Let $cm$ be a commitment scheme for polys of degree at most $n$ for some $n\geq m+3$ (e.g. KZG).
 
 
 $cm(u,r_0,r_1)$:

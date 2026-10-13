@@ -47,7 +47,7 @@ There are two new subtleties that are introduced when making the proving system 
 1. The sumcheck protocol should be modified so that the round univariates and evaluations don't leak information about the witness
 2. The sumcheck protocol should accommodate for randomness added to the start of the witness polynomials.
 
-Let us focus on bullet point 2 first. To hide the contribution of witness values in commitments/openings, every masked witness column holds `NUM_MASKED_ROWS` = 3 random values at the head of the trace. The first `NUM_DISABLED_ROWS_IN_SUMCHECK` = `NUM_MASKED_ROWS` + 1 = 4 rows (rows 0..3) are disabled in sumcheck (`constants.hpp`).
+Let us focus on bullet point 2 first. To hide the contribution of witness values in commitments/openings, every masked witness column holds `NUM_MASKED_ROWS` = 3 random values in rows 1..3 (row 0 is the zero row). The first `NUM_DISABLED_ROWS_IN_SUMCHECK` = `NUM_MASKED_ROWS` + 1 = 4 rows (rows 0..3) are disabled in sumcheck (`constants.hpp`).
 > The +1 accounts for shifted polynomials (see `constants.hpp`). The first row where relations are active is row 4 (`TRACE_OFFSET`).
 
 As these values are random, for the sumcheck relation to hold, these values should be canceled. This is where we introduce the concept of `RowDisablingPolynomial` (`polynomials/row_disabling_polynomial.hpp`).
@@ -238,7 +238,7 @@ On the hypercube, $\tau$ is 1 only when $X_d = \dots = X_{D-1} = 0$. So a virtua
 
 This is implemented in `compute_virtual_contribution`.
 
-One path serves ZK and non-ZK flavors (`compute_virtual_round_univariate` in `sumcheck.hpp`). In each virtual round the prover also adds the Libra univariate (`compute_libra_univariate`), and keeps updating the row-disabling polynomial and `zk_sumcheck_data`. It draws the round challenge `Sumcheck:u_i` as in a real round. The row-disabling polynomial does not depend on the circuit size, so the verifier evaluates $1 - \prod_{k\ge 2}(1-u_k)$ over all $D$ challenges.
+ZK flavors extend by zero in the same way: `prove(ZKData&)` calls `compute_virtual_round_univariate` (`sumcheck.hpp`), which applies the row-disabling factor to `compute_virtual_contribution`; no zero univariates are sent. In each virtual round the prover also adds the Libra univariate (`compute_libra_univariate`), and keeps updating the row-disabling polynomial and `zk_sumcheck_data`. It draws the round challenge `Sumcheck:u_i` as in a real round. The row-disabling polynomial does not depend on the circuit size, so the verifier evaluates $1 - \prod_{k\ge 2}(1-u_k)$ over all $D$ challenges.
 
 ### Verifier Behavior
 
