@@ -473,7 +473,7 @@ auto mixed = a * beta;   // OK: has challenge bit set
 auto result = mixed + b; // OK: mixed has challenge bit, prevents violation
 ```
 
-The abort message names the `tag_id` of both tags, so you can trace which field elements were involved.
+`check_round_provenance` reports the two round numbers. The other merge aborts (free witness, poisoned value, different transcripts) name the `tag_id` of both tags, so you can trace which field elements were involved.
 
 #### Testing tags
 

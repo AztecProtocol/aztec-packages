@@ -2,7 +2,7 @@
 This module holds the implementation of the sumcheck protocol.
 
 The implementation varies depending on the `Flavor` provided as a template parameter. The two main conditions that change the `prove`/`verify` functionality are
-1. `IsGrumpkinFlavor` concept, which distinguishes whether coefficients are `Grumpkin` (`ECCVMFlavor`, `ECCVMRecursiveFlavor`) or `BN254` scalars.
+1. The `CommittedSumcheck` template parameter, by default `UsesCommittedSumcheck<Flavor>` = `IsGrumpkinFlavor<Flavor>` (true for `ECCVMFlavor` and `ECCVMRecursiveFlavor`, whose coefficients are Grumpkin scalars). See [Committed sumcheck](#committed-sumcheck).
 2. `HasZK` which determines whether the flavor is a `ZK` Flavor.
 
 # `SumcheckProver`
@@ -47,7 +47,7 @@ There are two new subtleties that are introduced when making the proving system 
 1. The sumcheck protocol should be modified so that the round univariates and evaluations don't leak information about the witness
 2. The sumcheck protocol should accommodate for randomness added to the start of the witness polynomials.
 
-Let us focus on bullet point 2 first. In order to hide the contribution of witness values in commitments/openings, every masked witness column holds `NUM_MASKED_ROWS` = 3 random values at the head of the trace. The first `NUM_DISABLED_ROWS_IN_SUMCHECK` = `NUM_MASKED_ROWS` + 1 = 4 rows (rows 0..3) are disabled in sumcheck (`constants.hpp`).
+Let us focus on bullet point 2 first. To hide the contribution of witness values in commitments/openings, every masked witness column holds `NUM_MASKED_ROWS` = 3 random values at the head of the trace. The first `NUM_DISABLED_ROWS_IN_SUMCHECK` = `NUM_MASKED_ROWS` + 1 = 4 rows (rows 0..3) are disabled in sumcheck (`constants.hpp`).
 > The +1 accounts for shifted polynomials (see `constants.hpp`). The first row where relations are active is row 4 (`TRACE_OFFSET`).
 
 As these values are random, for the sumcheck relation to hold, these values should be canceled. This is where we introduce the concept of `RowDisablingPolynomial` (`polynomials/row_disabling_polynomial.hpp`).
@@ -75,7 +75,7 @@ Bullet point 2 is quite easy to handle: the verifier multiplies the evaluation o
 Now let's tackle bullet point 1. Let us refer to the round univariate without taking into consideration the `RowDisablingPoly` as $S_{F,i}$ and the round univariate of the corrected poly $S'_{F,i}$. Only the edges at the start of the trace contribute to the correction:
 
 - Round 0: $S'_{F,0} = S_{F,0} - F(X,0,\dots,0) - F(X,1,0,\dots,0)$.
-- Round 1: $S'_{F,1} = S_{F,1} - (1-X)\cdot F(u_0,X,0,\dots,0) - X\cdot F(u_0,X,1,0,\dots,0)$.
+- Round 1: $S'_{F,1} = S_{F,1} - F(u_0,X,0,\dots,0)$. The factor $L(u_0,X,0,\dots,0)$ is $1$: `RowDisablingPolynomial` keeps `eval_at_0 = eval_at_1 = 1` until `update_evaluations` runs with `round_idx = 1`.
 - Rounds $i>1$: $S'_{F,i} = S_{F,i} - \prod_{k=2}^{i-1}(1-u_k)\cdot(1-X)\cdot F(u_0,\dots,u_{i-1},X,0,\dots,0)$.
 
 The header of `polynomials/row_disabling_polynomial.hpp` derives these formulas.
@@ -212,9 +212,9 @@ This is specifically important for recursive proving, since the inner verifier c
 | `MegaZKFlavor` | `HIDING_KERNEL_LOG_N` = 16 |
 | `MegaAvmFlavor` | `MEGA_AVM_LOG_N` = 21 |
 | `TranslatorFlavor` | `CONST_TRANSLATOR_LOG_N` = 17 |
-| `ECCVMFlavor` | `CONST_ECCVM_LOG_N` = 15 |
+| `ECCVMFlavor` | none: the circuit has the fixed size $2^{15}$ (`CONST_ECCVM_LOG_N` = 15), so there are no virtual rounds |
 
-The gate-challenge vector $\beta$ and the Libra univariates both have `VIRTUAL_LOG_N` entries.
+The gate-challenge vector $\beta$ and the Libra univariates both have `VIRTUAL_LOG_N` entries (`CONST_ECCVM_LOG_N` for ECCVM).
 
 ## Virtual Rounds
 
