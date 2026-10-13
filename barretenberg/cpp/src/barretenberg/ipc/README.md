@@ -79,7 +79,8 @@ public:
 
 `receive()` returns a span that stays valid until `release()` or the next
 `receive()`. For SHM it points into the ring buffer (zero-copy); for sockets it
-points into an internal buffer. Always follow it with `release(span.size())`:
+points into an internal buffer. Always follow it with `release(span.size())`.
+The SHM transports cast `timeout_ns` to `uint32_t`, so the longest wait is about 4.29 s:
 
 ```cpp
 #include "barretenberg/ipc/ipc_client.hpp"

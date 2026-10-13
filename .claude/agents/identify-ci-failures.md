@@ -65,9 +65,9 @@ gh pr view <PR> --json statusCheckRollup \
   --jq '.statusCheckRollup[] | select(.context != null) | "\(.context) \(.state) \(.targetUrl)"'
 ```
 
-Only if no `ci/` context exists, fall back to the GitHub Actions log. Take the `ci` job's `detailsUrl`, extract the run ID (number after `runs/`), and read the log id from the environment:
+Only if no `ci/` context exists, fall back to the GitHub Actions log. Take the `ci` job's `detailsUrl`, extract the run ID (number after `runs/`), and read the `CI Log:` line that `ci3/bootstrap_ec2` prints:
 ```bash
-gh run view <RUN_ID> --log 2>&1 | grep -o 'CI_LOG_ID: [0-9]*'
+gh run view <RUN_ID> --log 2>&1 | grep -o 'ci.aztec-labs.com/[0-9]*' | head -1
 ```
 
 **If given CI URL or hash**: Extract the hash directly.

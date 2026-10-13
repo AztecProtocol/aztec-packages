@@ -129,7 +129,7 @@ node --experimental-strip-types --no-warnings \
 
 `--package` selects one of two shells:
 
-- With `--client` (or no role flag): a client package that launches a native service binary, connects over UDS or SHM, and wraps the generated async client. It resolves the binary from, in order: an override path, an environment variable, an installed arch package, or a local `build/<platform>/` directory.
+- With `--client` (or no role flag): a client package that launches a native service binary, connects over UDS or SHM, and wraps the generated async client. It resolves the binary from, in order: an override path, an environment variable, an installed arch package, or a `packages/<package-stem>-<platform>/` directory next to the package (`scripts/prepare_arch_packages.sh` builds those from `build/<platform>/`).
 - With `--server` only: a pure-TS server binding package with the wire types, the `Handler` interface, `handleRequest`/`dispatch`, and the schema file at the package root. It has no binary launcher and no arch packages; the consumer supplies the byte transport, e.g. `UdsIpcServer` from ipc-runtime.
 - Passing `--server --client` selects the client shell.
 
@@ -194,7 +194,7 @@ node --experimental-strip-types --no-warnings src/generate.ts \
 Produces the generated TS client under `src/generated/` plus a package shell
 (`package.json`, `tsconfig.json`, `README.md`, `src/index.ts`, `src/platform.ts`,
 `src/bin.ts`, `scripts/prepare_arch_packages.sh`, and
-`packages/<binary>-{linux,darwin}-{x64,arm64}/package.json`). The package exports a
+`packages/<package-stem>-{linux,darwin}-{x64,arm64}/package.json`, where the stem is the package name without its scope). The package exports a
 `MyServiceService.spawn(...)` helper that launches the native binary and wraps
 the generated async client. `scripts/prepare_arch_packages.sh` turns
 `build/<platform>/<binary>` directories into per-architecture npm packages

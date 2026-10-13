@@ -11,7 +11,7 @@ This skill covers the automation internals of the merge-train system. For contri
 
 The loop in `.github/workflows/merge-train-next-to-branches.yml` defines which trains this repo keeps in sync with `next`: `merge-train/avm`, `merge-train/barretenberg` and `merge-train/ci`. A push to `v5-next` syncs nothing (the workflow prints "No merge trains track v5-next any more").
 
-Other `merge-train/*` branches still exist on the remote (`docs`, `fairies`, `fairies-v5`, `spartan`, `spartan-v5`, `spartan-v6`). `merge-train-create-pr.yml`, `.github/ci3_labels_to_env.sh` and `ci3/merge_train_failure_slack_notify` still special-case some of them, but the auto-pull does not sync them. Their code lives in aztec-node.
+Other `merge-train/*` branches exist on the remote, among them `docs`, `fairies`, `fairies-v5`, `spartan`, `spartan-v5` and `spartan-v6`, whose code lives in aztec-node. `merge-train-create-pr.yml`, `.github/ci3_labels_to_env.sh` and `ci3/merge_train_failure_slack_notify` still special-case some of them, but the auto-pull does not sync them.
 
 No train in the auto-pull loop targets the `v6` release line.
 
