@@ -9,7 +9,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 This scope owns the databus files. `chonk_audit_scope.md` also lists some of them because Chonk depends on them.
 
 ### Relations
-1. `relations/databus_lookup_relation.hpp`: the log-derivative lookup relation for the databus
+1. `relations/databus_lookup_relation.hpp`: the log-derivative lookup relation for the databus, including `compute_logderivative_inverse`
 
 ### stdlib
 2. `stdlib/primitives/databus/databus.hpp`: defines the `databus` class with its `bus_vector`, and the `DataBusDepot` class; setters and getters
@@ -22,19 +22,18 @@ This scope owns the databus files. `chonk_audit_scope.md` also lists some of the
 
 ### Provers
 7. `ultra_honk/prover_instance.hpp`: allocates and constructs the databus polynomials
-8. `ultra_honk/oink_prover.cpp`: commits to the databus polynomials and the log-derivative inverses
-9. `honk/proof_system/logderivative_library.hpp`: computes the log-derivative inverses (called from `oink_prover.cpp`)
+8. `ultra_honk/oink_prover.cpp`: computes the log-derivative inverses (through item 1) and commits to the databus polynomials and the inverses
 
 ### Flavors
-10. `flavor/mega_flavor.hpp`: declares the databus columns and polynomials
+9. `flavor/mega_flavor.hpp`: declares the databus columns and polynomials
 
 ### ACIR
-11. `dsl/acir_format/block_constraint.cpp`: handles the ACIR databus opcodes (block constraints)
-12. `dsl/acir_format/acir_format.cpp`: calls the block constraint functions
+10. `dsl/acir_format/block_constraint.cpp`: handles the ACIR databus opcodes (block constraints)
+11. `dsl/acir_format/acir_format.cpp`: calls the block constraint functions
 
 ### Chonk
-13. `chonk/chonk.hpp`
-14. `chonk/chonk.cpp`: databus consistency checks in the Chonk flow
+12. `chonk/chonk.hpp`
+13. `chonk/chonk.cpp`: databus consistency checks in the Chonk flow
 
 ## Brief Summary of Module
 The databus transfers data between circuits. Circuits read bus columns through a log-derivative lookup relation.

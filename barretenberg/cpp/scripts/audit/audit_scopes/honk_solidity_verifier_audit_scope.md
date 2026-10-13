@@ -25,9 +25,9 @@ The optimized verifier is a gas-optimized Solidity assembly verifier for Honk pr
 ### Generation pipeline
 
 1. `honk-optimized.sol.template` holds the generic verifier logic (sumcheck, Shplemini, KZG). It contains Blake VK values for testing. Its contract name is `BlakeOptHonkVerifier`.
-2. `sol/scripts/init_honk.sh` generates the VKs, including `src/honk/keys/BlakeHonkVerificationKey.sol`, and then runs `sync_blake_opt_vk.sh`.
-3. `sol/scripts/sync_blake_opt_vk.sh` copies the template and injects the VK from `BlakeHonkVerificationKey.sol`. Output: `sol/src/honk/instance/BlakeHonkOpt.sol` (ZK: `BlakeOptZK.sol`). Both files are generated, not tracked. The Solidity tests use them.
-4. `sol/scripts/copy_optimized_to_cpp.sh` replaces the hardcoded VK values with `{{ TEMPLATE }}` placeholders and renames the contract to `HonkVerifier`. Output: `HONK_CONTRACT_OPT_SOURCE` in `honk_optimized_contract.hpp` (ZK: `HONK_ZK_CONTRACT_OPT_SOURCE` in `honk_zk_optimized_contract.hpp`, with `--zk`).
+2. `barretenberg/sol/scripts/init_honk.sh` generates the VKs, including `barretenberg/sol/src/honk/keys/BlakeHonkVerificationKey.sol`, and then runs `sync_blake_opt_vk.sh`.
+3. `barretenberg/sol/scripts/sync_blake_opt_vk.sh` copies the template and injects the VK from `BlakeHonkVerificationKey.sol`. Output: `barretenberg/sol/src/honk/instance/BlakeHonkOpt.sol` (ZK: `BlakeOptZK.sol`). Both files are generated, not tracked. The Solidity tests use them.
+4. `barretenberg/sol/scripts/copy_optimized_to_cpp.sh` replaces the hardcoded VK values with `{{ TEMPLATE }}` placeholders and renames the contract to `HonkVerifier`. Output: `HONK_CONTRACT_OPT_SOURCE` in `honk_optimized_contract.hpp` (ZK: `HONK_ZK_CONTRACT_OPT_SOURCE` in `honk_zk_optimized_contract.hpp`, with `--zk`).
 5. `get_optimized_honk_solidity_verifier(vk)` (ZK: `get_optimized_honk_zk_solidity_verifier(vk)`) injects any circuit's VK. `honk_optimized_common.hpp` holds the shared helpers, including the memory layout (`generate_memory_offsets`) and loop unrolling.
 6. `bb write_solidity_verifier --optimized` writes the circuit-specific `HonkVerifier` contract for on-chain deployment.
 
