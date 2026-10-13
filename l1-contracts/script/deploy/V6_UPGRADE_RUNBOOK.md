@@ -18,7 +18,8 @@ The deploy script deploys, in one broadcast of ten transactions:
 1. `HonkVerifier` — the real epoch proof verifier, from the pinned `script/deploy/HonkVerifier.sol`
    (see [Build](#1-build)), not from this tree's `generated/`.
 2. `Rollup` — owned by **governance** from construction. Deploying it also constructs its `Inbox`,
-   `Outbox`, `FeeJuicePortal`, `Slasher` + `SlashingProposer`, and a fresh `RewardBooster`.
+   `Outbox`, `FeeJuicePortal`, `Slasher` + `SlashingProposer` (which deploys `SlashPayloadCloneable`),
+   and a fresh `RewardBooster`.
    **The owner argument is not only the owner:** it also becomes the Slasher's immutable
    `GOVERNANCE`, which can execute any slash payload with no vote and no delay. Constructing with
    the deploy key would hand that power to the key permanently — `transferOwnership` moves only the
@@ -47,12 +48,12 @@ Actions 3–5 all act on the **outgoing** rollup and must precede action 7. The 
 `canonicalRollup()` live off the registry, so once v6 is canonical the old rollup can no longer
 reach the implicit pool, and the retune would be settling a chain that has already stopped.
 
-Action 10 has no ordering constraint and goes last. The GSE verifies each new attester's proof of
-possession in a sub-call capped at this much gas, and a deposit whose verification does not fit is
-refunded and dropped from the entry queue. The cost varies per key, and since Osaka's modexp
-repricing about 1 in 28.6k honestly generated keys exceed 250k; at 300k it is about 1 in 2.5M. The
-cost of the raise is that a failing entry can burn at most 50k more gas in a flush. The GSE is
-shared, so the new cap applies to the outgoing rollup too, from the moment the payload executes.
+Action 10 has no ordering constraint and goes last. It raises the cap so that fewer honest keys are
+refunded and dropped from the entry queue; the cost is that a failing entry can burn at most 50k more
+gas in a flush. The GSE is shared, so the new cap also applies to the outgoing rollup. For the
+rationale and rejection rates, see
+[`V6UpgradePayload.md`](../../src/periphery/V6UpgradePayload.md#known-limits-stated-rather-than-discovered)
+and [`test/shared/bn254-pop-gas/README.md`](../../test/shared/bn254-pop-gas/README.md).
 
 ## 1. Build
 
@@ -61,7 +62,12 @@ The verifier and the protocol constants are **pinned in git**, not built from th
 - `script/deploy/HonkVerifier.sol` — the epoch proof verifier from the v6 release build at
   `42fae4eb3feb5a493f2e8a2baf78b4716e323c40`; its provenance comment names that commit.
   `DeployRollupForUpgradeV6.s.sol` imports it as `./HonkVerifier.sol`.
-- `src/core/libraries/ConstantsGen.sol` — from the same build.
+- `src/core/libraries/ConstantsGen.sol` — from the same build. Do not run `./bootstrap.sh` in the
+  deploy checkout: it regenerates `ConstantsGen.sol` and overwrites the pin.
+
+`42fae4eb` is on `v6` in the private `AztecProtocol/aztec-packages-private` repo. Public
+`AztecProtocol/aztec-packages` commit `edf8e9a62dd` (on `v6`) has the same pinned verifier,
+`ConstantsGen.sol` and genesis values, so a public reviewer can check the pin there.
 
 The verifier is a function of the protocol circuits, and the circuits this branch would build
 differ from the release's. A verifier built here has a different `VK_HASH` and rejects every proof
@@ -77,6 +83,7 @@ cd aztec-packages
 git submodule update --init --recursive --depth 1 -- l1-contracts/lib
 cd l1-contracts
 export FOUNDRY_SOLC_VERSION=0.8.30
+REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298 \
 forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' \
   --rpc-url $RPC     # dry run; see Deploy for the broadcast flags
 ```
@@ -85,7 +92,7 @@ forge script script/deploy/DeployRollupForUpgradeV6.s.sol --sig 'run()' \
   `./bootstrap.sh` fetches; forge downloads the same binary (`0.8.30+commit.73712a01`). Use the
   environment variable rather than `--use 0.8.30`: the flag covers compilation but not `--verify`,
   which reads `foundry.toml` again and fails with `solc ./solc-0.8.30 does not exist`.
-- The submodule step is required: `forge script` does not fetch `lib/` (only `forge build` does).
+- The submodule step is required: neither `forge script` nor `forge build` fetches `lib/`.
 - Gas: forge sets each transaction's gas limit from its local simulation (`evm_version = 'prague'`),
   which matches pre-Glamsterdam pricing, so the default limits are correct on mainnet before the
   fork. Measured pre-fork on Sepolia: verifier 3.75M gas (limit 4.88M), rollup 11.98M (limit
@@ -154,9 +161,13 @@ Nothing about the calculator path is loud, so if a later deploy does set one:
   event; the rollup simply pays as though no calculator were configured.
 - Nothing at deploy time checks the address is a calculator, or a contract at all. A
   wrong-but-plausible address has the same observable result as `address(0)`.
-- Reward values are capped at read time at `min(default, entry)`, so a too-high entry cannot pay
-  anyone more than the default. Note this cap is now applied on read rather than at construction,
-  so lowering `sequencerBps` or `checkpointReward` later tightens existing entries automatically.
+- The rollup itself only rejects a calculator reply in which a value exceeds
+  `MAX_SEQUENCER_REWARD_PER_CHECKPOINT` (1,000,000e18), and then falls back to the default. The
+  reference `RegistryReductionCalculator`
+  (`test/reward-calculators/reduction/`) caps each entry at read time at `min(default, entry)`, so a
+  too-high entry cannot pay more than the default, and lowering `sequencerBps` or
+  `checkpointReward` later tightens existing entries automatically. Check that any calculator you
+  install does the same.
 
 Read the value back with `getSequencerRewardCalculator()` after the deploy. Unlike the rest of this
 table it is mutable after construction, so it is worth re-checking after any governance action that
@@ -176,24 +187,33 @@ The values in `_config()` were read off a full build (`make fast`) of the v6 rel
 | `genesisArchiveRoot` | `0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4` |
 | verifier `VK_HASH` | `0x1fd4eb1d14be45e05dc78c448eb4f29d7f63e4de95129c4a5e1058cd9837f8a6` |
 
-All three moved when the release build advanced to `42fae4eb`, which changes protocol circuit
-sources, including `types/src/address/aztec_address.nr` and `types/src/constants.nr`. The verifier
-did not: `VK_HASH` is unchanged and the pinned file only gained a new provenance comment. It still
-differs from the verifier this branch's own circuits build, which is what the pin exists for.
+The `vkTreeRoot` is the release build's. It intentionally differs from the root that this branch
+and aztec-node's tests (for example `yarn-project/aztec/src/testnet_compatibility.test.ts`) compute.
 
 Regenerate all of them, and re-pin the verifier and `ConstantsGen.sol`, if the release build moves
 to a commit that changes the protocol circuits or protocol contracts: rebuilding the circuits moves
 `vkTreeRoot` and the verifier, and rebuilding the protocol contracts moves all three roots. After
 `make fast` on the release build, the first two come from the built packages and the third from the
-protocol constants:
+protocol constants. The packages are in the `labs` submodule (aztec-node,
+[`aztec-labs-eng/aztec-node`](https://github.com/aztec-labs-eng/aztec-node)). The shallow clone in
+[Build](#1-build) does not fetch it, and `.gitmodules` sets it to `update = none`, so a plain
+`git submodule update --init labs` does nothing. From the repo root:
 
 ```bash
-# from labs/yarn-project/prover-node
+git -c submodule.labs.update=checkout submodule update --init labs
+make fast
+```
+
+Then read the values:
+
+```bash
+cd labs/yarn-project/prover-node
 node --input-type=module -e '
 import { getVKTreeRoot } from "@aztec-labs/noir-protocol-circuits-types/vk-tree";
 import { protocolContractsHash } from "@aztec-labs/protocol-contracts";
 console.log(getVKTreeRoot().toString(), protocolContractsHash.toString());'
 
+cd ../../..   # back to the repo root
 grep -A1 GENESIS_ARCHIVE_ROOT \
   noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
 ```
@@ -288,11 +308,15 @@ on Etherscan.
 Record the logged addresses: `rollup`, `verifier`, `inbox`, `outbox`, `feeJuicePortal`, `slasher`,
 `rewardBooster`, `escapeHatch`, `payload`, `newFlushRewarder`, `version`.
 
-Re-run the checks against the deployed contracts at any time:
+Re-run the checks against the deployed contracts at any time. Each `verify*` function reads
+`REGISTRY_ADDRESS`:
 
 ```bash
-forge script ... --sig 'verify(address)' <rollup>
-forge script ... --sig 'verifyFlushRewarder(address,address)' <rollup> <payload>
+export REGISTRY_ADDRESS=0x35b22e09Ee0390539439E24f06Da43D83f90e298
+S=script/deploy/DeployRollupForUpgradeV6.s.sol:DeployRollupForUpgradeV6
+forge script $S --sig 'verify(address)' <rollup> --rpc-url $RPC
+forge script $S --sig 'verifyFlushRewarder(address,address)' <rollup> <payload> --rpc-url $RPC
+forge script $S --sig 'verifyEscapeHatch(address,address)' <rollup> <payload> --rpc-url $RPC
 forge script script/deploy/V6UpgradeSimulation.sol:V6UpgradeSimulation \
   --sig 'simulate(address)' <payload> --rpc-url $RPC
 ```
@@ -322,12 +346,29 @@ cast call <payload> "PROOF_OF_POSSESSION_GAS_LIMIT()(uint64)" --rpc-url $RPC  # 
 
 ## 6. Governance proposal
 
-Propose the **payload address**, not the rollup. `GovernanceProposer` wraps it in a `GSEPayload`
-automatically. After proposing, read the exact timings off the proposal rather than assuming:
+Propose the **payload address**, not the rollup. There are two ways to make a proposal:
+
+- **Sequencer signalling.** The current proposer of each slot on the canonical rollup calls
+  `signal(payload)` on the `GovernanceProposer`. Once a round has reached quorum and its execution
+  delay has passed, anyone calls `submitRoundWinner(round)`. This wraps the payload in a
+  `GSEPayload` and proposes it to `Governance`. The deploy simulation (step 4) models this path.
+- **`Governance.proposeWithLock`** (or `GSE.proposeWithLock`). This starts a withdrawal of the
+  proposer's locked voting power with a long delay; its NatSpec reserves it for emergencies. It does
+  **not** wrap the payload in a `GSEPayload`, so the `GSEPayload.amIValid` check is not appended.
+
+The proposal id is in the `Proposed(proposalId, proposal)` event that `Governance` emits. With
+signalling, `proposal` is the `GSEPayload` address, not the payload. After proposing, read the exact
+timings off the proposal rather than assuming:
 
 ```bash
-cast call <governance> "getProposal(uint256)" <id> --rpc-url $RPC
+GOV=$(cast call $REG "getGovernance()(address)" --rpc-url $RPC)
+cast call $GOV "getProposalState(uint256)(uint8)" <id> --rpc-url $RPC  # index into ProposalState, IGovernance.sol
+# config: (votingDelay, votingDuration, executionDelay, gracePeriod, quorum, requiredYeaMargin, minimumVotes)
+cast call $GOV "getProposal(uint256)(((uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,address,address,uint256,(uint256,uint256)))" <id> --rpc-url $RPC
 ```
+
+The fields after the config are the cached state, payload, proposer, creation time and the
+(yea, nay) ballot.
 
 On mainnet the configured delays are long (voting delay, then voting duration, then execution
 delay — on the order of weeks in total), so expect the proposal to sit before it is executable.
@@ -372,16 +413,11 @@ cast call <payload> "PREDECESSOR()(address)"         --rpc-url $RPC
 cast call $REG "getCanonicalRollup()(address)"       --rpc-url $RPC
 ```
 
-A registration payload without that guard is the hazard the guard exists to remove: registration is
-append-only with last-write-wins and `execute` is permissionless, so an accepted-but-abandoned
-payload can be executed by anyone later and demote whatever replaced it — permanently, since
-neither the registry nor the GSE re-admits a rollup it already holds.
-
-**The consequence, which is intended but worth stating.** Once *any* other registration executes,
-this payload is dead: it can never execute, even if its proposal was accepted and is still inside
-its grace period. Registering v6 then requires deploying a fresh payload — which picks up the new
-canonical rollup as its `PREDECESSOR` — and taking it through the full governance cycle again. So a
-patched replacement for a bad v6 is not a quick swap; budget the whole cycle for it.
+For why the guard exists, see
+[`V6UpgradePayload.md`](../../src/periphery/V6UpgradePayload.md#what-to-check-before-signalling-or-voting).
+Once any other registration executes, this payload is dead
+([Known limits](../../src/periphery/V6UpgradePayload.md#known-limits-stated-rather-than-discovered)).
+A patched replacement for a bad v6 needs a fresh payload and a full governance cycle; budget for it.
 
 ## 7. After execution
 
@@ -414,28 +450,14 @@ only visible to whichever rollup is currently canonical.
 
 ## Deliberately not done
 
-- **Protocol fee recipient and margin.** The rollup launches with `protocolFeeMarginBps = 0` and
-  `protocolFeeRecipient` set to a placeholder address. Both are `onlyOwner`, so they now require a
-  governance proposal. **Set the recipient before, or in the same payload as, any non-zero
-  margin** — otherwise the protocol fee tranche is transferred to an unrecoverable address on
-  every claim. The first margin increase is exempt from the 30-day cooldown but capped at
-  5000 bps by the ×3/2 step on the fee multiplier.
-- **Reward distributor migration.** Not needed: the distributor resolves the canonical rollup live
-  off the registry, so its implicit pool follows v6 the moment action 7 (`Registry.addRollup`)
-  executes. Balances earmarked to other addresses, including the reservation for the outgoing
-  rollup, stay with their recipients and are not part of what v6 inherits.
+- **Protocol fee recipient and margin**, and **reward distributor migration**: see
+  [`V6UpgradePayload.md`](../../src/periphery/V6UpgradePayload.md#what-it-deliberately-does-not-do).
+  **Set the recipient before, or in the same payload as, any non-zero margin.**
 - **Registry address pinning.** `REGISTRY_ADDRESS` is an unvalidated env input. Everything else —
   fee asset, staking asset, GSE, governance, reward distributor — is derived from it, so a wrong
   registry silently changes all of them together. Double-check it on the command line.
 
 ## Do not renounce ownership of the outgoing rollup
 
-Retired rollups have had ownership renounced in the past. Two things break if that is done here:
-
-- the outgoing `FlushRewarder` keeps its unclaimed `debt` and must stay callable for
-  `claimRewards()`;
-- `updateStakingQueueConfig` is the only way to recover a rollup whose entry queue is wedged, and
-  it is `onlyOwner`.
-
-Mainnet's outgoing rollup is already `isBootstrapped = true`, so its queue still flushes at
-1 validator/epoch from zero and it remains restartable. Renouncing ownership removes the fallback.
+See [`V6UpgradePayload.md`](../../src/periphery/V6UpgradePayload.md#what-it-deliberately-does-not-do)
+for why.
