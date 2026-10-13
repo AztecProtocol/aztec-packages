@@ -57,7 +57,7 @@ Base branch: see the table in root `CLAUDE.md` (`vm2/**` → `merge-train/avm`),
 
 ## Build and test
 
-The build recipe, presets and prerequisites are in `barretenberg/cpp/CLAUDE.md` "Build". For AVM work, configure `build/` with `cmake --preset clang20-assert`: asserts fire, and AVM column information gated on `!defined(NDEBUG)` is compiled in. It shares `build/` with `default` and `clang20`, so switching presets recompiles everything. All commands below are from `barretenberg/cpp/`.
+The build recipe, presets and prerequisites are in `barretenberg/cpp/CLAUDE.md` "Build". For AVM work, configure `build/` with `cmake --preset clang20-assert`: `BB_ASSERT_DEBUG` and bare `assert` fire, and AVM column information gated on `!defined(NDEBUG)` is compiled in. It shares `build/` with `default` and `clang20`, so switching presets recompiles everything. All commands below are from `barretenberg/cpp/`.
 
 1. **`bb-avm`** — CLI to simulate and prove.
    - Build: `cmake --build --preset clang20-assert --target bb-avm` (slow, ~4 min).

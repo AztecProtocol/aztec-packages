@@ -84,7 +84,7 @@ forge test --match-test <NAME_OF_TEST>           # e.g. testValidProof
 
 `foundry.toml` sets 2 fuzz runs to keep CI cheap. Raise `[fuzz] runs` locally when you need more.
 
-Gas benchmark: `./bootstrap.sh bench` writes `gas_report.json` with the median gas of `verify`.
+Gas benchmark: `./bootstrap.sh bench` runs the `testValidProof` tests with `FORGE_GAS_REPORT=true` and writes the median gas of `verify` per contract to `bench-out/verifier.bench.json`.
 
 ## Debugging in assembly
 

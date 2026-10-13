@@ -12,7 +12,7 @@ The following packages are required for building from source:
 - cmake >= 3.24
 - Ninja (used by the presets as the default generator)
 - A C++ compiler for the preset you use:
-  - `default` / `homebrew`: the `clang` on your PATH, version 14 or later
+  - `default`: the `clang` on your PATH, version 14 or later; `homebrew`: brew's `llvm@20`
   - `clang20*` (used by `./bootstrap.sh`): [Zig](https://ziglang.org/), which wraps Clang
   - `debug*`, `asan`, `fuzzing*`: `clang-20` / `clang++-20`
   - `gcc`: gcc >= 10
@@ -143,7 +143,7 @@ Code is formatted using `clang-format` and the `./cpp/format.sh` script which is
 
 ### Testing
 
-Each module has its own tests, in a target named `<module>_tests`. List them with `ninja -C build -t targets | grep _tests:`, or list the CI test commands with `./bootstrap.sh test_cmds` in `barretenberg/cpp`.
+Each module has its own tests, in a target named `<module>_tests`. After configuring `build/`, list them with `ninja -C build -t targets | grep _tests:`, or list the CI test commands with `./bootstrap.sh test_cmds` in `barretenberg/cpp`.
 
 e.g. To build and run `ecc` tests:
 

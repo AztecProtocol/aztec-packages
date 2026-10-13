@@ -36,7 +36,7 @@ bb --version
 | Option | Meaning |
 | --- | --- |
 | `-v`, `--version <bb-version>` | Install this `bb` version. |
-| `-nv`, `--noir-version <noir-version>` | Install the `bb` version mapped to this Noir version in `bb-versions.json`. `stable` and `nightly` resolve to the latest Noir release or nightly first. |
+| `-nv`, `--noir-version <noir-version>` | Install the `bb` version mapped to this Noir version in `bb-versions.json`. `stable` and `nightly` resolve to the latest Noir release or nightly first; the map has no nightly entries, so `-nv nightly` fails. |
 | `--no-modify-path` | Do not update shell configuration files. |
 | `BB_PATH` (env) | Install destination; default `~/.bb`. |
 

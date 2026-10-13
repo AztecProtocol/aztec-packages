@@ -36,10 +36,10 @@ Do not add the `-j` flag to ninja; the default is optimal.
 | `default` | Release | system `clang` | `build/` |
 | `clang20` | Release | zig wrappers | `build/` |
 | `clang20-no-avm` | Release, `AVM=OFF` (no `vm2`, no `bb-avm`) | zig wrappers | `build/` |
-| `clang20-assert` | RelWithAssert (`-O3 -UNDEBUG`): asserts fire | zig wrappers | `build/` |
+| `clang20-assert` | RelWithAssert (`-O3 -UNDEBUG`): `assert` and `BB_ASSERT_DEBUG` fire; AVM column information compiled in | zig wrappers | `build/` |
 | `debug-fast` | `-O2` with debug info and stack traces | `clang-20` | `build-debug-fast/` |
 
-There is no `release` preset. `default`, `clang20` and `clang20-no-avm` are Release builds with `NDEBUG` set, so `BB_ASSERT` compiles to its release form (`common/assert.hpp`). Use `clang20-assert` when asserts must fire.
+There is no `release` preset. `default`, `clang20` and `clang20-no-avm` are Release builds with `NDEBUG` set: `BB_ASSERT` still fires, but bare `assert`, `BB_ASSERT_DEBUG` (`common/assert.hpp`) and the AVM column information gated on `!defined(NDEBUG)` are compiled out. Use `clang20-assert` when those must be active.
 
 The first four presets share `build/` (`scripts/preset-build-dir`). Switching between them in the same `build/` (compiler family, build type, or `AVM`) invalidates the CMake cache and recompiles everything. Pick one per checkout.
 
@@ -95,7 +95,7 @@ These are required: violating them will compile on native but break WASM, or ske
 - **Logging: use `info(...)` / `vinfo(...)` from `barretenberg/common/log.hpp`, never `std::cout` or `std::cerr`.** The macros route through `log_function` and respect `bb_log_level`; direct `std::cout` is unfiltered, uncaptured in CI logs, and skews benchmark output.
 - **Aborts and exceptions: use `throw_or_abort(msg)` from `barretenberg/common/throw_or_abort.hpp`, never bare `throw` or `std::abort()`.** WASM builds set `BB_NO_EXCEPTIONS`, which turns `throw` into `abort()` — bare `throw` compiles differently and misformats the message, and raw `std::abort()` drops the message entirely. For header-only libraries that must use exception syntax, use the `THROW`/`RETHROW` macros from `common/try_catch_shim.hpp`.
 - **Assertions: use `BB_ASSERT(cond, msg)` / `BB_ASSERT_EQ` / `BB_ASSERT_NEQ` / `BB_ASSERT_GT` / etc. from `barretenberg/common/assert.hpp`, never bare `assert(...)`.** `BB_ASSERT` hooks into the benchmark-assertion framework and has distinct debug/release behavior; `assert` is stripped in release builds and silently diverges in WASM.
-- **Debug builds: use `clang20-assert` or `debug-fast` for correctness work.** The Release presets (`default`, `clang20`) set `NDEBUG`, so `BB_ASSERT` checks do not fire. See "Build" above.
+- **Debug builds: use `clang20-assert` or `debug-fast` for correctness work.** The Release presets (`default`, `clang20`) set `NDEBUG`, so `BB_ASSERT_DEBUG` and bare `assert` checks do not fire (`BB_ASSERT` always does). See "Build" above.
 
 ## Benchmarking:
 

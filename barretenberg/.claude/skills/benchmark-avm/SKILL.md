@@ -38,7 +38,7 @@ Fast triage when the bulk test fails during setup:
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `Cannot find module '@aztec-foundation/wsdb'` / `'@aztec-foundation/ipc-runtime'` | The portals are not linked | `make labs-use-local` (or step 1) |
+| `Cannot find module '@aztec-foundation/wsdb'` / `'@aztec-foundation/ipc-runtime'` | The portals are not linked | `make labs-use-local` (or step 2) |
 | Test **reverts**: `expect(result.revertCode.isOK()).toBe(true)` fails, log shows `Reverted code: Reverted` and `Total instructions executed: 0` | Stale `AvmTest` artifact: its bytecode embeds old constants/gas against the rebuilt bb-avm/simulator, so the call reverts at dispatch | Step 3 |
 | `NAPI binary not found for current platform` | `nodejs_module.node` not where `findNapiBinary()` looks | `(cd barretenberg/ts/bb.js && BUILD_CPP=0 ./scripts/copy_native.sh)` |
 | A world-state class "is not a constructor" from a `world-state/dest/...` file | Stale compiled `dest/`; a cached build restores it | `yarn build` in `labs/yarn-project` (step 3) |

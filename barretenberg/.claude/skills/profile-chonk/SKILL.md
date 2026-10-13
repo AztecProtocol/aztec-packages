@@ -126,7 +126,7 @@ To profile multiple flows, loop `FLOW` over the directories in `chonk-pinned-flo
 
 Default: open https://ui.perfetto.dev, choose "Open trace file" and pick `$LOCAL_OUT/$FLOW.perfetto.json`. Nothing leaves your machine.
 
-To share a link, publish the trace only if the user explicitly asks for it. Perfetto opens a trace by URL with `https://ui.perfetto.dev/#!/?url=<raw_url>`, where `<raw_url>` is a publicly readable raw file URL (for example the raw URL of a public gist). A public gist is readable by anyone; traces contain only timing data, but confirm with the user first.
+To share a link, publish the trace only if the user explicitly asks for it. Perfetto opens a trace by URL with `https://ui.perfetto.dev/#!/?url=<raw_url>`, where `<raw_url>` is a publicly readable raw file URL (for example the raw URL of a public gist). A public gist is readable by anyone; traces contain only timing data, but confirm with the user first. With that go-ahead: `GIST_URL=$(gh gist create --public "$TRACE" | tail -1)` and `RAW_URL=$(gh api "gists/$(basename "$GIST_URL")" --jq '.files | to_entries[0].value.raw_url')`.
 
 ## Step 5: Analyze threading (optional)
 

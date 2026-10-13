@@ -72,7 +72,7 @@ When tests fail with `SumcheckFailed()`:
 
 ### 2. Challenge Generation
 
-The Solidity transcript derives each challenge with its own keccak256 hash: `eta = H(round0)`, then `romLogupGamma = H(eta)`; `beta = H(round1)`, then `gamma = H(beta)` (`Transcript.sol`). There is no 127-bit challenge split. C++ `split_challenge` (`ecc/fields/field_conversion.hpp`) serves only `get_short_challenges` (goblin merge and shplemini recursion); the keccak Oink verifier uses full-width `get_challenges`, one hash per challenge, and the Solidity transcript mirrors that. Do not add a split.
+The Solidity transcript derives each challenge with its own keccak256 hash: `eta = H(round0)`, then `romLogupGamma = H(eta)`; `beta = H(round1)`, then `gamma = H(beta)` (`Transcript.sol`). There is no 127-bit challenge split. C++ `split_challenge` (`ecc/fields/field_conversion.hpp`) serves only `get_short_challenges` callers (the goblin merge prover and verifier, pairing points, hypernova batching, the AVM prover); the keccak Oink verifier uses full-width `get_challenges`, one hash per challenge, and the Solidity transcript mirrors that. Do not add a split.
 
 ### 3. File Regeneration Order
 
