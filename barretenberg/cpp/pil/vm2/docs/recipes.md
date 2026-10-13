@@ -1,17 +1,14 @@
 # VM Circuit Recipes
 
-## Setting and Rules of the Games
+## Model
 
-The zk proof of execution of some given computation performed by the public VM consists of table of elements over a prime field of order $r$. The logical constraints of the proof are being translated into algebraic relations between **entire** columns of the table. Each column is then expressed by a polynomial over $\mathbb{F}_r$ in order to produce the zk proof.
+The zk proof of execution of the public VM is built from a table of elements over a prime field of order $r$. The logical constraints are translated into algebraic relations between **entire** columns of the table. Each column is then expressed as a polynomial over $\mathbb{F}_r$ to produce the proof.
 
-- $r-1$ is a multiple of a power of 2, i.e., $2^n \mid r-1$ and in our setting (scalar field oif BN254 curve) $n=28$.
-- Number of rows is a **power of two** smaller than $2^n$ (FFT optimization. Note that for Honk $r-1$ does not have to be a multiple of a power of 2). It suffices to pad the 'empty' rows with zero values.
-- An algebraic relation applies for each row and corresponds to an algebraic equations on each $\mathbb{F}_r$ element, one element per column. (consolidated over the whole column through polynomials). By algebraic equation we mean a multivariate polynomial equals to zero where each column element represents a variable.
+- The circuit size is fixed at `MAX_AVM_TRACE_SIZE` = $2^{21}$ rows (`MAX_AVM_TRACE_LOG_SIZE` = 21). The populated trace is shorter and the remaining rows are zero.
+- An algebraic relation applies to each row. It is an algebraic equation over the row's $\mathbb{F}_r$ elements, one element per column (consolidated over the whole column through polynomials). By algebraic equation we mean a multivariate polynomial equal to zero, where each column element is a variable.
 - An algebraic relation can additionally involve element of the **next** row. (cycling shift)
 
-**OPEN:** Is the degree of the algebraic relation polynomials limited in practice (relative to r)?
-
-## Crux of the Task
+## Constraints act on whole columns
 
 Some difficulties
 
@@ -19,9 +16,9 @@ Some difficulties
 - Relations must apply over entire column
 - Model memory of the VM through such algebraic relations
 
-## Just Verify
+## Witness computation is unconstrained
 
-Computation of the right values (witnesses) are outside of this scope and can be done without any specific restriction. What matters is to set the right values such that they satisfy certain relations. A zk proof merely consists at proving that such relations are correct. For instance, computing a shift operation can be done without field algebra but the crux of the problem consists in expressing that this shift is correct based on field algebra.
+Computing the witnesses is outside this scope and has no specific restriction. What matters is that the values satisfy the relations. The proof only shows that the relations hold. For example, tracegen can compute a shift without field algebra, but the relations must express in field algebra that the shift is correct.
 
 ## Logical Conjunction of Relations
 
@@ -35,7 +32,7 @@ where $x_i$ denotes element of column $i$.
 
 ## Dispatching/Subset of Relations
 
-Often one needs to enforce only a subset of different relations instead of all of them. This can be achieved through additional columns of booleans **(selectors**) consisting in toggling a given sub-relation. Assuming we have 4 relations over two columns represented with polynomials $P_1$, $P_2$, $P_3$ and corresponding selectors columns with element denoted $q_1$, $q_2$, $q_3$, we can toggle any subset of relations by expressing a new relations over 5 columns (instead of 2) as follows:
+Often one needs to enforce only a subset of different relations instead of all of them. This can be achieved through additional columns of booleans (**selectors**), each toggling a given sub-relation. Assuming we have 3 relations over two columns represented with polynomials $P_1$, $P_2$, $P_3$ and corresponding selectors columns with element denoted $q_1$, $q_2$, $q_3$, we can toggle any subset of relations by expressing a new relations over 5 columns (instead of 2) as follows:
 
 $$
 q_1 * P_1(x_1, x_2) = 0 \text{ AND } q_2 * P_2(x_1, x_2) = 0 \text{ AND } q_3 * P_3(x_1, x_2) = 0
@@ -51,7 +48,7 @@ $$(q_1 + q_2 + q_3 ...)P() = 0$$
 
 ## Assignment
 
-The execution trace consists in relation and the concept of assigning an element to a variable does not per se exists. We can set an element in the execution table being equal to another value but the main task consists in proving the equality of both elements. Within the same row or between two adjacent rows this can be easily done. For other elements, we would need copy-constraint which is a concept not available in the context of a VM (constraints are dynamic in this context and not known in advance).
+A trace has no assignment. You can only constrain two cells to be equal. Within one row, or between a row and the next, this is direct. For other cells you would need copy constraints, which a VM does not have (its constraints are dynamic and not known in advance).
 
 ## Conditional Assignment
 
@@ -101,7 +98,7 @@ $$
 (1-e)(1-xy) = 0
 $$
 
-Another equivalent relation is:
+A stronger relation is:
 
 $$
 xy - 1 + e = 0
@@ -126,13 +123,11 @@ Note that this one does not enforce $y=1$ if $e=1$ but satisfies the desired res
 
 We apply the above recipe on the difference of the two values and using a boolean $e$ to prove equality or non-equality.
 
-_OPEN QUESTION:_ _In BB, field equality is using the recipe with the single relation while zero equality is using the conjunction of two separate relations. Why?_
-
 ## Accumulator
 
 In a lot of use cases, one wants to perform a list of long chained computations and maintain the partial result in an accumulated value. This is a common pattern which takes advantage on the fact that a relation can be expressed with values of the adjacent/next row. Hence, this allows to accumulate partial result from one row to the next without the need to use copy-constraints (which are not available in the context of a VM).
 
-As an example (taken from field.cpp stdlib Barretenberg), let us consider the computation of a sum over a list of 9 elements $l_1, l_2, l_3, \ldots l_9$.
+As an example (taken from `field_t::accumulate` in `stdlib/primitives/field/field.cpp`), let us consider the computation of a sum over a list of 9 elements $l_1, l_2, l_3, \ldots l_9$.
 We add one column for the accumulator which will keep track of the partial sums. A little caveat is that the partial sums are computed right-to-left, i.e., first we add $l_7, l_8, l_9$ and then add $l_4, l_5, l_6$ etc ..
 The execution trace and relations for this example are below.
 
@@ -151,7 +146,7 @@ Given two numbers, $x$ and $y$, range constrained to be smaller than a field ele
 The two cases to consider are:
 
 - When $c$ is one, $x < y$, which means that $y - x - 1 >= 0$
-- When $c$ is zero, $x >= y$, which means that $x - y > 0$
+- When $c$ is zero, $x >= y$, which means that $x - y >= 0$
 
 In order to verify these inequalities, we can use a range check to constrain the $c$ claim:
 
@@ -178,27 +173,26 @@ pol commit result;
 
 ## Batching comparison of n-bit numbers
 
-TODO(fcarreiro): write explanation.
+For example, tags. See https://github.com/AztecProtocol/aztec-packages/pull/14632#discussion_r2137281685.
 
-For example, tags. See https://github.com/AztecProtocol/aztec-packages/pull/14632#discussion_r2137281685
+Tags are less than 8, so each selected tag difference $d_i$ is a signed integer with $|d_i| \le 7$. Encode the differences as $\sum_i 2^{3i} d_i$. The lowest nonzero term $2^{3i} d_i$ cannot be cancelled by higher terms, because that would need $d_i \equiv 0 \pmod 8$. The integer sum is below $2^{13}$, so it never wraps modulo $p$. The sum is therefore 0 if and only if every selected difference is 0, and one inverse check on the sum detects any mismatch.
+
+The current code is in [`execution/registers.pil`](../execution/registers.pil):
 
 ```
-// This error is true iff some final check failed. That is if some tag is not the expected one.
+// This error is true iff the following "batch" check failed. That is if some tag is not the expected one.
 // Observe that we don't need to know exactly which one failed.
 // We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
-pol commit sel_register_read_error;
+pol commit sel_register_read_error; // @boolean
 sel_register_read_error * (1 - sel_register_read_error) = 0;
 // Each tag takes at most 3 bits, we can encode all of them in a field.
 // This diff will be 0 iff all tags are the expected one.
 pol BATCHED_TAGS_DIFF_REG = sel_tag_check_reg[0] * 2**0  * (mem_tag_reg[0] - expected_tag_reg[0])
                           + sel_tag_check_reg[1] * 2**3  * (mem_tag_reg[1] - expected_tag_reg[1])
                           + sel_tag_check_reg[2] * 2**6  * (mem_tag_reg[2] - expected_tag_reg[2])
-                          + sel_tag_check_reg[3] * 2**9  * (mem_tag_reg[3] - expected_tag_reg[3])
-                          + sel_tag_check_reg[4] * 2**12 * (mem_tag_reg[4] - expected_tag_reg[4])
-                          + sel_tag_check_reg[5] * 2**15 * (mem_tag_reg[5] - expected_tag_reg[5])
-                          + sel_tag_check_reg[6] * 2**18 * (mem_tag_reg[6] - expected_tag_reg[6]);
+                          + sel_tag_check_reg[3] * 2**9  * (mem_tag_reg[3] - expected_tag_reg[3]);
 pol commit batched_tags_diff_inv_reg;
-pol BATCHED_TAGS_DIFF_X_REG = (1 - sel_should_read_registers) * BATCHED_TAGS_DIFF_REG;  // Forces 0 if we don't read the register.
+pol BATCHED_TAGS_DIFF_X_REG = sel_read_registers * BATCHED_TAGS_DIFF_REG;  // Forces 0 if we don't read the register.
 pol BATCHED_TAGS_DIFF_Y_REG = batched_tags_diff_inv_reg;
 pol BATCHED_TAGS_DIFF_E_REG = 1 - sel_register_read_error;
 pol BATCHED_TAGS_DIFF_EQ_REG = BATCHED_TAGS_DIFF_X_REG * (BATCHED_TAGS_DIFF_E_REG * (1 - BATCHED_TAGS_DIFF_Y_REG) + BATCHED_TAGS_DIFF_Y_REG) - 1 + BATCHED_TAGS_DIFF_E_REG;
@@ -229,7 +223,7 @@ A column $C$ is included in another column $C'$ if any element of $C$ appears in
 ### Tuple Inclusion Check
 
 We can generalize the inclusion concept over multiple columns by considering the tuple of elements present in a given row of the considered columns. For instance, an inclusion check of columns $(C_1, C_2, C_3)$ into columns $(C_4, C_5, C_6)$ consists in showing that for every row $i$, there exists a row $j$ such that
-$$ (C*{1,i}, C*{2,i}, C*{3,i}) = (C*{4,j}, C*{5,j}, C*{6,j}) $$
+$$ (C_{1,i}, C_{2,i}, C_{3,i}) = (C_{4,j}, C_{5,j}, C_{6,j}) $$
 where $C_{k,l}$ denote the element of column $C_k$ in row $l$.
 
 ### Lookup Table
@@ -261,9 +255,9 @@ One can store several lookup tables in the same columns by adding an additional 
 | 0 | 0 | 0 | $c_{0,0,0}$ |
 | 0 | ... | ... | ... |
 | 0 | 255 | 255 | $c_{0,255,255}$ |
-| 1 | 0 | 0 | $c_{0,0,0}$ |
+| 1 | 0 | 0 | $c_{1,0,0}$ |
 | 1 | ... | ... | ... |
-| 1 | 255 | 255 | $c_{0,255,255}$ |
+| 1 | 255 | 255 | $c_{1,255,255}$ |
 
 ### Range Check
 
@@ -303,19 +297,13 @@ If $B > R$, one can also perform dynamic checks based on the static ones. This i
 
 Slicing a field element $x < 2^B$ consists in decomposing $x$ into two or more contiguous pieces of (slices) of the bit representation of $x$. The corresponding arithmetic of slicing $x$ into two slices correspond to write
 
-$$ x = h \* 2^A + l $$
+$$ x = h \cdot 2^A + l $$
 
 for integers $A$, $0 \leq l < 2^A$ and $0 \leq h < 2^{B-A}$.
 A slicing relation will consist in the above equality and a range-constraint for each of the slices, i.e., on $l$ and $h$.
 A generalization to more slices follows the same principle and for each additional slice one needs one additional range-constraint.
 
-**Warning**: Depending on the slice decomposition (in particular into bits), one has to be careful about the unique representation of the original value. Namely, a representation might "overflow" the size of the field. (See decompose_into_bits() in field.cpp)
-
-### TBD Conversions
-
-## Memory Traces
-
-TBD: Should we also talk about ROM and RAM tables?
+**Warning**: Depending on the slice decomposition (in particular into bits), one has to be careful about the unique representation of the original value. Namely, a representation might "overflow" the size of the field.
 
 ## Enum-based Activation
 
@@ -361,17 +349,17 @@ Activation for OP3 just based on $OP_3$ boolean.
 
 ### Area of non-zero values
 
-Let us assume that we have $N$ rows and each row will have exactly an enum value and a uniform distribution of the enum.
+Let us assume that we have $N$ rows, each row has exactly one enum value, the enum has $K$ values, and the values are uniformly distributed.
 
 Area of non-zero values in the trace:
 
 1. Single column: $N$
-2. Binary Decomposition: $$ \lceil \log_2(N) \rceil \cdot N/2$$
+2. Binary Decomposition: $$ \lceil \log_2(K) \rceil \cdot N/2$$
 3. Toggling Columns: $N$
 
 ### Conclusion - Use Flattening
 
-Flattening is the way to go as it adds only 1 degree in the polynomials and the area is the same as with single column. There is an improvement suggested by Kesha based on lookup mapping an enum value to the toggling decomposition of the enum onto the columns. This would save all the constraints that the values in the toggling columns are bit as this would be guaranteed through the lookup.
+Flattening is the way to go as it adds only 1 degree in the polynomials and the area is the same as with single column. A possible improvement is a lookup that maps an enum value to its toggling columns. The lookup then guarantees that the toggling columns are bits, which removes the boolean constraints on them.
 
 ## Shifted Polynomials
 
@@ -387,7 +375,7 @@ sel * (counter + 1 - counter') = 0;
 1. The non-shifted column of a shifted column must be zero on the first row (top), i.e., `C == 0` if `C'` is used in any relation of this trace.
 2. A shifted column must be zero on the last row of the trace (`C' == 0`).
 
-Both properties follow from security proof our the proving system [Aztec optimized Gemini version](https://eprint.iacr.org/2025/1793.pdf). On page 13, Property E4 implies 1) and E5 implies 2).
+Both properties follow from the security proof of the proving system [Aztec optimized Gemini version](https://eprint.iacr.org/2025/1793.pdf). On page 13, Property E4 implies 1) and E5 implies 2).
 
 ## Contiguous Multi-Rows Computation Trace
 
