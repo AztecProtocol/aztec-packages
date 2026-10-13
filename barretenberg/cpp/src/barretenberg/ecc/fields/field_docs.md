@@ -66,7 +66,7 @@ After 8 Yuval reductions and 1 standard reduction, the result is the integer par
 $$aR \cdot bR + \sum_{i=0}^{7} k_i \cdot r_{inv} \cdot 2^{29(i+1)} + k_8 \cdot p \cdot 2^{232}$$
 
 where $k_i < 2^{29}$ is the limb masked at reduction step $i$ (`result_0_masked` in `wasm_reduce_yuval`), and $r_{inv} = 2^{-29} \bmod p$ is `r_inv_wasm`. By construction:
-- The Yuval terms sum to less than $r_{inv} \cdot 2^{29} \cdot (2^{232} - 1) < r_{inv} \cdot 2^{261}$.
+- The Yuval terms sum to at most $r_{inv} \cdot 2^{29} \cdot (2^{232} - 1) < r_{inv} \cdot 2^{261}$.
 - The final standard reduction adds less than $2^{261} \cdot p$.
 
 The bound needs $r_{inv} < p/2$. This holds for the bn254 `fq` and `fr` parameters; `field_impl_generic.hpp` calls it empirical. With it, the Yuval terms are less than $2^{260} \cdot p$, and the numerator is bounded by:

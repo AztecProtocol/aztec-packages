@@ -2,7 +2,7 @@
 
 A description of the modular inverse algorithm implemented in `bernstein_yang_inverse.hpp`.
 
-`field::invert()` (`field_impl.hpp`) calls it for every field with $p < 2^{255}$ (`supported_v`). Other fields, such as secp256k1 and secp256r1, use Fermat inversion. The algorithm is **variable-time** (`invert_vartime`).
+`field::invert()` (`field_impl.hpp`) calls it for every field with $p < 2^{255}$ (`supported_v`), outside compile-time evaluation. Other fields, such as secp256k1 and secp256r1, and all compile-time inversions use Fermat inversion. The algorithm is **variable-time** (`invert_vartime`).
 
 Throughout, $p$ is an **odd prime**, $0 < a < p$, and we want
 $$a^{-1} \bmod p.$$
