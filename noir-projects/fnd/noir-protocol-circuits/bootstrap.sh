@@ -232,7 +232,7 @@ function build {
     return
   fi
 
-  if [[ -z ${NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS:-} ]]; then
+  if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
     echo_stderr "Checking libraries for warnings..."
     parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
       ./crates/blob \
