@@ -1,248 +1,102 @@
 ---
 name: remote-bench
-description: Run benchmarks on the dedicated remote EC2 benchmarking machine for noise-free, single-run results. Handles env var validation, lock management, binary transfer, and result collection. Use with /benchmark-chonk or any BB benchmark target.
+description: Run benchmarks on the remote bencher, the dedicated EC2 machine for noise-free, single-run results. Handles env var validation, lock management, binary transfer, and result collection. Use with /benchmark-chonk or any BB benchmark target.
 argument-hint: <target> e.g. "bb", "ultra_honk_bench", "wasm bb"
 ---
 
 # Remote Bench
 
-Run barretenberg benchmarks on the dedicated remote EC2 instance for stable, noise-free measurements. This machine is isolated from shared workloads — results from a single run are publishable without averaging.
+The **remote bencher** is a dedicated EC2 machine, isolated from shared workloads. One run there is publishable without averaging. Build locally, copy the binary and inputs over, run there, copy results back. `barretenberg/cpp/scripts/benchmark_remote.sh` is the canonical sequence; read it for the exact steps.
 
-**This skill is a transport layer.** It handles: env validation, locking, binary transfer, remote execution, result retrieval. It does NOT know what to benchmark — combine it with `/benchmark-chonk` or other benchmark skills for the actual workload.
+**This skill is a transport layer.** It does NOT know what to benchmark — combine it with `/benchmark-chonk` or other benchmark skills for the actual workload. For "did my PR regress?" answered from CI runs, use the root `bench-regression` skill instead.
 
 ## Prerequisites — environment check
 
-**MANDATORY: Refuse to proceed if these are not set.**
-
-Before doing anything, verify the three required environment variables exist:
+**MANDATORY: refuse to proceed if `BB_SSH_KEY`, `BB_SSH_INSTANCE` or `BB_SSH_CPP_PATH` is unset.** Check only that the variables are non-empty; do not stat the key path (`BB_SSH_KEY` is an ssh flag such as `-i /path/key.pem`).
 
 ```bash
-# Check all three are set
 if [[ -z "$BB_SSH_KEY" || -z "$BB_SSH_INSTANCE" || -z "$BB_SSH_CPP_PATH" ]]; then
-  echo "ERROR: Remote benchmarking environment not configured."
-  echo "Required variables:"
-  echo "  BB_SSH_KEY        — SSH key flag (e.g. -i /path/to/key.pem)"
-  echo "  BB_SSH_INSTANCE   — EC2 hostname"
-  echo "  BB_SSH_CPP_PATH   — Remote repo path (e.g. /home/ubuntu/aztec-packages/barretenberg/cpp)"
-  echo ""
-  echo "See barretenberg/cpp/scripts/README.md for setup instructions."
-  echo "Ask a crypto eng team member for the SSH key and hostname."
+  echo "ERROR: remote bencher not configured (BB_SSH_KEY, BB_SSH_INSTANCE, BB_SSH_CPP_PATH)."
+  echo "See barretenberg/cpp/scripts/README.md; ask a crypto eng team member for the key and hostname."
   exit 1
 fi
-
-# Verify connectivity
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE "echo ok" || {
-  echo "ERROR: Cannot connect to remote machine. Check BB_SSH_KEY and BB_SSH_INSTANCE."
-  exit 1
-}
+ssh $BB_SSH_KEY $BB_SSH_INSTANCE "echo ok"
 ```
 
-**If the env is not set up, stop and tell the user.** Do not attempt to run benchmarks locally as a fallback — the user invoked `/remote-bench` because they want stable results.
+**If the env is not set up, stop and tell the user.** Do not run the benchmark locally as a fallback — the user invoked `/remote-bench` because they want stable results. One-time setup and troubleshooting: `barretenberg/cpp/scripts/README.md`.
 
 ## Remote bencher contract
 
-The bencher is an execution host only. It is not a Git workspace and not a
-toolchain bootstrap host.
+The bencher is an execution host only: it receives binaries and data, not source history. Never:
 
-For private branches and private repos, build the benchmark binary locally in
-the session workspace, then copy the built binary and required input/result
-files with `scp`. The bencher should receive binaries and data, not source
-history.
+- send git bundles to the bencher;
+- create remote worktrees;
+- fetch private branches from GitHub on the bencher;
+- install per-session toolchains (such as WASI SDK) on the bencher to make a build work there.
 
-Do not send git bundles to the bencher. Do not create remote worktrees. Do not
-fetch private branches from GitHub on the bencher. Do not install per-session
-toolchains such as WASI SDK on the shared bencher to make a build work there.
+If local build tooling is missing (`emcc`, WASI SDK, CMake preset support, or similar), stop and report a local devbox/copy-base bootstrap issue. Fix the local build environment; do not mutate the shared bencher.
 
-If local build tooling is missing (`emcc`, WASI SDK, CMake preset support, or
-similar), stop and report a local devbox/copy-base bootstrap issue. Fix the
-local build environment so it can produce the binary; do not mutate the shared
-bencher as a workaround.
+## Lock
 
-### Setup (one-time)
+The bencher is shared. `scripts/_benchmark_remote_lock.sh` (source it, don't run it) polls `~/BENCHMARK_IN_PROGRESS` on the bencher 10 times, 10 s apart, then creates it and registers an EXIT/INT trap that deletes it.
 
-Add to `~/.zshrc` (ask a crypto eng team member for actual values):
-```bash
-export BB_SSH_KEY="-i /mnt/user-data/<username>/remote-bb-worker.pem"
-export BB_SSH_INSTANCE="<hostname>"
-export BB_SSH_CPP_PATH="/home/ubuntu/aztec-packages/barretenberg/cpp"
-```
-
-Full setup and troubleshooting: `barretenberg/cpp/scripts/README.md`
-
-## Lock mechanism
-
-The remote machine is a **shared resource**. A file lock (`~/BENCHMARK_IN_PROGRESS`) prevents concurrent benchmarks from corrupting results.
-
-### Acquiring the lock
-
-```bash
-source barretenberg/cpp/scripts/_benchmark_remote_lock.sh
-```
-
-This script (meant to be **sourced**, not run):
-1. Polls `~/BENCHMARK_IN_PROGRESS` on the remote machine (10 retries, 10s apart)
-2. If still locked after 100s, **exits the calling script** with an error
-3. Creates the lock file
-4. Registers a trap to delete the lock on exit (including Ctrl-C)
-
-The lock auto-releases when the sourcing script exits.
-
-### When the lock is stuck
-
-If a previous session crashed without cleaning up:
-
-```bash
-# Check if something is actually running
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE "pgrep -a bb || echo 'nothing running'"
-
-# If nothing is running, safe to remove the stale lock
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE "rm ~/BENCHMARK_IN_PROGRESS"
-```
-
-### Multi-session coordination
-
-When multiple Claude sessions need the remote machine:
-- The lock is first-come-first-served. If locked, the session should **tell the user** and suggest waiting or doing other work.
-- Sessions should **not** loop/poll for the lock — just report it's busy and let the user decide.
+- **Run lock, transfer, run and retrieve in one shell, i.e. one Bash call.** Each agent Bash call is its own shell: the lock is released when the sourcing shell exits, so a later scp/ssh in another call runs unlocked. The convenience scripts do this for you.
+- If the lock is still held after the 10 retries, the sourced script runs `exit 1`, which ends the calling shell.
+- If the lock is held, tell the user and suggest waiting or doing other work. Do **not** loop or poll for it.
+- Release the lock promptly; do not hold it while analysing results locally.
+- Stale lock after a crash: check `ssh $BB_SSH_KEY $BB_SSH_INSTANCE "pgrep -a bb || echo 'nothing running'"`; if nothing runs, `ssh $BB_SSH_KEY $BB_SSH_INSTANCE "rm ~/BENCHMARK_IN_PROGRESS"`.
 
 ## Usage patterns
 
-### Pattern 1: Native benchmark (any target)
+All commands run from `barretenberg/cpp`.
 
-The standard flow used by `scripts/benchmark_remote.sh`:
+### Native benchmark (any target)
 
 ```bash
-cd barretenberg/cpp
-
-BENCHMARK="bb"                    # or ultra_honk_bench, etc. (Chonk: use bb with --scheme chonk on real example flows — there is no synthetic chonk benchmark)
-PRESET="clang20-no-avm"          # or clang20
-BUILD_DIR="build-no-avm"         # matches preset
-
-# 1. Build locally
-cmake --preset $PRESET
-cmake --build --preset $PRESET --target $BENCHMARK
-
-# 2. Acquire lock + transfer
-source scripts/_benchmark_remote_lock.sh
-scp $BB_SSH_KEY ./$BUILD_DIR/bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/
-
-# 3. Run remotely
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_CPP_PATH/build && HARDWARE_CONCURRENCY=16 <COMMAND>"
-
-# 4. Copy results back
-scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/<result_files> .
+./scripts/benchmark_remote.sh <target> ["<command>"] [preset] [build_dir]
 ```
 
-Or use the convenience script:
-```bash
-./scripts/benchmark_remote.sh <target> "<command>" <preset> <build_dir>
-```
+Defaults: command `./<target>`, preset `clang20-no-avm`, build dir `build` (`clang20`, `clang20-no-avm` and `clang20-assert` all build into `build/`), `HARDWARE_CONCURRENCY=16`. The binary lands in `$BB_SSH_CPP_PATH/build`. Chonk has no synthetic benchmark: measure `bb prove --scheme chonk` on real example flows.
 
-### Pattern 2: Chonk with pinned inputs on remote
+### Chonk with pinned inputs
 
-Combines with `/benchmark-chonk`:
+Copy `chonk-pinned-flows/<flow>/ivc-inputs.msgpack` (see `/benchmark-chonk`) next to the binary, then run with the full profiling flags, in the same shell as the lock:
 
 ```bash
-cd barretenberg/cpp
-
 FLOW="schnorr+deploy_tokenContract_with_registration+sponsored_fpc"
-
-# 1. Build bb locally
-cmake --preset clang20-no-avm
-cmake --build --preset clang20-no-avm --target bb
-
-# 2. Transfer inputs + binary
+cmake --preset clang20-no-avm && cmake --build --preset clang20-no-avm --target bb
 source scripts/_benchmark_remote_lock.sh
-scp $BB_SSH_KEY \
-  chonk-pinned-flows/$FLOW/ivc-inputs.msgpack \
-  $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/
-scp $BB_SSH_KEY ./build-no-avm/bin/bb $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/
-
-# 3. Run with full profiling
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_CPP_PATH/build && \
-   HARDWARE_CONCURRENCY=16 BB_BENCH=1 ./bb prove \
-     -o output \
-     --ivc_inputs_path ivc-inputs.msgpack \
-     --scheme chonk \
-     -v \
-     --print_bench \
-     --bench_out_hierarchical benchmark_breakdown.json"
-
-# 4. Retrieve results
+scp $BB_SSH_KEY chonk-pinned-flows/$FLOW/ivc-inputs.msgpack ./build/bin/bb $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/
+ssh $BB_SSH_KEY $BB_SSH_INSTANCE "cd $BB_SSH_CPP_PATH/build && \
+  HARDWARE_CONCURRENCY=16 BB_BENCH=1 ./bb prove -o output --ivc_inputs_path ivc-inputs.msgpack --scheme chonk \
+  -v --print_bench --bench_out_hierarchical benchmark_breakdown.json"
 scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/benchmark_breakdown.json .
 ```
 
-Or use the convenience script:
-```bash
-./scripts/benchmark_example_ivc_flow_remote.sh bb "$FLOW"
-```
+`scripts/benchmark_example_ivc_flow_remote.sh bb "$FLOW"` wraps this with `--print_bench` only. It passes the build dir `build-no-avm`, which no preset produces, so it fails until the script is fixed; use the commands above. It also copies the inputs before taking the lock.
 
-### Pattern 3: WASM benchmark on remote
+### WASM benchmark
 
-```bash
-cd barretenberg/cpp
-
-# 1. Build WASM locally
-cmake --preset wasm-threads
-cmake --build --preset wasm-threads --target bb
-
-# 2. Transfer
-source scripts/_benchmark_remote_lock.sh
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE "mkdir -p $BB_SSH_CPP_PATH/build-wasm-threads"
-scp $BB_SSH_KEY ./build-wasm-threads/bin/bb $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-threads/
-
-# 3. Also transfer inputs if benchmarking Chonk
-scp $BB_SSH_KEY \
-  chonk-pinned-flows/$FLOW/ivc-inputs.msgpack \
-  $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-threads/
-
-# 4. Run via wasmtime on remote
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_CPP_PATH/build-wasm-threads && \
-   HARDWARE_CONCURRENCY=16 \
-   /home/ubuntu/.wasmtime/bin/wasmtime run \
-     -Wthreads=y -Sthreads=y \
-     --env HARDWARE_CONCURRENCY \
-     --env HOME \
-     --env BB_BENCH=1 \
-     --dir=\$HOME/.bb-crs \
-     --dir=. \
-     ./bb <COMMAND>"
-```
-
-Or use the convenience script:
-```bash
-./scripts/benchmark_wasm_remote.sh <target> "<command>"
-```
-
-### Pattern 4: A/B branch comparison
-
-Compare current branch vs baseline (builds and runs both on remote):
+Build `wasm-threads` locally and copy `build-wasm-threads/bin/bb` (and any inputs) to `$BB_SSH_CPP_PATH/build-wasm-threads/`. Run it with:
 
 ```bash
-# Native
-./scripts/compare_branch_vs_baseline_remote.sh <target> '<filter>'
-
-# WASM
-./scripts/compare_branch_vs_baseline_remote_wasm.sh <target> '<filter>'
+ssh $BB_SSH_KEY $BB_SSH_INSTANCE "cd $BB_SSH_CPP_PATH/build-wasm-threads && HARDWARE_CONCURRENCY=16 \
+  /home/ubuntu/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y \
+  --env HARDWARE_CONCURRENCY --env HOME --env BB_BENCH=1 --dir=\$HOME/.bb-crs --dir=. ./bb <COMMAND>"
 ```
+
+`scripts/benchmark_wasm_remote.sh <target> "<command>"` mounts only `--dir=..` and sets neither `BB_BENCH` nor the CRS directory, so use the command above when the workload needs the CRS or BB_BENCH output.
+
+### A/B branch comparison
+
+```bash
+./scripts/compare_branch_vs_baseline_remote.sh <target> '<filter>'       # native
+./scripts/compare_branch_vs_baseline_remote_wasm.sh <target> '<filter>'  # WASM
+```
+
+Both build each branch locally (checking out the baseline in your working tree, so the tree must be clean) and run both binaries on the bencher, then compare with Google Benchmark's `compare.py`. The native baseline defaults to `merge-train/barretenberg` and honours `BASELINE_BRANCH`; the WASM script hard-codes `master`.
 
 For Chonk A/B, do not use a synthetic benchmark — measure `bb prove --scheme chonk` against pinned `ivc-inputs.msgpack` for both branches and compare manually.
-
-These use Google Benchmark's `compare.py` for statistical analysis. Note: comparison scripts check out the baseline branch locally, so your working tree must be clean.
-
-## Scripts reference
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/benchmark_remote.sh` | Generic: build locally, scp, run remotely |
-| `scripts/benchmark_wasm_remote.sh` | Same for WASM (wasmtime on remote) |
-| `scripts/benchmark_example_ivc_flow_remote.sh` | Chonk with pinned inputs on remote (the only realistic Chonk bench) |
-| `scripts/compare_branch_vs_baseline_remote.sh` | Generic A/B native |
-| `scripts/compare_branch_vs_baseline_remote_wasm.sh` | Generic A/B WASM |
-| `scripts/_benchmark_remote_lock.sh` | Lock mechanism (source it, don't run it) |
 
 ## Remote machine details
 
@@ -253,34 +107,12 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: compar
 | CRS | `~/.bb-crs` |
 | Native build dir | `$BB_SSH_CPP_PATH/build` |
 | WASM build dir | `$BB_SSH_CPP_PATH/build-wasm-threads` |
-| Default `HARDWARE_CONCURRENCY` | `16` |
-
-## Tips
-
-- **Always check the env first.** If `BB_SSH_KEY`, `BB_SSH_INSTANCE`, or `BB_SSH_CPP_PATH` are missing, stop and tell the user.
-- **One run is enough** on the remote machine — it's isolated. No need to average 3 runs like on shared machines.
-- **Release the lock promptly** — don't hold it while analyzing results locally.
-- **Build locally, run remotely** — the remote machine is for execution only. Never build on it.
-- **HARDWARE_CONCURRENCY=16** is the standard on the remote machine. Match it for WASM comparisons.
+| Default `HARDWARE_CONCURRENCY` | `16` (match it for WASM comparisons) |
 
 ## Input artifacts: validate freshness BEFORE building
 
-A stale input file on the bencher fails in the worst possible order: you build
-two large binaries (minutes), ship them, and only then discover the artifact
-predates a serialization change ("Missing field ..."). The September-2025
-`~/avm_inputs.bin` cost a full bb-avm A/B build before its first parse error.
+A stale input file fails in the worst order: you build and ship two large binaries, and only then hit a serialization error ("Missing field ..."). Before building anything against an input artifact found on the bencher (or any ad-hoc path):
 
-Rules, in order, before building anything against an input artifact found on
-the bencher (or any ad-hoc path):
-
-1. **Check the mtime first**: `ssh ... ls -la <artifact>`. If it predates the
-   last serialization-affecting change to its format (when in doubt: more than
-   a few weeks old), treat it as stale until proven otherwise.
-2. **Parse-smoke it with an existing binary before any build**: any current
-   binary that can read the format (even a stale-ish one already on the box)
-   surfaces a format mismatch in seconds.
-3. **Prefer pinned, regenerable inputs over found files**: chonk flows have
-   `scripts/chonk_inputs.sh download` (content-hash pinned, CI-refreshed).
-   For formats without a pinned pipeline (e.g. AVM inputs), say so explicitly
-   in the report and propose regeneration rather than silently substituting a
-   proxy workload.
+1. **Check the mtime first**: `ssh ... ls -la <artifact>`. If it predates the last serialization-affecting change to its format (when in doubt: more than a few weeks old), treat it as stale until proven otherwise.
+2. **Parse-smoke it with an existing binary before any build**: any current binary that can read the format (even a stale-ish one already on the box) surfaces a format mismatch in seconds.
+3. **Prefer pinned, regenerable inputs over found files**: chonk flows have `scripts/chonk_inputs.sh download` (content-hash pinned, CI-refreshed). For formats without a pinned pipeline (e.g. AVM inputs), say so explicitly in the report and propose regeneration rather than silently substituting a proxy workload.

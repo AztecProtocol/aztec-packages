@@ -9,7 +9,7 @@ Run the full ACIR formal verification pipeline: build tests, generate artifacts,
 
 ## Prerequisites
 
-- CMake with `SMT=ON` and `ACIR_FORMAL_PROOFS=ON` flags
+- CMake with `SMT=ON` and `ACIR_FORMAL_PROOFS=ON` flags; the `smt-verification` preset needs `clang-20` on PATH
 - Rust toolchain (for building ssa_verification)
 - Sufficient RAM (some tests need >32GB)
 
@@ -25,34 +25,29 @@ cmake --preset smt-verification -DACIR_FORMAL_PROOFS=ON
 cd build-smt && ninja acir_formal_proofs_tests
 ```
 
-The preset `smt-verification` already sets `SMT=ON`. We additionally need `ACIR_FORMAL_PROOFS=ON`.
+The preset sets `SMT=ON`; add `-DACIR_FORMAL_PROOFS=ON`.
 
 If the build has already been configured, just run `ninja acir_formal_proofs_tests` from `build-smt/`.
 
-### Step 2: Fetch noir/noir-repo submodule (if needed)
+### Step 2: Get a noir checkout that still has ssa_verification
 
-Check if the submodule is populated:
-
-```bash
-ls noir/noir-repo/tooling/ssa_verification/Cargo.toml 2>/dev/null
-```
-
-If the file doesn't exist, initialize the submodule:
+The `.acir` inputs come from noir's `ssa_verification` tool. noir removed that crate in commit `dc6a363547d`, so the pinned `noir/noir-repo` does not contain it. Check out the parent of that commit in a separate worktree (do not move the pinned submodule):
 
 ```bash
-git submodule update --init --depth 1 noir/noir-repo
+git -C noir/noir-repo fetch origin dc6a363547d   # if the commit is not present locally
+git -C noir/noir-repo worktree add /tmp/noir-ssa-verification dc6a363547d^
 ```
 
 ### Step 3: Build and run ssa_verification to generate ACIR artifacts
 
-**ALWAYS run this step** — even if `.acir` files already exist in `/tmp/`. The artifacts must be regenerated every time to ensure they match the current noir compiler version.
+**ALWAYS run this step** — even if `.acir` files already exist in `/tmp/`. Stale artifacts may not match the current ACIR format.
 
 ```bash
-cd noir/noir-repo
+cd /tmp/noir-ssa-verification
 cargo run --release -p ssa_verification -- --dir /tmp/
 ```
 
-This generates `.acir` files in `/tmp/` that the C++ tests load. The tool compiles Noir SSA instructions into ACIR format for each operation (add, sub, mul, div, etc.) with various type combinations.
+This generates `.acir` files in `/tmp/` that the C++ tests load. The tool compiles Noir SSA instructions into ACIR format for each operation (add, sub, mul, div, etc.) with various type combinations. The artifacts come from an older noir than the one this repository pins; if a test fails to load an artifact, the ACIR serialization has changed since that commit.
 
 ### Step 4: Ask the user for resource limits
 
@@ -81,12 +76,12 @@ Wait for the user to provide limits before proceeding.
 Use the `run_tests.sh` script bundled with this skill. It runs all tests **sequentially** with the user's time/memory limits and writes results to `/tmp/acir_test_results.txt`.
 
 ```bash
-.claude/skills/acir-formal-proofs/scripts/run_tests.sh ${TIME_LIMIT} ${MEM_LIMIT_GB}
+barretenberg/.claude/skills/acir-formal-proofs/scripts/run_tests.sh ${TIME_LIMIT} ${MEM_LIMIT_GB}
 ```
 
 For example, with 600s timeout and 16GB memory limit:
 ```bash
-.claude/skills/acir-formal-proofs/scripts/run_tests.sh 600 16
+barretenberg/.claude/skills/acir-formal-proofs/scripts/run_tests.sh 600 16
 ```
 
 The script handles timeout/OOM detection, wall-clock timing via `/usr/bin/time -v`, and prints a summary table at the end. Results are saved to `/tmp/acir_test_results.txt` in pipe-delimited format.
@@ -114,4 +109,4 @@ The mapping from test name to README row is by opcode + types. For example:
 
 Do NOT modify rows for tests that were not run (e.g., if they timed out in a previous run and were skipped).
 
-Add new rows if any tests exist in the test file but not in the README table.
+Add new rows if any tests exist in the test file but not in the README table. `run_tests.sh` has a hard-coded `TESTS` list: when a test is added to `acir_loader.test.cpp`, add it there too.

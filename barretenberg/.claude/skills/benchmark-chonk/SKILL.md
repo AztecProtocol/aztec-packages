@@ -12,30 +12,11 @@ Run realistic Chonk IVC benchmarks using **pinned protocol inputs** (real transa
 
 ## Step 1: Get pinned IVC inputs
 
-The real benchmark inputs are pinned to an S3 artifact keyed by a 16-character hash prefix. Download them:
-
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
 ```
 
-This populates `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`.
-
-Available flows (typical):
-- `ecdsar1+transfer_1_recursions+sponsored_fpc`
-- `schnorr+deploy_tokenContract_with_registration+sponsored_fpc`
-- `ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc`
-- `ecdsar1+transfer_1_recursions+private_fpc`
-- and more under `barretenberg/cpp/chonk-pinned-flows/` after downloading
-
-The pinned hash prefix is maintained in `barretenberg/cpp/scripts/chonk-inputs.hash`. The S3 URL is:
-```
-https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-<hash>.tar.gz
-```
-
-To update the pinned inputs (after protocol changes that affect VKs):
-```bash
-barretenberg/cpp/scripts/chonk_inputs.sh update
-```
+This populates `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`; `ls barretenberg/cpp/chonk-pinned-flows` lists the flows. The pin lives in `barretenberg/cpp/scripts/chonk-inputs.hash`. The root `chonk-inputs` skill covers the pin, its refresh (the `ci-refresh-chonk` label) and the inventory.
 
 ## Step 2: Build bb
 
@@ -49,7 +30,9 @@ Build dir: `build`. To use a different native preset, build with that preset and
 
 ## Step 3: Run the benchmark
 
-**Always set `HARDWARE_CONCURRENCY=8` for local runs.** The remote benchmarking machine uses 16, but local/shared machines should use 8. See `/remote-bench` for remote execution.
+**Use 8 threads for local runs**; the remote bencher uses 16. Set `HARDWARE_CONCURRENCY=8` for manual `bb` runs. `ci_benchmark_ivc_flows.sh` ignores `HARDWARE_CONCURRENCY` and sets it from `CPUS` (default 8), so pass `CPUS=8` to it. See `/remote-bench` for remote execution.
+
+Local machines are noisy: run at least 3 times and average. Relative comparisons (before vs after your change) stay valid on a noisy machine if you take the runs close together under similar load. Only the remote bencher gives publishable single-run numbers.
 
 ### Native
 
@@ -57,13 +40,13 @@ For the standard local path, download the pinned inputs and use the same benchma
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
-HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native
+CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native
 ```
 
 The benchmark script defaults to `ecdsar1+transfer_0_recursions+sponsored_fpc`. If a flow fails, the pinned inputs remain in `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`; rerun the same case by passing the flow directory:
 
 ```bash
-HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native \
+CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native \
   barretenberg/cpp/chonk-pinned-flows/<flow>
 ```
 
@@ -93,16 +76,16 @@ Use the CI benchmark script with the WASM runtime:
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
-HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm
+CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm
 ```
 
 For manual runs:
 
-Build the WASM binary with threads enabled:
+Build the WASM binary with threads enabled. The `wasm-threads` preset compiles BB_BENCH out (`ENABLE_WASM_BENCH=OFF`, to keep the shipped wasm fast), so `--print_bench` and `--bench_out_hierarchical` produce nothing unless you configure with `-DENABLE_WASM_BENCH=ON`. Reconfigure without it afterwards.
 
 ```bash
 cd barretenberg/cpp
-cmake --preset wasm-threads
+cmake --preset wasm-threads -DENABLE_WASM_BENCH=ON
 cmake --build --preset wasm-threads --target bb
 ```
 
@@ -133,23 +116,12 @@ HARDWARE_CONCURRENCY=8 BB_BENCH=1 \
 The wasmtime wrapper sets:
 - `-Wthreads=y -Sthreads=y` — enable WASM threads and shared memory
 - `--env HARDWARE_CONCURRENCY` — thread count
-- `--env BB_BENCH` — enable operation counting (requires configuring with `-DENABLE_WASM_BENCH=ON`; it is OFF by default in the `wasm-threads` preset to keep the shipped wasm fast)
+- `--env BB_BENCH` — enable operation counting (requires `-DENABLE_WASM_BENCH=ON`, above)
 - `--dir=$HOME/.bb-crs --dir=.` — filesystem access for CRS and working directory
 
-## Local runs are noisy — average 3 runs
+## Using with the remote bencher
 
-Non-dedicated machines have variable CPU load. **Run the benchmark at least 3 times and average the results.** Only the remote benchmarking machine (see `/remote-bench` skill) provides stable, isolated CPU for single-run measurements.
-
-When iterating locally on profiling code changes, relative comparisons (before vs after your change) are still valid on noisy machines — just ensure you compare runs taken close together under similar load.
-
-## Using with the remote benchmarking machine
-
-For noise-free, publishable results, use the `/remote-bench` skill to run on the dedicated EC2 instance. The two skills compose naturally:
-
-1. `/benchmark-chonk download-inputs` — get pinned inputs locally
-2. `/remote-bench` — build locally, scp binary + inputs to remote, run there, copy results back
-
-See the `/remote-bench` skill for setup, lock management, and usage.
+For noise-free, publishable results, get the pinned inputs locally (Step 1), then use `/remote-bench` to build locally, copy binary and inputs to the bencher, run there and copy results back.
 
 ## BB_BENCH instrumentation system
 
@@ -173,7 +145,7 @@ The macros create `BenchReporter` RAII objects that:
 2. On destruction: record elapsed time with parent association
 3. Build a hierarchical call tree automatically
 
-**Activation:** `BB_BENCH=1` env var, or `--print_bench` / `--bench_out_hierarchical` CLI flags.
+**Activation:** `BB_BENCH=1` env var (the value must be exactly `1`; `bb_bench.cpp` compares the string), or `--print_bench` / `--bench_out_hierarchical` CLI flags.
 
 ### Google Benchmark integration
 
@@ -208,26 +180,21 @@ void GlobalBenchStatsContainer::clear()
 
 **Usage pattern for per-circuit profiling:**
 
-The `--print_bench` output aggregates across all 19 circuits. To get per-circuit timing, temporarily instrument `barretenberg/cpp/src/barretenberg/bbapi/bbapi_chonk.cpp`:
+The `--print_bench` output aggregates across all circuits in the flow. To get per-circuit timing, temporarily instrument `ChonkAccumulate::execute()` in `barretenberg/cpp/src/barretenberg/bbapi/bbapi_chonk.cpp`:
 
 1. Add `#include <chrono>` at the top
-2. In `ChonkAccumulate::execute()`, wrap the `accumulate()` call:
+2. Wrap the `request.ivc_in_progress->process_step(...)` call. `execute()` moves `request.loaded_circuit_name` into a local `circuit_name` and then moves that into `process_step`, so copy the name first. `Chonk::accumulate` (`chonk/chonk.cpp`) already has a `BB_BENCH_NAME` but takes no circuit name.
 
 ```cpp
-    info("ChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    const std::string circuit_label = circuit_name; // copy before the std::move below
+    static size_t circuit_index = 0;
     bb::detail::GLOBAL_BENCH_STATS.clear();
     auto circuit_start = std::chrono::steady_clock::now();
-    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+    request.ivc_in_progress->process_step(/* unchanged arguments */);
     auto circuit_end = std::chrono::steady_clock::now();
     auto circuit_ms = std::chrono::duration_cast<std::chrono::milliseconds>(circuit_end - circuit_start).count();
-    info("PER_CIRCUIT_TIME: circuit='",
-         request.loaded_circuit_name,
-         "' index=",
-         request.ivc_stack_depth,
-         " time_ms=",
-         circuit_ms);
+    info("PER_CIRCUIT_TIME: circuit='", circuit_label, "' index=", circuit_index++, " time_ms=", circuit_ms);
     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cerr);
-    request.ivc_stack_depth++;
 ```
 
 3. Rebuild with `cd build && ninja bb` (only recompiles the changed file + relinks)
@@ -292,11 +259,11 @@ After running with `--bench_out_hierarchical`, extract key components:
 python3 barretenberg/cpp/scripts/extract_component_benchmarks.py <output_dir> <name_path>
 ```
 
-This reads `benchmark_breakdown.json`, finds operations matching key components (sumcheck, pcs, pippenger, commitment, circuit, oink, compute), and appends them to `benchmarks.bench.json` with stacked chart markers for the dashboard.
+This reads `benchmark_breakdown.json`, finds operations matching the key components (the `key_components` list in the script), and appends them to `benchmarks.bench.json` with stacked chart markers for the dashboard.
 
 ## A/B comparison
 
-For Chonk A/B between branches, run `bb prove --scheme chonk` against the same pinned `ivc-inputs.msgpack` on each branch and compare the resulting `--bench_out_hierarchical` JSON manually. Use the **remote machine** (`/remote-bench`) for stable, single-run numbers.
+For Chonk A/B between branches, run `bb prove --scheme chonk` against the same pinned `ivc-inputs.msgpack` on each branch and compare the resulting `--bench_out_hierarchical` JSON manually. Use the remote bencher (`/remote-bench`) for stable, single-run numbers. For a comparison from CI benchmark runs, use the root `bench-regression` skill (`ci3/bench_compare`).
 
 The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 
@@ -311,19 +278,15 @@ The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 |--------|---------|
 | `scripts/chonk_inputs.sh` | Download, check, and update pinned inputs |
 | `scripts/ci_benchmark_ivc_flows.sh` | CI: proves a flow, extracts components, uploads to dashboard |
-| `scripts/benchmark_example_ivc_flow_remote.sh` | Proves a pinned flow on the remote machine (uses `/remote-bench`) |
 | `scripts/wasmtime.sh` | wasmtime wrapper with standard flags |
 | `scripts/extract_component_benchmarks.py` | Extract component timings from hierarchical breakdown |
 
 ## Tips
 
-- **`HARDWARE_CONCURRENCY=8` for local, `16` for remote.** Always set this explicitly. Local/shared machines use 8; the remote benchmarking machine uses 16.
-- **Local iteration is fine** — you can build, instrument, and run locally. Just average 3 runs for reliable numbers, or use the remote machine via `/remote-bench` for single-run accuracy.
-- **Use `./bootstrap.sh` for initial builds** — it downloads cached artifacts and avoids build issues. Use `cmake --preset clang20 && cd build && ninja bb` for incremental rebuilds after code changes.
+- **Initial builds:** `./bootstrap.sh` pulls cached build artifacts from the CI cache when it can. Use `cmake --preset clang20 && cd build && ninja bb` for incremental rebuilds after code changes.
 - **Build dir is `build/`** — the `clang20` preset outputs to `build/`, not `build-no-avm`. The `clang20-no-avm` preset also uses `build/` (it disables AVM at cmake level, not via directory name).
 - **If the zig cache breaks** (missing `libubsan_rt.a` errors), delete `build/` and reconfigure: `rm -rf build && cmake --preset clang20`.
-- **WASM preset:** `wasm-threads`. Build dir is `build-wasm-threads/`. `ENABLE_WASM_BENCH` is OFF by default (the shipped wasm carries no BB_BENCH instrumentation); configure with `cmake --preset wasm-threads -DENABLE_WASM_BENCH=ON` when you need wasm op counts, and reconfigure without it afterwards.
-- **WASM is ~2.8x slower than native** — this ratio is consistent across all circuit types.
+- **WASM preset:** `wasm-threads`. Build dir is `build-wasm-threads/`. See the WASM section for `ENABLE_WASM_BENCH`.
 - **CRS:** Ensure `~/.bb-crs` exists. For WASM, wasmtime needs `--dir=$HOME/.bb-crs`.
 - **`BB_BENCH=1` vs `--print_bench`:** Either activates profiling. `--print_bench` also triggers the hierarchical tree output to stderr. In Google-Benchmark targets that wrap their loops with `GOOGLE_BB_BENCH_REPORTER`, the same activation happens automatically when `BB_BENCH=1` is set.
 - **Dashboard:** CI uploads breakdown data to `bench/bb-breakdown/` on S3. The dashboard at `ci3/dashboard/chonk-breakdowns/` visualizes it.
@@ -331,12 +294,4 @@ The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 
 ## Presenting results
 
-When sharing benchmark results, create an **HTML report** with an interactive visualization. Include:
-
-- **Native vs WASM tabs** with per-circuit comparison table
-- **Stacked bar charts** showing time distribution across circuits
-- **Aggregation by circuit type** (kernel vs app vs infra)
-- **Summary cards** with total time, slowdown ratio, and heaviest circuit
-- **Color-coded circuit types**: kernel (blue), app (red), infra (gray)
-
-Prefer the benchmark dashboard for CI results. For local comparisons, keep the HTML report as a local artifact unless the reviewer asks for a shared upload.
+Report per-circuit native and WASM times. Prefer the benchmark dashboard for CI results; keep local reports as local artifacts unless the reviewer asks for a shared upload.

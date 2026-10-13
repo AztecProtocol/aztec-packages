@@ -1,47 +1,10 @@
 # Barretenberg Solidity Verifier - Development Guide
 
-## Overview
+Agent notes for the Solidity Honk verifier. `README.md` in this folder lists the files, the test contracts, the prerequisites and the build/test commands.
 
-This directory contains the Solidity implementation of the Honk verifier for on-chain proof verification.
-
-## Architecture
-
-### Core Verifier Files (src/honk/)
-
-| File | Purpose |
-|------|---------|
-| `HonkTypes.sol` | Defines structs: `VerificationKey`, `RelationParameters`, `Proof`, `G1Point` |
-| `Fr.sol` | Field arithmetic library for BN254 scalar field |
-| `Transcript.sol` | Fiat-Shamir challenge generation (non-ZK) |
-| `ZKTranscript.sol` | Fiat-Shamir challenge generation (ZK variant) |
-| `Relations.sol` | Constraint relation evaluations (arithmetic, permutation, lookup, memory, etc.) |
-| `CommitmentScheme.sol` | KZG commitment verification |
-| `BaseHonkVerifier.sol` | Main verifier logic (non-ZK) |
-| `BaseZKHonkVerifier.sol` | Main verifier logic (ZK variant) |
-
-### Verification Keys (src/honk/keys/)
-
-Circuit-specific verification keys:
-- `Add2HonkVerificationKey.sol` - Simple addition circuit
-- `BlakeHonkVerificationKey.sol` - Blake hash circuit
-- `EcdsaHonkVerificationKey.sol` - ECDSA verification circuit
-- `RecursiveHonkVerificationKey.sol` - Recursive proof circuit
-
-### Optimized Verifier (src/honk/optimised/)
-
-- `honk-optimized.sol` - Hand-optimized assembly verifier (uses Blake circuit for testing)
-- `honk-optimized.sol.template` - Template used to generate honk-optimized.sol
-
-The memory layout (the `// {{ SECTION_START MEMORY_LAYOUT }}` block) is the source of truth in
+The memory layout of the optimized verifiers (the `// {{ SECTION_START MEMORY_LAYOUT }}` block) is the source of truth in
 `generate_memory_offsets` in `cpp/.../acir_proofs/honk_optimized_common.hpp`; `bb write_solidity_verifier`
 regenerates it from there. Do not hand-edit those offset constants or maintain a separate generator.
-
-### C++ Contract Templates (cpp/src/barretenberg/dsl/acir_proofs/)
-
-These hpp files contain embedded Solidity code used by bb CLI to generate verifiers:
-- `honk_contract.hpp` - Standard Honk verifier template
-- `honk_zk_contract.hpp` - ZK Honk verifier template
-- `honk_optimized_contract.hpp` - Optimized verifier template
 
 ## Key Scripts
 
@@ -51,21 +14,25 @@ These hpp files contain embedded Solidity code used by bb CLI to generate verifi
 # Regenerate honk_contract.hpp and honk_zk_contract.hpp from Solidity sources
 ./scripts/copy_to_cpp.sh -f
 
-# Sync VK values from BlakeHonkVerificationKey.sol to honk-optimized.sol
+# Write the optimized instances (BlakeHonkOpt.sol, BlakeOptZK.sol) from the templates
+# and BlakeHonkVerificationKey.sol (--zk / --non-zk for one only)
 ./scripts/sync_blake_opt_vk.sh
 
-# Copy honk-optimized.sol to honk_optimized_contract.hpp
+# Copy the optimized instances to honk_optimized_contract.hpp and honk_zk_optimized_contract.hpp
+# (--zk / --non-zk for one only)
 ./scripts/copy_optimized_to_cpp.sh -f
 
-# Regenerate all VKs (requires rebuilt bb)
+# Regenerate all VKs into src/honk/keys/ (requires rebuilt honk_solidity_key_gen); also runs sync_blake_opt_vk.sh
 ./scripts/init_honk.sh
 ```
 
 ### Test Scripts
 
+Run from `barretenberg/sol` after `./bootstrap.sh` has generated the VKs (see `README.md` for prerequisites).
+
 ```bash
-# Run all Solidity tests
-forge test
+# Run all Solidity tests (CI form)
+forge test --no-match-contract Base
 
 # Run specific test
 forge test --match-test testValidProof
@@ -103,35 +70,11 @@ When tests fail with `SumcheckFailed()`:
    cd ../../sol && ./scripts/init_honk.sh
    ```
 
-### 2. Challenge Splitting
+### 2. Challenge Generation
 
-The Solidity verifier uses keccak256 and splits 254-bit hashes into two 127-bit challenges:
+The Solidity transcript derives each challenge with its own keccak256 hash: `eta = H(round0)`, then `romLogupGamma = H(eta)`; `beta = H(round1)`, then `gamma = H(beta)` (`Transcript.sol`). There is no 127-bit challenge split. C++ `split_challenge` (`ecc/fields/field_conversion.hpp`) serves only `get_short_challenges` (goblin merge and shplemini recursion); the keccak Oink verifier uses full-width `get_challenges`, one hash per challenge, and the Solidity transcript mirrors that. Do not add a split.
 
-```solidity
-function splitChallenge(Fr challenge) returns (Fr first, Fr second) {
-    uint256 lo = uint256(challenge) & 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // 127 bits
-    uint256 hi = uint256(challenge) >> 127;
-    return (Fr(lo), Fr(hi));
-}
-```
-
-C++ equivalent in `field_conversion.hpp`:
-```cpp
-const uint256_t lo = u.slice(0, 127);
-const uint256_t hi = u.slice(127, 254);
-return { bb::fr(lo), bb::fr(hi) };
-```
-
-### 3. Eta/Beta Power Computation
-
-Current approach (simplified struct):
-- `eta` is a single challenge from transcript
-- `eta_two = eta * eta` computed locally in Relations.sol
-- `eta_three = eta_two * eta` computed locally
-
-Same for beta powers used in lookup relation.
-
-### 4. File Regeneration Order
+### 3. File Regeneration Order
 
 **IMPORTANT:** `honk_contract.hpp` and `honk_zk_contract.hpp` can silently drift from the Solidity sources. Always re-run `copy_to_cpp.sh` after editing any Solidity verifier file, or the `bb write_solidity_verifier` command will generate stale contracts.
 
@@ -145,22 +88,11 @@ When making changes to core Solidity files:
 `copy_to_cpp.sh` bundles these files (in order): `IVerifier.sol`, `Errors.sol`, `Fr.sol`, `HonkTypes.sol`, `Transcript.sol`/`ZKTranscript.sol`, `Relations.sol`, `CommitmentScheme.sol`, `utils.sol`, `BaseHonkVerifier.sol`/`BaseZKHonkVerifier.sol`. If a new `.sol` file is added that others depend on, it must be added to this script.
 
 For optimized verifier changes:
-1. Edit `honk-optimized.sol.template`
+1. Edit `honk-optimized.sol.template` (non-ZK) or `zk-honk-optimized.sol.template` (ZK)
 2. Run `./scripts/sync_blake_opt_vk.sh` to apply VK values
 3. Run `./scripts/copy_optimized_to_cpp.sh -f`
 
-Note: `copy_optimized_to_cpp.sh` copies from the concrete `BlakeHonkOpt.sol` instance, NOT from the template. If you only edit the template, the hpp won't update until `sync_blake_opt_vk.sh` regenerates the instance.
-
-## Test Structure
-
-| Test File | Circuit | Description |
-|-----------|---------|-------------|
-| `Add2.t.sol` | add2 | Simple x + y = z |
-| `Blake.t.sol` | blake | Blake2 hash |
-| `blakeOpt.t.sol` | blake | Optimized verifier |
-| `ECDSA.t.sol` | ecdsa | Signature verification |
-| `Recursive.t.sol` | recursive | Recursive proof |
-| `*ZK.t.sol` | * | ZK variants |
+Note: `copy_optimized_to_cpp.sh` copies from the concrete `BlakeHonkOpt.sol` / `BlakeOptZK.sol` instances, NOT from the templates. If you only edit a template, the hpp won't update until `sync_blake_opt_vk.sh` regenerates the instance.
 
 ## Relation Parameters
 
@@ -169,6 +101,7 @@ The `RelationParameters` struct contains Fiat-Shamir challenges:
 ```solidity
 struct RelationParameters {
     Fr eta;           // Memory relation
+    Fr romLogupGamma; // ROM-LogUp additive offset
     Fr beta;          // Permutation + Lookup
     Fr gamma;         // Permutation + Lookup
     Fr publicInputsDelta; // Derived value
@@ -190,7 +123,7 @@ Powers (eta², eta³, β², β³) are computed locally where needed, not stored.
 
 `(0,0)` is the EIP-196 canonical identity encoding. The verifier accepts it for **commitment-position** G1 inputs (witness commitments, gemini fold commitments, shplonkQ, kzgQuotient, VK selectors/tables): polynomial commitments to identically-zero polynomials are legitimately the identity, the ecAdd/ecMul precompiles treat `(0,0)` as the additive identity, and `(0,0)` substitution for a non-zero commitment is caught downstream by sumcheck/Shplemini on inconsistent evaluations. Do not reintroduce a blanket `rejectPointAtInfinity` on those slots.
 
-`rejectPointAtInfinity` is preserved on the **pairing points** reconstructed from `pairing_point_object` (`P_0_other`, `P_1_other` in the recursive aggregation block). A `(0,0)` there no-ops the aggregation and would give the prover a free pass on whatever recursive verification was supposed to occur. The legitimate "no recursion" case is signaled by all-zero limbs and short-circuited via `arePairingPointsDefault()` — call it before `convertPairingPointsToG1` / `validateOnCurve` / `rejectPointAtInfinity` on the reconstructed points.
+`rejectPointAtInfinity` is preserved on the **pairing points** reconstructed from `pairing_point_object` (`P_0_other`, `P_1_other` in the recursive aggregation block). A `(0,0)` there no-ops the aggregation and would give the prover a free pass on whatever recursive verification was supposed to occur. The legitimate "no recursion" case is signaled by all-zero limbs and short-circuited via `arePairingPointsDefault()` — call it before `convertPairingPointsToG1` / `rejectPointAtInfinity` on the reconstructed points.
 
 ### Running ACIR Solidity tests locally
 
@@ -213,7 +146,7 @@ Public inputs (user-facing, not including pairing points) are passed separately 
 
 ## Optimized Verifier Memory Layout
 
-The optimized verifier (`blake-opt.sol.template`) uses hand-tuned assembly with explicit memory offsets.
+The optimized verifiers (`honk-optimized.sol.template`, `zk-honk-optimized.sol.template`) use hand-tuned assembly with explicit memory offsets.
 
 ### Limb Encodings (Two Different Schemes)
 
@@ -251,17 +184,7 @@ let eta_input_length := add(0x1e0, public_inputs_size)
 |----------|-------|---------------|
 | `LIMB_SIZE` | `0x100000000000000000` | 1 << 68 |
 | `SUBLIMB_SHIFT` | `0x4000` | 1 << 14 |
-| `LOWER_127_MASK` | `0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF` | (1 << 127) - 1 |
 | `NEG_HALF_MODULO_P` | `0x183227397098d014...` | Cryptographic constant |
 | `VK_HASH` | `0x...` | Circuit-specific hash |
 
-An automated "find hex values >= X and subtract Y" script will corrupt these constants. Always update memory offsets manually or use very targeted regex that only matches offset constant definitions.
-
-### Memory Layout Changes
-
-When changing the number of pairing point limbs (e.g., 16 → 8):
-1. Update `PAIRING_POINTS_SIZE` constant
-2. Remove/add `PAIRING_POINT_N` constants
-3. Shift all memory offsets after pairing points by `delta × 32 bytes`
-4. Update eta buffer calldatacopy sizes and `eta_input_length`
-5. Update pairing reconstruction code (shift amounts: 136-bit for 2 limbs)
+An automated "find hex values >= X and subtract Y" script will corrupt these constants. The offsets in the MEMORY_LAYOUT block are generated by `generate_memory_offsets`; change the layout there (for example when the number of pairing point limbs changes). In code outside that block, never bulk-edit hex constants; use a targeted regex that matches only the definitions you mean to change.

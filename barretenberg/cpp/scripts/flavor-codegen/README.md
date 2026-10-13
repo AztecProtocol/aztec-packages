@@ -23,7 +23,9 @@ and optional `gateBlockName`.
 
 `src/flavors/*.ts` — ordered list of relations + optional composite subsets +
 `traceExtraBlocks` (e.g. `pub_inputs`, `ecc_op`) + `emitsTrace` flag.
-Parameterized relations (databus) are factory-built per bus.
+Parameterized relations (databus) are factory-built per bus. Only the flavors
+listed in the loop in `src/main.ts` emit headers (`mega_poseidon2.ts`, for
+example, emits none).
 
 Each relation has a stable string `id` (used by capability-bool emission and
 the bus-relation discriminator).
@@ -59,15 +61,17 @@ array via `gate_selector_for(kind)`.
 
 ```
 cd barretenberg/cpp/scripts/flavor-codegen
-npm run regenerate         # uses prebuilt dist/
+npm ci                     # installs typescript
 npm run regenerate:dev     # tsc && node dist/main.js
+npm run regenerate         # node dist/main.js; needs a previous build (dist/ is gitignored)
 ```
 
 Each emitted header is clang-formatted in place (`src/format.ts`) so a fresh
 regen matches the committed (clang-formatted) version byte-for-byte.
 
-Generated files are committed; the C++ build does not invoke Node. CI runs
-`git diff --exit-code` against the generator output.
+Generated files are committed; the C++ build does not invoke Node. No CI step
+re-runs the generator, so regenerate and commit the headers yourself when you
+change `src/`.
 
 ## Known follow-ups
 

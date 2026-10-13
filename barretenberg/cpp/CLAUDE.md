@@ -2,9 +2,8 @@
 
 Bootstrap modes:
 
-- `./bootstrap.sh` => full build, needed for other components
-- `./bootstrap.sh build` => standard build
-- `AVM=0 ./bootstrap.sh build_native` => quick build without slow bb-avm target. Good for verifying compilation works. Needed to build ts/
+- `./bootstrap.sh` (same as `./bootstrap.sh build`) => native + WASM build through root `make bb-cpp`, using the build cache. Needed for other components.
+- `AVM=0 ./bootstrap.sh build_native` => native build without `vm2` and the slow `bb-avm` target (preset `clang20-no-avm`). Good for verifying compilation works. Needed to build ts/
 
 ## `bb` vs `bb-avm`: which binary do downstream scripts pick?
 
@@ -14,18 +13,35 @@ Consequence: when changing C++ that affects VK derivation, proving, or anything 
 
 ```bash
 cd barretenberg/cpp
-cmake --preset default -DAVM=ON
 cmake --build build --target bb-avm
 ```
 
-Or just run `./bootstrap.sh` (full build), which produces both. Symptom of forgetting: downstream scripts keep failing with the *same* error after your "fix" because they are still running the stale `bb-avm`.
+`find-bb` reads `build/` (preset `clang20` unless `NATIVE_PRESET` is set), so configure `build/` as described in "Build" below. Or run `./bootstrap.sh` (full build), which produces both. Symptom of forgetting: downstream scripts keep failing with the *same* error after your "fix" because they are still running the stale `bb-avm`.
+
+## Build
+
+This section is the build recipe for barretenberg C++; other docs link here. AVM is ON by default (`option(AVM ... ON)` in `CMakeLists.txt`), so a normal build includes `vm2` and `bb-avm`.
 
 Development commands (from barretenberg/cpp):
 ```bash
-cmake --preset default    # Configure (AVM disabled by default)
+cmake --preset clang20    # Configure build/ (Release, AVM on)
 cd build && ninja <test>  # Build specific target
 ```
-NOTE: DO NOT add the -j flag to ninja, default is optimal.
+Do not add the `-j` flag to ninja; the default is optimal.
+
+`clang20` is the preset family that `./bootstrap.sh`, `scripts/find-bb`, `acir_tests` and CI use. It needs zig (`scripts/zig-cc.sh`) and a built avm-transpiler (`avm-transpiler/target/release/libavm_transpiler.a`; root `make bb-cpp-native` builds it). Without them, use `cmake --preset default` (system `clang`, avm-transpiler optional).
+
+| Preset | Build type | Compiler | Build dir |
+| --- | --- | --- | --- |
+| `default` | Release | system `clang` | `build/` |
+| `clang20` | Release | zig wrappers | `build/` |
+| `clang20-no-avm` | Release, `AVM=OFF` (no `vm2`, no `bb-avm`) | zig wrappers | `build/` |
+| `clang20-assert` | RelWithAssert (`-O3 -UNDEBUG`): asserts fire | zig wrappers | `build/` |
+| `debug-fast` | `-O2` with debug info and stack traces | `clang-20` | `build-debug-fast/` |
+
+There is no `release` preset. `default`, `clang20` and `clang20-no-avm` are Release builds with `NDEBUG` set, so `BB_ASSERT` compiles to its release form (`common/assert.hpp`). Use `clang20-assert` when asserts must fire.
+
+The first four presets share `build/` (`scripts/preset-build-dir`). Switching between them in the same `build/` (compiler family, build type, or `AVM`) invalidates the CMake cache and recompiles everything. Pick one per checkout.
 
 Common test targets:
   - `ultra_honk_tests` - Ultra Honk circuit tests
@@ -37,27 +53,15 @@ Common test targets:
   - `goblin_tests` - Goblin tests
   - `stdlib_*_tests` - Standard library tests
   - `crypto_*_tests` - Cryptographic primitive tests
-  - `vm2_tests` - AVM tests (requires AVM=ON, see below)
+  - `vm2_tests` - AVM tests (not built with `AVM=OFF`)
 
 To find test targets: `ninja -t targets | grep "_tests:" | grep -v cmake`
 
-### Building with AVM enabled
-
-By default, AVM is disabled for faster builds. To build vm2_tests or work on AVM code:
-
-```bash
-cd barretenberg/cpp
-cmake --preset default -DAVM=ON   # Reconfigure with AVM enabled
-cd build && ninja vm2_tests       # Build AVM tests
-```
-
-To check current AVM setting: `grep "AVM:" build/CMakeCache.txt`
-
-Note: Once you enable AVM, subsequent `ninja` calls will include AVM targets until you reconfigure.
+To check the current AVM setting: `grep "AVM:" build/CMakeCache.txt`
 
 ## Running the full bb test suite
 
-`./bootstrap.sh test` runs every native bb test binary; it takes 5+ minutes and burns significant CPU. Run it (asking the user before kicking it off, unless they explicitly told you to test) whenever a change plausibly affects more than one bb module, and ALWAYS run it when a change rotates verification keys or shifts a widely-included constant (`barretenberg/cpp/src/barretenberg/constants.hpp`, `gate_count_constants.hpp`, public-input formulas, etc.).
+`./bootstrap.sh test` runs every native bb test binary. It takes 5+ minutes and uses significant CPU. Ask the user before running it, unless they explicitly told you to test. Run it when a change plausibly affects more than one bb module. Always run it when a change rotates verification keys or shifts a widely-included constant (`barretenberg/cpp/src/barretenberg/constants.hpp`, `dsl/acir_format/gate_count_constants.hpp`, public-input formulas).
 
 Two operational rules for an honest signal:
 - **Build all targets first.** Run plain `ninja` (no target) before `./bootstrap.sh test`. `ninja <one_target>` leaves other test binaries stale and the suite will pass against out-of-date code.
@@ -75,7 +79,7 @@ Two operational rules for an honest signal:
 - **chonk/** - Client-side IVC (Incremental Verifiable Computation)
 - **bbapi/** - BB API for external interaction. If changing here, we will also want to update the ts/ folder because bb.js consumes this. (first build ninja bb in build/)
 - **dsl/** - ACIR definition in C++. This is dictated by the serialization in noir/, so refactor should generally not change the structure without confirming that the user is changing noir.
-- **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh). If working in vm2, use barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md
+- **vm2/** - AVM implementation (built by default; `AVM=OFF` skips it). If working in vm2, use barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md
 
 ## Code formatting
 
@@ -86,12 +90,12 @@ clang-format-20 -i <files>
 
 ## C++ invariants
 
-These are load-bearing: violating them will compile on native but break WASM, or skew test output in CI. Use the listed alternative unconditionally.
+These are required: violating them will compile on native but break WASM, or skew test output in CI. Use the listed alternative unconditionally.
 
 - **Logging: use `info(...)` / `vinfo(...)` from `barretenberg/common/log.hpp`, never `std::cout` or `std::cerr`.** The macros route through `log_function` and respect `bb_log_level`; direct `std::cout` is unfiltered, uncaptured in CI logs, and skews benchmark output.
 - **Aborts and exceptions: use `throw_or_abort(msg)` from `barretenberg/common/throw_or_abort.hpp`, never bare `throw` or `std::abort()`.** WASM builds set `BB_NO_EXCEPTIONS`, which turns `throw` into `abort()` — bare `throw` compiles differently and misformats the message, and raw `std::abort()` drops the message entirely. For header-only libraries that must use exception syntax, use the `THROW`/`RETHROW` macros from `common/try_catch_shim.hpp`.
 - **Assertions: use `BB_ASSERT(cond, msg)` / `BB_ASSERT_EQ` / `BB_ASSERT_NEQ` / `BB_ASSERT_GT` / etc. from `barretenberg/common/assert.hpp`, never bare `assert(...)`.** `BB_ASSERT` hooks into the benchmark-assertion framework and has distinct debug/release behavior; `assert` is stripped in release builds and silently diverges in WASM.
-- **Release builds: do not reach for the `release` CMake preset unless the user is reproducing a performance issue.** Debug/default presets are much faster to compile and sufficient for correctness work.
+- **Debug builds: use `clang20-assert` or `debug-fast` for correctness work.** The Release presets (`default`, `clang20`) set `NDEBUG`, so `BB_ASSERT` checks do not fire. See "Build" above.
 
 ## Benchmarking:
 
@@ -110,11 +114,7 @@ Common benchmark targets:
 - `ultra_honk_bench` - Ultra Honk prover benchmarks
 - `commitment_schemes_bench` - Commitment scheme benchmarks
 
-The remote benchmark script:
-- Runs on a dedicated benchmarking machine for consistent results
-- Automatically builds the target if needed
-- Returns performance metrics and timing data
-- Should be used instead of local benchmarks for performance validation
+`benchmark_remote.sh` builds the target locally (preset `clang20-no-avm`), copies the binary to the remote bencher and runs it there. It needs `BB_SSH_KEY`, `BB_SSH_INSTANCE` and `BB_SSH_CPP_PATH`; see `scripts/README.md` for the setup.
 
 ## Proof Size Constants
 
@@ -142,17 +142,16 @@ Proof-length-affecting changes (e.g. `CHONK_PROOF_LENGTH` bumps from MegaFlavor 
 Regeneration is split across two commands. The block-root, block-merge, checkpoint, tx-merge, and root rollup samples come from the prover-client suite, which drives the simulated orchestrator and needs no L1 sandbox:
 
 ```bash
-AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
+scripts/labs_env.sh bash -c 'cd yarn-project && AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec-labs/prover-client test regenerate_rollup_sample_inputs'
 ```
 
 The private-kernel samples and the transaction-base rollup samples (`rollup-tx-base-private`, `rollup-tx-base-public`) need real client-proved transactions, so they come from the e2e prover full test with fake proofs:
 
 ```bash
-cd yarn-project
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test single-node/prover/server/full.test
+scripts/labs_env.sh bash -c 'cd yarn-project && AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec-labs/end-to-end test single-node/prover/server/full.test'
 ```
 
-`FAKE_PROOFS=1` skips real proving. Both write into `noir-projects/fnd/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
+Run both from the repository root. `scripts/labs_env.sh` runs the command inside the `labs/` submodule (aztec-node). `FAKE_PROOFS=1` skips real proving. Both write into `noir-projects/fnd/noir-protocol-circuits/crates/<circuit>/Prover.toml` of this repository, so they work only with aztec-node checked out as `labs/`. The `update-prover-toml` skill has the details.
 
 Verify with `nargo execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/<crate>` for any previously-failing crate; should print `Circuit witness successfully solved`.
 
@@ -182,11 +181,13 @@ Expected result: Script exits successfully if VKs are unchanged, or shows that V
 
 **IMPORTANT**: Never update the VKs without asking permission first. When asking for permission, explain why you think the VK update is to be expected.
 
-If VKs have changed and this is expected due to your modifications, update the stored VKs:
+If VKs have changed and this is expected due to your modifications, refresh the pinned inputs. Prefer the PR `ci-refresh-chonk` label (see "Example IVC inputs" below). The local equivalent is:
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh update
 ```
+
+`update` captures new flows, VK-checks them, uploads a new tarball to the artifact bucket and rewrites `chonk-inputs.hash`. It is a remote write and needs bucket credentials.
 
 ### Verifying VK validity (proving the updated inputs)
 
@@ -201,7 +202,7 @@ For bb.js, run:
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
-barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
+barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
 ```
 
 Typical workflow
@@ -209,7 +210,7 @@ Typical workflow
 1. Make barretenberg changes
 2. Build native code: `cd barretenberg/cpp && ./bootstrap.sh build_native`
 3. Check VKs: `barretenberg/cpp/scripts/chonk_inputs.sh check`
-4. If VKs changed intentionally: `barretenberg/cpp/scripts/chonk_inputs.sh update`
+4. If VKs changed intentionally (after asking): add the `ci-refresh-chonk` label, or run `barretenberg/cpp/scripts/chonk_inputs.sh update`
 
 ## Example IVC inputs
 
@@ -223,7 +224,7 @@ This creates `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`. To
 
 ## Memory profiling
 
-The `--memory_profile_out <file>` flag on `bb prove` outputs a JSON array of RSS checkpoints at key proving stages (after alloc, trace, oink, sumcheck, accumulate) for each circuit, with circuit names and indices.
+The `--memory_profile_out <file>` flag on `bb prove` outputs a JSON array of memory checkpoints (`heap_mb`: live heap via `mallinfo2` on Linux, peak RSS elsewhere; `common/memory_profile.hpp`) at key proving stages (after alloc, trace, oink, sumcheck, accumulate) for each circuit, with circuit names and indices. Only `--scheme chonk` writes it.
 
 ```bash
 cd barretenberg/cpp
@@ -233,12 +234,6 @@ cd barretenberg/cpp
   -o /tmp/proof-out \
   -v \
   --memory_profile_out /tmp/proof-out/memory_profile.json
-```
-
-For a visual timeline of a single run, pipe verbose output to `plot_memory.py`:
-
-```bash
-bb prove --scheme chonk ... -v 2>&1 | python3 scripts/plot_memory.py > memory.html
 ```
 
 The extraction script converts the JSON into dashboard benchmark entries (one overlaid line per circuit stage, tracked across commits):

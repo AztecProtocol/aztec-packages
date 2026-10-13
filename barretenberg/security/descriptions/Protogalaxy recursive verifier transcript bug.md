@@ -3,17 +3,17 @@
 
 ## Introduction
 
-Protogalaxy recursive verifier is essentially checking (among other things) that given two commited instance vectors Comm_a and Comm_b as well as challenges,etc, we can reduce the problem of verification of the first instance and the second instance to the verification of a single new instance, where the commitments and challenges are combined. Specifically, $C_a[i] * \gamma + C_b[i] * 1-\gamma = C_c[i]$, where $\gamma$ is the challenge. 
+Protogalaxy recursive verifier is essentially checking (among other things) that given two committed instance vectors Comm_a and Comm_b as well as challenges,etc, we can reduce the problem of verification of the first instance and the second instance to the verification of a single new instance, where the commitments and challenges are combined. Specifically, $C_a[i] * \gamma + C_b[i] * (1-\gamma) = C_c[i]$, where $\gamma$ is the challenge. 
 
-For fast scalar multiplication of bn254 points in-circuit, we use Goblin Plonk, which "commits" to the inputs and results of MSMs and those are then proven to be correct in a more efficent environment called ECCVM. ECCVM is good at MSMs (Multi-scalar Multiplication) and is most efficient, when computing an MSM of a multiple of 4. However, if, like here, there are only 2 points to multiply, it wastes gates, increasing the proof size and time. 
+For fast scalar multiplication of bn254 points in-circuit, we use Goblin Plonk, which "commits" to the inputs and results of MSMs and those are then proven to be correct in a more efficient environment called ECCVM. ECCVM is good at MSMs (Multi-scalar Multiplication) and is most efficient when the number of points in an MSM is a multiple of 4. However, if, like here, there are only 2 points to multiply, it wastes gates, increasing the proof size and time. 
 
-To avoid this issues, we decided to use a trick, where we derive challenges $\alpha_i$ from commitments and then compute:
+To avoid this issue, we decided to use a trick, where we derive challenges $\alpha_i$ from commitments and then compute:
 
 $$C_a^{combined} = \sum (\alpha_i * C_a[i])$$
 $$C_b^{combined} = \sum (\alpha_i * C_b[i])$$
 $$C_c^{combined} = \sum (\alpha_i * C_c[i])$$
 
-Then we just check that $C_a^{combined} * \gamma + C_b^{combined} * 1-\gamma = C_c^{combined}$
+Then we just check that $C_a^{combined} * \gamma + C_b^{combined} * (1-\gamma) = C_c^{combined}$
 
 ## The bug
 
