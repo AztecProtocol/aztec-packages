@@ -33,8 +33,8 @@ The measurement runs through the built client, so the tree must be built first:
 make labs-yarn-project
 ```
 
-The script refuses to run against a build older than the protocol contract sources, rather than reporting stale
-numbers. It is fail-fast throughout: a missing dependency, a failed measurement, or a replacement that did not
+The script warns, but does not stop, if the protocol contract sources are newer than the build. Rebuild if you
+changed them, or it reports stale numbers. Otherwise it is fail-fast throughout: a missing dependency, a failed measurement, or a replacement that did not
 match is a hard error, because a half-applied regeneration leaves constants that disagree with each other.
 
 ## What it rewrites
@@ -61,13 +61,13 @@ upgrade. Never "fix" them by pasting in the new values; that silently claims the
 
 After regenerating, the tests that assert these values are:
 
-- `nargo test --package types hash_of_genesis` (Noir)
+- `nargo test --package types hash_of_genesis`, from `noir-projects/fnd/noir-protocol-circuits` (Noir)
 - `world_state_tests --gtest_filter='*GetInitialTreeInfoForAllTrees*'` (C++)
-- `world-state/src/testing.test.ts` (labs — this is the one that compares a live genesis against the pinned
+- `labs/yarn-project/world-state/src/testing.test.ts` (labs — this is the one that compares a live genesis against the pinned
   `GENESIS_ARCHIVE_ROOT`, i.e. the real drift detector)
 - `forge test --match-contract 'CheckpointPreflight|Rollup'` (L1, against the regenerated fixtures)
 
-Note that `protocol-contracts/src/genesis_data.test.ts` does **not** detect drift: `protocol_contract_data.ts` is
+Note that `labs/yarn-project/protocol-contracts/src/genesis_data.test.ts` does **not** detect drift: `protocol_contract_data.ts` is
 generated at build time from the same artifacts it recomputes from, so both sides move together.
 
 ## Why this is breaking

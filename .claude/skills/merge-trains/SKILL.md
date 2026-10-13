@@ -9,20 +9,17 @@ description: Guide for working with merge-train branches -- creating PRs, choosi
 
 A merge train is an automated batching system (inspired by [Rust rollups](https://forge.rust-lang.org/release/rollups.html)) that groups multiple PRs together for coordinated integration into the `next` branch. Instead of each PR going through the merge queue individually, teams push their PRs into a shared `merge-train/*` branch. Periodically, that branch is merged as a single unit into `next`.
 
-## Active Merge-Train Branches
+## Merge-Train Branches Synced by This Repo
 
 | Branch | Team / Domain | Slack Channel |
 |---|---|---|
 | `merge-train/avm` | AVM, barretenberg vm2 folder | `#team-bonobos` |
 | `merge-train/barretenberg` | Barretenberg folder, but not vm2 folder | `#honk-team` |
 | `merge-train/ci` | CI infrastructure / ci3 | `#help-ci` |
-| `merge-train/docs` | Documentation | `#dev-rels` |
-| `merge-train/fairies` | aztec-nr | `#team-fairies` |
-| `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` |
-| `merge-train/spartan-v5` | Same as `merge-train/spartan` but for the v5 release line (targets `v5-next` instead of `next`) | `#team-alpha` |
-| `merge-train/fairies-v5` | Same as `merge-train/fairies` (aztec-nr) but for the v5 release line (targets `v5-next` instead of `next`) | `#team-fairies` |
 
-> Trains target `next`, except the `-v5` trains (`merge-train/spartan-v5`, `merge-train/fairies-v5`), which target `v5-next`. Train PRs that target `v5-next` are auto-labeled `private-port-next` in addition to `ci-no-squash`.
+The loop in `.github/workflows/merge-train-next-to-branches.yml` defines this list. All three target `next`. Other `merge-train/*` branches on the remote (`docs`, `fairies`, `fairies-v5`, `spartan`, `spartan-v5`, `spartan-v6`) belong to code that lives in aztec-node; this repo does not sync them.
+
+No train targets the `v6` release line. Release-line changes go through a `port-to-<branch>` label (see the root `CLAUDE.md`).
 
 ## How to Use a Merge Train
 
@@ -35,16 +32,16 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 ### Key Rules for Contributors
 
-- **Base branch matters**: Always branch from the branch specified in the CI_BASE_BRANCH environment variable. If it is not set, then ask the user their intent and offer to set CI_BASE_BRANCH in their shell's RC file. 
+- **Base branch matters**: Pick the base from the path-to-base-branch table in the root `CLAUDE.md`.
 - **Your PR is squashed into the train**: Individual PRs targeting a merge-train branch are squash-merged as usual. You should not use the merge commit merge method, but the squash method.
-- **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
+- **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. `scripts/merge-train/auto-merge.sh` uses the `merge` strategy. The train PR also gets a `ci-no-squash` label, but nothing reads it.
 - **You generally don't need to worry about the train PR itself** -- it is fully automated (creation, body updates, approval, merge, and recreation). You only need to pay attention to it if an alert is sent to your team channel.
 
 ## CI Behavior for Merge Trains
 
-- **Specialized CI modes**: PRs targeting `merge-train/docs` run docs-only CI. PRs targeting `merge-train/barretenberg` run barretenberg-only CI. This avoids running the full test suite for domain-specific changes.
-- **Merge-queue mode**: When the merge-train PR enters GitHub's merge queue, it runs the full `merge-queue` CI mode (4 parallel grind runs on AMD64 + 1 ARM64). `merge-train/spartan-v5` uses the heavier `merge-queue-heavy` mode (10 grind runs).
-- **Full concurrency**: Merge-train PRs get unique CI concurrency groups (using `github.run_id`), so multiple CI runs can proceed in parallel without cancelling each other.
+- **Specialized CI modes**: PRs targeting `merge-train/barretenberg` run barretenberg-only CI. This avoids running the full test suite for domain-specific changes.
+- **Merge-queue mode**: When the merge-train PR enters GitHub's merge queue, it runs the `merge-queue` CI mode: 1 full run on AMD64 and 1 fast run on ARM64 (`ci.sh`). `merge-train/ci` uses `merge-queue-ci` (10 AMD64 full runs with no build cache, plus a dry-run release).
+- **Concurrency**: Merge-train PRs key the CI concurrency group on the head SHA. Runs for different commits proceed in parallel; a duplicate run for the same commit cancels the older one.
 - **Test history tracking**: Test results are tracked for merge-train PRs, same as merge-queue runs.
 
 ## Handling Merge-Train Failures
