@@ -34,7 +34,7 @@ If the build has already been configured, just run `ninja acir_formal_proofs_tes
 The `.acir` inputs come from noir's `ssa_verification` tool. noir removed that crate in commit `dc6a363547d`, so the pinned `noir/noir-repo` does not contain it. Check out the parent of that commit in a separate worktree (do not move the pinned submodule):
 
 ```bash
-git -C noir/noir-repo fetch origin dc6a363547d   # if the commit is not present locally
+git -C noir/noir-repo fetch origin dc6a363547d544f638e6ea64ec0f5e6f22e01256   # only for a shallow clone; git fetch needs the full SHA
 git -C noir/noir-repo worktree add /tmp/noir-ssa-verification dc6a363547d^
 ```
 
