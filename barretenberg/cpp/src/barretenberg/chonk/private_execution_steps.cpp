@@ -116,10 +116,7 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompres
 {
     BB_BENCH();
     auto raw_steps = load(input_path);
-    parallel_for(raw_steps.size(), [&](size_t i) {
-        raw_steps[i].bytecode = decompress(raw_steps[i].bytecode.data(), raw_steps[i].bytecode.size());
-        raw_steps[i].witness = decompress(raw_steps[i].witness.data(), raw_steps[i].witness.size());
-    });
+    parallel_for(raw_steps.size(), [&](size_t i) { raw_steps[i].self_decompress(); });
     return raw_steps;
 }
 

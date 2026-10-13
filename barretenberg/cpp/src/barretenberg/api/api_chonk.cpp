@@ -77,8 +77,7 @@ void ChonkAPI::prove(const Flags& flags,
     BB_BENCH_NAME("ChonkAPI::prove");
     bbapi::BBApiRequest request;
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
-    // Steps stay compressed until their turn: only the step being accumulated holds its decompressed bytecode and
-    // witness.
+    // Steps stay compressed until accumulated, so only one decompressed step is resident at a time.
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load(input_path);
 
     std::vector<CircuitKind> kinds;
@@ -103,8 +102,8 @@ void ChonkAPI::prove(const Flags& flags,
         bbapi::ChonkAccumulate{ .witness = std::move(step.witness) }.execute(request);
     }
 
-    // The hiding kernel VK the IVC proves against. ChonkProve verifies the proof against this VK and throws if it does
-    // not verify, so once the proof is out the VK is the one of the hiding kernel circuit that was proven.
+    // The step bytecode has been moved out, so --write_vk writes the hiding kernel VK held by the IVC (the one
+    // ChonkProve verifies the proof against) instead of recomputing it. It is read before ChonkProve consumes the IVC.
     const auto hiding_vk = request.ivc_in_progress->get_hiding_kernel_vk_and_hash()->vk;
     auto proof = bbapi::ChonkProve{}.execute(request).proof;
 
