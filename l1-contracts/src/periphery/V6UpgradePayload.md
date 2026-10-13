@@ -59,8 +59,7 @@ applies to the outgoing rollup's flushes from the moment the payload executes.
   margin**, or the fee tranche goes to an unrecoverable address on every claim. The first margin
   increase is exempt from the 30-day cooldown but capped at 5000 bps by the ×3/2 step on the fee
   multiplier.
-- **It does not retire the outgoing rollup.** Retired rollups have had their ownership renounced.
-  Do NOT renounce this one:
+- **It does not retire the outgoing rollup.** Do NOT renounce its ownership:
   - the old `FlushRewarder` keeps its unclaimed `debt` and must stay callable for `claimRewards()`;
   - `updateStakingQueueConfig` is the only way to recover a rollup whose entry queue is wedged, and
     it is `onlyOwner`.

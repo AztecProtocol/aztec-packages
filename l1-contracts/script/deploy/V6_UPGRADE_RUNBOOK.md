@@ -193,8 +193,9 @@ and aztec-node's tests (for example `yarn-project/aztec/src/testnet_compatibilit
 Regenerate all of them, and re-pin the verifier and `ConstantsGen.sol`, if the release build moves
 to a commit that changes the protocol circuits or protocol contracts: rebuilding the circuits moves
 `vkTreeRoot` and the verifier, and rebuilding the protocol contracts moves all three roots. After
-`make fast` on the release build, the first two come from the built packages and the third from the
-protocol constants. The packages are in the `labs` submodule (aztec-node,
+`make fast` in a checkout of the release commit (not this tree, whose build gives different roots),
+the first two come from the built packages and the third from the protocol constants. The packages
+are in the `labs` submodule (aztec-node,
 [`aztec-labs-eng/aztec-node`](https://github.com/aztec-labs-eng/aztec-node)). The shallow clone in
 [Build](#1-build) does not fetch it, and `.gitmodules` sets it to `update = none`, so a plain
 `git submodule update --init labs` does nothing. From the repo root:
@@ -352,9 +353,10 @@ Propose the **payload address**, not the rollup. There are two ways to make a pr
   `signal(payload)` on the `GovernanceProposer`. Once a round has reached quorum and its execution
   delay has passed, anyone calls `submitRoundWinner(round)`. This wraps the payload in a
   `GSEPayload` and proposes it to `Governance`. The deploy simulation (step 4) models this path.
-- **`Governance.proposeWithLock`** (or `GSE.proposeWithLock`). This starts a withdrawal of the
-  proposer's locked voting power with a long delay; its NatSpec reserves it for emergencies. It does
-  **not** wrap the payload in a `GSEPayload`, so the `GSEPayload.amIValid` check is not appended.
+- **`Governance.proposeWithLock`** (or `GSE.proposeWithLock`). This withdraws `lockAmount` of the
+  proposer's deposited power, finalisable after `lockDelay`; its NatSpec reserves it for a
+  compromised `GovernanceProposer`. It does **not** wrap the payload in a `GSEPayload`, so the
+  `GSEPayload.amIValid` check is not appended.
 
 The proposal id is in the `Proposed(proposalId, proposal)` event that `Governance` emits. With
 signalling, `proposal` is the `GSEPayload` address, not the payload. After proposing, read the exact
