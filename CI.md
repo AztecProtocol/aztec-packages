@@ -16,7 +16,7 @@ CI3:
   - Restricting resources such as vCPUs, memory and storage.
 - Provides a consistent command interface on `./bootstrap.sh` scripts. Each project script exposes its tests via `test_cmds`, and the root build runs all of them in parallel.
 - Runs each CI job on a single large EC2 instance (192, 128 or 64 vCPUs on amd64; 64 on arm64).
-- Grinds tests in the merge queue into `next` to catch flaky tests (see [Running CI](#running-ci)).
+- Runs every test, with the test cache off, in the merge queue into `next`; some merge trains grind with 10 parallel runs (`ci merge-queue-heavy`). Single tests can be ground on demand (see [Fixing flaky tests](#fixing-flaky-tests)).
 - Provides a shared redis cache at the test level, so CI does not run the same test twice (except when grinding).
 - Displays only the logs of failed steps by default, while storing all logs in redis. Developers can "drill down" into logs via log ids.
 - Keeps repository clutter low. Outside `ci3/`, a project needs only its bootstrap script, a `run_test.sh` script and a few helper scripts.
@@ -127,7 +127,7 @@ Flaky tests are managed in one place, the root `.test_patterns.yml` file. For ex
       - *adam
 ```
 
-Each entry's `regex` is matched against the test command. A matching failure is reported as a flake instead of failing the build; in merge-queue runs it also alerts the listed owners in Slack (#aztec3-ci). With `error_regex`, only failures whose output matches are treated as flakes. `skip: true` disables a test outright; reserve it for tests that fail constantly. A failing test with no matching owner fails the build.
+Each entry's `regex` is matched against the test command. A matching failure is retried once: if the retry passes, the test is reported as a flake and the build continues; if it fails again, the build fails. In merge-queue runs a flake also alerts the listed owners in Slack (#aztec3-ci). With `error_regex`, only failures whose output matches are treated as flakes. `skip: true` disables a test outright; reserve it for tests that fail constantly. A failing test with no matching owner fails the build.
 
 If you hit a flaky test, add an entry here and notify the owning team.
 
@@ -235,7 +235,7 @@ Other labels:
 - **`ci-refresh-chonk`** (or `--ci-refresh-chonk` in the head commit message): Regenerates the pinned Chonk inputs and pushes the diff instead of running the main CI. Cannot be combined with a mode label.
 - **`ci-no-fail-fast`**: Continues running all tests even if some fail.
 - **`no-cache`**: Disables the build cache for this run.
-- **`ci-skip-compat-e2e`**: Skips the backwards-compatibility e2e checks on release runs.
+- **`ci-skip-compat-e2e`**: Skips the backwards-compatibility e2e checks on release runs. Those checks are disabled in this repo (`release_compat_e2e` is not called from `ci-release`), so the label has no effect until they are re-enabled.
 - **`ci-draft`**: Runs CI on a draft PR.
 - **`ci-ssm`**: Uses SSM instead of SSH to reach the build instance, when the repository is configured for SSH.
 - **`ci-squash-and-merge`**: After CI passes, squashes the PR into a single commit and enables auto-merge. The label is removed before squashing. Thanks to the content-based cache (see below), the CI run on the squashed commit is skipped.
@@ -308,7 +308,7 @@ After a test passes in CI, it does not run again until its redis key changes. Th
 
 Labs test commands come through `labs/`, prefixed with `cd labs`.
 
-Test-success markers expire after 7 days. Logs expire after 14 days in CI (2 days for local runs).
+Test-success markers expire after 7 days. Logs expire after 14 days in CI (2 days for local runs); the log of a failed test is kept for 12 weeks.
 
 ### The build cache is corrupt. How do I overwrite a cache entry?
 
@@ -318,7 +318,7 @@ In the project directory, rebuild without the cache and force the upload:
 NO_CACHE=1 S3_FORCE_UPLOAD=1 ./bootstrap.sh
 ```
 
-This rebuilds the project and replaces the cache entry for its current hash. It needs AWS credentials; without them, the upload is skipped.
+This rebuilds the project and replaces the cache entry for its current hash. It needs AWS credentials and a clean working tree: without credentials the upload is skipped, and with uncommitted changes to files matched by the rebuild patterns `cache_content_hash` returns `disabled-cache` and nothing is uploaded.
 
 ## Build Image / Devcontainer
 

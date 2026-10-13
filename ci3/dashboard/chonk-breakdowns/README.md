@@ -4,7 +4,7 @@ This viewer displays hierarchical timing breakdowns for Barretenberg's Chonk (IV
 
 It shows the per-phase timings that `bb`'s `--bench_out_hierarchical` flag produces (ChonkAccumulate, ChonkProve, OinkProver, etc.), with each phase's share of the total; click a component to drill down into its child operations.
 
-`barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh` uploads the breakdowns from CI benchmark runs to S3, under `s3://$S3_LOGS_BUCKET/$S3_LOGS_PREFIX/bench/bb-breakdown/` (default `s3://aztec-ci-artifacts/logs/bench/bb-breakdown/`), one `<runtime>-<flow>-<sha>.log.gz` per run (memory profiles sit beside them as `memory-<runtime>-<flow>-<sha>.log.gz`). The viewer (route `/chonk-breakdowns` in `ci3/dashboard/rk.py`) reads them from there.
+`barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh` uploads the breakdowns from CI benchmark runs to S3, under `$CI_LOGS_S3_LOCATION/bench/bb-breakdown/` (default `s3://aztec-ci-artifacts/logs/bench/bb-breakdown/`), one `<runtime>-<flow>-<sha>.log.gz` per run (memory profiles sit beside them as `memory-<runtime>-<flow>-<sha>.log.gz`). The viewer (route `/chonk-breakdowns` in `ci3/dashboard/rk.py`) reads them from `s3://$S3_LOGS_BUCKET/$S3_LOGS_PREFIX/bench/bb-breakdown/`; the defaults of both sides agree.
 
 ## Local Testing
 

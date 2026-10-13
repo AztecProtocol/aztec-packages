@@ -12,7 +12,7 @@ Project-level Claude Code configuration for aztec-packages. This file documents 
 
 ## Tests
 
-`tests/agents_symlink_test` enforces rules 3-4 (`agents/` symlinks, `.codex` mirrors, `AGENTS.md -> CLAUDE.md`). `tests/format_file_test` exercises each dispatch branch of the PostToolUse format hook: hygiene (malformed hook input), C++, Rust, Solidity, TypeScript with plugin.
+`tests/agents_symlink_test` enforces rules 3-4 (`agents/` symlinks, `.codex` mirrors, `AGENTS.md -> CLAUDE.md`). `tests/format_file_test` exercises each dispatch branch of the PostToolUse format hook: hygiene (malformed hook input), C++, Rust, Solidity, Noir (hint only; `nargo fmt` is crate-scoped), TypeScript with plugin.
 
 List the tests with `./.claude/bootstrap.sh test_cmds`; run them with `./.claude/bootstrap.sh test`. In CI, `make claude-tests` queues them for the test engine. Run one directly with `./.claude/tests/<name>`. This follows the same convention as `ci3/bootstrap.sh`.
 
