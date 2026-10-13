@@ -76,7 +76,7 @@ A `...Composer` builds a circuit's output. Parts of it may run unconstrained, as
 
 **What is a `...Validator` struct?**
 
-It contains methods which validate the output of a `...Composer`, vs the private call data and/or previous kernel data and/or other user data, using the hints. Everything given to a validator should be immutable. The algorithm for the validation should be efficient as it's constrained.
+It validates either the private inputs of a circuit (for example `PrivateCallDataValidator`, `PrivateTxBaseInputsValidator`) or the output of a `...Composer`, against the private call data and/or previous kernel data and/or other user data, using the hints. A validator never mutates what it is given. The algorithm for the validation should be efficient as it's constrained.
 
 The constructor (`new()`) of a `...Validator` should not be doing any validation or heavy computation.
 
