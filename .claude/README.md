@@ -22,3 +22,7 @@ List the tests with `./.claude/bootstrap.sh test_cmds`; run them with `./.claude
 - A new skill scoped to one component: `component/.claude/skills/`.
 - A new hook: add a script to `.claude/scripts/`, register it in `.claude/settings.json` with a path that resolves from any cwd (`$CLAUDE_PROJECT_DIR/...` or `git rev-parse --show-toplevel`; both forms are in use and equivalent from a git checkout), and add a test in `.claude/tests/`. You need to add it to each subdirectory where you want the hook active.
 - A new `.claude/` subdirectory: symlink `agents/` back to the repository root's `.claude/agents/`.
+
+## Prerequisites
+
+The `create-issue`, `cycle` and `fix` skills call a Linear MCP server named `linear-server`. The repo does not configure it (there is no `.mcp.json`). Add it to your user-level Claude Code config.
