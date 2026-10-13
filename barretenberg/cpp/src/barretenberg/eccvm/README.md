@@ -486,8 +486,8 @@ These columns are not part of any table above. They are listed in `eccvm_flavor.
 | --- | --- | --- |
 | `z_perm` | derived witness | grand product of the multiset equality check (`ECCVMSetRelation`) |
 | `lookup_inverses` | derived witness | log-derivative inverses of the point-table lookup (`ECCVMLookupRelation`) |
-| `lookup_read_counts_0` | builder-computed wire | number of times each precomputed point is read through `msm_x1/y1` and `msm_x2/y2` |
-| `lookup_read_counts_1` | builder-computed wire | number of times each precomputed point is read through `msm_x3/y3` and `msm_x4/y4` |
+| `lookup_read_counts_0` | builder-computed wire | number of times each positive table entry $P, 3P, \ldots, 15P$ is read by the MSM table |
+| `lookup_read_counts_1` | builder-computed wire | number of times each negative table entry $-P, -3P, \ldots, -15P$ is read by the MSM table |
 
 ## Multisets and Lookups
 
@@ -539,7 +539,9 @@ The prover treats the transcript wires `transcript_op`, `transcript_Px`, `transc
 
 The verifier receives `Translation:masking_term_eval` and passes $x$, $v$ and `accumulated_result` to the Translator, which checks
 
-$$x \cdot \text{accumulated\_result} = \sum_{i=0}^{4} v^i T_i(x) - m(x).$$
+$$x^{1 + \texttt{TRACE\_OFFSET}} \cdot \text{accumulated\_result} = \sum_{i=0}^{4} v^i T_i(x) - m(x).$$
+
+The exponent accounts for the empty row and the `TRACE_OFFSET` disabled rows that precede the first op (`ECCVMVerifier_::compute_accumulated_result`).
 
 ## Prover round order
 

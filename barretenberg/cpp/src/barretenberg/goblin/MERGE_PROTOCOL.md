@@ -69,7 +69,7 @@ where $\ell$ is the size of the left table (`fixed_append_shift_size` in the pro
 **2. Degree Bound:**
 $$\deg(L_j(X)) < \ell$$
 
-This bound on $\ell$ prevents overlapping of different subtables.
+This bound prevents overlapping of different subtables.
 
 ### Merge Settings
 
