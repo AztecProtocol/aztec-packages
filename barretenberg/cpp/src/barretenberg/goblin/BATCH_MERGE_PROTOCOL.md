@@ -137,7 +137,7 @@ $$
 G(\kappa^{-1}) = \sum_{i=0}^{M}\sum_{j=1}^{4} \alpha_{i,j}\, \kappa^{1-\sigma_i} C_{i,j}(\kappa)
 $$
 
-This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. For an unused slot ($\sigma_i = 0$), the reversed term $X^{-1} C_{i,j}(X^{-1})$ in the definition of $G$ is a polynomial only if $C_{i,j} = 0$. Since $[G]$ is a commitment to a polynomial, $C_{i,j}$ must be 0.
+This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. For an unused slot ($\sigma_i = 0$), the batched identity contains the term $\alpha_{i,j} X^{-1} C_{i,j}(X^{-1})$, which is a polynomial only if $C_{i,j} = 0$. Since $[G]$ is a commitment to a polynomial, $C_{i,j}$ must be 0.
 
 
 #### Hash Consistency Check

@@ -315,7 +315,7 @@ The mini-circuit layout is illustrated below:
 
 In our implementation, mini-circuit size is $n = 2^{13}$. We have $n_0 = 2$ (two zero rows at the start to ensure shiftability), $r_{\textsf{start}} = 6$ (rows for three random ops at start), and $r_{\textsf{end}} = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - r_{\textsf{start}} - r_{\textsf{end}} - n_0 = 8180$.
 
-In AVM mode (`avm_mode` in `translator_circuit_builder.cpp`), the builder takes `get_no_zk_reconstructed_ultra_ops()` and appends no end random ops; the Goblin-AVM constructor supplies the start structure.
+In AVM mode (`avm_mode` in `translator_circuit_builder.cpp`), the builder takes `get_no_zk_reconstructed_ultra_ops()` and appends no end random ops; `GoblinAvm::GoblinAvm` (`goblin_avm/goblin_avm.cpp`) queues the leading no-op, the 3 random ops and a deterministic hiding op itself.
 
 The random ops and the end masking rows provide zero-knowledge; see [Step 7](#step-7-zero-knowledge-masking). Below, $m = r_{\textsf{end}} = 4$ (`NUM_MASKED_ROWS_END`) is the number of masked rows at the end of the mini-circuit.
 

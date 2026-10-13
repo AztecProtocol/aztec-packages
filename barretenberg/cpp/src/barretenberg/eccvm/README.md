@@ -497,7 +497,7 @@ As explained in the introduction, we sometimes treat these three sets of disjoin
 
 The basic structure: each term corresponds to _two_ multisets. (One could refer to these as an input multiset and an output multiset, but this directionality is purely psychological and we avoid it.) One table contributes to one of the multisets, another table contributes to the other multiset, and the term is _satisfied_ if the two multisets are equal.
 
-Each term's tuples carry a domain-separation tag (`FIRST_TERM_TAG`, `SECOND_TERM_TAG`, `THIRD_TERM_TAG`, each multiplied by $\beta^4$), so tuples from different terms cannot match. Rows of the first term where the MSM side adds no point contribute the tuple `(0, 0, 0)`; the numerator cancels it with `eccvm_set_permutation_delta`, the inverse of that tuple's fingerprint (see [`ecc_set_relation_impl.hpp`](../relations/ecc_vm/ecc_set_relation_impl.hpp)).
+Each term's tuples carry a domain-separation tag (`FIRST_TERM_TAG`, `SECOND_TERM_TAG`, `THIRD_TERM_TAG`, each multiplied by $\beta^4$), so tuples from different terms cannot match. In the first term, an MSM row that adds no point contributes 1, while a Precomputed row with `precompute_select = 0` contributes the four tuples `(0, k, 0)`, $k = 0, \ldots, 3$ (one per digit slot); the numerator cancels them with `eccvm_set_permutation_delta`, the inverse of the product of their fingerprints (see [`ecc_set_relation_impl.hpp`](../relations/ecc_vm/ecc_set_relation_impl.hpp)).
 
 #### First term: `(pc, round, wnaf_slice)`
 
