@@ -121,7 +121,7 @@ Each circuit's section lists the extra checks it adds.
 
 **Valid previous circuits:** `hiding-kernel-to-rollup`
 **Valid next circuits:**
-- `tx-merge`
+- `tx-merge` (when the block has more than two txs)
 - `block-root` (as one of its two children)
 - `block-root-single-tx` (if it is the only tx in the block)
 

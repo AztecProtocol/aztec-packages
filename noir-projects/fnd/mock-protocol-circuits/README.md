@@ -13,4 +13,4 @@ The workspace contains:
 
 To build, run `./bootstrap.sh`. It runs `../noir-protocol-circuits/bootstrap.sh` with this directory as the working directory, and writes the artifacts to `target/`.
 
-The artifacts are published as `@aztec-foundation/mock-protocol-circuits-artifacts` (see `../mock-protocol-circuits-artifacts/`). aztec-node consumes them in `yarn-project/ivc-integration` (`generate:noir-circuits` in its `package.json`); in this repo that is `labs/yarn-project/ivc-integration`, whose README describes the tests.
+The artifacts are published as `@aztec-foundation/mock-protocol-circuits-artifacts` (see `../mock-protocol-circuits-artifacts/`). aztec-node consumes them in `yarn-project/ivc-integration` (`generate:noir-circuits` in its `package.json`); in this repo that is `labs/yarn-project/ivc-integration` (`labs` is the aztec-node submodule and is not checked out by default), whose README describes the tests.
