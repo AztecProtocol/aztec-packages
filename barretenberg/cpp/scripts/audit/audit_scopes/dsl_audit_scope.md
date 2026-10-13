@@ -28,7 +28,7 @@ All constraints except arithmetic constraints work as follows:
 Arithmetic constraints work slightly differently because we use the UltraHonk arithmetization to efficiently encode expressions of the following form:
 $
 \sum_{i, j} c_{i,j} w_i w_j + \sum_i c_i w_i + c = 0
-$ where $w_i$ are witnesses, $c_{i,j}, c_i$ are the coefficients of the equation, and $c$ is the constant term. For a detailed explanation of how we leverage the UltraHonk arithmetization to encode arithmetic constraints see the documentation for the functions `acir_to_constraint_buf::split_into_mul_quad_gates` and `arithmetic_constraints::create_big_quad_constraint`.
+$ where $w_i$ are witnesses, $c_{i,j}, c_i$ are the coefficients of the equation, and $c$ is the constant term. For a detailed explanation of how we use the UltraHonk arithmetization to encode arithmetic constraints see the documentation for the functions `acir_to_constraint_buf::split_into_mul_quad_gates` and `arithmetic_constraints::create_big_quad_constraint`.
 
 The difference in how arithmetic constraints are handled is the reason why they are the only constraints that are part of this audit scope: to be sure that no bugs are present, the entire flow (from bytes to constraints) has to be audited for arithmetic constraints.
 

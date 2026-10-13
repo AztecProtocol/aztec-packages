@@ -19,7 +19,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 5. `eccvm/eccvm_flavor.hpp`
 
 ### Constraints (relations evaluated by the verifier)
-The content of each relation is in the file ending `_impl.hpp`, except for the lookup relation, whose content is in `ecc_lookup_relation.hpp`.
+The content of each relation is in the file ending `_impl.hpp`, except for the lookup relation, whose content is in `ecc_lookup_relation.hpp` (its `ecc_lookup_relation_impl.hpp` only forwards to `honk/proof_system/logderivative_library.hpp`).
 
 6. `relations/ecc_vm/ecc_bools_relation_impl.hpp`
 7. `relations/ecc_vm/ecc_lookup_relation.hpp`
