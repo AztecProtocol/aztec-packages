@@ -34,53 +34,12 @@ TEST(Pedersen, HashWithIndex)
     EXPECT_EQ(r, fr(uint256_t("1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6")));
 }
 
-// Verifies that hashing a 32-byte buffer is equivalent to hashing two field elements via the intended chaining
-TEST(Pedersen, Hash32Bytes)
-{
-    using Fq = pedersen_hash::Fq;
-
-    std::vector<uint8_t> buf(32);
-    for (size_t i = 0; i < buf.size(); ++i) {
-        buf[i] = static_cast<uint8_t>(0xA0 + i);
-    }
-
-    // First 31-byte chunk
-    uint256_t acc0(0);
-    for (size_t i = 0; i < 31; ++i) {
-        acc0 = (acc0 << uint256_t(8));
-        acc0 += uint256_t(buf[i]);
-    }
-    Fq element0(acc0);
-
-    // Last 1-byte chunk
-    uint256_t acc1(0);
-    acc1 = (acc1 << uint256_t(8));
-    acc1 += uint256_t(buf[31]);
-    Fq element1(acc1);
-
-    // For exactly 2 elements, hash_buffer should equal hash({element0, element1})
-    auto expected = pedersen_hash::hash({ element0, element1 });
-    auto got = pedersen_hash::hash_buffer(buf);
-
-    EXPECT_EQ(got, expected);
-}
 // Verifies that hashing an empty input throws an exception
 TEST(Pedersen, HashRejectsEmptyInput)
 {
     EXPECT_THROW(
         {
             auto result = pedersen_hash::hash({});
-            static_cast<void>(result);
-        },
-        std::runtime_error);
-}
-
-// Verifies that hashing an empty input throws an exception
-TEST(Pedersen, HashBufferRejectsEmptyInput)
-{
-    EXPECT_THROW(
-        {
-            auto result = pedersen_hash::hash_buffer({});
             static_cast<void>(result);
         },
         std::runtime_error);

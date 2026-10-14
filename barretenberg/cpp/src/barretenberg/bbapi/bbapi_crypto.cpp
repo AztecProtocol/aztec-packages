@@ -63,13 +63,6 @@ PedersenHash::Response PedersenHash::execute(BB_UNUSED BBApiRequest& request) &&
     return { crypto::pedersen_hash::hash(inputs, ctx) };
 }
 
-PedersenHashBuffer::Response PedersenHashBuffer::execute(BB_UNUSED BBApiRequest& request) &&
-{
-    crypto::GeneratorContext<curve::Grumpkin> ctx;
-    ctx.offset = static_cast<size_t>(hash_index);
-    return { crypto::pedersen_hash::hash_buffer(input, ctx) };
-}
-
 Blake2s::Response Blake2s::execute(BB_UNUSED BBApiRequest& request) &&
 {
     return { crypto::blake2s(data) };

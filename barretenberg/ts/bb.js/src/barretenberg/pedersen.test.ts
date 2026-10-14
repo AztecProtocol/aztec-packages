@@ -39,15 +39,6 @@ describe('pedersen sync', () => {
   //   console.log(`Executed ${numHashesPerLoop * loops} hashes at an average ${us}us / hash`);
   // });
 
-  it('pedersenHashBuffer', () => {
-    const input = Buffer.alloc(123);
-    input.writeUint32BE(321, 0);
-    input.writeUint32BE(456, 119);
-    const response = api.pedersenHashBuffer({ input, hashIndex: 0 });
-    const r = Fr.fromBuffer(response.hash);
-    expect(r).toMatchSnapshot();
-  });
-
   it('pedersenCommit', () => {
     const response = api.pedersenCommit({
       inputs: [new Fr(4n).toBuffer(), new Fr(8n).toBuffer(), new Fr(12n).toBuffer()],

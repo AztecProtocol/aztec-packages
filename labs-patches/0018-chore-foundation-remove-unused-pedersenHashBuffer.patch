@@ -1,0 +1,128 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iakovenkos <sergey.s.yakovenko@gmail.com>
+Date: Tue, 13 Oct 2026 15:40:54 +0200
+Subject: [PATCH] chore(foundation): remove unused pedersenHashBuffer
+
+
+diff --git a/yarn-project/foundation/src/crypto/pedersen/__snapshots__/index.test.ts.snap b/yarn-project/foundation/src/crypto/pedersen/__snapshots__/index.test.ts.snap
+deleted file mode 100644
+index b8842b33c7792e5479b4f8468bf1c46676062424..0000000000000000000000000000000000000000
+--- a/yarn-project/foundation/src/crypto/pedersen/__snapshots__/index.test.ts.snap
++++ /dev/null
+@@ -1,3 +0,0 @@
+-// Jest Snapshot v1, https://goo.gl/fbAQLP
+-
+-exports[`pedersen pedersen hash buffer 1`] = `Buffer<0x2bd5c452a0c97162294fc9dfd0f1e09d0e09c95fa5ed3ff149fbdef366cb51f9>`;
+diff --git a/yarn-project/foundation/src/crypto/pedersen/index.test.ts b/yarn-project/foundation/src/crypto/pedersen/index.test.ts
+index 86f2c6b67fdf83af843cee1427a68df21aea8613..9207605866d541c7bd213e89abd0cafad887dd56 100644
+--- a/yarn-project/foundation/src/crypto/pedersen/index.test.ts
++++ b/yarn-project/foundation/src/crypto/pedersen/index.test.ts
+@@ -1,13 +1,11 @@
+ import { BarretenbergSync } from '@aztec-foundation/bb.js';
+ 
+ import { toBufferBE } from '../../bigint-buffer/index.js';
+-import { setupCustomSnapshotSerializers } from '../../testing/index.js';
+-import { pedersenCommit, pedersenHash, pedersenHashBuffer } from './index.js';
++import { pedersenCommit, pedersenHash } from './index.js';
+ 
+ describe('pedersen', () => {
+   beforeAll(async () => {
+     await BarretenbergSync.initSingleton({ threads: 1 });
+-    setupCustomSnapshotSerializers(expect);
+   });
+ 
+   it('pedersen commit', async () => {
+@@ -35,12 +33,4 @@ describe('pedersen', () => {
+     const r = await pedersenHash([toBufferBE(1n, 32), toBufferBE(1n, 32)], 5);
+     expect(r.toString()).toEqual('0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6');
+   });
+-
+-  it('pedersen hash buffer', async () => {
+-    const input = Buffer.alloc(123);
+-    input.writeUint32BE(321, 0);
+-    input.writeUint32BE(456, 119);
+-    const r = await pedersenHashBuffer(input);
+-    expect(r).toMatchSnapshot();
+-  });
+ });
+diff --git a/yarn-project/foundation/src/crypto/pedersen/pedersen.wasm.ts b/yarn-project/foundation/src/crypto/pedersen/pedersen.wasm.ts
+index a0d8dd04620d058d6018d408b7875103f4539226..11ee7fc687a040894815148387c2c433dcb9835c 100644
+--- a/yarn-project/foundation/src/crypto/pedersen/pedersen.wasm.ts
++++ b/yarn-project/foundation/src/crypto/pedersen/pedersen.wasm.ts
+@@ -37,16 +37,3 @@ export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
+   });
+   return Fr.fromBuffer(Buffer.from(response.hash));
+ }
+-
+-/**
+- * Create a pedersen hash from an arbitrary length buffer.
+- */
+-export async function pedersenHashBuffer(input: Buffer, index = 0) {
+-  await BarretenbergSync.initSingleton();
+-  const api = BarretenbergSync.getSingleton();
+-  const response = api.pedersenHashBuffer({
+-    input,
+-    hashIndex: index,
+-  });
+-  return Buffer.from(response.hash);
+-}
+diff --git a/yarn-project/foundation/src/crypto/sync/pedersen/__snapshots__/index.test.ts.snap b/yarn-project/foundation/src/crypto/sync/pedersen/__snapshots__/index.test.ts.snap
+deleted file mode 100644
+index b8842b33c7792e5479b4f8468bf1c46676062424..0000000000000000000000000000000000000000
+--- a/yarn-project/foundation/src/crypto/sync/pedersen/__snapshots__/index.test.ts.snap
++++ /dev/null
+@@ -1,3 +0,0 @@
+-// Jest Snapshot v1, https://goo.gl/fbAQLP
+-
+-exports[`pedersen pedersen hash buffer 1`] = `Buffer<0x2bd5c452a0c97162294fc9dfd0f1e09d0e09c95fa5ed3ff149fbdef366cb51f9>`;
+diff --git a/yarn-project/foundation/src/crypto/sync/pedersen/index.test.ts b/yarn-project/foundation/src/crypto/sync/pedersen/index.test.ts
+index 9f2930286da6e1211d04189d424babc4f780117c..d4b025cb1a518b5ed0ae35a1ee6a75d71188e439 100644
+--- a/yarn-project/foundation/src/crypto/sync/pedersen/index.test.ts
++++ b/yarn-project/foundation/src/crypto/sync/pedersen/index.test.ts
+@@ -1,13 +1,11 @@
+ import { BarretenbergSync } from '@aztec-foundation/bb.js';
+ 
+ import { toBufferBE } from '../../../bigint-buffer/index.js';
+-import { setupCustomSnapshotSerializers } from '../../../testing/index.js';
+-import { pedersenCommit, pedersenHash, pedersenHashBuffer } from './index.js';
++import { pedersenCommit, pedersenHash } from './index.js';
+ 
+ describe('pedersen', () => {
+   beforeAll(async () => {
+     await BarretenbergSync.initSingleton();
+-    setupCustomSnapshotSerializers(expect);
+   });
+ 
+   it('pedersen commit', () => {
+@@ -35,12 +33,4 @@ describe('pedersen', () => {
+     const r = pedersenHash([toBufferBE(1n, 32), toBufferBE(1n, 32)], 5);
+     expect(r.toString()).toEqual('0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6');
+   });
+-
+-  it('pedersen hash buffer', () => {
+-    const input = Buffer.alloc(123);
+-    input.writeUint32BE(321, 0);
+-    input.writeUint32BE(456, 119);
+-    const r = pedersenHashBuffer(input);
+-    expect(r).toMatchSnapshot();
+-  });
+ });
+diff --git a/yarn-project/foundation/src/crypto/sync/pedersen/index.ts b/yarn-project/foundation/src/crypto/sync/pedersen/index.ts
+index fbc7d0dc4d0538df5e6bbf803422f9016791b899..16823d1c0895c11e212bce49d0b0c9b3a35a5442 100644
+--- a/yarn-project/foundation/src/crypto/sync/pedersen/index.ts
++++ b/yarn-project/foundation/src/crypto/sync/pedersen/index.ts
+@@ -33,14 +33,3 @@ export function pedersenHash(input: Fieldable[], index = 0): Fr {
+   });
+   return Fr.fromBuffer(Buffer.from(response.hash));
+ }
+-
+-/**
+- * Create a pedersen hash from an arbitrary length buffer.
+- */
+-export function pedersenHashBuffer(input: Buffer, index = 0) {
+-  const response = BarretenbergSync.getSingleton().pedersenHashBuffer({
+-    input,
+-    hashIndex: index,
+-  });
+-  return Buffer.from(response.hash);
+-}

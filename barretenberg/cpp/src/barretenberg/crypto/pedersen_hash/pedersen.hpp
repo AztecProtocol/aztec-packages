@@ -38,10 +38,6 @@ template <typename Curve> class pedersen_hash_base {
     inline static constexpr AffineElement length_generator =
         get_precomputed_generators<Group, "pedersen_hash_length", 1>()[0];
     static Fq hash(const std::vector<Fq>& inputs, const GeneratorContext& context = {});
-    static Fq hash_buffer(const std::vector<uint8_t>& input, const GeneratorContext& context = {});
-
-  private:
-    static std::vector<Fq> convert_buffer(const std::vector<uint8_t>& input);
 };
 
 using pedersen_hash = pedersen_hash_base<curve::Grumpkin>;
