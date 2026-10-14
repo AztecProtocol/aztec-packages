@@ -28,6 +28,9 @@ enum LMDBStoreMessageType {
 
     CLOSE,
     COPY_STORE,
+
+    START_READ_TX,
+    CLOSE_READ_TX,
 };
 
 struct OpenDatabaseRequest {
@@ -39,7 +42,13 @@ struct OpenDatabaseRequest {
 struct GetRequest {
     lmdblib::KeysVector keys;
     std::string db;
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
     SERIALIZATION_FIELDS(keys, db);
+=======
+    // When set, read through the snapshot of this open read transaction instead of a fresh one
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(keys, db, txId);
+>>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
 };
 
 struct GetResponse {
@@ -51,7 +60,13 @@ struct HasRequest {
     // std::map<lmdblib::Key, std::optional<lmdblib::Value>> entries;
     lmdblib::KeyOptionalValuesVector entries;
     std::string db;
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
     SERIALIZATION_FIELDS(entries, db);
+=======
+    // When set, check against the snapshot of this open read transaction instead of a fresh one
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(entries, db, txId);
+>>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
 };
 
 struct HasResponse {
@@ -78,7 +93,13 @@ struct StartCursorRequest {
     std::optional<uint32_t> count;
     std::optional<bool> onePage;
     std::string db;
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
     SERIALIZATION_FIELDS(key, reverse, count, onePage, db);
+=======
+    // When set, iterate over the snapshot of this open read transaction instead of a fresh one
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(key, reverse, count, onePage, db, txId);
+>>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
 };
 
 struct StartCursorResponse {
@@ -139,6 +160,21 @@ struct CopyStoreRequest {
     SERIALIZATION_FIELDS(dstPath, compact);
 };
 
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
 } // namespace bb::nodejs::lmdb_store
+=======
+struct StartReadTxResponse {
+    uint64_t txId;
+    MSGPACK_DEFINE_MAP(txId);
+};
+
+struct CloseReadTxRequest {
+    // Optional only so that a request without it is rejected rather than read as an indeterminate id
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(txId);
+};
+
+} // namespace azteclabs::kvdb::lmdb_store
+>>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
 
 MSGPACK_ADD_ENUM(bb::nodejs::lmdb_store::LMDBStoreMessageType)

@@ -1,5 +1,6 @@
 #pragma once
 
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp
 #include "barretenberg/lmdblib/lmdb_cursor.hpp"
 #include "barretenberg/lmdblib/lmdb_store.hpp"
 #include "barretenberg/lmdblib/types.hpp"
@@ -7,16 +8,39 @@
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "barretenberg/nodejs_module/util/message_processor.hpp"
+=======
+#include "lmdb_store/lmdb_store_message.hpp"
+#include "lmdblib/lmdb_cursor.hpp"
+#include "lmdblib/lmdb_store.hpp"
+#include "lmdblib/types.hpp"
+#include "messaging/dispatcher.hpp"
+#include "messaging/header.hpp"
+#include "util/message_processor.hpp"
+>>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_wrapper.hpp
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <napi.h>
+#include <unordered_map>
 
 namespace bb::nodejs::lmdb_store {
+
+/**
+ * @brief A read transaction held open on behalf of the JavaScript side, together with the mutex that serializes
+ * access to it. The environment is opened with `MDB_NOTLS`, so a read transaction may move between the libuv worker
+ * threads, but it must never be used by two of them at once.
+ */
+struct ReadTxData {
+    lmdblib::LMDBReadTransaction::SharedPtr tx;
+    std::shared_ptr<std::mutex> mtx;
+};
 
 struct CursorData {
     lmdblib::LMDBCursor::SharedPtr cursor;
     bool reverse;
+    // Guards the cursor's read transaction, which may be shared with gets and other cursors
+    std::shared_ptr<std::mutex> txMtx;
 };
 /**
  * @brief Manages the interaction between the JavaScript runtime and the LMDB instance.
@@ -38,11 +62,41 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     std::mutex _cursor_mutex;
     std::unordered_map<uint64_t, CursorData> _cursors;
 
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp
     bb::nodejs::AsyncMessageProcessor _msg_processor;
+=======
+    std::mutex _read_tx_mutex;
+    std::unordered_map<uint64_t, ReadTxData> _read_txs;
+
+    azteclabs::kvdb::AsyncMessageProcessor _msg_processor;
+>>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_wrapper.hpp
 
     void verify_store() const;
 
+    /**
+     * @brief Returns a copy of the registered read transaction, which keeps it alive even if it is closed concurrently.
+     * @throws std::runtime_error if no read transaction with this id is open
+     */
+    ReadTxData get_read_tx(uint64_t id);
+
     BoolResponse open_database(const OpenDatabaseRequest& req);
+
+    /**
+     * @brief Opens a read transaction that stays open until CLOSE_READ_TX (or CLOSE) and returns its id. It holds one
+     * of the environment's reader slots for its whole lifetime.
+     * @note The free slot is only checked here: a START_CURSOR without txId still waits for a slot and holds it until
+     * the cursor closes. Callers must keep open read transactions plus open cursors below the reader count, or plain
+     * reads can wait on every libuv worker at once, leaving no worker to run the close that would free a slot.
+     * @throws std::runtime_error without waiting if taking a slot would leave none free for other reads
+     */
+    StartReadTxResponse start_read_tx();
+
+    /**
+     * @brief Unregisters a read transaction. Cursors already opened against it keep it alive until they are closed.
+     * @return ok is false if no read transaction with this id was open
+     * @throws std::runtime_error if the request carries no id
+     */
+    BoolResponse close_read_tx(const CloseReadTxRequest& req);
 
     GetResponse get(const GetRequest& req);
     HasResponse has(const HasRequest& req);
@@ -59,6 +113,8 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     BoolResponse close();
 
     BoolResponse copy_store(const CopyStoreRequest& req);
+
+    static bool _set_cursor_start(const lmdblib::LMDBCursor& cursor, lmdblib::Key& key, bool reverse);
 
     static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(const lmdblib::LMDBCursor& cursor,
                                                                         bool reverse,
