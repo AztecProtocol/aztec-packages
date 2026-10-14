@@ -163,6 +163,23 @@ template <typename FF_> class CircuitBuilderBase {
     const std::vector<FF>& get_variables() const { return variables; }
 
     /**
+     * @brief Release the witness values, the copy-constraint bookkeeping (copy cycles, tags and the tag permutation)
+     * and the variable names.
+     * @details For a builder whose circuit has been copied into a prover instance; the variables cannot be read
+     * afterwards.
+     */
+    void free_variables()
+    {
+        std::vector<FF>().swap(variables);
+        std::vector<uint32_t>().swap(next_var_index);
+        std::vector<uint32_t>().swap(prev_var_index);
+        std::vector<uint32_t>().swap(real_variable_index);
+        std::vector<uint32_t>().swap(real_variable_tags);
+        std::unordered_map<uint32_t, uint32_t>().swap(_tau);
+        std::unordered_map<uint32_t, std::string>().swap(variable_names);
+    }
+
+    /**
      * @brief Get the value of the variable v_{index}
      * @param index The index of the variable
      * @return The value of the variable

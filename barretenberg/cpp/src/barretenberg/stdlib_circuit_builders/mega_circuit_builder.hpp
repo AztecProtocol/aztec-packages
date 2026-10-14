@@ -187,6 +187,16 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_bus_vector(size_t bus_idx) const { return databus[bus_idx]; }
 
     /**
+     * @brief Release the circuit-construction data (see UltraCircuitBuilder_::free_construction_data) and the databus.
+     * @details The builder cannot be used to build or check a circuit afterwards.
+     */
+    void free_construction_data() override
+    {
+        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::free_construction_data();
+        databus = DataBus{};
+    }
+
+    /**
      * @brief Compute a hash of the circuit
      * @details Hashes all wires and selectors from each block. Note that this encompases all gate data, copy
      * constraints, and public inputs (via pub inputs block). Useful for debugging purposes to identify where two

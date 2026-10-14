@@ -499,10 +499,8 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
 
-    // Free circuit block memory now that trace data has been copied to prover polynomials
-    for (auto& block : circuit.blocks.get()) {
-        block.free_data();
-    }
+    // The circuit has been copied into the prover polynomials; free its construction data.
+    circuit.free_construction_data();
 
     if (precomputed_vk) {
 #ifndef NDEBUG
@@ -531,10 +529,8 @@ HonkProof Chonk::instance_to_accumulator(ClientCircuit& circuit,
 #ifndef NDEBUG
     debug_incoming_circuit<InstanceFlavor>(circuit, prover_instance, vk);
 #endif
-    // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials.
-    for (auto& block : circuit.blocks.get()) {
-        block.free_data();
-    }
+    // The circuit has been copied into the prover polynomials; free its construction data.
+    circuit.free_construction_data();
 
     // Run sumcheck on the incoming instance; the folding prover caches the resulting claim. The claims of the whole
     // group are batched together once, when the group's last circuit is accumulated (see prove_multilinear_batching).
@@ -662,6 +658,9 @@ void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
 #ifndef NDEBUG
             verify_decider_natively();
 #endif
+            // The decider proof is the last use of the final accumulator's polynomials.
+            prover_accumulator.non_shifted_polynomial = ProverAccumulator::Polynomial{};
+            prover_accumulator.shifted_polynomial = ProverAccumulator::Polynomial{};
             goblin.prove_batch_merge();
         }
         break;
@@ -749,10 +748,13 @@ ChonkProof Chonk::prove()
     goblin.prove_eccvm();
     vinfo("finished eccvm proving.");
 
-    // Phase 4: Build translator proving key from ECCVM-derived challenges.
-    TranslatorCircuitBuilder translator_builder(
-        goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue);
-    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
+    // Phase 4: Build translator proving key from ECCVM-derived challenges. The key copies the circuit into its
+    // polynomials, so the circuit builder is released before proving.
+    auto translator_key = [&] {
+        TranslatorCircuitBuilder translator_builder(
+            goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue);
+        return std::make_shared<TranslatorProvingKey>(translator_builder);
+    }();
 
     // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
     vinfo("prove translator and joint...");
