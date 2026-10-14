@@ -389,7 +389,7 @@ fn handle_overflow<B: BigNum>(acc: Field, result: &mut B, limb_index: u32) -> u1
         acc_u128 = (1 as u128 << 120) - reverse;
         result.set_limb(
             result.num_limbs() - limb_index,
-            result.get_limb(result.num_limbs() - limb_index) - 1,
+            (*result).get_limb(result.num_limbs() - limb_index) - 1,
         );
     }
     acc_u128

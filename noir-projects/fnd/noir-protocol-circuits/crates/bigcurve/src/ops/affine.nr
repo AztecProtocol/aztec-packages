@@ -98,7 +98,7 @@ pub(crate) fn incomplete_add_with_hint<BN: BigNum, P: BigCurve<BN>>(
     lambda.validate_in_range();
 
     // Incomplete addition requires distinct x-coordinates
-    x1.assert_is_not_equal(x2);
+    x1.assert_is_not_equal(&x2);
 
     // Constraint 1: lambda * (x2 - x1) - (y2 - y1) = 0
     evaluate_quadratic_expression(
@@ -200,7 +200,7 @@ fn incomplete_subtract_with_hint<BN: BigNum, P: BigCurve<BN>>(
     lambda.validate_in_range();
 
     // Incomplete subtraction requires distinct x-coordinates
-    x1.assert_is_not_equal(x2);
+    x1.assert_is_not_equal(&x2);
 
     // Constraint 1: lambda * (x2 - x1) + y2 + y1 = 0
     evaluate_quadratic_expression(

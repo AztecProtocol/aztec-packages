@@ -96,11 +96,11 @@ where
         inverse: BN,
     ) -> AffineTranscript<BN> {
         let z_inv = inverse;
-        let zz = z_inv.__mul(z_inv);
-        let zzz = zz.__mul(z_inv);
-        let lambda = j_tx.lambda_numerator.__mul(z_inv);
-        let x3 = j_tx.x3.__mul(zz);
-        let y3 = j_tx.y3.__mul(zzz);
+        let zz = z_inv.__mul(&z_inv);
+        let zzz = zz.__mul(&z_inv);
+        let lambda = j_tx.lambda_numerator.__mul(&z_inv);
+        let x3 = j_tx.x3.__mul(&zz);
+        let y3 = j_tx.y3.__mul(&zzz);
         AffineTranscript { x3, y3, lambda }
     }
 
@@ -126,11 +126,11 @@ where
 
         for i in 0..j_tx.len() {
             let z_inv = inverses[i];
-            let zz = z_inv.__mul(z_inv);
-            let zzz = zz.__mul(z_inv);
-            let lambda = j_tx[i].lambda_numerator.__mul(z_inv);
-            let x3 = j_tx[i].x3.__mul(zz);
-            let y3 = j_tx[i].y3.__mul(zzz);
+            let zz = z_inv.__mul(&z_inv);
+            let zzz = zz.__mul(&z_inv);
+            let lambda = j_tx[i].lambda_numerator.__mul(&z_inv);
+            let x3 = j_tx[i].x3.__mul(&zz);
+            let y3 = j_tx[i].y3.__mul(&zzz);
             result[i] = AffineTranscript { lambda, x3, y3 };
         }
         result

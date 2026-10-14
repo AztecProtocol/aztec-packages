@@ -53,11 +53,11 @@ where
 
     {
         let z_inv: BN = gen.z.__invmod();
-        let zz: BN = z_inv.__mul(z_inv);
-        let zzz: BN = zz.__mul(z_inv);
+        let zz: BN = z_inv.__mul(&z_inv);
+        let zzz: BN = zz.__mul(&z_inv);
 
-        offset_generator_initial[0] = gen.x.__mul(zz);
-        offset_generator_initial[1] = gen.y.__mul(zzz);
+        offset_generator_initial[0] = gen.x.__mul(&zz);
+        offset_generator_initial[1] = gen.y.__mul(&zzz);
     }
 
     // offset_generator_final = 2^{4*(NScalarSlices-1)} * offset_generator_initial
@@ -67,11 +67,11 @@ where
     }
     {
         let z_inv: BN = gen.z.__invmod();
-        let zz: BN = z_inv.__mul(z_inv);
-        let zzz: BN = zz.__mul(z_inv);
+        let zz: BN = z_inv.__mul(&z_inv);
+        let zzz: BN = zz.__mul(&z_inv);
 
-        offset_generator_final[0] = gen.x.__mul(zz);
-        offset_generator_final[1] = gen.y.__mul(zzz);
+        offset_generator_final[0] = gen.x.__mul(&zz);
+        offset_generator_final[1] = gen.y.__mul(&zzz);
     }
 
     (offset_generator_initial, offset_generator_final)

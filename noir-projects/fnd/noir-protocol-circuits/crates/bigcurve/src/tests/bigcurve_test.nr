@@ -94,10 +94,10 @@ fn dbl_transcript_has_correct_lambda() {
 
         let Z_inverse = P2.1.z3.__invmod();
 
-        let lambda = P2.1.lambda_numerator.__mul(Z_inverse);
+        let lambda = P2.1.lambda_numerator.__mul(&Z_inverse);
 
-        let lhs = (lambda.__add(lambda)).__mul(P.y);
-        let rhs = (P.x.__add(P.x).__add(P.x)).__mul(P.x);
+        let lhs = (lambda.__add(&lambda)).__mul(&P.y);
+        let rhs = (P.x.__add(&P.x).__add(&P.x)).__mul(&P.x);
 
         assert(lhs == rhs);
     }
@@ -112,19 +112,19 @@ fn add_transcript_has_correct_lambda() {
         let P2 = P.dbl();
 
         let Z_inverse = P2.1.z3.__invmod();
-        let ZZ = Z_inverse.__mul(Z_inverse);
-        let ZZZ = ZZ.__mul(Z_inverse);
+        let ZZ = Z_inverse.__mul(&Z_inverse);
+        let ZZZ = ZZ.__mul(&Z_inverse);
 
-        let x2 = P2.1.x3.__mul(ZZ);
-        let y2 = P2.1.y3.__mul(ZZZ);
+        let x2 = P2.1.x3.__mul(&ZZ);
+        let y2 = P2.1.y3.__mul(&ZZZ);
 
         let P3 = P.incomplete_add(P2.0);
         let Z_inverse = P3.1.z3.__invmod();
 
-        let lambda = P3.1.lambda_numerator.__mul(Z_inverse);
+        let lambda = P3.1.lambda_numerator.__mul(&Z_inverse);
 
-        let lhs = lambda.__mul(x2.__sub(P.x));
-        let rhs = y2.__sub(P.y);
+        let lhs = lambda.__mul(&x2.__sub(&P.x));
+        let rhs = y2.__sub(&P.y);
 
         assert(lhs == rhs);
     }
@@ -142,15 +142,15 @@ fn double_with_hint() {
 
         let Z_inverse = P2.1.z3.__invmod();
 
-        let lambda = P2.1.lambda_numerator.__mul(Z_inverse);
+        let lambda = P2.1.lambda_numerator.__mul(&Z_inverse);
 
         let X3 = P2.1.x3;
         let Y3 = P2.1.y3;
-        let ZZ = Z_inverse.__mul(Z_inverse);
-        let ZZZ = ZZ.__mul(Z_inverse);
+        let ZZ = Z_inverse.__mul(&Z_inverse);
+        let ZZZ = ZZ.__mul(&Z_inverse);
 
-        let x3 = X3.__mul(ZZ);
-        let y3 = Y3.__mul(ZZZ);
+        let x3 = X3.__mul(&ZZ);
+        let y3 = Y3.__mul(&ZZZ);
 
         let transcript: AffineTranscript<BN254_Fq> = AffineTranscript { lambda, x3, y3 };
         let P2_affine =
@@ -173,15 +173,15 @@ fn double_with_hint_secp256r1() {
 
         let Z_inverse = P2.1.z3.__invmod();
 
-        let lambda = P2.1.lambda_numerator.__mul(Z_inverse);
+        let lambda = P2.1.lambda_numerator.__mul(&Z_inverse);
 
         let X3 = P2.1.x3;
         let Y3 = P2.1.y3;
-        let ZZ = Z_inverse.__mul(Z_inverse);
-        let ZZZ = ZZ.__mul(Z_inverse);
+        let ZZ = Z_inverse.__mul(&Z_inverse);
+        let ZZZ = ZZ.__mul(&Z_inverse);
 
-        let x3 = X3.__mul(ZZ);
-        let y3 = Y3.__mul(ZZZ);
+        let x3 = X3.__mul(&ZZ);
+        let y3 = Y3.__mul(&ZZZ);
 
         let transcript: AffineTranscript<Secp256r1_Fq> = AffineTranscript { lambda, x3, y3 };
         let P2_affine =
@@ -208,15 +208,15 @@ fn incomplete_add_with_hint() {
 
         let Z_inverse = R.1.z3.__invmod();
 
-        let lambda = R.1.lambda_numerator.__mul(Z_inverse);
+        let lambda = R.1.lambda_numerator.__mul(&Z_inverse);
 
         let X3 = R.1.x3;
         let Y3 = R.1.y3;
-        let ZZ = Z_inverse.__mul(Z_inverse);
-        let ZZZ = ZZ.__mul(Z_inverse);
+        let ZZ = Z_inverse.__mul(&Z_inverse);
+        let ZZZ = ZZ.__mul(&Z_inverse);
 
-        let x3 = X3.__mul(ZZ);
-        let y3 = Y3.__mul(ZZZ);
+        let x3 = X3.__mul(&ZZ);
+        let y3 = Y3.__mul(&ZZZ);
 
         let transcript: AffineTranscript<BN254_Fq> = AffineTranscript { lambda, x3, y3 };
         let P2_affine = crate::ops::affine::incomplete_add_with_hint::<BN254_Fq, BN254>(
@@ -338,11 +338,11 @@ fn make_table() {
         for i in 0..8 {
             let z_inv = inverses[i];
 
-            let lambda = transcript[i].lambda_numerator.__mul(z_inv);
-            let zz = z_inv.__mul(z_inv);
-            let zzz = zz.__mul(z_inv);
-            let x3 = transcript[i].x3.__mul(zz);
-            let y3 = transcript[i].y3.__mul(zzz);
+            let lambda = transcript[i].lambda_numerator.__mul(&z_inv);
+            let zz = z_inv.__mul(&z_inv);
+            let zzz = zz.__mul(&z_inv);
+            let x3 = transcript[i].x3.__mul(&zz);
+            let y3 = transcript[i].y3.__mul(&zzz);
             affine_transcript[i] = AffineTranscript { lambda, x3, y3 };
         }
 

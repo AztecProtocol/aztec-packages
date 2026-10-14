@@ -39,16 +39,16 @@ where
         unsafe {
             let z1: BN = self.z;
             let z2: BN = other.z;
-            let z1z1: BN = z1.__mul(z1);
-            let z1z1z1: BN = z1z1.__mul(z1);
-            let z2z2: BN = z2.__mul(z2);
-            let z2z2z2: BN = z2z2.__mul(z2);
+            let z1z1: BN = z1.__mul(&z1);
+            let z1z1z1: BN = z1z1.__mul(&z1);
+            let z2z2: BN = z2.__mul(&z2);
+            let z2z2z2: BN = z2z2.__mul(&z2);
 
-            let x_lhs: BN = self.x.__mul(z2z2);
-            let x_rhs: BN = other.x.__mul(z1z1);
+            let x_lhs: BN = self.x.__mul(&z2z2);
+            let x_rhs: BN = other.x.__mul(&z1z1);
 
-            let y_lhs: BN = self.y.__mul(z2z2z2);
-            let y_rhs: BN = other.y.__mul(z1z1z1);
+            let y_lhs: BN = self.y.__mul(&z2z2z2);
+            let y_rhs: BN = other.y.__mul(&z1z1z1);
 
             let lhs_infinity: bool = self.is_infinity;
             let rhs_infinity: bool = other.is_infinity;
@@ -57,7 +57,7 @@ where
             let both_infinity: bool = lhs_infinity & rhs_infinity;
 
             // Coordinates only meaningful when both points are finite
-            points_equal = (x_lhs.__eq(x_rhs) & y_lhs.__eq(y_rhs)) & neither_infinity;
+            points_equal = (x_lhs.__eq(&x_rhs) & y_lhs.__eq(&y_rhs)) & neither_infinity;
             points_equal = points_equal | both_infinity;
         }
         points_equal
@@ -103,17 +103,17 @@ where
         let Z1 = self.z;
         let Z2 = p2.z;
 
-        let Z2Z2 = Z2.__mul(Z2);
-        let Z1Z1 = Z1.__mul(Z1);
-        let Z2Z2Z2 = Z2Z2.__mul(Z2);
-        let Z1Z1Z1 = Z1Z1.__mul(Z1);
-        let U1 = X1.__mul(Z2Z2);
-        let U2 = X2.__mul(Z1Z1);
-        let S1 = Y1.__mul(Z2Z2Z2);
-        let S2 = Y2.__mul(Z1Z1Z1);
+        let Z2Z2 = Z2.__mul(&Z2);
+        let Z1Z1 = Z1.__mul(&Z1);
+        let Z2Z2Z2 = Z2Z2.__mul(&Z2);
+        let Z1Z1Z1 = Z1Z1.__mul(&Z1);
+        let U1 = X1.__mul(&Z2Z2);
+        let U2 = X2.__mul(&Z1Z1);
+        let S1 = Y1.__mul(&Z2Z2Z2);
+        let S2 = Y2.__mul(&Z1Z1Z1);
 
-        let x_equal_predicate: bool = U2.__eq(U1);
-        let y_equal_predicate: bool = S2.__eq(S1);
+        let x_equal_predicate: bool = U2.__eq(&U1);
+        let y_equal_predicate: bool = S2.__eq(&S1);
         let lhs_infinity: bool = self.is_infinity;
         let rhs_infinity: bool = p2.is_infinity;
 
@@ -172,15 +172,15 @@ where
         let Y2 = p2.y;
         let Z1 = self.z;
         let Z2 = p2.z;
-        let Z2Z2 = Z2.__mul(Z2);
-        let Z1Z1 = Z1.__mul(Z1);
-        let Z2Z2Z2 = Z2Z2.__mul(Z2);
-        let Z1Z1Z1 = Z1Z1.__mul(Z1);
-        let U1 = X1.__mul(Z2Z2);
-        let U2 = X2.__mul(Z1Z1);
-        let S1 = Y1.__mul(Z2Z2Z2);
-        let S2 = Y2.__mul(Z1Z1Z1);
-        let R = S2.__sub(S1);
+        let Z2Z2 = Z2.__mul(&Z2);
+        let Z1Z1 = Z1.__mul(&Z1);
+        let Z2Z2Z2 = Z2Z2.__mul(&Z2);
+        let Z1Z1Z1 = Z1Z1.__mul(&Z1);
+        let U1 = X1.__mul(&Z2Z2);
+        let U2 = X2.__mul(&Z1Z1);
+        let S1 = Y1.__mul(&Z2Z2Z2);
+        let S2 = Y2.__mul(&Z1Z1Z1);
+        let R = S2.__sub(&S1);
 
         // PP = (U2 - U1)^2
         let (_, PP): (BN, BN) = bignum::bignum::compute_quadratic_expression(
@@ -222,7 +222,7 @@ where
             [],
         );
 
-        let Z1Z2 = Z1.__mul(Z2);
+        let Z1Z2 = Z1.__mul(&Z2);
 
         // Z3 = Z1*Z2 * (U2 - U1)
         let (_, Z3): (BN, BN) = bignum::bignum::compute_quadratic_expression(
@@ -291,9 +291,9 @@ where
         );
 
         if (!Curve::a().__is_zero()) {
-            let ZZ = Z.__mul(Z);
-            let AZZZZ = ZZ.__mul(ZZ).__mul(Curve::a());
-            XX_mul_3 = XX_mul_3.__add(AZZZZ);
+            let ZZ = Z.__mul(&Z);
+            let AZZZZ = ZZ.__mul(&ZZ).__mul(&Curve::a());
+            XX_mul_3 = XX_mul_3.__add(&AZZZZ);
         }
 
         // D = (X + X) * YY_mul_2
