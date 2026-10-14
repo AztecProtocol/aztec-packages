@@ -165,7 +165,6 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
-     * @details Consumes the instance's polynomials through in-place batching and moves.
      */
     template <typename InstanceFlavor>
     Accumulator sumcheck_output_to_accumulator(SumcheckOutput<InstanceFlavor>& sumcheck_output,
@@ -179,7 +178,7 @@ class HypernovaFoldingProver {
 
         auto unshifted = instance->polynomials.get_unshifted();
         auto to_be_shifted = instance->polynomials.get_to_be_shifted();
-        // The batches overlap, but unshifted batching consumes only its first entity, which must not be shifted.
+        // Unshifted batching may modify and move its first polynomial, so shifted batching must not depend on it.
         for (const auto& polynomial : to_be_shifted) {
             BB_ASSERT(&unshifted[0] != &polynomial,
                       "The first unshifted polynomial must not be among the to-be-shifted entities");
@@ -218,9 +217,9 @@ class HypernovaFoldingProver {
     }
 
     /**
-     * @brief Batch prover polynomials, accumulating in place in the first polynomial when its range covers the others.
-     * @details The first polynomial is moved into the result when its range covers the others. Otherwise the batch
-     * is built in a new polynomial. Callers must treat the first polynomial as consumed.
+     * @brief Compute a weighted sum of prover polynomials.
+     * @details If the first polynomial's range covers the others, accumulate into it and move it into the result.
+     * Otherwise, allocate the result without modifying the inputs. Only the first input may be modified or moved from.
      */
     template <size_t N>
     static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
