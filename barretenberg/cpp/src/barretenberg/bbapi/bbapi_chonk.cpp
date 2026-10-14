@@ -317,9 +317,8 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
          static_cast<int>(kind),
          ")");
 
-    auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
-
-    acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode)),
+                                      /*witness=*/{} };
     auto verification_key = compute_chonk_vk(program, kind);
     info("ChonkComputeVk - VK derived, size: ", verification_key.bytes.size(), " bytes");
     return { .bytes = std::move(verification_key.bytes), .fields = std::move(verification_key.fields) };

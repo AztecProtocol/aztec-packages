@@ -156,8 +156,8 @@ inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
         return read_file(vk_path.string());
     } catch (const std::runtime_error&) {
         THROW std::runtime_error("Unable to open file: " + vk_path.string() +
-                                 "\nGenerate a vk during proving by running `bb prove` with an additional `--write_vk` "
-                                 "flag, or run `bb write_vk` to generate a standalone vk."
+                                 "\nRun `bb write_vk` to generate a vk. For UltraHonk, you can also generate it during "
+                                 "proving with `bb prove --write_vk`."
                                  "\nIf you already have a vk file, specify its path with `--vk_path <path>`.");
     }
 }
