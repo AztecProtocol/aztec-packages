@@ -84,7 +84,13 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(&BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+        // Pick the square root whose ordering matches the is_greater flag.
+        let root = reconstructed_y_squared.__sqrt().unwrap();
+        let reconstructed_y = if (root > -root) == flags[2] {
+            root
+        } else {
+            -root
+        };
 
         assert_eq(reconstructed_y, point.y);
     }
