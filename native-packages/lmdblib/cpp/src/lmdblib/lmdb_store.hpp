@@ -56,6 +56,14 @@ class LMDBStore : public LMDBStoreBase {
      */
     void get(KeysVector& keys, OptionalValuesVector& values, const std::string& name, ReadTransaction::SharedPtr tx);
     void has(const KeyOptionalValuesVector& entries, std::vector<bool>& results, const std::string& name);
+    /**
+     * @brief Checks the given entries through an already open read transaction, like the `get` overload above.
+     * @note The caller must ensure that nothing else uses `tx` while this call runs.
+     */
+    void has(const KeyOptionalValuesVector& entries,
+             std::vector<bool>& results,
+             const std::string& name,
+             ReadTransaction::SharedPtr tx);
 
     Cursor::Ptr create_cursor(ReadTransaction::SharedPtr tx, const std::string& dbName);
 

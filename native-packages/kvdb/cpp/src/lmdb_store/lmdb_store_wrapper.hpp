@@ -1,11 +1,11 @@
 #pragma once
 
+#include "lmdb_store/lmdb_store_message.hpp"
 #include "lmdblib/lmdb_cursor.hpp"
 #include "lmdblib/lmdb_store.hpp"
 #include "lmdblib/types.hpp"
 #include "messaging/dispatcher.hpp"
 #include "messaging/header.hpp"
-#include "lmdb_store/lmdb_store_message.hpp"
 #include "util/message_processor.hpp"
 #include <cstdint>
 #include <map>
@@ -70,6 +70,9 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     /**
      * @brief Opens a read transaction that stays open until CLOSE_READ_TX (or CLOSE) and returns its id. It holds one
      * of the environment's reader slots for its whole lifetime.
+     * @note The free slot is only checked here: a START_CURSOR without txId still waits for a slot and holds it until
+     * the cursor closes. Callers must keep open read transactions plus open cursors below the reader count, or plain
+     * reads can wait on every libuv worker at once, leaving no worker to run the close that would free a slot.
      * @throws std::runtime_error without waiting if taking a slot would leave none free for other reads
      */
     StartReadTxResponse start_read_tx();

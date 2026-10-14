@@ -162,14 +162,14 @@ StartReadTxResponse LMDBStoreWrapper::start_read_tx()
 
 BoolResponse LMDBStoreWrapper::close_read_tx(const CloseReadTxRequest& req)
 {
-    if (!req.tx.has_value()) {
+    if (!req.txId.has_value()) {
         throw std::runtime_error("CLOSE_READ_TX request is missing the read transaction id");
     }
     // Moved out so that, if this was the last reference, the transaction is aborted after the registry lock is released
     ReadTxData closed;
     {
         std::lock_guard<std::mutex> lock(_read_tx_mutex);
-        auto it = _read_txs.find(req.tx.value());
+        auto it = _read_txs.find(req.txId.value());
         if (it == _read_txs.end()) {
             return { false };
         }
@@ -198,7 +198,13 @@ HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 {
     verify_store();
     std::vector<bool> exists;
-    _store->has(req.entries, exists, req.db);
+    if (req.txId.has_value()) {
+        ReadTxData data = get_read_tx(req.txId.value());
+        std::lock_guard<std::mutex> tx_lock(*data.mtx);
+        _store->has(req.entries, exists, req.db, data.tx);
+    } else {
+        _store->has(req.entries, exists, req.db);
+    }
     return { exists };
 }
 

@@ -191,6 +191,14 @@ void LMDBStore::get(KeysVector& keys,
 
 void LMDBStore::has(const KeyOptionalValuesVector& entries, std::vector<bool>& results, const std::string& name)
 {
+    has(entries, results, name, create_shared_read_transaction());
+}
+
+void LMDBStore::has(const KeyOptionalValuesVector& entries,
+                    std::vector<bool>& results,
+                    const std::string& name,
+                    ReadTransaction::SharedPtr tx)
+{
     auto string_cmp = [](const Key& a, const Key& b) {
         return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
     };
@@ -202,7 +210,7 @@ void LMDBStore::has(const KeyOptionalValuesVector& entries, std::vector<bool>& r
 
     KeysVector keys(key_set.begin(), key_set.end());
     OptionalValuesVector vals;
-    get(keys, vals, name);
+    get(keys, vals, name, std::move(tx));
 
     results.reserve(entries.size());
 

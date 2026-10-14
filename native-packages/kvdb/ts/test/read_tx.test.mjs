@@ -14,6 +14,7 @@ import { findNapiBinary } from "../dest/index.js";
 const MSG = {
   OPEN_DATABASE: 100,
   GET: 101,
+  HAS: 102,
   START_CURSOR: 103,
   ADVANCE_CURSOR: 104,
   CLOSE_CURSOR: 106,
@@ -123,8 +124,8 @@ describe("kvdb read transactions", () => {
   });
 
   it("reads and iterates a snapshot that later writes do not change", async () => {
-    const { tx } = await send(MSG.START_READ_TX);
-    const cursor = await startCursor("a", tx);
+    const { txId } = await send(MSG.START_READ_TX);
+    const cursor = await startCursor("a", txId);
     assert.notEqual(cursor.cursor, null);
 
     await batch(
@@ -137,12 +138,12 @@ describe("kvdb read transactions", () => {
 
     assert.deepEqual(
       values(
-        await send(MSG.GET, { keys: [b("a"), b("d")], db: "data", txId: tx }),
+        await send(MSG.GET, { keys: [b("a"), b("d")], db: "data", txId }),
       ),
       [["a1"], null],
     );
     assert.deepEqual(
-      values(await send(MSG.GET, { keys: [b("k")], db: "index", txId: tx })),
+      values(await send(MSG.GET, { keys: [b("k")], db: "index", txId })),
       [["v1", "v2"]],
     );
     assert.deepEqual(
@@ -154,28 +155,47 @@ describe("kvdb read transactions", () => {
       [["v1", "v2", "v3"]],
     );
 
-    const reverse = await startCursor("z", tx, { reverse: true, count: 100 });
+    const entries = [
+      [b("d"), null],
+      [b("a"), [b("a1")]],
+    ];
+    assert.deepEqual(await send(MSG.HAS, { entries, db: "data", txId }), {
+      exists: [false, true],
+    });
+    assert.deepEqual(await send(MSG.HAS, { entries, db: "data" }), {
+      exists: [true, false],
+    });
+    assert.deepEqual(
+      await send(MSG.HAS, {
+        entries: [[b("k"), [b("v3")]]],
+        db: "index",
+        txId,
+      }),
+      { exists: [false] },
+    );
+
+    const reverse = await startCursor("z", txId, { reverse: true, count: 100 });
     assert.deepEqual(keysOf(reverse.entries), ["c", "b", "a"]);
     assert.deepEqual(await drainCursor(send, cursor), ["a", "b", "c"]);
 
-    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx }), { ok: true });
+    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId }), { ok: true });
   });
 
   it("keeps cursors usable after their read transaction is closed", async () => {
-    const { tx } = await send(MSG.START_READ_TX);
-    const cursor = await startCursor("a", tx);
+    const { txId } = await send(MSG.START_READ_TX);
+    const cursor = await startCursor("a", txId);
     await batch([[b("e"), [b("e3")]]]);
 
-    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx }), { ok: true });
-    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx }), { ok: false });
+    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId }), { ok: true });
+    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId }), { ok: false });
     assert.deepEqual(await drainCursor(send, cursor), ["a", "b", "c", "d"]);
   });
 
   it("rejects unknown and missing read transaction ids", async () => {
-    const { tx } = await send(MSG.START_READ_TX);
-    await send(MSG.CLOSE_READ_TX, { tx });
+    const { txId } = await send(MSG.START_READ_TX);
+    await send(MSG.CLOSE_READ_TX, { txId });
     await assert.rejects(
-      send(MSG.GET, { keys: [b("a")], db: "data", txId: tx }),
+      send(MSG.GET, { keys: [b("a")], db: "data", txId }),
       /Read transaction .* not found/,
     );
     await assert.rejects(
@@ -186,15 +206,15 @@ describe("kvdb read transactions", () => {
       send(MSG.CLOSE_READ_TX, {}),
       /missing the read transaction id/,
     );
-    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx: 987654 }), {
+    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId: 987654 }), {
       ok: false,
     });
   });
 
   it("serializes concurrent gets and cursor scans on one read transaction", async () => {
-    const { tx } = await send(MSG.START_READ_TX);
+    const { txId } = await send(MSG.START_READ_TX);
     const expected = keysOf(
-      (await startCursor("a", tx, { count: 100 })).entries,
+      (await startCursor("a", txId, { count: 100 })).entries,
     );
     const work = [];
     for (let i = 0; i < 200; i++) {
@@ -202,26 +222,26 @@ describe("kvdb read transactions", () => {
         work.push(batch([[b(`n${i}`), [b("x")]]], [[b("k"), [b(`z${i}`)]]]));
       }
       work.push(
-        send(MSG.GET, { keys: [b("a"), b("k")], db: "data", txId: tx }).then(
+        send(MSG.GET, { keys: [b("a"), b("k")], db: "data", txId }).then(
           (r) => assert.deepEqual(values(r), [["a2"], null]),
         ),
-        send(MSG.GET, { keys: [b("k")], db: "index", txId: tx }).then((r) =>
+        send(MSG.GET, { keys: [b("k")], db: "index", txId }).then((r) =>
           assert.deepEqual(values(r), [["v1", "v2", "v3"]]),
         ),
-        startCursor("a", tx)
+        startCursor("a", txId)
           .then((start) => drainCursor(send, start))
           .then((keys) => assert.deepEqual(keys, expected)),
       );
     }
     await Promise.all(work);
-    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx }), { ok: true });
+    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId }), { ok: true });
   });
 
   it("rejects new read transactions instead of waiting when reader slots run out", async () => {
     const held = [];
     // one slot always stays free for requests that open their own read transaction
     for (let i = 0; i < maxReaders - 1; i++) {
-      held.push((await send(MSG.START_READ_TX)).tx);
+      held.push((await send(MSG.START_READ_TX)).txId);
     }
     const attempts = await Promise.allSettled(
       Array.from({ length: 8 }, () => send(MSG.START_READ_TX)),
@@ -235,47 +255,47 @@ describe("kvdb read transactions", () => {
       [["a2"]],
     );
 
-    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx: held.pop() }), {
+    assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId: held.pop() }), {
       ok: true,
     });
-    held.push((await send(MSG.START_READ_TX)).tx);
-    for (const tx of held) {
-      assert.deepEqual(await send(MSG.CLOSE_READ_TX, { tx }), { ok: true });
+    held.push((await send(MSG.START_READ_TX)).txId);
+    for (const txId of held) {
+      assert.deepEqual(await send(MSG.CLOSE_READ_TX, { txId }), { ok: true });
     }
   });
 
   it("counts closed read transactions kept alive by cursors against the reader slots", async () => {
-    const { tx } = await send(MSG.START_READ_TX);
-    const cursor = await startCursor("a", tx);
-    await send(MSG.CLOSE_READ_TX, { tx });
+    const { txId } = await send(MSG.START_READ_TX);
+    const cursor = await startCursor("a", txId);
+    await send(MSG.CLOSE_READ_TX, { txId });
 
     const held = [];
     for (let i = 0; i < maxReaders - 2; i++) {
-      held.push((await send(MSG.START_READ_TX)).tx);
+      held.push((await send(MSG.START_READ_TX)).txId);
     }
     await assert.rejects(send(MSG.START_READ_TX), /No reader slot available/);
 
     await send(MSG.CLOSE_CURSOR, { cursor: cursor.cursor });
-    held.push((await send(MSG.START_READ_TX)).tx);
+    held.push((await send(MSG.START_READ_TX)).txId);
     for (const id of held) {
-      await send(MSG.CLOSE_READ_TX, { tx: id });
+      await send(MSG.CLOSE_READ_TX, { txId: id });
     }
   });
 
   it("closes the store with live read transactions and cursors, releasing the environment", async () => {
-    const { tx } = await send(MSG.START_READ_TX);
-    const cursor = await startCursor("a", tx);
+    const { txId } = await send(MSG.START_READ_TX);
+    const cursor = await startCursor("a", txId);
     assert.notEqual(cursor.cursor, null);
 
     assert.deepEqual(await send(MSG.CLOSE), { ok: true });
     await assert.rejects(
-      send(MSG.GET, { keys: [b("a")], db: "data", txId: tx }),
+      send(MSG.GET, { keys: [b("a")], db: "data", txId }),
       /closed/,
     );
 
     const reopened = openStore(dir, maxReaders);
     await reopened.send(MSG.OPEN_DATABASE, { db: "data", uniqueKeys: true });
-    const { tx: fresh } = await reopened.send(MSG.START_READ_TX);
+    const { txId: fresh } = await reopened.send(MSG.START_READ_TX);
     assert.deepEqual(
       values(
         await reopened.send(MSG.GET, {

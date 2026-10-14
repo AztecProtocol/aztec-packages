@@ -56,7 +56,9 @@ struct HasRequest {
     // std::map<lmdblib::Key, std::optional<lmdblib::Value>> entries;
     lmdblib::KeyOptionalValuesVector entries;
     std::string db;
-    MSGPACK_DEFINE_MAP(entries, db);
+    // When set, check against the snapshot of this open read transaction instead of a fresh one
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(entries, db, txId);
 };
 
 struct HasResponse {
@@ -147,14 +149,14 @@ struct CopyStoreRequest {
 };
 
 struct StartReadTxResponse {
-    uint64_t tx;
-    MSGPACK_DEFINE_MAP(tx);
+    uint64_t txId;
+    MSGPACK_DEFINE_MAP(txId);
 };
 
 struct CloseReadTxRequest {
     // Optional only so that a request without it is rejected rather than read as an indeterminate id
-    std::optional<uint64_t> tx;
-    MSGPACK_DEFINE_MAP(tx);
+    std::optional<uint64_t> txId;
+    MSGPACK_DEFINE_MAP(txId);
 };
 
 } // namespace azteclabs::kvdb::lmdb_store
