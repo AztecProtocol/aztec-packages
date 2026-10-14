@@ -59,7 +59,7 @@ endef
 # Fast bootstrap.
 # wsdb belongs to foundation until disentangled.
 fast-foundation: barretenberg bb-tests \
-		wsdb wsdb-tests lmdblib-tests \
+		wsdb wsdb-tests lmdblib-tests kvdb-tests \
 		l1-contracts l1-contracts-tests \
 		mock-protocol-circuits \
 		noir-protocol-circuits noir-protocol-circuits-tests \
@@ -395,7 +395,7 @@ ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-a
 
 # lmdblib and kvdb are barretenberg-free: they build against their own deps
 # (lmdb, msgpack-c, node-addon-api) only, never bb.
-.PHONY: lmdblib kvdb lmdblib-tests wsdb-tests
+.PHONY: lmdblib kvdb lmdblib-tests kvdb-tests wsdb-tests
 lmdblib:
 	$(call build,$@,native-packages/lmdblib)
 
@@ -405,11 +405,15 @@ kvdb: lmdblib
 wsdb: lmdblib
 	$(call build,$@,native-packages/wsdb)
 
-# Native-package C++ tests (self-contained gtest binaries). kvdb has no C++ tests
-# (its NAPI is exercised by yarn-project's kv-store tests). wsdb_tests use no bb
-# headers; the bb-header parity/equivalence target is manual (WSDB_BUILD_BB_TESTS).
+# Native-package tests. lmdblib and wsdb are self-contained gtest binaries. kvdb has no
+# C++ tests: its NAPI protocol is driven from node (ts/test) and exercised further by
+# yarn-project's kv-store tests. wsdb_tests use no bb headers; the bb-header
+# parity/equivalence target is manual (WSDB_BUILD_BB_TESTS).
 lmdblib-tests: lmdblib
 	$(call test,$@,native-packages/lmdblib)
+
+kvdb-tests: kvdb
+	$(call test,$@,native-packages/kvdb)
 
 wsdb-tests: wsdb
 	$(call test,$@,native-packages/wsdb)

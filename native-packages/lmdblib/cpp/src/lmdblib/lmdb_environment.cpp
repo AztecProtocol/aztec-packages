@@ -43,6 +43,11 @@ void LMDBEnvironment::wait_for_reader()
     _readGuard.wait();
 }
 
+bool LMDBEnvironment::try_wait_for_reader(uint32_t keepFree)
+{
+    return _readGuard.try_wait(keepFree);
+}
+
 void LMDBEnvironment::release_reader()
 {
     _readGuard.release();

@@ -20,6 +20,12 @@ class LMDBStoreBase {
     virtual ~LMDBStoreBase() = 0;
     ReadTransaction::Ptr create_read_transaction() const;
     ReadTransaction::SharedPtr create_shared_read_transaction() const;
+    /**
+     * @brief Like create_shared_read_transaction, but never waits for a reader permit.
+     * @param keepFree How many reader permits must remain available once this transaction holds one
+     * @return nullptr if no permit could be taken
+     */
+    ReadTransaction::SharedPtr try_create_shared_read_transaction(uint32_t keepFree = 0) const;
     WriteTransaction::Ptr create_write_transaction() const;
     LMDBDatabaseCreationTransaction::Ptr create_db_transaction() const;
     void copy_store(const std::string& dstPath, bool compact);

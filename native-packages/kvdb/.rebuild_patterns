@@ -3,4 +3,5 @@
 ^native-packages/kvdb/\.rebuild_patterns$
 ^native-packages/kvdb/cpp/
 ^native-packages/kvdb/ts/src/
+^native-packages/kvdb/ts/test/
 ^native-packages/lmdblib/

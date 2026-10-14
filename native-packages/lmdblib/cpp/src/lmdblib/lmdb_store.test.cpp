@@ -9,7 +9,9 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include "lmdblib/fixtures.hpp"
@@ -227,6 +229,191 @@ TEST_F(LMDBStoreTest, can_read_from_database)
     EXPECT_EQ(data.size(), 1);
     EXPECT_TRUE(data[0].has_value());
     EXPECT_EQ(data[0].value(), ValuesVector{ expected });
+}
+
+TEST_F(LMDBStoreTest, reads_against_a_shared_read_transaction_see_a_stable_snapshot)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string dbName = "Test Database";
+    store->open_database(dbName);
+
+    auto key = get_key(0);
+    auto original = get_value(0, 1);
+    auto updated = get_value(0, 2);
+    auto addedKey = get_key(1);
+    auto addedValue = get_value(1, 1);
+
+    KeyOptionalValuesVector toDelete;
+    KeyDupValuesVector toWrite = { { { key, { original } } } };
+    std::vector<LMDBStore::PutData> putDatas = { { toWrite, toDelete, dbName } };
+    store->put(putDatas);
+
+    LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+
+    KeysVector keys = { { key }, { addedKey } };
+    OptionalValuesVector snapshot;
+    store->get(keys, snapshot, dbName, tx);
+    ASSERT_EQ(snapshot.size(), 2);
+    EXPECT_EQ(snapshot[0].value(), ValuesVector{ original });
+    EXPECT_FALSE(snapshot[1].has_value());
+
+    // commits while the read transaction is still open
+    toWrite = { KeyValuesPair{ key, { updated } }, KeyValuesPair{ addedKey, { addedValue } } };
+    putDatas = { { toWrite, toDelete, dbName } };
+    store->put(putDatas);
+
+    OptionalValuesVector afterWrite;
+    store->get(keys, afterWrite, dbName, tx);
+    ASSERT_EQ(afterWrite.size(), 2);
+    EXPECT_EQ(afterWrite[0].value(), ValuesVector{ original });
+    EXPECT_FALSE(afterWrite[1].has_value());
+
+    OptionalValuesVector latest;
+    store->get(keys, latest, dbName);
+    ASSERT_EQ(latest.size(), 2);
+    EXPECT_EQ(latest[0].value(), ValuesVector{ updated });
+    EXPECT_EQ(latest[1].value(), ValuesVector{ addedValue });
+}
+
+TEST_F(LMDBStoreTest, can_read_duplicates_against_a_shared_read_transaction)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    int64_t numKeys = 5;
+    int64_t numValues = 3;
+    write_test_data({ dbName }, numKeys, numValues, *store);
+
+    LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+
+    // adds a further duplicate to the key once the read transaction is open
+    KeyOptionalValuesVector toDelete;
+    KeyDupValuesVector toWrite = { { { get_key(2), { get_value(2, numValues) } } } };
+    std::vector<LMDBStore::PutData> putDatas = { { toWrite, toDelete, dbName } };
+    store->put(putDatas);
+
+    KeysVector keys = { { get_key(2) } };
+    OptionalValuesVector values;
+    store->get(keys, values, dbName, tx);
+
+    ValuesVector expected;
+    for (int64_t i = 0; i < numValues; i++) {
+        expected.emplace_back(get_value(2, i));
+    }
+    ASSERT_EQ(values.size(), 1);
+    ASSERT_TRUE(values[0].has_value());
+    EXPECT_EQ(values[0].value(), expected);
+
+    OptionalValuesVector latest;
+    store->get(keys, latest, dbName);
+    expected.emplace_back(get_value(2, numValues));
+    ASSERT_TRUE(latest[0].has_value());
+    EXPECT_EQ(latest[0].value(), expected);
+}
+
+TEST_F(LMDBStoreTest, can_share_a_read_transaction_between_gets_and_cursors)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string dbName = "Test Database";
+    store->open_database(dbName);
+
+    int64_t numKeys = 5;
+    write_test_data({ dbName }, numKeys, 1, *store);
+
+    LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+    LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+
+    KeyOptionalValuesVector toDelete = { { get_key(0), std::nullopt } };
+    KeyDupValuesVector toWrite;
+    std::vector<LMDBStore::PutData> putDatas = { { toWrite, toDelete, dbName } };
+    store->put(putDatas);
+
+    KeysVector keys = { { get_key(0) } };
+    OptionalValuesVector values;
+    store->get(keys, values, dbName, tx);
+    ASSERT_TRUE(values[0].has_value());
+    EXPECT_EQ(values[0].value(), ValuesVector{ get_value(0, 0) });
+
+    EXPECT_TRUE(cursor->set_at_start());
+    KeyDupValuesVector entries;
+    cursor->read_next(static_cast<uint64_t>(numKeys), entries);
+    ASSERT_EQ(entries.size(), static_cast<size_t>(numKeys));
+    EXPECT_EQ(entries[0].first, get_key(0));
+}
+
+TEST_F(LMDBStoreTest, try_create_shared_read_transaction_does_not_wait_and_keeps_permits_free)
+{
+    const uint32_t maxReaders = 3;
+    LMDBStore::Ptr store = std::make_unique<LMDBStore>(_directory, _mapSize, maxReaders, 1);
+
+    std::vector<LMDBStore::ReadTransaction::SharedPtr> held;
+    for (uint32_t i = 0; i < maxReaders - 1; i++) {
+        held.push_back(store->try_create_shared_read_transaction(1));
+        ASSERT_NE(held.back(), nullptr);
+    }
+    EXPECT_EQ(store->try_create_shared_read_transaction(1), nullptr);
+
+    held.push_back(store->try_create_shared_read_transaction());
+    ASSERT_NE(held.back(), nullptr);
+    EXPECT_EQ(store->try_create_shared_read_transaction(), nullptr);
+
+    held.pop_back();
+    held.pop_back();
+    EXPECT_NE(store->try_create_shared_read_transaction(1), nullptr);
+}
+
+TEST_F(LMDBStoreTest, reader_permit_is_returned_when_a_read_transaction_fails_to_begin)
+{
+    const uint32_t maxReaders = 2;
+    int toParent[2];
+    int toChild[2];
+    ASSERT_EQ(pipe(toParent), 0);
+    ASSERT_EQ(pipe(toChild), 0);
+
+    // Another process occupies every slot in the environment's reader table, so mdb_txn_begin fails here
+    pid_t pid = fork();
+    ASSERT_GE(pid, 0);
+    if (pid == 0) {
+        {
+            auto env = std::make_shared<LMDBEnvironment>(_directory, _mapSize, 1, maxReaders);
+            std::vector<std::unique_ptr<LMDBReadTransaction>> txs;
+            for (uint32_t i = 0; i < maxReaders; i++) {
+                env->wait_for_reader();
+                txs.push_back(std::make_unique<LMDBReadTransaction>(env));
+            }
+            char c = 'r';
+            if (write(toParent[1], &c, 1) != 1 || read(toChild[0], &c, 1) != 1) {
+                _exit(1);
+            }
+        }
+        _exit(0);
+    }
+
+    char c = 0;
+    ASSERT_EQ(read(toParent[0], &c, 1), 1);
+
+    LMDBStore::Ptr store = std::make_unique<LMDBStore>(_directory, _mapSize, maxReaders, 1);
+    // more failed attempts than there are permits, so a leaked permit would surface as a nullptr here
+    EXPECT_THROW(store->create_shared_read_transaction(), std::runtime_error);
+    for (uint32_t i = 0; i < maxReaders; i++) {
+        EXPECT_THROW(store->try_create_shared_read_transaction(), std::runtime_error);
+    }
+
+    ASSERT_EQ(write(toChild[1], &c, 1), 1);
+    int status = 0;
+    ASSERT_EQ(waitpid(pid, &status, 0), pid);
+    ASSERT_TRUE(WIFEXITED(status));
+    ASSERT_EQ(WEXITSTATUS(status), 0);
+    for (int fd : { toParent[0], toParent[1], toChild[0], toChild[1] }) {
+        close(fd);
+    }
+
+    std::vector<LMDBStore::ReadTransaction::SharedPtr> held;
+    for (uint32_t i = 0; i < maxReaders; i++) {
+        held.push_back(store->try_create_shared_read_transaction());
+        EXPECT_NE(held.back(), nullptr);
+    }
 }
 
 TEST_F(LMDBStoreTest, can_not_read_from_non_existent_database)

@@ -113,7 +113,16 @@ void LMDBStore::put(std::vector<PutData>& data)
 
 void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, const std::string& name)
 {
-    get(keys, values, get_database(name));
+    LMDBDatabase::SharedPtr db = get_database(name);
+    get(keys, values, db, create_shared_read_transaction());
+}
+
+void LMDBStore::get(KeysVector& keys,
+                    OptionalValuesVector& values,
+                    const std::string& name,
+                    ReadTransaction::SharedPtr tx)
+{
+    get(keys, values, get_database(name), std::move(tx));
 }
 
 void LMDBStore::put(KeyDupValuesVector& toWrite,
@@ -136,10 +145,12 @@ void LMDBStore::put(KeyDupValuesVector& toWrite,
         }
     }
 }
-void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db)
+void LMDBStore::get(KeysVector& keys,
+                    OptionalValuesVector& values,
+                    LMDBDatabase::SharedPtr db,
+                    ReadTransaction::SharedPtr tx)
 {
     values.reserve(keys.size());
-    ReadTransaction::SharedPtr tx = create_read_transaction();
     if (!db->duplicate_keys_permitted()) {
         const LMDBDatabase& dbRef = *db;
         for (auto& k : keys) {
@@ -180,6 +191,14 @@ void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase
 
 void LMDBStore::has(const KeyOptionalValuesVector& entries, std::vector<bool>& results, const std::string& name)
 {
+    has(entries, results, name, create_shared_read_transaction());
+}
+
+void LMDBStore::has(const KeyOptionalValuesVector& entries,
+                    std::vector<bool>& results,
+                    const std::string& name,
+                    ReadTransaction::SharedPtr tx)
+{
     auto string_cmp = [](const Key& a, const Key& b) {
         return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
     };
@@ -191,7 +210,7 @@ void LMDBStore::has(const KeyOptionalValuesVector& entries, std::vector<bool>& r
 
     KeysVector keys(key_set.begin(), key_set.end());
     OptionalValuesVector vals;
-    get(keys, vals, name);
+    get(keys, vals, name, std::move(tx));
 
     results.reserve(entries.size());
 
