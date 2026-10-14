@@ -129,8 +129,7 @@ ReadTxData LMDBStoreWrapper::get_read_tx(uint64_t id)
     std::lock_guard<std::mutex> lock(_read_tx_mutex);
     auto it = _read_txs.find(id);
     if (it == _read_txs.end()) {
-        throw std::runtime_error(
-            azteclabs::lmdblib::format("Read transaction ", id, " not found, was it already closed?"));
+        throw std::runtime_error(format("Read transaction ", id, " not found, was it already closed?"));
     }
     return it->second;
 }

@@ -2,10 +2,14 @@
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/concepts.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
+#include <algorithm>
+#include <concepts>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace bb::nodejs::lmdb_store {
 
@@ -42,13 +46,9 @@ struct OpenDatabaseRequest {
 struct GetRequest {
     lmdblib::KeysVector keys;
     std::string db;
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
-    SERIALIZATION_FIELDS(keys, db);
-=======
     // When set, read through the snapshot of this open read transaction instead of a fresh one
     std::optional<uint64_t> txId;
-    MSGPACK_DEFINE_MAP(keys, db, txId);
->>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
+    SERIALIZATION_FIELDS(keys, db, txId);
 };
 
 struct GetResponse {
@@ -60,13 +60,9 @@ struct HasRequest {
     // std::map<lmdblib::Key, std::optional<lmdblib::Value>> entries;
     lmdblib::KeyOptionalValuesVector entries;
     std::string db;
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
-    SERIALIZATION_FIELDS(entries, db);
-=======
     // When set, check against the snapshot of this open read transaction instead of a fresh one
     std::optional<uint64_t> txId;
-    MSGPACK_DEFINE_MAP(entries, db, txId);
->>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
+    SERIALIZATION_FIELDS(entries, db, txId);
 };
 
 struct HasResponse {
@@ -93,13 +89,9 @@ struct StartCursorRequest {
     std::optional<uint32_t> count;
     std::optional<bool> onePage;
     std::string db;
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
-    SERIALIZATION_FIELDS(key, reverse, count, onePage, db);
-=======
     // When set, iterate over the snapshot of this open read transaction instead of a fresh one
     std::optional<uint64_t> txId;
-    MSGPACK_DEFINE_MAP(key, reverse, count, onePage, db, txId);
->>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
+    SERIALIZATION_FIELDS(key, reverse, count, onePage, db, txId);
 };
 
 struct StartCursorResponse {
@@ -160,21 +152,68 @@ struct CopyStoreRequest {
     SERIALIZATION_FIELDS(dstPath, compact);
 };
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp
-} // namespace bb::nodejs::lmdb_store
-=======
 struct StartReadTxResponse {
     uint64_t txId;
-    MSGPACK_DEFINE_MAP(txId);
+    SERIALIZATION_FIELDS(txId);
 };
 
 struct CloseReadTxRequest {
     // Optional only so that a request without it is rejected rather than read as an indeterminate id
     std::optional<uint64_t> txId;
-    MSGPACK_DEFINE_MAP(txId);
+    SERIALIZATION_FIELDS(txId);
 };
 
-} // namespace azteclabs::kvdb::lmdb_store
->>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_message.hpp
+} // namespace bb::nodejs::lmdb_store
 
 MSGPACK_ADD_ENUM(bb::nodejs::lmdb_store::LMDBStoreMessageType)
+
+namespace bb::nodejs::lmdb_store {
+
+/**
+ * @brief Requests with an optional `txId` field. Clients that do not use read transactions omit `txId` from the map
+ * entirely, but barretenberg's msgpack `define_map` rejects any missing key, so these requests get the dedicated
+ * adaptor below that reads a missing `txId` as nil.
+ */
+template <typename T>
+concept OptionalTxIdRequest = msgpack_concepts::HasMsgPack<T> && requires(T t) {
+    { t.txId } -> std::same_as<std::optional<uint64_t>&>;
+};
+
+} // namespace bb::nodejs::lmdb_store
+
+namespace msgpack::adaptor {
+
+template <bb::nodejs::lmdb_store::OptionalTxIdRequest T> struct convert<T> {
+    msgpack::object const& operator()(msgpack::object const& o, T& v) const
+    {
+        constexpr std::string_view tx_id_key = "txId";
+        msgpack::zone zone;
+        msgpack::object source = o;
+        if (o.type == msgpack::type::MAP) {
+            const msgpack::object_map& map = o.via.map;
+            bool has_tx_id = false;
+            for (uint32_t i = 0; i < map.size; ++i) {
+                const msgpack::object& key = map.ptr[i].key;
+                if (key.type == msgpack::type::STR &&
+                    std::string_view(key.via.str.ptr, key.via.str.size) == tx_id_key) {
+                    has_tx_id = true;
+                    break;
+                }
+            }
+            if (!has_tx_id) {
+                auto* entries = static_cast<msgpack::object_kv*>(zone.allocate_align(
+                    sizeof(msgpack::object_kv) * (map.size + 1), MSGPACK_ZONE_ALIGNOF(msgpack::object_kv)));
+                std::copy(map.ptr, map.ptr + map.size, entries);
+                entries[map.size].key = msgpack::object(tx_id_key.data(), zone);
+                entries[map.size].val = msgpack::object();
+                source.via.map.ptr = entries;
+                source.via.map.size = map.size + 1;
+            }
+        }
+        v.msgpack(
+            [&](auto&... args) { msgpack::type::define_map<decltype(args)...>{ args... }.msgpack_unpack(source); });
+        return o;
+    }
+};
+
+} // namespace msgpack::adaptor

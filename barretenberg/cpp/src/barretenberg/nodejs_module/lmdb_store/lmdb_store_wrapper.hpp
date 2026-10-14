@@ -1,6 +1,5 @@
 #pragma once
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp
 #include "barretenberg/lmdblib/lmdb_cursor.hpp"
 #include "barretenberg/lmdblib/lmdb_store.hpp"
 #include "barretenberg/lmdblib/types.hpp"
@@ -8,15 +7,6 @@
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "barretenberg/nodejs_module/util/message_processor.hpp"
-=======
-#include "lmdb_store/lmdb_store_message.hpp"
-#include "lmdblib/lmdb_cursor.hpp"
-#include "lmdblib/lmdb_store.hpp"
-#include "lmdblib/types.hpp"
-#include "messaging/dispatcher.hpp"
-#include "messaging/header.hpp"
-#include "util/message_processor.hpp"
->>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_wrapper.hpp
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -62,14 +52,10 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     std::mutex _cursor_mutex;
     std::unordered_map<uint64_t, CursorData> _cursors;
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp
-    bb::nodejs::AsyncMessageProcessor _msg_processor;
-=======
     std::mutex _read_tx_mutex;
     std::unordered_map<uint64_t, ReadTxData> _read_txs;
 
-    azteclabs::kvdb::AsyncMessageProcessor _msg_processor;
->>>>>>> aca4d3e946c (feat(kvdb): expose read-only lmdb transactions (#25631)):native-packages/kvdb/cpp/src/lmdb_store/lmdb_store_wrapper.hpp
+    bb::nodejs::AsyncMessageProcessor _msg_processor;
 
     void verify_store() const;
 
