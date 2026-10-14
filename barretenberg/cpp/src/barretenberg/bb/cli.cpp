@@ -258,7 +258,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
+        return subcommand->add_flag(
+            "--write_vk", flags.write_vk, "Write the provided circuit's verification key (UltraHonk only)");
     };
 
     const auto remove_zk_option = [&](CLI::App* subcommand) {
@@ -1007,6 +1008,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (flags.scheme == "chonk") {
             ChonkAPI api;
             if (prove->parsed()) {
+                if (flags.write_vk) {
+                    throw_or_abort("prove --write_vk is not supported for Chonk. Use bb write_vk --scheme chonk "
+                                   "--circuit_kind hiding -b <hiding-kernel-bytecode> -o <output-directory>.");
+                }
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The prove command for Chonk expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");

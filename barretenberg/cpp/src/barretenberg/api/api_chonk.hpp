@@ -18,7 +18,7 @@ namespace bb {
  * TypeScript (private function calls)
  *   → msgpack encode to ivc-inputs.msgpack
  *   → ChonkAPI::prove() loads and accumulates all steps
- *   → Chonk proof + VK written to output directory
+ *   → Chonk proof written to output directory
  * ```
  *
  * **Key entry points:**
@@ -27,7 +27,7 @@ namespace bb {
  * - `write_vk()`: Computes verification key for standalone or IVC circuits
  * - `check_precomputed_vks()`: Validates that precomputed VKs match computed ones
  *
- * @see PrivateExecutionSteps for the input format
+ * @see PrivateExecutionStepRaw for the input format
  * @see Chonk for the underlying IVC implementation
  */
 class ChonkAPI : public API {
@@ -37,11 +37,11 @@ class ChonkAPI : public API {
      * @brief Main production entry point: generate a Chonk proof from private execution steps.
      *
      * @details Loads execution steps from ivc-inputs.msgpack, accumulates each circuit via Chonk,
-     * and writes the final proof (and optionally VK) to the output directory.
+     * and writes the final proof to the output directory.
      *
-     * @param flags Runtime flags (vk_policy, write_vk, etc.)
+     * @param flags Runtime flags (vk_policy, output_format, etc.)
      * @param input_path Path to ivc-inputs.msgpack containing PrivateExecutionStepRaw entries
-     * @param output_dir Directory to write proof (and vk if flags.write_vk is set)
+     * @param output_dir Directory to write the proof
      */
     void prove(const Flags& flags, const std::filesystem::path& input_path, const std::filesystem::path& output_dir);
 
@@ -56,11 +56,6 @@ class ChonkAPI : public API {
                 const std::filesystem::path& public_inputs_path,
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override;
-
-    /**
-     * @brief Test/debug function: prove and verify in one call (bypasses serialization).
-     */
-    bool prove_and_verify(const std::filesystem::path& input_path);
 
     /**
      * @brief Output gate count statistics for a circuit.
