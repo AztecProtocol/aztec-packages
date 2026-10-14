@@ -56,22 +56,23 @@ struct Helpers {
     template <typename T>
     static void conv_fld_from_array(msgpack::object_array const& array,
                                     std::string const& struct_name,
-                                    std::string const& field_name,
+                                    std::string_view field_name,
                                     T& field,
                                     uint32_t index)
     {
         if (index >= array.size) {
-            throw_or_abort("index out of bounds: " + struct_name + "::" + field_name + " at " + std::to_string(index));
+            throw_or_abort("index out of bounds: " + struct_name + "::" + std::string(field_name) + " at " +
+                           std::to_string(index));
         }
         auto element = array.ptr[index];
         if (element.type == msgpack::type::NIL) {
-            throw_or_abort("nil value for required field: " + struct_name + "::" + field_name);
+            throw_or_abort("nil value for required field: " + struct_name + "::" + std::string(field_name));
         }
         try {
             element.convert(field);
         } catch (const msgpack::type_error&) {
             std::cerr << element << std::endl;
-            throw_or_abort("error converting into field " + struct_name + "::" + field_name);
+            throw_or_abort("error converting into field " + struct_name + "::" + std::string(field_name));
         }
     }
 
@@ -81,14 +82,14 @@ struct Helpers {
     template <typename T>
     static void convert_or_throw(msgpack::object const& val,
                                  std::string const& struct_name,
-                                 std::string const& field_name,
+                                 std::string_view field_name,
                                  T& field)
     {
         try {
             val.convert(field);
         } catch (const msgpack::type_error&) {
             std::cerr << val << std::endl;
-            throw_or_abort("error converting into field " + struct_name + "::" + field_name);
+            throw_or_abort("error converting into field " + struct_name + "::" + std::string(field_name));
         }
     }
 

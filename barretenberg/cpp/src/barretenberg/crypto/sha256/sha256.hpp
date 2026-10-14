@@ -8,6 +8,7 @@
 
 #include "stdint.h"
 #include <array>
+#include <cstddef>
 #include <iomanip>
 #include <ostream>
 #include <vector>
@@ -18,6 +19,10 @@ using Sha256Hash = std::array<uint8_t, 32>;
 
 // SHA-256 compression function (FIPS 180-4 Section 6.2.2)
 std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, const std::array<uint32_t, 16>& input);
+
+// Applies the compression function to `num_blocks` consecutive 64-byte blocks of big-endian message words. Uses the
+// x86 SHA extensions when the CPU has them.
+void sha256_compress_blocks(std::array<uint32_t, 8>& state, const uint8_t* data, size_t num_blocks);
 
 template <typename T> Sha256Hash sha256(const T& input);
 

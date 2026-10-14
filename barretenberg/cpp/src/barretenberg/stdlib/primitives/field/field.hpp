@@ -49,6 +49,11 @@ template <typename Builder_> class field_t {
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
 
+    // Montgomery-form 1 and -1, evaluated at compile time. Outside a constant expression bb::fr::one() and
+    // bb::fr::neg_one() convert to Montgomery form at runtime, and every constructor needs the constant 1.
+    static constexpr bb::fr ONE = bb::fr::one();
+    static constexpr bb::fr NEG_ONE = bb::fr::neg_one();
+
     // Friend declarations for classes that need direct witness_index access
     template <typename B> friend class bool_t;
     template <typename B, typename T> friend class bigfield;
@@ -153,7 +158,7 @@ template <typename Builder_> class field_t {
     field_t(const int value)
         : context(nullptr)
         , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(ONE)
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -163,7 +168,7 @@ template <typename Builder_> class field_t {
     field_t(const unsigned long long value)
         : context(nullptr)
         , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(ONE)
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -172,7 +177,7 @@ template <typename Builder_> class field_t {
     field_t(const unsigned int value)
         : context(nullptr)
         , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(ONE)
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -182,7 +187,7 @@ template <typename Builder_> class field_t {
     field_t(const unsigned long value)
         : context(nullptr)
         , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(ONE)
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -192,7 +197,7 @@ template <typename Builder_> class field_t {
     field_t(const bb::fr& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(ONE)
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -202,7 +207,7 @@ template <typename Builder_> class field_t {
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(ONE)
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -334,7 +339,7 @@ template <typename Builder_> class field_t {
         // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
         if (is_constant()) {
             BB_ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
-            return field_t(fr::one()).divide_no_zero_check(*this);
+            return field_t(ONE).divide_no_zero_check(*this);
         }
 
         auto* ctx = get_context();
@@ -342,7 +347,7 @@ template <typename Builder_> class field_t {
             ctx->failure("field_t::invert denominator is 0");
         }
 
-        return field_t(fr::one()).divide_no_zero_check(*this);
+        return field_t(ONE).divide_no_zero_check(*this);
     }
 
     field_t operator-() const
@@ -455,7 +460,7 @@ template <typename Builder_> class field_t {
     bool is_constant() const { return witness_index == IS_CONSTANT; }
     bool is_normalized() const
     {
-        return (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero())));
+        return (is_constant() || ((multiplicative_constant == ONE) && (additive_constant == bb::fr::zero())));
     };
     uint32_t set_public() const
     {

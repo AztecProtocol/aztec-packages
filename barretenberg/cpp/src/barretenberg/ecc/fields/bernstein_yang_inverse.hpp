@@ -23,6 +23,7 @@
 #pragma once
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <algorithm>
 #include <cstdint>
 
 namespace bb::bernstein_yang {
@@ -39,6 +40,86 @@ using i64 = int64_t;
 struct DivstepMatrix {
     i64 u, v, q, r;
 };
+
+// Each divstep shrinks |g| by ~1 bit using a binary-GCD-style move.
+// Three cases, depending on g's parity and the "δ" tracker (which decides
+// whether |f| or |g| is currently smaller):
+//   g even         : g ← g/2.
+//   g odd, δ ≤ 0   : g ← (g + f)/2  (adding f to make g+f even before /2).
+//   g odd, δ > 0   : swap roles — (f, g) ← (g, (g - f)/2).
+// The matrix (u, v, q, r) tracks the same linear transform applied
+// symbolically; doubling u, v (or q, r) corresponds to the implicit /2 each
+// divstep performs.  After BATCH divsteps the low BATCH bits of the
+// transformed state are guaranteed zero, so apply_divstep_matrix's implicit
+// "/ 2^BATCH" is an exact integer division.
+//
+// The BATCH divsteps are evaluated several at a time (the variable-time
+// formulation of libsecp256k1's modinv64, safegcd_implementation.md §5),
+// producing the same matrix and δ as stepping one divstep at a time:
+//   - a run of z trailing zero bits of g is z "g even" steps at once
+//     (count-trailing-zeros, shift g, double u and v);
+//   - with g odd, the δ > 0 swap is applied as (f, g) ← (g, -f) followed by
+//     "g odd, δ ≤ 0"-style steps, and consecutive "g ← (g + f)/2" steps
+//     taken while δ stays ≤ 0 collapse into one g ← g + w·f, where w ≡ -g/f
+//     cancels up to min(δ' + 1, steps left, 6 or 4) low bits of g; the
+//     zero bits this creates are consumed by the next count-trailing-zeros.
+// The work is ~one iteration per few divsteps instead of one unpredictable
+// branch per divstep.  Shared by Native5x64 (BATCH = 62) and Wasm9x29
+// (BATCH = 58); only the low BATCH bits of f_lo and g_lo are read.
+template <int BATCH> inline DivstepMatrix compute_divsteps_vartime(i64& delta, u64 f_lo, u64 g_lo) noexcept
+{
+    static_assert(BATCH > 0 && BATCH <= 62);
+    // Unsigned two's-complement arithmetic throughout; every entry stays within
+    // ±2^BATCH, so the final reinterpretation as i64 is exact.  eta = -δ.
+    u64 u = 1, v = 0, q = 0, r = 1;
+    u64 f = f_lo, g = g_lo;
+    i64 eta = -delta;
+    int i = BATCH;
+    while (true) {
+        // Sentinel bit at position i caps the zero count at the divsteps left.
+        const int zeros = __builtin_ctzll(g | (~u64{ 0 } << i));
+        g >>= zeros;
+        u <<= zeros;
+        v <<= zeros;
+        eta -= zeros;
+        i -= zeros;
+        if (i == 0) {
+            break;
+        }
+        // f and g are both odd here.
+        u64 m;
+        u64 w;
+        if (eta < 0) {
+            // δ > 0 swap: (f, g) ← (g, -f), and (u, v, q, r) ← (q, r, -u, -v).
+            eta = -eta;
+            u64 tmp = f;
+            f = g;
+            g = 0 - tmp;
+            tmp = u;
+            u = q;
+            q = 0 - tmp;
+            tmp = v;
+            v = r;
+            r = 0 - tmp;
+            // Cancel up to min(eta + 1, i, 6) low bits of g: w = -g · f⁻¹ mod 2^6, with
+            // f⁻¹ ≡ f · (2 - f²) mod 2^6 (one Newton step from f⁻¹ ≡ f mod 2^3).
+            const int limit = static_cast<int>(std::min<i64>(eta + 1, i));
+            m = (~u64{ 0 } >> (64 - limit)) & 63U;
+            w = (f * g * (f * f - 2)) & m;
+        } else {
+            // Cancel up to min(eta + 1, i, 4) low bits of g: w = -g · f⁻¹ mod 2^4.
+            const int limit = static_cast<int>(std::min<i64>(eta + 1, i));
+            m = (~u64{ 0 } >> (64 - limit)) & 15U;
+            w = f + (((f + 1) & 4) << 1);
+            w = (0 - w * g) & m;
+        }
+        g += f * w;
+        q += u * w;
+        r += v * w;
+    }
+    delta = -eta;
+    return { static_cast<i64>(u), static_cast<i64>(v), static_cast<i64>(q), static_cast<i64>(r) };
+}
 
 // 5 × 64-bit limbs, top limb two's-complement signed.  Products via __int128.
 class Native5x64 {
@@ -211,48 +292,9 @@ struct NativeMatrix {
     }
 };
 
-// Each inner step shrinks |g| by ~1 bit using a binary-GCD-style move.
-// Three cases, depending on g's parity and the "δ" tracker (which decides
-// whether |f| or |g| is currently smaller):
-//   g even         : g ← g/2.
-//   g odd, δ ≤ 0   : g ← (g + f)/2  (adding f to make g+f even before /2).
-//   g odd, δ > 0   : swap roles — (f, g) ← (g, (g - f)/2).
-// The matrix (u, v, q, r) tracks the same linear transform applied
-// symbolically; doubling u, v (or q, r) corresponds to the implicit /2 each
-// inner step performs.  After BATCH steps the low BATCH bits of the
-// transformed state are guaranteed zero, so apply_divstep_matrix's implicit
-// "/ 2^BATCH" is an exact integer division.
 inline DivstepMatrix Native5x64::compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept
 {
-    i64 u = 1, v = 0, q = 0, r = 1;
-    for (int i = 0; i < BATCH; ++i) {
-        if (g_lo & 1) {
-            if (delta > 0) {
-                u64 nf = g_lo, ng = (g_lo - f_lo) >> 1;
-                i64 nu = q << 1, nv = r << 1, nq = q - u, nr = r - v;
-                f_lo = nf;
-                g_lo = ng;
-                u = nu;
-                v = nv;
-                q = nq;
-                r = nr;
-                delta = 1 - delta;
-            } else {
-                g_lo = (g_lo + f_lo) >> 1;
-                q = q + u;
-                r = r + v;
-                u <<= 1;
-                v <<= 1;
-                delta = delta + 1;
-            }
-        } else {
-            g_lo >>= 1;
-            u <<= 1;
-            v <<= 1;
-            delta = delta + 1;
-        }
-    }
-    return { u, v, q, r };
+    return compute_divsteps_vartime<BATCH>(delta, f_lo, g_lo);
 }
 
 inline void Native5x64::apply_divstep_matrix(const DivstepMatrix& m,

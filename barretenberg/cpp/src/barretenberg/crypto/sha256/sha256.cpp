@@ -8,8 +8,16 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/net.hpp"
 #include <array>
+#include <cstring>
+#include <iterator>
 #include <memory.h>
 #include <span>
+
+#if defined(__x86_64__) && !defined(__wasm__) && (defined(__clang__) || defined(__GNUC__))
+#define BB_SHA256_X86_SHA_NI 1
+#include <cpuid.h>
+#include <immintrin.h>
+#endif
 
 namespace {
 
@@ -44,6 +52,99 @@ constexpr uint32_t ror(uint32_t val, uint32_t shift)
 {
     return (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
 }
+
+#ifdef BB_SHA256_X86_SHA_NI
+/**
+ * @brief Whether the CPU implements the x86 SHA extensions (and the SSSE3 / SSE4.1 shuffles the kernel uses).
+ */
+bool cpu_has_sha_ni()
+{
+    unsigned int eax = 0;
+    unsigned int ebx = 0;
+    unsigned int ecx = 0;
+    unsigned int edx = 0;
+    if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0) {
+        return false;
+    }
+    const bool has_ssse3 = (ecx & (1U << 9)) != 0;
+    const bool has_sse41 = (ecx & (1U << 19)) != 0;
+    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 0) {
+        return false;
+    }
+    const bool has_sha = (ebx & (1U << 29)) != 0;
+    return has_ssse3 && has_sse41 && has_sha;
+}
+
+const bool use_sha_ni = cpu_has_sha_ni();
+
+/**
+ * @brief SHA-256 compression of consecutive 64-byte big-endian message blocks with the x86 SHA extensions.
+ * @details Computes the same function as repeated `sha256_block` calls. The state is kept in the (ABEF, CDGH) lane
+ * layout that SHA256RNDS2 operates on; each SHA256RNDS2 performs two rounds, and SHA256MSG1/SHA256MSG2 extend the
+ * message schedule four words at a time.
+ */
+__attribute__((target("sha,sse4.1,ssse3"))) void compress_blocks_sha_ni(std::array<uint32_t, 8>& state,
+                                                                        const uint8_t* data,
+                                                                        size_t num_blocks)
+{
+    // Byte-swaps each 32-bit word: message words are big-endian.
+    const __m128i byte_swap_mask = _mm_set_epi64x(0x0c0d0e0f08090a0bULL, 0x0405060700010203ULL);
+    const auto round_constants_at = [](size_t i) {
+        return _mm_loadu_si128(reinterpret_cast<const __m128i*>(&round_constants[i]));
+    };
+
+    // (a, b, c, d), (e, f, g, h) -> (a, b, e, f), (c, d, g, h)
+    __m128i tmp = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&state[0]));
+    __m128i state1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&state[4]));
+    tmp = _mm_shuffle_epi32(tmp, 0xB1);
+    state1 = _mm_shuffle_epi32(state1, 0x1B);
+    __m128i state0 = _mm_alignr_epi8(tmp, state1, 8);
+    state1 = _mm_blend_epi16(state1, tmp, 0xF0);
+
+    for (size_t block = 0; block < num_blocks; ++block) {
+        const uint8_t* block_data = data + (block * 64);
+        const __m128i abef_save = state0;
+        const __m128i cdgh_save = state1;
+
+        // msg[j] holds message words 4j..4j+3 of the current group of 16, extended in place.
+        std::array<__m128i, 4> msg;
+        for (size_t j = 0; j < 4; ++j) {
+            msg[j] = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block_data + (16 * j))),
+                                      byte_swap_mask);
+        }
+
+        // Group g covers rounds 4g..4g+3 and uses msg[g % 4]. While it runs, the schedule words of later groups are
+        // advanced: SHA256MSG2 completes the words for group g+1 and SHA256MSG1 starts the words for group g+3.
+        for (size_t g = 0; g < 16; ++g) {
+            __m128i& current = msg[g % 4];
+            __m128i& previous = msg[(g + 3) % 4];
+            __m128i& next = msg[(g + 1) % 4];
+            __m128i words = _mm_add_epi32(current, round_constants_at(4 * g));
+            state1 = _mm_sha256rnds2_epu32(state1, state0, words);
+            if (g >= 3 && g <= 14) {
+                next = _mm_add_epi32(next, _mm_alignr_epi8(current, previous, 4));
+                next = _mm_sha256msg2_epu32(next, current);
+            }
+            words = _mm_shuffle_epi32(words, 0x0E);
+            state0 = _mm_sha256rnds2_epu32(state0, state1, words);
+            if (g >= 1 && g <= 12) {
+                previous = _mm_sha256msg1_epu32(previous, current);
+            }
+        }
+
+        state0 = _mm_add_epi32(state0, abef_save);
+        state1 = _mm_add_epi32(state1, cdgh_save);
+    }
+
+    // (a, b, e, f), (c, d, g, h) -> (a, b, c, d), (e, f, g, h)
+    tmp = _mm_shuffle_epi32(state0, 0x1B);
+    state1 = _mm_shuffle_epi32(state1, 0xB1);
+    state0 = _mm_blend_epi16(tmp, state1, 0xF0);
+    state1 = _mm_alignr_epi8(state1, tmp, 8);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(&state[0]), state0);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(&state[4]), state1);
+}
+#endif
 
 } // namespace
 
@@ -147,36 +248,55 @@ std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, cons
  * @param input Message bytes to hash
  * @return 256-bit hash as 32 bytes
  */
-template <typename ByteContainer> Sha256Hash sha256(const ByteContainer& input)
+/**
+ * @brief Apply the compression function to consecutive 64-byte message blocks (big-endian words).
+ */
+void sha256_compress_blocks(std::array<uint32_t, 8>& state, const uint8_t* data, size_t num_blocks)
 {
-    std::vector<uint8_t> message_schedule;
-
-    std::copy(input.begin(), input.end(), std::back_inserter(message_schedule));
-    uint64_t l = message_schedule.size() * 8;
-    message_schedule.push_back(0x80);
-
-    uint32_t num_zero_bytes = ((448U - (message_schedule.size() << 3U)) & 511U) >> 3U;
-
-    for (size_t i = 0; i < num_zero_bytes; ++i) {
-        message_schedule.push_back(0x00);
+#ifdef BB_SHA256_X86_SHA_NI
+    if (use_sha_ni) {
+        compress_blocks_sha_ni(state, data, num_blocks);
+        return;
     }
-    for (size_t i = 0; i < 8; ++i) {
-        uint8_t byte = static_cast<uint8_t>(l >> (uint64_t)(56 - (i * 8)));
-        message_schedule.push_back(byte);
-    }
-    std::array<uint32_t, 8> rolling_hash;
-    prepare_constants(rolling_hash);
-    const size_t num_blocks = message_schedule.size() / 64;
+#endif
     for (size_t i = 0; i < num_blocks; ++i) {
         std::array<uint32_t, 16> hash_input;
-        memcpy((void*)&hash_input[0], (void*)&message_schedule[i * 64], 64);
+        memcpy((void*)&hash_input[0], (const void*)(data + (i * 64)), 64);
         if (is_little_endian()) {
             for (size_t j = 0; j < hash_input.size(); ++j) {
                 hash_input[j] = __builtin_bswap32(hash_input[j]);
             }
         }
-        rolling_hash = sha256_block(rolling_hash, hash_input);
+        state = sha256_block(state, hash_input);
     }
+}
+
+template <typename ByteContainer> Sha256Hash sha256(const ByteContainer& input)
+{
+    const auto* data = reinterpret_cast<const uint8_t*>(std::data(input));
+    const size_t size = std::size(input);
+
+    std::array<uint32_t, 8> rolling_hash;
+    prepare_constants(rolling_hash);
+
+    // Complete blocks are compressed straight from the input.
+    const size_t num_full_blocks = size / 64;
+    sha256_compress_blocks(rolling_hash, data, num_full_blocks);
+
+    // Padding (FIPS 180-4 Section 5.1.1): the remaining bytes, 0x80, zeros, then the message length in bits as a
+    // big-endian 64-bit integer, filling one block, or two if fewer than 9 bytes are left after the remainder.
+    const size_t remainder = size - (num_full_blocks * 64);
+    std::array<uint8_t, 128> tail{};
+    if (remainder > 0) {
+        memcpy((void*)&tail[0], (const void*)(data + (num_full_blocks * 64)), remainder);
+    }
+    tail[remainder] = 0x80;
+    const size_t num_tail_blocks = (remainder + 9 <= 64) ? 1 : 2;
+    const uint64_t l = static_cast<uint64_t>(size) * 8;
+    for (size_t i = 0; i < 8; ++i) {
+        tail[(num_tail_blocks * 64) - 1 - i] = static_cast<uint8_t>(l >> (8 * i));
+    }
+    sha256_compress_blocks(rolling_hash, tail.data(), num_tail_blocks);
 
     Sha256Hash output;
     memcpy((void*)&output[0], (void*)&rolling_hash[0], 32);

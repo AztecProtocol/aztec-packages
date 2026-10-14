@@ -56,22 +56,23 @@ struct Helpers {
     template <typename T>
     static void conv_fld_from_array(msgpack::object_array const& array,
                                     std::string const& struct_name,
-                                    std::string const& field_name,
+                                    std::string_view field_name,
                                     T& field,
                                     uint32_t index)
     {
         if (index >= array.size) {
-            throw_or_abort("index out of bounds: " + struct_name + "::" + field_name + " at " + std::to_string(index));
+            throw_or_abort("index out of bounds: " + struct_name + "::" + std::string(field_name) + " at " +
+                           std::to_string(index));
         }
         auto element = array.ptr[index];
         if (element.type == msgpack::type::NIL) {
-            throw_or_abort("nil value for required field: " + struct_name + "::" + field_name);
+            throw_or_abort("nil value for required field: " + struct_name + "::" + std::string(field_name));
         }
         try {
             element.convert(field);
         } catch (const msgpack::type_error&) {
             std::cerr << element << std::endl;
-            throw_or_abort("error converting into field " + struct_name + "::" + field_name);
+            throw_or_abort("error converting into field " + struct_name + "::" + std::string(field_name));
         }
     }
 
@@ -81,14 +82,14 @@ struct Helpers {
     template <typename T>
     static void convert_or_throw(msgpack::object const& val,
                                  std::string const& struct_name,
-                                 std::string const& field_name,
+                                 std::string_view field_name,
                                  T& field)
     {
         try {
             val.convert(field);
         } catch (const msgpack::type_error&) {
             std::cerr << val << std::endl;
-            throw_or_abort("error converting into field " + struct_name + "::" + field_name);
+            throw_or_abort("error converting into field " + struct_name + "::" + std::string(field_name));
         }
     }
 
@@ -288,42 +289,42 @@ struct BinaryFieldOp {
             switch (tag) {
             case 0: {
                 Add v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
                 Sub v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
                 Mul v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
                 Div v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
                 IntegerDiv v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
                 Equals v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 6: {
                 LessThan v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 7: {
                 LessThanEquals v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -346,28 +347,28 @@ struct BinaryFieldOp {
             }
             if (tag == "Add") {
                 Add v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Sub") {
                 Sub v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Mul") {
                 Mul v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Div") {
                 Div v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "IntegerDiv") {
                 IntegerDiv v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Equals") {
                 Equals v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "LessThan") {
                 LessThan v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "LessThanEquals") {
                 LessThanEquals v;
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BinaryFieldOp' enum variant: " + tag);
@@ -558,62 +559,62 @@ struct BinaryIntOp {
             switch (tag) {
             case 0: {
                 Add v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
                 Sub v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
                 Mul v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
                 Div v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
                 Equals v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
                 LessThan v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 6: {
                 LessThanEquals v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 7: {
                 And v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 8: {
                 Or v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 9: {
                 Xor v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 10: {
                 Shl v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 11: {
                 Shr v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -636,40 +637,40 @@ struct BinaryIntOp {
             }
             if (tag == "Add") {
                 Add v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Sub") {
                 Sub v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Mul") {
                 Mul v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Div") {
                 Div v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Equals") {
                 Equals v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "LessThan") {
                 LessThan v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "LessThanEquals") {
                 LessThanEquals v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "And") {
                 And v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Or") {
                 Or v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Xor") {
                 Xor v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Shl") {
                 Shl v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Shr") {
                 Shr v;
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BinaryIntOp' enum variant: " + tag);
@@ -794,32 +795,32 @@ struct IntegerBitSize {
             switch (tag) {
             case 0: {
                 U1 v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
                 U8 v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
                 U16 v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
                 U32 v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
                 U64 v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
                 U128 v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -842,22 +843,22 @@ struct IntegerBitSize {
             }
             if (tag == "U1") {
                 U1 v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "U8") {
                 U8 v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "U16") {
                 U16 v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "U32") {
                 U32 v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "U64") {
                 U64 v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "U128") {
                 U128 v;
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'IntegerBitSize' enum variant: " + tag);
@@ -949,7 +950,7 @@ struct BitSize {
             switch (tag) {
             case 0: {
                 Field v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -960,7 +961,7 @@ struct BitSize {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BitSize::Integer'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -983,7 +984,7 @@ struct BitSize {
             }
             if (tag == "Field") {
                 Field v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "Integer") {
                 Integer v;
                 try {
@@ -993,7 +994,7 @@ struct BitSize {
                     throw_or_abort("error converting into enum variant 'BitSize::Integer'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BitSize' enum variant: " + tag);
@@ -1102,7 +1103,7 @@ struct MemoryAddress {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'MemoryAddress::Direct'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -1113,7 +1114,7 @@ struct MemoryAddress {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'MemoryAddress::Relative'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -1143,7 +1144,7 @@ struct MemoryAddress {
                     throw_or_abort("error converting into enum variant 'MemoryAddress::Direct'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Relative") {
                 Relative v;
                 try {
@@ -1153,7 +1154,7 @@ struct MemoryAddress {
                     throw_or_abort("error converting into enum variant 'MemoryAddress::Relative'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'MemoryAddress' enum variant: " + tag);
@@ -1979,7 +1980,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::AES128Encrypt'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -1990,7 +1991,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Blake2s'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -2001,7 +2002,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Blake3'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
@@ -2012,7 +2013,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Keccakf1600'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
@@ -2023,7 +2024,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::EcdsaSecp256k1'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
@@ -2034,7 +2035,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::EcdsaSecp256r1'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 6: {
@@ -2045,7 +2046,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::MultiScalarMul'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 7: {
@@ -2056,7 +2057,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::EmbeddedCurveAdd'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 8: {
@@ -2067,7 +2068,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Poseidon2Permutation'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 9: {
@@ -2078,7 +2079,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Sha256Compression'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 10: {
@@ -2089,7 +2090,7 @@ struct BlackBoxOp {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::ToRadix'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -2119,7 +2120,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::AES128Encrypt'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Blake2s") {
                 Blake2s v;
                 try {
@@ -2129,7 +2130,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Blake2s'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Blake3") {
                 Blake3 v;
                 try {
@@ -2139,7 +2140,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Blake3'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Keccakf1600") {
                 Keccakf1600 v;
                 try {
@@ -2149,7 +2150,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Keccakf1600'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "EcdsaSecp256k1") {
                 EcdsaSecp256k1 v;
                 try {
@@ -2159,7 +2160,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::EcdsaSecp256k1'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "EcdsaSecp256r1") {
                 EcdsaSecp256r1 v;
                 try {
@@ -2169,7 +2170,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::EcdsaSecp256r1'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "MultiScalarMul") {
                 MultiScalarMul v;
                 try {
@@ -2179,7 +2180,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::MultiScalarMul'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "EmbeddedCurveAdd") {
                 EmbeddedCurveAdd v;
                 try {
@@ -2189,7 +2190,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::EmbeddedCurveAdd'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Poseidon2Permutation") {
                 Poseidon2Permutation v;
                 try {
@@ -2199,7 +2200,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Poseidon2Permutation'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Sha256Compression") {
                 Sha256Compression v;
                 try {
@@ -2209,7 +2210,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::Sha256Compression'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "ToRadix") {
                 ToRadix v;
                 try {
@@ -2219,7 +2220,7 @@ struct BlackBoxOp {
                     throw_or_abort("error converting into enum variant 'BlackBoxOp::ToRadix'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BlackBoxOp' enum variant: " + tag);
@@ -2423,7 +2424,7 @@ struct HeapValueType {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'HeapValueType::Simple'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -2434,7 +2435,7 @@ struct HeapValueType {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'HeapValueType::Array'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -2445,7 +2446,7 @@ struct HeapValueType {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'HeapValueType::Vector'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -2475,7 +2476,7 @@ struct HeapValueType {
                     throw_or_abort("error converting into enum variant 'HeapValueType::Simple'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Array") {
                 Array v;
                 try {
@@ -2485,7 +2486,7 @@ struct HeapValueType {
                     throw_or_abort("error converting into enum variant 'HeapValueType::Array'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Vector") {
                 Vector v;
                 try {
@@ -2495,7 +2496,7 @@ struct HeapValueType {
                     throw_or_abort("error converting into enum variant 'HeapValueType::Vector'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'HeapValueType' enum variant: " + tag);
@@ -2674,7 +2675,7 @@ struct ValueOrArray {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'ValueOrArray::MemoryAddress'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -2685,7 +2686,7 @@ struct ValueOrArray {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'ValueOrArray::HeapArray'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -2696,7 +2697,7 @@ struct ValueOrArray {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'ValueOrArray::HeapVector'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -2726,7 +2727,7 @@ struct ValueOrArray {
                     throw_or_abort("error converting into enum variant 'ValueOrArray::MemoryAddress'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "HeapArray") {
                 HeapArray v;
                 try {
@@ -2736,7 +2737,7 @@ struct ValueOrArray {
                     throw_or_abort("error converting into enum variant 'ValueOrArray::HeapArray'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "HeapVector") {
                 HeapVector v;
                 try {
@@ -2746,7 +2747,7 @@ struct ValueOrArray {
                     throw_or_abort("error converting into enum variant 'ValueOrArray::HeapVector'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'ValueOrArray' enum variant: " + tag);
@@ -3825,7 +3826,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::BinaryFieldOp'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -3836,7 +3837,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::BinaryIntOp'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -3847,7 +3848,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Not'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
@@ -3858,7 +3859,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Cast'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
@@ -3869,7 +3870,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::JumpIf'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
@@ -3880,7 +3881,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Jump'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 6: {
@@ -3891,7 +3892,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::CalldataCopy'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 7: {
@@ -3902,7 +3903,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Call'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 8: {
@@ -3913,7 +3914,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Const'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 9: {
@@ -3924,12 +3925,12 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::IndirectConst'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 10: {
                 Return v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 11: {
@@ -3940,7 +3941,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::ForeignCall'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 12: {
@@ -3951,7 +3952,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Mov'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 13: {
@@ -3962,7 +3963,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::ConditionalMov'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 14: {
@@ -3973,7 +3974,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Load'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 15: {
@@ -3984,7 +3985,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Store'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 16: {
@@ -3995,7 +3996,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::BlackBox'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 17: {
@@ -4006,7 +4007,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Trap'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 18: {
@@ -4017,7 +4018,7 @@ struct BrilligOpcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Stop'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -4047,7 +4048,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::BinaryFieldOp'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "BinaryIntOp") {
                 BinaryIntOp v;
                 try {
@@ -4057,7 +4058,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::BinaryIntOp'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Not") {
                 Not v;
                 try {
@@ -4067,7 +4068,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Not'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Cast") {
                 Cast v;
                 try {
@@ -4077,7 +4078,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Cast'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "JumpIf") {
                 JumpIf v;
                 try {
@@ -4087,7 +4088,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::JumpIf'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Jump") {
                 Jump v;
                 try {
@@ -4097,7 +4098,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Jump'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "CalldataCopy") {
                 CalldataCopy v;
                 try {
@@ -4107,7 +4108,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::CalldataCopy'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Call") {
                 Call v;
                 try {
@@ -4117,7 +4118,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Call'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Const") {
                 Const v;
                 try {
@@ -4127,7 +4128,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Const'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "IndirectConst") {
                 IndirectConst v;
                 try {
@@ -4137,10 +4138,10 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::IndirectConst'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Return") {
                 Return v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "ForeignCall") {
                 ForeignCall v;
                 try {
@@ -4150,7 +4151,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::ForeignCall'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Mov") {
                 Mov v;
                 try {
@@ -4160,7 +4161,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Mov'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "ConditionalMov") {
                 ConditionalMov v;
                 try {
@@ -4170,7 +4171,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::ConditionalMov'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Load") {
                 Load v;
                 try {
@@ -4180,7 +4181,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Load'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Store") {
                 Store v;
                 try {
@@ -4190,7 +4191,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Store'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "BlackBox") {
                 BlackBox v;
                 try {
@@ -4200,7 +4201,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::BlackBox'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Trap") {
                 Trap v;
                 try {
@@ -4210,7 +4211,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Trap'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Stop") {
                 Stop v;
                 try {
@@ -4220,7 +4221,7 @@ struct BrilligOpcode {
                     throw_or_abort("error converting into enum variant 'BrilligOpcode::Stop'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BrilligOpcode' enum variant: " + tag);
@@ -4347,7 +4348,7 @@ struct FunctionInput {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'FunctionInput::Constant'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -4358,7 +4359,7 @@ struct FunctionInput {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'FunctionInput::Witness'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -4388,7 +4389,7 @@ struct FunctionInput {
                     throw_or_abort("error converting into enum variant 'FunctionInput::Constant'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Witness") {
                 Witness v;
                 try {
@@ -4398,7 +4399,7 @@ struct FunctionInput {
                     throw_or_abort("error converting into enum variant 'FunctionInput::Witness'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'FunctionInput' enum variant: " + tag);
@@ -5366,7 +5367,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::AES128Encrypt'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -5377,7 +5378,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::AND'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -5388,7 +5389,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::XOR'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
@@ -5399,7 +5400,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::RANGE'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
@@ -5410,7 +5411,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Blake2s'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
@@ -5421,7 +5422,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Blake3'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 6: {
@@ -5432,7 +5433,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::EcdsaSecp256k1'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 7: {
@@ -5443,7 +5444,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::EcdsaSecp256r1'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 8: {
@@ -5454,7 +5455,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::MultiScalarMul'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 9: {
@@ -5465,7 +5466,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::EmbeddedCurveAdd'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 10: {
@@ -5476,7 +5477,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Keccakf1600'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 11: {
@@ -5487,7 +5488,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::RecursiveAggregation'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 12: {
@@ -5498,7 +5499,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Poseidon2Permutation'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 13: {
@@ -5509,7 +5510,7 @@ struct BlackBoxFuncCall {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Sha256Compression'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -5539,7 +5540,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::AES128Encrypt'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "AND") {
                 AND v;
                 try {
@@ -5549,7 +5550,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::AND'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "XOR") {
                 XOR v;
                 try {
@@ -5559,7 +5560,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::XOR'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "RANGE") {
                 RANGE v;
                 try {
@@ -5569,7 +5570,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::RANGE'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Blake2s") {
                 Blake2s v;
                 try {
@@ -5579,7 +5580,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Blake2s'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Blake3") {
                 Blake3 v;
                 try {
@@ -5589,7 +5590,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Blake3'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "EcdsaSecp256k1") {
                 EcdsaSecp256k1 v;
                 try {
@@ -5599,7 +5600,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::EcdsaSecp256k1'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "EcdsaSecp256r1") {
                 EcdsaSecp256r1 v;
                 try {
@@ -5609,7 +5610,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::EcdsaSecp256r1'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "MultiScalarMul") {
                 MultiScalarMul v;
                 try {
@@ -5619,7 +5620,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::MultiScalarMul'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "EmbeddedCurveAdd") {
                 EmbeddedCurveAdd v;
                 try {
@@ -5629,7 +5630,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::EmbeddedCurveAdd'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Keccakf1600") {
                 Keccakf1600 v;
                 try {
@@ -5639,7 +5640,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Keccakf1600'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "RecursiveAggregation") {
                 RecursiveAggregation v;
                 try {
@@ -5649,7 +5650,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::RecursiveAggregation'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Poseidon2Permutation") {
                 Poseidon2Permutation v;
                 try {
@@ -5659,7 +5660,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Poseidon2Permutation'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Sha256Compression") {
                 Sha256Compression v;
                 try {
@@ -5669,7 +5670,7 @@ struct BlackBoxFuncCall {
                     throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Sha256Compression'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BlackBoxFuncCall' enum variant: " + tag);
@@ -5790,7 +5791,7 @@ struct BlockType {
             switch (tag) {
             case 0: {
                 Memory v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -5801,12 +5802,12 @@ struct BlockType {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BlockType::CallData'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
                 ReturnData v;
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -5829,7 +5830,7 @@ struct BlockType {
             }
             if (tag == "Memory") {
                 Memory v;
-                value = v;
+                value = std::move(v);
             } else if (tag == "CallData") {
                 CallData v;
                 try {
@@ -5839,10 +5840,10 @@ struct BlockType {
                     throw_or_abort("error converting into enum variant 'BlockType::CallData'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "ReturnData") {
                 ReturnData v;
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BlockType' enum variant: " + tag);
@@ -6028,7 +6029,7 @@ struct BrilligInputs {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligInputs::Single'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -6039,7 +6040,7 @@ struct BrilligInputs {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligInputs::Array'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -6050,7 +6051,7 @@ struct BrilligInputs {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligInputs::MemoryArray'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -6080,7 +6081,7 @@ struct BrilligInputs {
                     throw_or_abort("error converting into enum variant 'BrilligInputs::Single'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Array") {
                 Array v;
                 try {
@@ -6090,7 +6091,7 @@ struct BrilligInputs {
                     throw_or_abort("error converting into enum variant 'BrilligInputs::Array'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "MemoryArray") {
                 MemoryArray v;
                 try {
@@ -6100,7 +6101,7 @@ struct BrilligInputs {
                     throw_or_abort("error converting into enum variant 'BrilligInputs::MemoryArray'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BrilligInputs' enum variant: " + tag);
@@ -6209,7 +6210,7 @@ struct BrilligOutputs {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOutputs::Simple'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -6220,7 +6221,7 @@ struct BrilligOutputs {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'BrilligOutputs::Array'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -6250,7 +6251,7 @@ struct BrilligOutputs {
                     throw_or_abort("error converting into enum variant 'BrilligOutputs::Simple'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Array") {
                 Array v;
                 try {
@@ -6260,7 +6261,7 @@ struct BrilligOutputs {
                     throw_or_abort("error converting into enum variant 'BrilligOutputs::Array'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'BrilligOutputs' enum variant: " + tag);
@@ -6667,7 +6668,7 @@ struct Opcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'Opcode::AssertZero'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -6678,7 +6679,7 @@ struct Opcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'Opcode::BlackBoxFuncCall'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 2: {
@@ -6689,7 +6690,7 @@ struct Opcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'Opcode::MemoryOp'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 3: {
@@ -6700,7 +6701,7 @@ struct Opcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'Opcode::MemoryInit'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 4: {
@@ -6711,7 +6712,7 @@ struct Opcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'Opcode::BrilligCall'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 5: {
@@ -6722,7 +6723,7 @@ struct Opcode {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'Opcode::Call'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -6752,7 +6753,7 @@ struct Opcode {
                     throw_or_abort("error converting into enum variant 'Opcode::AssertZero'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "BlackBoxFuncCall") {
                 BlackBoxFuncCall v;
                 try {
@@ -6762,7 +6763,7 @@ struct Opcode {
                     throw_or_abort("error converting into enum variant 'Opcode::BlackBoxFuncCall'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "MemoryOp") {
                 MemoryOp v;
                 try {
@@ -6772,7 +6773,7 @@ struct Opcode {
                     throw_or_abort("error converting into enum variant 'Opcode::MemoryOp'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "MemoryInit") {
                 MemoryInit v;
                 try {
@@ -6782,7 +6783,7 @@ struct Opcode {
                     throw_or_abort("error converting into enum variant 'Opcode::MemoryInit'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "BrilligCall") {
                 BrilligCall v;
                 try {
@@ -6792,7 +6793,7 @@ struct Opcode {
                     throw_or_abort("error converting into enum variant 'Opcode::BrilligCall'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Call") {
                 Call v;
                 try {
@@ -6802,7 +6803,7 @@ struct Opcode {
                     throw_or_abort("error converting into enum variant 'Opcode::Call'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'Opcode' enum variant: " + tag);
@@ -6911,7 +6912,7 @@ struct ExpressionOrMemory {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'ExpressionOrMemory::Expression'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -6922,7 +6923,7 @@ struct ExpressionOrMemory {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'ExpressionOrMemory::Memory'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -6952,7 +6953,7 @@ struct ExpressionOrMemory {
                     throw_or_abort("error converting into enum variant 'ExpressionOrMemory::Expression'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Memory") {
                 Memory v;
                 try {
@@ -6962,7 +6963,7 @@ struct ExpressionOrMemory {
                     throw_or_abort("error converting into enum variant 'ExpressionOrMemory::Memory'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'ExpressionOrMemory' enum variant: " + tag);
@@ -7149,7 +7150,7 @@ struct OpcodeLocation {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'OpcodeLocation::Acir'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             case 1: {
@@ -7160,7 +7161,7 @@ struct OpcodeLocation {
                     std::cerr << o << std::endl;
                     throw_or_abort("error converting into enum variant 'OpcodeLocation::Brillig'");
                 }
-                value = v;
+                value = std::move(v);
                 break;
             }
             default:
@@ -7190,7 +7191,7 @@ struct OpcodeLocation {
                     throw_or_abort("error converting into enum variant 'OpcodeLocation::Acir'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else if (tag == "Brillig") {
                 Brillig v;
                 try {
@@ -7200,7 +7201,7 @@ struct OpcodeLocation {
                     throw_or_abort("error converting into enum variant 'OpcodeLocation::Brillig'");
                 }
 
-                value = v;
+                value = std::move(v);
             } else {
                 std::cerr << o << std::endl;
                 throw_or_abort("unknown 'OpcodeLocation' enum variant: " + tag);

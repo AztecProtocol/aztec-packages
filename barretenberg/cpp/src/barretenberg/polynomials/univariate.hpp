@@ -8,14 +8,33 @@
 
 #include <array>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/ecc/fields/field.hpp"
+#include "barretenberg/ecc/fields/ifma_field.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate_coefficient_basis.hpp"
 
 namespace bb {
+
+#ifdef BB_FIELD_IFMA
+/**
+ * @brief Whether element-wise products of a Univariate<Fr, length> go through the AVX-512 IFMA kernels: native fields
+ *        the kernels support, for lengths where eight-lane registers pay off.
+ */
+template <class Fr, size_t length> constexpr bool univariate_uses_ifma()
+{
+    if constexpr (requires { typename Fr::Params; }) {
+        if constexpr (std::is_same_v<Fr, field<typename Fr::Params>>) {
+            return field_ifma::Consts<typename Fr::Params>::supported && length >= 4 && length <= 8;
+        }
+    }
+    return false;
+}
+#endif
 
 /**
  * @brief A view of a univariate, also used to truncate univariates.
@@ -39,6 +58,10 @@ template <class Fr, size_t domain_end> class Univariate {
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
     std::array<Fr, LENGTH> evaluations;
+
+#ifdef BB_FIELD_IFMA
+    static constexpr bool use_ifma_v = univariate_uses_ifma<Fr, LENGTH>();
+#endif
 
     Univariate() = default;
 
@@ -175,6 +198,15 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& operator*=(const Univariate& other)
     {
+#ifdef BB_FIELD_IFMA
+        if constexpr (use_ifma_v) {
+            if (field_ifma::available()) {
+                field_ifma::mul_assign_n<typename Fr::Params, LENGTH>(&evaluations[0].data[0],
+                                                                      &other.evaluations[0].data[0]);
+                return *this;
+            }
+        }
+#endif
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] *= other.evaluations[i];
         }
@@ -182,6 +214,14 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& self_sqr()
     {
+#ifdef BB_FIELD_IFMA
+        if constexpr (use_ifma_v) {
+            if (field_ifma::available()) {
+                field_ifma::sqr_assign_n<typename Fr::Params, LENGTH>(&evaluations[0].data[0]);
+                return *this;
+            }
+        }
+#endif
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i].self_sqr();
         }
@@ -241,6 +281,14 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& operator*=(const Fr& scalar)
     {
+#ifdef BB_FIELD_IFMA
+        if constexpr (use_ifma_v) {
+            if (field_ifma::available()) {
+                field_ifma::mul_assign_scalar_n<typename Fr::Params, LENGTH>(&evaluations[0].data[0], &scalar.data[0]);
+                return *this;
+            }
+        }
+#endif
         for (auto& eval : evaluations) {
             eval *= scalar;
         }

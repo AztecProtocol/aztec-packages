@@ -125,6 +125,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // beyond this extent, all values are zero and contribute nothing.
     // At minimum, the disabled head region must be covered (masking values live at rows 1..3).
     size_t actual_size = std::max(A_0.end_index(), static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+    const bool fold_writes_all = A_0.end_index() >= static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK);
 
     // Reserve space for the virtual_log_n - 1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
@@ -132,8 +133,10 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     for (size_t l = 0; l < log_n - 1; ++l) {
         const size_t fold_size = (actual_size + 1) / 2;
 
-        // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
-        fold_polynomials.emplace_back(Polynomial(fold_size));
+        // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X); unless A₀ is shorter than the disabled head
+        // region, every coefficient is written by the fold below
+        fold_polynomials.emplace_back(fold_writes_all ? Polynomial(fold_size, Polynomial::DontZeroMemory::FLAG)
+                                                      : Polynomial(fold_size));
         actual_size = fold_size;
     }
 

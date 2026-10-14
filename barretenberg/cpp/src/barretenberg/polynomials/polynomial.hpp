@@ -574,6 +574,13 @@ template <typename Fr> class Polynomial {
     void shrink_end_index(const size_t new_end_index);
 
     /**
+     * @brief Move the memory-backed range to [new_start, new_end) without moving any data: the element stored at
+     *        offset i now represents index new_start + i. The new range must fit in the current backed size.
+     * @details Lets an in-place fold write its outputs, which occupy a lower index range, over the same buffer.
+     */
+    void rebase_backed_range(const size_t new_start, const size_t new_end);
+
+    /**
      * @brief Copys the polynomial, but with the whole address space usable.
      * The value of the polynomial remains the same, but defined memory region differs.
      *

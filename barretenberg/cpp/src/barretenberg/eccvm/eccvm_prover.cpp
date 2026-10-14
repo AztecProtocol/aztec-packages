@@ -112,12 +112,13 @@ void ECCVMProver::execute_log_derivative_commitments_round()
                                                       (gamma + beta_sqr + beta_sqr + first_term_tag) *
                                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
-    // Compute inverse polynomial for our logarithmic-derivative lookup method
-    // Skip the disabled head region to preserve masking values
+    // Compute inverse polynomial for our logarithmic-derivative lookup method, fetching only the columns the lookup
+    // relation reads. Skip the disabled head region to preserve masking values
+    typename Flavor::LogDerivativeInverseView lookup_view{ key->polynomials, key->polynomials.lookup_inverses };
     compute_logderivative_inverse<typename Flavor::FF,
                                   typename Flavor::LookupRelation,
-                                  typename Flavor::ProverPolynomials,
-                                  true>(key->polynomials, relation_parameters, Flavor::TRACE_OFFSET);
+                                  typename Flavor::LogDerivativeInverseView,
+                                  true>(lookup_view, relation_parameters, Flavor::TRACE_OFFSET);
     auto& li = key->polynomials.lookup_inverses;
     commitments.lookup_inverses = key->commitment_key.commit(li);
     transcript->send_to_verifier(commitment_labels.lookup_inverses, commitments.lookup_inverses);
@@ -131,11 +132,45 @@ void ECCVMProver::execute_grand_product_computation_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product (starts after disabled head region via gp_start)
-    compute_grand_products<Flavor>(key->polynomials, relation_parameters);
+    compute_grand_product(key->polynomials, relation_parameters);
     auto& zp = key->polynomials.z_perm;
     // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
     commitments.z_perm = key->commitment_key.commit(zp, /*has_duplicates_hint=*/true);
     transcript->send_to_verifier(commitment_labels.z_perm, commitments.z_perm);
+}
+
+/**
+ * @brief Compute the z_perm grand product of the ECCVMSetRelation.
+ * @details Every row from `get_grand_product_zero_row_start()` on reads only zeros, so all of them share one
+ * numerator/denominator ratio r. The generic grand product is computed up to the first such row, and the rest of z_perm
+ * is extended from there by z_perm[i] = z_perm[i - 1] * r, which is the same field element the generic computation
+ * produces.
+ */
+void ECCVMProver::compute_grand_product(Flavor::ProverPolynomials& polynomials,
+                                        bb::RelationParameters<FF>& relation_parameters)
+{
+    using GrandProductRelation = std::tuple_element_t<0, Flavor::GrandProductRelations>;
+    using Accumulator = std::tuple_element_t<0, typename GrandProductRelation::SumcheckArrayOfValuesOverSubrelations>;
+    static_assert(std::tuple_size_v<Flavor::GrandProductRelations> == 1);
+
+    const size_t domain_size = polynomials.get_polynomial_size();
+    const size_t zero_row_start = std::max(polynomials.get_grand_product_zero_row_start(), Flavor::TRACE_OFFSET + 1);
+    if (zero_row_start + 1 >= domain_size) {
+        compute_grand_products<Flavor>(polynomials, relation_parameters);
+        return;
+    }
+    // z_perm[i] is fixed by rows < i, so z_perm[0..zero_row_start] needs only rows before the zero rows.
+    compute_grand_products<Flavor>(polynomials, relation_parameters, /*size_override=*/zero_row_start + 1);
+
+    const auto zero_row = polynomials.get_row_for_grand_product(zero_row_start);
+    const FF ratio =
+        GrandProductRelation::template compute_grand_product_numerator<Accumulator>(zero_row, relation_parameters) *
+        GrandProductRelation::template compute_grand_product_denominator<Accumulator>(zero_row, relation_parameters)
+            .invert();
+    auto& z_perm = polynomials.z_perm;
+    for (size_t i = zero_row_start + 1; i < domain_size; ++i) {
+        z_perm.at(i) = z_perm[i - 1] * ratio;
+    }
 }
 
 /**

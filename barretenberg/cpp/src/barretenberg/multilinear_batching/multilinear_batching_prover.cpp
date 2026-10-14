@@ -104,21 +104,29 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
         new_shifted_evaluation += scalars[idx] * sumcheck_output.claimed_evaluations.shifted(idx);
     }
 
-    new_non_shifted_polynomial = std::move(key.polynomials.non_shifted(largest_non_shifted_idx));
-    new_non_shifted_polynomial *= scalars[largest_non_shifted_idx];
-    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
-        if (idx != largest_non_shifted_idx) {
-            new_non_shifted_polynomial.add_scaled(key.polynomials.non_shifted(idx), scalars[idx]);
+    // Merge into the largest polynomial in place: scale it (claim 0 has scalar 1) and add the others in one pass
+    auto merge_into_largest = [&](bb::Polynomial<FF>& merged, size_t largest_idx, auto&& get_polynomial) {
+        merged = std::move(get_polynomial(largest_idx));
+        if (scalars[largest_idx] != FF(1)) {
+            merged *= scalars[largest_idx];
         }
-    }
-
-    new_shifted_polynomial = std::move(key.preshifted_polynomials[largest_shifted_idx]);
-    new_shifted_polynomial *= scalars[largest_shifted_idx];
-    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
-        if (idx != largest_shifted_idx) {
-            new_shifted_polynomial.add_scaled(key.preshifted_polynomials[idx], scalars[idx]);
+        std::vector<PolynomialSpan<const FF>> sources;
+        std::vector<FF> source_scalars;
+        for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
+            if (idx != largest_idx) {
+                sources.emplace_back(get_polynomial(idx));
+                source_scalars.emplace_back(scalars[idx]);
+            }
         }
-    }
+        add_scaled_batch(
+            merged, std::span<const PolynomialSpan<const FF>>(sources), std::span<const FF>(source_scalars));
+    };
+    merge_into_largest(new_non_shifted_polynomial, largest_non_shifted_idx, [&](size_t idx) -> bb::Polynomial<FF>& {
+        return key.polynomials.non_shifted(idx);
+    });
+    merge_into_largest(new_shifted_polynomial, largest_shifted_idx, [&](size_t idx) -> bb::Polynomial<FF>& {
+        return key.preshifted_polynomials[idx];
+    });
 
     auto new_non_shifted_commitment = Commitment::batch_mul(key.non_shifted_commitments, scalars);
     auto new_shifted_commitment = Commitment::batch_mul(key.shifted_commitments, scalars);

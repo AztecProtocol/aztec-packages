@@ -13,6 +13,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
+#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
@@ -66,10 +67,9 @@ namespace bb {
  *                B(h)
  *
  * Step 1) Compute 2 length-n polynomials A, B
- * Step 2) Compute 2 length-n polynomials numerator = ∏ A(j), denominator = ∏ B(j)
- * Step 3) Compute Z_perm[i + 1] = numerator[i] / denominator[i]
- *
- * Note: Step (3) utilizes Montgomery batch inversion, performed at the end of Step (2).
+ * Step 2) Compute the ratios A(j) / B(j) (Montgomery batch inversion of B) and their running products per thread
+ * Step 3) Compute Z_perm[i + 1] = ∏_{j<=i} A(j) / B(j) by scaling each thread's running products by the products of
+ *         the preceding threads
  *
  * @tparam Flavor
  * @tparam GrandProdRelation
@@ -125,8 +125,20 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         for (size_t i = start; i < end; ++i) {
             const size_t poly_idx = i + gp_start;
             // TODO: consider avoiding get_row if possible.
-            if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                row = full_polynomials.get_row_for_permutation_arg(poly_idx);
+            if constexpr (std::is_same_v<GrandProdRelation, UltraPermutationRelation<FF>>) {
+                // Write the permutation argument's columns (wires, ids, sigmas) straight into the reused row
+                // rather than building and copying a whole row; the relation reads no other entries.
+                for (auto [row_value, polynomial] : zip_view(row.get_wires(), full_polynomials.get_wires())) {
+                    row_value = polynomial[poly_idx];
+                }
+                for (auto [row_value, polynomial] : zip_view(row.get_ids(), full_polynomials.get_ids())) {
+                    row_value = polynomial[poly_idx];
+                }
+                for (auto [row_value, polynomial] : zip_view(row.get_sigmas(), full_polynomials.get_sigmas())) {
+                    row_value = polynomial[poly_idx];
+                }
+            } else if constexpr (requires { full_polynomials.get_row_for_grand_product(poly_idx); }) {
+                row = full_polynomials.get_row_for_grand_product(poly_idx);
             } else {
                 row = full_polynomials.get_row(poly_idx);
             }
@@ -155,61 +167,34 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(denominator.coeffs());
 
     // Step (2)
-    // Compute the accumulating product of the numerator and denominator terms.
-    // This step is split into three parts for efficient multithreading:
-    // (i) compute ∏ A(j), ∏ B(j) subproducts for each thread
-    // (ii) compute scaling factor required to convert each subproduct into a single running product
-    // (ii) combine subproducts into a single running product
+    // Compute the running product of the ratios numerator[i] / denominator[i].
+    // This step is split into two parts for efficient multithreading:
+    // (i)  each thread batch-inverts its slice of the denominator and overwrites its slice of the numerator with the
+    //      running product of the ratios over the slice
+    // (ii) (in Step 3) each thread scales its running products by the product of the preceding threads' totals
     //
-    // For example, consider 4 threads and a size-8 numerator { a0, a1, a2, a3, a4, a5, a6, a7 }
-    // (i)   Each thread computes 1 element of N = {{ a0, a0a1 }, { a2, a2a3 }, { a4, a4a5 }, { a6, a6a7 }}
-    // (ii)  Take partial products P = { 1, a0a1, a2a3, a4a5 }
-    // (iii) Each thread j computes N[i][j]*P[j]=
-    //      {{a0,a0a1},{a0a1a2,a0a1a2a3},{a0a1a2a3a4,a0a1a2a3a4a5},{a0a1a2a3a4a5a6,a0a1a2a3a4a5a6a7}}
-    std::vector<FF> partial_numerators(thread_data.num_threads);
-    std::vector<FF> partial_denominators(thread_data.num_threads);
+    // For example, consider 4 threads and size-8 ratios { r0, r1, r2, r3, r4, r5, r6, r7 }
+    // (i)  Each thread computes 2 elements of N = {{ r0, r0r1 }, { r2, r2r3 }, { r4, r4r5 }, { r6, r6r7 }}
+    // (ii) Each thread j computes N[j][i] * ∏_{k<j} N[k][1] =
+    //      {{r0,r0r1},{r0r1r2,r0r1r2r3},{r0r1r2r3r4,r0r1r2r3r4r5},{r0r1r2r3r4r5r6,r0r1r2r3r4r5r6r7}}
+    std::vector<FF> partial_products(thread_data.num_threads);
 
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
-        BB_BENCH_TRACY_NAME("GrandProduct::step2a_subproducts");
+        BB_BENCH_TRACY_NAME("GrandProduct::step2_ratio_subproducts");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
-        for (size_t i = start; i < end - 1; ++i) {
-            numerator.at(i + 1) *= numerator[i];
-            denominator.at(i + 1) *= denominator[i];
-        }
-        partial_numerators[thread_idx] = numerator[end - 1];
-        partial_denominators[thread_idx] = denominator[end - 1];
-    });
-
-    DEBUG_LOG_ALL(partial_numerators);
-    DEBUG_LOG_ALL(partial_denominators);
-
-    parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
-        BB_BENCH_TRACY_NAME("GrandProduct::step2b_scale_and_invert");
-        const size_t start = thread_data.start[thread_idx];
-        const size_t end = thread_data.end[thread_idx];
-        if (thread_idx > 0) {
-            FF numerator_scaling = 1;
-            FF denominator_scaling = 1;
-
-            for (size_t j = 0; j < thread_idx; ++j) {
-                numerator_scaling *= partial_numerators[j];
-                denominator_scaling *= partial_denominators[j];
-            }
-            for (size_t i = start; i < end; ++i) {
-                numerator.at(i) = numerator[i] * numerator_scaling;
-                denominator.at(i) = denominator[i] * denominator_scaling;
-            }
-        }
-
-        // Final step: invert denominator
         FF::batch_invert(std::span{ &denominator.data()[start], end - start });
+        numerator.at(start) *= denominator[start];
+        for (size_t i = start + 1; i < end; ++i) {
+            numerator.at(i) = numerator[i] * denominator[i] * numerator[i - 1];
+        }
+        partial_products[thread_idx] = numerator[end - 1];
     });
 
+    DEBUG_LOG_ALL(partial_products);
     DEBUG_LOG_ALL(numerator.coeffs());
-    DEBUG_LOG_ALL(denominator.coeffs());
 
-    // Step (3) Compute grand_product_polynomial[i] = numerator[i] / denominator[i]
+    // Step (3) Compute grand_product_polynomial[i + 1] = ∏_{j<=i} numerator[j] / denominator[j]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     // The grand_product_polynomial must be shiftable for the permutation argument
     BB_ASSERT(grand_product_polynomial.is_shiftable());
@@ -220,13 +205,23 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // For ZK with top masking, z_perm must be 0 at lagrange_first (row NUM_DISABLED_ROWS_IN_SUMCHECK)
     // and the product starts from gp_start.
 
-    // Compute grand product values: z_perm[gp_start + i + 1] = numerator[i] / denominator[i]
+    // Compute grand product values: z_perm[gp_start + i + 1] = running product of the ratios up to row i
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
-        BB_BENCH_TRACY_NAME("GrandProduct::step3_quotient");
+        BB_BENCH_TRACY_NAME("GrandProduct::step3_scale");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
+        if (thread_idx == 0) {
+            for (size_t i = start; i < end; ++i) {
+                grand_product_polynomial.at(gp_start + i + 1) = numerator[i];
+            }
+            return;
+        }
+        FF scaling = partial_products[0];
+        for (size_t j = 1; j < thread_idx; ++j) {
+            scaling *= partial_products[j];
+        }
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial.at(gp_start + i + 1) = numerator[i] * denominator[i];
+            grand_product_polynomial.at(gp_start + i + 1) = numerator[i] * scaling;
         }
     });
 

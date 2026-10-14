@@ -244,7 +244,8 @@ class HypernovaFoldingProver {
             return result;
         }
         add_scaled_batch(polynomials_to_batch[0], sources_span, tail_scalars);
-        return polynomials_to_batch[0];
+        // The batch is accumulated in place in the first polynomial; hand over its memory instead of copying it.
+        return std::move(polynomials_to_batch[0]);
     }
 
     /**

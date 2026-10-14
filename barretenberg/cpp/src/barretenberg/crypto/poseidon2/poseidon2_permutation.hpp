@@ -41,6 +41,8 @@ template <typename Params> class Poseidon2Permutation {
 
     static constexpr MatrixDiagonal internal_matrix_diagonal_minus_one = Params::internal_matrix_diagonal_minus_one;
     static constexpr RoundConstantsContainer round_constants = Params::round_constants;
+    // D_0, the first diagonal entry of the internal matrix
+    static constexpr FF internal_matrix_diagonal_0 = internal_matrix_diagonal_minus_one[0] + FF(1);
 
     static constexpr void matrix_multiplication_4x4(State& input)
     {
@@ -86,15 +88,21 @@ template <typename Params> class Poseidon2Permutation {
     {
         // for t = 4
         // Computes: result[i] = (D_i - 1) * input[i] + sum = D_i * input[i] + (sum of other elements)
-        // where D_i are the actual diagonal values and internal_matrix_diagonal_minus_one[i] = D_i - 1
-        auto sum = input[0];
-        for (size_t i = 1; i < t; ++i) {
-            sum += input[i];
-        }
-        for (size_t i = 0; i < t; ++i) {
-            input[i] *= internal_matrix_diagonal_minus_one[i];
-            input[i] += sum;
-        }
+        // where D_i are the actual diagonal values and internal_matrix_diagonal_minus_one[i] = D_i - 1.
+        // result[0] is formed as D_0 * input[0] + (input[1] + input[2] + input[3]) so that it depends on input[0]
+        // through a single multiplication and addition.
+        static_assert(t == 4, "Only t=4 is supported");
+        FF sum_rest = input[1] + input[2];
+        sum_rest += input[3];
+        const FF sum = input[0] + sum_rest;
+        const FF scaled_0 = input[0] * internal_matrix_diagonal_0;
+        const FF scaled_1 = input[1] * internal_matrix_diagonal_minus_one[1];
+        const FF scaled_2 = input[2] * internal_matrix_diagonal_minus_one[2];
+        const FF scaled_3 = input[3] * internal_matrix_diagonal_minus_one[3];
+        input[0] = scaled_0 + sum_rest;
+        input[1] = scaled_1 + sum;
+        input[2] = scaled_2 + sum;
+        input[3] = scaled_3 + sum;
     }
 
     static constexpr void matrix_multiplication_external(State& input)
@@ -118,43 +126,96 @@ template <typename Params> class Poseidon2Permutation {
 
     static constexpr void apply_sbox(State& input)
     {
-        for (auto& in : input) {
-            apply_single_sbox(in);
-        }
+        // The four S-boxes are evaluated stage by stage so that their independent multiplications interleave.
+        static_assert(t == 4, "Only t=4 is supported");
+        FF x4_0 = input[0].sqr();
+        FF x4_1 = input[1].sqr();
+        FF x4_2 = input[2].sqr();
+        FF x4_3 = input[3].sqr();
+        x4_0.self_sqr();
+        x4_1.self_sqr();
+        x4_2.self_sqr();
+        x4_3.self_sqr();
+        input[0] *= x4_0;
+        input[1] *= x4_1;
+        input[2] *= x4_2;
+        input[3] *= x4_3;
+    }
+
+    /**
+     * @brief One external round on a state held in locals: add round constants, S-box layer, external matrix.
+     */
+    static constexpr void external_round(FF& s0, FF& s1, FF& s2, FF& s3, const RoundConstants& rc)
+    {
+        State state{ s0, s1, s2, s3 };
+        add_round_constants(state, rc);
+        apply_sbox(state);
+        matrix_multiplication_external(state);
+        s0 = state[0];
+        s1 = state[1];
+        s2 = state[2];
+        s3 = state[3];
     }
 
     /**
      * @brief In-place Poseidon2 permutation from https://eprint.iacr.org/2023/323.
      * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
      * rounds, and a set of external rounds.
+     *
+     * The internal rounds compute the same values as `apply_single_sbox` followed by `matrix_multiplication_internal`,
+     * arranged to shorten the dependency chain through state[0]. With sb = (state[0] + c)^5 and
+     * t = state[1] + state[2] + state[3], the internal matrix gives
+     *   state[0] <- D_0 * sb + t
+     *   state[i] <- (D_i - 1) * state[i] + (sb + t)   for i = 1, 2, 3
+     * so only the S-box and one multiplication by D_0 lie on the round-to-round critical path; the three other
+     * diagonal multiplications are issued between the S-box steps, where they overlap with it.
      */
     static constexpr void permutation_inplace(State& state)
     {
+        static_assert(t == 4, "Only t=4 is supported");
         // Apply 1st linear layer
         matrix_multiplication_external(state);
+
+        FF s0 = state[0];
+        FF s1 = state[1];
+        FF s2 = state[2];
+        FF s3 = state[3];
 
         // First set of external rounds
         constexpr size_t rounds_f_beginning = rounds_f / 2;
         for (size_t i = 0; i < rounds_f_beginning; ++i) {
-            add_round_constants(state, round_constants[i]);
-            apply_sbox(state);
-            matrix_multiplication_external(state);
+            external_round(s0, s1, s2, s3, round_constants[i]);
         }
 
         // Internal rounds
         constexpr size_t p_end = rounds_f_beginning + rounds_p;
         for (size_t i = rounds_f_beginning; i < p_end; ++i) {
-            state[0] += round_constants[i][0];
-            apply_single_sbox(state[0]);
-            matrix_multiplication_internal(state);
+            const FF u = s0 + round_constants[i][0];
+            FF u_4 = u.sqr();
+            FF sum_rest = s1 + s2;
+            sum_rest += s3;
+            const FF s1_scaled = s1 * internal_matrix_diagonal_minus_one[1];
+            u_4.self_sqr();
+            const FF s2_scaled = s2 * internal_matrix_diagonal_minus_one[2];
+            const FF sb = u * u_4;
+            const FF s3_scaled = s3 * internal_matrix_diagonal_minus_one[3];
+            const FF sum = sb + sum_rest;
+            s0 = sb * internal_matrix_diagonal_0;
+            s0 += sum_rest;
+            s1 = s1_scaled + sum;
+            s2 = s2_scaled + sum;
+            s3 = s3_scaled + sum;
         }
 
         // Remaining external rounds
         for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
-            add_round_constants(state, round_constants[i]);
-            apply_sbox(state);
-            matrix_multiplication_external(state);
+            external_round(s0, s1, s2, s3, round_constants[i]);
         }
+
+        state[0] = s0;
+        state[1] = s1;
+        state[2] = s2;
+        state[3] = s3;
     }
 
     /**

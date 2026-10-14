@@ -37,12 +37,20 @@ void check_mul_add_gate(Builder& builder, const QuadConstraint& mul_quad, const 
         return;
     }
 
+    // Terms with a zero scaling are skipped: they add zero, and only result == 0 is checked.
     FF result = mul_quad.const_scaling + next_wire_w4;
-    result += builder.get_variable(mul_quad.a) * builder.get_variable(mul_quad.b) * mul_quad.mul_scaling;
-    result += builder.get_variable(mul_quad.a) * mul_quad.a_scaling;
-    result += builder.get_variable(mul_quad.b) * mul_quad.b_scaling;
-    result += builder.get_variable(mul_quad.c) * mul_quad.c_scaling;
-    result += builder.get_variable(mul_quad.d) * mul_quad.d_scaling;
+    if (!mul_quad.mul_scaling.is_zero()) {
+        result += builder.get_variable(mul_quad.a) * builder.get_variable(mul_quad.b) * mul_quad.mul_scaling;
+    }
+    auto add_linear_term = [&](uint32_t witness_index, const FF& scaling) {
+        if (!scaling.is_zero()) {
+            result += builder.get_variable(witness_index) * scaling;
+        }
+    };
+    add_linear_term(mul_quad.a, mul_quad.a_scaling);
+    add_linear_term(mul_quad.b, mul_quad.b_scaling);
+    add_linear_term(mul_quad.c, mul_quad.c_scaling);
+    add_linear_term(mul_quad.d, mul_quad.d_scaling);
 
     if (result != FF::zero()) {
         builder.failure("mul_add_gate");

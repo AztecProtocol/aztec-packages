@@ -130,17 +130,27 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::operator-() const
 template <class base_uint> uintx<base_uint> uintx<base_uint>::operator*(const uintx& other) const
 {
     const auto lolo = lo.mul_extended(other.lo);
-    const auto lohi = lo.mul_extended(other.hi);
-    const auto hilo = hi.mul_extended(other.lo);
 
-    base_uint top = lolo.second + hilo.first + lohi.first;
-    base_uint bottom = lolo.first;
-    return { bottom, top };
+    // The cross terms only reach the top half, where they wrap; skip the ones with a zero factor (operands are often
+    // much narrower than the type, e.g. bigfield products of ~256-bit values held in a uint1024).
+    base_uint top = lolo.second;
+    if (other.hi != base_uint(0)) {
+        top += lo * other.hi;
+    }
+    if (hi != base_uint(0)) {
+        top += hi * other.lo;
+    }
+    return { lolo.first, top };
 }
 
 template <class base_uint>
 std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::mul_extended(const uintx& other) const
 {
+    if (hi == base_uint(0) && other.hi == base_uint(0)) {
+        const auto lolo = lo.mul_extended(other.lo);
+        return { uintx(lolo.first, lolo.second), uintx(0) };
+    }
+
     const auto lolo = lo.mul_extended(other.lo);
     const auto lohi = lo.mul_extended(other.hi);
     const auto hilo = hi.mul_extended(other.lo);
@@ -275,7 +285,10 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     constexpr size_t k = base_uint::length() - 1;
     // N.B. computation of redc_parameter requires division operation - if this cannot be precomputed (or amortized over
     // multiple reductions over the same modulus), barrett_reduction is much slower than divmod
-    static const uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
+    // Work on a separate constant copy of the modulus: the template parameter object is not guaranteed to honour
+    // base_uint's alignment, and the arithmetic below may use aligned vector loads on it.
+    static constexpr base_uint modulus_value = modulus;
+    static const uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus_value))).first;
 
     const auto x = *this;
 
@@ -293,8 +306,8 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     // compute remainder by determining value of x - quotient * modulus
     uintx qm_lo(0);
     {
-        const auto lolo = quotient.lo.mul_extended(modulus);
-        const auto lohi = quotient.hi.mul_extended(modulus);
+        const auto lolo = quotient.lo.mul_extended(modulus_value);
+        const auto lohi = quotient.hi.mul_extended(modulus_value);
         base_uint t0 = lolo.first;
         base_uint t1 = lolo.second;
         t1 = t1 + lohi.first;
@@ -306,9 +319,9 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     // when k = ceil(log2(modulus)) and x < modulus^2. Here k = base_uint::length() - 1 (a fixed,
     // conservative choice), so x / 2^{2k} can be up to 3, giving an error bound of 4.
     size_t i = 0;
-    while (remainder >= uintx(modulus)) {
+    while (remainder >= uintx(modulus_value)) {
         BB_ASSERT_LT(i, 4U);
-        remainder = remainder - modulus;
+        remainder = remainder - modulus_value;
         quotient = quotient + 1;
         i++;
     }

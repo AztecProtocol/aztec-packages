@@ -220,6 +220,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void populate_public_inputs_block();
 
+    /**
+     * @brief Release the circuit-construction data once a prover instance has been built from the circuit: trace
+     * blocks (only their sizes are kept), witness values and copy cycles, lookup tables and their gate records,
+     * ROM/RAM transcripts, memory records and range lists.
+     * @details The builder cannot be used to build or check a circuit afterwards.
+     */
+    void free_construction_data();
+
     void process_non_native_field_multiplications();
 
     UltraCircuitBuilder_(bool is_write_vk_mode = false)

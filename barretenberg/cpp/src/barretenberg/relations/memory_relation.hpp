@@ -112,6 +112,115 @@ template <typename FF_> class MemoryRelationImpl {
 
         auto q_memory_m = CoefficientAccumulator(in[AllEntities::EntityId::q_memory]);
 
+        // Prover fast path (guarded on ::LENGTH so it never enters the verifiers, which keep the straight-line
+        // computation below). Each memory gate type is identified by a selector product (ROM consistency: q_1 q_2,
+        // RAM consistency: q_3, RAM timestamp: q_1 q_4, memory record: q_1 q_m, ROM-LogUp table/read:
+        // q_2 (1 - q_1) / q_4 (1 - q_1)). A product of univariates is identically zero iff one of its factors is, so
+        // the terms of gate types absent from this edge are exact zeros and are not computed. The remaining terms are
+        // the same field values as in the general path, summed in a different grouping.
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            const bool q_1_is_zero = q_1_m.is_zero();
+            const auto one_minus_q_1_m = -q_1_m + FF(1);
+            const bool one_minus_q_1_is_zero = one_minus_q_1_m.is_zero();
+            const bool is_rom_consistency = !q_1_is_zero && !q_2_m.is_zero();
+            const bool is_ram_consistency = !q_3_m.is_zero();
+            const bool is_ram_timestamp = !q_1_is_zero && !q_4_m.is_zero();
+            const bool is_memory_record = !q_1_is_zero && !q_m_m.is_zero();
+            const bool is_logup_table = !one_minus_q_1_is_zero && !q_2_m.is_zero();
+            const bool is_logup_read = !one_minus_q_1_is_zero && !q_4_m.is_zero();
+
+            const auto q_memory_by_scaling_m = q_memory_m * scaling_factor;
+            const Accumulator q_memory_by_scaling(q_memory_by_scaling_m);
+
+            const auto neg_index_delta_m = w_1_m - w_1_shift_m;
+            const auto index_delta_is_zero_m = neg_index_delta_m + FF(1);
+
+            // Contribution of the q_memory-scaled gate types to subrelation 0.
+            Accumulator memory_identity(FF(0));
+            if (is_rom_consistency || is_ram_consistency || is_memory_record) {
+                auto partial_record_check_m = w_3_m * eta_three_m;
+                partial_record_check_m += w_2_m * eta_two_m;
+                partial_record_check_m += w_1_m * eta_m;
+                partial_record_check_m += q_c_m;
+                const auto memory_record_check = Accumulator(partial_record_check_m - w_4_m);
+
+                if (is_rom_consistency || is_ram_consistency) {
+                    const Accumulator index_increases_by_zero_or_one(neg_index_delta_m.sqr() + neg_index_delta_m);
+                    if (is_rom_consistency) {
+                        const auto record_delta_m = w_4_shift_m - w_4_m;
+                        const auto adjacent_values_match_if_adjacent_indices_match =
+                            Accumulator(index_delta_is_zero_m * record_delta_m);
+                        const auto q_one_by_two = Accumulator(q_1_m * q_2_m);
+                        const auto q_one_by_two_by_memory_by_scaling = q_one_by_two * q_memory_by_scaling;
+                        std::get<1>(accumulators) +=
+                            adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_memory_by_scaling;
+                        std::get<2>(accumulators) += index_increases_by_zero_or_one * q_one_by_two_by_memory_by_scaling;
+                        memory_identity += memory_record_check * q_one_by_two;
+                    }
+                    if (is_ram_consistency) {
+                        // The access type is read from the record check: -access = partial record check - w_4.
+                        const auto& neg_access_type = memory_record_check;
+                        const auto access_check = neg_access_type.sqr() + neg_access_type;
+
+                        auto neg_next_gate_access_type_m = w_3_shift_m * eta_three_m;
+                        neg_next_gate_access_type_m += w_2_shift_m * eta_two_m;
+                        neg_next_gate_access_type_m += w_1_shift_m * eta_m;
+                        neg_next_gate_access_type_m = neg_next_gate_access_type_m - w_4_shift_m;
+                        const Accumulator neg_next_gate_access_type(neg_next_gate_access_type_m);
+                        const auto value_delta_m = w_3_shift_m - w_3_m;
+                        const auto adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
+                            Accumulator(index_delta_is_zero_m * value_delta_m) *
+                            Accumulator(neg_next_gate_access_type_m + FF(1));
+                        const auto next_gate_access_type_is_boolean =
+                            neg_next_gate_access_type.sqr() + neg_next_gate_access_type;
+
+                        const auto q_3_by_memory_and_scaling = Accumulator(q_3_m * q_memory_by_scaling_m);
+                        std::get<3>(accumulators) +=
+                            adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
+                            q_3_by_memory_and_scaling;
+                        std::get<4>(accumulators) += index_increases_by_zero_or_one * q_3_by_memory_and_scaling;
+                        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_3_by_memory_and_scaling;
+                        // RAM consistency enters subrelation 0 already scaled by q_memory.
+                        std::get<0>(accumulators) += access_check * q_3_by_memory_and_scaling;
+                    }
+                }
+                if (is_memory_record) {
+                    memory_identity += memory_record_check * Accumulator(q_m_m * q_1_m);
+                }
+            }
+            if (is_ram_timestamp) {
+                const auto timestamp_delta_m = w_2_shift_m - w_2_m;
+                const auto RAM_timestamp_check_identity_m = index_delta_is_zero_m * timestamp_delta_m - w_3_m;
+                memory_identity += Accumulator(RAM_timestamp_check_identity_m) * Accumulator(q_4_m * q_1_m);
+            }
+            if (is_rom_consistency || is_ram_timestamp || is_memory_record) {
+                memory_identity *= q_memory_by_scaling;
+                std::get<0>(accumulators) += memory_identity;
+            }
+
+            if (is_logup_table || is_logup_read) {
+                const Accumulator q_logup_table =
+                    is_logup_table ? Accumulator(q_2_m * one_minus_q_1_m) : Accumulator(FF(0));
+                const Accumulator q_logup_read =
+                    is_logup_read ? Accumulator(q_4_m * one_minus_q_1_m) : Accumulator(FF(0));
+                const Accumulator q_logup_any = q_logup_table + q_logup_read;
+
+                const Accumulator denom(w_1_m + w_2_m * eta_m + q_c_m * eta_two_m + rom_logup_gamma_m);
+                const Accumulator w_4_acc(w_4_m);
+
+                std::get<6>(accumulators) += q_memory_by_scaling * q_logup_any * (w_4_acc * denom - FF(1));
+
+                Accumulator logup_sum_contribution = q_logup_read;
+                if (is_logup_table) {
+                    logup_sum_contribution -= q_logup_table * Accumulator(w_3_m);
+                }
+                logup_sum_contribution *= w_4_acc;
+                logup_sum_contribution *= Accumulator(q_memory_m);
+                std::get<7>(accumulators) += logup_sum_contribution;
+            }
+            return;
+        }
+
         /**
          * MEMORY
          *

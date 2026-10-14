@@ -6,6 +6,7 @@
 #pragma once
 
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/polynomials/fold_stride2.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
 namespace bb {
@@ -30,20 +31,44 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
     size_t row_skip_active_prefix_end = 0;
 
     /**
-     * @brief Construct from full polynomials, allocating based on their actual sizes.
-     * @details After the initial sumcheck round, the new size is CEIL(size/2).
+     * @brief Construct from full polynomials, allocating based on their actual backed ranges.
+     * @details After `num_folds` (1 or 2) sumcheck rounds, a polynomial backed on [start, end) is backed on
+     * [FLOOR(start/2^num_folds), CEIL(end/2^num_folds)).
      */
-    PartiallyEvaluatedMultivariatesBase(const ProverPolynomialsType& full_polynomials, size_t circuit_size)
+    PartiallyEvaluatedMultivariatesBase(const ProverPolynomialsType& full_polynomials,
+                                        size_t circuit_size,
+                                        size_t num_folds = 1)
     {
+        BB_ASSERT(num_folds == 1 || num_folds == 2);
         for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
-            // After the initial sumcheck round, the new size is CEIL(size/2).
-            size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-            // partially_evaluate writes to [0, desired_size) before any read; backing memory can be left uninitialized.
-            poly = Polynomial(desired_size, circuit_size / 2, 0, Polynomial::DontZeroMemory::FLAG);
+            const auto [start, end] =
+                num_folds == 1 ? folded_backed_range(full_poly) : twice_folded_backed_range(full_poly);
+            // partially_evaluate writes to [start, end) before any read; backing memory can be left uninitialized.
+            poly = Polynomial(end - start, circuit_size / 2, start, Polynomial::DontZeroMemory::FLAG);
         }
         if constexpr (requires { full_polynomials.row_skip_active_prefix_end; }) {
-            row_skip_active_prefix_end =
-                (full_polynomials.row_skip_active_prefix_end / 2) + (full_polynomials.row_skip_active_prefix_end % 2);
+            row_skip_active_prefix_end = full_polynomials.row_skip_active_prefix_end;
+            for (size_t fold = 0; fold < num_folds; fold++) {
+                row_skip_active_prefix_end = (row_skip_active_prefix_end / 2) + (row_skip_active_prefix_end % 2);
+            }
+        }
+    }
+};
+
+/**
+ * @brief The prover polynomials folded at the first sumcheck challenge, as `FoldedPolynomialView`s computed on access.
+ * @details Lets the second sumcheck round read the first round's partial evaluations without materializing them; the
+ * tables are then built directly after two folds (see SumcheckProver::partially_evaluate_first_two_rounds).
+ *
+ * @tparam AllViewsBase The AllEntities<FoldedPolynomialView<FF>> type from the flavor
+ */
+template <typename AllViewsBase, typename ProverPolynomialsType, typename FF>
+class FoldedMultivariatesBase : public AllViewsBase {
+  public:
+    FoldedMultivariatesBase(const ProverPolynomialsType& full_polynomials, const FF& challenge)
+    {
+        for (auto [view, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
+            view = FoldedPolynomialView<FF>(full_poly, challenge);
         }
     }
 };

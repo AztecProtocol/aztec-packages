@@ -2,6 +2,7 @@
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -60,7 +61,9 @@ int process_msgpack_commands(std::istream& input_stream)
             // Deserialize the msgpack buffer
             // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
             // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+            // The buffer outlives the command's execution, so blobs (bytecode, witnesses, VKs) are referenced in place.
+            auto unpacked =
+                msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size(), msgpack_reference_input);
             auto obj = unpacked.get();
 
             // First, expect an array (the tuple of arguments)
@@ -213,7 +216,9 @@ int execute_msgpack_ipc_server(std::unique_ptr<ipc::IpcServer> server)
             // Deserialize msgpack command
             // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
             // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
+            // The buffer outlives the command's execution, so blobs (bytecode, witnesses, VKs) are referenced in place.
+            auto unpacked =
+                msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size(), msgpack_reference_input);
             auto obj = unpacked.get();
 
             // First, expect an array (the tuple of arguments)

@@ -526,3 +526,21 @@ TEST(polynomials, FftInnerParallelInPlaceAsserts)
         polynomial_arithmetic::fft_inner_parallel(coeffs.data(), coeffs.data(), domain, FF(), domain.get_round_roots()),
         ".*");
 }
+
+// evaluate (IFMA chains on capable CPUs, two scalar Horner chains elsewhere) against a single Horner chain, for sizes
+// that leave every possible remainder in the per-thread chunks.
+TEST(polynomials, evaluate_matches_horner)
+{
+    for (const size_t n : { size_t{ 1 }, size_t{ 17 }, size_t{ 64 }, size_t{ 1000 }, size_t{ 5003 } }) {
+        std::vector<fr> coeffs(n);
+        for (auto& c : coeffs) {
+            c = fr::random_element();
+        }
+        const fr z = fr::random_element();
+        fr expected = fr::zero();
+        for (size_t i = n; i > 0; --i) {
+            expected = (expected * z) + coeffs[i - 1];
+        }
+        EXPECT_EQ(polynomial_arithmetic::evaluate(coeffs.data(), z, n), expected) << n;
+    }
+}

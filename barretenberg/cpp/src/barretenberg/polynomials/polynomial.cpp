@@ -8,11 +8,13 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/fields/ifma_field.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
+#include <algorithm>
 #include <cstddef>
 #include <fcntl.h>
 #include <list>
@@ -23,6 +25,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace bb {
 
@@ -205,6 +208,14 @@ template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_en
     coefficients_.end_ = new_end_index;
 }
 
+template <typename Fr> void Polynomial<Fr>::rebase_backed_range(const size_t new_start, const size_t new_end)
+{
+    BB_ASSERT_LTE(new_start, new_end);
+    BB_ASSERT_LTE(new_end - new_start, size());
+    coefficients_.start_ = new_start;
+    coefficients_.end_ = new_end;
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
     Polynomial result;
@@ -260,27 +271,102 @@ void add_scaled_batch(Polynomial<Fr>& dst,
     BB_ASSERT_LTE(dst.start_index(), min_start);
     BB_ASSERT_GTE(dst.end_index(), max_end);
 
-    const size_t union_size = max_end - min_start;
-    parallel_for([&](const ThreadChunk& chunk) {
+    // Split the index range so that every thread visits the same number of source entries: sources of different
+    // lengths overlap mostly at low indices, so equal index ranges would leave the low chunks with most of the work.
+    auto work_below = [&](size_t idx) {
+        size_t work = 0;
+        for (const auto& src : sources) {
+            work += std::clamp(idx, src.start_index, src.end_index()) - src.start_index;
+        }
+        return work;
+    };
+    const size_t num_threads = get_num_cpus();
+    const size_t total_work = work_below(max_end);
+    std::vector<size_t> chunk_starts(num_threads + 1, max_end);
+    chunk_starts[0] = min_start;
+    for (size_t chunk = 1; chunk < num_threads; ++chunk) {
+        const size_t target = (total_work / num_threads) * chunk;
+        size_t lo = chunk_starts[chunk - 1];
+        size_t hi = max_end;
+        while (lo < hi) {
+            const size_t mid = lo + ((hi - lo) / 2);
+            if (work_below(mid) < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        chunk_starts[chunk] = lo;
+    }
+
+    parallel_for(num_threads, [&](size_t thread_idx) {
         BB_BENCH_TRACY_NAME("add_scaled_batch/chunk");
-        auto chunk_indices = chunk.range(union_size, min_start);
-        if (chunk_indices.empty()) {
+        const size_t chunk_start = chunk_starts[thread_idx];
+        const size_t chunk_end = chunk_starts[thread_idx + 1];
+        if (chunk_start >= chunk_end) {
             return;
         }
-        auto chunk_start = chunk_indices.front();
-        auto chunk_end = chunk_indices.back();
 
-        for (size_t k = 0; k < sources.size(); ++k) {
-            const auto& src = sources[k];
-            const Fr& c = scalars[k];
-            const size_t src_start = src.start_index;
-            const size_t src_end = src.end_index();
+        // Walk the chunk in L1-sized tiles and apply every source to a tile before moving on, so each dst
+        // element is loaded and stored once per tile rather than once per source.
+        constexpr size_t TILE_SIZE = 256;
+#ifdef BB_FIELD_IFMA
+        constexpr bool ifma_supported = field_ifma::Consts<typename Fr::Params>::supported;
+        static_assert(!ifma_supported || TILE_SIZE <= field_ifma::MAX_TILE);
+        const bool use_ifma = ifma_supported && field_ifma::available();
+        std::vector<field_ifma::ScaledSource> tile_sources;
+        if (use_ifma) {
+            tile_sources.reserve(sources.size());
+        }
+#endif
+        for (size_t tile_start = chunk_start; tile_start < chunk_end; tile_start += TILE_SIZE) {
+            const size_t tile_end = std::min(tile_start + TILE_SIZE, chunk_end);
+            // Elements of the tile before `scalar_start` are already done by the IFMA kernel.
+            size_t scalar_start = tile_start;
+#ifdef BB_FIELD_IFMA
+            if constexpr (ifma_supported) {
+                const size_t vector_size = (tile_end - tile_start) & ~size_t{ 7 };
+                if (use_ifma && vector_size != 0) {
+                    const size_t vector_end = tile_start + vector_size;
+                    tile_sources.clear();
+                    for (size_t k = 0; k < sources.size(); ++k) {
+                        const auto& src = sources[k];
+                        const size_t idx_start = std::max(tile_start, src.start_index);
+                        const size_t idx_end = std::min(vector_end, src.end_index());
+                        if (idx_start < idx_end) {
+                            tile_sources.push_back({ .data = &src[idx_start].data[0],
+                                                     .begin = idx_start - tile_start,
+                                                     .end = idx_end - tile_start,
+                                                     .scalar = &scalars[k].data[0],
+                                                     .unit = scalars[k] == Fr::one() });
+                        }
+                    }
+                    field_ifma::add_scaled_batch_tile<typename Fr::Params>(
+                        &dst.at(tile_start).data[0], vector_size, tile_sources.data(), tile_sources.size());
+                    scalar_start = vector_end;
+                }
+            }
+#endif
+            for (size_t k = 0; k < sources.size(); ++k) {
+                const auto& src = sources[k];
+                const Fr& c = scalars[k];
+                const size_t idx_start = std::max(scalar_start, src.start_index);
+                const size_t idx_end = std::min(tile_end, src.end_index());
 
-            const size_t idx_start = std::max(chunk_start, src_start);
-            const size_t idx_end = std::min(chunk_end + 1, src_end);
-
-            for (size_t i = idx_start; i < idx_end; ++i) {
-                dst.at(i) += c * src[i];
+                // A unit scalar needs no multiplication
+                if (c == Fr::one()) {
+                    for (size_t i = idx_start; i < idx_end; ++i) {
+                        dst.at(i) += src[i];
+                    }
+                    continue;
+                }
+                // Zero coefficients (common in selector columns) contribute nothing, so skip their multiply.
+                for (size_t i = idx_start; i < idx_end; ++i) {
+                    const Fr& value = src[i];
+                    if (!value.is_zero()) {
+                        dst.at(i) += c * value;
+                    }
+                }
             }
         }
     });

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <memory>
 #include <span>
 #include <string>
 #include <sys/socket.h>
@@ -107,9 +108,16 @@ bool SocketServer::send(int client_id, const void* data, size_t len)
 
 void SocketServer::release(int client_id, size_t message_size)
 {
-    // No-op for sockets - message already consumed from kernel buffer during receive()
-    (void)client_id;
+    // The message was already consumed from the kernel buffer during receive(); only a large receive buffer is freed.
     (void)message_size;
+    if (client_id < 0 || static_cast<size_t>(client_id) >= recv_buffers_.size()) {
+        return;
+    }
+    auto& buffer = recv_buffers_[static_cast<size_t>(client_id)];
+    if (buffer.capacity > MAX_RETAINED_RECV_BUFFER_SIZE) {
+        buffer.data.reset();
+        buffer.capacity = 0;
+    }
 }
 
 std::span<const uint8_t> SocketServer::receive(int client_id)
@@ -146,20 +154,21 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
         total_read += static_cast<size_t>(n);
     }
 
-    // Resize buffer if needed to fit length prefix + message
+    // Grow buffer if needed to fit length prefix + message (the previous contents are not needed)
     size_t total_size = sizeof(uint32_t) + msg_len;
-    if (recv_buffers_[client_idx].size() < total_size) {
-        recv_buffers_[client_idx].resize(total_size);
+    auto& buffer = recv_buffers_[client_idx];
+    if (buffer.capacity < total_size) {
+        buffer.data = std::make_unique_for_overwrite<uint8_t[]>(total_size);
+        buffer.capacity = total_size;
     }
 
     // Store length prefix in buffer
-    std::memcpy(recv_buffers_[client_idx].data(), &msg_len, sizeof(uint32_t));
+    std::memcpy(buffer.data.get(), &msg_len, sizeof(uint32_t));
 
     // Read message data - must loop until all bytes received (MSG_WAITALL unreliable on macOS)
     total_read = 0;
     while (total_read < msg_len) {
-        ssize_t n =
-            ::recv(fd, recv_buffers_[client_idx].data() + sizeof(uint32_t) + total_read, msg_len - total_read, 0);
+        ssize_t n = ::recv(fd, buffer.data.get() + sizeof(uint32_t) + total_read, msg_len - total_read, 0);
         if (n < 0) {
             if (errno == EINTR) {
                 continue; // Interrupted, retry
@@ -175,7 +184,7 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
         total_read += static_cast<size_t>(n);
     }
 
-    return std::span<const uint8_t>(recv_buffers_[client_idx].data() + sizeof(uint32_t), msg_len);
+    return std::span<const uint8_t>(buffer.data.get() + sizeof(uint32_t), msg_len);
 }
 
 #ifdef __APPLE__

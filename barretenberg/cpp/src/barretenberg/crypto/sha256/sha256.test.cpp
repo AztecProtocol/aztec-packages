@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
+#include <span>
 
 using namespace bb;
 using namespace bb::crypto;
@@ -100,4 +101,57 @@ TEST(misc_sha256, test_NIST_vector_five)
     for (size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(result[i], expected[i]);
     }
+}
+
+// sha256 against a reference built from the portable `sha256_block` with explicit padding, over lengths that cover
+// every tail size (one- and two-block padding) and inputs spanning many full blocks.
+TEST(misc_sha256, matches_block_reference)
+{
+    const auto reference = [](const std::vector<uint8_t>& message) {
+        std::vector<uint8_t> padded = message;
+        padded.push_back(0x80);
+        while (padded.size() % 64 != 56) {
+            padded.push_back(0x00);
+        }
+        const uint64_t bit_length = static_cast<uint64_t>(message.size()) * 8;
+        for (size_t i = 0; i < 8; ++i) {
+            padded.push_back(static_cast<uint8_t>(bit_length >> (56 - (8 * i))));
+        }
+        std::array<uint32_t, 8> state{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+        for (size_t block = 0; block < padded.size() / 64; ++block) {
+            std::array<uint32_t, 16> words;
+            for (size_t j = 0; j < 16; ++j) {
+                const size_t offset = (block * 64) + (4 * j);
+                words[j] = (static_cast<uint32_t>(padded[offset]) << 24) |
+                           (static_cast<uint32_t>(padded[offset + 1]) << 16) |
+                           (static_cast<uint32_t>(padded[offset + 2]) << 8) | static_cast<uint32_t>(padded[offset + 3]);
+            }
+            state = sha256_block(state, words);
+        }
+        Sha256Hash out;
+        for (size_t j = 0; j < 8; ++j) {
+            for (size_t k = 0; k < 4; ++k) {
+                out[(4 * j) + k] = static_cast<uint8_t>(state[j] >> (24 - (8 * k)));
+            }
+        }
+        return out;
+    };
+
+    std::vector<uint8_t> message;
+    uint32_t seed = 1;
+    const auto next_byte = [&seed]() {
+        seed = (seed * 1103515245U) + 12345U;
+        return static_cast<uint8_t>(seed >> 16);
+    };
+    for (size_t length = 0; length <= 300; ++length) {
+        EXPECT_EQ(sha256(message), reference(message)) << "length " << length;
+        message.push_back(next_byte());
+    }
+    message.resize((1 << 16) + 17);
+    for (auto& byte : message) {
+        byte = next_byte();
+    }
+    EXPECT_EQ(sha256(message), reference(message));
+    EXPECT_EQ(sha256(std::span<const uint8_t>(message)), reference(message));
 }

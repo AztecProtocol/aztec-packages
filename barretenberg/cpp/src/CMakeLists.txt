@@ -43,12 +43,16 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif()
 
 # We enable -O1 level optimsations, even when compiling debug wasm, otherwise we get "local count too large" at runtime.
-# We prioritize reducing size of final artifacts in release with -Oz.
+# Release wasm is built with -O3 and the loop vectorizer off: the vectorizer turns field-arithmetic loops into i64x2
+# multiplies that V8 lowers to slow sequences (scalar Fr mul 50 ns -> 72 ns), while the rest of -O3 (inlining,
+# unrolling) proves ~8% faster than -Oz end to end. The cost is a larger artifact (gzipped ~3.9 MB -> ~5.6 MB);
+# configure with -DWASM_RELEASE_OPT=-Oz to prioritise size instead.
 if(WASM)
     set(CMAKE_CXX_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
-    set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
-    set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
+    set(WASM_RELEASE_OPT "-O3 -fno-vectorize" CACHE STRING "Optimisation flags for release WASM builds")
+    set(CMAKE_CXX_FLAGS_RELEASE "${WASM_RELEASE_OPT} -DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "${WASM_RELEASE_OPT} -DNDEBUG")
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 

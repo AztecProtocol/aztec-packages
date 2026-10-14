@@ -188,6 +188,100 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
                        u_1_next * D1_MINUS_3 + u_2_next * D1 + Accumulator(wp3_full);
         std::get<3>(evals) += q_times_scaling * a3_body;
     }
+
+    /**
+     * @brief Prover-only constants of the separator-weighted sum of the four subrelation bodies (see
+     * HasProverSubrelationBatching): \f$ \sum_k w_k A_k = \sum_i m_i u_i + \sum_j n_j \cdot \text{wire}_j \f$.
+     */
+    struct SubrelationBatchingConstants {
+        std::array<FF, 7> sbox;  // m_i for u_0, u_1, u_2, u_3, u_0', u_1', u_2'
+        std::array<FF, 7> wires; // n_j for w_r, w_o, w_4, w_l_shift, w_r_shift, w_o_shift, w_4_shift
+    };
+
+    static SubrelationBatchingConstants compute_subrelation_batching_constants(const std::array<FF, 4>& weights)
+    {
+        const auto& cf0 = QuadParams::tables.closed_form[0];
+        const auto& l0 = QuadParams::tables.forward_vandermonde_lhs[0];
+        const auto& l1 = QuadParams::tables.forward_vandermonde_lhs[1];
+        const auto& l2 = QuadParams::tables.forward_vandermonde_lhs[2];
+        SubrelationBatchingConstants constants;
+        for (size_t i = 0; i < 4; ++i) {
+            constants.sbox[i] =
+                weights[0] * cf0[3 + i] + weights[1] * l0[3 + i] + weights[2] * l1[3 + i] + weights[3] * l2[3 + i];
+        }
+        for (size_t j = 0; j < 3; ++j) {
+            constants.wires[j] = weights[0] * cf0[j] + weights[1] * l0[j] + weights[2] * l1[j] + weights[3] * l2[j];
+        }
+        // u_0' enters A_1 with D_1, A_2 with 3 - 2 D_1 and A_3 with -B3_U0_COEF; u_1' enters A_2 with D_1 and A_3 with
+        // -(D_1 - 3); u_2' enters A_3 with D_1.
+        constants.sbox[4] = weights[1] * D1 + weights[2] * (fr(3) - D1 - D1) - weights[3] * B3_U0_COEF;
+        constants.sbox[5] = weights[2] * D1 - weights[3] * D1_MINUS_3;
+        constants.sbox[6] = weights[3] * D1;
+        constants.wires[3] = -weights[0];
+        constants.wires[4] = weights[2] + weights[2] + weights[3] * SIGMA_PLUS_2 - weights[1];
+        constants.wires[5] = weights[3] - weights[2];
+        constants.wires[6] = -weights[3];
+        return constants;
+    }
+
+    /**
+     * @brief Prover-only: add \f$ q \cdot \text{scaling} \cdot \sum_k w_k A_k \f$ into the first subrelation
+     * accumulator. Each S-box output is scaled by its constant before the last multiplication of x^5 = x^4 \cdot x, in
+     * the degree-1 coefficient basis, so the weighted sum costs no full-length multiplications beyond the S-boxes.
+     */
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    static void accumulate_with_subrelation_batching(ContainerOverSubrelations& evals,
+                                                     const AllEntities& in,
+                                                     const Parameters& /*params*/,
+                                                     const FF& scaling_factor,
+                                                     const SubrelationBatchingConstants& constants)
+    {
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoeffAcc = typename Accumulator::CoefficientAccumulator;
+
+        const auto w_l = CoeffAcc(in[AllEntities::EntityId::w_l]);
+        const auto w_r = CoeffAcc(in[AllEntities::EntityId::w_r]);
+        const auto w_o = CoeffAcc(in[AllEntities::EntityId::w_o]);
+        const auto w_4 = CoeffAcc(in[AllEntities::EntityId::w_4]);
+        const auto w_l_shift = CoeffAcc(in[AllEntities::EntityId::w_l_shift]);
+        const auto w_r_shift = CoeffAcc(in[AllEntities::EntityId::w_r_shift]);
+        const auto w_o_shift = CoeffAcc(in[AllEntities::EntityId::w_o_shift]);
+        const auto w_4_shift = CoeffAcc(in[AllEntities::EntityId::w_4_shift]);
+
+        const auto q_l = CoeffAcc(in[AllEntities::EntityId::q_l]);
+        const auto q_r = CoeffAcc(in[AllEntities::EntityId::q_r]);
+        const auto q_o = CoeffAcc(in[AllEntities::EntityId::q_o]);
+        const auto q_4 = CoeffAcc(in[AllEntities::EntityId::q_4]);
+        const auto q_m = CoeffAcc(in[AllEntities::EntityId::q_m]);
+        const auto q_c = CoeffAcc(in[AllEntities::EntityId::q_c]);
+        const auto q_5 = CoeffAcc(in[AllEntities::EntityId::q_5]);
+        const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_quad_internal]);
+
+        // m * x^5 = (x^2)^2 * (m * x)
+        auto scaled_pow5 = [](const auto& x_m, const FF& m) -> Accumulator {
+            const Accumulator sq(x_m.sqr());
+            return sq.sqr() * Accumulator(x_m * m);
+        };
+
+        auto body = scaled_pow5(w_l + q_l, constants.sbox[0]);
+        body += scaled_pow5(w_r + q_r, constants.sbox[1]);
+        body += scaled_pow5(w_o + q_o, constants.sbox[2]);
+        body += scaled_pow5(w_4 + q_4, constants.sbox[3]);
+        body += scaled_pow5(w_l_shift + q_m, constants.sbox[4]);
+        body += scaled_pow5(w_r_shift + q_c, constants.sbox[5]);
+        body += scaled_pow5(w_o_shift + q_5, constants.sbox[6]);
+
+        auto wires = w_r * constants.wires[0];
+        wires += w_o * constants.wires[1];
+        wires += w_4 * constants.wires[2];
+        wires += w_l_shift * constants.wires[3];
+        wires += w_r_shift * constants.wires[4];
+        wires += w_o_shift * constants.wires[5];
+        wires += w_4_shift * constants.wires[6];
+        body += Accumulator(wires);
+
+        std::get<0>(evals) += Accumulator(q_sel * scaling_factor) * body;
+    }
 };
 
 template <typename FF> using Poseidon2QuadInternalRelation = Relation<Poseidon2QuadInternalRelationImpl<FF>>;

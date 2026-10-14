@@ -3,6 +3,7 @@
 #include "barretenberg/ipc/ipc_server.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
@@ -45,10 +46,18 @@ class SocketServer : public IpcServer {
     std::string socket_path_;
     int initial_max_clients_;
     int listen_fd_ = -1;
-    int fd_ = -1;                                    // kqueue or epoll fd
-    std::vector<int> client_fds_;                    // client_id -> fd
-    std::unordered_map<int, int> fd_to_client_id_;   // fd -> client_id (for fast lookup)
-    std::vector<std::vector<uint8_t>> recv_buffers_; // client_id -> recv buffer
+    int fd_ = -1;                                  // kqueue or epoll fd
+    std::vector<int> client_fds_;                  // client_id -> fd
+    std::unordered_map<int, int> fd_to_client_id_; // fd -> client_id (for fast lookup)
+    // Per-client receive buffer. Its contents are overwritten by each message, so it is allocated uninitialised.
+    struct RecvBuffer {
+        std::unique_ptr<uint8_t[]> data;
+        size_t capacity = 0;
+    };
+    // Receive buffers larger than this are freed once their message has been handled, so a large request (e.g. a
+    // circuit's bytecode) does not stay resident for the rest of the session.
+    static constexpr size_t MAX_RETAINED_RECV_BUFFER_SIZE = static_cast<size_t>(1024 * 1024);
+    std::vector<RecvBuffer> recv_buffers_; // client_id -> recv buffer
     int num_clients_ = 0;
 };
 

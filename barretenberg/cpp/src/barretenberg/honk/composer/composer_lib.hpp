@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -44,27 +45,49 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
  * @details Read counts are needed for the log derivative lookup argument. The table polynomials are constructed as a
  * concatenation of basic 3-column tables. Similarly, the read counts polynomial is constructed as the concatenation of
  * read counts for the individual tables.
+ *
+ * The row of each lookup is resolved in parallel (read-only queries of the table's entry-index map) and the counts are
+ * then accumulated per table as integers. The entry-index maps are built on the calling thread: building them on
+ * worker threads places them in the workers' malloc arenas, which raised peak RSS.
  */
 template <typename Flavor>
 void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit)
 {
+    auto& tables = circuit.get_lookup_tables();
+    for (auto& table : tables) {
+        table.initialize_index_map();
+    }
+
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     size_t table_offset = circuit.blocks.lookup.trace_offset();
-    for (auto& table : circuit.get_lookup_tables()) {
-        table.initialize_index_map();
+    std::vector<size_t> indices_in_table;
+    std::vector<uint32_t> counts;
+    for (auto& table : tables) {
+        const auto& lookup_gates = table.lookup_gates;
+        indices_in_table.resize(lookup_gates.size());
+        parallel_for_heuristic(
+            lookup_gates.size(),
+            [&](size_t gate_idx) {
+                // convert lookup gate data to an array of three field elements, one for each of the 3 columns
+                auto table_entry = lookup_gates[gate_idx].to_table_components(table.use_twin_keys);
+                // find the index of the entry in the table
+                indices_in_table[gate_idx] = table.index_map[table_entry];
+            },
+            thread_heuristics::FF_MULTIPLICATION_COST * 8);
 
-        for (auto& gate_data : table.lookup_gates) {
-            // convert lookup gate data to an array of three field elements, one for each of the 3 columns
-            auto table_entry = gate_data.to_table_components(table.use_twin_keys);
-
-            // find the index of the entry in the table
-            auto index_in_table = table.index_map[table_entry];
-
-            // increment the read count at the corresponding index in the full polynomial
+        counts.assign(table.size(), 0);
+        for (const size_t index_in_table : indices_in_table) {
+            counts.at(index_in_table)++;
+        }
+        for (size_t index_in_table = 0; index_in_table < counts.size(); ++index_in_table) {
+            if (counts[index_in_table] == 0) {
+                continue;
+            }
+            // add the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
-            read_counts.at(index_in_poly)++;
+            read_counts.at(index_in_poly) += counts[index_in_table];
             read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
         }
         table_offset += table.size(); // set the offset of the next table within the polynomials

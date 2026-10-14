@@ -19,15 +19,19 @@
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
+#include <atomic>
+
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProverPolynomials& polynomials)
+void TraceToPolynomials<Flavor>::populate(Builder& builder,
+                                          typename Flavor::ProverPolynomials& polynomials,
+                                          CopiedCircuitData copied_circuit_data)
 {
 
     BB_BENCH_NAME("trace populate");
 
-    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials);
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, copied_circuit_data);
 
     if constexpr (Flavor::HasEccOpQueue) {
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
@@ -45,7 +49,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
 
 template <class Flavor>
 CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
-    Builder& builder, ProverPolynomials& polynomials)
+    Builder& builder, ProverPolynomials& polynomials, CopiedCircuitData copied_circuit_data)
 {
 
     BB_BENCH_NAME("construct_trace_data");
@@ -55,79 +59,13 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
     auto selectors = polynomials.get_selectors();
 
-    // Two-phase parallelisation. Phase 1 fans out over blocks to populate wires and emit copy-cycle
-    // nodes; phase 2 fans out over a flattened (block, selector) task list to fill selectors.
+    // Two-phase parallelisation. Phase 1 fans out over a flattened (block, selector) task list to fill selectors;
+    // phase 2 fans out over row chunks of all blocks to populate wires and record copy-cycle cells.
     auto blocks_array = builder.blocks.get();
     const size_t num_blocks = blocks_array.size();
 
-    // Pre-pass: count copy-cycle sizes per real-variable index so each copy_cycles[i] can be
-    // reserve()d once before the serial concat in phase 1.5, avoiding repeated reallocations.
-    {
-        BB_BENCH_NAME("counting copy_cycles");
-        const size_t num_cycles = builder.get_num_variables();
-        std::vector<uint32_t> cycle_counts(builder.real_variable_index.size(), 0);
-        for (auto& block : blocks_array) {
-            const uint32_t block_size = static_cast<uint32_t>(block.size());
-            for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
-                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                    uint32_t var_idx = block.wires[wire_idx][block_row_idx];
-                    // var_idx may be untrusted (e.g. from ACIR) so use .at() to catch OOB. This validates real_var_idx
-                    // as an in-range index for both cycle_counts and the CSR offsets (same size), which is why phase
-                    // 1.5 below can index the cursor array without .at().
-                    ++cycle_counts.at(builder.real_variable_index.at(var_idx));
-                }
-            }
-        }
-        // Exclusive prefix sum of cycle counts gives the CSR offsets; a single flat node array
-        // replaces one heap-allocated vector per variable.
-        copy_cycles.offsets.resize(num_cycles + 1);
-        uint32_t running = 0;
-        for (size_t i = 0; i < num_cycles; ++i) {
-            copy_cycles.offsets[i] = running;
-            running += cycle_counts[i];
-        }
-        copy_cycles.offsets[num_cycles] = running;
-        copy_cycles.nodes.resize(running);
-    }
-
-    // Phase 1: per-block parallel pass over wires and emit copy-cycle nodes.
-    std::vector<std::vector<std::pair<uint32_t, cycle_node>>> per_block_nodes(num_blocks);
-    {
-        BB_BENCH_NAME("populate_wires_and_emit_cycles");
-        parallel_for(num_blocks, [&](size_t block_idx) {
-            auto& block = blocks_array[block_idx];
-            const uint32_t offset = block.trace_offset();
-            const uint32_t block_size = static_cast<uint32_t>(block.size());
-            auto& local_nodes = per_block_nodes[block_idx];
-            local_nodes.reserve(static_cast<size_t>(block_size) * NUM_WIRES);
-
-            // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code.
-            for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
-                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                    uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                    // Use .at() so out-of-range var_idx is caught instead of producing a silent OOB read.
-                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
-                    uint32_t trace_row_idx = block_row_idx + offset;
-                    // Insert the real witness values from this block into the wire polys at the correct offset
-                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
-                    local_nodes.emplace_back(real_var_idx, cycle_node{ wire_idx, trace_row_idx });
-                }
-            }
-        });
-    }
-
-    // Phase 1.5: Serial concat in block order to preserve cycle-node ordering within each variable's cycle list.
-    {
-        BB_BENCH_NAME("fill_copy_cycles");
-        std::vector<uint32_t> cursors(copy_cycles.offsets.begin(), copy_cycles.offsets.end() - 1);
-        for (const auto& block_nodes : per_block_nodes) {
-            for (const auto& [real_var_idx, node] : block_nodes) {
-                copy_cycles.nodes[cursors[real_var_idx]++] = node;
-            }
-        }
-    }
-
-    // Phase 2: parallel selector filling across a flattened task list.
+    // Phase 1: parallel selector filling across a flattened task list. It runs before the wire pass so that the wire
+    // pass can release each block's gate data once it is done with it.
     // Non-gate selectors (q_m/q_c/q_l/q_r/q_o/q_4/q_5) come from every block via codegen-emitted
     // `get_block_non_gate_selectors(block)`. Gate selectors come from the codegen's
     // `get_gate_blocks(blocks)` × `GATE_KINDS` parallel arrays — one task per flavor gate
@@ -175,6 +113,122 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
             const size_t dst_end = std::min<size_t>(task.trace_offset + task.block_size, poly.end_index());
             if (dst_begin < dst_end) {
                 source.copy_into(&poly.at(dst_begin), dst_begin - task.trace_offset, dst_end - dst_begin);
+            }
+        });
+    }
+
+    // Wire cells are laid out flat in (block, row, wire) order; cell_offsets[b] is the first cell of block b. This is
+    // the order in which nodes are appended to each variable's copy cycle.
+    const size_t num_cycles = builder.get_num_variables();
+    std::vector<size_t> cell_offsets(num_blocks + 1, 0);
+    for (size_t block_idx = 0; block_idx < num_blocks; ++block_idx) {
+        cell_offsets[block_idx + 1] = cell_offsets[block_idx] + blocks_array[block_idx].size() * NUM_WIRES;
+    }
+    // The real variable index of every wire cell.
+    std::vector<uint32_t> cell_real_var_idx(cell_offsets[num_blocks]);
+
+    // Phase 2: populate the wires and record each cell's real variable index, in parallel over row chunks of all
+    // blocks (the blocks differ greatly in size). With CopiedCircuitData::RELEASE, the task that finishes a block's
+    // last chunk frees the block's gate data: the copy-cycle phases below read only the recorded cells and the blocks'
+    // offsets and sizes.
+    {
+        BB_BENCH_NAME("populate_wires_and_emit_cycles");
+        constexpr uint32_t ROWS_PER_TASK = 1 << 12;
+        struct RowTask {
+            size_t block_idx;
+            uint32_t row_begin;
+            uint32_t row_end;
+        };
+        std::vector<RowTask> row_tasks;
+        for (size_t block_idx = 0; block_idx < num_blocks; ++block_idx) {
+            const uint32_t block_size = static_cast<uint32_t>(blocks_array[block_idx].size());
+            for (uint32_t row_begin = 0; row_begin < block_size; row_begin += ROWS_PER_TASK) {
+                row_tasks.push_back({ block_idx, row_begin, std::min(row_begin + ROWS_PER_TASK, block_size) });
+            }
+        }
+        std::vector<std::atomic<uint32_t>> chunks_left(num_blocks);
+        for (const RowTask& task : row_tasks) {
+            chunks_left[task.block_idx].fetch_add(1, std::memory_order_relaxed);
+        }
+        parallel_for(row_tasks.size(), [&](size_t task_idx) {
+            const RowTask& task = row_tasks[task_idx];
+            auto& block = blocks_array[task.block_idx];
+            const uint32_t offset = block.trace_offset();
+            uint32_t* cell = &cell_real_var_idx[cell_offsets[task.block_idx] + (task.row_begin * NUM_WIRES)];
+            for (uint32_t block_row_idx = task.row_begin; block_row_idx < task.row_end; ++block_row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                    uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
+                    // var_idx may be untrusted (e.g. from ACIR): use .at() so an out-of-range var_idx is caught
+                    // instead of producing a silent OOB read, and check that the real index has a copy cycle.
+                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
+                    if (real_var_idx >= num_cycles) {
+                        throw_or_abort("TraceToPolynomials: real variable index out of range");
+                    }
+                    uint32_t trace_row_idx = block_row_idx + offset;
+                    // Insert the real witness values from this block into the wire polys at the correct offset
+                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
+                    *cell++ = real_var_idx;
+                }
+            }
+            if (copied_circuit_data == CopiedCircuitData::RELEASE &&
+                chunks_left[task.block_idx].fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                block.free_data();
+            }
+        });
+    }
+
+    // Phases 2.5 and 2.6 split the variables into one contiguous range per thread. Each thread scans all cells in
+    // order and handles only its own variables, so every copy cycle is counted and filled by one thread, in cell order.
+    {
+        BB_BENCH_NAME("counting copy_cycles");
+        // Count copy-cycle sizes per real variable, then take the exclusive prefix sum to get the CSR offsets; a
+        // single flat node array replaces one heap-allocated vector per variable.
+        copy_cycles.offsets.assign(num_cycles + 1, 0);
+        parallel_for([&](const ThreadChunk& chunk) {
+            const auto vars = chunk.range(num_cycles);
+            if (vars.empty()) {
+                return;
+            }
+            const uint32_t var_begin = static_cast<uint32_t>(vars.front());
+            const uint32_t num_vars = static_cast<uint32_t>(vars.size());
+            for (const uint32_t real_var_idx : cell_real_var_idx) {
+                if (real_var_idx - var_begin < num_vars) {
+                    ++copy_cycles.offsets[real_var_idx];
+                }
+            }
+        });
+        uint32_t running = 0;
+        for (size_t i = 0; i < num_cycles; ++i) {
+            const uint32_t count = copy_cycles.offsets[i];
+            copy_cycles.offsets[i] = running;
+            running += count;
+        }
+        copy_cycles.offsets[num_cycles] = running;
+        copy_cycles.nodes.resize(running);
+    }
+
+    {
+        BB_BENCH_NAME("fill_copy_cycles");
+        std::vector<uint32_t> cursors(copy_cycles.offsets.begin(), copy_cycles.offsets.end() - 1);
+        parallel_for([&](const ThreadChunk& chunk) {
+            const auto vars = chunk.range(num_cycles);
+            if (vars.empty()) {
+                return;
+            }
+            const uint32_t var_begin = static_cast<uint32_t>(vars.front());
+            const uint32_t num_vars = static_cast<uint32_t>(vars.size());
+            for (size_t block_idx = 0; block_idx < num_blocks; ++block_idx) {
+                const uint32_t offset = blocks_array[block_idx].trace_offset();
+                const uint32_t block_size = static_cast<uint32_t>(blocks_array[block_idx].size());
+                const uint32_t* cell = &cell_real_var_idx[cell_offsets[block_idx]];
+                for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
+                    for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                        const uint32_t real_var_idx = *cell++;
+                        if (real_var_idx - var_begin < num_vars) {
+                            copy_cycles.nodes[cursors[real_var_idx]++] = cycle_node{ wire_idx, block_row_idx + offset };
+                        }
+                    }
+                }
             }
         });
     }

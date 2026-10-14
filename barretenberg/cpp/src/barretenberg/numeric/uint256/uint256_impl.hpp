@@ -149,6 +149,11 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) 
     if (b > *this) {
         return { 0, *this };
     }
+    // Single-limb divisor: limb-wise long division is far cheaper than the bitwise shift-subtract loop below.
+    if ((b.data[1] | b.data[2] | b.data[3]) == 0) {
+        const auto [q, r] = divmod(b.data[0]);
+        return { q, uint256_t(r) };
+    }
 
     uint256_t quotient = 0;
     uint256_t remainder = *this;
@@ -212,9 +217,45 @@ constexpr std::pair<uint256_t, uint64_t> uint256_t::divmod(uint64_t b) const
     }
     return { quotient, remainder };
 #else
-    // Fallback to the general divmod since wasm doesn't have native support for 128-bit instructions.
-    auto [q, r] = divmod(uint256_t(b));
-    return { q, static_cast<uint64_t>(r.data[0]) };
+    if (b <= 0xffffffffULL) {
+        // Schoolbook long division in base 2^32: each step divides a 64-bit intermediate (remainder << 32 | half-limb)
+        // by b, which only needs native 64-bit arithmetic.
+        uint256_t quotient;
+        uint64_t remainder = 0;
+        for (int i = 3; i >= 0; --i) {
+            const uint64_t hi = (remainder << 32) | (data[i] >> 32);
+            const uint64_t q_hi = hi / b;
+            remainder = hi % b;
+            const uint64_t lo = (remainder << 32) | (data[i] & 0xffffffffULL);
+            const uint64_t q_lo = lo / b;
+            remainder = lo % b;
+            quotient.data[i] = (q_hi << 32) | q_lo;
+        }
+        return { quotient, remainder };
+    }
+    // Fallback to the bitwise division since wasm doesn't have native support for 128-bit instructions.
+    uint256_t quotient = 0;
+    uint256_t remainder = *this;
+    const uint256_t divisor_256(b);
+    if (divisor_256 > remainder) {
+        return { 0, data[0] };
+    }
+    uint64_t bit_difference = get_msb() - divisor_256.get_msb();
+    uint256_t divisor = divisor_256 << bit_difference;
+    uint256_t accumulator = uint256_t(1) << bit_difference;
+    if (divisor > remainder) {
+        divisor >>= 1;
+        accumulator >>= 1;
+    }
+    while (remainder >= divisor_256) {
+        if (remainder >= divisor) {
+            remainder -= divisor;
+            quotient |= accumulator;
+        }
+        divisor >>= 1;
+        accumulator >>= 1;
+    }
+    return { quotient, static_cast<uint64_t>(remainder.data[0]) };
 #endif
 }
 

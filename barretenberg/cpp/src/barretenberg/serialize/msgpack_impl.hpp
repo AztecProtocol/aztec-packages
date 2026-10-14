@@ -47,6 +47,16 @@ inline std::pair<uint8_t*, size_t> msgpack_encode_buffer(auto&& obj,
     return { output, buffer.size() };
 }
 
+/**
+ * @brief msgpack reference function for unpacking an input buffer that stays alive while the unpacked object and
+ * everything converted from it are in use: strings and binary blobs are referenced in the input buffer instead of being
+ * copied into the unpacked object's zone.
+ */
+inline bool msgpack_reference_input(msgpack::type::object_type /*type*/, std::size_t /*size*/, void* /*user_data*/)
+{
+    return true;
+}
+
 // This function is intended to bind a function to a MessagePack-formatted input data,
 // perform the function with the unpacked data, then pack the result back into MessagePack format.
 // Note: output_out and output_len_out are IN-OUT parameters:
@@ -62,8 +72,11 @@ inline void msgpack_cbind_impl(const auto& func,        // The function to be ap
     // Args: the parameter types of the function as a tuple.
     typename FuncTraits::Args params;
 
-    // Unpack the input data into the parameter tuple.
-    msgpack::unpack(reinterpret_cast<const char*>(input_in), input_len_in).get().convert(params);
+    // Unpack the input data into the parameter tuple. The input outlives the call, so blobs are referenced in place
+    // while being converted.
+    msgpack::unpack(reinterpret_cast<const char*>(input_in), input_len_in, msgpack_reference_input)
+        .get()
+        .convert(params);
 
     // Read IN values: caller-provided scratch buffer
     uint8_t* scratch_buf = *output_out;

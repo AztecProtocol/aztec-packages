@@ -103,6 +103,59 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         tmp_4 *= q_delta_range_scaled;
         std::get<3>(accumulators) += tmp_4;
     };
+
+    /**
+     * @brief Prover-only constants of the separator-weighted sum of the four subrelations (see
+     * HasProverSubrelationBatching): the weights themselves.
+     */
+    struct SubrelationBatchingConstants {
+        std::array<FF, 4> weights;
+    };
+
+    static SubrelationBatchingConstants compute_subrelation_batching_constants(const std::array<FF, 4>& weights)
+    {
+        return SubrelationBatchingConstants{ weights };
+    }
+
+    /**
+     * @brief Prover-only: add \f$ q \cdot \text{scaling} \cdot \sum_k w_k D_k (D_k + 2) \f$, with
+     * \f$ D_k = \delta_k (\delta_k - 3) \f$, into the first subrelation accumulator.
+     * @details \f$ D_k \f$ is formed in the degree-2 coefficient basis and each weight is folded into the factor
+     * \f$ D_k + 2 \f$ there, so the selector and scaling multiply the weighted sum once instead of each subrelation.
+     */
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    static void accumulate_with_subrelation_batching(ContainerOverSubrelations& accumulators,
+                                                     const AllEntities& in,
+                                                     const Parameters& /*params*/,
+                                                     const FF& scaling_factor,
+                                                     const SubrelationBatchingConstants& constants)
+    {
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+
+        auto w_1 = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2 = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3 = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        auto w_4 = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
+        auto w_1_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto q_delta_range_m = CoefficientAccumulator(in[AllEntities::EntityId::q_delta_range]);
+
+        // D = delta (delta - 3) = delta^2 - 3 delta
+        auto range_term = [](const auto& delta) { return delta.sqr() - (delta + delta + delta); };
+
+        // The first weight is 1 (each weight is relative to the first subrelation's separator).
+        const auto range_1 = range_term(w_2 - w_1);
+        auto body = Accumulator(range_1) * Accumulator(range_1 + FF(2));
+        const auto range_2 = range_term(w_3 - w_2);
+        body += Accumulator(range_2) * Accumulator((range_2 + FF(2)) * constants.weights[1]);
+        const auto range_3 = range_term(w_4 - w_3);
+        body += Accumulator(range_3) * Accumulator((range_3 + FF(2)) * constants.weights[2]);
+        const auto range_4 = range_term(w_1_shift - w_4);
+        body += Accumulator(range_4) * Accumulator((range_4 + FF(2)) * constants.weights[3]);
+
+        body *= Accumulator(q_delta_range_m * scaling_factor);
+        std::get<0>(accumulators) += body;
+    }
 };
 
 template <typename FF> using DeltaRangeConstraintRelation = Relation<DeltaRangeConstraintRelationImpl<FF>>;

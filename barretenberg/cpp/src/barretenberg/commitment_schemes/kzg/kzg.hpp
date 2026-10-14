@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/batched_linear_quotient.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
@@ -46,17 +47,22 @@ template <typename Curve_> class KZG {
                                       const std::shared_ptr<Transcript>& prover_trancript)
     {
         BB_BENCH_NAME("KZG::compute_opening_proof");
-        Polynomial quotient = opening_claim.polynomial;
+        const Polynomial& polynomial = opening_claim.polynomial;
         OpeningPair<Curve> pair = opening_claim.opening_pair;
         Commitment quotient_commitment;
 
-        if (opening_claim.polynomial.is_empty()) {
+        if (polynomial.is_empty()) {
             // We treat the empty polynomial as the zero polynomial
             quotient_commitment = Commitment::infinity();
         } else {
-            quotient.at(0) = quotient[0] - pair.evaluation;
-            // Computes the coefficients for the quotient polynomial q(X) = (p(X) - v) / (X - r) through an FFT
-            quotient.factor_roots(pair.challenge);
+            BB_ASSERT_EQ(polynomial.start_index(), size_t{ 0 });
+            // Computes the coefficients for the quotient polynomial q(X) = (p(X) - v) / (X - r)
+            Polynomial quotient(polynomial.size());
+            const std::array<LinearQuotientTerm<Fr>, 1> terms{ { { .coefficients = polynomial.coeffs(),
+                                                                   .root = pair.challenge,
+                                                                   .evaluation = pair.evaluation,
+                                                                   .scalar = Fr::one() } } };
+            add_batched_linear_quotients(quotient.coeffs(), std::span<const LinearQuotientTerm<Fr>>(terms));
             quotient_commitment = ck.commit(quotient);
         }
 

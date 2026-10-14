@@ -598,12 +598,15 @@ template <typename G1> class TestAffineElement : public testing::Test {
     // frequently equals ±(the next digit·base) — exactly the doubling/addition edge (shared
     // x-coordinate, or a result at infinity) where the unsafe batch-affine formulas are invalid and
     // the schedule must fall back to the safe (Jacobian) ops. The values below are chosen to land in
-    // that regime; the naive cross-check then guarantees the fallback path is itself correct.
+    // that regime; the naive cross-check then guarantees the fallback path is itself correct. t = 23 also runs the
+    // fallback over full SIMD groups (not only the sub-group tail) on the WASM packed path.
     static void test_two_round_fold_small_challenges()
     {
-        for (uint64_t s1 : { 1ULL, 2ULL, 3ULL, 8ULL, 15ULL, 16ULL }) {
-            for (uint64_t s2 : { 1ULL, 2ULL, 4ULL, 7ULL, 16ULL }) {
-                check_two_round_fold_against_naive(4, Fr(s1), Fr(s2));
+        for (size_t t : { size_t{ 4 }, size_t{ 23 } }) {
+            for (uint64_t s1 : { 1ULL, 2ULL, 3ULL, 8ULL, 15ULL, 16ULL }) {
+                for (uint64_t s2 : { 1ULL, 2ULL, 4ULL, 7ULL, 16ULL }) {
+                    check_two_round_fold_against_naive(t, Fr(s1), Fr(s2));
+                }
             }
         }
     }

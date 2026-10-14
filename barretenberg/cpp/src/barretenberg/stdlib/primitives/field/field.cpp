@@ -21,7 +21,7 @@ template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context)
     : context(parent_context)
     , additive_constant(bb::fr::zero())
-    , multiplicative_constant(bb::fr::one())
+    , multiplicative_constant(ONE)
     , witness_index(IS_CONSTANT)
 {
     tag = OriginTag::constant();
@@ -31,7 +31,7 @@ template <typename Builder>
 field_t<Builder>::field_t(const witness_t<Builder>& value)
     : context(value.context)
     , additive_constant(bb::fr::zero())
-    , multiplicative_constant(bb::fr::one())
+    , multiplicative_constant(ONE)
     , witness_index(value.witness_index)
 {
     set_free_witness_tag();
@@ -41,7 +41,7 @@ template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     : context(parent_context)
     , additive_constant(value)
-    , multiplicative_constant(bb::fr::one())
+    , multiplicative_constant(ONE)
     , witness_index(IS_CONSTANT)
 {
     tag = OriginTag::constant();
@@ -53,12 +53,12 @@ field_t<Builder>::field_t(const bool_t<Builder>& other)
 {
     if (other.is_constant()) {
         additive_constant = other.get_value();
-        multiplicative_constant = bb::fr::one();
+        multiplicative_constant = ONE;
         witness_index = IS_CONSTANT;
     } else {
         witness_index = other.witness_index;
-        additive_constant = other.witness_inverted ? bb::fr::one() : bb::fr::zero();
-        multiplicative_constant = other.witness_inverted ? bb::fr::neg_one() : bb::fr::one();
+        additive_constant = other.witness_inverted ? ONE : bb::fr::zero();
+        multiplicative_constant = other.witness_inverted ? NEG_ONE : ONE;
     }
     tag = other.tag;
 }
@@ -87,17 +87,17 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
     if (is_constant()) {
-        BB_ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero(),
+        BB_ASSERT(additive_constant == ONE || additive_constant == bb::fr::zero(),
                   "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
         bool_t<Builder> result(context);
-        result.witness_bool = (additive_constant == bb::fr::one());
+        result.witness_bool = (additive_constant == ONE);
         result.set_origin_tag(tag);
         return result;
     }
 
     const bool add_constant_check = (additive_constant == bb::fr::zero());
-    const bool mul_constant_check = (multiplicative_constant == bb::fr::one());
-    const bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
+    const bool mul_constant_check = (multiplicative_constant == ONE);
+    const bool inverted_check = (additive_constant == ONE) && (multiplicative_constant == NEG_ONE);
     bool result_inverted = false;
     // Process the elements of the form
     //      a = a.v * 1 + 0 and a = a.v * (-1) + 1
@@ -115,9 +115,9 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     }
     // Get the normalized value of the witness
     bb::fr witness = context->get_variable(witness_idx);
-    BB_ASSERT(witness == bb::fr::zero() || witness == bb::fr::one(),
+    BB_ASSERT(witness == bb::fr::zero() || witness == ONE,
               "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
-    bool_t result(context, witness == bb::fr::one());
+    bool_t result(context, witness == ONE);
     result.witness_inverted = result_inverted;
     result.witness_index = witness_idx;
     context->create_bool_gate(witness_idx);
@@ -173,7 +173,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
                                .b_scaling = other.multiplicative_constant,
-                               .c_scaling = bb::fr::neg_one(),
+                               .c_scaling = NEG_ONE,
                                .const_scaling = (additive_constant + other.additive_constant) });
     }
     result.tag = OriginTag(tag, other.tag);
@@ -289,7 +289,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
                                       .q_m = q_m,
                                       .q_l = q_l,
                                       .q_r = q_r,
-                                      .q_o = bb::fr::neg_one(),
+                                      .q_o = NEG_ONE,
                                       .q_c = q_c });
     }
     result.tag = OriginTag(tag, other.tag);
@@ -329,7 +329,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     // Ensure that non-constant circuit elements can not be divided without context
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    bb::fr additive_multiplier = bb::fr::one();
+    bb::fr additive_multiplier = ONE;
 
     if (is_constant() && other.is_constant()) {
         // Both inputs are constant, the result is given by
@@ -433,7 +433,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
         return field_t(get_value().pow(exponent));
     }
     if (exponent == 0) {
-        return field_t(bb::fr::one());
+        return field_t(ONE);
     }
 
     bool accumulator_initialized = false;
@@ -501,8 +501,8 @@ field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
     exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
 
     // Compute the result of exponentiation
-    field_t accumulator(ctx, bb::fr::one());
-    const field_t one(bb::fr::one());
+    field_t accumulator(ctx, ONE);
+    const field_t one(ONE);
     for (size_t i = 0; i < num_bits; ++i) {
         accumulator *= accumulator;
         // If current bit == 1, multiply by the base, else propagate the accumulator
@@ -572,7 +572,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
         .a_scaling = a_scaling,
         .b_scaling = b_scaling,
         .c_scaling = c_scaling,
-        .d_scaling = bb::fr::neg_one(),
+        .d_scaling = NEG_ONE,
         .const_scaling = const_scaling,
     });
     result.tag = OriginTag(tag, to_mul.tag, to_add.tag);
@@ -631,7 +631,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
         .a_scaling = a_scaling,
         .b_scaling = b_scaling,
         .c_scaling = c_scaling,
-        .d_scaling = bb::fr::neg_one(),
+        .d_scaling = NEG_ONE,
         .const_scaling = const_scaling,
     });
     result.tag = OriginTag(tag, add_b.tag, add_c.tag);
@@ -660,7 +660,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 
     result.witness_index = context->add_variable(value * multiplicative_constant + additive_constant);
     result.additive_constant = bb::fr::zero();
-    result.multiplicative_constant = bb::fr::one();
+    result.multiplicative_constant = ONE;
 
     // The aim of a new `add` gate is to constrain
     //              this.v * this.mul + this.add == result.v
@@ -677,7 +677,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
                                .b_scaling = bb::fr::zero(),
-                               .c_scaling = bb::fr::neg_one(),
+                               .c_scaling = NEG_ONE,
                                .const_scaling = additive_constant });
     result.tag = tag;
     return result;
@@ -752,7 +752,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
         .q_l = bb::fr::zero(),          // a * 0
         .q_r = additive_constant,       // b * mul_const
         .q_o = bb::fr::zero(),          // c * 0
-        .q_c = bb::fr::neg_one(),       // -1
+        .q_c = NEG_ONE,                 // -1
     });
 }
 
@@ -797,7 +797,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     bool_t is_zero = witness_t(context, is_zero_raw);
 
     // This can be done out of circuit, as `is_zero = true` implies `I = 1`.
-    bb::fr inverse_native = (is_zero_raw) ? bb::fr::one() : native_value.invert();
+    bb::fr inverse_native = (is_zero_raw) ? ONE : native_value.invert();
 
     field_t inverse = witness_t(context, inverse_native);
 
@@ -813,7 +813,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     //      c_scaling := 1;
     //      d_scaling := 0;
     //      const_scaling := a.add * I.add + is_zero.add - 1;
-    field_t::evaluate_polynomial_identity(*this, inverse, is_zero, bb::fr::neg_one());
+    field_t::evaluate_polynomial_identity(*this, inverse, is_zero, NEG_ONE);
 
     // To check that `-is_zero * I + is_zero = 0`, create a `big_mul_gate` given by the equation:
     //      is_zero.v * (-I).v * mul_scaling + is_zero.v * a_scaling + (-I).v * b_scaling + is_zero.v * c_scaling + 0 *
@@ -841,7 +841,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
         BB_ASSERT(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
-    BB_ASSERT_DEBUG(multiplicative_constant == bb::fr::one());
+    BB_ASSERT_DEBUG(multiplicative_constant == ONE);
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }
