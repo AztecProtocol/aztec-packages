@@ -40,6 +40,15 @@ enum class KernelIOField : uint8_t {
     ECC_OP_HASH
 };
 
+/**
+ * @brief Chonk with its prover accumulator exposed, for tests that read or substitute it.
+ */
+class ChonkWithAccumulatorAccess : public Chonk {
+  public:
+    using Chonk::Chonk;
+    using Chonk::prover_accumulator;
+};
+
 } // namespace
 
 class ChonkTests : public ::testing::Test {
@@ -475,7 +484,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     const size_t num_app_circuits = MAX_APPS_PER_KERNEL + 1;
     CircuitProducer producer_one(num_app_circuits);
     const size_t num_circuits = producer_one.total_num_circuits;
-    Chonk chonk_one{ producer_one.circuit_kinds() };
+    ChonkWithAccumulatorAccess chonk_one{ producer_one.circuit_kinds() };
 
     // Accumulate the first MAX_APPS_PER_KERNEL apps and the kernel
     for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL + 1; idx++) {
@@ -486,7 +495,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
 
     MockDatabusProducer mock_databus;
-    Chonk invalid_chonk{ producer_one.circuit_kinds() };
+    ChonkWithAccumulatorAccess invalid_chonk{ producer_one.circuit_kinds() };
     CircuitProducer producer_two(num_app_circuits);
     TestSettings settings_two{ .log2_num_gates = SMALL_LOG_2_NUM_GATES + 1 };
 
