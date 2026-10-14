@@ -268,7 +268,3 @@ ninja eccvm_tests && ./bin/eccvm_tests                 # Committed sumcheck (Gru
 ninja hypernova_tests && ./bin/hypernova_tests         # HyperNova folding
 ninja chonk_tests && ./bin/chonk_tests                 # Batched prover/verifier with ZK
 ```
-
-## Audit Scope
-
-Audit scope document: `barretenberg/cpp/scripts/audit/audit_scopes/sumcheck_pcs_chonk_verifier_audit_scope.md`.
