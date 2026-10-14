@@ -1,6 +1,8 @@
+#include <filesystem>
 #include <functional>
 #include <ranges>
 #include <sys/resource.h>
+#include <unistd.h>
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
@@ -378,9 +380,11 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
     auto [proof, vk] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
 
     { // Serialize/deserialize the proof to/from a file, check that it verifies
-        const std::string filename = "proof.msgpack";
+        const std::string filename =
+            std::filesystem::temp_directory_path() / ("bb_chonk_proof_" + std::to_string(getpid()) + ".msgpack");
         proof.to_file_msgpack(filename);
         auto proof_deserialized = ChonkProof::from_file_msgpack(filename);
+        std::filesystem::remove(filename);
 
         EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
     }
