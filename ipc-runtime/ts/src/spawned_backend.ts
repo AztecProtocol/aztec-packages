@@ -36,11 +36,11 @@ export interface SpawnedProcessBackendOptions {
   /**
    * Called as soon as the server dies unexpectedly, without waiting for a call,
    * with an error describing the death (without `respawn`, the one later calls
-   * fail with). Lets the host decide what a death
-   * means: exit (for servers whose state it cannot run without), rebuild the
-   * service, or just record it. A death during destroy() is expected and is not
-   * reported. With `respawn`, it is called on each death, and the next call
-   * still respawns. If it throws, the error is logged.
+   * fail with). Lets the host decide what a death means: exit (for servers
+   * whose state it cannot run without), rebuild the service, or just record it.
+   * A death during destroy() is expected and is not reported. With `respawn`,
+   * it is called on each death, and the next call still respawns. If it
+   * throws, the error is logged.
    */
   onUnexpectedExit?: (err: IpcProcessExitedError) => void;
   /** SHM only: fixed client slot id. When unset the client self-allocates a free slot. */
