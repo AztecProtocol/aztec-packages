@@ -208,7 +208,9 @@ class HypernovaFoldingProver {
     }
 
     /**
-     * @brief Batch prover polynomials. Batching happens in place into the first polynomial in the RefArray supplied.
+     * @brief Batch prover polynomials.
+     * @details When the first polynomial's range covers the others, the batch accumulates in it and it is moved into
+     * the result, so callers must not use it afterwards. Otherwise the batch is built in a new polynomial.
      */
     template <size_t N>
     static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,

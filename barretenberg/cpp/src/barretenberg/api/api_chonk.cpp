@@ -8,6 +8,7 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -104,7 +105,7 @@ void ChonkAPI::prove(const Flags& flags,
 
     // The step bytecode has been moved out, so --write_vk writes the hiding kernel VK held by the IVC (the one
     // ChonkProve verifies the proof against) instead of recomputing it. It is read before ChonkProve consumes the IVC.
-    const auto hiding_vk = request.ivc_in_progress->get_hiding_kernel_vk_and_hash()->vk;
+    const auto hiding_vk = flags.write_vk ? request.ivc_in_progress->get_hiding_kernel_vk_and_hash()->vk : nullptr;
     auto proof = bbapi::ChonkProve{}.execute(request).proof;
 
     const bool output_to_stdout = output_dir == "-";
@@ -130,6 +131,7 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
+        BB_ASSERT(hiding_vk != nullptr, "ChonkAPI::prove - hiding kernel VK was not read before proving");
         // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
         write_chonk_vk_data(
             { .bytes = to_buffer(*hiding_vk), .fields = hiding_vk->to_field_elements() }, output_dir, flags);

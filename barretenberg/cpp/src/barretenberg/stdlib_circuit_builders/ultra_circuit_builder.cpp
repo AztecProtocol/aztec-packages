@@ -2047,6 +2047,9 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::fr
     std::vector<uint32_t>().swap(rom_logup_records);
     range_lists.clear();
     std::vector<cached_partial_non_native_field_multiplication>().swap(cached_partial_non_native_field_multiplications);
+    std::unordered_map<FF, uint32_t>().swap(constant_variable_indices);
+    std::vector<uint32_t>().swap(used_witnesses);
+    std::unordered_set<uint32_t>().swap(finalize_witnesses);
 }
 
 template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;

@@ -222,11 +222,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     /**
      * @brief Release the circuit-construction data once a prover instance has been built from the circuit: trace
-     * blocks (only their sizes are kept), witness values and copy cycles, lookup tables and their gate records,
-     * ROM/RAM transcripts, memory records and range lists.
+     * blocks (only their sizes are kept), witness values, copy cycles and tags, constant and variable-name maps, lookup
+     * tables and their gate records, ROM/RAM transcripts, memory records, range lists, cached non-native field
+     * multiplications and the boomerang-detection witness sets.
      * @details The builder cannot be used to build or check a circuit afterwards.
      */
-    void free_construction_data();
+    virtual void free_construction_data();
 
     void process_non_native_field_multiplications();
 
