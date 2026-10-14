@@ -543,7 +543,7 @@ class ECCVMMSMMBuilder {
                                 typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
                                 typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 } };
 
-        return { msm_rows, point_table_read_counts };
+        return { std::move(msm_rows), std::move(point_table_read_counts) };
     }
 };
 } // namespace bb

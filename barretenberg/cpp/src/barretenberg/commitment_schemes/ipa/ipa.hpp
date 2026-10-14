@@ -932,9 +932,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         // Check SRS size up front before any circuit construction
-        if (vk.get_monomial_points().size() < poly_length) {
+        const auto& srs_elements = vk.get_monomial_points();
+        if (srs_elements.size() < poly_length) {
             throw_or_abort("IPA recursive verification: not enough SRS points (need " + std::to_string(poly_length) +
-                           ", have " + std::to_string(vk.get_monomial_points().size()) + ")");
+                           ", have " + std::to_string(srs_elements.size()) + ")");
         }
 
         add_claim_to_hash_buffer(opening_claim, transcript);
@@ -977,9 +978,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // and 8-bit tables, the total table rows = 32768 × 256 = 2^23 exactly. The 5 mandatory overhead rows
         // (NUM_DISABLED_ROWS_IN_SUMCHECK=4, NUM_ZERO_ROWS=1) push the total to 2^23+5, forcing dyadic_size = 2^24.
         // To stay within 2^23 we handle the first SRS point separately using operator*.
-        std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        srs_elements.resize(poly_length);
-        std::vector<Commitment> remaining_srs(srs_elements.begin() + 1, srs_elements.end());
+        std::vector<Commitment> remaining_srs(srs_elements.begin() + 1, srs_elements.begin() + poly_length);
         std::vector<Fr> remaining_s(s_vec.begin() + 1, s_vec.end());
         Commitment first_term = srs_elements[0] * s_vec[0];
         Commitment remaining_term = Commitment::fixed_batch_mul(remaining_srs, remaining_s, /*table_bits=*/8);

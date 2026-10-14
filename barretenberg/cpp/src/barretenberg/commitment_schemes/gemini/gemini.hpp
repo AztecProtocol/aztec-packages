@@ -219,7 +219,7 @@ template <typename Curve> class GeminiProver_ {
                 A_0_neg.add_scaled(batched_to_be_shifted_by_one, -r_inv);
             }
 
-            return { A_0_pos, A_0_neg };
+            return { std::move(A_0_pos), std::move(A_0_neg) };
         };
     };
 

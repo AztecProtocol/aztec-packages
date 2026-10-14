@@ -163,6 +163,7 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
+     * @details Instance polynomials are destroyed.
      */
     template <typename InstanceFlavor>
     Accumulator sumcheck_output_to_accumulator(SumcheckOutput<InstanceFlavor>& sumcheck_output,
@@ -174,8 +175,12 @@ class HypernovaFoldingProver {
         auto [unshifted_challenges, shifted_challenges] = get_hypernova_batching_challenges<FF>(
             transcript, InstanceFlavor::NUM_UNSHIFTED_ENTITIES, InstanceFlavor::NUM_SHIFTED_ENTITIES);
 
+        // Note: batch_polynomials destroys the input polynomials, so the unshifted polynomials cannot be used after
+        // this.
         Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<InstanceFlavor::NUM_UNSHIFTED_ENTITIES>(
             instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
+        // Note: batch_polynomials destroys the input polynomials, so the shifted polynomials cannot be used after this.
+        // Also, this call is ok because shifted and unshifted entities are not shared.
         Polynomial<FF> batched_shifted_polynomial = batch_polynomials<InstanceFlavor::NUM_SHIFTED_ENTITIES>(
             instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
 
@@ -208,11 +213,13 @@ class HypernovaFoldingProver {
     }
 
     /**
-     * @brief Batch prover polynomials. Batching happens in place into the first polynomial in the RefArray supplied.
+     * @brief Batch prover polynomials. Original polynomials_to_batch are destroyed.
+     * @details When the first polynomial's range covers the others, the batch accumulates in it and it is moved into
+     * the result, so callers must not use it afterwards. Otherwise the batch is built in a new polynomial.
      */
     template <size_t N>
     static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
-                                            const size_t& full_batched_size,
+                                            const size_t full_batched_size,
                                             const std::vector<FF>& challenges)
     {
         BB_BENCH_NAME("HypernovaFoldingProver::batch_polynomials");
@@ -244,7 +251,8 @@ class HypernovaFoldingProver {
             return result;
         }
         add_scaled_batch(polynomials_to_batch[0], sources_span, tail_scalars);
-        return polynomials_to_batch[0];
+        // The batch is accumulated in place in the first polynomial; hand over its memory instead of copying it.
+        return std::move(polynomials_to_batch[0]);
     }
 
     /**

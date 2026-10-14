@@ -1,6 +1,8 @@
+#include <filesystem>
 #include <functional>
 #include <ranges>
 #include <sys/resource.h>
+#include <unistd.h>
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
@@ -36,6 +38,15 @@ enum class KernelIOField : uint8_t {
     KERNEL_RETURN_DATA,
     APP_RETURN_DATA,
     ECC_OP_HASH
+};
+
+/**
+ * @brief Chonk with its prover accumulator exposed, for tests that read or substitute it.
+ */
+class ChonkWithAccumulatorAccess : public Chonk {
+  public:
+    using Chonk::Chonk;
+    using Chonk::prover_accumulator;
 };
 
 } // namespace
@@ -378,9 +389,11 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
     auto [proof, vk] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
 
     { // Serialize/deserialize the proof to/from a file, check that it verifies
-        const std::string filename = "proof.msgpack";
+        const std::string filename =
+            std::filesystem::temp_directory_path() / ("bb_chonk_proof_" + std::to_string(getpid()) + ".msgpack");
         proof.to_file_msgpack(filename);
         auto proof_deserialized = ChonkProof::from_file_msgpack(filename);
+        std::filesystem::remove(filename);
 
         EXPECT_TRUE(verify_chonk(proof_deserialized, vk));
     }
@@ -471,7 +484,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     const size_t num_app_circuits = MAX_APPS_PER_KERNEL + 1;
     CircuitProducer producer_one(num_app_circuits);
     const size_t num_circuits = producer_one.total_num_circuits;
-    Chonk chonk_one{ producer_one.circuit_kinds() };
+    ChonkWithAccumulatorAccess chonk_one{ producer_one.circuit_kinds() };
 
     // Accumulate the first MAX_APPS_PER_KERNEL apps and the kernel
     for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL + 1; idx++) {
@@ -482,7 +495,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
 
     MockDatabusProducer mock_databus;
-    Chonk invalid_chonk{ producer_one.circuit_kinds() };
+    ChonkWithAccumulatorAccess invalid_chonk{ producer_one.circuit_kinds() };
     CircuitProducer producer_two(num_app_circuits);
     TestSettings settings_two{ .log2_num_gates = SMALL_LOG_2_NUM_GATES + 1 };
 
