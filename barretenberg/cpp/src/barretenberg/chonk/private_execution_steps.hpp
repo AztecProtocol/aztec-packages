@@ -40,9 +40,15 @@ struct PrivateExecutionStepRaw {
     // Represents the function name.
     std::string function_name;
     CircuitKind kind = CircuitKind::None;
+    // Whether bytecode and witness hold gzip data. Not serialized: load() sets it, since the file stores them
+    // compressed.
+    bool compressed = false;
 
     // Unrolled from SERIALIZATION_FIELDS for custom name for function_name.
     void msgpack(auto pack_fn) { pack_fn(NVP(bytecode, witness, vk), "functionName", function_name, NVP(kind)); };
+    /**
+     * @brief Decompress bytecode and witness in place; does nothing if they are not compressed.
+     */
     void self_decompress();
     static std::vector<PrivateExecutionStepRaw> load_and_decompress(const std::filesystem::path& input_path);
     static std::vector<PrivateExecutionStepRaw> load(const std::filesystem::path& input_path);

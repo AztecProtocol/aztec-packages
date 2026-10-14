@@ -100,14 +100,22 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
 {
     BB_BENCH();
-    return unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+    auto raw_steps = unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+    for (auto& step : raw_steps) {
+        step.compressed = true;
+    }
+    return raw_steps;
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
 void PrivateExecutionStepRaw::self_decompress()
 {
+    if (!compressed) {
+        return;
+    }
     bytecode = decompress(bytecode.data(), bytecode.size());
     witness = decompress(witness.data(), witness.size());
+    compressed = false;
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
@@ -147,6 +155,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     // Parse each step's bytecode/witness in parallel (thread-safe with msgpack format)
     parallel_for(steps.size(), [&](size_t i) {
         PrivateExecutionStepRaw step = std::move(steps[i]);
+        step.self_decompress();
 
         acir_format::AcirFormat constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(step.bytecode));
         acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
@@ -186,10 +195,14 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
 void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,
                                                 const std::filesystem::path& output_path)
 {
-    // First, compress the bytecode and witness fields of each step
+    // First, compress the bytecode and witness fields of each step that is not already compressed
     for (PrivateExecutionStepRaw& step : steps) {
+        if (step.compressed) {
+            continue;
+        }
         step.bytecode = compress(step.bytecode);
         step.witness = compress(step.witness);
+        step.compressed = true;
     }
 
     // Serialize to msgpack
