@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"

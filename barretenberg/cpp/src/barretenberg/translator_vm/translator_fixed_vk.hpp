@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"

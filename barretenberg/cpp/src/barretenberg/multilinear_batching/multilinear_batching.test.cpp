@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"

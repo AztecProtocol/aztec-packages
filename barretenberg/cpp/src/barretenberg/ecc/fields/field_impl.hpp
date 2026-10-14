@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Raju], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"

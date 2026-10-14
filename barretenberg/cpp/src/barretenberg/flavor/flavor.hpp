@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /**
  * @file flavor.hpp
  * @brief Base class templates shared across Honk flavors.

@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "./straus_lookup_table.hpp"
 #include "./cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"

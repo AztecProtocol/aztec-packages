@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_step_processor.hpp"

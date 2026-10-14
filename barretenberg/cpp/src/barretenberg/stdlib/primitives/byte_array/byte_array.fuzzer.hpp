@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #pragma clang diagnostic push

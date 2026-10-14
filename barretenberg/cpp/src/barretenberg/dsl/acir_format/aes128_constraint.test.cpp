@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "aes128_constraint.hpp"
 #include "acir_format.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"

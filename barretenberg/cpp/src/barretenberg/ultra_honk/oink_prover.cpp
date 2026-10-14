@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/common/bb_bench.hpp"

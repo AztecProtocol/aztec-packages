@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 // Generic log-derivative utilities for lookups and permutations.
 // For the mathematical background, see relations/GENERIC_LOGUP_README.md
 

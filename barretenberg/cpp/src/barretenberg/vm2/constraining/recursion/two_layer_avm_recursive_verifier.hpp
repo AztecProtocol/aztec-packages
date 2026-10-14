@@ -1,8 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: 54146acfe3568e22f80648f4092e10cb2c8702c2}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
