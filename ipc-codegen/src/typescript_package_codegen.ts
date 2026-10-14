@@ -294,7 +294,7 @@ process.exit(result.status ?? 1);
       ? "uds"
       : this.opts.transports[0]!;
 
-    return `import { IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
+    return `import { type IpcProcessExitedError, IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { ${findBinary} } from './platform.js';
 
@@ -320,18 +320,18 @@ export interface ${serviceOptions} {
    */
   respawn?: boolean;
   /**
-   * Exit the host process as soon as the server dies unexpectedly. For
-   * servers whose state the host cannot run without. Not combinable with
-   * respawn.
+   * Called as soon as the server dies unexpectedly, with an error describing
+   * the death. The host decides what a death means: exit, rebuild the service,
+   * or just record it. Not called for a death during destroy().
    */
-  exitOnDeath?: boolean;
+  onUnexpectedExit?: (err: IpcProcessExitedError) => void;
 ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
 
 /**
  * Spawns and talks to a '${this.opts.binaryName}' server process. Process
- * lifecycle — connectivity, death detection, optional respawn or exit on
- * death, teardown — is owned by the backend (see SpawnedProcessBackend in
- * ipc-runtime); it never leaks onto this API. Failed calls carry a 'retry' property set to true when
+ * lifecycle — connectivity, death detection, optional respawn, teardown — is
+ * owned by the backend (see SpawnedProcessBackend in ipc-runtime); it never
+ * leaks onto this API. Failed calls carry a 'retry' property set to true when
  * the failure was environmental and the operation may be retried.
  */
 export class ${serviceClass} extends AsyncApi {
@@ -355,7 +355,7 @@ export class ${serviceClass} extends AsyncApi {
       env: options.env,
       extraArgs: options.extraArgs,
       respawn: options.respawn,
-      exitOnDeath: options.exitOnDeath,
+      onUnexpectedExit: options.onUnexpectedExit,
 ${supportsShm ? "      clientId: options.clientId,\n      napiPath: options.napiPath,\n" : ""}    });
     return new ${serviceClass}(backend, options.createError);
   }
