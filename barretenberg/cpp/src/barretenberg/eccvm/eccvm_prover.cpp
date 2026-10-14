@@ -283,7 +283,7 @@ std::pair<ECCVMProver::OpeningClaim, ECCVMProver::VerifierOpeningClaim> ECCVMPro
     using ShplonkProver = ShplonkProver_<Flavor::Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Flavor::Curve>;
 
-    const auto shplonk_output = ShplonkProver::compute_partially_evaluated_quotient(
+    auto shplonk_output = ShplonkProver::compute_partially_evaluated_quotient(
         key->commitment_key, univariate_claims.prover_claims, transcript);
     const auto verifier_opening = ShplonkVerifier::compute_partially_evaluated_quotient_claim(
         key->commitment_key.get_monomial_points()[0],
@@ -293,7 +293,7 @@ std::pair<ECCVMProver::OpeningClaim, ECCVMProver::VerifierOpeningClaim> ECCVMPro
         shplonk_output.opening_claim.opening_pair.challenge);
     BB_ASSERT(verifier_opening.opening_pair == shplonk_output.opening_claim.opening_pair);
 
-    return { shplonk_output.opening_claim, verifier_opening };
+    return { std::move(shplonk_output.opening_claim), verifier_opening };
 }
 
 typename ECCVMProver::Proof ECCVMProver::export_proof()
