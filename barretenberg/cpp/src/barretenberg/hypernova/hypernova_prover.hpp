@@ -66,6 +66,7 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Turn an instance into an accumulator by running Sumcheck.
+     * @details Consumes the instance's polynomials; callers must not reuse them after this call.
      */
     template <typename InstanceFlavor>
     Accumulator instance_to_accumulator(
@@ -109,6 +110,7 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Turn an instance into an accumulator and cache the resulting claim for the final batching.
+     * @details Consumes the instance's polynomials; callers must not reuse them after this call.
      * @return This instance's proof slice (Oink + Sumcheck), exported from the shared transcript.
      */
     template <typename InstanceFlavor>
@@ -163,7 +165,7 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
-     * @details Instance polynomials are destroyed.
+     * @details Consumes the instance's polynomials through in-place batching and moves.
      */
     template <typename InstanceFlavor>
     Accumulator sumcheck_output_to_accumulator(SumcheckOutput<InstanceFlavor>& sumcheck_output,
@@ -175,14 +177,17 @@ class HypernovaFoldingProver {
         auto [unshifted_challenges, shifted_challenges] = get_hypernova_batching_challenges<FF>(
             transcript, InstanceFlavor::NUM_UNSHIFTED_ENTITIES, InstanceFlavor::NUM_SHIFTED_ENTITIES);
 
-        // Note: batch_polynomials destroys the input polynomials, so the unshifted polynomials cannot be used after
-        // this.
+        auto unshifted = instance->polynomials.get_unshifted();
+        auto to_be_shifted = instance->polynomials.get_to_be_shifted();
+        // The batches overlap, but unshifted batching consumes only its first entity, which must not be shifted.
+        for (const auto& polynomial : to_be_shifted) {
+            BB_ASSERT(&unshifted[0] != &polynomial,
+                      "The first unshifted polynomial must not be among the to-be-shifted entities");
+        }
         Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<InstanceFlavor::NUM_UNSHIFTED_ENTITIES>(
-            instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
-        // Note: batch_polynomials destroys the input polynomials, so the shifted polynomials cannot be used after this.
-        // Also, this call is ok because shifted and unshifted entities are not shared.
+            unshifted, instance->dyadic_size(), unshifted_challenges);
         Polynomial<FF> batched_shifted_polynomial = batch_polynomials<InstanceFlavor::NUM_SHIFTED_ENTITIES>(
-            instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
+            to_be_shifted, instance->dyadic_size(), shifted_challenges);
 
         FF batched_unshifted_evaluation(0);
         FF batched_shifted_evaluation(0);
@@ -213,9 +218,9 @@ class HypernovaFoldingProver {
     }
 
     /**
-     * @brief Batch prover polynomials. Original polynomials_to_batch are destroyed.
-     * @details When the first polynomial's range covers the others, the batch accumulates in it and it is moved into
-     * the result, so callers must not use it afterwards. Otherwise the batch is built in a new polynomial.
+     * @brief Batch prover polynomials, accumulating in place in the first polynomial when its range covers the others.
+     * @details The first polynomial is moved into the result when its range covers the others. Otherwise the batch
+     * is built in a new polynomial. Callers must treat the first polynomial as consumed.
      */
     template <size_t N>
     static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
@@ -251,7 +256,6 @@ class HypernovaFoldingProver {
             return result;
         }
         add_scaled_batch(polynomials_to_batch[0], sources_span, tail_scalars);
-        // The batch is accumulated in place in the first polynomial; hand over its memory instead of copying it.
         return std::move(polynomials_to_batch[0]);
     }
 
