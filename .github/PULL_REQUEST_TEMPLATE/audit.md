@@ -16,7 +16,6 @@ Provide a brief summary of the internal audit finding or refactor motivation.
 - [ ] Resolved and/or closed all issues/TODOs pertaining to the audited files
 - [ ] Confirmed and documented any security or other issues found (if applicable)
 - [ ] Verified that tests cover all critical paths (and added tests if necessary)
-- [ ] Updated audit tracking for the files audited (check the start of each file you audited)
 
 ### 📌 Notes for Reviewers
 
