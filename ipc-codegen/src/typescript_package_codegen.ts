@@ -294,7 +294,7 @@ process.exit(result.status ?? 1);
       ? "uds"
       : this.opts.transports[0]!;
 
-    return `import { IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
+    return `import { type IpcProcessExitedError, IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { ${findBinary} } from './platform.js';
 
@@ -319,6 +319,12 @@ export interface ${serviceOptions} {
    * silently dangle.
    */
   respawn?: boolean;
+  /**
+   * Called as soon as the server dies unexpectedly, with an error describing
+   * the death. The host decides what a death means: exit, rebuild the service,
+   * or just record it. Not called for a death during destroy().
+   */
+  onUnexpectedExit?: (err: IpcProcessExitedError) => void;
 ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
 
 /**
@@ -349,6 +355,7 @@ export class ${serviceClass} extends AsyncApi {
       env: options.env,
       extraArgs: options.extraArgs,
       respawn: options.respawn,
+      onUnexpectedExit: options.onUnexpectedExit,
 ${supportsShm ? "      clientId: options.clientId,\n      napiPath: options.napiPath,\n" : ""}    });
     return new ${serviceClass}(backend, options.createError);
   }

@@ -33,6 +33,16 @@ export interface SpawnedProcessBackendOptions {
    * still reject (with retry=true); only later calls see the fresh process.
    */
   respawn?: boolean;
+  /**
+   * Called as soon as the server dies unexpectedly, without waiting for a call,
+   * with an error describing the death (without `respawn`, the one later calls
+   * fail with). Lets the host decide what a death means: exit (for servers
+   * whose state it cannot run without), rebuild the service, or just record it.
+   * A death during destroy() is expected and is not reported. With `respawn`,
+   * it is called on each death, and the next call still respawns. If it
+   * throws, the error is logged.
+   */
+  onUnexpectedExit?: (err: IpcProcessExitedError) => void;
   /** SHM only: fixed client slot id. When unset the client self-allocates a free slot. */
   clientId?: number;
   /** SHM only: override the native addon path. */
@@ -369,18 +379,25 @@ export class SpawnedProcessBackend implements IpcClientAsync {
       return;
     }
     this.current = undefined;
+    const exitError = new IpcProcessExitedError(
+      `${this.options.binaryName} exited unexpectedly (code=${code}, signal=${signal})` +
+        (this.logPath !== undefined ? `; see logs: ${this.logPath}` : ""),
+      code,
+      signal,
+      this.logPath,
+    );
     if (!this.respawn) {
-      this.exitError = new IpcProcessExitedError(
-        `${this.options.binaryName} exited unexpectedly (code=${code}, signal=${signal})` +
-          (this.logPath !== undefined ? `; see logs: ${this.logPath}` : ""),
-        code,
-        signal,
-        this.logPath,
-      );
-      console.error(this.exitError.message);
+      this.exitError = exitError;
+      console.error(exitError.message);
     } else {
+      console.error(`${exitError.message}; will respawn on next call`);
+    }
+    try {
+      this.options.onUnexpectedExit?.(exitError);
+    } catch (err) {
       console.error(
-        `${this.options.binaryName} exited unexpectedly (code=${code}, signal=${signal}); will respawn on next call`,
+        `${this.options.binaryName} onUnexpectedExit handler threw:`,
+        err,
       );
     }
   }

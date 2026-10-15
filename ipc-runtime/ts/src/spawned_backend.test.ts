@@ -47,7 +47,11 @@ function shellScript(name: string, body: string): string {
 }
 
 function spawnPidEcho(
-  opts: { respawn?: boolean; connectTimeoutMs?: number } = {},
+  opts: {
+    respawn?: boolean;
+    onUnexpectedExit?: (err: IpcProcessExitedError) => void;
+    connectTimeoutMs?: number;
+  } = {},
 ) {
   return SpawnedProcessBackend.spawn({
     binaryPath: process.execPath,
@@ -112,6 +116,76 @@ test("without respawn, death rejects in-flight and later calls with a retryable 
 
   // Still down: same classified error, no zombie respawn.
   await assert.rejects(callPid(backend), IpcProcessExitedError);
+  await backend.destroy();
+});
+
+test("onUnexpectedExit is told of a death without waiting for a call", async () => {
+  const exits: IpcProcessExitedError[] = [];
+  const backend = await spawnPidEcho({
+    onUnexpectedExit: (err) => exits.push(err),
+  });
+  const pid = parseInt(await callPid(backend), 10);
+
+  process.kill(pid, "SIGKILL");
+
+  assert.ok(
+    await waitFor(() => exits.length > 0, 2_000),
+    "onUnexpectedExit was not called",
+  );
+  assert.equal(exits.length, 1);
+  assert.ok(exits[0] instanceof IpcProcessExitedError);
+  assert.equal(exits[0].signal, "SIGKILL");
+  await backend.destroy();
+});
+
+test("onUnexpectedExit is not called for a death during destroy()", async () => {
+  const exits: IpcProcessExitedError[] = [];
+  const backend = await spawnPidEcho({
+    onUnexpectedExit: (err) => exits.push(err),
+  });
+  const pid = parseInt(await callPid(backend), 10);
+
+  await backend.destroy();
+
+  assert.equal(processAlive(pid), false);
+  assert.equal(exits.length, 0);
+});
+
+test("with respawn, onUnexpectedExit is told of each death and the next call still respawns", async () => {
+  const exits: IpcProcessExitedError[] = [];
+  const backend = await spawnPidEcho({
+    respawn: true,
+    onUnexpectedExit: (err) => exits.push(err),
+  });
+  const firstPid = parseInt(await callPid(backend), 10);
+
+  process.kill(firstPid, "SIGKILL");
+  assert.ok(await waitFor(() => exits.length > 0, 2_000));
+
+  const secondPid = parseInt(await callPid(backend), 10);
+  assert.notEqual(secondPid, firstPid);
+  assert.equal(exits.length, 1);
+  await backend.destroy();
+});
+
+test("an onUnexpectedExit that throws does not stop later calls failing as retryable", async () => {
+  let called = false;
+  const backend = await spawnPidEcho({
+    onUnexpectedExit: () => {
+      called = true;
+      throw new Error("handler failed");
+    },
+  });
+  const pid = parseInt(await callPid(backend), 10);
+
+  process.kill(pid, "SIGKILL");
+  assert.ok(await waitFor(() => called, 2_000));
+
+  await assert.rejects(callPid(backend), (err: unknown) => {
+    assert.ok(err instanceof IpcProcessExitedError);
+    assert.equal(err.retry, true);
+    return true;
+  });
   await backend.destroy();
 });
 
