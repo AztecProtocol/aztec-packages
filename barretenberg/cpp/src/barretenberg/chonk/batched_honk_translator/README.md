@@ -2,11 +2,7 @@
 
 ## Role in Chonk
 
-A Chonk proof attests to the correct execution of a sequence of Aztec private function calls. The final proof contains five components verified on a shared Fiat-Shamir transcript:
-
-```
-MegaZK Oink  →  Merge  →  ECCVM  →  Translator Oink  →  Joint Sumcheck  →  Joint PCS  →  Pairing Check
-```
+This component produces the last segment of a Chonk proof; see the [Chonk README](../README.md#proof-structure) for the full proof and verifier order.
 
 `BatchedHonkTranslator` implements the MegaZK Oink, the Translator Oink, and the joint sumcheck + PCS. Both circuits operate over BN254 scalars, allowing their **sumcheck protocols and polynomial openings to be batched into a single reduction**. This avoids running two independent Honk proofs and reduces proof size.
 
@@ -24,7 +20,7 @@ Phase 2: verify(joint_proof, translator_params...)  →  ReductionResult (pairin
 
 ### Phase 1 — MegaZK Oink
 
-`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). The proof segment is exported as `mega_zk_proof`.
+`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). `prove_mega_zk_oink()` returns this segment, which is stored as `ChonkProof::hiding_oink_proof`.
 
 The verifier's `verify_mega_zk_oink()` returns an `OinkResult` containing:
 - Public inputs (the `HidingKernelIO`)
@@ -33,11 +29,11 @@ The verifier's `verify_mega_zk_oink()` returns an `OinkResult` containing:
 
 ### Interlude — Merge + ECCVM
 
-The `ChonkProver`/`ChonkVerifier` uses the MegaZK Oink outputs to run merge verification and ECCVM verification on the same shared transcript. The ECCVM produces the translator's input parameters (`evaluation_input_x`, `batching_challenge_v`, `accumulated_result`).
+`Chonk`/`ChonkVerifier` use the MegaZK Oink outputs to run merge verification and ECCVM verification on the same shared transcript. The ECCVM produces the translator's input parameters (`evaluation_challenge_x`, `batching_challenge_v`, `accumulated_result`).
 
 ### Phase 2a — Translator Oink
 
-`TranslatorProver::execute_{preamble,wire,grand_product}_round()` runs the translator's pre-sumcheck phase on the shared transcript. The proof is appended to `translator_and_joint_proof`.
+`BatchedHonkTranslatorProver::execute_translator_oink()` runs the translator's pre-sumcheck phase on the shared transcript through `TranslatorProver::execute_preamble_round`, `execute_wire_and_sorted_constraints_commitments_round` and `execute_grand_product_computation_round`. This phase starts the segment that `prove(translator_key)` returns.
 
 ### Phase 2b — Joint Sumcheck
 
@@ -53,7 +49,7 @@ The sumcheck runs for `JOINT_LOG_N = 17` rounds (the translator's fixed circuit 
 
 - **Real rounds** (`0 .. mega_zk_log_n - 1`): Both circuits contribute normally. MegaZK uses row-disabling for ZK, with main-domain relations scaled by `(1 - L)` and the `MegaEccOpBoundaryRelation` (offset-only, enforcing `ecc_op_wire_j = 0` on rows 0..3) scaled by `L`. After the last real round, MegaZK evaluations are sent *before* virtual-round challenges are drawn, eliminating prover freedom in the zero-padded region.
 
-- **Virtual rounds** (`mega_zk_log_n .. 16`): The smaller MegaZK circuit is embedded into the translator's larger sumcheck domain via **extension-by-zero (EBZ)**: its contribution uses `compute_virtual_contribution`, and the verifier applies `τ = ∏_{k≥d}(1 - u_k)` to the MegaZK evaluations, which is the EBZ factor for the zero-padded region.
+- **Virtual rounds** (`mega_zk_log_n .. 16`): The smaller MegaZK circuit is embedded into the translator's larger sumcheck domain via **extension-by-zero (EBZ)**: its contribution uses `compute_virtual_contribution`, and the verifier applies `τ = ∏_{k≥d}(1 - u_k)`, with `d = mega_zk_log_n`, to the MegaZK evaluations, which is the EBZ factor for the zero-padded region.
 
 ### Phase 2c — Joint PCS
 
@@ -80,12 +76,10 @@ Two ranges are identified:
 
 ## Proof Format
 
-```cpp
-struct Proof {
-    HonkProof mega_zk_proof;              // MegaZK Oink only
-    HonkProof translator_and_joint_proof; // Translator Oink + joint sumcheck + joint PCS
-};
-```
+The prover returns two `HonkProof` segments:
+
+- `prove_mega_zk_oink()` returns the MegaZK Oink, stored as `ChonkProof::hiding_oink_proof`.
+- `prove(translator_key)` returns the Translator Oink, joint sumcheck and joint PCS, stored as `ChonkProof::joint_proof`.
 
 The split allows the `ChonkVerifier` to interleave merge and ECCVM verification between the two segments on the shared transcript.
 
@@ -117,4 +111,4 @@ Internally, `verify()` delegates to:
 |---|---|
 | `batched_honk_translator_prover.hpp/.cpp` | Prover |
 | `batched_honk_translator_verifier.hpp/.cpp` | Verifier (native and recursive) |
-| `batched_honk_translator.test.cpp` | Tests: `ProveAndVerify`, `ProveAndVerifySmallHiding`, `ProofSizeComparison`, `VerifierManifestConsistency`, `ProverManifestConsistency` |
+| `batched_honk_translator.test.cpp` | Tests: `ProveAndVerify`, `ProveAndVerifySmallHiding`, `VerifierManifestConsistency`, `ProverManifestConsistency` |
