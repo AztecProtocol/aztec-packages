@@ -1,0 +1,25 @@
+{
+  "name": "@aztec/wasm-bench",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build-ab": "node scripts/build-ab.mjs",
+    "analyze-ab": "node scripts/analyze-ab.mjs",
+    "create-link": "node scripts/create-link.mjs",
+    "run-browserstack": "node scripts/run-browserstack.mjs",
+    "serve": "node scripts/serve-bench.mjs",
+    "test": "node scripts/test.mjs"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "esbuild": "^0.25.12",
+    "msgpackr": "^1.11.2",
+    "pako": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "20"
+  },
+  "packageManager": "yarn@4.13.0"
+}
