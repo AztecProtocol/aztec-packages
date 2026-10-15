@@ -1,8 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"

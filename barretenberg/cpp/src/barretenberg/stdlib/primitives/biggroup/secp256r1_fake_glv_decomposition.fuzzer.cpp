@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /**
  * @file secp256r1_fake_glv_decomposition.fuzzer.cpp
  * @brief Pure-native fuzzer for `bb::stdlib::element_default::detail::compute_secp256r1_fake_glv_decomposition`.

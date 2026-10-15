@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 66052c96cc754339ac3f2761f341f150130555b3}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "blake3s.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"

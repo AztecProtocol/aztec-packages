@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /**
  * @file secp256r1_ecdsa_mul_ultra.fuzzer.cpp
  * @brief Differential fuzzer for the hybrid ECDSA mul `R = u₁·G + u₂·Q` on secp256r1.

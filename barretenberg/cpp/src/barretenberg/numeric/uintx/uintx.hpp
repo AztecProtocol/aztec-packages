@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /**
  * uintx: a wide unsigned integer formed by pairing two `base_uint` halves (lo, hi).
  *

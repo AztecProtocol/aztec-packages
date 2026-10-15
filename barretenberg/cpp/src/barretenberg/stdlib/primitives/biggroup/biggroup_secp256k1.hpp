@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Suyash], commit: 553c5eb82901955c638b943065acd3e47fc918c0}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 /**
  * Special case function for performing secp256k1 ecdsa signature verification group operations

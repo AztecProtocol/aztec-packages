@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 // This header hosts TWO implementations behind one facade:
 //   * `bb::scalar_multiplication::legacy::*`  — the pre-rewrite Pippenger MSM, bodies

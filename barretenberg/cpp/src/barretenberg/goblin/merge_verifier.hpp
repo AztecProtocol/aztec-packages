@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: d1307bdee7f2ee0e737c19b77a26204a8dbafafc}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"

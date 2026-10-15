@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "multilinear_batching_verifier.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"

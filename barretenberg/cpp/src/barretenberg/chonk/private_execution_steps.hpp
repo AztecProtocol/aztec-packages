@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/chonk/circuit_input.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>

@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "ultra_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"

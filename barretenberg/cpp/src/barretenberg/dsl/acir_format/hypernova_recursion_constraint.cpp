@@ -1,8 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
 #include "hypernova_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

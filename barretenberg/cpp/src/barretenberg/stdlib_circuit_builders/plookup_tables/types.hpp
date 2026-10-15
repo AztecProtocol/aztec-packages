@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-//
 // === CODE ROLE: Builder-agnostic data structures ===
 // This file defines the core data structures for plookup tables. Everything here is builder-agnostic:
 // no circuit gates are created, no witnesses are added. These structures are used both for native

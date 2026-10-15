@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke, Raju], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-//
 // === CODE ROLE: Builder-agnostic native computation ===
 // This file performs pure computation without modifying any circuit builder. All functions here
 // operate on native field elements (bb::fr) and return computed values. No witnesses or gates are created.

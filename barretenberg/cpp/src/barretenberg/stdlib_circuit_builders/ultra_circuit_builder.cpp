@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /**
  * @brief This file contains the implementation of field-agnostic UltraCircuitBuilder class that defines the logic
  * of ultra-style circuits and is intended for the use in UltraHonk

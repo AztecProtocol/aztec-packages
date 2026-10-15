@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "poseidon2_permutation.hpp"
 
 #include "barretenberg/honk/execution_trace/gate_data.hpp"

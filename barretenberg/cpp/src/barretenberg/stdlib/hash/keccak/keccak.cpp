@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "keccak.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"

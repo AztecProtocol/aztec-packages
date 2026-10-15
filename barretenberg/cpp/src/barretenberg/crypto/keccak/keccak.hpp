@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /* ethash: C/C++ implementation of Ethash, the Ethereum Proof of Work algorithm.
  * Copyright 2018-2019 Pawel Bylica.
  * Licensed under the Apache License, Version 2.0.

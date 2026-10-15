@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"

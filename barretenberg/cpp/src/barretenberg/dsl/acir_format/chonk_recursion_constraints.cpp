@@ -1,8 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"

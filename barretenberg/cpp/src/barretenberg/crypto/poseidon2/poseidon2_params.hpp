@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 // poseidon2 parameters generated via sage script
 // original author: Markus Schofnegger from Horizen Labs
 // original source: https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage

@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 /**
  * @file cycle_group.fuzzer.hpp
  * @brief Differential fuzzer for cycle_group elliptic curve operations

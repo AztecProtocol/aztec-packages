@@ -1,10 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: 72f52e7bad0fc1e36da575fbc2e6bfa1b1104aec}
-// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
-// b463d7c1c52fec2f4e39acfd21219464b00a39d8}
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"

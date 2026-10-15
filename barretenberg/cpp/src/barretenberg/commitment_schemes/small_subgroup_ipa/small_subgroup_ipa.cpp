@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Khashayar], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"

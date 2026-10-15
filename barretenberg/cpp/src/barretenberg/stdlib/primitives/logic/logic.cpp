@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Suyash], commit: e4712cda8def49d75fbba2d361625fc5e21945f5 }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "logic.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "../plookup/plookup.hpp"
