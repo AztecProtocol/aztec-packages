@@ -116,7 +116,7 @@ index a949edd98067d2db3d90ec56b1384dc14712884b..e510068f74ce4bfb1d56fc911282ed1d
            const local = LOCAL_PACKAGES[name];
            if (local === undefined) {
 diff --git a/yarn-project/native/package.json b/yarn-project/native/package.json
-index 30fa306fe3b7c6f8a2ccaf747dbbb1ca3f28500b..b1290c7d5707cb6419b818f16bbee463da58209d 100644
+index ceab8386856e72af1f88b8f43ede1ae2ba73124f..f50b5faa9f45e1f6a94671dd60e2a0ce59fd36b9 100644
 --- a/yarn-project/native/package.json
 +++ b/yarn-project/native/package.json
 @@ -16,7 +16,7 @@
@@ -140,38 +140,38 @@ index 1be17e9ad1841a737b2260a6713bfc2e19b32432..9781bed84f6077590a7a79eb5cccca5c
  
  import type { MessageReceiver } from './msgpack_channel.js';
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index dd9af8f3625816c6ea09a5a196aed410a210d6cd..e3ca28c3ade1f68c589530e2ffddab307fad6b27 100644
+index 4e32b34256ba07185d95451b1dd1fda5c0f0cefa..2661abd466856293a580a7f2d6bf224ad5dc91f6 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
 @@ -97,16 +97,16 @@
-     "@aztec-foundation/mock-protocol-circuits-artifacts": "6.0.0-nightly.20260923",
-     "@aztec-foundation/protocol-circuits-artifacts": "6.0.0-nightly.20260923",
-     "@aztec-foundation/protocol-contracts-artifacts": "6.0.0-nightly.20260923",
--    "@aztec-foundation/wsdb": "6.0.0-nightly.20260923",
--    "@aztec-foundation/wsdb-darwin-arm64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/wsdb-darwin-x64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/wsdb-linux-arm64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/wsdb-linux-x64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/kvdb": "6.0.0-nightly.20260923",
--    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-nightly.20260923",
--    "@aztec-foundation/kvdb-linux-x64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/wsdb": "6.0.0-nightly.20260923",
-+    "@aztec-labs/wsdb-darwin-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/wsdb-darwin-x64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/wsdb-linux-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/wsdb-linux-x64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/kvdb": "6.0.0-nightly.20260923",
-+    "@aztec-labs/kvdb-darwin-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/kvdb-darwin-x64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/kvdb-linux-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-labs/kvdb-linux-x64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/noir-acvm_js": "6.0.0-nightly.20260923",
-     "@aztec-foundation/noir-types": "6.0.0-nightly.20260923",
-     "@aztec-foundation/noir-noirc_abi": "6.0.0-nightly.20260923",
+     "@aztec-foundation/mock-protocol-circuits-artifacts": "6.0.0-rc.6",
+     "@aztec-foundation/protocol-circuits-artifacts": "6.0.0-rc.6",
+     "@aztec-foundation/protocol-contracts-artifacts": "6.0.0-rc.6",
+-    "@aztec-foundation/wsdb": "6.0.0-rc.6",
+-    "@aztec-foundation/wsdb-darwin-arm64": "6.0.0-rc.6",
+-    "@aztec-foundation/wsdb-darwin-x64": "6.0.0-rc.6",
+-    "@aztec-foundation/wsdb-linux-arm64": "6.0.0-rc.6",
+-    "@aztec-foundation/wsdb-linux-x64": "6.0.0-rc.6",
+-    "@aztec-foundation/kvdb": "6.0.0-rc.6",
+-    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-rc.6",
+-    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-rc.6",
+-    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-rc.6",
+-    "@aztec-foundation/kvdb-linux-x64": "6.0.0-rc.6",
++    "@aztec-labs/wsdb": "6.0.0-rc.6",
++    "@aztec-labs/wsdb-darwin-arm64": "6.0.0-rc.6",
++    "@aztec-labs/wsdb-darwin-x64": "6.0.0-rc.6",
++    "@aztec-labs/wsdb-linux-arm64": "6.0.0-rc.6",
++    "@aztec-labs/wsdb-linux-x64": "6.0.0-rc.6",
++    "@aztec-labs/kvdb": "6.0.0-rc.6",
++    "@aztec-labs/kvdb-darwin-arm64": "6.0.0-rc.6",
++    "@aztec-labs/kvdb-darwin-x64": "6.0.0-rc.6",
++    "@aztec-labs/kvdb-linux-arm64": "6.0.0-rc.6",
++    "@aztec-labs/kvdb-linux-x64": "6.0.0-rc.6",
+     "@aztec-foundation/noir-acvm_js": "6.0.0-rc.6",
+     "@aztec-foundation/noir-types": "6.0.0-rc.6",
+     "@aztec-foundation/noir-noirc_abi": "6.0.0-rc.6",
 diff --git a/yarn-project/world-state/package.json b/yarn-project/world-state/package.json
-index 1c826c7c2705e6027befa9f50a5678e1b72f070b..89e593ffe8f9396714585c7c0ec5df9e4a7138f8 100644
+index 931e28b62b4c46faa70ef328d0aea9eefdf61653..5eb0c8d85c0dd0bc63a3acb8ac61b6ed278a3e9e 100644
 --- a/yarn-project/world-state/package.json
 +++ b/yarn-project/world-state/package.json
 @@ -64,7 +64,7 @@
@@ -184,7 +184,7 @@ index 1c826c7c2705e6027befa9f50a5678e1b72f070b..89e593ffe8f9396714585c7c0ec5df9e
      "@aztec-labs/foundation": "workspace:^",
      "@aztec-labs/protocol-contracts": "workspace:^",
 diff --git a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
-index b6a0baae1c26b90e58126d4fa68d1a424f3ae123..cc841eee30b4b2df204d827ee1dca1dca05b555f 100644
+index b88ec4cc1ad2d58f14a2c1e980bd7df61a1ee20f..c5aaa612e6b4687510449f2da7f94a2359e453c1 100644
 --- a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
 +++ b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
 @@ -1,8 +1,8 @@
@@ -195,13 +195,14 @@ index b6a0baae1c26b90e58126d4fa68d1a424f3ae123..cc841eee30b4b2df204d827ee1dca1dc
  import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
 +import { AsyncApi } from '@aztec-labs/wsdb';
  import { jest } from '@jest/globals';
+ import { Buffer } from 'buffer';
  
- import { NativeWorldStateService } from './native_world_state.js';
 diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-index 6cd36e2816616de6d9014b2adf224acfab12f14e..fc0f1341131f0d976d24e71174d7db76e91516e1 100644
+index 3602393f4fb188bd3f2feed4f417ae2b82c1084f..1862d23ee62bd66b8ff7326ae66eecec2b636dff 100644
 --- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
 +++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-@@ -1,15 +1,3 @@
+@@ -1,15 +1,4 @@
+ import { IpcProcessExitedError } from '@aztec-foundation/ipc-runtime';
 -import { AsyncApi, WsdbService } from '@aztec-foundation/wsdb';
 -import type {
 -  WorldStateDBStats as WsdbDBStats,
@@ -213,11 +214,10 @@ index 6cd36e2816616de6d9014b2adf224acfab12f14e..fc0f1341131f0d976d24e71174d7db76
 -  TreeDBStats as WsdbTreeDBStats,
 -  TreeMeta as WsdbTreeMeta,
 -} from '@aztec-foundation/wsdb';
--
+ 
  import {
    ARCHIVE_HEIGHT,
-   DomainSeparator,
-@@ -26,6 +14,17 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec-labs/foun
+@@ -28,6 +17,17 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec-labs/foun
  import type { IndexedTreeId, TreeInfo } from '@aztec-labs/stdlib/interfaces/server';
  import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
  import type { GenesisData, WorldStateRevision } from '@aztec-labs/stdlib/world-state';
@@ -232,9 +232,9 @@ index 6cd36e2816616de6d9014b2adf224acfab12f14e..fc0f1341131f0d976d24e71174d7db76
 +  TreeDBStats as WsdbTreeDBStats,
 +  TreeMeta as WsdbTreeMeta,
 +} from '@aztec-labs/wsdb';
+ import { Buffer } from 'buffer';
  import { cpus } from 'node:os';
  
- import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 diff --git a/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts b/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
 index c8fdee8ec2c1204cddf6747f1feb20afc9f5e441..3ca1c729e434ff9735565c884cc3bd593e475169 100644
 --- a/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
