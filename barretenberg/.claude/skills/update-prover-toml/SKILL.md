@@ -5,7 +5,17 @@ description: Regenerate the protocol-circuit sample Prover.toml files (the witne
 
 # Updating protocol-circuit Prover.toml files
 
-All paths are from the repository root (one level above `barretenberg/`). The circuit crates and their tomls live in this repository; the TypeScript that regenerates them lives in the `labs/` git submodule, so its paths start with `labs/yarn-project/` and its workspaces are named `@aztec-labs/*`. Run the yarn commands below from `labs/yarn-project`.
+All paths are from the repository root (one level above `barretenberg/`). The circuit crates and their tomls live in this repository; the TypeScript that regenerates them lives in the `labs/` git submodule, so its paths start with `labs/yarn-project/` and its workspaces are named `@aztec-labs/*`. Run the commands below from the repository root through `scripts/labs_env.sh`, which runs them inside `labs/` and clears the inherited ci3 `root`.
+
+## Prerequisites
+
+The fake-proof lengths come from `@aztec-labs/constants`, so the TS build must be current *after* any proof-length change — otherwise regeneration re-emits the old length. Build in dependency order; the simplest is `make labs-yarn-project` from the git root, which does bb → noir → l1-contracts → protocol circuits → the submodule's yarn-project.
+
+- **bb / bb-avm native** at `barretenberg/cpp/build/bin/{bb,bb-avm}`. The prover-client capture test looks for `bb-avm` and the e2e capture for `bb`; both silently fall back to WASM if the native binary is missing, so build a current native binary.
+- **noir-execute** at `noir/noir-repo/target/release/noir-execute` (witness generation; WASM fallback if absent).
+- **Protocol circuits compiled** under `noir-projects/fnd/noir-protocol-circuits` (artifacts are staged into `@aztec-foundation/protocol-circuits-artifacts`, which `@aztec-labs/noir-protocol-circuits-types` consumes).
+- **TS build current**, especially `@aztec-labs/constants` (regenerated from `noir-projects/.../constants.nr`), then `@aztec-labs/noir-protocol-circuits-types`, `@aztec-labs/bb-prover`, `@aztec-labs/simulator`, and the test's own package.
+- The e2e command additionally needs `l1-contracts` built, because it runs anvil.
 
 ## What these files are
 
@@ -19,20 +29,20 @@ nargo execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/<cir
 
 The tomls are captured from a real end-to-end run, not written by hand (except the reset one — see below).
 
-Each toml is self-contained on the verification-key side: it carries its own `vk_tree_root`, plus a `vk_data` membership witness (`leaf_index` + `sibling_path`) under that root for every child proof the circuit verifies. So a change that only moves the real VK tree root — adding or removing a circuit, say — does not by itself need a regeneration pass: the committed samples still execute against the root they were captured with.
+Each toml is self-contained on the verification-key side: it carries its own `vk_tree_root`, plus a `vk_data` membership witness (`leaf_index` + `sibling_path`) under that root for every child proof the circuit verifies. So a change that only moves the real VK tree root (adding or removing a circuit, say) does not by itself need a regeneration pass. The committed samples still execute against the root they were captured with.
 
 ## How regeneration works
 
 Two commands cover the protocol-circuit tomls, split by whether the sample needs a real client-proved transaction. Both capture circuit inputs during proving via `pushTestData`/`getTestData` and write them with `updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(...))` (`labs/yarn-project/foundation/src/testing/files/index.ts`), which writes `noir-projects/fnd/noir-protocol-circuits/crates/<circuitName>/Prover.toml` in this repository.
 
-> ⚠️ **Run both commands from a checkout of this repository**, never from a standalone aztec-node clone. The tests that capture the tomls live in the `labs/` submodule and the tomls themselves are committed here, so `getPathToFndFile` resolves them one directory above the submodule root. The submodule consumes the compiled circuits as the `@aztec-foundation/protocol-circuits-artifacts` package rather than as a source tree, so a clone of it on its own has nothing to write to, and the regeneration fails naming the target and this repository rather than writing somewhere unexpected.
+> **Warning: run both commands from a checkout of this repository.** The capture writes to `noir-projects/fnd/...` one directory above the `labs/` submodule (`getPathToFndFile`). A standalone aztec-node clone has no such directory: it consumes the compiled circuits as the `@aztec-foundation/protocol-circuits-artifacts` package, so the test fails, naming the target and this repository.
 
 ### Block-root and above rollup circuits — prover-client suite
 
 `labs/yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts` drives representative epochs through the simulated orchestrator and dumps each rollup circuit's captured input. The whole suite is `describe.skip`ped unless `AZTEC_GENERATE_TEST_DATA=1`, and it needs no L1 sandbox.
 
 ```bash
-AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec-labs/prover-client test regenerate_rollup_sample_inputs
+scripts/labs_env.sh bash -c 'cd yarn-project && AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec-labs/prover-client test regenerate_rollup_sample_inputs'
 ```
 
 Regenerates every block-root variant plus the block-merge, checkpoint-root, checkpoint-merge, tx-merge and root tomls. Take the exact inventory from the `scenarios` array in that test rather than from a list here: each scenario's `dump` field names the tomls it owns, and the set changes whenever a block-root variant is added or removed.
@@ -44,10 +54,10 @@ Regenerates every block-root variant plus the block-merge, checkpoint-root, chec
 From the repo root:
 
 ```bash
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 labs/yarn-project/end-to-end/scripts/run_test.sh simple single-node/prover/server/full
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 scripts/labs_env.sh yarn-project/end-to-end/scripts/run_test.sh simple single-node/prover/server/full
 ```
 
-(Equivalently, from `labs/yarn-project/end-to-end`: `AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e single-node/prover/server/full.test`.) This is a full-stack run (L1 anvil + node + prover), ~15 min with fake proofs.
+(Equivalently, from `labs/yarn-project/end-to-end`: `AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e single-node/prover/server/full.test`.) This is a full-stack run (L1 anvil + node + prover), ~15 min with fake proofs. It needs anvil and the `l1-contracts` build.
 
 Regenerates:
 
@@ -60,7 +70,7 @@ The circuit list lives in the `forEach(circuitName => ...)` loop in `full.test.t
 
 After either run, review and stage the changed tomls with `git diff noir-projects/fnd/noir-protocol-circuits/crates/*/Prover.toml`. If you add a new circuit crate, add its name to the appropriate list so its toml gets generated.
 
-## ⚠️ Exception: `private-kernel-reset/Prover.toml` (inner reset) is NOT generated — hand-maintain it
+## Exception: `private-kernel-reset/Prover.toml` (inner reset) is NOT generated — hand-maintain it
 
 The inner reset is **not regenerated by `full.test.ts` at all**: `'private-kernel-reset'` is commented out of the circuit list and no flow produces it. So the bulk regeneration command above leaves this one toml untouched — when a change affects it, you edit `crates/private-kernel-reset/Prover.toml` **by hand**.
 
@@ -76,11 +86,15 @@ When the edit isn't obvious from the other diffs, a known-good earlier version o
 
 If the change is too large to hand-apply (e.g. a reset ABI/layout change), or if there is no Prover.toml to modify, capture a fresh sample by temporarily re-enabling the inner-reset flow:
 
-1. In `full.test.ts`, re-add a flow that forces an inner reset — a `PendingNoteHashesContract.test_recursively_create_notes` tx that emits more notes than a reset dimension can hold — and uncomment `'private-kernel-reset'` in the circuit list.
+1. In `full.test.ts`, add a temporary flow that forces an inner reset — a `PendingNoteHashesContract.test_recursively_create_notes` tx that emits more notes than a reset dimension can hold — and uncomment `'private-kernel-reset'` in the circuit list. The contract is `labs/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract`; `labs/yarn-project/end-to-end/src/automine/effects/pending_note_hashes.parallel.test.ts` shows how to drive it.
 2. Run the regeneration command above; this now writes `private-kernel-reset/Prover.toml`.
 3. **Revert the `full.test.ts` edits** — do not commit the re-enabled flow.
 
-> ⚠️ **Disclaimer: zero out the key-validation requests in the captured toml.** The captured inner reset does not verify the key-validation requests it carries (it has no master secret keys for them), but the full max-dimension `private-kernel-reset` circuit verifies all of them — so the raw captured toml fails `nargo execute`. After capturing, empty the key-validation requests (set their claimed length to zero and clear their array entries) so the verify loop runs over nothing. Confirm with the verify step below.
+> **Warning: zero out the key-validation requests in the captured toml.** The captured inner reset does not verify the key-validation requests it carries (it has no master secret keys for them), but the full max-dimension `private-kernel-reset` circuit verifies all of them — so the raw captured toml fails `nargo execute`. After capturing, empty the key-validation requests (set their claimed length to zero and clear their array entries) so the verify loop runs over nothing. Confirm with the verify step below.
+
+### Stopgap: trim or extend the fake-proof arrays by hand
+
+If you just need to prove a circuit once after a proof-length change and don't want to stand up the full regeneration pipeline, edit the affected `Prover.toml` directly. The proof-length assertion tells you the delta (`Actual` vs `Expected`). Trim or pad the fake-proof array(s) in that file to the expected length: drop the extra trailing elements, or append zero entries (`"0x00"`). The proof values are dummy under `FAKE_PROOFS`, so only the array length matters. The proper fix is regeneration.
 
 ## Verify
 

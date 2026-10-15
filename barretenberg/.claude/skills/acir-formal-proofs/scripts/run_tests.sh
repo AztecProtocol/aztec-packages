@@ -6,7 +6,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 BIN="$REPO_ROOT/barretenberg/cpp/build-smt/bin/acir_formal_proofs_tests"
 
 TIME_LIMIT="${1:-300}"
@@ -52,7 +52,9 @@ TESTS=(
   "AcirFormalProofs.SignedMul"
   "AcirFormalProofs.SignedOr"
   "AcirFormalProofs.SignedShl"
+  "AcirFormalProofs.SignedShl64"
   "AcirFormalProofs.SignedShr"
+  "AcirFormalProofs.SignedShr64"
   "AcirFormalProofs.SignedSub"
   "AcirFormalProofs.SignedXor"
   "AcirFormalProofs.SignedNot"

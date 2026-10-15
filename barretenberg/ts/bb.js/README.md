@@ -9,21 +9,22 @@ Prover/verifier library for barretenberg. It bundles support for the following:
 - Single-threaded WASM.
 - Multi-threaded WASM.
 
-If running within node.js on a support os/architecture we will use appropriate native code.
-If running within node.js on an unsupported architecture we will fallback to multi-threaded WASM.
+In node.js, `Barretenberg.new()` first tries the native backend: it spawns the platform `bb` binary and talks to it over a Unix socket. If no native `bb` is available, it falls back to multi-threaded WASM. Pass `backend` in the options to require one backend.
 If running within the browser and served without COOP/COEP headers, we use the single-threaded WASM.
 If running within the browser served with COOP/COEP headers, we use the multi-threaded WASM.
 
 ### Installing
 
 ```
-npm install @aztec-foundation/bb.js
+npm install @aztec-foundation/bb.js@<version>
 ```
+
+Pin a version: the npm `latest` tag can point at a nightly.
 
 or with yarn
 
 ```
-yarn add @aztec-foundation/bb.js
+yarn add @aztec-foundation/bb.js@<version>
 ```
 
 ### Usage
@@ -31,18 +32,18 @@ yarn add @aztec-foundation/bb.js
 To create the API and do a blake2s hash:
 
 ```typescript
-import { Crs, Barretenberg, RawBuffer } from './index.js';
+import { Barretenberg } from '@aztec-foundation/bb.js';
 
 const api = await Barretenberg.new({ threads: 1 });
 const input = Buffer.from('hello world!');
-const result = await api.blake2s(input);
+const { hash } = await api.blake2s({ data: input });
 await api.destroy();
 ```
 
-All methods are asynchronous. If no threads are specified, will default to number of cores with a maximum of 32.
+All methods are asynchronous and take one command object. `threads` applies to the WASM backends only. If no threads are specified, will default to number of cores with a maximum of 32.
 If `1` is specified, fallback to non multi-threaded wasm that doesn't need shared memory.
 
-See `src/main.ts` for larger example of how to use.
+See the CLI in `src/bin/` and the tests under `src/` for larger examples.
 
 ### Browser Context
 
@@ -50,7 +51,7 @@ It's recommended to use a dynamic import. This allows the developer to pick the 
 in size) is loaded and keeps page load times responsive.
 
 ```typescript
-const { Barretenberg, RawBuffer, Crs } = await import('@aztec-foundation/bb.js');
+const { Barretenberg, Crs } = await import('@aztec-foundation/bb.js');
 ```
 
 ### Multithreading in browser
@@ -82,10 +83,11 @@ You can enable these headers for specific pages that perform proof generation, b
 
 ## Debugging
 
-Got an unhelpful stack trace in wasm? Run:
+Got an unhelpful stack trace in wasm? Build the debug wasm and copy it over the stripped one. From `barretenberg/cpp`:
 
 ```
-BUILD_CPP=1 NO_STRIP=1 ./script/copy_wasm.sh
+cmake --build --preset wasm-threads --target barretenberg-debug.wasm.gz
+cp build-wasm-threads/bin/barretenberg-debug.wasm.gz ../ts/bb.js/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 ```
 
-This will drop unstripped wasms into the dest folder. Run your test again to get a trace.
+Run your test again to get a trace with function names. For full debug info, use the `wasm-threads-dbg` preset instead (takes more than 10 minutes).

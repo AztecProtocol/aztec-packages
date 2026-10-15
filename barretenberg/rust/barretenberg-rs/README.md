@@ -1,24 +1,24 @@
 # barretenberg-rs
 
-Rust bindings for [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg), a C++ cryptographic library for zero-knowledge proofs.
+Rust bindings for [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/next/barretenberg), a C++ cryptographic library for zero-knowledge proofs.
 
 ## Features
 
 - **PipeBackend**: Spawns the `bb` binary and communicates via msgpack over stdin/stdout
-- **FfiBackend**: Links directly to static libraries for maximum performance (requires `ffi` feature)
+- **FfiBackend**: Links directly to static libraries for maximum performance (`ffi` feature, on by default)
 - Async support with Tokio
 
 ## Installation
 
 ```toml
 [dependencies]
-barretenberg-rs = "0.1"
+barretenberg-rs = "5"  # use the version that matches your bb
 ```
 
 ### Feature Flags
 
 - `native` (default): Enables PipeBackend with Tokio async runtime
-- `ffi`: Enables FfiBackend with static linking to libbarretenberg
+- `ffi` (default): Enables FfiBackend with static linking to `libbb-external.a`
 - `async`: Enables async API support
 
 ## Usage
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut api = BarretenbergApi::new(backend);
 
     // Hash some data
-    let response = api.blake2s(b"hello world".to_vec())?;
+    let response = api.blake2s(b"hello world")?;
     println!("Hash: {}", hex::encode(&response.hash));
 
     api.destroy()?;
@@ -43,16 +43,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### FfiBackend (requires `ffi` feature)
+### FfiBackend (`ffi` feature, default)
 
 ```rust
 use barretenberg_rs::{BarretenbergApi, backends::FfiBackend};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let backend = FfiBackend::new();
+    let backend = FfiBackend::new()?;
     let mut api = BarretenbergApi::new(backend);
 
-    let response = api.blake2s(b"hello world".to_vec())?;
+    let response = api.blake2s(b"hello world")?;
     println!("Hash: {}", hex::encode(&response.hash));
 
     api.destroy()?;
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Supported Targets
 
-The FFI backend provides pre-built static libraries for:
+At build time, the FFI backend downloads a pre-built static library from the GitHub release of the crate version (needs network access and `curl`). Set `BB_LIB_DIR` to a directory containing `libbb-external.a` to use a local build instead. Pre-built libraries exist for:
 
 - Linux x86_64 (glibc)
 - Linux arm64 (glibc)
@@ -70,16 +70,17 @@ The FFI backend provides pre-built static libraries for:
 - macOS arm64 (Apple Silicon)
 - iOS arm64 (device)
 - iOS arm64 Simulator (Apple Silicon)
+- Android arm64 and x86_64
 
 ## API
 
 The `BarretenbergApi` exposes cryptographic primitives including:
 
-- **Hashing**: Blake2s, Blake3, Poseidon2, Pedersen, SHA256, Keccak256
+- **Hashing**: Blake2s, Poseidon2, Pedersen
 - **Signatures**: ECDSA (secp256k1, secp256r1), Schnorr
 - **Curve operations**: BN254, Grumpkin, secp256k1
 - **Encryption**: AES-128-CBC
-- **Proof systems**: UltraHonk, MegaHonk, ClientIVC
+- **Proof systems**: UltraHonk, Chonk, AVM
 
 ## License
 
