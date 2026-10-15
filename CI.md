@@ -1,64 +1,56 @@
 # CI3
 
-This document attempts to document CI version 3, to provide a little history, rationale, and a guide on how to use it.
+This document describes CI3, the CI system for aztec-packages: its design, the commands, and how to use it.
 
-If anything is unclear or lacking, raise it with me (Charlie) directly, so I can advise and update this document.
-
-There were two prior CI systems.
-
-- `CI1` was a collection of bash scripts that leant heavily into the use of cli tools. It strived to be vendor agnostic, stateless on actual build instances, and had a docker centric workflow whereby each project had it's on Dockerfile.
-- `CI2` attempted to use a product called Earthly to provide a "merged" bash/Dockerfile syntax, maintaining the Docker centric workflow, but also requiring build instances to have state.
-
-CI3 is a reversion to the philosophy of CI1, but removing the Docker centric workflow that required every project to have it's own Dockerfile.
+Owners: see `CODEOWNERS` (`/ci3/`, `/.github/`, `/build-images/`).
 
 CI3:
 
-- Is vendor agnostic. That means the amount of GA config is kept to an absolute minimum, and strives to provide a feature-full CI experience direct from the terminal (minus code reviews etc).
-- Simply executes commands that a developer would be executing, and within exactly the same environment. Thus it is implicitly testing our development container and bootstrap scripts.
-- Is stateless on build instances, however whereas CI1 pushed and pulled containers from a registry, CI3 uploads/downloads artifacts from an S3 bucket.
-- Uses docker "only" for:
+- Is vendor agnostic. GitHub Actions configuration is kept to a minimum, and most CI tasks can be run from the terminal.
+- Runs the same commands a developer runs, in the same environment. It therefore also tests the development container and the bootstrap scripts.
+- Is stateless on build instances. Build artifacts are uploaded to and downloaded from an S3 bucket.
+- Uses Docker only for:
   - Building the development container in `build-images`.
   - Running the bootstrap in CI in the development container.
-  - Isolating any tests that require use of the network stack.
-  - Restricting resources such a vcpus, memory and storage.
-  - Building a single final slim release image from `release-image`.
-- Provides a consistent command interface on `./bootstrap.sh` scripts, e.g. `./bootstrap.sh clean|fast|full|test|test_cmds`.
-- Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelized at once to leverage maximum system throughput.
-- Runs on a single (currently large, 128 vcpu) machine.
-- Significantly reduces the chance of flakey tests making their way into master, by "grinding" the tests in the master merge queue. This simply executes the tests as above, but across N instances. (TBD)
-- Provides a shared redis cache at the test level, meaning the same test never needs to be run twice in CI (except when grinding).
-- Aims to reduce log noise significantly, only displaying logs that errored by default, while still storing all logs in a shared redis cache. Developers can "drill-down" into logs via log ids.
-- Aims to reduce repository clutter significantly. Ultimately, outside of the `ci3` folder itself, we shouldn't need more than a handful of bootstrap scripts, run_test scripts, and maybe a handful of exceptional helper scripts.
+  - Isolating tests that use the network stack.
+  - Restricting resources such as vCPUs, memory and storage.
+- Provides a consistent command interface on `./bootstrap.sh` scripts. Each project script exposes its tests via `test_cmds`, and the root build runs all of them in parallel.
+- Runs each CI job on a single large EC2 instance (192, 128 or 64 vCPUs on amd64; 64 on arm64).
+- Runs every test, with the test cache off, in the merge queue into `next`; some merge trains grind with 10 parallel runs (`ci merge-queue-heavy`). Single tests can be ground on demand (see [Fixing flaky tests](#fixing-flaky-tests)).
+- Provides a shared redis cache at the test level, so CI does not run the same test twice (except when grinding).
+- Displays only the logs of failed steps by default, while storing all logs in redis. Developers can "drill down" into logs via log ids.
+- Keeps repository clutter low. Outside `ci3/`, a project needs only its bootstrap script, a `run_test.sh` script and a few helper scripts.
 
 ## The Scripts
 
-CI3 aims to be clutter free. These are the main scripts to be aware of:
+These are the main scripts:
 
-- `/ci.sh` - For all CI related workflow such as triggering CI runs, tailing logs, getting historical logs, running on remote machines with different architectures, etc.
-- `/bootstrap.sh` - Root bootstrap script. Can build, test and deploy the entire repository.
-- `/**/bootstrap.sh` - Project specific bootstrap scripts. Follow common patterns such as allowing fetching of test commands. Where possible _everything needed to **bootstrap, test, and release** the project should be in this one script_. There maybe some exceptions but we want "locality of behaviour".
-- `/**/scripts/run_test.sh` - Each project has such a script that, given arguments, can run a _single_ test. The test commands returned by `./bootstrap test_cmds` will usually be calling this script in each project.
+- `/ci.sh` - CI workflow: triggering CI runs on EC2, viewing logs, opening shells on remote machines, etc.
+- `/bootstrap.sh` - Root bootstrap script. Builds the repository through the root `Makefile`, and runs the CI and release flows.
+- `/**/bootstrap.sh` - Project bootstrap scripts. They follow common patterns, for example `test_cmds` to print the project's test commands. Where possible, keep _everything needed to **bootstrap, test, and release** the project in this one script_.
+- `/**/scripts/run_test.sh` - Runs a _single_ test, given arguments. The test commands printed by `./bootstrap.sh test_cmds` usually call this script.
+- `/Makefile` - Build order and dependencies between projects. Its `*-tests` targets do not run tests: they append test commands to `/tmp/test_cmds`, which the test engine (`ci3/test_engine`) runs.
 
-As a general philosophy, do not be creating random little scripts to aid in your workflow. I'd be happy to hear what workflow problems you're having, and we can look at updating the existing bootstrap scripts to better support it.
+Do not add one-off helper scripts for your workflow. If a workflow is missing, extend the existing bootstrap scripts instead.
 
-Some bootstrap scripts provide project specific entrypoints. e.g. `noir-contracts` offers a compile command:
+Some bootstrap scripts provide project-specific commands. For example, `noir-projects/fnd/noir-contracts/bootstrap.sh` offers a compile command:
 
 ```
 ./bootstrap.sh compile <contract-name>
 ```
 
-It's worth looking at the scripts to see what commands they export. They are all neatly expressed at the bottom of each script.
+Each script lists its commands in the `case` block at the bottom.
 
 ## Getting Started
 
-You can do yourself a small favour and add the following aliases to your `~/.zshrc`. The following documentation will assume they're there.
+Add the following aliases to your `~/.zshrc`. The rest of this document assumes they exist.
 
 ```
 alias ci='$(git rev-parse --show-toplevel)/ci.sh'
 alias dl='$(git rev-parse --show-toplevel)/ci.sh dlog'
 ```
 
-This will enable running the ci script simply with `ci <cmd>`, and being able to view denoised logs with `dl <id>`.
+`ci <cmd>` then runs the CI script, and `dl <id>` shows a denoised log.
 
 ### Getting the repository into a runnable state.
 
@@ -68,350 +60,272 @@ After cloning the repository, run:
 ./bootstrap.sh
 ```
 
-This is the same as running:
+This installs the git hooks and runs `make fast`. It uses the S3 cache to get the repository into a runnable state as fast as possible. On a laptop, use `./bootstrap.sh gentle`, which builds with less parallelism.
+
+Other forms:
 
 ```
-./bootstrap.sh fast
+./bootstrap.sh check           # check required toolchains and versions
+NO_CACHE=1 ./bootstrap.sh      # build without downloading from the cache
+./bootstrap.sh build full      # make full: also the full test builds and labs extras
+make <target>                  # build one component, e.g. make bb-cpp-native
 ```
 
-A fast bootstrap will use the S3 cache to get the repository into a runnable state as fast as possible.
-
-If you want to build everything from scratch and not use the cache:
-
-```
-./bootstrap.sh full
-```
-
-After running any of the above, you should have a fully runnable repository, including being able to run all the tests. If something doesn't run without further intervention, something's wrong and you should let me know.
+After `./bootstrap.sh` you should have a fully runnable repository, including the ability to run all the tests.
 
 ### Cleaning the repo.
-
-Shouldn't be needed often. If you find yourself needing it to work around issues, let me know.
 
 ```
 ./bootstrap.sh clean
 ```
 
-This erases untracked files, submodules, etc. Use with caution locally.
+This erases untracked files, submodules, git hooks, etc. It asks for confirmation. Use with caution locally.
 
 ### Running tests.
 
-You should be able to just do:
+Tests run per project, via that project's bootstrap script:
 
 ```
-./bootstrap.sh test
+barretenberg/cpp/bootstrap.sh test
+l1-contracts/bootstrap.sh test
 ```
 
-However this will run _the entire repository test suite_. This isn't recommended unless you have a very powerful machine or a lot of patience. I would rather you didn't do this on the mainframe at present as if several users do it at once it could cause issues.
+This runs the project's entire test suite. Do not run large suites on the mainframe: several users doing so at once can overload it.
 
-You can provide one or more projects (a folder with another `./bootstrap.sh` script) as arguments. e.g.
+Tests run in parallel, limited to half the number of vCPUs (usually the number of physical cores).
 
-`./bootstrap.sh test barretenberg/ts l1-contracts`
-
-This will run the tests for `yarn-project` and `playground`.
-
-Tests for all projects are run in parallel. At present it's limited to half the number of vcpus (usually the number of physical cores).
+The root `./bootstrap.sh` has no `test` command. The full-repo build-and-test flow is what CI runs via `./bootstrap.sh ci-fast` / `ci-full`.
 
 ### Test commands.
 
-To see the test commands that are run for a given project, run:
+To see the test commands for a project, run its `test_cmds` command:
 
 ```
-./bootstrap.sh test_cmds
+barretenberg/cpp/bootstrap.sh test_cmds
 ```
 
-The test commands are filtered to not include matching patterns in the root `.test_skip_patterns` file.
-
-You can run this in the root to see all test commands, or provide project folders as arguments, or run it directly in a project folder. You might want to make sure this reflects what you expect when you add tests. Generally you shouldn't have to worry about it, the scripts are automated enough to find the tests if you're following the usual patterns. You'll get something like:
+The output is filtered to remove tests marked `skip` in the root `.test_patterns.yml` file. You'll get something like:
 
 ```
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates_with_shifts
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_boolean_gates
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupXorConstraint
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupAndConstraint
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupFixedBaseScalarMul
 ```
 
-Note the first field before the actual command is the "test hash" discussed further below.
-The actual command can be run from the root of the repo to run the test manually.
+The first field is the "test hash" (see [Cache](#cache)). Run the rest of the line from the repository root to run the test manually.
 
-Also note that all projects tend to have a `scripts/run_test.sh` which is the actual test runner script that can take the project specific arguments and translate them into a test run.
+Most projects have a `scripts/run_test.sh`, the test runner that translates project-specific arguments into a test run.
 
-### Skipping flakey tests.
+### Skipping flaky tests.
 
-These are now managed in a single place, the file in the repository root `.test_skip_patterns`. Note the following examples:
+Flaky tests are managed in one place, the root `.test_patterns.yml` file. For example:
 
-```
-# noir
-noir_lsp-.* notifications::notification_tests::test_caches_open_files
-noir_lsp-.* requests::
-
-# noir-contracts
-# "The number -0.000015046493062592755 cannot be converted to a BigInt because it is not an integer"
-counter_contract Counter::extended_incrementing_and_decrementing
+```yaml
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
+    error_regex: "Aborted.*core dumped"
+    owners:
+      - *adam
 ```
 
-Note you can add comments using `#`. Otherwise lines are regexes that are used by `grep` to filter the `test_cmds`. This allows us to clearly see and manage which tests are currently disabled due to flakey behaviour.
+Each entry's `regex` is matched against the test command. A matching failure is retried once: if the retry passes, the test is reported as a flake and the build continues; if it fails again, the build fails. In merge-queue runs a flake also alerts the listed owners in Slack (#aztec3-ci). With `error_regex`, only failures whose output matches are treated as flakes. `skip: true` disables a test outright; reserve it for tests that fail constantly. A failing test with no matching owner fails the build.
 
-If you run into a flakey test (which should be _much_ less common once the grinder is running), disable it here and notify the relevant team.
+If you hit a flaky test, add an entry here and notify the owning team.
 
-Note that as node test commands are limited to the entire test file, you _may_ still want to go add `.skip` directives instead, but if one test in a suite is flakey, they probably all are (or the suite is too big).
+### Fixing flaky tests.
 
-### Fixing flakey tests.
-
-If you're responsible for resolving a flakey test, there's a few approaches you can take.
-Let's assume you're trying to reproduce the flake error on `yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network`.
+To reproduce a flaky test, take its line from `test_cmds` and run it repeatedly. The examples below use `barretenberg/cpp/scripts/run_test.sh <binary> <filter>`.
 
 #### Single threaded grind.
 
 ```
-while yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network; do true; done
+while barretenberg/cpp/scripts/run_test.sh <binary> <filter>; do true; done
 ```
 
-Simple runs the test over and over again until it fails.
+This runs the test until it fails.
 
 #### Parallel grind.
 
-If that's too slow as the test takes a while to run, and the test itself is not too "heavy", you can use parallel.
-This example runs it 10 times in parallel and stops on first failure.
+If the test is slow but not resource-heavy, use `parallel`. This example runs it 10 times in parallel and stops on the first failure:
 
 ```
-seq 1 10 | parallel --bar --halt now,fail=1 "yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
+seq 1 10 | parallel --bar --halt now,fail=1 "barretenberg/cpp/scripts/run_test.sh <binary> <filter> >/dev/null"
 ```
 
-This swallows stdout so it doesn't spam your terminal, and assumes that an actual error would produce output on stderr.
+This discards stdout and assumes that a real error writes to stderr.
 
-#### Remote parallel grind.
+#### Remote grind.
 
-If the test is quite a heavy test, you may need further compute resource (and you should be mindful not to cripple mainframe for other users). You can get an EC2 128 vcpu system for an hour and run parallel there.
+For a heavy test, use an EC2 instance rather than the mainframe. `ci grind-test` grinds one test command on a fresh instance:
 
 ```
-ci ec2-shell
+ci grind-test "<hash> <test command>" [timeout] [jobs_pct] [memsuspend_pct] [commit]
+```
+
+Or get a shell on a fresh instance and run `parallel` there:
+
+```
+ci shell-new
 ./bootstrap.sh
-seq 1 64 | parallel --bar --halt now,fail=1 "yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
+seq 1 64 | parallel --bar --halt now,fail=1 "barretenberg/cpp/scripts/run_test.sh <binary> <filter> >/dev/null"
 ```
 
-## CI
+## Running CI
 
-At present CI will run in Github Actions for all the usual PR triggers (pushing etc). This may change in the future to require explicit triggers. In the meantime if you don't want CI constantly running your PR (and assuming your branch _has_ a PR) you can disable automatic runs with:
+GitHub Actions runs CI on every push to a non-draft PR (`.github/workflows/ci3.yml`; PRs from forks go through `ci3-external.yml`). The flow is `ci3.yml` → `.github/ci3.sh` → `ci.sh <mode>` → `./bootstrap.sh ci-<mode>` on a fresh EC2 instance. `.github/ci3_labels_to_env.sh` picks the mode from the PR labels (see below); the default is `fast`.
+
+To stop CI running on every push, mark the PR as draft:
 
 ```
 ci draft
 ```
 
-You can go back to ready with:
+To go back to ready:
 
 ```
 ci ready
 ```
 
-A CI run is really just running `./bootstrap.sh ci`. This:
+A CI run (`./bootstrap.sh ci-fast`, `ci-full`, ...):
 
-- Enables use of the build cache.
+- Uses the build cache.
 - Turns on denoising (you'll see lots of dots in the happy path with redis cache ids, and logs only for errors).
-- Sets the `CI=1` environment variable which makes things like yarn immutable.
+- Sets `CI=1`, which makes things like yarn installs immutable.
+- Builds with `make` and runs the test engine in parallel with it.
 
-There are several notable ways you can trigger a CI run:
+The merge queue into `next` runs `ci-full-no-test-cache` on amd64 plus `ci-fast` on arm64 (`ci.sh merge-queue`).
 
-### Your latest commit, on local hardware.
+### Triggering a run from the terminal
 
-The following starts a container, clones your latest commit into it, and starts a CI run.
+These commands spin up an EC2 instance for your current commit, which must be pushed:
 
-```
-ci local
-```
+| Command | What it runs |
+| --- | --- |
+| `ci fast` | `./bootstrap.sh ci-fast`: the default PR run, with build and test caches. |
+| `ci full` | `./bootstrap.sh ci-full`: the full build and test set, with the test cache. |
+| `ci full-no-test-cache` | `./bootstrap.sh ci-full-no-test-cache`: every test runs, as in the merge queue. |
+| `ci barretenberg` | Barretenberg-only CI. |
+| `ci merge-queue` | The merge-queue jobs. |
+| `ci grind` | Parallel `ci-full-no-test-cache` runs (default 5). |
+| `ci grind-test` | One test command, ground on one instance. |
+| `ci shell-new` | A fresh instance with the repo cloned, and a shell on it. |
+| `ci shell-container`, `ci shell-host` | A shell in a running build container or host. |
+| `ci kill` | Terminates running build instances for the current branch (or matching filter tokens). |
+| `ci dash` | A dashboard of your CI runs. |
 
-### Your latest commit, on a fresh 128 cpu ec2 instance.
-
-This is useful for CI development work where you just don't care about Github Actions at all.
-This is exactly what GA itself calls.
-
-```
-ci ec2
-```
-
-This will also have the test cache enabled, meaning successfully run tests won't be re-executed unless they've changed. If you want to disable the test cache to see a run with all tests.
-
-```
-ci ec2-test
-```
-
-If you want a run that uses neither the build cache nor the test cache:
-
-```
-ci ec2-no-cache
-```
-
-### Your latest commit, triggered within Github Actions on your PR.
-
-This might replace auto-runs on push in the future, but you can manually start a run with:
-
-```
-ci trigger
-```
-
-This will start an asynchronous run, but you can track the log right in your terminal with:
-
-```
-ci rlog
-```
-
-This will also show the last completed log if the run has already completed. You can provide a GA run id (output by `ci trigger`) to see a historical run.
+Run `./ci.sh help` for the full list. To also skip the build cache, prefix with `NO_CACHE=1`.
 
 ## CI Labels and Automation
 
 ### Pull Request Labels
 
-The following labels can be used to control CI behavior on pull requests:
+Labels read by `.github/ci3_labels_to_env.sh` and `.github/workflows/ci3.yml`. Use at most one mode label.
 
-- **`ci-squash-and-merge`**: Automatically squashes all commits in your PR into a single commit. Add this label to trigger squashing. The label is automatically removed after squashing. Thanks to content-based caching (see below), subsequent CI runs will be skipped if the content hasn't changed.
+Mode labels:
 
-- **`ci-no-squash`**: Exempts the PR from the single-commit requirement. Use when multiple commits are intentional (e.g., merge-train PRs).
+- **`ci-full`**: Full CI run instead of the default fast run.
+- **`ci-full-no-test-cache`**: Full CI run with the test cache off, so every test runs.
+- **`ci-merge-queue`**: Runs the merge-queue jobs on your PR.
+- **`ci-barretenberg`**: Barretenberg-only CI. This is also the default for PRs into `merge-train/barretenberg`.
+- **`ci-barretenberg-full`**: Full barretenberg-only CI.
+- **`ci-release-pr`**: Creates and pushes a release tag (`v0.0.1-commit.<sha>`) for the PR head instead of running CI, then removes the label.
 
-- **`ci-merge-queue`**: Simulates merge queue behavior on your PR, running the full test suite.
+Other labels:
 
-- **`ci-full`**: Forces a full CI run instead of the default fast run.
-
-
-- **`ci-barretenberg`**: Runs only Barretenberg-related CI checks.
-
-- **`ci-no-cache`**: Disables build caching for this CI run.
-
+- **`ci-skip`** (or `--ci-skip` in the head commit message): Skips CI. Takes precedence over every other label.
+- **`ci-refresh-chonk`** (or `--ci-refresh-chonk` in the head commit message): Regenerates the pinned Chonk inputs and pushes the diff instead of running the main CI. Cannot be combined with a mode label.
 - **`ci-no-fail-fast`**: Continues running all tests even if some fail.
-
-### Squash Enforcement
-
-PRs targeting `next` must be squashed to a single commit unless labeled with `ci-no-squash`. PRs targeting other branches (like `merge-train/*`) are automatically exempt from this requirement.
+- **`no-cache`**: Disables the build cache for this run.
+- **`ci-skip-compat-e2e`**: Skips the backwards-compatibility e2e checks on release runs. Those checks are disabled in this repo (`release_compat_e2e` is not called from `ci-release`), so the label has no effect until they are re-enabled.
+- **`ci-draft`**: Runs CI on a draft PR.
+- **`ci-ssm`**: Uses SSM instead of SSH to reach the build instance, when the repository is configured for SSH.
+- **`ci-squash-and-merge`**: After CI passes, squashes the PR into a single commit and enables auto-merge. The label is removed before squashing. Thanks to the content-based cache (see below), the CI run on the squashed commit is skipped.
+- **`ci-wakeup-pr-after-merge`**: Added by `scripts/merge-train/wakeup-prs.sh` after a merge train lands, to re-run CI on waiting PRs. `ci3.yml` removes it at the start of the run.
 
 ### Top-level Content-Based CI Caching
 
-CI3 has granular caching, but as well it includes an additional layer of caching based on git content. When CI completes successfully, it stores a success marker keyed by the hash of the repository's file tree. On subsequent runs, if the exact same content is detected (same tree hash), CI will skip execution entirely.
+On top of the build and test caches, CI caches success by content. When CI completes successfully, `.github/ci3_success.sh` stores a success marker keyed by the CI mode and the hash of the repository's file tree (`git rev-parse HEAD^{tree}`). On the next run in the same mode with the same tree hash, `.github/ci3.sh` skips CI entirely. Only the `fast`, `full`, `full-no-test-cache` and `barretenberg` modes use this cache, and only on the first attempt of a run.
 
-This is particularly useful when:
+This is useful when:
 
-- You squash commits using `ci-squash-and-merge` - the resulting single commit has the same content, so CI won't re-run
-- You rebase without changes - if the final content is identical, CI is skipped
-- Multiple PRs have identical changes - only the first needs to run CI
-
-The content hash is computed using `git rev-parse HEAD^{tree}`, which provides a unique identifier for the entire file tree state, regardless of commit history.
+- You squash commits using `ci-squash-and-merge`: the resulting single commit has the same content, so CI won't re-run.
+- You rebase without changes: if the final content is identical, CI is skipped.
+- Multiple PRs have identical changes: only the first needs to run CI.
 
 ## Denoise Logs
 
-When a CI run is taking place and it has a redis cache available, you will see logs like this:
+When a CI run has a redis cache available, you will see logs like this:
 
 ```
 --- pull submodules ---
 Executing: git submodule update --init --recursive
    0 ........................................... done (7s) (http://ci.aztec-labs.com/e6b8532f0c020b44)
---- noir build ---
-Executing: ./noir-repo/.github/scripts/wasm-bindgen-install.sh
-   0 .......................................... done (3s) (http://ci.aztec-labs.com/cf3cc1cde7f5dbc0)
 ```
 
-The ids after the time-to-run are log ids. You can click the link (might need you to hold down special keys in your terminal) to open the log in your browser, or you can view the log in terminal (for grepping etc) with e.g.:
+The ids after the run time are log ids. Click the link to open the log in your browser, or view the log in the terminal (for grepping etc) with:
 
 ```
 ci dlog e6b8532f0c020b44
 ```
 
-This will open the log in whatever your `PAGER` is set to, usually `less`. If the job failed, the log will also have been dumped out in the terminal it was running in.
+This opens the log in your `PAGER` (usually `less`). If the job failed, the log was also printed in the terminal it ran in.
 
-Assuming you added the aliases as suggested, you can also just do:
+With the aliases above, you can also run:
 
 ```
 dl e6b8532f0c020b44
 ```
 
-Let's say you open up a test run log, you'll see something like:
+A test run log looks like this:
 
 ```
-Command: parallelize 64 (exit: 0)
-Starting test run with max 64 jobs...
-PASSED (http://ci.aztec-labs.com/736ae186bdf66226): yarn-project/end-to-end/scripts/run_test.sh simple e2e_synching
-PASSED (http://ci.aztec-labs.com/066e837f7af23761): yarn-project/end-to-end/scripts/run_test.sh simple e2e_public_testnet_transfer
-PASSED (http://ci.aztec-labs.com/f22e6cf8304765e5): yarn-project/end-to-end/scripts/run_test.sh simple e2e_cheat_codes
-PASSED (http://ci.aztec-labs.com/011e2be332519357): yarn-project/end-to-end/scripts/run_test.sh compose composed/e2e_pxe
+Starting parallel run with max 64 jobs...
+PASSED (http://ci.aztec-labs.com/736ae186bdf66226): barretenberg/cpp/scripts/run_test.sh <binary> <filter>
 ...
 ```
 
-You can view the entire log of the successful run of any test using the log id which is the second field. After the colon is the command that was actually run. You can copy and run this command from the root of the repo to run the exact same test.
+The log id in each line opens the full log of that test. After the colon is the command that ran; run it from the repository root to run the same test.
 
-Every single unit test is run individually - with a notable exception being node tests, where you can only go as granular as a single test file. There are a couple of other small exceptions where it wasn't worth it (e.g. `l1-contracts`).
+Every unit test runs individually, with a few exceptions where it is not worth it (for example `l1-contracts`).
 
 ## Cache
 
-The cache has been referred to a lot. If you're doing work on the scripts or changing the artifacts we build through the repo, it's important to understand some things.
+Read this section if you change the CI scripts or the artifacts a project builds.
 
-All projects have at least a "build hash". This is computed using `cache_content_hash`. It takes as arguments either filenames (e.g. `.rebuild_patterns`) or patterns themselves. These patterns match files in the repository that "make up" the artifact being built and cached. Obviously if these are wrong, you can get into a pickle as things won't rebuild when they're expected to, or will aggressively rebuild when they shouldn't.
+Every project has a "build hash", computed by `cache_content_hash`. Its arguments are filenames (for example `.rebuild_patterns`) or patterns. The patterns match the files that make up the artifact being built and cached. If the patterns are wrong, artifacts do not rebuild when they should, or rebuild when they should not.
 
-Some projects will also have a "test hash". The test hash is part of the input to deciding if a test should be re-run. So this might also include files that don't make up the build hash, but are used as part of testing.
+Some projects also have a "test hash". It decides whether a test must re-run, so it can include files that are not part of the build hash but are used in testing.
 
-To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`../../noir/.rebuild_patterns` and `../noir/.noir-repo.rebuild_patterns`, but do make use of `../../noir/bootstrap.sh hash` to compute it correctly), and the test programs themselves (`../../noir/.noir-repo.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
+Example: `barretenberg/acir_tests/bootstrap.sh`.
 
-If a test successfully runs in CI, it won't be run again unless its redis key changes. This key consists of the "test hash" and the "test command". Here's an example:
+- The build hash (of the compiled test programs) combines `../../noir/bootstrap.sh hash` with `cache_content_hash ./.rebuild_patterns ../cpp/.rebuild_patterns ../noir/`.
+- The test hash combines the same noir hash, `../cpp/bootstrap.sh hash`, and `cache_content_hash ^barretenberg/acir_tests/ ./.rebuild_patterns ../ts/.rebuild_patterns ../noir/`. It adds barretenberg's C++ and TypeScript code because both run the tests.
 
-```
-c533d7b87f00f64f ISOLATE=1 yarn-project/scripts/run_test.sh prover-node/dest/prover-node.test.js
-```
-
-This is one of the tests output by `./barretenberg/ts/bootstrap.sh test_cmds` (labs' commands come through `labs/`, prefixed with a `cd labs`). The first field is the test hash, the rest is the command you can run from the repository root. This entire line is what's hashed to make up the redis key.
-
-Note that all cache entries expire after 7 days.
-
-### We've only gone and corrupted the build cache. Can we force a build to overwrite the existing cache entry?
-
-Yes. In the project directory run a full build as follows:
+After a test passes in CI, it does not run again until its redis key changes. The key is the whole test line, test hash plus command:
 
 ```
-S3_FORCE_UPLOAD=1 ./bootstrap.sh full
+699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh ultra_honk_tests UltraHonkTests/0.LookupXorConstraint
 ```
 
-This will perform a full rebuild of the project and forcefully replace the build cache with it's current hash. This should only be necessary if you need to recover from a-bad-thing-happening.
+Labs test commands come through `labs/`, prefixed with `cd labs`.
+
+Test-success markers expire after 7 days. Logs expire after 14 days in CI (2 days for local runs); the log of a failed test is kept for 12 weeks.
+
+### The build cache is corrupt. How do I overwrite a cache entry?
+
+In the project directory, rebuild without the cache and force the upload:
+
+```
+NO_CACHE=1 S3_FORCE_UPLOAD=1 ./bootstrap.sh
+```
+
+This rebuilds the project and replaces the cache entry for its current hash. It needs AWS credentials and a clean working tree: without credentials the upload is skipped, and with uncommitted changes to files matched by the rebuild patterns `cache_content_hash` returns `disabled-cache` and nothing is uploaded.
 
 ## Build Image / Devcontainer
 
-It's useful to understand a bit about our build image. As a reminder, we have a single environment that we work within. This is defined in `./build-images/Dockerfile`. Within this we describe 3 images that are ultimately used.
+All work happens in a single environment, defined in `build-images/src/Dockerfile`. It publishes 3 images:
 
-- `build` - This doesn't contain any developer tooling, and is used as part of test runs to isolate tests.
-- `devbox` - Same as `build`, but also includes a suite of development tools and is our official "devcontainer".
-- `sysbox` - Same as `devbox`, but built slightly differently to be used by internal Aztec engineers on our mainframe within Nesty's sysbox runtime.
+- `build` - No developer tooling. Used in test runs to isolate tests.
+- `devbox` - `build` plus development tools. This is the official devcontainer.
+- `sysbox` - Like `devbox`, but built to run on the internal mainframe under the sysbox runtime.
 
-The images can be built and pushed to dockerhub using the `build-images/bootstrap.sh` script.
-
-It also provides the ability to update our AWS AMI's which have the above build/devbox images embedded within them so we don't have to keep pulling them.
-
-## Q&A
-
-### I can't run `yarn clean` in a yarn-project sub project any more. How to do?
-
-```
-labs/yarn-project/bootstrap.sh clean <project_dir>
-```
-
-### Where did all the `formatting` and `lint` package.json scripts go?
-
-Performing this at the project level is inefficient, particularly for linting. We can offer a project wide optimal approach with:
-
-```
-labs/yarn-project/bootstrap.sh format
-```
-
-### Master CI runs do more then PR CI runs. How do I manually trigger that flow?
-
-It's probably best to do this on a fresh ec2 instance rather than crippling your local hardware. You can do:
-
-```
-CI_FULL=1 ci ec2-test
-```
-
-This will create a new instance, bootstrap, and run all tests that would run on master.
-
-### How does swc compare to tsc (typescript compiler?)
-
-1. swc is stricter than tsc when it comes to hoisting ESM imports. This means that circular dependencies that were not causing issues previously may now do. madge seems like a good tool for spotting them (npx madge --circular path-to-file), since eslint no-circular-imports not always spots them. When dealing with circular deps, keep in mind type imports are removed, so you don't need to worry about those.
-2. swc is a lot faster than tsc, but it does not type check. When running bootstrap eg after a rebase, a successful run does not mean the project types are correct. You need to run bootstrap with TYPECHECK=1 for that. If you want to keep a running process that alerts you of type errors, do yarn tsgo -b -w --emitDeclarationOnly at the root of yarn project.
-3. There is some combination of swc+tsc+jest that breaks things. If you happen to build your project with `tsgo -b`, some test suites (such as prover-client or e2e) will fail to run with a parse error. Workaround is to re-build with swc before running tests by running `./bootstrap.sh compile` on yarn-project, and make sure you are not running `tsgo -b -w` (or if you do, you set `--emitDeclarationOnly` as described above).
-
-## Contributing
-
-Please involve me (Charlie) in any changes to the scripts that make up CI3. I've added myself as a CODEOWNER to the main scripts and `ci3` folder, so I should at least be reviewing changes. However ideally if you're running into some use-case I've broken, or require some feature, just raise it with me before starting to make changes as I may already be working on it or have an idea about how I want it solved.
-
-Please don't just start adding commands and lots of lines-of-code to these scripts without my approval. I'm working really hard to make these lean, clean, consistent and fast!
+`build-images/bootstrap.sh` builds the images locally; `build-images/bootstrap.sh deploy` builds them on EC2, pushes them to Docker Hub and updates the AWS AMIs, which embed the build and devbox images so instances do not have to pull them. See [build-images/README.md](build-images/README.md).
