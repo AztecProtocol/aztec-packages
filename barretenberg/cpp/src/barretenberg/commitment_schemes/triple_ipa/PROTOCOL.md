@@ -52,7 +52,7 @@ $$
 \langle P, b_{\mathrm{pow}}(x)\rangle = P(x).
 $$
 
-Each claim $([\cdot],\ \text{evaluation},\ \text{tensor metadata})$ is absorbed into the Fiat–Shamir hash buffer under labels `TripleIPA:F`, `TripleIPA:F_shift`, `TripleIPA:P`. In code, the verifier's symbolic representation of the combined tensor (the weighted eq / shifted-eq / pow vectors above) is `IpaOpeningVector` (with the shifted-eq and eq folds in `ShiftedEqPolynomial`).
+Each claim $([\cdot],\ \text{evaluation},\ \text{tensor metadata})$ is absorbed into the Fiat–Shamir hash buffer under the `TripleIPA:F:*`, `TripleIPA:F_shift:*`, `TripleIPA:P:*` and `TripleIPA:u_*` labels. In code, the verifier's symbolic representation of the combined tensor (the weighted eq / shifted-eq / pow vectors above) is `IpaOpeningVector` (with the shifted-eq and eq folds in `ShiftedEqPolynomial`).
 
 ## 3. Stage 2 — reduction to a single IPA claim
 
@@ -261,7 +261,7 @@ Implementation: `IPA::compute_opening_proof_internal` (`ipa.hpp`). The fused fol
 
 ```
 NativeAccumulator {
-    u_challenges_inv   : (u_0^{-1}, ..., u_{k-1}^{-1})   // defines h_u(X)
+    u_challenges_inv   : (α_0^{-1}, ..., α_{k-1}^{-1})   // defines h_α(X)
     claimed_commitment : G_fold                          // prover-claimed
     relation_succeeded : bool                            // result of check (1)
 }
@@ -269,7 +269,7 @@ NativeAccumulator {
 
 deferring check (2), the only size-$n$ MSM. At the generic TripleIPA layer, `verify_accumulator(vk, acc)` and `batch_verify_accumulators(vk, accs)` discharge these accumulators against an explicit commitment key. ECCVM fixes the Grumpkin SRS prefix, so production callers use `ECCVMVerifier::verify_accumulator(acc)` and `ECCVMVerifier::batch_verify_accumulators(accs)` instead; Chonk and bbapi never materialise the key or name the underlying scheme.
 
-The recursive (stdlib) verifier instead emits `(round_challenges_inv, G_fold, relation_ok)` as an in-circuit `IpaAccumulator` after constraining check (1) via one `batch_mul` of size $2k+2$:
+The recursive (stdlib) verifier instead emits `(u_challenges_inv, comm, running_truth_value)` = $(\vec{\alpha}^{-1}, G_{\mathrm{fold}}, \mathrm{ok})$ as an in-circuit `IpaAccumulator` after constraining check (1) via one `batch_mul` of size $2k+2$:
 $$
 \sum_r \bigl(\alpha_r^{-1} L_r + \alpha_r R_r\bigr) - a_{\mathrm{fold}} G_{\mathrm{fold}} - \gamma\,\bigl(a_{\mathrm{fold}} b_{\mathrm{fold}} - v\bigr) G_{\mathrm{one}} \stackrel{!}{=} -[A].
 $$
@@ -292,12 +292,12 @@ $$
 
 ## 7. Batched discharge
 
-`ECCVMVerifier::batch_verify_accumulators` discharges many deferred openings with one SRS MSM. Given accumulators $\lbrace(\vec{u}^{(i),-1}, G_{\mathrm{fold}}^{(i)}, \mathrm{ok}(i))\rbrace_{i<B}$:
+`ECCVMVerifier::batch_verify_accumulators` discharges many deferred openings with one SRS MSM. Given accumulators $\lbrace(\vec{\alpha}^{(i),-1}, G_{\mathrm{fold}}^{(i)}, \mathrm{ok}(i))\rbrace_{i<B}$:
 
-1. **Rehash (Halo2-style binding).** A fresh `NativeTranscript` absorbs every $\vec{u}^{(i),-1}$ and $G^{(i)}_{\mathrm{fold}}$ (`IPA:batch_u_i`, `IPA:batch_U_i`), then squeezes one batching challenge $\rho_b$ (`IPA:batch_rho`). This binds the prover-supplied commitments before they are randomly combined.
+1. **Rehash (Halo2-style binding).** A fresh `NativeTranscript` absorbs every $\vec{\alpha}^{(i),-1}$ and $G^{(i)}_{\mathrm{fold}}$ (`IPA:batch_u_i`, `IPA:batch_U_i`), then squeezes one batching challenge $\rho_b$ (`IPA:batch_rho`). This binds the prover-supplied commitments before they are randomly combined.
 2. **Combine.**
    $$
-   h_{\mathrm{comb}}(X) = \sum_{i<B} \rho_b^{\,i}\, h_{\vec{u}^{(i)}}(X), \qquad
+   h_{\mathrm{comb}}(X) = \sum_{i<B} \rho_b^{\,i}\, h_{\vec{\alpha}^{(i)}}(X), \qquad
    C_{\mathrm{comb}} = \sum_{i<B} \rho_b^{\,i}\, G^{(i)}_{\mathrm{fold}}.
    $$
 3. **One MSM.** Accept iff
@@ -306,7 +306,7 @@ $$
    \qquad \wedge \qquad \bigwedge_{i<B} \mathrm{ok}_i .
    $$
 
-Cost: a single size-$n$ Pippenger MSM amortised over the whole batch (plus $B$ cheap $O(n)$ field passes to build $h_{\mathrm{comb}}$ and a size-$B$ commitment combination), versus $B$ size-$n$ MSMs unbatched. Soundness: by Schwartz–Zippel over $\rho_b$, equality of the combined MSM implies $G_{\mathrm{fold}}^{(i)} = \langle h_{\vec{u}^{(i)}}, \vec{G}\rangle$ for every $i$ except with probability $\approx (B-1)/|\mathbb{F}|$.
+Cost: a single size-$n$ Pippenger MSM amortised over the whole batch (plus $B$ cheap $O(n)$ field passes to build $h_{\mathrm{comb}}$ and a size-$B$ commitment combination), versus $B$ size-$n$ MSMs unbatched. Soundness: by Schwartz–Zippel over $\rho_b$, equality of the combined MSM implies $G_{\mathrm{fold}}^{(i)} = \langle h_{\vec{\alpha}^{(i)}}, \vec{G}\rangle$ for every $i$ except with probability $\approx (B-1)/|\mathbb{F}|$.
 
 ## 8. The `ChonkBatchVerifier` service
 
@@ -338,7 +338,7 @@ The ECCVM verifier key is fixed inside `ECCVMVerifier`: all accumulators use the
 
 §6–§8 cover *native* discharge: the verifier reduces each deferred opening to an accumulator and checks the final SRS relation itself. In the recursive setting the TripleIPA proof is instead consumed inside the rollup circuit, and only the resulting IPA accumulator is propagated.
 
-The reduction in §5 is the reason this composes with the existing IPA recursion path. Once stdlib `reduce_verify` has constrained relation (1) and emitted an `IpaAccumulator` $(\vec{u}^{-1}, G_{\mathrm{fold}}, \mathrm{ok})$, every TripleIPA-specific quantity ($[A]$, $v$, $b_{\mathrm{fold}}$, the cross-sums, $\vec\zeta$) has already been consumed. From that point on, the accumulator has the same shape as an ordinary IPA accumulator; TripleIPA only changes how the first accumulator is produced.
+The reduction in §5 is the reason this composes with the existing IPA recursion path. Once stdlib `reduce_verify` has constrained relation (1) and emitted an `IpaAccumulator` $(\vec{\alpha}^{-1}, G_{\mathrm{fold}}, \mathrm{ok})$, every TripleIPA-specific quantity ($[A]$, $v$, $b_{\mathrm{fold}}$, the cross-sums, $\vec\zeta$) has already been consumed. From that point on, the accumulator has the same shape as an ordinary IPA accumulator; TripleIPA only changes how the first accumulator is produced.
 
 $$
 \begin{array}{cl}
@@ -346,7 +346,7 @@ $$
 \big\downarrow & \texttt{ECCVMVerifier::reduce\_to\_triple\_ipa\_claim} \\[8pt]
 \textsf{DeferredTripleIpaOpening}\{\text{claim},\text{proof}\} & \text{carried, not discharged} \\[8pt]
 \big\downarrow & \texttt{reduce\_verify}\ \text{(inside the rollup circuit)} \\[8pt]
-\textsf{IpaAccumulator}\,(\vec{u}^{-1}, G_{\mathrm{fold}}, \text{ok}) & \\[8pt]
+\textsf{IpaAccumulator}\,(\vec{\alpha}^{-1}, G_{\mathrm{fold}}, \text{ok}) & \\[8pt]
 \big\downarrow & \texttt{perform\_IPA\_accumulation} \\[8pt]
 \textsf{RollupIO}\ \text{ordinary IPA claim} + \textsf{builder.ipa\_proof} & \text{carried to the parent layer} \\[8pt]
 \big\downarrow & \texttt{full\_verify\_recursive}\ \text{at the root} \\[8pt]
@@ -362,4 +362,4 @@ $$
 
 The recursive boundary keeps proof bytes as private witness data and exposes only the claim produced by accumulation. The shared IPA accumulation path accepts accumulators from both ordinary IPA `reduce_verify` and `DeferredTripleIpaOpening::reduce_verify`.
 
-**Soundness note.** The final root fact, $G_{\mathrm{fold}} = \langle h_{\vec u}, \vec{G}\rangle$ (§4 check (2), §7), depends only on the IPA round challenges $\vec{u}^{-1}$; it is tensor-agnostic. Every TripleIPA-specific quantity must therefore be bound before the accumulator is handed to the ordinary IPA path. In particular, `evaluate_folded` must compute the inner product of the intended combined tensor $b = \zeta_1 b_{\mathrm{eq}} + \zeta_2 b_{\mathrm{sh}} + \zeta_3 b_{\mathrm{pow}}$ with the IPA $s$-vector. A prover/verifier disagreement breaks completeness, but agreement on the wrong tensor would be a soundness bug; this is why the tensor formulas in §3.1 and the independent folded-evaluation tests are critical.
+**Soundness note.** The final root fact, $G_{\mathrm{fold}} = \langle h_{\vec\alpha}, \vec{G}\rangle$ (§4 check (2), §7), depends only on the IPA round challenges $\vec{\alpha}^{-1}$; it is tensor-agnostic. Every TripleIPA-specific quantity must therefore be bound before the accumulator is handed to the ordinary IPA path. In particular, `evaluate_folded` must compute the inner product of the intended combined tensor $b = \zeta_1 b_{\mathrm{eq}} + \zeta_2 b_{\mathrm{sh}} + \zeta_3 b_{\mathrm{pow}}$ with the IPA $s$-vector. A prover/verifier disagreement breaks completeness, but agreement on the wrong tensor would be a soundness bug; this is why the tensor formulas in §4.1 and the independent folded-evaluation tests are critical.

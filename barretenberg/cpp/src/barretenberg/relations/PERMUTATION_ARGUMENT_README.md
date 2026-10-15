@@ -1,12 +1,12 @@
 # The Generalized Permutation Argument (with public inputs)
 
-This document describes the 4-wire generalized permutation argument with public inputs as implemented in `permutation_relation.hpp`. See the references below for more information. As always, the code is the source of truth.
+This document describes the 4-wire generalized permutation argument with public inputs as implemented in `permutation_relation.hpp`. See the references below for more information.
 
 ## Overview
 
 The generalized permutation argument enforces two types of constraints using a single grand product:
 
-1. **Copy constraints**: If two wires should hold the same value, the permutation argument guarantees.
+1. **Copy constraints**: If two wire positions are copy-constrained, the argument guarantees they hold the same value.
 
 2. **Multiset equality**: If two sets of wire positions should contain the same multiset of values (possibly in different order), then this is enforced.
 
@@ -22,7 +22,7 @@ The generalized permutation argument enforces two types of constraints using a s
 - $L_0$: Lagrange polynomial that is 1 at the first row
 - $L_{\text{last}}$: Lagrange polynomial that is 1 at the last active row
 - $n\leq 2^r$: Circuit size
-- $\text{SEPARATOR}$, an integer greater than $2^r\geq n$.
+- $\text{SEPARATOR}$, an integer greater than $2^r\geq n$. In code it is `PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28` (`constants.hpp`).
 
 ## The Identity and Sigma Polynomials
 
@@ -124,7 +124,7 @@ As explained, variables are by default assigned the `DEFAULT_TAG`. Tags are used
 * If a usual (a.k.a. pre-Fiat-Shamir) witness is assigned a non-trivial tag, then this tag corresponds to a non-trivial "small" range constraint, which is mediated by the method `create_small_range_constraint`. Moreover, different tags correspond to different range-constraints. This allows us to efficiently batch range-constraints in the circuit.
 * The only other tags that occur are for witnesses generated after Fiat-Shamir. These occur in memory ops, as the algorithm for verifying memory ops involves multiset-equality checks.
 
-We trust that this dichotomy is not too confusing, as there is _no meaning_ for witnesses generated post-Fiat-Shamir being range-constrained.
+There is _no meaning_ for witnesses generated post-Fiat-Shamir being range-constrained.
 ### How Tags Modify the Permutation
 
 Consider a copy cycle for a variable with tag $t$. In the standard permutation argument, the cycle would close: the last element's sigma points back to the first element's id.
@@ -133,7 +133,7 @@ Consider a copy cycle for a variable with tag $t$. In the standard permutation a
 With tags, we modify the id and sigma polynomials as follows.
 
 - The **first** element of the cycle: $\text{id}$ is set to the tag value $t$
-- The **last** element of the cycle: $\sigma_1$ points to $\tau(t)$ instead of wrapping back
+- The **last** element of the cycle: $\sigma$ at the last node points to $\tau(t)$ instead of wrapping back
 
 This modification means:
 - The numerator of the grand product includes a factor with the tag $t$
@@ -197,20 +197,21 @@ $$
 $$
 
 
-### Relevant Files
-
-- `permutation_relation.hpp`: The two subrelations
-- `grand_product_library.hpp`: Computation of $Z_{\text{perm}}$
-- `grand_product_delta.hpp`: Computation of $\delta_{\text{pub}}$ (with detailed documentation)
-- `honk/composer/permutation_lib.hpp`: Construction of sigma/id polynomials from copy cycles and tags
-- `stdlib_circuit_builders/ultra_circuit_builder.hpp`: Tag API
-
 ### The Skip Optimization
 
 The relation includes a `skip()` function that returns true when $Z_{\text{perm}}(v) = Z_{\text{perm,shift}}(v)$. If this occurs, then with very high probability, this row is not involved in a copy constraint. This allows us to avoid certain sumcheck computations at this row.
+
+## Relevant Files
+
+Paths are relative to `barretenberg/cpp/src/barretenberg/`.
+
+- `relations/permutation_relation.hpp`: The three subrelations
+- `honk/library/grand_product_library.hpp`: Computation of $Z_{\text{perm}}$
+- `honk/library/grand_product_delta.hpp`: Computation of $\delta_{\text{pub}}$ (with detailed documentation)
+- `honk/composer/permutation_lib.hpp`: Construction of sigma/id polynomials from copy cycles and tags
+- `stdlib_circuit_builders/ultra_circuit_builder.hpp`: Tag API
 
 ## References
 
 - [PLONK paper](https://eprint.iacr.org/2019/953): Original permutation argument
 - [Public Inputs](https://github.com/arielgabizon/plonk-addendum/blob/master/plonk-pubinputs.pdf)
-- [Generalized permutations](TOADD) TOADD

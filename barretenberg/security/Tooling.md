@@ -12,7 +12,7 @@ For detailed documentation, see the [Boomerang Value Detection README](../cpp/sr
 
 Origin tags are used to track the provenance of values within the transcript. They are used to detect common pitfalls such as using a free witness in an inappropriate context.
 
-You can find more information in the [Origin Tags Security Mechanism](../cpp/src/barretenberg/transcript/Origin Tags Security.md) file.
+You can find more information in the [Origin Tag Security Mechanism](../cpp/src/barretenberg/transcript/README.md#origin-tag-security-mechanism) section of the transcript README.
 
 
 ## Fuzzing

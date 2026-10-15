@@ -4,8 +4,8 @@ ROM (read-only memory) tables let a circuit commit to a fixed array of values at
 later read entries by index. Two arguments coexist inside the single `MemoryRelation`
 (`memory_relation.hpp`), chosen per array by how many values each index stores:
 
-- **Single-value tables** (one value per index) use a **LogUp** argument (subrelations 6 and 7). One
-  table row per initialized index plus one row per read, with no sorted copy of the trace.
+- **Single-value tables** (one value per index) use a **LogUp** argument (subrelations 6 and 7), with
+  no sorted copy of the trace.
 - **Pair-value tables** (two values per index) use the **sorted-trace** argument (subrelations 0, 1,
   2), the classic plookup-style ROM: every access is duplicated into a second, index-sorted set whose
   consistency is checked locally and whose multiset-equality with the access set is a permutation.
@@ -67,13 +67,9 @@ random challenges it reduces to the single LogUp identity
 
 $$\sum_{\text{reads } j} \frac{1}{\gamma + t(L_j)} \; - \; \sum_{\text{entries } i} \frac{m_i}{\gamma + t(T_i)} \; = \; 0,$$
 
-where $t(\cdot)$ is the fingerprint below. Because $\gamma$ is independent of the fingerprints, the
-reciprocals $1/(\gamma + t)$ have simple poles at distinct points $-t$, so the sum vanishing as a
-rational function in $\gamma$ forces the net multiplicity at every fingerprint to be zero — each read
-is matched by a table entry of the same fingerprint. Soundness follows from Schwartz–Zippel over
-$\eta$ (distinct triples collide with negligible probability) and the partial-fraction argument over
-$\gamma$; the same reasoning is spelled out for the lookup relation in
-`logderiv_lookup_relation.hpp`.
+where $t(\cdot)$ is the fingerprint below. Soundness follows from Schwartz–Zippel over $\eta$ (distinct
+triples collide with negligible probability) and the partial-fraction argument over $\gamma$, which
+[LOGUP_README.md](LOGUP_README.md) and `logderiv_lookup_relation.hpp` spell out for the lookup relation.
 
 ### Term encoding
 
@@ -196,12 +192,10 @@ $$q_{\text{mem}}\, q_1 q_2 \cdot \big(\Delta^2 - \Delta\big) = 0.$$
 
 Together: the sorted set is monotone in index, records are consistent within a repeated index, and the
 permutation ties the sorted set back to the access set — so every read returns the value the array was
-initialized with. Subrelation 1 is named after the multiset check in the plookup paper; here the
-multiset equality itself is discharged by the wiring permutation, not by a separate gate.
+initialized with. The multiset equality itself is discharged by the wiring permutation, not by a
+separate gate.
 
-The RAM consistency identity (subrelation 3) is degree 3, which caps how many selectors may gate it;
-this is why the quotient degree is kept at $\le 5$ across the whole relation. ROM uses none of the RAM
-subrelations.
+ROM uses none of the RAM subrelations.
 
 ---
 
@@ -246,7 +240,7 @@ dependent.
 | `relations/logderiv_lookup_relation.hpp` | LogUp partial-fraction soundness argument (referenced by subrelation 7) |
 | `stdlib_circuit_builders/rom_ram_logic.cpp` | gate emission and finalization for both ROM schemes |
 | `stdlib_circuit_builders/rom_ram_logic.hpp` | `RomRecord` (with `access_type`) and `RomTranscript` (with `use_logup`) |
-| `stdlib_circuit_builders/ultra_circuit_builder.cpp` | `apply_memory_selectors` — the ROM gate bitpatterns |
+| `stdlib_circuit_builders/ultra_circuit_builder.cpp` | `memory_selectors_row` — the ROM gate bitpatterns |
 | `ultra_honk/oink_prover.cpp` | `add_rom_logup_inverses_to_wire_4` — fills the LogUp inverse wire |
 | `relations/relation_parameters.hpp` | `eta` powers and `rom_logup_gamma` |
 

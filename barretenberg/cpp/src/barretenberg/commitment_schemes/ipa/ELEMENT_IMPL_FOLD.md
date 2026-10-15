@@ -109,10 +109,6 @@ Two consequences:
   primitive — cheaper in multiplications than a separate double then add, though it still costs that
   step's two passes.
 
-A short scalar's scan has fewer additions ([Single sequence vs GLV split](#single-sequence-vs-glv-split));
-sharing one scan across two folds cuts the total doubling count
-([Sharing one scan](#sharing-one-scan-offset-grids)).
-
 ## Single sequence vs GLV split
 
 A scalar below $2^{127}$ needs no GLV split — it is a single Booth sequence with $\approx$ half the
@@ -185,10 +181,6 @@ p^{(j)}_m =
 \end{cases}
 $$
 
-In `batch_two_round_fold` these are the loop variables: bit position $p$ is `pos`, term $j$ is
-`term = pos % 4`, window index $m$ is `window`, and `digit_at(term, window)` returns $d^{(j)}_m$; the loop
-inverts $p^{(j)}_m$ to recover `window` from `pos`.
-
 and the four terms tile the bit axis by residue (one window per position for $p = 1,\dots,127$;
 position $0$ shared by four — term $0$'s lowest window and the three bottom windows):
 
@@ -199,6 +191,10 @@ $$
 \text{term} & s_3 & s_2 & s_1 & s_0 & \cdots & s_3 & s_2 & s_1 & s_0 + \beta_{1,2,3} \\
 \end{array}
 $$
+
+In `batch_two_round_fold` these are the loop variables: bit position $p$ is `pos`, term $j$ is
+`term = pos % 4`, window index $m$ is `window`, and `digit_at(term, window)` returns $d^{(j)}_m$; the loop
+inverts $p^{(j)}_m$ to recover `window` from `pos`.
 
 (`make_offset_booth_slice_params` encodes these shifted boundaries, so the inner loop reads each
 position's digit without address arithmetic.) Multiplying each expansion by its base $B_j$ and summing
@@ -217,12 +213,11 @@ $$
 \qquad (\mathcal{O} \text{ when those digits vanish}).
 $$
 
-For $p \ge 1$ exactly one window occupies $p$ (one term per position, $t = p \bmod 4$), so the sum has a
-single term $d^{(t)}_m B_{t,i}$ — the add the schedule applies there; only $p = 0$ collects several.
+For $p \ge 1$ exactly one window occupies $p$ (one term per position, $j = p \bmod 4$), so the sum has a
+single term $d^{(j)}_m B_{j,i}$ — the add the schedule applies there; only $p = 0$ collects several.
 
 Every window $(j, m)$ has a unique position $p^{(j)}_m$, so the $\sum_{j}\sum_{m}$ regroups by position as
-$\sum_{p}\sum_{(j,m)\in W(p)}$ with $2^{p}$ factored out — the term sum $\sum_j$ moves into $\delta_{p,i}$,
-it is not dropped:
+$\sum_{p}\sum_{(j,m)\in W(p)}$ with $2^{p}$ factored out:
 
 $$
 G''_i = P^{(3)}_i + \sum_{p=0}^{127} 2^{p}\,\delta_{p,i},
@@ -250,7 +245,7 @@ $$
 $$
 
 and materialises the length-$2t$ intermediate $H$. The fused chain shares one doubling ladder
-($\approx 127$ doublings instead of the sequential $\approx 378\,t$), but carries all four terms'
+($\approx 127\,t$ doublings instead of the sequential $\approx 378\,t$), but carries all four terms'
 additions ($\approx 120$ per output point, each its own pass), plus three lookup tables and the
 constant tail — $\approx 270\,t$, so the fold step is $\approx 2\times$ cheaper. The doubling count
 alone drops $\approx 3\times$; the additions do not shrink, which is why the overall factor is
@@ -274,24 +269,24 @@ one window position per bit from $1$ to $127$.
 
 **Operation list.** Evaluating the [Horner chain](#sharing-one-scan-offset-grids) position by position
 *is* the schedule: each step contributes that position's doubling and, where the digit is nonzero, its
-add $\delta B_t$ ($\delta = d^{(t)}_m$, the active term's signed digit). The schedule records this as a
+add $\delta B_j$ ($\delta = d^{(j)}_m$, the active term's signed digit). The schedule records this as a
 vector of `FoldOp`s. The exception analysis ([The `safe` flags](#the-safe-flags)) shadows the same steps
-in the accumulator's integer coordinates $c$, where $A = \sum_j c_j B_j$ — so each op has a curve update
+in the accumulator's integer coordinates $c$, where $A = \sum_k c_k B_k$ — so each op has a curve update
 and a coordinate update:
 
 | op | accumulator $A$ | coordinates $c$ |
 |---|---|---|
-| `SEED` | $A \leftarrow \delta B_t$ (first nonzero digit) | $c_t \leftarrow \delta$ |
+| `SEED` | $A \leftarrow \delta B_j$ (first nonzero digit) | $c_j \leftarrow \delta$ |
 | `DBL` | $A \leftarrow 2A$ (zero-digit position) | $c \leftarrow 2c$ |
-| `COMBINED` | $A \leftarrow 2A + \delta B_t$ | $c \leftarrow 2c$, then $c_t \leftarrow c_t + \delta$ |
-| `ADD` | $A \leftarrow A + \delta B_t$ (position $0$ only) | $c_t \leftarrow c_t + \delta$ |
+| `COMBINED` | $A \leftarrow 2A + \delta B_j$ | $c \leftarrow 2c$, then $c_j \leftarrow c_j + \delta$ |
+| `ADD` | $A \leftarrow A + \delta B_j$ (position $0$ only) | $c_j \leftarrow c_j + \delta$ |
 
 **Schedule (rigorous).** Generation keeps a flag `initialised` (is the accumulator $\neq \mathcal{O}$?)
 and the coordinates $c$, and processes positions $p = 127, \dots, 0$. For $p \ge 1$ at most one window
-occupies $p$; let $\delta = d^{(t)}_m$ be its signed digit.
+occupies $p$; let $\delta = d^{(j)}_m$ be its signed digit.
 
 - **Uninitialised.** Zero positions emit nothing (there is no accumulator to double); the first nonzero
-  digit emits `SEED` ($c_t \leftarrow \delta$) and sets `initialised`.
+  digit emits `SEED` ($c_j \leftarrow \delta$) and sets `initialised`.
 - **Initialised, $p \ge 1$.** A nonzero digit emits `COMBINED`; a zero digit emits `DBL`.
 - **Position $0$.** It carries the four bottom windows. The first nonzero one consumes the pending
   doubling as `COMBINED`; each further nonzero one is `ADD`; if all four are zero, a trailing `DBL`
@@ -306,7 +301,7 @@ Each op's effect is the table above; the same pass sets its `safe` flag from $c$
 
 **Lookup tables.** Each Booth digit has magnitude in $\{0,\ldots,8\}$ and a sign. The executor
 builds $[B, 2B, \ldots, 8B]$ for each multiplied base $P^{(0)}, P^{(1)}, P^{(2)}$. Term 2 reuses
-$P^{(0)}$'s table and applies $\phi$ in place ($x \mapsto \beta x$, with the sign convention on $y$).
+$P^{(0)}$'s table and applies $\phi$ in place ($x \mapsto \beta x$); the GLV sign of term 2 is applied through `signed_delta` (see [Sharing one scan](#sharing-one-scan-offset-grids)).
 `fill_to_add` materialises the signed entry an op needs into a scratch vector for the current chunk.
 
 **Applying the schedule.** The operation list from phase 1 runs for every chunk of output points,
@@ -324,27 +319,27 @@ decided once, during schedule generation.
 ### Exceptional configurations
 
 Phase 1 already carries the schedule's running accumulator $A$ as integer coordinates
-$c = (c_0,\dots,c_3) \in \mathbb{Z}^4$ (`coeff`) over the four independent bases $B_j$, with
-$A = \sum_j c_j B_j$; each op adds a digit $\delta = d^{(t)}_m \in [-8, 8]$ (`signed_delta`) to one base
-$B_t$ (the [schedule's updates](#phase-1--schedule-generation-scalars-only)). Because the $B_j$ are
-independent, a collision is an exact condition on $c$ — a single nonzero $c_t$ at $\pm\delta$, plus the
+$c = (c_0,\dots,c_3) \in \mathbb{Z}^4$ (`coeff`) over the four independent bases $B_k$, with
+$A = \sum_k c_k B_k$; each op adds a digit $\delta = d^{(j)}_m \in [-8, 8]$ (`signed_delta`) to one base
+$B_j$ (the [schedule's updates](#phase-1--schedule-generation-scalars-only)). Because the $B_k$ are
+independent, a collision is an exact condition on $c$ — a single nonzero $c_j$ at $\pm\delta$, plus the
 vertical case for `COMBINED`:
 
 $$
-\texttt{ADD}\;(A \mapsto A + \delta B_t):\quad A = \pm\,\delta B_t
-\iff |c_t| = |\delta| \ \wedge\ c_j = 0\ (j \neq t),
+\texttt{ADD}\;(A \mapsto A + \delta B_j):\quad A = \pm\,\delta B_j
+\iff |c_j| = |\delta| \ \wedge\ c_k = 0\ (k \neq j),
 $$
 
 $$
-\texttt{COMBINED}\;(A \mapsto 2A + \delta B_t):\quad \delta B_t = \pm A \ \text{ or }\ 2A + \delta B_t = \mathcal{O}
-\iff \big(|c_t| = |\delta| \ \text{ or }\ 2c_t = -\delta\big)\ \wedge\ c_j = 0\ (j \neq t).
+\texttt{COMBINED}\;(A \mapsto 2A + \delta B_j):\quad \delta B_j = \pm A \ \text{ or }\ 2A + \delta B_j = \mathcal{O}
+\iff \big(|c_j| = |\delta| \ \text{ or }\ 2c_j = -\delta\big)\ \wedge\ c_k = 0\ (k \neq j).
 $$
 
-These are the `others_zero(t)` and magnitude checks behind `FoldOp.safe`.
+These are the `others_zero(j)` and magnitude checks behind `FoldOp.safe`.
 
 ### Clamping the simulation
 
-Every condition above needs $|c_t| \le 8$, so the flag only reads whether a coordinate is $0$ or lies in
+Every condition above needs $|c_j| \le 8$, so the flag only reads whether a coordinate is $0$ or lies in
 the window $|c| \le 8$; any larger value is equivalent to it. Unclamped, $c$ would grow to the scalar size
 $\sim 2^{127}$ and overflow `int64`, so the simulation clamps it to $\pm 2^{40}$
 (`std::clamp(coeff, -CAP, CAP)`). This is sound: a clamp fires only once $|c| \ge 2^{40}$, and from there

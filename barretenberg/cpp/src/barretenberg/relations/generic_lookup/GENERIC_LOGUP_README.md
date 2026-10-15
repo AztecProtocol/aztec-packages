@@ -12,13 +12,13 @@ we use the following expression:
 
 $$\sum_i \left[ q_{L,i} \cdot \frac{1}{L_i} - c_i \cdot q_{T,i} \cdot \frac{1}{T_i} \right] = 0$$
 
-where $L_i$ is the lookup term (the thing we look up), $T_i$ is the table term (the thing in the table from which we look up), $c_i$ is the read count (how many times $T_i$ has been looked up), and $q_{L,i}$, $q_{T,i}$ are two boolean values used to decide which elements should/can be looked up. We call them the lookup term predicate* and the table term predicate*, respectively.
+where $L_i$ is the lookup term (the thing we look up), $T_i$ is the table term (the thing in the table from which we look up), $c_i$ is the read count (how many times $T_i$ has been looked up), and $q_{L,i}$, $q_{T,i}$ are two boolean values used to decide which elements should/can be looked up. We call them the lookup term predicate and the table term predicate, respectively.
 
 ## Types of lookups
 
 Let $f_1, \dots, f_n$ be the columns whose values we wish to look up (the lookup columns), and $t_1, \dots, t_m$ the columns whose values determine what we can look up (the table columns). `GenericLookupRelationImpl` implements two types of lookups:
 - `BASIC_LOOKUP/BASIC_TABLE`: $n = m$ and we look up the rows of the ordered tuple $(f_1, \dots, f_n)$ from the rows of the ordered tuple $(t_1, \dots, t_n)$. Instead of looking up the tuple, we use a random challenge $\beta$ to batch the elements. Thus, we look up rows of  $\sum_i \beta^i f_i$ from the rows of $\sum_i \beta^i t_i$. The length of the tuple is denoted in the code by `LOOKUP_TUPLE_SIZE` $ = n = m$.
-- `CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE`: $n$ and $m$ can be arbitrary and we lookup up functions of the rows of $(f_1, \dots, f_n)$ from functions of the rows of $(t_1, \dots, t_m)$. The implementor is free to choose how the values generated from the columns are generated `.
+- `CUSTOMIZED_LOOKUP/CUSTOMIZED_TABLE`: $n$ and $m$ can be arbitrary and we look up functions of the rows of $(f_1, \dots, f_n)$ from functions of the rows of $(t_1, \dots, t_m)$. The implementor is free to choose how the values are generated from the columns. Only the test (`generic_lookup_relation.test.cpp`) uses this type; production code does not exercise it.
 
 The implementor can choose:
 - how many lookups are performed in each row by setting the variable `NUM_LOOKUP_TERMS`
@@ -29,13 +29,11 @@ Each lookup can be either a basic lookup or a customized lookup.
 
 ## Predicates
 
-The lookup term and table term predicate are used to decide which elements should/can be looked up. In our codebase these values are either:
--both selectors* (in the AVM)
--both witnesses* (in the ECCVM)
+The lookup term and table term predicate are used to decide which elements should/can be looked up. Production use is the AVM (`vm2/`), with selector predicates. The relation does not distinguish selector from witness predicates; witness predicates must be boolean-constrained by the caller (see the Note below). The ECCVM uses its own `ECCVMLookupRelationImpl` (`relations/ecc_vm/ecc_lookup_relation.hpp`).
 
-The case in which both terms are selectors is standard: the relation is hard-coded in the circuit and the only freedom the prover has is to set the witnesses for the lookup columns/table columns (depedening on whether the table is precomputed or not).
+The case in which both terms are selectors is standard: the relation is hard-coded in the circuit and the only freedom the prover has is to set the witnesses for the lookup columns/table columns (depending on whether the table is precomputed or not).
 
-The case in which both terms are witnesses is slightly less standard. We provide an example of its usage which is close to the usage in our codebase. Say we want to perform a scalar multiplication $a \cdot P$, where $a \in \mathbb{F}$ and $P \in \mathbb{G}$. Then, the prover precomputes some multiples $k \cdot P$, $0 \leq k \leq 2^i - 1$, and performs a windowed-double-and-add to compute $a \cdot P$. The prover sets the lookup term predicates to $1$ where they need to lookup up one of the multiples $k \cdot P$, while they set the table term predicates to $1$ where they compute the multiples $k \cdot P$. Clearly, the predicates must be consistent with the double-and-add algorithm, this is constrained by a separate relation.
+The case in which both terms are witnesses is slightly less standard. We provide an example of its usage which is close to the usage in our codebase. Say we want to perform a scalar multiplication $a \cdot P$, where $a \in \mathbb{F}$ and $P \in \mathbb{G}$. Then, the prover precomputes some multiples $k \cdot P$, $0 \leq k \leq 2^i - 1$, and performs a windowed-double-and-add to compute $a \cdot P$. The prover sets the lookup term predicates to $1$ where they need to look up one of the multiples $k \cdot P$, while they set the table term predicates to $1$ where they compute the multiples $k \cdot P$. Clearly, the predicates must be consistent with the double-and-add algorithm, this is constrained by a separate relation.
 
 **Note:** When the predicates are selectors they do not need to be constrained to be booleans because the verifier can check this condition by themselves. When they are witnesses, they must be explicitly constrained.
 
@@ -43,18 +41,26 @@ The case in which both terms are witnesses is slightly less standard. We provide
 
 The relation is composed of two subrelations: one that validates the calculation of the inverse polynomial, one that enforces the sum of the inverses to be zero. The expressions for the two subrelations are:
 $$
-    I(x)\cdot \prod_{i=1}^{n} L_i(x) \cdot \prod_{i=0}^{m} T_i(x) - \text{inverse\_exists}(x) = 0
+    I(x)\cdot \prod_{i=1}^{n} L_i(x) \cdot \prod_{j=1}^{m} T_j(x) - \text{inverse\_exists}(x) = 0
     $$
 and
 $$
-    \sum_{i=0}^{n} q_{L,i}(x) \cdot \frac{1}{L_i(x)} - \sum_{i=0}^{m} q_{T,i}(x) \cdot c_i(x) \cdot \frac{1}{T_i(x)}
+    \sum_{i=1}^{n} q_{L,i}(x) \cdot \frac{1}{L_i(x)} - \sum_{j=1}^{m} q_{T,j}(x) \cdot c_j(x) \cdot \frac{1}{T_j(x)}
 $$
 
 The degrees of the above relations are:
 1. The degree of the first relation is $\max(1 + \sum \deg(L_i)  + \sum \deg(T_i), \deg(\text{inverse\_exists}))$
-2. The degree of the second relation is is $3 + M$, where
+2. The degree of the second relation is $3 + M$, where
 $$ M = \max(\sum\deg(L_i) + \sum \deg(T_i) - \deg(\text{term}))$$
 for $\text{term}$ iterates over all terms. This is because we compute the inverses as:
 $$
-    \frac{1}{T_i(x)} = I(x) \cdot \prod_{j \neq i} T_j(x) \cdot \prod_{j} L_i(x)
+    \frac{1}{T_j(x)} = I(x) \cdot \prod_{k \neq j} T_k(x) \cdot \prod_{i} L_i(x)
 $$
+
+## Permutation specialisation
+
+The file `relations/generic_permutation/generic_permutation_relation.hpp` implements a generic log-derivative permutation argument. Its only production user is the AVM (`vm2/constraining/relations/interactions_base.hpp`). The relation `GenericPermutationRelationImpl` is the specialization of `GenericLookupRelationImpl` to the case in which all read counts are equal to $1$. The general expression above is specialized to:
+
+$$\sum_i \left[ q_{L,i} \cdot \frac{1}{L_i} - q_{T,i} \cdot \frac{1}{T_i} \right] = 0$$
+
+If the relation is satisfied, the multisets $\{L_i\}$ (where $q_L=1$) and $\{T_i\}$ (where $q_T=1$) are equal: every table term has been looked up exactly once.

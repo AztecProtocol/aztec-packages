@@ -56,7 +56,7 @@ template <typename CircuitBuilder> struct grumpkin {
         bb::fq("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
     // The length of the polynomials used to mask the Sumcheck Round Univariates in the committed (ECCVM) sumcheck.
     // Must match the native curve::Grumpkin::LIBRA_UNIVARIATES_LENGTH; see the rationale there and in
-    // sumcheck/docs/committed_sumcheck_zk.md.
+    // sumcheck/Sumcheck.md ("Committed sumcheck masking budget").
     static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 4;
 };
 
