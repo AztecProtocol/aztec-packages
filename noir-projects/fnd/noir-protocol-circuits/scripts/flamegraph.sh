@@ -123,7 +123,7 @@ fi
 DEST="$SCRIPT_DIR/../dest"
 mkdir -p $DEST
 
-MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../chonk_circuits.json")
+MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[].pattern' "$SCRIPT_DIR/../../chonk_circuits.json")
 ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../rollup_honk_circuits.json")
 
 # Process each CIRCUIT_NAME.
