@@ -5,7 +5,7 @@ components under the Glamsterdam gas schedule: the GSE deposit path before the p
 verifier, the BN254 proof-of-possession verifier (`Bn254LibWrapper`), and the Rollup's flush and
 refund branch. Each number is marked **measured** (forge) or **derived**. The
 `amsterdam` numbers come from Foundry's EVM preset, not from a chain that runs Glamsterdam, so they
-should be measured again once a testnet activates it (see §5).
+should be measured again on a testnet that runs it (see §5).
 
 ## Tooling and settings
 
@@ -83,9 +83,10 @@ depends on):
 | osaka | 154,300 |
 | prague | 154,300 |
 
-The ~528k jump is the repricing of the ~4 new storage slots written before the verifier
-(`STATE_BYTES_PER_STORAGE_SET 64 × CPSB 1530 = 97,920` state gas each under EIP-8037, against ~20k
-before it).
+The ~528k jump (682,620 − 154,300 = 528,320) comes from the new storage slots written before the
+verifier: each costs `STATE_BYTES_PER_STORAGE_SET 64 × CPSB 1530 = 97,920` state gas under EIP-8037,
+against ~20k before it. Four slots account for only about 4 × 78k ≈ 312k of the jump. The rest is
+more new slots or EIP-8038 repricing; this file does not break it down.
 
 ### (d) Full activation cost (successful flush, `-vvvv` trace, measured, amsterdam)
 
@@ -122,11 +123,11 @@ for halts and reverts"):
   forwarding rule applies to `gas_left` only; the reservoir passes to a child in full. With an
   empty reservoir this is ordinary 63/64 accounting, so the floor's `gasleft()` read is exact and
   the forwarding arithmetic below is the standard one.
-- How a valid entry can be refunded: the GSE writes ~4 new slots (~392k state gas) out of `gas_left`, then
+- How a valid entry can be refunded: the GSE writes its new slots (at least ~392k state gas) out of `gas_left`, then
   calls the verifier with `min(cap, 63/64 · remaining)`. If `tx.gas` leaves `remaining` too
   small, so the verifier's precompile `staticcall` fails and `BN254Lib` reverts with a 4-byte
   `SqrtFail` or `PairingFail` (non-empty). On that revert EIP-8037 restores the frame's state gas
-  to its baseline and adds `state_gas_from_gas_left` back to `gas_left`. The ~392k is credited to
+  to its baseline and adds `state_gas_from_gas_left` back to `gas_left`. That state gas is credited to
   the GSE frame and **returned to the Rollup**, which can then afford the refund branch for a
   valid entry. Under osaka the slots cost ~20k and are **not** credited on revert, so the Rollup
   keeps only its 1/64 reserve: the whole flush runs out of gas with empty revert data, reverts with
@@ -194,8 +195,10 @@ while the verifier is still starved, so entries could still be dropped.
   valid entries can be dropped again; too high and a flush no longer fits in the per-transaction gas
   limit, which freezes admission.
 - The flush caller only has to *set* a gas limit at or above the floor; unused gas is not charged.
-  A 4-entry flush at the recommended 250k-cap floor needs a gas limit of ~4.5M, well under the block
-  limit, so the floor can carry a generous margin at no cost to honest callers.
+  The floor is below what a successful amsterdam deposit consumes (`GSE::deposit` 2,546,762 in
+  §2(d)). So an honest caller's limit is set by the deposit cost, not by the floor: about 10.5M for
+  four entries (derived from §2(d), not measured). The floor only bites when the limit is already
+  too low to finish the deposit, so it can carry a generous margin at no cost to honest callers.
 
 ## 4. Validation of the floor
 
@@ -212,7 +215,8 @@ limit of about 1.01M at every cap, which is the behaviour in §1.
   preset, not from a chain that has activated Glamsterdam. EIP-8037 is in *Review*;
   `CPSB`/`STATE_BYTES_PER_STORAGE_SET` and the EIP-8038 execution-gas changes (`COLD_ACCOUNT_ACCESS`,
   `CREATE_ACCESS`, `ACCOUNT_WRITE`) are not final. If they change before mainnet, `GSE_PRE_CHECK`
-  and `REFUND_RESERVE` change with them. Run §2 again once Sepolia activates Glamsterdam.
+  and `REFUND_RESERVE` change with them. Sepolia runs Glamsterdam (the v6 upgrade runbook
+  reports deploy gas measured there); run §2 again against it.
 - **Worst case for `GSE_PRE_CHECK`.** Measured at ~683k and flat across the paths tried. A path that
   writes more new slots before the verifier (for example a future change to GSE storage) would
   raise it, so the constant must be re-derived whenever the writes `GSE.deposit` makes before the
