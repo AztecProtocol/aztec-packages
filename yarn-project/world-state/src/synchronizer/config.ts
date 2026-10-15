@@ -1,3 +1,4 @@
+import { type CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
 import {
   type ConfigMappingsType,
   getConfigFromMappings,
@@ -36,6 +37,9 @@ export interface WorldStateConfig {
 
   /** The number of historic checkpoints worth of blocks to maintain */
   worldStateCheckpointHistory: number;
+
+  /** Retain this checkpoint and every later checkpoint, overriding the rolling checkpoint window. */
+  worldStatePruneBeforeCheckpoint?: CheckpointNumber;
 }
 
 export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
@@ -94,6 +98,12 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
       'The number of historic checkpoints worth of blocks to maintain. Values less than 1 mean all history is maintained',
     fallback: ['WS_NUM_HISTORIC_BLOCKS'],
     ...numberConfigHelper(64),
+  },
+  worldStatePruneBeforeCheckpoint: {
+    env: 'WS_PRUNE_BEFORE_CHECKPOINT',
+    description:
+      'Retain world state from the start of this checkpoint onwards, overriding WS_NUM_HISTORIC_CHECKPOINTS. Set to 0 to retain all history.',
+    parseEnv: value => CheckpointNumberSchema.parse(value),
   },
 };
 
