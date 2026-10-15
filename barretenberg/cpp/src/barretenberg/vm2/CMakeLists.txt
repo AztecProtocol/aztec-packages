@@ -14,14 +14,14 @@ list(APPEND VM2_SIM_SOURCE_FILES
 # Exclude test, bench, and fuzzer files
 list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
 
-# Build vm2_sim module (for nodejs bindings)
+# Build vm2_sim module (simulation only)
 barretenberg_module_with_sources(
   vm2_sim
   SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
   DEPENDENCIES crypto_merkle_tree world_state_reference
 )
 
-# vm2_sim needs -fPIC because it's linked into the nodejs_module shared library
+# vm2_sim is built with -fPIC; it is linked into the bb-avm-sim executable (src/barretenberg/avm) and into vm2.
 set_target_properties(vm2_sim_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Build vm2 module with sources mutually exclusive from vm2_sim
