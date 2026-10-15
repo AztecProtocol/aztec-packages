@@ -103,6 +103,12 @@ git -C "$fnd/labs" merge-base --is-ancestor "$v2" HEAD || fail "bump forward: se
 grep -q "a=2" "$fnd/labs/config" && grep -q "y" "$fnd/labs/src" && [ -f "$fnd/labs/extra" ] || fail "bump forward: content"
 "$lp" apply | grep -q "already applied" || fail "bump forward: applied state recorded"
 ok "same-pin and forward bump"
+
+g -C "$up" tag -a annotated-v2 "$v2" -m "annotated v2"
+"$lp" bump annotated-v2 >/dev/null || fail "bump: annotated tag"
+[ "$(git -C "$fnd" rev-parse :labs)" = "$v2" ] || fail "bump annotated tag: gitlink must name the commit"
+"$lp" check_staged >/dev/null || fail "bump annotated tag: staged gitlink"
+ok "annotated tag bump"
 g -C "$fnd" commit -q -m "bump to v2"
 
 # 6. bump refuses on unexported work; apply refuses when the series changes under it
@@ -185,6 +191,16 @@ expect_fail "$lp" upstream 1 fnd/one || fail "upstream: existing branch accepted
 "$lp" upstream "$fnd/labs-patches"/0002-*.patch >/dev/null || fail "upstream: by path"
 git -C "$fnd/labs" show-ref -q --verify refs/heads/fnd/patch-two-extra || fail "upstream: default branch name"
 ok "upstream branch"
+
+g -C "$fnd/labs" mv extra renamed-extra
+g -C "$fnd/labs" commit -qm "patch four: rename"
+"$lp" export >/dev/null
+if "$lp" status | grep -q "unexported commits"; then fail "status: exported rename reported as unexported"; fi
+rm -f "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/labs-patches.state"
+"$lp" apply | grep -q "already applied" || fail "apply: exported rename not recognised after state loss"
+"$lp" bump "$base" >/dev/null || fail "bump: exported rename refused"
+[ -f "$fnd/labs/renamed-extra" ] && [ ! -e "$fnd/labs/extra" ] || fail "rename content after bump"
+ok "renames round-trip"
 
 # 13. check verifies without touching labs/
 before=$(git -C "$fnd/labs" rev-parse HEAD)
