@@ -81,7 +81,11 @@ export function findIpcRuntimeNapi(customPath?: string): string | null {
  * the addon cannot be located or fails to dlopen.
  */
 export function loadIpcRuntimeNapi(customPath?: string): {
-  MsgpackClient: new (shmName: string, clientId?: number) => any;
+  MsgpackClient: new (
+    shmName: string,
+    clientId?: number,
+    serverPid?: number,
+  ) => any;
   MsgpackClientAsync: new (shmName: string, clientId?: number) => any;
 } {
   const addonPath = findIpcRuntimeNapi(customPath);

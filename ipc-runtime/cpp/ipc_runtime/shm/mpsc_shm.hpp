@@ -225,6 +225,9 @@ class MpscProducer {
      */
     void publish(size_t n);
 
+    /** @brief Size of the producer's ring, which bounds the largest message it can carry. */
+    uint64_t capacity() const { return ring_.capacity(); }
+
   private:
     MpscProducer(SpscShm&& ring, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell, size_t producer_id);
 

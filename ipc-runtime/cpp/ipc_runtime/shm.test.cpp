@@ -1,3 +1,4 @@
+#include "ipc_runtime/blocking_call.hpp"
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/shm/mpsc_shm.hpp"
@@ -21,6 +22,7 @@
 #include <random>
 #include <sstream>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
@@ -1073,6 +1075,137 @@ TEST(ShmTest, MpscSlotFreedOnDisconnectAndReclaimed)
     server->request_shutdown();
     server_thread.join();
     server->close();
+}
+
+/**
+ * Serves `name` over MPSC SHM in a forked child, handling requests with
+ * `handler`, and returns the child's pid once the server is listening.
+ */
+pid_t fork_shm_server(const std::string& name,
+                      size_t ring_size,
+                      const std::function<std::vector<uint8_t>(std::span<const uint8_t>)>& handler)
+{
+    int ready[2];
+    if (::pipe(ready) != 0) {
+        return -1;
+    }
+    pid_t pid = fork();
+    if (pid == 0) {
+        ::close(ready[0]);
+        auto server = IpcServer::create_mpsc_shm(name, 1, ring_size, ring_size);
+        if (!server->listen()) {
+            _exit(2);
+        }
+        char byte = 1;
+        [[maybe_unused]] ssize_t n = ::write(ready[1], &byte, 1);
+        server->run([&](int, std::span<const uint8_t> req) { return handler(req); });
+        _exit(0);
+    }
+    ::close(ready[1]);
+    char byte = 0;
+    [[maybe_unused]] ssize_t n = ::read(ready[0], &byte, 1);
+    ::close(ready[0]);
+    return pid;
+}
+
+constexpr uint64_t TEST_POLL_NS = 50'000'000; // 50ms
+
+double seconds_since(std::chrono::steady_clock::time_point start)
+{
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
+
+// A server that exits without replying ends the call with its exit code, as
+// soon as the next poll notices, rather than after some deadline.
+TEST(BlockingCallTest, EndsWhenTheServerExitsWithoutReplying)
+{
+    std::string name = "bc_exit_" + std::to_string(getpid());
+    pid_t pid = fork_shm_server(name, 4096, [](std::span<const uint8_t>) -> std::vector<uint8_t> { _exit(7); });
+    ASSERT_GT(pid, 0);
+    auto client = IpcClient::create_mpsc_shm(name);
+    ASSERT_TRUE(client->connect());
+
+    uint8_t byte = 1;
+    auto start = std::chrono::steady_clock::now();
+    auto result = call_blocking(*client, &byte, 1, pid, TEST_POLL_NS);
+    EXPECT_LT(seconds_since(start), 5.0);
+    EXPECT_EQ(result.status, BlockingCallResult::Status::ServerExited);
+    EXPECT_EQ(result.server_exit.code, 7);
+    EXPECT_EQ(result.server_exit.signal, -1);
+
+    // The exit was observed without reaping the child, so its owner still can.
+    int status = 0;
+    EXPECT_EQ(::waitpid(pid, &status, 0), pid);
+    client->close();
+}
+
+TEST(BlockingCallTest, ReportsTheSignalThatKilledTheServer)
+{
+    std::string name = "bc_kill_" + std::to_string(getpid());
+    pid_t pid = fork_shm_server(name, 4096, [](std::span<const uint8_t>) -> std::vector<uint8_t> {
+        ::raise(SIGKILL);
+        return {};
+    });
+    ASSERT_GT(pid, 0);
+    auto client = IpcClient::create_mpsc_shm(name);
+    ASSERT_TRUE(client->connect());
+
+    uint8_t byte = 1;
+    auto start = std::chrono::steady_clock::now();
+    auto result = call_blocking(*client, &byte, 1, pid, TEST_POLL_NS);
+    EXPECT_LT(seconds_since(start), 5.0);
+    EXPECT_EQ(result.status, BlockingCallResult::Status::ServerExited);
+    EXPECT_EQ(result.server_exit.signal, SIGKILL);
+
+    int status = 0;
+    EXPECT_EQ(::waitpid(pid, &status, 0), pid);
+    client->close();
+}
+
+// A live server is waited on however many polls its reply takes.
+TEST(BlockingCallTest, WaitsOutASlowServerThatIsStillAlive)
+{
+    std::string name = "bc_slow_" + std::to_string(getpid());
+    pid_t pid = fork_shm_server(name, 4096, [](std::span<const uint8_t> req) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // 10 polls
+        return std::vector<uint8_t>(req.begin(), req.end());
+    });
+    ASSERT_GT(pid, 0);
+    auto client = IpcClient::create_mpsc_shm(name);
+    ASSERT_TRUE(client->connect());
+
+    uint8_t byte = 42;
+    auto result = call_blocking(*client, &byte, 1, pid, TEST_POLL_NS);
+    ASSERT_EQ(result.status, BlockingCallResult::Status::Ok);
+    ASSERT_EQ(result.response.size(), 1U);
+    EXPECT_EQ(result.response[0], 42);
+    client->release(result.response.size());
+
+    client->close();
+    ::kill(pid, SIGKILL);
+    ::waitpid(pid, nullptr, 0);
+}
+
+// A request that can never fit the request ring fails at once, instead of
+// waiting for space a live server will never free.
+TEST(BlockingCallTest, RejectsARequestTooLargeForTheRing)
+{
+    std::string name = "bc_big_" + std::to_string(getpid());
+    pid_t pid = fork_shm_server(
+        name, 4096, [](std::span<const uint8_t> req) { return std::vector<uint8_t>(req.begin(), req.end()); });
+    ASSERT_GT(pid, 0);
+    auto client = IpcClient::create_mpsc_shm(name);
+    ASSERT_TRUE(client->connect());
+
+    std::vector<uint8_t> big(8192);
+    auto start = std::chrono::steady_clock::now();
+    auto result = call_blocking(*client, big.data(), big.size(), pid, TEST_POLL_NS);
+    EXPECT_LT(seconds_since(start), 5.0);
+    EXPECT_EQ(result.status, BlockingCallResult::Status::TooLarge);
+
+    client->close();
+    ::kill(pid, SIGKILL);
+    ::waitpid(pid, nullptr, 0);
 }
 
 } // namespace

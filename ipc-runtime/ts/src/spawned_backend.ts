@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { open, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { constants as osConstants, tmpdir } from "node:os";
 import { join } from "node:path";
 import { threadId } from "node:worker_threads";
 import {
@@ -618,7 +618,7 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
 
     try {
       const client = await Promise.race([
-        connectShmSyncClient(options, ipcPath),
+        connectShmSyncClient(options, ipcPath, child.pid),
         childReadyFailure,
       ]);
       return new SpawnedProcessBackendSync(
@@ -654,14 +654,20 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
     try {
       return this.client.call(input);
     } catch (err) {
-      // A dead server is the likeliest cause of a failed shm call; report it as
-      // such (with the log path) rather than as an opaque transport error.
-      if (this.child.exitCode !== null || this.child.signalCode !== null) {
+      // The call holds the main thread, so the child's exit event hasn't run:
+      // the native client reports the death itself. Report it with the log
+      // path rather than as an opaque transport error.
+      const exit =
+        nativeServerExit(err) ??
+        (this.child.exitCode !== null || this.child.signalCode !== null
+          ? { code: this.child.exitCode, signal: this.child.signalCode }
+          : undefined);
+      if (exit) {
         throw new IpcProcessExitedError(
-          `${this.options.binaryName} exited unexpectedly (code=${this.child.exitCode}, signal=${this.child.signalCode})` +
+          `${this.options.binaryName} exited unexpectedly (code=${exit.code}, signal=${exit.signal})` +
             (this.logPath !== undefined ? `; see logs: ${this.logPath}` : ""),
-          this.child.exitCode,
-          this.child.signalCode,
+          exit.code,
+          exit.signal,
           this.logPath,
         );
       }
@@ -686,10 +692,32 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
   }
 }
 
+/** The server exit a native sync shm call reported, if that is why it failed. */
+function nativeServerExit(
+  err: unknown,
+): { code: number | null; signal: NodeJS.Signals | null } | undefined {
+  const e = err as {
+    serverExited?: boolean;
+    exitCode?: number | null;
+    signal?: number | null;
+  };
+  if (!e || e.serverExited !== true) {
+    return undefined;
+  }
+  const signal =
+    e.signal == null
+      ? null
+      : ((Object.entries(osConstants.signals).find(
+          ([, n]) => n === e.signal,
+        )?.[0] as NodeJS.Signals | undefined) ?? null);
+  return { code: e.exitCode ?? null, signal };
+}
+
 /** Retry attaching the sync shm client until the server has created its rings. */
 async function connectShmSyncClient(
   options: SpawnedProcessBackendOptions,
   ipcPath: string,
+  serverPid: number | undefined,
 ): Promise<IpcClientSync> {
   const deadline =
     Date.now() + (options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS);
@@ -699,6 +727,7 @@ async function connectShmSyncClient(
       return createNapiShmSyncClient(ipcPath.replace(/\.shm$/, ""), {
         clientId: options.clientId,
         customAddonPath: options.napiPath,
+        serverPid,
       });
     } catch (err) {
       lastError = err;

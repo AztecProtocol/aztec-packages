@@ -49,9 +49,8 @@ export type BackendOptions = {
   /**
    * @description Replace the bb process when it dies, on the next call (NativeUnixSocket only).
    *
-   * There is no equivalent for the shared-memory backends, which cannot tell a dead server from a
-   * slow one: a call to a bb process that has died fails only when ipc-runtime's call deadline
-   * expires, and as a timeout, not as a retryable death. A caller that needs to survive a bb death
+   * There is no equivalent for the shared-memory backends: a call to a bb process that has died fails
+   * there with a retryable error, but later calls fail too. A caller that needs to survive a bb death
    * should be on this backend.
    *
    * Calls that were in flight still fail, with an error carrying `retry: true`; only later calls

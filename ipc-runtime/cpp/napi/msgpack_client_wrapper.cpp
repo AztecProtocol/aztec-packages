@@ -1,9 +1,9 @@
 #include "msgpack_client_wrapper.hpp"
 
+#include "ipc_runtime/blocking_call.hpp"
 #include "ipc_runtime/ipc_client.hpp"
 #include "napi.h"
 
-#include <chrono>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -25,6 +25,12 @@ MsgpackClientWrapper::MsgpackClientWrapper(const Napi::CallbackInfo& info)
     std::size_t client_id = ipc::kAutoClientId;
     if (info.Length() >= 2 && info[1].IsNumber()) {
         client_id = static_cast<std::size_t>(info[1].As<Napi::Number>().Uint32Value());
+    }
+
+    // Optional third arg: the server's pid, so a call can tell a dead server
+    // from a slow one. Without it, calls wait indefinitely.
+    if (info.Length() >= 3 && info[2].IsNumber()) {
+        server_pid_ = static_cast<pid_t>(info[2].As<Napi::Number>().Int32Value());
     }
 
     // MPSC-SHM client — matches ipc::make_server which uses MPSC by default,
@@ -61,34 +67,24 @@ Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
     const uint8_t* input_data = input_buffer.Data();
     size_t input_len = input_buffer.Length();
 
-    // Retry on backpressure, but with an overall deadline: this is a blocking
-    // call on the Node main thread, and a dead/wedged server must surface as
-    // an error rather than hanging the process forever.
-    constexpr uint64_t TIMEOUT_NS = 1'000'000'000;        // 1s per attempt
-    constexpr uint64_t CALL_DEADLINE_NS = 60'000'000'000; // 60s overall
-
-    auto now_ns = [] {
-        return static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
-                .count());
-    };
-    const uint64_t start_ns = now_ns();
-
-    while (!client_->send(input_data, input_len, TIMEOUT_NS)) {
-        // request ring full, consumer behind — retry until the deadline
-        if (now_ns() - start_ns > CALL_DEADLINE_NS) {
-            throw Napi::Error::New(env, "IPC call timed out sending request (server unresponsive?)");
-        }
+    // Node's main thread is held for the whole call, so the server's exit event
+    // can't run: call_blocking checks whether the server is alive itself.
+    auto result = ipc::call_blocking(*client_, input_data, input_len, server_pid_);
+    if (result.status == ipc::BlockingCallResult::Status::TooLarge) {
+        throw Napi::Error::New(env, "IPC request too large for the shared-memory ring");
     }
-
-    // data() == nullptr means timeout; a non-null empty span is a valid
-    // zero-length response.
-    std::span<const uint8_t> response;
-    while ((response = client_->receive(TIMEOUT_NS)).data() == nullptr) {
-        if (now_ns() - start_ns > CALL_DEADLINE_NS) {
-            throw Napi::Error::New(env, "IPC call timed out waiting for response (server unresponsive?)");
-        }
+    if (result.status == ipc::BlockingCallResult::Status::ServerExited) {
+        auto err = Napi::Error::New(env, "IPC server process exited");
+        err.Set("serverExited", Napi::Boolean::New(env, true));
+        err.Set("exitCode",
+                result.server_exit.code >= 0 ? Napi::Value(Napi::Number::New(env, result.server_exit.code))
+                                             : env.Null());
+        err.Set("signal",
+                result.server_exit.signal >= 0 ? Napi::Value(Napi::Number::New(env, result.server_exit.signal))
+                                               : env.Null());
+        throw err;
     }
+    std::span<const uint8_t> response = result.response;
 
     auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, response.data(), response.size());
     client_->release(response.size());

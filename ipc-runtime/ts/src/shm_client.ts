@@ -162,6 +162,13 @@ export interface CreateNapiShmOptions {
   customAddonPath?: string;
   /** Applied to every rejected call's error. */
   mapError?: IpcErrorMapper;
+  /**
+   * Sync client only: the server's pid. A sync call holds the main thread, so
+   * nothing else can notice the server dying; with the pid, a call to a dead
+   * server throws (with `serverExited`, `exitCode` and `signal` set) instead
+   * of waiting forever. Calls have no deadline either way.
+   */
+  serverPid?: number;
 }
 
 /**
@@ -176,11 +183,9 @@ export function createNapiShmSyncClient(
 ): NapiShmSyncClient {
   const napi = loadIpcRuntimeNapi(options.customAddonPath);
   return new NapiShmSyncClient(
-    // Omit the slot id when not given so the native side self-allocates a free
-    // slot (kAutoClientId) instead of aliasing every client onto slot 0.
-    options.clientId === undefined
-      ? new napi.MsgpackClient(shmName)
-      : new napi.MsgpackClient(shmName, options.clientId),
+    // An undefined slot id makes the native side self-allocate a free slot
+    // (kAutoClientId) instead of aliasing every client onto slot 0.
+    new napi.MsgpackClient(shmName, options.clientId, options.serverPid),
   );
 }
 
