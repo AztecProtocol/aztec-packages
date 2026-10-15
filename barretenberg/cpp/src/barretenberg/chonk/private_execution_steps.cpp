@@ -5,12 +5,15 @@
 // =====================
 
 #include "private_execution_steps.hpp"
-#include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/chonk_step_processor.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
+#include <fstream>
 #include <libdeflate.h>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
 
 namespace bb {
 
@@ -100,14 +103,22 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
 {
     BB_BENCH();
-    return unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+    auto raw_steps = unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+    for (auto& step : raw_steps) {
+        step.compressed = true;
+    }
+    return raw_steps;
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
 void PrivateExecutionStepRaw::self_decompress()
 {
+    if (!compressed) {
+        return;
+    }
     bytecode = decompress(bytecode.data(), bytecode.size());
     witness = decompress(witness.data(), witness.size());
+    compressed = false;
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
@@ -116,10 +127,7 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompres
 {
     BB_BENCH();
     auto raw_steps = load(input_path);
-    parallel_for(raw_steps.size(), [&](size_t i) {
-        raw_steps[i].bytecode = decompress(raw_steps[i].bytecode.data(), raw_steps[i].bytecode.size());
-        raw_steps[i].witness = decompress(raw_steps[i].witness.data(), raw_steps[i].witness.size());
-    });
+    parallel_for(raw_steps.size(), [&](size_t i) { raw_steps[i].self_decompress(); });
     return raw_steps;
 }
 
@@ -137,62 +145,17 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
     return raw_steps;
 }
 
-void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
-{
-    BB_BENCH();
-
-    // Preallocate space to write into diretly as push_back would not be thread safe
-    folding_stack.resize(steps.size());
-    precomputed_vks.resize(steps.size());
-    function_names.resize(steps.size());
-    kinds.resize(steps.size());
-
-    // Parse each step's bytecode/witness in parallel (thread-safe with msgpack format)
-    parallel_for(steps.size(), [&](size_t i) {
-        PrivateExecutionStepRaw step = std::move(steps[i]);
-
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(step.bytecode));
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
-
-        folding_stack[i] = { std::move(constraints), std::move(witness) };
-        if (step.vk.empty()) {
-            // For backwards compatibility, but it affects performance and correctness.
-            precomputed_vks[i] = {};
-        } else {
-            precomputed_vks[i] = std::move(step.vk);
-        }
-        function_names[i] = std::move(step.function_name);
-        kinds[i] = step.kind;
-    });
-}
-
-std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
-{
-    auto step_processor = ChonkStepProcessor(kinds);
-
-    for (auto& vk : precomputed_vks) {
-        if (vk.empty()) {
-            info("DEPRECATED: Precomputed VKs expected for the given circuits.");
-            break;
-        }
-    }
-    for (size_t i = 0; i < folding_stack.size(); ++i) {
-        step_processor.process_step({ .name = std::move(function_names[i]),
-                                      .program = std::move(folding_stack[i]),
-                                      .precomputed_vk = std::move(precomputed_vks[i]),
-                                      .kind = kinds[i] });
-    }
-
-    return step_processor.get_ivc();
-}
-
 void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,
                                                 const std::filesystem::path& output_path)
 {
-    // First, compress the bytecode and witness fields of each step
+    // First, compress the bytecode and witness fields of each step that is not already compressed
     for (PrivateExecutionStepRaw& step : steps) {
+        if (step.compressed) {
+            continue;
+        }
         step.bytecode = compress(step.bytecode);
         step.witness = compress(step.witness);
+        step.compressed = true;
     }
 
     // Serialize to msgpack

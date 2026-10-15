@@ -66,6 +66,7 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Turn an instance into an accumulator by running Sumcheck.
+     * @details Consumes the instance's polynomials; callers must not reuse them after this call.
      */
     template <typename InstanceFlavor>
     Accumulator instance_to_accumulator(
@@ -109,6 +110,7 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Turn an instance into an accumulator and cache the resulting claim for the final batching.
+     * @details Consumes the instance's polynomials; callers must not reuse them after this call.
      * @return This instance's proof slice (Oink + Sumcheck), exported from the shared transcript.
      */
     template <typename InstanceFlavor>
@@ -174,10 +176,17 @@ class HypernovaFoldingProver {
         auto [unshifted_challenges, shifted_challenges] = get_hypernova_batching_challenges<FF>(
             transcript, InstanceFlavor::NUM_UNSHIFTED_ENTITIES, InstanceFlavor::NUM_SHIFTED_ENTITIES);
 
+        auto unshifted = instance->polynomials.get_unshifted();
+        auto to_be_shifted = instance->polynomials.get_to_be_shifted();
+        // Unshifted batching may modify and move its first polynomial, so shifted batching must not depend on it.
+        for (const auto& polynomial : to_be_shifted) {
+            BB_ASSERT(&unshifted[0] != &polynomial,
+                      "The first unshifted polynomial must not be among the to-be-shifted entities");
+        }
         Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<InstanceFlavor::NUM_UNSHIFTED_ENTITIES>(
-            instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
+            unshifted, instance->dyadic_size(), unshifted_challenges);
         Polynomial<FF> batched_shifted_polynomial = batch_polynomials<InstanceFlavor::NUM_SHIFTED_ENTITIES>(
-            instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
+            to_be_shifted, instance->dyadic_size(), shifted_challenges);
 
         FF batched_unshifted_evaluation(0);
         FF batched_shifted_evaluation(0);
@@ -208,11 +217,13 @@ class HypernovaFoldingProver {
     }
 
     /**
-     * @brief Batch prover polynomials. Batching happens in place into the first polynomial in the RefArray supplied.
+     * @brief Compute a weighted sum of prover polynomials.
+     * @details If the first polynomial's range covers the others, accumulate into it and move it into the result.
+     * Otherwise, allocate the result without modifying the inputs. Only the first input may be modified or moved from.
      */
     template <size_t N>
     static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
-                                            const size_t& full_batched_size,
+                                            const size_t full_batched_size,
                                             const std::vector<FF>& challenges)
     {
         BB_BENCH_NAME("HypernovaFoldingProver::batch_polynomials");
@@ -244,7 +255,7 @@ class HypernovaFoldingProver {
             return result;
         }
         add_scaled_batch(polynomials_to_batch[0], sources_span, tail_scalars);
-        return polynomials_to_batch[0];
+        return std::move(polynomials_to_batch[0]);
     }
 
     /**

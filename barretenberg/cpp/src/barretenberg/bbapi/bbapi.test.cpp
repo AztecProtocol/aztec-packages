@@ -217,6 +217,51 @@ TEST(BBApiInputValidation, MsgpackLoadRejectsTrailingData)
     std::filesystem::remove(tmp);
 }
 
+TEST(PrivateExecutionStepRaw, SelfDecompressIsIdempotent)
+{
+    const PrivateExecutionStepRaw step{ .bytecode = { 1, 2, 3 }, .witness = { 4, 5 }, .vk = {}, .function_name = "f" };
+    auto tmp = std::filesystem::temp_directory_path() / "bb_test_step_idempotent.msgpack";
+    PrivateExecutionStepRaw::compress_and_save({ step }, tmp);
+
+    auto loaded = PrivateExecutionStepRaw::load(tmp);
+    std::filesystem::remove(tmp);
+    ASSERT_EQ(loaded.size(), 1);
+    loaded[0].self_decompress();
+    loaded[0].self_decompress();
+
+    EXPECT_EQ(loaded[0].bytecode, step.bytecode);
+    EXPECT_EQ(loaded[0].witness, step.witness);
+}
+
+TEST(PrivateExecutionStepRaw, SelfDecompressLeavesUncompressedStepsUnchanged)
+{
+    const PrivateExecutionStepRaw step{ .bytecode = { 1, 2, 3 }, .witness = { 4, 5 }, .vk = {}, .function_name = "f" };
+    auto parsed = PrivateExecutionStepRaw::parse_uncompressed(pack_steps({ step }));
+    ASSERT_EQ(parsed.size(), 1);
+
+    parsed[0].self_decompress();
+
+    EXPECT_EQ(parsed[0].bytecode, step.bytecode);
+    EXPECT_EQ(parsed[0].witness, step.witness);
+}
+
+TEST(PrivateExecutionStepRaw, CompressAndSaveDoesNotRecompressLoadedSteps)
+{
+    const PrivateExecutionStepRaw step{ .bytecode = { 1, 2, 3 }, .witness = { 4, 5 }, .vk = {}, .function_name = "f" };
+    auto first = std::filesystem::temp_directory_path() / "bb_test_step_first.msgpack";
+    auto second = std::filesystem::temp_directory_path() / "bb_test_step_second.msgpack";
+    PrivateExecutionStepRaw::compress_and_save({ step }, first);
+
+    PrivateExecutionStepRaw::compress_and_save(PrivateExecutionStepRaw::load(first), second);
+    auto reloaded = PrivateExecutionStepRaw::load_and_decompress(second);
+    std::filesystem::remove(first);
+    std::filesystem::remove(second);
+
+    ASSERT_EQ(reloaded.size(), 1);
+    EXPECT_EQ(reloaded[0].bytecode, step.bytecode);
+    EXPECT_EQ(reloaded[0].witness, step.witness);
+}
+
 // Regression tests for AesEncrypt/AesDecrypt input validation.
 // Without these guards, a socket client could force a ~4 GB allocation via the
 // uint32_t `length` field, or pass `length != plaintext.size()` and silently

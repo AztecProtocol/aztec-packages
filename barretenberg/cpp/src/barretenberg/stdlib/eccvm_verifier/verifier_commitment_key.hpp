@@ -39,7 +39,7 @@ template <typename Curve_> class VerifierCommitmentKey {
         }
     }
 
-    std::vector<Commitment> get_monomial_points() const { return monomial_points; }
+    const std::vector<Commitment>& get_monomial_points() const { return monomial_points; }
 
   private:
     std::vector<Commitment> monomial_points;

@@ -250,4 +250,19 @@ TEST(MegaCircuitBuilder, DatabusOutOfBoundsReadFails)
     EXPECT_THROW(builder.read_calldata(BusId::KERNEL_CALLDATA, bad_idx), std::runtime_error);
 }
 
+/**
+ * @brief free_construction_data releases the databus also when called through the Ultra base class
+ */
+TEST(MegaCircuitBuilder, FreeConstructionDataThroughBaseReleasesDatabus)
+{
+    auto builder = MegaCircuitBuilder();
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(fr(42)));
+    EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 1);
+
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>& base = builder;
+    base.free_construction_data();
+
+    EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0);
+}
+
 } // namespace bb

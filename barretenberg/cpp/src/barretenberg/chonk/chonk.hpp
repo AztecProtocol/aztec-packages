@@ -160,20 +160,32 @@ class Chonk {
     size_t num_circuits;                    // total number of circuits to be accumulated in the IVC
 
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
-  public:
-    ProverAccumulator prover_accumulator;          // previous accumulator (output of the previous kernel's batch)
+
     std::shared_ptr<FoldingProver> folding_prover; // folds the current group; (re)created at each group start
+#ifndef NDEBUG
+    VerifierAccumulator native_verifier_accum;
+    std::shared_ptr<HypernovaFoldingNativeVerifier> native_folding_verifier; // native cross-check of the current group
+    std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
+#endif
+
+    // Management of linking databus commitments between circuits in the IVC
+    DataBusDepot bus_depot;
+
+    // Hiding kernel prover instance: built during accumulate_hiding_kernel(), consumed by prove().
+    std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
+
+  protected:
+    // Previous accumulator (output of the previous kernel's batch). Its polynomials are released once the hiding
+    // kernel's decider proof is constructed.
+    ProverAccumulator prover_accumulator;
+
+  public:
     HonkProof
         multilinear_batch_proof; // current kernel's multilinear batching proof (consumed in its recursive verifier)
 
     HonkProof decider_proof; // decider proof to be verified in the Hiding kernel
 
     VerifierAccumulator recursive_verifier_native_accum; // native value of the previous accumulator
-#ifndef NDEBUG
-    VerifierAccumulator native_verifier_accum;
-    std::shared_ptr<HypernovaFoldingNativeVerifier> native_folding_verifier; // native cross-check of the current group
-    std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
-#endif
 
     // PARALLEL QUEUES: These two queues must stay synchronized.
     // - verification_queue: Native proofs created by accumulate() (prover side)
@@ -182,13 +194,9 @@ class Chonk {
     VerificationQueue verification_queue;
     StdlibVerificationQueue stdlib_verification_queue;
 
-    // Management of linking databus commitments between circuits in the IVC
-    DataBusDepot bus_depot;
-
     Goblin goblin;
 
-    // Hiding kernel prover state: built during accumulate_hiding_kernel(), consumed by prove().
-    std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
+    // Hiding kernel VK: set during accumulate_hiding_kernel().
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
     /**

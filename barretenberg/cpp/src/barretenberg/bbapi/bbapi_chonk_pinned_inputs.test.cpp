@@ -82,8 +82,13 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         auto raw_steps = bb::PrivateExecutionStepRaw::load_and_decompress(inputs_path);
         ASSERT_FALSE(raw_steps.empty()) << "no execution steps in " << inputs_path;
 
-        const auto hiding_bytecode = raw_steps.back().bytecode;
+        ASSERT_EQ(raw_steps.back().kind, bb::CircuitKind::HidingKernel);
+        auto hiding_bytecode = raw_steps.back().bytecode;
         const auto hiding_vk = raw_steps.back().vk;
+        const auto derived_vk = bb::bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(hiding_bytecode) },
+                                                           .kind = bb::CircuitKind::HidingKernel }
+                                    .execute();
+        ASSERT_EQ(hiding_vk, derived_vk.bytes) << "embedded hiding VK differs from bytecode-derived VK";
 
         bb::bbapi::BBApiRequest request;
         request.vk_policy = bb::bbapi::VkPolicy::DEFAULT;
@@ -108,7 +113,7 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         auto prove_response = bb::bbapi::ChonkProve{}.execute(request);
 
         auto verify_response =
-            bb::bbapi::ChonkVerify{ .proof = std::move(prove_response.proof), .vk = hiding_vk }.execute();
+            bb::bbapi::ChonkVerify{ .proof = std::move(prove_response.proof), .vk = derived_vk.bytes }.execute();
         EXPECT_TRUE(verify_response.valid) << "ChonkVerify rejected " << flow_dir.filename();
     }
 };

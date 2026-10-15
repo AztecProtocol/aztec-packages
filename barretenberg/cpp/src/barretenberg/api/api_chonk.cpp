@@ -4,8 +4,6 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/chonk_verifier.hpp"
-#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -68,7 +66,8 @@ void ChonkAPI::prove(const Flags& flags,
     BB_BENCH_NAME("ChonkAPI::prove");
     bbapi::BBApiRequest request;
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
-    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
+    // Steps stay compressed until accumulated, so only one decompressed step is resident at a time.
+    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load(input_path);
 
     std::vector<CircuitKind> kinds;
     kinds.reserve(raw_steps.size());
@@ -77,48 +76,38 @@ void ChonkAPI::prove(const Flags& flags,
     }
     bbapi::ChonkStart{ .kinds = std::move(kinds) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
-    for (size_t i = 0; i < raw_steps.size(); ++i) {
-        const auto& step = raw_steps[i];
+
+    for (auto& step : raw_steps) {
+        step.self_decompress();
         bbapi::ChonkLoad{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+            .circuit = { .name = step.function_name,
+                         .bytecode = std::move(step.bytecode),
+                         .verification_key = std::move(step.vk) },
             .kind = step.kind,
         }
             .execute(request);
 
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         info("Chonk: accumulating " + step.function_name);
-        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
+        bbapi::ChonkAccumulate{ .witness = std::move(step.witness) }.execute(request);
     }
 
     auto proof = bbapi::ChonkProve{}.execute(request).proof;
 
     const bool output_to_stdout = output_dir == "-";
 
-    const auto write_proof = [&]() {
-        const auto proof_fields = proof.to_field_elements();
-        if (output_to_stdout) {
-            vinfo("writing Chonk proof to stdout");
-            write_bytes_to_stdout(to_buffer(proof_fields));
-        } else if (flags.output_format == "json") {
-            vinfo("writing Chonk proof (JSON) in directory ", output_dir);
-            // Note: Chonk proof doesn't have a vk_hash, so we pass an empty string
-            std::string json_content = ProofJson::build(proof_fields, "", flags.scheme);
-            write_file(output_dir / "proof.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
-            info("Proof (JSON) saved to ", output_dir / "proof.json");
-        } else {
-            vinfo("writing Chonk proof in directory ", output_dir);
-            write_file(output_dir / "proof", to_buffer(proof_fields));
-        }
-    };
-
-    write_proof();
-
-    if (flags.write_vk) {
-        vinfo("writing Chonk vk in directory ", output_dir);
-        // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
-        Flags hiding_flags = flags;
-        hiding_flags.circuit_kind = "hiding";
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
+    const auto proof_fields = proof.to_field_elements();
+    if (output_to_stdout) {
+        vinfo("writing Chonk proof to stdout");
+        write_bytes_to_stdout(to_buffer(proof_fields));
+    } else if (flags.output_format == "json") {
+        vinfo("writing Chonk proof (JSON) in directory ", output_dir);
+        // Note: Chonk proof doesn't have a vk_hash, so we pass an empty string
+        std::string json_content = ProofJson::build(proof_fields, "", flags.scheme);
+        write_file(output_dir / "proof.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+        info("Proof (JSON) saved to ", output_dir / "proof.json");
+    } else {
+        vinfo("writing Chonk proof in directory ", output_dir);
+        write_file(output_dir / "proof", to_buffer(proof_fields));
     }
 }
 
@@ -192,22 +181,6 @@ void ChonkAPI::proof_stats(const std::filesystem::path& proof_path, const std::f
     }
 }
 
-// WORKTODO(bbapi) remove this
-bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
-{
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-
-    std::shared_ptr<Chonk> ivc = steps.accumulate();
-    // Construct the hiding kernel as the final step of the IVC
-
-    auto proof = ivc->prove();
-    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
-    ChonkNativeVerifier verifier(vk_and_hash);
-    const bool verified = verifier.verify(proof);
-    return verified;
-}
-
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ChonkAPI::gates");
@@ -225,7 +198,6 @@ void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
 bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
     BB_BENCH_NAME("ChonkAPI::check_precomputed_vks");
-    bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::VkPolicy vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
