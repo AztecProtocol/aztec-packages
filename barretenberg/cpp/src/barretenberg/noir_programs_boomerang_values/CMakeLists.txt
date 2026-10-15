@@ -1,0 +1,1 @@
+barretenberg_module(noir_programs_boomerang_values boomerang_value_detection dsl vm2_stub)
