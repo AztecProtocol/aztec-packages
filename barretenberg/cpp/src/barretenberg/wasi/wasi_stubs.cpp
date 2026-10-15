@@ -170,7 +170,8 @@ int32_t __imported_wasi_snapshot_preview1_fd_renumber(int32_t, int32_t)
 
 int32_t __imported_wasi_snapshot_preview1_fd_tell(int32_t, uint64_t*)
 {
-    info("fd_tell stubbed.");
+    info("fd_tell not implemented.");
+    abort();
     return 0;
 }
 
@@ -205,6 +206,8 @@ int32_t __imported_wasi_snapshot_preview1_fd_prestat_dir_name(int32_t, int32_t, 
 
 int32_t __imported_wasi_snapshot_preview1_path_filestat_get(int32_t, int32_t, int32_t, int32_t, int32_t)
 {
+    info("path_filestat_get not implemented.");
+    abort();
     return 0;
 }
 
