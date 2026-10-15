@@ -3,12 +3,12 @@
 //! Tests for ECDSA secp256k1 signatures.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, generated_types::Secp256k1Point, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, generated::bb_types::Secp256k1Point, BbApi};
 
 #[test]
 fn test_ecdsa_compute_public_key() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // A valid secp256k1 private key (32 bytes)
     let private_key: [u8; 32] = [
@@ -18,14 +18,14 @@ fn test_ecdsa_compute_public_key() {
     ];
 
     let response = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(private_key.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Should return a valid public key point
     assert_eq!(response.public_key.x.len(), 32);
     assert_eq!(response.public_key.y.len(), 32);
     // Should not be all zeros
-    assert_ne!(response.public_key.x, vec![0u8; 32]);
+    assert_ne!(response.public_key.x, [0u8; 32]);
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -33,7 +33,7 @@ fn test_ecdsa_compute_public_key() {
 #[test]
 fn test_ecdsa_compute_public_key_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let private_key: [u8; 32] = [
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde,
@@ -42,10 +42,10 @@ fn test_ecdsa_compute_public_key_deterministic() {
     ];
 
     let response1 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(private_key.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let response2 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(private_key.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Same private key should produce same public key
@@ -58,7 +58,7 @@ fn test_ecdsa_compute_public_key_deterministic() {
 #[test]
 fn test_ecdsa_different_private_keys() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let private_key1: [u8; 32] = [
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -72,10 +72,10 @@ fn test_ecdsa_different_private_keys() {
     ];
 
     let response1 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key1)
+        .ecdsa_secp256k1_compute_public_key(private_key1.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let response2 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key2)
+        .ecdsa_secp256k1_compute_public_key(private_key2.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Different private keys should produce different public keys
@@ -90,7 +90,7 @@ fn test_ecdsa_different_private_keys() {
 #[test]
 fn test_ecdsa_sign_and_verify() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Private key
     let private_key: [u8; 32] = [
@@ -101,7 +101,7 @@ fn test_ecdsa_sign_and_verify() {
 
     // Compute public key
     let pub_key_response = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(private_key.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let public_key = Secp256k1Point {
         x: pub_key_response.public_key.x.clone(),
@@ -117,7 +117,7 @@ fn test_ecdsa_sign_and_verify() {
 
     // Sign
     let sign_response = api
-        .ecdsa_secp256k1_construct_signature(&message_hash, &private_key)
+        .ecdsa_secp256k1_construct_signature(&message_hash, private_key.into())
         .expect("ecdsa_secp256k1_construct_signature failed");
 
     // Signature should have r, s, and v components
@@ -126,7 +126,7 @@ fn test_ecdsa_sign_and_verify() {
 
     // Verify
     let verify_response = api
-        .ecdsa_secp256k1_verify_signature(&message_hash, public_key, &sign_response.r, &sign_response.s, sign_response.v)
+        .ecdsa_secp256k1_verify_signature(&message_hash, public_key, sign_response.r, sign_response.s, sign_response.v)
         .expect("ecdsa_secp256k1_verify_signature failed");
 
     assert!(verify_response.verified, "Signature should be valid");
@@ -137,7 +137,7 @@ fn test_ecdsa_sign_and_verify() {
 #[test]
 fn test_ecdsa_verify_wrong_message() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let private_key: [u8; 32] = [
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -146,7 +146,7 @@ fn test_ecdsa_verify_wrong_message() {
     ];
 
     let pub_key_response = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(private_key.into())
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let public_key = Secp256k1Point {
         x: pub_key_response.public_key.x.clone(),
@@ -158,12 +158,12 @@ fn test_ecdsa_verify_wrong_message() {
 
     // Sign with message_hash1
     let sign_response = api
-        .ecdsa_secp256k1_construct_signature(&message_hash1, &private_key)
+        .ecdsa_secp256k1_construct_signature(&message_hash1, private_key.into())
         .expect("ecdsa_secp256k1_construct_signature failed");
 
     // Verify with message_hash2 - should fail
     let verify_response = api
-        .ecdsa_secp256k1_verify_signature(&message_hash2, public_key, &sign_response.r, &sign_response.s, sign_response.v)
+        .ecdsa_secp256k1_verify_signature(&message_hash2, public_key, sign_response.r, sign_response.s, sign_response.v)
         .expect("ecdsa_secp256k1_verify_signature failed");
 
     assert!(!verify_response.verified, "Signature should be invalid for wrong message");

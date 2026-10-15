@@ -16,7 +16,7 @@ interface RawStep {
 const TEST_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_WASM_FLOW_LIMIT = 1;
 function findRepoRoot(): string {
-  return process.env.AZTEC_REPO_ROOT ?? resolve(process.cwd(), '../..');
+  return process.env.AZTEC_REPO_ROOT ?? resolve(process.cwd(), '../../..');
 }
 
 function ensurePinnedInputsRoot(): string {

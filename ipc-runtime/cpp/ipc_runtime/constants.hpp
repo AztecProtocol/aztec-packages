@@ -14,12 +14,14 @@
 namespace ipc {
 
 /**
- * Maximum length-prefix value accepted on receive, across all transports and
- * languages. A frame claiming more than this is treated as corruption: the
- * connection is closed (sockets) or the ring is declared corrupt (SHM),
- * instead of allocating/awaiting the claimed size.
+ * Largest frame the wire format can express: the length prefix is a u32 and
+ * counts the request id plus the payload, so a payload can be at most
+ * MAX_FRAME_SIZE - FRAME_ID_SIZE bytes. The stream transports impose nothing
+ * smaller; they grow their receive buffers as bytes arrive (stream_io.hpp), so
+ * a corrupt prefix cannot force a large allocation. SHM is bounded separately by
+ * its ring capacity.
  */
-inline constexpr uint32_t MAX_FRAME_SIZE = 256U * 1024 * 1024; // 256 MiB
+inline constexpr uint32_t MAX_FRAME_SIZE = UINT32_MAX;
 
 /**
  * Every frame carries a client-assigned request id (little-endian u64) between

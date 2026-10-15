@@ -5,7 +5,9 @@
 //! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
+use barretenberg_rs::Fr;
+#[cfg(test)]
+use crate::utils::spawn_bb;
 #[cfg(test)]
 use crate::utils::{get_bb_binary_path, random_fr, Timer};
 #[cfg(test)]
@@ -16,13 +18,11 @@ fn test_poseidon2_hash() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
+        Fr::from_u64(4),
+        Fr::from_u64(8),
     ];
 
     let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
@@ -40,14 +40,12 @@ fn test_poseidon2_hash_perf() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);
     for _ in 0..loops * 2 {
-        fields.push(random_fr().to_buffer());
+        fields.push(random_fr());
     }
 
     let timer = Timer::new();

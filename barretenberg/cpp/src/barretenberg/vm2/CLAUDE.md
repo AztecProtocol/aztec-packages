@@ -58,8 +58,8 @@ Configure once: `cmake --preset clang20-assert`. All commands below are from `ba
    - Binary: `barretenberg/cpp/build/bin/bb-avm`.
 2. **`vm2_tests`** — AVM unit tests.
    - Build: `cmake --build --preset clang20-assert --target vm2_tests`. Run from `barretenberg/cpp/build`: `./bin/vm2_tests --gtest_filter="*test_name*"`.
-3. **`nodejs_module`** — Fast simulation only; builds quickly.
-   - Build: `cmake --build --preset clang20-assert --target nodejs_module`. For TS: from `barretenberg/cpp/`, run `(cd ../../barretenberg/ts/; ./bootstrap.sh build_bb_js)` then bootstrap `yarn-project` (see yarn-project/CLAUDE.md).
+3. **`bb-avm-sim`** — Simulation-only IPC server that TS drives.
+   - Build: `cmake --build --preset clang20-assert --target bb-avm-sim`. For TS: from `barretenberg/cpp/`, run `(cd ../ts && ./bootstrap.sh build_bb_avm_sim)` then bootstrap `yarn-project` (see yarn-project/CLAUDE.md).
 
 ## AVM and TypeScript
 

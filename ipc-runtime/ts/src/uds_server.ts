@@ -1,6 +1,6 @@
 import * as net from "node:net";
 import * as fs from "node:fs";
-import { MAX_FRAME_SIZE } from "./types.js";
+import { FrameReader } from "./frame_reader.js";
 
 /**
  * Handler signature mirrors the C++ ipc::IpcServer::Handler: receive raw
@@ -101,26 +101,14 @@ export class UdsIpcServer {
     const clientId = this.nextClientId++;
     this.connections.add(conn);
     conn.on("close", () => this.connections.delete(conn));
-    let buffer = Buffer.alloc(0);
+    const frames = new FrameReader();
     let chain: Promise<void> = Promise.resolve();
 
     conn.on("data", (chunk: Buffer) => {
-      buffer =
-        buffer.length === 0
-          ? Buffer.from(chunk)
-          : Buffer.concat([buffer, chunk]);
-      while (buffer.length >= 4) {
-        const len = buffer.readUInt32LE(0);
-        if (len > MAX_FRAME_SIZE) {
-          // Corrupt/malicious frame — drop the connection instead of
-          // buffering up to the claimed size.
-          conn.destroy(
-            new Error(
-              `UdsIpcServer: oversized frame (${len} bytes exceeds MAX_FRAME_SIZE)`,
-            ),
-          );
-          return;
-        }
+      frames.push(chunk);
+      for (;;) {
+        const len = frames.peekLength();
+        if (len === undefined) break;
         if (len < 8) {
           // Shorter than the request-id field: the peer speaks the id-less
           // protocol. Drop the connection with a clear reason.
@@ -132,12 +120,12 @@ export class UdsIpcServer {
           );
           return;
         }
-        if (buffer.length < 4 + len) break;
-        const requestId = buffer.readBigUInt64LE(4);
+        const frame = frames.next();
+        if (frame === undefined) break;
+        const requestId = frame.readBigUInt64LE(4);
         // Copy into a standalone Buffer (not a subarray view, and not a plain Uint8Array): handlers
         // decode with msgpackr, which relies on Buffer semantics for correct string/binary decoding.
-        const payload = Buffer.from(buffer.subarray(12, 4 + len));
-        buffer = buffer.subarray(4 + len);
+        const payload = Buffer.from(frame.subarray(12));
 
         const prev = chain;
         chain = (async () => {

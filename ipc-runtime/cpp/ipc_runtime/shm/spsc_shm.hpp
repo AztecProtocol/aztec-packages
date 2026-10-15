@@ -29,11 +29,13 @@ struct alignas(SPSC_CACHELINE) SpscCtrl {
     // Producer-owned (written by producer, read by consumer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> head; // bytes written
     uint64_t wrap_head; // Head value when last message wrapped (UINT64_MAX = no wrap), synchronized by head
-    std::array<char, SPSC_CACHELINE - sizeof(head) - sizeof(wrap_head)> _pad0;
+    std::atomic<bool> producer_blocked; // Written by producer in wait_for_space()
+    std::array<char, SPSC_CACHELINE - sizeof(head) - sizeof(wrap_head) - sizeof(producer_blocked)> _pad0;
 
     // Consumer-owned (written by consumer, read by producer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> tail; // bytes consumed
-    std::array<char, SPSC_CACHELINE - sizeof(tail)> _pad1;
+    std::atomic<bool> consumer_blocked;                 // Written by consumer in wait_for_data()
+    std::array<char, SPSC_CACHELINE - sizeof(tail) - sizeof(consumer_blocked)> _pad1;
 
     // Immutable capacity information
     alignas(SPSC_CACHELINE) uint64_t capacity; // power of two

@@ -15,10 +15,9 @@ The benchmark is a jest test, `yarn-project/bb-prover/src/avm_proving_tests/avm_
 The bulk test drives a real public-tx flow: it **simulates** the `AvmTest` contract against a live **world-state DB**, then **proves** with `bb-avm`. Since the world-state runs as a separate **IPC process** (`aztec-wsdb`) reached through two top-level components, `wsdb/` and `ipc-runtime/`, that are `portal:`-linked into yarn-project. A plain `./bootstrap.sh build yarn-project` does **not** wire these up (it serves cached artifacts), and the pinned `AvmTest` artifact and several `dest/` trees might go stale. The archaeology to discover all this is what turns a "quick bench" into hours; the recipe below is the distilled fast path. Run it from the repo root:
 
 ```bash
-# 1. C++ binaries: AVM prover + native addon (@aztec/native) + IPC world-state DB
+# 1. C++ binaries: AVM prover + IPC world-state DB
 (cd barretenberg/cpp && cmake --preset default -DAVM=ON \
-  && cmake --build build --target bb-avm aztec-wsdb nodejs_module)
-(cd barretenberg/ts && BUILD_CPP=0 ./scripts/copy_native.sh)   # place nodejs_module.node where findNapiBinary() looks
+  && cmake --build build --target bb-avm aztec-wsdb)
 
 # 2. IPC world-state stack (portal deps; NOT set up by a yarn-project build).
 #    wsdb/bootstrap.sh copies the aztec-wsdb binary built in step 1 into wsdb/ts/build/<arch>/.
@@ -46,7 +45,6 @@ Fast triage when the bulk test fails during setup:
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TypeError: NativeWorldState is not a constructor` (or `BaseNativeWorldState`), thrown from `world-state/dest/native/native_world_state_instance.js` | Stale `world-state`/`@aztec/native` `dest/` — merge-train changed the native world-state API (`@aztec/native` no longer exports `NativeWorldState`) but the compiled JS is pre-merge | `yarn build` (step 4) to recompile `dest/`. A cached `./bootstrap.sh build yarn-project` will **not** fix this — it restores the stale build. |
 | `Cannot find module '@aztec-labs/wsdb'` / `'@aztec-foundation/ipc-runtime'`                                                                                          | The portal deps aren't installed                                                                                                                                                     | steps 2 + `yarn install` (step 4)                                                                                                             |
-| `NAPI binary not found for current platform`                                                                                                         | `nodejs_module.node` not where `findNapiBinary()` looks                                                                                                                              | `(cd barretenberg/ts && BUILD_CPP=0 ./scripts/copy_native.sh)`                                                                                |
 | Test **reverts**: `expect(result.revertCode.isOK()).toBe(true)` fails, log shows `Reverted code: Reverted` and `Total instructions executed: 0`      | Stale `AvmTest` artifact — pre-merge bytecode embeds old constants/gas vs the rebuilt bb-avm/simulator, so the call reverts at dispatch                                              | step 3 (recompile `avm_test_contract`) + `yarn workspace @aztec/noir-test-contracts.js generate` + `yarn build`                               |
 
 Note: `Total instructions executed: 0` prints even on a **healthy** passing run — that counter is a cosmetic metrics quirk, not a signal. The real health check is `revertCode` (OK vs Reverted) and a non-trivial `Proving (all)` time (a real bulk trace proves in ~4–5s; a truly empty one would be near-instant).

@@ -5,7 +5,9 @@
 //! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
+use barretenberg_rs::Fr;
+#[cfg(test)]
+use crate::utils::spawn_bb;
 #[cfg(test)]
 use crate::utils::{get_bb_binary_path, random_fr, Timer};
 #[cfg(test)]
@@ -16,13 +18,11 @@ fn test_pedersen_hash() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer().try_into().unwrap(),
-        Fr::from_u64(8).to_buffer().try_into().unwrap(),
+        Fr::from_u64(4),
+        Fr::from_u64(8),
     ];
 
     let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
@@ -39,14 +39,12 @@ fn test_pedersen_commit() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer().try_into().unwrap(),
-        Fr::from_u64(8).to_buffer().try_into().unwrap(),
-        Fr::from_u64(12).to_buffer().try_into().unwrap(),
+        Fr::from_u64(4),
+        Fr::from_u64(8),
+        Fr::from_u64(12),
     ];
 
     let response = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
@@ -67,9 +65,7 @@ fn test_pedersen_hash_perf() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);
@@ -80,8 +76,8 @@ fn test_pedersen_hash_perf() {
     let timer = Timer::new();
     for i in 0..loops {
         let inputs = vec![
-            fields[i * 2].to_buffer().try_into().unwrap(),
-            fields[i * 2 + 1].to_buffer().try_into().unwrap(),
+            fields[i * 2].clone(),
+            fields[i * 2 + 1].clone(),
         ];
         let _ = api.pedersen_hash(inputs, 0).expect("PedersenHash failed");
     }
@@ -98,9 +94,7 @@ fn test_pedersen_commit_perf() {
     require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = spawn_bb(&bb_path);
 
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);
@@ -111,8 +105,8 @@ fn test_pedersen_commit_perf() {
     let timer = Timer::new();
     for i in 0..loops {
         let inputs = vec![
-            fields[i * 2].to_buffer().try_into().unwrap(),
-            fields[i * 2 + 1].to_buffer().try_into().unwrap(),
+            fields[i * 2].clone(),
+            fields[i * 2 + 1].clone(),
         ];
         let _ = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
     }

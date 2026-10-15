@@ -271,19 +271,21 @@ The consumer's `peek()` automatically skips padding, so callers never see it.
 Instead of busy-waiting forever:
 1. **Producer**: Spins briefly checking for space, then sleeps on the `tail` futex (armed against the current tail value)
 2. **Consumer**: Spins briefly checking for data, then sleeps on the `head` futex (armed against the current head value)
-3. **Wakeup**: The other side calls `futex_wake` unconditionally after publishing/releasing. `futex_wait` re-checks the armed value atomically under the futex bucket lock, so a publish/release that races the sleep returns `EAGAIN` instead of sleeping.
+3. **Wakeup**: Before sleeping, the waiter sets `consumer_blocked`/`producer_blocked` and re-checks the ring; it clears the flag when it wakes. The other side calls `futex_wake` after publishing/releasing only while that flag is set, so a busy channel makes no syscalls at all. Each side stores (data index or flag) and then loads the other's, so both put a `seq_cst` fence between the two: release/acquire alone lets the load run ahead of the store, and both sides could then miss each other. `futex_wait` re-checks the armed value atomically under the futex bucket lock, so a publish/release that races the sleep returns `EAGAIN` instead of sleeping.
 
 This provides:
-- Low latency when active (spin catches transitions)
+- Low latency when active (spin catches transitions, and no wake syscalls)
 - Low power when idle (futex sleep)
 - No thundering herd (one waker, one sleeper)
 
-> The wake is intentionally unconditional — do **not** gate it on a
-> `consumer_blocked`/`producer_blocked` flag to skip the syscall when no one is
-> waiting. That would be a cross-process Dekker handshake between the flag and
-> the head/tail word, which races and can drop the wake, stranding a waiter on
-> already-published data. A `futex_wake` with no waiter is a cheap no-op, so the
-> unconditional wake costs effectively nothing on the idle-consumer path.
+> The conditional wake relies on nothing overwriting a waiter's flag. Segments
+> are mappable from `ftruncate` on, before `create()` has initialised them, so a
+> client that attached then could set its flag and have the creator's
+> initialisation reset it, after which the matching publish skips the wake and
+> the client sleeps on published data forever. `connect()` therefore refuses a
+> segment until it is fully initialised: `create()` writes `capacity` (rings) and
+> `num_slots` (doorbell) last, with release ordering, and a zero value means "not
+> ready, retry".
 
 ### MPSC Doorbell
 
@@ -299,7 +301,7 @@ struct alignas(64) MpscDoorbell {
 
 **Protocol:**
 1. Producer publishes data to its SPSC ring
-2. Producer increments the doorbell seq and calls `futex_wake` unconditionally
+2. Producer increments the doorbell seq, and calls `futex_wake` if the consumer is blocked on it
 3. Consumer wakes up, polls all rings in round-robin
 4. Consumer sleeps on the doorbell seq only when all rings are empty
 

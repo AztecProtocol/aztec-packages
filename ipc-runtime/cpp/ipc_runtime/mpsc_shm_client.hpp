@@ -6,6 +6,7 @@
 #include "shm/spsc_shm.hpp"
 #include "shm_common.hpp"
 #include <cassert>
+#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -86,6 +87,13 @@ class MpscShmClient : public IpcClient {
     bool send(uint64_t request_id, const void* data, size_t len, uint64_t timeout_ns) override
     {
         if (!producer_.has_value()) {
+            return false;
+        }
+
+        // A frame over half the ring can never be claimed, however long we wait;
+        // the server rejects the same bound on receive.
+        if (FRAME_ID_SIZE + len > producer_->capacity() / 2 - sizeof(uint32_t)) {
+            errno = EMSGSIZE;
             return false;
         }
 

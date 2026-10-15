@@ -128,38 +128,3 @@ export function findBbBinary(customPath?: string): string | null {
 
   return null;
 }
-
-export function findNapiBinary(customPath?: string): string | null {
-  // Check custom path first if provided
-  if (customPath) {
-    if (fs.existsSync(customPath)) {
-      return path.resolve(customPath);
-    }
-    // Custom path provided but doesn't exist - return null
-    return null;
-  }
-
-  // Automatic detection
-  const platform = detectPlatform();
-  if (!platform) {
-    return null;
-  }
-
-  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
-
-  // Get package root by climbing directory tree to find package.json
-  const packageRoot = findPackageRoot();
-
-  if (!packageRoot) {
-    return null;
-  }
-
-  // Check in build/<platform>/nodejs_module.node
-  const bbPath = path.join(packageRoot, 'build', buildDir, 'nodejs_module.node');
-
-  if (fs.existsSync(bbPath)) {
-    return bbPath;
-  }
-
-  return null;
-}

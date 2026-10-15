@@ -7,6 +7,13 @@ export interface IpcClientAsync {
   destroy(): Promise<void>;
 }
 
+/**
+ * Rewrites a failed call's error before the caller sees it, e.g. to blame a
+ * dead server process instead of the broken transport. Clients apply it on
+ * the rejection path only, so successful calls pay nothing for it.
+ */
+export type IpcErrorMapper = (err: unknown) => Promise<unknown>;
+
 export interface IpcClientSync {
   call(input: Uint8Array): Uint8Array;
   destroy(): void;
@@ -16,11 +23,12 @@ export interface IpcClientSync {
 // keep the two in sync.
 
 /**
- * Maximum length-prefix value accepted on receive. A frame claiming more
- * than this is treated as corruption and the connection is closed instead
- * of buffering the claimed size.
+ * Largest frame the wire format can express: the u32 length prefix counts the
+ * request id plus the payload, so a payload can be at most MAX_FRAME_SIZE - 8
+ * bytes. Stream receivers buffer only what has arrived, so nothing smaller is
+ * imposed; SHM is bounded separately by its ring capacity.
  */
-export const MAX_FRAME_SIZE = 256 * 1024 * 1024; // 256 MiB
+export const MAX_FRAME_SIZE = 0xffffffff;
 
 /**
  * Total budget (ms) for connect() retry loops, covering the window where

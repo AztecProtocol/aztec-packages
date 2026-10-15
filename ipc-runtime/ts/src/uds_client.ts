@@ -1,18 +1,20 @@
 import * as net from "node:net";
-import { IpcTransportError } from "./errors.js";
+import { IpcError, IpcTransportError } from "./errors.js";
+import { FrameReader } from "./frame_reader.js";
+import { PendingQueue } from "./pending_queue.js";
 import {
   IpcClientAsync,
+  IpcErrorMapper,
   CONNECT_RETRY_BUDGET_MS,
   MAX_FRAME_SIZE,
 } from "./types.js";
 
-interface PendingCall {
-  resolve: (resp: Uint8Array) => void;
-  reject: (err: Error) => void;
-}
-
 export interface UdsIpcClientConnectOptions {
-  /** Mark the socket as unref'd so it doesn't keep the Node event loop alive when idle. */
+  /**
+   * Unref the socket while idle so it doesn't keep the Node event loop
+   * alive; it is re-ref'd while calls are in flight so a response can never
+   * be lost to an early process exit.
+   */
   unref?: boolean;
   /**
    * Retry budget (ms) for the initial connect when the server has bound the
@@ -20,6 +22,15 @@ export interface UdsIpcClientConnectOptions {
    * ECONNREFUSED. Default CONNECT_RETRY_BUDGET_MS (5000).
    */
   connectTimeoutMs?: number;
+  /**
+   * Abandons the connect. Callers that race the connect against something
+   * else (a spawned server dying, say) must abort the loser: otherwise it
+   * keeps retrying on a timer until its budget expires, holding the event
+   * loop open long after the caller gave up.
+   */
+  signal?: AbortSignal;
+  /** Applied to every rejected call's error. */
+  mapError?: IpcErrorMapper;
 }
 
 /**
@@ -30,19 +41,20 @@ export interface UdsIpcClientConnectOptions {
  *
  * Supports pipelining: each call carries a unique request id which the
  * server echoes on the response, so responses are paired to callers by id
- * and the server may complete requests in any order. Ids start at a random
- * point per connection.
+ * and the server may complete requests in any order (see PendingQueue).
  */
 export class UdsIpcClient implements IpcClientAsync {
-  private buffer: Buffer = Buffer.alloc(0);
-  private pending = new Map<bigint, PendingCall>();
-  private nextRequestId =
-    (BigInt(Math.floor(Math.random() * 0xffffffff)) << 16n) + 1n;
+  private frames = new FrameReader();
+  private readonly pending = new PendingQueue();
   private destroyed = false;
   /** Set once the socket has errored/closed; new calls fail fast. */
   private closed = false;
 
-  private constructor(private conn: net.Socket) {
+  private constructor(
+    private conn: net.Socket,
+    private readonly idleUnref: boolean,
+    private readonly mapError?: IpcErrorMapper,
+  ) {
     conn.on("data", (chunk) => this.onData(chunk));
     conn.on("error", (err) =>
       this.failAll(
@@ -63,15 +75,16 @@ export class UdsIpcClient implements IpcClientAsync {
     const conn = await connectWithRetry(
       socketPath,
       opts?.connectTimeoutMs ?? CONNECT_RETRY_BUDGET_MS,
+      opts?.signal,
     );
     conn.setNoDelay(true);
     if (opts?.unref) conn.unref();
-    return new UdsIpcClient(conn);
+    return new UdsIpcClient(conn, opts?.unref ?? false, opts?.mapError);
   }
 
   /** Number of in-flight calls awaiting a response. */
   get inflight(): number {
-    return this.pending.size;
+    return this.pending.length;
   }
 
   /** Underlying socket — exposed for ref/unref control (event-loop tuning). */
@@ -81,19 +94,35 @@ export class UdsIpcClient implements IpcClientAsync {
 
   async call(input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
-      throw new IpcTransportError("UdsIpcClient: call() after destroy()");
+      throw await this.mapped(
+        new IpcTransportError("UdsIpcClient: call() after destroy()"),
+      );
     }
     if (this.closed) {
-      throw new IpcTransportError(
-        "UdsIpcClient: call() on a closed/errored socket",
+      throw await this.mapped(
+        new IpcTransportError(
+          "UdsIpcClient: call() on a closed/errored socket",
+        ),
+      );
+    }
+    // The u32 length prefix cannot describe a larger frame. This is the
+    // caller's error and the connection is still healthy, so it is not a
+    // transport error (which would retire the server) and is not mapped.
+    if (input.length + 8 > MAX_FRAME_SIZE) {
+      throw new IpcError(
+        `UdsIpcClient: request of ${input.length} bytes exceeds the ${MAX_FRAME_SIZE}-byte frame limit`,
+        /*retry=*/ false,
       );
     }
     return new Promise<Uint8Array>((resolve, reject) => {
-      const requestId = this.nextRequestId++;
-      this.pending.set(requestId, { resolve, reject });
+      if (this.idleUnref && this.pending.length === 0) {
+        this.conn.ref();
+      }
+      const requestId = this.pending.push(resolve, reject);
       const header = Buffer.allocUnsafe(12);
       header.writeUInt32LE(input.length + 8, 0); // length counts id + payload
-      header.writeBigUInt64LE(requestId, 4);
+      header.writeUInt32LE(requestId, 4); // u64 id; live ids fit in the low word
+      header.writeUInt32LE(0, 8);
       this.conn.write(header);
       this.conn.write(input);
     });
@@ -107,23 +136,10 @@ export class UdsIpcClient implements IpcClientAsync {
   }
 
   private onData(chunk: Buffer): void {
-    this.buffer =
-      this.buffer.length === 0
-        ? Buffer.from(chunk)
-        : Buffer.concat([this.buffer, chunk]);
-    while (this.buffer.length >= 4) {
-      const len = this.buffer.readUInt32LE(0);
-      if (len > MAX_FRAME_SIZE) {
-        // Corrupt/malicious frame — close instead of buffering up to the
-        // claimed size.
-        this.conn.destroy();
-        this.failAll(
-          new IpcTransportError(
-            `UdsIpcClient: oversized frame (${len} bytes exceeds MAX_FRAME_SIZE)`,
-          ),
-        );
-        return;
-      }
+    this.frames.push(chunk);
+    for (;;) {
+      const len = this.frames.peekLength();
+      if (len === undefined) return;
       if (len < 8) {
         // Shorter than the request-id field: the server speaks the id-less
         // protocol. Fail loudly instead of misparsing.
@@ -136,13 +152,17 @@ export class UdsIpcClient implements IpcClientAsync {
         );
         return;
       }
-      if (this.buffer.length < 4 + len) return;
-      const requestId = this.buffer.readBigUInt64LE(4);
-      const payload = this.buffer.subarray(12, 4 + len);
-      this.buffer = this.buffer.subarray(4 + len);
-      const next = this.pending.get(requestId);
+      const frame = this.frames.next();
+      if (frame === undefined) return;
+      // Live ids are below 2^30, so a nonzero high word can't match a call.
+      const requestId =
+        frame.readUInt32LE(8) === 0 ? frame.readUInt32LE(4) : -1;
+      const payload = frame.subarray(12);
+      const next = this.pending.take(requestId);
       if (next) {
-        this.pending.delete(requestId);
+        if (this.idleUnref && this.pending.length === 0) {
+          this.conn.unref();
+        }
         next.resolve(new Uint8Array(payload));
       } else {
         // A response that pairs with no pending call means the stream's
@@ -161,9 +181,17 @@ export class UdsIpcClient implements IpcClientAsync {
 
   private failAll(err: Error): void {
     this.closed = true;
-    const pending = [...this.pending.values()];
-    this.pending.clear();
-    for (const p of pending) p.reject(err);
+    for (const p of this.pending.drain()) {
+      if (this.mapError) {
+        this.mapError(err).then(p.reject, p.reject);
+      } else {
+        p.reject(err);
+      }
+    }
+  }
+
+  private async mapped(err: unknown): Promise<unknown> {
+    return this.mapError ? await this.mapError(err) : err;
   }
 }
 
@@ -180,11 +208,15 @@ export class UdsIpcClient implements IpcClientAsync {
 async function connectWithRetry(
   socketPath: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<net.Socket> {
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
   let lastErr: Error | undefined;
   while (true) {
+    if (signal?.aborted) {
+      throw new IpcTransportError("UdsIpcClient: connect aborted");
+    }
     try {
       const remainingMs = Math.max(1, deadline - Date.now());
       return await attemptConnect(socketPath, remainingMs);
@@ -210,7 +242,7 @@ async function connectWithRetry(
         );
       }
       const delay = Math.min(50, 5 * 2 ** attempt++);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await sleep(delay, signal);
     }
   }
 }
@@ -246,5 +278,20 @@ function attemptConnect(
     }, timeoutMs);
     conn.once("connect", onConnect);
     conn.once("error", onError);
+  });
+}
+
+/** Wait `ms`, returning early (and clearing the timer) if `signal` aborts. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }

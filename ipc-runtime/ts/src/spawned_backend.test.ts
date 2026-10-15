@@ -223,3 +223,54 @@ test("destroy during a pending respawn does not leak the fresh process", async (
     );
   }
 });
+
+// Hangs up on every connection's first request but keeps serving: its client
+// is disconnected, its process is not. Writes its pid to the path in argv[3].
+const HANGUP_SERVER = join(scratch, "hangup_server.cjs");
+writeFileSync(
+  HANGUP_SERVER,
+  `
+require('node:fs').writeFileSync(process.argv[3], String(process.pid));
+require('node:net')
+  .createServer(conn => conn.on('data', () => conn.destroy()))
+  .listen(process.argv[2]);
+`,
+);
+
+test("a broken connection to a live server kills it, and respawn replaces it", async () => {
+  const pidFile = join(scratch, "hangup.pid");
+  const backend = await SpawnedProcessBackend.spawn({
+    binaryPath: process.execPath,
+    binaryName: "hangup_server",
+    instancePrefix: "hangup-test",
+    ipcPathArgs: [HANGUP_SERVER, "{path}", pidFile],
+    transport: "uds",
+    respawn: true,
+  });
+  const { readFileSync } = await import("node:fs");
+  const firstPid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
+  try {
+    const err = await backend.call(Uint8Array.from([1])).then(
+      () => undefined,
+      (e: Error) => e,
+    );
+    assert.equal((err as { retry?: boolean } | undefined)?.retry, true);
+    assert.equal(
+      processAlive(firstPid),
+      false,
+      "the stranded server was killed",
+    );
+
+    // The next call gets a fresh process rather than the dead connection.
+    await assert.rejects(backend.call(Uint8Array.from([2])));
+    const secondPid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
+    assert.notEqual(secondPid, firstPid);
+    await backend.destroy();
+    assert.equal(processAlive(secondPid), false);
+  } finally {
+    await backend.destroy();
+    if (processAlive(firstPid)) {
+      process.kill(firstPid, "SIGKILL");
+    }
+  }
+});

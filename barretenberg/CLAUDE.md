@@ -69,7 +69,7 @@ Bootstrap modes:
 - `./bootstrap.sh` => generate TypeScript bindings and build. See package.json for more fine-grained commands.
   Other commands:
 - `yarn build:esm` => the quickest way to rebuild, if only changes inside ts/ folder, and only testing yarn-project.
-- `BUILD_CPP=1 scripts/copy_native.sh` => Ensures required cpp code is build (bb and nodejs_module) and copies into expected location.
+- `BUILD_CPP=1 bb.js/scripts/copy_native.sh` => Builds the native bb binary and copies it to where bb.js expects it.
 
 ## Integration testing
 
