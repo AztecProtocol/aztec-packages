@@ -16,7 +16,8 @@ job is to get a run, invoke the script, then filter the output with judgement.
 Each CI benchmark run uploads a single `bench-out/bench.json` (a flat array of `{name, unit, value}`,
 `customSmallerIsBetter` — higher = worse) to the build-cache, keyed by the commit's **git tree hash**
 (`bench-<treehash>.tar.gz`, ~40 KB). A PR only produces one on an *uploadable* run: labels
-`ci-full-no-test-cache`, `ci-full`, or a merge-queue run. `ci3/bench_compare` pulls these per-run
+`ci-full-no-test-cache`, `ci-full`, or a merge-queue run (dashboard: `bench/prs`, except merge-queue
+runs into `next`, which go to `bench/next`). `ci3/bench_compare` pulls these per-run
 blobs — never the multi-MB per-branch `data.js` graph history.
 
 ## Steps
@@ -38,7 +39,7 @@ A PR onto `v5-next` or a `merge-train/*` branch compared against `next` would re
 branch-vs-branch perf delta as bogus regressions. Get it from the PR itself:
 
 ```bash
-gh pr view <pr-or-branch> --json baseRefName -q .baseRefName   # e.g. next, v5-next, merge-train/spartan
+gh pr view <pr-or-branch> --json baseRefName -q .baseRefName   # e.g. next, v5-next, v6, merge-train/barretenberg
 git fetch origin <baseRefName>                                  # ensure origin/<baseRefName> is current
 ```
 
@@ -65,13 +66,13 @@ ci3/bench_compare <pr-commit> --baseline origin/<baseRefName> --window 5 --out /
 Read the JSON and keep a regression only if **all** hold:
 
 - **Statistically real:** `z >= ~4` (the PR value is ≥4 baseline-stddevs above the mean). A large
-  `pct` with small/absent `z` is baseline noise — a flaky bench (e.g. `p2p/BatchTxRequester/.../duration`
+  `pct` with small/absent `z` is baseline noise — a flaky bench (e.g. `labs/yarn-project/p2p/BatchTxRequester/.../duration`
   hitting a 30 s timeout, `pct` in the thousands) — **ignore it**. When window is 1 (no `z`), fall back
   to requiring a large `pct` AND a meaningful absolute magnitude.
 - **Material magnitude:** skip tiny absolutes (e.g. `0.01 ms -> 0.02 ms` = +100% but noise).
 - **Plausibly caused by the PR:** map the bench `name` prefix to the PR's changed areas. Get the diff
   with `git diff --name-only $(git merge-base HEAD origin/next)..HEAD | cut -d/ -f1-2 | sort -u`, then
-  keep benches whose names start with a touched area (`yarn-project/simulator`, `barretenberg/cpp`,
+  keep benches whose names start with a touched area (`barretenberg/cpp`, `l1-contracts`, `labs/yarn-project/simulator`,
   `avm-transpiler`, …) and treat far-away regressions (a TS-only PR moving a C++ proving bench) as
   drift/noise, not this PR.
 

@@ -1,14 +1,14 @@
 # IPC Schema Format Specification
 
-This document specifies the schema format used for cross-language code generation
-in the IPC codegen system. A schema is a single hand-authored JSONC file per
-service and is the source of truth: ipc-codegen reads it to generate the wire
-types, client, and server dispatch for every target language (TypeScript, C++,
-Rust, Zig). The committed golden msgpack corpus is the cross-language wire-format
-contract; the schema is a normal reviewed source file.
+One hand-authored JSONC file per service defines its commands. ipc-codegen
+generates wire types, client and server dispatch from it in TypeScript, C++, Rust
+and Zig. `//` and `/* */` comments are allowed; they are stripped before parsing.
+The committed golden msgpack corpus is the cross-language wire-format contract.
 
-JSONC is plain JSON with `//` and `/* */` comments stripped before parsing — no
-extra dependencies.
+This spec covers the friendly form below. `generate.ts` still accepts a legacy
+positional form (`{ commands, responses }` as `named_union` arrays, with no
+`service` key). No in-tree schema uses it; `scripts/convert_schema.ts` converts
+it to the friendly form.
 
 ## Top-level structure
 
@@ -105,7 +105,9 @@ command with no fields (e.g. a `Fail` command whose response carries nothing).
 
 A `response` may instead be a **string** naming another command's response type
 to reuse its shape — e.g. `"response": "AliasesResponse"` reuses the
-`EchoAliases` response. Use the generated response type name (`<service><Command>Response`).
+`EchoAliases` response. Write the response name without the service prefix
+(`"AliasesResponse"`, not `"EchoAliasesResponse"`). The referenced command must
+appear earlier in `commands`.
 
 ## Type-reference shorthand grammar
 
@@ -144,10 +146,15 @@ Schemas are validated at generation time; violations are hard errors:
 - Command names must be unique.
 - A type reference must resolve to a primitive, a declared alias, or a declared
   type.
+- An alias's underlying type must be `bin32` or a primitive. `bytes` is a valid
+  leaf type but not a valid alias underlying type.
+- A fixed-array size (`T[N]`) must be a positive integer.
 - Field names must not project (via the snake_case or camelCase mapping) to a
   reserved word in any target language, and two fields in one struct must not
   collapse to the same projected identifier.
-- A struct supports at most 20 fields (the C++ serialization macro limit).
+- `--lang cpp` rejects structs with more than 20 fields (the C++ serialization
+  macro limit). The other languages do not check, so keep schemas within 20
+  fields so that every language can generate.
 
 ## Wire protocol
 
@@ -156,17 +163,8 @@ is serialized. The golden corpus pins these encodings across all languages.
 
 ### Framing
 
-Framing is owned by ipc-runtime, below this spec: every message travels as
-
-```
-[4 bytes: length, LE uint32][8 bytes: request id, LE uint64][payload: msgpack bytes]
-```
-
-where the length counts the id plus the payload. The request id is assigned
-by the client and echoed on the response; responses arrive in completion
-order and are correlated by id, entirely inside the transports — the msgpack
-payloads this spec describes never contain the id, and generated code never
-sees it.
+Framing (length prefix and request id) is added by ipc-runtime and is not part
+of the payload; see [`ipc-runtime/README.md`](../ipc-runtime/README.md#wire-framing).
 
 ### Request wire format
 
@@ -177,7 +175,9 @@ array(1) [ array(2) [ str: "<service><Command>", map: { field: value, ... } ] ]
 ```
 
 The dispatch tag is the generated command type name (e.g. `EchoBytes`). The
-outer array exists for extensibility.
+outer array must hold exactly one `[name, payload]` pair. Generated C++ and Zig
+servers reject any other length. Generated TS and Rust servers reject an empty
+array and ignore elements after the first.
 
 ### Response wire format
 
@@ -214,9 +214,10 @@ any integer encoding width for any integer field.
 
 ## Schema versioning
 
-A SHA-256 hash of the schema can be computed and embedded in generated code for
-optional compatibility checking at connection time. A mismatch indicates the
-service binary and client were generated from different schema versions.
+Generated code exports `SCHEMA_HASH`, the SHA-256 of the schema file text
+(comments included). The TS, Rust and Zig types files and the C++ client header
+carry it. No runtime check uses it; a mismatch means the two sides were
+generated from different schema versions.
 
 ## Adding a new command
 
@@ -224,7 +225,8 @@ service binary and client were generated from different schema versions.
    any new `types`/`aliases` it needs).
 2. Re-run ipc-codegen for every target language and confirm everything compiles.
 3. If the change alters the wire format, refresh the golden corpus
-   (`./bootstrap.sh update_goldens`) and review the byte-level diff — any
+   (`(cd echo_example/rust && ./bootstrap.sh) && ./bootstrap.sh update_goldens`
+   from `ipc-codegen/`) and review the byte-level diff — any
    change is breaking for external implementations of the schema.
 
 ## Source files
