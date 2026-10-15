@@ -420,6 +420,15 @@ export class TestWallet extends BaseWallet {
     return this.pxe.registerTaggingSecretSource(source);
   }
 
+  /**
+   * Retrieves the accounts registered on this wallet's PXE. Test-only surface over
+   * {@link PXE.getRegisteredAccounts}; together with {@link registerTaggingSecretSource} it lets the wallet satisfy
+   * the delivery helpers' structural PXE parameter without exposing the PXE itself.
+   */
+  getRegisteredAccounts(): Promise<CompleteAddress[]> {
+    return this.pxe.getRegisteredAccounts();
+  }
+
   stop(): Promise<void> {
     return this.pxe.stop();
   }

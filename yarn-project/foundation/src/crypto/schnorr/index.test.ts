@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
 import { Schnorr } from './index.js';
+import { SchnorrSignature } from './signature.js';
 
 describe('schnorr', () => {
   let schnorr!: Schnorr;
@@ -36,5 +37,25 @@ describe('schnorr', () => {
     const verified = await schnorr.verifySignature(msg, pubKey, signature);
 
     expect(verified).toBe(false);
+  });
+
+  describe('SchnorrSignature serialization', () => {
+    let signature: SchnorrSignature;
+
+    beforeAll(async () => {
+      signature = await schnorr.constructSignature(Fr.random(), GrumpkinScalar.random());
+    });
+
+    it('round-trips through a hex string', () => {
+      expect(SchnorrSignature.fromString(signature.toString())).toEqual(signature);
+    });
+
+    it('serializes to its hex string under JSON.stringify', () => {
+      expect(JSON.parse(JSON.stringify(signature))).toEqual(signature.toString());
+    });
+
+    it('rejects a hex string of the wrong length', () => {
+      expect(() => SchnorrSignature.fromString(`0x${'00'.repeat(63)}`)).toThrow('Invalid signature buffer');
+    });
   });
 });

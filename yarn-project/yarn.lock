@@ -2284,6 +2284,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/pxe": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -2296,6 +2297,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
     util: "npm:^0.12.5"
+    zod: "npm:^4"
   languageName: unknown
   linkType: soft
 
