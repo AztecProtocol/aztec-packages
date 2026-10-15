@@ -368,9 +368,13 @@ function test_cmds_asan {
     ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
     ["dsl_tests"]="HonkRecursionConstraintTestWithoutPredicate/2.Tampering"
   )
+  # The root rollup Tampering test takes ~250s, but over 600s when it shares the machine with the cross builds.
+  declare -A asan_timeouts=(
+    ["dsl_tests"]=":TIMEOUT=900s"
+  )
   for bin_name in "${!asan_tests[@]}"; do
     local filter=${asan_tests[$bin_name]}
-    echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+    echo -e "$prefix${asan_timeouts[$bin_name]:-} barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
   done
 }
 
