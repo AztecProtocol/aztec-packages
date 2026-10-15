@@ -1,9 +1,9 @@
 # Chonk Audit Scope
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
-Chonk is an RCG system designed for proving private smart contract execution on Aztec. It uses HyperNova folding to accumulate circuits with deferred PCS verification, combined with Goblin to defer non-native elliptic curve operations to a separate VM - Elliptic Curve Virtual Machine. The goal of the audit is to ensure that soundness and completeness of the protocol **assuming** the soundness of several building blocks audited separately -  Circuit Builders, Field, Bigfield, ECCVM, Translator, Biggroup, Transcript, DSL/ACIR, Sumcheck, and PCS.
+Chonk is a Repeated Computation with Global state (RCG) system (see [chonk/README.md](../../../src/barretenberg/chonk/README.md)). It is designed for proving private smart contract execution on Aztec. It uses HyperNova folding to accumulate circuits with deferred PCS verification, combined with Goblin to defer non-native elliptic curve operations to a separate VM - Elliptic Curve Virtual Machine. The audit checks the soundness and completeness of the protocol, **assuming** the soundness of several building blocks audited separately -  Circuit Builders, Field, Bigfield, ECCVM, Translator, Biggroup, Transcript, DSL/ACIR, Sumcheck, and PCS. TripleIPA, which the Chonk verifiers use for the ECCVM opening, is covered in `sumcheck_pcs_chonk_verifier_audit_scope.md`.
 
 ---
 
@@ -24,58 +24,59 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 9. `multilinear_batching/multilinear_batching_prover.cpp`
 10. `multilinear_batching/multilinear_batching_prover.hpp`
 11. `multilinear_batching/multilinear_batching_claims.hpp`
-12. `multilinear_batching/multilinear_batching_verifier.cpp`
-13. `multilinear_batching/multilinear_batching_verifier.hpp`
+12. `multilinear_batching/multilinear_batching_claims.cpp`
+13. `multilinear_batching/multilinear_batching_verifier.cpp`
+14. `multilinear_batching/multilinear_batching_verifier.hpp`
 
 ### Merge Protocol
-14. `goblin/merge_prover.cpp`
-15. `goblin/merge_prover.hpp`
-16. `goblin/merge_verifier.cpp`
-17. `goblin/merge_verifier.hpp`
-18. `goblin/batch_merge_prover.cpp`
-19. `goblin/batch_merge_prover.hpp`
-20. `goblin/batch_merge_verifier.cpp`
-21. `goblin/batch_merge_verifier.hpp`
+15. `goblin/merge_prover.cpp`
+16. `goblin/merge_prover.hpp`
+17. `goblin/merge_verifier.cpp`
+18. `goblin/merge_verifier.hpp`
+19. `goblin/batch_merge_prover.cpp`
+20. `goblin/batch_merge_prover.hpp`
+21. `goblin/batch_merge_verifier.cpp`
+22. `goblin/batch_merge_verifier.hpp`
 
 ### Chonk Core
-22. `chonk/chonk.cpp`
-23. `chonk/chonk.hpp`
-24. `chonk/private_execution_steps.hpp`
-25. `chonk/private_execution_steps.cpp`
-26. `chonk/chonk_proof.cpp`
-27. `chonk/chonk_proof.hpp`
-28. `chonk/chonk_step_processor.cpp`
-29. `chonk/chonk_step_processor.hpp`
-30. `chonk/proof_compression.hpp`
+23. `chonk/chonk.cpp`
+24. `chonk/chonk.hpp`
+25. `chonk/private_execution_steps.hpp`
+26. `chonk/private_execution_steps.cpp`
+27. `chonk/chonk_proof.cpp`
+28. `chonk/chonk_proof.hpp`
+29. `chonk/chonk_step_processor.cpp`
+30. `chonk/chonk_step_processor.hpp`
+31. `chonk/proof_compression.hpp`
 
 ### Batched Honk Translator
-31. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
-32. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
+32. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
+33. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
 
 ### Relations
-33. `relations/multilinear_batching/multilinear_batching_relation.hpp`
-34. `relations/databus_lookup_relation.hpp`
+34. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+35. `relations/databus_lookup_relation.hpp`
 
 ### Special Public Inputs
-35. `special_public_inputs/special_public_inputs.hpp`
-36. `stdlib/primitives/public_input_component/public_input_component.hpp`
+36. `special_public_inputs/special_public_inputs.hpp`
+37. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-37. `flavor/multilinear_batching_flavor.hpp`
-38. `flavor/multilinear_batching_flavor.cpp`
-39. `flavor/multilinear_batching_recursive_flavor.hpp`
+38. `flavor/multilinear_batching_flavor.hpp`
 
 ### Databus
-40. `stdlib/primitives/databus/databus.hpp`
-41. `stdlib/primitives/databus/databus.cpp`
-42. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
+`databus_audit_scope.md` owns the databus files. They are listed here because Chonk depends on them.
+
+39. `stdlib/primitives/databus/databus.hpp`
+40. `stdlib/primitives/databus/databus.cpp`
+41. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
 
 ### ACIR Integration
-43. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-44. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-45. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-46. `dsl/acir_format/chonk_recursion_constraints.hpp`
-47. `dsl/acir_format/chonk_recursion_constraints.cpp`
+42. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+43. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+44. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+45. `dsl/acir_format/chonk_recursion_constraints.hpp`
+46. `dsl/acir_format/chonk_recursion_constraints.cpp`
 ---
 
 ## Critical Files
@@ -105,9 +106,10 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 | File | Focus |
 |------|-------|
-| `chonk/chonk.test.cpp` | Chonk orchestration, QUEUE_TYPE state machine, accumulation flow |
+| `chonk/chonk.test.cpp` | Chonk orchestration, circuit-kind dispatch, accumulation flow |
 | `hypernova/hypernova_prover.test.cpp` | HyperNova folding prover tests |
 | `hypernova/hypernova_verifier.test.cpp` | Folding proof verification, accumulator batching |
+| `hypernova/hypernova_decider_verifier.test.cpp` | HyperNova decider verifier tests |
 | `relations/multilinear_batching/multilinear_batching_relation_consistency.test.cpp` | Polynomial claim batching, eq consistency |
 | `relations/databus_lookup_relation_consistency.test.cpp` | Databus lookup relation soundness |
 | `stdlib/primitives/databus/databus.test.cpp` | Databus read/write tests |
@@ -118,7 +120,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ## Security Mechanisms
 
 ### Boomerang Static Analyzer
-- `graph_description_merge_recursive_verifier.test.cpp` - Analyzes Merge protocol recursive verification
+- `boomerang_value_detection/graph_description_merge_recursive_verifier.test.cpp` - Analyzes Merge protocol recursive verification
+- `boomerang_value_detection/graph_description_multilinear_batching.test.cpp` - Analyzes multilinear batching
 
 ---
 
@@ -128,6 +131,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | Component | Documentation | Key Topics |
 |-----------|--------------|------------|
 | **Chonk** | [chonk/README.md](../../../src/barretenberg/chonk/README.md) | HyperNova folding, multilinear batching, databus, proof structure, batched verification architecture, soundness mechanisms |
-| **Merge Protocol** | [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md) | Concatenation identities, degree bounds, PREPEND/APPEND modes, Chonk integration |
-| **Batched Honk Translator** | [README.md](batched_honk_translator/README.md) | Batched proving of Honk and Translator together |
-| **Transcripts** | [transcript/README.md](../transcript/README.md) | Manifest structure, transcript isolation, origin tags, VK binding |
+| **Merge Protocol** | [MERGE_PROTOCOL.md](../../../src/barretenberg/goblin/MERGE_PROTOCOL.md) | Concatenation identities, degree bounds, PREPEND/APPEND modes, Chonk integration |
+| **Batch Merge Protocol** | [BATCH_MERGE_PROTOCOL.md](../../../src/barretenberg/goblin/BATCH_MERGE_PROTOCOL.md) | Batch merge of ECC op tables across multiple circuits |
+| **Multilinear Batching** | [multilinear_batching/README.md](../../../src/barretenberg/multilinear_batching/README.md) | Multilinear batching protocol |
+| **Batched Honk Translator** | [README.md](../../../src/barretenberg/chonk/batched_honk_translator/README.md) | Batched proving of Honk and Translator together |
+| **Transcripts** | [transcript/README.md](../../../src/barretenberg/transcript/README.md) | Manifest structure, transcript isolation, origin tags, VK binding |

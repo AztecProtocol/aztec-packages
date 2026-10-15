@@ -2,9 +2,7 @@
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
 
-Commit hash: Most recent commit on branch 'next'
-
-Status: Planned, [Luke, Raju]
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 ## Files to Audit
 
@@ -51,7 +49,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 ### ECC Op Queue
 
-The following is "joint" functionality for the ECCVM and the Mega circuit builder (called `UltraOps`. In this audit, we only care about how things are represented in the Mega circuit builder.
+The following is "joint" functionality for the ECCVM and the Mega circuit builder (called `UltraOps`). In this audit, we only care about how things are represented in the Mega circuit builder.
 
 28. `op_queue/ecc_op_queue.hpp`
 29. `op_queue/ecc_ops_table.hpp` (especially the `UltraEccOpsTable` class and its methods)
@@ -90,7 +88,7 @@ CircuitBuilderBase<FF>
 - **UltraCircuitBuilder**: Implements Ultra arithmetization with arithmetic gates, ROM/RAM memory operations, range constraints, table lookups, elliptic curve operations, non-native field arithmetic, and poseidon2 hashing
 - **MegaCircuitBuilder**: Extends Ultra with "Goblinized" (deferred) ECC operations and databus functionality for efficient inter-circuit communication (calldata/returndata)
 
-**Reference:** [stdlib_circuit_builders/README.md](https://github.com/AztecProtocol/aztec-packages-private/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/README.md)
+**Reference:** [stdlib_circuit_builders/README.md](../../../src/barretenberg/stdlib_circuit_builders/README.md)
 
 ## Test Files
 
@@ -126,7 +124,7 @@ CircuitBuilderBase<FF>
 2. `boomerang_value_detection/graph_description.test.cpp`
 3. `boomerang_value_detection/graph_description_megacircuitbuilder.test.cpp`
 
-## Misc. Tests (NOT part of the audit, but might be helpful to situation)
+## Misc. Tests (NOT part of the audit, but useful context)
 
 The full prove-verify testing package is more extensive than the mere `circuit_checker` tests. Therefore, the following tests might be helpful as reference points.
 
