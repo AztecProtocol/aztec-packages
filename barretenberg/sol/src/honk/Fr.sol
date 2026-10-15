@@ -86,7 +86,6 @@ library FrLib {
         return Fr.wrap(result);
     }
 
-    // TODO: Montgomery's batch inversion trick
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
         unchecked {
             return numerator * invert(denominator);
