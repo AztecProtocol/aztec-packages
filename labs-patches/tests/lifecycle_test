@@ -93,7 +93,9 @@ git -C "$fnd" update-index --cacheinfo "160000,$v2,labs"
 git -C "$fnd" restore --staged labs
 ok "check_staged guard"
 
-# 5. same-pin bump is a no-op re-apply; forward bump moves the gitlink and re-applies
+# 5. same-pin bump is a no-op re-apply; forward bump moves the gitlink, re-applies, and keeps
+#    the foundry.lock entries forge records for the submodule in step with the pin
+printf '{\n  "../labs": {\n    "rev": "%s"\n  }\n}' "$v1" > "$fnd/foundry.lock"; g -C "$fnd" add foundry.lock; g -C "$fnd" commit -q -m "foundry.lock"
 "$lp" bump "$v1" >/dev/null || fail "bump: same pin"
 [ "$(git -C "$fnd" rev-parse :labs)" = "$v1" ] || fail "bump same pin: gitlink"
 "$lp" bump "$v2" >/dev/null || fail "bump: forward"
@@ -102,6 +104,8 @@ git -C "$fnd/labs" merge-base --is-ancestor "$v2" HEAD || fail "bump forward: se
 [ "$(git -C "$fnd/labs" rev-list --count "$v2..HEAD")" = 3 ] || { git -C "$fnd/labs" log --oneline "$v2..HEAD" >&2; git -C "$fnd/labs" log --oneline -6 >&2; fail "bump forward: three patches applied"; }
 grep -q "a=2" "$fnd/labs/config" && grep -q "y" "$fnd/labs/src" && [ -f "$fnd/labs/extra" ] || fail "bump forward: content"
 "$lp" apply | grep -q "already applied" || fail "bump forward: applied state recorded"
+grep -q "\"rev\": \"$v2\"" "$fnd/foundry.lock" || fail "bump: foundry.lock rev not moved to the new pin"
+[ "$(tail -c1 "$fnd/foundry.lock" | xxd -p)" = 7d ] || fail "bump: foundry.lock trailing newline"
 ok "same-pin and forward bump"
 g -C "$fnd" commit -q -m "bump to v2"
 
