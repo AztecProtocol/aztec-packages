@@ -53,6 +53,11 @@ BEGIN_COMMIT_OVERRIDE
 $formatted_commits
 END_COMMIT_OVERRIDE"
 
-gh pr edit "$pr_number" --body "$new_body"
+# Set the body through the REST endpoint, which needs only the `repo` scope AZTEC_BOT_GITHUB_TOKEN
+# carries. `gh pr edit --body` instead runs a GraphQL query that pulls the PR's review requests,
+# and the User/Team fields in that union require `read:org`, so the token is rejected with a scope
+# error before the edit is ever attempted.
+jq -n --arg body "$new_body" '{ body: $body }' \
+  | gh api --method PATCH "repos/{owner}/{repo}/pulls/$pr_number" --input - >/dev/null
 
 echo "PR #$pr_number body updated"
