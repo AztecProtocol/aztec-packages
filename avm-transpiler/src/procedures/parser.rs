@@ -141,7 +141,7 @@ pub(crate) fn parse(assembly: &str) -> Result<Vec<ParsedOpcode>, String> {
 
 fn parse_operands(operands: &str) -> Result<Vec<Operand>, String> {
     static OPERAND_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^\$(?<reserved>\d+)|^d(?<direct>\d+)|^i(?<indirect>\d+)|^(?<immediate>\d+)|^(?<label>\w*)$").unwrap()
+        Regex::new(r"^(?:\$(?<reserved>\d+)|d(?<direct>\d+)|i(?<indirect>\d+)|(?<immediate>\d+)|(?<label>\w+))$").unwrap()
     });
     // Split by comma, then trim whitespace
     operands
@@ -179,5 +179,28 @@ fn parse_tag(tag_as_string: &str) -> AvmTypeTag {
         "u128" => AvmTypeTag::UINT128,
         "ff" => AvmTypeTag::FIELD,
         _ => unreachable!("Invalid tag {}", tag_as_string),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_operands_rejects_trailing_garbage() {
+        assert!(parse_operands("123foo").is_err());
+        assert!(parse_operands("$2x").is_err());
+        assert!(parse_operands("d6x").is_err());
+        assert!(parse_operands("i3x").is_err());
+    }
+
+    #[test]
+    fn parse_operands_accepts_valid_operands() {
+        assert!(parse_operands("$2").is_ok());
+        assert!(parse_operands("d6").is_ok());
+        assert!(parse_operands("i3").is_ok());
+        assert!(parse_operands("123").is_ok());
+        assert!(parse_operands("OUTER_HEAD").is_ok());
+        assert!(parse_operands("$2, d6, i3, 123, OUTER_HEAD").is_ok());
     }
 }
