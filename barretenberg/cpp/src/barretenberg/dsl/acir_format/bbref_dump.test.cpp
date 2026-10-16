@@ -1123,7 +1123,7 @@ TEST(BbRefDump, Chonk)
 
 // --- Real-flow per-circuit dumps -------------------------------------------------------------------------
 // BBREF_IVC_INPUTS=<ivc-inputs.msgpack> BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.ChonkFlow'
-// Mirrors `bb prove --scheme chonk` (PrivateExecutionSteps parse + accumulate with the pinned VKs) and
+// Mirrors `bb prove --scheme chonk` (decode each step + accumulate with the pinned VKs) and
 // dumps every circuit's proving instance. Run with HARDWARE_CONCURRENCY=1 BB_RNG_SEED=<seed> so the
 // witness-gap fills and op-queue/masking randomness match a same-seeded bb-ref run (which must also
 // build a dump instance before each accumulate to keep the draw ledger aligned).
@@ -1138,8 +1138,17 @@ TEST(BbRefDump, ChonkFlow)
     bb::srs::init_grumpkin_file_crs_factory(bb::srs::bb_crs_path());
     std::filesystem::path out(out_env);
     std::filesystem::create_directories(out);
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(inputs));
+    struct {
+        std::vector<acir_format::AcirProgram> folding_stack;
+        std::vector<std::vector<uint8_t>> precomputed_vks;
+        std::vector<CircuitKind> kinds;
+    } steps;
+    for (auto& raw : PrivateExecutionStepRaw::load_and_decompress(inputs)) {
+        steps.folding_stack.push_back({ acir_format::circuit_buf_to_mega_acir_format(std::move(raw.bytecode)),
+                                        acir_format::witness_buf_to_witness_vector(std::move(raw.witness)) });
+        steps.precomputed_vks.push_back(std::move(raw.vk));
+        steps.kinds.push_back(raw.kind);
+    }
     auto ivc = std::make_shared<Chonk>(steps.kinds);
     // BBREF_PLAIN=1 skips the dumps, making this loop exactly `bb prove`'s accumulate; with
     // BB_RNG_TAPE_OUT set (flushed per draw) the printed positions are per-phase draw-ledger marks.
