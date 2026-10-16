@@ -1,0 +1,188 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kutluhaneth46 <kutluhaneth46@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 19:38:39 +0000
+Subject: [PATCH] refactor(foundation): use structured context in log messages
+
+Migrate foundation log calls away from template-literal interpolation
+to static messages with structured context objects, matching
+yarn-project/CLAUDE.md logging guidance and avoiding eager string
+construction on hot/disabled log paths.
+
+Part of AztecProtocol/aztec-packages#13035.
+
+diff --git a/yarn-project/foundation/src/crypto/random/randomness_singleton.ts b/yarn-project/foundation/src/crypto/random/randomness_singleton.ts
+index ed2b2358d75163e978b07f0685a939dc44fbe3ad..5173ea97d9d85b0aa57729f06917439a112f9858 100644
+--- a/yarn-project/foundation/src/crypto/random/randomness_singleton.ts
++++ b/yarn-project/foundation/src/crypto/random/randomness_singleton.ts
+@@ -20,7 +20,7 @@ export class RandomnessSingleton {
+   ) {
+     this.log = createLogger('foundation:randomness_singleton', bindings);
+     if (seed !== undefined) {
+-      this.log.debug(`Using pseudo-randomness with seed: ${seed}`);
++      this.log.debug('Using pseudo-randomness', { seed });
+       this.counter = seed;
+     } else {
+       this.log.debug('Using true randomness');
+diff --git a/yarn-project/foundation/src/fs/run_in_dir.ts b/yarn-project/foundation/src/fs/run_in_dir.ts
+index 714ec120da6e915a46bdac07a5097cc4f57f76ab..4c5288911e74be46f079b0e8d8232dec71086a1a 100644
+--- a/yarn-project/foundation/src/fs/run_in_dir.ts
++++ b/yarn-project/foundation/src/fs/run_in_dir.ts
+@@ -26,7 +26,7 @@ export async function runInDirectory<T>(
+       try {
+         await fs.rm(workingDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+       } catch (err) {
+-        logger.warn(`Failed to cleanup temporary directory ${workingDirectory}: ${err}`, { err });
++        logger.warn('Failed to cleanup temporary directory', { workingDirectory, err });
+       }
+     }
+   }
+diff --git a/yarn-project/foundation/src/json-rpc/client/safe_json_rpc_client.ts b/yarn-project/foundation/src/json-rpc/client/safe_json_rpc_client.ts
+index 7541efd2f9efe70fe6428779de526b4058d37c4a..46ac02a30dff6719add47aae695ab94a0bf99d51 100644
+--- a/yarn-project/foundation/src/json-rpc/client/safe_json_rpc_client.ts
++++ b/yarn-project/foundation/src/json-rpc/client/safe_json_rpc_client.ts
+@@ -124,7 +124,9 @@ export function createSafeJsonRpcClient<T extends object>(
+       sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
+     }
+ 
+-    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length} body size: ${bodySize} bytes`, {
++    log.debug('Executing JSON-RPC batch', {
++      batchSize: rpcCalls.length,
++      bodySize,
+       methods: rpcCalls.map(({ request }) => request.method),
+     });
+     try {
+@@ -139,10 +141,10 @@ export function createSafeJsonRpcClient<T extends object>(
+       }
+ 
+       if (!Array.isArray(response) || response.length !== rpcCalls.length) {
+-        log.warn(
+-          `Invalid response received from JSON-RPC server. Expected array of responses of length ${rpcCalls.length}`,
+-          { response },
+-        );
++        log.warn('Invalid response received from JSON-RPC server: unexpected batch shape', {
++          expectedLength: rpcCalls.length,
++          response,
++        });
+         for (let i = 0; i < rpcCalls.length; i++) {
+           const { request, deferred } = rpcCalls[i];
+           deferred.resolve({
+@@ -161,7 +163,8 @@ export function createSafeJsonRpcClient<T extends object>(
+           const { request, deferred } = rpcCalls[i];
+ 
+           if (resp.id !== request.id) {
+-            log.warn(`Invalid response received at index ${i} from JSON-RPC server: id mismatch`, {
++            log.warn('Invalid response received from JSON-RPC server: id mismatch', {
++              index: i,
+               requestMethod: request.method,
+               requestId: request.id,
+               responseId: resp.id,
+@@ -190,7 +193,7 @@ export function createSafeJsonRpcClient<T extends object>(
+         }
+         return; // Return early, the promises are already rejected
+       }
+-      log.warn(`Failed to fetch from the remote server`, err);
++      log.warn('Failed to fetch from the remote server', err);
+       for (let i = 0; i < rpcCalls.length; i++) {
+         const { request, deferred } = rpcCalls[i];
+         deferred.resolve({
+diff --git a/yarn-project/foundation/src/json-rpc/client/undici.ts b/yarn-project/foundation/src/json-rpc/client/undici.ts
+index d5b4a498608cab872e122eab32a78b6f08a7f66b..4167975fb337ed39760c12c4f839045b5df0f51f 100644
+--- a/yarn-project/foundation/src/json-rpc/client/undici.ts
++++ b/yarn-project/foundation/src/json-rpc/client/undici.ts
+@@ -31,7 +31,7 @@ export interface CookieJar {
+  */
+ export function makeUndiciFetch(client: Dispatcher = new Agent(), cookieJar?: CookieJar): JsonRpcFetch {
+   return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry = false) => {
+-    log.trace(`JsonRpcClient.fetch: ${host}`, { host, body });
++    log.trace('JsonRpcClient.fetch', { host, body });
+     const requestUrl = new URL(host);
+     requestUrl.hash = '';
+     let resp: Dispatcher.ResponseData;
+diff --git a/yarn-project/foundation/src/json-rpc/server/api_key_auth.ts b/yarn-project/foundation/src/json-rpc/server/api_key_auth.ts
+index a22d45730f325db5c9d7d24309b17371635ffaf1..7574dc682ead162c5ab5187fa088a38291cb72a1 100644
+--- a/yarn-project/foundation/src/json-rpc/server/api_key_auth.ts
++++ b/yarn-project/foundation/src/json-rpc/server/api_key_auth.ts
+@@ -36,7 +36,7 @@ export function getApiKeyAuthMiddleware(
+ 
+     const providedKey = ctx.get('x-api-key') || ctx.get('authorization')?.replace(/^Bearer\s+/i, '');
+     if (!providedKey) {
+-      log.warn(`Rejected admin RPC request from ${ctx.ip}: missing API key`);
++      log.warn('Rejected admin RPC request: missing API key', { ip: ctx.ip });
+       ctx.status = 401;
+       ctx.body = {
+         jsonrpc: '2.0',
+@@ -48,7 +48,7 @@ export function getApiKeyAuthMiddleware(
+ 
+     const providedHashBuf = sha256Hash(providedKey);
+     if (!timingSafeEqual(apiKeyHash, providedHashBuf)) {
+-      log.warn(`Rejected admin RPC request from ${ctx.ip}: invalid API key`);
++      log.warn('Rejected admin RPC request: invalid API key', { ip: ctx.ip });
+       ctx.status = 401;
+       ctx.body = {
+         jsonrpc: '2.0',
+diff --git a/yarn-project/foundation/src/json-rpc/server/safe_json_rpc_server.ts b/yarn-project/foundation/src/json-rpc/server/safe_json_rpc_server.ts
+index 087b8a01bfbb45bf9bfea8420c1c1f702ce9e3a8..52422c91f1d07d506f8e35097087f0d20c9fe332 100644
+--- a/yarn-project/foundation/src/json-rpc/server/safe_json_rpc_server.ts
++++ b/yarn-project/foundation/src/json-rpc/server/safe_json_rpc_server.ts
+@@ -5,7 +5,7 @@ import bodyParser from 'koa-bodyparser';
+ import compress from 'koa-compress';
+ import Router from 'koa-router';
+ import type { AddressInfo } from 'net';
+-import { format, inspect } from 'util';
++import { format } from 'util';
+ import { ZodError } from 'zod';
+ 
+ import { type Logger, createLogger } from '../../log/index.js';
+@@ -130,7 +130,7 @@ export class SafeJsonRpcServer {
+         await next();
+       } catch (err: any) {
+         const method = (ctx.request.body as any)?.method ?? 'unknown';
+-        this.log.warn(`Uncaught error in JSON RPC server call ${method}: ${inspect(err)}`);
++        this.log.warn('Uncaught error in JSON RPC server call', { method, err });
+         if (err && 'name' in err && err.name === 'BadRequestError') {
+           ctx.status = 400;
+           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32000, message: `Bad request: ${err.message}` } };
+@@ -158,7 +158,7 @@ export class SafeJsonRpcServer {
+ 
+     const app = new Koa();
+     app.on('error', error => {
+-      this.log.error(`Error on API handler: ${error}`);
++      this.log.error('Error on API handler', error);
+     });
+ 
+     app.use(compress({ br: false }));
+@@ -262,7 +262,7 @@ export class SafeJsonRpcServer {
+         return res.value;
+       }
+ 
+-      this.log.warn(`Uncaught error executing request in batch: ${res.reason}.`);
++      this.log.warn('Uncaught error executing request in batch', { reason: res.reason });
+       return { jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null };
+     });
+   }
+diff --git a/yarn-project/foundation/src/promise/running-promise.ts b/yarn-project/foundation/src/promise/running-promise.ts
+index f3fcf8b819801266f03d081f00a3e6ad75d6480e..35b8aef3de12ce03cae8d53e68875e562379e3e7 100644
+--- a/yarn-project/foundation/src/promise/running-promise.ts
++++ b/yarn-project/foundation/src/promise/running-promise.ts
+@@ -43,7 +43,7 @@ export class RunningPromise {
+    */
+   public start() {
+     if (this.running) {
+-      this.logger.warn(`Attempted to start running promise that was already started`);
++      this.logger.warn('Attempted to start running promise that was already started');
+       return this;
+     }
+     this.running = true;
+diff --git a/yarn-project/foundation/src/timer/date.ts b/yarn-project/foundation/src/timer/date.ts
+index c1dcef9d1169cedc783427f46fe8d28480610a9d..cb233cca4c044e0eccede03dbcd393ca6ab16a07 100644
+--- a/yarn-project/foundation/src/timer/date.ts
++++ b/yarn-project/foundation/src/timer/date.ts
+@@ -29,7 +29,7 @@ export class TestDateProvider extends DateProvider {
+ 
+   public setTime(timeMs: number) {
+     this.offset = timeMs - Date.now();
+-    this.logger.warn(`Time set to ${new Date(timeMs).toISOString()}`, { offset: this.offset, timeMs });
++    this.logger.warn('Time set', { offset: this.offset, timeMs, timeIso: new Date(timeMs).toISOString() });
+   }
+ 
+   /** Resets the time back to real time (offset = 0). */
