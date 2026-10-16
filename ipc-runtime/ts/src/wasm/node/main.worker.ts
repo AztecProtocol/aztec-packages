@@ -5,6 +5,6 @@ import { nodePlatform, nodeWorkerSide } from "./platform.js";
 runMainWorker(nodeWorkerSide(), nodePlatform, {
   createThreadWorker: () =>
     nodePlatform.createWorker(
-      new URL("./thread.worker.node.js", import.meta.url),
+      new URL("./thread.worker.js", import.meta.url),
     ),
 });
