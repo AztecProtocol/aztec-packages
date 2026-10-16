@@ -19,6 +19,7 @@
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/triple_ipa/triple_ipa.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_trace_checker.hpp"
@@ -41,12 +42,17 @@
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_secp256r1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/primitives/field/field_utils.hpp"
@@ -1843,6 +1849,103 @@ void logic_ops(Builder& b)
     sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
 }
 
+void blake2s_hash(Builder& b, size_t num_bytes)
+{
+    using byte_array_ct = stdlib::byte_array<Builder>;
+    byte_array_ct arr = byte_array_ct::constant_padding(&b, 0);
+    for (size_t i = 0; i < num_bytes; ++i) {
+        field_ct byte(witness_ct(&b, bb::fr(static_cast<uint8_t>(i * 7 + 3))));
+        arr.write(byte_array_ct(byte, 1));
+    }
+    const auto out = stdlib::Blake2s<Builder>::hash(arr);
+    for (const auto& byte : out.bytes()) {
+        byte.assert_equal(field_ct(witness_ct(&b, byte.get_value())));
+    }
+}
+
+void blake3_hash(Builder& b, size_t num_bytes)
+{
+    using byte_array_ct = stdlib::byte_array<Builder>;
+    byte_array_ct arr = byte_array_ct::constant_padding(&b, 0);
+    for (size_t i = 0; i < num_bytes; ++i) {
+        field_ct byte(witness_ct(&b, bb::fr(static_cast<uint8_t>(i * 11 + 5))));
+        arr.write(byte_array_ct(byte, 1));
+    }
+    const auto out = stdlib::Blake3s<Builder>::hash(arr);
+    for (const auto& byte : out.bytes()) {
+        byte.assert_equal(field_ct(witness_ct(&b, byte.get_value())));
+    }
+}
+
+void aes128_cbc(Builder& b, size_t num_blocks)
+{
+    // Mirrors the dsl arm: 16 witness bytes range-constrained and packed big-endian into a field.
+    const auto pack16 = [&](uint32_t seed) {
+        field_ct converted = 0;
+        for (size_t i = 0; i < 16; ++i) {
+            converted *= 256;
+            field_ct byte(witness_ct(&b, bb::fr((seed + i * 5) & 0xffUL)));
+            byte.create_range_constraint(8);
+            converted += byte;
+        }
+        return converted;
+    };
+    std::vector<field_ct> in;
+    for (size_t blk = 0; blk < num_blocks; ++blk) {
+        in.push_back(pack16(static_cast<uint32_t>(blk * 16 + 1)));
+    }
+    const field_ct iv = pack16(0xa0);
+    const field_ct key = pack16(0x30);
+    const auto out = stdlib::aes128::encrypt_buffer_cbc<Builder>(in, iv, key);
+    for (const auto& o : out) {
+        field_ct converted = 0;
+        const uint256_t v(o.get_value());
+        for (size_t i = 0; i < 16; ++i) {
+            converted *= 256;
+            const uint64_t byte_val = (v >> (8 * (15 - i))).data[0] & 0xffULL;
+            field_ct byte(witness_ct(&b, bb::fr(byte_val)));
+            byte.create_range_constraint(8);
+            converted += byte;
+        }
+        o.assert_equal(converted);
+    }
+}
+
+void ecdsa_k1(Builder& b)
+{
+    using Curve = stdlib::secp256k1<Builder>;
+    using Fq = Curve::BaseField;
+    using Fr = Curve::ScalarField;
+    using G1 = Curve::Group;
+    using FrNative = Curve::ScalarFieldNative;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
+    const std::string message_string = "bbref";
+    const std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
+    const std::array<uint8_t, 32> hashed = crypto::Sha256Hasher::hash(message_bytes);
+    crypto::ecdsa_key_pair<FrNative, G1Native> account;
+    account.private_key = FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
+    account.public_key = G1Native::one * account.private_key;
+    const crypto::ecdsa_signature sig =
+        crypto::ecdsa_construct_signature<crypto::Sha256Hasher, FqNative, FrNative, G1Native>(message_string, account);
+    const auto coord_bytes = [&](const FqNative& c) {
+        const uint256_t v(c);
+        std::vector<uint8_t> bytes(32);
+        for (size_t i = 0; i < 32; ++i) {
+            bytes[i] = static_cast<uint8_t>((v >> (8 * (31 - i))).data[0] & 0xffULL);
+        }
+        return stdlib::byte_array<Builder>(&b, bytes);
+    };
+    stdlib::byte_array<Builder> hashed_message(&b, std::vector<uint8_t>(hashed.begin(), hashed.end()));
+    Fq pub_x(coord_bytes(account.public_key.x));
+    Fq pub_y(coord_bytes(account.public_key.y));
+    G1 public_key(pub_x, pub_y, /*assert_on_curve=*/false);
+    stdlib::byte_array<Builder> r(&b, std::vector<uint8_t>(sig.r.begin(), sig.r.end()));
+    stdlib::byte_array<Builder> s(&b, std::vector<uint8_t>(sig.s.begin(), sig.s.end()));
+    bool_ct result = stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
+    result.assert_equal(bool_ct(true));
+}
+
 void run(Builder& b, const std::string& name)
 {
     auto suffix = [&](const std::string& prefix) { return std::stoul(name.substr(prefix.size())); };
@@ -1860,6 +1963,22 @@ void run(Builder& b, const std::string& name)
     }
     if (name == "ecdsa_r1") {
         ecdsa_r1(b);
+        return;
+    }
+    if (name == "ecdsa_k1") {
+        ecdsa_k1(b);
+        return;
+    }
+    if (name.starts_with("blake2s_hash_")) {
+        blake2s_hash(b, suffix("blake2s_hash_"));
+        return;
+    }
+    if (name.starts_with("blake3_hash_")) {
+        blake3_hash(b, suffix("blake3_hash_"));
+        return;
+    }
+    if (name.starts_with("aes128_cbc_")) {
+        aes128_cbc(b, suffix("aes128_cbc_"));
         return;
     }
     if (name == "biggroup_ops") {
