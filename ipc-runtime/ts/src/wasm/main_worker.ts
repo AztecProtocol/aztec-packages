@@ -40,7 +40,13 @@ export function runMainWorker(
             },
             binding,
           );
-          side.postMessage({ type: "ready" });
+          // A shared memory crosses to the caller as the same memory, so it can read the module's
+          // size while a call blocks this worker; an unshared one cannot cross at all.
+          const memory =
+            engine.memory.buffer instanceof SharedArrayBuffer
+              ? engine.memory
+              : undefined;
+          side.postMessage({ type: "ready", memory });
         } catch (e) {
           side.postMessage({
             type: "init-error",

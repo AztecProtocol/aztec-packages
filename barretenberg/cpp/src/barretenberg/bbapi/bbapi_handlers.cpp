@@ -623,15 +623,18 @@ void run_warmup()
 }
 } // namespace
 
-// The session's first command: prepares the service (here only the warmup, on unless `warmup` is
-// false; bb's thread pool and CRS start lazily). The warmup's random scalars must not count against
-// the session, so a seeded engine is restarted after it.
+// The session's first command: starts the thread pool and the randomness engine (both would
+// otherwise start at first use), then the warmup unless `warmup` is false. A seeded engine then
+// restarts, so the warmup's draws never count against the session, and sending Init again restarts
+// a seeded session's randomness (a reproducible run per proof on one instance).
 void handle_init(BBApiRequest& /*ctx*/, wire::BbInit&& cmd, Responder<wire::BbInitResponse> respond)
 {
+    init_thread_pool();
+    numeric::get_randomness();
     if (cmd.warmup.value_or(true)) {
         run_warmup();
-        numeric::restart_seeded_randomness();
     }
+    numeric::restart_seeded_randomness();
     respond.ok({});
 }
 
