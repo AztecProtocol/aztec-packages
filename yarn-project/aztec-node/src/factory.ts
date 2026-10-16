@@ -187,7 +187,7 @@ export async function createAztecNodeService(
   const blobClient = await createBlobClientWithFileStores(config, log.createChild('blob-client'));
 
   // attempt snapshot sync if possible
-  await trySnapshotSync(config, log);
+  await trySnapshotSync(config, log, options.genesis);
 
   const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
 
