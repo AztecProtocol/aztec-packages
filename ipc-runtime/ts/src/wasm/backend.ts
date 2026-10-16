@@ -55,11 +55,11 @@ type Pending = {
   reject: (err: Error) => void;
 };
 
-function awaitReady(worker: WorkerHandle, what: string): Promise<void> {
+function awaitReady(worker: WorkerHandle, what: string): Promise<any> {
   return new Promise((resolve, reject) => {
     worker.onMessage((msg) => {
       if (msg?.type === "ready") {
-        resolve();
+        resolve(msg);
       } else if (msg?.type === "init-error") {
         reject(new Error(`${what}: ${msg.message}`));
       }
@@ -311,10 +311,22 @@ export class WasmFfiBackend implements IpcClientAsync {
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
 
+  /** The module's memory when it is shared and lives in the main worker (see `memoryBytes`). */
+  private sharedMemory?: WebAssembly.Memory;
+
   private constructor(
     private readonly engine: WasmFfiEngine | undefined,
     private readonly worker: WorkerHandle | undefined,
   ) {}
+
+  /**
+   * The module's linear memory size in bytes, readable at any time (also while a call runs, when the
+   * memory is shared). Wasm memory only grows, so this is the instance's high-water mark. Undefined
+   * when the module runs in a worker with an unshared memory.
+   */
+  memoryBytes(): number | undefined {
+    return (this.engine?.memory ?? this.sharedMemory)?.buffer.byteLength;
+  }
 
   static async create(
     opts: WasmFfiBackendOptions,
@@ -348,7 +360,7 @@ export class WasmFfiBackend implements IpcClientAsync {
         entry: opts.entry,
       },
     });
-    await ready;
+    backend.sharedMemory = (await ready).memory;
     return backend;
   }
 
@@ -404,6 +416,8 @@ export class WasmFfiBackend implements IpcClientAsync {
       await this.engine.destroy();
       return;
     }
+    // The page's reference would keep the old instance's memory alive until it is collected.
+    this.sharedMemory = undefined;
     const worker = this.worker!;
     const done = new Promise<void>((resolve) => {
       worker.onMessage((msg) => {
@@ -428,6 +442,11 @@ export class WasmFfiBackend implements IpcClientAsync {
  */
 export class WasmFfiBackendSync implements IpcClientSync {
   private constructor(private readonly engine: WasmFfiEngine) {}
+
+  /** The module's linear memory size in bytes (its high-water mark: wasm memory only grows). */
+  memoryBytes(): number {
+    return this.engine.memory.buffer.byteLength;
+  }
 
   static async create(
     opts: WasmFfiOptions,

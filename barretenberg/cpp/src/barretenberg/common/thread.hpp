@@ -19,6 +19,10 @@ constexpr size_t PARALLEL_FOR_MAX_NESTING = 2;
 // Useful for programatically benching different thread counts
 // Note this is threadsafe and affects parallel_for's just in that thread if so.
 void set_parallel_for_concurrency(size_t num_cores);
+/**
+ * @brief Start parallel_for's thread pool now (the bbapi Init command) instead of at the first parallel_for.
+ */
+void init_thread_pool();
 size_t get_num_cpus();
 
 // For algorithms that need to be divided amongst power of 2 threads.

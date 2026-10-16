@@ -31,6 +31,12 @@ void set_parallel_for_concurrency([[maybe_unused]] size_t num_cores)
 #endif
 }
 
+void init_thread_pool()
+{
+    // One empty iteration per core builds whichever pool this build uses (a no-op without threads).
+    parallel_for(get_num_cpus(), [](size_t) {});
+}
+
 size_t get_num_cpus()
 {
 #ifdef NO_MULTITHREADING
