@@ -3,6 +3,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <array>
 #include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
@@ -58,6 +59,25 @@ struct RandomBufferWrapper {
     ssize_t offset = -1;
 };
 thread_local RandomBufferWrapper random_buffer_wrapper;
+
+// bb-ref fixture hook: BB_RNG_TAPE_OUT records every byte drawn from the CSPRNG, BB_RNG_TAPE_IN replays
+// such a recording. Single-threaded use only (HARDWARE_CONCURRENCY=1): the tape is one global stream.
+FILE* rng_tape_out()
+{
+    static FILE* f = [] {
+        const char* path = std::getenv("BB_RNG_TAPE_OUT");
+        return path != nullptr ? fopen(path, "wb") : nullptr;
+    }();
+    return f;
+}
+FILE* rng_tape_in()
+{
+    static FILE* f = [] {
+        const char* path = std::getenv("BB_RNG_TAPE_IN");
+        return path != nullptr ? fopen(path, "rb") : nullptr;
+    }();
+    return f;
+}
 /**
  * @brief Generate an array of random unsigned ints sampled from a CSPRNG
  *
@@ -70,6 +90,12 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
     static_assert(size_in_unsigned_ints <= 32);
     std::array<unsigned int, size_in_unsigned_ints> random_data;
     constexpr size_t random_data_buffer_size = sizeof(random_data);
+    if (FILE* tape = rng_tape_in()) {
+        if (fread(&random_data, 1, random_data_buffer_size, tape) != random_data_buffer_size) {
+            throw_or_abort("BB_RNG_TAPE_IN exhausted");
+        }
+        return random_data;
+    }
 
     // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
     // We could preserve the leftover bytes, but it's a bit messy
@@ -128,6 +154,10 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
 
     memcpy(&random_data, random_buffer_wrapper.buffer.get() + random_buffer_wrapper.offset, random_data_buffer_size);
     random_buffer_wrapper.offset += static_cast<ssize_t>(random_data_buffer_size);
+    if (FILE* tape = rng_tape_out()) {
+        fwrite(&random_data, 1, random_data_buffer_size, tape);
+        fflush(tape);
+    }
     return random_data;
 }
 } // namespace
