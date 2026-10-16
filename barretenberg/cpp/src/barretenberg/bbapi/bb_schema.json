@@ -642,8 +642,10 @@
         "dummy": "u8"
       }
     },
-    "Warmup": {
-      "request": {},
+    "Init": {
+      "request": {
+        "warmup": "bool?"
+      },
       "response": {}
     }
   }

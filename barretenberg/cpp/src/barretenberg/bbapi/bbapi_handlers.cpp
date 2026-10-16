@@ -31,6 +31,7 @@
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
@@ -582,7 +583,12 @@ void handle_srs_init_grumpkin_srs(BBApiRequest& /*ctx*/,
     respond.ok({});
 }
 
-void handle_warmup(BBApiRequest& /*ctx*/, wire::BbWarmup&& /*cmd*/, Responder<wire::BbWarmupResponse> respond)
+namespace {
+/**
+ * One pass over the prover's hot loops (field arithmetic, batch inversion, Poseidon2, a Pippenger MSM)
+ * so a tiering JIT (wasm) has optimized them before real work; throws if a result is degenerate.
+ */
+void run_warmup()
 {
     // Run the prover's hot loops once — field arithmetic, batch inversion, Poseidon2 and a Pippenger
     // MSM — so a tiering JIT (wasm) has optimized them before real work runs through them.
@@ -616,7 +622,19 @@ void handle_warmup(BBApiRequest& /*ctx*/, wire::BbWarmup&& /*cmd*/, Responder<wi
         acc = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ acc, elements[i] });
     }
     if (commitment.is_point_at_infinity() || acc.is_zero()) {
-        throw_or_abort("Warmup: degenerate result");
+        throw_or_abort("Init: warmup produced a degenerate result");
+    }
+}
+} // namespace
+
+// The session's first command: prepares the service (here only the warmup, on unless `warmup` is
+// false; bb's thread pool and CRS start lazily). The warmup's random scalars must not count against
+// the session, so a seeded engine is restarted after it.
+void handle_init(BBApiRequest& /*ctx*/, wire::BbInit&& cmd, Responder<wire::BbInitResponse> respond)
+{
+    if (cmd.warmup.value_or(true)) {
+        run_warmup();
+        numeric::restart_seeded_randomness();
     }
     respond.ok({});
 }

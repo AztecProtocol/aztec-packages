@@ -12,6 +12,8 @@ export interface TypeScriptPackageOptions {
   wasmModule?: string;
   /** wasm transport: basename of the threads module shipped in the package's wasm/ directory. */
   wasmThreadsModule?: string;
+  /** The schema's init command (TypeScriptCodegen.initCommand): services send it before use. */
+  init?: { method: string; type: string };
 }
 
 function className(prefix: string): string {
@@ -387,7 +389,7 @@ export interface ${prefix}CreateOptions {
   logger?: (msg: string) => void;
   /** Let node exit while the backend is alive (a process that watches its parent, or the wasm workers). */
   unref?: boolean;
-${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;\n` : ""}}
+${this.initOption()}${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;\n` : ""}}
 
 /** Options for ${className(prefix)}Sync.create / createBackendSync. */
 export interface ${prefix}CreateSyncOptions {
@@ -397,8 +399,26 @@ export interface ${prefix}CreateSyncOptions {
   threads?: number;
   logger?: (msg: string) => void;
   unref?: boolean;
-${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;\n` : ""}}
+${this.initOption()}${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;\n` : ""}}
 `;
+  }
+
+  /** The `init` create option, when the schema has an init command. */
+  private initOption(): string {
+    const init = this.opts.init;
+    return init
+      ? `  /**
+   * The ${init.type} command sent before the service is handed out (calling anything before it is
+   * undefined). Unset sends it with its defaults; \`false\` skips it, for a caller that sends it later.
+   */
+  init?: false | ${init.type};
+`
+      : "";
+  }
+
+  /** The import the init option's type needs. */
+  private initImport(): string {
+    return this.opts.init ? `import type { ${this.opts.init.type} } from './generated/api_types.js';\n` : "";
   }
 
   /** The service classes over createBackend/createBackendSync, with the direct constructors this entry offers. */
@@ -406,6 +426,22 @@ ${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n`
     const { prefix } = this.opts;
     const svc = className(prefix);
     const { process, wasm } = opts;
+    const init = this.opts.init;
+    // With an init command every constructor sends it before handing the service out.
+    const withInit = init ? ` & { init?: false | ${init.type} }` : "";
+    const start = (cls: string, made: string) => (init ? `${cls}.started(${made}, options.init)` : made);
+    const started = (cls: string, await_: string) =>
+      init
+        ? `
+  private static async started(svc: ${cls}, init: false | ${init.type} | undefined): Promise<${cls}> {
+    if (init !== false) {
+      // Every field of an init command is optional (TypeScriptCodegen.initCommand), so none is a valid command.
+      ${await_}svc.${init.method}(init ?? ({} as ${init.type}));
+    }
+    return svc;
+  }
+`
+        : "";
     return `/**
  * The ${prefix} service: the generated API over whichever backend \`create\` chose, forced, or was
  * given.${process ? " Process lifecycle stays inside the backend and never leaks onto this API." : ""}
@@ -416,14 +452,15 @@ export class ${svc} extends AsyncApi {
   }
 
   static async create(options: ${prefix}CreateOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createBackend(options));
+    return ${start(svc, `new ${svc}(await createBackend(options))`)};
   }
+${started(svc, "await ")}
 ${
   process
     ? `
   /** The service as a spawned '${this.opts.binaryName}' process (no fallback). */
-  static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}> {
-    return new ${svc}(await spawnProcessBackend(options));
+  static async spawn(options: ${prefix}ProcessOptions${withInit} = {}): Promise<${svc}> {
+    return ${start(svc, `new ${svc}(await spawnProcessBackend(options))`)};
   }
 `
     : ""
@@ -431,8 +468,8 @@ ${
       wasm
         ? `
   /** The service over the in-process wasm module (no fallback). */
-  static async wasm(options: ${prefix}WasmOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createWasmBackend(options));
+  static async wasm(options: ${prefix}WasmOptions${withInit} = {}): Promise<${svc}> {
+    return ${start(svc, `new ${svc}(await createWasmBackend(options))`)};
   }
 `
         : ""
@@ -470,14 +507,15 @@ export class ${svc}Sync extends SyncApi {
   }
 
   static async create(options: ${prefix}CreateSyncOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createBackendSync(options));
+    return ${start(`${svc}Sync`, `new ${svc}Sync(await createBackendSync(options))`)};
   }
+${started(`${svc}Sync`, "")}
 ${
   process && this.shm
     ? `
   /** The service as a spawned '${this.opts.binaryName}' process over shared memory (no fallback). */
-  static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await spawnProcessBackendSync(options));
+  static async spawn(options: ${prefix}ProcessOptions${withInit} = {}): Promise<${svc}Sync> {
+    return ${start(`${svc}Sync`, `new ${svc}Sync(await spawnProcessBackendSync(options))`)};
   }
 `
     : ""
@@ -485,8 +523,8 @@ ${
       wasm
         ? `
   /** The service over the single-threaded in-process wasm module (no fallback). */
-  static async wasm(options: ${prefix}WasmOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createWasmBackendSync(options));
+  static async wasm(options: ${prefix}WasmOptions${withInit} = {}): Promise<${svc}Sync> {
+    return ${start(`${svc}Sync`, `new ${svc}Sync(await createWasmBackendSync(options))`)};
   }
 `
         : ""
@@ -512,7 +550,7 @@ ${
 } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}import { ${findBinary} } from './platform.js';
+${this.initImport()}${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}import { ${findBinary} } from './platform.js';
 ${wasm ? `import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';\n` : ""}
 ${this.generatedExports()}${process ? "export * from './process.js';\n" : ""}${wasm ? "export * from './wasm.js';\n" : ""}export { ${findBinary} } from './platform.js';
 
@@ -574,7 +612,7 @@ ${this.serviceClasses({ process, wasm })}`;
     return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';
+${this.initImport()}import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';
 
 ${this.generatedExports()}export * from './wasm.js';
 
@@ -587,7 +625,7 @@ export interface ${prefix}CreateOptions {
   threads?: number;
   logger?: (msg: string) => void;
   unref?: boolean;
-  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;
+${this.initOption()}  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;
 }
 
 /** Options for ${className(prefix)}Sync.create / createBackendSync. */
@@ -595,7 +633,7 @@ export interface ${prefix}CreateSyncOptions {
   backend?: ${prefix}Backend | IpcClientSync;
   logger?: (msg: string) => void;
   unref?: boolean;
-  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;
+${this.initOption()}  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;
 }
 
 export async function createBackend(options: ${prefix}CreateOptions = {}): Promise<IpcClientAsync> {

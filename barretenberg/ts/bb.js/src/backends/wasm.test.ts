@@ -22,7 +22,7 @@ describe('wasm backends', () => {
     60000,
   );
 
-  it('runs bb Warmup on request and keeps answering', async () => {
+  it('warms up through Init on request and keeps answering', async () => {
     const api = await Barretenberg.new({
       backend: BackendType.WasmWorker,
       threads: 4,

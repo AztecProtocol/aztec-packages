@@ -53,25 +53,28 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
-      if (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker) {
-        await backend.initWasm();
-      }
+      await backend.start(options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker);
       return backend;
     }
 
     if (typeof window === 'undefined') {
       try {
-        return new Barretenberg(await createAsyncBackend(BackendType.NativeUnixSocket, options, logger), options);
+        const backend = new Barretenberg(
+          await createAsyncBackend(BackendType.NativeUnixSocket, options, logger),
+          options,
+        );
+        await backend.start(false);
+        return backend;
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
-        await backend.initWasm();
+        await backend.start(true);
         return backend;
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
       const backend = new Barretenberg(await createAsyncBackend(BackendType.WasmWorker, options, logger), options);
-      await backend.initWasm();
+      await backend.start(true);
       return backend;
     }
   }
@@ -84,8 +87,13 @@ export class Barretenberg extends AsyncApi {
     if (!this.options.skipSrsInit) {
       await this.initSRSChonk(this.options.srsSize);
     }
-    if (this.options.warmup) {
-      await this.warmup({});
+  }
+
+  /** Init, the session's first command (with the optional warmup on wasm), then the wasm SRS. */
+  private async start(wasm: boolean): Promise<void> {
+    await this.init({ warmup: wasm && !!this.options.warmup });
+    if (wasm) {
+      await this.initWasm();
     }
   }
 
@@ -205,23 +213,31 @@ export class BarretenbergSync extends SyncApi {
     const logger = options.logger ?? (() => {});
 
     if (options.backend) {
-      return new BarretenbergSync(await createSyncBackend(options.backend, options, logger));
+      return BarretenbergSync.started(new BarretenbergSync(await createSyncBackend(options.backend, options, logger)));
     }
 
     // Try native, fallback to WASM.
     try {
-      return new BarretenbergSync(await createSyncBackend(BackendType.NativeSharedMemory, options, logger));
+      return BarretenbergSync.started(
+        new BarretenbergSync(await createSyncBackend(BackendType.NativeSharedMemory, options, logger)),
+      );
     } catch (err: any) {
       logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
     }
 
-    return new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger));
+    return BarretenbergSync.started(new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger)));
   }
 
   /**
    * Initialize the singleton instance.
    * @param options Backend configuration options
    */
+  /** Init, the session's first command. */
+  private static started(api: BarretenbergSync): BarretenbergSync {
+    api.init({ warmup: false });
+    return api;
+  }
+
   static async initSingleton(options: BackendOptions = {}) {
     if (!barretenbergSyncSingletonPromise) {
       // unref for the same reason the async singleton does: nothing destroys a
