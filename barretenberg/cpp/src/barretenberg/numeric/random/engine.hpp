@@ -53,6 +53,11 @@ RNG& get_debug_randomness(bool reset = false, std::uint_fast64_t seed = 12345);
 /// different NUMBER of values for the same command agrees in isolation and diverges on every later
 /// command of a session. Comparing this count localises that.
 uint64_t debug_randomness_draws();
+/**
+ * @brief Under BB_RNG_SEED, restart the seeded stream from its seed (a no-op otherwise), so work run
+ * before a session (Init's warmup) leaves the session's draws unchanged.
+ */
+void restart_seeded_randomness();
 RNG& get_randomness();
 
 } // namespace bb::numeric

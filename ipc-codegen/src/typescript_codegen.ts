@@ -71,6 +71,25 @@ export class TypeScriptCodegen {
     return toPascalCase(name);
   }
 
+  /**
+   * The schema's init command, when it has one: a command named `Init` (after the service prefix)
+   * whose fields are all optional, so a client can always send it with none. Generated services
+   * send it before handing themselves out; calling anything first is undefined behaviour.
+   */
+  initCommand(compiled: CompiledSchema): { method: string; type: string } | undefined {
+    const init = compiled.commands.find((c) => this.typeName(c.name) === "Init" || c.name === "Init");
+    if (!init) {
+      return undefined;
+    }
+    const required = init.fields.filter((f) => f.type.kind !== "optional");
+    if (required.length > 0) {
+      throw new Error(
+        `${init.name}: an init command's fields must all be optional (required: ${required.map((f) => f.name).join(", ")})`,
+      );
+    }
+    return { method: this.toMethodName(init.name), type: this.typeName(init.name) };
+  }
+
   /** Strip the method prefix and convert to camelCase for API method names */
   private toMethodName(commandName: string): string {
     let name = commandName;

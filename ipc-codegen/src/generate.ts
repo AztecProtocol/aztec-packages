@@ -546,6 +546,7 @@ function generate(args: Args) {
               .filter(Boolean),
             wasmModule: args.packageWasmModule || undefined,
             wasmThreadsModule: args.packageWasmThreadsModule || undefined,
+            init: gen.initCommand(compiled),
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());

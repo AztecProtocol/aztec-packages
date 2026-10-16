@@ -32,7 +32,7 @@ export type BackendOptions = {
   wasmPath?: string;
 
   /**
-   * @description After initializing a WASM backend, run bb's Warmup command: a pass over the
+   * @description On a WASM backend, have Init (sent first) warm up: a pass over the
    * prover's hot loops so the engine has optimized them before the first real request.
    */
   warmup?: boolean;

@@ -85,11 +85,12 @@ TEST(CBind, UnknownCommandReturnsErrorResponse)
     EXPECT_EQ(ffi_response_type("NoSuchCommand", cmd), "BbErrorResponse");
 }
 
-// Warmup runs the prover's hot loops on self-made inputs; they must be shaped so that
+// Init's warmup runs the prover's hot loops on self-made inputs; they must be shaped so that
 // the unsafe MSM path never meets two equal points.
-TEST(CBind, WarmupSucceeds)
+TEST(CBind, InitWithWarmupSucceeds)
 {
-    EXPECT_EQ(ffi_response_type("BbWarmup", wire::BbWarmup{}), "BbWarmupResponse");
+    EXPECT_EQ(ffi_response_type("BbInit", wire::BbInit{}), "BbInitResponse");
+    EXPECT_EQ(ffi_response_type("BbInit", wire::BbInit{ .warmup = false }), "BbInitResponse");
 }
 
 #else

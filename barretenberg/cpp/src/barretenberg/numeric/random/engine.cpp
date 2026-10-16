@@ -290,6 +290,13 @@ uint64_t debug_randomness_draws()
     return static_cast<DebugEngine&>(get_debug_randomness()).draws;
 }
 
+void restart_seeded_randomness()
+{
+    if (const char* seed_env = std::getenv("BB_RNG_SEED")) {
+        get_debug_randomness(/*reset=*/true, std::strtoull(seed_env, nullptr, 10));
+    }
+}
+
 /**
  * Default engine.
  *
