@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Thu, 15 Oct 2026 10:28:14 +0000
+Subject: [PATCH] fix(ethereum): read polling configuration in browser runtimes
+
+
+diff --git a/yarn-project/ethereum/src/client.ts b/yarn-project/ethereum/src/client.ts
+index 801c250a28dceeb6c0ac8bd05b20f5ed8700b9ba..6aa82495b0c5adc431c4302abc5b8bb2fa556a9d 100644
+--- a/yarn-project/ethereum/src/client.ts
++++ b/yarn-project/ethereum/src/client.ts
+@@ -1,3 +1,4 @@
++import { getEnv } from '@aztec-labs/foundation/config/env';
+ import type { Logger } from '@aztec-labs/foundation/log';
+ import { retryUntil } from '@aztec-labs/foundation/retry';
+ import { getErrorCause } from '@aztec-labs/foundation/types';
+@@ -44,7 +45,7 @@ const DEFAULT_VIEM_POLLING_INTERVAL_MS = 1_000;
+  * runners shorten it.
+  */
+ export function defaultViemPollingIntervalMs(): number {
+-  const fromEnv = Number(process.env.L1_VIEM_POLLING_INTERVAL_MS);
++  const fromEnv = Number(getEnv().L1_VIEM_POLLING_INTERVAL_MS);
+   return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_VIEM_POLLING_INTERVAL_MS;
+ }
+ 
