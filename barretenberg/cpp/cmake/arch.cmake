@@ -2,7 +2,11 @@ if(WASM)
     # Disable SLP vectorization on WASM as it's brokenly slow. To give an idea, with this off it still takes
     # 2m:18s to compile scalar_multiplication.cpp, and with it on I estimate it's 50-100 times longer. I never
     # had the patience to wait it out...
-    add_compile_options(-fno-exceptions -fno-slp-vectorize)
+    add_compile_options(-fno-slp-vectorize)
+    # Standard (exnref) wasm exception handling. wasi-sdk 33+ ships a sysroot built with it, selected by
+    # -fwasm-exceptions at link time; libunwind provides the unwinder.
+    add_compile_options(-fwasm-exceptions -mllvm -wasm-use-legacy-eh=false)
+    add_link_options(-fwasm-exceptions -lunwind)
 endif()
 
 # Target skylake on x86 for AVX2 etc. ARM is handled by the zig wrapper scripts

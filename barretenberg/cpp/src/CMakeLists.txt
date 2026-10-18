@@ -123,8 +123,17 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/vm2_wsdb)
+    add_subdirectory(barretenberg/vm2_sim_smoke)
     add_subdirectory(barretenberg/cdb)
     add_subdirectory(barretenberg/avm)
+endif()
+
+if(WASM)
+    # The AVM simulator, without the AVM prover (the wasm presets set AVM off).
+    add_subdirectory(barretenberg/aztec)
+    add_subdirectory(barretenberg/world_state_reference)
+    add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/vm2_sim_smoke)
 endif()
 
 # Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`

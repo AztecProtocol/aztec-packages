@@ -10,7 +10,7 @@ BBAPI="$ROOT/barretenberg/cpp/src/barretenberg/bbapi"
 
 # bb.js keeps its historical API surface (poseidon2Hash, Poseidon2Hash), so the
 # Bb service prefix is stripped from identifiers; wire tags keep it.
-node --experimental-strip-types --experimental-transform-types --no-warnings \
+node --experimental-strip-types --no-warnings \
   "$ROOT/ipc-codegen/src/generate.ts" \
   --schema "$BBAPI/bb_schema.json" \
   --lang ts \

@@ -12,10 +12,10 @@
 # Expected toolchain versions.
 export expected_min_clang_version=20.0.0
 export expected_min_cmake_version=3.24
-export expected_min_node_version=24.12.0
+export expected_min_node_version=26.12.0
 export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
-export expected_abs_wasi_version=27.0
+export expected_abs_wasi_version=34.0
 export expected_abs_foundry_version=1.8.5
 export expected_abs_yarn_version=4.13.0
 
@@ -66,8 +66,8 @@ function install_node {
     curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     . "$HOME/.nvm/nvm.sh" --no-use
   fi
-  nvm install --lts
-  nvm alias default lts/*
+  nvm install $expected_min_node_version
+  nvm alias default $expected_min_node_version
 }
 
 function install_node_utils {
@@ -203,6 +203,36 @@ function cleanup {
   stop_txes
 }
 trap cleanup EXIT
+
+### TRANSITIONAL TOOLCHAIN UPGRADE #####################################################################################
+# TODO: Delete this section and its calls (prep, check) once CI runs a build image (and AMI) with the toolchains
+# build-images/src/Dockerfile now installs. Until then, upgrade the older image in place on every run: wasi-sdk at
+# /opt/wasi-sdk (only builds use it), and node, wasmtime and playwright's chromium under $HOME, which isolated test
+# containers mount too, so PATH and PLAYWRIGHT_BROWSERS_PATH are passed through to them.
+function transitional_toolchain_upgrade {
+  [ "$(os)" == "linux" ] && { [ "${CI:-0}" -eq 1 ] || [ "$(whoami)" == "aztec-dev" ]; } || return 0
+  local dir=$HOME/.cache/aztec-transitional-toolchains arch=$(uname -m)
+  local node_version=v$expected_min_node_version wasmtime_version=v46.0.3 playwright_version=1.63.0
+  local node_arch=$([ "$arch" == "aarch64" ] && echo arm64 || echo x64)
+  mkdir -p $dir
+  install_wasi_sdk
+  if [ ! -x $dir/node-$node_version/bin/node ]; then
+    curl -fsSL https://nodejs.org/dist/$node_version/node-$node_version-linux-$node_arch.tar.xz | tar xJ -C $dir
+    mv $dir/node-$node_version-linux-$node_arch $dir/node-$node_version
+  fi
+  if [ ! -x $dir/wasmtime-$wasmtime_version/wasmtime ]; then
+    curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/$wasmtime_version/wasmtime-$wasmtime_version-$arch-linux.tar.xz | tar xJ -C $dir
+    mv $dir/wasmtime-$wasmtime_version-$arch-linux $dir/wasmtime-$wasmtime_version
+  fi
+  export PATH=$dir/node-$node_version/bin:$dir/wasmtime-$wasmtime_version:$PATH
+  export PLAYWRIGHT_BROWSERS_PATH=$dir/ms-playwright
+  local out
+  if ! out=$(npx -y playwright@$playwright_version install chromium --only-shell 2>&1); then
+    echo "$out"
+    return 1
+  fi
+  export ENV_VARS_TO_INJECT="${ENV_VARS_TO_INJECT:-} PATH PLAYWRIGHT_BROWSERS_PATH"
+}
 
 ### TOOLCHAIN CHECKS ###################################################################################################
 function check_minimum_version {
@@ -417,6 +447,7 @@ function stop_txes {
 }
 
 function prep {
+  transitional_toolchain_upgrade
   check_toolchains
   pull_submodules
 }
@@ -853,6 +884,7 @@ case "$cmd" in
     git clean -ffdx
   ;;
   "check")
+    transitional_toolchain_upgrade
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
