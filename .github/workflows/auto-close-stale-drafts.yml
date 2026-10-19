@@ -18,7 +18,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          CUTOFF=$(date -u -d '5 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          CUTOFF=$(date -u -d '28 days ago' +%Y-%m-%dT%H:%M:%SZ)
           echo "Closing claudebox draft PRs not updated since $CUTOFF"
 
           # Search for open draft PRs with claudebox label, updated before cutoff
@@ -38,7 +38,7 @@ jobs:
             echo "Closing #$NUM: $TITLE"
 
             gh api "repos/${{ github.repository }}/issues/$NUM/comments" \
-              -f body="Automatically closing this stale claudebox draft PR (no updates for 5+ days). Re-open if still needed." \
+              -f body="Automatically closing this stale claudebox draft PR (no updates for 4+ weeks). Re-open if still needed." \
               --silent || true
 
             gh api -X PATCH "repos/${{ github.repository }}/pulls/$NUM" \
