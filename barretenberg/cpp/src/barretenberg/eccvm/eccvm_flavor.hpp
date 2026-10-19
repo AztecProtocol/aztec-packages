@@ -119,7 +119,7 @@ class ECCVMFlavor {
     // of the round univariate U_i — its evaluation at 0, the chained target T_{i+1} = U_i(u_i), and the non-hiding
     // commitment [U_i] — and the pair-sum bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the
     // Libra masking univariates must have length 3 + 1 = 4. The BN254 ZK flavors pin their (non-committed) budget
-    // with an analogous static_assert. See sumcheck/docs/committed_sumcheck_zk.md.
+    // with an analogous static_assert. See "Committed sumcheck masking budget" in sumcheck/Sumcheck.md.
     static_assert(Curve::LIBRA_UNIVARIATES_LENGTH == 4,
                   "Committed sumcheck requires LIBRA_UNIVARIATES_LENGTH == #revealed evaluations (3) + 1");
     static_assert(Curve::LIBRA_UNIVARIATES_LENGTH * CONST_ECCVM_LOG_N + 1 < Curve::SUBGROUP_SIZE,

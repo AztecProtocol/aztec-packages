@@ -6,9 +6,6 @@ sumcheck. It is the batching primitive that powers HyperNova folding inside [Cho
 each Chonk kernel collects the sumcheck claims of the proofs it recursively verifies and folds them
 into one accumulator with a single multilinear batching proof.
 
-This document specifies the protocol, the relation it runs, the flavor that fixes its shape, and how
-Chonk uses it. It is intended as a reference point for the Chonk documentation.
-
 ## Table of Contents
 
 1. [The Problem](#the-problem)
@@ -34,7 +31,7 @@ P(r) = v, \qquad P^{\text{sh}}(r) = v^{\text{sh}},
 $$
 
 i.e. a non-shifted polynomial $P$ and its shifted counterpart $P^{\text{sh}}$, both claimed at the
-same point $r \in \mathbb{F}^{\log N}$ produced by that circuit's sumcheck. A Chonk kernel verifies
+same point $r \in \mathbb{F}^{d}$ produced by that circuit's sumcheck. A Chonk kernel verifies
 several proofs in a row — the accumulator carried in from the previous kernel, the previous kernel's
 own proof, and up to `MAX_APPS_PER_KERNEL` app proofs — so it ends up holding **several such claims,
 each at a different point** $r_i$.
@@ -58,10 +55,6 @@ P(r) = v,\ \ P^{\text{sh}}(r) = v^{\text{sh}},
 \qquad
 P = \sum_{i} \rho^i P_i,\ \ v = \sum_{i} \rho^i P_i(r).
 $$
-
-Soundness: the sumcheck and eq checks with a random $\gamma$ establish each input claim
-$P_i(r_i) = v_i$; drawing $\rho$ after the evaluations are bound makes the single later opening of
-$[P_{\text{new}}]$ at $r$ pin down each $P_i(r)$ individually.
 
 | Symbol | Code identifier | Meaning | Bound / value |
 |---|---|---|---|
@@ -177,18 +170,11 @@ $$
 
 Verification succeeds iff the sumcheck verifies *and* the eq-consistency check passes.
 
-### Why $\gamma$ before, $\rho$ after
-
-$\gamma$ must be fixed before the sumcheck because it is baked into the relation. $\rho$ is drawn only
-*after* the sumcheck has bound every $P_i(r)$ to the transcript; merging with a post-binding $\rho$
-ensures the single later opening of $[P_{\text{new}}]$ pins down each $P_i(r)$ individually rather
-than only their $\gamma$-combination.
-
 ## The Relation
 
 `MultilinearBatchingRelation` (`relations/multilinear_batching/multilinear_batching_relation.hpp`) has
-two subrelations, both linearly *dependent* (there is no gate/`pow` polynomial — every row
-participates):
+two subrelations. Both are linearly dependent: they hold only summed over the hypercube, so sumcheck
+does not scale them per row and there is no `pow` polynomial:
 
 ```
 SUBRELATION_PARTIAL_LENGTHS = { 3, 3 };           // non-shifted, shifted
@@ -223,8 +209,8 @@ shape at compile time:
 | `HasZK` | `false` | the batching proof is not itself ZK |
 | `Curve` | `curve::BN254` (native) / stdlib `bn254` (recursive) | |
 
-**Fixed round count for fixed proof size.** Real witness columns of length $N < 2^{\texttt{VIRTUAL LOG N}}$
-are extended by zero (multiplying by $\prod_{i=N+1}^{\texttt{VIRTUAL LOG N}}(1 - X_i)$), so sumcheck
+**Fixed round count for fixed proof size.** Real columns in $\ell = \log_2(\text{length})$ variables are
+extended by zero [[2](#ref-hyperplonk)], i.e. multiplied by $\prod_{i=\ell}^{d-1}(1 - X_i)$ with $d = $ `VIRTUAL_LOG_N`, so sumcheck
 always runs `VIRTUAL_LOG_N` rounds. This makes the proof size and the recursive verifier circuit
 constant regardless of the actual claim sizes. The eq columns cannot be extended by zero — eq is
 $\prod_i\big((1-X_i)(1-Y_i) + X_i Y_i\big)$ — so the flavor supplies
@@ -254,7 +240,7 @@ Each kernel batches a different number of claims, so a *family* of flavors is in
 width in `[2, CHONK_MAX_CLAIMS_PER_KERNEL]`:
 
 ```cpp
-static constexpr size_t MAX_APPS_PER_KERNEL = 5;
+static constexpr uint8_t MAX_APPS_PER_KERNEL = 5;
 // carried accumulator + previous kernel proof + up to MAX_APPS_PER_KERNEL app proofs
 static constexpr size_t CHONK_MAX_CLAIMS_PER_KERNEL = MAX_APPS_PER_KERNEL + 2;  // = 7
 ```
@@ -304,13 +290,15 @@ kernel's resulting accumulator.
 - **Claim binding without sending claims.** The claims are not in the proof; they are bound by the
   shared transcript state from the group's instance sumchecks. $\gamma$ is derived from that state, so
   a prover cannot choose claims after seeing $\gamma$.
+- **$\gamma$ before the sumcheck.** $\gamma$ is baked into the relation, so it must be fixed before the
+  sumcheck.
 - **$\gamma$-separation.** Proving $\sum_i \gamma^i P_i(r_i) = \sum_i \gamma^i v_i$ for a transcript-
   derived $\gamma$ implies each $P_i(r_i) = v_i$ except with Schwartz–Zippel probability in $\gamma$.
 - **eq-consistency.** The eq columns are witness data; the explicit check that $\text{eq}_i(r) =
   \text{eq}(r_i, r)$ ties them to the claim points, preventing a malicious prover from substituting
   different eq polynomials.
 - **$\rho$-merge.** Drawing $\rho$ after the evaluations are bound means the eventual single opening of
-  $[P_{\text{new}}]$ at $r$ binds each $P_i(r)$ individually.
+  $[P_{\text{new}}]$ at $r$ binds each $P_i(r)$ individually, not only their $\gamma$-combination.
 - **Fixed rounds / padding.** Extension-by-zero keeps the sumcheck at `VIRTUAL_LOG_N` rounds; the eq
   extension correction is required for the eq columns because their virtual-round behavior is not
   zero-extension.

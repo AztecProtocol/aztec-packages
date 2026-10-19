@@ -4,12 +4,10 @@ This note proves that the Gemini + Shplonk + KZG path of Shplemini is
 zero-knowledge when the prover's polynomials are masked with a random
 `gemini_masking_poly` carrying only $2d$ random coefficients ($d=\log_2 N$).
 
-This note is a proof sketch. The body (§1–§8) states the theorem and the
-reduction path and explains why each step holds; the heavy linear-algebra
-identities are proven in the Lean development `shplemini_lean/`, currently staged
-in private PR
-[#138](https://github.com/AztecProtocol/aztec-packages-private/pull/138). §9 maps
-each statement to its Lean lemma.
+This note is a proof sketch. The linear-algebra identities are proved in the Lean
+development `shplemini_lean/` (§8). That development is not in this repository: it is in
+[aztec-packages-private#138](https://github.com/AztecProtocol/aztec-packages-private/pull/138),
+which needs private access.
 
 ## 1. Setup
 
@@ -21,8 +19,9 @@ $$
 E=\min\bigl(N,\,2\lceil e/2\rceil\bigr)
 $$
 
-for its value rounded up to even. $N$ is the dyadic circuit size, the least power of
-two bigger or equal than $e$, so $e>N/2$ and hence $N/2<E\le N$. We call the interval $(N/2, N]$ the masking domain. The argument splits it at $3N/4$, the *high tail* is $3N/4<E\le N$, the *low tail* is $N/2<E\le3N/4$. In the first case, the pair $\{E-1,E-2\}$ lies in the top quarter of $[0,N)$, while in the latter it lies in the third quarter.
+for its value rounded up to even. $N$ is the dyadic circuit size. We assume $N$ is the
+least power of two greater than or equal to $e$ (in Oink, $e$ is `max_end_index()` and $N$ is
+`dyadic_size()`), so $e>N/2$ and hence $N/2<E\le N$. We call the interval $(N/2, N]$ the masking domain. The argument splits it at $3N/4$, the *high tail* is $3N/4<E\le N$, the *low tail* is $N/2<E\le3N/4$. In the first case, the pair $\{E-1,E-2\}$ lies in the top quarter of $[0,N)$, while in the latter it lies in the third quarter.
 
 **The mask.** The prover samples $M(X)=\sum_{s\in S}c_sX^s$ with the $c_s$ i.i.d.
 uniform, on the *tail-halving support*
@@ -54,7 +53,7 @@ with $\operatorname{bit}_i(j)$ the $i$-th bit of $j$. Below is a table of the sy
 | $\phi_m(\tau,y)=(\tau^m-y^m)/(\tau-y)$, $\ \phi_0=0$ | folding polynomial |
 | $A_m^+(r)=u_m+(1-u_m)r$, $\ A_m^-(\tau)=u_m-(1-u_m)\tau$ | affine factors |
 | $L$, $G$ (§2) | leakage map; Gemini map in $\mathbb F^{2d}$, with $G_E,G_S$ on dense/sparse masks |
-| $D_t',\,M_t^{\mathrm{new}},\,N_k$ (§4) | normalised rows |
+| $D_t',\,M_t^{\mathrm{new}},\,R_k$ (§4) | normalised rows |
 | $C_k,\,T_k$ (§4), $\ B$ (§5) | column blocks; diagonal fibers; boundary block |
 
 ## 2. The leakage map and the masking theorem
@@ -87,12 +86,12 @@ For an index set $T$, write $G_T$ for $G$ restricted to $\operatorname{span}\{X^
 \mathbb F[X]_{<E}$ and the dense mask $M$ is uniform in $\mathbb F[X]_{<E}$, then
 $L(P+M)=L(P)+L(M)$ is uniform on the affine translate $L(P)+\operatorname{im}L(\mathbb F[X]_{<E}) = L(P) + \mathscr{T}$. Thus the dense leakage distribution is independent of $P$.
 
-The sparse mask is hiding whenever $\operatorname{im}G_S\supseteq\operatorname{im}G_E$: then every. Indeed, in this case the image of $G_S$ equals the space of valid looking transcripts $\mathscr{T}^{Gemini}$ (indeed $\mathscr{T}^{Gemini} = im(G_E) \subset im(G_S) \subset \mathscr{T}^{Gemini}$), and therefore the uniform distrubution on $F[X]_S$ is pushed forward to the uniform distribution $\mathscr{T}^{Gemini}$.
+The sparse mask is hiding whenever $\operatorname{im}G_S\supseteq\operatorname{im}G_E$: then $\operatorname{im}G_S = \mathscr{T}^{Gemini}$, because $\mathscr{T}^{Gemini} = \operatorname{im}G_E \subseteq \operatorname{im}G_S \subseteq \mathscr{T}^{Gemini}$. So a uniform mask on $\operatorname{span}\{X^s : s\in S\}$ pushes forward to the uniform distribution on $\mathscr{T}^{Gemini}$.
 
-> **Theorem (sparse masking).** Under the locus hypotheses of §7, $\operatorname{im}G_E\subseteq\operatorname{im}G_S$.
+> **Theorem (sparse masking).** Under the locus hypotheses of §6, $\operatorname{im}G_E\subseteq\operatorname{im}G_S$.
 
 Consequently, a sparse mask of the described shape is sufficient to achieve
-statistical HVZK in Shplemini via the simulator of §8.
+statistical HVZK in Shplemini via the simulator of §7.
 
 ## 3. Reduction path
 
@@ -100,14 +99,6 @@ Throughout, *rows* are the $2d$ Gemini coordinates $M_t(\tau),M_t(-r_t)$ — the
 rows of a matrix whose columns are the monomials $c_s \tau^s$, $c_s (-r_t)^s$. Then $\operatorname{im}G_T$
 is the span of the columns over $s\in T$, and the containment is a rank statement
 about this matrix.
-
-**Strategy.** Both images lie in $\mathbb F^{2d}$. For $3N/4<E\le N$, the sparse
-image is all of $\mathbb F^{2d}$, certified by a $2d\times2d$ determinant. For
-$N/2<E\le3N/4$, both images lie in the hyperplane
-$H_c=\{N_{d-1}=cD_{d-1}'\}$, where
-$c=N_{d-1}(N/2)/D_{d-1}'(N/2)$, and the sparse image is the full hyperplane,
-certified by a $(2d-1)$ minor. In both cases the dense image lies in the sparse
-image. The determinant and minor are computed in §4–§6.
 
 The proof consists of three major reduction steps:
 
@@ -139,13 +130,15 @@ so none affects the rank of the image:
   $$
 
 **Step 2 — reduce to block-triangular form.** Row operations (§4), invertible off
-the exceptional locus, carry the $2d$ Gemini rows to the rows $D_t',N_k$. Ordering
+the exceptional locus, carry the $2d$ Gemini rows to the rows $D_t',R_k$. Ordering
 the columns by block then makes the matrix block-triangular — the *staircase*.
 
 **Step 3 — containment from the staircase.** The diagonal blocks of the
-staircase determine the rank (§5). For $3N/4<E\le N$ the full determinant
-is nonzero; for $N/2<E\le3N/4$ a projected minor is nonzero and the dense image
-satisfies the same row relation as the sparse image:
+staircase determine the rank (§5). Both images lie in $\mathbb F^{2d}$. For $3N/4<E\le N$ the full
+$2d\times2d$ determinant is nonzero, so the sparse image is all of $\mathbb F^{2d}$. For
+$N/2<E\le3N/4$ both images lie in the hyperplane $H_c=\{R_{d-1}=cD_{d-1}'\}$, where
+$c=R_{d-1}(N/2)/D_{d-1}'(N/2)$. A projected $(2d-1)$ minor is nonzero, so the sparse image is
+all of $H_c$, and the dense image satisfies the same row relation:
 
 $$
 \begin{array}{ll}
@@ -174,7 +167,7 @@ M_t(-r_t)
 \left(
 \begin{array}{c}
 D_t := M_t(\tau) - M_t(-r_t)\\
-M_t := M_t(-r_t)
+M_t^- := M_t(-r_t)
 \end{array}
 \right)
 $$
@@ -196,13 +189,13 @@ r_t & 1
 \left(
 \begin{array}{c}
 (\tau + r_t) \, D_t'\\
-M_t
+M_t^-
 \end{array}
 \right) =
 \left(
 \begin{array}{c}
 D_t' \\
-M_t^{new} := M_t + r_t D'_t
+M_t^{new} := M_t^- + r_t D'_t
 \end{array}
 \right)
 $$
@@ -227,27 +220,27 @@ Order the columns $C_0\mid C_1\mid\cdots\mid C_{d-1}$. For
 $1\le k\le d-1$, replace the row $M_k^{\mathrm{new}}$ by
 
 $$
-N_k=M_k^{\mathrm{new}}-u_{k-1}D_{k-1}'-(1-u_{k-1})M_{k-1}^{\mathrm{new}}.
+R_k=M_k^{\mathrm{new}}-u_{k-1}D_{k-1}'-(1-u_{k-1})M_{k-1}^{\mathrm{new}}.
 $$
 
 The resulting row order is
 
 $$
-D_0',\,M_0^{\mathrm{new}},\,D_1',\,N_1,\ldots,D_{d-1}',\,N_{d-1}.
+D_0',\,M_0^{\mathrm{new}},\,D_1',\,R_1,\ldots,D_{d-1}',\,R_{d-1}.
 $$
 
-The row $M_0^{\mathrm{new}}$ is not paired with an $N_0$ row; it is carried to the boundary block after the middle blocks are eliminated (§5).
+The row $M_0^{\mathrm{new}}$ is not paired with an $R_0$ row; it is carried to the boundary block after the middle blocks are eliminated (§5).
 
 The paired rows vanish on earlier column blocks,
 
 $$
 D_k'|_{C_0\cup\cdots\cup C_{k-1}}=0,\qquad
-N_k|_{C_0\cup\cdots\cup C_{k-1}}=0,
+R_k|_{C_0\cup\cdots\cup C_{k-1}}=0,
 $$
 
-so the matrix is block-triangular, with diagonal fibers $T_k=\binom{D_k'}{N_k}$ on $C_k$ of sizes $2\times1$, $2\times2$, and a $2\times3$ boundary.
+so the matrix is block-triangular, with diagonal fibers $T_k=\binom{D_k'}{R_k}$ on $C_k$ of sizes $2\times1$, $2\times2$, and a $2\times3$ boundary.
 
-**Note:** The value at index $(1, 1)$ is not comprised in the above block decomposition because it will be turned to $0$ in §5.
+**Note:** Entry (row $M_0^{\mathrm{new}}$, column $1$) is outside the blocks; §5 eliminates it.
 
 ## 5. Fiber determinants
 
@@ -257,7 +250,7 @@ factor $1$.
 
 For each middle block, invertibility of $T_k$ lets $M_0^{\mathrm{new}}$ be cleared
 on $C_k$. The residual row is supported only on the boundary columns
-$C_{d-1}$, so it joins the terminal rows $D_{d-1}'$ and $N_{d-1}$ in the boundary
+$C_{d-1}$, so it joins the terminal rows $D_{d-1}'$ and $R_{d-1}$ in the boundary
 block $B$. After these eliminations the square block matrix has determinant
 
 $$
@@ -280,10 +273,10 @@ $$
 **Boundary block $B$.** This is the only $E$-dependent block — through the top
 pair $\{E-1,E-2\}$ — and is where the two tails differ in rank. Form the top-pair
 functional $R\mapsto \ell_{d-2}(E-1)\,R(E-1)-\ell_{d-2}(E-2)\,R(E-2)$. The rows
-$D_{d-1}',N_{d-1}$ are anti-symmetric on the top pair and drop out of it. A
+$D_{d-1}',R_{d-1}$ are anti-symmetric on the top pair and drop out of it. A
 Casoratian identity then evaluates the surviving $M_0^{\mathrm{new}}$ row,
 denominator-cleared, to $u_0\tau^2 r_0^2\,\phi_{E-4}(\tau,-r_0)\,A_0^+(r_0)\,A_0^-(\tau)$;
-with the cofactor of $D_{d-1}',N_{d-1}$ on the $N/2$ column this gives
+with the cofactor of $D_{d-1}',R_{d-1}$ on the $N/2$ column this gives
 
 $$
 \det B=(\tau-r_{d-2})\,A_{d-2}^+(r_{d-2})\,A_{d-2}^-(\tau)\,\ell_{d-2}(N/2)\,
@@ -293,18 +286,15 @@ $$
 
 In the high tail this is the $3\times3$ boundary determinant. In the low tail the
 full boundary determinant vanishes; the rank statement uses the corresponding
-projected $2\times2$ boundary minor. The nonzero conditions in §7 are precisely
+projected $2\times2$ boundary minor. So in the low tail the full $2d$ determinant
+vanishes, because the terminal rows become proportional (the $3N/4$ rank-drop). The rank
+comes from the projected $(2d-1)$ minor, which has the same product form.
+The nonzero conditions in §6 are precisely
 the factors appearing in the middle blocks and the relevant boundary block.
 
-## 6. Low tail
+## 6. Exceptional locus
 
-In the low tail the full $2d$ determinant vanishes — the terminal rows become
-proportional (the $3N/4$ rank-drop) — so the rank comes from the projected
-$(2d-1)$ minor, which has the same product form as §5.
-
-## 7. Exceptional locus
-
-Specialising the identities of §3–§6 to a concrete transcript requires finitely
+Specialising the identities of §3–§5 to a concrete transcript requires finitely
 many polynomials in $\tau,z,u,r$ to be nonzero. The *exceptional locus* is the union
 of their zero sets, with two sources.
 
@@ -324,23 +314,23 @@ $$
 and KZG denominators $\tau\pm r_t$, $z\pm r_t$, $\tau-z$, and the
 positive-reconstruction factors $A_t^+(r_t)$ ($0\le t<d$); each must be nonzero.
 
-## 8. Simulation
+## 7. Simulation
 
 The sparse-masked protocol is honest-verifier zero-knowledge up to statistical
 distance $O(|\mathrm{srs}|)/|\mathcal C|$, where $\mathcal C$ is the
-evaluation-challenge space. The simulator $S$ reproduces the verifier's view
+evaluation-challenge space. The simulator $\mathrm{Sim}$ reproduces the verifier's view
 $\operatorname{View}_V[P\leftrightarrow V]$ on the complement of the exceptional
 locus.
 
 By §2 the masked Gemini leakage is uniform on $\operatorname{im}G_S$, independent of
-the data $P$. The simulator $S$ reproduces it: holding $\tau$, it samples a mask $M$
+the data $P$. The simulator $\mathrm{Sim}$ reproduces it: holding $\tau$, it samples a mask $M$
 with uniform coefficients, takes $p=G_S(M)$, forms the commitments from $p$, and
 reconstructs $M(u),Q_M(\tau),W_M(\tau)$ and the positive openings $M_t(r_t)$ as the
 Step-1 combinations of $p$. Then $p$ is distributed as the real masked leakage, so
 the views match.
 
 $\operatorname{View}_V[P\leftrightarrow V]$ is defined only where the
-denominators $\tau-z$, $z\pm r_t$, and $A_t^+(r_t)$ are nonzero. There $S$
+denominators $\tau-z$, $z\pm r_t$, and $A_t^+(r_t)$ are nonzero. There $\mathrm{Sim}$
 matches it except on the determinant/minor zero locus: $\tau-r_m$,
 $A_m^-(\tau)$, $\phi_{E-4}(\tau,-r_0)$, a middle-block Lagrange factor from
 $\det T_k$, or a boundary Lagrange factor from $\det B$ vanishes. Here $0\le t<d$ and
@@ -350,27 +340,27 @@ simulator's views by $O(|\mathrm{srs}|)/|\mathcal C|$.
 
 > **Remark.** This simulator argument is not codified in Lean.
 
-## 9. Map to the Lean development
+## 8. Map to the Lean development
 
 **Conventions.** The development works over an arbitrary field $\mathbb F$,
 conditioned on an explicit list of non-vanishing hypotheses on the transcript
-challenges and the SRS trapdoor $\tau$ (the *exceptional locus*, §7). Identities
+challenges and the SRS trapdoor $\tau$ (the *exceptional locus*, §6). Identities
 are written in denominator-cleared form, so a variable enters the locus exactly
-when a proof step needs it nonzero. The simulator argument of §8 is not codified in
+when a proof step needs it nonzero. The simulator argument of §7 is not codified in
 Lean.
 
-The locus of §7 is packaged as two hypotheses: `StaircaseChallenges` (the
+The locus of §6 is packaged as two hypotheses: `StaircaseChallenges` (the
 determinant factors) and `GoodChallenges` (the Step-1 denominators).
 `GoodChallenges` leaves the opening points universally quantified — fixing only the
 protocol-level $\tau+r_{d-1}\ne0$ and $\tau-z\ne0$ — so the masking theorem is
 generic in them; instantiating with the Gemini points $\pm r_t$
-(`gemini.hpp`/`shplonk.hpp`) recovers the concrete denominators of §7. Both
+(`gemini.hpp`/`shplonk.hpp`) recovers the concrete denominators of §6. Both
 hypotheses are satisfiable by `decide` over $\mathbb Z/101$ at $d=4$ in both tails
 (including on $r_t=r^{2^t}$), so no condition vanishes identically.
 
 Each statement of the body maps to the Lean lemmas below
-(`shplemini_lean/ShpleminiLean/`). `FINAL_PROOF_STATUS.md` is the full dependency
-DAG. This table is keyed by section.
+(`shplemini_lean/ShpleminiLean/`). `FINAL_PROOF_STATUS.md` in the Lean development is the
+full dependency DAG. This table is keyed by section.
 
 | Body | Lean |
 |---|---|
@@ -386,6 +376,6 @@ DAG. This table is keyed by section.
 | Middle determinant (§5) | `ParameterizedElimination.lean::midDet`; `ParameterizedFinal.lean::midDet_eq` |
 | Boundary block (§5) | `ParameterizedBoundary.lean::{pair_antisym_{Dp,Mnew,Nrow}, casoratian_Xlong, boundary_functional_cleared, highTail_boundary_det_functional}`; `ParameterizedElimination.lean::elimRow_functional_cleared`; `ParameterizedLowTail.lean::lowTail_boundary_det2_functional` |
 | Staircase nonsingular (§5) | `ParameterizedStaircase.lean::{stair_det_ne_zero, stairLow_det_ne_zero}`; `ParameterizedAssembly.lean::{triColsMatrix_det_elim, lowColsMatrix_det_elim}` |
-| Determinant, low tail, ordering (§5–§6) | `ParameterizedFinal.lean::{ordSupport_det_identity, ordSupportLow_det_identity}`, `parSupport_det_eq_sign_mul_ordSupport`; `RawBMatrix.lean::rawBDescending_det_final_closed_form`; `ParameterizedE.lean::parameterized_E6_closed_form_counterexample` |
-| Locus hypotheses (§7) | `ParameterizedFinal.lean::StaircaseChallenges`; `EndToEndMasking.lean::GoodChallenges` |
+| Determinant, low tail, ordering (§5) | `ParameterizedFinal.lean::{ordSupport_det_identity, ordSupportLow_det_identity}`, `parSupport_det_eq_sign_mul_ordSupport`; `RawBMatrix.lean::rawBDescending_det_final_closed_form`; `ParameterizedE.lean::parameterized_E6_closed_form_counterexample` |
+| Locus hypotheses (§6) | `ParameterizedFinal.lean::StaircaseChallenges`; `EndToEndMasking.lean::GoodChallenges` |
 | Finite-rank bridge | `EndToEndMasking.lean::sparseMaskingContainment_of_union_finrank_eq` |

@@ -54,7 +54,7 @@ A **Flavor** is a compile-time configuration bundle that fixes the field, curve,
 
 The two base arithmetizations determine the relation set:
 - **Ultra** (9 relations): arithmetic, permutation, lookup, range, elliptic, memory, non-native field, Poseidon2 (external + internal)
-- **Mega** (11 relations): Ultra relations + EccOpQueue (for Goblin) + Databus (for inter-circuit communication in Chonk)
+- **Mega** (21 relations in `MegaFlavor`): most Ultra relations, plus EccOpQueue (for Goblin), 7 databus lookups (for inter-circuit communication in Chonk), a bilinear/batched-equality check and a different set of Poseidon2 relations
 
 ZK variants preserve the same algebraic relations but modify how they are enforced (via masking and row disabling). See [Zero-Knowledge](#zero-knowledge).
 
@@ -66,7 +66,10 @@ Fiat-Shamir challenges are derived using Poseidon2, except for Keccak variants w
 | `UltraZKFlavor` | ZK Ultra proving |
 | `UltraKeccakFlavor` | On-chain (Solidity) verification |
 | `UltraKeccakZKFlavor` | ZK on-chain verification |
-| `MegaFlavor` | Chonk folding (non-ZK inner proofs) |
+| `MegaFlavor` | Base Mega proving (tests, DSL, `bbapi/bbapi_chonk.cpp`, `bbapi/bbapi_ultra_honk.cpp`) |
+| `MegaAppFlavor` | Chonk app circuits |
+| `MegaKernelFlavor` | Chonk kernel circuits |
+| `MegaAvmFlavor` | AVM recursive verifier circuit |
 | `MegaZKFlavor` | Hiding Kernel in Chonk |
 
 Each flavor defines:
@@ -106,7 +109,7 @@ Each relation is a low-degree multivariate polynomial in the wire and selector v
 
 During each Sumcheck round, every relation's `accumulate` method is called on extended edges (witness polynomial evaluations extended from degree 1 to the subrelation's partial length). Subrelation contributions are batched using powers of the **subrelation separator** challenge `α`. The result is a single round univariate of degree `BATCHED_RELATION_PARTIAL_LENGTH - 1`. Relations that would contribute zero for a given row (detected via the `skip` method checking the selector) are skipped entirely for efficiency.
 
-Not all subrelations are enforced pointwise at every row. Some identities are designed to hold only as a **global sum** over the trace (e.g. a telescoping/log-derivative style check), rather than vanishing at each row individually. For these subrelations, Honk incorporates them into the Sumcheck polynomial without row separation via `pow_{β_gate}`: the verifier only needs the summed contribution to match the expected global value. Each relation declares which of its subrelations are pointwise-enforced via the `SUBRELATION_LINEARLY_INDEPENDENT` array; by default all subrelations are pointwise. The main examples are the "lookup sum" subrelation in `LogDerivLookupRelation`, `DatabusLookupRelation`, and the generic lookup/permutation relations.
+Not all subrelations are enforced pointwise at every row. Some identities are designed to hold only as a **global sum** over the trace (e.g. a telescoping/log-derivative style check), rather than vanishing at each row individually. For these subrelations, Honk incorporates them into the Sumcheck polynomial without row separation via `pow_{β_gate}`: the verifier only needs the summed contribution to match the expected global value. Each relation declares which of its subrelations are pointwise-enforced via the `SUBRELATION_LINEARLY_INDEPENDENT` array; by default all subrelations are pointwise. The main examples are the "lookup sum" subrelation in `LogDerivLookupRelation`, `SingleBusLookupRelation`, and the generic lookup/permutation relations.
 
 
 ### Ultra Relations (9)
@@ -114,23 +117,32 @@ Not all subrelations are enforced pointwise at every row. Some identities are de
 | # | Relation | Selector | Subrelations | Max Partial Length | Description |
 |---|---|---|---|---|---|
 | 1 | `ArithmeticRelation` | `q_arith` | 2 | 6 | Fan-in-2 arithmetic gate with optional carry and cross-row modes |
-| 2 | `UltraPermutationRelation` | (structural) | 2 | 6 | Grand product for wire copy constraints |
+| 2 | `UltraPermutationRelation` | (structural) | 3 | 6 | Grand product for wire copy constraints |
 | 3 | `LogDerivLookupRelation` | `q_lookup` | 3 | 5 | Log-derivative lookup argument (inverse, lookup, boolean check) |
 | 4 | `DeltaRangeConstraintRelation` | `q_delta_range` | 4 | 6 | Range constraints via successive-difference checks on all 4 wires |
 | 5 | `EllipticRelation` | `q_elliptic` | 2 | 6 | Short Weierstrass EC point addition and doubling |
-| 6 | `MemoryRelation` | `q_memory` | 6 | 6 | RAM/ROM read-write consistency (memory, ROM, RAM sub-checks) |
+| 6 | `MemoryRelation` | `q_memory` | 8 | 6 | RAM/ROM read-write consistency (memory, ROM, RAM, ROM-LogUp sub-checks) |
 | 7 | `NonNativeFieldRelation` | `q_nnf` | 1 | 6 | Non-native field multiplication with carry limbs |
 | 8 | `Poseidon2ExternalRelation` | `q_poseidon2_external` | 4 | 7 | Poseidon2 external (full S-box) round, one subrelation per state element |
 | 9 | `Poseidon2InternalRelation` | `q_poseidon2_internal` | 4 | 7 | Poseidon2 internal (partial S-box) round, one subrelation per state element |
 
-### Mega Additions (+2)
+### Mega Relations (21)
+
+`MegaFlavor` uses Ultra relations 1-8 (not `Poseidon2InternalRelation`) and adds:
 
 | # | Relation | Selector | Subrelations | Max Partial Length | Description |
 |---|---|---|---|---|---|
-| 10 | `EccOpQueueRelation` | `q_busread` | 8 | 3 | ECC operation queue wire consistency (Goblin) |
-| 11 | `DatabusLookupRelation` | (structural) | 15 | 5 | Log-derivative databus reads (kernel calldata, 3 app calldata columns, return data; 3 subrelations each) |
+| 9 | `BilinearOrBatchedEqCheckRelation` | `q_bilinear_batched_eq` | 2 | 6 | Two products sharing `w_l` (bilinear mode) or two linear equalities (batched-eq mode) |
+| 10 | `EccOpQueueRelation` | `lagrange_ecc_op` | 8 | 3 | ECC operation queue wire consistency (Goblin) |
+| 11-17 | `SingleBusLookupRelation` (×7) | (structural) | 4 each | 6 | Log-derivative databus reads, one relation per bus column (kernel calldata, 5 app calldata columns, return data) |
+| 18 | `Poseidon2InitialExternalRelation` | `q_poseidon2_external_initial` | 4 | 3 | Poseidon2 initial external round |
+| 19 | `Poseidon2QuadInternalRelation` | `q_poseidon2_quad_internal` | 4 | 7 | Poseidon2 internal rounds |
+| 20 | `Poseidon2QuadInternalTerminalRelation` | `q_poseidon2_quad_internal_terminal` | 4 | 7 | Last Poseidon2 internal rounds |
+| 21 | `Poseidon2TransitionEntryRelation` | `q_poseidon2_transition_entry` | 3 | 7 | Poseidon2 transition rows |
 
-See also: [LogUp README](../relations/LOGUP_README.md), [Permutation Argument README](../relations/PERMUTATION_ARGUMENT_README.md), [Generic LogUp README](../relations/generic_lookup/GENERIC_LOGUP_README.md), [Generic Permutation README](../relations/generic_permutation/GENERIC_PERMUTATION_README.md)
+Other Mega flavors use different subsets. `MegaZKFlavor` adds `MegaEccOpBoundaryRelation` and uses a smaller set; `MegaKernelFlavor` drops `LogDerivLookupRelation` and `NonNativeFieldRelation`. The `Relations_` tuple of each flavor in [`flavor/generated/`](../flavor/generated/) is the full list.
+
+See also: [LogUp README](../relations/LOGUP_README.md), [Permutation Argument README](../relations/PERMUTATION_ARGUMENT_README.md), [ROM README](../relations/ROM_README.md), [Generic LogUp README](../relations/generic_lookup/GENERIC_LOGUP_README.md) (includes the generic permutation)
 
 ### Challenge Roles
 
@@ -138,7 +150,8 @@ Several Fiat-Shamir challenges appear throughout the protocol:
 
 | Challenge | Role | Derived in |
 |---|---|---|
-| `eta` (+ `eta²`, `eta³`) | Combines wire values into RAM/ROM memory records | Oink (step 4) |
+| `eta` (+ `eta²`, `eta³`) | Combines wire values into RAM/ROM memory records | Oink (step 4, only if `Flavor::HasMemory`) |
+| `rom_logup_gamma` | Additive offset of the ROM LogUp fingerprint | Oink (step 4, drawn with `eta`, only if `Flavor::HasMemory`) |
 | `beta`, `gamma` | Permutation argument and log-derivative lookup separators | Oink (step 5) |
 | `alpha` | Batches subrelation contributions in Sumcheck | Oink (step 6) |
 | `β_gate` (gate challenges) | Gate-separation polynomial `pow_{β_gate}` — ensures row separation in Sumcheck | Pre-Sumcheck |
@@ -193,8 +206,9 @@ After Sumcheck produces the evaluation point `u` and claimed evaluations, the po
 1. **Gemini**: reduces multilinear opening claims at the same point to a series of univariate opening claims. It does this by substituting the challenge variables `u_0, ..., u_{d-1}` one at a time: each step halves the polynomial's dimension by fixing one variable, producing a sequence of "fold" polynomials. After `d` folding steps, the original multilinear opening claim has been reduced to a small set of univariate opening claims, and the intermediate fold commitments/evaluations constitute the proof. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
 2. **Shplonk**: batches the univariate opening claims (from Gemini and, for ZK flavors, SmallSubgroupIPA) into a single claim. See [`commitment_schemes/shplonk/README.md`](../commitment_schemes/shplonk/README.md).
 3. **KZG**: produces a single-point opening proof (a group element). See [`commitment_schemes/kzg/README.md`](../commitment_schemes/kzg/README.md).
+4. **SmallSubgroupIPA** (ZK only): see [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/small_subgroup_ipa/README.md).
 
-In practice, Gemini and Shplonk are fused in **Shplemini** ([`commitment_schemes/shplonk/shplemini.hpp`](../commitment_schemes/shplonk/shplemini.hpp)) for efficiency.
+In practice, Gemini and Shplonk are fused in **Shplemini** ([`commitment_schemes/shplonk/shplemini.hpp`](../commitment_schemes/shplonk/shplemini.hpp)) for efficiency: the prover uses `ShpleminiProver` and the verifier uses `ShpleminiVerifier`.
 
 ## Proof Flow -- Verifier Side
 
@@ -224,11 +238,11 @@ In the broader Aztec system, the public inputs also carry **special structured d
 
 ## Zero-Knowledge
 
-ZK flavors (`UltraZKFlavor`, `UltraKeccakZKFlavor`, `MegaZKFlavor`) add several mechanisms so that every prover message (commitments, round univariates, polynomial evaluations, opening proofs) is statistically independent of the witness. These mechanisms form a chain: witness polynomial masking randomizes the committed data, row disabling prevents the masked rows from breaking relations, Libra masking randomizes Sumcheck round univariates, SmallSubgroupIPA proves the Libra evaluation without revealing it, and the Gemini masking polynomial randomizes the polynomial evaluations opened in the PCS stage.
+ZK flavors (`UltraZKFlavor`, `UltraKeccakZKFlavor`, `MegaZKFlavor`) add several mechanisms so that every prover message (commitments, round univariates, polynomial evaluations, opening proofs) is statistically independent of the witness.
 
 ### 1. Witness Polynomial Masking
 
-Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus columns) has its first `NUM_MASKED_ROWS = 3` entries (rows 1-3, after the zero row) overwritten with random field elements before commitment. This is done in-place during Oink via `batch.add_to_batch(..., /*mask?*/ Flavor::HasZK)` (which masks before batched commitment) or explicitly before `commitment_key.commit()` (for z_perm).
+Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus columns) has its first `NUM_MASKED_ROWS = 3` entries (rows 1-3, after the zero row) set to random field elements. Masked rows are filled with random values when the polynomial is allocated.
 
 ### 2. Row Disabling
 
@@ -250,8 +264,6 @@ At the end of Sumcheck, the verifier needs to check that the Libra polynomial wa
 
 SmallSubgroupIPA produces 3 additional commitments (the concatenated Libra polynomial, a grand-sum accumulator, and a quotient polynomial) and a set of opening claims that are batched into the Shplemini opening claim. See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/small_subgroup_ipa/README.md) for the protocol details.
 
-See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/small_subgroup_ipa/README.md).
-
 ### 5. Gemini Masking Polynomial (PCS Evaluation Masking)
 
 Even with all the above, the polynomial evaluations revealed during the PCS stage (Gemini fold commitments and evaluations sent to the verifier, then opened via Shplonk) would leak witness information, since they are linear combinations of the witness polynomials evaluated at the Gemini challenge.
@@ -267,13 +279,13 @@ The final KZG opening proof is a single group element `[q]` (the quotient commit
 ```
 Witness polynomials
     │
-    ▼ mask last 3 rows with random values
+    ▼ mask rows 1-3 with random values
 Masked witness polynomials
     │
     ▼ commit (commitments are hiding thanks to masking)
 Commitments ──► Oink transcript
     │
-    ▼ disable last 4 rows in Sumcheck (row-disabling polynomial)
+    ▼ disable rows 0-3 in Sumcheck (row-disabling polynomial)
     ▼ add Libra random univariates to each round (Sumcheck round univariates are hiding)
 Sumcheck challenge point u
     │
@@ -288,44 +300,13 @@ Gemini fold evaluations ──► Shplonk batching ──► KZG opening proof
 
 The prover and verifier communicate via a **Transcript** that serializes commitments and field elements, then derives challenges using the configured hash function (Poseidon2 or Keccak). This implements the Fiat-Shamir transform, making the interactive protocol non-interactive.
 
-See [`transcript/README.md`](../transcript/README.md) for full details, including **origin tags** for debugging Fiat-Shamir consistency ([`transcript/Origin Tags Security.md`](../transcript/Origin%20Tags%20Security.md)).
-
-## Commitment Scheme Pipeline
-
-The PCS pipeline converts multilinear polynomial evaluation claims into a single KZG pairing check:
-
-```
-Multilinear evaluations at u
-        │
-        ▼
-   ┌─────────┐
-   │  Gemini  │  Multilinear → univariate via folding
-   └────┬────┘
-        │  Univariate opening claims at multiple points
-        ▼
-   ┌─────────┐
-   │ Shplonk │  Batch into single opening claim
-   └────┬────┘
-        │  Single univariate opening claim
-        ▼
-   ┌─────────┐
-   │   KZG   │  Produce/verify opening proof
-   └─────────┘
-```
-
-In practice, the prover uses **ShpleminiProver** and the verifier uses **ShpleminiVerifier** which fuse Gemini and Shplonk for better efficiency.
-
-Detailed documentation:
-- [Gemini README](../commitment_schemes/gemini/README.md)
-- [Shplonk README](../commitment_schemes/shplonk/README.md)
-- [KZG README](../commitment_schemes/kzg/README.md)
-- [SmallSubgroupIPA README](../commitment_schemes/small_subgroup_ipa/README.md) (ZK only)
+See [`transcript/README.md`](../transcript/README.md) for full details, including **origin tags** for debugging Fiat-Shamir consistency ([Origin Tag Security Mechanism](../transcript/README.md#origin-tag-security-mechanism)).
 
 ## Security Model
 
 Honk's security relies on:
 
-- **Knowledge soundness** of KZG under discrete log assumptions in BN254 (commonly targeting ~128-bit classical security)
+- **Knowledge soundness** of KZG under discrete log assumptions in BN254. BN254 gives about 100 bits of classical security ([Barbulescu–Duquesne, "Updating key size estimations for pairings"](https://eprint.iacr.org/2017/334)).
 - **Fiat-Shamir** in the random oracle model (Poseidon2 or Keccak)
 - **Statistical zero-knowledge** from polynomial masking and Libra/Gemini masking, with distinguishing advantage negligible in `|𝔽|`
 - **SmallSubgroupIPA** security requires that `SUBGROUP_SIZE` divides the multiplicative group order of BN254's scalar field and exceeds the total number of Libra coefficients
@@ -334,13 +315,11 @@ Honk's security relies on:
 
 ### Chonk / IVC
 
-Chonk (Client-side Highly Optimized ploNK) is the IVC layer that folds multiple Mega circuits using HyperNova, then produces a final Honk proof. It uses the Oink sub-protocol for each fold step and MegaZK for the final Hiding Kernel proof.
-
-See [Chonk README](../chonk/README.md).
+Chonk (Client-side Highly Optimized ploNK), the HyperNova IVC layer over Mega circuits: see [Chonk README](../chonk/README.md).
 
 ### Goblin
 
-Goblin defers expensive non-native ECC operations to a specialized ECCVM + Translator pipeline, connected via the Merge Protocol and the ECC op queue. Mega flavors include the `EccOpQueueRelation` and `DatabusLookupRelation` to interface with Goblin.
+Goblin defers non-native ECC operations to the ECCVM + Translator, connected via the Merge Protocol and the ECC op queue (`EccOpQueueRelation` in Mega flavors).
 
 - [Merge Protocol](../goblin/MERGE_PROTOCOL.md)
 - [ECCVM README](../eccvm/README.md)
@@ -348,19 +327,22 @@ Goblin defers expensive non-native ECC operations to a specialized ECCVM + Trans
 
 ### DSL / ACIR
 
-The DSL layer translates ACIR (Abstract Circuit Intermediate Representation) produced by Noir into Honk circuit builders.
-
-See [DSL README](../dsl/README.md).
+The DSL layer translates ACIR (Abstract Circuit Intermediate Representation) from Noir into Honk circuit builders: see [DSL README](../dsl/README.md).
 
 ### Recursive Verification
 
-Honk proofs can be verified inside another circuit (recursive verification) using the stdlib recursive verifier. Recursive flavors (`UltraRecursiveFlavor`, `MegaRecursiveFlavor`, etc.) replace native field/group operations with circuit-native (stdlib) equivalents. The recursive verifier outputs pairing points for deferred verification rather than performing the pairing check directly.
-
-See [`stdlib/honk_verifier/`](../stdlib/honk_verifier/).
+Recursive flavors (`UltraRecursiveFlavor`, `MegaRecursiveFlavor`, etc.) use stdlib types and output pairing points for deferred verification: see [`stdlib/honk_verifier/`](../stdlib/honk_verifier/).
 
 ## Test Targets
 
-Build from `barretenberg/cpp/build` with `ninja <target>`:
+From `barretenberg/cpp`, configure once, then build and run a target:
+
+```bash
+cmake --preset default
+cd build && ninja ultra_honk_tests && ./bin/ultra_honk_tests
+```
+
+Targets:
 
 | Target | What it covers |
 |---|---|
@@ -386,5 +368,5 @@ Test source files in this directory:
 - `databus.test.cpp` -- Databus (Mega)
 - `rom_ram.test.cpp` -- ROM/RAM memory gates
 - `range_constraint.test.cpp` -- Range constraints
-- `ultra_transcript.test.cpp` -- Ultra transcript manifest
-- `mega_transcript.test.cpp` -- Mega transcript manifest
+- `honk_transcript.test.cpp` -- Transcript manifest (typed over flavors)
+- `zk_boundary.test.cpp` -- MegaZK masking boundaries (disabled rows 0-3)

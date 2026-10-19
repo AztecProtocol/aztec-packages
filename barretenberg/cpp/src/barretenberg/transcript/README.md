@@ -11,6 +11,7 @@ An implementation of the Fiat-Shamir transform for interactive proofs, supportin
 - [In-circuit Transcript Flow](#in-circuit-transcript-flow-recursive-verification)
 - [Usage Examples](#usage-examples)
 - [Best Practices](#best-practices)
+- [Implementation Notes](#implementation-notes)
 
 ---
 
@@ -55,7 +56,7 @@ using MegaStdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<MegaCirc
 
 ---
 
-### Native vs In-Circuit Modes
+## Native vs In-Circuit Modes
 
 The transcript operates in two fundamentally different modes:
 
@@ -71,7 +72,9 @@ The transcript operates in two fundamentally different modes:
 - **ChallengeType**: `field_t` or `bigfield`
 - **Origin Tags**: **Enabled** to detect Fiat-Shamir violations
 
-The mode is set at compile-time.
+The mode is set at compile time by `static constexpr bool in_circuit = InCircuit<DataType>;` (`transcript.hpp`): the transcript is in-circuit when the Codec's `DataType` is a stdlib type. So `StdlibCodec` gives in-circuit mode, and `FrCodec`/`U256Codec` give native mode.
+
+Origin tags are compiled in unless `AZTEC_NO_ORIGIN_TAGS` is defined. No build preset or CMake file defines it, so the checks are active in every build.
 
 
 ### Phase and Round Tracking
@@ -103,8 +106,6 @@ if (!challenge_generation_phase) {
 // Tag assigned: OriginTag(transcript_index, round_index, is_submitted=false)
 ```
 
-**Key insight**: `round_index` increments when entering a new round of proof processing (transitioning FROM challenge generation TO proof processing), not when generating challenges. This ensures challenges and the round's submitted data share the same round number, keeping manifest and tag information in sync.
-
 ---
 
 ## Core Concepts
@@ -119,7 +120,8 @@ c_next = H(c_prev || round_data)
 
 - First challenge: `c_0 = H(round_0_data)`
 - Subsequent: `c_i = H(c_{i-1} || round_i_data)`
-- Generates pairs: `[127-bit, 127-bit, 127-bit, 127-bit, ...]`
+- `get_challenge(s)`: one full field element (~254 bits) per hash. This is the default.
+- `get_short_challenge(s)`: two 127-bit challenges per hash.
 
 ### Hash Buffer and State Management
 
@@ -138,7 +140,7 @@ auto alpha = transcript->get_challenge<FF>("alpha");    // Depends on above data
 
 #### Secure Access to Transcript State
 
-The transcript's Fiat-Shamir state (`transcript_index` and `round_index`) is **security-critical** and kept private. Access is controlled via a friend function:
+The transcript's Fiat-Shamir state (`transcript_index` and `round_index`) is kept private. Access is controlled via a friend function:
 
 ```cpp
 // Securely extract origin tag context from transcript
@@ -179,7 +181,6 @@ auto alpha = transcript->get_challenge<FF>("alpha");
 **Key point**: Data added here becomes part of the transcript state and **affects all subsequent challenge generation**.
 
 **Use cases**:
-- Public inputs (verifier reconstructs, must hash for Fiat-Shamir)
 - VK or claim hashes
 - Metadata that should influence challenges
 
@@ -202,13 +203,13 @@ auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments"
 
 ### Challenge Generation
 
-Note that "by default", challenges are `BN254` (`fr`/`field_t`) scalar field elements. However, there are two special cases.
+Challenges are BN254 `fr`/`field_t` elements, except:
 
- - When we're verifying proofs where commitments are Grumpkin points (`ECCVMRecursiveVerifier`), the challenges are `fq`/`bigfield` elements.
- - `KeccakTranscript` uses `uint256_t` challenges.
+ - Grumpkin-commitment verifiers (`ECCVMRecursiveVerifier`) get `fq`/`bigfield` challenges.
+ - `KeccakTranscript` returns `uint256_t` challenges.
 
 #### `get_challenge<ChallengeType>(const std::string& label) -> ChallengeType`
-Generate a single challenge by hashing accumulated round data.
+Generate a single full-width (~254-bit) challenge by hashing accumulated round data.
 
 ```cpp
 auto alpha = transcript->get_challenge<FF>("alpha");
@@ -217,7 +218,6 @@ auto alpha = transcript->get_challenge<FF>("alpha");
 **Behavior**:
 - Hashes `previous_challenge || current_round_data`
 - Clears `current_round_data`
-- Sets `challenge_generation_phase = true` (no round increment)
 - Assigns origin tag with `is_submitted=false`
 
 #### `get_challenges<ChallengeType>(std::span<const std::string> labels) -> std::vector<ChallengeType>`
@@ -228,9 +228,16 @@ auto [beta, gamma] = transcript->get_challenges<FF>({"beta", "gamma"});
 ```
 
 **Behavior**:
-- Generates challenges in pairs `[127-bit, 127-bit]`
-- Uses iterative duplex hashing for subsequent pairs
+- Generates one full-width (~254-bit) challenge per hash, one hash per label
+- Uses iterative duplex hashing for subsequent challenges
 - All challenges from same round get the same origin tag
+
+#### `get_short_challenge` / `get_short_challenges`
+Generate 127-bit challenges: each hash is split into two 127-bit limbs, so one hash gives two challenges. Use them where scalar size matters, e.g. HyperNova batching (`hypernova_batching_challenges.hpp`).
+
+```cpp
+auto [a, b] = transcript->get_short_challenges<FF>(std::array<std::string, 2>{ "a", "b" });
+```
 
 #### `get_dyadic_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_challenges) -> std::vector<ChallengeType>`
 Generate a challenge and compute powers `[δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))]`.
@@ -254,7 +261,7 @@ auto proof = transcript->export_proof();
 // Moves proof_start forward, resets num_frs_written
 ```
 
-**Use case**: Multiple provers sharing a transcript (e.g., OINK → Decider)
+**Use case**: Multiple provers sharing a transcript (e.g., HyperNova folding → decider)
 
 #### `load_proof(const std::vector<DataType>& proof)`
 Load proof data for verification.
@@ -280,6 +287,7 @@ Origin tags prevent these violations by **tainting** each value with metadata tr
 
 ```cpp
 struct OriginTag {
+    uint64_t tag_id;                     // Per-object id printed in merge errors
     size_t transcript_index;             // Which transcript instance created this value
     numeric::uint512_t round_provenance; // Which protocol rounds contributed to this value
     bool instant_death;                  // Poison flag - abort on any arithmetic
@@ -321,28 +329,6 @@ round_provenance = (1 << 3);  // 0x0000...0008 (bit 3 in lower 256 bits)
 
 // Challenge from round 5
 round_provenance = (1 << (5 + 256));  // 0x0020...0000 (bit 5 in upper 256 bits)
-
-
-// MULTIPLE BITS EXAMPLES - Values combined from multiple rounds
-
-// Value depending on submitted data from BOTH round 0 AND round 2
-round_provenance = (1 << 0) | (1 << 2);  // 0x0000...0005 (bits 0 and 2 in lower 256)
-// Meaning: "This value incorporates data submitted in rounds 0 AND 2"
-
-// Value depending on challenges from BOTH round 1 AND round 3
-round_provenance = (1 << (1 + 256)) | (1 << (3 + 256));  // 0x000A...0000 (bits 1 and 3 in upper 256)
-// Meaning: "This value incorporates challenges from rounds 1 AND 3"
-
-// Value depending on submitted data (round 0) AND challenge (round 0)
-round_provenance = (1 << 0) | (1 << (0 + 256));  // 0x0001...0001 (bit 0 in both halves)
-// Meaning: "This value uses both the data submitted in round 0 AND the challenge from round 0"
-
-// Complex example: submitted data from rounds 0,1 and challenges from rounds 0,2
-round_provenance = (1 << 0) | (1 << 1) | (1 << (0 + 256)) | (1 << (2 + 256));
-//          0x0005...0003
-// Meaning: "This value's computation involved:
-//          - Submitted values from rounds 0 and 1
-//          - Challenges from rounds 0 and 2"
 ```
 
 **How multiple bits get set**: When values combine through arithmetic operations (`a + b`, `a * b`), their round_provenances merge using **bitwise OR**:
@@ -396,7 +382,7 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
 
-    // 5. Check cross-round contamination (the critical security check)
+    // 5. Check cross-round contamination
     check_round_provenance(tag_a.round_provenance, tag_b.round_provenance);
 
     // 6. Merge the tags
@@ -440,25 +426,9 @@ OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
 - Submitted values: bit shifted by `child_index` (lower 256 bits)
 - Challenges: bit shifted by `child_index + 256` (upper 256 bits)
 
-#### 2. Tag Merging Example
+#### 2. The Cross-Round Check
 
-With the merge mechanism in place, let's see it in action:
-
-```cpp
-auto combined = comm * beta;
-// Internally: combined.origin_tag = OriginTag(comm.origin_tag, beta.origin_tag)
-//
-// Result:
-//   transcript_index = transcript_id (must match for both)
-//   round_provenance = 0x0000...0001 | 0x0001...0000 = 0x0001...0001
-//   → Tracks both submitted value (bit 0 lower) and challenge (bit 0 upper) from round 0
-```
-
-This merged tag now carries the full provenance: it depends on data submitted in round 0 AND a challenge from round 0.
-
-#### 3. The Cross-Round Check
-
-The critical security check in `check_round_provenance()`:
+The check in `check_round_provenance()`:
 
 ```cpp
 void check_round_provenance(const uint512_t& provenance_a, const uint512_t& provenance_b)
@@ -491,7 +461,7 @@ transcript->send_to_verifier("A", a);  // a has round_provenance = 0x...01 (lowe
 transcript->send_to_verifier("B", b);  // b has round_provenance = 0x...02 (lower)
 
 // INVALID: Directly combining A and B without involving challenges
-auto result = a + b;  // ❌ ABORTS - different round submitted values, no challenges
+auto result = a + b;  // aborts: different round submitted values, no challenges
 ```
 
 **Why this matters**: In Fiat-Shamir protocols, data from different rounds should only interact through challenges. Direct interaction violates protocol structure and may enable attacks.
@@ -499,218 +469,40 @@ auto result = a + b;  // ❌ ABORTS - different round submitted values, no chall
 **Valid pattern**:
 ```cpp
 auto beta = transcript->get_challenge<FF>("beta");  // round_provenance = 0x0001...0000 (upper)
-auto mixed = a * beta;   // ✅ OK - has challenge bit set
-auto result = mixed + b; // ✅ OK - mixed has challenge bit, prevents violation
+auto mixed = a * beta;   // OK: has challenge bit set
+auto result = mixed + b; // OK: mixed has challenge bit, prevents violation
 ```
+
+`check_round_provenance` reports the two round numbers. The other merge aborts (free witness, poisoned value, different transcripts) name the `tag_id` of both tags, so you can trace which field elements were involved.
+
+#### Testing tags
+
+`STANDARD_TESTING_TAGS` (`origin_tag.hpp`) defines tags reused in tests, for example `submitted_value_origin_tag` (round 0), `challenge_origin_tag` (round 0), merged tags that combine several rounds, and `instant_death_tag` (poisoned).
+
+#### Not checked
+
+The mechanism does not check whether a challenge meets a submitted value from a following round. That interaction can also be dangerous.
 
 
 
 ## In-Circuit Transcript Flow (Recursive Verification)
 
-The following diagram illustrates the complete flow of the Poseidon2 in-circuit transcript with origin tag tracking:
+The table shows the first Oink rounds of a recursive Honk verifier with origin tag tracking. The tag `(r, submitted)` is `OriginTag(transcript_index, r, is_submitted=true)`; `(r, challenge)` uses `is_submitted=false`.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    RECURSIVE VERIFIER (IN-CIRCUIT)                          │
-│                    transcript_id = 42 (from global atomic counter)          │
-└─────────────────────────────────────────────────────────────────────────────┘
+| Call | `round_index` | Tag | Buffer effect |
+|---|---|---|---|
+| `vk->hash_with_origin_tagging(*transcript)` | 0 | VK commitments get `extract_transcript_tag` = `(0, submitted)` via `tag_and_serialize`; FREE_WITNESS tags are unset before hashing | none; returns `vk_hash` |
+| `add_to_hash_buffer("vk_hash", vk_hash)` | 0 | `(0, submitted)` | appends; the VK hash must be the first element in the transcript |
+| `receive_from_prover("public_input_i")` | 0 | `(0, submitted)` | reads from proof, appends |
+| `receive_from_prover("Gemini:masking_poly_comm")` (Gemini-masking flavors only) | 0 | `(0, submitted)` | reads from proof, appends |
+| `receive_from_prover` for `w_l`, `w_r`, `w_o` | 0 | `(0, submitted)` | reads from proof, appends |
+| `get_challenges({"eta", "rom_logup_gamma"})` (only if `Flavor::HasMemory`) | 0 | `(0, challenge)` | sets FREE_WITNESS tags in `current_round_data` to CONSTANT, hashes, clears; `eta_two`, `eta_three` are powers of `eta` |
+| `receive_from_prover` for `lookup_read_counts`, `lookup_read_tags`, `w_4` | 1 (phase switch increments it) | `(1, submitted)` | reads from proof, appends |
+| `get_challenges({"beta", "gamma"})` | 1 | `(1, challenge)` | sanitizes, hashes, clears |
+| `receive_from_prover` for `lookup_inverses`, `z_perm` | 2 | `(2, submitted)` | reads from proof, appends |
+| `get_challenge("alpha")` | 2 | `(2, challenge)` | sanitizes, hashes, clears |
 
-ROUND 0 - PREAMBLE (challenge_generation_phase=false, round_index=0)
-═══════════════════════════════════════════════════════
-** VK hash MUST be the first element added to transcript **
-
-┌──────────────────────────────────────────────┐
-│ vk->hash_with_origin_tagging(...)             │──► Internally:
-│                                              │    1. extract_transcript_tag(transcript)
-│ Returns: vk_hash                             │    2. tag_and_serialize() all VK components
-└──────────────────────────────────────────────┘    3. Hash the serialized elements
-         │                                          Side effect: Tags all VK commitment witnesses
-         ▼                                          (Critical for recursive verification!)
-┌──────────────────────────────────┐
-│ add_to_hash_buffer("vk_hash", h) │──┐  ** FIRST element in Fiat-Shamir transcript **
-└──────────────────────────────────┘  │
-                                      │
-┌──────────────────────────────────┐  │
-│ add_to_hash_buffer("pub_input_0")│──┤
-└──────────────────────────────────┘  │
-┌──────────────────────────────────┐  ├──► current_round_data: [vk_hash, pub_inputs...]
-│ add_to_hash_buffer("pub_input_1")│──┤    Origin tags assigned:
-└──────────────────────────────────┘  │    OriginTag(42, 0, is_submitted=true)
-         ...                          │    round_provenance = 0x0000...0001 (bit 0 lower)
-┌──────────────────────────────────┐  │
-│ receive_from_prover("w_l")       │──┤    ** Wire commitments received **
-└──────────────────────────────────┘  │
-┌──────────────────────────────────┐  │
-│ receive_from_prover("w_r")       │──┤
-└──────────────────────────────────┘  │
-┌──────────────────────────────────┐  │
-│ receive_from_prover("w_o")       │──┘
-└──────────────────────────────────┘
-                                           │
-                                           │ Phase: proof processing → challenge generation
-                                           ▼
-┌──────────────────────────────────┐
-│ get_challenge("eta")             │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
-└──────────────────────────────────┘    2. Hash: c₀ = Poseidon2(current_round_data)
-         │                               3. Split to [127-bit, 127-bit]
-         │                               4. Clear current_round_data
-         │                               5. Set challenge_generation_phase = true
-         ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)
-    eta, eta_two, eta_three                round_provenance = 0x0001...0000 (bit 0 upper)
-    tag = OriginTag(42, 0, false)
-
-    ** All subsequent challenges depend on: H(vk_hash || pub_inputs || wire_comms) **
-
-
-ROUND 1 - SORTED LIST ACCUMULATOR (challenge_generation_phase=true → false, round_index=0 → 1)
-══════════════════════════════════════════════════════════════════════════════════════════
-
-┌──────────────────────────────────────────┐
-│ receive_from_prover("lookup_read_counts")│──► Phase transition detected!
-└──────────────────────────────────────────┘    challenge_generation_phase = false
-┌──────────────────────────────────────────┐    round_index++ = 1
-│ receive_from_prover("lookup_read_tags")  │──┐
-└──────────────────────────────────────────┘  │
-┌──────────────────────────────────────────┐  ├─► current_round_data: [lookup_comms, w_4...]
-│ receive_from_prover("w_4")               │──┘    Origin tag: OriginTag(42, 1, is_submitted=true)
-└──────────────────────────────────────────┘       round_provenance = 0x0000...0002 (bit 1 lower)
-         │
-         │ Phase: proof processing → challenge generation
-         ▼
-┌──────────────────────────────────┐
-│ get_challenges("beta", "gamma")  │──► Generate challenges for log-derivative
-└──────────────────────────────────┘    tag = OriginTag(42, 1, is_submitted=false)
-         │                               round_provenance = 0x0002...0000 (bit 1 upper)
-         ▼
-    beta, gamma
-
-
-ROUND 2 - LOG DERIVATIVE INVERSE (challenge_generation_phase=true → false, round_index=1 → 2)
-═══════════════════════════════════════════════════════════════════════════════
-
-┌──────────────────────────────────────────┐
-│ receive_from_prover("lookup_inverses")   │──► Origin tag: OriginTag(42, 2, true)
-└──────────────────────────────────────────┘    round_provenance = 0x0000...0004 (bit 2 lower)
-
-┌──────────────────────────────────┐
-│ get_challenge("delta")           │──► Tag: OriginTag(42, 2, false)
-└──────────────────────────────────┘    round_provenance = 0x0004...0000 (bit 2 upper)
-
-    ** Example: Tag merging with cross-round values **
-
-    combined = delta * lookup_inverses
-         │
-         │ Tag Merging:
-         │  delta.tag           = OriginTag(42, 2, false) → 0x0004...0000
-         │  lookup_inv.tag      = OriginTag(42, 2, true)  → 0x0000...0004
-         │  combined.tag        = OriginTag(42, parent)   → 0x0004...0004 (OR'd)
-         │
-         ▼
-    ┌─────────────────────────────────────────────┐
-    │ check_round_provenance(delta.tag, lookup_inv.tag)  │
-    └─────────────────────────────────────────────┘
-         │
-         │ CHECK: max challenge round >= max submitted round?
-         │   max challenge round = 2 (delta is round-2 challenge)
-         │   max submitted round = 2 (lookup_inverses submitted in round 2)
-         │
-         │ ✓ PASS: 2 >= 2. Round-2 challenge correctly binds round-2 submitted data.
-         │
-         ▼
-    combined (FF witness with merged tag)
-
-
-ORIGIN TAG VIOLATION EXAMPLE (Cross-Round Contamination)
-═════════════════════════════════════════════════════════
-
-    ┌──────────────────────────────────┐
-    │ Round 0: w_l (wire commitment)   │ tag = OriginTag(42, 0, true)
-    │          round_provenance = 0x...0001   │      (bit 0 in lower 256 bits)
-    └──────────────────────────────────┘
-                                │
-                                │ (eta challenges generated → tag has bit 0 in upper 256 bits)
-                                │
-    ┌──────────────────────────────────┐
-    │ Round 1: w_4 (4th wire)          │ tag = OriginTag(42, 1, true)
-    │          round_provenance = 0x...0002   │      (bit 1 in lower 256 bits)
-    └──────────────────────────────────┘
-                                │
-                                ▼
-                    ❌ VIOLATION: round-0 challenge cannot bind round-1 submission
-                    result = eta * w_l + w_4
-                                │
-                    check_round_provenance() detects:
-                      max challenge round  = 0 (only eta involved, from round 0)
-                      max submitted round  = 1 (w_4 was submitted in round 1)
-                      0 < 1  ← challenge does not reach the latest submitted round!
-
-                    → throw_or_abort("Round provenance check failed:
-                                      max challenge round < max submitted round")
-
-    ✅ CORRECT: Use a challenge from round >= max submitted round
-                    auto beta = transcript->get_challenge<FF>("beta");  // round-1 challenge
-                    result = beta * w_l + w_4
-                      │
-                      │ beta.tag has challenge bits from round 1
-                      │ max challenge round = 1, max submitted round = 1 → PASS
-                      ▼
-                    OK (merged tag tracks both rounds AND challenge)
-
-
-VK HASHING WITH ORIGIN TAG ASSIGNMENT
-═══════════════════════════════════════
-
-┌────────────────────────────────────────────────────────────────┐
-│ VK Hash Computation (via hash_with_origin_tagging())            │
-└────────────────────────────────────────────────────────────────┘
-
-    ┌──────────────────────────────────────────┐
-    │ vk->hash_with_origin_tagging(tx)  │
-    └──────────────────────────────────────────┘
-                    │
-                    ▼
-    ┌──────────────────────────────────────────┐
-    │ tag = extract_transcript_tag(transcript)  │──► Secure extraction:
-    └──────────────────────────────────────────┘    OriginTag(42, round_index, is_submitted=true)
-                    │
-                    ▼
-    ┌──────────────────────────────────────────┐
-    │ For each VK component:                   │
-    │   frs = tag_and_serialize(component,tag) │──► **Side effect**: Tags all VK commitments!
-    │   vk_elements.append(frs)                │    Each commitment witness gets proper origin tag
-    └──────────────────────────────────────────┘
-                    │
-                    ▼
-    ┌──────────────────────────────────────────┐
-    │ unset_free_witness_tags(vk_elements)     │──► Sanitize: FREE_WITNESS → CONSTANT
-    └──────────────────────────────────────────┘    (VK commitments are public, safe to treat as constants)
-                    │
-                    ▼
-    ┌──────────────────────────────────────────┐
-    │ vk_hash = HashFunction::hash(vk_elements)│──► Hash the tagged elements directly
-    └──────────────────────────────────────────┘
-                    │
-                    ▼
-        vk_hash (FF witness)
-                    │
-                    ▼
-    ┌──────────────────────────────────────────┐
-    │ add_to_hash_buffer("vk_hash", vk_hash)   │──► Added to main Fiat-Shamir transcript
-    └──────────────────────────────────────────┘    current_round_data: [vk_hash_frs...]
-
-
-TRANSCRIPT STATE TRACKING
-══════════════════════════
-
-    transcript_index:           42           // Unique ID for this transcript (PRIVATE)
-    round_index:                0 → 1        // Increments when challenge_generation_phase: true → false (PRIVATE)
-    challenge_generation_phase: false/true   // Generating challenges (true) vs proof processing (false) (PRIVATE)
-
-    current_round_data:            // Main Fiat-Shamir buffer (cleared on challenge)
-    previous_challenge:            // For duplex sponge c_next = H(c_prev || data)
-
-    // Security-critical state is private, accessed via extract_transcript_tag()
-```
+Combining `eta * w_l + w_4` aborts: the largest challenge round (0) is smaller than the largest submitted round (1). `beta * w_l + w_4` passes, because `beta` is a round-1 challenge.
 
 ---
 
@@ -756,38 +548,37 @@ for (size_t i = 0; i < num_relations; i++) {
 
 ### Handling Public Inputs
 
-Public inputs are typically **not** in the proof (verifier reconstructs them):
+Honk sends public inputs through `send_to_verifier`, so they are part of the proof (`OinkProver::send_vk_hash_and_public_inputs`). The VK hash goes in via `add_to_hash_buffer`.
 
 ```cpp
-// PROVER: Hash but don't add to proof
-for (auto& input : public_inputs) {
-    transcript->add_to_hash_buffer("public_input", input);
-}
-
-// VERIFIER: Hash the reconstructed inputs
-std::vector<FF> reconstructed_inputs = get_public_inputs_from_context();
-for (auto& input : reconstructed_inputs) {
-    transcript->add_to_hash_buffer("public_input", input);
+FF vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
+transcript->add_to_hash_buffer("vk_hash", vk_hash);
+for (size_t i = 0; i < num_public_inputs; ++i) {
+    transcript->send_to_verifier("public_input_" + std::to_string(i), public_inputs[i]);
 }
 ```
 
 
 ### Shared Transcript Between Prover Stages
 
+HyperNova folding and the HyperNova decider share one transcript (see `chonk/chonk.cpp`). Each stage exports its own proof slice:
+
 ```cpp
-// Stage 1: OINK prover
 auto transcript = std::make_shared<NativeTranscript>();
-OinkProver oink_prover(proving_key, transcript);
-oink_prover.prove();
-auto oink_proof = transcript->export_proof();  // Extract OINK portion
+HypernovaFoldingProver folding_prover(transcript);
 
-// Stage 2: Decider prover (continues on same transcript)
-DeciderProver decider_prover(proving_key, transcript);
-decider_prover.prove();
-auto decider_proof = transcript->export_proof();  // Extract Decider portion
+// One proof slice (Oink + Sumcheck) per circuit; accumulate_instance calls export_proof()
+HonkProof instance_proof = folding_prover.accumulate_instance<InstanceFlavor>(prover_instance, honk_vk);
 
-// Combined proof: concatenate [oink_proof || decider_proof]
+// Batch the cached claims into one accumulator
+auto [batching_proof, accumulator] = folding_prover.finalize(std::move(previous_accumulator));
+
+// Decider continues on the same transcript
+HypernovaDeciderProver decider_prover(transcript);
+HonkProof decider_proof = decider_prover.construct_proof(accumulator);
 ```
+
+`OinkProver` takes three arguments: `(prover_instance, honk_vk, transcript)`.
 
 ---
 
@@ -828,35 +619,23 @@ auto commitment = transcript->receive_from_prover<Commitment>("comm");
 
 - **Multi-scalar multiplications (e.g. `batch_mul` in biggroup)**: The Strauss MSM algorithm uses windowing and precomputation, which internally computes combinations of input points (e.g., `P_0 + P_1`) to build lookup tables. These intermediate point operations can trigger cross-round tag violations even though the final weighted result is cryptographically secure. To avoid false positives from these algorithmic optimizations, `batch_mul` temporarily clears all tags, computes the MSM, then assigns the correctly merged tag to the final result (biggroup_impl.hpp).
 
-### 2. **Public Inputs Should Not Be in Proof**
-
-Public inputs are publicly known and don't need to be in the proof:
-
-```cpp
-// ✅ CORRECT
-transcript->add_to_hash_buffer("public_input", input);  // Hash only
-
-// ❌ WRONG (wastes proof space)
-transcript->send_to_verifier("public_input", input);
-```
-
-### 3. **Use `hash_with_origin_tagging()` for VK/Instance Hashing**
+### 2. **Use `hash_with_origin_tagging()` for VK/Instance Hashing**
 
 Always use the dedicated method for hashing verification keys and verifier instances:
 
 ```cpp
-// ✅ CORRECT - proper origin tag assignment
+// OK: proper origin tag assignment
 FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
-// ❌ WRONG - no origin tags in recursive verification
+// Wrong: no origin tags in recursive verification
 FF vk_hash = vk->hash();
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 ```
 
 **Why**: `hash_with_origin_tagging()` uses `extract_transcript_tag()` and `tag_and_serialize()` to ensure all VK commitments get proper origin tags as a side effect of hashing.
 
-### 4. **Test-Specific Utilities**
+### 3. **Test-Specific Utilities**
 
 The transcript class provides test-specific methods for proof manipulation. These should **only** be used in test code:
 
@@ -870,33 +649,19 @@ auto proof_start = transcript->test_get_proof_start();
 
 These methods provide controlled access to private proof parsing state without compromising security in production code.
 
-### 5. **Origin Tag Violations in Debug Mode**
-
-If you see origin tag assertions in debug builds:
-
-```
-BB_ASSERT(elem.get_origin_tag() == expected_tag)
-```
-
-**Common causes**:
-1. Mixing values from different transcripts
-2. Using free witnesses without proper tagging
-
-**Solution**: Trace the value's origin and ensure it follows Fiat-Shamir causality.
-
 ---
 
 ## Implementation Notes
 
 ### Challenge Buffer Size
 
-Challenges are generated in **pairs** with equal sizes `[127-bit, 127-bit]`:
+`CHALLENGE_BUFFER_SIZE` feeds only the short-challenge path, which splits one hash into two 127-bit challenges:
 
 ```cpp
 static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 ```
 
-Each challenge is 127 bits (254/2), providing more than sufficient security for our 100-bit security parameter.
+A short challenge is 127 bits (254/2). That is above the BN254 security level stated in [ultra_honk/README.md](../ultra_honk/README.md#security-model).
 
 ### Manifest (Testing Only)
 

@@ -25,8 +25,8 @@ namespace bb {
  * | RAM timestamp check   | 1     | 1   | 0   | 0   | 1   | 0   | 0                               |
  * | ROM consistency check | 1     | 1   | 1   | 0   | 0   | 0   | 0                               |
  * | RAM consistency check | 1     | 0   | 0   | 1   | 0   | 0   | 0                               |
- * | ROM LogUp table entry | 1     | 0   | 1   | 0   | 0   | 0   | 0                               |
- * | ROM LogUp read access | 1     | 0   | 0   | 0   | 1   | 0   | 0                               |
+ * | ROM LogUp table entry | 1     | 0   | 1   | 0   | 0   | 0   | ROM array id                    |
+ * | ROM LogUp read access | 1     | 0   | 0   | 0   | 1   | 0   | ROM array id                    |
  *
  * N.B. The RAM consistency check identity is degree 3. To keep the overall quotient degree at <=5, only 2 selectors
  * can be used to select it.

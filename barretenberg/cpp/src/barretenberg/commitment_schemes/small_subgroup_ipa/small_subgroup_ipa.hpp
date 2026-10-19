@@ -31,7 +31,7 @@ namespace bb {
  * - \f$ G \f$ is obtained by concatenating Libra polynomials used in ZK-Sumcheck. \f$ F \f$ is a concatenation of the
  *   consecutive powers of the sumcheck challenge entries. See details below and in the corresponding method's docs.
  *
- * - \f$ G \f$ is a concatenation of last NUM_DISABLED_ROWS_IN_SUMCHECK coefficients of NUM_TRANSLATION_EVALUATIONS
+ * - \f$ G \f$ is a concatenation of first NUM_DISABLED_ROWS_IN_SUMCHECK coefficients of NUM_TRANSLATION_EVALUATIONS
  * polynomials fed to TranslationData constructor. \f$ F \f$ consists of products \f$ x^i \cdot v^j \f$. See details
  * below in the corresponding method's docs.
  *
@@ -317,7 +317,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * polynomial is concatenated from the products \f$ x^i \cdot v^j\f$. See the corresponding method for details.
      *
      * @param small_ipa_evaluations Evaluations of the SmallSubgroupIPA witness polynomials when \f$ G \f$ is a
-     * concatenation of the last NUM_DISABLED_ROWS_IN_SUMCHECK entries in the NUM_TRANSLATION_EVALUATIONS polynomials.
+     * concatenation of the first NUM_DISABLED_ROWS_IN_SUMCHECK entries in the NUM_TRANSLATION_EVALUATIONS polynomials.
      * @param evaluation_challenge A random challenge sampled to obtain `small_ipa_evaluations`
      * @param evaluation_challenge_x Evaluation challenge for NUM_TRANSLATION_EVALUATIONS univariate polynomials
      * @param batching_challenge_v A challenge used to batch the evaluations at \f$ x \f$ .
