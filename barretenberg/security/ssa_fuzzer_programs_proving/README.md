@@ -1,10 +1,13 @@
 # SSA Fuzzer Programs Proving Workers
 
+> [!WARNING]
+> Obsolete pending security sign-off. The producer these workers consume, noir's `tooling/ssa_fuzzer`, does not exist on noir master or at the noir version this repository pins (see noir commit `7a575d9e4e5`). Unless the security owners confirm that another producer still feeds the Redis queue, this directory is scheduled for removal.
+
 Workers that consume Noir programs from Redis queue and validate them using Barretenberg (bb).
 
 ## Purpose
 
-These workers complement the [ssa_fuzzer](https://github.com/noir-lang/noir/tree/master/tooling/ssa_fuzzer) by:
+These workers complement noir's SSA fuzzer by:
 
 1. **Consuming fuzzer output**: Retrieving Noir programs and witnesses from Redis queue
 2. **Proof generation**: Using bb to generate proofs for the programs (bb prove)

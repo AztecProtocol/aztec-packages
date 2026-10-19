@@ -1,18 +1,8 @@
-# Benchmark Barretenberg Remotely
+# Remote benchmarking
 
-## Why
-Aztec engineers usually share computing resources on a mainframe. Its CPU load varies which adds noise to benchmark results.
+Benchmarks on the shared mainframe are noisy because its CPU load varies. These scripts build your target locally, copy the binary to a dedicated EC2 machine (the remote bencher) and run your benchmark command there; the output is printed locally.
 
-## Who
-To eliminate such noise, we have a machine dedicated to run benchmarks for the Aztec cryptography engineering team.
-
-## What
-There are scripts that:
-1. Build your target locally, so you do not need to switch branches remotely.
-2. `scp` your target to the remote machine.
-3. Run your benchmark command remotely.
-4. `scp` the benchmark results, usually in json, back to your local machine.
-5. Maybe analyze the results.
+Other scripts in this folder: see the header comment in each file.
 
 ## Setup & Troubleshooting
 1. Ask a crypto eng team member for the private key. Put the key in your mainframe home like `/mnt/user-data/<username>/remote-bb-worker.pem`. Set the permission by `chmod 600 /mnt/user-data/<username>/remote-bb-worker.pem`.
@@ -28,6 +18,9 @@ There are scripts that:
 4. If `ssh` worked, the setup is complete.
 
 ## How
+
+Run these from `barretenberg/cpp`.
+
 - `./scripts/chonk_inputs.sh download && ./scripts/ci_benchmark_ivc_flows.sh native` is the shortest local path for a pinned Chonk flow benchmark. The benchmark script defaults to the sponsored `transfer_0` flow and accepts an explicit flow directory as its second argument.
 - `./scripts/benchmark_example_ivc_flow_remote.sh` copies the example flow input you'd like to run to the remote machine, runs `bb prove`, and analyze the results.
     - The script downloads the pinned Chonk example flows into `barretenberg/cpp/chonk-pinned-flows` when they are missing or stale.

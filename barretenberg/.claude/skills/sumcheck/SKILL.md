@@ -1,17 +1,11 @@
 ---
 name: sumcheck
-description: Comprehensive reference for the Sumcheck protocol implementation in barretenberg. Use when working on sumcheck prover/verifier, relations, ZK sumcheck (Libra/row disabling), ECCVM committed sumcheck, flavors, gate separator, partial evaluation, or any code in the sumcheck/ directory and its integrations.
+description: Reference for the Sumcheck protocol implementation in barretenberg. Use when working on sumcheck prover/verifier, relations, ZK sumcheck (Libra/row disabling), ECCVM committed sumcheck, flavors, gate separator, partial evaluation, or any code in the sumcheck/ directory and its integrations.
 ---
 
 # Sumcheck Protocol Implementation
 
-## Overview
-
-Sumcheck is the core interactive proof protocol (made non-interactive via Fiat-Shamir) that reduces a multilinear polynomial identity over a boolean hypercube `{0,1}^d` to a single-point evaluation. It is the central component of the Honk proving system.
-
-**Claim**: `sum_{X in {0,1}^d} pow_beta(X) * F(P_1(X), ..., P_N(X)) = 0`
-
-where `P_i` are multilinear witness/selector polynomials, `F` is the batched relation polynomial, and `pow_beta` is the gate separator polynomial.
+The protocol itself (claim, prover and verifier rounds, Libra, virtual rounds) is described in `barretenberg/cpp/src/barretenberg/sumcheck/Sumcheck.md`. This skill maps the code and lists the repo-specific invariants and pitfalls.
 
 ## Code Layout
 
@@ -46,28 +40,7 @@ where `P_i` are multilinear witness/selector polynomials, `F` is the batched rel
 
 ## Architecture
 
-### Proving Pipeline
-
-```
-OINK PHASE (pre-sumcheck)
-  Commit to wires, lookup counts, log-deriv inverses, permutation product.
-  Draw alpha (subrelation separator) and gate challenges (beta_0,...,beta_{d-1}).
-
-SUMCHECK PHASE
-  For round i = 0..d-1:
-    Compute round univariate (extend edges, accumulate relations, batch with pow)
-    [ZK] Add Libra masking contribution, subtract row disabling correction
-    Send round univariate to transcript, draw challenge u_i
-    Partially evaluate all polynomials at u_i
-  [Padding] For round i = d..virtual_log_n-1:
-    Send zero/virtual univariate, draw challenge
-  Extract claimed evaluations from top of book-keeping table
-
-PCS PHASE (post-sumcheck)
-  [ZK] SmallSubgroupIPA proves Libra evaluation
-  Shplemini reduces multivariate opening claims to univariate
-  KZG/IPA proves the univariate opening
-```
+Sumcheck runs after Oink (wire and grand-product commitments, alpha and gate challenges) and before the PCS (SmallSubgroupIPA proves the Libra evaluation for ZK flavors; Shplemini and KZG/IPA open the claims). `Sumcheck.md` walks through the rounds.
 
 ### Key Design Patterns
 
@@ -101,7 +74,7 @@ Each flavor provides a compile-time configuration bundle that parameterizes sumc
 |---------|----------|
 | `HasZK` | ZK prove path (Libra + row disabling) |
 | `IsGrumpkinFlavor` | Committed sumcheck (commit round univariates) |
-| `isAvmFlavor` | Chunked threading strategy |
+| `isAvmFlavor` | Lazy edges and finer work-stealing chunks (`ROWS_PER_CHUNK = 16`) |
 | `UseRowDisablingPolynomial` | Row disabling corrections (false for Translator) |
 | `IsTranslatorFlavor` | Mid-sumcheck mini-circuit evaluations |
 | `isMultilinearBatchingFlavor` | No pow polynomial, uses eq polynomials |
@@ -127,18 +100,14 @@ Powers of a single challenge `alpha` separate subrelations. During batching, eac
 
 ## Gate Separator Polynomial (pow_beta)
 
-```
-pow_beta(X_0,...,X_{d-1}) = prod_{k=0}^{d-1} (1 - X_k + X_k * beta_k)
-```
-
-Precomputed on the full hypercube via parallel recurrence. Each round contributes one linear factor `(1-X_i + X_i*beta_i)`. A partial evaluation result accumulates across rounds. When betas is empty (multilinear batching), degenerates to constant 1.
+`polynomials/gate_separator.hpp`; the math is in `Sumcheck.md`. When betas is empty (multilinear batching), it degenerates to constant 1.
 
 ## ZK Sumcheck
 
 Three mechanisms provide zero-knowledge:
 
 ### 1. Libra Masking
-Adds a structured random multivariate `G(X) = a_0 + g_0(X_0) + ... + g_{d-1}(X_{d-1})` scaled by a Fiat-Shamir challenge. Each round's univariate gets a Libra correction. The concatenated Libra univariates are committed and their evaluation is proved via SmallSubgroupIPA.
+See `Sumcheck.md` "Libra" (`zk_sumcheck_data.hpp`). The concatenated Libra univariates are committed and their evaluation is proved via SmallSubgroupIPA.
 
 ### 2. Row Disabling + In-Place Masking (Top-of-Trace)
 The first `NUM_DISABLED_ROWS_IN_SUMCHECK=4` rows of the trace are reserved. For ZK flavors,
@@ -176,8 +145,7 @@ The sumcheck dispatch (`extend_and_batch_univariates` and
 
 Used by `MegaEccOpBoundaryRelation` (in `ecc_op_queue_relation.hpp`) to enforce
 `ecc_op_wire_j = 0` on rows 0..3 for MegaZK, making the boundary verifier-visible.
-The `has_any_offset_only_relation_v<Flavor>` trait checks whether any relation in the
-flavor's `Relations` tuple opts in. Not compatible with ZK flavors whose masked rows
+Not compatible with ZK flavors whose masked rows
 overlap with the constrained entities.
 
 ### Batched Honk Translator Integration
@@ -189,28 +157,21 @@ After round 0, `excluded_head_size = 2` for the MegaZK round (the offset area co
 
 ## Virtual Rounds and Padding
 
-For constant proof size (recursive verification):
-- **Real rounds** (0 to `multivariate_d - 1`): standard sumcheck
-- **Virtual/padding rounds** (`multivariate_d` to `virtual_log_n - 1`): polynomials treated as zero-extended
-
-With top-of-trace masking, the row-disabling polynomial is circuit-size independent, so all sumcheck
-rounds are processed uniformly by the verifier — no padding indicator needed.
-
-## Transcript / Fiat-Shamir Protocol
-
-Prover writes round univariates (or commitments + evals for Grumpkin), final multilinear evaluations, and ZK-related data (Libra sum, evaluation). Challenges drawn: gate challenges, alpha, round challenges `u_i`, and Libra challenge. Translator sends minicircuit evaluations mid-sumcheck after the relevant round.
+See `Sumcheck.md` "Virtual Rounds and Padding". With top-of-trace masking, the row-disabling polynomial is circuit-size independent, so the verifier processes all sumcheck rounds uniformly — no padding indicator needed.
 
 ## Performance Optimizations
 
-- **Row skipping**: Identifies contiguous blocks of non-zero rows; threads iterate only over non-zero blocks
-- **AVM chunking**: Splits trace into chunks distributed among threads
+- **Work-stealing chunks**: every flavor splits the round's edges into fixed-size chunks handed to threads by a work-stealing scheduler (`make_edge_chunks`, `sumcheck_round.hpp`). This balances the per-row cost variance from relation skipping. `ROWS_PER_CHUNK` is 16 for AVM, 50 on the SIMD path, else 64.
+- **Row skipping** (ECCVM, Translator): only the live edge ranges from `compute_edge_ranges` are visited, scheduled by a `ListedEdgeChunks` manifest. Dense flavors (AVM, Ultra, Mega, multilinear batching) use the single contiguous active range (`ContiguousEdgeChunks`).
+- **SIMD path**: flavors with `SupportsSimdSumcheck` use `VectorField` lanes when SIMD is available and rows are not skipped (`-DBB_FORCE_SCALAR_LANE=1` forces scalar).
+- **Lazy edges**: AVM and native Ultra/Mega materialize edges on demand instead of extending them eagerly.
 - **Effective round size**: Avoids iterating trailing zeros by finding the actual end of witness polynomials
 - **Short monomials**: Produces degree-1 univariates during edge extension, deferring full-degree extension to batching
 - **Subrelation skipping**: Relations can define a `skip()` method to avoid accumulation when selectors are zero
 
 ## Soundness & Completeness Principles
 
-These principles are distilled from historical bugs. They represent recurring vulnerability patterns in sumcheck and its surrounding infrastructure.
+These principles are recurring vulnerability patterns in sumcheck and its surrounding infrastructure.
 
 ### Recursive Verification: Constraints vs Native Checks
 
@@ -241,7 +202,7 @@ The Fiat-Shamir transcript is the backbone of non-interactive soundness. Any inc
 
 ### PCS and Subsystem Refactoring
 
-- **When replacing a PCS scheme, audit all implicit guarantees the old scheme provided.** Zeromorph provided degree checks that enforced polynomials are zero outside their domain. When it was replaced, that enforcement disappeared silently. Explicit relation constraints must replace any lost implicit guarantees (degree bounds, zero-outside-domain, etc.).
+- **When replacing a PCS scheme, audit all implicit guarantees the old scheme provided.** A PCS can carry implicit degree or zero-outside-domain guarantees; Zeromorph, for example, has degree checks that enforce polynomials are zero outside their domain. Swapping schemes drops such guarantees silently, so enforce them explicitly with relation constraints.
 
 ### excluded_head_size and Flavor Guards
 
@@ -253,14 +214,14 @@ The Fiat-Shamir transcript is the backbone of non-interactive soundness. Any inc
 
 ### Merge and Refactoring Safety
 
-- **Performance optimizations can be silently disabled by merges.** Row skipping and relation skipping have both been broken by merge conflicts that compiled cleanly and passed correctness tests. The only detection is performance benchmarking.
+- **Performance optimizations can be silently disabled by merges.** A merge conflict can break row skipping or relation skipping while still compiling cleanly and passing correctness tests. The only detection is performance benchmarking.
 - **When modifying relation degrees**, check `MAX_PARTIAL_RELATION_LENGTH`, `BATCHED_RELATION_PARTIAL_LENGTH`, `NUM_SUBRELATIONS`, and downstream proof size constants.
 - **Prover and verifier transcript operations must stay in lockstep.** Any change to what the prover writes must be mirrored in the verifier, and vice versa.
 
 ## Testing Sumcheck Changes
 
 ```bash
-cd barretenberg/cpp && cmake --preset default && cd build
+cd barretenberg/cpp/build   # configure build/ first: barretenberg/cpp/CLAUDE.md "Build"
 
 ninja sumcheck_tests && ./bin/sumcheck_tests         # Unit tests
 ninja ultra_honk_tests && ./bin/ultra_honk_tests      # Integration with real circuits
@@ -271,4 +232,4 @@ ninja chonk_tests && ./bin/chonk_tests                 # Batched prover/verifier
 
 ## Audit Status
 
-Internal audit complete (Khashayar). External audits not yet started. Audit scope document at `barretenberg/cpp/scripts/audit/audit_scopes/sumcheck_pcs_chonk_verifier_audit_scope.md`.
+Audit scope: `barretenberg/cpp/scripts/audit/audit_scopes/sumcheck_pcs_chonk_verifier_audit_scope.md`. For the current status, run `barretenberg/cpp/scripts/audit/generate_audit_summary.py`.

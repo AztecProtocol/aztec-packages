@@ -2,54 +2,20 @@
 
 ## Intro
 
-We are gradually introducing fuzzing of various primitives into barretenberg, focusing first and foremost on in-circuit types. If you are developing / patching a primitive and there is a fuzzer available for it, please take the time to update the fuzzer (if you've added new functionality) and run it for at least a few hours to increase security.
+If you change a primitive that has a fuzzer, update the fuzzer (if you've added new functionality) and run it for at least a few hours.
 
 
 ## Available fuzzers
 
-Barretenberg includes fuzzing targets for a wide range of components:
+Fuzzers are the `*.fuzzer.cpp` files under `src/`. Each builds into a binary named `<module>_<file stem>_fuzzer` (`cmake/module.cmake`), e.g. `stdlib_primitives_bigfield_ultra_fuzzer`. After a fuzzing build, list them with `ls build-fuzzing/bin/*_fuzzer`; the build also writes `build-fuzzing/fuzzer_entries.txt`. They cover stdlib primitives and hashes, the ACIR DSL, Translator, IPA, ECC, ECCVM and the AVM.
 
-### stdlib
-
-#### primitives
-- bigfield
-- cycle_group
-- biggroup
-  - biggroup_bn254
-  - biggroup_bn254_bigfield
-  - biggroup_secp256k1
-  - biggroup_secp256r1
-- safe_uint
-- field
-- byte_array
-- bool
-
-#### Encryption and hash
-- aes128
-- blake2s
-- blake3s
-- keccak
-- sha256
-- poseidon2
-- pedersen
-
-### Other systems
-- ACIR DSL fuzzer
-- Translator VM fuzzers
-   - mini
-   - composer
-   - circuit_builder
-- IPA fuzzer
-- ECC multi-field fuzzer
-- AVM fuzzers
-   - ALU harness
-- ECCVM fuzzer
-
-To build all fuzzers:
+To build all fuzzers (the `fuzzing` preset uses `clang-20`; on Ubuntu install `libclang-rt-20-dev`):
 
 ```bash
 cmake --preset fuzzing && cmake --build ./build-fuzzing
 ```
+
+The fuzzing build turns off building tests and benchmarks, since they are incompatible with the libfuzzer interface.
 
 For AVM-specific fuzzers:
 
@@ -59,14 +25,14 @@ cmake --preset fuzzing-avm && cmake --build ./build-fuzzing-avm
 
 ## Running the fuzzer
 
-This section covers direct invocation of fuzzers without Docker.
-
 ### Basic use
 
-Run a fuzzer binary directly:
+libFuzzer runs until it finds a crash, on every worker you give it. Always bound a run with `-max_total_time=<seconds>` (or `-runs=<n>`). On a shared host, also prefix it with `nice -n 19` and keep `-workers` low.
+
+Run a fuzzer binary directly, from `build-fuzzing`:
 
 ```bash
-./bin/stdlib_primitives_bigfield_ultra_fuzzer
+./bin/stdlib_primitives_bigfield_ultra_fuzzer -max_total_time=60
 ```
 
 Useful when you've modified logic or added new instructions and want a quick sanity check.
@@ -78,6 +44,7 @@ mkdir ../../../<fuzzer_type>_testcases
 mkdir crashes
 
 ./bin/<fuzzer_executable> \
+  -max_total_time=<seconds> \
   -timeout=1 \
   -len_control=500 \
   -workers=8 \
@@ -92,10 +59,11 @@ mkdir crashes
 You can watch the progress of the fuzzer in one of the generated logs fuzz-<number>.log
 The purpose of each parameter:
 
+- -max_total_time=<seconds> - Stop after this many seconds.
 - -timeout=1 - If a testcase takes more than 1 second to execute, it will be treated as a crash
 - -len_control=500 - Slows down the increase of testcase size. Especially important for heavy classes like bigfield, keeps the number of executions per second at a decent rate
 - -workers=8 - The number of threads that can simultaneously execute testcases. Should be less or equal to the number of jobs
-- -jobs=8 - After how many crashes the fuzzer will stop fuzzing. If a crash is executed and the number of jobs is more than workers then the fuzzer will proceed to give the worker a new job. The 8/8 worker/job configuration ensures that the fuzzer will quit after 8 crashes and until the first crash all the workers are busy.
+- -jobs=8 - Run 8 fuzzing jobs; each job ends at its first crash. When a job ends and more jobs remain than workers, the freed worker starts a new job. With `-workers=8`, all 8 jobs run in parallel and the run stops after 8 crashes.
 - -entropic=1 - Entropic should be enabled by default, but in case it isn't, enable it. A better power schedule than the old one.
 - -shrink=1 - If a new testcase is encountered that has the same coverage as some previous one in the corpus and the testcase is smaller, replace the one in the corpus with the new one. Helps keep exec/s higher.
 - -artifact_prefix=crashes/ - Where to save crashes/timeouts/ooms.
@@ -135,18 +103,6 @@ mkdir minimized_crashes
 ### Debugging helpers
 
 Most of the fuzzers contain the `FUZZING_SHOW_INFORMATION` preprocessor cases, which enable the printing of instructions and values to make debugging the crash easier. It can be either enabled using `-DFUZZING_SHOW_INFORMATION` or building with `fuzzing-asan` preset.
-
-### Building fuzzers manually
-
-To build with standard clang:
-
-```bash
-sudo apt-get install libclang-rt-18-dev
-cmake --preset fuzzing
-cmake --build ./build-fuzzing
-```
-
-Fuzzing build turns off building tests and benchmarks, since they are incompatible with libfuzzer interface.
 
 ### ASan / UBSan builds
 

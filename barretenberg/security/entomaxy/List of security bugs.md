@@ -1,6 +1,6 @@
 # Collection of bugs found in barretenberg
 
-This list is a collection of bugs. Its goal is to help developers, auditors and security researchers to find and fix bugs in the barretenberg library.
+This list is a collection of bugs. Its goal is to help developers, auditors and security researchers to find and fix bugs in the barretenberg library. It is not exhaustive: for example, the UltraHonk soundness bug fixed in aztec-packages PR #12602 (bb versions before 0.82, which `bbup` warns about) is not listed.
 
 ## List of resolved bugs
 
@@ -22,11 +22,11 @@ This list is a collection of bugs. Its goal is to help developers, auditors and 
 | BarVD-S-003 | Join-split circuit | lack of range constraints for the `tree_index` variable | Double spending | Manual code review | No | Yes | Wedderburn | | | [Description](https://hackmd.io/@aztec-network/disclosure-of-recent-vulnerabilities) |
 | BarVD-S-004 | stdlib/BigField | insufficient range checks while emulating non-native field operations | Fraudulent recursive proofs | Manual code review | No | No | Xin Gao and Onur Kilic | | | [Description](https://hackmd.io/@aztec-network/disclosure-of-recent-vulnerabilities) |
 | BarVD-S-005 | In-circuit pedersen hash | underconstrained 2-bit window representation of field elements | Double spending | Manual code review | No | Yes | @arielgabizon | | | [Description](https://medium.com/aztec-protocol/vulnerabilities-found-in-aztec-2-0-9b80c8bf416c) |
-| BarVD-S-006 | Rollup circuit | point aggregation in the rollup circuit doesnn't incldue join-split proof points | Recursively proving fraudulent proofs | Manual code review | No | Yes | @arielgabizon | | | [Description](https://medium.com/aztec-protocol/vulnerabilities-found-in-aztec-2-0-9b80c8bf416c) |
+| BarVD-S-006 | Rollup circuit | point aggregation in the rollup circuit doesn't include join-split proof points | Recursively proving fraudulent proofs | Manual code review | No | Yes | @arielgabizon | | | [Description](https://medium.com/aztec-protocol/vulnerabilities-found-in-aztec-2-0-9b80c8bf416c) |
 | BarVD-S-007 | Join-split circuit | Note commitment and contents are not validated to correspond | Phishing | Manual code review | No | Yes | @arielgabizon | | | [Description](https://medium.com/aztec-protocol/vulnerabilities-found-in-aztec-2-0-9b80c8bf416c) |
 | BarVD-S-008 | Account circuit | same public key can be used for multiple accounts | Spending other person's funds | Manual code review | No | Yes | @arielgabizon | | | [Description](https://hackmd.io/@aztec-network/HJDt63w69?type=view) |
 | BarVD-S-009 | Join-split circuit | public key nullifier uses only the x coordinate of the public key | Spending other person's funds | Manual code review | No | Yes | @arielgabizon | | | [Description](https://hackmd.io/@aztec-network/HJDt63w69?type=view) |
-| BarVD-S-010 | claim-proof circuit | incorrect implementation of integer arithemtic in field | Draining rollup funds | Manual code review | No | No | [@lucash-dev](https://github.com/lucash-dev) | | | [Description](https://hackmd.io/@aztec-network/claim-proof-bug) |
+| BarVD-S-010 | claim-proof circuit | incorrect implementation of integer arithmetic in field | Draining rollup funds | Manual code review | No | No | [@lucash-dev](https://github.com/lucash-dev) | | | [Description](https://hackmd.io/@aztec-network/claim-proof-bug) |
 | BarVD-S-011 | stdlib/logic | 3bit overflow in AND/XOR | Malform AND/XOR/OR operations | acir_formal_proofs | Yes | Yes | @defkit & @Sarkoxed | | https://github.com/AztecProtocol/aztec-packages/pull/11651 |  |
 | BarVD-S-012 | StandardCircuitBuilder/logic gate | Passing arbitrary values as XOR/AND results x2 | Getting arbitrary result of any computation that involves AND/XOR | smt_verification | Yes | Yes | @Sarkoxed | | https://github.com/AztecProtocol/aztec-packages/pull/4530 | |
 
@@ -42,4 +42,4 @@ This list is a collection of bugs. Its goal is to help developers, auditors and 
 ### Protogalaxy
 | BarVD-PG-ID | Component | Short description | Type | Potential Impact | Mechanism of finding | Found with a tool? | Found internally (yes or no) | Found by | Link to issue | Link to fix | Link to description |
 |-------------|-----------|-------------------|------|------------------|----------------------|-------------------|------------------------------|-----------|--------------|------------|---------------------|
-| BarVD-PG-001 | Protogalaxy recursive verifier |  | Soundness |  | Manual code review + Origin Tag Mechanism | No and Yes | Yes | @Rumata888 | https://github.com/AztecProtocol/barretenberg/issues/1381 | https://github.com/AztecProtocol/aztec-packages/pull/14004 | [Description](../descriptions/Protogalaxy%20recursive%20verifier%20transcript%20bug.md) |
+| BarVD-PG-001 | Protogalaxy recursive verifier | C_c commitments not hashed into the transcript | Soundness | Fraudulent recursive proofs | Manual code review + Origin Tag Mechanism | No and Yes | Yes | @Rumata888 | https://github.com/AztecProtocol/barretenberg/issues/1381 | https://github.com/AztecProtocol/aztec-packages/pull/14004 | [Description](../descriptions/Protogalaxy%20recursive%20verifier%20transcript%20bug.md) |

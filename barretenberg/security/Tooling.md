@@ -1,7 +1,5 @@
 # Security Tooling
 
-There are various mechanisms that are used to ensure the security of the protocol.
-
 ## Boomerang value detection
 
 Taking the value out of the circuit and then returning it without creating an appropriate constraint is a common bug. To detect such issues in our codebase we've created boomerang detection static analysis tool. It automatically detects variables in one gate and filters out false positives. It can also detect if a circuit has several subgraphs that are not connected with any constraints, which can also be a marker of a bug.
@@ -17,15 +15,9 @@ You can find more information in the [Origin Tags Security Mechanism](../cpp/src
 
 ## Fuzzing
 
-We use several specialized fuzzing tools to ensure correctness and security. 
-For details on usage and instructions, see the main Fuzzing guide:
-[Fuzzing of standard circuit primitives](../cpp/docs/Fuzzing.md)
+The [Fuzzing guide](../cpp/docs/Fuzzing.md) covers building and running the fuzzers, including the ones for the standard circuit primitives.
 
-### Fuzzing of standard circuit primitives
-
-We use specialized fuzzing targets to fuzz the standard circuit primitives.
-
-You can find more information in the [Fuzzing of standard circuit primitives](../cpp/docs/Fuzzing.md) file.
+The Solidity verifier is fuzzed through Foundry tests; `../sol/scripts/run_fuzzer.sh` generates their proofs with `honk_solidity_proof_gen`.
 
 ### Multi-Field Fuzzer
 
@@ -37,5 +29,10 @@ You can find detailed information in the [Multi-Field Fuzzer README](../cpp/src/
 
 The ECCVM fuzzer is a dedicated tool for testing the security and correctness of the ECCVM implementation.
 
-You can find more information in the [ECCVM Fuzzer README](../cpp/src/barretenberg/eccvm/fuzz/README_FUZZERS.md) file.
+You can find more information in the [ECCVM Fuzzer README](../cpp/src/barretenberg/eccvm/README_FUZZERS.md) file.
 
+## Formal and static checks
+
+- [ACIR formal proofs](../cpp/src/barretenberg/acir_formal_proofs/README.md): SMT-based proofs that ACIR opcodes are constrained correctly.
+- [SMT verification](../cpp/src/barretenberg/smt_verification/README.md): the SMT circuit-checking library behind them.
+- `../cpp/src/barretenberg/acir_components_check/`: maps each ACIR witness to its circuit-side component and compares the components per ACIR connected component.

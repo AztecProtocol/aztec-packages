@@ -6,7 +6,7 @@ It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 
 ## Installation
 
-BBup is an installer for whatever version of BB you may want. Install BBup with:
+Install BBup with:
 
 ```bash
 curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
@@ -23,34 +23,40 @@ To install the Barretenberg version compatible with the current installed Noir v
 bbup
 ```
 
-Check if the installation was successful:
+bbup looks up `nargo --version` in [`bb-versions.json`](./bb-versions.json), which it fetches from the `next` branch on GitHub, not from your checkout. Only Noir versions listed in that map are supported; for any other version bbup exits with `couldn't determine version from noir`. A local edit to `bb-versions.json` has no effect until it is merged to `next`.
+
+Check the installation:
 
 ```bash
 bb --version
 ```
 
-If installation was successful, the command would print the version of `bb` installed.
-
 ### Options
+
+| Option | Meaning |
+| --- | --- |
+| `-v`, `--version <bb-version>` | Install this `bb` version. |
+| `-nv`, `--noir-version <noir-version>` | Install the `bb` version mapped to this Noir version in `bb-versions.json`. `stable` and `nightly` resolve to the latest Noir release or nightly first; the map has no nightly entries, so `-nv nightly` fails. |
+| `--no-modify-path` | Do not update shell configuration files. |
+| `BB_PATH` (env) | Install destination; default `~/.bb`. |
 
 You can install any specific version of `bb` with the `-v` flag. Example:
 
 ```bash
-bbup -v 0.56.0
+bbup -v 6.0.0-rc.6
 ```
 
 For scripted or CI use, `--no-modify-path` skips updating shell configuration files (`.bashrc`, `.zshrc`, fish config). Combine with `BB_PATH` to control the install destination:
 
 ```bash
-BB_PATH=/some/dir bbup -v 0.56.0 --no-modify-path
+BB_PATH=/some/dir bbup -v 6.0.0-rc.6 --no-modify-path
 ```
 
-You can also pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
+You can also pass a [Noir version](https://github.com/noir-lang/noir/tags) that has an entry in `bb-versions.json` with the `-nv` flag. Examples:
 
 ```bash
 bbup # installs the barretenberg version matching your current nargo version
-bbup -nv 0.34.0 # installs the barretenberg version compatible with Noir 0.34.0 release
-bbup -nv nightly # installs the barretenberg version compatible with Noir nightly release
+bbup -nv 1.0.0-beta.22 # installs the barretenberg version compatible with Noir 1.0.0-beta.22
 ```
 
 ## Where the binary comes from

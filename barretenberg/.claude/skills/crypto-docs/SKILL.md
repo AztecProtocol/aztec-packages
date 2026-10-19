@@ -7,17 +7,20 @@ description: Principles for writing and reviewing cryptography/protocol document
 
 Covers the prose, math, and structure of crypto documentation: `PROTOCOL.md` specs,
 algorithm/implementation notes, and math-heavy doc-comments on prover/verifier code. Not the
-Docusaurus developer-docs site (see `docs/CLAUDE.md`).
+Docusaurus developer-docs site (it lives in aztec-node; see `labs/docs/CLAUDE.md`).
 
-## Structure and narrative
+A protocol spec lives next to its code in a file named `PROTOCOL.md` (or `<NAME>_PROTOCOL.md`).
+Use `commitment_schemes/triple_ipa/PROTOCOL.md` as the model; the others are
+`goblin/MERGE_PROTOCOL.md` and `goblin/BATCH_MERGE_PROTOCOL.md`.
 
-- **Lead with the why, then what, then how.** Open with the fact the rest depends on — a cost
-  model, an invariant, or the security property — then the construction, then the implementation.
-  The implementation section is detail behind the concept, not a parallel restatement of it.
-- **One canonical home per fact.** A formula, table, or derivation appears once; elsewhere,
-  reference it. Repetition is the usual cause of a doc that reads as fragmented.
-- **Bridge concept to implementation** with an explicit transition sentence; overview diagram, then
-  prose.
+General writing rules: lead with the why (cost model, invariant or security property), then the
+construction, then the implementation. Define a term before using it. One claim per sentence. Write
+what is computed as an equation, not action-verb narration. Keep the editor's intent out of the
+text. Quantify a performance claim with a count and state its scope. Avoid the repo AI-isms listed
+in root `CLAUDE.md` `<jargon>`.
+
+**One canonical home per fact.** A formula, table, or derivation appears once; elsewhere,
+reference it.
 
 ## Bind the doc to the code
 
@@ -61,34 +64,12 @@ a paper, or a reference implementation. Then:
 - **Keep a numbered references list** (title, authors, link), cited inline; flag a linked resource
   that predates the implementation.
 
-## Precision and word choice
-
-- **Define a term before using it;** don't lean on undefined words.
-- **Dry, mathematical prose.** Name the loop ("round $r$"), name the object (the challenge
-  polynomial $h$), and write what is computed as an equation — not action-verb narration. Verbs that
-  gesture instead of naming ("walks", "contracts", "discharges") are out; precise verbs (computes,
-  evaluates, checks, equals) are fine.
-- **One claim per sentence.** Split a sentence that stacks clauses with semicolons, several
-  em-dashes, or nested parentheticals; short sentences read.
-- **Name the concrete thing, don't gesture** — the actual object, not "nothing downstream sees it".
-- **Keep the editor's intent out of the text.** Write the fact, not your reasoning about how you
-  chose to present it ("to keep this readable…", "for clarity…", "we now…"); that belongs in the PR
-  thread.
-- **Separate distinct rationales** — if a thing holds for two reasons, give both, not one "because".
-- **Cut what the reader can infer.** State a failure-mode direction once (completeness vs soundness)
-  without then spelling out the obvious version. Don't restate a displayed equation, set, or table
-  in prose.
-- **Quantify a performance claim** with a count, not an analogy, and state its scope (local vs
-  end-to-end).
-- **Avoid the repo AI-isms** (root `CLAUDE.md` `<jargon>`): "load bearing", "seam", "north star",
-  "sharpening", effusive openers.
-
 ## Present tense — describe the artifact as it is
 
 - **No retroactive framing in permanent files.** No "used to be", "previously", "old | new" tables.
   Don't define the artifact by contrast with an approach the reader never saw ("there is no X step",
   "unlike the naive Y") — state what it is, positively. The delta belongs in the PR and commit
-  message; the doc states the current truth. (Extends `barretenberg/cpp/CLAUDE.md`'s comment rule to
+  message; the doc states the current truth. (Extends `barretenberg/CLAUDE.md`'s "Code comments" rule to
   docs.)
 - **A pure delta doc usually should not land.** Fold its durable content into the spec and code
   comments, and keep the before/after in the PR description.
@@ -110,7 +91,7 @@ a paper, or a reference implementation. Then:
 
 General comment hygiene — when to comment, no "what" comments, public-API docs, and not deleting
 comments — is in the root `CLAUDE.md` (`<writing_comments>`, `<preserve_todos>`) and
-`barretenberg/cpp/CLAUDE.md`; follow those. The prose rules above apply to comment text too. The
+`barretenberg/CLAUDE.md` ("Code comments"); follow those. The prose rules above apply to comment text too. The
 crypto-specific points:
 
 - **Use Unicode math in code comments, not LaTeX markup.** A comment is read as source, not
@@ -131,24 +112,8 @@ crypto-specific points:
 
 ## Reviewing
 
-Two modes, applied to a draft: a qualitative lens, then a binary sweep.
-
-### Coarse to fine
-
-Not a fixed recipe, a lens. Fixing prose inside a paragraph you later move or cut is wasted, so
-review tends to go best from structure down to sentences:
-
-- **Scope.** Is the doc (or section) at the right altitude, and not a pure delta that shouldn't land?
-  (*Present tense*)
-- **Structure**, reading headings and topic sentences alone: does anything depend on what comes
-  later, or re-explain what came earlier? Is a fact stated twice, or sitting somewhere other than the
-  section whose job it is? (*Structure and narrative*; *One canonical home per fact*)
-- **Sentences**, once the structure has settled. For each, it is worth asking whether it restates
-  something already shown (a displayed equation, an earlier line), asserts what nothing backs,
-  contradicts the code or another section, narrates an editorial choice, leans on an undefined term,
-  frames by contrast with the past, or gestures instead of naming. Several of these — *does it match
-  the code?*, *is the claim backed?* — are settled only by checking the source, not by rereading the
-  prose.
+Review structure first, then sentences. Settle "does it match the code?" and "is the claim
+backed?" against the source, not by rereading the prose.
 
 ### Mechanical checks (final sweep)
 
