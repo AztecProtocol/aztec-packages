@@ -52,7 +52,7 @@ index eedfbfa621b4f00a1fca57e9cefeb7c74ebacf4c..a949edd98067d2db3d90ec56b1384dc1
    "@aztec-foundation/noir-types": "portal:noir/packages/types",
    "@aztec-foundation/noir-noirc_abi": "portal:noir/packages/noirc_abi",
 diff --git a/yarn-project/native/package.json b/yarn-project/native/package.json
-index acc6a7198d018c2f48064dc1ca3949ebdb79daa0..30fa306fe3b7c6f8a2ccaf747dbbb1ca3f28500b 100644
+index 429a735fe17940c1834be0c4773a584cba760d2c..ceab8386856e72af1f88b8f43ede1ae2ba73124f 100644
 --- a/yarn-project/native/package.json
 +++ b/yarn-project/native/package.json
 @@ -16,6 +16,7 @@
@@ -74,18 +74,18 @@ index 9776eceb2ae6028a7fea448c9724d107fc1d6a91..1be17e9ad1841a737b2260a6713bfc2e
  import { createRequire } from 'module';
  
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index 741bec9a7f450e7d7bef10b71ba42264304d54c6..dd9af8f3625816c6ea09a5a196aed410a210d6cd 100644
+index 523fcaf489046224d580a9502ebdb19ba3ad5ab4..4e32b34256ba07185d95451b1dd1fda5c0f0cefa 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
 @@ -102,6 +102,11 @@
-     "@aztec-foundation/wsdb-darwin-x64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/wsdb-linux-arm64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/wsdb-linux-x64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/kvdb": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/kvdb-linux-x64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/noir-acvm_js": "6.0.0-nightly.20260923",
-     "@aztec-foundation/noir-types": "6.0.0-nightly.20260923",
-     "@aztec-foundation/noir-noirc_abi": "6.0.0-nightly.20260923",
+     "@aztec-foundation/wsdb-darwin-x64": "6.0.0-rc.6",
+     "@aztec-foundation/wsdb-linux-arm64": "6.0.0-rc.6",
+     "@aztec-foundation/wsdb-linux-x64": "6.0.0-rc.6",
++    "@aztec-foundation/kvdb": "6.0.0-rc.6",
++    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-rc.6",
++    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-rc.6",
++    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-rc.6",
++    "@aztec-foundation/kvdb-linux-x64": "6.0.0-rc.6",
+     "@aztec-foundation/noir-acvm_js": "6.0.0-rc.6",
+     "@aztec-foundation/noir-types": "6.0.0-rc.6",
+     "@aztec-foundation/noir-noirc_abi": "6.0.0-rc.6",

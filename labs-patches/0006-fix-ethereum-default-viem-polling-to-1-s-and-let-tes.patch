@@ -13,13 +13,13 @@ clients already use, and L1_VIEM_POLLING_INTERVAL_MS overrides it; the
 jest runners and the e2e compose file set 100 ms.
 
 diff --git a/yarn-project/end-to-end/scripts/docker-compose.yml b/yarn-project/end-to-end/scripts/docker-compose.yml
-index d89a027e354d6cb23f56433b48ee96fcc74958f8..7bdbf73006f8d42805df2309c746f7c3b56278b0 100644
+index 609ee04f61a7e9fa7ca9d2f129e69883d586a9d3..a0d221ca42442a009ef858b4d0c0bfd3676fb753 100644
 --- a/yarn-project/end-to-end/scripts/docker-compose.yml
 +++ b/yarn-project/end-to-end/scripts/docker-compose.yml
-@@ -56,6 +56,7 @@ services:
-       L1_CHAIN_ID: 31337
+@@ -57,6 +57,7 @@ services:
        FORCE_COLOR: ${FORCE_COLOR:-1}
        AZTEC_NODE_URL: http://local-network:8080
+       ANVIL_HARDFORK: ${ANVIL_HARDFORK:-}
 +      L1_VIEM_POLLING_INTERVAL_MS: 100
        # Allow git usage despite different ownership. Relevant for script tests.
        GIT_CONFIG_GLOBAL: /root/aztec-node/build-images/src/home/.gitconfig
@@ -37,11 +37,58 @@ index 4d878e805922fe8ded01f3947a5c5bb3168333dc..2028c496d49dff1c295b598755ccf8bd
  export NODE_NO_WARNINGS=1
  export FORCE_COLOR=1
  
+diff --git a/yarn-project/ethereum/src/client.test.ts b/yarn-project/ethereum/src/client.test.ts
+index 2beb26e182a1c855797f6dacf6f5504c2b8c6d45..0e3a1ae23874cd0469e72ef3c8f2d7a1cd0a3a36 100644
+--- a/yarn-project/ethereum/src/client.test.ts
++++ b/yarn-project/ethereum/src/client.test.ts
+@@ -13,6 +13,20 @@ import {
+ } from './client.js';
+ 
+ describe('createExtendedL1Client polling', () => {
++  const originalPollingInterval = process.env.L1_VIEM_POLLING_INTERVAL_MS;
++
++  beforeEach(() => {
++    delete process.env.L1_VIEM_POLLING_INTERVAL_MS;
++  });
++
++  afterEach(() => {
++    if (originalPollingInterval === undefined) {
++      delete process.env.L1_VIEM_POLLING_INTERVAL_MS;
++    } else {
++      process.env.L1_VIEM_POLLING_INTERVAL_MS = originalPollingInterval;
++    }
++  });
++
+   const privateKey = `0x${'01'.repeat(32)}`;
+   const rpcUrls = ['http://127.0.0.1:8545'];
+ 
+@@ -25,8 +39,14 @@ describe('createExtendedL1Client polling', () => {
+     expect(createExtendedL1Client(rpcUrls, privateKey, foundry, 0).pollingInterval).toBe(0);
+   });
+ 
+-  it('preserves the public-chain default', () => {
+-    expect(createExtendedL1Client(rpcUrls, privateKey, sepolia).pollingInterval).toBe(4000);
++  it('uses the configured polling interval on public chains', () => {
++    process.env.L1_VIEM_POLLING_INTERVAL_MS = '250';
++    expect(createExtendedL1Client(rpcUrls, privateKey, sepolia).pollingInterval).toBe(250);
++    expect(createExtendedL1Client(rpcUrls, privateKey, sepolia, 0).pollingInterval).toBe(0);
++  });
++
++  it('defaults to one-second polling on public chains', () => {
++    expect(createExtendedL1Client(rpcUrls, privateKey, sepolia).pollingInterval).toBe(1000);
+   });
+ });
+ 
 diff --git a/yarn-project/ethereum/src/client.ts b/yarn-project/ethereum/src/client.ts
-index 503c5e61bb10c0c5b355bf46d6e3dbf6ab9c2d7c..de166c272588c4d75fac2f4292bddb1a8e610c2f 100644
+index 5eab2a41e243f025db3cc997d9605eccd7430568..6aa82495b0c5adc431c4302abc5b8bb2fa556a9d 100644
 --- a/yarn-project/ethereum/src/client.ts
 +++ b/yarn-project/ethereum/src/client.ts
-@@ -35,6 +35,19 @@ type Config = {
+@@ -1,3 +1,4 @@
++import { getEnv } from '@aztec-labs/foundation/config/env';
+ import type { Logger } from '@aztec-labs/foundation/log';
+ import { retryUntil } from '@aztec-labs/foundation/retry';
+ import { getErrorCause } from '@aztec-labs/foundation/types';
+@@ -35,6 +36,19 @@ type Config = {
  
  export type { Config as EthereumClientConfig };
  
@@ -54,14 +101,14 @@ index 503c5e61bb10c0c5b355bf46d6e3dbf6ab9c2d7c..de166c272588c4d75fac2f4292bddb1a
 + * runners shorten it.
 + */
 +export function defaultViemPollingIntervalMs(): number {
-+  const fromEnv = Number(process.env.L1_VIEM_POLLING_INTERVAL_MS);
++  const fromEnv = Number(getEnv().L1_VIEM_POLLING_INTERVAL_MS);
 +  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_VIEM_POLLING_INTERVAL_MS;
 +}
 +
  /** Error exposed by L1 RPC transports without including provider URLs in its message. */
  export class L1RpcError extends Error {
    constructor(message: string, options?: ErrorOptions) {
-@@ -105,7 +118,7 @@ export function getPublicClient(config: Config): ViemPublicClient {
+@@ -108,7 +122,7 @@ export function getPublicClient(config: Config): ViemPublicClient {
    return createPublicClient({
      chain: chain.chainInfo,
      transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
@@ -70,20 +117,20 @@ index 503c5e61bb10c0c5b355bf46d6e3dbf6ab9c2d7c..de166c272588c4d75fac2f4292bddb1a
    });
  }
  
-@@ -158,7 +171,7 @@ export function createExtendedL1Client(
+@@ -161,7 +175,7 @@ export function createExtendedL1Client(
      account: hdAccount,
      chain,
      transport: makeL1HttpTransport(rpcUrls, { timeout: opts?.httpTimeoutMS }),
--    pollingInterval: pollingIntervalMS,
-+    pollingInterval: pollingIntervalMS ?? defaultViemPollingIntervalMs(),
+-    pollingInterval: pollingIntervalMS ?? (isAnvilTestChain(chain.id) ? 100 : undefined),
++    pollingInterval: pollingIntervalMS ?? (isAnvilTestChain(chain.id) ? 100 : defaultViemPollingIntervalMs()),
    }).extend(publicActions);
  
    return extendedClient;
 diff --git a/yarn-project/foundation/src/config/env_var.ts b/yarn-project/foundation/src/config/env_var.ts
-index d08fdbfecb463293dd6ec852d21eec3757da2b5c..032fdaaaa5bc459e06d45653d2a818925b7a1a8a 100644
+index 20aa6cd36165ed5f9a59d60195a867bcca283133..25113f311f98279efabc970333bed80f220dc5c3 100644
 --- a/yarn-project/foundation/src/config/env_var.ts
 +++ b/yarn-project/foundation/src/config/env_var.ts
-@@ -330,6 +330,7 @@ export type EnvVar =
+@@ -331,6 +331,7 @@ export type EnvVar =
    | 'WS_BLOCK_CHECK_INTERVAL_MS'
    | 'WS_BLOCK_REQUEST_BATCH_SIZE'
    | 'L1_READER_VIEM_POLLING_INTERVAL_MS'

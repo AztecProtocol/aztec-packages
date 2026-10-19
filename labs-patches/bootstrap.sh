@@ -103,7 +103,7 @@ function series_patch_ids {
 }
 
 function commit_patch_id {
-  git_labs diff-tree -p --binary --format= "$1" | git patch-id --stable | cut -d' ' -f1
+  git_labs diff-tree -M -p --binary --format= "$1" | git patch-id --stable | cut -d' ' -f1
 }
 
 # Every non-marker commit above $1, oldest first: what export turns into the series.
@@ -245,7 +245,7 @@ function bump {
     die "export or drop them before bumping"
   fi
   git_labs fetch -q --depth 1 origin "$ref"
-  local new; new=$(git_labs rev-parse FETCH_HEAD)
+  local new; new=$(git_labs rev-parse 'FETCH_HEAD^{commit}')
   local old; old=$(base_sha)
   git -C "$fnd_root" update-index --cacheinfo "160000,$new,labs"
   echo "labs gitlink: $old -> $new"

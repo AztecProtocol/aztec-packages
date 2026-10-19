@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 09:35:47 +0000
+Subject: [PATCH] test: isolate a test by naming it *.isolate.test.ts
+
+A test that binds a port has to run in its own container, and which tests those are was
+a list of package prefixes in test_cmds. A list only works if whoever adds a test in a
+new package knows to extend it, and an unisolated test that spawns anvil passes until
+the day it races another one.
+
+Two were already in that position. cli/src/cmds/l1/attester_exit, added this month,
+fails intermittently with "Address already in use" before reaching an assertion, when
+it meets another anvil in the same window; it was found failing a bb PR it has nothing
+to do with. epoch-cache/src/epoch_cache.integration has been unisolated since April
+and has only been luckier.
+
+The suffix says it at the point someone writes the test, rather than somewhere else
+that has to be remembered. The package list stays, so nothing loses the isolation it
+has today; prefer the suffix for anything new, and an entry can leave the list by
+renaming its tests.
+
+Verified: the condition isolates both renamed tests, leaves ordinary ones shared, and
+keeps every package currently listed; the glob still enumerates both, 649 tests in all.
+
+diff --git a/yarn-project/bootstrap.sh b/yarn-project/bootstrap.sh
+index e5ac3d94b97a3023a40298772b61c3d56ca7cf93..25302a4cfdb09f2bfc147674b8f7d77e93a7db96 100755
+--- a/yarn-project/bootstrap.sh
++++ b/yarn-project/bootstrap.sh
+@@ -397,7 +397,8 @@ function test_cmds {
+     local cmd_env=""
+ 
+     # These need isolation due to network stack usage (p2p, anvil, etc).
+-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
++    if [[ "$test" =~ \.isolate\.test\.ts$ ]] ||
++      [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
+       prefix+=":ISOLATE=1"
+       name=$test
+     fi
+diff --git a/yarn-project/cli/src/cmds/l1/attester_exit.test.ts b/yarn-project/cli/src/cmds/l1/attester_exit.isolate.test.ts
+similarity index 100%
+rename from yarn-project/cli/src/cmds/l1/attester_exit.test.ts
+rename to yarn-project/cli/src/cmds/l1/attester_exit.isolate.test.ts
+diff --git a/yarn-project/epoch-cache/src/epoch_cache.integration.test.ts b/yarn-project/epoch-cache/src/epoch_cache.integration.isolate.test.ts
+similarity index 100%
+rename from yarn-project/epoch-cache/src/epoch_cache.integration.test.ts
+rename to yarn-project/epoch-cache/src/epoch_cache.integration.isolate.test.ts
