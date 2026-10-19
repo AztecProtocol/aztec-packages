@@ -23,7 +23,7 @@ Its deviations from PlonK are motivated by the goals above:
 
 3. **Folding schemes**: Enable cheaper recursion than standard recursive proofs. We use sumcheck-based folding similar to HyperNova [[5](#ref-hypernova)], adapted to folding non-uniform PlonK circuits.
 
-4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. Goblin Plonk [[6](#ref-goblin-hackmd)] [[7](#ref-goblin-paper)] defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by BCTV [[8](#ref-bctv)]; a modern comparison is CycleFold [[9](#ref-cyclefold)]. *Note: The linked documents use older terminology and omit some details (e.g., ZK handling) that have since evolved in the implementation.*
+4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. Goblin Plonk [[6](#ref-goblin-hackmd)] [[7](#ref-goblin-paper)] defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by BCTV [[8](#ref-bctv)]; a modern comparison is CycleFold [[9](#ref-cyclefold)]. The linked documents use older terminology and omit some details of the implementation, such as ZK handling.
 
 5. **Mega flavors**: Chonk circuits use the Mega arithmetization (UltraHonk's custom gates plus Goblin's ECC op queue) in three variants: [`MegaAppFlavor`](../flavor/mega_app_flavor.hpp) for apps, [`MegaKernelFlavor`](../flavor/mega_kernel_flavor.hpp) for kernels, and [`MegaZKFlavor`](../flavor/mega_zk_flavor.hpp) — the ZK variant — for the final [hiding kernel](#circuit-structure). Apps carry fewer witness columns than kernels (15 vs 30), so their entity counts differ.
 
@@ -70,14 +70,16 @@ apps → Init → apps → Inner → [Reset…] → apps → Inner → [Reset…
 - **Init kernel** (`private-kernel-init`): the first kernel; verifies its group of apps — the first via an Oink proof, the rest via HyperNova — with no prior accumulator.
 - **Inner kernel** (`private-kernel-inner`): verifies the previous kernel and its group of one to five apps.
 - **Reset kernel** (`private-kernel-reset`): squashes transient note-hash/nullifier pairs and validates read requests. It verifies only the previous kernel (no apps), always follows an inner kernel, and several resets may run back-to-back between inners.
-- **Reset-tail kernel** (`private-kernel-reset-tail`): one circuit merging a final reset with the tail; sorts and transforms data to the final rollup format and masks the op queue. Exactly one closes the private run (the op-queue plumbing calls it the *tail*, $T_{\text{tail}}$).
+- **Reset-tail kernel** (`private-kernel-reset-tail`): one circuit merging a final reset with the tail; sorts and transforms data to the final rollup format and masks the op queue. Exactly one closes the private run. The op-queue plumbing calls it the *tail*: its subtable is the last subtable $T_N$, and the aggregate of all subtables up to it is $T_{\text{tail}}$.
 - **Hiding kernel** (`hiding-kernel-to-{public,rollup}`, `MegaZKFlavor`): verifies the reset-tail kernel's folding and decider proofs and masks the op-queue end, proven with the ZK flavor for full zero-knowledge.
+
+The `-N` variants (`private-kernel-init-2..5`, `private-kernel-inner-2..5`) verify N apps; `private-kernel-reset-tail-to-public` is the reset-tail variant for transactions with public calls.
 
 So after the init come a series of inner kernels interleaved with optional resets, then a single reset-tail circuit, then the hiding kernel: `Init, Inner, [Reset…], …, Inner, Reset-Tail, Hiding`.
 
 ### Proof Structure
 
-A Chonk proof (`ChonkProof_<IsRecursive>`) contains five segments produced on a shared Fiat-Shamir transcript:
+A Chonk proof (`ChonkProof_<IsRecursive>`) contains five segments. Four share one Fiat-Shamir transcript; the IPA proof uses its own:
 
 ```cpp
 template <bool IsRecursive>
@@ -96,13 +98,11 @@ struct ChonkProof_ {
 
 2. **Merge proof**: Proves correct APPEND-mode merging of the hiding kernel's ECC op subtable into the global op queue.
 
-3. **ECCVM proof**: Proves correctness of all accumulated EC operations on the Grumpkin curve. Produces translation parameters (`evaluation_input_x`, `batching_challenge_v`, `accumulated_result`) used by the translator. See [ECCVM README](../eccvm/README.md).
+3. **ECCVM proof**: Proves correctness of all accumulated EC operations on the Grumpkin curve. Produces translation parameters (`evaluation_challenge_x`, `batching_challenge_v`, `accumulated_result`) used by the translator. See [ECCVM README](../eccvm/README.md).
 
 4. **IPA proof**: Inner product argument opening proof for the ECCVM (Grumpkin curve, separate transcript).
 
 5. **Joint proof**: The translator's Oink phase followed by a **joint sumcheck and joint PCS** that batches the MegaZK hiding kernel and translator circuits together. The joint sumcheck runs for 17 rounds (the translator's fixed circuit size); the MegaZK circuit contributes via extension-by-zero for virtual rounds beyond its own `log_n`. A single Shplemini/KZG reduction covers polynomial openings from both circuits. See [Batched Honk + Translator README](batched_honk_translator/README.md) for the full protocol.
-
-**Key optimization**: By batching the MegaZK and translator sumcheck+PCS into a single joint protocol, the proof avoids two independent Honk proofs and reduces overall proof size.
 
 **Verification Architecture:**
 
@@ -115,16 +115,16 @@ MegaZK Oink → Merge → ECCVM → Translator Oink + Joint Sumcheck + Joint PCS
 Concretely (`ChonkVerifier::reduce_to_triple_ipa_opening` / `ChonkVerifier::verify`):
 
 1. **MegaZK Oink verification**: `BatchedHonkTranslatorVerifier::verify_mega_zk_oink` processes the hiding kernel's pre-sumcheck proof and extracts `HidingKernelIO` (pairing points, kernel return data commitment, ECC op wire commitments)
-2. **Databus consistency check**: Asserts the hiding kernel's kernel calldata commitment equals the `kernel_return_data` commitment contained it its public inputs
+2. **Databus consistency check**: Asserts the hiding kernel's kernel calldata commitment equals the `kernel_return_data` commitment contained in its public inputs
 3. **Merge verification**: Verifies the hiding kernel's APPEND-mode merge proof using the ECC op wire commitments from step 1 and `ecc_op_tables` from `HidingKernelIO`
 4. **ECCVM verification**: Reduces to a deferred **TripleIPA** opening — the eccvm sumcheck's unshifted, shifted, and univariate (`pow`) openings are rho-batched into a single Grumpkin IPA claim (see [TripleIPA](../commitment_schemes/triple_ipa/PROTOCOL.md)); extracts translator input parameters (`v`, `x`, `accumulated_result`)
 5. **Joint verification**: `BatchedHonkTranslatorVerifier::verify` processes the translator Oink, runs the 17-round joint sumcheck, and performs the joint Shplemini/KZG PCS reduction
-6. **Pairing aggregation**: Aggregates 3 pairing point sets using `aggregate_multiple`:
+6. **Pairing points**: There are 3 pairing point sets:
    - Public Input (PI) pairing points from `HidingKernelIO`
    - Merge protocol pairing points
    - Batched PCS pairing points (covering both MegaZK and translator polynomials)
-7. **Native mode**: Immediately verifies aggregated pairing points and IPA claim
-8. **Recursive mode**: Returns `ChonkVerifier::ReductionResult` with aggregated pairing points and IPA claim for deferred verification
+7. **Native mode**: Checks the three pairing sets one by one, then verifies the TripleIPA opening
+8. **Recursive mode**: Aggregates the three pairing sets with `aggregate_multiple` and returns them, with the TripleIPA opening, in `ChonkVerifier::ReductionResult` for deferred verification
 
 **Note on deferred verification**: IPA claims and pairing points are propagated through the rollup:
 - **IPA claims** (Grumpkin): originate from the ECCVM's TripleIPA reduction when Chonk or AVM proofs are recursively verified. Carried in `RollupIO` public inputs through tx_merge → block_merge → checkpoint_root → checkpoint_merge. At each level, claims from child proofs are accumulated via `IPA::accumulate`. Finally verified **in-circuit in the root rollup** via `IPA::full_verify_recursive`.
@@ -136,22 +136,20 @@ This amortizes the cost of IPA verification across many proofs.
 
 ## Background: From Naive Recursion to Chonk
 
-*This section explains the motivation behind Chonk's design. Skip if you're familiar with the problem.*
-
-**Assumption**: All circuits have fixed size $N = 2^{21}$ from the verifier's perspective.
+**Assumption**: All circuits have a fixed size $N$ from the verifier's perspective. For non-folded UltraHonk recursion, $\log N$ = `CONST_PROOF_SIZE_LOG_N` = 25.
 
 ### Naive Recursive UltraHonk Verification
 
 In a standard recursive verification setup, each circuit must verify the previous circuit's proof. A Honk verifier performs:
 
-1. **Sumcheck verification**: 21 rounds, each receiving univariate polynomials and computing challenges. Relatively cheap in-circuit.
+1. **Sumcheck verification**: $\log N$ rounds, each receiving univariate polynomials and computing challenges. Relatively cheap in-circuit.
 
 2. **PCS (Polynomial Commitment Scheme) verification via Shplemini** [[1](#ref-shplemini)]: This is where the cost explodes. The verifier must:
    - Batch all polynomial commitments into opening claims
    - Run Shplemini to reduce multivariate claims to univariate
    - Perform KZG verification
 
-The commitment batching *can* be slightly optimized to use short scalars — the batching challenges are drawn short (127-bit) via `get_short_challenges`, whereas full-width (~254-bit) `get_challenges` is the default elsewhere — but **recursive verifier circuit size exceeds 512K gates** - too large for practical use.
+The commitment batching *can* be slightly optimized to use short scalars, but **recursive verifier circuit size exceeds 512K gates** - too large for practical use.
 
 ### Adding Goblin: EC Operation Delegation
 
@@ -164,18 +162,18 @@ Goblin improves the naive approach by delegating non-native EC operations to a s
 **Cost reduction**: EC operations become "free" in the main circuit - just op queue entries. However, each recursive verification still adds significant work to the op queue:
 
 - **`NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES` short scalar muls** for commitment batching (the batching challenges are drawn short — 127-bit — via `get_short_challenges`) — for the folded circuit's flavor: `52 + 5` for `MegaAppFlavor`, `67 + 5` for `MegaKernelFlavor`
-- **21 full scalar muls** for Shplemini's Gemini fold commitments ($\log N$), which amounts to **42** short scalar muls in ECCVM
+- **$\log N$ full scalar muls** for Shplemini's Gemini fold commitments, which amount to **$2\log N$** short scalar muls in ECCVM
 - **Merge protocol ops**: Each circuit's op queue subtable must be merged into the global table, requiring additional EC operations
 
 In ECCVM terms, full scalar muls cost ~2× the rows of short scalar muls. So each recursive verification effectively adds **~100+ ECCVM ops**.
 
-Note: The Merge protocol's ECCVM cost is present in both the naive Goblin approach and in Chonk - it's inherent to maintaining the op queue across circuits.
+The Merge protocol's ECCVM cost is present in both the naive Goblin approach and in Chonk - it's inherent to maintaining the op queue across circuits.
 
 For a chain of $k$ circuits, ECCVM must handle $O(k \cdot ($ `NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES`  $+ 2\log N))$ short scalar operations.
 
 ### HyperNova Folding: Deferring PCS Verification
 
-The key insight of HyperNova folding is: **we don't need to complete PCS verification at each step**. Instead:
+HyperNova folding does **not complete PCS verification at each step**. Instead:
 
 1. **Run Sumcheck** → produces claimed evaluations at a random point $r$
 2. **Batch the claims** → combine all evaluation claims into a single "accumulator"
@@ -199,7 +197,7 @@ The dominant per-circuit EC cost is batching the circuit's `NUM_ALL_ENTITIES` co
 
 The per-kernel multilinear batching then adds, once per kernel, a `batch_mul` over the group's claim commitments (`MultilinearBatchingVerifier::compute_new_claim`): `NUM_CLAIMS - 1` extra short muls each for the unshifted and shifted accumulators.
 
-**`NUM_ALL_ENTITIES` short scalar multiplications per circuit** (57 for apps, 72 for kernels), plus the once-per-kernel batching above; the op-queue merge is delayed into a single [batch merge](../goblin/BATCH_MERGE_PROTOCOL.md), not paid per circuit. Versus 55 short + 21 full in the naive/Goblin approaches. Crucially:
+**`NUM_ALL_ENTITIES` short scalar multiplications per circuit** (57 for apps, 72 for kernels), plus the once-per-kernel batching above; the op-queue merge is delayed into a single [batch merge](../goblin/BATCH_MERGE_PROTOCOL.md), not paid per circuit. Versus `NUM_ALL_ENTITIES` short + $\log N$ full in the naive/Goblin approaches. Two properties matter:
 - **The batching operations are short scalar** — their Fiat-Shamir challenges are drawn short (127-bit) via `get_short_challenges`, while full-width (~254-bit) `get_challenges` is the default for other challenges
 - The **Shplemini MSM is deferred** to the final decider proof - eliminating the $\log N$ full scalar muls per circuit
 
@@ -207,19 +205,17 @@ The per-kernel multilinear batching then adds, once per kernel, a `batch_mul` ov
 
 | Approach | EC Ops per Circuit | Final MSM Size | Notes |
 |----------|-------------------|----------------|-------|
-| Naive Recursive | 55 + 21 full scalar muls | 78 | Circuit > 512K gates |
-| Goblin (no folding) | 60 short + 21 full (op queue) | >102 short | ~100 ECCVM rows/circuit |
+| Naive Recursive | `NUM_ALL_ENTITIES` short + $\log N$ full scalar muls | `NUM_ALL_ENTITIES` + $\log N$ | Circuit > 512K gates |
+| Goblin (no folding) | `NUM_ALL_ENTITIES` short + $\log N$ full (op queue) | > `NUM_ALL_ENTITIES` + $2\log N$ short | ~100 ECCVM rows/circuit |
 | **Chonk (HyperNova + Goblin)** | 57–72 short scalar muls/circuit + per-kernel batch | N/A (deferred) | Shplemini deferred to decider |
-
-Combining `UltraHonk` features such as custom gates with databus mechanism enabling inter-circuit communication with Hypernova sumcheck-based folding boosted by Goblin elliptic curve operation deferral protocol we get a client-friendly RCG that can be run on a mobile phone.
 
 ### Memory Efficiency
 
 A key benefit of Chonk's folding approach is that prover memory is bounded by the largest individual circuit, not the total computation size.
 
-**Memory bound**: Peak memory occurs during the first Sumcheck round and is bounded by $1.5 \times \max_i |\text{ProverPolynomials}_i|$, where the max is over all input circuits. Crucially, this bound is independent of the number of circuits being folded.
+**Memory bound**: Peak memory occurs during the first Sumcheck round and is bounded by $1.5 \times \max_i |\text{ProverPolynomials}_i|$, where the max is over all input circuits. This bound is independent of the number of circuits being folded.
 
-*Example*: 55 dense polynomials of size $2^{18}$ consume $1.5 \times 55 \times 2^{18} \times 32\text{ bytes} \approx 660\text{ MB}$ (shifted polynomials share memory with unshifted), which serves as a rough upper bound for a Mega circuit's RAM footprint during Chonk.
+*Example*: 67 dense polynomials (the unshifted entities of a kernel) of size $2^{18}$ consume $1.5 \times 67 \times 2^{18} \times 32\text{ bytes} \approx 843\text{ MB}$ (804 MiB; shifted polynomials share memory with unshifted), which serves as a rough upper bound for a Mega circuit's RAM footprint during Chonk.
 
 ---
 
@@ -239,13 +235,7 @@ Goblin handles non-native EC operations by deferring them to an op queue, then p
 
 ### Batched Honk + Translator
 
-`BatchedHonkTranslatorProver`/`BatchedHonkTranslatorVerifier` implement the joint proving and verification of the MegaZK hiding kernel and translator circuits. Both circuits operate over BN254 scalars, so their sumcheck and polynomial openings can be combined into a single protocol. This eliminates two independent Honk proofs and reduces proof size.
-
-The protocol has two phases separated by Merge + ECCVM verification:
-- **Phase 1 (MegaZK Oink)**: Pre-sumcheck commitments for the hiding kernel
-- **Phase 2 (Joint)**: Translator Oink + 17-round joint sumcheck + single Shplemini/KZG PCS
-
-See [Batched Honk + Translator README](batched_honk_translator/README.md) for the full protocol specification including the joint round univariate, extension-by-zero, and repeated commitments optimization.
+`BatchedHonkTranslatorProver`/`BatchedHonkTranslatorVerifier` prove the hiding kernel and translator together; see [Batched Honk + Translator](batched_honk_translator/README.md).
 
 ### Merge Protocol
 
@@ -291,17 +281,16 @@ In practice, we precompute an inverse polynomial $I$ where:
 
 $$I_i = \frac{1}{(b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma)}$$
 
-This allows expressing the lookup as two subrelations:
+With $L_i = w_{1,i} + w_{2,i}\beta + \gamma$ (read term) and $T_i = b_i + i\beta + \gamma$ (table term), `SingleBusLookupRelationImpl` (`relations/databus_lookup_relation.hpp`) has 4 subrelations, where $\text{is\_read} = q_{busread}$ times the column selector:
 
-1. **Inverse correctness** (only checked where $a_i \neq 0$ or $q_{busread,i} = 1$):
+| Subrelation | Identity | Scope |
+|---|---|---|
+| Inverse correctness on read rows | $(I_i L_i T_i - 1) \cdot \text{is\_read}_i = 0$ | per row |
+| Inverse correctness on write rows | $(I_i L_i T_i - 1) \cdot a_i = 0$ | per row |
+| Lookup identity | $\sum_{i=0}^{n-1} (\text{is\_read}_i \cdot T_i - a_i \cdot L_i) \cdot I_i = 0$ | sum over the trace |
+| Read-count locality | $(1 - \text{indicator}_i) \cdot a_i = 0$ | per row |
 
-$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \varepsilon_i = 0$$
-
-2. **Lookup relation**:
-
-$$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{busread,i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
-
-Inverse correctness is enforced by two separate gating subrelations: $(I \cdot L \cdot T - 1) \cdot \text{is read} = 0$ on read rows, and $(I \cdot L \cdot T - 1) \cdot \text{count} = 0$ on write rows. At inactive rows (where both gates are zero), $I$ is unconstrained but the lookup identity contribution is also zero, so the prover gets no free degrees of freedom.
+At inactive rows (where both gates are zero), $I$ is unconstrained but the lookup identity contribution is also zero, so the prover gets no free degrees of freedom.
 
 **Multiple columns**: Each bus column (kernel calldata, five app calldata columns, return data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
@@ -315,17 +304,17 @@ The databus columns are populated from ACIR constraints generated by the Noir co
 #### Data Flow
 
 ```
-App₀ ──return_data [R'₀]──┐
-                          ↓
+App₀,ⱼ ──return_data [R'₀,ⱼ]──┐
+                              ↓
                     Kernel₀ ←─kernel_calldata─── (empty for first kernel)
-                            ←─app_calldata[0] [C'₀,0]─── App₀.return_data
+                            ←─app_calldata[j] [C'₀,ⱼ]─── App₀,ⱼ.return_data
                       │
                 return_data [R₀]
                       ↓
-App₁ ──return_data [R'₁]──┐
-                          ↓
+App₁,ⱼ ──return_data [R'₁,ⱼ]──┐
+                              ↓
                     Kernel₁ ←─kernel_calldata [C₁]─── Kernel₀.return_data
-                            ←─app_calldata[0] [C'₁,0]─── App₁.return_data
+                            ←─app_calldata[j] [C'₁,ⱼ]─── App₁,ⱼ.return_data
                       │
                 return_data [R₁]
                       ↓
@@ -334,9 +323,9 @@ App₁ ──return_data [R'₁]──┐
 
 #### Inter-Circuit Consistency Protocol
 
-**Notation**: πᵢ denotes the proof of folding the i-th kernel, π'ᵢ denotes the proof of folding the i-th app, and PI denotes public inputs.
+**Notation**: πᵢ denotes the proof of folding the i-th kernel, π'ᵢ denotes the proof of folding an app of the i-th group, and PI denotes public inputs. Kernel Kᵢ verifies $n_i \in [1, 5]$ apps. Every app term below (C'ᵢ, R'ᵢ, π'ᵢ) stands for one term per app $j \in [0, n_i)$, matching `app_calldata[j]`.
 
-The key insight: circuit Kᵢ₊₁ verifies the data transfer between Kᵢ₋₁ and Kᵢ. It has access to [Rᵢ₋₁] through public inputs and [Cᵢ] through the proof πᵢ.
+Circuit Kᵢ₊₁ verifies the data transfer between Kᵢ₋₁ and Kᵢ. It has access to [Rᵢ₋₁] through public inputs and [Cᵢ] through the proof πᵢ.
 
 **Kernel K₀** (first kernel):
 - Initializes C'₀ = R'₀ (from App₀)
@@ -361,13 +350,13 @@ The key insight: circuit Kᵢ₊₁ verifies the data transfer between Kᵢ₋�
 - πᵢ contains: [Cᵢ], [C'ᵢ], [Rᵢ]
 
 **Tail Kernel Kₙ₋₁**:
-- Produces `PrivateToRollupKernelCircuitPublicInputs` containing final accumulated data
+- Produces `PrivateToRollupKernelCircuitPublicInputs` (or `PrivateToPublicKernelCircuitPublicInputs` for `private-kernel-reset-tail-to-public`) containing final accumulated data
 - **Checks**: Consistency checks for previous kernel
 
 **Hiding Kernel Kₙ**:
 - Receives tail kernel's public inputs via databus (`call_data`)
 - Verifies the tail kernel proof (type `HN_FINAL`)
-- Passes through `PrivateToRollupKernelCircuitPublicInputs` as its public output
+- Passes through `PrivateToRollupKernelCircuitPublicInputs` (`hiding-kernel-to-rollup`) or `PrivateToPublicKernelCircuitPublicInputs` (`hiding-kernel-to-public`) as its public output
 
 This protocol ensures that data passed between circuits is consistent without requiring the verifier to see or hash the actual data—only commitment equality checks on O(1)-sized commitments.
 
@@ -375,7 +364,7 @@ This protocol ensures that data passed between circuits is consistent without re
 
 There are two verification paths:
 
-1. **Native verification** (`Chonk::verify` / `bb verify --scheme chonk`):
+1. **Native verification** (`ChonkNativeVerifier::verify` / `bb verify --scheme chonk`):
    - Used by **Aztec nodes** in the P2P layer to **reject invalid transactions** before they enter the mempool
 
 2. **Recursive verification** (in-circuit):
@@ -383,7 +372,7 @@ There are two verification paths:
    - `PublicChonkVerifier`: For public txs - verifies Chonk proof in parallel with AVM verification
 
 Both verify the Chonk proof: MegaZK Oink + Merge + ECCVM + joint Translator/MegaZK sumcheck+PCS (+ IPA).
-Output: `PrivateToRollupKernelCircuitPublicInputs` consumed by the rollup.
+Output: `PrivateToRollupKernelCircuitPublicInputs` or `PrivateToPublicKernelCircuitPublicInputs`, consumed by the rollup.
 
 ---
 
@@ -410,7 +399,7 @@ The op queue contains EC operations from all circuits and must be hidden:
 
 **Problem**: The final merge step appends the hiding kernel table to the accumulated table. If the merged table size varied with transaction complexity, an observer could infer information about the transaction from the proof structure.
 
-**Solution**: The hiding kernel's ops are appended at a **fixed** offset, so the merged table always has the same total size regardless of how many ops the transaction actually used. Crucially, the append shift `fixed_append_shift_size` is **not** read from the proof: the verifier derives it itself from the fixed hiding-kernel op count (`HIDING_KERNEL_ULTRA_OPS`, via `ECCOpQueue::compute_fixed_append_offset`) and the prover asserts its subtable matches. A prover-supplied shift would leak the private op-queue extent, so pinning it is required for zero-knowledge. See [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md).
+**Solution**: The hiding kernel's ops are appended at a **fixed** offset, so the merged table always has the same total size regardless of how many ops the transaction actually used. The append shift `fixed_append_shift_size` is **not** read from the proof: the verifier derives it itself from the fixed hiding-kernel op count (`HIDING_KERNEL_ULTRA_OPS`, via `ECCOpQueue::compute_fixed_append_offset`) and the prover asserts its subtable matches. A prover-supplied shift would leak the private op-queue extent, so pinning it is required for zero-knowledge. See [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -420,18 +409,19 @@ The op queue contains EC operations from all circuits and must be hidden:
                              ←─ padding_size ─→
 ```
 
+Reading from low to high degree, the final merged table for each column $j$ is
+
+$$T_j = \big[  \underbrace{T_{\text{zk},j}}_{\text{ZK prefix}} \mid T_{1,j} \mid T_{2,j} \mid \cdots \mid T_{N,j} \mid \text{zero padding} \mid \underbrace{t_{\text{hiding},j}}_{\text{fixed offset}}  \big]$$
+
+- $T_{\text{zk},j}$ — the batch-merge ZK prefix (`ZK_ULTRA_OPS` rows): 1 no-op, 3 random Ultra-only ops, 1 valid hiding op.
+- $T_{1,j}, \ldots, T_{N,j}$ — the per-circuit subtables, in accumulation (chronological) order, concatenated by the batch merge. $T_{N,j}$ is the reset-tail kernel's subtable. The aggregate $T_{\text{zk},j} \Vert T_{1,j} \Vert \cdots \Vert T_{N,j}$ is $T_{\text{tail},j}$ (`M_tail` in the diagram above).
+- $t_{\text{hiding},j}$ — the hiding kernel's subtable, ending in 2 random non-ops, appended by the final merge at a **fixed** offset so the total table size is constant.
+
 **Security - Zero Padding is Enforced**: The soundness argument has two parts:
 1. The running-hash and public-input chain ensures the correct $[M_{tail}]$ reaches the final APPEND merge
 2. The final append merge enforces $\deg([M_{tail}]) < L$ where $L$ is a fixed size (see [Merge](../goblin/MERGE_PROTOCOL.md) for the specific definition of $L$) such that the final merged table has a uniform total size
 
 See [Appendix: Zero Padding Security](#appendix-zero-padding-security) for the detailed $M_{tail}$ lifecycle and full soundness argument.
-
-### Hiding Kernel
-
-The hiding kernel:
-- Recursively verifies the final folding and decider proofs
-- Masks sensitive `op_queue` data
-- Is then proven using MegaZK to produce the final Chonk proof
 
 ---
 
@@ -492,7 +482,7 @@ This adds:
 | Class | Description |
 |-------|-------------|
 | `HypernovaFoldingProver` | Prover-side folding operations |
-| `HypernovaFoldingVerifier<Flavor>` | Verifier-side folding (native or recursive) |
+| `HypernovaFoldingVerifier<IsRecursive>` | Verifier-side folding (native or recursive); flavor chosen per instance |
 
 ### Sumcheck to Claim
 
@@ -563,7 +553,7 @@ struct MultilinearBatchingVerifierClaim {
 
 ### Folding Operations
 
-`HypernovaFoldingProver` is **stateful**: it turns each incoming circuit into a cached claim, then finalizes the whole kernel group in one batching step. Chonk delegates all of this to the folding prover — it no longer batches claims itself.
+`HypernovaFoldingProver` is **stateful**: it turns each incoming circuit into a cached claim, then finalizes the whole kernel group in one batching step. Chonk delegates all of this to the folding prover.
 
 **1. Accumulate each instance** — for every circuit the kernel verifies, run its Sumcheck and cache the resulting claim:
 
@@ -592,7 +582,7 @@ After all folding, the `HypernovaDeciderProver` produces a final proof:
 
 ```cpp
 HypernovaDeciderProver decider_prover(transcript);
-HonkProof decider_proof = decider_prover.construct_proof(commitment_key, accumulator);
+HonkProof decider_proof = decider_prover.construct_proof(accumulator);
 ```
 
 The decider consists of:
@@ -625,22 +615,13 @@ See [Soundness Mechanisms](#soundness-mechanisms) for how `OriginTag` enforces t
 
 ## Soundness Mechanisms
 
-This section describes the key mechanisms that ensure Chonk's soundness: how transcripts bind components together via Fiat-Shamir, how public inputs flow between circuits, and how deferred verification works.
-
 ### Transcript Isolation via OriginTag
-
-While [Transcript Sharing](#transcript-sharing) describes *which* components share transcripts, this section explains how we *enforce* that values from different transcripts don't accidentally mix.
 
 Each `BaseTranscript` instantiated in-circuit receives a unique index via an atomic counter (`unique_transcript_index`). Field elements derived from a transcript carry an `OriginTag` that records this index.
 
 **Why isolation matters**: If values from different transcripts were mixed (e.g., using a challenge from transcript A to batch commitments hashed into transcript B), an adversary could manipulate challenges by controlling which proof elements appear where.
 
-The `OriginTag` mechanism enforces several critical security invariants:
-1. **Transcript isolation**: Values from different transcript instances cannot interact
-2. **Free witness prohibition**: Free witness elements cannot interact with transcript-originated values (prevents adversarial witness construction)
-3. **Round separation**: Submitted values from different rounds cannot mix without challenges (enforces proper Fiat-Shamir sequencing)
-
-These checks are active in debug builds and catch bugs during development. For full details, see [Origin Tags Security](../transcript/Origin%20Tags%20Security.md).
+Mixing values with incompatible tags aborts. These checks run in every build unless `AZTEC_NO_ORIGIN_TAGS` is defined. For the full set of rules, see [Origin Tag Security Mechanism](../transcript/README.md#origin-tag-security-mechanism).
 
 **Additional transcripts created per kernel** (beyond the shared accumulation transcript):
 - **Pairing points aggregation transcript**: Fresh transcript for `PairingPoints::aggregate_multiple` - generates independent Fiat-Shamir challenges for batching pairing points
@@ -692,7 +673,7 @@ The [Databus](#databus) section explains how circuits pass data via commitment e
 
 ```cpp
 // Kernel's calldata must match previous kernel's return_data
-kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
+kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata());
 
 // Each app calldata column must match the corresponding app's return_data
 kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
@@ -707,6 +688,7 @@ Op-queue continuity is maintained by a **running hash**:
 1. Each kernel folds the `ecc_op_wire` commitments of the circuits it verifies into a running Poseidon2 hash (`BatchMergeRecursiveVerifier::ecc_op_hash_step`).
 2. The hash flows through `KernelIO.ecc_op_hash` to the next kernel, which asserts it chains correctly.
 3. The hiding kernel passes the final hash to the recursive [Batch Merge](../goblin/BATCH_MERGE_PROTOCOL.md) verifier, which checks that the prover's per-subtable commitments hash to it before proving their concatenation.
+4. A kernel's own ECC-op subtable begins with an eq-and-reset (`circuit.queue_ecc_eq()`), so the preceding circuit's subtable cannot bleed into the kernel's ECC-op accumulator.
 
 This chain ensures the op-queue history is bound across all circuits, and the batch-merge / latest-merge degree checks prevent injection of extra operations. The batch-merged aggregate $[T_{\text{tail}}]$ is then carried in `HidingKernelIO.ecc_op_tables` for the final merge.
 
@@ -728,7 +710,7 @@ transcript->add_to_hash_buffer("vk_hash", vk_hash);
 | Property | Enforcement |
 |----------|-------------|
 | **VK binding** | VK hash first in transcript via `add_to_hash_buffer`; all challenges depend on it |
-| **Fiat-Shamir soundness** | `OriginTag` prevents mixing values from different transcripts (debug builds) |
+| **Fiat-Shamir soundness** | `OriginTag` prevents mixing values from different transcripts (every build unless `AZTEC_NO_ORIGIN_TAGS` is defined) |
 | **Public input integrity** | Bound via sumcheck relations; tampering fails recursive verification |
 | **Accumulator chain** | `output_hn_accum_hash` checked via `assert_equal` (value flows through public inputs) |
 | **Databus consistency** | Databus lookup relation + `assert_equal` on commitments (flow through public inputs) |
@@ -766,10 +748,10 @@ A kernel's role follows from the proofs it verifies. The **init** kernel verifie
 
 ```cpp
 // Without public inputs
-size_t len = ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
+size_t len = ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
 
 // With HidingKernelIO public inputs
-size_t len = ChonkProof::PROOF_LENGTH();
+size_t len = ChonkProof::PROOF_LENGTH;
 ```
 
 ### Serialization
@@ -812,7 +794,7 @@ This appendix provides the detailed soundness argument for why the merged op que
 
 **Step 2: Hiding kernel recursively verifies the batch merge**
 - The hiding kernel passes the final running hash to the recursive batch merge verifier (`Goblin::recursively_verify_batch_merge`).
-- The batch merge proves $T_{tail} = T_{zk} \Vert T_1 \Vert \cdots \Vert T_{tail}$ and checks the prover's subtable commitments against the hash.
+- The batch merge proves $T_{tail} = T_{zk} \Vert T_1 \Vert \cdots \Vert T_N$ and checks the prover's subtable commitments against the hash.
 - Its degree checks bound the size of each subtable, so $[M_{tail}] = [T_{tail}]$ is constructed by a series of non-overlapping tables.
 - The hiding kernel's own ops are NOT merged here.
 - Public output: `HidingKernelIO{ ..., ecc_op_tables = [M_{tail}] }`.
