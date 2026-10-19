@@ -324,21 +324,38 @@ function check_staged {
   fi
 }
 
-# Prepares one patch as an aztec-node branch: a branch in labs/'s repository at the recorded
-# base with just that patch applied under your own git identity, ready to push and open as the
-# upstream PR. Nothing is pushed; the commands to do so are printed. Once the PR lands and the
-# pin is bumped past it, the patch drops out of the next export on its own.
+# Prepares patches as an aztec-node branch: a branch in labs/'s repository at the recorded base
+# with the given patches (any number, in series order) applied under your own git identity,
+# ready to push and open as one upstream PR. Batch the patches that belong together — typically
+# the ones that do not depend on a foundation version bump. Nothing is pushed; the commands to do
+# so are printed. Once the PR lands and the pin is bumped past it, the patches drop out of the
+# next export on their own.
 function upstream {
-  local sel=${1:-} branch=${2:-}
-  [ -n "$sel" ] || die "usage: upstream <patch number or file> [branch]"
+  local sels=() branch="" a
+  for a in "$@"; do
+    case "$a" in
+      --branch) ;;  # handled below
+      *) if [ -n "${expect_branch:-}" ]; then branch=$a; expect_branch=""; else sels+=("$a"); fi ;;
+    esac
+    [ "$a" = "--branch" ] && expect_branch=1
+  done
+  [ "${#sels[@]}" -gt 0 ] || die "usage: upstream <patch number or file>... [--branch <name>]"
   initialized || die "labs/ is not checked out; run apply first"
-  local p
-  if [ -f "$sel" ]; then p=$sel; else
-    p=$(patches | grep "/0*${sel#0}-[^/]*\.patch\$" | head -1)
-    [ -n "$p" ] || die "no patch matching '$sel' in $patch_dir"
+  local files=() sel p
+  for sel in "${sels[@]}"; do
+    if [ -f "$sel" ]; then p=$sel; else
+      p=$(patches | grep "/0*${sel#0}-[^/]*\.patch\$" | head -1)
+      [ -n "$p" ] || die "no patch matching '$sel' in $patch_dir"
+    fi
+    files+=("$p")
+  done
+  # Series order, whatever order they were named in.
+  local ordered; ordered=$(printf '%s\n' "${files[@]}" | sort -u)
+  local first; first=$(echo "$ordered" | head -1)
+  local slug; slug=$(basename "$first" .patch | sed 's/^[0-9]*-//')
+  if [ -z "$branch" ]; then
+    if [ "$(echo "$ordered" | wc -l | tr -d ' ')" = 1 ]; then branch=fnd/$slug; else branch=fnd/$slug-and-$(($(echo "$ordered" | wc -l) - 1))-more; fi
   fi
-  local slug; slug=$(basename "$p" .patch | sed 's/^[0-9]*-//')
-  branch=${branch:-fnd/$slug}
   if git_labs show-ref -q --verify "refs/heads/$branch"; then
     die "branch $branch already exists in labs/; pick another name or delete it"
   fi
@@ -351,13 +368,16 @@ function upstream {
   if [ -n "$caller_committer_name" ]; then
     ident=("GIT_COMMITTER_NAME=$caller_committer_name" "GIT_COMMITTER_EMAIL=$caller_committer_email")
   fi
-  if ! env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL ${ident[@]+"${ident[@]}"} \
-      git -C "$tmp" -c commit.gpgsign=false am -q --3way "$p"; then
-    git -C "$tmp" am --abort || true
-    git_labs branch -q -D "$branch"
-    die "$(basename "$p") does not apply to $base"
-  fi
-  echo "Prepared $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base): $(basename "$p")"
+  for p in $ordered; do
+    if ! env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL ${ident[@]+"${ident[@]}"} \
+        git -C "$tmp" -c commit.gpgsign=false am -q --3way "$p"; then
+      git -C "$tmp" am --abort || true
+      git_labs branch -q -D "$branch"
+      die "$(basename "$p") does not apply to $base"
+    fi
+  done
+  echo "Prepared $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base):"
+  echo "$ordered" | xargs -n1 basename | sed 's/^/  /'
   echo "  git -C labs push origin $branch"
   echo "  gh pr create --repo aztec-labs-eng/aztec-node --head $branch --base main --fill"
 }
@@ -400,7 +420,7 @@ case "${1:-apply}" in
   commit-use-local) commit_use_local ;;
   check_staged) check_staged ;;
   status) status ;;
-  upstream) upstream "${2:-}" "${3:-}" ;;
+  upstream) shift; upstream "$@" ;;
   test_cmds) test_cmds ;;
   test) "$patch_dir/tests/lifecycle_test" && check ;;
   *) die "unknown command: $1" ;;
