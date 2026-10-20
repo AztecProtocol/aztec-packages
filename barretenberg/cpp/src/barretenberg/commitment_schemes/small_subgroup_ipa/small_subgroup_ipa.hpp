@@ -489,6 +489,10 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
     size_t num_coeffs_per_poly)
 {
     using FF = typename Curve::ScalarField;
+    BB_ASSERT_GT(num_coeffs_per_poly, 0UL);
+    // Check before multiplying the extents or writing into the fixed-size output.
+    BB_ASSERT_LTE(num_polys, (Curve::SUBGROUP_SIZE - 1) / num_coeffs_per_poly);
+    const size_t challenge_poly_length = num_polys * num_coeffs_per_poly;
     std::vector<FF> coeffs_lagrange_basis(Curve::SUBGROUP_SIZE);
     FF one{ 1 };
     FF zero{ 0 };
@@ -508,9 +512,6 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
 
         v_power *= batching_challenge_v;
     }
-
-    const size_t challenge_poly_length = num_polys * num_coeffs_per_poly;
-    BB_ASSERT_LT(challenge_poly_length, Curve::SUBGROUP_SIZE);
 
     // Ensure that the coefficients are padded with fixed witnesses obtained from 0
     for (size_t idx = challenge_poly_length; idx < Curve::SUBGROUP_SIZE; idx++) {

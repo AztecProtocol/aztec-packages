@@ -1,6 +1,5 @@
 use crate::fields::bls12_381Fq::BLS12_381_Fq_PARAMS;
 use crate::fields::bn254Fq::BN254_Fq_PARAMS;
-use crate::fns::constrained_ops::{sub, udiv};
 use crate::fns::unconstrained_helpers::{__barrett_reduction, __quadratic_non_residue};
 use crate::params::BigNumParams;
 use crate::runtime_bignum::RuntimeBigNum;
@@ -457,25 +456,25 @@ fn test_quadratic_expression() {
 }
 }
 
-#[make_test(3, 254, quote {crate::fields::bn254Fq::BN254_Fq_PARAMS})]
+#[make_test(3, 254, quote { crate::fields::bn254Fq::BN254_Fq_PARAMS })]
 pub mod BNTests {}
 
-#[make_test(3, 256, quote {crate::fields::secp256k1Fq::Secp256k1_Fq_PARAMS})]
+#[make_test(3, 256, quote { crate::fields::secp256k1Fq::Secp256k1_Fq_PARAMS })]
 pub mod Secp256K1FqTests {}
 
-#[make_test(4, 381, quote {crate::fields::bls12_381Fq::BLS12_381_Fq_PARAMS})]
+#[make_test(4, 381, quote { crate::fields::bls12_381Fq::BLS12_381_Fq_PARAMS })]
 pub mod BLS12_381FqTests {}
 
-#[make_test(18, 2048, quote {super::TEST_2048_PARAMS})]
+#[make_test(18, 2048, quote { super::TEST_2048_PARAMS })]
 pub mod Test2048Tests {}
 
-#[make_test(3, 255, quote {crate::fields::bls12_381Fr::BLS12_381_Fr_PARAMS})]
+#[make_test(3, 255, quote { crate::fields::bls12_381Fr::BLS12_381_Fr_PARAMS })]
 pub mod BLS12_381_Fr_ParamsTests {}
 
-#[make_test(4, 377, quote {crate::fields::bls12_377Fq::BLS12_377_Fq_PARAMS})]
+#[make_test(4, 377, quote { crate::fields::bls12_377Fq::BLS12_377_Fq_PARAMS })]
 pub mod BLS12_377_Fq_ParamsTests {}
 
-#[make_test(3, 253, quote {crate::fields::bls12_377Fr::BLS12_377_Fr_PARAMS})]
+#[make_test(3, 253, quote { crate::fields::bls12_377Fr::BLS12_377_Fr_PARAMS })]
 pub mod BLS12_377_Fr_ParamsTests {}
 
 // 98760

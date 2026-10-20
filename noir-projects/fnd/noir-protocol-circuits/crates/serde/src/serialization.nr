@@ -93,14 +93,19 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
     let params_len_quote = get_params_len_quote(params);
 
-    let function_body = params
-        .map(|field: StructField| {
-            let name = field.name();
-            quote {
-                $crate::serialization::Serialize::stream_serialize(self.$name, writer);
-            }
-        })
-        .join(quote {});
+    let function_body = if params.len() == 0 {
+        // Nothing to serialize, so the parameter is referenced to keep the generated function warning-free.
+        quote { let _ = writer; }
+    } else {
+        params
+            .map(|field: StructField| {
+                let name = field.name();
+                quote {
+                    $crate::serialization::Serialize::stream_serialize(self.$name, writer);
+                }
+            })
+            .join(quote {})
+    };
 
     quote {
         impl$generics_declarations $crate::serialization::Serialize for $typ
@@ -266,7 +271,9 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
             Self { $param_name: $crate::serialization::Deserialize::stream_deserialize(reader) }
         }
     } else {
+        // Nothing to deserialize, so the parameter is referenced to keep the generated function warning-free.
         quote {
+            let _ = reader;
             Self {}
         }
     };

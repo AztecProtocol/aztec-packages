@@ -99,13 +99,13 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     std::vector<FF> compute_dirac_array(const std::vector<FF>& indicator_array) const;
 
     /**
-     * @brief Verify the concatenation identity T(κ) = Σ_i C_i(κ) · κ^{offset_i} for every column.
-     * @details offset_i = Σ_{j<i} shift_sizes[j]
-     *
-     * @param evals Evaluations of C_i(κ) and T(κ) received from the proof
-     * @param pow_kappa_subtable_size Precomputed κ^{shift_sizes[i]} for each subtable i
+     * @brief Verify concatenation with a fixed equality-to-infinity/reset after every active subtable.
+     * @details The masking prefix has no separator. Original support bounds exclude the separator's two rows.
      */
-    bool check_concatenation_identity(std::vector<FF>& evals, const std::vector<FF>& pow_kappa_subtable_size) const;
+    bool check_concatenation_identity(std::vector<FF>& evals,
+                                      const std::vector<FF>& pow_kappa_subtable_size,
+                                      const std::vector<FF>& indicators,
+                                      const FF& kappa) const;
 
     /**
      * @brief Verify the degree identity

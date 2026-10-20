@@ -470,6 +470,9 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
     template field_t<Builder> convert_from_sparse_bytes<Builder>(Builder*, std::span<field_t<Builder>, BLOCK_SIZE>)
 
 INSTANTIATE_AES128_TEMPLATES(bb::UltraCircuitBuilder);
-INSTANTIATE_AES128_TEMPLATES(bb::MegaCircuitBuilder);
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+#define INSTANTIATE_AES128_FOR(Builder) INSTANTIATE_AES128_TEMPLATES(Builder);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(INSTANTIATE_AES128_FOR)
+#undef INSTANTIATE_AES128_FOR
 
 } // namespace bb::stdlib::aes128

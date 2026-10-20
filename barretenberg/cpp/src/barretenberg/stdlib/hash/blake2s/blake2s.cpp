@@ -7,6 +7,7 @@
 #include "blake_util.hpp"
 
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
 /**
@@ -154,6 +155,7 @@ template <typename Builder> byte_array<Builder> Blake2s<Builder>::hash(const byt
 }
 
 template class Blake2s<UltraCircuitBuilder>;
-template class Blake2s<MegaCircuitBuilder>;
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(Blake2s)
 
 } // namespace bb::stdlib

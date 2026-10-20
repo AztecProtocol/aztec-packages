@@ -7,6 +7,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 
 namespace acir_format {
 
@@ -131,11 +132,11 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const bool is_kernel)
     entry.kind = is_kernel ? Chonk::CircuitKind::Kernel : Chonk::CircuitKind::App;
 
     if (is_kernel) {
-        using KernelIO = stdlib::recursion::honk::KernelIO;
+        using KernelIO = stdlib::recursion::honk::KernelIO<KernelCircuit>;
         entry.proof = create_mock_sumcheck_to_accumulator_proof<KernelFlavor, KernelIO>();
         entry.kernel_honk_vk = create_mock_honk_vk<KernelFlavor, KernelIO>(1 << KernelFlavor::VIRTUAL_LOG_N);
     } else {
-        using AppIO = stdlib::recursion::honk::AppIO;
+        using AppIO = stdlib::recursion::honk::AppIO<AppCircuit>;
         entry.proof = create_mock_sumcheck_to_accumulator_proof<AppFlavor, AppIO>();
         entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }
@@ -161,14 +162,12 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, const bool is_ke
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
 
-    // The size of the challenge only depends on the VIRTUAL_LOG_N specified by the Flavor.
-    // KernelFlavor and AppFlavor have the same VIRTUAL_LOG_N, so we can generate the challenge
-    // vector with either.
-    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::KernelFlavor::VIRTUAL_LOG_N, FF::zero());
+    ivc->recursive_verifier_native_accum.challenge =
+        std::vector<FF>(MultilinearBatchingFlavor::VIRTUAL_LOG_N, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
-    ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
+    ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one() * FF(2);
 
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(is_kernel);
     ivc->verification_queue.emplace_back(entry);

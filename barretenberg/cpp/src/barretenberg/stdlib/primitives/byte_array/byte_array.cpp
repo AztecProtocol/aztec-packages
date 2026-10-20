@@ -330,6 +330,6 @@ template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value(
 }
 
 template class byte_array<bb::UltraCircuitBuilder>;
-template class byte_array<bb::MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(byte_array)
 
 } // namespace bb::stdlib

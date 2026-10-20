@@ -21,6 +21,15 @@
 
 namespace bb {
 
+// get_append_offset reserves the ZK prefix, append preamble, and hiding-kernel ops within the fixed table size.
+// The resulting offset places the kernel's trailing NUM_RANDOM_OPS_END ops in the Translator's masking rows.
+// See MERGE_PROTOCOL.md, "The merge protocol shift".
+static_assert(ECCOpQueue::compute_fixed_append_offset(ECCOpQueue::get_append_offset_for_verifier()) +
+                      UltraEccOpsTable::APPEND_TRACE_OFFSET +
+                      UltraEccOpsTable::NUM_ROWS_PER_OP * HIDING_KERNEL_ULTRA_OPS ==
+                  (1UL << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE),
+              "The hiding-kernel subtable must end exactly at the Translator mini-circuit size.");
+
 class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
@@ -44,11 +53,14 @@ class Goblin {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<MegaBuilder>;
-    using BatchMergeRecursiveVerifier = stdlib::recursion::goblin::BatchMergeRecursiveVerifier<MegaBuilder>;
+    // The batch merge is verified inside a kernel, so it is parameterised by that kernel's arithmetization.
+    template <typename Builder>
+    using BatchMergeRecursiveVerifier = stdlib::recursion::goblin::BatchMergeRecursiveVerifier<Builder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
     using TableCommitments = MergeVerifier::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
-    using BatchRecursiveTableCommitments = BatchMergeRecursiveVerifier::TableCommitments;
+    template <typename Builder>
+    using BatchRecursiveTableCommitments = typename BatchMergeRecursiveVerifier<Builder>::TableCommitments;
     using MergeCommitments = MergeVerifier::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
@@ -79,7 +91,7 @@ class Goblin {
      * @details In the Chonk flow this is invoked only for the final fixed-location append of the hiding kernel
      * subtable; multi-subtable merges are handled by prove_batch_merge().
      */
-    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
+    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript) const;
 
     /**
      * @brief Construct an ECCVM proof and TripleIPA opening proof.
@@ -128,8 +140,10 @@ class Goblin {
      * @details `hash` is the running ECC-op hash chained over all per-circuit subtable commitments observed
      * during accumulation; the in-circuit verifier checks the proof's column commitments against it.
      */
-    std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
-        MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const;
+    template <typename Builder>
+    std::pair<stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>, BatchRecursiveTableCommitments<Builder>>
+    recursively_verify_batch_merge(Builder& builder,
+                                   const typename BatchMergeRecursiveVerifier<Builder>::FF& hash) const;
 };
 
 } // namespace bb

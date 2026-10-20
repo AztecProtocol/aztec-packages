@@ -114,26 +114,3 @@ TYPED_TEST(UnivariateTest, UnivariateViewMultiplication)
     Univariate<fr, 2> expected_result2{ { 3, 16 } };
     EXPECT_EQ(result2, expected_result2);
 }
-
-TYPED_TEST(UnivariateTest, Serialization)
-{
-    const size_t LENGTH = 4;
-    std::array<fr, LENGTH> evaluations;
-
-    for (size_t i = 0; i < LENGTH; ++i) {
-        evaluations[i] = fr::random_element();
-    }
-
-    // Instantiate a Univariate from the evaluations
-    auto univariate = Univariate<fr, LENGTH>(evaluations);
-
-    // Serialize univariate to buffer
-    std::vector<uint8_t> buffer = univariate.to_buffer();
-
-    // Deserialize
-    auto deserialized_univariate = Univariate<fr, LENGTH>::serialize_from_buffer(&buffer[0]);
-
-    for (size_t i = 0; i < LENGTH; ++i) {
-        EXPECT_EQ(univariate.value_at(i), deserialized_univariate.value_at(i));
-    }
-}

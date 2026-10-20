@@ -145,6 +145,7 @@ template <typename Builder> cycle_group<Builder> straus_plookup_table<Builder>::
 }
 
 template class straus_plookup_table<bb::UltraCircuitBuilder>;
-template class straus_plookup_table<bb::MegaCircuitBuilder>;
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(straus_plookup_table)
 
 } // namespace bb::stdlib

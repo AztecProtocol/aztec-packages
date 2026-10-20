@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Tue, 20 Oct 2026 13:00:22 +0000
+Subject: [PATCH] test: pin testnet compatibility to the v6 payload VK tree
+ root
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The VK tree root the tree builds is 0x22fff5de…5913f219, the root in the
+v6 payload proposal. Replaces the previous testnet pin 0x13eeb174…de69e02.
+The protocol contracts hash and genesis archive root pins are unchanged.
+
+diff --git a/yarn-project/aztec/src/testnet_compatibility.test.ts b/yarn-project/aztec/src/testnet_compatibility.test.ts
+index 85e2da8786f166048737749b076891d41e761f84..a08ab707e89d5d1718f3c06d0906d03b053ad9da 100644
+--- a/yarn-project/aztec/src/testnet_compatibility.test.ts
++++ b/yarn-project/aztec/src/testnet_compatibility.test.ts
+@@ -11,7 +11,7 @@ import { computeExpectedGenesisRoot } from './cli/cmds/standby.js';
+  */
+ describe('Testnet compatibility', () => {
+   it('has expected VK tree root', () => {
+-    const expectedRoots = [Fr.fromHexString('0x13eeb174d4119b221a22721853261759f57a65a57e864ad78b840b23cde69e02')];
++    const expectedRoots = [Fr.fromHexString('0x22fff5de6ce590153df4468f7f0b152188a803d91b3c9c648b91d93d5913f219')];
+     expect(expectedRoots).toContainEqual(getVKTreeRoot());
+   });
+   it('has expected Protocol Contracts hash', () => {

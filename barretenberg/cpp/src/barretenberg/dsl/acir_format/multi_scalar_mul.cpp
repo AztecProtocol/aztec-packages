@@ -116,7 +116,10 @@ static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder, const MultiSc
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                                       const MultiScalarMul& input);
-template void create_multi_scalar_mul_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                                     const MultiScalarMul& input);
+// cycle_group's Straus algorithm needs the elliptic gate and the memory gate for its ROM tables.
+#define INSTANTIATE_CREATE_MSM_CONSTRAINT(Builder)                                                                     \
+    template void create_multi_scalar_mul_constraint<Builder>(Builder & builder, const MultiScalarMul& input);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(INSTANTIATE_CREATE_MSM_CONSTRAINT)
+#undef INSTANTIATE_CREATE_MSM_CONSTRAINT
 
 } // namespace acir_format

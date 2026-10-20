@@ -2,16 +2,22 @@ use super::TestBuilder;
 use types::{
     address::{AztecAddress, EthAddress},
     constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__TSK_M, PRIVATE_LOG_SIZE_IN_FIELDS},
-    side_effect::Scoped,
+    side_effect::{Counted, Scoped},
     traits::{Empty, FromField},
 };
 
 // --- min_revertible_side_effect_counter ---
 
-#[test(should_fail_with = "min_revertible_side_effect_counter must not be 0 for tail_to_public")]
-fn zero_min_revertible_side_effect_counter() {
+#[test]
+fn smallest_min_revertible_side_effect_counter() {
+    // 3 is the smallest value a private call can allocate (0 is unused, 1 is the protocol nullifier, 2 is
+    // the first call's start counter). The init circuit bounds the claim; this tail only reconciles it and
+    // requires the first nullifier, the protocol nullifier at counter 1, to be below it.
     let mut builder = TestBuilder::new();
-    builder.previous_kernel.min_revertible_side_effect_counter = 0;
+    let _ = builder.previous_kernel.nullifiers.pop();
+    builder.previous_kernel.set_protocol_nullifier();
+    builder.previous_kernel.min_revertible_side_effect_counter = 3;
+    builder.previous_kernel.claimed_revertible_counter = 3;
     let _ = builder.execute();
 }
 
@@ -207,6 +213,40 @@ fn invalid_l2_to_l1_msg_recipient() {
     let _ = builder.execute();
 }
 
+#[test]
+fn can_run_with_l2_to_l1_msgs() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(3);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense")]
+fn empty_l2_to_l1_msg_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    // Add an L2 to L1 message that is empty once exposed to public.
+    builder.previous_kernel.l2_to_l1_msgs.push(Scoped::empty());
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense")]
+fn zero_scope_l2_to_l1_msg_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    // The tx base rollup ends the message array at the first zero contract address, so a message
+    // scoped to zero would truncate the count even though its recipient and content are not empty.
+    let mut l2_to_l1_msg = builder.previous_kernel.l2_to_l1_msgs.pop();
+    l2_to_l1_msg.contract_address = AztecAddress::zero();
+    builder.previous_kernel.l2_to_l1_msgs.push(l2_to_l1_msg);
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "array is not trimmed")]
 fn non_empty_l2_to_l1_msg_recipient_beyond_claimed_length() {
     let mut builder = TestBuilder::new();
@@ -352,7 +392,27 @@ fn non_empty_contract_class_log_contract_address_beyond_claimed_length() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "array is not trimmed")]
+#[test]
+fn can_run_with_public_call_requests() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_public_call_requests(2);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense trimmed")]
+fn empty_public_call_request_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_public_call_requests(2);
+    // Add an empty public call request.
+    builder.previous_kernel.public_call_requests.push(Counted::empty());
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense trimmed")]
 fn non_empty_public_call_request_msg_sender_beyond_claimed_length() {
     let mut builder = TestBuilder::new();
 
@@ -365,7 +425,7 @@ fn non_empty_public_call_request_msg_sender_beyond_claimed_length() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "array is not trimmed")]
+#[test(should_fail_with = "array is not dense trimmed")]
 fn non_empty_public_call_request_contract_address_beyond_claimed_length() {
     let mut builder = TestBuilder::new();
 
@@ -378,7 +438,7 @@ fn non_empty_public_call_request_contract_address_beyond_claimed_length() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "array is not trimmed")]
+#[test(should_fail_with = "array is not dense trimmed")]
 fn non_empty_public_call_request_is_static_call_beyond_claimed_length() {
     let mut builder = TestBuilder::new();
 
@@ -391,7 +451,7 @@ fn non_empty_public_call_request_is_static_call_beyond_claimed_length() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "array is not trimmed")]
+#[test(should_fail_with = "array is not dense trimmed")]
 fn non_empty_public_call_request_calldata_hash_beyond_claimed_length() {
     let mut builder = TestBuilder::new();
 

@@ -134,8 +134,7 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     std::vector<uint8_t> message_buffer(message.begin(), message.end());
     auto hashed_message = Hash::hash(message_buffer);
     secure_erase(message_buffer);
-    // Round trip reduces the hash modulo Fr::modulus
-    Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
+    Fr hashed_message_fr = Fr::from_bytes_reduced(hashed_message);
     secure_erase(hashed_message);
     Fr::serialize_to_buffer(hashed_message_fr, hashed_message.data());
 

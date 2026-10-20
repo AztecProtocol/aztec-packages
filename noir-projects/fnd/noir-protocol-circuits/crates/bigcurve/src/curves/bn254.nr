@@ -13,26 +13,26 @@ pub global BN254_PARAMS: BigCurveParams<BN254_Fq> = BigCurveParams {
     b: BN254_Fq::from_limbs([0x03, 0x00, 0x00]),
     offset_generator: [
         BN254_Fq::from_limbs([
-            0x19998c2e95c7eecba81c31993de8b7,
-            0x2ebe26f821663be1cf34e96079fa4d,
-            0x2481,
+            0x9c9c99169fe46d3b240c33d6d55b9a,
+            0x3b1581cd468c58fa68765e76898fe8,
+            0x0c24,
         ]),
         BN254_Fq::from_limbs([
-            0x311c631d596bd8c0049700dab194dc,
-            0xb2aa98c6aef93be81741c0c31b4e09,
-            0x2569,
+            0x08e03dc04ebf02bec2a9a213aa3181,
+            0xfb85340dfd5d0a70a7acea3590bc84,
+            0x1fbd,
         ]),
     ],
     offset_generator_final: [
         BN254_Fq::from_limbs([
-            0x10c45a2891194d5c8e74d6c994202d,
-            0x2b56904605b59ff403fc13f5cd9312,
-            0x16d5,
+            0xf5fdbf5ab163449cc29e8fe1eb2263,
+            0x98614688285c2078ddec59d6718149,
+            0x2aa6,
         ]),
         BN254_Fq::from_limbs([
-            0xb3c07f2df2b6177eeeee0668211c54,
-            0x501b52311a29ca4b08f86cb1e18439,
-            0x0765,
+            0x5ff9e4a498245d431931d4b988e5a7,
+            0xbe77cd461de553b2aa5f697c322ab1,
+            0x25a1,
         ]),
     ],
     one: [BN254_Fq::from_limbs([0x01, 0x00, 0x00]), BN254_Fq::from_limbs([0x02, 0x00, 0x00])],
@@ -42,7 +42,7 @@ pub global BN254_SCALAR_SLICES: u32 = 64;
 pub(crate) type BN254J = CurveJ<BN254_Fq, BN254>;
 pub type BN254Scalar = ScalarField<BN254_SCALAR_SLICES>;
 
-#[derive_curve_impl(quote { BN254_Fq }, quote {BN254_PARAMS})]
+#[derive_curve_impl(quote { BN254_Fq }, quote { BN254_PARAMS })]
 pub struct BN254 {
     pub x: BN254_Fq,
     pub y: BN254_Fq,

@@ -147,6 +147,17 @@ where
     Value: Ordered + Empty,
     TransformedValue: Ordered + Empty,
 {
+    // `CappedSize` must not be larger than `N`, the size of the arrays.
+    // Two checks in this function use `CappedSize`:
+    // 1. `result_array_length <= CappedSize`. This is the only check that limits the length of `output_array`.
+    // 2. The `i >= CappedSize` branch. This is the only check that makes sure that the items at index `CappedSize`
+    //    and higher have a counter of 0.
+    // If `CappedSize` is larger than `N`, these checks do not work:
+    // 1. The length of `output_array` can be larger than `N`.
+    // 2. The loop stops at index `N - 1`. Thus the `i >= CappedSize` branch never runs.
+    // This `static_assert` stops the compilation of a reset circuit variant that has `CappedSize` larger than `N`.
+    std::static_assert(CappedSize <= N, "CappedSize larger than the physical array");
+
     let original_array_length = original_array.length;
 
     // The claimed length of the result array (`output_array`) should be the original array length
@@ -211,7 +222,8 @@ where
                 // - Items within the range [result_array_length, CappedSize) in the `output_array`
                 //   must have a counter of 0.
                 // - Items within the range [0, original_array.length) in the `original_array` must not have a counter
-                //   of 0 (requirement of the parameter) or `MAX_U32_VALUE` (checked above).
+                //   of 0 or `MAX_U32_VALUE`. This function does not check this. The caller must make sure of it (see
+                //   "Argument requirements" in the doc comment of `assert_sorted_padded_transformed_array_capped_size`).
                 (original, sorted_index)
             };
 
@@ -682,6 +694,13 @@ mod tests {
     fn capped_size_smaller_than_original_array_claimed_length() {
         let builder = TestDataBuilder::default();
         builder.execute_capped::<2>();
+    }
+
+    // `CappedSize` can be equal to `N`. The largest reset circuit variants use this value.
+    #[test]
+    fn capped_size_equal_to_array_size() {
+        let builder = TestDataBuilder::default();
+        builder.execute_capped::<8>();
     }
 
     #[test]

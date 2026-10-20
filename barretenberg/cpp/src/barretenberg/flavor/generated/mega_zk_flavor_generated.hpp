@@ -16,6 +16,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_zk_execution_trace_generated.hpp"
 #include "barretenberg/relations/bilinear_or_batched_eq_check_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -103,6 +104,9 @@ class MegaZKFlavor_Generated {
                                   bb::Poseidon2QuadInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
 
+    // Execution trace this flavor's circuits are built on; part of the builder's type.
+    using ExecutionTraceBlocks = MegaZkExecutionTraceBlocks;
+
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 29;
     static constexpr size_t NUM_WITNESS_ENTITIES = 12;
     static constexpr size_t NUM_MASKING_ENTITIES = 0;
@@ -173,6 +177,11 @@ class MegaZKFlavor_Generated {
         GateKind::Poseidon2QuadIntTerminal,
         GateKind::Poseidon2TransitionEntry,
     };
+
+    static_assert(gate_kinds_mask(GATE_KINDS) == ExecutionTraceBlocks::GATE_KINDS_MASK,
+                  "flavor's gate relations and its execution trace's gate kinds disagree");
+    static_assert(bus_indices_mask(BUILDER_BUS_INDICES) == ExecutionTraceBlocks::BUS_INDICES_MASK,
+                  "flavor's databus relations and its execution trace's bus columns disagree");
 
     // Non-gate selectors in `get_non_gate_selectors()` order, as references into a single block.
     template <typename TraceBlock> static auto get_block_non_gate_selectors(TraceBlock& block)

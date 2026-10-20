@@ -66,10 +66,15 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
-        // Currently, only used in the joint BatchedHonkTranslator PCS.
+        // Currently, only used in the joint BatchedHonkTranslator PCS. The nu power offset used by the verifier's
+        // batch_sumcheck_round_claims assumes ZK claims (NUM_SMALL_IPA_OPENING_CLAIMS) precede sumcheck round claims
+        // in the batching order.
         std::vector<OpeningClaim> sumcheck_round_claims;
 
         if (!sumcheck_round_univariates.empty()) {
+            if (!has_zk) {
+                throw_or_abort("ShpleminiProver: committed sumcheck requires ZK for correct nu power indexing");
+            }
             sumcheck_round_claims = compute_sumcheck_round_claims(
                 circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
@@ -223,9 +228,12 @@ template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> cla
             throw_or_abort("Shplemini: multivariate_challenge must be non-empty");
         }
 
-        BB_ASSERT(sumcheck_round_commitments.empty() == sumcheck_round_evaluations.empty(),
-                  "Shplemini: sumcheck_round_commitments and sumcheck_round_evaluations must be consistently empty");
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
+        const size_t expected_size = committed_sumcheck ? virtual_log_n : 0;
+        BB_ASSERT(sumcheck_round_commitments.size() == expected_size &&
+                      sumcheck_round_evaluations.size() == expected_size,
+                  "Shplemini: sumcheck_round_commitments/evaluations must both have size 0 (not committed) or "
+                  "virtual_log_n (committed)");
 
         Fr batched_evaluation = Fr{ 0 };
 

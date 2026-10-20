@@ -1304,6 +1304,68 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     commit_tree(treeAtBlock2, false);
 }
 
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, fork_append_after_historic_prune_fails_cleanly)
+{
+    // A writable fork retains its block metadata even when the canonical store prunes its tree nodes.
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    add_value(tree, 30);
+    commit_tree(tree);
+
+    std::unique_ptr<Store> fork_store = std::make_unique<Store>(name, depth, 1, db);
+    TreeMeta fork_meta;
+    fork_store->get_meta(fork_meta);
+    TreeType tree_fork(std::move(fork_store), pool);
+
+    // Pruning block 1 removes tree nodes that the fork still references.
+    add_value(tree, 10);
+    commit_tree(tree);
+    finalize_block(tree, 2);
+    remove_historic_block(tree, 1);
+
+    Signal signal;
+    bool append_succeeded = true;
+    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
+        append_succeeded = response.success;
+        signal.signal_level();
+    };
+    tree_fork.add_value(fr(20), completion);
+    signal.wait_for_level();
+
+    EXPECT_FALSE(append_succeeded);
+    check_root(tree_fork, fork_meta.root);
+    check_size(tree_fork, fork_meta.size);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, genesis_with_initial_values_matches_memory_tree)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    std::vector<fr> initial_values{ 1, 2, 3 };
+    TreeType tree(std::move(store), pool, initial_values);
+
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+    for (size_t i = 0; i < initial_values.size(); ++i) {
+        memdb.update_element(i, initial_values[i]);
+    }
+    check_size(tree, initial_values.size());
+    check_root(tree, memdb.root());
+
+    memdb.update_element(initial_values.size(), 4);
+    add_value(tree, 4);
+    check_size(tree, initial_values.size() + 1);
+    check_root(tree, memdb.root());
+}
+
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_data)
 {
     constexpr size_t depth = 10;

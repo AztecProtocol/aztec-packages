@@ -117,19 +117,24 @@ template <typename Builder> class cycle_group {
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
-                                 const std::vector<BigScalarField>& scalars)
+                                 const std::vector<BigScalarField>& scalars,
+                                 bool constant_points_trusted = false)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf))
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
             cycle_scalars.emplace_back(scalar);
         }
-        return batch_mul(base_points, cycle_scalars);
+        return batch_mul(base_points, cycle_scalars, constant_points_trusted);
     }
-    static cycle_group batch_mul(const std::vector<cycle_group>& base_points, const std::vector<cycle_scalar>& scalars);
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
+                                 const std::vector<cycle_scalar>& scalars,
+                                 bool constant_points_trusted = false);
 
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<BigScalarField>& scalars,
                                        size_t table_bits = ROM_TABLE_BITS)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
@@ -139,11 +144,14 @@ template <typename Builder> class cycle_group {
     }
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<cycle_scalar>& scalars,
-                                       size_t table_bits = ROM_TABLE_BITS);
+                                       size_t table_bits = ROM_TABLE_BITS)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
-    cycle_group operator*(const BigScalarField& scalar) const;
-    cycle_group& operator*=(const BigScalarField& scalar);
+    cycle_group operator*(const BigScalarField& scalar) const
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf));
+    cycle_group& operator*=(const BigScalarField& scalar)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf));
     bool_t operator==(cycle_group& other);
     void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
@@ -230,19 +238,25 @@ template <typename Builder> class cycle_group {
     bool_t _is_infinity;
     Builder* context;
 
+    static bool is_trusted_constant_point(const AffineElement& point);
+
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
                                                                        std::span<AffineElement const> offset_generators,
                                                                        bool unconditional_add);
 
+    // The fixed-base paths read precomputed plookup tables, so they exist only for arithmetizations that
+    // keep the lookup gate. `batch_mul` routes constant points to the ROM-table path for the others.
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
-                                                                    std::span<AffineElement> base_points);
+                                                                    std::span<AffineElement> base_points)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
 
     static batch_mul_internal_output _fixed_base_plookup_batch_mul_internal(
         std::span<cycle_scalar> scalars,
         std::span<AffineElement const> base_points,
         std::span<AffineElement const> offset_generators,
-        size_t table_bits = ROM_TABLE_BITS);
+        size_t table_bits = ROM_TABLE_BITS)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
 
     // Internal implementation for unconditional_add and unconditional_subtract
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,

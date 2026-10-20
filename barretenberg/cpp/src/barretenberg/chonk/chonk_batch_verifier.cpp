@@ -29,7 +29,19 @@ void ChonkBatchVerifier::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHa
         running_ = true;
     }
 
-    coordinator_thread_ = std::thread([this]() { coordinator_loop(); });
+    // No exception may escape the coordinator thread: an uncaught throw would std::terminate the host
+    // process. Individual throw sites are guarded (parallel_reduce, batch_check, dispatch); this outer
+    // guard covers the rest (e.g. allocation or thread-spawn failure) by failing every pending request
+    // so no caller is left waiting on a result that will never arrive.
+    coordinator_thread_ = std::thread([this]() {
+        try {
+            coordinator_loop();
+        } catch (const std::exception& e) {
+            fail_all_pending(std::string("coordinator thread terminated: ") + e.what());
+        } catch (...) {
+            fail_all_pending("coordinator thread terminated: unknown exception");
+        }
+    });
     info("ChonkBatchVerifier started with ", num_cores_, " cores, batch_size=", batch_size_);
 }
 
@@ -65,6 +77,9 @@ void ChonkBatchVerifier::enqueue(VerifyRequest request)
                 failure = VerifyResult::failed(request.request_id,
                                                "proof has wrong size: expected " + std::to_string(expected_proof_size) +
                                                    ", got " + std::to_string(request.proof.size()));
+                has_failure = true;
+            } else if (!request.proof.has_valid_structure()) {
+                failure = VerifyResult::failed(request.request_id, "proof has invalid segment lengths");
                 has_failure = true;
             } else {
                 queue_.push_back(std::move(request));
@@ -120,6 +135,23 @@ ChonkBatchVerifier::~ChonkBatchVerifier()
     }
     if (should_stop) {
         stop();
+    }
+}
+
+void ChonkBatchVerifier::fail_all_pending(const std::string& reason)
+{
+    info("ChonkBatchVerifier: ", reason);
+    std::vector<uint64_t> pending_ids;
+    {
+        std::lock_guard lock(mutex_);
+        // The coordinator thread is exiting and nothing will drain the queue again; set shutdown_ so
+        // later enqueue calls are rejected immediately rather than accepted and never processed.
+        shutdown_ = true;
+        queue_.clear();
+        pending_ids.assign(in_flight_ids_.begin(), in_flight_ids_.end());
+    }
+    for (uint64_t id : pending_ids) {
+        dispatch(VerifyResult::failed(id, reason));
     }
 }
 
@@ -216,7 +248,7 @@ void ChonkBatchVerifier::coordinator_loop()
         if (ok) {
             emit_ok(reduce_results, passed_indices, reduce_start, ipa_ms, 0);
         } else {
-            bisect(reduce_results, passed_indices, 0, reduce_start);
+            bisect(reduce_results, passed_indices, 0, reduce_start, ipa_ms);
         }
     }
 }
@@ -304,20 +336,26 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
     } catch (const std::exception& e) {
         info("ChonkBatchVerifier: batch_check exception: ", e.what());
         return false;
+    } catch (...) {
+        info("ChonkBatchVerifier: batch_check threw unknown exception");
+        return false;
     }
 }
 
 void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
                                 std::vector<size_t> indices,
                                 uint32_t depth,
-                                std::chrono::steady_clock::time_point reduce_start)
+                                std::chrono::steady_clock::time_point reduce_start,
+                                double condemning_check_ms)
 {
-    // Base case: single proof identified as the failure
+    // Base case: single proof identified as the failure. No check runs on it alone — it was condemned by the
+    // most recent failing subset check — so attribute that check's duration, mirroring how emit_ok attributes
+    // the passing check's duration.
     if (indices.size() == 1) {
         auto& rr = results[indices[0]];
         auto result = VerifyResult::failed(rr.request_id, "batch check failed (bisected to individual)");
-        result.time_in_queue_ms = ms_between(rr.enqueue_time, std::chrono::steady_clock::now());
-        result.time_in_verify_ms = rr.reduce_ms;
+        result.time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start);
+        result.time_in_verify_ms = rr.reduce_ms + condemning_check_ms;
         result.batch_failure_count = depth + 1;
         dispatch(std::move(result));
         return;
@@ -336,11 +374,12 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
 
     if (left_ok) {
         emit_ok(results, left, reduce_start, left_ms, depth + 1);
-        // All failures are in the right half — recurse directly without re-checking
-        bisect(results, std::move(right), depth + 1, reduce_start);
+        // All failures are in the right half — recurse directly without re-checking; the right half is still
+        // condemned by this call's incoming failed check.
+        bisect(results, std::move(right), depth + 1, reduce_start, condemning_check_ms);
     } else {
         // Left failed — need to check right independently
-        bisect(results, std::move(left), depth + 1, reduce_start);
+        bisect(results, std::move(left), depth + 1, reduce_start, left_ms);
 
         auto t1 = std::chrono::steady_clock::now();
         bool right_ok = batch_check(results, right);
@@ -349,7 +388,7 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
         if (right_ok) {
             emit_ok(results, right, reduce_start, right_ms, depth + 1);
         } else {
-            bisect(results, std::move(right), depth + 1, reduce_start);
+            bisect(results, std::move(right), depth + 1, reduce_start, right_ms);
         }
     }
 }

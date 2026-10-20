@@ -5,6 +5,7 @@
 // =====================
 
 #include "logic_constraint.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 
 namespace acir_format {
@@ -36,12 +37,16 @@ void create_logic_gate(Builder& builder,
     computed_result.assert_equal(acir_result);
 }
 
-template void create_logic_gate<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                        const WitnessOrConstant<bb::fr> a,
-                                                        const WitnessOrConstant<bb::fr> b,
-                                                        const uint32_t result,
-                                                        const size_t num_bits,
-                                                        const bool is_xor_gate);
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+#define INSTANTIATE_CREATE_LOGIC_GATE(Builder)                                                                         \
+    template void create_logic_gate<Builder>(Builder&,                                                                 \
+                                             const WitnessOrConstant<bb::fr>,                                          \
+                                             const WitnessOrConstant<bb::fr>,                                          \
+                                             const uint32_t,                                                           \
+                                             const size_t,                                                             \
+                                             const bool);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(INSTANTIATE_CREATE_LOGIC_GATE)
+#undef INSTANTIATE_CREATE_LOGIC_GATE
 template void create_logic_gate<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
                                                          const WitnessOrConstant<bb::fr> a,
                                                          const WitnessOrConstant<bb::fr> b,

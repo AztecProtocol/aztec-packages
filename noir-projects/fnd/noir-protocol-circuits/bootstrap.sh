@@ -199,10 +199,40 @@ function check_pinned_vk {
   fi
 }
 
+# Paths under crates/ of the workspace members whose Nargo.toml declares the given package type.
+function workspace_packages {
+  local type=$1
+  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
+    while read -r dir; do
+      if grep -qE "^type[[:space:]]*=[[:space:]]*\"$type\"" ./crates/$dir/Nargo.toml; then
+        echo "$dir"
+      fi
+    done
+}
+
+# Libraries only compile as dependencies of the circuits, and nargo reports no warnings for a
+# dependency, so each is checked on its own with warnings denied. The circuits are not gated this
+# way: `nargo check` writes a Prover.toml into every circuit crate that lacks one, and the kernels
+# emit warnings that nargo reports only at compile time, such as a constant return value.
+function check_library_warnings {
+  set -euo pipefail
+  echo_stderr "Checking libraries for warnings..."
+  workspace_packages lib | \
+    parallel -v --line-buffer --tag $NARGO --program-dir ./crates/{} check --deny-warnings
+}
+
 export -f hex_to_fields_json circuit_kind compile generate_vk check_pinned_vk
 
 function build {
   set -eu
+
+  # Writes the workspace Nargo.toml the package listings below read.
+  if [ -f "package.json" ]; then
+    denoise "yarn && yarn generate_variants"
+  fi
+
+  # Before anything in target/ is touched, so a warning costs no recompile.
+  check_library_warnings
 
   # Build output describing target/. Removed up front so a build that stops before regenerating it
   # cannot leave a config beside artifacts it does not describe.
@@ -232,31 +262,14 @@ function build {
     return
   fi
 
-  if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
-    echo_stderr "Checking libraries for warnings..."
-    parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
-      ./crates/blob \
-      ./crates/private-kernel-lib \
-      ./crates/rollup-lib \
-      ./crates/types
-  fi
-
-  # We allow errors so we can output the joblog.
-  set +e
   rm -rf target
   mkdir -p $key_dir
 
-  [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
-
-  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
-    while read -r dir; do
-      toml_file=./crates/$dir/Nargo.toml
-      if grep -q 'type = "bin"' "$toml_file"; then
-          echo "$(basename $dir)"
-      fi
-    done | \
+  # We allow errors so we can output the joblog.
+  set +e
+  workspace_packages bin | \
     parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
-      --joblog joblog.txt compile {}
+      --joblog joblog.txt compile {/}
   code=$?
   cat joblog.txt
   [ "$code" -eq 0 ] || return $code
@@ -355,6 +368,7 @@ function bench {
 function generate_variants {
   set -eu
   yarn
+  node ./scripts/generate_variants.js --test
   node ./scripts/generate_variants.js
 }
 

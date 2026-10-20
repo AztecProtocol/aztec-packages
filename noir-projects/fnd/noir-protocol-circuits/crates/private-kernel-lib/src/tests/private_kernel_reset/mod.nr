@@ -34,7 +34,6 @@ use types::{
     merkle_tree::{
         LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
     },
-    point::EmbeddedCurvePoint,
     public_keys::hash_public_key,
     side_effect::{Counted, Scoped},
     traits::Empty,
@@ -310,9 +309,19 @@ impl TestBuilder {
     /// With siloing. Routes through `execute_as_terminal` (the terminal reset+tail path), since
     /// `execute` asserts the siloing amounts are zero.
     pub fn execute_with_siloing(self) -> PrivateKernelCircuitPublicInputs {
+        self
+            .execute_with_siloing_amounts::<NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>()
+    }
+
+    /// Like `execute_with_siloing`, with caller-chosen siloing amounts. Lets a test instantiate the
+    /// terminal path with a siloing amount of `0`, which `execute_as_terminal` must reject at
+    /// compile time (see the `terminal_reset_without_*_siloing_does_not_compile` tests).
+    pub fn execute_with_siloing_amounts<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+        self,
+    ) -> PrivateKernelCircuitPublicInputs {
         let inputs = self.to_private_inputs();
         inputs
-            .execute_as_terminal::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>()
+            .execute_as_terminal::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>()
     }
 
     fn to_private_inputs(

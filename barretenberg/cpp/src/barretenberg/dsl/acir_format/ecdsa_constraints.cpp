@@ -165,12 +165,17 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
 
 template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
                                                                                       const EcdsaConstraint& input);
+// Bigfield-backed: only the arithmetizations that keep the non-native-field gate.
 template void create_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
                                                                                      const EcdsaConstraint& input);
+template void create_ecdsa_verify_constraints<stdlib::secp256k1<MegaAppCircuitBuilder>>(MegaAppCircuitBuilder& builder,
+                                                                                        const EcdsaConstraint& input);
 template void create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
                                                                                       const EcdsaConstraint& input);
 template void create_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
                                                                                      const EcdsaConstraint& input);
+template void create_ecdsa_verify_constraints<stdlib::secp256r1<MegaAppCircuitBuilder>>(MegaAppCircuitBuilder& builder,
+                                                                                        const EcdsaConstraint& input);
 
 template void create_dummy_ecdsa_constraint<stdlib::secp256k1<UltraCircuitBuilder>>(
     UltraCircuitBuilder&,

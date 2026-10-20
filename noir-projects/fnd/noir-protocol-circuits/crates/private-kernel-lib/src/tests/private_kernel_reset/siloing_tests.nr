@@ -1,5 +1,7 @@
 use crate::components::previous_kernel_for_tail_validator::validate_previous_kernel_for_tail;
-use super::TestBuilder;
+use super::{
+    NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT, TestBuilder,
+};
 use protocol_test_utils::{assert_array_eq, pad_end};
 use types::{address::AztecAddress, traits::FromField};
 
@@ -317,4 +319,28 @@ fn extra_private_logs_beyond_claimed_length() {
     // data validator processes all items within PRIVATE_LOG_SILOING_AMOUNT and expects a siloed log in the output.
     // If the output does contain extra private logs, the validator will still catch it and fail.
     // See the test propagated_private_logs_tests.nr > previous_private_logs_beyond_claimed_length.
+}
+
+// A terminal variant with a zero siloing amount would compile the corresponding siloing pass out of
+// the output validator and bind raw values to the rollup-bound output. `execute_as_terminal` rejects
+// such a variant at compile time; these tests rely on nargo compiling each test as its own program.
+#[test(should_fail_with = "terminal reset must silo note hashes")]
+fn terminal_reset_without_note_hash_siloing_does_not_compile() {
+    let builder = TestBuilder::new();
+    let _ = builder
+        .execute_with_siloing_amounts::<0, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>();
+}
+
+#[test(should_fail_with = "terminal reset must silo nullifiers")]
+fn terminal_reset_without_nullifier_siloing_does_not_compile() {
+    let builder = TestBuilder::new();
+    let _ = builder
+        .execute_with_siloing_amounts::<NOTE_HASH_SILOING_AMOUNT, 0, PRIVATE_LOG_SILOING_AMOUNT>();
+}
+
+#[test(should_fail_with = "terminal reset must silo private logs")]
+fn terminal_reset_without_private_log_siloing_does_not_compile() {
+    let builder = TestBuilder::new();
+    let _ = builder
+        .execute_with_siloing_amounts::<NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, 0>();
 }

@@ -21,8 +21,9 @@
  *   DeltaRangeFailsOnFirstSortedValueTooLarge         — position 0->1 transition (virtual zero start)
  *   DeltaRangeFailsOnFifthOrderedPolyCorruption       — 5th ordered poly (different build path)
  *
- * Shiftable first coeff zero relation (TranslatorShiftableFirstCoeffZeroRelation) — 1 test:
+ * Shiftable first coeff zero relation (TranslatorShiftableFirstCoeffZeroRelation) — 2 tests:
  *   ShiftableFirstCoeffZeroFailsOnOrderedNonZero      — nonzero ordered_i at lagrange_first row (subrelations 0-4)
+ *   ShiftableFirstCoeffZeroRejectsMainWireValues      — nonzero main-wire first values (subrelations 5-17)
  *
  * Accumulator transfer relation (TranslatorAccumulatorTransferRelation) — 6 tests:
  *   AccumulatorTransferFailsOnOddRowCorruption        — interior odd row (transfer chain)
@@ -46,6 +47,7 @@
  */
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
@@ -367,6 +369,47 @@ TEST_F(TranslatorRelationFailureTests, ShiftableFirstCoeffZeroFailsOnOrderedNonZ
     // Sub-relation 0 (lagrange_first * ordered_range_constraints_0 = 0) should catch this
     EXPECT_TRUE(failures.contains(0)) << "Sub-relation 0 (ordered_0 first-coeff anchor) should catch the corruption";
     EXPECT_EQ(failures.at(0), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
+}
+
+TEST_F(TranslatorRelationFailureTests, ShiftableFirstCoeffZeroRejectsMainWireValues)
+{
+    auto [key, params] = build_valid_translator_state();
+    auto& pp = key.proving_key->polynomials;
+    const size_t first_row = 0;
+    ASSERT_EQ(pp.lagrange_first[first_row], FF(1));
+
+    const std::array<std::pair<const char*, Flavor::Polynomial*>, 13> main_wires{ {
+        { "p_x_low_limbs", &pp.p_x_low_limbs },
+        { "p_x_high_limbs", &pp.p_x_high_limbs },
+        { "p_y_low_limbs", &pp.p_y_low_limbs },
+        { "p_y_high_limbs", &pp.p_y_high_limbs },
+        { "z_low_limbs", &pp.z_low_limbs },
+        { "z_high_limbs", &pp.z_high_limbs },
+        { "accumulators_binary_limbs_0", &pp.accumulators_binary_limbs_0 },
+        { "accumulators_binary_limbs_1", &pp.accumulators_binary_limbs_1 },
+        { "accumulators_binary_limbs_2", &pp.accumulators_binary_limbs_2 },
+        { "accumulators_binary_limbs_3", &pp.accumulators_binary_limbs_3 },
+        { "quotient_low_binary_limbs", &pp.quotient_low_binary_limbs },
+        { "quotient_high_binary_limbs", &pp.quotient_high_binary_limbs },
+        { "relation_wide_limbs", &pp.relation_wide_limbs },
+    } };
+
+    for (size_t i = 0; i < main_wires.size(); ++i) {
+        const auto& [name, column] = main_wires[i];
+        SCOPED_TRACE(name);
+        *column = column->full();
+        ASSERT_EQ(column->get(first_row), FF(0));
+        column->at(first_row) = FF(1);
+        const auto failures = RelationChecker<Flavor>::check<TranslatorShiftableFirstCoeffZeroRelation<FF>>(
+            pp, params, "TranslatorShiftableFirstCoeffZeroRelation");
+        EXPECT_TRUE(failures.contains(5 + i));
+        column->at(first_row) = FF(0);
+    }
+
+    pp.p_x_high_limbs.at(first_row) = FF(1);
+    const auto short_failures = RelationChecker<Flavor>::check<TranslatorShiftableFirstCoeffZeroShortRelation<FF>>(
+        pp, params, "TranslatorShiftableFirstCoeffZeroShortRelation");
+    EXPECT_TRUE(short_failures.contains(6));
 }
 
 /**
@@ -937,4 +980,32 @@ TEST_F(TranslatorRelationFailureTests, OpcodeConstraintFailsOnGenuineOpcodeAtOdd
     EXPECT_FALSE(failures.empty()) << "Opcode constraint should fail with a genuine opcode on an odd row";
     EXPECT_TRUE(failures.contains(0)) << "Subrelation 0 (opcode validity) should catch the odd-row opcode";
     EXPECT_EQ(failures.at(0), static_cast<uint32_t>(odd_row)) << "Failure should be at the odd row";
+}
+
+/**
+ * @brief The result row must hold the hiding op (op = 3), never a no-op.
+ *
+ * @details ECCVM row 1 skips its equality and on-curve checks because it expects the ZK prefix's hiding op there.
+ * The ECCVM op list omits no-ops, so a no-op at the result row would move the first real op onto that unchecked
+ * row while the Translator sequence stays consistent. Subrelation 5 of the opcode-constraint relation enforces
+ * lagrange_result_row * (op - 3) == 0.
+ */
+TEST_F(TranslatorRelationFailureTests, OpcodeConstraintFailsOnNoOpAtResultRow)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline opcode constraint should pass";
+
+    const size_t result_row = Flavor::RESULT_ROW;
+    ASSERT_EQ(pp.op[result_row], FF(3));
+
+    pp.op.at(result_row) = FF(0);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_TRUE(failures.contains(5)) << "Subrelation 5 (hiding op at result row) should catch the no-op";
+    EXPECT_EQ(failures.at(5), static_cast<uint32_t>(result_row)) << "Failure should be at the result row";
 }

@@ -24,7 +24,7 @@ Phase 2: verify(joint_proof, translator_params...)  →  ReductionResult (pairin
 
 ### Phase 1 — MegaZK Oink
 
-`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). The proof segment is exported as `mega_zk_proof`.
+`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). It calls `prove(/*emit_alpha=*/false)` because the joint alpha is drawn after both circuits' pre-sumcheck commitments. The proof segment is exported as `mega_zk_proof`.
 
 The verifier's `verify_mega_zk_oink()` returns an `OinkResult` containing:
 - Public inputs (the `HidingKernelIO`)
@@ -51,9 +51,9 @@ where `L(x)` is the joint Libra masking univariate. The offset `α^{K_H}` (with 
 
 The sumcheck runs for `JOINT_LOG_N = 17` rounds (the translator's fixed circuit size). The MegaZK circuit has `mega_zk_log_n ≤ 17` variables, so:
 
-- **Real rounds** (`0 .. mega_zk_log_n - 1`): Both circuits contribute normally. MegaZK uses row-disabling for ZK, with main-domain relations scaled by `(1 - L)` and the `MegaEccOpBoundaryRelation` (offset-only, enforcing `ecc_op_wire_j = 0` on rows 0..3) scaled by `L`. After the last real round, MegaZK evaluations are sent *before* virtual-round challenges are drawn, eliminating prover freedom in the zero-padded region.
+- **Real rounds** (`0 .. mega_zk_log_n - 1`): Both circuits contribute normally. MegaZK uses row-disabling for ZK, with main-domain relations scaled by `(1 - L)` and the `MegaEccOpBoundaryRelation` (offset-only, enforcing `ecc_op_wire_j = 0` on rows 0..3) scaled by `L`. MegaZK evaluations are sent after all joint rounds, including the virtual rounds.
 
-- **Virtual rounds** (`mega_zk_log_n .. 16`): The smaller MegaZK circuit is embedded into the translator's larger sumcheck domain via **extension-by-zero (EBZ)**: its contribution uses `compute_virtual_contribution`, and the verifier applies `τ = ∏_{k≥d}(1 - u_k)` to the MegaZK evaluations, which is the EBZ factor for the zero-padded region.
+- **Virtual rounds** (`mega_zk_log_n .. 16`): The smaller MegaZK circuit is embedded into the translator's larger sumcheck domain via **extension-by-zero (EBZ)**: the prover computes virtual-round univariates and folds the MegaZK polynomials with `fold_for_zero_extension`. The sent evaluations therefore already include `τ = ∏_{k≥d}(1 - u_k)`. The verifier uses them directly; joint PCS binds them to the committed polynomials over the full domain.
 
 ### Phase 2c — Joint PCS
 
@@ -68,13 +68,13 @@ The verifier's `verify()` returns `{ pairing_points, reduction_succeeded }`.
 The joint PCS passes a `REPEATED_COMMITMENTS` to Shplemini that identifies commitments appearing in both the unshifted and shifted batches, avoiding redundant scalar multiplications in the final MSM. The joint layout (after Shplemini's offset for Q and the gemini masking poly) is:
 
 ```
-Unshifted: [MegaZK_precomputed | MegaZK_witness | Trans_PCS_unshifted]
+Unshifted: [Trans_PCS_unshifted_without_masking | MegaZK_precomputed | MegaZK_witness]
 Shifted:   [MegaZK_shifted     | Trans_PCS_shifted]
 ```
 
 Two ranges are identified:
-- **Range 1 (MegaZK):** The first `NUM_SHIFTED_ENTITIES` witness commitments in the unshifted section duplicate the MegaZK shifted commitments.
-- **Range 2 (Translator):** 5 ordered range-constraint wires, the permutation accumulator (`z_perm`), and 5 concatenation wires (11 total) in the translator's unshifted section duplicate their counterparts in the shifted section. The translator's two standalone ranges (see [`TranslatorFlavor::REPEATED_COMMITMENTS`](../../translator_vm/translator_flavor.hpp)) are contiguous and merged into one.
+- **Range 1 (Translator):** 5 ordered range-constraint wires, the permutation accumulator (`z_perm`), and 5 concatenation wires (11 total) in the translator's unshifted section duplicate their counterparts in the shifted section. The translator's two standalone ranges (see [`TranslatorFlavor::REPEATED_COMMITMENTS`](../../translator_vm/translator_flavor.hpp)) are contiguous and merged into one.
+- **Range 2 (MegaZK):** The first `NUM_SHIFTED_ENTITIES` witness commitments in the unshifted section duplicate the MegaZK shifted commitments.
 
 ---
 
@@ -117,4 +117,4 @@ Internally, `verify()` delegates to:
 |---|---|
 | `batched_honk_translator_prover.hpp/.cpp` | Prover |
 | `batched_honk_translator_verifier.hpp/.cpp` | Verifier (native and recursive) |
-| `batched_honk_translator.test.cpp` | Tests: `ProveAndVerify`, `ProveAndVerifySmallHiding`, `ProofSizeComparison`, `VerifierManifestConsistency`, `ProverManifestConsistency` |
+| `batched_honk_translator.test.cpp` | Tests: `ProveAndVerify`, `ProveAndVerifySmallHiding`, `VerifierManifestConsistency`, `ProverManifestConsistency` |

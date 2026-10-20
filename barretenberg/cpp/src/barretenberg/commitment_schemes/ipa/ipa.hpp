@@ -419,19 +419,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
     /**
      * @brief Per-proof data extracted from an IPA transcript.
-     * @details Contains all values derived from transcript processing (steps 2–7, 9 of the IPA verification
+     * @details Contains all values derived from transcript processing (steps 2–6, 9 of the IPA verification
      * protocol) that are needed for either single-proof or batch IPA verification.
-     * Does not include the MSM (step 8).
+     * Does not construct the challenge polynomial (step 7) or perform the MSM (step 8).
      */
     struct TranscriptData {
         GroupElement C_zero;                  ///< \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
         Fr b_zero;                            ///< \f$b_0 = g(\beta) = \prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
-        Polynomial<Fr> s_vec;                 ///< \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,
-                                              ///<  \prod_{i=0}^{k-1}u_{i}^{-1})\f$
         Fr gen_challenge;                     ///< Generator challenge \f$u\f$ where \f$U = u \cdot G\f$
         Commitment G_zero_from_prover;        ///< \f$G_0\f$ received from prover (not recomputed)
         Fr a_zero;                            ///< \f$a_0\f$ received from prover
-        std::vector<Fr> round_challenges_inv; ///< Round challenge inverses used by recursive aggregation.
+        std::vector<Fr> round_challenges_inv; ///< Inverses for challenge polynomial reconstruction.
     };
 
     /**
@@ -440,19 +438,19 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param opening_claim Contains the commitment \f$C\f$ and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
-     * @return TranscriptData containing \f$C_0, b_0, \vec{s}, u, G_0, a_0\f$
+     * @return TranscriptData containing \f$C_0, b_0, u, G_0, a_0\f$ and round challenge inverses
      *
-     * @details Performs steps 2–7 and 9 of the IPA verification protocol (see reduce_verify_internal_native):
+     * @details Performs steps 2–6 and 9 of the IPA verification protocol (see reduce_verify_internal_native):
      *
      *2. Receive the generator challenge \f$u\f$, abort if it's zero, otherwise compute \f$U=u\cdot G\f$
      *3. Compute \f$C'=C+f(\beta)\cdot U\f$. (Recall that \f$f(\beta)\f$ is the claimed evaluation.)
      *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$, abort on \f$u_j=0\f$
      *5. Compute \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
      *6. Compute \f$b_0=g(\beta)=\prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
-     *7. Compute vector \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,\prod_{i=0}^{k-1}u_{i}^{-1})\f$
      *
      * Additionally receives \f$G_0\f$ and \f$a_0\f$ from the prover transcript (step 9).
-     * Does NOT compute \f$G_s=\langle \vec{s},\vec{G}\rangle\f$ (step 8, the MSM)
+     * Does NOT construct the challenge polynomial (step 7), compute
+     * \f$G_s=\langle \vec{s},\vec{G}\rangle\f$ (step 8, the MSM)
      * or perform the final verification check (steps 10–11).
      *
      * @pre add_claim_to_hash_buffer must have been called on the transcript (step 1).
@@ -513,22 +511,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 6.
         // Compute b_zero succinctly.
         const Fr b_zero = b_zero_from_round_challenges(std::span<const Fr>(round_challenges_inv));
-        // Step 7.
-        // Construct vector s.
-        bb::Polynomial<Fr> s_vec(construct_poly_from_u_challenges_inv(
-            std::span<const Fr>(round_challenges_inv).subspan(0, log_poly_length)));
 
         // Receive G_0 and a_0 from prover (advances transcript; G_0 not recomputed here).
         Commitment G_zero_from_prover = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
-        return { C_zero,
-                 b_zero,
-                 std::move(s_vec),
-                 generator_challenge,
-                 G_zero_from_prover,
-                 a_zero,
-                 std::move(round_challenges_inv) };
+        return { C_zero, b_zero, generator_challenge, G_zero_from_prover, a_zero, std::move(round_challenges_inv) };
     }
 
     template <typename Transcript>
@@ -577,20 +565,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         BB_BENCH_NAME("IPA::reduce_verify");
 
-        // Steps 2–7, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
+        // Steps 2–6, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
         auto data = read_transcript_data(opening_claim, transcript);
 
-        // Step 8.
+        // Steps 7–8.
         // Compute G_s = <s, G> via SRS MSM and verify against prover's G_0
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
+        const Polynomial<Fr> s_vec(construct_poly_from_u_challenges_inv(data.round_challenges_inv));
         Commitment G_zero;
         {
             BB_BENCH_NAME("IPA::srs_msm");
-            G_zero =
-                scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
+            G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
         if (G_zero != data.G_zero_from_prover) {
             info("IPA verification failed: G_0 mismatch");
@@ -770,127 +758,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Batch verify multiple IPA proofs with a single batched SRS MSM.
-     *
-     * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
-     * By combining N proofs via random linear combinations, we replace per-proof MSMs with a single batched SRS MSM.
-     *
-     * Two families of equations are enforced over the SRS: the main IPA relation
-     *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
-     *     + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
-     * and the \f$G_0\f$ binding \f$\sum \beta^i G_{0,i} = \langle \sum \beta^i \vec{s}_i, \vec{G} \rangle\f$,
-     * which carries the single-proof condition \f$G_0 = \langle \vec{s}, \vec{G} \rangle\f$ across the batch.
-     * Both right-hand sides are SRS MSMs, so they are random-linear-combined with a fresh challenge
-     * \f$\gamma\f$ into a single IPA commitment (one SRS MSM):
-     *   \f$\langle \gamma \sum \beta^i \vec{s}_i - \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle + C_{batch}
-     *     = \gamma \sum \beta^i G_{0,i} + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
-     *
-     * where \f$G\f$ = Commitment::one() and \f$U_i = u_i \cdot G\f$.
-     *
-     * @param vk Verification key containing SRS
-     * @param opening_claims The opening claims for each proof
-     * @param transcripts The transcripts containing each proof's data
-     * @return true if all proofs verify
-     */
-    template <typename Transcript = NativeTranscript>
-    static bool batch_reduce_verify(const VK& vk,
-                                    const std::vector<OpeningClaim<Curve>>& opening_claims,
-                                    const std::vector<std::shared_ptr<Transcript>>& transcripts)
-        requires(!Curve::is_stdlib_type)
-    {
-        const size_t num_claims = opening_claims.size();
-        if (num_claims != transcripts.size()) {
-            info("IPA batch verification failed: claims/transcripts size mismatch");
-            return false;
-        }
-        if (num_claims == 0) {
-            info("IPA batch verification failed: no claims provided");
-            return false;
-        }
-
-        // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
-        std::vector<GroupElement> C_zeros(num_claims);
-        std::vector<Fr> a_zeros(num_claims);
-        std::vector<Fr> b_zeros(num_claims);
-        std::vector<Fr> gen_challenges(num_claims);
-        std::vector<Commitment> G_zeros_from_prover(num_claims);
-        std::vector<Polynomial<Fr>> s_vecs(num_claims);
-
-        for (size_t i = 0; i < num_claims; i++) {
-            add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
-            auto data = read_transcript_data(opening_claims[i], transcripts[i]);
-            C_zeros[i] = std::move(data.C_zero);
-            b_zeros[i] = data.b_zero;
-            s_vecs[i] = std::move(data.s_vec);
-            gen_challenges[i] = data.gen_challenge;
-            G_zeros_from_prover[i] = data.G_zero_from_prover;
-            a_zeros[i] = data.a_zero;
-        }
-
-        // Phase 2: Batched computation using random challenges alpha, beta and gamma.
-        // alpha batches the IPA relations across claims, beta batches the G_0 binding checks, and gamma folds
-        // the G_0 binding into the main relation so the whole batch costs a single IPA commitment (one SRS MSM).
-        Fr alpha = Fr::random_element();
-        std::vector<Fr> alpha_pows(num_claims);
-        alpha_pows[0] = Fr::one();
-        for (size_t i = 1; i < num_claims; i++) {
-            alpha_pows[i] = alpha_pows[i - 1] * alpha;
-        }
-        Fr beta = Fr::random_element();
-        std::vector<Fr> beta_pows(num_claims);
-        beta_pows[0] = Fr::one();
-        for (size_t i = 1; i < num_claims; i++) {
-            beta_pows[i] = beta_pows[i - 1] * beta;
-        }
-        Fr gamma = Fr::random_element();
-
-        std::span<const Commitment> srs_elements = vk.get_monomial_points();
-        if (poly_length > srs_elements.size()) {
-            throw_or_abort("potential bug: Not enough SRS points for IPA!");
-        }
-
-        // The batch verifier enforces two families of equations over the SRS:
-        //   (1) main IPA relation:  C_batch        == <\sum_i alpha^i a_i s_i, SRS> + bU_scalar * G
-        //   (2) G_0 binding:        \sum_i beta^i G_0_i == <\sum_i beta^i s_i, SRS>
-        // The single-proof verifier checks G_0 == <s_vec, SRS>; (2) enforces the same condition across the
-        // batch. Both right-hand sides are SRS MSMs, so we random-linear-combine them with gamma to collapse
-        // both into one IPA commitment:
-        //   <gamma * (\sum_i beta^i s_i) - (\sum_i alpha^i a_i s_i), SRS> + C_batch
-        //       == gamma * (\sum_i beta^i G_0_i) + bU_scalar * G
-        // A prover that violates either family passes the folded check only for a gamma-measure-zero set.
-        Polynomial<Fr> combined_msm_scalars(poly_length);
-        for (size_t i = 0; i < num_claims; i++) {
-            combined_msm_scalars.add_scaled(s_vecs[i], gamma * beta_pows[i] - alpha_pows[i] * a_zeros[i]);
-        }
-        Commitment batched_commitment = scalar_multiplication::pippenger_unsafe<Curve>(
-            combined_msm_scalars, { &srs_elements[0], /*size*/ poly_length });
-
-        // beta-weighted sum of the prover-supplied G_0 values (gamma is applied in the final check).
-        GroupElement prover_g_zero_batch = G_zeros_from_prover[0] * beta_pows[0];
-        for (size_t i = 1; i < num_claims; i++) {
-            prover_g_zero_batch += G_zeros_from_prover[i] * beta_pows[i];
-        }
-
-        // Batched claim commitment: C_batch = \sum \alpha^i * C_zero_i
-        GroupElement C_batch = C_zeros[0];
-        for (size_t i = 1; i < num_claims; i++) {
-            C_batch = C_batch + C_zeros[i] * alpha_pows[i];
-        }
-
-        // Combined scalar for U terms: bU_scalar = \sum \alpha^i * a_zero_i * b_zero_i * gen_challenge_i
-        Fr bU_scalar = Fr::zero();
-        for (size_t i = 0; i < num_claims; i++) {
-            bU_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
-        }
-
-        // Single folded check: the IPA relation and the G_0 binding both hold iff this holds (up to the
-        // negligible gamma-collision probability).
-        GroupElement left_hand_side = batched_commitment + C_batch;
-        GroupElement right_hand_side = prover_g_zero_batch * gamma + Commitment::one() * bU_scalar;
-        return (left_hand_side.normalize() == right_hand_side.normalize());
-    }
-
-    /**
      * @brief Recursively _partially_ verify the correctness of an IPA proof.
      *
      * @param vk Verification_key containing srs
@@ -962,7 +829,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
         previous_round_s[0] = Fr(1);
         for (size_t i = 0; i < log_poly_length; ++i) {
-            const size_t round_size = 1 << (i + 1);
+            const size_t round_size = size_t(1) << (i + 1);
             const Fr round_challenge = round_challenges_inv[i];
             for (size_t j = 0; j < round_size / 2; ++j) {
                 current_round_s[j * 2] = previous_round_s[j];
@@ -977,10 +844,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // We use 8-bit tables (table_bits=8, 32 rounds) to minimise gate count. However, with N=32768 SRS points
         // and 8-bit tables, the total table rows = 32768 × 256 = 2^23 exactly. The 5 mandatory overhead rows
         // (NUM_DISABLED_ROWS_IN_SUMCHECK=4, NUM_ZERO_ROWS=1) push the total to 2^23+5, forcing dyadic_size = 2^24.
-        // To stay within 2^23 we handle the first SRS point separately using operator*.
+        // To stay within 2^23 we handle the first SRS point separately with batch_mul. The SRS points are
+        // hash-derived, so no one knows a discrete-log relation between them and batch_mul's offset generators.
         std::vector<Commitment> remaining_srs(srs_elements.begin() + 1, srs_elements.begin() + poly_length);
         std::vector<Fr> remaining_s(s_vec.begin() + 1, s_vec.end());
-        Commitment first_term = srs_elements[0] * s_vec[0];
+        Commitment first_term =
+            Commitment::batch_mul({ srs_elements[0] }, { s_vec[0] }, /*constant_points_trusted=*/true);
         Commitment remaining_term = Commitment::fixed_batch_mul(remaining_srs, remaining_s, /*table_bits=*/8);
         Commitment computed_G_zero = first_term + remaining_term;
         // check the computed G_zero and the claimed G_zero are the same.
@@ -1001,6 +870,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     static Fr evaluate_challenge_poly(const std::vector<Fr>& u_challenges_inv, Fr r)
     {
+        BB_ASSERT_EQ(u_challenges_inv.size(), log_poly_length);
         // Runs the obvious algorithm to compute the product ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.r^{2^{i-1}}) by
         // remembering the current 2-primary power of r.
         Fr challenge_poly_eval = 1;
@@ -1063,7 +933,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
         previous_round_s[0] = bb::fq(1);
         for (size_t i = 0; i < log_poly_length; ++i) {
-            const size_t round_size = 1 << (i + 1);
+            const size_t round_size = size_t(1) << (i + 1);
             const bb::fq round_challenge = u_challenges_inv[i];
             parallel_for_heuristic(
                 round_size / 2,
@@ -1092,7 +962,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                     bb::fq alpha)
     {
         // Always extend each to 1<<log_poly_length length
-        Polynomial<bb::fq> challenge_poly(1 << log_poly_length);
+        Polynomial<bb::fq> challenge_poly(poly_length);
         Polynomial challenge_poly_1 = construct_poly_from_u_challenges_inv(u_challenges_inv_1);
         Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(u_challenges_inv_2);
         challenge_poly += challenge_poly_1;

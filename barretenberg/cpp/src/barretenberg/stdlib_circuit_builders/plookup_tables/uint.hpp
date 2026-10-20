@@ -19,12 +19,11 @@ inline std::array<bb::fr, 2> get_xor_rotate_values_from_key(const std::array<uin
 }
 
 template <uint64_t bits_per_slice, uint64_t num_rotated_output_bits>
-inline BasicTable generate_xor_rotate_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_xor_rotate_table(BasicTableId id)
 {
     const uint64_t base = 1UL << bits_per_slice;
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     table.use_twin_keys = true;
 
     for (uint64_t i = 0; i < base; ++i) {
@@ -51,12 +50,11 @@ inline std::array<bb::fr, 2> get_and_rotate_values_from_key(const std::array<uin
 }
 
 template <uint64_t bits_per_slice, uint64_t num_rotated_output_bits>
-inline BasicTable generate_and_rotate_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_and_rotate_table(BasicTableId id)
 {
     const uint64_t base = 1UL << bits_per_slice;
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     table.use_twin_keys = true;
 
     for (uint64_t i = 0; i < base; ++i) {

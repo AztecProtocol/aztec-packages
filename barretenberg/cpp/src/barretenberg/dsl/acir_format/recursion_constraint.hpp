@@ -42,12 +42,12 @@ constexpr bool is_hypernova_proof_type(uint32_t proof_type)
 // the hiding kernel verifies the tail kernel via an HN_FINAL proof, and every other proof is a plain HN proof.
 // Used as a defense-in-depth cross-check that the ACIR proof_type agrees with the IVC state (the IVC's circuit
 // kinds, not the proof_type, drive the actual verification logic).
-inline PROOF_TYPE expected_proof_type(const Chonk& ivc, size_t group_index)
+template <typename Circuit> PROOF_TYPE expected_proof_type(const Chonk& ivc, size_t group_index)
 {
     if (ivc.is_hiding_kernel()) {
         return PROOF_TYPE::HN_FINAL;
     }
-    if (ivc.is_init_kernel() && group_index == 0) {
+    if (ivc.template is_init_kernel<Circuit>() && group_index == 0) {
         return PROOF_TYPE::OINK;
     }
     return PROOF_TYPE::HN;
@@ -55,9 +55,10 @@ inline PROOF_TYPE expected_proof_type(const Chonk& ivc, size_t group_index)
 
 // The circuit kind expected for the group entry at `group_index`: every kernel except the init kernel verifies
 // the carried previous kernel as its first proof; all other entries are apps.
-inline bb::CircuitKind expected_group_entry_kind(const Chonk& ivc, size_t group_index)
+template <typename Circuit> bb::CircuitKind expected_group_entry_kind(const Chonk& ivc, size_t group_index)
 {
-    return (group_index == 0 && !ivc.is_init_kernel()) ? bb::CircuitKind::Kernel : bb::CircuitKind::App;
+    return (group_index == 0 && !ivc.template is_init_kernel<Circuit>()) ? bb::CircuitKind::Kernel
+                                                                         : bb::CircuitKind::App;
 }
 
 // Static assertions to catch PROOF_TYPE desync with the Noir constants at compile time
@@ -104,6 +105,9 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
+// A group of recursion constraints of one proof type, paired with their original ACIR opcode indices.
+using RecursionConstraintData = std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>;
+
 /**
  * @brief Single entrypoint to process recursion constraints
  *
@@ -133,15 +137,14 @@ struct RecursionConstraint {
  */
 template <typename Builder>
 [[nodiscard("pairing points and IPA claim must be accumulated")]] HonkRecursionConstraintsOutput<Builder>
-create_recursion_constraints(
-    Builder& builder,
-    GateCounter<Builder>& gate_counter,
-    std::vector<size_t>& gates_per_opcode,
-    [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& chonk_recursion_data);
+create_recursion_constraints(Builder& builder,
+                             GateCounter<Builder>& gate_counter,
+                             std::vector<size_t>& gates_per_opcode,
+                             [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
+                             const RecursionConstraintData& honk_recursion_data,
+                             const RecursionConstraintData& avm_recursion_data,
+                             const RecursionConstraintData& hn_recursion_data,
+                             const RecursionConstraintData& chonk_recursion_data);
 
 /**
  * @brief Process HyperNova recursion constraints and complete kernel logic
@@ -152,11 +155,11 @@ create_recursion_constraints(
  * @param hn_recursion_data pair of (HypernovaRecursionConstraints, HypernovaRecursionConstraintsOriginalOpcodeIndices)
  * @param ivc_base
  */
-void process_hn_recursion_constraints(
-    MegaCircuitBuilder& builder,
-    GateCounter<MegaCircuitBuilder>& gate_counter,
-    std::vector<size_t>& gates_per_opcode,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::shared_ptr<Chonk>& ivc_base);
+template <IsKernelCircuit Builder>
+void process_hn_recursion_constraints(Builder& builder,
+                                      GateCounter<Builder>& gate_counter,
+                                      std::vector<size_t>& gates_per_opcode,
+                                      const RecursionConstraintData& hn_recursion_data,
+                                      const std::shared_ptr<Chonk>& ivc_base);
 
 } // namespace acir_format

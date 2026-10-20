@@ -68,11 +68,22 @@ template bb::stdlib::cycle_group<UltraCircuitBuilder> to_grumpkin_point(
     const bb::stdlib::bool_t<UltraCircuitBuilder>& predicate,
     UltraCircuitBuilder& builder);
 
-template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(
-    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_x,
-    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_y,
-    const bb::stdlib::bool_t<MegaCircuitBuilder>& predicate,
-    MegaCircuitBuilder& builder);
+// Goes through cycle_group, whose Straus algorithm needs the elliptic gate and the memory gate for its
+// ROM tables. Every arithmetization that keeps memory also keeps elliptic, so the memory list is the
+// right one -- asserted here so that cannot change unnoticed.
+#define ASSERT_MEMORY_IMPLIES_ELLIPTIC(Builder)                                                                        \
+    static_assert(!Builder::ExecutionTrace::has_gate_kind(GateKind::Memory) ||                                         \
+                  Builder::ExecutionTrace::has_gate_kind(GateKind::Elliptic));
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(ASSERT_MEMORY_IMPLIES_ELLIPTIC)
+#undef ASSERT_MEMORY_IMPLIES_ELLIPTIC
+
+#define INSTANTIATE_TO_GRUMPKIN_POINT(Builder)                                                                         \
+    template bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<Builder::FF>& input_x,         \
+                                                                const WitnessOrConstant<Builder::FF>& input_y,         \
+                                                                const bb::stdlib::bool_t<Builder>& predicate,          \
+                                                                Builder& builder);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(INSTANTIATE_TO_GRUMPKIN_POINT)
+#undef INSTANTIATE_TO_GRUMPKIN_POINT
 
 /**
  * @brief Convert inputs representing a Grumpkin scalar into a cycle_scalar element.
@@ -136,10 +147,13 @@ template typename bb::stdlib::cycle_group<UltraCircuitBuilder>::cycle_scalar to_
     const bb::stdlib::bool_t<UltraCircuitBuilder>& predicate,
     UltraCircuitBuilder& builder);
 
-template typename bb::stdlib::cycle_group<MegaCircuitBuilder>::cycle_scalar to_grumpkin_scalar(
-    const WitnessOrConstant<MegaCircuitBuilder::FF>& scalar_lo,
-    const WitnessOrConstant<MegaCircuitBuilder::FF>& scalar_hi,
-    const bb::stdlib::bool_t<MegaCircuitBuilder>& predicate,
-    MegaCircuitBuilder& builder);
+#define INSTANTIATE_TO_GRUMPKIN_SCALAR(Builder)                                                                        \
+    template typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(                               \
+        const WitnessOrConstant<Builder::FF>& scalar_lo,                                                               \
+        const WitnessOrConstant<Builder::FF>& scalar_hi,                                                               \
+        const bb::stdlib::bool_t<Builder>& predicate,                                                                  \
+        Builder& builder);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(INSTANTIATE_TO_GRUMPKIN_SCALAR)
+#undef INSTANTIATE_TO_GRUMPKIN_SCALAR
 
 } // namespace acir_format

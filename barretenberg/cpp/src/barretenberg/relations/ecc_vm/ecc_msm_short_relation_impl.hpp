@@ -400,6 +400,14 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     std::get<MSM_PC_SKEW_CONTINUITY>(accumulator) +=
         Acc4((q_skew_s * q_skew_shift_s) * scaling_factor) * Acc4(pc_shift_s - pc_s);
 
+    // Confine the emission of an MSM result to rows whose accumulator update is pinned by SKEW_ACC.
+    // See the comment on MSM_TRANSITION_FOLLOWS_SKEW in ecc_msm_relation.hpp.
+    {
+        const auto is_not_first_row_short = -lagrange_first_s + FF(1); // length 2
+        std::get<MSM_TRANSITION_FOLLOWS_SKEW>(accumulator) +=
+            Acc4(is_not_first_row_short * scaling_factor) * Acc4(msm_transition_shift_s) * Acc4(-q_skew_s + FF(1));
+    }
+
     std::get<ADD_CONTINUITY_2>(accumulator) += Acc3((add2_s * (-add1_s + FF(1))) * scaling_factor);
     std::get<ADD_CONTINUITY_3>(accumulator) += Acc3((add3_s * (-add2_s + FF(1))) * scaling_factor);
     std::get<ADD_CONTINUITY_4>(accumulator) += Acc3((add4_s * (-add3_s + FF(1))) * scaling_factor);

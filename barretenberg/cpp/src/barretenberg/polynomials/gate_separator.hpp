@@ -165,7 +165,9 @@ template <typename FF> struct GateSeparatorPolynomial {
                                                            const FF& scaling_factor = FF(1))
     {
         if (betas.empty()) {
+            // Empty product convention: the multiplicative identity, matching current_element()'s FF(1) above.
             Polynomial<FF> out(1);
+            out.at(0) = FF(1);
             return out;
         }
 

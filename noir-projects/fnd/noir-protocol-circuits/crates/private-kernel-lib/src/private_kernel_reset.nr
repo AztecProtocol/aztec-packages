@@ -125,6 +125,7 @@ pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 11] = [
 /// - Final resets (`execute_as_terminal`): invoked exactly once at the end of private execution. Live inside the
 ///   `reset_tail` / `reset_tail_to_public` circuits, which both perform the final reset and produce the tail output
 ///   in a single circuit. These do silo, and no further reset is permitted after a `reset_tail`.
+///   `execute_as_terminal` `static_assert`s that the three `*SiloingAmount` generics are non-zero.
 ///
 /// It performs:
 /// - Read request validation: Verifies note hash and nullifier read requests against pending data (from this
@@ -233,6 +234,22 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     pub fn execute_as_terminal<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) -> PrivateKernelCircuitPublicInputs {
+        // A zero siloing amount compiles the corresponding siloing pass out of `ResetOutputValidator`,
+        // binding the raw, contract-chosen values straight to the output. The terminal reset is the
+        // only place siloing happens, so every terminal variant must silo all three kinds.
+        std::static_assert(
+            NoteHashSiloingAmount != 0,
+            "terminal reset must silo note hashes",
+        );
+        std::static_assert(
+            NullifierSiloingAmount != 0,
+            "terminal reset must silo nullifiers",
+        );
+        std::static_assert(
+            PrivateLogSiloingAmount != 0,
+            "terminal reset must silo private logs",
+        );
+
         let previous_public_inputs = self.previous_kernel.public_inputs;
 
         if !::std::runtime::is_unconstrained() {

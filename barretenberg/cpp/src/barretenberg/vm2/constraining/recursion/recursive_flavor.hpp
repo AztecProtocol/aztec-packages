@@ -21,7 +21,8 @@ namespace bb::avm2 {
 
 class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = MegaCircuitBuilder;
+    // The verifier circuit is proven with MegaAvmFlavor, so it is built for that arithmetization.
+    using CircuitBuilder = MegaAvmCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;

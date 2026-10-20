@@ -12,7 +12,9 @@
 #include "barretenberg/ecc/groups/group.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 #include <array>
+#include <limits>
 #include <map>
+#include <mutex>
 #include <optional>
 
 namespace bb::crypto {
@@ -37,11 +39,8 @@ namespace bb::crypto {
  *          All Pedersen methods that require a `*generator_data` parameter (from now on referred to as "generator
  *          context") should default to using `default_data`.
  *
- *          Q: Why make the generator context an input parameter when it defaults to `default_data`?
- *          A: This is not thread-safe. Each process that uses a `generator_data` object may extend `generator_data` if
- *             more generators are required.
- *             i.e. either each process must use an independent `generator_data` object or the author must KNOW that
- *             `generator_data` will not be extended by any process
+ *          Cache updates are synchronized. Returned views remain valid until the context is destroyed,
+ *          including when another thread extends the cache.
  *
  * @tparam Curve
  */
@@ -75,6 +74,9 @@ template <typename Curve> class generator_data {
                                            const size_t generator_offset = 0,
                                            const std::string_view domain_separator = DEFAULT_DOMAIN_SEPARATOR) const
     {
+        BB_ASSERT(num_generators <= std::numeric_limits<size_t>::max() - generator_offset,
+                  "Generator range exceeds size_t");
+        const size_t required = num_generators + generator_offset;
         const bool is_default_domain = domain_separator == DEFAULT_DOMAIN_SEPARATOR;
 
         // Case 1: we want default generators (is_default_domain), and the requested slice is contained within the
@@ -83,6 +85,7 @@ template <typename Curve> class generator_data {
             return GeneratorView{ precomputed_generators.data() + generator_offset, num_generators };
         }
 
+        std::lock_guard lock(mutex_);
         if (!generator_map.has_value()) {
             generator_map = std::map<std::string, GeneratorList>();
         }
@@ -107,12 +110,17 @@ template <typename Curve> class generator_data {
         GeneratorList& generators = map.at(std::string(domain_separator));
         // Case 4: the requested domain exists in the generator map but does not contain enough points to satisfy the
         // request---extend the generator list.
-        if (num_generators + generator_offset > generators.size()) {
-            const size_t num_extra_generators = num_generators + generator_offset - generators.size();
-            GeneratorList extended_generators =
-                Group::derive_generators(domain_separator, num_extra_generators, generators.size());
-            generators.reserve(num_generators + generator_offset);
-            std::copy(extended_generators.begin(), extended_generators.end(), std::back_inserter(generators));
+        if (required > generators.size()) {
+            const size_t target_size = generators.size() <= std::numeric_limits<size_t>::max() / 2
+                                           ? std::max(required, generators.size() * 2)
+                                           : required;
+            GeneratorList next = generators;
+            auto extra = Group::derive_generators(domain_separator, target_size - next.size(), next.size());
+            next.reserve(target_size);
+            next.insert(next.end(), extra.begin(), extra.end());
+            // Readers retain spans after releasing the lock, so published storage must stay immutable and alive.
+            retired_generators.emplace_back(std::move(generators));
+            generators = std::move(next);
         }
 
         return GeneratorView{ generators.data() + generator_offset, num_generators };
@@ -126,7 +134,7 @@ template <typename Curve> class generator_data {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     static inline constinit generator_data default_data = generator_data();
 
-    // We mark the following two params as `mutable` so that our `get` method can be marked `const`.
+    // We mark the following cache state as `mutable` so that our `get` method can be marked `const`.
     // A non-const getter creates downstream issues as all const methods that use a non-const `get`
     // would need to be marked const.
     // Rationale is that it's ok for `get` to be `const` because all changes are internal to the class and don't change
@@ -136,6 +144,8 @@ template <typename Curve> class generator_data {
     // bool that describes whether we've copied the precomputed generators into `generator_map`. This cannot be done at
     // compile-time because std::map is a dynamically sized object.
     mutable bool initialized_precomputed_generators = false;
+    mutable std::mutex mutex_;
+    mutable std::vector<GeneratorList> retired_generators;
 
     // We wrap the std::map in a `std::optional` so that we can construct `generator_data` at compile time.
     // This allows us to mark `default_data` as `constinit`, which prevents static initialization ordering fiasco

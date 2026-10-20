@@ -336,7 +336,7 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    this.api.chonkStart({ kinds: this.circuitKinds });
+    await this.api.chonkStart({ kinds: this.circuitKinds });
 
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
@@ -351,7 +351,7 @@ export class AztecClientBackend {
         );
       }
 
-      this.api.chonkLoad({
+      await this.api.chonkLoad({
         circuit: {
           name: functionName,
           bytecode: bytecode,
@@ -360,7 +360,7 @@ export class AztecClientBackend {
         kind: this.circuitKinds[i],
       });
 
-      this.api.chonkAccumulate({
+      await this.api.chonkAccumulate({
         witness,
       });
     }

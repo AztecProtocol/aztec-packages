@@ -88,15 +88,15 @@ class table : public FixedBaseParams {
     static affine_element get_generator_offset_for_table_id(MultiTableId table_id);
 
     template <size_t multitable_index>
-    static BasicTable generate_basic_fixed_base_table(BasicTableId id, size_t basic_table_index, size_t table_index);
+    static BasicTable generate_basic_fixed_base_table(BasicTableId id, size_t slice_index);
     template <size_t multitable_index, size_t num_bits> static MultiTable get_fixed_base_table(MultiTableId id);
 
-    template <size_t multitable_index, size_t table_index>
+    template <size_t multitable_index, size_t slice_index>
     static std::array<bb::fr, 2> get_basic_fixed_base_table_values(const std::array<uint64_t, 2> key)
     {
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
-        static_assert(table_index < get_num_bits_of_multi_table<multitable_index>());
-        const auto& basic_table = fixed_base_tables()[multitable_index][table_index];
+        static_assert(slice_index < get_num_bits_of_multi_table<multitable_index>());
+        const auto& basic_table = fixed_base_tables()[multitable_index][slice_index];
         const auto index = static_cast<size_t>(key[0]);
         return { basic_table[index].x, basic_table[index].y };
     }

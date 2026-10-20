@@ -173,9 +173,10 @@ pub fn mul_with_hint<let NScalarSlices: u32, let NTranscriptSlices: u32, BN: Big
 ///
 /// ## Note
 /// Not used anywhere
+#[allow(dead_code)]
 fn msm_with_hint<let Size: u32, let NScalarSlices: u32, let NTranscriptSlices: u32, BN: BigNum, P: BigCurve<BN>>(
-    mut points: [P; Size],
-    mut scalars: [ScalarField<NScalarSlices>; Size],
+    points: [P; Size],
+    scalars: [ScalarField<NScalarSlices>; Size],
     transcript: [AffineTranscript<BN>; NTranscriptSlices],
 ) -> P {
     let mut accumulator: P = msm_with_hint_internal::<Size, NScalarSlices, NTranscriptSlices, BN, P>(

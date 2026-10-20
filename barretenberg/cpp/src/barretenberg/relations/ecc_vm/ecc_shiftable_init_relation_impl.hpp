@@ -17,19 +17,17 @@ void ECCVMShiftableInitRelationImpl<FF>::accumulate(ContainerOverSubrelations& a
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
-    const auto accumulate_init = [&]<size_t subrelation_idx>(const auto& entity) {
+    const auto view = [](const auto& entity) {
         if constexpr (requires { typename Accumulator::CoefficientAccumulator; }) {
-            using View = typename Accumulator::CoefficientAccumulator;
-            const auto scaled_lagrange_first = View(in.lagrange_first) * scaling_factor;
-            std::get<subrelation_idx>(accumulator) += Accumulator(scaled_lagrange_first * View(entity));
+            return typename Accumulator::CoefficientAccumulator(entity);
         } else {
-            using View = typename Accumulator::View;
-            const auto scaled_lagrange_first = View(in.lagrange_first) * scaling_factor;
-            std::get<subrelation_idx>(accumulator) += scaled_lagrange_first * View(entity);
+            return typename Accumulator::View(entity);
         }
     };
-
-    // ---- Load-bearing  ----
+    const auto scaled_lagrange_first = view(in.lagrange_first) * scaling_factor;
+    const auto accumulate_init = [&]<size_t subrelation_idx>(const auto& entity) {
+        std::get<subrelation_idx>(accumulator) += Accumulator(scaled_lagrange_first * view(entity));
+    };
 
     // Grand product initialization. The set relation's GRAND_PRODUCT subrelation evaluates
     //   (z_perm + lagrange_first) * num - (z_perm_shift + lagrange_last) * den
@@ -56,23 +54,16 @@ void ECCVMShiftableInitRelationImpl<FF>::accumulate(ContainerOverSubrelations& a
     // `precompute_s1hi` (with the range constraints) all to 0 at lagrange_first.
     accumulate_init.template operator()<PRECOMPUTE_SELECT_INIT>(in.precompute_select);
 
-    // Without this, a malicious prover can set `transcript_mul = 1` at lagrange_first to
-    // inject an extra second-term denominator factor into the set relation (see
-    // `point_table_init_write` in ecc_set_relation_impl.hpp). The fingerprint is
-    // `(transcript_pc, transcript_Px, transcript_Py, z1|z2)`, all of which the prover
-    // controls at the lagrange_first row. No other relation pins `transcript_mul` there:
-    // `BOOL_Q_MUL` only ranges it to {0,1}, `PC_UPDATE` is gated off by
-    // `is_not_first_row = 0`, and `MSM_COUNT_ZERO_WHEN_NOT_MUL` only constrains
-    // `msm_count` from `transcript_mul = 0`, not the other direction.
+    // Keeps the second-term multiset denominator inactive at lagrange_first.
+    // BOOL_Q_MUL only makes mul boolean; PC_UPDATE is gated off; and
+    // MSM_COUNT_ZERO_WHEN_NOT_MUL constrains msm_count from mul = 0, not conversely.
+    // TRANSCRIPT_OP_INIT also forces mul = 0 through opcode decomposition and boolean
+    // constraints; retain this direct pin to make the multiset boundary explicit.
     accumulate_init.template operator()<TRANSCRIPT_MUL_INIT>(in.transcript_mul);
 
-    // Without this, the malicious `transcript_mul = 1` fingerprint above can use an
-    // attacker-chosen `transcript_pc` at lagrange_first. The PC_UPDATE comment in
-    // ecc_transcript_relation_impl.hpp explicitly says "the value of `pc` in the first
-    // row is 0 because `pc` is shiftable" — but the only constraint relying on that
-    // statement (PC_UPDATE) is gated by `is_not_first_row`, so it does not enforce it.
-    // The corresponding BOUNDARY_MSM_COUNT_AND_PC constraint pins `transcript_pc` at the
-    // *last* row (via `lagrange_last`), not at lagrange_first.
+    // Shiftability only pins row 0, not TRACE_OFFSET. PC_UPDATE is gated off here by
+    // is_not_first_row, and BOUNDARY_MSM_COUNT_AND_PC pins only the last row.
+    // This pin fixes the first-row PC, including its second-term multiset fingerprint.
     accumulate_init.template operator()<TRANSCRIPT_PC_INIT>(in.transcript_pc);
 
     // ---- Defense-in-depth ----
@@ -137,6 +128,15 @@ void ECCVMShiftableInitRelationImpl<FF>::accumulate(ContainerOverSubrelations& a
     // ECCVMTranscriptRelation) once TRANSCRIPT_MUL_INIT fires. Included here to make the
     // invariant independent of that cascade.
     accumulate_init.template operator()<TRANSCRIPT_MSM_COUNT_INIT>(in.transcript_msm_count);
+
+    // Translation subtracts the masking head and divides by x^(TRACE_OFFSET + 1).
+    // The preceding coefficient at TRACE_OFFSET must therefore be zero in each column.
+    // The hiding operation at TRACE_OFFSET + 1 is unaffected by these pins.
+    accumulate_init.template operator()<TRANSCRIPT_OP_INIT>(in.transcript_op);
+    accumulate_init.template operator()<TRANSCRIPT_PX_INIT>(in.transcript_Px);
+    accumulate_init.template operator()<TRANSCRIPT_PY_INIT>(in.transcript_Py);
+    accumulate_init.template operator()<TRANSCRIPT_Z1_INIT>(in.transcript_z1);
+    accumulate_init.template operator()<TRANSCRIPT_Z2_INIT>(in.transcript_z2);
 }
 
 } // namespace bb

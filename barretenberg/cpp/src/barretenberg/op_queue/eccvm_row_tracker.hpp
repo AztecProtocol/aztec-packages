@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <span>
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
@@ -26,6 +28,22 @@ class EccvmRowTracker {
     uint32_t num_msm_rows = 0;
 
   public:
+    /** @brief Rebuild counts from ordinary operations and an optional prepended hiding row. */
+    void recompute(std::span<const ECCVMOperation> ops, bool has_hiding_row)
+    {
+        *this = EccvmRowTracker{};
+        // Non-mul operations terminate pending MSMs, so inserting separators requires replaying the operations.
+        for (const auto& op : ops) {
+            update_cached_msms(op);
+        }
+        if (has_hiding_row) {
+            add_hiding_row();
+        }
+    }
+
+    /** @brief Count the prepended hiding row without finalizing the current MSM. */
+    void add_hiding_row() { ++num_transcript_rows; }
+
     [[nodiscard]] uint32_t get_number_of_muls() const { return cached_num_muls + cached_active_msm_count; }
 
     /**

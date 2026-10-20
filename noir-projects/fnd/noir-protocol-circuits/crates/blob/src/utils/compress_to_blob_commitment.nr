@@ -72,8 +72,9 @@ mod tests {
         assert_eq(flags[0], true);
         // is_infinity = false
         assert_eq(flags[1], false);
-        // is_greater = false: the BLS12-381 offset generator's y is the lower root (y < -y)
-        assert_eq(flags[2], false);
+        // is_greater says which of the two square roots y is (true when y > -y). It is a property
+        // of the sample point, not of the compression: this offset generator's y is the higher root.
+        assert_eq(flags[2], true);
         // Decompress back to the same point:
         let mut bytes = compress_to_blob_commitment(point).compressed;
         // Same as &= 0b0001_1111 - clear first three bits of our flags
@@ -84,9 +85,38 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+        // Pick the square root whose is_greater flag matches the one encoded in the compression.
+        let root = reconstructed_y_squared.__sqrt().unwrap();
+        let reconstructed_y = if (root > -root) == flags[2] {
+            root
+        } else {
+            -root
+        };
 
         assert_eq(reconstructed_y, point.y);
+    }
+
+    // x = 6 + q: in range limb-wise and still on the curve, but not the canonical encoding of the point.
+    // Compression must reject it (`to_be_bytes` range-checks x against q), since L1 compares the bytes.
+    #[test(should_fail)]
+    fn non_canonical_x_is_rejected() {
+        let point = BLSPoint {
+            x: BLS12_381_Fq::from_limbs([
+                0xabfffeb153ffffb9feffffffffaab1,
+                0x4b84f38512bf6730d2a0f6b0f6241e,
+                0xea397fe69a4b1ba7b6434bacd76477,
+                0x1a0111,
+            ]),
+            y: BLS12_381_Fq::from_limbs([
+                0x7991ee2150c45aa818e09c22df3b39,
+                0xa9f859c6f15d3a7ced587ae40ecf69,
+                0x1462f2e82445342f837b384cb8f008,
+                0x5116d,
+            ]),
+            is_infinity: false,
+        };
+        point.validate_on_curve();
+        let _ = compress_to_blob_commitment(point);
     }
 
     #[test]
@@ -120,6 +150,45 @@ mod tests {
         // x is canonical (0) but y is not: the y-coordinate check must still reject it.
         let point =
             BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::from(1), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical y coordinate at infinity")]
+    fn modulus_y_infinity_point_fails() {
+        // y == modulus is zero modulo the field, but its limbs would set the sort flag and
+        // produce a 0xe0 prefix instead of the canonical 0xc0 infinity encoding.
+        let point =
+            BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::modulus(), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical x coordinate at infinity")]
+    fn modulus_x_infinity_point_fails() {
+        // Rejected by the infinity validator before `to_be_bytes` gets to range-check x.
+        let point =
+            BLSPoint { x: BLS12_381_Fq::modulus(), y: BLS12_381_Fq::zero(), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    // y of -2G plus the BLS12-381 field modulus, as 120-bit limbs. It is congruent to the canonical y
+    // but, as an integer, lies in [p, 2^381), so it still fits the limb range checks.
+    global NEG_2G_Y_PLUS_MODULUS: [u128; 4] = [
+        0x12628959142e3b97777e6868ab82e,
+        0x583e6099411cd725ec3fd00214ddf1,
+        0x47c73959917339a8f90ef9cb76a634,
+        0x1d9786,
+    ];
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn non_canonical_y_on_finite_point_fails() {
+        // A finite point whose y is a non-canonical representative passes the on-curve check (it is
+        // modular), but compressing it is unsatisfiable: the sort flag needs `-y`, and the modular
+        // subtraction cannot produce a valid limb vector from a y that is >= p.
+        let canonical = -(BLSPoint::one() + BLSPoint::one());
+        let y = BLS12_381_Fq::from_limbs_unsafe(NEG_2G_Y_PLUS_MODULUS);
+        assert_eq(y, canonical.y);
+        let point = BLSPoint { x: canonical.x, y, is_infinity: false };
+        point.validate_on_curve();
         let _ = compress_to_blob_commitment(point);
     }
 

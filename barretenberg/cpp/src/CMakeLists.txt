@@ -290,10 +290,13 @@ if(WASM)
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
     )
 
-    # Create a gzipped version of barretenberg.wasm
+    # Create a gzipped version of barretenberg.wasm.
+    # -9 rather than the default -6: browser bundlers inline this artifact as a base64 data URL, so
+    # its compressed size becomes a JS chunk 4/3 as large, measured against the playground's
+    # chunk-size limit. -9 buys ~26 KB of that chunk for ~0.6s of build time.
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
-        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
+        COMMAND gzip -9 -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
         COMMENT "Creating gzipped version of barretenberg.wasm"
     )

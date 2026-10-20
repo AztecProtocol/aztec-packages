@@ -75,7 +75,8 @@ class IPATest : public CommitmentTest<Curve> {
         PCS::compute_opening_proof(ck, { poly, { x, eval } }, prover_transcript);
 
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->export_proof());
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(prover_transcript->export_proof());
         // the native reduce_verify does a _complete_ IPA proof and returns whether or not the checks pass.
         bool result = PCS::reduce_verify(vk, { { x, eval }, commitment }, verifier_transcript);
         return { result, prover_transcript, verifier_transcript };
@@ -242,32 +243,9 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 #endif
 } // namespace bb
 
-// Tests of batched MLPCS, where IPA is the final univariate commitment scheme.
+// Proof tampering rejection tests. Batch verification of accumulators is covered in triple_ipa.test.cpp.
 
-// Batch IPA verification tests
-
-TEST_F(IPATest, BatchVerifyTwoValidProofs)
-{
-    auto [claim1, proof1] = generate_random_proof();
-    auto [claim2, proof2] = generate_random_proof();
-
-    std::vector<OpeningClaim<Curve>> claims = { claim1, claim2 };
-    std::vector<std::shared_ptr<NativeTranscript>> transcripts = { std::make_shared<NativeTranscript>(proof1),
-                                                                   std::make_shared<NativeTranscript>(proof2) };
-
-    EXPECT_TRUE(PCS::batch_reduce_verify(vk, claims, transcripts));
-}
-
-TEST_F(IPATest, BatchVerifySingleProof)
-{
-    // Degenerate case: batch verify with N=1 should match reduce_verify
-    auto [claim, proof_data] = generate_random_proof();
-
-    EXPECT_TRUE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(proof_data)));
-    EXPECT_TRUE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(proof_data) }));
-}
-
-TEST_F(IPATest, BatchVerifyRejectsTamperedGZero)
+TEST_F(IPATest, RejectsTamperedGZero)
 {
     auto [claim, proof_data] = generate_random_proof();
     auto tampered_proof = proof_data;
@@ -283,11 +261,12 @@ TEST_F(IPATest, BatchVerifyRejectsTamperedGZero)
               wrong_g_zero_fields.end(),
               tampered_proof.begin() + static_cast<std::ptrdiff_t>(g_zero_offset));
 
-    EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
-    EXPECT_FALSE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(tampered_proof) }));
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(tampered_proof);
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, verifier_transcript));
 }
 
-TEST_F(IPATest, BatchVerifyRejectsTamperedAZero)
+TEST_F(IPATest, RejectsTamperedAZero)
 {
     auto [claim, proof_data] = generate_random_proof();
     auto tampered_proof = proof_data;
@@ -303,43 +282,67 @@ TEST_F(IPATest, BatchVerifyRejectsTamperedAZero)
               wrong_a_zero_fields.end(),
               tampered_proof.begin() + static_cast<std::ptrdiff_t>(a_zero_offset));
 
-    EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
-    EXPECT_FALSE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(tampered_proof) }));
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(tampered_proof);
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, verifier_transcript));
 }
 
-TEST_F(IPATest, BatchVerifyTamperedProof)
+TEST_F(IPATest, RejectsClaimProofMismatch)
 {
+    // Verification must bind the claim to its proof. Two individually valid proofs should pass
+    // against their own claims but fail when swapped, since each proof's round messages (L_j, R_j)
+    // are coupled to its claim's commitment in C_zero.
     auto [claim1, proof1] = generate_random_proof();
     auto [claim2, proof2] = generate_random_proof();
 
-    // Tamper with the second claim's evaluation
-    claim2.opening_pair.evaluation += Fr::one();
-
-    std::vector<OpeningClaim<Curve>> claims = { claim1, claim2 };
-    std::vector<std::shared_ptr<NativeTranscript>> transcripts = { std::make_shared<NativeTranscript>(proof1),
-                                                                   std::make_shared<NativeTranscript>(proof2) };
-
-    EXPECT_FALSE(PCS::batch_reduce_verify(vk, claims, transcripts));
-}
-
-TEST_F(IPATest, BatchVerifyRejectsClaimTranscriptMismatch)
-{
-    // Batch verification must bind each claim to its own transcript. Two individually valid proofs
-    // should pass when correctly paired but fail when the transcripts are swapped, since each
-    // transcript's round messages (L_j, R_j) are coupled to its claim's commitment in C_zero.
-    auto [claim1, proof1] = generate_random_proof();
-    auto [claim2, proof2] = generate_random_proof();
-
-    std::vector<OpeningClaim<Curve>> claims = { claim1, claim2 };
+    auto transcript_for = [](const auto& proof) {
+        auto transcript = std::make_shared<NativeTranscript>();
+        transcript->load_proof(proof);
+        return transcript;
+    };
 
     // Correct pairing: passes
-    EXPECT_TRUE(PCS::batch_reduce_verify(
-        vk, claims, { std::make_shared<NativeTranscript>(proof1), std::make_shared<NativeTranscript>(proof2) }));
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim1, transcript_for(proof1)));
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim2, transcript_for(proof2)));
 
     // Swapped pairing: fails
-    EXPECT_FALSE(PCS::batch_reduce_verify(
-        vk, claims, { std::make_shared<NativeTranscript>(proof2), std::make_shared<NativeTranscript>(proof1) }));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim1, transcript_for(proof2)));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim2, transcript_for(proof1)));
 }
 
 typename IPATest::CK IPATest::ck;
 typename IPATest::VK IPATest::vk;
+
+TEST_F(IPATest, MockTranscriptCanReplayAllElements)
+{
+    MockTranscript transcript;
+    const Commitment point = Commitment::one();
+    transcript.initialize({ uint256_t(3) }, { point }, { uint256_t(5) });
+    for (size_t replay = 0; replay < 2; ++replay) {
+        EXPECT_EQ(transcript.get_challenge<Fr>("challenge"), Fr(3));
+        EXPECT_EQ(transcript.receive_from_prover<Fr>("scalar"), Fr(5));
+        EXPECT_EQ(transcript.receive_from_prover<Commitment>("point"), point);
+        transcript.reset_indices();
+    }
+}
+
+TEST_F(IPATest, ChallengePolynomialRejectsWrongChallengeCount)
+{
+    for (size_t size : { size_t(0), log_n - 1, log_n + 1 }) {
+        const std::vector<Fr> challenges(size, Fr(2));
+        EXPECT_THROW(PCS::evaluate_challenge_poly(challenges, Fr(3)), std::runtime_error);
+        EXPECT_THROW(PCS::construct_poly_from_u_challenges_inv(challenges), std::runtime_error);
+        const std::vector<Fr> valid(log_n, Fr(2));
+        EXPECT_THROW(PCS::create_challenge_poly(challenges, valid, Fr(3)), std::runtime_error);
+        EXPECT_THROW(PCS::create_challenge_poly(valid, challenges, Fr(3)), std::runtime_error);
+    }
+}
+
+TEST_F(IPATest, ChallengePolynomialEvaluationMatchesCoefficients)
+{
+    const std::vector<Fr> challenges(log_n, Fr(2));
+    const auto poly = PCS::construct_poly_from_u_challenges_inv(challenges);
+    EXPECT_EQ(PCS::evaluate_challenge_poly(challenges, Fr(3)), poly.evaluate(Fr(3)));
+    const auto combined = PCS::create_challenge_poly(challenges, challenges, Fr(4));
+    EXPECT_EQ(combined.evaluate(Fr(3)), Fr(5) * poly.evaluate(Fr(3)));
+}

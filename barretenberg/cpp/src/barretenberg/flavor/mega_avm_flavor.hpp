@@ -29,7 +29,7 @@ class MegaAvmFlavor : public MegaAVMFlavor_Generated {
   public:
     using Generated = MegaAVMFlavor_Generated;
 
-    using CircuitBuilder = MegaCircuitBuilder;
+    using CircuitBuilder = MegaAvmCircuitBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;

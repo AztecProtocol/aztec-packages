@@ -6,8 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/generated/ultra_execution_trace_generated.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -36,50 +35,10 @@ template <typename FF> struct non_native_partial_multiplication_witnesses {
     std::array<uint32_t, 4> b;
 };
 
-template <typename ExecutionTrace_>
-class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
-  public:
-    using ExecutionTrace = ExecutionTrace_;
-    using FF = typename ExecutionTrace::FF;
-    using RomRamLogic = RomRamLogic_<ExecutionTrace>;
-
-    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
-
-    static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
-    // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
-    // chuncks according to the parameter below
-    static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
-    static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
-    static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
-    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
-    // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
-    // determine their max values.
-    static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
-    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
-        253; // the Grumpkin scalar field modulus is between 2^253 and 2^254 and has 254 bits. Therefore the largest
-             // non-vacuous dyadic range-constraint we can enforce is 2^253 - 1, i.e., `num_bits == 253`.
-    enum MEMORY_SELECTORS {
-        MEM_NONE,
-        RAM_CONSISTENCY_CHECK,
-        ROM_CONSISTENCY_CHECK,
-        RAM_TIMESTAMP_CHECK,
-        ROM_READ,
-        RAM_READ,
-        RAM_WRITE,
-        ROM_LOGUP_TABLE, // single-value ROM table entry (LogUp scheme)
-        ROM_LOGUP_READ,  // single-value ROM read access (LogUp scheme)
-    };
-
-    enum NNF_SELECTORS {
-        NNF_NONE,
-        LIMB_ACCUMULATE_1,
-        LIMB_ACCUMULATE_2,
-        NON_NATIVE_FIELD_1,
-        NON_NATIVE_FIELD_2,
-        NON_NATIVE_FIELD_3,
-    };
-
+/**
+ * @brief Flavor-independent range and multiplication records shared by circuit builders.
+ */
+struct UltraCircuitBuilderData {
     struct RangeList {
         uint64_t target_range; // range constraint will be for the range [0, target_range], i.e., is inclusive of
                                // `target_range`.
@@ -128,8 +87,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
          * @param vec
          * @param circuit_builder
          */
+        template <typename FF>
         static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec,
-                                UltraCircuitBuilder_<ExecutionTrace>* circuit_builder)
+                                CircuitBuilderBase<FF>* circuit_builder)
         {
             std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
 
@@ -190,6 +150,55 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             }
         };
     };
+};
+
+template <typename ExecutionTrace_>
+class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
+  public:
+    using ExecutionTrace = ExecutionTrace_;
+    using FF = typename ExecutionTrace::FF;
+    using RomRamLogic = RomRamLogic_<ExecutionTrace>;
+
+    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
+
+    static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
+    // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
+    // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
+    // chuncks according to the parameter below
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
+    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
+    // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
+    // determine their max values.
+    static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
+    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
+        253; // the Grumpkin scalar field modulus is between 2^253 and 2^254 and has 254 bits. Therefore the largest
+             // non-vacuous dyadic range-constraint we can enforce is 2^253 - 1, i.e., `num_bits == 253`.
+    enum MEMORY_SELECTORS {
+        MEM_NONE,
+        RAM_CONSISTENCY_CHECK,
+        ROM_CONSISTENCY_CHECK,
+        RAM_TIMESTAMP_CHECK,
+        ROM_READ,
+        RAM_READ,
+        RAM_WRITE,
+        ROM_LOGUP_TABLE, // single-value ROM table entry (LogUp scheme)
+        ROM_LOGUP_READ,  // single-value ROM read access (LogUp scheme)
+    };
+
+    enum NNF_SELECTORS {
+        NNF_NONE,
+        LIMB_ACCUMULATE_1,
+        LIMB_ACCUMULATE_2,
+        NON_NATIVE_FIELD_1,
+        NON_NATIVE_FIELD_2,
+        NON_NATIVE_FIELD_3,
+    };
+
+    using RangeList = UltraCircuitBuilderData::RangeList;
+    using cached_partial_non_native_field_multiplication =
+        UltraCircuitBuilderData::cached_partial_non_native_field_multiplication;
 
   private:
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
@@ -229,7 +238,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     virtual void free_construction_data();
 
-    void process_non_native_field_multiplications();
+    void process_non_native_field_multiplications()
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
 
     UltraCircuitBuilder_(bool is_write_vk_mode = false)
         : CircuitBuilderBase<FF>(is_write_vk_mode)
@@ -293,12 +303,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
-    void create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in);
+    void create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BilinearBatchedEq));
 
     void create_bool_gate(const uint32_t a);
     void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
-    void create_ecc_add_gate(const ecc_add_gate_& in);
-    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
+    void create_ecc_add_gate(const ecc_add_gate_& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Elliptic));
+    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Elliptic));
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
@@ -447,13 +460,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                             const plookup::BasicTable::LookupEntry& entry,
                             FF column_1_step_size = 0,
                             FF column_2_step_size = 0,
-                            FF column_3_step_size = 0);
+                            FF column_3_step_size = 0)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Lookup));
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
         const plookup::ReadData<FF>& read_values,
         const uint32_t key_a_index,
-        std::optional<uint32_t> key_b_index = std::nullopt);
+        std::optional<uint32_t> key_b_index = std::nullopt)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Lookup));
 
     /**
      * @brief Range-constrain a variable to [0, 2^num_bits - 1] by decomposing into smaller limbs.
@@ -480,7 +495,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_unconstrained_gate(
         auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
-        block.append_gate({ .wires = { idx_1, idx_2, idx_3, idx_4 } });
+        block.append_unconstrained_row({ .wires = { idx_1, idx_2, idx_3, idx_4 } });
         this->increment_num_gates();
     }
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
@@ -572,8 +587,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     using GateRowT = GateRow<FF, ExecutionTrace::NUM_WIRES>;
     // Build the selector/gate-kind part of a memory or nnf gate row; the caller fills in the wires
     // and appends the completed row.
-    GateRowT memory_selectors_row(const MEMORY_SELECTORS type) const;
-    GateRowT nnf_selectors_row(const NNF_SELECTORS type) const;
+    GateRowT memory_selectors_row(const MEMORY_SELECTORS type) const
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    GateRowT nnf_selectors_row(const NNF_SELECTORS type) const
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
 
     /**
      * Non Native Field Arithmetic
@@ -582,11 +599,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                    const uint32_t hi_idx,
                                    const size_t lo_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
-                                   std::string_view msg = "range_constrain_two_limbs");
+                                   std::string_view msg = "range_constrain_two_limbs")
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
-        const non_native_multiplication_witnesses<FF>& input);
+        const non_native_multiplication_witnesses<FF>& input)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(
-        const non_native_partial_multiplication_witnesses<FF>& input);
+        const non_native_partial_multiplication_witnesses<FF>& input)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
     using scaled_witness = std::pair<uint32_t, FF>;
     using add_simple = std::tuple<scaled_witness, scaled_witness, FF>;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
@@ -603,20 +623,29 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Memory
      **/
-    size_t create_ROM_array(const size_t array_size);
-    void set_ROM_element(const size_t rom_id, const size_t index_value, const uint32_t value_witness);
+    size_t create_ROM_array(const size_t array_size)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    void set_ROM_element(const size_t rom_id, const size_t index_value, const uint32_t value_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
     void set_ROM_element_pair(const size_t rom_id,
                               const size_t index_value,
-                              const std::array<uint32_t, 2>& value_witnesses);
+                              const std::array<uint32_t, 2>& value_witnesses)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
-    uint32_t read_ROM_array(const size_t rom_id, const uint32_t index_witness);
-    std::array<uint32_t, 2> read_ROM_array_pair(const size_t rom_id, const uint32_t index_witness);
+    uint32_t read_ROM_array(const size_t rom_id, const uint32_t index_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    std::array<uint32_t, 2> read_ROM_array_pair(const size_t rom_id, const uint32_t index_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
-    size_t create_RAM_array(const size_t array_size);
-    void init_RAM_element(const size_t ram_id, const size_t index_value, const uint32_t value_witness);
+    size_t create_RAM_array(const size_t array_size)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    void init_RAM_element(const size_t ram_id, const size_t index_value, const uint32_t value_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
-    uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness);
-    void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
+    uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

@@ -30,9 +30,10 @@ namespace bb {
  *   * every WNAF slice computed during scalar decomposition must be used exactly once during the MSM computation.
  * @warning There is a subtlety in this table, which slightly complicates the abstraction of multiset-equality testing.
  * On the denominator side, when `addX == 0` for all `X ∈ {1, 2, 3, 4}` (automatically forced by `add1 == 0`), we
- * multiply by 1. On the numerator side, to balance this out, this means that when `precompute_select == 0`, we must
- * multiply by an additional `eccvm_set_permutation_delta`, which is the _inverse_ of the fingerprint of the tuple `(0,
- * 0, 0)`. (This corresponds to "removing" the tuple `(0, 0, 0)` from the left multiset when `precompute_select == 0`).
+ * multiply by 1. The numerator's four digit factors are ungated: an inactive row contributes fingerprints of
+ * `(0, 0, 0)`, `(0, 1, 0)`, `(0, 2, 0)` and `(0, 3, 0)`, since its precompute columns are zero.
+ * When `precompute_select == 0`, `eccvm_set_permutation_delta` cancels these factors: it is the inverse of
+ * their product.
  *
  *
  * SECOND TERM: tuple of (pc, P.x, P.y, scalar-multiplier), linking scalar mul requests to their WNAF decompositions.
@@ -98,7 +99,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
      * 4 * `precompute_round`, due to the fact that the Precompute columns contain four "digits"/slices per row.
      *
      * @note
-     * We only add this tuple if `precompute_select == 1`. Otherwise, we add a the tuple (0, 0, 0).
+     * We only add this tuple if `precompute_select == 1`. Otherwise the row contributes the four padding
+     * fingerprints described above, which `eccvm_set_permutation_delta` cancels.
      */
 
     // OPTIMIZE(@zac-williamson #2226) optimize degrees
@@ -253,10 +255,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     }
     /**
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
-     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
      *        (P.x, P.y) is the output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the same values (P.x, P.y) are present in the Transcript columns and describe a
-     *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *
      *        If `msm_transition_shift == 1`, this indicates the current row is the last row of a multiscalar

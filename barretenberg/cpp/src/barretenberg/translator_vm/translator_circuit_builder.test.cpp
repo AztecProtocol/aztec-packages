@@ -358,3 +358,43 @@ TEST(TranslatorCircuitBuilder, Determinism)
 
     EXPECT_EQ(result1 - result2, op_queue_1_randomness - op_queue_2_randomness);
 }
+
+TEST(TranslatorCircuitBuilder, BatchSeparatorsIgnoreZeroPaddingAndRejectOddOpcodes)
+{
+    auto base = std::make_shared<ECCOpQueue>();
+    base->construct_zk_columns();
+    base->add_accumulate(g1::affine_element::one());
+    base->eq_and_reset();
+    const fq batching_challenge = fq::random_element();
+    const fq x = fq::random_element();
+    fq unpadded_result;
+    std::vector<ECCVMOperation> unpadded_ops;
+    for (bool padded : { false, true }) {
+        auto queue = std::make_shared<ECCOpQueue>(*base);
+        if (padded) {
+            queue->no_op_ultra_only();
+        }
+        queue->merge();
+        queue->add_batch_merge_separators();
+        const size_t separator_row =
+            UltraEccOpsTable::ZK_ULTRA_OPS + queue->get_ultra_ops_table_num_rows() - UltraEccOpsTable::NUM_ROWS_PER_OP;
+        queue->random_op_ultra_only();
+        queue->random_op_ultra_only();
+        queue->merge_fixed_append(queue->get_append_offset_for_prover());
+        auto builder = TranslatorCircuitBuilder(batching_challenge, x, queue);
+        ASSERT_TRUE(CircuitChecker::check(builder));
+        const auto result = CircuitChecker::get_computation_result(builder);
+        if (!padded) {
+            unpadded_result = result;
+            unpadded_ops = queue->get_eccvm_ops();
+        } else {
+            EXPECT_EQ(result, unpadded_result);
+            EXPECT_EQ(queue->get_eccvm_ops(), unpadded_ops);
+        }
+        auto& op_wire = builder.wires[TranslatorCircuitBuilder::OP];
+        ASSERT_EQ(builder.get_variable(op_wire[separator_row]), fr(3));
+        op_wire[separator_row] = builder.add_variable(fr(0));
+        op_wire[separator_row + 1] = builder.add_variable(fr(3));
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+}

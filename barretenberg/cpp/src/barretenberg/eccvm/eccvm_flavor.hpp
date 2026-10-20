@@ -660,7 +660,9 @@ class ECCVMFlavor {
          *          msm_add: 1 if we are adding points in Straus MSM algorithm at current row
          *          msm_double: 1 if we are doubling accumulator in Straus MSM algorithm at current row
          *          msm_skew: 1 if we are adding skew points in Straus MSM algorithm at current row
-         *          msm_size_of_msm: size of multiscalar multiplication current row is a part of
+         *          msm_size_of_msm: size of the MSM ending at the current row. Read by `MSM_TRANSITION_PC` and the
+         *              third term of `ECCVMSetRelation` only where the next row starts a new MSM; unconstrained
+         elsewhere
          *          msm_round: describes which round of the Straus MSM algorithm the current row represents
          *          msm_count: number of points processed for the round indicated by `msm_round`
          *          msm_x1: x-coordinate of potential point in Straus MSM round
@@ -904,8 +906,8 @@ class ECCVMFlavor {
                     msm_size_of_msm.set_if_valid_index(idx, msm_rows[i].msm_size);
                     msm_count.set_if_valid_index(idx, msm_rows[i].msm_count);
                     msm_round.set_if_valid_index(idx, msm_rows[i].msm_round);
-                    // IMPORTANT: when msm_round == 31, this witness is exactly 0 because (31 - 31)^-1 does not exist.
-                    // On every other active MSM row it is the precomputed inverse (msm_round - 31)^-1.
+                    // The builder writes (msm_round - 31)^-1, or zero at round 31. The relation constrains this
+                    // witness only where q_double_shift = 1 (DOUBLE_SHIFT_FORBIDS_ROUND_31).
                     msm_round_minus_31_inv.set_if_valid_index(idx,
                                                               MSM_ROUND_MINUS_31_INV_BY_ROUND[msm_rows[i].msm_round]);
                     msm_add1.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[0].add));

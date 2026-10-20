@@ -56,6 +56,64 @@ TEST_F(ChonkRecursionTests, NativeVerification)
     EXPECT_TRUE(verifier.verify(proof));
 }
 
+TEST_F(ChonkRecursionTests, NativeVerifierCanBeReused)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+    ChonkNativeVerifier verifier(vk_and_hash);
+
+    EXPECT_TRUE(verifier.verify(proof));
+    EXPECT_TRUE(verifier.verify(proof));
+}
+
+/**
+ * @brief A proof carrying trailing data the transcript never reads must be rejected.
+ * @details The joint proof is the last segment loaded into the shared transcript, so an appended element is pure
+ * trailing data: no subsequent read shifts and Fiat-Shamir is unaffected. The structural check rejects the
+ * oversized segment before verification.
+ */
+TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingProofData)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+
+    proof.joint_proof.push_back(fr::random_element());
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_FALSE(verifier.verify(proof));
+}
+
+/**
+ * @brief A proof with a shifted segment boundary must be rejected even though the concatenated stream is unchanged.
+ * @details Moving the first element of the ECCVM segment to the end of the merge segment leaves the concatenated
+ * transcript stream identical, so every transcript read yields the same data and Fiat-Shamir is unaffected. Only
+ * per-segment boundary enforcement (each sub-verifier consumes exactly its own segment) distinguishes the two
+ * structurally different proofs.
+ */
+TEST_F(ChonkRecursionTests, NativeVerificationRejectsShiftedSegmentBoundary)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+
+    proof.merge_proof.push_back(proof.eccvm_proof.front());
+    proof.eccvm_proof.erase(proof.eccvm_proof.begin());
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_FALSE(verifier.verify(proof));
+}
+
+/**
+ * @brief Trailing data appended to the TripleIPA proof must be rejected.
+ * @details The structural check covers the IPA segment even though its verification is deferred and uses a
+ * separate transcript.
+ */
+TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingIpaProofData)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+
+    proof.ipa_proof.push_back(fr::random_element());
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_FALSE(verifier.verify(proof));
+}
+
 /**
  * @brief Construct and Check a recursive Chonk verification circuit
  *

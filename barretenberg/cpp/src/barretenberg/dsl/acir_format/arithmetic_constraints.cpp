@@ -200,31 +200,39 @@ void create_batched_eq_check_constraint(Builder& builder, const BatchedEqCheckCo
 
 template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&, QuadConstraint&);
 
-template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, QuadConstraint&);
+#define INSTANTIATE_SET_ZERO_IDX(Builder) template void set_zero_idx<Builder>(const Builder&, QuadConstraint&);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_SET_ZERO_IDX)
+#undef INSTANTIATE_SET_ZERO_IDX
 
 template void check_mul_add_gate<UltraCircuitBuilder>(UltraCircuitBuilder&,
                                                       const QuadConstraint&,
                                                       const typename UltraCircuitBuilder::FF);
 
-template void check_mul_add_gate<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                     const QuadConstraint&,
-                                                     const typename MegaCircuitBuilder::FF);
+#define INSTANTIATE_CHECK_MUL_ADD_GATE(Builder)                                                                        \
+    template void check_mul_add_gate<Builder>(Builder&, const QuadConstraint&, const typename Builder::FF);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_CHECK_MUL_ADD_GATE)
+#undef INSTANTIATE_CHECK_MUL_ADD_GATE
 
 template void create_quad_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder, QuadConstraint& constraint);
 
-template void create_quad_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder, QuadConstraint& constraint);
+#define INSTANTIATE_CREATE_QUAD_CONSTRAINT(Builder)                                                                    \
+    template void create_quad_constraint<Builder>(Builder & builder, QuadConstraint & constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_CREATE_QUAD_CONSTRAINT)
+#undef INSTANTIATE_CREATE_QUAD_CONSTRAINT
 
 template void create_big_quad_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                               BigQuadConstraint& big_constraint);
 
-template void create_big_quad_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                             BigQuadConstraint& big_constraint);
+#define INSTANTIATE_CREATE_BIG_QUAD_CONSTRAINT(Builder)                                                                \
+    template void create_big_quad_constraint<Builder>(Builder & builder, BigQuadConstraint & big_constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_CREATE_BIG_QUAD_CONSTRAINT)
+#undef INSTANTIATE_CREATE_BIG_QUAD_CONSTRAINT
 
-template void create_bilinear_constraint<UltraCircuitBuilder>(UltraCircuitBuilder&, const BilinearConstraint&);
-template void create_bilinear_constraint<MegaCircuitBuilder>(MegaCircuitBuilder&, const BilinearConstraint&);
-template void create_batched_eq_check_constraint<UltraCircuitBuilder>(UltraCircuitBuilder&,
-                                                                      const BatchedEqCheckConstraint&);
-template void create_batched_eq_check_constraint<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                                     const BatchedEqCheckConstraint&);
+// Only the arithmetizations whose arithmetic block owns the bilinear/batched-eq gate.
+#define INSTANTIATE_BILINEAR_AND_BATCHED_EQ(Builder)                                                                   \
+    template void create_bilinear_constraint<Builder>(Builder&, const BilinearConstraint&);                            \
+    template void create_batched_eq_check_constraint<Builder>(Builder&, const BatchedEqCheckConstraint&);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_BILINEAR_BATCHED_EQ(INSTANTIATE_BILINEAR_AND_BATCHED_EQ)
+#undef INSTANTIATE_BILINEAR_AND_BATCHED_EQ
 
 } // namespace acir_format

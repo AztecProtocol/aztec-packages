@@ -714,8 +714,6 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
     AztecAddress address = 0xdeadbeef;
     auto slot = MemoryValue::from<FF>(42);
     auto value = MemoryValue::from<FF>(7);
-    TreeStates tree_state = {};
-    tree_state.public_data_tree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
     EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));

@@ -513,8 +513,8 @@ where
     /// Wraps `msm_partial`: runs the interleaved wNAF MSM, subtracts `offset_generator_final`,
     /// and converts the Jacobian transcript to affine via batch inversion.
     pub(crate) unconstrained fn msm<let Size: u32, let NScalarSlices: u32>(
-        mut points: [Self; Size],
-        mut scalars: [ScalarField<NScalarSlices>; Size],
+        points: [Self; Size],
+        scalars: [ScalarField<NScalarSlices>; Size],
     ) -> (Self, [AffineTranscript<BN>; NScalarSlices * Size + NScalarSlices * 4 + Size * 9 - 3]) {
         let mut (accumulator, transcript)
             : (Self, [JTranscript<BN>; NScalarSlices * Size + NScalarSlices * 4 + Size * 9 - 3]) =
@@ -534,9 +534,9 @@ where
     /// then conditionally adds each `add_points[j]` (skipping infinity points),
     /// and finally subtracts `offset_generator_final`.
     pub(crate) unconstrained fn compute_linear_expression_transcript<let NScalarSlices: u32, let NMuls: u32, let NAdds: u32>(
-        mut mul_points: [Curve; NMuls],
-        mut scalars: [ScalarField<NScalarSlices>; NMuls],
-        mut add_points: [Curve; NAdds],
+        mul_points: [Curve; NMuls],
+        scalars: [ScalarField<NScalarSlices>; NMuls],
+        add_points: [Curve; NAdds],
     ) -> (Self, [AffineTranscript<BN>; NScalarSlices * NMuls + NScalarSlices * 4 + NMuls * 9 + NAdds - 3]) {
         let mut mul_j: [CurveJ<BN, Curve>; NMuls] = [CurveJ::new(); NMuls];
         let mut add_j: [CurveJ<BN, Curve>; NAdds] = [CurveJ::new(); NAdds];

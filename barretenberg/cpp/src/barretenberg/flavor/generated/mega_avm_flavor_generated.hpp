@@ -16,15 +16,16 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_avm_execution_trace_generated.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_quad_internal_relation.hpp"
 #include "barretenberg/relations/poseidon2_quad_internal_terminal_relation.hpp"
 #include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
+#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 
 namespace bb {
 
@@ -76,49 +77,45 @@ class MegaAVMFlavor_Generated {
     // Sumcheck relation tuple. Source of truth is
     // flavor-codegen/src/flavors/mega_avm.ts; structural relations are omitted.
     template <typename FF>
-    using Relations_ = std::tuple<
-        bb::ArithmeticRelation<FF>,
-        bb::UltraPermutationRelation<FF>,
-        bb::DeltaRangeConstraintRelation<FF>,
-        bb::EccOpQueueRelation<FF>,
-        bb::Poseidon2ExternalRelation<FF>,
-        bb::Poseidon2InitialExternalRelation<FF>,
-        bb::Poseidon2QuadInternalRelation<FF>,
-        bb::Poseidon2QuadInternalTerminalRelation<FF>,
-        bb::Poseidon2TransitionEntryRelation<FF>>;
+    using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
+                                  bb::UltraPermutationRelation<FF>,
+                                  bb::DeltaRangeConstraintRelation<FF>,
+                                  bb::EccOpQueueRelation<FF>,
+                                  bb::Poseidon2ExternalRelation<FF>,
+                                  bb::Poseidon2InitialExternalRelation<FF>,
+                                  bb::Poseidon2QuadInternalRelation<FF>,
+                                  bb::Poseidon2QuadInternalTerminalRelation<FF>,
+                                  bb::Poseidon2TransitionEntryRelation<FF>>;
+
+    // Execution trace this flavor's circuits are built on; part of the builder's type.
+    using ExecutionTraceBlocks = MegaAvmExecutionTraceBlocks;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
-    static constexpr size_t NUM_WITNESS_ENTITIES     = 9;
-    static constexpr size_t NUM_MASKING_ENTITIES     = 0;
-    static constexpr size_t NUM_SHIFTED_ENTITIES     = 5;
-    static constexpr bool HasDataBus                 = false;
-    static constexpr size_t NUM_BUS_COLUMNS          = 0;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 9;
+    static constexpr size_t NUM_MASKING_ENTITIES = 0;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
+    static constexpr bool HasDataBus = false;
+    static constexpr size_t NUM_BUS_COLUMNS = 0;
     static constexpr bool HasLogDerivLookup = false;
     static constexpr bool HasElliptic = false;
     static constexpr bool HasMemory = false;
     static constexpr bool HasNonNativeField = false;
     static constexpr bool HasEccOpQueue = true;
-    static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES =
-        NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES   =
-        NUM_PRECOMPUTED_ENTITIES + NUM_COMMITTED_WITNESS_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES         = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+    static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_COMMITTED_WITNESS_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // Per-shifted-entity (original, duplicate) index pairs in AllEntities, one per shifted
     // entity. Collapsed into `RepeatedCommitmentsData` below for Shplemini compatibility.
     static constexpr std::array<DuplicatePair, NUM_SHIFTED_ENTITIES> REPEATED_COMMITMENT_PAIRS = {
-        DuplicatePair{ 25, 34 },
-        DuplicatePair{ 26, 35 },
-        DuplicatePair{ 27, 36 },
-        DuplicatePair{ 28, 37 },
-        DuplicatePair{ 29, 38 },
+        DuplicatePair{ 25, 34 }, DuplicatePair{ 26, 35 }, DuplicatePair{ 27, 36 },
+        DuplicatePair{ 28, 37 }, DuplicatePair{ 29, 38 },
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         repeated_commitments_from_pairs(REPEATED_COMMITMENT_PAIRS);
 
     // Gate-selector blocks, parallel to `get_gate_selectors()`.
-    template <typename TraceBlocks>
-    static auto get_gate_blocks(TraceBlocks& blocks)
+    template <typename TraceBlocks> static auto get_gate_blocks(TraceBlocks& blocks)
     {
         using BlockBase = typename TraceBlocks::BlockBase;
         return RefArray<BlockBase, 7>(std::array<BlockBase*, 7>{
@@ -132,8 +129,7 @@ class MegaAVMFlavor_Generated {
         });
     }
 
-    template <typename TraceBlocks>
-    static auto get_gate_blocks(TraceBlocks const& blocks)
+    template <typename TraceBlocks> static auto get_gate_blocks(TraceBlocks const& blocks)
     {
         using BlockBase = typename TraceBlocks::BlockBase;
         return RefArray<const BlockBase, 7>(std::array<const BlockBase*, 7>{
@@ -158,19 +154,17 @@ class MegaAVMFlavor_Generated {
         GateKind::Poseidon2TransitionEntry,
     };
 
+    static_assert(gate_kinds_mask(GATE_KINDS) == ExecutionTraceBlocks::GATE_KINDS_MASK,
+                  "flavor's gate relations and its execution trace's gate kinds disagree");
+    static_assert(ExecutionTraceBlocks::BUS_INDICES_MASK == 0,
+                  "flavor's databus relations and its execution trace's bus columns disagree");
+
     // Non-gate selectors in `get_non_gate_selectors()` order, as references into a single block.
-    template <typename TraceBlock>
-    static auto get_block_non_gate_selectors(TraceBlock& block)
+    template <typename TraceBlock> static auto get_block_non_gate_selectors(TraceBlock& block)
     {
         using SelT = std::remove_reference_t<decltype(block.q_m())>;
         return RefArray<SelT, 7>{
-            block.q_m(),
-            block.q_1(),
-            block.q_2(),
-            block.q_3(),
-            block.q_4(),
-            block.q_c(),
-            block.q_5(),
+            block.q_m(), block.q_1(), block.q_2(), block.q_3(), block.q_4(), block.q_c(), block.q_5(),
         };
     }
 
@@ -226,17 +220,41 @@ class MegaAVMFlavor_Generated {
         DataType& lagrange_ecc_op() { return data[static_cast<size_t>(EntityId::lagrange_ecc_op)]; }
         const DataType& lagrange_ecc_op() const { return data[static_cast<size_t>(EntityId::lagrange_ecc_op)]; }
         DataType& q_poseidon2_external() { return data[static_cast<size_t>(EntityId::q_poseidon2_external)]; }
-        const DataType& q_poseidon2_external() const { return data[static_cast<size_t>(EntityId::q_poseidon2_external)]; }
-        DataType& q_poseidon2_external_initial() { return data[static_cast<size_t>(EntityId::q_poseidon2_external_initial)]; }
-        const DataType& q_poseidon2_external_initial() const { return data[static_cast<size_t>(EntityId::q_poseidon2_external_initial)]; }
+        const DataType& q_poseidon2_external() const
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_external)];
+        }
+        DataType& q_poseidon2_external_initial()
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_external_initial)];
+        }
+        const DataType& q_poseidon2_external_initial() const
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_external_initial)];
+        }
         DataType& q_poseidon2_quad_internal() { return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal)]; }
-        const DataType& q_poseidon2_quad_internal() const { return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal)]; }
+        const DataType& q_poseidon2_quad_internal() const
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal)];
+        }
         DataType& q_5() { return data[static_cast<size_t>(EntityId::q_5)]; }
         const DataType& q_5() const { return data[static_cast<size_t>(EntityId::q_5)]; }
-        DataType& q_poseidon2_quad_internal_terminal() { return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal_terminal)]; }
-        const DataType& q_poseidon2_quad_internal_terminal() const { return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal_terminal)]; }
-        DataType& q_poseidon2_transition_entry() { return data[static_cast<size_t>(EntityId::q_poseidon2_transition_entry)]; }
-        const DataType& q_poseidon2_transition_entry() const { return data[static_cast<size_t>(EntityId::q_poseidon2_transition_entry)]; }
+        DataType& q_poseidon2_quad_internal_terminal()
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal_terminal)];
+        }
+        const DataType& q_poseidon2_quad_internal_terminal() const
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal_terminal)];
+        }
+        DataType& q_poseidon2_transition_entry()
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_transition_entry)];
+        }
+        const DataType& q_poseidon2_transition_entry() const
+        {
+            return data[static_cast<size_t>(EntityId::q_poseidon2_transition_entry)];
+        }
         DataType& w_l() { return data[static_cast<size_t>(EntityId::w_l)]; }
         const DataType& w_l() const { return data[static_cast<size_t>(EntityId::w_l)]; }
         DataType& w_r() { return data[static_cast<size_t>(EntityId::w_r)]; }
@@ -267,30 +285,134 @@ class MegaAVMFlavor_Generated {
         const DataType& z_perm_shift() const { return data[static_cast<size_t>(EntityId::z_perm_shift)]; }
 
         // Kind/shift partitions: contiguous slices of `data`.
-        std::span<DataType, NUM_UNSHIFTED_ENTITIES> get_unshifted() { return std::span<DataType, NUM_UNSHIFTED_ENTITIES>{ data.data() + (0), NUM_UNSHIFTED_ENTITIES }; }
-        std::span<const DataType, NUM_UNSHIFTED_ENTITIES> get_unshifted() const { return std::span<const DataType, NUM_UNSHIFTED_ENTITIES>{ data.data() + (0), NUM_UNSHIFTED_ENTITIES }; }
-        std::span<DataType, NUM_PRECOMPUTED_ENTITIES> get_precomputed() { return std::span<DataType, NUM_PRECOMPUTED_ENTITIES>{ data.data() + (NUM_MASKING_ENTITIES), NUM_PRECOMPUTED_ENTITIES }; }
-        std::span<const DataType, NUM_PRECOMPUTED_ENTITIES> get_precomputed() const { return std::span<const DataType, NUM_PRECOMPUTED_ENTITIES>{ data.data() + (NUM_MASKING_ENTITIES), NUM_PRECOMPUTED_ENTITIES }; }
-        std::span<DataType, NUM_WITNESS_ENTITIES> get_witness() { return std::span<DataType, NUM_WITNESS_ENTITIES>{ data.data() + (NUM_MASKING_ENTITIES + NUM_PRECOMPUTED_ENTITIES), NUM_WITNESS_ENTITIES }; }
-        std::span<const DataType, NUM_WITNESS_ENTITIES> get_witness() const { return std::span<const DataType, NUM_WITNESS_ENTITIES>{ data.data() + (NUM_MASKING_ENTITIES + NUM_PRECOMPUTED_ENTITIES), NUM_WITNESS_ENTITIES }; }
-        std::span<DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() { return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (25), NUM_SHIFTED_ENTITIES }; }
-        std::span<const DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() const { return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (25), NUM_SHIFTED_ENTITIES }; }
-        std::span<DataType, NUM_SHIFTED_ENTITIES> get_shifted() { return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (NUM_UNSHIFTED_ENTITIES), NUM_SHIFTED_ENTITIES }; }
-        std::span<const DataType, NUM_SHIFTED_ENTITIES> get_shifted() const { return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (NUM_UNSHIFTED_ENTITIES), NUM_SHIFTED_ENTITIES }; }
+        std::span<DataType, NUM_UNSHIFTED_ENTITIES> get_unshifted()
+        {
+            return std::span<DataType, NUM_UNSHIFTED_ENTITIES>{ data.data() + (0), NUM_UNSHIFTED_ENTITIES };
+        }
+        std::span<const DataType, NUM_UNSHIFTED_ENTITIES> get_unshifted() const
+        {
+            return std::span<const DataType, NUM_UNSHIFTED_ENTITIES>{ data.data() + (0), NUM_UNSHIFTED_ENTITIES };
+        }
+        std::span<DataType, NUM_PRECOMPUTED_ENTITIES> get_precomputed()
+        {
+            return std::span<DataType, NUM_PRECOMPUTED_ENTITIES>{ data.data() + (NUM_MASKING_ENTITIES),
+                                                                  NUM_PRECOMPUTED_ENTITIES };
+        }
+        std::span<const DataType, NUM_PRECOMPUTED_ENTITIES> get_precomputed() const
+        {
+            return std::span<const DataType, NUM_PRECOMPUTED_ENTITIES>{ data.data() + (NUM_MASKING_ENTITIES),
+                                                                        NUM_PRECOMPUTED_ENTITIES };
+        }
+        std::span<DataType, NUM_WITNESS_ENTITIES> get_witness()
+        {
+            return std::span<DataType, NUM_WITNESS_ENTITIES>{
+                data.data() + (NUM_MASKING_ENTITIES + NUM_PRECOMPUTED_ENTITIES), NUM_WITNESS_ENTITIES
+            };
+        }
+        std::span<const DataType, NUM_WITNESS_ENTITIES> get_witness() const
+        {
+            return std::span<const DataType, NUM_WITNESS_ENTITIES>{
+                data.data() + (NUM_MASKING_ENTITIES + NUM_PRECOMPUTED_ENTITIES), NUM_WITNESS_ENTITIES
+            };
+        }
+        std::span<DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted()
+        {
+            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (25), NUM_SHIFTED_ENTITIES };
+        }
+        std::span<const DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() const
+        {
+            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (25), NUM_SHIFTED_ENTITIES };
+        }
+        std::span<DataType, NUM_SHIFTED_ENTITIES> get_shifted()
+        {
+            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (NUM_UNSHIFTED_ENTITIES),
+                                                              NUM_SHIFTED_ENTITIES };
+        }
+        std::span<const DataType, NUM_SHIFTED_ENTITIES> get_shifted() const
+        {
+            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (NUM_UNSHIFTED_ENTITIES),
+                                                                    NUM_SHIFTED_ENTITIES };
+        }
 
         // Subset views (relation-declared groupings in layout order).
-        RefArray<DataType, 4> get_wires() { return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] }; }
-        RefArray<const DataType, 4> get_wires() const { return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] }; }
-        RefArray<DataType, 7> get_non_gate_selectors() { return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o], (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] }; }
-        RefArray<const DataType, 7> get_non_gate_selectors() const { return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o], (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] }; }
-        RefArray<DataType, 7> get_gate_selectors() { return { (*this)[EntityId::q_arith], (*this)[EntityId::q_delta_range], (*this)[EntityId::q_poseidon2_external], (*this)[EntityId::q_poseidon2_external_initial], (*this)[EntityId::q_poseidon2_quad_internal], (*this)[EntityId::q_poseidon2_quad_internal_terminal], (*this)[EntityId::q_poseidon2_transition_entry] }; }
-        RefArray<const DataType, 7> get_gate_selectors() const { return { (*this)[EntityId::q_arith], (*this)[EntityId::q_delta_range], (*this)[EntityId::q_poseidon2_external], (*this)[EntityId::q_poseidon2_external_initial], (*this)[EntityId::q_poseidon2_quad_internal], (*this)[EntityId::q_poseidon2_quad_internal_terminal], (*this)[EntityId::q_poseidon2_transition_entry] }; }
-        RefArray<DataType, 4> get_sigmas() { return { (*this)[EntityId::sigma_1], (*this)[EntityId::sigma_2], (*this)[EntityId::sigma_3], (*this)[EntityId::sigma_4] }; }
-        RefArray<const DataType, 4> get_sigmas() const { return { (*this)[EntityId::sigma_1], (*this)[EntityId::sigma_2], (*this)[EntityId::sigma_3], (*this)[EntityId::sigma_4] }; }
-        RefArray<DataType, 4> get_ids() { return { (*this)[EntityId::id_1], (*this)[EntityId::id_2], (*this)[EntityId::id_3], (*this)[EntityId::id_4] }; }
-        RefArray<const DataType, 4> get_ids() const { return { (*this)[EntityId::id_1], (*this)[EntityId::id_2], (*this)[EntityId::id_3], (*this)[EntityId::id_4] }; }
-        RefArray<DataType, 4> get_ecc_op_wires() { return { (*this)[EntityId::ecc_op_wire_1], (*this)[EntityId::ecc_op_wire_2], (*this)[EntityId::ecc_op_wire_3], (*this)[EntityId::ecc_op_wire_4] }; }
-        RefArray<const DataType, 4> get_ecc_op_wires() const { return { (*this)[EntityId::ecc_op_wire_1], (*this)[EntityId::ecc_op_wire_2], (*this)[EntityId::ecc_op_wire_3], (*this)[EntityId::ecc_op_wire_4] }; }
+        RefArray<DataType, 4> get_wires()
+        {
+            return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] };
+        }
+        RefArray<const DataType, 4> get_wires() const
+        {
+            return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] };
+        }
+        RefArray<DataType, 7> get_non_gate_selectors()
+        {
+            return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
+                     (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
+        }
+        RefArray<const DataType, 7> get_non_gate_selectors() const
+        {
+            return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
+                     (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
+        }
+        RefArray<DataType, 7> get_gate_selectors()
+        {
+            return { (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_delta_range],
+                     (*this)[EntityId::q_poseidon2_external],
+                     (*this)[EntityId::q_poseidon2_external_initial],
+                     (*this)[EntityId::q_poseidon2_quad_internal],
+                     (*this)[EntityId::q_poseidon2_quad_internal_terminal],
+                     (*this)[EntityId::q_poseidon2_transition_entry] };
+        }
+        RefArray<const DataType, 7> get_gate_selectors() const
+        {
+            return { (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_delta_range],
+                     (*this)[EntityId::q_poseidon2_external],
+                     (*this)[EntityId::q_poseidon2_external_initial],
+                     (*this)[EntityId::q_poseidon2_quad_internal],
+                     (*this)[EntityId::q_poseidon2_quad_internal_terminal],
+                     (*this)[EntityId::q_poseidon2_transition_entry] };
+        }
+        RefArray<DataType, 4> get_sigmas()
+        {
+            return { (*this)[EntityId::sigma_1],
+                     (*this)[EntityId::sigma_2],
+                     (*this)[EntityId::sigma_3],
+                     (*this)[EntityId::sigma_4] };
+        }
+        RefArray<const DataType, 4> get_sigmas() const
+        {
+            return { (*this)[EntityId::sigma_1],
+                     (*this)[EntityId::sigma_2],
+                     (*this)[EntityId::sigma_3],
+                     (*this)[EntityId::sigma_4] };
+        }
+        RefArray<DataType, 4> get_ids()
+        {
+            return {
+                (*this)[EntityId::id_1], (*this)[EntityId::id_2], (*this)[EntityId::id_3], (*this)[EntityId::id_4]
+            };
+        }
+        RefArray<const DataType, 4> get_ids() const
+        {
+            return {
+                (*this)[EntityId::id_1], (*this)[EntityId::id_2], (*this)[EntityId::id_3], (*this)[EntityId::id_4]
+            };
+        }
+        RefArray<DataType, 4> get_ecc_op_wires()
+        {
+            return { (*this)[EntityId::ecc_op_wire_1],
+                     (*this)[EntityId::ecc_op_wire_2],
+                     (*this)[EntityId::ecc_op_wire_3],
+                     (*this)[EntityId::ecc_op_wire_4] };
+        }
+        RefArray<const DataType, 4> get_ecc_op_wires() const
+        {
+            return { (*this)[EntityId::ecc_op_wire_1],
+                     (*this)[EntityId::ecc_op_wire_2],
+                     (*this)[EntityId::ecc_op_wire_3],
+                     (*this)[EntityId::ecc_op_wire_4] };
+        }
 
         // Composite views: concatenations of subset views.
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -300,16 +422,45 @@ class MegaAVMFlavor_Generated {
         static const std::vector<std::string>& get_labels()
         {
             static const std::vector<std::string> labels = {
-                "Q_M", "Q_L", "Q_R", "Q_O",
-                "Q_4", "Q_C", "Q_ARITH", "SIGMA_1",
-                "SIGMA_2", "SIGMA_3", "SIGMA_4", "ID_1",
-                "ID_2", "ID_3", "ID_4", "LAGRANGE_FIRST",
-                "LAGRANGE_LAST", "Q_DELTA_RANGE", "LAGRANGE_ECC_OP", "Q_POSEIDON2_EXTERNAL",
-                "Q_POSEIDON2_EXTERNAL_INITIAL", "Q_POSEIDON2_QUAD_INTERNAL", "Q_5", "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL",
-                "Q_POSEIDON2_TRANSITION_ENTRY", "W_L", "W_R", "W_O",
-                "W_4", "Z_PERM", "ECC_OP_WIRE_1", "ECC_OP_WIRE_2",
-                "ECC_OP_WIRE_3", "ECC_OP_WIRE_4", "W_L_SHIFT", "W_R_SHIFT",
-                "W_O_SHIFT", "W_4_SHIFT", "Z_PERM_SHIFT",
+                "Q_M",
+                "Q_L",
+                "Q_R",
+                "Q_O",
+                "Q_4",
+                "Q_C",
+                "Q_ARITH",
+                "SIGMA_1",
+                "SIGMA_2",
+                "SIGMA_3",
+                "SIGMA_4",
+                "ID_1",
+                "ID_2",
+                "ID_3",
+                "ID_4",
+                "LAGRANGE_FIRST",
+                "LAGRANGE_LAST",
+                "Q_DELTA_RANGE",
+                "LAGRANGE_ECC_OP",
+                "Q_POSEIDON2_EXTERNAL",
+                "Q_POSEIDON2_EXTERNAL_INITIAL",
+                "Q_POSEIDON2_QUAD_INTERNAL",
+                "Q_5",
+                "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL",
+                "Q_POSEIDON2_TRANSITION_ENTRY",
+                "W_L",
+                "W_R",
+                "W_O",
+                "W_4",
+                "Z_PERM",
+                "ECC_OP_WIRE_1",
+                "ECC_OP_WIRE_2",
+                "ECC_OP_WIRE_3",
+                "ECC_OP_WIRE_4",
+                "W_L_SHIFT",
+                "W_R_SHIFT",
+                "W_O_SHIFT",
+                "W_4_SHIFT",
+                "Z_PERM_SHIFT",
             };
             return labels;
         }
@@ -381,14 +532,47 @@ class MegaAVMFlavor_Generated {
         const DataType& q_poseidon2_transition_entry() const { return data[24]; }
 
         // Subset views.
-        RefArray<DataType, 7> get_non_gate_selectors() { return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() }; }
-        RefArray<const DataType, 7> get_non_gate_selectors() const { return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() }; }
-        RefArray<DataType, 7> get_gate_selectors() { return { this->q_arith(), this->q_delta_range(), this->q_poseidon2_external(), this->q_poseidon2_external_initial(), this->q_poseidon2_quad_internal(), this->q_poseidon2_quad_internal_terminal(), this->q_poseidon2_transition_entry() }; }
-        RefArray<const DataType, 7> get_gate_selectors() const { return { this->q_arith(), this->q_delta_range(), this->q_poseidon2_external(), this->q_poseidon2_external_initial(), this->q_poseidon2_quad_internal(), this->q_poseidon2_quad_internal_terminal(), this->q_poseidon2_transition_entry() }; }
-        RefArray<DataType, 4> get_sigmas() { return { this->sigma_1(), this->sigma_2(), this->sigma_3(), this->sigma_4() }; }
-        RefArray<const DataType, 4> get_sigmas() const { return { this->sigma_1(), this->sigma_2(), this->sigma_3(), this->sigma_4() }; }
+        RefArray<DataType, 7> get_non_gate_selectors()
+        {
+            return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
+        }
+        RefArray<const DataType, 7> get_non_gate_selectors() const
+        {
+            return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
+        }
+        RefArray<DataType, 7> get_gate_selectors()
+        {
+            return { this->q_arith(),
+                     this->q_delta_range(),
+                     this->q_poseidon2_external(),
+                     this->q_poseidon2_external_initial(),
+                     this->q_poseidon2_quad_internal(),
+                     this->q_poseidon2_quad_internal_terminal(),
+                     this->q_poseidon2_transition_entry() };
+        }
+        RefArray<const DataType, 7> get_gate_selectors() const
+        {
+            return { this->q_arith(),
+                     this->q_delta_range(),
+                     this->q_poseidon2_external(),
+                     this->q_poseidon2_external_initial(),
+                     this->q_poseidon2_quad_internal(),
+                     this->q_poseidon2_quad_internal_terminal(),
+                     this->q_poseidon2_transition_entry() };
+        }
+        RefArray<DataType, 4> get_sigmas()
+        {
+            return { this->sigma_1(), this->sigma_2(), this->sigma_3(), this->sigma_4() };
+        }
+        RefArray<const DataType, 4> get_sigmas() const
+        {
+            return { this->sigma_1(), this->sigma_2(), this->sigma_3(), this->sigma_4() };
+        }
         RefArray<DataType, 4> get_ids() { return { this->id_1(), this->id_2(), this->id_3(), this->id_4() }; }
-        RefArray<const DataType, 4> get_ids() const { return { this->id_1(), this->id_2(), this->id_3(), this->id_4() }; }
+        RefArray<const DataType, 4> get_ids() const
+        {
+            return { this->id_1(), this->id_2(), this->id_3(), this->id_4() };
+        }
 
         // Composite views.
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -397,12 +581,30 @@ class MegaAVMFlavor_Generated {
         static const std::vector<std::string>& get_labels()
         {
             static const std::vector<std::string> labels = {
-                "Q_M", "Q_L", "Q_R", "Q_O",
-                "Q_4", "Q_C", "Q_ARITH", "SIGMA_1",
-                "SIGMA_2", "SIGMA_3", "SIGMA_4", "ID_1",
-                "ID_2", "ID_3", "ID_4", "LAGRANGE_FIRST",
-                "LAGRANGE_LAST", "Q_DELTA_RANGE", "LAGRANGE_ECC_OP", "Q_POSEIDON2_EXTERNAL",
-                "Q_POSEIDON2_EXTERNAL_INITIAL", "Q_POSEIDON2_QUAD_INTERNAL", "Q_5", "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL",
+                "Q_M",
+                "Q_L",
+                "Q_R",
+                "Q_O",
+                "Q_4",
+                "Q_C",
+                "Q_ARITH",
+                "SIGMA_1",
+                "SIGMA_2",
+                "SIGMA_3",
+                "SIGMA_4",
+                "ID_1",
+                "ID_2",
+                "ID_3",
+                "ID_4",
+                "LAGRANGE_FIRST",
+                "LAGRANGE_LAST",
+                "Q_DELTA_RANGE",
+                "LAGRANGE_ECC_OP",
+                "Q_POSEIDON2_EXTERNAL",
+                "Q_POSEIDON2_EXTERNAL_INITIAL",
+                "Q_POSEIDON2_QUAD_INTERNAL",
+                "Q_5",
+                "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL",
                 "Q_POSEIDON2_TRANSITION_ENTRY",
             };
             return labels;
@@ -445,18 +647,29 @@ class MegaAVMFlavor_Generated {
         // Subset views.
         RefArray<DataType, 4> get_wires() { return { this->w_l(), this->w_r(), this->w_o(), this->w_4() }; }
         RefArray<const DataType, 4> get_wires() const { return { this->w_l(), this->w_r(), this->w_o(), this->w_4() }; }
-        RefArray<DataType, 4> get_ecc_op_wires() { return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() }; }
-        RefArray<const DataType, 4> get_ecc_op_wires() const { return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() }; }
+        RefArray<DataType, 4> get_ecc_op_wires()
+        {
+            return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() };
+        }
+        RefArray<const DataType, 4> get_ecc_op_wires() const
+        {
+            return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() };
+        }
 
-        RefArray<DataType, 5> get_to_be_shifted() { return { this->w_l(), this->w_r(), this->w_o(), this->w_4(), this->z_perm() }; }
-        RefArray<const DataType, 5> get_to_be_shifted() const { return { this->w_l(), this->w_r(), this->w_o(), this->w_4(), this->z_perm() }; }
+        RefArray<DataType, 5> get_to_be_shifted()
+        {
+            return { this->w_l(), this->w_r(), this->w_o(), this->w_4(), this->z_perm() };
+        }
+        RefArray<const DataType, 5> get_to_be_shifted() const
+        {
+            return { this->w_l(), this->w_r(), this->w_o(), this->w_4(), this->z_perm() };
+        }
 
         static const std::vector<std::string>& get_labels()
         {
             static const std::vector<std::string> labels = {
-                "W_L", "W_R", "W_O", "W_4",
-                "Z_PERM", "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3",
-                "ECC_OP_WIRE_4",
+                "W_L",           "W_R",           "W_O",           "W_4",           "Z_PERM",
+                "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4",
             };
             return labels;
         }

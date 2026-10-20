@@ -19,6 +19,12 @@ namespace bb {
 namespace {
 constexpr size_t MIN_GROUP_PER_THREAD = 4;
 
+size_t validate_domain_size(size_t size)
+{
+    BB_ASSERT(size != 0 && (size & (size - 1)) == 0, "Evaluation domain size must be a nonzero power of two");
+    return size;
+}
+
 size_t compute_num_threads(const size_t size)
 {
     size_t num_threads = get_num_cpus_pow2();
@@ -60,7 +66,7 @@ void compute_lookup_table_single(const Fr& input_root,
 
 template <typename Fr>
 EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t target_generator_size)
-    : size(domain_size)
+    : size(validate_domain_size(domain_size))
     , num_threads(compute_num_threads(domain_size))
     , thread_size(domain_size / num_threads)
     , log2_size(static_cast<size_t>(numeric::get_msb(size)))

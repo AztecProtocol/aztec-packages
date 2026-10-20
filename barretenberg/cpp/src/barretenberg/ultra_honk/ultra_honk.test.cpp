@@ -51,6 +51,39 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
+class UltraRollupVerifierTests : public ::testing::Test {
+  public:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+TEST_F(UltraRollupVerifierTests, RejectsMixedInfinityRecursiveAccumulator)
+{
+    using Builder = UltraCircuitBuilder;
+    using Flavor = UltraFlavor;
+    using StdlibCurve = stdlib::bn254<Builder>;
+    using StdlibGroup = typename StdlibCurve::Group;
+    using StdlibPairingPoints = stdlib::recursion::PairingPoints<StdlibCurve>;
+
+    Builder builder;
+    stdlib::recursion::honk::RollupIO inputs;
+    inputs.pairing_inputs =
+        StdlibPairingPoints(StdlibGroup::from_witness(&builder, curve::BN254::AffineElement::one()),
+                            StdlibGroup::from_witness(&builder, curve::BN254::AffineElement::infinity()));
+    auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
+    inputs.ipa_claim = ipa_claim;
+    inputs.set_public();
+    builder.ipa_proof = ipa_proof;
+
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto verification_key = std::make_shared<Flavor::VerificationKey>(prover_instance->get_precomputed());
+    UltraProver_<Flavor> prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    auto vk_and_hash = std::make_shared<Flavor::VKAndHash>(verification_key);
+    UltraRollupVerifier verifier(vk_and_hash);
+    EXPECT_FALSE(verifier.verify_proof(proof).result);
+}
+
 /**
  * @brief Test simple circuit with public inputs
  *

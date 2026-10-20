@@ -189,3 +189,16 @@ TEST(NonceDerivation, ValidateRFC6979R1)
         EXPECT_EQ(result, expected);
     }
 }
+
+TEST(hmac, Keccak256BlockBoundaries)
+{
+    const std::array<size_t, 3> key_sizes{ 20, 100, 200 };
+    // Cross-checked with @noble/hashes HMAC-Keccak-256.
+    const std::array<std::string, 3> expected{ "9663d10c73ee294054dc9faf95647cb99731d12210ff7075fb3d3395abfb9821",
+                                               "3924773212e8051d60cc211f7069536bee22910119008f00740aa891e42f7e85",
+                                               "e19a79d46b1c10e55ce2c24733658db05735a4a1f2b96f5e3cc44cd93faed690" };
+    for (size_t i = 0; i < key_sizes.size(); ++i) {
+        const std::vector<uint8_t> key(key_sizes[i], 0x0b);
+        EXPECT_EQ(hmac<KeccakHasher>(std::string("Hi There"), key), hex_to_bytes(expected[i]));
+    }
+}

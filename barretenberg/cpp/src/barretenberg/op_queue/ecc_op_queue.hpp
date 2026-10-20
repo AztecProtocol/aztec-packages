@@ -75,17 +75,32 @@ class ECCOpQueue {
     // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for
     // all prior to ECCVM construction to avoid repeated traversal of the per-subtable storage.)
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
+    bool eccvm_ops_overridden_for_testing = false;
 
     // Storage for the reconstructed ultra ops tables in contiguous memory. (Intended to be constructed once and for
     // all prior to Translator circuit construction to avoid repeated traversal of the per-subtable storage.)
     std::vector<UltraOp> ultra_ops_zk_reconstructed;    // Chonk table
     std::vector<UltraOp> ultra_ops_no_zk_reconstructed; // AVM table
 
+    std::vector<ECCVMOperation> reconstruct_eccvm_ops() const
+    {
+        std::vector<ECCVMOperation> ops;
+        ops.reserve(eccvm_ops_table.size() + ultra_ops_table.get_num_separator_subtables());
+        for (size_t i = 0; i < eccvm_ops_table.num_subtables(); ++i) {
+            const auto& subtable = eccvm_ops_table.get()[i];
+            ops.insert(ops.end(), subtable.begin(), subtable.end());
+            if (i < ultra_ops_table.get_num_separator_subtables()) {
+                ops.push_back(UltraEccOpsTable::make_separator_op_pair().second);
+            }
+        }
+        return ops;
+    }
+
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
+    static constexpr size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
@@ -97,6 +112,7 @@ class ECCOpQueue {
      */
     void initialize_new_subtable()
     {
+        invalidate_reconstructed_tables();
         eccvm_ops_table.create_new_subtable();
         ultra_ops_table.create_new_subtable();
     }
@@ -109,7 +125,7 @@ class ECCOpQueue {
      * @brief Compute the fixed append offset for the final APPEND merge.
      */
     size_t get_append_offset_for_prover() const { return get_append_offset(get_current_subtable_size()); }
-    static size_t get_append_offset_for_verifier() { return get_append_offset(bb::HIDING_KERNEL_ULTRA_OPS); }
+    static constexpr size_t get_append_offset_for_verifier() { return get_append_offset(bb::HIDING_KERNEL_ULTRA_OPS); }
 
     // Shift size of the merge / row offset at which the fixed-append subtable's polynomial begins.
     // See UltraEccOpsTable::compute_fixed_append_offset.
@@ -120,21 +136,35 @@ class ECCOpQueue {
 
     void merge()
     {
+        invalidate_reconstructed_tables();
         eccvm_ops_table.merge();
         ultra_ops_table.merge();
     }
 
     void merge_fixed_append(size_t ultra_fixed_offset)
     {
+        invalidate_reconstructed_tables();
         eccvm_ops_table.merge();
         ultra_ops_table.merge_with_fixed_append_offset(ultra_fixed_offset);
     }
 
+    /** @brief Install protocol-owned separators without changing original subtable commitments. */
+    void add_batch_merge_separators()
+    {
+        BB_ASSERT_EQ(eccvm_ops_table.num_subtables(), ultra_ops_table.num_subtables());
+        invalidate_reconstructed_tables();
+        ultra_ops_table.add_batch_merge_separators();
+        eccvm_row_tracker.recompute(reconstruct_eccvm_ops(), has_hiding_op);
+    }
+
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
     {
+        BB_ASSERT(!has_hiding_op, "Hiding op must be installed exactly once");
+        invalidate_reconstructed_tables();
         auto [column_polynomials, hiding_op] = ultra_ops_table.construct_zk_columns();
         this->hiding_op_for_eccvm = hiding_op;
         this->has_hiding_op = true;
+        eccvm_row_tracker.add_hiding_row();
 
         return column_polynomials;
     }
@@ -163,54 +193,40 @@ class ECCOpQueue {
         return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
     }
 
-    // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
-    void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
-
-    // Reconstruct the ZK-prefixed full table of ultra ops in contiguous memory from the independent subtables.
-    void construct_zk_reconstructed_ultra_ops_table()
-    {
-        ultra_ops_zk_reconstructed = ultra_ops_table.get_zk_reconstructed_ultra_ops();
-    }
-
-    // Reconstruct the non-ZK full table of ultra ops in contiguous memory from the independent subtables.
-    void construct_no_zk_reconstructed_ultra_ops_table()
-    {
-        ultra_ops_no_zk_reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
-    }
-
     // Excludes the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
-    size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
+    // Includes protocol separators; excludes the ZK prefix and fixed-append padding.
+    size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); }
     // Excludes the optional ZK prefix, same as get_ultra_ops_table_num_rows.
     size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
     // The hiding op is always prepended at index 0.
-    std::vector<ECCVMOperation>& get_eccvm_ops()
+    const std::vector<ECCVMOperation>& get_eccvm_ops()
     {
-        if (eccvm_ops_reconstructed.empty()) {
-            construct_full_eccvm_ops_table();
+        if (!eccvm_ops_overridden_for_testing && eccvm_ops_reconstructed.empty()) {
             // Prepend the hiding op at index 0 (required for ZK)
             if (!has_hiding_op) {
                 throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
             }
+            eccvm_ops_reconstructed = reconstruct_eccvm_ops();
             eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
         }
         return eccvm_ops_reconstructed;
     }
 
-    std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops()
+    const std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops()
     {
         if (ultra_ops_no_zk_reconstructed.empty()) {
-            construct_no_zk_reconstructed_ultra_ops_table();
+            ultra_ops_no_zk_reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
         }
         return ultra_ops_no_zk_reconstructed;
     }
 
-    std::vector<UltraOp>& get_zk_reconstructed_ultra_ops()
+    const std::vector<UltraOp>& get_zk_reconstructed_ultra_ops()
     {
         if (ultra_ops_zk_reconstructed.empty()) {
-            construct_zk_reconstructed_ultra_ops_table();
+            ultra_ops_zk_reconstructed = ultra_ops_table.get_zk_reconstructed_ultra_ops();
         }
         return ultra_ops_zk_reconstructed;
     }
@@ -222,7 +238,7 @@ class ECCOpQueue {
 
     /**
      * @brief Get the number of rows for the current ECCVM circuit.
-     * @note This count does not include the hiding op.
+     * @note Includes the hiding op once installed.
      */
     size_t get_num_rows() const { return eccvm_row_tracker.get_num_rows(); }
 
@@ -238,6 +254,26 @@ class ECCOpQueue {
     void set_eccvm_ops_for_fuzzing(std::vector<ECCVMOperation>& eccvm_ops_in)
     {
         eccvm_ops_reconstructed = eccvm_ops_in;
+        eccvm_ops_overridden_for_testing = true;
+    }
+
+    /**
+     * @brief A testing only method that installs an eccvm ops table along with its derived row counts.
+     *
+     * @details `set_eccvm_ops_for_fuzzing` writes the ops alone, leaving the row counts that
+     * `append_eccvm_op` would have maintained at whatever they were. `ECCVMCircuitBuilder` reads those
+     * counts through `get_number_of_muls` and the row-count accessors, so it needs them refreshed here.
+     * Use this to build an ECCVM trace over a variant of an existing op sequence, for instance one with
+     * an operation removed or a scalar changed.
+     */
+    void set_eccvm_ops_with_row_counts_for_testing(const std::vector<ECCVMOperation>& eccvm_ops_in)
+    {
+        eccvm_ops_reconstructed = eccvm_ops_in;
+        eccvm_ops_overridden_for_testing = true;
+        eccvm_row_tracker = EccvmRowTracker{};
+        for (const auto& op : eccvm_ops_reconstructed) {
+            eccvm_row_tracker.update_cached_msms(op);
+        }
     }
 
     /**
@@ -322,6 +358,7 @@ class ECCOpQueue {
      */
     UltraOp no_op_ultra_only()
     {
+        invalidate_reconstructed_tables();
         UltraOp no_op{};
         ultra_ops_table.push(no_op);
         return no_op;
@@ -336,6 +373,7 @@ class ECCOpQueue {
      */
     UltraOp random_op_ultra_only()
     {
+        invalidate_reconstructed_tables();
         UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
                                                  .random_value_1 = Fr::random_element(),
                                                  .random_value_2 = Fr::random_element() },
@@ -376,8 +414,9 @@ class ECCOpQueue {
      * In ECCVM: stored separately and prepended to eccvm_ops_reconstructed at index 0 during get_eccvm_ops().
      * This places it at row 1 in the ECCVM transcript table (row 0 is the zero row for shifts),
      * where lagrange_second = 1. The eq and on-curve constraints are gated by (1 - lagrange_second) so they
-     * don't apply to this row. The transcript relation enforces q_eq = 1 and q_reset = 1 at this row, ensuring
-     * the accumulator is reset so that is_accumulator_empty = 1 at row 2 (the first real op row).
+     * don't apply to this row. The transcript relation enforces q_eq = 1; the supported opcode contract
+     * pairs it with q_reset = 1, ensuring the accumulator is reset so that is_accumulator_empty = 1 at row 2 (the first
+     * real op row).
      *
      * In Ultra/Translator: appended to current subtable through normal flow, landing in the accumulation range.
      *
@@ -395,10 +434,13 @@ class ECCOpQueue {
      */
     UltraOp append_hiding_op(const Fq& Px, const Fq& Py)
     {
+        BB_ASSERT(!has_hiding_op, "Hiding op must be installed exactly once");
+        invalidate_reconstructed_tables();
         auto [ultra_op, eccvm_op] = UltraEccOpsTable::make_hiding_op_pair(Px, Py);
 
         hiding_op_for_eccvm = eccvm_op;
         has_hiding_op = true;
+        eccvm_row_tracker.add_hiding_row();
         ultra_ops_table.push(ultra_op);
 
         // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
@@ -406,17 +448,30 @@ class ECCOpQueue {
     }
 
   private:
+    void invalidate_reconstructed_tables()
+    {
+        // Explicit test/fuzz tables are the input, not a cache of the subtable storage.
+        if (!eccvm_ops_overridden_for_testing) {
+            eccvm_ops_reconstructed.clear();
+        }
+        ultra_ops_zk_reconstructed.clear();
+        ultra_ops_no_zk_reconstructed.clear();
+    }
+
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
      * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
      * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
      * matching the appender flavor's ecc_op_wire layout.
      */
-    static size_t get_append_offset(size_t current_subtable_size)
+    static constexpr size_t get_append_offset(size_t current_subtable_size)
     {
         constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
         constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - current_subtable_size - reserved_op_slots - zk_op_slots;
+        static_assert(OP_QUEUE_SIZE >= reserved_op_slots + zk_op_slots,
+                      "Fixed append reserves more op slots than the queue contains");
+        constexpr size_t max_subtable_size = OP_QUEUE_SIZE - reserved_op_slots - zk_op_slots;
+        return max_subtable_size - current_subtable_size;
     }
 
     // === Hiding Op State ===
@@ -438,6 +493,10 @@ class ECCOpQueue {
      */
     void append_eccvm_op(const ECCVMOperation& op)
     {
+        invalidate_reconstructed_tables();
+        if (eccvm_ops_overridden_for_testing) {
+            eccvm_ops_reconstructed.push_back(op);
+        }
         eccvm_row_tracker.update_cached_msms(op);
         eccvm_ops_table.push(op);
     }
@@ -451,6 +510,7 @@ class ECCOpQueue {
      */
     UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
     {
+        invalidate_reconstructed_tables();
         UltraOp ultra_op;
         ultra_op.op_code = op_code;
 

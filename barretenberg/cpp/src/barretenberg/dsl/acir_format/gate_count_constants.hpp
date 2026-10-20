@@ -117,7 +117,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(653022, 0);
+        return std::make_tuple(653029, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -130,7 +130,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1375725;
+inline constexpr size_t CHONK_RECURSION_GATES = 1439066;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -147,25 +147,25 @@ inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel: verifies its leading apps (first via an OINK proof, rest via HN); carries no accumulator, so K
 // apps reduce to K claims (no batching for K==1, width-K batching for K>=2).
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 11423, 21873, 30400, 39007, 47559 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 11429, 21885, 30418, 39031, 47589 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ECC_ROWS = { 524, 1176, 1700, 2290, 2814 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ULTRA_OPS = { 60, 131, 194, 257, 320 };
 
 // Inner kernel: verifies the previous kernel (HN) plus K apps (HN). The carried accumulator + previous kernel +
 // K apps reduce to a (K+2)-claim per-kernel batching.
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 23943, 32470, 41077, 49629, 58211 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 23991, 32524, 41137, 49695, 58283 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ECC_ROWS = { 1308, 1898, 2422, 3012, 3536 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ULTRA_OPS = { 148, 211, 274, 337, 400 };
 
 // Reset or Tail kernel: verifies a single previous-kernel HN proof, then a width-2 per-kernel
 // batching. Reset and tail kernels are structurally identical from the IVC's perspective.
-inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 15281;
+inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 15323;
 inline constexpr size_t RESET_TAIL_KERNEL_ECC_ROWS = 784;
 inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 81;
 
 // Hiding kernel: verifies the tail kernel (HN_FINAL), then a batch-merge recursive verifier sized for
 // CHONK_MAX_NUM_CIRCUITS plus a decider.
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36584;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36849;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 // The hiding kernel's ultra-op count is defined canonically as bb::HIDING_KERNEL_ULTRA_OPS (constants.hpp), since
 // the merge prover/verifier pin to it; reference it directly to avoid an ambiguous re-export in this namespace.
@@ -175,7 +175,16 @@ inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 237497;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 238260;
+inline constexpr char ECCVM_RECURSIVE_VERIFIER_VK_HASH[] =
+    "0x167a70ff2c0cabe4fca38808374fd6376813ca6598514b918563c208f388d486";
+
+// ========================================
+// Translator Recursive Verifier Constants
+// ========================================
+
+inline constexpr char TRANSLATOR_RECURSIVE_VERIFIER_VK_HASH[] =
+    "0x305887d6ef788134b3472fb93ff7783d6c8c4f3ed4ce73c4b1cc0dc1a44a0f0a";
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

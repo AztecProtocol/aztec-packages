@@ -1,6 +1,7 @@
 use crate::tests::private_kernel_reset::{PRIVATE_LOG_SILOING_AMOUNT, TestBuilder};
 use super::rebuild_bounded_vec;
 use protocol_test_utils::swap_items;
+use types::{address::AztecAddress, traits::{FromField, ToField}};
 
 #[test]
 fn previous_private_logs_sorted() {
@@ -167,6 +168,110 @@ fn total_private_logs_more_than_capped_size() {
 
     builder.output.append_siloed_private_logs(PRIVATE_LOG_SILOING_AMOUNT);
     builder.output.append_padded_private_logs(1);
+
+    builder.validate_siloing();
+}
+
+// The log fields, length, linked note hash counter and ordering stay honest here: only the
+// wrapper's emitting address is changed. It has no consumer in the terminal path today, but it is
+// the same missing binding as for note hashes and nullifiers and should not be left free.
+#[test(should_fail_with = "Emitting contract address of the private log not copied correctly")]
+fn output_private_log_with_forged_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_private_logs(4);
+    builder.output.append_siloed_private_logs(4);
+
+    let mut log = builder.output.private_logs.get(0);
+    log.contract_address.inner += 1;
+    builder.output.private_logs.set(0, log);
+
+    builder.validate_siloing();
+}
+
+#[test(should_fail_with = "Emitting contract address of the private log not copied correctly")]
+fn padded_private_log_with_forged_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_private_logs(3);
+
+    builder.padded_side_effects.private_logs[2] =
+        builder.previous_kernel.private_logs.pop().innermost().log;
+    builder.previous_kernel.private_logs =
+        rebuild_bounded_vec(builder.previous_kernel.private_logs);
+
+    builder.output.append_siloed_private_logs(2);
+    builder.output.append_padded_private_logs(1);
+
+    let mut padded = builder.output.private_logs.get(2);
+    padded.contract_address.inner += 1;
+    builder.output.private_logs.set(2, padded);
+
+    builder.validate_siloing();
+}
+
+#[test(should_fail_with = "Emitting contract address of the private log not copied correctly")]
+fn output_private_log_with_zeroed_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_private_logs(4);
+    builder.output.append_siloed_private_logs(4);
+
+    let mut log = builder.output.private_logs.get(0);
+    log.contract_address = AztecAddress::zero();
+    builder.output.private_logs.set(0, log);
+
+    builder.validate_siloing();
+}
+
+// A reset carrying private logs from two different emitters must still validate. This is the
+// positive control for the binding above: an output address pinned to any single fixed address
+// would reject this honest witness, while the swapped-address test rejects an unpinned one.
+#[test]
+fn private_logs_from_two_contracts() {
+    let mut builder = TestBuilder::new();
+
+    let emitter_a = builder.previous_kernel.contract_address;
+    let emitter_b = AztecAddress::from_field(emitter_a.to_field() + 1);
+
+    builder.previous_kernel.append_private_logs(1);
+    builder.previous_kernel.contract_address = emitter_b;
+    builder.previous_kernel.append_private_logs(1);
+    builder.previous_kernel.contract_address = emitter_a;
+
+    builder.output.append_siloed_private_logs(1);
+    builder.output.contract_address = emitter_b;
+    builder.output.append_siloed_private_logs(1);
+    builder.output.contract_address = emitter_a;
+
+    builder.validate_siloing();
+}
+
+#[test(should_fail_with = "Emitting contract address of the private log not copied correctly")]
+fn output_private_logs_with_swapped_contract_addresses() {
+    let mut builder = TestBuilder::new();
+
+    let emitter_a = builder.previous_kernel.contract_address;
+    let emitter_b = AztecAddress::from_field(emitter_a.to_field() + 1);
+
+    builder.previous_kernel.append_private_logs(1);
+    builder.previous_kernel.contract_address = emitter_b;
+    builder.previous_kernel.append_private_logs(1);
+    builder.previous_kernel.contract_address = emitter_a;
+
+    builder.output.append_siloed_private_logs(1);
+    builder.output.contract_address = emitter_b;
+    builder.output.append_siloed_private_logs(1);
+    builder.output.contract_address = emitter_a;
+
+    // Both siloed first fields stay correct under their own input address, so only a binding to
+    // the item's own emitter rejects this.
+    let mut first = builder.output.private_logs.get(0);
+    let mut second = builder.output.private_logs.get(1);
+    first.contract_address = emitter_b;
+    second.contract_address = emitter_a;
+    builder.output.private_logs.set(0, first);
+    builder.output.private_logs.set(1, second);
 
     builder.validate_siloing();
 }

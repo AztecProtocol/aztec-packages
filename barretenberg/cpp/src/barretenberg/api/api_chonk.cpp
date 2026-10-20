@@ -15,6 +15,9 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
+#include <charconv>
+#include <optional>
+#include <set>
 #include <stdexcept>
 
 namespace bb {
@@ -33,6 +36,68 @@ CircuitKind parse_circuit_kind(const std::string& s)
     }
     throw_or_abort("write_chonk_vk: --circuit_kind must be one of 'app' / 'kernel' / 'hiding' (got '" + s + "')");
     __builtin_unreachable();
+}
+
+std::optional<size_t> parse_batch_file_index(std::string_view filename, std::string_view prefix)
+{
+    if (!filename.starts_with(prefix)) {
+        return std::nullopt;
+    }
+    const std::string_view suffix = filename.substr(prefix.size());
+    if (suffix.empty()) {
+        return std::nullopt;
+    }
+    size_t index = 0;
+    const auto [end, error] = std::from_chars(suffix.data(), suffix.data() + suffix.size(), index);
+    if (error != std::errc{} || end != suffix.data() + suffix.size()) {
+        return std::nullopt;
+    }
+    if (suffix.size() > 1 && suffix.front() == '0') {
+        throw_or_abort("batch_verify: file index must not contain leading zeros: " + std::string(filename));
+    }
+    return index;
+}
+
+size_t count_batch_indices(const std::filesystem::path& proofs_dir)
+{
+    std::error_code error;
+    if (!std::filesystem::is_directory(proofs_dir, error)) {
+        throw_or_abort("batch_verify: no proof_0/vk_0 pairs found in " + proofs_dir.string());
+    }
+
+    std::set<size_t> proof_indices;
+    std::set<size_t> vk_indices;
+    for (const auto& entry : std::filesystem::directory_iterator(proofs_dir)) {
+        const std::string filename = entry.path().filename().string();
+        if (auto index = parse_batch_file_index(filename, "proof_")) {
+            proof_indices.insert(*index);
+        } else if (auto index = parse_batch_file_index(filename, "vk_")) {
+            vk_indices.insert(*index);
+        }
+    }
+    if (proof_indices.empty() && vk_indices.empty()) {
+        throw_or_abort("batch_verify: no proof_0/vk_0 pairs found in " + proofs_dir.string());
+    }
+    if (proof_indices != vk_indices) {
+        throw_or_abort("batch_verify: proof/vk indices must match and be contiguous starting at 0");
+    }
+    size_t expected = 0;
+    for (const size_t index : proof_indices) {
+        if (index != expected++) {
+            throw_or_abort("batch_verify: proof/vk indices must be contiguous starting at 0");
+        }
+    }
+    return expected;
+}
+
+bool paths_refer_to_same_file(const std::filesystem::path& lhs, const std::filesystem::path& rhs)
+{
+    if (std::filesystem::absolute(lhs).lexically_normal() == std::filesystem::absolute(rhs).lexically_normal()) {
+        return true;
+    }
+    std::error_code error;
+    const bool equivalent = std::filesystem::equivalent(lhs, rhs, error);
+    return !error && equivalent;
 }
 
 /**
@@ -117,7 +182,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
                       const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("ChonkAPI::verify");
-    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    auto proof_fields = many_from_buffer_exact<fr>(read_file(proof_path), "Chonk proof file");
     auto proof = ChonkProof::from_field_elements(proof_fields);
 
     auto vk_buffer = read_vk_file(vk_path);
@@ -133,21 +198,14 @@ bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::file
     std::vector<ChonkProof> proofs;
     std::vector<std::vector<uint8_t>> vks;
 
-    for (size_t i = 0;; ++i) {
+    const size_t count = count_batch_indices(proofs_dir);
+    for (size_t i = 0; i < count; ++i) {
         auto proof_file = proofs_dir / ("proof_" + std::to_string(i));
         auto vk_file = proofs_dir / ("vk_" + std::to_string(i));
 
-        if (!std::filesystem::exists(proof_file) || !std::filesystem::exists(vk_file)) {
-            break;
-        }
-
-        auto proof_fields = many_from_buffer<fr>(read_file(proof_file));
+        auto proof_fields = many_from_buffer_exact<fr>(read_file(proof_file), "Chonk proof file");
         proofs.push_back(ChonkProof::from_field_elements(proof_fields));
         vks.push_back(read_vk_file(vk_file));
-    }
-
-    if (proofs.empty()) {
-        throw_or_abort("batch_verify: no proof_0/vk_0 pairs found in " + proofs_dir.string());
     }
 
     info("ChonkAPI::batch_verify - found ", proofs.size(), " proof/vk pairs in ", proofs_dir.string());
@@ -158,7 +216,17 @@ bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::file
 
 void ChonkAPI::proof_stats(const std::filesystem::path& proof_path, const std::filesystem::path& output_path)
 {
-    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    std::filesystem::path compressed_proof_path;
+    if (output_path != "-") {
+        compressed_proof_path = output_path.string() + ".bin";
+        if (paths_refer_to_same_file(compressed_proof_path, proof_path) ||
+            paths_refer_to_same_file(compressed_proof_path, output_path) ||
+            paths_refer_to_same_file(proof_path, output_path)) {
+            throw_or_abort("proof_stats: compressed proof path conflicts with input or output path");
+        }
+    }
+
+    auto proof_fields = many_from_buffer_exact<fr>(read_file(proof_path), "Chonk proof file");
     auto proof = ChonkProof::from_field_elements(proof_fields);
 
     auto compressed = ProofCompressor::compress_chonk_proof(proof);
@@ -174,10 +242,8 @@ void ChonkAPI::proof_stats(const std::filesystem::path& proof_path, const std::f
     } else {
         write_file(output_path, std::vector<uint8_t>(json.begin(), json.end()));
         // Write the compressed proof alongside the JSON for further processing (e.g. gzip)
-        auto compressed_proof_path = output_path;
-        compressed_proof_path.replace_extension(".bin");
         write_file(compressed_proof_path, compressed);
-        info("Proof stats written to ", output_path);
+        info("Proof stats written to ", output_path, "; compressed proof written to ", compressed_proof_path);
     }
 }
 

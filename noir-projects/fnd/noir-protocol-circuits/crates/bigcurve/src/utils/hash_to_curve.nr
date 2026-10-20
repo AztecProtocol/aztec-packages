@@ -1,5 +1,6 @@
 use ::bignum::BigNum;
 use ::bignum::bignum::evaluate_quadratic_expression;
+use ::bignum::internal::hash_seed_to_field;
 
 /// Try-and-increment inner loop for hash-to-curve (unconstrained)
 ///
@@ -59,36 +60,8 @@ unconstrained fn __hash_to_curve_witgen<BN, let SeedBytes: u32>(
 where
     BN: BigNum,
 {
-    let hashed_seed: Field = poseidon_hash_bytes(seed);
+    let hashed_seed: Field = hash_seed_to_field(seed);
     __hash_to_curve_inner(hashed_seed, 0, a, b)
-}
-
-/// Pack a byte array into field elements and hash with Poseidon2
-///
-/// Pads `seed` to a multiple of 31 bytes, packs each 31-byte chunk into a
-/// `Field` element, and hashes the resulting array with Poseidon2.
-fn poseidon_hash_bytes<let SeedBytes: u32>(seed: [u8; SeedBytes]) -> Field {
-    // Pack seed bytes into Fields.
-    // For the seed of length M, we construct a rolling_hash_field of size ceil(M / 31).
-    // i.e.  31 bytes per Field
-    // NOTE: the Fields produced are 248 bits in size
-    let mut packed_seed: [Field; (SeedBytes + 30) / 31] = [0; (SeedBytes + 30) / 31];
-    let mut seed_ptr: u32 = 0;
-    for i in 0..(SeedBytes + 30) / 31 {
-        let mut packed: Field = 0;
-        for _ in 0..31 {
-            if (seed_ptr < SeedBytes) {
-                packed *= 256;
-                packed += seed[seed_ptr] as Field;
-                seed_ptr += 1;
-            }
-        }
-        packed_seed[i] = packed;
-    }
-
-    let hashed_seed: Field =
-        poseidon::poseidon2::Poseidon2::hash(packed_seed, (SeedBytes + 30) / 31);
-    hashed_seed
 }
 
 /// Hash an arbitrary byte seed to a curve point.
@@ -111,7 +84,7 @@ where
     // Safety: We constrain every output later
     let (_, y, salt): (BN, BN, Field) = unsafe { __hash_to_curve_witgen(seed, a, b) };
 
-    let outer_hash: Field = poseidon_hash_bytes(seed);
+    let outer_hash: Field = hash_seed_to_field(seed);
     let inner_hash: Field = poseidon::poseidon2::Poseidon2::hash([outer_hash, salt], 2);
 
     let inner_hash: [u8; 32] = inner_hash.to_le_bytes();

@@ -767,6 +767,31 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return 0;
     }
 
+    const auto get_option_count = [](CLI::App* subcommand, const std::string& name) -> size_t {
+        try {
+            return subcommand->get_option(name)->count();
+        } catch (const CLI::OptionNotFound&) {
+            return 0;
+        }
+    };
+
+    if (prove->parsed() && flags.scheme == "chonk") {
+        std::vector<std::string> unsupported_options;
+        for (const auto* option_name : { "--verifier_target", "--oracle_hash", "--ipa_accumulation", "--disable_zk" }) {
+            if (get_option_count(prove, option_name) > 0) {
+                unsupported_options.emplace_back(option_name);
+            }
+        }
+        if (!unsupported_options.empty()) {
+            std::string message = "bb prove --scheme chonk does not support";
+            for (const auto& option : unsupported_options) {
+                message += " " + option;
+            }
+            std::cerr << message << std::endl;
+            return 1;
+        }
+    }
+
     // Apply verifier_target to derive oracle_hash_type, disable_zk, and ipa_accumulation
     // This only applies when verifier_target is explicitly set
     if (!flags.verifier_target.empty()) {
@@ -774,15 +799,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // We need to check the active subcommand for these options
         CLI::App* active_sub = find_deepest_subcommand(&app);
         if (active_sub != nullptr) {
-            // Helper to safely get option count (returns 0 if option doesn't exist)
-            auto get_option_count = [](CLI::App* sub, const std::string& name) -> size_t {
-                try {
-                    return sub->get_option(name)->count();
-                } catch (const CLI::OptionNotFound&) {
-                    return 0;
-                }
-            };
-
             if (get_option_count(active_sub, "--oracle_hash") > 0) {
                 throw_or_abort("Cannot use --verifier_target with --oracle_hash. "
                                "The --verifier_target flag sets oracle_hash automatically.");

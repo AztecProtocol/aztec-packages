@@ -30,7 +30,9 @@ template <typename Flavor_> class HypernovaFoldingProverTests : public ::testing
 
         MockCircuits::add_arithmetic_gates(builder, log_num_gates);
         MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
-        MockCircuits::add_lookup_gates(builder);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            MockCircuits::add_lookup_gates(builder);
+        }
 
         return std::make_shared<ProverInstance>(builder);
     }

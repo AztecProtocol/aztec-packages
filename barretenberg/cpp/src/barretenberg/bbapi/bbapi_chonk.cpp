@@ -359,13 +359,23 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
         .collect_gates_per_opcode = include_gates_per_opcode
     };
 
+    // The request carries no CircuitKind, so infer the arithmetization from the bytecode: only kernels
+    // recursively verify the IVC's own proofs. The inference cannot tell a hiding kernel from a regular one,
+    // and counts both as the latter. Their gate kinds are a superset of the hiding kernel's, so the count is
+    // representative -- except where the circuit uses a construct only the regular kernel can represent (a
+    // ROM/RAM block, say), which is counted here and then rejected when the hiding kernel is really built.
+    const CircuitKind kind = ivc_constraints.empty() ? CircuitKind::App : CircuitKind::Kernel;
+
     // Create and finalize circuit
-    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-    builder.finalize_circuit();
+    dispatch_kind(kind, [&]<CircuitKind K>() {
+        auto builder = acir_format::create_circuit<circuit_for<K>>(program, metadata);
+        builder.finalize_circuit();
+        response.circuit_size = static_cast<uint32_t>(builder.num_gates());
+        builder.blocks.summarize();
+    });
 
     // Set response values
     response.acir_opcodes = program.constraints.num_acir_opcodes;
-    response.circuit_size = static_cast<uint32_t>(builder.num_gates());
 
     // Optionally include gates per opcode
     if (include_gates_per_opcode) {
@@ -380,9 +390,6 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
          response.acir_opcodes,
          ", circuit_size: ",
          response.circuit_size);
-
-    // Print execution trace details
-    builder.blocks.summarize();
 
     return response;
 }
@@ -408,6 +415,11 @@ namespace {
 
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
+    // The FIFO fd is O_NONBLOCK, so a reader that holds the pipe open but stops draining yields EAGAIN forever.
+    // write_result runs on the coordinator thread (which stop() joins), so the retry loop must be time-bounded:
+    // after STALL_TIMEOUT without a single byte of progress, fail so the caller can shut down the result path.
+    constexpr auto STALL_TIMEOUT = std::chrono::seconds(10);
+    auto deadline = std::chrono::steady_clock::now() + STALL_TIMEOUT;
     while (len > 0) {
         // ::write takes a size_t count on POSIX but an unsigned int on Windows (MinGW _write), so cap each
         // call to INT_MAX and cast explicitly to keep the count in range and the return value representable.
@@ -416,12 +428,17 @@ bool write_all(int fd, const uint8_t* ptr, size_t len)
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);
+            deadline = std::chrono::steady_clock::now() + STALL_TIMEOUT;
             continue;
         }
         if (written < 0 && errno == EINTR) {
             continue;
         }
         if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                errno = ETIMEDOUT;
+                return false;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }

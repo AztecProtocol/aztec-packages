@@ -543,22 +543,19 @@ TEST_F(UltraCircuitBuilderArithmetic, QArith3Gate)
         uint32_t w4_next_idx = builder.add_variable(w_4_next);
 
         // Gate 1: q_arith = 3
-        builder.blocks.arithmetic.append_gate({ .wires = { w1_idx, w2_idx, w3_idx, w4_idx },
-                                                .q_m = q_m,
-                                                .q_c = q_c,
-                                                .q_1 = q_1,
-                                                .q_2 = q_2,
-                                                .q_3 = q_3,
-                                                .q_4 = q_4,
-                                                .gate_kind = GateKind::Arith,
-                                                .gate_value = 3 });
+        builder.blocks.arithmetic.template append_gate<GateKind::Arith>({ .wires = { w1_idx, w2_idx, w3_idx, w4_idx },
+                                                                          .q_m = q_m,
+                                                                          .q_c = q_c,
+                                                                          .q_1 = q_1,
+                                                                          .q_2 = q_2,
+                                                                          .q_3 = q_3,
+                                                                          .q_4 = q_4,
+                                                                          .gate_value = 3 });
         builder.increment_num_gates();
 
         // Gate 2: provides w_1_shift and w_4_shift
-        builder.blocks.arithmetic.append_gate(
-            { .wires = { w1_next_idx, builder.zero_idx(), builder.zero_idx(), w4_next_idx },
-              .gate_kind = GateKind::Arith,
-              .gate_value = 1 });
+        builder.blocks.arithmetic.template append_gate<GateKind::Arith>(
+            { .wires = { w1_next_idx, builder.zero_idx(), builder.zero_idx(), w4_next_idx }, .gate_value = 1 });
         builder.increment_num_gates();
 
         if (expect_valid) {

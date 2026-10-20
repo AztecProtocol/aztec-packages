@@ -75,7 +75,7 @@ enum BasicTableId {
     HONK_DUMMY_BASIC2,
     KECCAK_INPUT,
     KECCAK_THETA,
-    KECCAK_RHO,
+    RESERVED_KECCAK_RHO, // Preserve subsequent table IDs embedded in verification keys.
     KECCAK_CHI,
     KECCAK_OUTPUT,
     KECCAK_RHO_1,
@@ -86,7 +86,7 @@ enum BasicTableId {
     KECCAK_RHO_6,
     KECCAK_RHO_7,
     KECCAK_RHO_8,
-    KECCAK_RHO_9,
+    RESERVED_KECCAK_RHO_9,
     // Used by straus_plookup_table for fixed-base MSM with constant EC points (e.g. IPA verifier SRS elements).
     // Each table instance gets this id; uniqueness within a circuit is ensured by table_index, not id.
     STRAUS_EC_POINT,
@@ -328,7 +328,9 @@ struct BasicTable {
 
     // Unique id of the table which is used to look it up, when we need its functionality. One of BasicTableId enum
     BasicTableId id;
-    size_t table_index;
+    // Circuit-local identity in the LogDeriv lookup relation. Defaults to 0 (unset); assigned by the
+    // builder's allocation sites (create_basic_table, register_basic_lookup_table).
+    size_t table_index = 0;
     // This means that we are using two inputs to look up stuff, not translate a single entry into another one.
     bool use_twin_keys;
 

@@ -169,8 +169,8 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     // multivariate over the hypercube.
     void initialize_target_sum(SumcheckRound& round)
     {
-        libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-        libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+        libra_total_sum = transcript->template receive_from_prover<FF>(LIBRA_SUM_LABEL);
+        libra_challenge = transcript->template get_challenge<FF>(LIBRA_CHALLENGE_LABEL);
         round.target_total_sum = libra_total_sum * libra_challenge;
     }
 
@@ -384,9 +384,8 @@ template <typename Flavor> class SumcheckProver {
                          "Sumcheck Prover: Multilinear batching flavor has only dependent relations, no gate "
                          "challenges should be provided.");
         } else {
-            // The rounds index gate_challenges through GateSeparatorPolynomial assuming at least multivariate_d
-            // entries.
-            BB_ASSERT_GTE(gate_challenges.size(), multivariate_d, "SumcheckProver: fewer gate challenges than rounds");
+            // Real and virtual rounds together index gate_challenges[0 .. virtual_log_n).
+            BB_ASSERT_GTE(gate_challenges.size(), virtual_log_n, "SumcheckProver: fewer gate challenges than rounds");
         }
     };
     /**

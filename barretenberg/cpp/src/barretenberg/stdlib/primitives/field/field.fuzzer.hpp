@@ -11,6 +11,7 @@
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "cstring"
+#include <span>
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc99-designator"
 
@@ -558,8 +559,7 @@ template <typename Builder> class FieldBase {
                           opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
                 Instruction instr;
                 instr.id = static_cast<typename Instruction::OPCODE>(opcode);
-                // instr.arguments.element = fr::serialize_from_buffer(Data+1);
-                instr.arguments.element = bb::fr::serialize_from_buffer(Data);
+                instr.arguments.element = bb::fr::from_bytes_reduced(std::span<const uint8_t>(Data, sizeof(uint256_t)));
                 return instr;
             };
             if constexpr (opcode == Instruction::OPCODE::ASSERT_ZERO ||

@@ -258,5 +258,6 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
 }
 
 template class ram_table<bb::UltraCircuitBuilder>;
-template class ram_table<bb::MegaCircuitBuilder>;
+// Uses the memory gate: only the arithmetizations that keep it.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(ram_table)
 } // namespace bb::stdlib

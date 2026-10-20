@@ -243,7 +243,7 @@ dependent.
 | File | Contents |
 |---|---|
 | `relations/memory_relation.hpp` | `MemoryRelation` — all ROM/RAM subrelations, including LogUp subrelations 6 and 7 |
-| `relations/logderiv_lookup_relation.hpp` | LogUp partial-fraction soundness argument (referenced by subrelation 7) |
+| `relations/LOGUP_README.md` | LogUp partial-fraction soundness argument underlying subrelation 7 |
 | `stdlib_circuit_builders/rom_ram_logic.cpp` | gate emission and finalization for both ROM schemes |
 | `stdlib_circuit_builders/rom_ram_logic.hpp` | `RomRecord` (with `access_type`) and `RomTranscript` (with `use_logup`) |
 | `stdlib_circuit_builders/ultra_circuit_builder.cpp` | `apply_memory_selectors` — the ROM gate bitpatterns |

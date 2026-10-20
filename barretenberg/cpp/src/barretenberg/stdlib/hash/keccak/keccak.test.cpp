@@ -216,3 +216,71 @@ TYPED_TEST(StdlibKeccak, permutation_opcode)
 
     info("num gates = ", builder.get_num_finalized_gates_inefficient());
 }
+
+TYPED_TEST(StdlibKeccak, ZeroStateKnownAnswer)
+{
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    // Independent Keccak-f[1600] zero-state vector, checked with @noble/hashes keccakP.
+    constexpr std::array<uint64_t, 25> expected{ 0xf1258f7940e1dde7ULL, 0x84d5ccf933c0478aULL, 0xd598261ea65aa9eeULL,
+                                                 0xbd1547306f80494dULL, 0x8b284e056253d057ULL, 0xff97a42d7f8e6fd4ULL,
+                                                 0x90fee5a0a44647c4ULL, 0x8c5bda0cd6192e76ULL, 0xad30a6f71b19059cULL,
+                                                 0x30935ab7d08ffc64ULL, 0xeb5aa93f2317d635ULL, 0xa9a6e6260d712103ULL,
+                                                 0x81a57c16dbcf555fULL, 0x43b831cd0347c826ULL, 0x01f22f1a11a5569fULL,
+                                                 0x05e5635a21d9ae61ULL, 0x64befef28cc970f2ULL, 0x613670957bc46611ULL,
+                                                 0xb87c5a554fd00ecbULL, 0x8c3ee88a1ccf32c8ULL, 0x940c7922ae3a2614ULL,
+                                                 0x1841f924a2c509e4ULL, 0x16f53526e70465c2ULL, 0x75f644e97f30a13bULL,
+                                                 0xeaf1ff7b5ceca249ULL };
+    Builder builder;
+    std::array<field_ct, 25> input;
+    for (auto& lane : input) {
+        lane = witness_ct(&builder, 0);
+    }
+    const auto output = stdlib::keccak<Builder>::permutation_opcode(input, &builder);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    for (size_t i = 0; i < output.size(); ++i) {
+        EXPECT_EQ(static_cast<uint64_t>(output[i].get_value()), expected[i]);
+    }
+}
+
+TYPED_TEST(StdlibKeccak, ThetaRejectsAlternativeDigitDecomposition)
+{
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using keccak_ct = stdlib::keccak<Builder>;
+
+    static constexpr uint256_t BASE = 11;
+
+    // A low digit of one lets mid - 1 change only the first lookup slice.
+    uint256_t mid_native = 0;
+    for (size_t j = 0; j < 64; ++j) {
+        const size_t digit_index = 63 - j;
+        mid_native = mid_native * BASE + (digit_index == 0 ? 1 : (3 * digit_index + 1) % 11);
+    }
+    const uint256_t hi_native = 7; // any valid base-11 digit
+    const uint256_t twisted = hi_native * BASE.pow(64) + mid_native;
+
+    const bb::fr lane_native(twisted * BASE);
+    const uint256_t normalized = keccak_ct::normalize_sparse(mid_native);
+    const uint256_t normalized_alt = keccak_ct::normalize_sparse(mid_native - 1);
+    ASSERT_NE(normalized, normalized_alt);
+
+    for (bool forged : { false, true }) {
+        Builder builder = [] {
+            if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+                return Builder(/*is_write_vk_mode=*/true);
+            } else {
+                return Builder(std::make_shared<ECCOpQueue>(), /*is_write_vk_mode=*/true);
+            }
+        }();
+        const field_ct lane(witness_ct(&builder, lane_native));
+        const field_ct hi(witness_ct(&builder, hi_native));
+        const field_ct mid(witness_ct(&builder, forged ? mid_native - 1 : mid_native));
+        const field_ct lo(witness_ct(&builder, forged ? BASE : uint256_t(0)));
+        const auto output = keccak_ct::normalize_theta_lane(lane, hi, mid, lo);
+        EXPECT_EQ(output.get_value(), bb::fr(forged ? normalized_alt : normalized));
+        EXPECT_EQ(CircuitChecker::check(builder), !forged);
+    }
+}

@@ -114,16 +114,53 @@ pub fn from_field<let N: u32, let MOD_BITS: u32>(
     result
 }
 
+/// Hash a byte seed into a single `Field` with Poseidon2
+///
+/// The seed length (`SeedBytes`) is appended as a trailing byte, the result is
+/// packed 31 bytes per `Field` (so each `Field` holds at most 248 bits), and
+/// the packed array is hashed with Poseidon2.
+///
+/// The length byte makes the packing injective across seed lengths: without
+/// it a seed is read as a plain base-256 integer, so seeds that differ only in
+/// leading zero bytes (`[1, 2]` and `[0, 1, 2]`) pack to the same value and
+/// hash to the same `Field`.
+///
+/// `SeedBytes` must be below 256 so the length fits in one byte.
+pub fn hash_seed_to_field<let SeedBytes: u32>(seed: [u8; SeedBytes]) -> Field {
+    // For the seed of length M, we construct a packed array of size ceil((M + 1) / 31):
+    // 31 bytes per Field, with one extra byte for the length separator.
+    assert(SeedBytes < 256, "hash_seed_to_field: seed is too big");
+    let mut packed_seed: [Field; (SeedBytes + 31) / 31] = [0; (SeedBytes + 31) / 31];
+    let mut seed_ptr: u32 = 0;
+    for i in 0..(SeedBytes + 31) / 31 {
+        let mut packed: Field = 0;
+        for _ in 0..31 {
+            if (seed_ptr < SeedBytes) {
+                packed *= 256;
+                packed += seed[seed_ptr] as Field;
+                seed_ptr += 1;
+            } else if seed_ptr == SeedBytes {
+                packed *= 256;
+                packed += SeedBytes as Field;
+                seed_ptr += 1;
+            }
+        }
+        packed_seed[i] = packed;
+    }
+
+    poseidon::poseidon2::Poseidon2::hash(packed_seed, (SeedBytes + 31) / 31)
+}
+
 /// Given an input seed, generate a pseudorandom `BigNum` value
 ///
 /// This function *should* produce a uniformly randomly distributed value modulo `MOD`
 ///
-///  First we take the seed and pack it's 31-byte chunks into `Field`s
-///  A length separator (SeedBytes) is appended to the seed before hashing
-///  to prevent collisions between seeds that differ only in leading zeros.
+///  First we compress the seed into a single `Field` with `hash_seed_to_field`,
+///  which appends a length separator (SeedBytes) before hashing to prevent
+///  collisions between seeds that differ only in leading zeros.
 ///
 ///  We use a hash function that can be modelled as a random oracle
-///  We hash the packed seed using Poseidon2 to produce `MOD_BITS * 2` bits of entropy
+///  We hash the compressed seed using Poseidon2 to produce `MOD_BITS * 2` bits of entropy
 ///
 ///  From these bits we construct 4(in case N = 2) or 3(N > 2) `BigNum` values:
 ///  - We fill first `N - 1` limbs and leave the top limb empty
@@ -140,32 +177,7 @@ pub fn derive_from_seed<let N: u32, let MOD_BITS: u32, let SeedBytes: u32>(
     params: BigNumParams<N, MOD_BITS>,
     seed: [u8; SeedBytes],
 ) -> [u128; N] {
-    // Pack seed bytes into Fields.
-    // For the seed of length M, we construct a rolling_hash_field of size ceil(M / 31).
-    // i.e.  31 bytes per Field
-    // NOTE: the Fields produced are 248 bits in size
-
-    assert(SeedBytes < 256, "derive_from_seed: seed is too big");
-    let mut rolling_hash_fields: [Field; (SeedBytes + 31) / 31] = [0; (SeedBytes + 31) / 31];
-    let mut seed_ptr: u32 = 0;
-    for i in 0..(SeedBytes + 31) / 31 {
-        let mut packed: Field = 0;
-        for _ in 0..31 {
-            if (seed_ptr < SeedBytes) {
-                packed *= 256;
-                packed += seed[seed_ptr] as Field;
-                seed_ptr += 1;
-            } else if seed_ptr == SeedBytes {
-                packed *= 256;
-                packed += SeedBytes as Field;
-                seed_ptr += 1;
-            }
-        }
-        rolling_hash_fields[i] = packed;
-    }
-
-    let compressed: Field =
-        poseidon::poseidon2::Poseidon2::hash(rolling_hash_fields, (SeedBytes + 31) / 31);
+    let compressed: Field = hash_seed_to_field(seed);
     let mut rolling_hash: [Field; 2] = [compressed, 0];
 
     // 120 bit limb has 15 bytes in it

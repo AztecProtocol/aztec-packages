@@ -23,6 +23,9 @@ template <typename FF_> class ECCVMLookupRelationImpl {
     static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 9
 
     // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
+    // GRAND_PRODUCT checks the inverse of the six read/write factors where compute_inverse_exists is 1.
+    // LEFT_SHIFTABLE checks the log-derivative sum over the trace: reads minus read-count-weighted writes.
+    // The lookup_read_counts_0/1 witnesses participate in this sum; they have no separate per-row constraint.
     enum SubrelationIndex : size_t {
         GRAND_PRODUCT = 0,
         LEFT_SHIFTABLE = 1,

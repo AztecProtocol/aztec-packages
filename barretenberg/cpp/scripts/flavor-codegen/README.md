@@ -19,7 +19,8 @@ Out of scope: AVM (generated separately by `bb-pilcom`).
 
 `src/relations/*.ts` — one module per relation, declaring `cppName`, `header`,
 `entities` (`kind: "precomputed" | "witness"`), `shiftedEntities`, `subsets`,
-and optional `gateBlockName`.
+and optional `gateBlockName`. `requiredNonGateSelectors` names selectors consumed
+by a relation but declared elsewhere to preserve the existing entity order.
 
 `src/flavors/*.ts` — ordered list of relations + optional composite subsets +
 `traceExtraBlocks` (e.g. `pub_inputs`, `ecc_op`) + `emitsTrace` flag.
@@ -66,8 +67,18 @@ npm run regenerate:dev     # tsc && node dist/main.js
 Each emitted header is clang-formatted in place (`src/format.ts`) so a fresh
 regen matches the committed (clang-formatted) version byte-for-byte.
 
-Generated files are committed; the C++ build does not invoke Node. CI runs
-`git diff --exit-code` against the generator output.
+Generated files are committed; the C++ build does not run the generator.
+
+## Validation
+
+`npm test` checks selector coverage and databus mappings. The native CI test list
+runs `test.sh`, which installs pinned dependencies, runs the tests, regenerates headers,
+and checks them against the checkout with `git diff --exit-code`.
+Flavor construction rejects missing non-gate selector bridges and requires one
+distinct, known builder selector per single-bus relation.
+
+After editing manifests, regenerate and inspect the generated diff: entity order
+determines commitment and verification-key layout.
 
 ## Known follow-ups
 

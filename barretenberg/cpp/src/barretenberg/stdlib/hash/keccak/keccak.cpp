@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
@@ -299,7 +300,6 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
      * This ensures that sliced_D is correctly range constrained to be < 11^64 = 11^{KECCAK_LANE_SIZE}
      */
     static constexpr uint256_t divisor = BASE.pow(KECCAK_LANE_SIZE);
-    static constexpr uint256_t multiplicand = BASE.pow(KECCAK_LANE_SIZE + 1);
     for (size_t i = 0; i < 5; ++i) {
         uint256_t D_native = D[i].get_value();
         const auto [D_quotient, lo_native] = D_native.divmod(BASE);
@@ -310,18 +310,7 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
         field_ct mid(witness_ct(internal.context, mid_native));
         field_ct lo(witness_ct(internal.context, lo_native));
 
-        // assert equal should cost 1 gate (multipliers are all constants)
-        D[i].assert_equal((hi * multiplicand).add_two(mid * 11, lo));
-        // Range-constrain hi and lo to valid base-11 digits [0, 10]. Using BASE - 1 because
-        // create_small_range_constraint(var, N) constrains var to [0, N] inclusive.
-        internal.context->create_small_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE - 1));
-        internal.context->create_small_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE - 1));
-
-        // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide KECCAK_LANE_SIZE=64,
-        // we need an additional range constraint to ensure that mid < 11^64
-        static_assert(KECCAK_LANE_SIZE % plookup::keccak_tables::Theta::TABLE_BITS == 0,
-                      "KECCAK_THETA_OUTPUT TABLE_BITS must divide KECCAK_LANE_SIZE.");
-        D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
+        D[i] = normalize_theta_lane(D[i], hi, mid, lo);
     }
 
     // compute state[j * 5 + i] XOR D[i] in base-11 representation
@@ -330,6 +319,28 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
             state[j * 5 + i] = state[j * 5 + i] + D[i];
         }
     }
+}
+
+template <typename Builder>
+typename keccak<Builder>::field_ct keccak<Builder>::normalize_theta_lane(const field_ct& lane,
+                                                                         const field_ct& hi,
+                                                                         const field_ct& mid,
+                                                                         const field_ct& lo)
+{
+    Builder* context = hi.get_context();
+    static constexpr uint256_t multiplicand = BASE.pow(KECCAK_LANE_SIZE + 1);
+    // assert equal should cost 1 gate (multipliers are all constants)
+    lane.assert_equal((hi * multiplicand).add_two(mid * 11, lo));
+    // Range-constrain hi and lo to valid base-11 digits [0, 10]. Using BASE - 1 because
+    // create_small_range_constraint(var, N) constrains var to [0, N] inclusive.
+    context->create_small_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE - 1));
+    context->create_small_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE - 1));
+
+    // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide KECCAK_LANE_SIZE=64,
+    // we need an additional range constraint to ensure that mid < 11^64
+    static_assert(KECCAK_LANE_SIZE % plookup::keccak_tables::Theta::TABLE_BITS == 0,
+                  "KECCAK_THETA_OUTPUT TABLE_BITS must divide KECCAK_LANE_SIZE.");
+    return plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
 }
 
 /**
@@ -505,6 +516,7 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
 }
 
 template class keccak<bb::UltraCircuitBuilder>;
-template class keccak<bb::MegaCircuitBuilder>;
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(keccak)
 
 } // namespace bb::stdlib

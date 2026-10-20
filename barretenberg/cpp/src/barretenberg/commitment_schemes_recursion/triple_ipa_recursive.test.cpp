@@ -166,7 +166,8 @@ TEST_F(TripleIPARecursiveTest, RecursiveReduceVerifyEmitsAccumulator)
 
     Builder builder;
     auto recursive_input = to_recursive_input(builder, input);
-    auto transcript = std::make_shared<StdlibTranscript>(StdlibProof(builder, proof));
+    auto transcript = std::make_shared<StdlibTranscript>();
+    transcript->load_proof(StdlibProof(builder, proof));
     auto accumulator = RecursivePCS::reduce_verify(recursive_input.claim_data.batch(), transcript);
 
     EXPECT_EQ(accumulator.u_challenges_inv.size(), log_n);
@@ -191,7 +192,8 @@ TEST_F(TripleIPARecursiveTest, RecursiveReduceVerifyRejectsTamperedProof)
 
     Builder builder;
     auto recursive_input = to_recursive_input(builder, input);
-    auto transcript = std::make_shared<StdlibTranscript>(StdlibProof(builder, proof));
+    auto transcript = std::make_shared<StdlibTranscript>();
+    transcript->load_proof(StdlibProof(builder, proof));
     auto accumulator = RecursivePCS::reduce_verify(recursive_input.claim_data.batch(), transcript);
     static_cast<void>(accumulator);
 

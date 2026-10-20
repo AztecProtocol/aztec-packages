@@ -251,48 +251,31 @@ impl<let N: u32> ScalarField<N> {
     where
         BN: BigNum,
     {
-        x.validate_in_field();
         // Safety: separate verification
         let slices_result: ScalarField<N> = unsafe { __get_wnaf_slices_from_bignum(x) };
 
-        let slices: [u8; N] = slices_result.base4_slices;
-        let skew: bool = slices_result.skew;
+        slices_result.assert_encodes_bignum(x);
+        slices_result
+    }
 
+    /// Constrains `x` to be reduced (`x < r`) and `self` to be a wNAF encoding of exactly the
+    /// integer `x`.
+    ///
+    /// The reconstruction is compared limb by limb rather than with `BigNum` equality, which is
+    /// modular: an encoding of `x + r` would otherwise be accepted for `x`. `into_bignum`
+    /// range-checks every limb of the reconstruction, so limbwise equality is integer equality.
+    /// The `x < r` check closes the same alias from the other side: an unreduced `x` is itself
+    /// `(x mod r) + r`, and its exact encoding would pass the comparison.
+    fn assert_encodes_bignum<BN>(self, x: BN)
+    where
+        BN: BigNum,
+    {
+        x.validate_in_field();
         for i in 0..N {
-            (slices[i] as Field).assert_max_bit_size::<4>();
+            (self.base4_slices[i] as Field).assert_max_bit_size::<4>();
         }
-
-        let mut result: BN = BN::zero();
-        let mut count: u32 = 0;
-        {
-            let mut acc: u128 = 0;
-            let mut last_bits: u64 = (result.modulus_bits() % 120) as u64;
-            if (last_bits == 0) {
-                last_bits = 120;
-            }
-            let last_nibbles: u64 = (last_bits / 4 + 1) as u64;
-            for _ in 0..last_nibbles {
-                acc = acc * 16;
-                acc = acc + (slices[count] as u128) * 2 - 15;
-                count = count + 1;
-            }
-            result.set_limb(result.num_limbs() - 1, acc);
-        }
-        for i in 1..result.num_limbs() {
-            // Using a Field type to allow for negative numbers.
-            let mut acc: Field = 0;
-            for _ in 0..30 {
-                acc = acc * 16;
-                acc = acc + (slices[count] as Field) * 2 - 15;
-                count = count + 1;
-            }
-            // Handle overflow using helper function
-            let acc_u128: u128 = handle_overflow::<BN>(acc, &mut result, i);
-            result.set_limb(result.num_limbs() - 1 - i, acc_u128);
-        }
-        result.set_limb(0, result.get_limb(0) - skew as u128);
-        assert(result == x);
-        Self { base4_slices: slices, skew }
+        let result: BN = self.into_bignum();
+        assert_eq(result.get_limbs(), x.get_limbs(), "ScalarField slices do not encode the input");
     }
 
     pub fn into_bignum<BN>(self) -> BN
@@ -398,7 +381,7 @@ fn handle_overflow<B: BigNum>(acc: Field, result: &mut B, limb_index: u32) -> u1
 mod tests {
     use crate::scalar_field::{get_grumpkin_modulus_slices, ScalarField};
     use ::bignum::BigNum;
-    use ::bignum::{BLS12_377_Fr, U384};
+    use ::bignum::{BLS12_377_Fr, BLS12_381_Fr, U384};
 
     #[test]
     // test even number of nibbles
@@ -541,5 +524,93 @@ mod tests {
         ];
         // slices[0] = 6 < 8, rejected by the first-slice range check
         (malicious_slices[0] as Field - 8 as Field).assert_max_bit_size::<3>();
+    }
+
+    /// wNAF slices (with `skew = false`) encoding the BLS12-381 scalar field modulus `r`.
+    fn bls12_381_fr_modulus_slices() -> [u8; 64] {
+        [
+            11, 9, 15, 6, 13, 3, 10, 9, 9, 4, 12, 14, 11, 14, 10, 4, 1, 9, 9, 12, 14, 12, 0, 4, 0,
+            4, 13, 0, 14, 12, 0, 2, 10, 9, 13, 14, 13, 2, 0, 1, 7, 15, 15, 15, 2, 13, 15, 15, 7, 15,
+            15, 15, 15, 15, 15, 15, 8, 0, 0, 0, 0, 0, 0, 0,
+        ]
+    }
+
+    #[test]
+    fn test_from_bignum_round_trips() {
+        let x = BLS12_381_Fr::from_limbs([0xab54a98ceb1f0ad2, 0, 0]);
+        let scalar: ScalarField<64> = ScalarField::from_bignum(x);
+        let reconstructed: BLS12_381_Fr = scalar.into_bignum();
+        assert_eq(reconstructed.get_limbs(), x.get_limbs());
+    }
+
+    /// `alias_slices` encodes `x + r` for the `x` below, where `r` is the BLS12-381 scalar field
+    /// modulus. It passes the 4-bit slice checks and reconstructs to a value that is modularly
+    /// equal to `x`, so only an integer comparison rejects it.
+    #[test(should_fail_with = "ScalarField slices do not encode the input")]
+    fn test_from_bignum_rejects_encoding_of_x_plus_modulus() {
+        let x = BLS12_381_Fr::from_limbs([0xab54a98ceb1f0ad2, 0, 0]);
+        let alias_slices: [u8; 64] = [
+            11, 9, 15, 6, 13, 3, 10, 9, 9, 4, 12, 14, 11, 14, 10, 4, 1, 9, 9, 12, 14, 12, 0, 4, 0,
+            4, 13, 0, 14, 12, 0, 2, 10, 9, 13, 14, 13, 2, 0, 1, 7, 15, 15, 15, 2, 13, 15, 15, 13, 5,
+            10, 10, 5, 4, 12, 5, 15, 5, 8, 15, 8, 5, 6, 9,
+        ];
+        let alias: ScalarField<64> = ScalarField { base4_slices: alias_slices, skew: false };
+        let reconstructed: BLS12_381_Fr = alias.into_bignum();
+        assert(reconstructed == x);
+        assert(reconstructed.get_limbs() != x.get_limbs());
+
+        alias.assert_encodes_bignum(x);
+    }
+
+    #[test]
+    fn test_from_bignum_round_trips_zero() {
+        let zero = BLS12_381_Fr::zero();
+        let scalar: ScalarField<64> = ScalarField::from_bignum(zero);
+        let reconstructed: BLS12_381_Fr = scalar.into_bignum();
+        assert_eq(reconstructed.get_limbs(), zero.get_limbs());
+    }
+
+    /// The encoding of `r` itself is the case `BigNum::is_zero` treats as zero.
+    #[test(should_fail_with = "ScalarField slices do not encode the input")]
+    fn test_from_bignum_rejects_encoding_of_modulus_for_zero() {
+        let zero = BLS12_381_Fr::zero();
+        let alias: ScalarField<64> =
+            ScalarField { base4_slices: bls12_381_fr_modulus_slices(), skew: false };
+        let reconstructed: BLS12_381_Fr = alias.into_bignum();
+        assert(reconstructed == zero);
+        assert(reconstructed.get_limbs() != zero.get_limbs());
+
+        alias.assert_encodes_bignum(zero);
+    }
+
+    /// `alias_slices` is the honest encoding of `x` with one slice raised by 16 and the slice
+    /// above it lowered by 1, which leaves the encoded integer unchanged. It reconstructs to
+    /// exactly `x`, so only the 4-bit range check on the slices rejects it.
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn test_from_bignum_rejects_slice_above_4_bits() {
+        let x = BLS12_381_Fr::from_limbs([0xab54a98ceb1f0ad2, 0, 0]);
+        let alias_slices: [u8; 64] = [
+            8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 10, 10, 5, 4, 12, 6, 7,
+            5, 8, 15, 8, 4, 22, 9,
+        ];
+        let alias: ScalarField<64> = ScalarField { base4_slices: alias_slices, skew: true };
+        let reconstructed: BLS12_381_Fr = alias.into_bignum();
+        assert_eq(reconstructed.get_limbs(), x.get_limbs());
+
+        alias.assert_encodes_bignum(x);
+    }
+
+    /// For the unreduced input `r`, the exact encoding of `r` matches limb for limb, so only the
+    /// `x < r` check rejects it.
+    #[test(should_fail_with = "assert_is_not_zero_integer fail")]
+    fn test_from_bignum_rejects_unreduced_input() {
+        let modulus = BLS12_381_Fr::modulus();
+        let exact: ScalarField<64> =
+            ScalarField { base4_slices: bls12_381_fr_modulus_slices(), skew: false };
+        let reconstructed: BLS12_381_Fr = exact.into_bignum();
+        assert_eq(reconstructed.get_limbs(), modulus.get_limbs());
+
+        exact.assert_encodes_bignum(modulus);
     }
 }

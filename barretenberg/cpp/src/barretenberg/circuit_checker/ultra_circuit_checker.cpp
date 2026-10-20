@@ -5,17 +5,19 @@
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>
+#include <utility>
 
 namespace bb {
 
-template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>()
+// The checker validates against the full relation set of the builder's family, which is a superset of what
+// any reduced arithmetization over it constrains.
+template <typename Builder> auto UltraCircuitChecker::init_empty_values()
 {
-    return UltraFlavor::AllValues{};
-}
-
-template <> auto UltraCircuitChecker::init_empty_values<MegaCircuitBuilder_<bb::fr>>()
-{
-    return MegaFlavor::AllValues{};
+    if constexpr (IsMegaBuilder<Builder>) {
+        return MegaFlavor::AllValues{};
+    } else {
+        return UltraFlavor::AllValues{};
+    }
 }
 
 template <>
@@ -31,12 +33,13 @@ UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_cir
     return builder;
 }
 
-template <>
-MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuilder_<bb::fr>>(
-    const MegaCircuitBuilder_<bb::fr>& builder_in)
+// Every Mega arithmetization: the op queue is deep-copied so the check does not disturb the original.
+// UltraCircuitBuilder, which has no op queue, is specialized above.
+template <typename Builder> Builder UltraCircuitChecker::prepare_circuit(const Builder& builder_in)
 {
+    static_assert(IsMegaBuilder<Builder>, "the Ultra arithmetization has its own specialization");
     // Create a copy of the input circuit
-    MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+    Builder builder{ builder_in };
 
     // Deepcopy the opqueue to avoid modifying the original one
     builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
@@ -389,7 +392,10 @@ void UltraCircuitChecker::populate_values(
     values.w_o() = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
     // we are indexing into the correct block before updating the w_4 value.
-    const bool is_ram_rom_block = (&block == &builder.blocks.memory);
+    bool is_ram_rom_block = false;
+    if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Memory)) {
+        is_ram_rom_block = (static_cast<const void*>(&block) == static_cast<const void*>(&builder.blocks.memory));
+    }
     if (is_ram_rom_block && memory_data.read_record_gates.contains(idx)) {
         values.w_4() = compute_memory_record_term(
             values.w_l(), values.w_r(), values.w_o(), memory_data.eta, memory_data.eta_two, memory_data.eta_three);
@@ -647,16 +653,24 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relat
 // Template method instantiations for each check method
 template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(
     const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in);
-template bool UltraCircuitChecker::check<MegaCircuitBuilder_<bb::fr>>(const MegaCircuitBuilder_<bb::fr>& builder_in);
+#define INSTANTIATE_ULTRA_CIRCUIT_CHECKER(Builder)                                                                     \
+    template Builder UltraCircuitChecker::prepare_circuit<Builder>(const Builder& builder_in);                         \
+    template bool UltraCircuitChecker::check<Builder>(const Builder& builder_in);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_ULTRA_CIRCUIT_CHECKER)
+#undef INSTANTIATE_ULTRA_CIRCUIT_CHECKER
 
 // Instantiations of check_relation_at_row for the Mega Poseidon2 boundary relations exercised by the compressed
 // internal-round soundness tests.
-template bool UltraCircuitChecker::check_relation_at_row<Poseidon2ExternalRelation<bb::fr>>(
-    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
-template bool UltraCircuitChecker::check_relation_at_row<Poseidon2TransitionEntryRelation<bb::fr>>(
-    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
-template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalRelation<bb::fr>>(
-    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+using MegaPoseidon2Block = decltype(std::declval<MegaCircuitBuilder>().blocks.poseidon2);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2ExternalRelation<bb::fr>>(MegaCircuitBuilder&,
+                                                                                            MegaPoseidon2Block&,
+                                                                                            size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2TransitionEntryRelation<bb::fr>>(MegaCircuitBuilder&,
+                                                                                                   MegaPoseidon2Block&,
+                                                                                                   size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalRelation<bb::fr>>(MegaCircuitBuilder&,
+                                                                                                MegaPoseidon2Block&,
+                                                                                                size_t);
 template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalTerminalRelation<bb::fr>>(
-    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+    MegaCircuitBuilder&, MegaPoseidon2Block&, size_t);
 } // namespace bb

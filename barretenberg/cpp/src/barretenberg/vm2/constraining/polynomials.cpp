@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
