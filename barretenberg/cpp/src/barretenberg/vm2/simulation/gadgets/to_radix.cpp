@@ -50,7 +50,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
 
     bool truncated = num_limbs < limbs.size();
     if (truncated) {
-        limbs.erase(limbs.begin() + num_limbs, limbs.end());
+        limbs.erase(limbs.begin() + static_cast<std::ptrdiff_t>(num_limbs), limbs.end());
     }
 
     return { limbs, truncated };

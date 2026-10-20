@@ -1,8 +1,8 @@
 #include "barretenberg/avm/avm_execute.hpp"
+#include "barretenberg/avm/avm_simulate_with_hints.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/vm2/avm_sim_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
@@ -52,6 +52,10 @@ template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_
 template <>
 void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder<wire::AvmSimulateResponse> respond)
 {
+    if (request.cdb_client == nullptr || request.wsdb_client == nullptr) {
+        respond.error("Simulate needs bb-avm-sim started with --wsdb and --cdb");
+        return;
+    }
     // Reuse the process-lifetime token (cleared of any prior cancellation) instead
     // of allocating a per-request one the signal handler could outlive.
     g_sim_cancellation_token->reset();
@@ -64,7 +68,7 @@ void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder
         uint64_t fork_id = sim_inputs.ws_revision.forkId;
         vinfo("Using external WSDB fork ", fork_id, " for AVM simulation");
 
-        request.cdb_client.set_fork_id(fork_id);
+        request.cdb_client->set_fork_id(fork_id);
 
         g_active_cancellation_token.store(cancellation_token.get(), std::memory_order_release);
 
@@ -76,18 +80,18 @@ void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder
             .includeUncommitted = true,
         };
 
-        bb::avm2::simulation::WsdbIpcMerkleDB merkle_db(request.wsdb_client, revision);
+        bb::avm2::simulation::WsdbIpcMerkleDB merkle_db(*request.wsdb_client, revision);
 
         AvmSimulationHelper simulation_helper;
         auto result = sim_inputs.config.collect_hints
-                          ? simulation_helper.simulate_for_hint_collection_internal(request.cdb_client,
+                          ? simulation_helper.simulate_for_hint_collection_internal(*request.cdb_client,
                                                                                     merkle_db,
                                                                                     sim_inputs.config,
                                                                                     sim_inputs.tx,
                                                                                     sim_inputs.global_variables,
                                                                                     sim_inputs.protocol_contracts,
                                                                                     cancellation_token)
-                          : simulation_helper.simulate_fast_internal(request.cdb_client,
+                          : simulation_helper.simulate_fast_internal(*request.cdb_client,
                                                                      merkle_db,
                                                                      sim_inputs.config,
                                                                      sim_inputs.tx,
@@ -112,12 +116,7 @@ void handle_simulate_with_hints(AvmRequest& request,
     (void)request;
 
     try {
-        auto proving_inputs = deserialize_from_msgpack<AvmProvingInputs>(command.inputs);
-
-        AvmSimAPI api;
-        auto result = api.simulate_with_hinted_dbs(proving_inputs);
-
-        respond.ok(wire::AvmSimulateWithHintsResponse{ .result = serialize_to_msgpack(result) });
+        respond.ok(wire::AvmSimulateWithHintsResponse{ .result = simulate_with_hints(command.inputs) });
     } catch (const std::exception& e) {
         respond.error(e.what());
     }
