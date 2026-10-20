@@ -358,11 +358,6 @@ function test_cmds_wasm_threads {
   echo "$hash:CPUS=8 HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
 }
 
-function test_cmds_wasm {
-  # vm2_sim in wasm gives the native result for the same transaction, and catches the exceptions it relies on.
-  echo "$hash barretenberg/cpp/scripts/vm2_sim_smoke_test.sh"
-}
-
 function test_cmds_asan {
   local prefix="$hash:CPUS=4:MEM=8g"
 
@@ -400,7 +395,6 @@ function test_cmds_nightly {
 function test_cmds {
   if [ -z "${1:-}" ]; then
     test_cmds_native
-    test_cmds_wasm
     if [ "$CI_FULL" -eq 1 ]; then
       test_cmds_wasm_threads
       test_cmds_asan

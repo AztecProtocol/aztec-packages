@@ -421,8 +421,7 @@
         "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
-        "MULTITHREADING": "OFF",
-        "AVM": "OFF"
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -768,8 +767,7 @@
       "targets": [
         "barretenberg.wasm",
         "barretenberg.wasm.gz",
-        "barretenberg-debug.wasm",
-        "vm2_sim_smoke"
+        "barretenberg-debug.wasm"
       ]
     },
     {

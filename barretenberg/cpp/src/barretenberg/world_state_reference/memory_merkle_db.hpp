@@ -103,7 +103,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
             leaves_.push_back(Leaf(LeafType::padding(i), /*nextIndex=*/0, /*nextKey=*/0));
         }
         for (size_t i = 0; i < initial_size; ++i) {
-            size_t next_index = i == (initial_size - 1) ? 0 : i + 1;
+            index_t next_index = i == (initial_size - 1) ? 0 : i + 1;
             leaves_[i].nextIndex = next_index;
             leaves_[i].nextKey = leaves_[next_index].leaf.get_key();
             tree_.update_element(i, HashingPolicy::hash(leaves_[i].get_hash_inputs()));
@@ -131,7 +131,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
     Leaf get_leaf_preimage(index_t leaf_index) const
     {
         BB_ASSERT_LT(leaf_index, leaves_.size(), "Leaf index out of bounds");
-        return leaves_[static_cast<size_t>(leaf_index)];
+        return leaves_[leaf_index];
     }
 
     FF get_leaf_value(index_t leaf_index) const { return tree_.get_node(0, leaf_index); }
@@ -149,7 +149,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
 
         FF key = leaf_to_insert.get_key();
         GetLowIndexedLeafResponse find_low_leaf_result = get_low_indexed_leaf(key);
-        Leaf& low_leaf = leaves_[static_cast<size_t>(find_low_leaf_result.index)];
+        Leaf& low_leaf = leaves_[find_low_leaf_result.index];
 
         result.low_leaf_witness_data.emplace_back(
             low_leaf, find_low_leaf_result.index, tree_.get_sibling_path(find_low_leaf_result.index));

@@ -17,8 +17,8 @@ bool RetrievedBytecodesTreeCheck::contains(const FF& class_id)
 {
     const auto snapshot = tree.get_snapshot();
     auto [exists, low_leaf_index] = tree.get_low_indexed_leaf(class_id);
-    auto sibling_path = tree.get_sibling_path(static_cast<size_t>(low_leaf_index));
-    auto low_leaf_preimage = tree.get_leaf_preimage(static_cast<size_t>(low_leaf_index));
+    auto sibling_path = tree.get_sibling_path(low_leaf_index);
+    auto low_leaf_preimage = tree.get_leaf_preimage(low_leaf_index);
 
     indexed_tree_check.assert_read(class_id,
                                    std::nullopt, // No siloing
