@@ -189,7 +189,7 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
  * If the bit slices for a regular variable are arranged [b63, ..., b0],
  * the twisted representation is a 65-bit variable [b63, ..., b0, b63]
  *
- * The equivalent of XOR(A, ROTL(B, 1)) is A.twist + 2B.twist (in base-11 form)
+ * The equivalent of XOR(A, ROTL(B, 1)) is A.twist + 11 * B.twist (in base-11 form)
  * The output is present in bit slices 1 to KECCAK_LANE_SIZE.
  *
  * @tparam Builder
@@ -242,8 +242,8 @@ template <typename Builder> void keccak<Builder>::compute_twisted_state(keccak_s
  *
  * We want to be able to compute XOR(A, B.rotate_left(1)) and can do this via twisted representations
  *
- * The equivalent in base-11 world is twisted_A * 2 + twisted_B.
- * The output of the XOR operation exists in bit-slices 1, ..., 63
+ * The equivalent in base-11 world is twisted_A + 11 * twisted_B.
+ * The output of the XOR operation exists in bit-slices 1, ..., 64
  * (which can be extracted by removing the least and most significant slices of the output)
  * This is MUCH cheaper than the extra range constraints required for a naive left-rotation
  *

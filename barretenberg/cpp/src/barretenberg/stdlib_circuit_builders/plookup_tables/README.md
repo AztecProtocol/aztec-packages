@@ -1,6 +1,6 @@
 # Lookup Table Structure in Barretenberg
 
-In Barretenberg, we use lookup tables extensively to optimise the number of constraints in the circuit for operations like bitwise XOR/AND and round-rotations (fundamental to various hashing algorithms like SHA256 and Blake2s), elliptic curve multi-scalar-multiplication algorithms, etc. Representing these operations via lookup tables significantly reduces the number of constraints compared to implementing them using basic arithmetic gates.
+Barretenberg uses lookup tables to reduce the constraint count of bitwise XOR/AND, round rotations (SHA-256, Blake2s, Keccak) and elliptic curve scalar multiplication, compared to basic arithmetic gates.
 
 To understand how we structure lookup tables in Barretenberg, we will look at the example of a 32-bit bitwise XOR operation. A naive approach would be to create a single lookup table that maps every possible pair of 32-bit inputs to their XOR result. However, this would require a table with $2^{64}$ entries, which is impractical to store. Instead, we split each 32-bit input into 6-bit slices: five slices of 6 bits (30 bits total) plus one final slice of 2 bits (for the remaining 2 bits):
 
@@ -20,24 +20,21 @@ For each $n$-bit slice, we create a lookup table that maps every possible pair o
 | Item                    | Description                                                                  |
 | ----------------------- | ---------------------------------------------------------------------------- |
 | `id`                    | Unique identifier for the multi table                                        |
-| `num_lookups`           | Number of slices/lookups in the multi table                                  |
-| `lookup_ids`            | List of unique identifiers for each basic table used in the multi table      |
+| `basic_table_ids`       | List of identifiers of the basic table used for each slice                   |
 | `slice_sizes`           | List of sizes (in bits) for each slice                                       |
 | `column_i_coefficients` | Coefficients for each column to compute accumulated values (for `i = 1,2,3`) |
 | `column_i_step_sizes`   | Step sizes for each column to compute accumulated values (for `i = 1,2,3`)   |
 | `get_table_values`      | Function to retrieve the values of the multi table                           |
-|                         |                                                                              |
 
 A `BasicTable` consists of the following:
 
 | Item                 | Description                                                                |
 | -------------------- | -------------------------------------------------------------------------- |
 | `id`                 | Unique identifier for the basic table                                      |
-| `table_index`        | Index of the table in the multi-table                                      |
+| `table_index`        | Circuit-wide index of this table (stored in `q_3` / `q_o` of each lookup gate) |
 | `use_twin_keys`      | Boolean indicating whether it is a 2-keys-1-value table                    |
 | `column_i`           | Actual values in a column of the basic table (for `i = 1,2,3`)             |
 | `column_i_step_size` | Step sizes for each column to compute accumulated values (for `i = 1,2,3`) |
-|                      |                                                                            |
 
 We will next describe the need and the usage of the column coefficients and step sizes.
 
@@ -69,7 +66,7 @@ $$
 
 for all three columns $i = 1, 2, 3$.
 
-Note that the first coefficient is always 1 (i.e., $a_0 = 1$), which simplifies the computation. The step sizes are used during the lookup process to incrementally compute accumulated values from the table lookups, avoiding the need for additional multiplication gates in the circuit. They represent the multiplicative factor needed to scale each slice to its correct position in the final reconstructed value.
+Note that the first coefficient is always 1 (`column_i_coefficients[0] = 1`), which simplifies the computation. The step sizes are used during the lookup process to incrementally compute accumulated values from the table lookups, avoiding the need for additional multiplication gates in the circuit. They represent the multiplicative factor needed to scale each slice to its correct position in the final reconstructed value.
 
 ### Lookup Gate Structure with Accumulators
 
@@ -88,7 +85,6 @@ We create 6 lookup gates, one for each slice. To understand the pattern, let's f
 | $3$     | $\frac{S - s_0 - s_1 \cdot 2^6 - s_2 \cdot 2^{12}}{2^{18}} = s_3 \cdot 2^{0} + s_4 \cdot 2^{6} + s_5 \cdot 2^{12}$  |
 | $4$     | $\frac{S - s_0 - s_1 \cdot 2^6 - s_2 \cdot 2^{12} - s_3 \cdot 2^{18}}{2^{24}} = s_4 \cdot 2^{0} + s_5 \cdot 2^{6}$  |
 | $5$     | $\frac{S - s_0 - s_1 \cdot 2^6 - s_2 \cdot 2^{12} - s_3 \cdot 2^{18} - s_4 \cdot 2^{24}}{2^{30}} = s_5 \cdot 2^{0}$ |
-|         |                                                                                                                     |
 
 This establishes the reconstruction of the full value $S$ from the slices while also allowing us to prove the individual lookups by considering the difference of consecutive rows. For example, the slice value $s_0$ is reconstructed as:
 
@@ -96,6 +92,16 @@ $$w_1[0] - w_1[1]\cdot 2^6 = S  - \frac{S - s_0}{2^6}\cdot 2^6 = s_0$$
 
 Or, more generally for the $i$-th wire and $j$-th row:
 
-$$w_i[j] - w_i[j+1]\cdot \texttt{step\_size}_{i,j} = s_{i,j}, \,\,\, i = 1,2,3, \,\,\, j \in [0,5]$$
+$$w_i[j] - w_i[j+1]\cdot \texttt{step\_size}_{i,j+1} = s_{i,j}, \,\,\, i = 1,2,3, \,\,\, j \in [0,4]; \qquad w_i[5] = s_{i,5}$$
 
-In the lookup relation (`LogDerivLookupRelation`) values $w_i[j+1]$ are accessed via the shifted wire polynomials `w_i_shift` and the $\texttt{step\_size}_{i,j}$ are stored in selectors $q_r, q_m$ and $q_c$.
+The last row has no successor, so its step coefficients are zero.
+
+In the lookup relation (`LogDerivLookupRelation`) values $w_i[j+1]$ are accessed via the shifted wire polynomials `w_i_shift`. The step sizes are stored, negated, in the selectors `q_2` ($q_r$), $q_m$ and $q_c$.
+
+### Where things are
+
+- `types.hpp`: the `BasicTableId` and `MultiTableId` enums, and the `BasicTable` and `MultiTable` structs.
+- `plookup_tables.cpp`: the MultiTable registry (`get_multitable`) and the BasicTable factory (`create_basic_table`).
+- One file per table family: `uint.hpp`, `sha256.hpp`, `blake2s.hpp`, `keccak/`, `aes128.hpp`, `fixed_base/`, `secp256r1_fixed_base*`, `non_native_group_generator*`, `sparse.hpp`, `dummy.hpp`.
+
+To add a table, add its ids to the enums in `types.hpp`, write the generator in the family file, and register it in `plookup_tables.cpp`.
