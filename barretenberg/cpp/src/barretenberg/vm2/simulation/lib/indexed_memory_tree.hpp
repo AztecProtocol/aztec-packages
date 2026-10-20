@@ -150,20 +150,22 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
     for (const auto& leaf_to_insert : leaves_to_insert) {
         FF key = leaf_to_insert.get_key();
         GetLowIndexedLeafResponse find_low_leaf_result = get_low_indexed_leaf(key);
-        IndexedLeaf<LeafType>& low_leaf = leaves.at(find_low_leaf_result.index);
+        // index_t is 64-bit; size_t is 32-bit on wasm32. An index into this in-memory tree always fits.
+        const auto low_index = static_cast<size_t>(find_low_leaf_result.index);
+        IndexedLeaf<LeafType>& low_leaf = leaves.at(low_index);
 
-        result.low_leaf_witness_data.push_back(LeafUpdateWitnessData<LeafType>(
-            low_leaf, find_low_leaf_result.index, tree.get_sibling_path(find_low_leaf_result.index)));
+        result.low_leaf_witness_data.push_back(
+            LeafUpdateWitnessData<LeafType>(low_leaf, find_low_leaf_result.index, tree.get_sibling_path(low_index)));
 
         if (!find_low_leaf_result.is_already_present) {
             // If the leaf is not already present, we point the low leaf to the new leaf and then insert the new leaf.
             IndexedLeaf<LeafType> new_indexed_leaf(leaf_to_insert, low_leaf.nextIndex, low_leaf.nextKey);
-            index_t insertion_index = leaves.size();
+            size_t insertion_index = leaves.size();
 
             low_leaf.nextIndex = insertion_index;
             low_leaf.nextKey = key;
             FF low_leaf_hash = HashingPolicy::hash(low_leaf.get_hash_inputs());
-            tree.update_element(find_low_leaf_result.index, low_leaf_hash);
+            tree.update_element(low_index, low_leaf_hash);
 
             append_leaf(new_indexed_leaf);
             FF new_leaf_hash = HashingPolicy::hash(new_indexed_leaf.get_hash_inputs());
@@ -176,7 +178,7 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
             // Update the current leaf's value, don't change it's link
             low_leaf = IndexedLeaf<LeafType>(leaf_to_insert, low_leaf.nextIndex, low_leaf.nextKey);
             FF low_leaf_hash = HashingPolicy::hash(low_leaf.get_hash_inputs());
-            tree.update_element(find_low_leaf_result.index, low_leaf_hash);
+            tree.update_element(low_index, low_leaf_hash);
 
             // Push an empty insertion witness
             result.insertion_witness_data.push_back(

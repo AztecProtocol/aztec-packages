@@ -113,6 +113,14 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
+if(WASM)
+    # The AVM simulator, without the AVM prover (the wasm presets set AVM off), as bb-avm-sim.wasm.
+    add_subdirectory(barretenberg/aztec)
+    add_subdirectory(barretenberg/world_state_reference)
+    add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/avm)
+endif()
+
 if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # Mobile builds exclude these modules that aren't needed on mobile
     add_subdirectory(barretenberg/aztec)

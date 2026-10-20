@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tooling/stats.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <string>

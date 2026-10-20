@@ -18,13 +18,14 @@ const PLATFORMS = [
 ];
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-const binaryName = Object.keys(pkg.bin ?? {})[0];
+// The scoped name's last segment, which is what the per-platform directories are named after.
+const stem = pkg.name.split('/').pop();
+// A string bin names its command after the package, which is the form yarn rewrites a one-entry map to on install.
+const binaryName = typeof pkg.bin === 'string' ? stem : Object.keys(pkg.bin ?? {})[0];
 if (!binaryName) {
   console.error(`prepare_arch_packages: ${pkg.name} declares no bin, so it ships no binary`);
   process.exit(1);
 }
-// The scoped name's last segment, which is what the per-platform directories are named after.
-const stem = pkg.name.split('/').pop();
 
 const overrides = new Map();
 for (const arg of process.argv.slice(2)) {

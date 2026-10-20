@@ -60,9 +60,11 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
     constexpr int max_retries = 600;
     constexpr int retry_delay_ms = 100;
 
-    info("Connecting to aztec-wsdb at ", wsdb_path);
     std::unique_ptr<wsdb::WsdbIpcClient> wsdb_client;
-    for (int attempt = 0; attempt < max_retries; ++attempt) {
+    if (!wsdb_path.empty()) {
+        info("Connecting to aztec-wsdb at ", wsdb_path);
+    }
+    for (int attempt = 0; !wsdb_path.empty() && attempt < max_retries; ++attempt) {
         try {
             wsdb_client = std::make_unique<wsdb::WsdbIpcClient>(ipc_codegen::IpcBackend(wsdb_path));
             break;
@@ -75,9 +77,11 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
         }
     }
 
-    info("Connecting to CDB at ", cdb_path);
     std::unique_ptr<cdb::CdbIpcContractDB> cdb_client;
-    for (int attempt = 0; attempt < max_retries; ++attempt) {
+    if (!cdb_path.empty()) {
+        info("Connecting to CDB at ", cdb_path);
+    }
+    for (int attempt = 0; !cdb_path.empty() && attempt < max_retries; ++attempt) {
         try {
             cdb_client = std::make_unique<cdb::CdbIpcContractDB>(cdb_path);
             break;
@@ -90,7 +94,7 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
         }
     }
 
-    AvmRequest request{ .cdb_client = *cdb_client, .wsdb_client = *wsdb_client };
+    AvmRequest request{ .cdb_client = cdb_client.get(), .wsdb_client = wsdb_client.get() };
 
     info("bb-avm-sim IPC server ready");
 
