@@ -317,7 +317,7 @@ bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
-bb-cpp-wasm-tests: bb-cpp-wasm-threads
+bb-cpp-wasm-tests: bb-cpp-wasm
 	$(call test,$@,barretenberg/cpp,wasm)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads

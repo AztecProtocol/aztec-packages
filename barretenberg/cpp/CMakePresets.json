@@ -769,7 +769,8 @@
         "barretenberg.wasm",
         "barretenberg.wasm.gz",
         "barretenberg-debug.wasm",
-        "bb-avm-sim.wasm"
+        "bb-avm-sim.wasm",
+        "avm_ffi_tests"
       ]
     },
     {
@@ -789,7 +790,6 @@
         "barretenberg.wasm.gz",
         "barretenberg-debug.wasm",
         "ecc_tests",
-        "avm_ffi_tests",
         "ultra_honk_bench",
         "bb"
       ]
