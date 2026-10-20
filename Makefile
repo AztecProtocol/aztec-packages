@@ -263,7 +263,7 @@ bb-ts-cross-copy: bb-ts bb-cpp-cross
 # the same barretenberg/ts node_modules. bb-ts additionally emits the bb.js test commands,
 # which the test engine runs concurrently with the rest of the build out of that same tree,
 # so an unordered npm_install_deps here swaps files under a running node (SIGBUS).
-bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native bb-ts
+bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-ts
 	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
 
 # Ordered after bb-cdb (and after bb-ts-cross-copy, which builds bb.js-api's cross copies)
@@ -312,6 +312,9 @@ bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
+bb-cpp-wasm-tests: bb-cpp-wasm-threads
+	$(call test,$@,barretenberg/cpp,wasm)
+
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
 	$(call test,$@,barretenberg/cpp,wasm_threads)
 
@@ -327,6 +330,11 @@ bb-acir-tests: bb-acir
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
 
+# After bb-cdb, the last of the barretenberg/ts targets to install into node_modules, which the
+# tests run out of.
+bb-avm-sim-tests: bb-avm-sim bb-cdb
+	$(call test,$@,barretenberg/ts,bb_avm_sim)
+
 bb-sol-tests: bb-sol
 	$(call test,$@,barretenberg/sol)
 
@@ -339,7 +347,7 @@ bb-bbup-tests: bb-bbup
 bb-rs-tests: bb-rs
 	$(call test,$@,barretenberg/rust)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
+bb-tests: bb-cpp-native-tests bb-cpp-wasm-tests bb-acir-tests bb-ts-tests bb-avm-sim-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 

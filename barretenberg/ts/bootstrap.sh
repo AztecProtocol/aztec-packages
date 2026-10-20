@@ -31,8 +31,9 @@ function generate_bb_avm_sim_package {
     --binary-name "$BB_AVM_SIM_BINARY" \
     --prefix Avm \
     --strip-method-prefix \
-    --package-transports uds \
-    --package-ipc-path-args 'msgpack,run,--input,{path}'
+    --package-transports uds,wasm \
+    --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-wasm-module bb-avm-sim.wasm
 }
 
 # Server binding package for the AVM CDB protocol: generated wire types +
@@ -139,6 +140,13 @@ function build_bb_js_api {
   prepare_bb_js_api_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/bb"
 }
 
+# The single-thread module only: the simulator runs no threads.
+function copy_bb_avm_sim_wasm {
+  rm -rf bb-avm-sim/wasm
+  mkdir -p bb-avm-sim/wasm
+  cp "$ROOT/barretenberg/cpp/build-wasm/bin/bb-avm-sim.wasm" bb-avm-sim/wasm/bb-avm-sim.wasm
+}
+
 function copy_bb_avm_sim_native {
   local target_dir="bb-avm-sim/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
@@ -173,6 +181,7 @@ function build_bb_js {
 function build_bb_avm_sim {
   echo_header "bb-avm-sim package build"
   generate_packages
+  copy_bb_avm_sim_wasm
   copy_bb_avm_sim_native
   npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$BB_AVM_SIM_PACKAGE" build
@@ -230,8 +239,17 @@ function build {
   build_cdb
 }
 
+# `test_cmds bb_avm_sim` lists the bb-avm-sim package's tests alone: they need its build
+# (bb-avm-sim), which bb.js's tests do not.
 function test_cmds {
-  (cd bb.js && ./bootstrap.sh test_cmds)
+  case "${1:-}" in
+    bb_avm_sim)
+      echo "$hash barretenberg/ts/scripts/bb_avm_sim_test.sh"
+      ;;
+    *)
+      (cd bb.js && ./bootstrap.sh test_cmds)
+      ;;
+  esac
 }
 
 function bench_cmds {
@@ -280,6 +298,7 @@ function get_projects {
 
 function release_bb_avm_sim {
   generate_packages
+  copy_bb_avm_sim_wasm
   copy_bb_avm_sim_native
   copy_bb_avm_sim_cross
   npm_install_deps "$IPC_RUNTIME_PKG"
@@ -336,7 +355,7 @@ function release {
   release_bb_bin
 }
 
-export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
+export -f generate_bb_avm_sim_package copy_bb_avm_sim_wasm copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
 export -f generate_bb_js_api_package copy_bb_js_api_wasm copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
 export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
 
