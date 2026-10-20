@@ -110,9 +110,6 @@ class Chonk {
     std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
 #endif
 
-    // Management of linking databus commitments between circuits in the IVC
-    DataBusDepot bus_depot;
-
     // Hiding kernel prover instance: built during accumulate_hiding_kernel(), consumed by prove().
     std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
 

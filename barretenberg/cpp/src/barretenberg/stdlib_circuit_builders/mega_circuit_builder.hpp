@@ -247,7 +247,7 @@ class MegaCircuitBuilder_ : public UltraCircuitBuilder_<ExecutionTrace_> {
      */
     void free_construction_data() override
     {
-        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::free_construction_data();
+        Base::free_construction_data();
         databus = DataBus{};
     }
 
