@@ -382,9 +382,8 @@ function test_cmds_wasm_threads {
 }
 
 function test_cmds_wasm {
-  # The AVM simulator's in-process service, as bb-avm-sim.wasm runs it. From the threads build, whose shared memory
-  # wasmtime provides; the single-thread build imports a memory only a JS host supplies.
-  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/avm_ffi_tests"
+  # The AVM simulator's in-process service, from the single-threaded build bb-avm-sim.wasm comes from.
+  echo "$hash SINGLE_THREADED=1 barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm/bin/avm_ffi_tests"
 }
 
 function test_cmds_asan {
