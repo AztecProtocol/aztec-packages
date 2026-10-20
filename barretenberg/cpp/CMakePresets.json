@@ -421,7 +421,8 @@
         "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
-        "MULTITHREADING": "OFF"
+        "MULTITHREADING": "OFF",
+        "AVM": "OFF"
       }
     },
     {
@@ -767,7 +768,8 @@
       "targets": [
         "barretenberg.wasm",
         "barretenberg.wasm.gz",
-        "barretenberg-debug.wasm"
+        "barretenberg-debug.wasm",
+        "bb-avm-sim.wasm"
       ]
     },
     {
@@ -787,6 +789,7 @@
         "barretenberg.wasm.gz",
         "barretenberg-debug.wasm",
         "ecc_tests",
+        "avm_ffi_tests",
         "ultra_honk_bench",
         "bb"
       ]
