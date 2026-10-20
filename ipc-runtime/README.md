@@ -12,13 +12,23 @@ The same C++ implementation is reused from Rust, TypeScript (Node.js) and
 Zig via a tiny C ABI. Wire types travel as opaque byte arrays; the per-
 language codegen output knows how to (de)serialise them.
 
+Consumers:
+
+- barretenberg C++ servers and clients for the `avm`, `cdb` and `wsdb` services (`barretenberg/cpp/src/barretenberg/{avm,cdb,wsdb}`).
+- The generated TS packages (`@aztec-foundation/bb-avm-sim`, `@aztec-foundation/wsdb`), which spawn a native binary through `SpawnedProcessBackend`.
+- aztec-node's CDB server (`yarn-project/simulator/src/public/cdb_ipc_server.ts`), which runs on `UdsIpcServer`.
+
 ## Quick start
 
 ```sh
 cd ipc-runtime
-./bootstrap.sh           # build C++ static lib + tests (default)
-./bootstrap.sh test      # run C++ ipc_runtime_tests
+./bootstrap.sh           # build the C++ library and tests, the NAPI addon and the TS package (default)
+./bootstrap.sh test      # rebuild, then run the C++, Rust and TS tests
 ```
+
+`./bootstrap.sh` copies the NAPI addon to `ts/build/<arch>-<os>/`. Set `SKIP_NAPI=1` or
+`SKIP_TS_BUILD=1` to skip the addon or the TS build. Other commands: `clean`,
+`build_cross <preset>`, `cross_copy`, and `release` (npm publish).
 
 Per-language bindings build standalone:
 
@@ -26,22 +36,21 @@ Per-language bindings build standalone:
 # Rust crate
 cd rust && cargo build
 
-# TypeScript package (publishes @aztec-foundation/ipc-runtime via file: link)
+# TypeScript package (consumed in-repo via file: links; published to npm by ./bootstrap.sh release)
 cd ts && yarn install --immutable && yarn build
 
-# Zig binding (compiles the C++ sources itself; no prebuilt archive)
-cd zig && zig build test
+# Zig binding, plus its in-process smoke test
+cd zig && zig build && ./zig-out/bin/ipc_runtime_smoke
 ```
-
-The Rust and Zig bindings each compile the C++ sources themselves (via the
-`cc` crate / `zig build`), so there's no separately-built archive to ship
-between them and ipc-runtime/cpp.
 
 ## Layout
 
 ```
 ipc-runtime/
-  bootstrap.sh           # build / test (C++ only)
+  bootstrap.sh           # build / test / clean / build_cross / cross_copy / release
+  scripts/
+    run_rust_tests.sh    # cargo test (called by bootstrap.sh test)
+    run_ts_tests.sh      # yarn test (called by bootstrap.sh test)
   cpp/
     ipc_runtime/
       constants.hpp               # shared limits/defaults (mirrored in ts/src/types.ts)
@@ -58,7 +67,12 @@ ipc-runtime/
       serve_helper.{hpp,cpp}      # ipc::make_server / make_client (path-suffix dispatch)
       signal_handlers.{hpp,cpp}   # ipc::install_default_signal_handlers
       c_abi.{h,cpp}               # C ABI exported to Rust / Zig / NAPI
+      grind_ipc.sh                # SHM stress loop (see Testing)
+      shm.test.cpp, socket.test.cpp  # ipc_runtime_tests
+    napi/                         # NAPI addon behind NapiShm*Client (ipc_runtime_napi.node)
+    scripts/zig-{ar,ranlib}.sh    # zig wrappers for cross builds
     CMakeLists.txt
+    CMakePresets.json             # cross-compile presets
   rust/
     src/lib.rs            # safe Rust wrapper over c_abi.h
     build.rs              # invokes cc to compile cpp/ sources
@@ -69,17 +83,25 @@ ipc-runtime/
       uds_client.ts       # UdsIpcClient (Node net.Socket)
       uds_server.ts       # UdsIpcServer
       shm_client.ts       # NapiShmSyncClient / NapiShmAsyncClient (NAPI bridge)
-      types.ts            # IpcClientSync / IpcClientAsync interfaces
+      spawned_backend.ts  # SpawnedProcessBackend (spawns a service binary)
+      errors.ts           # IpcError and subclasses
+      native_loader.ts    # finds and loads ipc_runtime_napi.node
+      types.ts            # IpcClientSync / IpcClientAsync interfaces, constants
+      *.test.ts
+    scripts/copy_cross.sh
     package.json
   zig/
     src/main.zig          # Zig binding (Server.fromPath / Client.fromPath)
-    src/smoke.zig         # in-process smoke test
+    src/smoke.zig         # in-process smoke test (installed as ipc_runtime_smoke)
     build.zig
 ```
 
+The Rust crate (`build.rs`, via the `cc` crate) and the Zig binding (`build.zig`,
+with the bundled clang and libc++) compile the C++ sources themselves, so there
+is no separately built archive to ship between them and `ipc-runtime/cpp`.
+
 The shared C ABI in `cpp/ipc_runtime/c_abi.h` is the single contract every
-non-C++ binding implements. Adding a new language binding is "wrap that
-header"; there is no separate cross-language IPC framing to learn.
+non-C++ binding implements. A new language binding only needs to wrap `c_abi.h`.
 
 ## Transport selection
 
@@ -96,13 +118,24 @@ from the path's suffix:
 #include "ipc_runtime/signal_handlers.hpp"
 
 auto server = ipc::make_server(input_path);    // .sock or .shm
+if (!server) { /* any other suffix returns nullptr */ }
 ipc::install_default_signal_handlers(*server); // SIGINT/SIGTERM → clean exit
 server->listen();
 server->run(make_service_handler(request_ctx)); // codegen-emitted dispatcher
 ```
 
-UDS is the default; SHM is a sub-microsecond hot path for latency-sensitive
-local clients (`shm/README.md` covers the ring-buffer internals).
+Any other suffix makes `make_server` / `make_client` return `nullptr`; check it.
+SHM is the low-latency path for local clients (`cpp/ipc_runtime/shm/README.md`
+covers the ring-buffer internals).
+
+`make_server` takes an optional `ServerOptions` (`serve_helper.hpp`):
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `max_shm_clients` | 2 | Maximum concurrent SHM clients; a third SHM client cannot connect. |
+| `shm_request_ring_size` | `DEFAULT_RING_SIZE` | SHM request ring size (per client → server). |
+| `shm_response_ring_size` | `DEFAULT_RING_SIZE` | SHM response ring size (server → per client). |
+| `socket_backlog` | `SOCKET_BACKLOG` | UDS listen backlog. |
 
 The suffix helpers use MPSC-SHM for `.shm` because it supports multiple
 client slots. If a service only ever needs one producer/client, the lower-level
@@ -186,21 +219,21 @@ destructors run normally.
 ### Rust (`rust/`, crate `ipc-runtime`)
 
 ```rust
-let mut server = ipc_runtime::Server::from_path("/tmp/svc.sock")?;
+let mut server = ipc_runtime::IpcServer::from_path("/tmp/svc.sock")?;
 server.listen()?;
 server.install_default_signal_handlers();
 server.run(|client_id, request| handle(client_id, request));
 
-let mut client = ipc_runtime::Client::from_path("/tmp/svc.sock")?;
+let mut client = ipc_runtime::IpcClient::from_path("/tmp/svc.sock")?;
 let response: Vec<u8> = client.call(&request_bytes)?;
 ```
 
-`Server::from_path` / `Client::from_path` mirror the C++ helpers (suffix
-dispatch). The Rust `Client::call(&[u8]) -> Result<Vec<u8>>` packages the
+`IpcServer::from_path` / `IpcClient::from_path` mirror the C++ helpers (suffix
+dispatch). The Rust `IpcClient::call(&[u8]) -> Result<Vec<u8>>` packages the
 send + receive + release sequence into a single safe operation. For
-multi-slot MPSC-SHM, use `Client::from_path_with_id(path, client_id)`. The
-crate compiles the C++ sources via `build.rs` so there's no separate
-linker hook for downstream Cargo users.
+multi-slot MPSC-SHM, use `IpcClient::from_path_with_id(path, client_id)`.
+Because the crate compiles the C++ sources via `build.rs`, downstream Cargo
+users need no separate linker hook.
 
 ### TypeScript (`ts/`, published as `@aztec-foundation/ipc-runtime`)
 
@@ -212,14 +245,21 @@ Two transport-specific clients:
 | `NapiShmSyncClient`  | MPSC-SHM via NAPI bridge   | sync (one in flight)                                         |
 | `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (C++ poll thread + ThreadSafeFunction bridge); pipelines, pairs by request id |
 
-`UdsIpcServer` is provided for in-process tests; production servers are in
-C++.
+`UdsIpcServer` serves UDS from Node. aztec-node uses it for the CDB server. There
+is no TS SHM server.
+
+`ts/src/index.ts` also exports:
+
+- `SpawnedProcessBackend`, which the generated package shells use to spawn the service binary.
+- The error classes `IpcError`, `IpcTransportError`, `IpcProcessExitedError` and `IpcSpawnError`.
+- The factories `createNapiShmSyncClient` / `createNapiShmAsyncClient`.
+- The loader functions `findIpcRuntimeNapi` / `loadIpcRuntimeNapi`. The SHM clients need the prebuilt `ipc_runtime_napi.node` under `ts/build/<arch>-<os>/`.
+- The constants from the table below.
 
 ### Zig (`zig/`)
 
-`Server.fromPath(path)` / `Client.fromPath(path)` over the same C ABI; the
-Zig `build.zig` compiles the C++ sources directly with the bundled clang +
-libc++, so there's no archive shim.
+`Server.fromPath(path)` / `Client.fromPath(allocator, path)` over the same C ABI.
+For multi-slot MPSC-SHM, use `Client.fromPathWithId(allocator, path, client_id)`.
 
 ## Shared constants
 
@@ -259,22 +299,19 @@ callers deal in whole payloads and never see ids unless they use the
 explicit-id primitives. The codegen's `Command` / `Response` NamedUnion
 sits inside the payload — see `ipc-codegen/SCHEMA_SPEC.md`.
 
-## Performance characteristics
+## Testing
 
-| Transport     | Round-trip latency  | Throughput, 1 client | Notes                                |
-|---------------|---------------------|----------------------|--------------------------------------|
-| UDS           | 6–15 µs             | ~150K msgs/s         | One syscall per `send`/`recv`         |
-| MPSC-SHM (hot)| 0.3–1 µs            | ~1M msgs/s           | Lock-free; adaptive spin + futex     |
-| MPSC-SHM (cold)| 3–6 µs             | n/a                  | First message after idle ring         |
-
-The `cpp/ipc_runtime/grind_ipc.sh` script and `ipc_runtime_tests` stress the
-SHM implementation; benchmark harnesses can reuse the same runtime APIs.
+`ipc_runtime_tests` (built by `./bootstrap.sh`) covers both transports.
+`cpp/ipc_runtime/grind_ipc.sh [jobs]` stresses the SHM implementation: it runs
+`ShmTest.SingleClientSmallRingHighVolume` in a loop until a run fails or you
+press Ctrl-C. It defaults to 128 parallel jobs and needs `cpp/build/ipc_runtime_tests`.
 
 ## Threading model
 
-- **UDS server**: single-threaded event loop with `epoll`. Concurrent
-  clients are interleaved; handlers run on the loop thread, so heavy work
-  should be offloaded.
+- **UDS server**: one event-loop thread (epoll on Linux, kqueue on macOS).
+  Concurrent clients are interleaved. With `run()`, handlers run on that
+  thread, so offload heavy work. With `run_reactor()`, handlers may respond
+  from any thread.
 - **MPSC-SHM server**: single consumer pulling from the per-client request
   ring. Clients write lock-free in parallel; the server is the sole
   reader.

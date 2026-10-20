@@ -7,7 +7,10 @@ Build from this directory:
 ```
 
 The Cargo project depends on `ipc-runtime/rust` via a repo-relative path.
-Binaries are written to `target/debug/`.
+The bootstrap also runs `cargo check --features ffi` to compile-check the
+generated FFI backend. Binaries are written to `target/debug/`.
+`src/bin/generate_golden.rs` writes the golden fixtures (`./bootstrap.sh update_goldens`
+in `ipc-codegen`).
 
 Run locally:
 
