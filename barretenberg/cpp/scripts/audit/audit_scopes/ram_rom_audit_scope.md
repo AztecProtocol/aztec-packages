@@ -1,7 +1,7 @@
 # External Audit Scope: RAM/ROM
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 ## Files to Audit
 Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -21,14 +21,16 @@ This is the lowest level of our ROM/RAM abstraction.
     g. `init_RAM_element`
     h. `write_RAM_array`
     i. `read_RAM_array`
-    j. `apply_memory_selectors`
+    j. `memory_selectors_row`
 3. `relations/memory_relation.hpp`.
+
+Single-value ROM arrays use a LogUp argument (subrelations 6 and 7 of `MemoryRelation`). Pair-value ROM arrays use the sorted-trace argument. See [`relations/ROM_README.md`](../../../src/barretenberg/relations/ROM_README.md) and [`relations/LOGUP_README.md`](../../../src/barretenberg/relations/LOGUP_README.md).
 
 The memory relation implements constraints that are evaluated during the sumcheck protocol. Rather than auditing the underlying sumcheck infrastructure, reviewers should focus on verifying that the polynomial identities themselves are correctly formulated. More precisely, the focus should be that the ROM consistency checks, RAM consistency checks, and timestamp checks properly enforce the memory semantics described in the comments.
 
 The relation's accumulate method receives univariate polynomial extensions as input and adds constraint contributions to accumulators; these accumulators are later evaluated by the sumcheck prover/verifier machinery, which is out-of-scope for this audit. Please audit the mathematical correctness/completeness of the constraint equations, not the underlying accumulator/sumcheck mechanisms.
 #### Testing
-1. `ultrahonk/rom_ram.test.cpp`.
+1. `ultra_honk/rom_ram.test.cpp`.
 This is the main extensive end-to-end testing file. There are also several failure tests using the circuit-checker machinery.
 2. `circuit_checker/ultra_circuit_builder_memory.test.cpp`
 (This latter file uses the circuit-checker mechanism, which checks that the the relations hold on the circuit. This is in contrast to the first testing suite, which are primarily end-to-end tests.)
@@ -44,7 +46,7 @@ One level of abstraction higher than in `stdlib_circuit_builders`. This is part 
 2. `stdlib/primitives/memory/twin_rom_table.test.cpp`
 3. `stdlib/primitives/memory/ram_table.test.cpp`
 #### Additional documentation
-Some extra documentation for ROM/twin ROM tables is contained in the `README`.
+Some extra documentation for ROM/twin ROM tables is in `stdlib/primitives/memory/README.md`.
 
 ### `dsl`
 This is the highest level of abstraction of the memory operations in `barretenberg`. This is part of the package that transforms `acir` constraints into a `barretenberg` circuit.
@@ -71,5 +73,5 @@ Detailed documentation of the circuit-level construction may be found in `rom_ra
 
 
 ## Security Mechanisms
-1. Fuzzing: while there is acir fuzzing: `acir_dsl.fuzzer.cpp`, it **does not** fuzz the ROM/RAM gates.
+1. Fuzzing: while there is acir fuzzing: `dsl/acir_format/acir_dsl.fuzzer.cpp`, it **does not** fuzz the ROM/RAM gates.
 2. Boomerang (to check for underconstrained circuits): `boomerang_value_detection/graph_description_ram_rom.test.cpp`

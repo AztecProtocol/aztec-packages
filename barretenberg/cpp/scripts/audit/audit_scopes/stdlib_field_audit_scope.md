@@ -1,7 +1,7 @@
 # External Audit Scope: field
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -13,8 +13,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 The `field_t` implements field elements inside a circuit, supporting both constant (compile-time known) values and witness (runtime) values.
 
-### Key Features
-
 **Representation**: Each `field_t` stores:
 - `multiplicative_constant`: Scalar multiplier applied to the witness value
 - `additive_constant`: Constant offset added to the scaled witness
@@ -25,7 +23,7 @@ The effective value is: `multiplicative_constant * witness + additive_constant`
 
 **Operations**: Implements full field arithmetic (+, -, *, /) with optimized gate generation:
 - Addition/subtraction: Typically free (updates constants without adding gates)
-- Multiplication: Uses `create_big_mul_gate` for witness products, optimized paths for constants
+- Multiplication: one arithmetic gate (`create_arithmetic_gate`) for witness × witness; no gate when either input is constant
 - Division: Implemented via multiplication by inverse with `assert_is_not_zero` check
 
 **Normalization**: The `normalize()` method collapses a `field_t` with non-trivial constants into a single witness value, required before certain operations.
