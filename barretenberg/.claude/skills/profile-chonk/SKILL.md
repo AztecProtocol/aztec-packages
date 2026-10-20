@@ -138,7 +138,7 @@ ssh $BB_SSH_KEY $BB_SSH_INSTANCE "
   cd $REMOTE_DIR
   HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY \
   /home/ubuntu/.wasmtime/bin/wasmtime run \
-    -Wthreads=y -Sthreads=y -Wshared-memory=y \
+    -Wthreads=y -Wexceptions=y -Sthreads=y -Wshared-memory=y \
     --env HARDWARE_CONCURRENCY --env HOME --env BB_BENCH=1 \
     --dir=\$HOME/.bb-crs --dir=. \
     ./bin/bb prove \

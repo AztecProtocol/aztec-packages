@@ -54,7 +54,7 @@ function generate_bb_js_api_package {
   local bbapi="$ROOT/barretenberg/cpp/src/barretenberg/bbapi"
   # bb.js keeps its historical API surface (poseidon2Hash, Poseidon2Hash), so the Bb
   # service prefix is stripped from identifiers; wire tags keep it.
-  node --experimental-strip-types --experimental-transform-types --no-warnings \
+  node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$bbapi/bb_schema.json" \
     --lang ts \

@@ -34,8 +34,9 @@ WASM_EXPORT uint32_t env_hardware_concurrency()
 }
 
 /**
- * The wasm build compiles without exceptions, so a throw cannot unwind: report and exit. The
- * embedder sees proc_exit, which its WASI implementation turns back into an exception.
+ * Only a build without exceptions (BB_NO_EXCEPTIONS) reaches this, since throw_or_abort throws
+ * otherwise. A throw cannot unwind there: report and exit. The embedder sees proc_exit, which its
+ * WASI implementation turns back into an exception.
  */
 WASM_EXPORT void throw_or_abort_impl [[noreturn]] (char const* err)
 {

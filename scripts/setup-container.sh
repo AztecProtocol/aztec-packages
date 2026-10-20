@@ -94,14 +94,14 @@ apt-get -y autoremove
 apt-get clean
 
 # =============================================================================
-# SECTION 2: Node.js 24
+# SECTION 2: Node.js 26
 # =============================================================================
-log_info "Installing Node.js 24..."
+log_info "Installing Node.js 26..."
 
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_26.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 apt-get update
-apt-get install -y nodejs=24.15.0-1nodesource1
+apt-get install -y nodejs=26.12.0-1nodesource1
 
 # =============================================================================
 # SECTION 3: Clang 18/20
@@ -141,14 +141,14 @@ chmod +x /etc/profile.d/rust.sh
 # =============================================================================
 # SECTION 5: wasi-sdk
 # =============================================================================
-log_info "Installing wasi-sdk 27..."
+log_info "Installing wasi-sdk 34..."
 
 arch=$(uname -m)
 if [ "$arch" = "aarch64" ]; then arch="arm64"; fi
-wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz
-tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz
-mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk
-rm wasi-sdk-27.0-${arch}-linux.tar.gz
+wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-${arch}-linux.tar.gz
+tar xvf wasi-sdk-34.0-${arch}-linux.tar.gz
+mv wasi-sdk-34.0-${arch}-linux /opt/wasi-sdk
+rm wasi-sdk-34.0-${arch}-linux.tar.gz
 
 # =============================================================================
 # SECTION 6: Foundry
@@ -209,8 +209,8 @@ curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursu
 # =============================================================================
 log_info "Installing wasmtime..."
 
-curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v20.0.2/wasmtime-v20.0.2-$(uname -m)-linux.tar.xz | tar xJ
-mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin
+curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v46.0.3/wasmtime-v46.0.3-$(uname -m)-linux.tar.xz | tar xJ
+mv wasmtime-v46.0.3-$(uname -m)-linux/wasmtime /usr/local/bin
 rm -rf wasmtime*
 
 # =============================================================================
