@@ -31,7 +31,8 @@ Python 3 (stdlib). `PopGasVectorsTest` also passes on Foundry `1.4.1` with the d
 
 ```bash
 cd l1-contracts
-export PATH=$HOME/.foundry-1.8.4/bin:$PATH   # a forge that knows amsterdam
+# Needs a forge that knows amsterdam. Install it with `foundryup --install v1.8.4`,
+# or into a separate directory whose bin you put first on PATH.
 
 # 1. Long-tail scan (EVM-independent, ~2 min). Prints POPSCAN_TAIL <sk> <attempts> <sqrtCalls>.
 POP_GAS_SCAN_MAX=2000000 POP_GAS_SCAN_MIN_ATTEMPTS=110 POP_GAS_SCAN_MIN_SQRT=17 \
@@ -40,7 +41,8 @@ POP_GAS_SCAN_MAX=2000000 POP_GAS_SCAN_MIN_ATTEMPTS=110 POP_GAS_SCAN_MIN_SQRT=17 
 # 2. Measure amsterdam, osaka, prague (~1 min each), fit, write the fixture, print the tables.
 python3 scripts/bn254_pop_gas_model.py              # logs go to out/bn254-pop-gas/gen_<evm>.log
 
-# 3. Check the fixture against the active EVM version (this runs in CI).
+# 3. Check the fixture against the active EVM version. CI runs this test under the default prague
+#    with Foundry 1.4.1; run the amsterdam check by hand.
 forge test --match-contract PopGasVectorsTest --evm-version amsterdam
 ```
 
@@ -142,7 +144,7 @@ carries their `pk1` and `pk2`.
   "description": "...",
   "domainSeparator": "AZTEC_BLS_POP_BN254_V1",       // bytes32 string used by hashToPoint
   "evmVersions": ["amsterdam", "osaka", "prague"],
-  "model": {                                          // conservative constants per EVM version
+  "model": {                                          // conservative constants per EVM version; values below are amsterdam's (prague has S: 1902)
     "<evm>": {
       "minStipend":   { "F": 132694, "A": 515, "S": 4580, "QNumerator": 95975, "QDenominator": 1000000 },
       "verification": { "F": 130960, "A": 515, "S": 4580, "QNumerator": 95952, "QDenominator": 1000000 }
