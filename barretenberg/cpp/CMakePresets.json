@@ -422,7 +422,7 @@
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
         "MULTITHREADING": "OFF",
-        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
+        "AVM": "OFF"
       }
     },
     {
@@ -768,7 +768,9 @@
       "targets": [
         "barretenberg.wasm",
         "barretenberg.wasm.gz",
-        "barretenberg-debug.wasm"
+        "barretenberg-debug.wasm",
+        "bb-avm-sim.wasm",
+        "avm_ffi_tests"
       ]
     },
     {

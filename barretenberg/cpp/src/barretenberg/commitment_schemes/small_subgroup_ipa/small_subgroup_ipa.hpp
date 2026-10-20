@@ -420,7 +420,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
  * @return Polynomial<FF>
  */
 template <typename Curve>
-static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coeffs(
+inline std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coeffs(
     const std::vector<typename Curve::ScalarField>& multivariate_challenge)
 {
 

@@ -11,7 +11,7 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns))
 # generated client never depends on hand-maintained copies of them.
 function generate {
   local root=$(git rev-parse --show-toplevel)
-  (cd barretenberg-rs && node --experimental-strip-types --experimental-transform-types --no-warnings \
+  (cd barretenberg-rs && node --experimental-strip-types --no-warnings \
     "$root/ipc-codegen/src/generate.ts" \
     --schema "$root/barretenberg/cpp/src/barretenberg/bbapi/bb_schema.json" \
     --lang rust \

@@ -119,6 +119,11 @@ add_subdirectory(barretenberg/vm2_stub)
 # consumes wasi_objects, so there is nothing to build here otherwise.
 if(WASM)
     add_subdirectory(barretenberg/wasi)
+    # The AVM simulator, without the AVM prover (the wasm presets set AVM off), as bb-avm-sim.wasm.
+    add_subdirectory(barretenberg/aztec)
+    add_subdirectory(barretenberg/world_state_reference)
+    add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/avm)
 endif()
 
 if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)

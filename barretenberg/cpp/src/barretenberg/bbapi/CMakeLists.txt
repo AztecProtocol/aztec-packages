@@ -25,7 +25,7 @@ if(NOT FUZZING)
     # --ffi emits the in-process entry (bb_ipc_ffi_entry) bb.js's wasm backend and barretenberg-rs call.
     add_custom_command(
         OUTPUT ${BB_GEN_OUTPUTS}
-        COMMAND node --experimental-strip-types --experimental-transform-types --no-warnings
+        COMMAND node --experimental-strip-types --no-warnings
                 ${IPC_CODEGEN_DIR}/src/generate.ts
                 --schema ${BB_SCHEMA}
                 --lang cpp
