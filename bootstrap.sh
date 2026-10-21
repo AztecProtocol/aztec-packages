@@ -227,7 +227,8 @@ function transitional_toolchain_upgrade {
   export PATH=$dir/node-$node_version/bin:$dir/wasmtime-$wasmtime_version:$PATH
   export PLAYWRIGHT_BROWSERS_PATH=$dir/ms-playwright
   local out
-  if ! out=$(npx -y playwright@$playwright_version install chromium --only-shell 2>&1); then
+  # Full chromium, not just the headless shell: tests that launch through puppeteer take chromium.executablePath().
+  if ! out=$(npx -y playwright@$playwright_version install chromium 2>&1); then
     echo "$out"
     return 1
   fi
