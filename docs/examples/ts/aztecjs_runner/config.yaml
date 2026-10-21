@@ -1,0 +1,15 @@
+# Configuration for aztecjs_runner - runs all aztec.js example snippets
+# This project executes the examples against a live local network
+
+# No custom contracts needed - using pre-built contracts from @aztec-labs/noir-contracts.js
+contracts: []
+
+# Dependencies - union of all aztecjs example dependencies
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"
+  - "@aztec-labs/noir-contracts.js"
+  - "@aztec-labs/ethereum"
+  - "@aztec-labs/stdlib"
+  - "@aztec-labs/foundation"

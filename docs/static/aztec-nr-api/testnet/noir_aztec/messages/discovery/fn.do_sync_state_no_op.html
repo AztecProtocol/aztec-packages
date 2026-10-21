@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
+<script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
+<title>Function do_sync_state_no_op documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">do_sync_state_no_op</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module discovery</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="private_notes/index.html">private_notes</a></div></li>
+<li><a href="process_message/index.html">process_message</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NoteHashAndNullifier.html">NoteHashAndNullifier</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.ComputeNoteHash.html">ComputeNoteHash</a></div></li>
+<li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+<li><a href="type.ComputeNoteNullifier.html">ComputeNoteNullifier</a></div></li>
+<li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
+<li><a href="type.CustomSyncHandler.html">CustomSyncHandler</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+<li><a href="fn.do_sync_state_no_op.html">do_sync_state_no_op</a></div></li>
+<li><a href="fn.do_sync_state_without_handshake_discovery.html">do_sync_state_without_handshake_discovery</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">do_sync_state_no_op</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
+<pre><code>pub unconstrained fn do_sync_state_no_op(
+    _contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    _compute_note_hash: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html" class="type">ComputeNoteHash</a>,
+    _compute_note_nullifier: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a>,
+    _process_custom_message: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&gt;,
+    _offchain_inbox_sync: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/processing/offchain/type.OffchainInboxSync.html" class="type">OffchainInboxSync</a>&gt;,
+    _scope: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+)</code></pre>
+
+<div class="comments">
+<p>A <a href="../../../noir_aztec/messages/discovery/type.CustomSyncHandler.html"><code>CustomSyncHandler</code></a> that skips state synchronization entirely.</p>
+<p>For contracts that hold no private state and emit no messages, there is nothing to discover: syncing would only
+perform unnecessary RPC calls.</p></div>
+</div>
+</main>
+</span>
+</body>
+</html>

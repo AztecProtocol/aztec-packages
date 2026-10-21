@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
+<script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
+<title>Function append_leaves_to_snapshot documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">append_leaves_to_snapshot</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module append_only_tree</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.append_leaf_to_snapshot.html">append_leaf_to_snapshot</a></div></li>
+<li><a href="fn.append_leaf_to_snapshot_sha.html">append_leaf_to_snapshot_sha</a></div></li>
+<li><a href="fn.append_leaves_to_snapshot.html">append_leaves_to_snapshot</a></div></li>
+<li><a href="fn.insert_subtree_root_to_snapshot.html">insert_subtree_root_to_snapshot</a></div></li>
+<li><a href="fn.insert_subtree_root_to_snapshot_with_hasher.html">insert_subtree_root_to_snapshot_with_hasher</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">append_only_tree</a></div>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">append_leaves_to_snapshot</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
+<pre><code>pub fn append_leaves_to_snapshot&lt;let TreeHeight: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let MaxLeaves: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    snapshot: <a href="../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; MaxLeaves],
+    num_leaves: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    frontier_hint: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; TreeHeight],
+) -> <a href="../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></pre>
+
+<div class="comments">
+<p>Appends up to <code>MaxLeaves</code> leaves to a poseidon append-only tree at its current (arbitrary) next-available index.</p>
+<p>Unlike <code>insert_subtree_root_to_snapshot</code>, the insertion index does not need to be aligned to a power-of-two
+boundary: the whole batch is merged into the tree's frontier (the incremental-merkle-tree &quot;filled subtrees&quot;) level
+by level, so a compact bundle can start wherever the previous append left off. Only <code>leaves[0..num_leaves]</code> are
+inserted; the remaining lanes are no-ops and must be zero. The pair-hash lanes halve at each level as the batch
+rises, so the total cost is ~<code>MaxLeaves + 4 * TreeHeight</code> hashes (merge, hint validation, final root
+recomputation, and the zero-subtree-root chain) rather than <code>MaxLeaves * TreeHeight</code>.</p>
+<p><code>frontier_hint</code> is the frontier at <code>snapshot.next_available_leaf_index</code>, i.e. <code>frontier_hint[level]</code> is the pending
+left-sibling node at each level. It is validated against <code>snapshot.root</code> before use, pinning it to the snapshot the
+same way sibling-path hints are pinned elsewhere. The merge only ever reads hint entries at levels where the start
+index is a right child, which are exactly the entries the validation pins, so an incorrect hint cannot produce a
+wrong result: it either fails validation or is never read.</p>
+<p>Once the tree is completely full, no call to this function can succeed: appending more leaves fails the capacity
+check, and even a <code>num_leaves = 0</code> call fails, because a full tree has no frontier for the hint to match. (The
+one exception: a tree whose leaves are all zero is indistinguishable from an empty tree, so a <code>num_leaves = 0</code>
+call against it passes as a harmless no-op.) A caller that appends a bundle unconditionally therefore becomes
+unprovable once its tree fills up — the chain halts rather than degrading to &quot;no more messages&quot;. This fails
+closed and is accepted behavior: at the heights used in practice the tree can never fill up.</p>
+</div>
+</div>
+</main>
+</span>
+</body>
+</html>

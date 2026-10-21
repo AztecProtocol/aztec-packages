@@ -1,0 +1,193 @@
+---
+title: "Provider operations"
+description: "Ongoing operations for staking providers: Split-contract handling, provider config updates, queue management, and recovery from common failure modes."
+displayed_sidebar: operatorsSidebar
+---
+
+# Provider operations
+
+A provider-specific operations reference. All commands assume you've completed [register as sequencer](./register-sequencer) (provider mode), and your **provider ID** is filled in the configuration panel.
+
+<TrackPicker compact hideStake />
+
+<ForceStakeMode mode="provider" />
+
+<OperatorConfig />
+
+## Split contracts: one per delegation
+
+When a delegator stakes to your provider, the protocol auto-creates a [Splits-V2 Split contract](https://docs.splits.org/core/split) for that delegation. The Split holds the agreed commission split (your `providerTakeRate` to your `providerRewardsRecipient`, the rest to the delegator's vault). It is **frozen** at the commission rate that was active *when the delegation happened* — later `updateProviderTakeRate` calls only affect *new* delegations.
+
+**Per-delegation lifecycle:**
+
+1. Delegator stakes to your provider on the dashboard.
+2. Protocol pulls one keystore off your queue.
+3. Protocol creates the Split contract for that delegation.
+4. Protocol activates the attester.
+5. **You** update that attester's keystore: set `coinbase = <Split address>`, then reload the keystore with an admin API call (no restart needed).
+6. Rewards land in the Split. Getting them out is two permissionless steps: anyone calls `distribute()` on the Split, which moves the balance into the Splits warehouse and credits each recipient; then each recipient calls `withdraw()` on the warehouse. Your commission share goes to your rewards-recipient address; the delegator's share goes to their vault.
+
+You repeat step 5 for every new delegation. This can be fully automated: the protocol emits a `StakedWithProvider` event on each delegation that carries the new `attester` and its `coinbaseSplitContractAddress`, so a listener can write the coinbase into the keystore and reload it without a restart. See [Automate the coinbase update](#automate-the-coinbase-update) below.
+
+:::info Alternative: one EOA coinbase, distribute offchain
+The per-delegation coinbase update is the default flow, not the only one. You can instead point every attester's coinbase at a single address you control (EOA, multisig, or Safe) and run the [payout script](https://github.com/AztecProtocol/aztec-staking-payout) to compute and send each delegator's share at a published commission and cadence. This removes the per-delegation keystore edit entirely. The trade-off: you take on a recurring offchain distribution (the script emits a Multicall3 ERC20 batch whose gas scales with your delegator count, plus a per-run audit JSON for delegators to verify), and the split is enforced by your published commitment rather than onchain by the Split contract. See [the configuration step](./configure-environment#alternative-eoa-coinbase-with-the-payout-script) and the [forum announcement](https://forum.aztec.network/t/operator-commission-adjustments/8588).
+:::
+
+### Find a Split address
+
+Each delegation emits a `StakedWithProvider` event from the staking registry that pairs the activated `attester` with its `coinbaseSplitContractAddress`. Reading this event is the scalable way to get the mapping, and it is what an automated setup listens for. Query your provider's delegations directly:
+
+<ConfigCode language="bash">{`RPC={{ETH_RPC}}
+# RPC providers cap eth_getLogs to a limited block range per call,
+# so query a recent window rather than the whole chain.
+LATEST=$(cast block-number --rpc-url "$RPC")
+cast logs \\
+  --from-block $((LATEST - 900)) --to-block latest \\
+  --address {{STAKING_REGISTRY_ADDR}} \\
+  0xc91c8b4e934fb8f46c6d08a34d60ceb8dbe4ab6844a7040ca4c580e5a837d5c7 \\
+  $(cast to-uint256 {{PROVIDER_ID}}) \\
+  --rpc-url "$RPC"`}</ConfigCode>
+
+Pass the topics directly: the first is the `keccak256` hash of the `StakedWithProvider` signature, the second is your `{{PROVIDER_ID}}` padded to 32 bytes, so only your delegations come back. In each returned log the third indexed topic is the `attester`, and the first non-indexed field in `data` is its `coinbaseSplitContractAddress`. An unbounded query (no block range) scans from genesis and most RPCs reject it, so keep each call within your provider's block-range cap (which varies by provider) and page backward if you need older delegations.
+
+For a quick one-off lookup you can also read it from the staking dashboard: open your provider page, expand **Sequencer Registered (x)**, and read the Split address next to the attester.
+
+### Automate the coinbase update
+
+A production provider does not do this by hand. Subscribe to the `StakedWithProvider` event filtered by your `{{PROVIDER_ID}}`, and on each event set the new attester's `coinbase` to the `coinbaseSplitContractAddress` from the log, then reload the keystore over the admin API (no restart). The manual `distribute()` and `withdraw()` reward steps are permissionless and can be scheduled on the same listener.
+
+### Update the attester's keystore
+
+Edit `~/.aztec/keystore/keyN.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "validators": [{
+    "attester": { "eth": "0x...", "bls": "0x..." },
+    "publisher": ["0x..."],
+    "coinbase": "0x<SPLIT_CONTRACT_ADDRESS>",
+    "feeRecipient": "0x000...000"
+  }]
+}
+```
+
+Then tell the running node to reload the keystore from disk, which applies the new `coinbase` without a restart:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_reloadKeystore","params":[],"id":1}'
+```
+
+The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; it is reused across restarts because you set `DATA_DIRECTORY`. Pass it with the `x-api-key` header (or `Authorization: Bearer [ADMIN_API_KEY]`). See [admin API key authentication](../reference/changelog/v4.md#admin-api-key-authentication) for the key lifecycle and the opt-out flag.
+
+`nodeAdmin_reloadKeystore` re-reads the keystore directory and applies each validator's attester key, coinbase, and fee recipient. It does not reload L1 publisher signers, prover keys, or HA signer database connections; those still require a restart. See the [node API reference](../reference/node-api-reference.md#admin-api). Restarting the node also loads the new keystore, if you prefer:
+
+```bash
+docker compose restart aztec-sequencer
+```
+
+## Queue management
+
+Your queue holds the unassigned keystores. Each delegation pulls one off.
+
+### Check queue depth
+
+<ConfigCode language="bash">{`cast call {{STAKING_REGISTRY_ADDR}} \\
+  "getProviderQueueLength(uint256)(uint256)" \\
+  {{PROVIDER_ID}} \\
+  --rpc-url {{ETH_RPC}}`}</ConfigCode>
+
+Returns a single integer. Below your expected weekly delegation flow = you risk an empty queue.
+
+### Add more keystores
+
+Generate the new keystores with `aztec validator-keys new --staker-output`, then call `addKeysToProvider` (use the [following helper script](https://gist.github.com/koenmtb1/1b665d055fbc22581c288f90cdc60d88) to format the call). `--staker-output` is what produces the registration array (attester address plus BLS proof of possession) that `addKeysToProvider` consumes. Max 100 keystores per transaction; verify uniqueness before adding (the contract does **not** check for duplicates).
+
+:::warning Advance the derivation index when reusing a mnemonic
+`aztec validator-keys new` always derives from address index 0 by default. If you generate a second batch from the **same mnemonic** without moving the index, you get the **same** attesters again, and the duplicates break your queue. Generate each new batch with `--address-index <N>`, where `N` is the number of attesters you have already derived from that mnemonic. For example, after a first batch of 50, generate the next 50 with:
+
+<ConfigCode language="bash">{`aztec validator-keys new --count 50 --staker-output \\
+  --mnemonic "<your mnemonic>" \\
+  --address-index 50 \\
+  --gse-address {{GSE_ADDR}} \\
+  --l1-rpc-urls {{ETH_RPC}} \\
+  --l1-chain-id {{L1_CHAIN_ID}}`}</ConfigCode>
+
+`--count 50` writes all 50 into one staker output file. Reusing one mnemonic with an index offset means a single backup to secure and easy bookkeeping; a fresh mnemonic per batch (or per machine) avoids the index tracking and keeps each batch's keys independent if one backup is ever exposed.
+
+Note: `aztec validator-keys add <keystore>` appends attesters to an existing **node** keystore (and auto-advances the index for you), but it does **not** produce a staker output, so it cannot feed `addKeysToProvider`. Use `new --staker-output` for queue keystores.
+:::
+
+### Recover from a duplicate keystore at the head of the queue
+
+If you accidentally added a duplicate keystore and a delegation now reverts, drip past the bad entries:
+
+<ConfigCode language="bash">{`# Drop the top N entries from your queue without activating them
+cast send {{STAKING_REGISTRY_ADDR}} \\
+  "dripProviderQueue(uint256,uint256)" \\
+  {{PROVIDER_ID}} <number-to-drip> \\
+  --rpc-url {{ETH_RPC}} \\
+  --private-key <provider-admin-private-key>`}</ConfigCode>
+
+Run with the smallest number that gets past the offending duplicate. Each call costs gas, so don't over-drip.
+
+## Provider config updates
+
+All three calls below must come from your `providerAdmin` address (the one returned by `providerConfigurations` field 1).
+
+### Change commission rate
+
+<ConfigCode language="bash">{`cast send {{STAKING_REGISTRY_ADDR}} \\
+  "updateProviderTakeRate(uint256,uint16)" \\
+  {{PROVIDER_ID}} <new-bps> \\
+  --rpc-url {{ETH_RPC}} \\
+  --private-key <provider-admin-private-key>`}</ConfigCode>
+
+`<new-bps>` is basis points: `500` = 5%, `700` = 7%, etc.
+
+:::warning Existing delegations keep the old rate
+Commission changes apply only to **new** delegations. Existing delegations' Split contracts are frozen at the rate that was active when they were created. Communicate the change publicly so delegators know what they'll get if they re-delegate.
+:::
+
+### Change rewards recipient
+
+<ConfigCode language="bash">{`cast send {{STAKING_REGISTRY_ADDR}} \\
+  "updateProviderRewardsRecipient(uint256,address)" \\
+  {{PROVIDER_ID}} <new-recipient> \\
+  --rpc-url {{ETH_RPC}} \\
+  --private-key <provider-admin-private-key>`}</ConfigCode>
+
+Takes effect immediately for **new** delegations. Existing Split contracts continue paying the old recipient (the recipient address is baked in when the Split is created).
+
+### Rotate provider admin
+
+<ConfigCode language="bash">{`cast send {{STAKING_REGISTRY_ADDR}} \\
+  "updateProviderAdmin(uint256,address)" \\
+  {{PROVIDER_ID}} <new-admin> \\
+  --rpc-url {{ETH_RPC}} \\
+  --private-key <current-admin-private-key>`}</ConfigCode>
+
+Use this for cold-storage rotation, multisig handoff, or compromise recovery. **The new admin is the only one who can subsequently call `addKeysToProvider` and the other update functions.**
+
+## Read your full provider state
+
+<ConfigCode language="bash">{`# Config (admin, take rate, rewards recipient)
+cast call {{STAKING_REGISTRY_ADDR}} \\
+  "providerConfigurations(uint256)(address,uint16,address)" \\
+  {{PROVIDER_ID}} \\
+  --rpc-url {{ETH_RPC}}
+
+# Queue length
+cast call {{STAKING_REGISTRY_ADDR}} \\
+  "getProviderQueueLength(uint256)(uint256)" \\
+  {{PROVIDER_ID}} \\
+  --rpc-url {{ETH_RPC}}
+
+# Pending admin (only nonzero if a transfer is in flight)
+cast call {{STAKING_REGISTRY_ADDR}} \\
+  "pendingProviderAdmins(uint256)(address)" \\
+  {{PROVIDER_ID}} \\
+  --rpc-url {{ETH_RPC}}`}</ConfigCode>
