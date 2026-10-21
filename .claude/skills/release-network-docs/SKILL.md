@@ -329,7 +329,7 @@ release CLI. Install the release into its own home, so nothing changes in the re
 ```bash
 . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
 env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
-  HOME="$CLI_HOME" NON_INTERACTIVE=1 VERSION=<new_version> bash <(curl -fsSL https://install.aztec.network)
+  HOME="$CLI_HOME" NON_INTERACTIVE=1 bash <(curl -fsSL https://install.aztec.network/<new_version>)
 aztec_cli aztec --version
 cd "$CUT/docs" && aztec_cli ./scripts/cli_reference_generation/generate_operator_cli_ref.sh -v "$LABS_TAG"
 grep -n -e "$CLI_HOME" -e /home/ -e /Users/ docs-operate/operators/reference/cli-reference.md

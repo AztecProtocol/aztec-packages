@@ -272,11 +272,12 @@ version fields, and never revert to the tag's older copy. Step 17 copies `networ
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh
 env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
-  HOME="$CLI_HOME" NON_INTERACTIVE=1 VERSION=<new_version> bash <(curl -fsSL https://install.aztec.network)
+  HOME="$CLI_HOME" NON_INTERACTIVE=1 bash <(curl -fsSL https://install.aztec.network/<new_version>)
 aztec_cli aztec --version
 ```
 
-The version must equal `<new_version>`; abort otherwise. The installer runs with `HOME`
+The version must equal `<new_version>`; abort otherwise (`install.aztec.network/<new_version>`
+serves the installer with that version fixed). The installer runs with `HOME`
 set to `$CLI_HOME`, so its node, foundry, nargo and shell-profile edits stay out of the
 real home. Clearing `NARGO_HOME` and `AZTEC_HOME`
 keeps noirup and the toolchain under that home too (with `NARGO_HOME` set, noirup lands
