@@ -2,23 +2,23 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 repo_root=$(git rev-parse --show-toplevel)
-export BB=${BB:-$repo_root/labs-aztec-toolchain/bin/bb}
-export NARGO=${NARGO:-$repo_root/labs-aztec-toolchain/bin/nargo}
+export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
+# Snippets under labs/ live in the submodule, which this repo's tree records only as a gitlink, so they
+# enter the hash through the gitlink and the patch series (.rebuild_patterns) instead.
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
     $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
-      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
+      awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
 )
-
-if semver check $REF_NAME; then
-  # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
-  hash+=$REF_NAME
-  export COMMIT_TAG=$REF_NAME
-fi
+[ -z "$(git -C "$repo_root/labs" status --porcelain)" ] || hash=disabled-cache
+# Released docs link snippets at their tag, so a release build never shares a cache entry with a dev build.
+# A tag of this repo is not a Labs version: releases set COMMIT_TAG (and LABS_REF) explicitly.
+hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:labs)" "${COMMIT_TAG:-}" "${LABS_REF:-}")
 
 function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
@@ -68,7 +68,19 @@ function check_orphaned_urls {
   # diff. The committed snapshot only grows the protected set for future PRs;
   # the check a PR must satisfy is the base-branch version it cannot edit.
   local snapshot=snapshots/published-urls.txt
-  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-main}}"
+  # While docs/ tracks aztec-node (.labs-sync), the protected set is the one Labs published, which
+  # this repository cannot edit.
+  if [ -f .labs-sync ]; then
+    local labs_baseline
+    labs_baseline=$(mktemp)
+    # shellcheck disable=SC2064
+    trap "rm -f '$labs_baseline'" RETURN
+    git -C ../labs show "$(cat .labs-sync):docs/${snapshot}" >"$labs_baseline"
+    echo "Using aztec-node baseline ($(cat .labs-sync))."
+    FAIL_ON_ORPHAN=1 ./scripts/check_orphaned_urls.sh "$labs_baseline"
+    return
+  fi
+  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-next}}"
   base_ref="${base_ref#refs/heads/}"
   local tmp
   tmp=$(mktemp)
