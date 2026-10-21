@@ -358,7 +358,9 @@ TypeDoc over the built `labs/yarn-project`, and the Aztec.js reference from
 `generate_aztec_nr_docs.sh`; confirm its `Using nargo:` line names the cut's
 `labs/labs-aztec-toolchain/bin/nargo`. A mismatched nargo fails with errors such as
 `error: Non-ASCII character in comment`. The output folders are named by
-`RELEASE_TYPE`, which `docs_env` sets.
+`RELEASE_TYPE`, which `docs_env` sets. `docs/bootstrap.sh` already fails CI when the
+Aztec.js reference drifts from its source (`update_docs.sh --check`), but that source is
+the destination's `labs/`; regenerating here makes the snapshot match the tag.
 
 ### Step 7: Generate CLI Reference Docs
 
@@ -1152,6 +1154,10 @@ commit has merged. `$STATE` holds the CLI's home and logs; remove it once the re
 - **Cut before building**: the authoritative build runs after the cut (Step 13).
 - **Parity before the cut**: snippets render as aztec-node renders them, with links that
   name the tag (Step 11a).
+- **Sweep the release's syntax changes into the docs before cutting**: enumerate breaking
+  changes from the migration-notes diff over the tag range, grep the hand-written docs for
+  the old syntax, adjudicate each hit against the source at the tag, and fix confirmed
+  drift (Step 8b). CI only protects `#include_code` snippets and `docs/examples/`.
 - **Functionally validate before shipping**: guides, tutorials and examples against a local
   network of the release (Step 15).
 - **User confirmation required** before deleting versioned docs and before adding
