@@ -9,9 +9,9 @@ const path = require("path");
 // On release builds this tag deliberately diverges from COMMIT_TAG (which the
 // rest of the site links at): the snippet is extracted from the installed
 // package's sources, so only the package's own version tag is guaranteed to
-// match it line-for-line. The pin is kept equal to the toolchain's BB_VERSION
-// by check_pin_drift in labs-aztec-toolchain/bootstrap.sh, so these links
-// track the pinned toolchain release rather than the docs release.
+// match it line-for-line. The pin is kept equal to the labs toolchain's
+// BB_VERSION by scripts/labs_docs_sync.sh check, so these links track the
+// pinned toolchain release rather than the docs release.
 const PUBLISHED_SNIPPET_SOURCES = [
   {
     pathPrefix: "docs/node_modules/@aztec-foundation/l1-artifacts/",
