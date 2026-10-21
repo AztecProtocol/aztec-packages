@@ -15,7 +15,7 @@ references: ["yarn-project/aztec/src/cli/cmds/start_node.ts", "yarn-project/azte
 
 <IfChoice axis="topology" is="single">
 
-## Single-server compose
+<Heading as="h2" id="single-server-compose">Single-server compose</Heading>
 
 Create `docker-compose.yml` in your `aztec-sequencer/` directory:
 
@@ -67,7 +67,7 @@ networks:
 
 <IfChoice axis="topology" is="ha" label="HA topology">
 
-## HA compose: same attester, two nodes, shared PostgreSQL
+<Heading as="h2" id="ha-compose-same-attester-two-nodes-shared-postgresql">HA compose: same attester, two nodes, shared PostgreSQL</Heading>
 
 In HA mode you run **two near-identical sequencer nodes**, both holding the same attester key. They coordinate via a shared PostgreSQL database that ensures only one node signs each duty (block proposal, attestation, governance vote). If one node dies, the other keeps attesting without missing a duty and without risking double-signing.
 

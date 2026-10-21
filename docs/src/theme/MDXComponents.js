@@ -2,6 +2,7 @@ import React from "react";
 import MDXComponents from "@theme-original/MDXComponents";
 import Version, { AztecPackagesVersion } from "@site/src/components/Version";
 import CodeBlock from "@theme/CodeBlock";
+import Heading from "@theme/Heading";
 import Card from '@site/src/components/TutorialCard';
 import CardBody from '@site/src/components/TutorialCard/CardBody';
 import CardFooter from '@site/src/components/TutorialCard/CardFooter';
@@ -26,6 +27,7 @@ export default {
   Version,
   AztecPackagesVersion,
   CodeBlock,
+  Heading,
   Card,
   CardHeader,
   CardBody,
