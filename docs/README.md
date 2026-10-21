@@ -190,7 +190,7 @@ This command runs the preprocess command, generates static content into the `bui
 
 ### Aztec.nr API Documentation
 
-The Aztec.nr API reference is auto-generated from the `noir-projects/aztec-nr/` source code using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
+The Aztec.nr API reference is auto-generated from the `labs/noir-projects/aztec-nr/` source code using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
 
 **Prerequisites:** You need `nargo` installed. Install via [noirup](https://noir-lang.org/docs/getting_started/quick_start#installation):
 
@@ -221,14 +221,14 @@ The generated docs are stored in `static/aztec-nr-api/<version>/` and linked fro
 
 ### TypeScript API Documentation
 
-The TypeScript API reference is auto-generated from the `yarn-project/` packages using TypeDoc. This generates LLM-optimized markdown documentation served from `static/typescript-api/`.
+The TypeScript API reference is auto-generated from the `labs/yarn-project/` packages using TypeDoc. This generates LLM-optimized markdown documentation served from `static/typescript-api/`.
 
 **Documented packages:**
 
 - **Client SDKs:** `@aztec-labs/aztec.js`, `@aztec-labs/accounts`, `@aztec-labs/pxe`, `@aztec-labs/wallet-sdk`, `@aztec-labs/wallets`, `@aztec-labs/entrypoints`
 - **Core Libraries:** `@aztec-labs/stdlib`, `@aztec-labs/foundation`, `@aztec-labs/constants`
 
-**Prerequisites:** You need `yarn-project` to be built first (the bootstrap process handles this).
+**Prerequisites:** You need `labs/yarn-project` to be built first (the bootstrap process handles this).
 
 **Generate docs for the "next" version:**
 
@@ -272,7 +272,7 @@ The generated docs are linked from the [TypeScript API Reference](/developers/do
 
 ### Aztec.js API Reference Page
 
-The single-page Aztec.js reference (`docs-developers/docs/aztec-js/aztec_js_reference.md`) is auto-generated from `yarn-project/aztec.js/src` by `scripts/aztecjs_reference_generation/`. This is a separate surface from the TypeDoc-based `static/typescript-api/` docs above: it is a Docusaurus page that gets snapshotted into `developer_versioned_docs/` at release cut time. `docs/bootstrap.sh` runs `update_docs.sh --check` in CI, so a change to `yarn-project/aztec.js/src` that alters the reference cannot land without the regenerated page.
+The single-page Aztec.js reference (`docs-developers/docs/aztec-js/aztec_js_reference.md`) is auto-generated from `labs/yarn-project/aztec.js/src` by `scripts/aztecjs_reference_generation/`. This is a separate surface from the TypeDoc-based `static/typescript-api/` docs above: it is a Docusaurus page that gets snapshotted into `developer_versioned_docs/` at release cut time. `docs/bootstrap.sh` runs `update_docs.sh --check` in CI, so a change to `yarn-project/aztec.js/src` that alters the reference cannot land without the regenerated page.
 
 **Prerequisites:** No build is required — the parser reads source `.ts` files directly. `node` and `python3` must be available.
 
@@ -286,20 +286,20 @@ This overwrites `docs-developers/docs/aztec-js/aztec_js_reference.md`. Do not ha
 
 **When to regenerate:**
 
-- When `yarn-project/aztec.js/src` public APIs or JSDoc change (CI's drift check will require it)
+- When `labs/yarn-project/aztec.js/src` public APIs or JSDoc change (CI's drift check will require it)
 - During a release docs cut (the `release-docs` skill runs this in Step 6, with the working tree checked out at the release tag)
 
 ### Node JSON-RPC API Reference
 
-The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
+The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `labs/yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
 
 **Source files:**
 
-- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
-- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
-- `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
+- `labs/yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
+- `labs/yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
+- `labs/yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
 
-**Prerequisites:** `yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.
+**Prerequisites:** `labs/yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `labs/yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.
 
 **Generate the reference doc:**
 
@@ -323,7 +323,7 @@ yarn generate:node-api-reference --target-dir network_versioned_docs/version-v4.
 
 **When to regenerate:**
 
-- When interface methods or Zod schemas change in `yarn-project/stdlib/src/interfaces/`
+- When interface methods or Zod schemas change in `labs/yarn-project/stdlib/src/interfaces/`
 - When cutting a new versioned snapshot of network docs (pass `--target-dir` to write into the versioned directory)
 - The source doc (`docs-operate/`) should be kept in sync with the latest code
 
@@ -543,7 +543,7 @@ Documentation pages can declare which source files they document via a `referenc
    ```yaml
    ---
    title: Node JSON RPC API reference
-   references: ["yarn-project/stdlib/src/interfaces/aztec-node.ts"]
+   references: ["labs/yarn-project/stdlib/src/interfaces/aztec-node.ts"]
    ---
    ```
 
@@ -552,7 +552,7 @@ Documentation pages can declare which source files they document via a `referenc
    ```yaml
    ---
    title: Function Context
-   references: ["noir-projects/aztec-nr/aztec/src/context/*"]
+   references: ["labs/noir-projects/aztec-nr/aztec/src/context/*"]
    ---
    ```
 
@@ -562,7 +562,7 @@ Documentation pages can declare which source files they document via a `referenc
 
 **Path Format**:
 
-- Paths must be absolute from the repository root (e.g., `yarn-project/...`, not `../../../../yarn-project/...`)
+- Paths must be absolute from the repository root (e.g., `labs/yarn-project/...`, not `../../../../labs/yarn-project/...`)
 - For individual files: `"path/to/file.ts"`
 - For directories (all files within): `"path/to/directory/*"`
 
