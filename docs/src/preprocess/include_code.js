@@ -19,15 +19,26 @@ const PUBLISHED_SNIPPET_SOURCES = [
   },
 ];
 
-function resolveSnippetSource(relativeCodeFilePath, rootDir, defaultTag) {
+// The docs and labs/ code come from aztec-node at docs/.labs-sync (checked equal to the labs gitlink),
+// so links name that commit unless a release sets LABS_REF or COMMIT_TAG. The patched labs/ HEAD
+// exists nowhere upstream and is never linked.
+function labsRef(rootDir) {
+  if (process.env.LABS_REF) return process.env.LABS_REF;
+  if (process.env.COMMIT_TAG) return process.env.COMMIT_TAG;
+  return fs
+    .readFileSync(path.join(rootDir, "docs", ".labs-sync"), "utf8")
+    .trim();
+}
+
+function resolveSnippetSource(relativeCodeFilePath, rootDir) {
   const published = PUBLISHED_SNIPPET_SOURCES.find((source) =>
     relativeCodeFilePath.startsWith(source.pathPrefix),
   );
   if (!published) {
     return {
       repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
-      ref: defaultTag,
-      displayPath: relativeCodeFilePath,
+      ref: labsRef(rootDir),
+      displayPath: relativeCodeFilePath.replace(/^labs\//, ""),
     };
   }
   const { version } = JSON.parse(
@@ -297,11 +308,9 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
       const relativeCodeFilePath = path
         .resolve(rootDir, codeFilePath)
         .replace(/^\//, "");
-      const tag = process.env.COMMIT_TAG ? `${process.env.COMMIT_TAG}` : "main";
       const { repoUrl, ref, displayPath } = resolveSnippetSource(
         relativeCodeFilePath,
         rootDir,
-        tag,
       );
       const urlText = `${displayPath}#L${startLine}-L${endLine}`;
       const url = `${repoUrl}/blob/${ref}/${urlText}`;
@@ -332,4 +341,5 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
 
 module.exports = {
   preprocessIncludeCode,
+  resolveSnippetSource,
 };
