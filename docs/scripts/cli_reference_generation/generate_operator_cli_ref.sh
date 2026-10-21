@@ -128,7 +128,7 @@ trap 'rm -f "$HELP_FILE" "$ERR_FILE" "$TMP"' EXIT INT TERM
 # presence of the final help line ("Starts Aztec TXE with options"), not just
 # the "TXE" section header — a dropped tail can omit the trailing flag and its
 # description while still emitting the header. This sentinel tracks the last
-# entry in yarn-project/aztec/src/cli/aztec_start_options.ts; update it if that
+# entry in labs/yarn-project/aztec/src/cli/aztec_start_options.ts; update it if that
 # block is reworded or reordered.
 #
 # `|| true` keeps a non-zero exit (which the same flush race can produce) from

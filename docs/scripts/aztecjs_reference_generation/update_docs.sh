@@ -26,17 +26,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 readonly SCRIPT_DIR DOCS_ROOT TARGET_VERSION
 
-readonly AZTEC_JS_SRC="$SCRIPT_DIR/../../../yarn-project/aztec.js/src"
+readonly AZTEC_JS_SRC="$SCRIPT_DIR/../../../labs/yarn-project/aztec.js/src"
 readonly OUTPUT_FILE="aztec_js_reference.md"
 readonly SIDEBAR_POSITION="98"
 readonly TITLE="Reference"
 
-# --check and the error paths exit before the deploy step, so the per-run temp files are
-# cleaned up on exit. The defaults cover exits from before the names are assigned.
-cleanup() {
-  rm -f "${TEMP_JSON:-}" "${TEMP_MD:-}" "${TEMP_WITH_FRONTMATTER:-}"
-}
-trap cleanup EXIT
+# --check and the error paths exit before the deploy step, so the per-run temp dir is
+# removed on exit.
+TEMP_DIR=$(mktemp -d)
+readonly TEMP_DIR
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 echo "=== Aztec.js API Documentation Update Script ==="
 echo ""
@@ -49,7 +48,7 @@ fi
 
 # Step 1: Parse TypeScript files
 echo "Step 1: Parsing TypeScript files from aztec.js..."
-readonly TEMP_JSON="/tmp/aztec_api_docs_$(date +%s).json"
+readonly TEMP_JSON="$TEMP_DIR/aztec_api_docs.json"
 node "$SCRIPT_DIR/parse_typescript.js" \
   --source "$AZTEC_JS_SRC" \
   --output "$TEMP_JSON" \
@@ -58,14 +57,14 @@ node "$SCRIPT_DIR/parse_typescript.js" \
 # Step 2: Generate markdown
 echo ""
 echo "Step 2: Generating markdown documentation..."
-readonly TEMP_MD="/tmp/aztec_api_auto_$(date +%s).md"
+readonly TEMP_MD="$TEMP_DIR/aztec_api_auto.md"
 python3 "$SCRIPT_DIR/transform_to_markdown.py" \
   --input "$TEMP_JSON" \
   --output "$TEMP_MD" \
   --title "$TITLE"
 
 # Step 3: Add front-matter
-readonly TEMP_WITH_FRONTMATTER="/tmp/aztec_api_final_$(date +%s).md"
+readonly TEMP_WITH_FRONTMATTER="$TEMP_DIR/aztec_api_final.md"
 
 cat > "$TEMP_WITH_FRONTMATTER" << EOF
 ---

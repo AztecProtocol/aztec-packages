@@ -13,7 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-AZTEC_NR_DIR="$(cd "$DOCS_ROOT/../noir-projects/aztec-nr" && pwd)"
+AZTEC_NR_DIR="$(cd "$DOCS_ROOT/../labs/noir-projects/aztec-nr" && pwd)"
 
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"
@@ -57,10 +57,9 @@ echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if nargo is available
-if ! command -v nargo &> /dev/null; then
-    # Try to use the nargo from the noir-repo if available
-    NARGO="${NARGO:-$DOCS_ROOT/../labs-aztec-toolchain/bin/nargo}"
+# An explicit NARGO wins over PATH: release cuts pin the toolchain of the version they document.
+if [[ -n "${NARGO:-}" ]] || ! command -v nargo &> /dev/null; then
+    NARGO="${NARGO:-$DOCS_ROOT/../noir/noir-repo/target/release/nargo}"
     # Convert to absolute path (important since we cd to aztec-nr directory later)
     if [[ "$NARGO" != /* ]]; then
         NARGO="$(cd "$DOCS_ROOT" && cd "$(dirname "$NARGO")" && pwd)/$(basename "$NARGO")"
