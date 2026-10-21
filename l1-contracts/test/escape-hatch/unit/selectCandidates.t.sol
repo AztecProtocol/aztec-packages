@@ -356,8 +356,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     Epoch hatchStart = escapeHatch.getFirstEpoch(preparedHatch);
     uint256 proofSubmissionEpochs = IRollup(_getRollup()).getProofSubmissionEpochs();
     Epoch exitableEpoch = Epoch.wrap(Epoch.unwrap(hatchStart) + config.activeDuration + proofSubmissionEpochs);
-    uint256 expectedExitableAt =
-      Timestamp.unwrap(IValidatorSelection(_getRollup()).getTimestampForEpoch(exitableEpoch))
+    uint256 expectedExitableAt = Timestamp.unwrap(IValidatorSelection(_getRollup()).getTimestampForEpoch(exitableEpoch))
       + config.proposingExitDelay;
     assertEq(info.exitableAt, uint32(expectedExitableAt), "exitableAt mismatch");
   }
@@ -458,8 +457,7 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     Epoch hatchStart = escapeHatch.getFirstEpoch(secondHatchToPrepare);
     uint256 proofSubmissionEpochs = IRollup(_getRollup()).getProofSubmissionEpochs();
     Epoch exitableEpoch = Epoch.wrap(Epoch.unwrap(hatchStart) + config.activeDuration + proofSubmissionEpochs);
-    uint256 expectedExitableAt =
-      Timestamp.unwrap(IValidatorSelection(_getRollup()).getTimestampForEpoch(exitableEpoch))
+    uint256 expectedExitableAt = Timestamp.unwrap(IValidatorSelection(_getRollup()).getTimestampForEpoch(exitableEpoch))
       + config.proposingExitDelay;
     assertEq(infoAfterSelection.exitableAt, uint32(expectedExitableAt), "exitableAt should be end of proof window");
   }

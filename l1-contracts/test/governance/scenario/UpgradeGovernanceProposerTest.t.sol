@@ -70,8 +70,12 @@ contract UpgradeGovernanceProposerTest is TestBase {
       });
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
-      .setValidators(initialValidators).setTargetCommitteeSize(4).setEpochDuration(1);
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setGovProposerN(7)
+      .setGovProposerM(10)
+      .setValidators(initialValidators)
+      .setTargetCommitteeSize(4)
+      .setEpochDuration(1);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

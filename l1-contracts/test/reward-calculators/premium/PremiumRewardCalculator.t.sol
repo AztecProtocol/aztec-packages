@@ -729,8 +729,7 @@ contract PremiumRewardCalculatorTest is PremiumUnitBase {
     pure
     returns (bool)
   {
-    bool answers =
-      _mode == ProbeTarget.Mode.Answer || _mode == ProbeTarget.Mode.Expensive
+    bool answers = _mode == ProbeTarget.Mode.Answer || _mode == ProbeTarget.Mode.Expensive
       || (_mode == ProbeTarget.Mode.ReturnSize && _size == 32);
     return answers && _word == _expectedWord(_chain, _probe);
   }

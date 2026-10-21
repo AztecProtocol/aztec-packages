@@ -19,7 +19,8 @@ contract TestTMNT221 is TestBase {
 
   uint256 public constant VALIDATOR_COUNT = 32;
   bool public constant SEPARATE_FLUSH = true;
-  uint256 public constant GAS_LIMIT = 16_000_000;
+  // The per-transaction gas cap from Osaka on (EIP-7825).
+  uint256 public constant GAS_LIMIT = 16_777_216;
 
   function setUp() public {
     RegistrationData[] memory registrations = RegistrationDataLib.load(vm, VALIDATOR_COUNT);
@@ -27,8 +28,11 @@ contract TestTMNT221 is TestBase {
       $registrations.push(registrations[i]);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setUpdateOwnerships(false).setCheckProofOfPossession(true)
-      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setUpdateOwnerships(false)
+      .setCheckProofOfPossession(true)
+      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT)
+      .deploy();
 
     INSTANCE = IInstance(address(builder.getConfig().rollup));
     STAKING_ASSET = builder.getConfig().testERC20;

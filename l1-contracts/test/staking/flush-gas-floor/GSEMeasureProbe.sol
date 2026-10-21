@@ -43,9 +43,9 @@ contract GSEMeasureProbe is GSE {
     console.log("GSE gasleft immediately before wrapper call", gasleft());
 
     require(
-      PROBE_WRAPPER.proofOfPossession{
-        gas: proofOfPossessionGasLimit
-      }(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+      PROBE_WRAPPER.proofOfPossession{gas: proofOfPossessionGasLimit}(
+        _publicKeyInG1, _publicKeyInG2, _proofOfPossession
+      ),
       Errors.GSE__InvalidProofOfPossession()
     );
   }

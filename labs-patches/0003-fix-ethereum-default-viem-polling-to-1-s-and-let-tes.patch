@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Wed, 7 Oct 2026 19:18:08 +0000
+Subject: [PATCH] fix(ethereum): default viem polling to 1 s and let test
+ runners shorten it
+
+Clients built by createExtendedL1Client and getPublicClient without an
+explicit interval used viem's 4 s default. waitForTransactionReceipt
+checks once immediately and then once per interval, and anvil 1.8
+returns a transaction's hash before mining it, so on a local chain every
+receipt wait paid the full 4 s. The default is now the 1 s the node's own
+clients already use, and L1_VIEM_POLLING_INTERVAL_MS overrides it; the
+jest runners and the e2e compose file set 100 ms.
+
+diff --git a/yarn-project/end-to-end/scripts/docker-compose.yml b/yarn-project/end-to-end/scripts/docker-compose.yml
+index d89a027e354d6cb23f56433b48ee96fcc74958f8..7bdbf73006f8d42805df2309c746f7c3b56278b0 100644
+--- a/yarn-project/end-to-end/scripts/docker-compose.yml
++++ b/yarn-project/end-to-end/scripts/docker-compose.yml
+@@ -56,6 +56,7 @@ services:
+       L1_CHAIN_ID: 31337
+       FORCE_COLOR: ${FORCE_COLOR:-1}
+       AZTEC_NODE_URL: http://local-network:8080
++      L1_VIEM_POLLING_INTERVAL_MS: 100
+       # Allow git usage despite different ownership. Relevant for script tests.
+       GIT_CONFIG_GLOBAL: /root/aztec-node/build-images/src/home/.gitconfig
+       # For debugging scripts that were passed as TEST.
+diff --git a/yarn-project/end-to-end/scripts/test_simple.sh b/yarn-project/end-to-end/scripts/test_simple.sh
+index 4d878e805922fe8ded01f3947a5c5bb3168333dc..2028c496d49dff1c295b598755ccf8bda7b99029 100755
+--- a/yarn-project/end-to-end/scripts/test_simple.sh
++++ b/yarn-project/end-to-end/scripts/test_simple.sh
+@@ -18,6 +18,8 @@ export HARDWARE_CONCURRENCY=${CPUS:-16}
+ export RAYON_NUM_THREADS=1
+ export TOKIO_WORKER_THREADS=1
+ export LOG_LEVEL=${LOG_LEVEL:-verbose}
++# Receipt waits on the test anvil: see defaultViemPollingIntervalMs in ethereum/src/client.ts.
++export L1_VIEM_POLLING_INTERVAL_MS=${L1_VIEM_POLLING_INTERVAL_MS:-100}
+ export NODE_NO_WARNINGS=1
+ export FORCE_COLOR=1
+ 
+diff --git a/yarn-project/ethereum/src/client.ts b/yarn-project/ethereum/src/client.ts
+index 503c5e61bb10c0c5b355bf46d6e3dbf6ab9c2d7c..de166c272588c4d75fac2f4292bddb1a8e610c2f 100644
+--- a/yarn-project/ethereum/src/client.ts
++++ b/yarn-project/ethereum/src/client.ts
+@@ -35,6 +35,19 @@ type Config = {
+ 
+ export type { Config as EthereumClientConfig };
+ 
++const DEFAULT_VIEM_POLLING_INTERVAL_MS = 1_000;
++
++/**
++ * Polling interval for viem clients created without an explicit one. `waitForTransactionReceipt` checks for the
++ * receipt once immediately and then once per interval, and anvil 1.8 returns a transaction's hash before it has
++ * mined it, so on a local chain every receipt wait costs one interval; `L1_VIEM_POLLING_INTERVAL_MS` lets test
++ * runners shorten it.
++ */
++export function defaultViemPollingIntervalMs(): number {
++  const fromEnv = Number(process.env.L1_VIEM_POLLING_INTERVAL_MS);
++  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_VIEM_POLLING_INTERVAL_MS;
++}
++
+ /** Error exposed by L1 RPC transports without including provider URLs in its message. */
+ export class L1RpcError extends Error {
+   constructor(message: string, options?: ErrorOptions) {
+@@ -105,7 +118,7 @@ export function getPublicClient(config: Config): ViemPublicClient {
+   return createPublicClient({
+     chain: chain.chainInfo,
+     transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
+-    pollingInterval: config.viemPollingIntervalMS,
++    pollingInterval: config.viemPollingIntervalMS ?? defaultViemPollingIntervalMs(),
+   });
+ }
+ 
+@@ -158,7 +171,7 @@ export function createExtendedL1Client(
+     account: hdAccount,
+     chain,
+     transport: makeL1HttpTransport(rpcUrls, { timeout: opts?.httpTimeoutMS }),
+-    pollingInterval: pollingIntervalMS,
++    pollingInterval: pollingIntervalMS ?? defaultViemPollingIntervalMs(),
+   }).extend(publicActions);
+ 
+   return extendedClient;
+diff --git a/yarn-project/foundation/src/config/env_var.ts b/yarn-project/foundation/src/config/env_var.ts
+index d08fdbfecb463293dd6ec852d21eec3757da2b5c..032fdaaaa5bc459e06d45653d2a818925b7a1a8a 100644
+--- a/yarn-project/foundation/src/config/env_var.ts
++++ b/yarn-project/foundation/src/config/env_var.ts
+@@ -330,6 +330,7 @@ export type EnvVar =
+   | 'WS_BLOCK_CHECK_INTERVAL_MS'
+   | 'WS_BLOCK_REQUEST_BATCH_SIZE'
+   | 'L1_READER_VIEM_POLLING_INTERVAL_MS'
++  | 'L1_VIEM_POLLING_INTERVAL_MS'
+   | 'WS_DATA_DIRECTORY'
+   | 'WS_NUM_HISTORIC_CHECKPOINTS'
+   | 'WS_NUM_HISTORIC_BLOCKS'
+diff --git a/yarn-project/scripts/run_test.sh b/yarn-project/scripts/run_test.sh
+index 994c37ae328e21088166e243267e82e0a9dbdd4a..202106f85e07ca26776301197e21724841231aab 100755
+--- a/yarn-project/scripts/run_test.sh
++++ b/yarn-project/scripts/run_test.sh
+@@ -16,5 +16,7 @@ export TOKIO_WORKER_THREADS=1
+ export UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
+ export HARDWARE_CONCURRENCY=${CPUS:-16}
+ export LOG_LEVEL=${LOG_LEVEL:-info}
++# Receipt waits on the test anvil: see defaultViemPollingIntervalMs in ethereum/src/client.ts.
++export L1_VIEM_POLLING_INTERVAL_MS=${L1_VIEM_POLLING_INTERVAL_MS:-100}
+ exec node --no-warnings --experimental-vm-modules --loader @swc-node/register \
+   ../node_modules/.bin/jest --runInBand $test "$@"

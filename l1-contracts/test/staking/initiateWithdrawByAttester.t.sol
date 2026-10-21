@@ -94,8 +94,13 @@ contract InitiateWithdrawByAttesterTest is StakingBase {
   }
 
   function _activateNewRollup() internal returns (IStaking nextRollup) {
-    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
-      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false);
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setGSE(gse)
+      .setTestERC20(stakingAsset)
+      .setRegistry(registry)
+      .setMakeCanonical(false)
+      .setMakeGovernance(false)
+      .setUpdateOwnerships(false);
     RollupConfigInput memory config = builder.getConfig().rollupConfigInput;
     config.version = uint32(IHaveVersion(address(staking)).getVersion() + 1);
     builder.setRollupConfigInput(config).deploy();
