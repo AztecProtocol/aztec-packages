@@ -18,7 +18,9 @@ hash=$(
 [ -z "$(git -C "$repo_root/labs" status --porcelain)" ] || hash=disabled-cache
 # Released docs link snippets at their tag, so a release build never shares a cache entry with a dev build.
 # A tag of this repo is not a Labs version: releases set COMMIT_TAG (and LABS_REF) explicitly.
-hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:labs)" "${COMMIT_TAG:-}" "${LABS_REF:-}")
+# cache_content_hash hashes blob ids without their names, so the docs tree id keys renamed pages.
+hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" "$(git -C "$repo_root" rev-parse HEAD:labs)" \
+  "${COMMIT_TAG:-}" "${LABS_REF:-}")
 
 function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
