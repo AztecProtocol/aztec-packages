@@ -92,15 +92,15 @@ grep -qx '    "docs/b.md",' "$d/docs-developers/multi.md" || fail "reroot: docs 
 grep -q 'path = "../../../../labs/noir-projects/aztec-nr"' "$d/examples/contracts/c/Nargo.toml" || fail "reroot: Nargo root path"
 grep -q 'path = "../d"' "$d/examples/contracts/c/Nargo.toml" || fail "reroot: Nargo local path untouched"
 grep -q '"labs/yarn-project/stdlib/a.ts"' "$d/scripts/node_api_reference_generation/generate_node_api_reference.ts" || fail "reroot: generator references"
-[ "$(grep -c 'ignore' "$d/netlify.toml")" = 1 ] && grep -q '^  ignore = "exit 0"$' "$d/netlify.toml" || fail "reroot: Netlify guard"
+{ [ "$(grep -c 'ignore' "$d/netlify.toml")" = 1 ] && grep -q '^  ignore = "exit 0"$' "$d/netlify.toml"; } || fail "reroot: Netlify guard"
 [ "$(cat "$d/.labs-sync")" = "$v1" ] || fail "import: .labs-sync"
 "$sync" check >/dev/null || fail "check after import"
 ok "import and reroot rules"
 
-before=$(git -C "$fnd" rev-parse HEAD^{tree})
+before=$(git -C "$fnd" rev-parse 'HEAD^{tree}')
 out=$("$sync" import "$v1")
 grep -q "already matches" <<<"$out" || fail "re-import: not a no-op"
-[ "$(git -C "$fnd" rev-parse HEAD^{tree})" = "$before" ] && [ -z "$(git -C "$fnd" status --porcelain)" ] || fail "re-import changed the tree"
+[ "$(git -C "$fnd" rev-parse 'HEAD^{tree}')" = "$before" ] && [ -z "$(git -C "$fnd" status --porcelain)" ] || fail "re-import changed the tree"
 "$sync" reroot --check >/dev/null || fail "reroot not idempotent"
 ok "re-import and reroot are no-ops"
 

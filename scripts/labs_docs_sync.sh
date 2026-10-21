@@ -36,7 +36,7 @@ function resolve {
   local sha
   if sha=$(labs rev-parse --verify -q "$1^{commit}"); then echo "$sha"; return; fi
   labs fetch -q --depth 1 origin "$1" || die "cannot fetch $1 into labs/"
-  labs rev-parse --verify FETCH_HEAD^{commit}
+  labs rev-parse --verify 'FETCH_HEAD^{commit}'
 }
 
 # Files under <base> that reroot rewrites, NUL-separated and relative to <base>. In the repo,
@@ -144,8 +144,9 @@ function expected_labs {
 
 function require_clean {
   # The labs gitlink differs from HEAD whenever the patch series or a release tag is checked out.
-  git diff --quiet --ignore-submodules=all && git diff --cached --quiet --ignore-submodules=all ||
+  if ! { git diff --quiet --ignore-submodules=all && git diff --cached --quiet --ignore-submodules=all; }; then
     die "uncommitted changes in this repository; commit them first"
+  fi
   [ -z "$(labs status --porcelain)" ] || die "labs/ has uncommitted changes"
 }
 
@@ -171,7 +172,7 @@ function cmd_import {
     "100644,$(printf '%s\n' "$sha" | git hash-object -w --stdin),$sync_file"
   tree=$(GIT_INDEX_FILE=$tmp git write-tree)
   rm -rf "$(dirname "$tmp")"
-  if [ "$tree" = "$(git rev-parse HEAD^{tree})" ]; then echo "docs/ already matches $sha"; return; fi
+  if [ "$tree" = "$(git rev-parse 'HEAD^{tree}')" ]; then echo "docs/ already matches $sha"; return; fi
   if git cat-file -e "HEAD:$sync_file" 2>/dev/null; then
     die "$sync_file exists: docs/ was imported already and carries local work; use sync"
   fi
@@ -204,7 +205,7 @@ function cmd_sync {
       echo "docs/yarn.lock conflicted: took aztec-node's; run (cd docs && yarn install) before committing"
     else
       echo "conflicts; nothing was changed:" >&2
-      sed 's/^/  /' <<<"$conflicts" >&2
+      while IFS= read -r line; do echo "  $line"; done <<<"$conflicts" >&2
       echo "make these files agree with aztec-node@${sha:0:10} where the edits overlap, commit, and rerun" >&2
       exit 1
     fi

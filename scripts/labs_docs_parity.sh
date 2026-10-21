@@ -34,7 +34,7 @@ function labs { git -C "$root/labs" "$@"; }
 [ -d "$root/docs/node_modules" ] || die "run yarn install in docs/ first"
 sha=$(labs rev-parse --verify -q "$ref^{commit}") || {
   labs fetch -q --depth 1 origin "$ref" || die "cannot fetch $ref into labs/"
-  sha=$(labs rev-parse --verify FETCH_HEAD^{commit})
+  sha=$(labs rev-parse --verify 'FETCH_HEAD^{commit}')
 }
 
 tmp=$(mktemp -d)
@@ -60,6 +60,7 @@ for d in "${content_dirs[@]}"; do
   rm -rf "${tmp:?}/oracle/docs/$d"
   [ -d "$tmp/cand/docs/$d" ] && cp -a "$tmp/cand/docs/$d" "$tmp/oracle/docs/$d"
 done
+# shellcheck disable=SC2016 # a perl program
 find "$tmp/oracle/docs" \( -path "$tmp/oracle/docs/docs/*" -o -path "$tmp/oracle/docs/docs-*/*" \) \
   -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.json' \) -print0 |
   FOUNDATION_VERSION=$foundation_version xargs -0 perl -pi -e \
@@ -68,6 +69,7 @@ find "$tmp/oracle/docs" \( -path "$tmp/oracle/docs/docs/*" -o -path "$tmp/oracle
 # only their paths into labs/ (../../labs/noir-projects/...) change with the layout.
 rm -rf "${tmp:?}/oracle/docs/examples"
 cp -a "$tmp/cand/docs/examples" "$tmp/oracle/docs/examples"
+# shellcheck disable=SC2016 # a perl program
 grep -rlIZ -E '(\.\./)+labs/' "$tmp/oracle/docs/examples" | xargs -0 -r perl -pi -e 's{((?:\.\./)+)labs/}{$1}g'
 # So are the version configs: a cut updates them, and the version macros read them.
 cp "$tmp/cand/docs/developer_version_config.json" "$tmp/cand/docs/network_version_config.json" "$tmp/oracle/docs/"
@@ -95,7 +97,7 @@ else
 fi
 
 env -u LABS_REF COMMIT_TAG="$label" "${cand_mode[@]}" RELEASE="$release" \
-  LABEL=$label ROOT=$root CAND=$tmp/cand BLOBS=$tmp/blobs node - "${content_dirs[@]}" <<'JS' || fail=1
+  LABEL="$label" ROOT="$root" CAND="$tmp/cand" BLOBS="$tmp/blobs" node - "${content_dirs[@]}" <<'JS' || fail=1
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
