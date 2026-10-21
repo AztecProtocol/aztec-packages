@@ -341,5 +341,6 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
 
 module.exports = {
   preprocessIncludeCode,
+  extractCodeSnippet,
   resolveSnippetSource,
 };
