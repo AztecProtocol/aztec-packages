@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 
 // Snippets included from an installed npm package must not link to the local
 // node_modules path: the source link instead points at the repo and tag the
@@ -19,9 +20,9 @@ const PUBLISHED_SNIPPET_SOURCES = [
   },
 ];
 
-// The docs and labs/ code come from aztec-node at docs/.labs-sync (checked equal to the labs gitlink),
-// so links name that commit unless a release sets LABS_REF or COMMIT_TAG. The patched labs/ HEAD
-// exists nowhere upstream and is never linked.
+// labs/ code comes from aztec-node at docs/.labs-sync (checked equal to the labs gitlink), so links
+// name that commit unless a release sets LABS_REF or COMMIT_TAG. The patched labs/ HEAD exists
+// nowhere upstream and is never linked.
 function labsRef(rootDir) {
   if (process.env.LABS_REF) return process.env.LABS_REF;
   if (process.env.COMMIT_TAG) return process.env.COMMIT_TAG;
@@ -30,15 +31,35 @@ function labsRef(rootDir) {
     .trim();
 }
 
+// This repository's own files (docs/examples/...) link to the aztec-packages commit being built:
+// DOCS_COMMIT, else HEAD. A release cut sets LABS_REF and renders them as synced from that
+// aztec-node tag, so they link there like labs/ code.
+let headCommit;
+function docsCommit(rootDir) {
+  if (process.env.DOCS_COMMIT) return process.env.DOCS_COMMIT;
+  headCommit ??= execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: rootDir,
+    encoding: "utf8",
+  }).trim();
+  return headCommit;
+}
+
 function resolveSnippetSource(relativeCodeFilePath, rootDir) {
   const published = PUBLISHED_SNIPPET_SOURCES.find((source) =>
     relativeCodeFilePath.startsWith(source.pathPrefix),
   );
   if (!published) {
+    if (relativeCodeFilePath.startsWith("labs/") || process.env.LABS_REF) {
+      return {
+        repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
+        ref: labsRef(rootDir),
+        displayPath: relativeCodeFilePath.replace(/^labs\//, ""),
+      };
+    }
     return {
-      repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
-      ref: labsRef(rootDir),
-      displayPath: relativeCodeFilePath.replace(/^labs\//, ""),
+      repoUrl: "https://github.com/AztecProtocol/aztec-packages",
+      ref: docsCommit(rootDir),
+      displayPath: relativeCodeFilePath,
     };
   }
   const { version } = JSON.parse(

@@ -13,7 +13,7 @@ describe("resolveSnippetSource", () => {
     rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "include-code-"));
     fs.mkdirSync(path.join(rootDir, "docs"));
     fs.writeFileSync(path.join(rootDir, "docs", ".labs-sync"), "abc123\n");
-    for (const k of ["LABS_REF", "COMMIT_TAG"]) {
+    for (const k of ["LABS_REF", "COMMIT_TAG", "DOCS_COMMIT"]) {
       saved[k] = process.env[k];
       delete process.env[k];
     }
@@ -38,16 +38,38 @@ describe("resolveSnippetSource", () => {
     );
   });
 
-  it("prefers LABS_REF, then COMMIT_TAG, for docs and labs/ paths", () => {
+  it("prefers LABS_REF, then COMMIT_TAG, for labs/ paths", () => {
     process.env.COMMIT_TAG = "v1.0.0";
     assert.strictEqual(
-      resolveSnippetSource("docs/examples/a.ts", rootDir).ref,
+      resolveSnippetSource("labs/yarn-project/a.ts", rootDir).ref,
       "v1.0.0",
     );
     process.env.LABS_REF = "v1.0.1";
     assert.strictEqual(
       resolveSnippetSource("labs/yarn-project/a.ts", rootDir).ref,
       "v1.0.1",
+    );
+  });
+
+  it("links this repo's files to aztec-packages at the built commit, or to the cut's tag", () => {
+    process.env.COMMIT_TAG = "v1.0.0";
+    process.env.DOCS_COMMIT = "def456";
+    assert.deepStrictEqual(
+      resolveSnippetSource("docs/examples/a.ts", rootDir),
+      {
+        repoUrl: "https://github.com/AztecProtocol/aztec-packages",
+        ref: "def456",
+        displayPath: "docs/examples/a.ts",
+      },
+    );
+    process.env.LABS_REF = "v1.0.1";
+    assert.deepStrictEqual(
+      resolveSnippetSource("docs/examples/a.ts", rootDir),
+      {
+        repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
+        ref: "v1.0.1",
+        displayPath: "docs/examples/a.ts",
+      },
     );
   });
 

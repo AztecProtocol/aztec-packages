@@ -5,15 +5,18 @@
 #   labs_docs_parity.sh <labs-ref>
 #
 # Rendering parity: the oracle is aztec-node at <labs-ref> (its docs/ tooling and the code its
-# snippets read), with its content directories replaced by this repo's, includes de-rerooted
-# (labs/ removed) and references left alone. Both trees run the preprocessor with the same release
-# variables (COMMIT_TAG = LABS_REF = <labs-ref> unless LABS_REF is set; RELEASE_TYPE and the *_TAG
-# variables pass through), and their processed-docs/ must be byte-identical.
+# snippets read), with its content directories and examples replaced by this repo's, includes and
+# the examples' relative labs/ paths de-rerooted, and references left alone. Both trees run the
+# preprocessor with the same release variables (COMMIT_TAG = <labs-ref>, or LABS_REF if set;
+# RELEASE_TYPE and the *_TAG variables pass through), and their processed-docs/ must be identical
+# apart from where snippet source links point, which the next check verifies one by one.
 #
-# Link provenance: for each include with a source link, the link must name aztec-node at that ref,
-# or aztec-packages at v<installed l1-artifacts version> for published Solidity; the snippet is
-# extracted from that git blob with the preprocessor's own function and must equal the local
-# extraction, line range included; and the rendered block must appear in the processed page.
+# Link provenance: for each include with a source link, the link must name aztec-node at that ref
+# for labs/ code (and for every snippet when LABS_REF is set, as in a release cut), aztec-packages
+# at HEAD for this repository's own files, or aztec-packages at v<installed l1-artifacts version>
+# for published Solidity; the snippet is extracted from that git blob with the preprocessor's own
+# function and must equal the local extraction, line range included; and the rendered block must
+# appear in the processed page. HEAD's blobs are compared, so commit example edits first.
 #
 # Needs docs/node_modules (yarn install in docs/). Writes only to a temp directory.
 set -euo pipefail
@@ -21,6 +24,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 ref=${1:?usage: labs_docs_parity.sh <labs-ref>}
 label=${LABS_REF:-$ref}
+release=${LABS_REF:+1}
 content_dirs=(docs docs-developers docs-operate docs-participate)
 
 function die { echo "labs_docs_parity: $*" >&2; exit 1; }
@@ -56,15 +60,27 @@ done
 find "$tmp/oracle/docs" \( -path "$tmp/oracle/docs/docs/*" -o -path "$tmp/oracle/docs/docs-*/*" \) \
   -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.json' \) -print0 |
   xargs -0 perl -pi -e 's{^(?!<!--)(.*#include_code\s+\S+\s+/?)labs/}{$1}'
+# The examples are content as well, so an intentional edit to one renders the same on both sides;
+# only their paths into labs/ (../../labs/noir-projects/...) change with the layout.
+rm -rf "${tmp:?}/oracle/docs/examples"
+cp -a "$tmp/cand/docs/examples" "$tmp/oracle/docs/examples"
+grep -rlIZ -E '(\.\./)+labs/' "$tmp/oracle/docs/examples" | xargs -0 -r perl -pi -e 's{((?:\.\./)+)labs/}{$1}g'
 for t in oracle cand; do ln -s "$root/docs/node_modules" "$tmp/$t/docs/node_modules"; done
 
+# The candidate links this repository's files as a nightly build does (aztec-packages at HEAD)
+# unless LABS_REF selects a release cut; aztec-node's tooling always links its own repository.
+if [ -n "$release" ]; then cand_mode=(LABS_REF="$label"); else cand_mode=(DOCS_COMMIT="$(git -C "$root" rev-parse HEAD)"); fi
 for t in oracle cand; do
-  (cd "$tmp/$t/docs" && COMMIT_TAG=$label LABS_REF=$label node -r dotenv/config ./src/preprocess/index.js) \
+  if [ $t = oracle ]; then mode=(LABS_REF="$label"); else mode=("${cand_mode[@]}"); fi
+  (cd "$tmp/$t/docs" && env -u LABS_REF COMMIT_TAG="$label" "${mode[@]}" node -r dotenv/config ./src/preprocess/index.js) \
     >"$tmp/$t.log" 2>&1 || { cat "$tmp/$t.log" >&2; die "$t preprocess failed"; }
+  cp -a "$tmp/$t/docs/processed-docs" "$tmp/$t.rendered"
+  find "$tmp/$t.rendered" -type f -print0 | xargs -0 perl -pi -e \
+    's{<a href="https://github\.com/[^/"]+/[^/"]+/blob/[^/"]+/(?=[^"]*" target="_blank" rel="noopener noreferrer">Source code: )}{<a href="<source>/}g'
 done
 
 fail=0
-if ! diff -r "$tmp/oracle/docs/processed-docs" "$tmp/cand/docs/processed-docs" >"$tmp/render.diff"; then
+if ! diff -r "$tmp/oracle.rendered" "$tmp/cand.rendered" >"$tmp/render.diff"; then
   echo "rendering parity FAILED: processed-docs differ from aztec-node's layout" >&2
   head -n 80 "$tmp/render.diff" >&2
   fail=1
@@ -72,7 +88,8 @@ else
   echo "rendering parity: ok ($(find "$tmp/cand/docs/processed-docs" -type f | wc -l | tr -d ' ') files)"
 fi
 
-LABEL=$label ROOT=$root CAND=$tmp/cand BLOBS=$tmp/blobs node - "${content_dirs[@]}" <<'JS' || fail=1
+env -u LABS_REF COMMIT_TAG="$label" "${cand_mode[@]}" RELEASE="$release" \
+  LABEL=$label ROOT=$root CAND=$tmp/cand BLOBS=$tmp/blobs node - "${content_dirs[@]}" <<'JS' || fail=1
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
@@ -131,7 +148,11 @@ function walk(dir, out = []) {
           const [, repo, ref, linked, a, b] = href.match(link) || [];
           if (!repo) throw new Error(`unparseable link ${href}`);
           const published = rel.startsWith("docs/node_modules/@aztec-foundation/l1-artifacts/");
-          const want = published ? ["AztecProtocol/aztec-packages", `v${pkg.version}`] : ["aztec-labs-eng/aztec-node", label];
+          const want = published
+            ? ["AztecProtocol/aztec-packages", `v${pkg.version}`]
+            : rel.startsWith("labs/") || process.env.RELEASE
+              ? ["aztec-labs-eng/aztec-node", label]
+              : ["AztecProtocol/aztec-packages", process.env.DOCS_COMMIT];
           if (repo !== want[0] || ref !== want[1]) throw new Error(`links ${repo}@${ref}, expected ${want.join("@")}`);
           const [s2, a2, b2] = ic.extractCodeSnippet(blobFile(repo, ref, linked), id);
           if (`${a2}-${b2}` !== `${a}-${b}` || `${start}-${end}` !== `${a}-${b}`)

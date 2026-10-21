@@ -259,7 +259,9 @@ All of these must hold; stop at the first that does not:
   `BB_VERSION`.
 - The installed l1-artifacts version equals `BB_VERSION`.
 - `LABS_REF` and `COMMIT_TAG` are `v<new_version>`: snippet links to aztec-node name
-  `LABS_REF`, else `COMMIT_TAG`, else `docs/.labs-sync`.
+  `LABS_REF`, else `COMMIT_TAG`, else `docs/.labs-sync`. `LABS_REF` also points the
+  `docs/examples/` snippet links at aztec-node's tag; without it they name aztec-packages at the
+  built commit, which a cut never pushes.
 
 ### Unversioned root pages
 
