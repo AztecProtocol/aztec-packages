@@ -7,8 +7,7 @@
 #   since the foundation test engine runs them from this root;
 # - TEST_CMD_SKIP drops the flavours that cannot run from here (labs-patches/test_cmd_skip): the
 #   docker-compose based tests mount only the labs tree, where the use-local portals do not resolve,
-#   format_file_test needs prettier's import-sort plugin resolvable from the labs root, and the
-#   mainnet compatibility test has no deployed mainnet to pin against yet.
+#   and format_file_test needs prettier's import-sort plugin resolvable from the labs root.
 labs_env_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 export TEST_CMD_PREFIX='cd labs && export root= ci3= && '
 TEST_CMD_SKIP=$(cat "$labs_env_root/labs-patches/test_cmd_skip")
