@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # Prints every warning-like line in the given docs build/test logs as <log>:<line>: <text> and
 # exits 1 if there is any; empty output means the logs are clean. There is no allowlist: a hit is
-# fixed at its cause. ANSI colour codes are stripped first, since a code abutting "warn" defeats
-# the word boundary.
+# fixed at its cause. ANSI colour codes and OSC-8 hyperlinks are stripped first: a code abutting
+# "warn" defeats the word boundary, and yarn's links repeat the error code inside their URL.
 #
 #   labs_docs_warnings.sh <log>...
 #   labs_docs_warnings.sh --self-test
 set -euo pipefail
 
-pattern='\bwarn(ings?)?\b|deprecat|\[error\]|diagnostic|\bYN0(002|009|060|061|086)\b|browserslist|caniuse-lite|update available|issues found: [1-9]|broken (anchor|link)'
+pattern='\bwarn(ings?)?\b|deprecat|\[error\]|diagnostic|\bYN0(002|009|028|060|061|072|086)\b|failed with errors|^\(!\) |browserslist|caniuse-lite|update available|issues found: [1-9]|broken (anchor|link)s?(: *[1-9]|[^s:]|$)'
 
 function scan {
   local hits=0 log
   for log in "$@"; do
     [ -r "$log" ] || { echo "labs_docs_warnings: cannot read $log" >&2; return 2; }
-    if sed -E $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' "$log" | grep -n -i -E "$pattern" | sed "s|^|$log:|"; then
+    if sed -E $'s/\x1b\\][^\x1b\x07]*(\x1b\\\\|\x07)//g; s/\x1b\\[[0-9;?]*[A-Za-z]//g' "$log" | grep -n -i -E "$pattern" | sed "s|^|$log:|"; then
       hits=1
     fi
   done
@@ -38,13 +38,20 @@ function self_test {
     '➤ YN0002: │ docs@workspace:. doesn'"'"'t provide react-dom (p1a2b3), requested by @x/y.'
     'Minifier: 2 diagnostics in docs/aztec-nr.html'
     'npm warn exec 2 packages are looking for funding'
+    '  - Broken links: 10'
+    'Broken anchor on source page path = /developers/x:'
+    $'runner\t\xe2\x9e\xa4 \x1b]8;;https://yarnpkg.com/advanced/error-codes#yn0028---frozen_lockfile_exception\x1b\\YN0028\x1b]8;;\x1b\\: The lockfile would have been modified by this install.'
+    'runner	➤ YN0000: · Failed with errors in 0s 46ms'
+    '(!) Some chunks are larger than 500 kB after minification. Consider:'
   )
   local negatives=(
     'CSpell: Files checked: 412, Issues found: 0 in 0 files.'
+    '  - Broken links: 0'
     '[SUCCESS] Generated static files in "build".'
     '➤ YN0000: · Done in 1m 31s'
     '✔ resolveSnippetSource (9.4ms)'
     'We were forewarned about the ceremony.'
+    $'\x1b]8;;https://yarnpkg.com/advanced/error-codes#yn0060---incompatible_peer_dependency\x1b\\docs\x1b]8;;\x1b\\: Done in 2s'
   )
   local line
   for line in "${positives[@]}"; do
