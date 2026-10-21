@@ -48,6 +48,10 @@ paste the key into the conversation or onto a command line.
   | Foundation dependency revision | `@aztec-foundation/l1-artifacts` and `BB_VERSION` at the tag |
   | Destination | the branch and commit the cut started from |
 
+  The content row holds while `scripts/labs_docs_sync.sh` exists. Once the docs are
+  authored only here and the tool is gone, the content is this repository's `docs/` on the
+  release branch commit whose `labs/` gitlink is the tag, and Steps 2d and 2e no longer
+  apply.
 - **State** lives in `~/.cache/aztec-docs-cut/v<new_version>/`: `env.sh` (sourced by every
   command block from Step 2 on, since shell state does not carry over between commands),
   the worktree, the CLI's home, the local network and logs.
@@ -171,7 +175,7 @@ it lacks one.
 
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh
-git worktree add -b "docs-cut/$LABS_TAG" "$CUT" "$DEST"
+git -C "$DEST_ROOT" worktree add -b "docs-cut/$LABS_TAG" "$CUT" "$DEST"
 cd "$CUT" && labs-patches/bootstrap.sh apply
 git -C "$CUT/labs" fetch --depth 1 origin tag "$LABS_TAG"
 git -C "$CUT/labs" checkout --detach "$LABS_TAG"
@@ -424,8 +428,11 @@ git -C "$CUT/labs" fetch --shallow-exclude=v<old_version> origin tag "$LABS_TAG"
 
    An item whose commit is not an ancestor of the tag has not shipped, even if it is on
    aztec-node `main`: leave it under `## TBD`. In one rehearsal 4 of 21 items failed this
-   test. A commit older than the fetched range is reported as unknown, not as absent:
-   fetch more history before deciding.
+   test. A commit outside the fetched history prints `fatal: Not a valid commit name`
+   before `NOT-in-tag`: that is unknown, not absent. Ask GitHub instead, which needs no
+   history: `gh api "repos/aztec-labs-eng/aztec-node/compare/<commit>...$LABS_TAG" --jq .status`
+   prints `ahead` or `identical` when the commit is in the tag, `diverged` or `behind` when
+   it is not.
 
 2. Create the `## <new_version>` heading below `## TBD` (and below any `## Unreleased`
    sections) and move the shipped items under it.
@@ -470,7 +477,9 @@ git -C "$CUT/labs" log --oneline "v<old_version>..$LABS_TAG" --grep='!:' -- yarn
 ```
 
 aztec-node marks breaking changes only with the conventional-commit `!`, never a
-`BREAKING CHANGE:` trailer, so `--grep='!:'` is the complete filter.
+`BREAKING CHANGE:` trailer, so `--grep='!:'` is the complete filter. It also matches the
+body of port commits (`chore: port … from monorepo`), which list the breaking commits they
+carry: read those bodies too.
 
 **2. Locate candidate usages.** For each triple, grep the cut's source docs:
 
@@ -780,13 +789,17 @@ unshipped items there and the cut copies the file wholesale; in one rehearsal it
 grep -n '^## ' developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md | head -3
 ```
 
-The first heading must be the new version. Then no macro may survive in the snapshot;
-this prints nothing:
+The first heading must be the new version. Then no macro and no moving Aztec version may
+survive in the snapshot:
 
 ```bash
 grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#release_version|#release_network|#include_code' \
   developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
 ```
+
+The only expected hits are third-party packages versioned on their own: at
+`v6.0.0-rc.3`, the MCP servers in `ai_tooling.md` (`@aztec/mcp-server@latest`,
+`noir-mcp-server@latest`). Fix every other hit.
 
 #### Hardcoded version references
 
@@ -799,8 +812,10 @@ grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/ \
 ```
 
 Known hits:
-`developer_versioned_docs/version-v<new_version>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
-(`yarn add @aztec/*@<version>`).
+`docs/tutorials/js_tutorials/webapp/wallet-sdk/01-dapp-integration.md`, in the source and
+the snapshot (`npm install @aztec-labs/wallet-sdk@<version> @aztec-labs/aztec.js@<version>`),
+and the operator changelog page of the major, whose rc-specific notices (`v6.0.0-rc.1 is
+Testnet only`) need the owner's call on whether they still hold.
 
 ### Step 12: Reconcile Destination Changes Into the New Version
 
@@ -978,8 +993,9 @@ rerun Step 13. If validation cannot run, say so and list what was skipped.
 ### Step 16: Clean Up Old Versions
 
 Work in the cut (`cd ~/.cache/aztec-docs-cut/v<new_version>/worktree/docs`) and append
-every removed path to `$STATE/deleted.txt`: Step 17 removes the same paths on the
-destination.
+every removed path to `$STATE/deleted.txt`, one per line and written as listed below
+(from the repository root, `docs/...`): Step 17 removes the same paths on the destination.
+Config entries are not paths; the configs travel whole.
 
 #### Developer docs
 
@@ -1108,10 +1124,16 @@ the owner's call.
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh
 "$DEST_ROOT/.claude/skills/release-docs/local_network.sh" stop "$STATE"
 git -C "$CUT" submodule deinit -f labs
-git -C "$DEST_ROOT" worktree remove "$CUT"
+if [ -z "$(git -C "$CUT" status --porcelain --ignore-submodules=all)" ]; then
+  git -C "$DEST_ROOT" worktree remove --force "$CUT"
+else
+  echo "the cut has uncommitted changes: commit or carry them first"
+fi
 ```
 
-The branch `docs-cut/v<new_version>` stays as the record of the cut until the destination
+Git removes a worktree that has held a submodule only with `--force`, which would also
+discard uncommitted work, hence the status check: Step 17 committed everything, so it
+prints nothing. The branch `docs-cut/v<new_version>` stays as the record of the cut until the destination
 commit has merged. `$STATE` holds the CLI's home and logs; remove it once the release is out.
 
 ## Key Points

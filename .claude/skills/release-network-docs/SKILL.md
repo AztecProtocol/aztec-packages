@@ -162,7 +162,7 @@ keeps its `v` (the preprocessor emits it as a git ref).
 
 ```bash
 . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
-git worktree add -b "docs-cut/network-$LABS_TAG" "$CUT" "$DEST"
+git -C "$DEST_ROOT" worktree add -b "docs-cut/network-$LABS_TAG" "$CUT" "$DEST"
 cd "$CUT" && labs-patches/bootstrap.sh apply
 git -C "$CUT/labs" fetch --depth 1 origin tag "$LABS_TAG"
 git -C "$CUT/labs" checkout --detach "$LABS_TAG"
@@ -331,7 +331,7 @@ release CLI. Install the release into its own home, so nothing changes in the re
 env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
   HOME="$CLI_HOME" NON_INTERACTIVE=1 VERSION=<new_version> bash <(curl -fsSL https://install.aztec.network)
 aztec_cli aztec --version
-cd "$CUT/docs" && aztec_cli yarn generate:operator-cli-reference -v "$LABS_TAG"
+cd "$CUT/docs" && aztec_cli ./scripts/cli_reference_generation/generate_operator_cli_ref.sh -v "$LABS_TAG"
 grep -n -e "$CLI_HOME" -e /home/ -e /Users/ docs-operate/operators/reference/cli-reference.md
 ```
 
@@ -464,8 +464,9 @@ with a stale sidebar while legacy pages exist. Present what was ported and skipp
 ### Step 8: Clean Up Old Network Version
 
 Work in `~/.cache/aztec-docs-cut/network-v<new_version>/worktree/docs`, use the old version
-recorded in Step 7, and append every removed path to `$STATE/deleted.txt` (Step 10
-removes the same paths on the destination). On a first release of this type, skip.
+recorded in Step 7, and append every removed path to `$STATE/deleted.txt`, one per line
+and written as listed below (from the repository root, `docs/...`); Step 10 removes the
+same paths on the destination. On a first release of this type, skip.
 
 **Delete nothing that another release type still points at.** Types share a version
 whenever they were last released together, so the version being replaced is often still
@@ -567,11 +568,17 @@ the owner's call.
 ```bash
 . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
 git -C "$CUT" submodule deinit -f labs
-git -C "$DEST_ROOT" worktree remove "$CUT"
+if [ -z "$(git -C "$CUT" status --porcelain --ignore-submodules=all)" ]; then
+  git -C "$DEST_ROOT" worktree remove --force "$CUT"
+else
+  echo "the cut has uncommitted changes: commit or carry them first"
+fi
 ```
 
-The branch `docs-cut/network-v<new_version>` stays as the record of the cut until the
-destination commit has merged; remove `$STATE` once the release is out.
+Git removes a worktree that has held a submodule only with `--force`, which would also
+discard uncommitted work, hence the status check (Step 10 committed everything). The branch
+`docs-cut/network-v<new_version>` stays as the record of the cut until the destination
+commit has merged; remove `$STATE` once the release is out.
 
 ## Key Points
 

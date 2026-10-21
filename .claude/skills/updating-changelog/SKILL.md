@@ -66,12 +66,16 @@ lives:
    git -C labs diff "$old" "$new" -- yarn-project/ noir-projects/ <other paths>
    gh api "repos/aztec-labs-eng/aztec-node/compare/$old...$new" \
      --jq '.total_commits, (.commits[].commit.message | split("\n")[0])'
+   gh api "repos/aztec-labs-eng/aztec-node/compare/$old...$new" \
+     --jq '.commits[].commit.message | select(test("!:"))'
    ```
 
    aztec-node marks breaking changes only with the conventional-commit `!` (`feat!:`,
-   `feat(txe)!:`), never a `BREAKING CHANGE:` trailer. The compare API lists at most 250
-   commits; when `total_commits` is larger, list the PRs merged between the two commits'
-   dates instead, and keep only those the diff confirms:
+   `feat(txe)!:`), never a `BREAKING CHANGE:` trailer. The second command prints every
+   message containing `!:`, bodies included: port commits (`chore: port … from monorepo`)
+   list the breaking commits they carry only in their body. The compare API lists at most
+   250 commits; when `total_commits` is larger, list the PRs merged between the two
+   commits' dates instead, and keep only those the diff confirms:
 
    ```bash
    from=$(git -C labs log -1 --format=%cs "$old") to=$(git -C labs log -1 --format=%cs "$new")
