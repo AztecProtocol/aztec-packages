@@ -23,7 +23,7 @@ unconstrained fn test_constructor_sets_initial_value() {
 #[test]
 unconstrained fn test_increment() {
     let initial_value = 5;
-    let (mut env, contract_address, owner) = setup(initial_value);
+    let (env, contract_address, owner) = setup(initial_value);
 
     env.call_private(owner, Counter::at(contract_address).increment(owner));
 

@@ -2,6 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {MockAToken} from "./MockAToken.sol";
 
@@ -9,6 +10,8 @@ import {MockAToken} from "./MockAToken.sol";
 /// @notice A simplified mock of Aave V3's lending pool for tutorial purposes.
 /// Supports supply and withdraw with a configurable yield in basis points.
 contract MockAavePool {
+    using SafeERC20 for IERC20;
+
     MockERC20 public underlyingToken;
     MockAToken public aToken;
     uint256 public yieldBps; // e.g. 1000 = 10%
@@ -27,7 +30,7 @@ contract MockAavePool {
         uint16 /* referralCode */
     ) external {
         require(asset == address(underlyingToken), "Wrong asset");
-        IERC20(asset).transferFrom(msg.sender, address(this), amount);
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         aToken.mint(onBehalfOf, amount);
     }
 
@@ -47,7 +50,7 @@ contract MockAavePool {
         underlyingToken.mint(address(this), yieldAmount);
 
         // Transfer underlying + yield to recipient
-        underlyingToken.transfer(to, totalReturn);
+        IERC20(address(underlyingToken)).safeTransfer(to, totalReturn);
         return totalReturn;
     }
 }
