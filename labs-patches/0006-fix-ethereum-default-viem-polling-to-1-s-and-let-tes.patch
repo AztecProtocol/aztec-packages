@@ -127,7 +127,7 @@ index 5eab2a41e243f025db3cc997d9605eccd7430568..6aa82495b0c5adc431c4302abc5b8bb2
  
    return extendedClient;
 diff --git a/yarn-project/foundation/src/config/env_var.ts b/yarn-project/foundation/src/config/env_var.ts
-index 20aa6cd36165ed5f9a59d60195a867bcca283133..25113f311f98279efabc970333bed80f220dc5c3 100644
+index e5c7de2936caf9d7661b3c79f85b70e36295e428..57bfa9fb4ba8dc843ce92cb84206eb98a5c00983 100644
 --- a/yarn-project/foundation/src/config/env_var.ts
 +++ b/yarn-project/foundation/src/config/env_var.ts
 @@ -331,6 +331,7 @@ export type EnvVar =
@@ -136,8 +136,8 @@ index 20aa6cd36165ed5f9a59d60195a867bcca283133..25113f311f98279efabc970333bed80f
    | 'L1_READER_VIEM_POLLING_INTERVAL_MS'
 +  | 'L1_VIEM_POLLING_INTERVAL_MS'
    | 'WS_DATA_DIRECTORY'
+   | 'WS_HISTORY_RETENTION'
    | 'WS_NUM_HISTORIC_CHECKPOINTS'
-   | 'WS_NUM_HISTORIC_BLOCKS'
 diff --git a/yarn-project/scripts/run_test.sh b/yarn-project/scripts/run_test.sh
 index 994c37ae328e21088166e243267e82e0a9dbdd4a..202106f85e07ca26776301197e21724841231aab 100755
 --- a/yarn-project/scripts/run_test.sh

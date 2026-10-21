@@ -5,7 +5,7 @@ Subject: [PATCH] test: refresh contract expand snapshots for Noir v1.0.0-rc.5
 
 
 diff --git a/noir-projects/contract-snapshots/tests/snapshots/expand/amm_contract/snapshots__expanded.snap b/noir-projects/contract-snapshots/tests/snapshots/expand/amm_contract/snapshots__expanded.snap
-index 57e67faa6beca7a585d5c7a1701764282d28bab4..457abe20cc0c6f591fa03d56e775777f5c326fb0 100644
+index 5ca275c5d0e6f70997595484d9b263ea4db601ff..0c6b9eae489cfcc5cf701e71d712cb6fda224fef 100644
 --- a/noir-projects/contract-snapshots/tests/snapshots/expand/amm_contract/snapshots__expanded.snap
 +++ b/noir-projects/contract-snapshots/tests/snapshots/expand/amm_contract/snapshots__expanded.snap
 @@ -2,6 +2,7 @@
@@ -16,7 +16,7 @@ index 57e67faa6beca7a585d5c7a1701764282d28bab4..457abe20cc0c6f591fa03d56e775777f
  use aztec::macros::aztec;
  use aztec::macros::aztec;
  
-@@ -812,9 +813,9 @@ pub contract AMM {
+@@ -813,9 +814,9 @@ pub contract AMM {
          }
  
          pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
@@ -29,10 +29,10 @@ index 57e67faa6beca7a585d5c7a1701764282d28bab4..457abe20cc0c6f591fa03d56e775777f
      }
  
 diff --git a/noir-projects/contract-snapshots/tests/snapshots/expand/avm_gadgets_test_contract/snapshots__expanded.snap b/noir-projects/contract-snapshots/tests/snapshots/expand/avm_gadgets_test_contract/snapshots__expanded.snap
-index 47a94ed32414cb0a7d7ae1c8b92ed4339ce135f0..38189194797f7a8c418851b7ccba7229e88d5fe9 100644
+index 032e91b3b9a7dea8d719a5b37ba709f614219266..cc8261c842544f0c369564175f73fdd61378ac49 100644
 --- a/noir-projects/contract-snapshots/tests/snapshots/expand/avm_gadgets_test_contract/snapshots__expanded.snap
 +++ b/noir-projects/contract-snapshots/tests/snapshots/expand/avm_gadgets_test_contract/snapshots__expanded.snap
-@@ -161,153 +161,153 @@ contract AvmGadgetsTest {
+@@ -162,153 +162,153 @@ contract AvmGadgetsTest {
          }
  
          pub fn keccak_hash(self, data: [u8; 10]) -> aztec::context::calls::PublicCall<11, 10, [u8; 32]> {
@@ -237,10 +237,10 @@ index 47a94ed32414cb0a7d7ae1c8b92ed4339ce135f0..38189194797f7a8c418851b7ccba7229
      }
  
 diff --git a/noir-projects/contract-snapshots/tests/snapshots/expand/public_fns_with_emit_repro_contract/snapshots__expanded.snap b/noir-projects/contract-snapshots/tests/snapshots/expand/public_fns_with_emit_repro_contract/snapshots__expanded.snap
-index d50c3aa40099acf2f3ed8da3d78e5621320475ec..f625a7c59302f305d9bab183757bbbce7d3e5cf6 100644
+index 5723381c99468812cc90122af4d2302950aab265..796f4c5203959d637c57d8838c1b9f92db906259 100644
 --- a/noir-projects/contract-snapshots/tests/snapshots/expand/public_fns_with_emit_repro_contract/snapshots__expanded.snap
 +++ b/noir-projects/contract-snapshots/tests/snapshots/expand/public_fns_with_emit_repro_contract/snapshots__expanded.snap
-@@ -276,9 +276,9 @@ pub contract PublicFnsWithEmitRepro {
+@@ -277,9 +277,9 @@ pub contract PublicFnsWithEmitRepro {
          }
  
          pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
@@ -253,10 +253,10 @@ index d50c3aa40099acf2f3ed8da3d78e5621320475ec..f625a7c59302f305d9bab183757bbbce
      }
  
 diff --git a/noir-projects/contract-snapshots/tests/snapshots/expand/storage_proof_test_contract/snapshots__expanded.snap b/noir-projects/contract-snapshots/tests/snapshots/expand/storage_proof_test_contract/snapshots__expanded.snap
-index 18bf5a7ed2a6d6678e9ed255e46b05e828677466..d261a437c82b0e7fb86544b26479a80ed096c967 100644
+index 5964795e842e9adb013015e7c04f6e95320708cd..87ea274b01c034c58fca881bddad122a588ec2e6 100644
 --- a/noir-projects/contract-snapshots/tests/snapshots/expand/storage_proof_test_contract/snapshots__expanded.snap
 +++ b/noir-projects/contract-snapshots/tests/snapshots/expand/storage_proof_test_contract/snapshots__expanded.snap
-@@ -232,9 +232,9 @@ contract StorageProofTest {
+@@ -233,9 +233,9 @@ contract StorageProofTest {
          }
  
          pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
@@ -269,7 +269,7 @@ index 18bf5a7ed2a6d6678e9ed255e46b05e828677466..d261a437c82b0e7fb86544b26479a80e
      }
  
 diff --git a/noir-projects/contract-snapshots/tests/snapshots/expand/token_contract/snapshots__expanded.snap b/noir-projects/contract-snapshots/tests/snapshots/expand/token_contract/snapshots__expanded.snap
-index 01f2e2f818b549e65dbf14e4704995d8c02d1834..ec4bd524c842c50b0629c47b717fe86a29b34ca3 100644
+index fb3d829983e0998ac7e181ede3cbb001a88c897b..488d2c17c6f8fd63be845d5e32737682962ed2ec 100644
 --- a/noir-projects/contract-snapshots/tests/snapshots/expand/token_contract/snapshots__expanded.snap
 +++ b/noir-projects/contract-snapshots/tests/snapshots/expand/token_contract/snapshots__expanded.snap
 @@ -2,6 +2,7 @@
@@ -280,7 +280,7 @@ index 01f2e2f818b549e65dbf14e4704995d8c02d1834..ec4bd524c842c50b0629c47b717fe86a
  use aztec::macros::aztec;
  use aztec::macros::aztec;
  
-@@ -1016,9 +1017,9 @@ pub contract Token {
+@@ -1017,9 +1018,9 @@ pub contract Token {
          }
  
          pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
