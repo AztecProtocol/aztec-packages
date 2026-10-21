@@ -37,8 +37,8 @@ This tutorial walks you through three types of contracts (Solidity, Noir, TypeSc
 The example code lives in the Aztec packages repository:
 
 ```bash
-git clone --depth 1 --branch #include_aztec_version https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-node/docs/examples
+git clone --depth 1 https://github.com/AztecProtocol/aztec-packages.git
+cd aztec-packages/docs/examples
 ```
 
 ### Project Structure
