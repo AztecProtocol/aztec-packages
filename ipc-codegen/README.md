@@ -111,6 +111,7 @@ node --experimental-strip-types --no-warnings \
 | `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig): generates `ffi_backend`, a client backend that calls a linked library's `<service>_ipc_ffi_entry`. With `--server` (C++/Rust): emits the entry itself — `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_entry`/`_alloc`/`_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`), or `<service>_ffi.rs` with an `export_<service>_ffi!` macro doing the same over a `Handler + Default` type. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). |
 | `--package-wasm-module <file>`, `--package-wasm-threads-module <file>` | TS `wasm` transport. Basenames of the single-thread and threads builds the owning project copies into the package's `wasm/` directory; at least one is required. |
+| `--package-wasm-wide-module <file>`, `--package-wasm-wide-threads-module <file>` | TS `wasm` transport. Optional wide-arithmetic builds of the two, also copied into `wasm/` by the owning project; the package runs one in place of its counterpart where the engine validates the wide-arithmetic proposal. |
 
 ### Naming flags
 
