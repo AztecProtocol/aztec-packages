@@ -7,7 +7,7 @@ displayed_sidebar: participateSidebar
 # L1 Contracts
 
 :::warning Work in Progress
-This page provides a high-level overview of Aztec's governance contracts. The contract interfaces and implementations are still evolving. For the authoritative source, see the [l1-contracts repository](https://github.com/AztecProtocol/aztec-packages/tree/master/l1-contracts/src/governance).
+This page provides a high-level overview of Aztec's governance contracts. The contract interfaces and implementations are still evolving. For the authoritative source, see the [l1-contracts repository](https://github.com/AztecProtocol/aztec-packages/tree/next/l1-contracts/src/governance).
 :::
 
 ## Contract Overview
@@ -24,7 +24,7 @@ The Aztec governance system consists of several L1 smart contracts:
 
 ## Registry
 
-The [Registry](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol) maintains an append-only list of rollup instances. Only the Governance contract (as owner) can add new rollups.
+The [Registry](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/Registry.sol) maintains an append-only list of rollup instances. Only the Governance contract (as owner) can add new rollups.
 
 Key properties:
 - **Backwards compatible**: All historical rollups remain accessible
@@ -33,7 +33,7 @@ Key properties:
 
 ## Governance
 
-The [Governance](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Governance.sol) contract is the decision-making body that executes approved proposals.
+The [Governance](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/Governance.sol) contract is the decision-making body that executes approved proposals.
 
 Key functions:
 - `deposit()` / `initiateWithdraw()` - Manage voting power
@@ -44,7 +44,7 @@ See [Proposal Lifecycle](/participate/governance/proposal-lifecycle) for how pro
 
 ## GovernanceProposer
 
-The [GovernanceProposer](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/proposer/GovernanceProposer.sol) handles the signaling phase where sequencers vote to promote payloads to proposals.
+The [GovernanceProposer](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/proposer/GovernanceProposer.sol) handles the signaling phase where sequencers vote to promote payloads to proposals.
 
 Key functions:
 - `signal()` - Sequencers signal support for a payload during their slot
@@ -52,7 +52,7 @@ Key functions:
 
 ## GSE (Governance Staking Escrow)
 
-The [GSE](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/GSE.sol) holds validator stakes and manages voting power delegation.
+The [GSE](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/GSE.sol) holds validator stakes and manages voting power delegation.
 
 Key features:
 - **Stake mobility**: Stakes can automatically follow rollup upgrades

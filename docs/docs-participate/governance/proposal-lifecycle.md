@@ -99,7 +99,7 @@ When a payload reaches quorum, anyone can call `submitRoundWinner()` on the Gove
 
 ### GSE Payload Wrapping
 
-The Governance Proposer doesn't submit the original payload directly. Instead, it wraps it in a [GSEPayload](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/GSEPayload.sol) that:
+The Governance Proposer doesn't submit the original payload directly. Instead, it wraps it in a [GSEPayload](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/GSEPayload.sol) that:
 
 1. Copies all actions from the original payload
 2. Appends an `amIValid()` validation check as the final action

@@ -51,11 +51,11 @@ The governance system consists of several interconnected smart contracts:
 
 ### Registry
 
-The [Registry](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol) maintains a list of all rollup contract instances. The most recent entry is considered "canonical" and is eligible to receive block rewards. The Registry's `addRollup()` function can only be called by the Governance contract.
+The [Registry](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/Registry.sol) maintains a list of all rollup contract instances. The most recent entry is considered "canonical" and is eligible to receive block rewards. The Registry's `addRollup()` function can only be called by the Governance contract.
 
 ### Governance
 
-The [Governance](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Governance.sol) contract is the core of the system. It:
+The [Governance](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/Governance.sol) contract is the core of the system. It:
 
 - Receives proposals from the Governance Proposer
 - Tracks proposal state through their lifecycle
@@ -64,13 +64,13 @@ The [Governance](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-
 
 ### Governance Proposer
 
-The [Governance Proposer](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/proposer/GovernanceProposer.sol) is the gateway for submitting proposals. Only this contract can propose to Governance, ensuring that proposals have community support before entering the voting phase.
+The [Governance Proposer](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/proposer/GovernanceProposer.sol) is the gateway for submitting proposals. Only this contract can propose to Governance, ensuring that proposals have community support before entering the voting phase.
 
-The Governance Proposer extends the [EmpireBase](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/proposer/EmpireBase.sol) contract, which implements the round-based signaling mechanism.
+The Governance Proposer extends the [EmpireBase](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/proposer/EmpireBase.sol) contract, which implements the round-based signaling mechanism.
 
 ### Governance Staking Escrow (GSE)
 
-The [GSE](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/GSE.sol) bridges staking and governance. It:
+The [GSE](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/GSE.sol) bridges staking and governance. It:
 
 - Holds validator stakes on behalf of rollup contracts
 - Tracks voting power delegation
@@ -83,7 +83,7 @@ See [GSE and Stake Mobility](/participate/governance/gse) for details.
 
 ### Payloads
 
-A **payload** is a contract that defines the actions to be executed if a proposal passes. Payloads implement the [IPayload](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/interfaces/IPayload.sol) interface, which has a `getActions()` function returning a list of calls to make.
+A **payload** is a contract that defines the actions to be executed if a proposal passes. Payloads implement the [IPayload](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/interfaces/IPayload.sol) interface, which has a `getActions()` function returning a list of calls to make.
 
 For example, a payload to register a new rollup would include a call to `Registry.addRollup(newRollupAddress)`.
 

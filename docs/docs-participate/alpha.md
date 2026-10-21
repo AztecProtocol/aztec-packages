@@ -92,7 +92,7 @@ If you discover a security vulnerability:
 
 Mark reports as **CRITICAL** if you believe a vulnerability is actively being exploited or could result in loss of funds, key compromise, or broad user impact.
 
-For the full security policy, see [SECURITY.md](https://github.com/AztecProtocol/aztec-packages/blob/master/SECURITY.md).
+For the full security policy, see [SECURITY.md](https://github.com/AztecProtocol/aztec-packages/blob/next/SECURITY.md).
 
 ### Non-security bugs
 
@@ -125,5 +125,5 @@ These thresholds reflect the minimum bar for a network that application develope
 - [Limitations](/developers/docs/resources/considerations/limitations): Full list of current developer-facing limitations
 - [Privacy Considerations](/developers/docs/resources/considerations/privacy_considerations): What leaks and what doesn't
 - [Network Upgrades](/participate/governance/upgrades): How rollup upgrades work through governance
-- [Security Policy](https://github.com/AztecProtocol/aztec-packages/blob/master/SECURITY.md): How to report vulnerabilities
+- [Security Policy](https://github.com/AztecProtocol/aztec-packages/blob/next/SECURITY.md): How to report vulnerabilities
 - [Operator Guides](/operate/operators): Running network infrastructure

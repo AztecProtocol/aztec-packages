@@ -87,7 +87,7 @@ After Upgrade to Rollup B:
 
 ## GSE Payload Verification
 
-When the Governance Proposer wraps payloads in a [GSEPayload](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/GSEPayload.sol), it adds checks to ensure the new rollup has sufficient stake:
+When the Governance Proposer wraps payloads in a [GSEPayload](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/GSEPayload.sol), it adds checks to ensure the new rollup has sufficient stake:
 
 After executing the original payload actions, the GSEPayload verifies:
 

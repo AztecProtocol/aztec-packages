@@ -21,7 +21,7 @@ The Aztec protocol evolves over time. Common reasons for upgrades include:
 
 ## The Registry Model
 
-The Aztec governance system maintains a [Registry](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol) of all rollup contract instances. This design enables:
+The Aztec governance system maintains a [Registry](https://github.com/AztecProtocol/aztec-packages/blob/next/l1-contracts/src/governance/Registry.sol) of all rollup contract instances. This design enables:
 
 1. **Backwards Compatibility**: Every rollup that has ever existed remains accessible. Users can always bridge assets in or out of any historical rollup version.
 
