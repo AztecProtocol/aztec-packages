@@ -142,7 +142,7 @@ EOF
     fi
     if [ -n "$info" ] || ! group_alive "$pgid" || [ "$SECONDS" -ge "$deadline" ]; then
       tail -n 40 "$state/network.log" >&2
-      cmd_stop "$state" >&2
+      cmd_stop "$state" >&2 || true
       [ -z "$info" ] || die "the node reports $info, not $version: the installed CLI is the wrong release"
       die "the local network did not report $version within ${READY_TIMEOUT:-600}s (log above)"
     fi
@@ -156,10 +156,18 @@ function cmd_stop {
   pgid=$(sed -n 's/^export LOCAL_NETWORK_PGID=//p' "$state/network.env")
   run=$(sed -n 's/^export LOCAL_NETWORK_RUN=//p' "$state/network.env")
   if group_alive "$pgid"; then
-    # A live leader with another start time is a recycled pid leading someone else's group. With the
-    # leader gone the group is still ours: the kernel reuses no pid while a group holds it as its id.
+    # Only a live leader with the recorded start time proves the group is this run's: a leaderless
+    # group may be a later one that reused the id. Ours empties by itself once its leader, the node,
+    # is gone (anvil's watchdog exits with it), so wait for that instead of signalling.
     now=$(started_at "$pgid")
-    if [ -n "$now" ] && [ "$now" != "$(cat "$state/network.started" 2>/dev/null)" ]; then
+    if [ -z "$now" ]; then
+      for _ in $(seq 10); do group_alive "$pgid" || break; sleep 1; done
+      if group_alive "$pgid"; then
+        echo "local_network: group $pgid has no leader to prove it is this run's; not signalling it." \
+          "If pgrep -g $pgid lists this run's processes, kill -- -$pgid and stop again." >&2
+        return 1
+      fi
+    elif [ "$now" != "$(cat "$state/network.started" 2>/dev/null)" ]; then
       echo "local_network: group $pgid now belongs to another process; not signalling it" >&2
     else
       kill -TERM -- "-$pgid" 2>/dev/null || true
