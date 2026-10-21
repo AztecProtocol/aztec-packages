@@ -9,14 +9,11 @@ DOCS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 echo "=== Installing noirup and nargo ==="
 export PATH="$HOME/.nargo/bin:$PATH"
 
-# Install the noir release the labs toolchain pins (the single source of truth for
-# the nargo version this repo builds against). The toolchain binaries themselves are
-# not provisioned on Netlify, so the pin is read from the file rather than the record
-# a toolchain build would produce.
+# Install the noir release this repository builds with: the tag of the noir/noir-repo submodule.
 REPO_ROOT="$DOCS_ROOT/.."
-NOIR_TAG=$(sed -n 's/^NOIR_VERSION=//p' "$REPO_ROOT/labs-aztec-toolchain/bootstrap.sh")
+NOIR_TAG=$(git -C "$REPO_ROOT/noir/noir-repo" describe --tags --exact-match HEAD 2>/dev/null || true)
 if [ -z "$NOIR_TAG" ]; then
-    echo "ERROR: Could not read NOIR_VERSION from labs-aztec-toolchain/bootstrap.sh"
+    echo "ERROR: noir/noir-repo is not checked out at a release tag"
     exit 1
 fi
 echo "Using noir version: $NOIR_TAG"

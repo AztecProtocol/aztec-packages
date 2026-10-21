@@ -160,7 +160,7 @@ const config = {
         sidebarPath: "./sidebars-developer.js",
         editUrl: (params) => {
           return (
-            `https://github.com/aztec-labs-eng/aztec-node/edit/main/docs/docs-developers/` +
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-developers/` +
             params.docPath
           );
         },
@@ -208,7 +208,7 @@ const config = {
         sidebarPath: "./sidebars-operate.js",
         editUrl: (params) => {
           return (
-            `https://github.com/aztec-labs-eng/aztec-node/edit/main/docs/docs-operate/` +
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-operate/` +
             params.docPath
           );
         },
@@ -258,7 +258,7 @@ const config = {
         sidebarPath: "./sidebars-participate.js",
         editUrl: (params) => {
           return (
-            `https://github.com/aztec-labs-eng/aztec-node/edit/main/docs/docs-participate/` +
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-participate/` +
             params.docPath
           );
         },
