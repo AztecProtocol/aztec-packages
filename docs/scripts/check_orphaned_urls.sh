@@ -176,7 +176,7 @@ check_file_or_id() {
     done
   fi
 
-  # Docusaurus id frontmatter fallback
+  # Docusaurus number-prefix and id frontmatter fallbacks
   local parent_dir slug search_dir
   if [[ "$sub_path" == */* ]]; then
     parent_dir="${sub_path%/*}"
@@ -189,9 +189,14 @@ check_file_or_id() {
   fi
 
   if [[ -d "$search_dir" ]]; then
-    local file file_id
+    local file file_id name
     for file in "$search_dir"/*.md "$search_dir"/*.mdx; do
       [[ -f "$file" ]] || continue
+      # Docusaurus drops a number prefix from the route: 01-the-contract.md serves the-contract.
+      name=${file##*/}
+      if [[ "${name%.*}" =~ ^[0-9]+[-_.](.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
+        return 0
+      fi
       file_id=$(sed -n '/^---$/,/^---$/{s/^id:[[:space:]]*//p;}' "$file" | head -1)
       [[ "$file_id" == "$slug" ]] && return 0
     done
