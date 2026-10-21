@@ -3,8 +3,8 @@
 # =============================================================================
 [build]
   # Only build if docs-related files changed (docs/, aztec-nr/, or #include_code references)
-  # In aztec-packages, skip every build: aztec-docs-dev builds this directory, while
-  # docs.aztec.network is deployed from aztec-node with `netlify deploy --prod`.
+  # Every build is skipped: the aztec-docs-dev site builds this directory, and previews and
+  # publishing stay off until they are restored here (docs.aztec.network serves the 2026-08-19 build).
   ignore = "exit 0"
   command = "yarn build"
   functions = "netlify/functions"

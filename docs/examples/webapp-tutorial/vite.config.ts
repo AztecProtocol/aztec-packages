@@ -47,6 +47,11 @@ export default defineConfig({
       "@aztec-foundation/noir-noir_js",
     ],
   },
+  build: {
+    // Aztec's prover (bb.js, about 5 MB) and circuit artifacts load lazily but exceed Vite's
+    // 500 kB default; warn only above them.
+    chunkSizeWarningLimit: 6000,
+  },
   resolve: {
     // Keep linked @aztec packages under this app so plugin-injected shim imports
     // resolve from the webapp tutorial's node_modules.

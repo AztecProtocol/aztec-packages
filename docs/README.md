@@ -49,9 +49,9 @@ Note that you cannot use the macros (`#include_aztec_version` and `#include_code
 
 The way docs builds work is the following:
 
-- **Publishing from this repo is not live yet.** docs.aztec.network still serves the last build cut from `AztecProtocol/aztec-packages` (2026-08-19); the Netlify site has not been repointed since the docs moved here, so merging to `main` does not currently reach readers. Restoring it is tracked separately — delete this bullet once it lands.
-- Once restored, the live site is deployed from `main`. Netlify hosts and serves it — the domain, the `netlify.toml` redirects, the `subscribe` function and the markdown edge function are all Netlify — but the build itself is expected to run in CI and be pushed as a built artifact, not run by Netlify from a linked repo.
-- [The main CI workflow](../.github/workflows/ci3.yml) runs on pull requests and builds the dependencies and the docs, giving you a preview to check that everything is correct. You can also trigger docs CI specifically with the `ci-docs` label on a PR.
+- **Publishing is paused.** docs.aztec.network still serves the last build published from this repository (2026-08-19). Netlify builds of this directory are disabled (`ignore = "exit 0"` in `netlify.toml`), so merging to `next` does not reach readers and pull requests get no deploy preview. Delete this bullet once previews and publishing from `next` are restored.
+- Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function and the markdown edge function.
+- [The main CI workflow](../.github/workflows/ci3.yml) runs the docs reference and sync checks on every pull request. The docs build and tests (`make docs docs-tests`) run in full CI, for example with the `ci-full` label.
 
 The preprocessing macros use environment variables to determine version numbers. For nightly builds, set `NIGHTLY_TAG` (or `COMMIT_TAG` for backwards compatibility):
 
