@@ -1,4 +1,4 @@
-import { CircuitKind } from '../cbind/circuit_kind.js';
+import { CircuitKind } from '../circuit_kind.js';
 import { AztecClientBackend, fieldToString, fieldsToStrings } from './backend.js';
 import type { Barretenberg } from './index.js';
 
