@@ -73,6 +73,15 @@ use crate::meta::derive_packable;
 ///     }
 /// }
 /// ```
+///
+/// ## Unpacking Never Fails
+///
+/// [`Packable::unpack`] must accept all inputs, including those that [`Packable::pack`] cannot produce (e.g. `2` for a
+/// `bool`).
+///
+/// As a result, `unpack` may return values that would otherwise be disallowed, e.g. by the type's constructors. This is
+/// acceptable because `unpack` is meant to restore values stored in external places (such as contract storage or
+/// messages), which contracts must validate regardless.
 #[derive_via(derive_packable)]
 pub trait Packable {
     let N: u32;
@@ -82,9 +91,12 @@ pub trait Packable {
     /// The original value can be reconstructed by calling [`Packable::unpack`].
     fn pack(self) -> [Field; N];
 
-    /// Unpacks the value from a compact `Field` array.
+    /// Unpacks a value from a compact `Field` array.
     ///
-    /// `packed` must be the value returned by [`Packable::pack`].
+    /// If `packed` was returned by [`Packable::pack`], this returns the value that was packed. The opposite is not
+    /// guaranteed: packing the returned value may not result in `packed`.
+    ///
+    /// Never fails, even if `packed` could not have been returned by [`Packable::pack`].
     fn unpack(packed: [Field; N]) -> Self;
 }
 
@@ -105,9 +117,8 @@ mod test {
         }
 
         fn unpack(packed: [Field; Self::N]) -> Self {
-            let bits: [bool; 2] = packed[0].to_le_bits();
-            let b = bits[0];
-            let a = bits[1];
+            let b = (packed[0] as u8) % 2 != 0;
+            let a = ((packed[0] - b as Field) / 2.pow_32(1)) != 0;
 
             Self { a, b }
         }
@@ -126,5 +137,10 @@ mod test {
 
         let x = TwoBooleans { a: true, b: true };
         assert_eq(TwoBooleans::unpack(x.pack()), x);
+    }
+
+    #[test]
+    fn unpack_docs_example_accepts_values_pack_cannot_produce() {
+        assert_eq(TwoBooleans::unpack([4]), TwoBooleans { a: true, b: false });
     }
 }
