@@ -38,8 +38,13 @@ The example code lives in the Aztec packages repository:
 
 ```bash
 git clone --depth 1 https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-packages/docs/examples
+cd aztec-packages
+labs-patches/bootstrap.sh apply
+(cd docs && yarn install)
+cd docs/examples
 ```
+
+`labs-patches/bootstrap.sh apply` checks out the `labs/` submodule, whose `aztec-nr` and token contracts the Noir contract builds against. `yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
 
 ### Project Structure
 

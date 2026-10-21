@@ -148,7 +148,6 @@ function walk(dir, out = []) {
           let { content: block } = await ic.preprocessIncludeCode(line, file, cand);
           block = (await preprocessIncludeVersion(block, file, cand)).content;
           if (!processed.includes(block.trimEnd())) throw new Error("rendered block not found in the processed page");
-          // raw includes and noSourceLink render no link.
           if (lang === "raw" || opts.includes("noSourceLink")) { unlinked++; continue; }
           const href = block.match(/<a href="([^"]+)"/)[1];
           const [, repo, ref, linked, a, b] = href.match(link) || [];

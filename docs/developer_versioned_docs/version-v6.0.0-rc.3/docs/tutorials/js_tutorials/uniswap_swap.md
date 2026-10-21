@@ -38,8 +38,12 @@ The example code lives in the aztec-node repository:
 
 ```bash
 git clone --depth 1 --branch v6.0.0-rc.3 https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node/docs/examples
+cd aztec-node
+(cd docs && yarn install)
+cd docs/examples
 ```
+
+`yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
 
 ### Project Structure
 
