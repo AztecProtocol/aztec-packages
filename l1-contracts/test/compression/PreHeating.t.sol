@@ -164,9 +164,14 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
-      .setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize)
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET)
+      .setSlotDuration(SLOT_DURATION)
+      .setEpochDuration(EPOCH_DURATION)
+      .setMintFeeAmount(1e30)
+      .setValidators(initialValidators)
+      .setTargetCommitteeSize(_targetCommitteeSize)
       .setStakingQueueConfig(stakingQueueConfig);
     builder.deploy();
 
@@ -385,12 +390,14 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
     Signature memory attestationsAndSignersSignature;
     if (proposer != address(0)) {
-      attestationsAndSignersSignature = createAttestation(
+      attestationsAndSignersSignature =
+      createAttestation(
         proposer,
         AttestationLib.getAttestationsAndSignersDigest(
           AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
         )
-      ).signature;
+      )
+      .signature;
     }
 
     return Checkpoint({

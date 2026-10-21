@@ -107,8 +107,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET)
+      .setSlotDuration(SLOT_DURATION)
+      .setEpochDuration(EPOCH_DURATION)
+      .setMintFeeAmount(1e30)
       .setTargetCommitteeSize(0);
     builder.deploy();
 
@@ -208,8 +212,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     returns (uint256 fee, uint256 burn, uint256 proverFee)
   {
     TestPoint memory point = points[_checkpointNumber - 1];
-    uint256 minFee =
-      point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
+    uint256 minFee = point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
       + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
       + point.outputs.mana_min_fee_components_in_fee_asset.protocol_fee;
     uint256 manaUsed = rollup.getFeeHeader(_checkpointNumber).manaUsed;
@@ -315,7 +318,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     ManaMinFeeComponents memory componentsPrune = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenCheckpointNumber()")
+    stdstore.enable_packed_slots()
+      .target(address(rollup))
+      .sig("getProvenCheckpointNumber()")
       .checked_write(rollup.getPendingCheckpointNumber());
 
     ManaMinFeeComponents memory componentsNoPrune = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);

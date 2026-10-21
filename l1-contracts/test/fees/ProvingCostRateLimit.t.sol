@@ -30,7 +30,9 @@ contract ProvingCostRateLimitTest is Test {
   Rollup internal rollup;
 
   function setUp() public {
-    RollupBuilder builder = new RollupBuilder(address(this)).setMakeGovernance(false).setTargetCommitteeSize(0)
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setMakeGovernance(false)
+      .setTargetCommitteeSize(0)
       .setProvingCostPerMana(EthValue.wrap(INITIAL));
     builder.deploy();
     rollup = builder.getConfig().rollup;

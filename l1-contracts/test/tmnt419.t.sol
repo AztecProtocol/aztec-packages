@@ -119,7 +119,9 @@ contract Tmnt419Test is RollupBase {
       );
       timeCheater.cheat__progressSlot();
 
-      stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenCheckpointNumber()")
+      stdstore.enable_packed_slots()
+        .target(address(rollup))
+        .sig("getProvenCheckpointNumber()")
         .checked_write(rollup.getPendingCheckpointNumber());
     }
 

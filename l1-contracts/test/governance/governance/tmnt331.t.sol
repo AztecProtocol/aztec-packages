@@ -51,7 +51,7 @@ contract DepositTest is TestBase {
     assertEq(token.balanceOf(address(governance)), amount);
 
     vm.prank(address(governance));
-    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CallerCannotBeSelf.selector, address(governance)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CallerCannotBeSelf.selector));
     governance.deposit(address(governance), amount);
 
     assertEq(governance.powerNow(address(governance)), 0);

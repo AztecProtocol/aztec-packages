@@ -265,7 +265,9 @@ contract SlashLocalEjectionTest is StakingBase {
   uint256 internal constant LOCAL_EJECTION_THRESHOLD = 75e18;
 
   function setUp() public override {
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setSlashingQuorum(1)
+      .setSlashingRoundSize(1)
       .setLocalEjectionThreshold(LOCAL_EJECTION_THRESHOLD);
     builder.deploy();
 

@@ -17,6 +17,12 @@ solc = "../../l1-contracts/solc-0.8.30"
 [fuzz]
 runs = 2
 
+[fmt]
+# Foundry 1.5+ would reformat these. They are copied into the verifier templates in
+# barretenberg/cpp/src/barretenberg/dsl/acir_proofs, so reformatting them changes the generated
+# verifier source and with it the metadata hash in the deployed verifier's bytecode.
+ignore = ["src/honk/CommitmentScheme.sol", "src/honk/Relations.sol"]
+
 [lint]
 ignore = ["./lib/**"]
 exclude_lints = [

@@ -33,8 +33,9 @@ function build_sol {
     if ! cache_download $artifact; then
 
         rm -rf broadcast cache out
-        forge install
-        # Ensure libraries are at the correct version
+        # Check out the libraries at the revisions this repository records. `forge install` is not used for
+        # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
+        # names a revision that a shallow clone does not have.
         git submodule update --init --recursive ./lib
 
         forge fmt || true

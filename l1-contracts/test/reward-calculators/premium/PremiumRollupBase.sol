@@ -66,7 +66,8 @@ abstract contract PremiumRollupBase is BN254Fixtures {
     vm.prank(address(builder));
     token.mint(address(builder), 1e18);
     gse = new GSE(address(this), token, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
-    builder.setTestERC20(token).setGSE(gse)
+    builder.setTestERC20(token)
+      .setGSE(gse)
       .setStakingQueueConfig(
         StakingQueueConfig({
           bootstrapValidatorSetSize: 0,

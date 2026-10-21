@@ -11,6 +11,10 @@ evm_version = 'prague'
 optimizer = true
 optimizer_runs = 100
 match_path = "test/**/*.t.sol"
+# Run each test as one transaction rather than isolating every top-level call into its own. Per-call
+# isolation charges cold-access and intrinsic gas on each call, which pushes the large validator-set
+# tests past the gas limit. Gas reports isolate every call whatever this is set to.
+isolate = false
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
 gas_reports = [
@@ -34,6 +38,12 @@ gas_reports = [
   "MultiAdder",
 ]
 
+# Remappings are listed explicitly instead of auto-detected from lib/. They are recorded in each
+# contract's metadata, so its hash and therefore the deployed bytecode depend on them. Foundry 1.5+
+# auto-detects extra context-scoped remappings for nested libraries, some with absolute paths, which
+# would make the bytecode differ from the deployed contracts and between checkouts. The last six
+# entries of each list are what Foundry 1.4 used to auto-detect.
+auto_detect_remappings = false
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
   "@aztec/=src",
@@ -42,6 +52,12 @@ remappings = [
   "@zkpassport/=lib/circuits/src/solidity/src/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
   "@aztec-blob-lib/=src/mock/libraries",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "circuits/=lib/circuits/src/",
+  "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+  "forge-std/=lib/forge-std/src/",
+  "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+  "openzeppelin-contracts/=lib/openzeppelin-contracts/",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
@@ -71,11 +87,22 @@ no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 [fmt]
 line_length = 120
 tab_width = 2
-variable_override_spacing = false
 wrap_comments = true
 number_underscore = "thousands"
 override_spacing = false
-ignore = ["script/deploy/HonkVerifier.sol"]
+# HonkVerifier.sol is generated. The other files are ones Foundry 1.5+ would reformat, left as they were
+# deployed: any change to a source file, whitespace included, changes the metadata hash in the bytecode
+# of every contract built from it.
+ignore = [
+  "src/core/EscapeHatch.sol",
+  "src/core/libraries/rollup/FeeLib.sol",
+  "src/core/libraries/rollup/RewardLib.sol",
+  "src/core/libraries/rollup/STFLib.sol",
+  "src/governance/GSE.sol",
+  "src/governance/libraries/compressed-data/Proposal.sol",
+  "script/deploy/DeployRollupForUpgradeV6.s.sol",
+  "script/deploy/HonkVerifier.sol",
+]
 
 [lint]
 ignore = ["./lib/**"]
@@ -103,6 +130,12 @@ remappings = [
   "@zkpassport/=lib/circuits/src/solidity/src/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
   "@aztec-blob-lib/=src/core/libraries/rollup/",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "circuits/=lib/circuits/src/",
+  "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+  "forge-std/=lib/forge-std/src/",
+  "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+  "openzeppelin-contracts/=lib/openzeppelin-contracts/",
 ]
 
 [profile.coverage]
@@ -125,4 +158,10 @@ remappings = [
   "@zkpassport/=src/mock/coverage/zkpassport/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
   "@aztec-blob-lib/=src/mock/libraries",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "circuits/=lib/circuits/src/",
+  "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+  "forge-std/=lib/forge-std/src/",
+  "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+  "openzeppelin-contracts/=lib/openzeppelin-contracts/",
 ]
