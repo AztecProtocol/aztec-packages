@@ -146,7 +146,7 @@ CUT=$CUT
 CLI_HOME=$CLI_HOME
 DEST_ROOT=$(git rev-parse --show-toplevel)
 DEST=$(git rev-parse HEAD)
-DEST_BRANCH=$(git branch --show-current)
+DEST_BRANCH=$(printf %q "$(git branch --show-current)")
 docs_env() { COMMIT_TAG=$LABS_TAG LABS_REF=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> "\$@"; }
 aztec_cli() {
   [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
