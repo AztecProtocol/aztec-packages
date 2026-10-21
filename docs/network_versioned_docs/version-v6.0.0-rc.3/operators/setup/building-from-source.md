@@ -37,11 +37,11 @@ These requirements are for building the software. Running a node has different r
 
 ### Step 1: Clone the Repository
 
-Clone the Aztec packages repository:
+Clone the Aztec node repository:
 
 ```bash
-git clone https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-packages
+git clone https://github.com/aztec-labs-eng/aztec-node.git
+cd aztec-node
 ```
 
 ### Step 2: Check Out a Version Tag
@@ -110,8 +110,8 @@ Run the bootstrap script inside the build container to compile all source code:
 
 ```bash
 docker run --rm \
-  -v $(pwd):/workspaces/aztec-packages \
-  -w /workspaces/aztec-packages \
+  -v $(pwd):/workspaces/aztec-node \
+  -w /workspaces/aztec-node \
   aztec-build-local:3.0 \
   ./bootstrap.sh full
 ```
