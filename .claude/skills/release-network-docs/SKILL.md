@@ -133,7 +133,7 @@ be clean apart from the expected ` M labs`.
 
 ```bash
 git diff --quiet --ignore-submodules=all && git diff --cached --quiet --ignore-submodules=all \
-  || echo "commit or discard the changes first"
+  || { echo "commit or discard the changes first" >&2; exit 1; }
 LABS_TAG=v<new_version>
 STATE=$HOME/.cache/aztec-docs-cut/network-$LABS_TAG
 CUT=$STATE/worktree
@@ -517,7 +517,7 @@ fixed goes to the owner.
 
 ```bash
 . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
-git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || echo "destination docs/ moved: stop and restart the cut"
+git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
 cd "$CUT" && git add -A -- docs && git commit -m "docs: cut $LABS_TAG network docs"
 git -C "$CUT" diff --name-status "$SYNCED" HEAD -- docs
 ```

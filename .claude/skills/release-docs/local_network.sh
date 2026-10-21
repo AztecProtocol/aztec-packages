@@ -17,8 +17,8 @@ lock=$registry.lock
 
 function die { echo "local_network: $*" >&2; exit 1; }
 
-# The registry's lock protocol: an exclusively created lock file, taken over when older than 15 s
-# (its holder died), so a crashed run cannot block the host.
+# The registry's lock protocol: an exclusively created lock file, taken over when older than 15 s,
+# far longer than any holder keeps it, so a crashed run cannot block the host.
 function with_registry {
   local _
   mkdir -p "$(dirname "$registry")"
@@ -88,6 +88,7 @@ function release_rows {
 }
 
 function group_alive { kill -0 -- "-$1" 2>/dev/null; }
+function started_at { LC_ALL=C TZ=UTC ps -o lstart= -p "$1" 2>/dev/null || true; }
 
 function cmd_start {
   local version=$1 state=$2 run picked ports attempt pgid deadline info
@@ -121,6 +122,7 @@ function cmd_start {
       ANVIL_PORT="${ports[2]}" DATA_DIRECTORY="$state/network-data" P2P_ENABLED=false \
       aztec start --local-network --port "${ports[0]}" --admin-port "${ports[1]}")
   with_registry repoint_rows "$run" "$pgid"
+  started_at "$pgid" >"$state/network.started"
   cat >"$state/network.env" <<EOF
 export AZTEC_NODE_URL=http://127.0.0.1:${ports[0]}
 export ETHEREUM_HOST=http://127.0.0.1:${ports[2]}
@@ -149,15 +151,16 @@ EOF
 }
 
 function cmd_stop {
-  local state=$1 pgid run cmd _
+  local state=$1 pgid run now _
   [ -f "$state/network.env" ] || { echo "no network recorded in $state"; return 0; }
   pgid=$(sed -n 's/^export LOCAL_NETWORK_PGID=//p' "$state/network.env")
   run=$(sed -n 's/^export LOCAL_NETWORK_RUN=//p' "$state/network.env")
   if group_alive "$pgid"; then
-    # A recycled pid would name someone else's group: only signal what still looks like ours.
-    cmd=$(ps -o command= -p "$pgid" 2>/dev/null || true)
-    if [ -n "$cmd" ] && ! grep -qE 'aztec|node|anvil' <<<"$cmd"; then
-      echo "local_network: group $pgid now runs '$cmd'; not signalling it" >&2
+    # A live leader with another start time is a recycled pid leading someone else's group. With the
+    # leader gone the group is still ours: the kernel reuses no pid while a group holds it as its id.
+    now=$(started_at "$pgid")
+    if [ -n "$now" ] && [ "$now" != "$(cat "$state/network.started" 2>/dev/null)" ]; then
+      echo "local_network: group $pgid now belongs to another process; not signalling it" >&2
     else
       kill -TERM -- "-$pgid" 2>/dev/null || true
       for _ in $(seq 30); do group_alive "$pgid" || break; sleep 1; done
@@ -165,7 +168,7 @@ function cmd_stop {
     fi
   fi
   with_registry release_rows "$run"
-  rm -f "$state/network.env"
+  rm -f "$state/network.env" "$state/network.started"
   echo "local network stopped (group $pgid), ports released"
 }
 
