@@ -5,11 +5,12 @@
 #   labs_docs_parity.sh <labs-ref>
 #
 # Rendering parity: the oracle is aztec-node at <labs-ref> (its docs/ tooling and the code its
-# snippets read), with its content directories and examples replaced by this repo's, includes and
-# the examples' relative labs/ paths de-rerooted, and references left alone. Both trees run the
-# preprocessor with the same release variables (COMMIT_TAG = <labs-ref>, or LABS_REF if set;
-# RELEASE_TYPE and the *_TAG variables pass through), and their processed-docs/ must be identical
-# apart from where snippet source links point, which the next check verifies one by one.
+# snippets read), with its content directories, examples and version configs replaced by this
+# repo's, includes and the examples' relative labs/ paths de-rerooted, and references left alone.
+# Both trees run the preprocessor with the same release variables (COMMIT_TAG = <labs-ref>, or
+# LABS_REF if set; RELEASE_TYPE and the *_TAG variables pass through), and their processed-docs/
+# must be identical apart from where snippet source links point, which the next check verifies
+# one by one.
 #
 # Link provenance: for each include with a source link, the link must name aztec-node at that ref
 # for labs/ code (and for every snippet when LABS_REF is set, as in a release cut), aztec-packages
@@ -68,6 +69,8 @@ find "$tmp/oracle/docs" \( -path "$tmp/oracle/docs/docs/*" -o -path "$tmp/oracle
 rm -rf "${tmp:?}/oracle/docs/examples"
 cp -a "$tmp/cand/docs/examples" "$tmp/oracle/docs/examples"
 grep -rlIZ -E '(\.\./)+labs/' "$tmp/oracle/docs/examples" | xargs -0 -r perl -pi -e 's{((?:\.\./)+)labs/}{$1}g'
+# So are the version configs: a cut updates them, and the version macros read them.
+cp "$tmp/cand/docs/developer_version_config.json" "$tmp/cand/docs/network_version_config.json" "$tmp/oracle/docs/"
 for t in oracle cand; do ln -s "$root/docs/node_modules" "$tmp/$t/docs/node_modules"; done
 
 # The candidate links this repository's files as a nightly build does (aztec-packages at HEAD)
