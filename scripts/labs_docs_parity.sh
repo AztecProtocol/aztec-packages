@@ -52,14 +52,17 @@ rsync -a --exclude node_modules --exclude build --exclude 'processed-docs*' --ex
 mkdir -p "$tmp/cand/labs"
 for d in $code_dirs; do ln -s "$tmp/oracle/$d" "$tmp/cand/labs/$d"; done
 
-# Oracle: aztec-node's tooling and examples, this repo's content with includes de-rerooted.
+# Oracle: aztec-node's tooling and examples, this repo's content with includes de-rerooted and
+# #include_foundation_version expanded as our preprocessor does (aztec-node's predates it).
+foundation_version=v$(node -p 'require(process.argv[1]).version' "$root/docs/node_modules/@aztec-foundation/l1-artifacts/package.json")
 for d in "${content_dirs[@]}"; do
   rm -rf "${tmp:?}/oracle/docs/$d"
   [ -d "$tmp/cand/docs/$d" ] && cp -a "$tmp/cand/docs/$d" "$tmp/oracle/docs/$d"
 done
 find "$tmp/oracle/docs" \( -path "$tmp/oracle/docs/docs/*" -o -path "$tmp/oracle/docs/docs-*/*" \) \
   -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.json' \) -print0 |
-  xargs -0 perl -pi -e 's{^(?!<!--)(.*#include_code\s+\S+\s+/?)labs/}{$1}'
+  FOUNDATION_VERSION=$foundation_version xargs -0 perl -pi -e \
+    's{^(?!<!--)(.*#include_code\s+\S+\s+/?)labs/}{$1}; s{#include_foundation_version}{$ENV{FOUNDATION_VERSION}}g'
 # The examples are content as well, so an intentional edit to one renders the same on both sides;
 # only their paths into labs/ (../../labs/noir-projects/...) change with the layout.
 rm -rf "${tmp:?}/oracle/docs/examples"

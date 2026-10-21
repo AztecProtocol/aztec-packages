@@ -5,7 +5,7 @@ description: Learn about the data structures used in Aztec portals for L1-L2 com
 
 This page documents the Solidity structs used for L1-L2 message passing in the Aztec protocol.
 
-**Source**: [DataStructures.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/libraries/DataStructures.sol)
+**Source**: [DataStructures.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_foundation_version/l1-contracts/src/core/libraries/DataStructures.sol)
 
 ## `L1Actor`
 

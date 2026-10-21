@@ -1,5 +1,7 @@
 const { describe, it, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert");
+const fs = require("fs");
+const path = require("path");
 const { preprocessIncludeVersion, getReleaseVersion, getReleaseNetwork } = require("../include_version");
 
 describe("getReleaseVersion", () => {
@@ -118,6 +120,21 @@ describe("preprocessIncludeVersion", () => {
         setEnv({ RELEASE_TYPE: "nightly", [envVar]: value });
         const { content } = await preprocessIncludeVersion(macro, "test.md");
         assert.strictEqual(content, value);
+      });
+    });
+  });
+
+  describe("#include_foundation_version macro", () => {
+    const installed = JSON.parse(fs.readFileSync(
+      path.join(__dirname, "../../../node_modules/@aztec-foundation/l1-artifacts/package.json"),
+      "utf8",
+    )).version;
+
+    ["nightly", "testnet"].forEach((releaseType) => {
+      it(`names the installed l1-artifacts release for ${releaseType}, not COMMIT_TAG`, async () => {
+        setEnv({ RELEASE_TYPE: releaseType, COMMIT_TAG: "v9.9.9" });
+        const { content } = await preprocessIncludeVersion("blob/#include_foundation_version/l1-contracts", "test.md");
+        assert.strictEqual(content, `blob/v${installed}/l1-contracts`);
       });
     });
   });

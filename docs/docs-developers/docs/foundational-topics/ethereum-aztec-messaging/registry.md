@@ -6,7 +6,7 @@ tags: [portals, contracts]
 
 The Registry is a contract deployed on L1 that tracks canonical and historical rollup instances. It allows you to query the current rollup contract and look up prior deployments by version.
 
-**Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/governance/interfaces/IRegistry.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/governance/Registry.sol).
+**Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_foundation_version/l1-contracts/src/governance/interfaces/IRegistry.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/#include_foundation_version/l1-contracts/src/governance/Registry.sol).
 
 ## `numberOfVersions()`
 

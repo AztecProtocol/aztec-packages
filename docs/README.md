@@ -396,7 +396,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
 
 ### `#include_aztec_version`
 
-This macro will be replaced inline with the current Aztec packages tag. This value is sourced from `.release-please-manifest.json` on the project root.
+This macro will be replaced inline with `COMMIT_TAG`: the Labs release tag in a release cut, `next` otherwise. It is an aztec-node (Labs) version, never a ref into this repository; use `#include_foundation_version` for that.
 
 Alternatively, you can also use the `AztecPackagesVersion()` js function, which you need to import explicitly:
 
@@ -404,6 +404,10 @@ Alternatively, you can also use the `AztecPackagesVersion()` js function, which 
 import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
+
+### `#include_foundation_version`
+
+This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/labs_docs_sync.sh check` holds equal to the toolchain's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to.
 
 ### `#include_testnet_version`
 

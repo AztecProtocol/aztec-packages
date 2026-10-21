@@ -740,8 +740,8 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+|/?", *
   ref, which must be `v<l1-artifacts version>` or `next`. A ref of `v<new_version>` comes
   from `#include_aztec_version` in a hand-written URL or dependency: this repository's tag
   of that name is missing (there is no `v6.0.0-rc.3`) or a different commit. Point it at
-  the l1-artifacts version (Foundation code such as `l1-contracts/` and `barretenberg/`),
-  or at aztec-node for Labs code. Old migration-note entries are historical; leave them.
+  the l1-artifacts version with `#include_foundation_version` (Foundation code such as
+  `l1-contracts/` and `barretenberg/`), or at aztec-node for Labs code. Old migration-note entries are historical; leave them.
   `master` resolves only through GitHub's redirect to `next`: write `next`.
 
 #### 11a. Snippet parity
@@ -798,7 +798,7 @@ The first heading must be the new version. Then no macro and no moving Aztec ver
 survive in the snapshot:
 
 ```bash
-grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#release_version|#release_network|#include_code' \
+grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#include_foundation_version|#release_version|#release_network|#include_code' \
   developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
 ```
 

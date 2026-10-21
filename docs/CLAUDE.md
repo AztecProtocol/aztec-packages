@@ -72,9 +72,13 @@ The preprocessing system uses these environment variables:
 - `#release_network` - Resolves to the network name for CLI `--network` flag:
   - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet` → `mainnet`
 
+**Foundation macro:**
+
+- `#include_foundation_version` - `v<installed @aztec-foundation/l1-artifacts version>`; use it for links and Nargo dependencies into aztec-packages' own code (`l1-contracts/`, `barretenberg/`)
+
 **Legacy macros:**
 
-- `#include_aztec_version` - Uses `COMMIT_TAG`
+- `#include_aztec_version` - Uses `COMMIT_TAG` (a Labs version, never a ref into aztec-packages)
 - `#include_devnet_version`, `#include_testnet_version`, `#include_mainnet_version` - Version-specific macros
 
 **`#include_code` paths**: Snippet paths may point into `docs/node_modules` (e.g. `docs/node_modules/@aztec-foundation/l1-artifacts/...`). For those snippets the generated source link resolves to the installed package's own version tag, NOT `COMMIT_TAG` - only the package's tag is guaranteed to match the extracted snippet line-for-line (see `src/preprocess/include_code.js`).

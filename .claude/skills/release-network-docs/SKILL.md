@@ -402,7 +402,7 @@ Record the current network version for this release type first; Step 8 deletes i
 cat network_version_config.json
 docs_env yarn docusaurus docs:version:network "$LABS_TAG"
 scripts/update_docs_versions.sh network <release_type> "$LABS_TAG"
-grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#release_version|#release_network|#include_code' \
+grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#include_foundation_version|#release_version|#release_network|#include_code' \
   network_versioned_docs/version-v<new_version>/
 ```
 
