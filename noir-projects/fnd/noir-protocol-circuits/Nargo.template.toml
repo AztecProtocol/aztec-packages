@@ -6,6 +6,8 @@
 members = [
     "crates/ts-types",
     "crates/types",
+    "crates/bignum",
+    "crates/bigcurve",
     "crates/protocol-test-utils",
     "crates/blob",
     "crates/inbox-parity-4",

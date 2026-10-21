@@ -1,7 +1,7 @@
 use crate::config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS};
 
 use bignum::{BigNum, BLS12_381_Fr};
-use std::ops::{Mul, Neg};
+use std::ops::Mul;
 use types::constants::FIELDS_PER_BLOB;
 
 /**
@@ -161,7 +161,7 @@ pub fn z_pow_d(z: BLS12_381_Fr) -> BLS12_381_Fr {
 
 unconstrained fn __compute_factor_helper(z_pow_d: BLS12_381_Fr) -> BLS12_381_Fr {
     let one = BLS12_381_Fr::one();
-    z_pow_d.__sub(&one).__mul(&D_INV)
+    z_pow_d.__sub(one).__mul(D_INV)
 }
 
 pub fn validate_factor(z_pow_d: BLS12_381_Fr, factor: BLS12_381_Fr) {
@@ -188,7 +188,7 @@ pub fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
     // The barycentric formula only holds off the evaluation domain. At a d-th root of unity the
     // factor is zero and p(z) collapses to zero for every blob, and `validate_fracs` has no
     // solution there; asserting on `z^d` names that precondition in one place.
-    z_pow_d.assert_is_not_equal(&BLS12_381_Fr::one());
+    z_pow_d.assert_is_not_equal(BLS12_381_Fr::one());
 
     // Safety: We immediately check that this result is correct in the following `evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
@@ -248,7 +248,7 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
     let mut z_pow = [BLS12_381_Fr::zero(); LOG_FIELDS_PER_BLOB + 1];
     z_pow[0] = z;
     for k in 1..(LOG_FIELDS_PER_BLOB + 1) {
-        z_pow[k] = z_pow[k - 1].__mul(&z_pow[k - 1]);
+        z_pow[k] = z_pow[k - 1].__mul(z_pow[k - 1]);
     }
 
     // The single inverse everything else is derived from. It is zero iff `z` is a d-th root of
@@ -258,7 +258,7 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
         "blob challenge z is a d-th root of unity",
     );
     let mut inverses = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
-    inverses[0] = z_pow[LOG_FIELDS_PER_BLOB].__sub(&BLS12_381_Fr::one()).__invmod();
+    inverses[0] = z_pow[LOG_FIELDS_PER_BLOB].__sub(BLS12_381_Fr::one()).__invmod();
 
     // Descend to level 1, doubling the number of live entries each time.
     let mut num_entries: u32 = 1;
@@ -268,8 +268,8 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
             let u = num_entries - 1 - i;
             let inverse = inverses[u];
             let root = ROOTS[2 * u];
-            inverses[2 * u] = z_pow[k - 1].__add(&root).__mul(&inverse);
-            inverses[2 * u + 1] = z_pow[k - 1].__sub(&root).__mul(&inverse);
+            inverses[2 * u] = z_pow[k - 1].__add(root).__mul(inverse);
+            inverses[2 * u + 1] = z_pow[k - 1].__sub(root).__mul(inverse);
         }
         num_entries *= 2;
     }
@@ -280,9 +280,9 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
         let inverse = inverses[u];
         let root = ROOTS[2 * u]; // w^t
         let root_squared = ROOTS[u]; // w^2t
-        let z_root = z.__mul(&root);
-        fracs[2 * u] = z_root.__add(&root_squared).__mul(&inverse);
-        fracs[2 * u + 1] = z_root.__sub(&root_squared).__mul(&inverse).__neg();
+        let z_root = z.__mul(root);
+        fracs[2 * u] = z_root.__add(root_squared).__mul(inverse);
+        fracs[2 * u + 1] = z_root.__sub(root_squared).__mul(inverse).__neg();
     }
 
     fracs
@@ -352,10 +352,10 @@ unconstrained fn __compute_partial_sums(
     let mut partial_sum = BLS12_381_Fr::zero();
     for i in 0..8 {
         // y_k * ( w^k / (z - w^k) )
-        let summand = ys[i].__mul(&fracs[i]);
+        let summand = ys[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
-        partial_sum = partial_sum.__add(&summand);
+        partial_sum = partial_sum.__add(summand);
     }
     partial_sums[0] = partial_sum;
 
@@ -371,9 +371,9 @@ unconstrained fn __compute_partial_sums(
         for j in 0..8 {
             let k = i * 8 + j;
             // y_k * ( w^k / (z - w^k) )
-            let summand = ys[k].__mul(&fracs[k]);
+            let summand = ys[k].__mul(fracs[k]);
             // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
-            partial_sum = partial_sum.__add(&summand);
+            partial_sum = partial_sum.__add(summand);
         }
         partial_sums[i] = partial_sum;
     }
@@ -395,10 +395,10 @@ unconstrained fn __compute_sum(
     let mut sum = BLS12_381_Fr::zero();
     for i in 0..FIELDS_PER_BLOB {
         // y_k * ( w^k / (z - w^k) )
-        let summand = ys[i].__mul(&fracs[i]);
+        let summand = ys[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
-        sum = sum.__add(&summand);
+        sum = sum.__add(summand);
     }
     sum
 }
@@ -471,8 +471,8 @@ mod tests {
         //*                    d
         //
         let rhs = super::compute_factor(challenge_z);
-        let z_minus_1 = challenge_z.__sub(&BLS12_381_Fr::one());
-        let lhs = y.__mul(&z_minus_1);
+        let z_minus_1 = challenge_z.__sub(BLS12_381_Fr::one());
+        let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
     }
 
@@ -616,12 +616,12 @@ mod tests {
         // Compute z^d manually
         let mut z_pow_d = z;
         for _ in 0..LOG_FIELDS_PER_BLOB {
-            z_pow_d = z_pow_d.__mul(&z_pow_d);
+            z_pow_d = z_pow_d.__mul(z_pow_d);
         }
 
         // Verify: factor * d = z^d - 1
-        let factor_times_d = factor.__mul(&D);
-        let z_pow_d_minus_1 = z_pow_d.__sub(&BLS12_381_Fr::one());
+        let factor_times_d = factor.__mul(D);
+        let z_pow_d_minus_1 = z_pow_d.__sub(BLS12_381_Fr::one());
         assert_eq(factor_times_d, z_pow_d_minus_1);
     }
 
@@ -640,8 +640,8 @@ mod tests {
         let indices_to_check = [0, 1, 100];
         for j in 0..indices_to_check.len() {
             let i = indices_to_check[j];
-            let denom = z.__sub(&ROOTS[i]); // z - w^i
-            let product = fracs[i].__mul(&denom); // fracs[i] * (z - w^i)
+            let denom = z.__sub(ROOTS[i]); // z - w^i
+            let product = fracs[i].__mul(denom); // fracs[i] * (z - w^i)
             assert_eq(product, ROOTS[i]);
         }
     }
@@ -655,7 +655,7 @@ mod tests {
 
         for i in 0..FIELDS_PER_BLOB {
             // fracs[i] * (z - w^i) == w^i
-            assert_eq(fracs[i].__mul(&z.__sub(&ROOTS[i])), ROOTS[i]);
+            assert_eq(fracs[i].__mul(z.__sub(ROOTS[i])), ROOTS[i]);
         }
     }
 
@@ -744,7 +744,7 @@ mod tests {
     #[test]
     unconstrained fn test_roots_square_to_their_parent() {
         for u in 0..(FIELDS_PER_BLOB / 2) {
-            assert_eq(ROOTS[2 * u].__mul(&ROOTS[2 * u]), ROOTS[u]);
+            assert_eq(ROOTS[2 * u].__mul(ROOTS[2 * u]), ROOTS[u]);
         }
     }
 
@@ -781,10 +781,10 @@ mod tests {
         // So: p(z) * (z - w^k) = factor * w^k
         let factor = compute_factor(z);
         let w_k = ROOTS[position];
-        let z_minus_w_k = z.__sub(&w_k);
+        let z_minus_w_k = z.__sub(w_k);
 
-        let lhs = y.__mul(&z_minus_w_k);
-        let rhs = factor.__mul(&w_k);
+        let lhs = y.__mul(z_minus_w_k);
+        let rhs = factor.__mul(w_k);
         assert_eq(lhs, rhs);
     }
 
@@ -811,7 +811,7 @@ mod tests {
         // So result = D_INV * 3
 
         let three = BLS12_381_Fr::from_limbs([3, 0, 0]);
-        let expected = D_INV.__mul(&three);
+        let expected = D_INV.__mul(three);
         assert_eq(y, expected);
     }
 
@@ -885,8 +885,8 @@ mod tests {
 
         // For each non-zero y, verify: frac * (z - w^i) = w^i
         for i in 0..10 {
-            let z_minus_root = z.__sub(&ROOTS[i]);
-            let computed_root = fracs[i].__mul(&z_minus_root);
+            let z_minus_root = z.__sub(ROOTS[i]);
+            let computed_root = fracs[i].__mul(z_minus_root);
             assert_eq(computed_root, ROOTS[i]);
         }
     }
@@ -902,21 +902,23 @@ mod tests {
             let neg_root = root.neg();
 
             // Verify: root + neg_root = 0 (mod p)
-            let sum = root.__add(&neg_root);
+            let sum = root.__add(neg_root);
             assert_eq(sum, BLS12_381_Fr::zero());
 
             // Verify: root * (-1) = neg_root
-            let minus_one = BLS12_381_Fr::zero().__sub(&one);
-            let root_times_minus_one = root.__mul(&minus_one);
+            let minus_one = BLS12_381_Fr::zero().__sub(one);
+            let root_times_minus_one = root.__mul(minus_one);
             assert_eq(root_times_minus_one, neg_root);
         }
     }
 
     // ==================== SOUNDNESS TESTS ====================
-    // These tests verify that invalid hints are rejected by the constraints.
-    // The BigNum library's evaluate_quadratic_expression asserts `remainder == [0; N]`
-    // when the constraint is not satisfied. That assertion carries no message, so the
-    // `validate_*` tests below can only say `should_fail`.
+    // These tests check that the `validate_*` functions reject invalid hints. With an honest
+    // witness generator the rejection happens in bignum's unconstrained quotient hint, which
+    // asserts `remainder == [0; N]` without a message, so the tests below can only say
+    // `should_fail`. The constraint that binds a prover who supplies its own quotient is
+    // `validate_expression_is_zero`, covered by bignum's
+    // `test_evaluate_quadratic_expression_limb_overflow`.
 
     #[test(should_fail)]
     fn test_validate_factor_rejects_invalid_factor() {
@@ -930,7 +932,7 @@ mod tests {
 
         // Add 1 to corrupt the factor
         // Safety: the corrupted factor is what `validate_factor` below is expected to reject.
-        let invalid_factor = unsafe { correct_factor.__add(&BLS12_381_Fr::one()) };
+        let invalid_factor = unsafe { correct_factor.__add(BLS12_381_Fr::one()) };
 
         // This should fail because the constraint won't be satisfied
         validate_factor(z_pow_d_val, invalid_factor);
@@ -960,7 +962,7 @@ mod tests {
 
         // Corrupt fracs[0] by adding 1
         // Safety: the corrupted frac is what `validate_fracs` below is expected to reject.
-        fracs[0] = unsafe { fracs[0].__add(&BLS12_381_Fr::one()) };
+        fracs[0] = unsafe { fracs[0].__add(BLS12_381_Fr::one()) };
 
         // This should fail because fracs[0] no longer satisfies the relation validate_fracs enforces for z
         validate_fracs(z, fracs);
@@ -994,7 +996,7 @@ mod tests {
         // Safety: computing correct values first
         let mut fracs = unsafe { __compute_fracs(z) };
         // Safety: the corrupted frac is what `validate_fracs` below is expected to reject.
-        fracs[last] = unsafe { fracs[last].__add(&BLS12_381_Fr::one()) };
+        fracs[last] = unsafe { fracs[last].__add(BLS12_381_Fr::one()) };
 
         validate_fracs(z, fracs);
     }
@@ -1012,12 +1014,12 @@ mod tests {
         let fracs = unsafe {
             let mut denoms = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
             for i in 0..FIELDS_PER_BLOB {
-                denoms[i] = z.__sub(&ROOTS[i]);
+                denoms[i] = z.__sub(ROOTS[i]);
             }
             let inv_denoms = bignum::bignum::batch_invert(denoms);
             let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
             for i in 0..FIELDS_PER_BLOB {
-                fracs[i] = ROOTS[i].__mul(&inv_denoms[i]);
+                fracs[i] = ROOTS[i].__mul(inv_denoms[i]);
             }
             fracs
         };

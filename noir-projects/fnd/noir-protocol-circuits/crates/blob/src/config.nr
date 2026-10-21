@@ -20584,7 +20584,7 @@ mod tests {
         let mut current_power = BLS12_381_Fr::one();
         for i in 0..FIELDS_PER_BLOB {
             powers[i] = current_power;
-            current_power = current_power.__mul(&x);
+            current_power = current_power.__mul(x);
         }
         powers
     }
