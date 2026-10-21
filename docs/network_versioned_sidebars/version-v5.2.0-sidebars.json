@@ -7,7 +7,7 @@
     },
     {
       "type": "html",
-      "value": "<span class=\"sidebar-divider\" />"
+      "value": "<span class=\"sidebar-divider\"></span>"
     },
     {
       "type": "html",
@@ -108,7 +108,7 @@
     },
     {
       "type": "html",
-      "value": "<span class=\"sidebar-divider\" />"
+      "value": "<span class=\"sidebar-divider\"></span>"
     },
     {
       "type": "html",
@@ -189,7 +189,7 @@
     },
     {
       "type": "html",
-      "value": "<span class=\"sidebar-divider\" />"
+      "value": "<span class=\"sidebar-divider\"></span>"
     },
     {
       "type": "html",
@@ -203,7 +203,7 @@
     },
     {
       "type": "html",
-      "value": "<span class=\"sidebar-divider\" />"
+      "value": "<span class=\"sidebar-divider\"></span>"
     },
     {
       "type": "html",

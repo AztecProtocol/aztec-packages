@@ -12,7 +12,7 @@
 
 const dividerHtml = {
   type: "html",
-  value: '<span class="sidebar-divider" />',
+  value: '<span class="sidebar-divider"></span>',
 };
 
 const overviewItem = {
