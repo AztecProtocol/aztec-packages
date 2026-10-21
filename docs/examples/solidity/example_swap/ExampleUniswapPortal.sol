@@ -91,7 +91,7 @@ contract ExampleUniswapPortal {
         require(amountOut >= _amountOutMinimum, "Insufficient output amount");
 
         // Approve output token portal and deposit back to Aztec
-        outputAsset.approve(_outputTokenPortal, amountOut);
+        outputAsset.forceApprove(_outputTokenPortal, amountOut);
         return ExampleTokenPortal(_outputTokenPortal)
             .depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
     }
@@ -149,7 +149,7 @@ contract ExampleUniswapPortal {
         require(amountOut >= _amountOutMinimum, "Insufficient output amount");
 
         // Approve output token portal and deposit back to Aztec privately
-        outputAsset.approve(_outputTokenPortal, amountOut);
+        outputAsset.forceApprove(_outputTokenPortal, amountOut);
         return ExampleTokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _secretHashForL1ToL2Message);
     }
     // docs:end:swap_private

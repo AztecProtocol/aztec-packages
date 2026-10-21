@@ -11,7 +11,7 @@ contract SimpleNFT is ERC721 {
 
     function mint(address to) external returns (uint256) {
         uint256 tokenId = _currentTokenId++;
-        _mint(to, tokenId);
+        _safeMint(to, tokenId);
         return tokenId;
     }
 }

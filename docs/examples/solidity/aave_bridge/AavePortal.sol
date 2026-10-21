@@ -82,7 +82,7 @@ contract AavePortal {
 
         // Deposit into Aave instead of sending tokens to the recipient.
         // The portal must already hold the underlying tokens (pre-funded or bridged separately).
-        underlying.approve(address(aavePool), _amount);
+        underlying.forceApprove(address(aavePool), _amount);
         aavePool.supply(address(underlying), _amount, address(this), 0);
     }
 
@@ -95,7 +95,7 @@ contract AavePortal {
         returns (bytes32, uint256)
     {
         // Withdraw from Aave (returns underlying + yield)
-        aToken.approve(address(aavePool), _aTokenAmount);
+        aToken.forceApprove(address(aavePool), _aTokenAmount);
         uint256 withdrawn = aavePool.withdraw(address(underlying), _aTokenAmount, address(this));
 
         // Send L1->L2 message with the total withdrawn amount (including yield)
@@ -113,7 +113,7 @@ contract AavePortal {
     /// @notice Withdraw from Aave and send an L1->L2 message to mint tokens privately on L2
     function claimFromAavePrivate(uint256 _aTokenAmount, bytes32 _secretHash) external returns (bytes32, uint256) {
         // Withdraw from Aave (returns underlying + yield)
-        aToken.approve(address(aavePool), _aTokenAmount);
+        aToken.forceApprove(address(aavePool), _aTokenAmount);
         uint256 withdrawn = aavePool.withdraw(address(underlying), _aTokenAmount, address(this));
 
         // Send L1->L2 message for private minting
