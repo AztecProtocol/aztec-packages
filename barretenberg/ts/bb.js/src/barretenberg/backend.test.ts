@@ -143,4 +143,58 @@ describe('AztecClientBackend', () => {
     );
     await expect(backend.prove([new Uint8Array([2])], [new Uint8Array([3])])).rejects.toBe(error);
   });
+
+  it('issues every command before the first one completes', async () => {
+    const issued: string[] = [];
+    let completeStart!: () => void;
+    const startDone = new Promise<object>(resolve => (completeStart = () => resolve({})));
+    const api = {
+      chonkStart: () => (issued.push('chonkStart'), startDone),
+      chonkLoad: () => (issued.push('chonkLoad'), startDone),
+      chonkAccumulate: () => (issued.push('chonkAccumulate'), startDone),
+      chonkProve: () => (issued.push('chonkProve'), startDone.then(() => Promise.reject(new Error('stop')))),
+    };
+    const backend = new AztecClientBackend(
+      [new Uint8Array([1]), new Uint8Array([1])],
+      api as unknown as Barretenberg,
+      ['app', 'hiding_kernel'],
+      [CircuitKind.App, CircuitKind.HidingKernel],
+    );
+    const proving = backend.prove(
+      [new Uint8Array([2]), new Uint8Array([2])],
+      [new Uint8Array([3]), new Uint8Array([3])],
+    );
+    await Promise.resolve();
+    expect(issued).toEqual([
+      'chonkStart',
+      'chonkLoad',
+      'chonkAccumulate',
+      'chonkLoad',
+      'chonkAccumulate',
+      'chonkProve',
+    ]);
+    completeStart();
+    await expect(proving).rejects.toThrow('stop');
+  });
+
+  it('rejects a missing VK before issuing any command', async () => {
+    const issued: string[] = [];
+    const record = (name: string) => () => (issued.push(name), Promise.resolve({}));
+    const api = {
+      chonkStart: record('chonkStart'),
+      chonkLoad: record('chonkLoad'),
+      chonkAccumulate: record('chonkAccumulate'),
+      chonkProve: record('chonkProve'),
+    };
+    const backend = new AztecClientBackend(
+      [new Uint8Array([1]), new Uint8Array([1])],
+      api as unknown as Barretenberg,
+      ['app', 'hiding_kernel'],
+      [CircuitKind.App, CircuitKind.HidingKernel],
+    );
+    await expect(
+      backend.prove([new Uint8Array([2]), new Uint8Array([2])], [new Uint8Array([3]), new Uint8Array(0)]),
+    ).rejects.toThrow('Missing precomputed VK for circuit 1 (hiding_kernel)');
+    expect(issued).toEqual([]);
+  });
 });

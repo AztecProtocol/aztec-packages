@@ -336,37 +336,43 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    // CircuitKind values travel as u8 on the wire.
-    await this.api.chonkStart({ kinds: Uint8Array.from(this.circuitKinds) });
-
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
-      const bytecode = this.acirBuf[i];
-      const witness = witnessBuf[i] || new Uint8Array(0);
-      const functionName = this.circuitNames[i] || `circuit_${i}`;
-      const vk = vksBuf[i] || new Uint8Array(0);
-      if (vk.length === 0) {
+      if (!vksBuf[i]?.length) {
+        const functionName = this.circuitNames[i] || `circuit_${i}`;
         throw new AztecClientBackendError(
           `Missing precomputed VK for circuit ${i} (${functionName}). ` +
             'Callers must supply the precomputed VK pinned alongside the circuit artifact.',
         );
       }
-
-      await this.api.chonkLoad({
-        circuit: {
-          name: functionName,
-          bytecode: bytecode,
-          verificationKey: vk,
-        },
-        kind: this.circuitKinds[i],
-      });
-
-      await this.api.chonkAccumulate({
-        witness,
-      });
     }
 
-    const proveResult = await this.api.chonkProve({});
+    // Pipelined: every command is issued before any is awaited, so proving pays one round trip rather than one per
+    // command. Inputs are validated above so that nothing can throw between issuing and awaiting. Setup is awaited
+    // first so a failure reports the command that failed, not chonkProve's knock-on error.
+    // CircuitKind values travel as u8 on the wire.
+    const setup: Promise<unknown>[] = [this.api.chonkStart({ kinds: Uint8Array.from(this.circuitKinds) })];
+    for (let i = 0; i < this.acirBuf.length; i++) {
+      setup.push(
+        this.api.chonkLoad({
+          circuit: {
+            name: this.circuitNames[i] || `circuit_${i}`,
+            bytecode: this.acirBuf[i],
+            verificationKey: vksBuf[i],
+          },
+          kind: this.circuitKinds[i],
+        }),
+      );
+      setup.push(this.api.chonkAccumulate({ witness: witnessBuf[i] || new Uint8Array(0) }));
+    }
+    const setupDone = Promise.all(setup);
+    const proveCall = this.api.chonkProve({});
+    // Both are awaited below; these only stop the one still pending from being reported as an unhandled rejection.
+    setupDone.catch(() => {});
+    proveCall.catch(() => {});
+
+    await setupDone;
+    const proveResult = await proveCall;
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
     if (this.circuitKinds[lastIdx] !== CircuitKind.HidingKernel) {
       throw new AztecClientBackendError(
