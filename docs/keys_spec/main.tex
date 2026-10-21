@@ -1,0 +1,48 @@
+\documentclass[envcountsect,runningheads]{llncs}
+\pagestyle{plain}
+
+\title{Keys}
+
+\author{}
+
+\institute{Aztec Labs}
+
+\input{tex_files/header}
+\input{tex_files/new_commands}
+
+\begin{document}
+    % For importing images:
+    \graphicspath{ {./figs/} }
+
+	\maketitle
+	
+	\input{tex_files/abstract}
+
+	% A bodge to enable another layer of subsections:
+	\newcommand{\subsubsubsection}[1]{\paragraph{#1}\mbox{}\\}
+	\setcounter{secnumdepth}{4}
+	\setcounter{tocdepth}{4}
+	\tableofcontents
+
+	\input{tex_files/introduction}
+
+	\input{tex_files/notation}
+	
+	\input{tex_files/keys}
+
+	\input{tex_files/encrypt}
+
+	\input{tex_files/tag}
+
+	\input{tex_files/log_layout}
+
+
+	\bibliographystyle{splncs04}
+	%\bibliography{bib/cryptobib/abbrev3,bib/cryptobib/crypto}
+
+	\appendix
+
+	\input{tex_files/appendix}
+
+
+\end{document}
