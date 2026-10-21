@@ -153,7 +153,11 @@ DEST_ROOT=$(git rev-parse --show-toplevel)
 DEST=$(git rev-parse HEAD)
 DEST_BRANCH=$(git branch --show-current)
 docs_env() { COMMIT_TAG=$LABS_TAG LABS_REF=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> NARGO=$CUT/labs/labs-aztec-toolchain/bin/nargo BB=$CUT/labs/labs-aztec-toolchain/bin/bb "\$@"; }
-aztec_cli() { env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME HOME=$CLI_HOME PATH=$CLI_HOME/.aztec/current/bin:$CLI_HOME/.aztec/bin:\$PATH "\$@"; }
+aztec_cli() {
+  [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
+  env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME HOME=$CLI_HOME \\
+    PATH=$CLI_HOME/.aztec/current/bin:$CLI_HOME/.aztec/bin:\$PATH "\$@"
+}
 EOF
 ```
 
@@ -247,8 +251,8 @@ All of these must hold; stop at the first that does not:
 - `check` prints `labs docs sync: ok`: `docs/.labs-sync` and `labs/` HEAD are the tag,
   `labs/` is pristine, and `docs/package.json`'s l1-artifacts equals the tag's `BB_VERSION`.
 - `.pin` records `bb=` and `noir=` equal to the tag's `BB_VERSION` and `NOIR_VERSION`.
-  (`nargo --version` prints only its cargo version, so the pin record is the check.)
-- `bb --version` prints `BB_VERSION`.
+- `nargo --version` prints `nargo version = NOIR_VERSION` and `bb --version` prints
+  `BB_VERSION`.
 - The installed l1-artifacts version equals `BB_VERSION`.
 - `LABS_REF` and `COMMIT_TAG` are `v<new_version>`: snippet links to aztec-node name
   `LABS_REF`, else `COMMIT_TAG`, else `docs/.labs-sync`.
@@ -263,14 +267,20 @@ version fields, and never revert to the tag's older copy. Step 17 copies `networ
 
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh
-env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME HOME="$CLI_HOME" VERSION=<new_version> \
-  bash -i <(curl -fsSL https://install.aztec.network)
+env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
+  HOME="$CLI_HOME" NON_INTERACTIVE=1 VERSION=<new_version> bash <(curl -fsSL https://install.aztec.network)
 aztec_cli aztec --version
 ```
 
-The version must equal `<new_version>`; abort otherwise. The installer runs with
-`HOME` set to `$CLI_HOME`, so its node, foundry, nargo and shell-profile edits stay out of
-the real home; it is the official installer, fetched over TLS.
+The version must equal `<new_version>`; abort otherwise. The installer runs with `HOME`
+set to `$CLI_HOME`, so its node, foundry, nargo and shell-profile edits stay out of the
+real home. Clearing `NARGO_HOME` and `AZTEC_HOME`
+keeps noirup and the toolchain under that home too (with `NARGO_HOME` set, noirup lands
+in the real home and the install fails), and clearing `NARGO` stops the installer from
+copying that binary in as the release's nargo. `NON_INTERACTIVE=1` skips the prompt and
+the closing `exec $SHELL`, which would leave the terminal in a shell whose home is
+`$CLI_HOME`. foundryup refuses to install while any `anvil` runs on the host
+(`'anvil' is currently running`): wait for it to exit, and never stop another run's anvil.
 
 ### Step 4: Get Sponsored FPC Address
 
@@ -287,8 +297,14 @@ console.log((await getSponsoredFPCAddress()).toString());
 
 Update it wherever it appears in the versioned docs. The Sponsored FPC is deployed on
 testnet and devnet; for mainnet, mark the SponsoredFPC row "Not deployed" in the L2
-table. If the address changes for a testnet release, tell the owner the new address must
-be funded on testnet.
+table.
+
+SponsoredFPC is not a pinned standard contract, so any bytecode change between releases
+moves its address, and the wallet resolves the guide's `contracts:SponsoredFPC` alias to
+this computed address. **Owner approval required.** If it differs from the network's
+SponsoredFPC row in `docs/docs/networks.md`, stop and report both addresses: the guide
+works only once the new address is deployed and funded on that network, which the owner
+arranges.
 
 ### Step 5: Update Version Configs
 
@@ -346,7 +362,7 @@ The scripts scrape `--help` from the installed CLI, so it must be the release (S
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT/docs"
 docs_env aztec_cli ./scripts/cli_reference_generation/generate_all_cli_docs.sh --force current
-grep -rnE '/home/|/Users/' docs-developers/docs/cli/ docs-operate/operators/reference/cli-reference.md
+grep -rn -e "$CLI_HOME" -e /home/ -e /Users/ docs-developers/docs/cli/ docs-operate/operators/reference/cli-reference.md
 ```
 
 This updates `aztec_cli_reference.md`, `aztec_wallet_cli_reference.md` and
@@ -367,6 +383,11 @@ docs_env yarn generate:node-api-reference
 This parses the interfaces and Zod schemas in `labs/yarn-project/stdlib/src/interfaces/`
 at the tag and writes `docs/docs-operate/operators/reference/node-api-reference.md`
 (generated: do not hand-edit). The network snapshot (Step 11) includes it.
+
+It warns about methods missing from `METHOD_GROUPS` in
+`docs/scripts/node_api_reference_generation/generate_node_api_reference.ts`, which it
+renders under "Other methods" (`v6.0.0-rc.3` has two). Add each to its group and rerun;
+the destination needs the same edit (a shared source repair, Step 17).
 
 ### Step 8: Update Migration Notes
 
