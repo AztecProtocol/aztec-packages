@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
+hash=$(cache_content_hash ^release-image/Dockerfile ^release-image/Dockerfile.base ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
 
 function prepare_crs {
   echo_header "prepare crs for prover-agent image"
@@ -78,7 +78,7 @@ function build {
   fi
 
   if ! cache_download release-image-base-$hash.zst; then
-    denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
+    denoise "cd .. && docker build --pull -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
     docker save aztecprotocol/release-image-base:latest > release-image-base
     cache_upload release-image-base-$hash.zst release-image-base
   else
