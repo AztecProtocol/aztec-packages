@@ -123,9 +123,10 @@ describe("preprocessIncludeVersion", () => {
   });
 
   describe("#api_ref_version macro", () => {
+    // Only testnet and mainnet API references are published; other builds use the generated next/.
     const testCases = [
-      ["nightly", "nightly"],
-      ["devnet", "devnet"],
+      ["nightly", "next"],
+      ["devnet", "next"],
       ["testnet", "testnet"],
       ["mainnet", "mainnet"],
     ];
