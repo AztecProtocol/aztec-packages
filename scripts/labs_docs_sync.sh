@@ -224,14 +224,13 @@ function cmd_check {
     echo "$sync_file ($recorded) is not the labs commit ($expected): docs and snippet sources would drift" >&2
     fail=1
   fi
-  if [ -z "$release" ]; then
-    # Snippets must render from upstream code, not from the foundation's patch series.
-    touched=$(comm -12 \
-      <(labs diff --name-only "$expected" HEAD | sort -u) \
-      <(git grep -h -o -E '#include_code[[:space:]]+[^[:space:]]+[[:space:]]+/?labs/[^[:space:]]+' -- "${source_dirs[@]}" |
-          awk '{sub(/^\/?labs\//, "", $3); print $3}' | sort -u))
-    [ -z "$touched" ] || { echo "the labs patch series changes snippet sources:"$'\n'"$touched" >&2; fail=1; }
-  fi
+  # Snippets must render the upstream code their links name: diffing the working tree against the
+  # recorded commit catches both the foundation's patch series and uncommitted edits.
+  touched=$(comm -12 \
+    <(labs diff --name-only "$expected" | sort -u) \
+    <(git grep -h -o -E '#include_code[[:space:]]+[^[:space:]]+[[:space:]]+/?labs/[^[:space:]]+' -- "${source_dirs[@]}" |
+        awk '{sub(/^\/?labs\//, "", $3); print $3}' | sort -u))
+  [ -z "$touched" ] || { echo "labs/ changes snippet sources against ${expected:0:10}:"$'\n'"$touched" >&2; fail=1; }
   pin=$(sed -n -E 's/^[[:space:]]*"@aztec-foundation\/l1-artifacts":[[:space:]]*"([^"]+)".*/\1/p' docs/package.json)
   bb=$(sed -n -E 's/^BB_VERSION=([^ #]+).*/\1/p' labs/labs-aztec-toolchain/bootstrap.sh)
   [ -n "$pin" ] && [ "$pin" = "$bb" ] || { echo "docs l1-artifacts ($pin) is not labs BB_VERSION ($bb)" >&2; fail=1; }

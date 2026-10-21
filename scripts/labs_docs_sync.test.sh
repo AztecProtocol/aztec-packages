@@ -23,7 +23,7 @@ export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@localhost GIT_COMMITTER_NAME=t
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 g() { git -c commit.gpgsign=false -c protocol.file.allow=always "$@"; }
 
-# --- upstream aztec-node: docs/ plus the code and pins it points at
+# Upstream aztec-node: docs/ plus the code and pins it points at.
 up=$tmp/upstream
 g init -q -b main "$up"
 g -C "$up" config uploadpack.allowAnySHA1InWant true
@@ -64,7 +64,7 @@ printf 'BB_VERSION=1.0.0\n' > "$up/labs-aztec-toolchain/bootstrap.sh"
 g -C "$up" add -A; g -C "$up" commit -q -m "upstream v1"
 v1=$(git -C "$up" rev-parse HEAD)
 
-# --- foundation repo with labs/ at v1 and the tool under scripts/
+# The foundation repo, with labs/ at v1 and the tool under scripts/.
 fnd=$tmp/fnd
 g init -q -b next "$fnd"
 mkdir -p "$fnd/scripts" "$fnd/docs"
@@ -179,6 +179,9 @@ git checkout -q -- docs/netlify.toml
 printf '#include_code e /noir-projects/aztec-nr/lib.nr rust\n' >> docs/docs-developers/page.md
 expect_fail "$sync" check || fail "check: unrerooted include"
 git checkout -q -- docs/docs-developers/page.md
+printf '// edited\n' >> labs/noir-projects/aztec-nr/lib.nr
+expect_fail "$sync" check || fail "check: uncommitted edit to a snippet source"
+g -C labs checkout -q -- noir-projects/aztec-nr/lib.nr
 printf '// patched\n' >> labs/noir-projects/aztec-nr/lib.nr
 g -C labs commit -qam "series patch on a snippet source"
 expect_fail "$sync" check || fail "check: patch series touches a snippet source"
