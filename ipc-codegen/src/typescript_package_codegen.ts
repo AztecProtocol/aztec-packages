@@ -12,6 +12,9 @@ export interface TypeScriptPackageOptions {
   wasmModule?: string;
   /** wasm transport: basename of the threads module shipped in the package's wasm/ directory. */
   wasmThreadsModule?: string;
+  /** wasm transport: wide-arithmetic builds of the two, run instead where the engine supports it. */
+  wasmWideModule?: string;
+  wasmWideThreadsModule?: string;
   /** The schema's init command (TypeScriptCodegen.initCommand): services send it before use. */
   init?: { method: string; type: string };
 }
@@ -730,6 +733,8 @@ export class ${svc}Sync extends SyncApi {
     const { prefix, packageName } = this.opts;
     const moduleUrl = (name: string | undefined) =>
       name ? `new URL('../wasm/${name}', import.meta.url)` : "undefined";
+    const wide = (key: string, name: string | undefined) =>
+      name ? `\n  ${key}: ${moduleUrl(name)},` : "";
     // The module's FFI symbols carry the service name (see the FFI entry in SCHEMA_SPEC.md).
     const sym = prefix ? `${toSnakeCase(prefix)}_` : "";
     const ffiExports = `    entry: '${sym}ipc_ffi_entry',`;
@@ -783,7 +788,7 @@ export interface ${prefix}WasmOptions {
 // these, which is why the choosing lives here and the deciding does not.
 const MODULES = {
   threads: ${moduleUrl(this.opts.wasmThreadsModule)},
-  single: ${moduleUrl(this.opts.wasmModule)},
+  single: ${moduleUrl(this.opts.wasmModule)},${wide("wideThreads", this.opts.wasmWideThreadsModule)}${wide("wideSingle", this.opts.wasmWideModule)}
 };
 
 /** The module to run for a thread count: the threads build above one thread, else single. */

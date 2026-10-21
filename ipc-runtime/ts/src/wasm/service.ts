@@ -26,19 +26,30 @@ export function resolveWasmThreads(
   return threads;
 }
 
+// (module (func (param i64) (result i64) local.get 0 local.get 0 i64.mul_wide_u drop)): it
+// validates exactly where the engine has the wide-arithmetic proposal (i64.mul_wide_u = 0xfc 0x16).
+const WIDE_PROBE = new Uint8Array([
+  0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 126, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 32, 0, 32, 0,
+  252, 22, 26, 11,
+]);
+let wideArithmetic: boolean | undefined;
+
 /**
  * Which of a package's own modules to run: the threads build for more than one thread, otherwise
- * the single-thread build. Each stands in for the other when a package ships only one.
+ * the single-thread build. Each stands in for the other when a package ships only one, and a
+ * wide-arithmetic build replaces its counterpart where the engine supports the proposal.
  */
 export function chooseWasmModule(
-  modules: { single?: URL; threads?: URL },
+  modules: { single?: URL; threads?: URL; wideSingle?: URL; wideThreads?: URL },
   label: string,
   threads: number,
 ): URL {
-  const module =
-    threads > 1
-      ? (modules.threads ?? modules.single)
-      : (modules.single ?? modules.threads);
+  const wide =
+    (modules.wideSingle || modules.wideThreads) &&
+    (wideArithmetic ??= WebAssembly.validate(WIDE_PROBE));
+  const single = (wide && modules.wideSingle) || modules.single;
+  const multi = (wide && modules.wideThreads) || modules.threads;
+  const module = threads > 1 ? (multi ?? single) : (single ?? multi);
   if (!module) {
     throw new Error(`${label}: no wasm module ships with this package`);
   }
