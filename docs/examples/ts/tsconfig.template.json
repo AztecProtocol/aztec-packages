@@ -11,103 +11,103 @@
   },
   "references": [
     {
-      "path": "../../../../yarn-project/accounts"
+      "path": "../../../../labs/yarn-project/accounts"
     },
     {
-      "path": "../../../../yarn-project/archiver"
+      "path": "../../../../labs/yarn-project/archiver"
     },
     {
-      "path": "../../../../yarn-project/aztec"
+      "path": "../../../../labs/yarn-project/aztec"
     },
     {
-      "path": "../../../../yarn-project/aztec-node"
+      "path": "../../../../labs/yarn-project/aztec-node"
     },
     {
-      "path": "../../../../yarn-project/aztec.js"
+      "path": "../../../../labs/yarn-project/aztec.js"
     },
     {
-      "path": "../../../../yarn-project/bb-prover"
+      "path": "../../../../labs/yarn-project/bb-prover"
     },
     {
-      "path": "../../../../yarn-project/blob-lib"
+      "path": "../../../../labs/yarn-project/blob-lib"
     },
     {
-      "path": "../../../../yarn-project/blob-client"
+      "path": "../../../../labs/yarn-project/blob-client"
     },
     {
-      "path": "../../../../yarn-project/bot"
+      "path": "../../../../labs/yarn-project/bot"
     },
     {
-      "path": "../../../../yarn-project/cli"
+      "path": "../../../../labs/yarn-project/cli"
     },
     {
-      "path": "../../../../yarn-project/constants"
+      "path": "../../../../labs/yarn-project/constants"
     },
     {
-      "path": "../../../../yarn-project/entrypoints"
+      "path": "../../../../labs/yarn-project/entrypoints"
     },
     {
-      "path": "../../../../yarn-project/epoch-cache"
+      "path": "../../../../labs/yarn-project/epoch-cache"
     },
     {
-      "path": "../../../../yarn-project/ethereum"
+      "path": "../../../../labs/yarn-project/ethereum"
     },
     {
-      "path": "../../../../yarn-project/foundation"
+      "path": "../../../../labs/yarn-project/foundation"
     },
     {
-      "path": "../../../../yarn-project/kv-store"
+      "path": "../../../../labs/yarn-project/kv-store"
     },
     {
-      "path": "../../../../yarn-project/node-keystore"
+      "path": "../../../../labs/yarn-project/node-keystore"
     },
     {
-      "path": "../../../../yarn-project/noir-contracts.js"
+      "path": "../../../../labs/yarn-project/noir-contracts.js"
     },
     {
-      "path": "../../../../yarn-project/noir-protocol-circuits-types"
+      "path": "../../../../labs/yarn-project/noir-protocol-circuits-types"
     },
     {
-      "path": "../../../../yarn-project/noir-test-contracts.js"
+      "path": "../../../../labs/yarn-project/noir-test-contracts.js"
     },
     {
-      "path": "../../../../yarn-project/p2p"
+      "path": "../../../../labs/yarn-project/p2p"
     },
     {
-      "path": "../../../../yarn-project/protocol-contracts"
+      "path": "../../../../labs/yarn-project/protocol-contracts"
     },
     {
-      "path": "../../../../yarn-project/prover-client"
+      "path": "../../../../labs/yarn-project/prover-client"
     },
     {
-      "path": "../../../../yarn-project/prover-node"
+      "path": "../../../../labs/yarn-project/prover-node"
     },
     {
-      "path": "../../../../yarn-project/pxe"
+      "path": "../../../../labs/yarn-project/pxe"
     },
     {
-      "path": "../../../../yarn-project/sequencer-client"
+      "path": "../../../../labs/yarn-project/sequencer-client"
     },
     {
-      "path": "../../../../yarn-project/simulator"
+      "path": "../../../../labs/yarn-project/simulator"
     },
     {
-      "path": "../../../../yarn-project/slasher"
+      "path": "../../../../labs/yarn-project/slasher"
     },
     {
-      "path": "../../../../yarn-project/stdlib"
+      "path": "../../../../labs/yarn-project/stdlib"
     },
     {
-      "path": "../../../../yarn-project/telemetry-client"
+      "path": "../../../../labs/yarn-project/telemetry-client"
     },
     {
-      "path": "../../../../yarn-project/wallets"
+      "path": "../../../../labs/yarn-project/wallets"
     },
     {
-      "path": "../../../../yarn-project/validator-client"
+      "path": "../../../../labs/yarn-project/validator-client"
     },
     {
-      "path": "../../../../yarn-project/world-state"
+      "path": "../../../../labs/yarn-project/world-state"
     }
   ],
   "include": ["index.ts", "artifacts/**/*.ts"]

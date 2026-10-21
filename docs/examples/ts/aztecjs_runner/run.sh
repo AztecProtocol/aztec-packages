@@ -44,23 +44,19 @@ fi
 echo -e "${GREEN}✓ Network is running${NC}"
 echo ""
 
-# Run `yarn add` with retries. Silences output on early attempts but lets
-# stderr surface on the final attempt so transient flakes don't disappear
-# under set -euo pipefail (silent rc=1 from setup_project was the root cause
-# of the docs-examples merge-queue dequeue on aztecjs_advanced).
+# Run `yarn add` with retries, keeping every attempt's output so transient flakes and
+# install warnings stay visible under set -euo pipefail.
 yarn_add_with_retry() {
     local max_attempts=3
     local attempt=1
     while [ "$attempt" -lt "$max_attempts" ]; do
-        if yarn add "$@" > /dev/null 2>&1; then
+        if yarn add "$@"; then
             return 0
         fi
         echo -e "${YELLOW}  yarn add attempt $attempt failed, retrying in 5s...${NC}"
         sleep 5
         attempt=$((attempt + 1))
     done
-    # Final attempt: surface yarn's output so the failure is visible in CI logs.
-    echo -e "${YELLOW}  yarn add attempt $attempt (final, output unsilenced):${NC}"
     yarn add "$@"
 }
 
@@ -82,7 +78,7 @@ setup_project() {
 
     if [ "$contract_count" -gt 0 ]; then
         local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-        local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+        local BUILDER_CLI="$REPO_ROOT/labs/yarn-project/builder/dest/bin/cli.js"
 
         while IFS= read -r contract_name; do
             local artifact="$ARTIFACTS_DIR/${contract_name}.json"
@@ -92,7 +88,7 @@ setup_project() {
                 return 1
             fi
             echo -e "  Generating TS interface for ${contract_name}..."
-            node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
+            node "$BUILDER_CLI" codegen "$artifact" -o artifacts
         done < <(yq eval '.contracts[]' config.yaml)
 
         # Verify codegen produced the expected files
@@ -101,14 +97,14 @@ setup_project() {
     fi
 
     # Initialize yarn
-    yarn init -y > /dev/null 2>&1
-    yarn config set nodeLinker node-modules > /dev/null 2>&1
+    yarn init -y
+    yarn config set nodeLinker node-modules
 
     # Set package type to module for ESM
     node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
 
     # Read dependencies from config.yaml and install
-    parse_dependencies config.yaml "$REPO_ROOT"
+    parse_dependencies config.yaml "$REPO_ROOT/labs"
     if [ "$PARSED_DEPS_FOUND" = true ]; then
         local all_link_deps=("${AZTEC_DEPS[@]}" "${EXPLICIT_LINK_DEPS[@]}")
         [ ${#all_link_deps[@]} -gt 0 ] && yarn_add_with_retry "${all_link_deps[@]}"

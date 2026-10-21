@@ -15,7 +15,7 @@ services:
     volumes:
       - ../../../:/root/aztec-node
       - ${HOME}/.bb-crs:/root/.bb-crs
-    working_dir: /root/aztec-node/yarn-project/aztec
+    working_dir: /root/aztec-node/labs/yarn-project/aztec
     command: 'node ./dest/bin start --local-network'
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}

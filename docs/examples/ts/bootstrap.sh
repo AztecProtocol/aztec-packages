@@ -6,7 +6,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-export BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+export BUILDER_CLI="$REPO_ROOT/labs/yarn-project/builder/dest/bin/cli.js"
+
+# Each project starts from an empty yarn.lock that its own install fills. ci3 exports CI=0, which
+# yarn's CI detection treats as CI, turning on immutable installs; `yarn init` then fails its install.
+export YARN_ENABLE_IMMUTABLE_INSTALLS=false
 
 # Set parallel flags for concurrent validation
 export PARALLEL_FLAGS="-j${PARALLELISM:-4} --halt now,fail=1"
@@ -126,7 +130,7 @@ validate_project() {
             while IFS= read -r contract_name; do
                 local artifact="$ARTIFACTS_DIR/${contract_name}.json"
                 echo_stderr "  - ${contract_name}..."
-                node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
+                node "$BUILDER_CLI" codegen "$artifact" -o artifacts
             done < <(yq eval '.contracts[]' config.yaml)
         else
             echo_stderr "No custom contracts for '${project_name}', skipping codegen..."
@@ -134,8 +138,8 @@ validate_project() {
 
         # Setup yarn
         echo_stderr "Setting up yarn for '${project_name}'..."
-        yarn init -y >/dev/null 2>&1
-        yarn config set nodeLinker node-modules >/dev/null 2>&1
+        yarn init -y
+        yarn config set nodeLinker node-modules
 
         # Set package type to module for ESM support
         node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
@@ -143,7 +147,7 @@ validate_project() {
         # Read dependencies from config.yaml
         echo_stderr "Installing dependencies for '${project_name}'..."
 
-        parse_dependencies config.yaml "$REPO_ROOT"
+        parse_dependencies config.yaml "$REPO_ROOT/labs"
 
         local aztec_deps=("${AZTEC_DEPS[@]}")
         local explicit_link_deps=("${EXPLICIT_LINK_DEPS[@]}")
@@ -171,10 +175,10 @@ validate_project() {
             # Fallback to default dependencies if none specified
             echo_stderr "No dependencies in config.yaml, using defaults..."
             yarn add \
-                @aztec-labs/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
-                @aztec-labs/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec-labs/wallets@link:$REPO_ROOT/yarn-project/wallets \
-                @aztec-labs/kv-store@link:$REPO_ROOT/yarn-project/kv-store
+                @aztec-labs/aztec.js@link:$REPO_ROOT/labs/yarn-project/aztec.js \
+                @aztec-labs/accounts@link:$REPO_ROOT/labs/yarn-project/accounts \
+                @aztec-labs/wallets@link:$REPO_ROOT/labs/yarn-project/wallets \
+                @aztec-labs/kv-store@link:$REPO_ROOT/labs/yarn-project/kv-store
         fi
 
         # Verify linked packages exist and have built artifacts
@@ -183,7 +187,7 @@ validate_project() {
             # Extract package name from @aztec-labs/foo@link:... format
             local pkg_full=$(echo "$dep" | cut -d'@' -f2)  # aztec-labs/foo
             local pkg_name=${pkg_full#aztec-labs/}  # foo
-            local link_target="$REPO_ROOT/yarn-project/$pkg_name"
+            local link_target="$REPO_ROOT/labs/yarn-project/$pkg_name"
 
             if [ ! -d "$link_target" ]; then
                 echo_stderr "ERROR: Link target does not exist: $link_target"
@@ -236,7 +240,7 @@ validate_project() {
             echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
         done
 
-        yarn add -D "typescript@^5.3.3" >/dev/null 2>&1
+        yarn add -D "typescript@^5.3.3"
 
         # Create tsconfig.json from template
         if [ ! -f "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" ]; then
