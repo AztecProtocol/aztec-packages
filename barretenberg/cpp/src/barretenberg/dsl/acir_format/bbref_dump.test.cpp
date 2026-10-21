@@ -107,7 +107,7 @@ void dump_instance(const std::string& program_json,
                    const std::filesystem::path& out,
                    bool has_ipa_claim = false)
 {
-    constexpr bool is_mega = std::is_same_v<Builder, MegaCircuitBuilder>;
+    constexpr bool is_mega = IsMegaBuilder<Builder>;
     auto bytecode = get_bytecode(program_json);
     auto witness = get_bytecode(witness_path);
     acir_format::ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
@@ -124,7 +124,7 @@ void dump_instance(const std::string& program_json,
 template <typename Flavor>
 void dump_from_builder(typename Flavor::CircuitBuilder& builder, const std::filesystem::path& out)
 {
-    constexpr bool is_mega = std::is_same_v<typename Flavor::CircuitBuilder, MegaCircuitBuilder>;
+    constexpr bool is_mega = IsMegaBuilder<typename Flavor::CircuitBuilder>;
     auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
 
     std::filesystem::create_directories(out);
@@ -213,12 +213,12 @@ template <typename F> F parse_field(const std::string& s)
     return neg ? -v : v;
 }
 
-void run_script(MegaCircuitBuilder& b, const std::string& path)
+template <typename Builder> void run_script(Builder& b, const std::string& path)
 {
-    using field_ct = stdlib::field_t<MegaCircuitBuilder>;
+    using field_ct = stdlib::field_t<Builder>;
     using Fr = bb::fr;
-    std::vector<stdlib::rom_table<MegaCircuitBuilder>> roms;
-    std::vector<stdlib::ram_table<MegaCircuitBuilder>> rams;
+    std::vector<stdlib::rom_table<Builder>> roms;
+    std::vector<stdlib::ram_table<Builder>> rams;
     std::ifstream in(path);
     std::string line;
     while (std::getline(in, line)) {
@@ -280,26 +280,33 @@ void run_script(MegaCircuitBuilder& b, const std::string& path)
         } else if (op == "ecc_no_op") {
             b.queue_ecc_no_op();
         } else if (op == "poseidon2") {
-            typename stdlib::Poseidon2Permutation<MegaCircuitBuilder>::State state{ w(1), w(2), w(3), w(4) };
-            stdlib::Poseidon2Permutation<MegaCircuitBuilder>::permutation(&b, state);
-        } else if (op == "rom" || op == "ram") {
-            std::vector<field_ct> entries;
-            for (size_t i = 2; i < 2 + u(1); ++i) {
-                entries.push_back(w(i));
-            }
-            if (op == "rom") {
-                roms.emplace_back(&b, entries);
+            typename stdlib::Poseidon2Permutation<Builder>::State state{ w(1), w(2), w(3), w(4) };
+            stdlib::Poseidon2Permutation<Builder>::permutation(&b, state);
+        } else if (op == "rom" || op == "ram" || op == "rom_read" || op == "ram_read" || op == "ram_write") {
+            // Memory gates exist only where the builder has them (not the hiding kernel).
+            if constexpr (Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory)) {
+                if (op == "rom" || op == "ram") {
+                    std::vector<field_ct> entries;
+                    for (size_t i = 2; i < 2 + u(1); ++i) {
+                        entries.push_back(w(i));
+                    }
+                    if (op == "rom") {
+                        roms.emplace_back(&b, entries);
+                    } else {
+                        rams.emplace_back(&b, entries);
+                    }
+                } else if (op == "rom_read") {
+                    roms[u(1)][w(2)];
+                } else if (op == "ram_read") {
+                    rams[u(1)].read(w(2));
+                } else {
+                    rams[u(1)].write(w(2), w(3));
+                }
             } else {
-                rams.emplace_back(&b, entries);
+                throw_or_abort("script command " + op + " needs memory gates");
             }
-        } else if (op == "rom_read") {
-            roms[u(1)][w(2)];
-        } else if (op == "ram_read") {
-            rams[u(1)].read(w(2));
-        } else if (op == "ram_write") {
-            rams[u(1)].write(w(2), w(3));
         } else if (op == "default_io") {
-            stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(b);
+            stdlib::recursion::honk::DefaultIO<Builder>::add_default(b);
         } else {
             throw_or_abort("unknown script command: " + op);
         }
@@ -318,15 +325,18 @@ TEST(BbRefDump, MegaScript)
         GTEST_SKIP() << "set BBREF_SCRIPT, BBREF_FLAVOR, BBREF_OUT";
     }
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    MegaCircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
-    run_script(builder, script);
+    auto dump = [&]<typename Flavor>() {
+        typename Flavor::CircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
+        run_script(builder, script);
+        dump_from_builder<Flavor>(builder, out);
+    };
     const std::string f(flavor);
     if (f == "app") {
-        dump_from_builder<MegaAppFlavor>(builder, out);
+        dump.template operator()<MegaAppFlavor>();
     } else if (f == "kernel") {
-        dump_from_builder<MegaKernelFlavor>(builder, out);
+        dump.template operator()<MegaKernelFlavor>();
     } else if (f == "zk") {
-        dump_from_builder<MegaZKFlavor>(builder, out);
+        dump.template operator()<MegaZKFlavor>();
     } else {
         throw_or_abort("BBREF_FLAVOR must be app|kernel|zk");
     }
@@ -395,9 +405,9 @@ TEST(BbRefDump, Folding)
     std::vector<std::function<bool(HypernovaFoldingNativeVerifier&, const HonkProof&)>> verifiers;
     auto accumulate = [&](HypernovaFoldingProver& prover, size_t idx, bool register_verifier) -> HonkProof {
         const auto& [script, kind] = entries[idx];
-        MegaCircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
-        run_script(builder, script);
         auto run = [&]<typename Flavor>() -> HonkProof {
+            typename Flavor::CircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
+            run_script(builder, script);
             auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
             auto vk = std::make_shared<typename Flavor::VerificationKey>(instance->get_precomputed());
             if (register_verifier) {
@@ -478,7 +488,7 @@ TEST(BbRefDump, UltraInstance)
     }
     dump_instance<UltraFlavor, UltraCircuitBuilder>(program, witness, std::filesystem::path(out) / "nozk");
     dump_instance<UltraZKFlavor, UltraCircuitBuilder>(program, witness, std::filesystem::path(out) / "zk");
-    dump_instance<MegaAppFlavor, MegaCircuitBuilder>(program, witness, std::filesystem::path(out) / "mega_app");
+    dump_instance<MegaAppFlavor, MegaAppCircuitBuilder>(program, witness, std::filesystem::path(out) / "mega_app");
 }
 
 // --- M6: Goblin merge / batch merge -----------------------------------------------------------------------
@@ -564,7 +574,9 @@ TEST(BbRefDump, Merge)
         return;
     }
     ASSERT_EQ(mode, "batch");
-    // The batch merge prover builds the ZK prefix itself; dump it from the head of the merged table.
+    // The batch merge prover builds the ZK prefix itself; dump it from the head of the merged table. As in
+    // Goblin::prove_batch_merge, every merged subtable gets its separator first.
+    op_queue->add_batch_merge_separators();
     BatchMergeProver prover{ op_queue, max_subtables };
     auto proof = prover.construct_proof();
     write_proof(out / "batch_merge_proof.bin", proof);
@@ -653,7 +665,8 @@ template <size_t LOG_N> void dump_triple_ipa(const std::filesystem::path& out)
     write_proof(out / "triple_ipa_proof.bin", proof);
 
     VerifierCommitmentKey<Curve> vk(N, srs::get_grumpkin_crs_factory());
-    auto verifier_transcript = std::make_shared<NativeTranscript>(proof);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(proof);
     ASSERT_TRUE(PCS::reduce_verify(vk, input.claim_data.batch(), verifier_transcript));
 }
 } // namespace
@@ -826,7 +839,8 @@ TEST(BbRefDump, EccvmProof)
         auto result = verifier.reduce_to_triple_ipa_claim();
         EXPECT_TRUE(result.reduction_succeeded);
         auto ipa_vk = ECCVMFlavor::VerifierCommitmentKey{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-        auto ipa_transcript = std::make_shared<NativeTranscript>(ipa_proof);
+        auto ipa_transcript = std::make_shared<NativeTranscript>();
+        ipa_transcript->load_proof(ipa_proof);
         EXPECT_TRUE(ECCVMVerifier::TripleIPA::reduce_verify(ipa_vk, result.triple_ipa_claim, ipa_transcript));
     };
     if (in_env != nullptr) {
@@ -984,7 +998,7 @@ TEST(BbRefDump, Batched)
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     using Fq = curve::BN254::BaseField;
     using G1 = curve::BN254::AffineElement;
-    MegaCircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
+    MegaZKFlavor::CircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
     run_script(builder, script);
     auto inst = std::make_shared<ProverInstance_<MegaZKFlavor>>(builder);
     auto vk = std::make_shared<MegaZKFlavor::VerificationKey>(inst->get_precomputed());
@@ -1104,20 +1118,14 @@ TEST(BbRefDump, Chonk)
     const bool dump_circuits = std::getenv("BBREF_DUMP_CIRCUITS") != nullptr;
     for (size_t idx = 0; idx < producer.total_num_circuits; ++idx) {
         const bool is_hiding = ivc.get_num_circuits_accumulated() == ivc.get_num_circuits() - 1;
-        auto circuit = producer.create_next_circuit(ivc, is_hiding ? 0 : 5, 0, false);
-        const auto kind = ivc.current_kind();
-        if (dump_circuits) {
-            const auto dir = out / ("circuit_" + std::to_string(idx));
-            if (kind == CircuitKind::App) {
-                dump_from_builder<MegaAppFlavor>(circuit, dir);
-            } else if (kind == CircuitKind::Kernel) {
-                dump_from_builder<MegaKernelFlavor>(circuit, dir);
-            } else {
-                dump_from_builder<MegaZKFlavor>(circuit, dir);
+        dispatch_kind(ivc.current_kind(), [&]<CircuitKind K>() {
+            auto circuit = producer.create_next_circuit<K>(ivc, is_hiding ? 0 : 5, 0, false);
+            if (dump_circuits) {
+                dump_from_builder<flavor_for<K>>(circuit, out / ("circuit_" + std::to_string(idx)));
             }
-        }
-        ivc.accumulate(circuit,
-                       PrivateFunctionExecutionMockCircuitProducer::make_circuit_verification_key(kind, circuit));
+            ivc.accumulate(circuit,
+                           PrivateFunctionExecutionMockCircuitProducer::make_circuit_verification_key<K>(circuit));
+        });
     }
     auto proof = ivc.prove();
     auto vk = ivc.get_hiding_kernel_vk_and_hash()->vk;
@@ -1168,11 +1176,11 @@ TEST(BbRefDump, ChonkFlow)
     for (size_t i = 0; i < steps.folding_stack.size(); ++i) {
         mark("before_build_" + std::to_string(i));
         const acir_format::ProgramMetadata metadata{ .ivc = ivc };
-        auto circuit = acir_format::create_circuit<Chonk::ClientCircuit>(steps.folding_stack[i], metadata);
-        mark("after_build_" + std::to_string(i));
         const auto dir = out / ("circuit_" + std::to_string(i));
         dispatch_kind(steps.kinds[i], [&]<CircuitKind K>() {
             using FlavorT = flavor_for<K>;
+            auto circuit = acir_format::create_circuit<circuit_for<K>>(steps.folding_stack[i], metadata);
+            mark("after_build_" + std::to_string(i));
             if (!plain) {
                 dump_from_builder<FlavorT>(circuit, dir);
             }
@@ -1279,751 +1287,764 @@ TEST(BbRefDump, UltraRollupRecursion)
 // Programs: field_ops, poseidon2_hash_<N>, transcript, goblin_batch_mul_<K>, aggregate_multiple_<N>,
 // io_app_default, io_kernel_default, io_hiding_default, kernel_io_set, hiding_io_set. Each builds a Mega circuit
 // from deterministic values through the stdlib API only; the dump is compared polynomial-for-polynomial in Rust.
-namespace stdlib_programs {
-using Builder = MegaCircuitBuilder;
-using field_ct = stdlib::field_t<Builder>;
-using witness_ct = stdlib::witness_t<Builder>;
-using Curve = stdlib::bn254<Builder>;
-using G1 = Curve::Group;
-using PairingPointsCt = stdlib::recursion::PairingPoints<Curve>;
-using bb::g1;
+// The stdlib programs, generic over the circuit builder: each kind of Mega circuit has its own.
+template <typename Builder> struct StdlibPrograms {
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using Curve = stdlib::bn254<Builder>;
+    using G1 = Curve::Group;
+    using PairingPointsCt = stdlib::recursion::PairingPoints<Curve>;
+    using g1 = bb::g1;
 
-field_ct w(Builder& b, uint64_t v)
-{
-    return field_ct(witness_ct(&b, fr(v)));
-}
-g1::affine_element pt(uint64_t k)
-{
-    return g1::affine_element(g1::element(g1::affine_element::one()) * fr(k));
-}
-
-void field_ops(Builder& b)
-{
-    field_ct a = w(b, 3), bb_ = w(b, 5), c = w(b, 7);
-    field_ct d = a + bb_;
-    field_ct e = d * c;
-    field_ct f = e - a;
-    field_ct g = -f;
-    field_ct h = (g + field_ct(11)) * field_ct(2);
-    field_ct i = a.madd(bb_, c);
-    field_ct j = a.add_two(bb_, c);
-    field_ct k = e / bb_;
-    field_ct l = c.invert();
-    field_ct m = d.pow(5);
-    field_ct n = field_ct::accumulate({ a, bb_, c, d, e, field_ct(4), f, g, h, i, j });
-    field_ct p = m * field_ct(3) + field_ct(1);
-    field_ct r = field_ct(witness_ct(&b, p.get_value()));
-    p.assert_equal(r);
-    field_ct s = w(b, 0);
-    s.assert_is_zero();
-    a.assert_is_not_zero();
-    (a * bb_).assert_equal(field_ct(15));
-    field_ct neg22 = field_ct(witness_ct(&b, -fr(22)));
-    field_ct::evaluate_polynomial_identity(a, bb_, c, neg22);
-    field_ct neg15 = field_ct(witness_ct(&b, -fr(15)));
-    field_ct::evaluate_linear_identity(a, bb_, c, neg15);
-    a.create_range_constraint(8);
-    e.create_range_constraint(20);
-    (d * field_ct(1000)).create_range_constraint(68);
-    field_ct t =
-        field_ct(witness_ct(&b, fr(uint256_t("0x00000000000000000123456789abcdef0123456789abcdef0123456789abcdef"))));
-    auto [lo, hi] = stdlib::split_unique(t, 127);
-    field_ct u(9);
-    u.convert_constant_to_fixed_witness(&b);
-    u.set_public();
-    a.set_public();
-    (k + l + n + lo + hi).set_public();
-}
-
-void poseidon2_hash(Builder& b, size_t n)
-{
-    std::vector<field_ct> inputs;
-    for (size_t i = 0; i < n; ++i) {
-        inputs.push_back(w(b, i + 1));
+    static field_ct w(Builder& b, uint64_t v) { return field_ct(witness_ct(&b, fr(v))); }
+    static g1::affine_element pt(uint64_t k)
+    {
+        return g1::affine_element(g1::element(g1::affine_element::one()) * fr(k));
     }
-    stdlib::poseidon2<Builder>::hash(inputs).set_public();
-}
 
-void transcript(Builder& b)
-{
-    bb::StdlibTranscript<Builder> t;
-    t.send_to_verifier("a", w(b, 42));
-    t.add_to_hash_buffer("vk", w(b, 43));
-    field_ct c1 = t.get_challenge<field_ct>("c1");
-    G1 p = G1::from_witness(&b, pt(7));
-    t.send_to_verifier("P", p);
-    auto shorts = t.get_short_challenges<field_ct>(std::vector<std::string>{ "s1", "s2" });
-    field_ct c2 = t.get_challenge<field_ct>("c2");
-    auto powers = t.get_dyadic_powers_of_challenge<field_ct>("gate", 4);
-    (c1 + shorts[0] + shorts[1] + c2 + powers[3]).set_public();
-}
-
-void goblin_batch_mul(Builder& b, size_t k)
-{
-    std::vector<G1> points;
-    std::vector<field_ct> scalars;
-    for (size_t i = 0; i < k; ++i) {
-        points.push_back(G1::from_witness(&b, pt(i + 1)));
-        scalars.push_back(i == 1 ? field_ct(1) : w(b, i + 3));
+    static void field_ops(Builder& b)
+    {
+        field_ct a = w(b, 3), bb_ = w(b, 5), c = w(b, 7);
+        field_ct d = a + bb_;
+        field_ct e = d * c;
+        field_ct f = e - a;
+        field_ct g = -f;
+        field_ct h = (g + field_ct(11)) * field_ct(2);
+        field_ct i = a.madd(bb_, c);
+        field_ct j = a.add_two(bb_, c);
+        field_ct k = e / bb_;
+        field_ct l = c.invert();
+        field_ct m = d.pow(5);
+        field_ct n = field_ct::accumulate({ a, bb_, c, d, e, field_ct(4), f, g, h, i, j });
+        field_ct p = m * field_ct(3) + field_ct(1);
+        field_ct r = field_ct(witness_ct(&b, p.get_value()));
+        p.assert_equal(r);
+        field_ct s = w(b, 0);
+        s.assert_is_zero();
+        a.assert_is_not_zero();
+        (a * bb_).assert_equal(field_ct(15));
+        field_ct neg22 = field_ct(witness_ct(&b, -fr(22)));
+        field_ct::evaluate_polynomial_identity(a, bb_, c, neg22);
+        field_ct neg15 = field_ct(witness_ct(&b, -fr(15)));
+        field_ct::evaluate_linear_identity(a, bb_, c, neg15);
+        a.create_range_constraint(8);
+        e.create_range_constraint(20);
+        (d * field_ct(1000)).create_range_constraint(68);
+        field_ct t = field_ct(
+            witness_ct(&b, fr(uint256_t("0x00000000000000000123456789abcdef0123456789abcdef0123456789abcdef"))));
+        auto [lo, hi] = stdlib::split_unique(t, 127);
+        field_ct u(9);
+        u.convert_constant_to_fixed_witness(&b);
+        u.set_public();
+        a.set_public();
+        (k + l + n + lo + hi).set_public();
     }
-    G1 r = G1::batch_mul(points, scalars);
-    G1 expected = G1::from_witness(&b, r.get_value());
-    r.incomplete_assert_equal(expected);
-    if (k >= 2) {
-        G1 s = points[0] + points[1];
-        G1 d = points[0] - points[1];
-        s.set_public();
-        d.set_public();
-    }
-    G1 neg = -points[0];
-    neg.set_public();
-    (r * scalars[0]).set_public();
-    (G1::one(&b) + points[0]).set_public();
-}
 
-void aggregate_multiple(Builder& b, size_t n)
-{
-    std::vector<PairingPointsCt> pps;
-    for (size_t i = 0; i < n; ++i) {
-        pps.emplace_back(G1::from_witness(&b, pt(2 * i + 1)), G1::from_witness(&b, pt(2 * i + 2)));
-    }
-    PairingPointsCt agg = PairingPointsCt::aggregate_multiple(pps, /*handle_edge_cases=*/false);
-    agg.set_public(&b);
-    b.finalize_public_inputs();
-}
-
-void kernel_io_set(Builder& b)
-{
-    stdlib::DataBusDepot<Builder> depot;
-    depot.set_app_return_data_commitment(G1::from_witness(&b, pt(5)));
-    depot.set_kernel_return_data_commitment(G1::from_witness(&b, pt(6)));
-    stdlib::recursion::honk::KernelIO io;
-    io.pairing_inputs = PairingPointsCt(G1::from_witness(&b, pt(1)), G1::from_witness(&b, pt(2)));
-    io.kernel_return_data = depot.get_kernel_return_data_commitment(b);
-    for (size_t i = 0; i < MAX_APPS_PER_KERNEL; ++i) {
-        io.app_return_data[i] = depot.get_app_return_data_commitment(b, i);
-    }
-    io.ecc_op_hash = w(b, 9);
-    io.output_hn_accum_hash = w(b, 10);
-    io.set_public();
-}
-
-void hiding_io_set(Builder& b)
-{
-    stdlib::recursion::honk::HidingKernelIO<Builder> io;
-    io.pairing_inputs = PairingPointsCt(G1::from_witness(&b, pt(1)), G1::from_witness(&b, pt(2)));
-    io.kernel_return_data = G1::from_witness(&b, pt(3));
-    for (size_t i = 0; i < 4; ++i) {
-        io.ecc_op_tables[i] = G1::from_witness(&b, pt(10 + i));
-    }
-    io.set_public();
-}
-
-// --- M16: booleans, conditional selection, Grumpkin points (cycle_group) ---
-using cycle_group_ct = stdlib::cycle_group<Builder>;
-using cycle_scalar_ct = stdlib::cycle_scalar<Builder>;
-using bool_ct = stdlib::bool_t<Builder>;
-grumpkin::g1::affine_element gp(uint64_t k)
-{
-    return grumpkin::g1::affine_element(grumpkin::g1::element(grumpkin::g1::affine_one) * grumpkin::fr(k));
-}
-bool_ct wb(Builder& b, bool v)
-{
-    return bool_ct(witness_ct(&b, fr(v ? 1 : 0)));
-}
-
-void bool_ops(Builder& b)
-{
-    bool_ct t = wb(b, true), f = wb(b, false), ct(true);
-    bool_ct a1 = t && f, a2 = t || f, a3 = t ^ f, a4 = !t, a5 = a4 && f, a6 = (t == f), a7 = (!t == !f), a8 = t || !f,
-            a9 = t && ct, a10 = f || ct, a11 = !f && a2, a12 = a4 ^ !f;
-    bool_ct n = a4.normalize();
-    (!t).assert_equal(f);
-    t.assert_equal(ct);
-    a1.assert_equal(a5);
-    bool_ct c1 = bool_ct::conditional_assign(t, a1, a2), c2 = bool_ct::conditional_assign(!f, a3, a6),
-            c3 = bool_ct::conditional_assign(ct, a1, a2), c4 = bool_ct::conditional_assign(a1, a2, a2);
-    field_ct x = w(b, 3), y = w(b, 3), z = w(b, 4);
-    bool_ct e1 = (x == y), e2 = (x == z), iz = (x - y).is_zero(), iz2 = (x * field_ct(2) - field_ct(6)).is_zero();
-    field_ct s1 = field_ct::conditional_assign(t, x, z), s2 = field_ct::conditional_assign(!t, x, z),
-             s3 = field_ct::conditional_assign(ct, x, z), s4 = field_ct::conditional_assign(e2, x, x);
-    bool_ct fb = bool_ct(x - field_ct(2));
-    field_ct fbf(a4);
-    bool_ct fb2 = bool_ct(fbf);
-    bool_ct fb3 = bool_ct(field_ct(1));
-    field_ct sum = field_ct(a1) + field_ct(a2) + field_ct(a4) + field_ct(c2) + field_ct(e1) + field_ct(iz2) + s1 + s2 +
-                   s3 + s4 + field_ct(fb) + field_ct(fb2) + field_ct(fb3) + field_ct(n) + field_ct(a7) + field_ct(a8) +
-                   field_ct(a9) + field_ct(a10) + field_ct(a11) + field_ct(a12) + field_ct(c1) + field_ct(c3) +
-                   field_ct(c4) + field_ct(e2) + field_ct(iz);
-    sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
-}
-
-void cycle_group_add(Builder& b)
-{
-    auto p = cycle_group_ct::from_witness(&b, gp(3));
-    auto q = cycle_group_ct::from_witness(&b, gp(5));
-    auto r = p + q;
-    auto s = r - p;
-    auto d = p + p;
-    auto n = -q;
-    auto u = p.unconditional_add(q);
-    auto v = r.dbl();
-    cycle_group_ct c(gp(7));
-    auto pc = p + c;
-    auto cp = c - p;
-    auto cc = c + cycle_group_ct(gp(9));
-    auto ucp = c.unconditional_add(p);
-    auto pn = p + n;
-    auto qq = q - q;
-    auto z = qq + p;
-    auto e = cycle_group_ct::from_witness(&b, gp(8));
-    r.assert_equal(e);
-    auto e2 = cycle_group_ct::from_witness(&b, gp(5));
-    s.assert_equal(e2);
-    auto e3 = cycle_group_ct::from_witness(&b, gp(6));
-    d.assert_equal(e3);
-    auto e4 = cycle_group_ct::from_witness(&b, gp(16));
-    v.assert_equal(e4);
-    z.assert_equal(p);
-    auto ca = cycle_group_ct::conditional_assign(wb(b, true), p, q);
-    auto cb = cycle_group_ct::conditional_assign(bool_ct(false), p, q);
-    field_ct sum = pc.x() + cp.y() + cc.x() + ucp.y() + pn.x() + u.x() + n.y() + ca.x() + cb.y() +
-                   field_ct(pn.is_point_at_infinity());
-    sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
-}
-
-void cycle_group_mul(Builder& b, size_t k)
-{
-    cycle_group_ct one(grumpkin::g1::affine_one);
-    std::vector<cycle_group_ct> points;
-    std::vector<cycle_scalar_ct> scalars;
-    for (size_t i = 0; i < k; ++i) {
-        field_ct lo = w(b, 12345 + i), hi = w(b, 67 + i);
-        scalars.emplace_back(lo, hi);
-        points.push_back(one);
-    }
-    auto r = cycle_group_ct::batch_mul(points, scalars);
-    auto e = cycle_group_ct::from_witness(&b, r.get_value());
-    r.assert_equal(e);
-}
-
-void cycle_group_mul_witness(Builder& b)
-{
-    auto p = cycle_group_ct::from_witness(&b, gp(3));
-    cycle_scalar_ct s(w(b, 999), w(b, 5));
-    cycle_group_ct c(gp(11));
-    cycle_scalar_ct cs(grumpkin::fr(13));
-    auto r = cycle_group_ct::batch_mul({ p, c }, { s, cs });
-    auto e = cycle_group_ct::from_witness(&b, r.get_value());
-    r.assert_equal(e);
-}
-
-// One compression of a fixed message block onto the SHA-256 IV (MegaApp flavor: it has lookups).
-void sha256_block(Builder& b)
-{
-    static constexpr uint64_t iv[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-                                        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
-    std::array<field_ct, 8> h;
-    std::array<field_ct, 16> in;
-    for (size_t i = 0; i < 8; ++i) {
-        h[i] = w(b, iv[i]);
-    }
-    for (size_t i = 0; i < 16; ++i) {
-        in[i] = w(b, (i * 0x01010101ULL + 0x61626364ULL) & 0xffffffffULL);
-    }
-    auto out = stdlib::SHA256<Builder>::sha256_block(h, in);
-    for (auto& o : out) {
-        auto e = w(b, uint256_t(o.get_value()).data[0]);
-        o.assert_equal(e);
-    }
-}
-
-// Every bigfield operation over secp256r1's base field (MegaApp flavor: it has NNF gates).
-void trace_op(const char* label, Builder& b)
-{
-    if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
-        std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size() << "] "
-                  << label << std::endl;
-    }
-}
-
-template <typename B> void wnaf_range_fq_t(B& b)
-{
-    using fq_ct = stdlib::bigfield<B, ::bb::Bn254FqParams>;
-    using FqNative = ::bb::fq;
-    fq_ct s = fq_ct::from_witness(&b, FqNative(uint256_t(3, 0, 0, 0)));
-    fq_ct sc = fq_ct::from_witness(&b, FqNative(uint256_t(0x123456789abcdefULL, 7, 11, 0)));
-    fq_ct r = ((s - 1).sqr() - 1) * ((s - 2).sqr() - 1) * sc;
-    r.self_reduce();
-}
-void wnaf_range_fq(Builder& b)
-{
-    wnaf_range_fq_t(b);
-}
-
-template <typename B> void row_disabling_fq_t(B& b)
-{
-    auto tr = [&](const char* label) {
-        if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
-            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size() << "] "
-                      << label << std::endl;
+    static void poseidon2_hash(Builder& b, size_t n)
+    {
+        std::vector<field_ct> inputs;
+        for (size_t i = 0; i < n; ++i) {
+            inputs.push_back(w(b, i + 1));
         }
-    };
-    using fq_ct = stdlib::bigfield<B, ::bb::Bn254FqParams>;
-    using FqNative = ::bb::fq;
-    std::vector<fq_ct> u;
-    for (size_t i = 0; i < 15; ++i) {
-        u.push_back(fq_ct::from_witness(&b, FqNative(uint256_t(i * 7 + 3, i + 1, 2 * i + 5, 0))));
-        tr("u");
+        stdlib::poseidon2<Builder>::hash(inputs).set_public();
     }
-    fq_ct main_factor = RowDisablingPolynomial<fq_ct>::evaluate_at_challenge(u, 15);
-    tr("main");
-    fq_ct offset_factor = fq_ct(1) - main_factor;
-    tr("offset");
-    main_factor.self_reduce();
-    tr("main_reduced");
-    offset_factor.self_reduce();
-    tr("offset_reduced");
-}
-void row_disabling_fq(Builder& b)
-{
-    row_disabling_fq_t(b);
-}
-void bigfield_ops(Builder& b)
-{
-    using Fq = stdlib::secp256r1<Builder>::BaseField;
-    using FqNative = ::bb::secp256r1::fq;
-    const FqNative a_n(
-        uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL));
-    const FqNative c_n(
-        uint256_t(0x00000000000000ffULL, 0x1111111111111111ULL, 0x2222222222222222ULL, 0x3333333333333333ULL));
-    Fq a = Fq::from_witness(&b, a_n);
-    trace_op("a", b);
-    Fq c = Fq::from_witness(&b, c_n);
-    trace_op("c", b);
-    Fq k(uint256_t(0x9999));
-    trace_op("k", b);
-    bool_ct t = wb(b, true), f = wb(b, false);
-    trace_op("t", b);
-    Fq s = a + c;
-    trace_op("s", b);
-    Fq d = a - c;
-    trace_op("d", b);
-    Fq m = a * c;
-    trace_op("m", b);
-    Fq q = a / c;
-    trace_op("q", b);
-    Fq sq = a.sqr();
-    trace_op("sq", b);
-    Fq ma = a.madd(c, { s });
-    trace_op("ma", b);
-    Fq mm = Fq::mult_madd({ a, c }, { c, a }, { m });
-    trace_op("mm", b);
-    Fq dm = Fq::dual_madd(a, c, s, d, { sq });
-    trace_op("dm", b);
-    Fq msd = Fq::msub_div({ a }, { c }, d, { s });
-    trace_op("msd", b);
-    Fq cn = m.conditional_negate(t);
-    trace_op("cn", b);
-    Fq cs = Fq::conditional_assign(f, a, c);
-    trace_op("cs", b);
-    Fq ka = k * a;
-    trace_op("ka", b);
-    Fq ak = a + k;
-    trace_op("ak", b);
-    Fq amk = a - k;
-    trace_op("amk", b);
-    Fq kq = k / a;
-    trace_op("kq", b);
-    Fq sm = Fq::sum({ a, c, s, d, m });
-    trace_op("sm", b);
-    Fq p5 = a.pow(5);
-    trace_op("p5", b);
-    Fq ng = -a;
-    trace_op("ng", b);
-    Fq inv = a.invert();
-    trace_op("inv", b);
-    Fq sa = a.sqradd({ c });
-    trace_op("sa", b);
-    bool_ct e1 = (a == c);
-    trace_op("e1", b);
-    bool_ct e2 = (cs == a);
-    trace_op("e2", b);
-    bool_ct lt = a.is_less_than(Fq::modulus);
-    trace_op("lt", b);
-    a.assert_is_in_field();
-    trace_op("a.assert_is_in_field();", b);
-    mm.assert_is_not_equal(m);
-    trace_op("mm.assert_is_not_equal(m);", b);
-    (inv * a).assert_equal(Fq::one());
-    trace_op("(inv * a).assert_equal(Fq::one());", b);
-    Fq r = q * c;
-    trace_op("r", b);
-    r.reduce_mod_target_modulus();
-    trace_op("r.reduce_mod_target_modulus();", b);
-    r.assert_equal(a);
-    trace_op("r.assert_equal(a);", b);
-    Fq acc = Fq::sum({ sq, ma, mm, dm, msd, cn, ka, ak, amk, kq, sm, p5, ng, sa });
-    trace_op("acc", b);
-    acc.assert_zero_if(f);
-    trace_op("acc.assert_zero_if(f);", b);
-    field_ct out = acc.get_limb(0).element + acc.get_limb(1).element + acc.get_limb(2).element +
-                   acc.get_limb(3).element + acc.get_prime_basis_limb() + field_ct(e1) + field_ct(e2) + field_ct(lt);
-    trace_op("acc.get_prime_basis_limb() + field_ct(e1", b);
-    field_ct e(witness_ct(&b, out.get_value()));
-    trace_op("e", b);
-    (out - e).assert_is_zero();
-    trace_op("(out - e).assert_is_zero();", b);
-}
 
-// biggroup over secp256r1: point arithmetic, conditionals, a 2-point 128-bit MSM and a scalar mul.
-void biggroup_ops(Builder& b)
-{
-    using Curve = stdlib::secp256r1<Builder>;
-    using G1 = Curve::Group;
-    using Fr = Curve::ScalarField;
-    using FrNative = ::bb::secp256r1::fr;
-    using G1Native = ::bb::secp256r1::g1;
-    const G1Native::affine_element p_n(G1Native::one * FrNative(7));
-    const G1Native::affine_element q_n(G1Native::one * FrNative(11));
-    G1 p = G1::from_witness(&b, p_n);
-    G1 q = G1::from_witness(&b, q_n);
-    trace_op("points", b);
-    bool_ct t = wb(b, true), f = wb(b, false);
-    G1 s = p + q;
-    trace_op("add", b);
-    G1 d = p - q;
-    trace_op("sub", b);
-    G1 dd = p.dbl();
-    trace_op("dbl", b);
-    G1 n = -p;
-    G1 cn = p.conditional_negate(t);
-    G1 cs = G1::conditional_assign(f, p, q);
-    trace_op("conditionals", b);
-    [[maybe_unused]] auto res = s.validate_on_curve("", false);
-    trace_op("validate", b);
-    Fr u1 = Fr::from_witness(&b, FrNative(uint256_t(0x1234567890abcdefULL, 0x0fedcba098765432ULL, 0, 0)));
-    Fr u2 = Fr::from_witness(&b, FrNative(uint256_t(0xabcdef0123456789ULL, 0x1122334455667788ULL, 0, 0)));
-    G1 msm = G1::batch_mul({ p, q }, { u1, u2 }, /*max_num_bits=*/128, /*with_edgecases=*/false);
-    trace_op("batch_mul", b);
-    G1 sm = p.scalar_mul(u1, 128);
-    trace_op("scalar_mul", b);
-    G1 sum = s + d + dd + n + cn + cs + msm + sm;
-    trace_op("sum", b);
-    G1 e = G1::from_witness(&b, sum.get_value());
-    sum.incomplete_assert_equal(e);
-    trace_op("assert", b);
-}
+    static void transcript(Builder& b)
+    {
+        bb::StdlibTranscript<Builder> t;
+        t.send_to_verifier("a", w(b, 42));
+        t.add_to_hash_buffer("vk", w(b, 43));
+        field_ct c1 = t.template get_challenge<field_ct>("c1");
+        G1 p = G1::from_witness(&b, pt(7));
+        t.send_to_verifier("P", p);
+        auto shorts = t.template get_short_challenges<field_ct>(std::vector<std::string>{ "s1", "s2" });
+        field_ct c2 = t.template get_challenge<field_ct>("c2");
+        auto powers = t.template get_dyadic_powers_of_challenge<field_ct>("gate", 4);
+        (c1 + shorts[0] + shorts[1] + c2 + powers[3]).set_public();
+    }
 
-// Non-goblin bn254 biggroup with native field_t scalars: only meaningful on UltraCircuitBuilder
-// (on Mega builders bb aliases the bn254 element to the goblin element).
-template <typename B> void biggroup_bn254_ops_t(B& b)
-{
-    using Curve = stdlib::bn254<B>;
-    using G1 = Curve::Group;
-    using FrS = Curve::ScalarField;
-    using witness_u = stdlib::witness_t<B>;
-    using bool_u = stdlib::bool_t<B>;
-    auto tr = [&](const char* label) {
-        if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
-            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size() << "] "
-                      << label << std::endl;
+    static void goblin_batch_mul(Builder& b, size_t k)
+    {
+        std::vector<G1> points;
+        std::vector<field_ct> scalars;
+        for (size_t i = 0; i < k; ++i) {
+            points.push_back(G1::from_witness(&b, pt(i + 1)));
+            scalars.push_back(i == 1 ? field_ct(1) : w(b, i + 3));
         }
-    };
-    const g1::affine_element p_n(g1::element(g1::affine_element::one()) * fr(7));
-    const g1::affine_element q_n(g1::element(g1::affine_element::one()) * fr(11));
-    G1 p = G1::from_witness(&b, p_n);
-    G1 q = G1::from_witness(&b, q_n);
-    tr("points");
-    bool_u t = bool_u(witness_u(&b, fr(1)));
-    bool_u f = bool_u(witness_u(&b, fr(0)));
-    G1 s = p + q;
-    G1 d = p - q;
-    G1 dd = p.dbl();
-    G1 n = -p;
-    G1 cn = p.conditional_negate(t);
-    G1 cs = G1::conditional_assign(f, p, q);
-    [[maybe_unused]] auto res = s.validate_on_curve("", false);
-    tr("ops");
-    FrS u1 = FrS(witness_u(&b, fr(uint256_t("0abc1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab"))));
-    FrS u2 = FrS(witness_u(&b, fr(uint256_t("00000000000000000000000000000000abcdef0123456789abcdef0123456789"))));
-    FrS u3 = FrS(witness_u(&b, fr(uint256_t("00000000000000000000000000000000112233445566778899aabbccddeeff00"))));
-    G1 m1 = G1::batch_mul({ p, q }, { u1, u2 }, /*max_num_bits=*/0, /*with_edgecases=*/true);
-    tr("batch_mul_edgecases");
-    G1 m2 = G1::batch_mul({ p, q }, { u2, u3 }, /*max_num_bits=*/128, /*with_edgecases=*/false);
-    tr("batch_mul_small");
-    using FqB = typename Curve::BaseField;
-    const g1::affine_element one_n = g1::affine_element::one();
-    FqB gx(nullptr, uint256_t(one_n.x));
-    FqB gy(nullptr, uint256_t(one_n.y));
-    G1 const_g(gx, gy);
-    G1 m3 = G1::batch_mul({ p, const_g }, { u3, FrS(fr(5)) }, /*max_num_bits=*/0, /*with_edgecases=*/false);
-    tr("batch_mul_mixed_constant");
-    G1 sm = p.scalar_mul(u1);
-    tr("scalar_mul");
-    G1 sum = s + d + dd + n + cn + cs + m1 + m2 + m3 + sm;
-    G1 e = G1::from_witness(&b, sum.get_value());
-    sum.incomplete_assert_equal(e);
-    tr("assert");
-}
-
-void secp256r1_mul(Builder& b)
-{
-    using Curve = stdlib::secp256r1<Builder>;
-    using G1 = Curve::Group;
-    using Fr = Curve::ScalarField;
-    using FrNative = ::bb::secp256r1::fr;
-    using G1Native = ::bb::secp256r1::g1;
-    Fr u1 = Fr::from_witness(
-        &b,
-        FrNative(
-            uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL)));
-    G1 t1 = G1::secp256r1_fixed_base_mul(u1);
-    trace_op("fixed_base_mul", b);
-    const G1Native::affine_element q_n(G1Native::one * FrNative(11));
-    G1 q = G1::from_witness(&b, q_n);
-    Fr u2 = Fr::from_witness(
-        &b,
-        FrNative(
-            uint256_t(0xabcdef0123456789ULL, 0x1122334455667788ULL, 0x99aabbccddeeff00ULL, 0x0123456789abcdefULL)));
-    auto out = G1::secp256r1_ecdsa_mul(q, u1, u2);
-    trace_op("ecdsa_mul", b);
-    out.u2_is_acceptable.assert_equal(bool_ct(true));
-    G1 e1 = G1::from_witness(&b, t1.get_value());
-    t1.incomplete_assert_equal(e1);
-    G1 e2 = G1::from_witness(&b, out.result.get_value());
-    out.result.incomplete_assert_equal(e2);
-}
-
-void ecdsa_r1(Builder& b)
-{
-    using Curve = stdlib::secp256r1<Builder>;
-    using Fq = Curve::BaseField;
-    using Fr = Curve::ScalarField;
-    using G1 = Curve::Group;
-    auto bytes = [&](const char* hex) {
-        std::vector<uint8_t> v;
-        for (size_t i = 0; i < 64; i += 2) {
-            v.push_back(static_cast<uint8_t>(std::stoul(std::string(hex + i, 2), nullptr, 16)));
+        G1 r = G1::batch_mul(points, scalars);
+        G1 expected = G1::from_witness(&b, r.get_value());
+        r.incomplete_assert_equal(expected);
+        if (k >= 2) {
+            G1 s = points[0] + points[1];
+            G1 d = points[0] - points[1];
+            s.set_public();
+            d.set_public();
         }
-        return stdlib::byte_array<Builder>(&b, v);
-    };
-    auto hashed_message = bytes("5566778899aabbccddeeff00112233445566778899aabbccddeeff0011223344");
-    auto pub_x_bytes = bytes("471c3e758c4904285bba7e53118ed0f524adeb0757d25bd2f8e7b0d76dfa714c");
-    auto pub_y_bytes = bytes("dd520f7aca8a8b917acc37f51de8f0c9bbe3ad858382e702dc25a12d09f7a858");
-    auto r = bytes("4a5530b043726fbeebd13c58ebc50dcc944fd60e07b714aac9b57eddc6037a88");
-    auto s = bytes("2b0f47eb371a2580242896f996d17e91d6134517572759d4d9729892c8b4dcd0");
-    Fq pub_x(pub_x_bytes);
-    Fq pub_y(pub_y_bytes);
-    G1 public_key(pub_x, pub_y, /*assert_on_curve=*/false);
-    bool_ct result = stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
-    result.assert_equal(bool_ct(true));
-}
+        G1 neg = -points[0];
+        neg.set_public();
+        (r * scalars[0]).set_public();
+        (G1::one(&b) + points[0]).set_public();
+    }
 
-void keccak_permutation(Builder& b)
-{
-    std::array<field_ct, 25> state;
-    for (size_t i = 0; i < 25; ++i) {
-        const uint64_t v = static_cast<uint64_t>(i + 1) * 0x9e3779b97f4a7c15ULL;
-        state[i] = field_ct(witness_ct(&b, bb::fr(v)));
+    static void aggregate_multiple(Builder& b, size_t n)
+    {
+        std::vector<PairingPointsCt> pps;
+        for (size_t i = 0; i < n; ++i) {
+            pps.emplace_back(G1::from_witness(&b, pt(2 * i + 1)), G1::from_witness(&b, pt(2 * i + 2)));
+        }
+        PairingPointsCt agg = PairingPointsCt::aggregate_multiple(pps);
+        agg.set_public(&b);
+        b.finalize_public_inputs();
     }
-    const auto out = stdlib::keccak<Builder>::permutation_opcode(state, &b);
-    for (size_t i = 0; i < 25; ++i) {
-        out[i].assert_equal(field_ct(witness_ct(&b, out[i].get_value())));
-    }
-}
 
-void logic_ops(Builder& b)
-{
-    auto w = [&](uint64_t v) { return field_ct(witness_ct(&b, bb::fr(v))); };
-    field_ct a = w(0xdeadbeefULL), bb_ = w(0x12345678ULL);
-    field_ct x = stdlib::logic<Builder>::create_logic_constraint(a, bb_, 32, true);
-    field_ct y = stdlib::logic<Builder>::create_logic_constraint(a, bb_, 32, false);
-    field_ct c = w(0x0123456789abcdefULL), d = w(0xfedcba9876543210ULL);
-    field_ct z = stdlib::logic<Builder>::create_logic_constraint(c, d, 64, true);
-    field_ct e = w(0xa5ULL), f = w(0x3cULL);
-    field_ct g = stdlib::logic<Builder>::create_logic_constraint(e, f, 8, false);
-    field_ct k(bb::fr(0x0f));
-    field_ct h = stdlib::logic<Builder>::create_logic_constraint(e, k, 8, true);
-    field_ct sum = field_ct::accumulate({ x, y, z, g, h });
-    sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
-}
+    static void kernel_io_set(Builder& b)
+    {
+        stdlib::DataBusDepot<Builder> depot;
+        depot.set_app_return_data_commitment(G1::from_witness(&b, pt(5)));
+        depot.set_kernel_return_data_commitment(G1::from_witness(&b, pt(6)));
+        stdlib::recursion::honk::KernelIO<Builder> io;
+        io.pairing_inputs = PairingPointsCt(G1::from_witness(&b, pt(1)), G1::from_witness(&b, pt(2)));
+        io.kernel_return_data = depot.get_kernel_return_data_commitment(b);
+        for (size_t i = 0; i < MAX_APPS_PER_KERNEL; ++i) {
+            io.app_return_data[i] = depot.get_app_return_data_commitment(b, i);
+        }
+        io.ecc_op_hash = w(b, 9);
+        io.output_hn_accum_hash = w(b, 10);
+        io.set_public();
+    }
 
-void blake2s_hash(Builder& b, size_t num_bytes)
-{
-    using byte_array_ct = stdlib::byte_array<Builder>;
-    byte_array_ct arr = byte_array_ct::constant_padding(&b, 0);
-    for (size_t i = 0; i < num_bytes; ++i) {
-        field_ct byte(witness_ct(&b, bb::fr(static_cast<uint8_t>(i * 7 + 3))));
-        arr.write(byte_array_ct(byte, 1));
+    static void hiding_io_set(Builder& b)
+    {
+        stdlib::recursion::honk::HidingKernelIO<Builder> io;
+        io.pairing_inputs = PairingPointsCt(G1::from_witness(&b, pt(1)), G1::from_witness(&b, pt(2)));
+        io.kernel_return_data = G1::from_witness(&b, pt(3));
+        for (size_t i = 0; i < 4; ++i) {
+            io.ecc_op_tables[i] = G1::from_witness(&b, pt(10 + i));
+        }
+        io.set_public();
     }
-    const auto out = stdlib::Blake2s<Builder>::hash(arr);
-    for (const auto& byte : out.bytes()) {
-        byte.assert_equal(field_ct(witness_ct(&b, byte.get_value())));
-    }
-}
 
-void blake3_hash(Builder& b, size_t num_bytes)
-{
-    using byte_array_ct = stdlib::byte_array<Builder>;
-    byte_array_ct arr = byte_array_ct::constant_padding(&b, 0);
-    for (size_t i = 0; i < num_bytes; ++i) {
-        field_ct byte(witness_ct(&b, bb::fr(static_cast<uint8_t>(i * 11 + 5))));
-        arr.write(byte_array_ct(byte, 1));
+    // --- M16: booleans, conditional selection, Grumpkin points (cycle_group) ---
+    using cycle_group_ct = stdlib::cycle_group<Builder>;
+    using cycle_scalar_ct = stdlib::cycle_scalar<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
+    static grumpkin::g1::affine_element gp(uint64_t k)
+    {
+        return grumpkin::g1::affine_element(grumpkin::g1::element(grumpkin::g1::affine_one) * grumpkin::fr(k));
     }
-    const auto out = stdlib::Blake3s<Builder>::hash(arr);
-    for (const auto& byte : out.bytes()) {
-        byte.assert_equal(field_ct(witness_ct(&b, byte.get_value())));
-    }
-}
+    static bool_ct wb(Builder& b, bool v) { return bool_ct(witness_ct(&b, fr(v ? 1 : 0))); }
 
-void aes128_cbc(Builder& b, size_t num_blocks)
-{
-    // Mirrors the dsl arm: 16 witness bytes range-constrained and packed big-endian into a field.
-    const auto pack16 = [&](uint32_t seed) {
-        field_ct converted = 0;
+    static void bool_ops(Builder& b)
+    {
+        bool_ct t = wb(b, true), f = wb(b, false), ct(true);
+        bool_ct a1 = t && f, a2 = t || f, a3 = t ^ f, a4 = !t, a5 = a4 && f, a6 = (t == f), a7 = (!t == !f),
+                a8 = t || !f, a9 = t && ct, a10 = f || ct, a11 = !f && a2, a12 = a4 ^ !f;
+        bool_ct n = a4.normalize();
+        (!t).assert_equal(f);
+        t.assert_equal(ct);
+        a1.assert_equal(a5);
+        bool_ct c1 = bool_ct::conditional_assign(t, a1, a2), c2 = bool_ct::conditional_assign(!f, a3, a6),
+                c3 = bool_ct::conditional_assign(ct, a1, a2), c4 = bool_ct::conditional_assign(a1, a2, a2);
+        field_ct x = w(b, 3), y = w(b, 3), z = w(b, 4);
+        bool_ct e1 = (x == y), e2 = (x == z), iz = (x - y).is_zero(), iz2 = (x * field_ct(2) - field_ct(6)).is_zero();
+        field_ct s1 = field_ct::conditional_assign(t, x, z), s2 = field_ct::conditional_assign(!t, x, z),
+                 s3 = field_ct::conditional_assign(ct, x, z), s4 = field_ct::conditional_assign(e2, x, x);
+        bool_ct fb = bool_ct(x - field_ct(2));
+        field_ct fbf(a4);
+        bool_ct fb2 = bool_ct(fbf);
+        bool_ct fb3 = bool_ct(field_ct(1));
+        field_ct sum = field_ct(a1) + field_ct(a2) + field_ct(a4) + field_ct(c2) + field_ct(e1) + field_ct(iz2) + s1 +
+                       s2 + s3 + s4 + field_ct(fb) + field_ct(fb2) + field_ct(fb3) + field_ct(n) + field_ct(a7) +
+                       field_ct(a8) + field_ct(a9) + field_ct(a10) + field_ct(a11) + field_ct(a12) + field_ct(c1) +
+                       field_ct(c3) + field_ct(c4) + field_ct(e2) + field_ct(iz);
+        sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
+    }
+
+    static void cycle_group_add(Builder& b)
+    {
+        auto p = cycle_group_ct::from_witness(&b, gp(3));
+        auto q = cycle_group_ct::from_witness(&b, gp(5));
+        auto r = p + q;
+        auto s = r - p;
+        auto d = p + p;
+        auto n = -q;
+        auto u = p.unconditional_add(q);
+        auto v = r.dbl();
+        cycle_group_ct c(gp(7));
+        auto pc = p + c;
+        auto cp = c - p;
+        auto cc = c + cycle_group_ct(gp(9));
+        auto ucp = c.unconditional_add(p);
+        auto pn = p + n;
+        auto qq = q - q;
+        auto z = qq + p;
+        auto e = cycle_group_ct::from_witness(&b, gp(8));
+        r.assert_equal(e);
+        auto e2 = cycle_group_ct::from_witness(&b, gp(5));
+        s.assert_equal(e2);
+        auto e3 = cycle_group_ct::from_witness(&b, gp(6));
+        d.assert_equal(e3);
+        auto e4 = cycle_group_ct::from_witness(&b, gp(16));
+        v.assert_equal(e4);
+        z.assert_equal(p);
+        auto ca = cycle_group_ct::conditional_assign(wb(b, true), p, q);
+        auto cb = cycle_group_ct::conditional_assign(bool_ct(false), p, q);
+        field_ct sum = pc.x() + cp.y() + cc.x() + ucp.y() + pn.x() + u.x() + n.y() + ca.x() + cb.y() +
+                       field_ct(pn.is_point_at_infinity());
+        sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
+    }
+
+    static void cycle_group_mul(Builder& b, size_t k)
+    {
+        cycle_group_ct one(grumpkin::g1::affine_one);
+        std::vector<cycle_group_ct> points;
+        std::vector<cycle_scalar_ct> scalars;
+        for (size_t i = 0; i < k; ++i) {
+            field_ct lo = w(b, 12345 + i), hi = w(b, 67 + i);
+            scalars.emplace_back(lo, hi);
+            points.push_back(one);
+        }
+        auto r = cycle_group_ct::batch_mul(points, scalars);
+        auto e = cycle_group_ct::from_witness(&b, r.get_value());
+        r.assert_equal(e);
+    }
+
+    static void cycle_group_mul_witness(Builder& b)
+    {
+        auto p = cycle_group_ct::from_witness(&b, gp(3));
+        cycle_scalar_ct s(w(b, 999), w(b, 5));
+        cycle_group_ct c(gp(11));
+        cycle_scalar_ct cs(grumpkin::fr(13));
+        auto r = cycle_group_ct::batch_mul({ p, c }, { s, cs });
+        auto e = cycle_group_ct::from_witness(&b, r.get_value());
+        r.assert_equal(e);
+    }
+
+    // One compression of a fixed message block onto the SHA-256 IV (MegaApp flavor: it has lookups).
+    static void sha256_block(Builder& b)
+    {
+        static constexpr uint64_t iv[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+        std::array<field_ct, 8> h;
+        std::array<field_ct, 16> in;
+        for (size_t i = 0; i < 8; ++i) {
+            h[i] = w(b, iv[i]);
+        }
         for (size_t i = 0; i < 16; ++i) {
-            converted *= 256;
-            field_ct byte(witness_ct(&b, bb::fr((seed + i * 5) & 0xffUL)));
-            byte.create_range_constraint(8);
-            converted += byte;
+            in[i] = w(b, (i * 0x01010101ULL + 0x61626364ULL) & 0xffffffffULL);
         }
-        return converted;
-    };
-    std::vector<field_ct> in;
-    for (size_t blk = 0; blk < num_blocks; ++blk) {
-        in.push_back(pack16(static_cast<uint32_t>(blk * 16 + 1)));
-    }
-    const field_ct iv = pack16(0xa0);
-    const field_ct key = pack16(0x30);
-    const auto out = stdlib::aes128::encrypt_buffer_cbc<Builder>(in, iv, key);
-    for (const auto& o : out) {
-        field_ct converted = 0;
-        const uint256_t v(o.get_value());
-        for (size_t i = 0; i < 16; ++i) {
-            converted *= 256;
-            const uint64_t byte_val = (v >> (8 * (15 - i))).data[0] & 0xffULL;
-            field_ct byte(witness_ct(&b, bb::fr(byte_val)));
-            byte.create_range_constraint(8);
-            converted += byte;
+        auto out = stdlib::SHA256<Builder>::sha256_block(h, in);
+        for (auto& o : out) {
+            auto e = w(b, uint256_t(o.get_value()).data[0]);
+            o.assert_equal(e);
         }
-        o.assert_equal(converted);
     }
-}
 
-void ecdsa_k1(Builder& b)
-{
-    using Curve = stdlib::secp256k1<Builder>;
-    using Fq = Curve::BaseField;
-    using Fr = Curve::ScalarField;
-    using G1 = Curve::Group;
-    using FrNative = Curve::ScalarFieldNative;
-    using FqNative = Curve::BaseFieldNative;
-    using G1Native = Curve::GroupNative;
-    const std::string message_string = "bbref";
-    const std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
-    const std::array<uint8_t, 32> hashed = crypto::Sha256Hasher::hash(message_bytes);
-    crypto::ecdsa_key_pair<FrNative, G1Native> account;
-    account.private_key = FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
-    account.public_key = G1Native::one * account.private_key;
-    const crypto::ecdsa_signature sig =
-        crypto::ecdsa_construct_signature<crypto::Sha256Hasher, FqNative, FrNative, G1Native>(message_string, account);
-    const auto coord_bytes = [&](const FqNative& c) {
-        const uint256_t v(c);
-        std::vector<uint8_t> bytes(32);
-        for (size_t i = 0; i < 32; ++i) {
-            bytes[i] = static_cast<uint8_t>((v >> (8 * (31 - i))).data[0] & 0xffULL);
+    template <typename B> static size_t nnf_size(B& b)
+    {
+        if constexpr (requires { b.blocks.nnf; }) {
+            return b.blocks.nnf.size();
         }
-        return stdlib::byte_array<Builder>(&b, bytes);
-    };
-    stdlib::byte_array<Builder> hashed_message(&b, std::vector<uint8_t>(hashed.begin(), hashed.end()));
-    Fq pub_x(coord_bytes(account.public_key.x));
-    Fq pub_y(coord_bytes(account.public_key.y));
-    G1 public_key(pub_x, pub_y, /*assert_on_curve=*/false);
-    stdlib::byte_array<Builder> r(&b, std::vector<uint8_t>(sig.r.begin(), sig.r.end()));
-    stdlib::byte_array<Builder> s(&b, std::vector<uint8_t>(sig.s.begin(), sig.s.end()));
-    bool_ct result = stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
-    result.assert_equal(bool_ct(true));
-}
+        return 0;
+    }
 
-void run(Builder& b, const std::string& name)
-{
-    auto suffix = [&](const std::string& prefix) { return std::stoul(name.substr(prefix.size())); };
-    if (name == "keccak_permutation") {
-        keccak_permutation(b);
-        return;
+    // Every bigfield operation over secp256r1's base field (MegaApp flavor: it has NNF gates).
+    static void trace_op(const char* label, Builder& b)
+    {
+        if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
+            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << nnf_size(b) << "] " << label
+                      << std::endl;
+        }
     }
-    if (name == "logic_ops") {
-        logic_ops(b);
-        return;
+
+    template <typename B> static void wnaf_range_fq_t(B& b)
+    {
+        using fq_ct = stdlib::bigfield<B, ::bb::Bn254FqParams>;
+        using FqNative = ::bb::fq;
+        fq_ct s = fq_ct::from_witness(&b, FqNative(uint256_t(3, 0, 0, 0)));
+        fq_ct sc = fq_ct::from_witness(&b, FqNative(uint256_t(0x123456789abcdefULL, 7, 11, 0)));
+        fq_ct r = ((s - 1).sqr() - 1) * ((s - 2).sqr() - 1) * sc;
+        r.self_reduce();
     }
-    if (name == "secp256r1_mul") {
-        secp256r1_mul(b);
-        return;
+    static void wnaf_range_fq(Builder& b) { wnaf_range_fq_t(b); }
+
+    template <typename B> static void row_disabling_fq_t(B& b)
+    {
+        auto tr = [&](const char* label) {
+            if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
+                std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << nnf_size(b) << "] "
+                          << label << std::endl;
+            }
+        };
+        using fq_ct = stdlib::bigfield<B, ::bb::Bn254FqParams>;
+        using FqNative = ::bb::fq;
+        std::vector<fq_ct> u;
+        for (size_t i = 0; i < 15; ++i) {
+            u.push_back(fq_ct::from_witness(&b, FqNative(uint256_t(i * 7 + 3, i + 1, 2 * i + 5, 0))));
+            tr("u");
+        }
+        fq_ct main_factor = RowDisablingPolynomial<fq_ct>::evaluate_at_challenge(u, 15);
+        tr("main");
+        fq_ct offset_factor = fq_ct(1) - main_factor;
+        tr("offset");
+        main_factor.self_reduce();
+        tr("main_reduced");
+        offset_factor.self_reduce();
+        tr("offset_reduced");
     }
-    if (name == "ecdsa_r1") {
-        ecdsa_r1(b);
-        return;
+    static void row_disabling_fq(Builder& b) { row_disabling_fq_t(b); }
+    static void bigfield_ops(Builder& b)
+    {
+        using Fq = stdlib::secp256r1<Builder>::BaseField;
+        using FqNative = ::bb::secp256r1::fq;
+        const FqNative a_n(
+            uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL));
+        const FqNative c_n(
+            uint256_t(0x00000000000000ffULL, 0x1111111111111111ULL, 0x2222222222222222ULL, 0x3333333333333333ULL));
+        Fq a = Fq::from_witness(&b, a_n);
+        trace_op("a", b);
+        Fq c = Fq::from_witness(&b, c_n);
+        trace_op("c", b);
+        Fq k(uint256_t(0x9999));
+        trace_op("k", b);
+        bool_ct t = wb(b, true), f = wb(b, false);
+        trace_op("t", b);
+        Fq s = a + c;
+        trace_op("s", b);
+        Fq d = a - c;
+        trace_op("d", b);
+        Fq m = a * c;
+        trace_op("m", b);
+        Fq q = a / c;
+        trace_op("q", b);
+        Fq sq = a.sqr();
+        trace_op("sq", b);
+        Fq ma = a.madd(c, { s });
+        trace_op("ma", b);
+        Fq mm = Fq::mult_madd({ a, c }, { c, a }, { m });
+        trace_op("mm", b);
+        Fq dm = Fq::dual_madd(a, c, s, d, { sq });
+        trace_op("dm", b);
+        Fq msd = Fq::msub_div({ a }, { c }, d, { s });
+        trace_op("msd", b);
+        Fq cn = m.conditional_negate(t);
+        trace_op("cn", b);
+        Fq cs = Fq::conditional_assign(f, a, c);
+        trace_op("cs", b);
+        Fq ka = k * a;
+        trace_op("ka", b);
+        Fq ak = a + k;
+        trace_op("ak", b);
+        Fq amk = a - k;
+        trace_op("amk", b);
+        Fq kq = k / a;
+        trace_op("kq", b);
+        Fq sm = Fq::sum({ a, c, s, d, m });
+        trace_op("sm", b);
+        Fq p5 = a.pow(5);
+        trace_op("p5", b);
+        Fq ng = -a;
+        trace_op("ng", b);
+        Fq inv = a.invert();
+        trace_op("inv", b);
+        Fq sa = a.sqradd({ c });
+        trace_op("sa", b);
+        bool_ct e1 = (a == c);
+        trace_op("e1", b);
+        bool_ct e2 = (cs == a);
+        trace_op("e2", b);
+        bool_ct lt = a.is_less_than(Fq::modulus);
+        trace_op("lt", b);
+        a.assert_is_in_field();
+        trace_op("a.assert_is_in_field();", b);
+        mm.assert_is_not_equal(m);
+        trace_op("mm.assert_is_not_equal(m);", b);
+        (inv * a).assert_equal(Fq::one());
+        trace_op("(inv * a).assert_equal(Fq::one());", b);
+        Fq r = q * c;
+        trace_op("r", b);
+        r.reduce_mod_target_modulus();
+        trace_op("r.reduce_mod_target_modulus();", b);
+        r.assert_equal(a);
+        trace_op("r.assert_equal(a);", b);
+        Fq acc = Fq::sum({ sq, ma, mm, dm, msd, cn, ka, ak, amk, kq, sm, p5, ng, sa });
+        trace_op("acc", b);
+        acc.assert_zero_if(f);
+        trace_op("acc.assert_zero_if(f);", b);
+        field_ct out = acc.get_limb(0).element + acc.get_limb(1).element + acc.get_limb(2).element +
+                       acc.get_limb(3).element + acc.get_prime_basis_limb() + field_ct(e1) + field_ct(e2) +
+                       field_ct(lt);
+        trace_op("acc.get_prime_basis_limb() + field_ct(e1", b);
+        field_ct e(witness_ct(&b, out.get_value()));
+        trace_op("e", b);
+        (out - e).assert_is_zero();
+        trace_op("(out - e).assert_is_zero();", b);
     }
-    if (name == "ecdsa_k1") {
-        ecdsa_k1(b);
-        return;
+
+    // biggroup over secp256r1: point arithmetic, conditionals, a 2-point 128-bit MSM and a scalar mul.
+    static void biggroup_ops(Builder& b)
+    {
+        using Curve = stdlib::secp256r1<Builder>;
+        using G1 = Curve::Group;
+        using Fr = Curve::ScalarField;
+        using FrNative = ::bb::secp256r1::fr;
+        using G1Native = ::bb::secp256r1::g1;
+        const G1Native::affine_element p_n(G1Native::one * FrNative(7));
+        const G1Native::affine_element q_n(G1Native::one * FrNative(11));
+        G1 p = G1::from_witness(&b, p_n);
+        G1 q = G1::from_witness(&b, q_n);
+        trace_op("points", b);
+        bool_ct t = wb(b, true), f = wb(b, false);
+        G1 s = p + q;
+        trace_op("add", b);
+        G1 d = p - q;
+        trace_op("sub", b);
+        G1 dd = p.dbl();
+        trace_op("dbl", b);
+        G1 n = -p;
+        G1 cn = p.conditional_negate(t);
+        G1 cs = G1::conditional_assign(f, p, q);
+        trace_op("conditionals", b);
+        [[maybe_unused]] auto res = s.validate_on_curve("", false);
+        trace_op("validate", b);
+        Fr u1 = Fr::from_witness(&b, FrNative(uint256_t(0x1234567890abcdefULL, 0x0fedcba098765432ULL, 0, 0)));
+        Fr u2 = Fr::from_witness(&b, FrNative(uint256_t(0xabcdef0123456789ULL, 0x1122334455667788ULL, 0, 0)));
+        G1 msm = G1::batch_mul({ p, q }, { u1, u2 }, /*max_num_bits=*/128, /*with_edgecases=*/false);
+        trace_op("batch_mul", b);
+        G1 sm = p.scalar_mul(u1, 128);
+        trace_op("scalar_mul", b);
+        G1 sum = s + d + dd + n + cn + cs + msm + sm;
+        trace_op("sum", b);
+        G1 e = G1::from_witness(&b, sum.get_value());
+        sum.incomplete_assert_equal(e);
+        trace_op("assert", b);
     }
-    if (name.starts_with("blake2s_hash_")) {
-        blake2s_hash(b, suffix("blake2s_hash_"));
-        return;
+
+    // Non-goblin bn254 biggroup with native field_t scalars: only meaningful on UltraCircuitBuilder
+    // (on Mega builders bb aliases the bn254 element to the goblin element).
+    template <typename B> static void biggroup_bn254_ops_t(B& b)
+    {
+        using Curve = stdlib::bn254<B>;
+        using G1 = Curve::Group;
+        using FrS = Curve::ScalarField;
+        using witness_u = stdlib::witness_t<B>;
+        using bool_u = stdlib::bool_t<B>;
+        auto tr = [&](const char* label) {
+            if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
+                std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << nnf_size(b) << "] "
+                          << label << std::endl;
+            }
+        };
+        const g1::affine_element p_n(g1::element(g1::affine_element::one()) * fr(7));
+        const g1::affine_element q_n(g1::element(g1::affine_element::one()) * fr(11));
+        G1 p = G1::from_witness(&b, p_n);
+        G1 q = G1::from_witness(&b, q_n);
+        tr("points");
+        bool_u t = bool_u(witness_u(&b, fr(1)));
+        bool_u f = bool_u(witness_u(&b, fr(0)));
+        G1 s = p + q;
+        G1 d = p - q;
+        G1 dd = p.dbl();
+        G1 n = -p;
+        G1 cn = p.conditional_negate(t);
+        G1 cs = G1::conditional_assign(f, p, q);
+        [[maybe_unused]] auto res = s.validate_on_curve("", false);
+        tr("ops");
+        FrS u1 = FrS(witness_u(&b, fr(uint256_t("0abc1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab"))));
+        FrS u2 = FrS(witness_u(&b, fr(uint256_t("00000000000000000000000000000000abcdef0123456789abcdef0123456789"))));
+        FrS u3 = FrS(witness_u(&b, fr(uint256_t("00000000000000000000000000000000112233445566778899aabbccddeeff00"))));
+        G1 m1 = G1::batch_mul({ p, q }, { u1, u2 }, /*max_num_bits=*/0, /*with_edgecases=*/true);
+        tr("batch_mul_edgecases");
+        G1 m2 = G1::batch_mul({ p, q }, { u2, u3 }, /*max_num_bits=*/128, /*with_edgecases=*/false);
+        tr("batch_mul_small");
+        using FqB = typename Curve::BaseField;
+        const g1::affine_element one_n = g1::affine_element::one();
+        FqB gx(nullptr, uint256_t(one_n.x));
+        FqB gy(nullptr, uint256_t(one_n.y));
+        G1 const_g(gx, gy);
+        G1 m3 = G1::batch_mul({ p, const_g }, { u3, FrS(fr(5)) }, /*max_num_bits=*/0, /*with_edgecases=*/false);
+        tr("batch_mul_mixed_constant");
+        G1 sm = p.scalar_mul(u1);
+        tr("scalar_mul");
+        G1 sum = s + d + dd + n + cn + cs + m1 + m2 + m3 + sm;
+        G1 e = G1::from_witness(&b, sum.get_value());
+        sum.incomplete_assert_equal(e);
+        tr("assert");
     }
-    if (name.starts_with("blake3_hash_")) {
-        blake3_hash(b, suffix("blake3_hash_"));
-        return;
+
+    static void secp256r1_mul(Builder& b)
+    {
+        using Curve = stdlib::secp256r1<Builder>;
+        using G1 = Curve::Group;
+        using Fr = Curve::ScalarField;
+        using FrNative = ::bb::secp256r1::fr;
+        using G1Native = ::bb::secp256r1::g1;
+        Fr u1 = Fr::from_witness(
+            &b,
+            FrNative(
+                uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL)));
+        G1 t1 = G1::secp256r1_fixed_base_mul(u1);
+        trace_op("fixed_base_mul", b);
+        const G1Native::affine_element q_n(G1Native::one * FrNative(11));
+        G1 q = G1::from_witness(&b, q_n);
+        Fr u2 = Fr::from_witness(
+            &b,
+            FrNative(
+                uint256_t(0xabcdef0123456789ULL, 0x1122334455667788ULL, 0x99aabbccddeeff00ULL, 0x0123456789abcdefULL)));
+        auto out = G1::secp256r1_ecdsa_mul(q, u1, u2);
+        trace_op("ecdsa_mul", b);
+        out.u2_is_acceptable.assert_equal(bool_ct(true));
+        G1 e1 = G1::from_witness(&b, t1.get_value());
+        t1.incomplete_assert_equal(e1);
+        G1 e2 = G1::from_witness(&b, out.result.get_value());
+        out.result.incomplete_assert_equal(e2);
     }
-    if (name.starts_with("aes128_cbc_")) {
-        aes128_cbc(b, suffix("aes128_cbc_"));
-        return;
+
+    static void ecdsa_r1(Builder& b)
+    {
+        using Curve = stdlib::secp256r1<Builder>;
+        using Fq = Curve::BaseField;
+        using Fr = Curve::ScalarField;
+        using G1 = Curve::Group;
+        auto bytes = [&](const char* hex) {
+            std::vector<uint8_t> v;
+            for (size_t i = 0; i < 64; i += 2) {
+                v.push_back(static_cast<uint8_t>(std::stoul(std::string(hex + i, 2), nullptr, 16)));
+            }
+            return stdlib::byte_array<Builder>(&b, v);
+        };
+        auto hashed_message = bytes("5566778899aabbccddeeff00112233445566778899aabbccddeeff0011223344");
+        auto pub_x_bytes = bytes("471c3e758c4904285bba7e53118ed0f524adeb0757d25bd2f8e7b0d76dfa714c");
+        auto pub_y_bytes = bytes("dd520f7aca8a8b917acc37f51de8f0c9bbe3ad858382e702dc25a12d09f7a858");
+        auto r = bytes("4a5530b043726fbeebd13c58ebc50dcc944fd60e07b714aac9b57eddc6037a88");
+        auto s = bytes("2b0f47eb371a2580242896f996d17e91d6134517572759d4d9729892c8b4dcd0");
+        Fq pub_x(pub_x_bytes);
+        Fq pub_y(pub_y_bytes);
+        G1 public_key(pub_x, pub_y, /*assert_on_curve=*/false);
+        bool_ct result =
+            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
+        result.assert_equal(bool_ct(true));
     }
-    if (name == "biggroup_ops") {
-        biggroup_ops(b);
-    } else if (name == "bigfield_ops") {
-        bigfield_ops(b);
-    } else if (name == "row_disabling_fq") {
-        row_disabling_fq(b);
-    } else if (name == "wnaf_range_fq") {
-        wnaf_range_fq(b);
-    } else if (name == "sha256_block") {
-        sha256_block(b);
-    } else if (name == "field_ops") {
-        field_ops(b);
-    } else if (name == "bool_ops") {
-        bool_ops(b);
-    } else if (name == "cycle_group_add") {
-        cycle_group_add(b);
-    } else if (name.starts_with("cycle_group_mul_witness")) {
-        cycle_group_mul_witness(b);
-    } else if (name.starts_with("cycle_group_mul_")) {
-        cycle_group_mul(b, suffix("cycle_group_mul_"));
-    } else if (name.starts_with("poseidon2_hash_")) {
-        poseidon2_hash(b, suffix("poseidon2_hash_"));
-    } else if (name == "transcript") {
-        transcript(b);
-    } else if (name.starts_with("goblin_batch_mul_")) {
-        goblin_batch_mul(b, suffix("goblin_batch_mul_"));
-    } else if (name.starts_with("aggregate_multiple_")) {
-        aggregate_multiple(b, suffix("aggregate_multiple_"));
-    } else if (name == "io_app_default") {
-        stdlib::recursion::honk::AppIO::add_default(b);
-    } else if (name == "io_kernel_default") {
-        stdlib::recursion::honk::KernelIO::add_default(b);
-    } else if (name == "io_hiding_default") {
-        stdlib::recursion::honk::HidingKernelIO<Builder>::add_default(b);
-    } else if (name == "kernel_io_set") {
-        kernel_io_set(b);
-    } else if (name == "hiding_io_set") {
-        hiding_io_set(b);
-    } else {
-        throw_or_abort("unknown stdlib program " + name);
+
+    static void keccak_permutation(Builder& b)
+    {
+        std::array<field_ct, 25> state;
+        for (size_t i = 0; i < 25; ++i) {
+            const uint64_t v = static_cast<uint64_t>(i + 1) * 0x9e3779b97f4a7c15ULL;
+            state[i] = field_ct(witness_ct(&b, bb::fr(v)));
+        }
+        const auto out = stdlib::keccak<Builder>::permutation_opcode(state, &b);
+        for (size_t i = 0; i < 25; ++i) {
+            out[i].assert_equal(field_ct(witness_ct(&b, out[i].get_value())));
+        }
     }
-}
-} // namespace stdlib_programs
+
+    static void logic_ops(Builder& b)
+    {
+        auto w = [&](uint64_t v) { return field_ct(witness_ct(&b, bb::fr(v))); };
+        field_ct a = w(0xdeadbeefULL), bb_ = w(0x12345678ULL);
+        field_ct x = stdlib::logic<Builder>::create_logic_constraint(a, bb_, 32, true);
+        field_ct y = stdlib::logic<Builder>::create_logic_constraint(a, bb_, 32, false);
+        field_ct c = w(0x0123456789abcdefULL), d = w(0xfedcba9876543210ULL);
+        field_ct z = stdlib::logic<Builder>::create_logic_constraint(c, d, 64, true);
+        field_ct e = w(0xa5ULL), f = w(0x3cULL);
+        field_ct g = stdlib::logic<Builder>::create_logic_constraint(e, f, 8, false);
+        field_ct k(bb::fr(0x0f));
+        field_ct h = stdlib::logic<Builder>::create_logic_constraint(e, k, 8, true);
+        field_ct sum = field_ct::accumulate({ x, y, z, g, h });
+        sum.assert_equal(field_ct(witness_ct(&b, sum.get_value())));
+    }
+
+    static void blake2s_hash(Builder& b, size_t num_bytes)
+    {
+        using byte_array_ct = stdlib::byte_array<Builder>;
+        byte_array_ct arr = byte_array_ct::constant_padding(&b, 0);
+        for (size_t i = 0; i < num_bytes; ++i) {
+            field_ct byte(witness_ct(&b, bb::fr(static_cast<uint8_t>(i * 7 + 3))));
+            arr.write(byte_array_ct(byte, 1));
+        }
+        const auto out = stdlib::Blake2s<Builder>::hash(arr);
+        for (const auto& byte : out.bytes()) {
+            byte.assert_equal(field_ct(witness_ct(&b, byte.get_value())));
+        }
+    }
+
+    static void blake3_hash(Builder& b, size_t num_bytes)
+    {
+        using byte_array_ct = stdlib::byte_array<Builder>;
+        byte_array_ct arr = byte_array_ct::constant_padding(&b, 0);
+        for (size_t i = 0; i < num_bytes; ++i) {
+            field_ct byte(witness_ct(&b, bb::fr(static_cast<uint8_t>(i * 11 + 5))));
+            arr.write(byte_array_ct(byte, 1));
+        }
+        const auto out = stdlib::Blake3s<Builder>::hash(arr);
+        for (const auto& byte : out.bytes()) {
+            byte.assert_equal(field_ct(witness_ct(&b, byte.get_value())));
+        }
+    }
+
+    static void aes128_cbc(Builder& b, size_t num_blocks)
+    {
+        // Mirrors the dsl arm: 16 witness bytes range-constrained and packed big-endian into a field.
+        const auto pack16 = [&](uint32_t seed) {
+            field_ct converted = 0;
+            for (size_t i = 0; i < 16; ++i) {
+                converted *= 256;
+                field_ct byte(witness_ct(&b, bb::fr((seed + i * 5) & 0xffUL)));
+                byte.create_range_constraint(8);
+                converted += byte;
+            }
+            return converted;
+        };
+        std::vector<field_ct> in;
+        for (size_t blk = 0; blk < num_blocks; ++blk) {
+            in.push_back(pack16(static_cast<uint32_t>(blk * 16 + 1)));
+        }
+        const field_ct iv = pack16(0xa0);
+        const field_ct key = pack16(0x30);
+        const auto out = stdlib::aes128::encrypt_buffer_cbc<Builder>(in, iv, key);
+        for (const auto& o : out) {
+            field_ct converted = 0;
+            const uint256_t v(o.get_value());
+            for (size_t i = 0; i < 16; ++i) {
+                converted *= 256;
+                const uint64_t byte_val = (v >> (8 * (15 - i))).data[0] & 0xffULL;
+                field_ct byte(witness_ct(&b, bb::fr(byte_val)));
+                byte.create_range_constraint(8);
+                converted += byte;
+            }
+            o.assert_equal(converted);
+        }
+    }
+
+    static void ecdsa_k1(Builder& b)
+    {
+        using Curve = stdlib::secp256k1<Builder>;
+        using Fq = Curve::BaseField;
+        using Fr = Curve::ScalarField;
+        using G1 = Curve::Group;
+        using FrNative = Curve::ScalarFieldNative;
+        using FqNative = Curve::BaseFieldNative;
+        using G1Native = Curve::GroupNative;
+        const std::string message_string = "bbref";
+        const std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
+        const std::array<uint8_t, 32> hashed = crypto::Sha256Hasher::hash(message_bytes);
+        crypto::ecdsa_key_pair<FrNative, G1Native> account;
+        account.private_key = FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
+        account.public_key = G1Native::one * account.private_key;
+        const crypto::ecdsa_signature sig =
+            crypto::ecdsa_construct_signature<crypto::Sha256Hasher, FqNative, FrNative, G1Native>(message_string,
+                                                                                                  account);
+        const auto coord_bytes = [&](const FqNative& c) {
+            const uint256_t v(c);
+            std::vector<uint8_t> bytes(32);
+            for (size_t i = 0; i < 32; ++i) {
+                bytes[i] = static_cast<uint8_t>((v >> (8 * (31 - i))).data[0] & 0xffULL);
+            }
+            return stdlib::byte_array<Builder>(&b, bytes);
+        };
+        stdlib::byte_array<Builder> hashed_message(&b, std::vector<uint8_t>(hashed.begin(), hashed.end()));
+        Fq pub_x(coord_bytes(account.public_key.x));
+        Fq pub_y(coord_bytes(account.public_key.y));
+        G1 public_key(pub_x, pub_y, /*assert_on_curve=*/false);
+        stdlib::byte_array<Builder> r(&b, std::vector<uint8_t>(sig.r.begin(), sig.r.end()));
+        stdlib::byte_array<Builder> s(&b, std::vector<uint8_t>(sig.s.begin(), sig.s.end()));
+        bool_ct result =
+            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
+        result.assert_equal(bool_ct(true));
+    }
+
+    static void run(Builder& b, const std::string& name)
+    {
+        auto suffix = [&](const std::string& prefix) { return std::stoul(name.substr(prefix.size())); };
+        // Lookup and non-native-field programs: only builders with those gates (not the kernels) have them.
+        if constexpr (Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup)) {
+            if (name == "keccak_permutation") {
+                keccak_permutation(b);
+                return;
+            }
+            if (name == "logic_ops") {
+                logic_ops(b);
+                return;
+            }
+            if (name == "secp256r1_mul") {
+                secp256r1_mul(b);
+                return;
+            }
+            if (name == "ecdsa_r1") {
+                ecdsa_r1(b);
+                return;
+            }
+            if (name == "ecdsa_k1") {
+                ecdsa_k1(b);
+                return;
+            }
+            if (name.starts_with("blake2s_hash_")) {
+                blake2s_hash(b, suffix("blake2s_hash_"));
+                return;
+            }
+            if (name.starts_with("blake3_hash_")) {
+                blake3_hash(b, suffix("blake3_hash_"));
+                return;
+            }
+            if (name.starts_with("aes128_cbc_")) {
+                aes128_cbc(b, suffix("aes128_cbc_"));
+                return;
+            }
+            if (name == "biggroup_ops") {
+                biggroup_ops(b);
+                return;
+            }
+            if (name == "bigfield_ops") {
+                bigfield_ops(b);
+                return;
+            }
+            if (name == "row_disabling_fq") {
+                row_disabling_fq(b);
+                return;
+            }
+            if (name == "wnaf_range_fq") {
+                wnaf_range_fq(b);
+                return;
+            }
+            if (name == "sha256_block") {
+                sha256_block(b);
+                return;
+            }
+        }
+        if (name == "field_ops") {
+            field_ops(b);
+        } else if (name == "bool_ops") {
+            bool_ops(b);
+        } else if (name == "cycle_group_add") {
+            cycle_group_add(b);
+        } else if (name.starts_with("cycle_group_mul_witness")) {
+            cycle_group_mul_witness(b);
+        } else if (name.starts_with("cycle_group_mul_")) {
+            cycle_group_mul(b, suffix("cycle_group_mul_"));
+        } else if (name.starts_with("poseidon2_hash_")) {
+            poseidon2_hash(b, suffix("poseidon2_hash_"));
+        } else if (name == "transcript") {
+            transcript(b);
+        } else if (name.starts_with("goblin_batch_mul_")) {
+            goblin_batch_mul(b, suffix("goblin_batch_mul_"));
+        } else if (name.starts_with("aggregate_multiple_")) {
+            aggregate_multiple(b, suffix("aggregate_multiple_"));
+        } else if (name == "io_app_default") {
+            stdlib::recursion::honk::AppIO<Builder>::add_default(b);
+        } else if (name == "io_kernel_default") {
+            stdlib::recursion::honk::KernelIO<Builder>::add_default(b);
+        } else if (name == "io_hiding_default") {
+            stdlib::recursion::honk::HidingKernelIO<Builder>::add_default(b);
+        } else if (name == "kernel_io_set") {
+            kernel_io_set(b);
+        } else if (name == "hiding_io_set") {
+            hiding_io_set(b);
+        } else {
+            throw_or_abort("unknown stdlib program " + name);
+        }
+    }
+};
 
 TEST(BbRefDump, Stdlib)
 {
@@ -2037,11 +2058,11 @@ TEST(BbRefDump, Stdlib)
     if (flavor_early != nullptr && std::string(flavor_early) == "ultra") {
         UltraCircuitBuilder ultra_builder;
         if (std::string(program) == "biggroup_bn254_ops") {
-            stdlib_programs::biggroup_bn254_ops_t(ultra_builder);
+            StdlibPrograms<MegaAppCircuitBuilder>::biggroup_bn254_ops_t(ultra_builder);
         } else if (std::string(program) == "row_disabling_fq") {
-            stdlib_programs::row_disabling_fq_t(ultra_builder);
+            StdlibPrograms<MegaAppCircuitBuilder>::row_disabling_fq_t(ultra_builder);
         } else if (std::string(program) == "wnaf_range_fq") {
-            stdlib_programs::wnaf_range_fq_t(ultra_builder);
+            StdlibPrograms<MegaAppCircuitBuilder>::wnaf_range_fq_t(ultra_builder);
         } else {
             throw_or_abort("unknown ultra stdlib program " + std::string(program));
         }
@@ -2049,14 +2070,18 @@ TEST(BbRefDump, Stdlib)
         dump_from_builder<UltraFlavor>(ultra_builder, out);
         return;
     }
-    MegaCircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
-    stdlib_programs::run(builder, program);
-    ASSERT_FALSE(builder.failed()) << builder.err();
+    // Each flavor's circuits are built on its own builder (MegaKernel has no lookups).
+    auto dump = [&]<typename Flavor>() {
+        typename Flavor::CircuitBuilder builder{ std::make_shared<ECCOpQueue>() };
+        StdlibPrograms<typename Flavor::CircuitBuilder>::run(builder, program);
+        ASSERT_FALSE(builder.failed()) << builder.err();
+        dump_from_builder<Flavor>(builder, out);
+    };
     const char* flavor = std::getenv("BBREF_FLAVOR");
     if (flavor != nullptr && std::string(flavor) == "app") {
-        dump_from_builder<MegaAppFlavor>(builder, out);
+        dump.template operator()<MegaAppFlavor>();
     } else {
-        dump_from_builder<MegaKernelFlavor>(builder, out);
+        dump.template operator()<MegaKernelFlavor>();
     }
 }
 
@@ -2075,14 +2100,18 @@ TEST(BbRefDump, AcirMega)
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto bytecode = get_bytecode(program);
     acir_format::AcirProgram prog{ acir_format::circuit_buf_to_acir_format(std::move(bytecode), true), {} };
-    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(prog, acir_format::ProgramMetadata{});
+    auto dump = [&]<typename Flavor>() {
+        auto builder =
+            acir_format::create_circuit<typename Flavor::CircuitBuilder>(prog, acir_format::ProgramMetadata{});
+        dump_from_builder<Flavor>(builder, out);
+    };
     const std::string k(kind);
     if (k == "app") {
-        dump_from_builder<MegaAppFlavor>(builder, out);
+        dump.template operator()<MegaAppFlavor>();
     } else if (k == "kernel") {
-        dump_from_builder<MegaKernelFlavor>(builder, out);
+        dump.template operator()<MegaKernelFlavor>();
     } else {
-        dump_from_builder<MegaZKFlavor>(builder, out);
+        dump.template operator()<MegaZKFlavor>();
     }
 }
 
