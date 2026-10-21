@@ -531,9 +531,10 @@ docs-tests: docs
 docs-refs-check: labs-patched
 	$(call run_command,$@,$(ROOT)/docs,./scripts/check_doc_references.sh docs)
 
-# docs/ must track the labs gitlink, its l1-artifacts pin labs' BB_VERSION, and its Netlify build stay off.
+# docs/ must track the labs gitlink, its l1-artifacts pin labs' BB_VERSION, and its Netlify build stay off;
+# the release skills and the warnings scanner keep their own checks green.
 docs-sync-check: labs-patched
-	$(call run_command,$@,$(ROOT),./scripts/labs_docs_sync.test.sh && ./scripts/labs_docs_sync.sh check)
+	$(call run_command,$@,$(ROOT),./scripts/labs_docs_sync.test.sh && ./scripts/labs_docs_sync.sh check && ./scripts/labs_docs_skills.check.sh && ./scripts/labs_docs_skills.check.sh --self-test && ./scripts/labs_docs_warnings.sh --self-test)
 
 .PHONY: docs docs-tests docs-refs-check docs-sync-check
 

@@ -51,6 +51,7 @@ function test_cmds {
 
   local test_hash=$hash
   echo "$test_hash cd docs && yarn spellcheck"
+  echo "$test_hash cd docs && yarn test"
 
   # Delegate to examples for their test commands
   (cd examples && ./bootstrap.sh test_cmds)
