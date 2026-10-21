@@ -309,11 +309,11 @@ NODE
     yarn config set nodeLinker node-modules
     # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
     # with an empty yarn.lock that this install populates, so disable that.
-    # Without WEBAPP_TESTS this step only type-checks and runs `vite build`, so it
-    # skips puppeteer's Chrome download. Set here rather than in webapp-tutorial
-    # itself so users following the tutorial still get Chrome for `yarn test:e2e`.
+    # Only the e2e suite needs a browser, so other runs skip puppeteer's Chrome
+    # download. Set here rather than in webapp-tutorial itself so users following
+    # the tutorial still get Chrome for `yarn test:e2e`.
     local skip_chrome=(PUPPETEER_SKIP_DOWNLOAD=1)
-    [ "${WEBAPP_TESTS:-0}" = 1 ] && skip_chrome=()
+    [ "${WEBAPP_TESTS:-}" = e2e ] && skip_chrome=()
     env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
 
     # yarn's `link:` protocol creates portals into yarn-project/*, which require
@@ -341,10 +341,14 @@ NODE
 
     # The tests need the linked dependencies this subshell's EXIT trap removes. The e2e suite
     # serves the app on ports 4173 and 4174, expects a local network at localhost:8080, and runs
-    # the extension test in a headed browser (under Xvfb when there is no display).
-    if [ "${WEBAPP_TESTS:-0}" = 1 ]; then
-      echo_stderr "Running webapp-tutorial tests..."
+    # the extension test in a headed browser (under Xvfb when there is no display), so it is run
+    # by hand (test-webapp-e2e) and not from test_cmds.
+    if [ -n "${WEBAPP_TESTS:-}" ]; then
+      echo_stderr "Running webapp-tutorial unit tests..."
       yarn test:unit
+    fi
+    if [ "${WEBAPP_TESTS:-}" = e2e ]; then
+      echo_stderr "Running webapp-tutorial e2e tests..."
       yarn build:test-extension
       if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null; then
         xvfb-run -a yarn test:e2e
@@ -421,6 +425,7 @@ function test_cmds {
   # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
   echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
+  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
 }
 
 function test {
@@ -517,7 +522,10 @@ case "$cmd" in
     test-contracts
     ;;
   test-webapp)
-    WEBAPP_TESTS=1 validate-webapp-tutorial
+    WEBAPP_TESTS=unit validate-webapp-tutorial
+    ;;
+  test-webapp-e2e)
+    WEBAPP_TESTS=e2e validate-webapp-tutorial
     ;;
   *)
     default_cmd_handler "$@"
