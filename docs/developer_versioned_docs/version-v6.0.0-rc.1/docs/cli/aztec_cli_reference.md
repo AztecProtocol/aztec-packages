@@ -65,7 +65,7 @@ sidebar_position: 1
   - [aztec test](#aztec-test)
   - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
   - [aztec update](#aztec-update)
-  - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
+  - [aztec validator-keys|valKeys](#aztec-validator-keysvalkeys)
   - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
 ## aztec
 
@@ -1367,7 +1367,7 @@ aztec setup-protocol-contracts [options]
   *Environment: `$SEQ_MIN_PEERS_TO_PROPOSE`*
 
 - `--sequencer.txPublicSetupAllowListExtend <value>`
-  Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+  Additional entries to extend the default setup allow list. Format: I:address\:selector[:flags],C:classId\:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
   *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
 
 - `--sequencer.keyStoreDirectory <value>`

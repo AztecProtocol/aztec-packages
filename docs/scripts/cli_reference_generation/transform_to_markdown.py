@@ -9,6 +9,7 @@ Usage:
 
 import json
 import argparse
+import re
 from typing import Dict, Any, List
 from pathlib import Path
 import importlib.util
@@ -104,8 +105,8 @@ class MarkdownGenerator:
         return "\n".join(lines)
 
     def slugify(self, text: str) -> str:
-        """Convert text to a markdown-friendly anchor."""
-        return text.lower().replace(' ', '-').replace('/', '-')
+        """Convert text to the anchor Docusaurus (github-slugger) gives the matching heading."""
+        return re.sub(r'[^\w\- ]', '', text.lower()).replace(' ', '-')
 
     def escape_html_entities(self, text: str) -> str:
         """Escape HTML-like syntax and MDX special characters to prevent parsing errors."""
@@ -114,6 +115,9 @@ class MarkdownGenerator:
         text = text.replace('<', '&lt;').replace('>', '&gt;')
         # Escape curly braces to prevent MDX from treating them as JSX expressions
         text = text.replace('{', '\\{').replace('}', '\\}')
+        # `:name[...]` parses as a text directive (`I:address:selector[:flags]`), which drops the name
+        # and renders the label as a <div>
+        text = re.sub(r':(?=[A-Za-z][\w-]*\[)', r'\\:', text)
         return text
 
     def generate_command_docs(self, cmd_name: str, cmd_data: Dict[str, Any], depth: int = 1) -> str:
