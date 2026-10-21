@@ -65,8 +65,12 @@ contract EscapeHatchBase is TestBase {
 
   function setUp() public virtual {
     // Deploy rollup with simple config
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
-      .setEpochDuration(4).setSlotDuration(12).setLagInEpochsForRandao(_lagInEpochsForRandao());
+    RollupBuilder builder = new RollupBuilder(address(this))
+      .setSlashingQuorum(1)
+      .setSlashingRoundSize(1)
+      .setEpochDuration(4)
+      .setSlotDuration(12)
+      .setLagInEpochsForRandao(_lagInEpochsForRandao());
     builder.deploy();
 
     Config memory rollupConfig = builder.getConfig();

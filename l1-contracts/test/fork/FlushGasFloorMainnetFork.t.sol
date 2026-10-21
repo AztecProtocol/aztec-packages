@@ -58,8 +58,12 @@ contract FlushGasFloorMainnetForkTest is TestBase {
 
     // A Rollup from this source on top of the live GSE and token. No test governance or registry wiring: the GSE
     // keeps its live owner and Governance, and only gains this Rollup as its latest instance.
-    RollupBuilder b = new RollupBuilder(address(this)).setTestERC20(TestERC20(address(AZTEC))).setGSE(LIVE_GSE)
-      .setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false)
+    RollupBuilder b = new RollupBuilder(address(this))
+      .setTestERC20(TestERC20(address(AZTEC)))
+      .setGSE(LIVE_GSE)
+      .setMakeCanonical(false)
+      .setMakeGovernance(false)
+      .setUpdateOwnerships(false)
       .setStakingQueueConfig(
         StakingQueueConfig({
           bootstrapValidatorSetSize: 0,
@@ -68,7 +72,8 @@ contract FlushGasFloorMainnetForkTest is TestBase {
           normalFlushSizeQuotient: 400,
           maxQueueFlushSize: 4
         })
-      ).deploy();
+      )
+      .deploy();
     rollup = IInstance(address(b.getConfig().rollup));
     vm.prank(LIVE_GSE.owner());
     LIVE_GSE.addRollup(address(rollup));
@@ -111,8 +116,7 @@ contract FlushGasFloorMainnetForkTest is TestBase {
         } else {
           assertEq(rollup.getActiveAttesterCount(), active, "active count changed on revert");
           assertEq(rollup.getEntryQueueLength(), queued, "queue changed on revert");
-          bool known =
-            ret.length == 0 || bytes4(ret) == Errors.Staking__InsufficientFlushGas.selector
+          bool known = ret.length == 0 || bytes4(ret) == Errors.Staking__InsufficientFlushGas.selector
             || bytes4(ret) == Errors.Staking__DepositOutOfGas.selector;
           assertTrue(known, "unexpected revert data");
           revertedRuns++;

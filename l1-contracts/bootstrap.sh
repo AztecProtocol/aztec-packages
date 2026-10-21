@@ -64,10 +64,9 @@ function build_src {
     # Clean
     rm -rf broadcast cache out serve
 
-    # Install
-    forge install
-
-    # Ensure libraries are at the correct version
+    # Check out the libraries at the revisions this repository records. `forge install` is not used for
+    # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
+    # names a revision that a shallow clone does not have.
     git submodule update --init --recursive ./lib
 
     # Compile contracts
@@ -107,6 +106,11 @@ function build_verifier {
       test/shouting.t.sol \
       script/deploy/*.s.sol \
       test/script/*.t.sol
+
+    # Leave the artifact set fully built so `forge test` has nothing left to compile. When forge
+    # incrementally compiles a handful of leftover files on top of an explicit-path build, the
+    # resulting artifacts are inconsistent and the Rollup-deploying suites revert in setUp.
+    forge build
 
     cache_upload $artifact out cache generated
   fi

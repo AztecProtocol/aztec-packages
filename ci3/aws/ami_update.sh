@@ -7,11 +7,11 @@ arch=${ARCH:-$(arch)}
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-    [ "${NO_TERMINATE:-0}" -eq 0 ] && aws_terminate_instance $iid $sir
+    [ "${NO_TERMINATE:-0}" -eq 0 ] && aws_terminate_instance $state_dir
 }
 
-if [ ! -f $HOME/.aws/build_instance_credentials ]; then
-  echo "You need the build instance credentials located at: $HOME/.aws/build_instance_credentials"
+if ! aws sts get-caller-identity > /dev/null 2>&1; then
+  echo "AWS CLI credentials for the CI account are required (aws sts get-caller-identity failed)."
   exit 1
 fi
 
@@ -27,13 +27,12 @@ case "$arch" in
     exit 1
 esac
 
-# Request new instance (ami: ubuntu 24.04 LTS).
-ip_sir=$(AMI=$ami aws_request_instance ami_update_$arch 4 $arch)
-parts=(${ip_sir//:/ })
-ip="${parts[0]}"
-sir="${parts[1]}"
-iid="${parts[2]}"
+# Request new instance (ami: ubuntu 24.04 LTS). SSH mode: the setup below is driven over ssh.
+state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
 trap on_exit EXIT
+AMI=$ami KEY_NAME=${KEY_NAME:-build-instance} aws_request_instance ami_update_$arch 4 $arch $state_dir
+ip=$(cat $state_dir/ip)
+iid=$(cat $state_dir/iid | tr -d '\n\r' | xargs)
 
 echo "Instance ip: $ip"
 
@@ -55,8 +54,8 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip 'export CRS_FORMAT=uncompr
 
 # Pull devbox onto host, and build into docker-in-docker volume.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip "
-  docker run --privileged --rm -v bootstrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.0 bash -c \"
-    docker pull aztecprotocol/build:3.0
+  docker run --privileged --rm -v bootstrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.1 bash -c \"
+    docker pull aztecprotocol/build:3.1
   \"
 "
 

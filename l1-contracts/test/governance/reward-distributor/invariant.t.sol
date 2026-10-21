@@ -218,8 +218,7 @@ contract RewardDistributorInvariantTest is RewardDistributorBase {
   // The headline behavioural promise of the canonical inheritance design.
   function invariant_canonicalAvailableMatchesIdentity() external view {
     address canonical = rewardDistributor.canonicalRollup();
-    uint256 expected =
-      token.balanceOf(address(rewardDistributor)) - rewardDistributor.totalEarmarkedBalance()
+    uint256 expected = token.balanceOf(address(rewardDistributor)) - rewardDistributor.totalEarmarkedBalance()
       + rewardDistributor.specificRecipientBalance(canonical);
     assertEq(rewardDistributor.availableTo(canonical), expected);
   }

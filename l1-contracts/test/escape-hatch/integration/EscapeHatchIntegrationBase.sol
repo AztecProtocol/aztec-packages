@@ -245,7 +245,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       AttestationLib.getAttestationsAndSignersDigest(
         AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
       )
-    ).signature;
+    )
+    .signature;
 
     // Propose the checkpoint
     proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = proposeArgs.header;
