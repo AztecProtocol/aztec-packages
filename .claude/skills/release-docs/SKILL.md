@@ -322,7 +322,7 @@ network config follows the same rule.
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT/docs"
 docs_env yarn generate:aztec-nr-api <new_version>
 docs_env yarn generate:typescript-api <new_version>
-docs_env ./scripts/aztecjs_reference_generation/update_docs.sh current
+docs_env yarn generate:aztecjs-reference
 ```
 
 This writes:
@@ -346,14 +346,16 @@ The scripts scrape `--help` from the installed CLI, so it must be the release (S
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT/docs"
 docs_env aztec_cli ./scripts/cli_reference_generation/generate_all_cli_docs.sh --force current
-grep -rnE '/home/|/Users/' docs-developers/docs/cli/
+grep -rnE '/home/|/Users/' docs-developers/docs/cli/ docs-operate/operators/reference/cli-reference.md
 ```
 
 This updates `aztec_cli_reference.md`, `aztec_wallet_cli_reference.md` and
-`aztec_up_cli_reference.md` in `docs/docs-developers/docs/cli/`. Do not hand-edit them,
-with one exception: `--help` prints defaults derived from `$HOME` (`aztec-wallet
---data-dir` shows `(default: "<home>/.aztec/wallet")`), so the scrape contains
-`$CLI_HOME`. Normalise those paths to `~/.aztec/...`; the grep must then print nothing.
+`aztec_up_cli_reference.md` in `docs/docs-developers/docs/cli/`, and the operators'
+`aztec start` reference `docs/docs-operate/operators/reference/cli-reference.md`. Do not
+hand-edit them, with one exception: `--help` prints defaults derived from `$HOME`
+(`aztec-wallet --data-dir` shows `(default: "<home>/.aztec/wallet")`), so the scrape
+contains `$CLI_HOME`. Normalise those paths to `~/.aztec/...`; the grep must then print
+nothing.
 
 ### Step 7b: Generate Node API Reference Docs
 
@@ -674,8 +676,9 @@ versions the Foundation. All three must hold:
 
 **Owner approval required.** If any check fails, stop and report which. The page must
 land on the destination first (`/updating-changelog`, or by hand from the commit range),
-through a PR the owner opens and merges; then restart from Step 2 so the cut picks it up.
-Do not cut around it, and do not write it only into the cut.
+through a PR the owner opens and merges; then restart from Step 2 (the destination has
+moved), and Step 12 carries the page into the snapshot. Do not cut around it, and do not
+write it only into the cut.
 
 ### Step 11: Cut Versioned Docs
 
@@ -869,14 +872,16 @@ so the last grep prints nothing. Fix and iterate:
   `docs/scripts/` per Step 12 item 4. `sed --version` fails on BSD.
 - **`rc` tags can be mainnet.** The API generators fall back to `testnet` for `rc` strings
   without `RELEASE_TYPE`; `docs_env` sets it.
-- **viem is versioned off the release line.** The packages depend on upstream `viem`, which
-  has no `6.0.0-rc.1`-style version; examples not yet migrated import the
-  `@aztec/viem@2.38.2` fork. Never rewrite either pin to the release version; CI will not
-  catch it (the import type-checks against the linked workspace). Tutorials whose code
-  imports viem (token, aave and uniswap bridges) list it at its own version:
+- **viem is versioned off the release line.** The tag's packages pin either the
+  `@aztec/viem` fork (`"viem": "npm:@aztec/viem@2.38.3"` at `v6.0.0-rc.3`) or upstream
+  `viem` (`2.57.1` on later aztec-node), neither with a `6.0.0-rc.1`-style version. Never
+  rewrite a viem pin to the release version; CI will not catch it (the import type-checks
+  against the linked workspace). Tutorials whose code imports viem (token, aave and uniswap
+  bridges) list the package and version the tag's packages use:
 
   ```bash
-  grep -rh '"viem": "' ~/.cache/aztec-docs-cut/v<new_version>/worktree/labs/yarn-project/*/package.json | head -1
+  grep -rh '"viem": "' ~/.cache/aztec-docs-cut/v<new_version>/worktree/labs/yarn-project/*/package.json | sort -u
+  grep -rnE '(@aztec/)?viem@[0-9]' ~/.cache/aztec-docs-cut/v<new_version>/worktree/docs/docs-developers/docs/tutorials/
   ```
 
 ### Step 14: Review Getting Started Page
