@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 14:39:41 +0000
+Subject: [PATCH] fix(foundation): bump supertest to 7.1 for Node 26
+
+On Node 26, supertest 6 resets the second of two concurrent requests
+(read ECONNRESET), which fails the manual batching tests in
+safe_json_rpc_client.test.ts. supertest 7.1.0 and later handle it, on
+Node 24 as well.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
+
+diff --git a/yarn-project/foundation/package.json b/yarn-project/foundation/package.json
+index 50886664b3e554d48e9366bbf3ab3ea5a083feb1..50592fca7349e33aeea590b3eb8eec281a56a5ab 100644
+--- a/yarn-project/foundation/package.json
++++ b/yarn-project/foundation/package.json
+@@ -196,7 +196,7 @@
+     "globals": "^16.1.0",
+     "jest": "^30.0.0",
+     "prettier": "^3.5.3",
+-    "supertest": "^6.3.3",
++    "supertest": "^7.1.0",
+     "ts-node": "^10.9.1",
+     "typescript": "^5.3.3",
+     "typescript-eslint": "^8.32.1",
+diff --git a/yarn-project/yarn.lock b/yarn-project/yarn.lock
+index f3b1bd1dadbb21a3f7bb0349aebae010ea434490..177ceaa85180e6b5c889b71aaffa2c8da60e095c 100644
+GIT binary patch
+delta 1066
+zcmZ`&O=z4&7-n~~`)xa|`PprPY1(c#MQSwbH~%x6LsRh3L+Pb$ih`l@TUN8X$tLYd
+z3D`q&Ht4G$sCbhqUi3pO)}seO5wRB!p4y8xh$j(>lY@9sW?pz_-sgE?o_XH)UdKP*
+z#-D!wXzztD(BAInbMSbjG<UnPzth++6^;G!%cm>2!{PjRWu|y-qVmJi2{STlYhlfg
+zdbh%J?q<)E<-vNtyGlA~!Q&6>^RvtA{{td0@n(4rzOGi9<y8zH%#TfPE1{%S8vE#t
+zXDniBh!dJn5;S*)$Pi<6%2Fw~l8zi;F|#<&4bQpCRgfm~Xf4N%;+*E3IzgooB4?3n
+zm8yn@pezg68s?~yj0EeMw9F{BH|j6!T)J3EF;-l<Se?Avc(&z+{q^A>47L_Szqhp&
+zM)1pK^>{I?*Up@rIw%ic>4nA3-i?9Tx;YB)-6rb5R|~aTardd(^W6&V$l~|wwJU!V
+zUtY~Fm*A7D+2jOkcMrE(x58+%Hym_Z6y85I)`b3*Y`m26leO71?f(+4-EFo16}S!c
+zmFyJ!*vyW>xA*Etx0zr(2p6bV)`sY*_exUlydW4;LA;?hDw8v(7!h7Z#+f5j*^pyK
+zwB#`-fm?5#)FgWAi49EC=w0NDk(gj!8^VP3%BAZhx73m<qH~vYhDlvsDA2X+o6E5C
+zR`o3W^-+f4!LdWrJF|DP6!jE`irG7dS9U@ETAP74Uad6XZHC6nIET~EWV7%{pcC-Y
+z$K?zjFtk{buq@Ge*nhE_&BWoT-}A<<g@06_9o}JpC$c6S)#wP^lW4xgpmZZ^Zo4R*
+ziaE8+Qb(NUSaTn&KJbI)+6BQ`;NHrhs7SBRBaO;q!I+mO`A~BqHKUeGOE?kHB?(pJ
+z5-V#g=9FMTed1tlywHY+WS|44v)rcMdsDkl!*zxxigyK?Di?ohbgl%yY4ilFY-A01
+z=OJpqPbwWhdx(xhdpw&NTg7Q;HaKd-lNwExFl?MHPj3gKf?>g7t-O|A%Jgwq5t%G3
+zgJVHP;*7S0N<}ay$>`3Jm@DQ@lp0HlIj1JiL$JYVVGNf#O-<Uy2*pjJMa@!g<^(fZ
+gSW6VoWwe|a&OD5ED+|y%hZ;K<mQZnF>B#-+-=l~^;{X5v
+
+delta 890
+zcmY*XJ&2t}6y?2__g?Z%bocG9KLLqrEV6FGWB%vfHDWA86k{;KkjgN3el!+YqD!LH
+zLQ*_!Y*a2*TBH%T2uSz}Z7j4?#Ky)#yHu`VFV2dM#hKv_Gxwf3=lptGeRfOT{ppX9
+zpBtWC7@WPmy1!W6AM~sH!?&L3d3p5n(~EoOMh%Dhd*{Z>-|*4VXoc^8Je>8DZZbR0
+zr*95d_=_De<142p6P}-(%-C?Z*5BHgJigU`MU&_M;_uH-AK?c-?`FJyX}UDjbAIl^
+zkz@SQrRfH5elQWdc(`4-2I9$Ga0+CR)~o7W@ikD8)@g89i%Levh#_i}NvCK`l``dI
+zjIyp&YismCl#tNGs#9Bni6v-XY^!Vt$$N##Vl}NKi)d^?3rYt^fo$sd&Yf<fzyI1a
+z4f?MyPrtj!FZ|eTOx`T-ZePuO{p8`tcC`+QfIP{fOeGgpNvQ@at23zp#o_@INJ5K1
+z;B2xsRLlu&4X&{)G8gG>lEr#2OUhIupw&d0JYq04Cz2o)G)j($ti)(iP*q{Jyt;qr
+zsm0FTwBc~Wk$z{d`||xYn5(%yvDK}w-zaatb9MXL);jRF?~T`Z8^xGkaiSZ-f5I<<
+z*c<7&;=i}V3BC+sllk@L>kog9ru@c-;(=XbvXns==@i9^DuwJpnYK$0I!f<k&Wf@m
+z$d!BrD2{S%yme8Kk|wL8Z@ODDx@Id~OrBD8HM{0Q(LPXZM(YTvxDXX6?;~at15_72
+zc~zX^Wha(;7sSf&(U#A-`Tyq*jx1k6as1!(UWe&1{uITj0r2k^M-T0yk;)m>x<!-*
+z0hNo==wL%rIAe*aVk}fr3sKWqnL=$okjVt5RtuG?KX|MwI_+J66pK6PNwNkXO~^%I
+vP*zDJGdQ2gnxJA(EgimmG<$iImz)^)&!Bj5z`s2!mKWnQq930*`pftqkv;=-
+
