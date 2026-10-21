@@ -71,6 +71,8 @@ interface Args {
   packageIpcPathArgs: string;
   packageWasmModule: string;
   packageWasmThreadsModule: string;
+  packageWasmWideModule: string;
+  packageWasmWideThreadsModule: string;
   ipcRuntimeDependency: string;
   cppNamespace: string;
   cppWireNamespace: string;
@@ -110,6 +112,10 @@ Optional:
                            WebAssembly.compileStreaming and cached by the browser
   --package-wasm-threads-module <file>
                            wasm transport: the threads module, shipped in wasm/
+  --package-wasm-wide-module <file>, --package-wasm-wide-threads-module <file>
+                           wasm transport: wide-arithmetic builds of the two, shipped
+                           in wasm/ and run instead where the engine supports the
+                           proposal
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -145,6 +151,8 @@ function parseArgs(argv: string[]): Args {
     packageIpcPathArgs: "--socket,{path}",
     packageWasmModule: "",
     packageWasmThreadsModule: "",
+    packageWasmWideModule: "",
+    packageWasmWideThreadsModule: "",
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
@@ -207,6 +215,12 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--package-wasm-threads-module":
         args.packageWasmThreadsModule = takeValue();
+        break;
+      case "--package-wasm-wide-module":
+        args.packageWasmWideModule = takeValue();
+        break;
+      case "--package-wasm-wide-threads-module":
+        args.packageWasmWideThreadsModule = takeValue();
         break;
       case "--ipc-runtime-dependency":
         args.ipcRuntimeDependency = takeValue();
@@ -545,6 +559,8 @@ function generate(args: Args) {
               .filter(Boolean),
             wasmModule: args.packageWasmModule || undefined,
             wasmThreadsModule: args.packageWasmThreadsModule || undefined,
+            wasmWideModule: args.packageWasmWideModule || undefined,
+            wasmWideThreadsModule: args.packageWasmWideThreadsModule || undefined,
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());
