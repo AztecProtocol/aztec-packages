@@ -36,26 +36,40 @@ _extract_from_directory() {
   local output_file="$2"
 
   find "$search_dir" -type f \( -name "*.md" -o -name "*.mdx" \) -print0 | while IFS= read -r -d '' doc_file; do
+    # The references array may span lines (`references:` then `[`, one path per line, `]`).
     awk -v doc="$doc_file" '
-      BEGIN { in_frontmatter = 0 }
+      function emit(refs,   arr, i, n, path) {
+        gsub(/[\[\]"'\''"]/, "", refs)
+        n = split(refs, arr, /,/)
+        for (i = 1; i <= n; i++) {
+          path = arr[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", path)
+          if (path != "") {
+            print path "|" doc
+          }
+        }
+      }
+      BEGIN { in_frontmatter = 0; collecting = 0 }
       /^---$/ {
         if (NR == 1) {
           in_frontmatter = 1
         } else if (in_frontmatter) {
           in_frontmatter = 0
+          collecting = 0
         }
         next
       }
       in_frontmatter && /^references:/ {
-        if (match($0, /\[.*\]/)) {
-          refs = substr($0, RSTART, RLENGTH)
-          gsub(/[\[\]"'\''"]/, "", refs)
-          split(refs, arr, /,[ ]*/)
-          for (i in arr) {
-            if (arr[i] != "") {
-              print arr[i] "|" doc
-            }
+        collecting = 1
+        buf = ""
+      }
+      in_frontmatter && collecting {
+        buf = buf " " $0
+        if (index($0, "]")) {
+          if (match(buf, /\[.*\]/)) {
+            emit(substr(buf, RSTART, RLENGTH))
           }
+          collecting = 0
         }
       }
     ' "$doc_file"

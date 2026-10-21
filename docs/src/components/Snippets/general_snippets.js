@@ -139,9 +139,11 @@ export const Gas_Settings = () => (
 );
 
 export const Gas_Settings_Components = () => (
-  <p>
-    The <code>Gas</code> and <code>GasFees</code> types each specify Data
-    availability and L2 cost components, so the settings are:
+  <>
+    <p>
+      The <code>Gas</code> and <code>GasFees</code> types each specify Data
+      availability and L2 cost components, so the settings are:
+    </p>
     <ul>
       <li>
         gasLimits: total DA and L2 gas limits for the transaction, covering all
@@ -155,7 +157,7 @@ export const Gas_Settings_Components = () => (
       <li>maxFeesPerGas: maximum DA and L2 fees-per-gas</li>
       <li>maxPriorityFeesPerGas: maximum priority DA and L2 fees-per-gas</li>
     </ul>
-  </p>
+  </>
 );
 
 export const Spec_Placeholder = () => (

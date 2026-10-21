@@ -26,10 +26,10 @@ This project uses Yarn 4.13.0 as specified in the `packageManager` field of pack
 - `yarn generate:aztec-nr-api` - Generate Aztec.nr API docs (requires `nargo`)
 - `yarn generate:aztec-nr-api v1.0.0` - Generate for a specific version
 - `RELEASE_TYPE=mainnet yarn generate:aztec-nr-api v4.2.0` - Generate with explicit release type
-- `yarn generate:typescript-api` - Generate TypeScript API docs (requires yarn-project to be built)
+- `yarn generate:typescript-api` - Generate TypeScript API docs (requires labs/yarn-project to be built)
 - `yarn generate:typescript-api v3.0.0-devnet.6` - Generate for a specific version
 - `RELEASE_TYPE=mainnet yarn generate:typescript-api v4.2.0` - Generate with explicit release type
-- `yarn generate:node-api-reference` - Generate Node JSON-RPC API reference (requires yarn-project source files and yarn-project/node_modules; no build needed)
+- `yarn generate:node-api-reference` - Generate Node JSON-RPC API reference (requires labs/yarn-project source files and labs/yarn-project/node_modules; no build needed)
 - `yarn generate:node-api-reference --target-dir <dir>` - Generate into a specific versioned docs directory
 
 The `RELEASE_TYPE` env var overrides version string pattern matching for output folder selection. This is useful when the version string doesn't self-identify its release type.
@@ -135,8 +135,8 @@ This site uses **Docusaurus multi-instance docs** with independent versioning:
 
 Two API reference systems generate documentation from source code:
 
-- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from `noir-projects/aztec-nr/` using `nargo doc`
-- **TypeScript API** (`static/typescript-api/`) - Generated from `yarn-project/` packages using TypeDoc
+- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from `labs/noir-projects/aztec-nr/` using `nargo doc`
+- **TypeScript API** (`static/typescript-api/`) - Generated from `labs/yarn-project/` packages using TypeDoc
 
 The TypeScript API generation is configured in `scripts/typescript_api_generation/config.json` and documents:
 
@@ -162,7 +162,7 @@ The `examples/` directory contains runnable code examples that are included in d
 
 **Validation (type-checking)**: `examples/bootstrap.sh` compiles Noir circuits, Noir contracts, Solidity, and type-checks TypeScript examples. This runs on every PR.
 
-The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its pin in `package.json` must equal `BB_VERSION` in `labs-aztec-toolchain/bootstrap.sh` - bumping one without the other fails CI (`check_pin_drift`).
+The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its pin in `package.json` must equal `BB_VERSION` in `labs/labs-aztec-toolchain/bootstrap.sh` - bumping one without the other fails `scripts/labs_docs_sync.sh check` (run from the repository root).
 
 **Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
 
