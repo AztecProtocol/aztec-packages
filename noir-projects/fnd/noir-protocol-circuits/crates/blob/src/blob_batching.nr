@@ -366,7 +366,7 @@ mod tests {
         assert_eq(final_acc.z, final_challenges.z);
         assert_eq(
             output.gamma_pow_acc,
-            final_challenges.gamma.__pow(BLS12_381_Fr::from(num_blobs as Field)),
+            final_challenges.gamma.__pow(&BLS12_381_Fr::from(num_blobs as Field)),
         );
 
         let expected_y = BLS12_381_Fr::from_limbs(y_limbs_3_blobs_from_ts);

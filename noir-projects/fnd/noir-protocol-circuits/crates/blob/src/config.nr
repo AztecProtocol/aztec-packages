@@ -20584,7 +20584,7 @@ mod tests {
         let mut current_power = BLS12_381_Fr::one();
         for i in 0..FIELDS_PER_BLOB {
             powers[i] = current_power;
-            current_power = current_power.__mul(x);
+            current_power = current_power.__mul(&x);
         }
         powers
     }
@@ -20594,7 +20594,7 @@ mod tests {
         // let order: F = BigNum { limbs: [ FIELDS_PER_BLOB, 0, 0 ];
         // let exp = BLS_MODULUS_SUB_1.udiv_mod(order);
         // let exp: F = BigNum { limbs: [ 0x553bda402fffe5bfeffffffff00000, 0x3eda753299d7d483339d80809a1d80, 0x000007 ] }; // (MODULUS - 1) // 4096
-        // let root_of_unity = PRIMITIVE_ROOT_OF_UNITY.__pow(exp);
+        // let root_of_unity = PRIMITIVE_ROOT_OF_UNITY.__pow(&exp);
         let root_of_unity = BLS12_381_Fr::from_limbs([
             0xd1347b378fbf96e206da11a5d36306,
             0x0a11a0f704f4fc3e8acfe0f8245f0a,
