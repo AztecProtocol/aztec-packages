@@ -9,9 +9,13 @@ resolves inside the barretenberg/ts workspace, and bb.js-api carries four
 per-arch optional dependencies that are not published. use-local has to portal
 all five or `yarn install` fails with "Workspace not found", so pin them the way
 bb-avm-sim's family is already pinned.
+---
+ labs-aztec-toolchain/pins.mjs | 9 +++++++++
+ yarn-project/package.json     | 5 +++++
+ 2 files changed, 14 insertions(+)
 
 diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
-index a949edd98067d2db3d90ec56b1384dc14712884b..1681251964fddc33a3797200a3a745dc976915da 100755
+index e510068f..6820997b 100755
 --- a/labs-aztec-toolchain/pins.mjs
 +++ b/labs-aztec-toolchain/pins.mjs
 @@ -63,6 +63,15 @@ const LOCAL_PACKAGES = {
@@ -31,18 +35,21 @@ index a949edd98067d2db3d90ec56b1384dc14712884b..1681251964fddc33a3797200a3a745dc
    "@aztec-foundation/constants-codegen": "portal:protocol/constants-codegen",
    "@aztec-foundation/ipc-runtime": "portal:ipc-runtime/ts",
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index dd9af8f3625816c6ea09a5a196aed410a210d6cd..4f8e92c90b42e7fa8986170d9df21fa0dbe29377 100644
+index 48db8124..ee783a94 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
 @@ -90,6 +90,11 @@
-     "@aztec-foundation/bb-avm-sim-linux-arm64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/bb-avm-sim-linux-x64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/bb.js": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/bb.js-api": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/bb.js-api-darwin-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/bb.js-api-darwin-x64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/bb.js-api-linux-arm64": "6.0.0-nightly.20260923",
-+    "@aztec-foundation/bb.js-api-linux-x64": "6.0.0-nightly.20260923",
-     "@aztec-foundation/cdb": "6.0.0-nightly.20260923",
-     "@aztec-foundation/constants-codegen": "6.0.0-nightly.20260923",
-     "@aztec-foundation/ipc-runtime": "6.0.0-nightly.20260923",
+     "@aztec-foundation/bb-avm-sim-linux-arm64": "6.0.0-rc.7",
+     "@aztec-foundation/bb-avm-sim-linux-x64": "6.0.0-rc.7",
+     "@aztec-foundation/bb.js": "6.0.0-rc.7",
++    "@aztec-foundation/bb.js-api": "6.0.0-rc.7",
++    "@aztec-foundation/bb.js-api-darwin-arm64": "6.0.0-rc.7",
++    "@aztec-foundation/bb.js-api-darwin-x64": "6.0.0-rc.7",
++    "@aztec-foundation/bb.js-api-linux-arm64": "6.0.0-rc.7",
++    "@aztec-foundation/bb.js-api-linux-x64": "6.0.0-rc.7",
+     "@aztec-foundation/cdb": "6.0.0-rc.7",
+     "@aztec-foundation/constants-codegen": "6.0.0-rc.7",
+     "@aztec-foundation/ipc-runtime": "6.0.0-rc.7",
+-- 
+2.43.0
+
