@@ -132,7 +132,10 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   markdownContent = markdownContent.replaceAll(`#release_network`, releaseNetwork);
   markdownContent = markdownContent.replaceAll(`#api_ref_version`, apiRefVersion);
   if (markdownContent.includes("#include_foundation_version")) {
-    markdownContent = markdownContent.replaceAll("#include_foundation_version", foundationVersion());
+    const foundation = foundationVersion();
+    // The prefixless name first: the other macro is a prefix of it.
+    markdownContent = markdownContent.replaceAll("#include_foundation_version_without_prefix", foundation.slice(1));
+    markdownContent = markdownContent.replaceAll("#include_foundation_version", foundation);
   }
 
   // Step 3: Replace existing macros (backwards compatibility)

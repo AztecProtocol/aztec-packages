@@ -137,6 +137,15 @@ describe("preprocessIncludeVersion", () => {
         assert.strictEqual(content, `blob/v${installed}/l1-contracts`);
       });
     });
+
+    it("#include_foundation_version_without_prefix drops the v", async () => {
+      setEnv({ RELEASE_TYPE: "testnet" });
+      const { content } = await preprocessIncludeVersion(
+        "l1-artifacts@#include_foundation_version_without_prefix #include_foundation_version",
+        "test.md",
+      );
+      assert.strictEqual(content, `l1-artifacts@${installed} v${installed}`);
+    });
   });
 
   describe("#api_ref_version macro", () => {

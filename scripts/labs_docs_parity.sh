@@ -62,7 +62,7 @@ done
 find "$tmp/oracle/docs" \( -path "$tmp/oracle/docs/docs/*" -o -path "$tmp/oracle/docs/docs-*/*" \) \
   -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.json' \) -print0 |
   FOUNDATION_VERSION=$foundation_version xargs -0 perl -pi -e \
-    's{^(?!<!--)(.*#include_code\s+\S+\s+/?)labs/}{$1}; s{#include_foundation_version}{$ENV{FOUNDATION_VERSION}}g'
+    's{^(?!<!--)(.*#include_code\s+\S+\s+/?)labs/}{$1}; s{#include_foundation_version(_without_prefix)?}{$1 ? substr($ENV{FOUNDATION_VERSION}, 1) : $ENV{FOUNDATION_VERSION}}ge'
 # The examples are content as well, so an intentional edit to one renders the same on both sides;
 # only their paths into labs/ (../../labs/noir-projects/...) change with the layout.
 rm -rf "${tmp:?}/oracle/docs/examples"

@@ -53,12 +53,12 @@ Note the `registryAddress` from the output.
 
 ## Step 2: Download the l1-contracts bundle
 
-The [`@aztec-foundation/l1-artifacts`](https://www.npmjs.com/package/@aztec-foundation/l1-artifacts) npm package bundles a self-contained Foundry project with the L1 contract sources, prebuilt artifacts, deploy scripts, and governance payload contracts. Download the version matching your Aztec installation (run `aztec --version` to find it):
+The [`@aztec-foundation/l1-artifacts`](https://www.npmjs.com/package/@aztec-foundation/l1-artifacts) npm package bundles a self-contained Foundry project with the L1 contract sources, prebuilt artifacts, deploy scripts, and governance payload contracts. Download the release this version of Aztec builds against:
 
 ```bash
-npm pack @aztec-foundation/l1-artifacts@#release_version
+npm pack @aztec-foundation/l1-artifacts@#include_foundation_version_without_prefix
 mkdir l1-contracts
-tar xzf aztec-foundation-l1-artifacts-#release_version.tgz --strip-components=2 -C l1-contracts package/l1-contracts
+tar xzf aztec-foundation-l1-artifacts-#include_foundation_version_without_prefix.tgz --strip-components=2 -C l1-contracts package/l1-contracts
 cd l1-contracts
 ```
 

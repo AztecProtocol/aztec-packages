@@ -74,7 +74,7 @@ The preprocessing system uses these environment variables:
 
 **Foundation macro:**
 
-- `#include_foundation_version` - `v<installed @aztec-foundation/l1-artifacts version>`; use it for links and Nargo dependencies into aztec-packages' own code (`l1-contracts/`, `barretenberg/`)
+- `#include_foundation_version` - `v<installed @aztec-foundation/l1-artifacts version>`; use it for links and Nargo dependencies into aztec-packages' own code (`l1-contracts/`, `barretenberg/`). `#include_foundation_version_without_prefix` drops the `v` (npm versions)
 
 **Legacy macros:**
 

@@ -407,7 +407,7 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 
 ### `#include_foundation_version`
 
-This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/labs_docs_sync.sh check` holds equal to the toolchain's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to.
+This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/labs_docs_sync.sh check` holds equal to the toolchain's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to. `#include_foundation_version_without_prefix` renders the same version without the `v`, as npm wants it.
 
 ### `#include_testnet_version`
 
