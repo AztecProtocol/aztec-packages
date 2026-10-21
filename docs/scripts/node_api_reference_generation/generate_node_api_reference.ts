@@ -554,6 +554,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
       'getBlockHashMembershipWitness',
       'getBlockHashMembershipWitnessAtArchive',
       'getNoteHashMembershipWitness',
+      'getTxEffectMembershipWitness',
     ],
   },
   {
@@ -598,7 +599,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   {
     heading: 'Validator queries',
     namespace: 'aztec',
-    methods: ['getValidatorsStats', 'getValidatorStats'],
+    methods: ['getValidatorsStats', 'getValidatorStats', 'getValidatorStatsBatch'],
   },
   {
     heading: 'P2P queries',
