@@ -74,7 +74,7 @@ fast-foundation: barretenberg bb-tests \
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
-fast-labs: labs-fast docs-refs-check
+fast-labs: labs-fast docs-refs-check docs-sync-check
 
 fast: fast-foundation fast-labs
 
@@ -531,7 +531,11 @@ docs-tests: docs
 docs-refs-check: labs-patched
 	$(call run_command,$@,$(ROOT)/docs,./scripts/check_doc_references.sh docs)
 
-.PHONY: docs docs-tests docs-refs-check
+# docs/ must track the labs gitlink, its l1-artifacts pin labs' BB_VERSION, and its Netlify build stay off.
+docs-sync-check: labs-patched
+	$(call run_command,$@,$(ROOT),./scripts/labs_docs_sync.test.sh && ./scripts/labs_docs_sync.sh check)
+
+.PHONY: docs docs-tests docs-refs-check docs-sync-check
 
 #==============================================================================
 # Noir Projects
