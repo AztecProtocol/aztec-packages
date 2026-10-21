@@ -74,18 +74,18 @@ index 9776eceb2ae6028a7fea448c9724d107fc1d6a91..1be17e9ad1841a737b2260a6713bfc2e
  import { createRequire } from 'module';
  
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index 523fcaf489046224d580a9502ebdb19ba3ad5ab4..4e32b34256ba07185d95451b1dd1fda5c0f0cefa 100644
+index 74509a50b35dd2573e543c20bb23622173fd6eb8..5c897ca28b3c2c46d5340a6670edd2ef15dd15bc 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
 @@ -102,6 +102,11 @@
-     "@aztec-foundation/wsdb-darwin-x64": "6.0.0-rc.6",
-     "@aztec-foundation/wsdb-linux-arm64": "6.0.0-rc.6",
-     "@aztec-foundation/wsdb-linux-x64": "6.0.0-rc.6",
-+    "@aztec-foundation/kvdb": "6.0.0-rc.6",
-+    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-rc.6",
-+    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-rc.6",
-+    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-rc.6",
-+    "@aztec-foundation/kvdb-linux-x64": "6.0.0-rc.6",
-     "@aztec-foundation/noir-acvm_js": "6.0.0-rc.6",
-     "@aztec-foundation/noir-types": "6.0.0-rc.6",
-     "@aztec-foundation/noir-noirc_abi": "6.0.0-rc.6",
+     "@aztec-foundation/wsdb-darwin-x64": "6.0.0-rc.7",
+     "@aztec-foundation/wsdb-linux-arm64": "6.0.0-rc.7",
+     "@aztec-foundation/wsdb-linux-x64": "6.0.0-rc.7",
++    "@aztec-foundation/kvdb": "6.0.0-rc.7",
++    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-rc.7",
++    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-rc.7",
++    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-rc.7",
++    "@aztec-foundation/kvdb-linux-x64": "6.0.0-rc.7",
+     "@aztec-foundation/noir-acvm_js": "6.0.0-rc.7",
+     "@aztec-foundation/noir-types": "6.0.0-rc.7",
+     "@aztec-foundation/noir-noirc_abi": "6.0.0-rc.7",

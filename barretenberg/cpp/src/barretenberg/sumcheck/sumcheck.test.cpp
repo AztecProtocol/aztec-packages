@@ -171,7 +171,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_prover()
     {
-        // Need at least 4 rounds for row-disabling flavors (disabled region = 4 rows = 2^2, needs n > 2^2)
+        // Row-disabling flavors require more than four rows; the default fixture uses 16.
         const size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 2;
         const size_t multivariate_n(1 << multivariate_d);
 
@@ -225,9 +225,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     }
 
     // TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
-    void test_prover_verifier_flow()
+    void test_prover_verifier_flow(size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 3)
     {
-        const size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 3;
         const size_t multivariate_n(1 << multivariate_d);
 
         const size_t virtual_log_n = 6;
@@ -360,7 +359,14 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimple)
 {
     this->test_prover_verifier_flow();
 }
-// This tests is fed an invalid circuit and checks that the verifier would output false.
+TYPED_TEST(SumcheckTests, MinimumZkCircuit)
+{
+    if constexpr (UseRowDisablingPolynomial<TypeParam>) {
+        this->test_prover_verifier_flow(3);
+    }
+}
+
+// This test is fed an invalid circuit and checks that the verifier would output false.
 TYPED_TEST(SumcheckTests, ProverAndVerifierSimpleFailure)
 {
     this->test_failure_prover_verifier_flow();

@@ -55,6 +55,96 @@ TYPED_TEST(PairingPointsTests, EmptyPairingPointsProtection)
     EXPECT_THROW_WITH_MESSAGE(empty.check(), "Calling check on empty pairing points.");
 }
 
+TYPED_TEST(PairingPointsTests, RejectsStalePublication)
+{
+    using Curve = TypeParam;
+    using PP = PairingPoints<Curve>;
+    for (bool in_place : { false, true }) {
+        typename Curve::Builder builder;
+        auto points = TestFixture::template create_valid_pairing_points<Curve>(&builder, 2);
+        auto old = points[0];
+        PP result;
+        if (in_place) {
+            points[0].aggregate(points[1]);
+            result = points[0];
+        } else {
+            result = PP::aggregate_multiple(points);
+        }
+        EXPECT_THROW_WITH_MESSAGE(old.set_public(), "Only the final pairing accumulator can be published.");
+        auto copy = result;
+        copy.set_public();
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+}
+
+TYPED_TEST(PairingPointsTests, RejectsDefaultsWithPendingObligations)
+{
+    using Curve = TypeParam;
+    using PP = PairingPoints<Curve>;
+    typename Curve::Builder builder;
+    auto points = TestFixture::template create_valid_pairing_points<Curve>(&builder, 1);
+    EXPECT_THROW_WITH_MESSAGE(PP::set_default_to_public(&builder),
+                              "Only the final pairing accumulator can be published.");
+    auto defaults = PP::construct_default();
+    EXPECT_THROW_WITH_MESSAGE(defaults.set_public(&builder), "Only the final pairing accumulator can be published.");
+    points[0].set_public();
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TYPED_TEST(PairingPointsTests, RejectsStaleAggregation)
+{
+    using Curve = TypeParam;
+    using PP = PairingPoints<Curve>;
+    typename Curve::Builder builder;
+    auto points = TestFixture::template create_valid_pairing_points<Curve>(&builder, 3);
+    auto old = points[0];
+    points[0].aggregate(points[1]);
+    const auto gates = builder.num_gates();
+    EXPECT_THROW_WITH_MESSAGE(old.aggregate(points[2]), "Cannot aggregate stale pairing points.");
+    EXPECT_THROW_WITH_MESSAGE(points[2].aggregate(old), "Cannot aggregate stale pairing points.");
+    std::vector<PP> inputs{ old, points[2] };
+    EXPECT_THROW_WITH_MESSAGE(PP::aggregate_multiple(inputs), "Cannot aggregate stale pairing points.");
+    PP empty;
+    EXPECT_THROW_WITH_MESSAGE(empty.aggregate(old), "Cannot aggregate stale pairing points.");
+    inputs = { old };
+    EXPECT_THROW_WITH_MESSAGE(PP::aggregate_multiple(inputs), "Cannot aggregate stale pairing points.");
+    EXPECT_EQ(builder.num_gates(), gates);
+    points[0].aggregate(points[2]);
+    points[0].set_public();
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TYPED_TEST(PairingPointsTests, RejectsNewObligationsAfterPublication)
+{
+    using Curve = TypeParam;
+    using PP = PairingPoints<Curve>;
+    typename Curve::Builder builder;
+    PP::set_default_to_public(&builder);
+    EXPECT_THROW_WITH_MESSAGE(TestFixture::template create_valid_pairing_points<Curve>(&builder, 1),
+                              "Cannot create pairing points after pairing points have been set to public.");
+}
+
+TYPED_TEST(PairingPointsTests, RejectsPartialPublication)
+{
+    using Curve = TypeParam;
+    using PP = PairingPoints<Curve>;
+    for (bool in_place : { false, true }) {
+        typename Curve::Builder builder;
+        auto points = TestFixture::template create_valid_pairing_points<Curve>(&builder, 3);
+        auto result = points[1];
+        if (in_place) {
+            result.aggregate(points[2]);
+        } else {
+            std::vector<PP> inputs{ result, points[2] };
+            result = PP::aggregate_multiple(inputs);
+        }
+        EXPECT_THROW_WITH_MESSAGE(result.set_public(), "Only the final pairing accumulator can be published.");
+        result.aggregate(points[0]);
+        result.set_public();
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+}
+
 // Gate count pinning for set_default_to_public
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
@@ -202,10 +292,11 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
     // Serialize to public inputs (set_public detects default and uses set_default_to_public)
     uint32_t start_idx = original.set_public(&builder);
 
-    // Extract the public inputs as field_t elements
+    // Reconstruct in the receiving circuit.
+    Builder receiving_builder;
     std::vector<Fr> public_inputs;
     for (uint32_t var_idx : builder.public_inputs()) {
-        public_inputs.emplace_back(Fr::from_witness_index(&builder, var_idx));
+        public_inputs.emplace_back(Fr::from_witness(&receiving_builder, builder.get_variable(var_idx)));
     }
 
     // Reconstruct via PublicInputComponent (exercises reconstruct_from_public)
@@ -217,6 +308,7 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
     EXPECT_EQ(reconstructed.P1().get_value(), original.P1().get_value());
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(receiving_builder));
 }
 
 // =============================================================================
@@ -264,7 +356,7 @@ TYPED_TEST(PairingPointsTaggingTests, TagCreationAndMerge)
     pp_one.aggregate(pp_two);
 
     // Check that the tags have been merged
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 0U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), pp_one.tag_index);
     EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Create two new pairing points and aggregate with aggregate_multiple
@@ -272,8 +364,8 @@ TYPED_TEST(PairingPointsTaggingTests, TagCreationAndMerge)
     PairingPoints pp_four = { P0, P1 };
 
     // Check the tags
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 3U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), pp_three.tag_index);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), pp_four.tag_index);
 
     // Check that there are two different pairing points in the builder
     EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
@@ -283,11 +375,11 @@ TYPED_TEST(PairingPointsTaggingTests, TagCreationAndMerge)
     PairingPoints aggregated_pp = PairingPoints::aggregate_multiple(pp_to_be_aggregated);
 
     // Check that the tags have been merged
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(aggregated_pp.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), aggregated_pp.tag_index);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), aggregated_pp.tag_index);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), aggregated_pp.tag_index);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), aggregated_pp.tag_index);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(aggregated_pp.tag_index), aggregated_pp.tag_index);
     EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 }
 
@@ -317,7 +409,7 @@ TYPED_TEST(PairingPointsTaggingTests, ProverInstanceRejectsUnmergedTags)
     // Check the tags
     BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
     BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), pp_three.tag_index);
 
     // Check that there are different pairing points in the builder
     EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
@@ -406,13 +498,12 @@ TYPED_TEST(PairingPointsTaggingTests, SetPublicIsTerminal)
     inputs.set_public();
 
     // Cannot merge after set_public
-    PairingPoints pp_three = { P0, P1 };
-    EXPECT_THROW_WITH_MESSAGE(pp_one.aggregate(pp_three),
+    EXPECT_THROW_WITH_MESSAGE(pp_one.aggregate(pp_two),
                               "Cannot merge pairing point tags after pairing points have been set to public.");
 
     // Cannot set_public twice
     EXPECT_THROW_WITH_MESSAGE(
-        builder.pairing_points_tagging.set_public_pairing_points(),
+        builder.pairing_points_tagging.set_public_pairing_points(pp_one.tag_index),
         "Trying to set pairing points to public for a circuit that already has public pairing points.");
 }
 

@@ -10,7 +10,10 @@
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_transcript_short_relation.hpp"
+#include <array>
 #include <gtest/gtest.h>
+#include <utility>
 
 using namespace bb;
 
@@ -132,21 +135,14 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
 {
     const FF beta = FF::random_element(&engine);
     const FF gamma = FF::random_element(&engine);
-    const FF beta_sqr = beta.sqr();
-    const FF beta_cube = beta_sqr * beta;
-    auto eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
-    eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-
-    RelationParameters<FF> params{
-        .eta = 0,
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = 0,
-        .beta_sqr = beta_sqr,
-        .beta_cube = beta_cube,
-        .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
-    };
+    RelationParameters<FF> params{};
+    params.compute_beta_powers(beta);
+    params.gamma = gamma;
+    const FF tagged_gamma = gamma + params.beta_quartic;
+    params.eccvm_set_permutation_delta =
+        (tagged_gamma * (tagged_gamma + params.beta_sqr) * (tagged_gamma + FF(2) * params.beta_sqr) *
+         (tagged_gamma + FF(3) * params.beta_sqr))
+            .invert();
 
     compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, Flavor::TRACE_OFFSET);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
@@ -411,6 +407,102 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
                                       "the row following a no-op";
     EXPECT_TRUE(failures.contains(ECCVMTranscriptRelationImpl<FF>::ACCUMULATOR_EMPTY_UPDATE))
         << "ACCUMULATOR_EMPTY_UPDATE subrelation should catch the corruption";
+}
+
+TEST_F(ECCVMRelationCorruptionTests, ShiftableInitRejectsNonzeroTranslationColumnsAtFirstRow)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    const RelationParameters<FF> params{};
+    const size_t first_row = Flavor::TRACE_OFFSET;
+    const auto check = [&]() {
+        return RelationChecker<void>::check<ECCVMShiftableInitRelation<FF>>(
+            polynomials, params, "ECCVMShiftableInitRelation", first_row);
+    };
+
+    ASSERT_EQ(polynomials.lagrange_first.get(first_row), FF(1));
+    ASSERT_EQ(polynomials.transcript_op.get(first_row + 1), FF(3));
+    ASSERT_TRUE(check().empty());
+
+    const std::array<std::pair<const char*, Flavor::Polynomial*>, 5> translation_columns{ {
+        { "op", &polynomials.transcript_op },
+        { "Px", &polynomials.transcript_Px },
+        { "Py", &polynomials.transcript_Py },
+        { "z1", &polynomials.transcript_z1 },
+        { "z2", &polynomials.transcript_z2 },
+    } };
+    for (size_t i = 0; i < translation_columns.size(); ++i) {
+        const auto& [name, column] = translation_columns[i];
+        SCOPED_TRACE(name);
+        ASSERT_EQ(column->get(first_row), FF(0));
+        column->at(first_row) = FF(1);
+        const auto failures = check();
+        EXPECT_EQ(failures.size(), 1);
+        if (!failures.empty()) {
+            EXPECT_EQ(failures.begin()->first, ECCVMShiftableInitRelationImpl<FF>::TRANSCRIPT_OP_INIT + i);
+            EXPECT_EQ(failures.begin()->second, first_row);
+        }
+        column->at(first_row) = FF(0);
+    }
+
+    // Separate pins must reject nonzero columns even when their sum vanishes.
+    polynomials.transcript_Px.at(first_row) = FF(1);
+    polynomials.transcript_Py.at(first_row) = -FF(1);
+    const auto failures = check();
+    EXPECT_EQ(failures.size(), 2);
+    EXPECT_TRUE(failures.contains(ECCVMShiftableInitRelationImpl<FF>::TRANSCRIPT_PX_INIT));
+    EXPECT_TRUE(failures.contains(ECCVMShiftableInitRelationImpl<FF>::TRANSCRIPT_PY_INIT));
+    polynomials.transcript_Px.at(first_row) = FF(0);
+    polynomials.transcript_Py.at(first_row) = FF(0);
+    EXPECT_TRUE(check().empty());
+}
+
+TEST_F(ECCVMRelationCorruptionTests, TranscriptRejectsNonzeroScalarLimbsOnNonMulRows)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    const RelationParameters<FF> params{};
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t eq_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET + 1; i < num_rows; ++i) {
+        if (polynomials.transcript_eq.get(i) == FF(1) && polynomials.transcript_reset_accumulator.get(i) == FF(1)) {
+            eq_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(eq_row, 0);
+    ASSERT_EQ(polynomials.transcript_mul.get(eq_row), FF(0));
+    const auto check = [&]() {
+        return RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
+            polynomials, params, "ECCVMTranscriptRelation", Flavor::TRACE_OFFSET);
+    };
+    ASSERT_TRUE(check().empty());
+
+    expand_shiftable_to_virtual_size(polynomials.transcript_z1);
+    expand_shiftable_to_virtual_size(polynomials.transcript_z2);
+    polynomials.transcript_z1.at(eq_row) = FF(5);
+    polynomials.transcript_z2.at(eq_row) = FF(7);
+    polynomials.transcript_z1zero.at(eq_row) = FF(0);
+    polynomials.transcript_z2zero.at(eq_row) = FF(0);
+    polynomials.set_shifted();
+
+    const auto failures = check();
+    EXPECT_EQ(failures.size(), 2);
+    EXPECT_EQ(failures.at(ECCVMTranscriptRelationImpl<FF>::Z1_NONMUL_CHECK), eq_row);
+    EXPECT_EQ(failures.at(ECCVMTranscriptRelationImpl<FF>::Z2_NONMUL_CHECK), eq_row);
+}
+
+TEST_F(ECCVMRelationCorruptionTests, TranscriptShortRelationDoesNotSkipNonzeroScalarLimbs)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    const size_t noop_row = find_transcript_noop_row(polynomials);
+    ASSERT_NE(noop_row, 0);
+    ASSERT_TRUE(ECCVMTranscriptShortRelationImpl<FF>::skip(polynomials.get_row(noop_row)));
+
+    expand_shiftable_to_virtual_size(polynomials.transcript_z1);
+    expand_shiftable_to_virtual_size(polynomials.transcript_z2);
+    polynomials.transcript_z1.at(noop_row) = FF(5);
+    polynomials.transcript_z2.at(noop_row) = -FF(5);
+    polynomials.set_shifted();
+    EXPECT_FALSE(ECCVMTranscriptShortRelationImpl<FF>::skip(polynomials.get_row(noop_row)));
 }
 
 /**
@@ -730,4 +822,17 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorSkewMsmPcTamper)
     EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior skew row";
     EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_SKEW_CONTINUITY))
         << "MSM_PC_SKEW_CONTINUITY should be among the failing subrelations";
+}
+
+TEST_F(ECCVMRelationCorruptionTests, FullParametersIncludeDomainSeparation)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    const auto params = compute_full_relation_params(polynomials);
+    const FF tag = params.beta.sqr().sqr();
+    EXPECT_EQ(params.beta_quartic, tag);
+    FF denominator(1);
+    for (size_t i = 0; i < 4; ++i) {
+        denominator *= params.gamma + FF(i) * params.beta.sqr() + tag;
+    }
+    EXPECT_EQ(params.eccvm_set_permutation_delta * denominator, FF(1));
 }

@@ -18,7 +18,8 @@ template <typename T> struct IsMultilinearBatchingFlavorImpl : std::false_type {
 template <size_t NumClaims> struct IsMultilinearBatchingFlavorImpl<MultilinearBatchingFlavor_<NumClaims>> : std::true_type {};
 
 template <typename T> struct IsMultilinearBatchingRecursiveFlavorImpl : std::false_type {};
-template <size_t NumClaims> struct IsMultilinearBatchingRecursiveFlavorImpl<MultilinearBatchingRecursiveFlavor_<NumClaims>> : std::true_type {};
+template <size_t NumClaims, typename Builder>
+struct IsMultilinearBatchingRecursiveFlavorImpl<MultilinearBatchingRecursiveFlavor_<NumClaims, Builder>> : std::true_type {};
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
@@ -40,22 +41,11 @@ template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>
 
 
 
+// A recursive flavor is one whose curve is a stdlib curve, i.e. whose commitments and scalars are circuit
+// values. Stated as a property rather than an enumeration: with one flavor instantiation per verifying
+// arithmetization, a list would silently exclude new ones and switch the stdlib onto the native path.
 template <typename T>
-concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                       UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                       UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                       UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                       MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                       MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                       MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MegaAppRecursiveFlavor,
-                                       MegaKernelRecursiveFlavor,
-                                       TranslatorRecursiveFlavor,
-                                       ECCVMRecursiveFlavor,
-                                       avm2::AvmRecursiveFlavor> ||
-                                       IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
+concept IsRecursiveFlavor = requires { typename T::Curve; } && T::Curve::is_stdlib_type;
 
 template <typename T>
 concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;

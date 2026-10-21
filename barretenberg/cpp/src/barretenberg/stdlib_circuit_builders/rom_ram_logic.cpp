@@ -1,5 +1,10 @@
 #include "rom_ram_logic.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_app_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_avm_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_kernel_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_zk_execution_trace_generated.hpp"
 #include "ultra_circuit_builder.hpp"
 #include <execution>
 
@@ -166,7 +171,7 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
         row.wires = {
             record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness
         };
-        builder->blocks.memory.append_gate(row);
+        builder->blocks.memory.template append_gate<GateKind::Memory>(row);
     }
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
@@ -184,7 +189,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
         row.wires = {
             record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness
         };
-        builder->blocks.memory.append_gate(row);
+        builder->blocks.memory.template append_gate<GateKind::Memory>(row);
     }
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
@@ -220,7 +225,7 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_logup_gate(CircuitBuilder* builder
         // Tag the row with the array id via q_c. This is a precomputed selector, so the array
         // separation is committed in the VK.
         row.q_c = FF(static_cast<uint64_t>(rom_id));
-        builder->blocks.memory.append_gate(row);
+        builder->blocks.memory.template append_gate<GateKind::Memory>(row);
     }
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->rom_logup_records.push_back(static_cast<uint32_t>(record.gate_index));
@@ -433,6 +438,7 @@ void RomRamLogic_<ExecutionTrace>::init_RAM_element(CircuitBuilder* builder,
                           .record_witness = 0,
                           .gate_index = 0 };
     ram_array.state[index_value] = value_witness;
+    ram_array.num_initialized++;
     BB_ASSERT_LT(ram_array.access_count, UINT32_MAX, "RAM access count overflow");
     ram_array.access_count++;
     // mutates the gate_index
@@ -448,6 +454,9 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     BB_ASSERT_GT(ram_arrays.size(), ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
+    BB_ASSERT_EQ(ram_array.num_initialized,
+                 static_cast<uint32_t>(ram_array.state.size()),
+                 "read_RAM_array: every cell must be initialised before the first access");
     BB_ASSERT_GT(ram_array.state.size(), index);
     BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(ram_array.state[index]);
@@ -494,6 +503,9 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
     BB_ASSERT_GT(ram_arrays.size(), ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
+    BB_ASSERT_EQ(ram_array.num_initialized,
+                 static_cast<uint32_t>(ram_array.state.size()),
+                 "write_RAM_array: every cell must be initialised before the first access");
     BB_ASSERT_GT(ram_array.state.size(), index);
     BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
 
@@ -530,7 +542,7 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
                                                      ? CircuitBuilder::MEMORY_SELECTORS::RAM_READ
                                                      : CircuitBuilder::MEMORY_SELECTORS::RAM_WRITE);
         row.wires = { record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness };
-        builder->blocks.memory.append_gate(row);
+        builder->blocks.memory.template append_gate<GateKind::Memory>(row);
     }
 
     // Note: record the index into the block that contains the RAM/ROM gates
@@ -545,7 +557,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builde
     {
         auto row = builder->memory_selectors_row(CircuitBuilder::MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK);
         row.wires = { record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness };
-        builder->blocks.memory.append_gate(row);
+        builder->blocks.memory.template append_gate<GateKind::Memory>(row);
     }
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
@@ -723,7 +735,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
             row.wires = {
                 current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx()
             };
-            builder->blocks.memory.append_gate(row);
+            builder->blocks.memory.template append_gate<GateKind::Memory>(row);
         }
 
         builder->increment_num_gates();
@@ -773,5 +785,9 @@ template <typename ExecutionTrace> void RomRamLogic_<ExecutionTrace>::process_RA
 // Template instantiations
 template class RomRamLogic_<UltraExecutionTraceBlocks>;
 template class RomRamLogic_<MegaExecutionTraceBlocks>;
+template class RomRamLogic_<MegaKernelExecutionTraceBlocks>;
+template class RomRamLogic_<MegaAppExecutionTraceBlocks>;
+// MegaZk / MegaAvm have no memory block: their flavors constrain no memory gates, so ROM/RAM is not
+// part of those arithmetizations and its bodies must not be instantiated for them.
 
 } // namespace bb

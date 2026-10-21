@@ -263,7 +263,7 @@ void BytecodeTraceBuilder::process_retrieval(
                                        event.retrieved_bytecodes_snapshot_before.next_available_leaf_index;
         bool error = event.error.has_value();
         if (event.error == simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES) {
-            BB_ASSERT(event.is_new_class == true & remaining_bytecodes == 0,
+            BB_ASSERT(event.is_new_class && remaining_bytecodes == 0,
                       "TOO_MANY_BYTECODES error incorrectly set for bytecode retrieval");
         }
         trace.set(

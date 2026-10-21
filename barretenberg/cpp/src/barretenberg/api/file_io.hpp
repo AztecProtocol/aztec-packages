@@ -89,7 +89,8 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
         fileData.resize(to_read);
         size_t total = 0;
         while (total < to_read) {
-            ssize_t got = ::read(fd, fileData.data() + total, static_cast<unsigned int>(to_read - total));
+            ssize_t got = ::read(
+                fd, fileData.data() + total, static_cast<unsigned int>(std::min<size_t>(to_read - total, INT_MAX)));
             if (got < 0) {
                 close(fd);
                 THROW std::runtime_error("Failed to read file: " + filename + " (" + strerror(errno) + ")");
@@ -118,8 +119,9 @@ inline void write_file(const std::string& filename, std::span<const uint8_t> dat
     // Loop to handle short writes (required by POSIX, common on pipes and sockets).
     size_t total_written = 0;
     while (total_written < data.size()) {
-        ssize_t written =
-            ::write(fd, data.data() + total_written, static_cast<unsigned int>(data.size() - total_written));
+        ssize_t written = ::write(fd,
+                                  data.data() + total_written,
+                                  static_cast<unsigned int>(std::min<size_t>(data.size() - total_written, INT_MAX)));
         if (written < 0) {
             close(fd);
             THROW std::runtime_error("Failed to write to file: " + filename + " (" + strerror(errno) + ")");

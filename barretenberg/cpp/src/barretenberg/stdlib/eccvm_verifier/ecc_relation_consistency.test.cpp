@@ -56,5 +56,6 @@ TEST_F(EccRelationsConsistency, RecursiveToNativeConsistency)
     validate_relation_execution<ECCVMTranscriptRelation>();
     validate_relation_execution<ECCVMWnafRelation>();
     validate_relation_execution<ECCVMBoolsRelation>();
+    validate_relation_execution<ECCVMShiftableInitRelation>();
 }
 } // namespace bb

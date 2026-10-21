@@ -64,10 +64,13 @@ execute_process(
 string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR ${NODE_API_HEADERS_DIR})
 
-# libc++/-march=skylake match lmdblib's archive (ABI + arch compatibility). Static
+# libc++ and the x86_64 Skylake target match lmdblib's archive. Static
 # libc++/libgcc keep the addon self-contained (no libc++.so.1 runtime dependency).
 add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_ALGOS)
-add_compile_options(-march=skylake -fconstexpr-steps=100000000 -fbracket-depth=1024)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    add_compile_options(-march=skylake)
+endif()
+add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024)
 add_compile_options(-Wno-deprecated-declarations -Wno-missing-field-initializers)
 add_compile_options(-stdlib=libc++)
 add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)

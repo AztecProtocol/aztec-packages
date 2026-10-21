@@ -55,9 +55,7 @@ See [`logderiv_lookup_relation.hpp`](./logderiv_lookup_relation.hpp) for the imp
 
 **Subrelation 1 is "linearly dependent"**: it constrains a sum across the entire trace rather than holding independently at each row, so it's not multiplied by a scaling factor during accumulation.
 
-**Why the boolean check?** If read_tag isn't boolean, inverse_exists becomes linear in read_tag, allowing a malicious prover to set it to whatever they want when $q = 0$.
-
-**Security note:** Tampering with read_tags or read_counts only hurts the prover—it reduces the effective table size, making it harder to satisfy the lookup.
+**Boolean check:** This is a redundant legacy constraint for lookup soundness. On table rows, `read_tag` only scales the free `read_count`; it cannot add a value to the table.
 
 ## Accumulator Trick
 

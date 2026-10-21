@@ -1,4 +1,5 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -18,12 +19,14 @@ using namespace bb;
  * @param proof_size Size of proof with NO public inputs
  * @param public_inputs_size Total size of public inputs including aggregation object
  * @param key_fields
+ * @param vk_hash
  * @param proof_fields
  */
 void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
                                  size_t proof_size,
                                  size_t public_inputs_size,
                                  const std::vector<stdlib::field_t<UltraCircuitBuilder>>& key_fields,
+                                 const stdlib::field_t<UltraCircuitBuilder>& vk_hash,
                                  const std::vector<stdlib::field_t<UltraCircuitBuilder>>& proof_fields)
 {
     using Builder = UltraCircuitBuilder;
@@ -38,6 +41,7 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
 
     // Set honk vk in builder
     populate_fields(builder, key_fields, honk_vk->to_field_elements());
+    builder.set_variable(vk_hash.get_witness_index(), honk_vk->hash());
 
     // Generate dummy Chonk proof
     bb::HonkProof chonk_proof = create_mock_chonk_proof<Builder>(num_inner_public_inputs);
@@ -67,6 +71,9 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
     BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CHONK);
+    if (!input.predicate.is_constant || input.predicate.value != bb::fr::one()) {
+        throw_or_abort("Chonk recursion requires a constant true predicate");
+    }
 
     // Reconstruct proof indices from proof and public inputs
     std::vector<uint32_t> proof_indices = add_public_inputs_to_proof(input.proof, input.public_inputs);
@@ -87,7 +94,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
         size_t proof_size_without_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
 
         create_dummy_vkey_and_proof(
-            builder, proof_size_without_pub_inputs, total_pub_inputs_size, key_fields, proof_fields);
+            builder, proof_size_without_pub_inputs, total_pub_inputs_size, key_fields, vk_hash, proof_fields);
     }
 
     // Recursively verify Chonk proof

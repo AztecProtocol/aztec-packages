@@ -10,6 +10,9 @@ fn with_everything_empty() {
     let mut builder = TestBuilder::new();
 
     builder.private_call.expiration_timestamp = 0;
+    // `claimed_revertible_counter` may only be 0 for a private-only tx.
+    builder.is_private_only = true;
+    builder.revertible_counter_hint = 0;
 
     let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
 
@@ -19,7 +22,7 @@ fn with_everything_empty() {
     assert_eq(pi.min_revertible_side_effect_counter, 0);
     assert_eq(pi.fee_payer, AztecAddress::empty());
     assert_eq(pi.expiration_timestamp, 0);
-    assert_eq(pi.is_private_only, false);
+    assert_eq(pi.is_private_only, true);
     assert_eq(pi.claimed_revertible_counter, 0);
 
     assert_claimed_length_array_eq(pi.end.note_hashes, []);

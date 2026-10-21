@@ -98,6 +98,21 @@ fn extra_non_zero_contract_class_log_fields() {
     builder.execute_and_fail();
 }
 
+#[test(should_fail_with = "Found non-zero field after breakpoint")]
+fn non_zero_private_log_fields_beyond_length() {
+    let mut builder = TestBuilder::new();
+
+    // Add a private log that only emits 3 of its fields.
+    let mut fixture_builder = FixtureBuilder::new();
+    fixture_builder.append_private_logs_with_lengths([3]);
+    builder.update_private_tail_accumulated_data(fixture_builder);
+
+    // Put a non-zero value in a field that is not emitted. The tx hash commits to it, but the blob would not carry it.
+    builder.private_tail.end.private_logs[0].fields[5] = 99;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Incorrect contract class log length")]
 fn incorrect_contract_class_log_length() {
     let mut builder = TestBuilder::new();
@@ -109,6 +124,22 @@ fn incorrect_contract_class_log_length() {
 
     // Tweak the length to be less.
     builder.private_tail.end.contract_class_logs_hashes[0].inner.length -= 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Contract class log length must not cover trailing zeros")]
+fn non_minimal_zero_padded_contract_class_log_length() {
+    let mut builder = TestBuilder::new();
+
+    // Add a contract class log.
+    let mut fixture_builder = FixtureBuilder::new();
+    fixture_builder.append_contract_class_logs(1);
+    builder.update_private_tail_accumulated_data(fixture_builder);
+
+    // Extend the length over a zero padding field. The hash is unchanged, but the log would be metered and emitted
+    // with one more field than it has.
+    builder.private_tail.end.contract_class_logs_hashes[0].inner.length += 1;
 
     builder.execute_and_fail();
 }

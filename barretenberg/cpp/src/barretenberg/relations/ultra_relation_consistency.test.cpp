@@ -43,13 +43,13 @@ static InputElements get_random_inputs()
     return result;
 }
 
-static InputElements get_special_inputs() // use non-random values: data[i] = i + 1
+static InputElements get_special_inputs(size_t pattern)
 {
     InputElements result;
     FF idx = 0;
     for (FF& slot : result.data) {
         idx += FF(1);
-        slot = idx;
+        slot = pattern == 2 ? FF(0) : pattern == 3 ? FF(-1) : idx;
     }
     return result;
 }
@@ -71,11 +71,11 @@ class UltraRelationConsistency : public testing::Test {
 
 TEST_F(UltraRelationConsistency, ArithmeticRelation)
 {
-    const auto run_test = [](bool random_inputs, const FF& q_arith_value = FF::random_element()) {
+    const auto run_test = [](size_t input_pattern, const FF& q_arith_value = FF::random_element()) {
         using Relation = ArithmeticRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        InputElements input_elements = input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
         const auto& w_1 = input_elements.w_l();
         const auto& w_1_shift = input_elements.w_l_shift();
         const auto& w_2 = input_elements.w_r();
@@ -136,20 +136,23 @@ TEST_F(UltraRelationConsistency, ArithmeticRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
-    run_test(/*random_inputs=*/true, /*q_arith_value=*/FF(1));
-    run_test(/*random_inputs=*/true, /*q_arith_value=*/FF(2));
-    run_test(/*random_inputs=*/true, /*q_arith_value=*/FF(3));
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
+    run_test(/*input_pattern=*/0, /*q_arith_value=*/FF(1));
+    run_test(/*input_pattern=*/0, /*q_arith_value=*/FF(2));
+    run_test(/*input_pattern=*/0, /*q_arith_value=*/FF(3));
 };
 
 TEST_F(UltraRelationConsistency, UltraPermutationRelation)
 {
-    const auto run_test = [](bool random_inputs) {
+    const auto run_test = [](size_t input_pattern) {
         using Relation = UltraPermutationRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const InputElements input_elements =
+            input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
         const auto& w_1 = input_elements.w_l();
         const auto& w_2 = input_elements.w_r();
         const auto& w_3 = input_elements.w_o();
@@ -192,17 +195,20 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };
 
 TEST_F(UltraRelationConsistency, DeltaRangeConstraintRelation)
 {
-    const auto run_test = [](bool random_inputs) {
+    const auto run_test = [](size_t input_pattern) {
         using Relation = DeltaRangeConstraintRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const InputElements input_elements =
+            input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
         const auto& w_1 = input_elements.w_l();
         const auto& w_2 = input_elements.w_r();
         const auto& w_3 = input_elements.w_o();
@@ -231,18 +237,20 @@ TEST_F(UltraRelationConsistency, DeltaRangeConstraintRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };
 
 TEST_F(UltraRelationConsistency, EllipticRelation)
 {
-    const auto run_test = [](bool random_inputs) {
+    const auto run_test = [](size_t input_pattern) {
         using Relation = EllipticRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         // Non-const: the test writes `q_l = -1` below to set q_sign explicitly.
-        InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        InputElements input_elements = input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
 
         const auto& x_1 = input_elements.w_r();
         const auto& y_1 = input_elements.w_o();
@@ -266,39 +274,35 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
             auto y_diff = (q_sign * y_2 - y_1);
             auto x_diff = (x_2 - x_1);
             auto x_diff_sqr = x_diff * x_diff;
-            auto lambda = y_diff / x_diff;
-            auto lambda_sqr = lambda * lambda;
 
             // Contribution (1) point addition, x-coordinate check
             // Formula: x3 = lambda^2 - (x1 + x2)
             // lambda = (y2 - y1) / (x2 - x1)
             // Constraint: (x3 - lambda^2 + (x1 + x2)) * (x2 - x1)^2 = 0
-            auto x_add_identity = (x_3 - lambda_sqr + (x_1 + x_2)) * x_diff_sqr;
+            auto x_add_identity = (x_3 + x_1 + x_2) * x_diff_sqr - y_diff * y_diff;
 
             // Contribution (2) point addition, y-coordinate check
             // Formula: y3 = lambda * (x1 - x3) - y1
             // Constraint: (y3 - lambda * (x1 - x3) + y1) * (x2 - x1) = 0
-            auto y_add_identity = (y_3 - lambda * (x_1 - x_3) + y_1) * x_diff;
+            auto y_add_identity = (y_3 + y_1) * x_diff - y_diff * (x_1 - x_3);
 
             // N.B. the relation uses the equivalence x1^3 === y1^2 - curve_b to reduce degree by 1 so we must do the
             // same here
             const auto curve_b = EllipticRelationImpl<FF>::get_curve_b();
             auto y1_sqr = (y_1 * y_1);
             auto x_pow_4 = (y1_sqr - curve_b) * x_1; // curve equation substitution
-            lambda_sqr = x_pow_4 * 9 / (y1_sqr * 4);
-            lambda = (x_1 * x_1 * 3) / (y_1 * 2);
 
             // Contribution (3) point doubling, x-coordinate check
             // Formula: x3 = lambda^2 - 2*x1
             // lambda = (3*x1 * x1) / (2*y1)
-            // Constraint: (x3 - lambda^2 + 2*x1) * (2*y1) = 0
-            auto x_double_identity = (x_3 - lambda_sqr + x_1 * 2) * (y1_sqr * 4);
+            // Constraint: (x3 - lambda^2 + 2*x1) * (2*y1)^2 = 0
+            auto x_double_identity = (x_3 + x_1 * 2) * (y1_sqr * 4) - x_pow_4 * 9;
 
             // Contribution (4) point doubling, y-coordinate check
             // Formula: y3 = lambda * (x1 - x3) - y1
             // Constraint: (y3 - lambda * (x1 - x3) + y1) * (2*y1) * FF(-1) = 0
             // N.B. multiply by -1 to match form used for efficient accumulation in relation
-            auto y_double_identity = (y_3 - lambda * (x_1 - x_3) + y_1) * (y_1 * 2) * FF(-1);
+            auto y_double_identity = x_1 * x_1 * 3 * (x_1 - x_3) - (y_3 + y_1) * (y_1 * 2);
 
             // Combine addition and doubling subidentities, each scaled by q_is_double
             expected_values[0] = (x_add_identity * (-q_is_double + 1) + (x_double_identity * q_is_double)) * q_elliptic;
@@ -309,17 +313,20 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };
 
 TEST_F(UltraRelationConsistency, NonNativeFieldRelation)
 {
-    const auto run_test = [](bool random_inputs) {
+    const auto run_test = [](size_t input_pattern) {
         using Relation = NonNativeFieldRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const InputElements input_elements =
+            input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
         const auto& w_1 = input_elements.w_l();
         const auto& w_2 = input_elements.w_r();
         const auto& w_3 = input_elements.w_o();
@@ -382,17 +389,20 @@ TEST_F(UltraRelationConsistency, NonNativeFieldRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };
 
 TEST_F(UltraRelationConsistency, MemoryRelation)
 {
-    const auto run_test = [](bool random_inputs) {
+    const auto run_test = [](size_t input_pattern) {
         using Relation = MemoryRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const InputElements input_elements =
+            input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
         const auto& w_1 = input_elements.w_l();
         const auto& w_2 = input_elements.w_r();
         const auto& w_3 = input_elements.w_o();
@@ -512,16 +522,19 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };
 
 TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
 {
-    const auto run_test = []([[maybe_unused]] bool random_inputs) {
+    const auto run_test = []([[maybe_unused]] size_t input_pattern) {
         using Relation = Poseidon2ExternalRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const InputElements input_elements =
+            input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
 
         const auto& w_1 = input_elements.w_l();
         const auto& w_2 = input_elements.w_r();
@@ -586,16 +599,19 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
 
         // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };
 
 TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
 {
-    const auto run_test = []([[maybe_unused]] bool random_inputs) {
+    const auto run_test = []([[maybe_unused]] size_t input_pattern) {
         using Relation = Poseidon2InternalRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const InputElements input_elements =
+            input_pattern == 0 ? get_random_inputs() : get_special_inputs(input_pattern);
 
         const auto& w_1 = input_elements.w_l();
         const auto& w_2 = input_elements.w_r();
@@ -639,6 +655,8 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
 
         // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
+    run_test(1);
+    run_test(2);
+    run_test(3);
+    run_test(/*input_pattern=*/0);
 };

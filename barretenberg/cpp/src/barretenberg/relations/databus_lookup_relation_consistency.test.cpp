@@ -68,10 +68,13 @@ static DatabusInputElements get_valid_calldata_read_inputs()
     return result;
 }
 
+// Derived from the relation so that adding a subrelation widens every accumulator here rather than
+// overflowing them.
+static constexpr size_t NUM_SUBRELATIONS = KernelCalldataRelation::SUBRELATION_PARTIAL_LENGTHS.size();
+
 class DatabusLookupRelationConsistency : public testing::Test {
   public:
     using Relation = KernelCalldataRelation;
-    static constexpr size_t NUM_SUBRELATIONS = 4;
 
     static void validate_relation_execution(const std::array<FF, NUM_SUBRELATIONS>& expected_values,
                                             const DatabusInputElements& input_elements,
@@ -83,8 +86,9 @@ class DatabusLookupRelationConsistency : public testing::Test {
     }
 };
 
-/** Reference implementation: compute the four kernel_calldata subrelation values directly. */
-static std::array<FF, 4> compute_expected_values(const DatabusInputElements& in, const RelationParameters<FF>& params)
+/** Reference implementation: compute the kernel_calldata subrelation values directly. */
+static std::array<FF, NUM_SUBRELATIONS> compute_expected_values(const DatabusInputElements& in,
+                                                                const RelationParameters<FF>& params)
 {
     const auto& beta = params.beta;
     const auto& gamma = params.gamma;
@@ -105,6 +109,7 @@ static std::array<FF, 4> compute_expected_values(const DatabusInputElements& in,
         common * read_counts,                                          // (1b)
         (is_read * table_term - read_counts * lookup_term) * inverses, // (2)  no scaling
         read_counts - indicator * read_counts,                         // (3)  (1 - ind) * count
+        bus_value - indicator * bus_value,                             // (4)  (1 - ind) * value
     };
 }
 
@@ -120,7 +125,7 @@ TEST_F(DatabusLookupRelationConsistency, RandomInputs)
     run_test(/*random_inputs=*/true);
 }
 
-/** Inactive gate (no read, no count) → all four subrelations vanish. */
+/** Inactive gate (no read, no count) on a data row → every subrelation vanishes. */
 TEST_F(DatabusLookupRelationConsistency, InactiveGates)
 {
     const auto parameters = RelationParameters<FF>::get_random();
@@ -135,10 +140,12 @@ TEST_F(DatabusLookupRelationConsistency, InactiveGates)
     in[EntityId::databus_id] = FF(5);
     in[EntityId::kernel_calldata] = FF(42);
     in[EntityId::kernel_calldata_inverses] = FF(0);
+    // A data row: (4) pins the value only outside the bus indicator's support.
+    in[EntityId::kernel_calldata_indicator] = FF(1);
 
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
-    for (size_t i = 0; i < 4; i++) {
+    for (size_t i = 0; i < NUM_SUBRELATIONS; i++) {
         EXPECT_EQ(accumulator[i], FF(0)) << "Subrelation " << i << " should be zero for inactive gates";
     }
 }
@@ -167,7 +174,7 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     in[EntityId::kernel_calldata_inverses] = (lookup_term * table_term).invert();
     in[EntityId::kernel_calldata_read_counts] = FF(1);
     in[EntityId::kernel_calldata_indicator] = FF(1);
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     EXPECT_EQ(accumulator[0], FF(0)); // (1a) (I·L·T − 1)·is_read = 0
@@ -201,7 +208,7 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     in[EntityId::kernel_calldata_inverses] = inverse;
     in[EntityId::kernel_calldata_read_counts] = FF(1);
     in[EntityId::kernel_calldata_indicator] = FF(1);
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     EXPECT_EQ(accumulator[0], FF(0));                                // (1a) I correct
@@ -226,10 +233,12 @@ TEST_F(DatabusLookupRelationConsistency, InverseUnconstrainedAtInactiveRows)
     in[EntityId::w_r] = FF(5);
     in[EntityId::databus_id] = FF(5);
     in[EntityId::kernel_calldata] = FF(42);
+    // A data row: (4) pins the value only outside the bus indicator's support.
+    in[EntityId::kernel_calldata_indicator] = FF(1);
 
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
-    for (size_t i = 0; i < 4; i++) {
+    for (size_t i = 0; i < NUM_SUBRELATIONS; i++) {
         EXPECT_EQ(accumulator[i], FF(0)) << "Subrelation " << i << " should be unaffected by garbage inverse";
     }
 }
@@ -245,7 +254,7 @@ TEST_F(DatabusLookupRelationConsistency, ReadCountLocalityFailsOutsideDataRows)
     in[EntityId::kernel_calldata_read_counts] = FF(3);
     in[EntityId::kernel_calldata_indicator] = FF(0);
 
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     EXPECT_EQ(accumulator[3], FF(3)); // (1 - indicator) * count
@@ -270,11 +279,12 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnReadRowFails)
     in[EntityId::kernel_calldata] = value;
     in[EntityId::kernel_calldata_inverses] = FF(777); // wrong
     in[EntityId::kernel_calldata_read_counts] = FF(0);
+    in[EntityId::kernel_calldata_indicator] = FF(1);
 
     const auto lookup_term = value + index * beta + gamma;
     const auto table_term = value + index * beta + gamma;
 
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     EXPECT_EQ(accumulator[0], (FF(777) * lookup_term * table_term - FF(1)) * FF(1));
@@ -305,7 +315,7 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnWriteRowFails)
     const auto lookup_term = in[EntityId::w_l] + in[EntityId::w_r] * beta + gamma;
     const auto table_term = value + index * beta + gamma;
 
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     EXPECT_EQ(accumulator[0], FF(0));
@@ -338,7 +348,7 @@ TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
     in[EntityId::kernel_calldata_inverses] = (lookup_term * table_term).invert();
     in[EntityId::kernel_calldata_read_counts] = FF(3);
     in[EntityId::kernel_calldata_indicator] = FF(1);
-    std::array<FF, 4> accumulator{};
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     EXPECT_EQ(accumulator[0], FF(0));

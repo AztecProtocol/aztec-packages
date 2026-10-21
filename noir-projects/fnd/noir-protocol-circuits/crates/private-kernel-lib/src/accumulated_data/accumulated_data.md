@@ -118,9 +118,12 @@ The remaining data types (l2_to_l1_msgs, contract_class_logs_hashes) are sorted 
 
 In `TailOutputValidator`:
 
-- `assert_dense_trimmed_array` (or `assert_trimmed_array` for `public_call_requests`): Validates that the items from the private kernel are dense and/or trimmed:
+- `assert_dense_trimmed_array` (or, for `l2_to_l1_msgs` and the log arrays, a separate `assert_dense_array` + `assert_trimmed_array` pair, because the two halves use different predicates): Validates that the items from the private kernel are dense trimmed:
   - Items within the claimed length are not nullish.
   - Items beyond the claimed length are nullish.
+
+  Denseness is what confines the hinted index map of the sorted-transform helpers below to the
+  output's occupied region, so every array they consume must have it.
 
 For **already siloed and padded** data (`note_hashes`, `nullifiers`, `private_logs`):
 
@@ -148,9 +151,12 @@ All accumulated data is sorted by counter and then split into non-revertible and
 
 In `TailToPublicOutputValidator`:
 
-- `assert_dense_trimmed_array` (or `assert_trimmed_array` for `public_call_requests`): Validates that the items from the private kernel are dense and/or trimmed:
+- `assert_dense_trimmed_array` (or, for `l2_to_l1_msgs` and the log arrays, a separate `assert_dense_array` + `assert_trimmed_array` pair, because the two halves use different predicates): Validates that the items from the private kernel are dense trimmed:
   - Items within the claimed length are not nullish.
   - Items beyond the claimed length are nullish.
+
+  Denseness is what confines the hinted index map of the sorted-transform helpers below to the
+  output's occupied region, so every array they consume must have it.
 
 For **already siloed and padded** data (`note_hashes`, `nullifiers`, `private_logs`):
 

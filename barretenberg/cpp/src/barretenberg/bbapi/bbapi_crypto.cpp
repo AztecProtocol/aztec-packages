@@ -65,7 +65,7 @@ Blake2s::Response Blake2s::execute(BB_UNUSED BBApiRequest& request) &&
 Blake2sToField::Response Blake2sToField::execute(BB_UNUSED BBApiRequest& request) &&
 {
     auto hash_result = crypto::blake2s(data);
-    return { fr::serialize_from_buffer(hash_result.data()) };
+    return { fr::from_bytes_reduced(hash_result) };
 }
 
 AesEncrypt::Response AesEncrypt::execute(BB_UNUSED BBApiRequest& request) &&

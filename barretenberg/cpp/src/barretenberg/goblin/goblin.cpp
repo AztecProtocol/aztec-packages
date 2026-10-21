@@ -87,6 +87,7 @@ GoblinProof Goblin::prove()
 void Goblin::prove_batch_merge()
 {
     BB_BENCH_NAME("Goblin::prove_batch_merge");
+    op_queue->add_batch_merge_separators();
     BatchMergeProver prover{ op_queue, CHONK_MAX_NUM_CIRCUITS };
     batch_merge_proof = prover.construct_proof();
 }
@@ -101,16 +102,31 @@ void Goblin::prove_batch_merge()
  * consistency between the data sent by the prover and the one used during accumulation.
  * @return std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments>
  */
-std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin::recursively_verify_batch_merge(
-    MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const
+template <typename Builder>
+std::pair<stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>, Goblin::BatchRecursiveTableCommitments<Builder>>
+Goblin::recursively_verify_batch_merge(Builder& builder,
+                                       const typename BatchMergeRecursiveVerifier<Builder>::FF& hash) const
 {
     BB_ASSERT(!batch_merge_proof.empty(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
-    const stdlib::Proof<MegaBuilder> stdlib_proof(builder, batch_merge_proof);
+    const stdlib::Proof<Builder> stdlib_proof(builder, batch_merge_proof);
 
-    BatchMergeRecursiveVerifier verifier;
+    BatchMergeRecursiveVerifier<Builder> verifier;
     auto result = verifier.reduce_to_pairing_check(stdlib_proof, hash);
 
     return { result.pairing_points, result.merged_commitments };
 }
+
+// The batch merge is recursively verified in the hiding kernel; the regular kernel instantiation exists
+// because kernel completion is one body shared by both arithmetizations.
+#define INSTANTIATE_RECURSIVELY_VERIFY_BATCH_MERGE(Builder)                                                            \
+    template std::pair<stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>,                                       \
+                       Goblin::BatchRecursiveTableCommitments<Builder>>                                                \
+    Goblin::recursively_verify_batch_merge(Builder&, const typename Goblin::BatchMergeRecursiveVerifier<Builder>::FF&) \
+        const;
+
+INSTANTIATE_RECURSIVELY_VERIFY_BATCH_MERGE(MegaKernelCircuitBuilder)
+INSTANTIATE_RECURSIVELY_VERIFY_BATCH_MERGE(MegaHidingKernelCircuitBuilder)
+
+#undef INSTANTIATE_RECURSIVELY_VERIFY_BATCH_MERGE
 
 } // namespace bb

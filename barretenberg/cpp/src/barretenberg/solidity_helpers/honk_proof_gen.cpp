@@ -85,6 +85,10 @@ int main(int argc, char** argv)
     size_t count = 0;
     std::stringstream s_stream(string_input);
     while (s_stream.good()) {
+        if (count >= std::size(inputs)) {
+            info("Too many public inputs: expected at most ", std::size(inputs));
+            return 1;
+        }
         std::string sub;
         getline(s_stream, sub, ',');
         if (sub.substr(0, 2) == "0x") {

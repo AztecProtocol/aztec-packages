@@ -1,6 +1,6 @@
 import { Decoder } from 'msgpackr';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { ungzip } from 'pako';
 
 import { AztecClientBackend, BackendType, Barretenberg, CircuitKind } from '../index.js';
@@ -16,7 +16,19 @@ interface RawStep {
 const TEST_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_WASM_FLOW_LIMIT = 1;
 function findRepoRoot(): string {
-  return process.env.AZTEC_REPO_ROOT ?? resolve(process.cwd(), '../../..');
+  if (process.env.AZTEC_REPO_ROOT) {
+    return process.env.AZTEC_REPO_ROOT;
+  }
+  // Identify the repo root by walking up to the directory containing barretenberg/cpp, so resolution is
+  // independent of the depth the test is invoked from (e.g. barretenberg/ts vs barretenberg/ts/bb.js).
+  let dir = process.cwd();
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, 'barretenberg/cpp'))) {
+      return dir;
+    }
+    dir = dirname(dir);
+  }
+  return resolve(process.cwd(), '../../..');
 }
 
 function ensurePinnedInputsRoot(): string {

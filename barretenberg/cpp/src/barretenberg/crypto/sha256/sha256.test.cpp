@@ -6,6 +6,28 @@
 using namespace bb;
 using namespace bb::crypto;
 
+TEST(misc_sha256, VectorEqualityRequiresExactLength)
+{
+    const auto digest = sha256(std::vector<uint8_t>{ 1, 2, 3 });
+    const std::vector<uint8_t> exact(digest.begin(), digest.end());
+    EXPECT_TRUE(digest == exact);
+    EXPECT_TRUE(exact == digest);
+    auto longer = exact;
+    longer.push_back(0);
+    EXPECT_FALSE(digest == longer);
+    EXPECT_FALSE(longer == digest);
+    auto shorter = exact;
+    shorter.pop_back();
+    EXPECT_FALSE(shorter == digest);
+    EXPECT_FALSE(digest == shorter);
+    EXPECT_FALSE(digest == std::vector<uint8_t>{});
+    EXPECT_FALSE(std::vector<uint8_t>{} == digest);
+    auto different = exact;
+    different[0] ^= 1;
+    EXPECT_FALSE(digest == different);
+    EXPECT_FALSE(different == digest);
+}
+
 TEST(misc_sha256, test_NIST_vector_one)
 {
     std::string input_str = "abc";

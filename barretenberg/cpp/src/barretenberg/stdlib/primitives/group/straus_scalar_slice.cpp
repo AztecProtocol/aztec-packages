@@ -108,6 +108,6 @@ template <typename Builder> field_t<Builder> straus_scalar_slices<Builder>::oper
 }
 
 template class straus_scalar_slices<bb::UltraCircuitBuilder>;
-template class straus_scalar_slices<bb::MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(straus_scalar_slices)
 
 } // namespace bb::stdlib

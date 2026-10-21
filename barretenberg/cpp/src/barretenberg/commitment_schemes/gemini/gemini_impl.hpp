@@ -65,8 +65,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
     // Commit to the virtual_log_n - 1 fold polynomials. When virtual_log_n > log_n, the trailing fold polynomials
-    // for the virtual rounds were appended as constant polynomials by compute_fold_polynomials; their commitments
-    // contribute nothing to the Shplonk quotient and are zeroed by the verifier.
+    // for the virtual rounds were appended as constant polynomials by compute_fold_polynomials. Their opening
+    // quotients vanish, and the verifier cancels their constant evaluations in the batched opening claim.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
         transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
@@ -175,7 +175,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // On the verifier side, these constant fold polynomials contribute nothing to the Shplonk quotient.
     const auto& last = fold_polynomials.back();
     const Fr u_last = (log_n - 1) < virtual_log_n ? multilinear_challenge[log_n - 1] : Fr(0);
-    const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
+    const Fr final_eval = last.at(0) + u_last * (last.get(1, /*virtual_padding=*/1) - last.at(0));
     Polynomial const_fold(1);
     const_fold.at(0) = final_eval;
     fold_polynomials.emplace_back(std::move(const_fold));

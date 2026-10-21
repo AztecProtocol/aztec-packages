@@ -9,6 +9,7 @@ import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 export const MegaApp = flavor({
   name: "MegaAppFlavor",
   family: "mega_app",
+  arithmetization: "mega",
   relations: [
     // Perm first (no gate block) keeps to-be-shifted witnesses contiguous; LogDerivLookup
     // before Arithmetic keeps the lookup block early, matching mega.ts. See ultra.ts for the

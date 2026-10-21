@@ -4,6 +4,8 @@ use types::constants::MAX_U32_VALUE;
 #[test]
 fn with_zero_counter() {
     let mut builder = TestBuilder::new();
+    // `claimed_revertible_counter` may only be 0 for a private-only tx.
+    builder.is_private_only = true;
     builder.revertible_counter_hint = 0;
 
     // Everything is non-revertible.
@@ -16,6 +18,8 @@ fn with_zero_counter() {
 #[test]
 fn with_zero_counter_expect_min_value() {
     let mut builder = TestBuilder::new();
+    // `claimed_revertible_counter` may only be 0 for a private-only tx.
+    builder.is_private_only = true;
     builder.revertible_counter_hint = 0;
 
     // The start counter for the first call is 2. But it can still request kernel to validate counter 1.
@@ -28,6 +32,8 @@ fn with_zero_counter_expect_min_value() {
 #[test]
 fn with_zero_counter_expect_max_non_revertible() {
     let mut builder = TestBuilder::new();
+    // `claimed_revertible_counter` may only be 0 for a private-only tx.
+    builder.is_private_only = true;
     builder.revertible_counter_hint = 0;
 
     builder.private_call.expected_non_revertible_side_effect_counter = MAX_U32_VALUE;
@@ -39,6 +45,8 @@ fn with_zero_counter_expect_max_non_revertible() {
 #[test(should_fail_with = "Failed to validate expected revertible side effect counter")]
 fn with_zero_counter_expect_max_revertible() {
     let mut builder = TestBuilder::new();
+    // `claimed_revertible_counter` may only be 0 for a private-only tx.
+    builder.is_private_only = true;
     builder.revertible_counter_hint = 0;
 
     builder.private_call.expected_revertible_side_effect_counter = MAX_U32_VALUE;

@@ -69,6 +69,8 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<
             info("Goblin verification failed at Translator pairing check");
             return ReductionResult();
         }
+
+        transcript->enforce_proof_fully_consumed("GoblinVerifier");
     }
 
     // Combine all check results

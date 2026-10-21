@@ -54,10 +54,13 @@ endif()
 set(MSGPACK_INCLUDE ${msgpack_SOURCE_DIR}/include)
 
 # msgpack-c is used header-only with exceptions (no boost). Compiled with libc++ and
-# -march=skylake so lmdblib's objects are ABI- and arch-compatible with the consumers
+# -march=skylake on x86_64 so lmdblib's objects are ABI- and arch-compatible with the consumers
 # (kvdb, wsdb) they are linked into.
 add_compile_definitions(MSGPACK_NO_BOOST NO_PAR_ALGOS)
-add_compile_options(-march=skylake -fconstexpr-steps=100000000 -fbracket-depth=1024)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    add_compile_options(-march=skylake)
+endif()
+add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024)
 add_compile_options(-Wno-deprecated-declarations -Wno-missing-field-initializers)
 add_compile_options(-stdlib=libc++)
 

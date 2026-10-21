@@ -13,7 +13,7 @@ Since we follow a two-row trace structure, some relations are only active on eve
 | Opcode Constraint Relation       | `TranslatorOpcodeConstraintRelation`         | 5            | ✓                   | ✓                  |
 | Accumulator Transfer Relation    | `TranslatorAccumulatorTransferRelation`      | 12           | ✗                   | ✓ (propagation)    |
 | Zero Constraints Relation        | `TranslatorZeroConstraintsRelation`          | 68           | ✓                   | ✓                  |
-| Shiftable First-Coefficient Zero | `TranslatorShiftableFirstCoeffZeroRelation`  | 5            | first row only      | first row only     |
+| Shiftable First-Coefficient Zero | `TranslatorShiftableFirstCoeffZeroRelation`  | 18           | first row only      | first row only     |
 
 The subrelation counts are the sizes of each relation's `SUBRELATION_PARTIAL_LENGTHS` array, so a count drift here surfaces against the code.
 
@@ -727,18 +727,13 @@ Degree: 2 (Lagrange term × wire)
 
 ### Shiftable First-Coefficient Zero Relation
 
-Implemented by `TranslatorShiftableFirstCoeffZeroRelation` (5 subrelations).
+Implemented by `TranslatorShiftableFirstCoeffZeroRelation` (18 subrelations).
 
-A to-be-shifted polynomial $g$ is opened as the left-shift $g/X$ off the *same* commitment, so the Gemini/Shplemini PCS already forces $g[0] = 0$. This relation makes that invariant explicit at the relation level for the five shiftable `ordered_range_constraints_0..4` wires — the only shiftable Translator polynomials whose first coefficient is not already pinned to 0 by another relation:
-
-- `z_perm` is pinned by the [Permutation Relation](#permutation-relation) (its `z_perm` initialization subrelation);
-- the range-constraint and op-queue wires are pinned by the [Zero Constraints Relation](#zero-constraints-relation), which forces them to 0 on every row outside the mini-circuit (including the first row).
-
-For each of the five ordered range-constraint wires $w$:
+For each of the five `ordered_range_constraints_0..4` wires and the 13 non-range main wires $w$, the relation enforces:
 
 $$\boxed{\texttt{lagrange first} \cdot w = 0}$$
 
-Anchoring the lower endpoint of each sorted range here removes the [Delta Range Constraint](#delta-range-constraint-relation) argument's dependence on the PCS shift property.
+The ordered-range wires start their sorted chains at zero. The main wires occupy separate blocks of `concatenated_non_range`; PCS shiftability pins only the first block's first value.
 
 Degree: 2 (`lagrange_first` × wire), partial length 3.
 

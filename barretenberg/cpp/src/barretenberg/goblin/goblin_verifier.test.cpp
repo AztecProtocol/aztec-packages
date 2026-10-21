@@ -120,6 +120,100 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
     EXPECT_TRUE(ipa_verified);
 }
 
+TEST_F(GoblinRecursiveVerifierTests, BatchMergeWithPaddedActiveSubtables)
+{
+    // Completeness coverage for even-row padding. Invalid sizes and degrees are tested in batch_merge.test.cpp;
+    // odd-row opcode rejection requires a tampered proof or a Translator-level test.
+    Goblin goblin;
+    CommitmentKey<curve::BN254> commitment_key(1UL << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE);
+    std::optional<bb::fr> binding_hash;
+    constexpr std::array<size_t, 3> padding_ops{ 1, 3, 0 };
+    std::vector<size_t> expected_shift_sizes;
+
+    for (const size_t padding : padding_ops) {
+        MegaCircuitBuilder circuit{ goblin.op_queue };
+        GoblinMockCircuits::add_some_ecc_op_gates(circuit);
+        auto unpadded_queue = *goblin.op_queue;
+        unpadded_queue.merge();
+        const auto original_columns = unpadded_queue.construct_current_ultra_ops_subtable_columns();
+        expected_shift_sizes.push_back(original_columns[0].size() + padding * UltraEccOpsTable::NUM_ROWS_PER_OP);
+        std::vector<Commitment> original_commitments;
+        for (const auto& column : original_columns) {
+            original_commitments.push_back(commitment_key.commit(column));
+        }
+        binding_hash = BatchMergeVerifier::ecc_op_hash_step(original_commitments, binding_hash);
+
+        // Trailing zeros increase the claimed size without changing the circuit's committed columns.
+        for (size_t i = 0; i < padding; ++i) {
+            goblin.op_queue->no_op_ultra_only();
+        }
+        goblin.op_queue->merge();
+        const auto padded_columns = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            ASSERT_EQ(padded_columns[col].size(),
+                      original_columns[col].size() + padding * UltraEccOpsTable::NUM_ROWS_PER_OP);
+            ASSERT_EQ(commitment_key.commit(padded_columns[col]), original_commitments[col]);
+        }
+    }
+
+    goblin.prove_batch_merge();
+    // Sizes follow the subtable and ZK commitments and the active-subtable count in the proof.
+    constexpr size_t shift_sizes_offset = BatchMergeVerifier::NUM_COLUMN_TABLES * NUM_WIRES *
+                                              NativeTranscript::Codec::template calc_num_fields<Commitment>() +
+                                          1;
+    for (size_t i = 0; i < expected_shift_sizes.size(); ++i) {
+        ASSERT_EQ(goblin.batch_merge_proof.at(shift_sizes_offset + i), bb::fr(expected_shift_sizes[i]));
+    }
+    BatchMergeVerifier batch_verifier;
+    const auto batch_result = batch_verifier.reduce_to_pairing_check(goblin.batch_merge_proof, binding_hash.value());
+    ASSERT_TRUE(batch_result.reduction_succeeded);
+    ASSERT_TRUE(batch_result.pairing_points.check());
+
+    // The batch merge is recursively verified in the hiding kernel, so its arithmetization is the one
+    // BatchMergeRecursiveVerifier is instantiated for at CHONK_MAX_NUM_CIRCUITS subtables.
+    MegaHidingKernelCircuitBuilder batch_builder;
+    using BatchVerifier = Goblin::BatchMergeRecursiveVerifier<MegaHidingKernelCircuitBuilder>;
+    auto recursive_hash = BatchVerifier::FF::from_witness(&batch_builder, binding_hash.value());
+    recursive_hash.unset_free_witness_tag();
+    stdlib::Proof<MegaHidingKernelCircuitBuilder> recursive_proof(batch_builder, goblin.batch_merge_proof);
+    BatchVerifier recursive_batch_verifier;
+    const auto recursive_batch_result =
+        recursive_batch_verifier.reduce_to_pairing_check(recursive_proof, recursive_hash);
+    ASSERT_TRUE(recursive_batch_result.reduction_succeeded);
+    ASSERT_TRUE(recursive_batch_result.pairing_points.check());
+    ASSERT_TRUE(CircuitChecker::check(batch_builder));
+    for (size_t col = 0; col < NUM_WIRES; ++col) {
+        ASSERT_EQ(recursive_batch_result.merged_commitments[col].get_value(), batch_result.merged_commitments[col]);
+    }
+
+    MegaCircuitBuilder hiding_circuit{ goblin.op_queue };
+    GoblinMockCircuits::add_some_ecc_op_gates(hiding_circuit);
+    const size_t target_size = HIDING_KERNEL_ULTRA_OPS - TranslatorCircuitBuilder::NUM_RANDOM_OPS_END;
+    // Also exercise zero padding inside the hiding subtable, immediately before its trailing random ops.
+    while (goblin.op_queue->get_current_subtable_size() < target_size) {
+        goblin.op_queue->no_op_ultra_only();
+    }
+    GoblinMockCircuits::randomise_op_queue(hiding_circuit, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
+
+    const auto proof = goblin.prove();
+    MergeCommitments merge_commitments;
+    merge_commitments.T_prev_commitments = batch_result.merged_commitments;
+    const auto hiding_columns = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
+    for (size_t col = 0; col < NUM_WIRES; ++col) {
+        merge_commitments.t_commitments[col] = commitment_key.commit(hiding_columns[col]);
+    }
+
+    auto transcript = std::make_shared<NativeTranscript>();
+    bb::GoblinVerifier verifier(transcript, proof, merge_commitments);
+    auto result = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
+    ASSERT_TRUE(result.all_checks_passed);
+    EXPECT_TRUE(result.merge_pairing_points.check());
+    EXPECT_TRUE(result.translator_pairing_points.check());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    auto accumulator = result.triple_ipa_opening.reduce_to_accumulator();
+    EXPECT_TRUE(bb::ECCVMVerifier::TripleIPA::verify_accumulator(ipa_vk, accumulator));
+}
+
 TEST_F(GoblinRecursiveVerifierTests, NativeVerificationRejectsTamperedTripleIPAProof)
 {
     auto [proof, merge_commitments, _] = create_goblin_prover_output();

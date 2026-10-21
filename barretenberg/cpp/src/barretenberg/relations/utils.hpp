@@ -6,6 +6,7 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/tuple.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
@@ -13,8 +14,25 @@
 
 namespace bb {
 
+/**
+ * @brief Whether every offset-only relation receives row-disabling weights in this flavor.
+ * @details Walks `Flavor::Relations` through the tuple-like interface, so relation lists held in either a `std::tuple`
+ * or a `flat_tuple::tuple` are accepted.
+ */
+template <typename Flavor> constexpr bool offset_relations_compatible()
+{
+    using Relations = typename Flavor::Relations;
+    return []<size_t... I>(std::index_sequence<I...>) {
+        return ((!IsOffsetOnlyRelation<std::tuple_element_t<I, Relations>> ||
+                 (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>)) &&
+                ...);
+    }(std::make_index_sequence<std::tuple_size_v<Relations>>{});
+}
+
 template <typename Flavor> class RelationUtils {
   public:
+    static_assert(offset_relations_compatible<Flavor>(),
+                  "offset-only relations require a ZK flavor with row disabling");
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;

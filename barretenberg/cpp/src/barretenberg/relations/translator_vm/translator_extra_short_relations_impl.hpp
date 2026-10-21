@@ -72,6 +72,13 @@ void TranslatorOpcodeConstraintShortRelationImpl<FF>::accumulate(ContainerOverSu
                               accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
     accumulate_no_op_transfer(std::get<4>(accumulators),
                               accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+
+    // Contribution (6): the result row holds the hiding op (op = 3, eq and reset). Degree 2, so it uses the shorter
+    // accumulator.
+    using ShorterAccumulator = std::tuple_element_t<5, ContainerOverSubrelations>;
+    using ShorterView = TranslatorShortMonomialView<ShorterAccumulator>;
+    std::get<5>(accumulators) +=
+        ShorterAccumulator((ShorterView(in.op) + minus_three) * (ShorterView(in.lagrange_result_row) * scaling_factor));
 };
 
 /**

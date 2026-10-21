@@ -10,12 +10,13 @@ template <typename FF_> class TranslatorOpcodeConstraintShortRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
         6, // opcode constraint relation
         6, // opcode constraint relation
         6, // opcode constraint relation
         6, // opcode constraint relation
-        6  // opcode constraint relation
+        6, // opcode constraint relation
+        3  // hiding op (eq and reset) at the result row
     };
 
     /**
@@ -24,14 +25,15 @@ template <typename FF_> class TranslatorOpcodeConstraintShortRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // Skip evaluation when not at even indices in the minicircuit and not in the masking area
-        // as the contribution is zero in these regions.
-        return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
+        // Skip evaluation outside the genuine-op processing range (neither even nor odd minicircuit indices), where
+        // every contribution is zero. Mirrors TranslatorOpcodeConstraintRelation::skip.
+        return (in.lagrange_even_in_minicircuit + in.lagrange_odd_in_minicircuit).is_zero();
     }
     /**
      * @brief Enforces two constraints on the opcode value:
      *          1. opcode ∈ {0,3,4,8} (nop, eq and reset, mul or add)
      *          2. at even indices when op = 0 (no-op), accumulator limbs stay the same
+     *          3. at the result row: opcode = 3 (the ZK prefix's hiding op)
      *
      * @details The first constraint validates that the opcode is one of the described values on even rows.
      * On odd rows, the opcode value is set to 0 and so it is always valid, so the check is trivial. The second

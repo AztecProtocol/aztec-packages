@@ -262,12 +262,34 @@ TEST(CrsFactory, Bn254CacheLoadRejectsCorruptionWhenEnvVarSet)
     // against BN254_G1_CHUNK_HASHES[0] (hash of a real 4MB chunk) and necessarily fails.
     std::vector<uint8_t> bad_data(3 * COMPRESSED_POINT_SIZE, 0);
     bb::write_file(temp_path / "bn254_g1_compressed.dat", bad_data);
+    bb::write_file(temp_path / "bn254_g1.dat", to_buffer(std::vector<g1::affine_element>(3, g1::affine_one)));
 
     setenv("BB_VERIFY_CRS", "1", /*overwrite=*/1);
     EXPECT_THROW_OR_ABORT(bb::get_bn254_g1_data(temp_path, /*num_points=*/3, /*allow_download=*/false),
                           "CRS integrity check failed");
     unsetenv("BB_VERIFY_CRS");
 
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254VerifiedCacheSupportsSmallRequests)
+{
+    const fs::path temp_path = "barretenberg_srs_test_verified_prefix";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto data = bb::srs::http_download(
+        "http://crs.aztec-cdn.foundation/g1_compressed.dat", 0, bb::srs::SRS_CHUNK_SIZE_BYTES - 1);
+    bb::write_file(temp_path / "bn254_g1_compressed.dat", data);
+    bb::write_file(temp_path / "bn254_g1.dat", to_buffer(std::vector<g1::affine_element>(3, -g1::affine_one)));
+    setenv("BB_VERIFY_CRS", "1", 1);
+    EXPECT_NO_THROW({
+        const auto points = bb::get_bn254_g1_data(temp_path, 3, false);
+        EXPECT_EQ(points.size(), 3);
+        EXPECT_EQ(points[0], g1::affine_one);
+        fs::remove(temp_path / "bn254_g1.dat");
+        EXPECT_EQ(bb::get_bn254_g1_data(temp_path, 3, false)[0], g1::affine_one);
+    });
+    unsetenv("BB_VERIFY_CRS");
     fs::remove_all(temp_path);
 }
 

@@ -133,10 +133,11 @@ template <typename FF_> class ECCVMMSMShortRelationImpl {
         MSM_TRANSITION_AT_ACTIVE_START = 30,
         MSM_PC_CONTINUITY = 31,
         MSM_PC_SKEW_CONTINUITY = 32,
+        MSM_TRANSITION_FOLLOWS_SKEW = 33,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS{
         8, // COLLISION_CHECK_1
         8, // COLLISION_CHECK_2
         8, // COLLISION_CHECK_3
@@ -170,6 +171,7 @@ template <typename FF_> class ECCVMMSMShortRelationImpl {
         6, // MSM_TRANSITION_AT_ACTIVE_START (deg 5)
         5, // MSM_PC_CONTINUITY (deg 4)
         4, // MSM_PC_SKEW_CONTINUITY (deg 3)
+        4, // MSM_TRANSITION_FOLLOWS_SKEW (deg 3)
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 

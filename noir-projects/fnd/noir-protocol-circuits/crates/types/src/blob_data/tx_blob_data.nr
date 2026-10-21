@@ -221,6 +221,9 @@ fn validate_private_logs_blob_fields(
             );
             offset += 1;
 
+            // Fields past `length` are not checked here: this loop only sees the logs that reach the blob, and the tx
+            // hash also covers logs that do not (the revertible logs of a reverted tx). The tx base rollups require
+            // every log in the kernel's output to be zero past `length` in `validate_private_logs`.
             let mut include_elt = true;
             for j in 0..log.fields.len() {
                 include_elt &= j != log.length;

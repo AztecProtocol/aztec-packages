@@ -678,13 +678,11 @@ Each kernel computes a hash of its verifier accumulator and outputs it as `outpu
 3. Asserts equality in-circuit
 
 ```cpp
-// In complete_kernel_circuit_logic()
-bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
-BB_ASSERT(accum_hash_match);
-kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);  // In-circuit constraint
+// In process_kernel_public_inputs(), reached from complete_kernel_circuit_logic()
+kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 ```
 
-**Why this matters**: This creates an unbroken chain from the first kernel to the hiding kernel. If an adversary modifies any accumulator mid-chain, the hash mismatch is detected. The hash also includes `OriginTag` information via `hash_with_origin_tagging()`, binding it to the specific transcript that generated it.
+**Why this matters**: The in-circuit equality binds each kernel to the previous accumulator. The digest is a Poseidon2 hash of the accumulator's serialized values; `hash_with_origin_tagging()` tags the in-circuit witnesses but does not hash the `OriginTag` or transcript identity. This transcript independence is required: the producing kernel uses a fresh hash transcript, while the consuming kernel uses its shared accumulation transcript.
 
 ### Databus Consistency Checks
 
@@ -714,7 +712,7 @@ This chain ensures the op-queue history is bound across all circuits, and the ba
 
 **Attack vector**: If the first Fiat-Shamir challenge doesn't depend on the verification key, a malicious prover could generate a valid proof for circuit A, then claim it's a proof for circuit B by presenting a different VK - the challenges would be identical since they don't bind to the VK.
 
-**Defense**: The VK hash is the first value added to the transcript via `add_to_hash_buffer("vk_hash", ...)` before any challenges are derived. This happens in `OinkVerifier::verify()`, which is called by `HypernovaFoldingVerifier` for each incoming instance. All subsequent Fiat-Shamir challenges depend on this hash, binding the proof to exactly one circuit.
+**Defense**: For each incoming instance, `OinkVerifier::verify()` adds its VK hash to the shared transcript via `add_to_hash_buffer("vk_hash", ...)` before deriving that instance's challenges. The hash need not be the transcript's first value: earlier instances may already have contributed data. Each instance's Fiat-Shamir challenges depend on its VK hash.
 
 ```cpp
 // In OinkVerifier::verify() (called by HypernovaFoldingVerifier for each instance)

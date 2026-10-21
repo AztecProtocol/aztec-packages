@@ -311,6 +311,15 @@ function runs_nightly_only {
 
 function test_cmds_native {
   local mode=${1:-per_merge}
+  if [ "$mode" = per_merge ]; then
+    local flavor_codegen_hash
+    flavor_codegen_hash=$(cache_content_hash scripts/flavor-codegen \
+      src/barretenberg/flavor/generated \
+      src/barretenberg/honk/execution_trace/generated \
+      src/barretenberg/stdlib/primitives/circuit_builders/generated \
+      '^barretenberg/cpp/\.clang-format$')
+    echo "$flavor_codegen_hash bash barretenberg/cpp/scripts/flavor-codegen/test.sh"
+  fi
 
   # E.g. build, build-debug or build-coverage
   cd $native_build_dir

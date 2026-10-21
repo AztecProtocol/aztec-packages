@@ -4,7 +4,7 @@
 namespace bb {
 
 /**
- * @brief Pins every shiftable wire to 0 at the `lagrange_first` row (TRACE_OFFSET).
+ * @brief Pins shiftable wires and translation columns to 0 at the `lagrange_first` row (TRACE_OFFSET).
  *
  * @details
  * ECCVM has 26 shiftable witness columns (see `WireToBeShiftedWithoutAccumulatorsEntities`,
@@ -25,13 +25,17 @@ namespace bb {
  * at the lagrange_first row is not already pinned to 0 by some other constraint. Some such
  * constraints exist (see the per-column rationale below), in which case we document where
  * the pinning happens and omit a subrelation here.
+ * The nonshifted translation columns `transcript_op`, `transcript_Px`, `transcript_Py`,
+ * `transcript_z1`, and `transcript_z2` are also pinned here so the row before the hiding
+ * operation contributes zero to the translation polynomial. This makes the zero-row
+ * invariant a consequence of ECCVM relations, without relying on PCS enforcement.
  *
  * Without this defense, at least the following gaps existed:
  *  - `precompute_select`: phantom 1-row scalar at lagrange_first with unbounded scalar_sum
- *    propagating to the transcript-side `z1` (load-bearing for soundness).
+ *    propagating to the transcript-side `z1` (required for soundness).
  *  - `transcript_mul`: spurious second-term-multiset denominator factor at lagrange_first
- *    with attacker-controlled fingerprint (load-bearing).
- *  - `transcript_pc`: composes with `transcript_mul` above (load-bearing).
+ *    with attacker-controlled fingerprint (required for soundness).
+ *  - `transcript_pc`: composes with `transcript_mul` above (required for soundness).
  *
  * For columns whose value at the lagrange_first row is free but not currently read by any
  * firing constraint, we still pin to 0 here as defense-in-depth so that the invariant is
@@ -60,7 +64,7 @@ template <typename FF_> class ECCVMShiftableInitRelationImpl {
     using FF = FF_;
 
     enum SubrelationIndex : size_t {
-        // Load-bearing for soundness:
+        // Required for soundness:
         //
         // Z_PERM_INIT and TRANSCRIPT_ACCUMULATOR_NOT_EMPTY_INIT were previously housed in
         // ECCVMSetRelation and ECCVMTranscriptRelation respectively; centralizing them here
@@ -89,12 +93,19 @@ template <typename FF_> class ECCVMShiftableInitRelationImpl {
         MSM_ADD1_INIT = 18,
         MSM_PC_INIT = 19,
         TRANSCRIPT_MSM_COUNT_INIT = 20,
+
+        // Required to derive the zero translation row from ECCVM relations:
+        TRANSCRIPT_OP_INIT = 21,
+        TRANSCRIPT_PX_INIT = 22,
+        TRANSCRIPT_PY_INIT = 23,
+        TRANSCRIPT_Z1_INIT = 24,
+        TRANSCRIPT_Z2_INIT = 25,
         NUM_SUBRELATIONS,
     };
 
     // Every subrelation is `lagrange_first · col · scaling_factor` (degree 2 in witnesses → partial length 3).
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                         3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 26> SUBRELATION_PARTIAL_LENGTHS{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     // skip after lagrange_first row

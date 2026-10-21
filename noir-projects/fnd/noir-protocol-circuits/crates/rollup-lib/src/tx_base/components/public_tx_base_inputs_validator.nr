@@ -100,6 +100,15 @@ impl PublicTxBaseInputsValidator {
             private_tail.expiration_timestamp,
             self.constants.global_variables,
         );
+
+        // Both halves are checked regardless of the revert flag: the tx hash commits to the revertible logs even when
+        // they are discarded from the blob.
+        private_tail_validator::validate_private_logs(
+            private_tail.non_revertible_accumulated_data.private_logs,
+        );
+        private_tail_validator::validate_private_logs(
+            private_tail.revertible_accumulated_data.private_logs,
+        );
     }
 
     fn validate_public_chonk_verifier_against_avm(self) {

@@ -48,14 +48,12 @@ inline std::array<bb::fr, 2> get_aes_sparse_normalization_values_from_key(const 
  *          two 4-digit lookups to normalize a full 8-digit sparse byte.
  *
  * @param id The BasicTableId to assign (AES_SPARSE_NORMALIZE)
- * @param table_index Index of this table in the table registry
  * @return BasicTable configured for 4-digit sparse normalization
  */
-inline BasicTable generate_aes_sparse_normalization_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_aes_sparse_normalization_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
 
     for (uint64_t i = 0; i < AES_BASE; ++i) {
         // Compute the raw values for the first digit
@@ -228,15 +226,13 @@ inline std::array<bb::fr, 2> get_aes_sbox_values_from_key(const std::array<uint6
  *          not for accumulating multiple slices into a larger value.
  *
  * @param id The identifier for this lookup table
- * @param table_index Index of this table in the table registry
  *
  * @return BasicTable The constructed 256-entry S-box lookup table
  */
-inline BasicTable generate_aes_sbox_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_aes_sbox_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     size_t table_size = 256;
     table.use_twin_keys = false;
     for (uint64_t i = 0; i < table_size; ++i) {

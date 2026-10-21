@@ -39,6 +39,9 @@ void create_poseidon2_permutations_constraints(Builder& builder, const Poseidon2
 template void create_poseidon2_permutations_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                                              const Poseidon2Constraint& constraint);
 
-template void create_poseidon2_permutations_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                                            const Poseidon2Constraint& constraint);
+#define INSTANTIATE_CREATE_POSEIDON2_PERMUTATIONS_CONSTRAINTS(Builder)                                                 \
+    template void create_poseidon2_permutations_constraints<Builder>(Builder & builder,                                \
+                                                                     const Poseidon2Constraint& constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_CREATE_POSEIDON2_PERMUTATIONS_CONSTRAINTS)
+#undef INSTANTIATE_CREATE_POSEIDON2_PERMUTATIONS_CONSTRAINTS
 } // namespace acir_format

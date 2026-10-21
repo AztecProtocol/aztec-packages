@@ -17,6 +17,7 @@
 
 #include "sha256.hpp"
 
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
@@ -411,6 +412,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
 }
 
 template class SHA256<bb::UltraCircuitBuilder>;
-template class SHA256<bb::MegaCircuitBuilder>;
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(SHA256)
 
 } // namespace bb::stdlib

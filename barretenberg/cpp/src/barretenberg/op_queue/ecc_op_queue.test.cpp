@@ -61,12 +61,12 @@ class ECCOpQueueTest {
     }
 
     /**
-     * @brief  Check that the opcode values are consistent between the ultra ops table and the eccvm ops table
+     * @brief  Check that the operations agree between the ultra and eccvm tables
      *
      * @param op_queue
      */
-    static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
-                                                    const bool include_zk_ops = false)
+    static void check_table_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                                   const bool include_zk_ops = false)
     {
         auto ultra_table =
             include_zk_ops ? op_queue->get_zk_reconstructed_ultra_ops() : op_queue->get_no_zk_reconstructed_ultra_ops();
@@ -80,8 +80,18 @@ class ECCOpQueueTest {
             if (ultra_op.op_code.value() == 0) {
                 continue;
             }
-            EXPECT_EQ(ultra_op.op_code.value(), eccvm_table[j++].op_code.value());
+            ASSERT_LT(j, eccvm_table.size());
+            const auto& eccvm_op = eccvm_table[j++];
+            EXPECT_EQ(ultra_op.op_code.value(), eccvm_op.op_code.value());
+            const auto point = ultra_op.get_base_point_standard_form();
+            EXPECT_EQ(point[0],
+                      eccvm_op.base_point.is_point_at_infinity() ? Curve::BaseField(0) : eccvm_op.base_point.x);
+            EXPECT_EQ(point[1],
+                      eccvm_op.base_point.is_point_at_infinity() ? Curve::BaseField(0) : eccvm_op.base_point.y);
+            EXPECT_EQ(uint256_t(ultra_op.z_1), eccvm_op.z1);
+            EXPECT_EQ(uint256_t(ultra_op.z_2), eccvm_op.z2);
         }
+        EXPECT_EQ(j, eccvm_table.size());
     };
 };
 
@@ -146,8 +156,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
         op_queue->merge();
     }
 
-    op_queue->construct_zk_columns();
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
+    ECCOpQueueTest::check_table_consistency_with_eccvm(op_queue);
 }
 
 TEST(ECCOpQueueTest, ColumnPolynomialConstructionUpToTailWithZkThenFixedAppend)
@@ -174,7 +183,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionUpToTailWithZkThenFixedAppend)
               bb::UltraEccOpsTable::ZK_ULTRA_OPS + op_queue->get_ultra_ops_table_num_rows_up_to_tail());
     ECCOpQueueTest::check_final_table_column_polynomials(op_queue, ultra_fixed_offset);
 
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue, /*include_zk_ops=*/true);
+    ECCOpQueueTest::check_table_consistency_with_eccvm(op_queue, /*include_zk_ops=*/true);
 }
 
 // Verify correct handling of point at infinity in add and mul operations
@@ -297,4 +306,129 @@ TEST(ECCOpQueueTest, HidingOpPositionConsistency)
     // Verify opcodes match
     EXPECT_EQ(ultra_hiding_op.op_code.eq, eccvm_hiding_op.op_code.eq);
     EXPECT_EQ(ultra_hiding_op.op_code.reset, eccvm_hiding_op.op_code.reset);
+}
+
+TEST(ECCOpQueueTest, MissingHidingOpDoesNotPopulateCache)
+{
+    ECCOpQueue queue;
+    queue.eq_and_reset();
+    queue.merge();
+    EXPECT_THROW(queue.get_eccvm_ops(), std::runtime_error);
+    EXPECT_THROW(queue.get_eccvm_ops(), std::runtime_error);
+
+    queue.construct_zk_columns();
+    ASSERT_EQ(queue.get_eccvm_ops().size(), 2);
+    EXPECT_TRUE(queue.get_eccvm_ops()[1].base_point.is_point_at_infinity());
+}
+
+TEST(ECCOpQueueTest, ReconstructedTablesFollowAppends)
+{
+    for (bool include_zk : { false, true }) {
+        auto queue = std::make_shared<ECCOpQueue>();
+        if (!include_zk) {
+            queue->append_hiding_op(fq(11), fq(12));
+        }
+        queue->add_accumulate(g1::affine_one);
+        queue->eq_and_reset();
+        queue->merge();
+        if (include_zk) {
+            queue->construct_zk_columns();
+        }
+        ECCOpQueueTest::check_table_consistency_with_eccvm(queue, include_zk);
+        const auto original = queue->get_eccvm_ops();
+
+        queue->initialize_new_subtable();
+        queue->mul_accumulate(g1::affine_one, fr(7));
+        queue->eq_and_reset();
+        EXPECT_THROW(queue->get_eccvm_ops(), std::runtime_error);
+        EXPECT_THROW(queue->get_no_zk_reconstructed_ultra_ops(), std::runtime_error);
+        EXPECT_THROW(queue->get_zk_reconstructed_ultra_ops(), std::runtime_error);
+        if (include_zk) {
+            queue->merge_fixed_append(20);
+        } else {
+            queue->merge();
+        }
+        ASSERT_EQ(queue->get_eccvm_ops().size(), original.size() + 2);
+        EXPECT_EQ(queue->get_eccvm_ops().front(), original.front());
+        EXPECT_EQ(queue->get_eccvm_ops().back().base_point, g1::affine_element(g1::one * fr(7)));
+        ECCOpQueueTest::check_table_consistency_with_eccvm(queue, include_zk);
+    }
+}
+
+TEST(ECCOpQueueTest, HidingOpCanOnlyBeInstalledOnce)
+{
+    for (bool include_zk : { false, true }) {
+        auto queue = std::make_shared<ECCOpQueue>();
+        if (!include_zk) {
+            queue->append_hiding_op(fq(11), fq(12));
+        }
+        queue->merge();
+        if (include_zk) {
+            queue->construct_zk_columns();
+        }
+        const auto original = queue->get_eccvm_ops();
+        EXPECT_THROW(queue->append_hiding_op(fq(13), fq(14)), std::runtime_error);
+        EXPECT_THROW(queue->construct_zk_columns(), std::runtime_error);
+        EXPECT_EQ(queue->get_eccvm_ops(), original);
+        ECCOpQueueTest::check_table_consistency_with_eccvm(queue, include_zk);
+    }
+}
+
+TEST(ECCOpQueueTest, AppendingToExplicitTestInputPreservesBothInputs)
+{
+    ECCOpQueue queue;
+    std::vector<ECCVMOperation> input{ { .op_code = EccOpCode{ .add = true }, .base_point = g1::affine_one } };
+    queue.set_eccvm_ops_for_fuzzing(input);
+    queue.mul_accumulate(g1::affine_one, fr(7));
+    queue.merge();
+    const auto& ops = queue.get_eccvm_ops();
+    ASSERT_EQ(ops.size(), 2);
+    EXPECT_EQ(ops[0], input[0]);
+    EXPECT_TRUE(ops[1].op_code.mul);
+    EXPECT_EQ(ops[1].base_point, g1::affine_one);
+    EXPECT_EQ(ops[1].z1, uint256_t(7));
+}
+
+TEST(ECCOpQueueTest, BatchSeparatorsPreserveSubtablesAndFixedAppend)
+{
+    auto queue = std::make_shared<ECCOpQueue>();
+    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(queue, false);
+    queue->merge();
+    queue->initialize_new_subtable();
+    queue->merge();
+    queue->construct_zk_columns();
+    const auto original = queue->construct_subtable_columns();
+    const auto original_eccvm = queue->get_eccvm_ops();
+    const auto original_ultra = queue->get_zk_reconstructed_ultra_ops();
+    const size_t original_rows = queue->get_ultra_ops_table_num_rows();
+    queue->add_batch_merge_separators();
+
+    const auto unchanged = queue->construct_subtable_columns();
+    ASSERT_EQ(unchanged.size(), original.size());
+    for (size_t i = 0; i < original.size(); ++i) {
+        for (size_t col = 0; col < 4; ++col) {
+            EXPECT_EQ(unchanged[i][col], original[i][col]);
+        }
+    }
+    EXPECT_EQ(queue->get_ultra_ops_table_num_rows(), original_rows + 4);
+    EXPECT_EQ(queue->get_eccvm_ops().size(), original_eccvm.size() + 2);
+    EXPECT_EQ(queue->get_zk_reconstructed_ultra_ops().size(), original_ultra.size() + 2);
+    const auto [ultra_separator, eccvm_separator] = UltraEccOpsTable::make_separator_op_pair();
+    EXPECT_EQ(queue->get_eccvm_ops().back(), eccvm_separator);
+    EXPECT_EQ(queue->get_zk_reconstructed_ultra_ops().back(), ultra_separator);
+    ECCOpQueueTest::check_table_consistency_with_eccvm(queue, true);
+
+    const auto aggregate = queue->construct_ultra_ops_table_columns();
+    queue->initialize_new_subtable();
+    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(queue, false);
+    const size_t append_offset = queue->get_append_offset_for_prover();
+    queue->merge_fixed_append(append_offset);
+    const auto tail = queue->construct_table_columns_up_to_tail();
+    for (size_t col = 0; col < 4; ++col) {
+        EXPECT_EQ(tail[col], aggregate[col]);
+    }
+    EXPECT_EQ(queue->get_ultra_ops_table_num_rows() + UltraEccOpsTable::ZK_ULTRA_OPS,
+              ECCOpQueue::OP_QUEUE_SIZE * UltraEccOpsTable::NUM_ROWS_PER_OP);
+    ECCOpQueueTest::check_final_table_column_polynomials(queue, append_offset);
+    ECCOpQueueTest::check_table_consistency_with_eccvm(queue, true);
 }

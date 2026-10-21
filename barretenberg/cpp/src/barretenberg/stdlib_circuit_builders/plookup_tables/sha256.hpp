@@ -272,11 +272,11 @@ static constexpr std::array<bb::fr, 3> majority_rotation_coefficients{
  * Processes num_bits=3 bits per lookup, giving 16³ = 4096 table entries.
  * Normalizing 32 bits requires ceil(32/3) = 11 lookups (see get_witness_extension_output_table).
  */
-inline BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_witness_extension_normalization_table(BasicTableId id)
 {
     return sparse_tables::generate_sparse_normalization_table<WITNESS_EXTENSION_BASE,
                                                               WITNESS_EXTENSION_BITS_PER_LOOKUP,
-                                                              witness_extension_normalization_table>(id, table_index);
+                                                              witness_extension_normalization_table>(id);
 }
 
 /**
@@ -286,11 +286,10 @@ inline BasicTable generate_witness_extension_normalization_table(BasicTableId id
  * Processes num_bits=2 bits per lookup, giving 28² = 784 table entries.
  * Normalizing 32 bits requires 32/2 = 16 lookups (see get_choose_output_table).
  */
-inline BasicTable generate_choose_normalization_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_choose_normalization_table(BasicTableId id)
 {
-    return sparse_tables::generate_sparse_normalization_table<CHOOSE_BASE,
-                                                              CHOOSE_BITS_PER_LOOKUP,
-                                                              choose_normalization_table>(id, table_index);
+    return sparse_tables::
+        generate_sparse_normalization_table<CHOOSE_BASE, CHOOSE_BITS_PER_LOOKUP, choose_normalization_table>(id);
 }
 
 /**
@@ -300,11 +299,10 @@ inline BasicTable generate_choose_normalization_table(BasicTableId id, const siz
  * Processes num_bits=3 bits per lookup, giving 16³ = 4096 table entries.
  * Normalizing 32 bits requires ceil(32/3) = 11 lookups (see get_majority_output_table).
  */
-inline BasicTable generate_majority_normalization_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_majority_normalization_table(BasicTableId id)
 {
-    return sparse_tables::generate_sparse_normalization_table<MAJORITY_BASE,
-                                                              MAJORITY_BITS_PER_LOOKUP,
-                                                              majority_normalization_table>(id, table_index);
+    return sparse_tables::
+        generate_sparse_normalization_table<MAJORITY_BASE, MAJORITY_BITS_PER_LOOKUP, majority_normalization_table>(id);
 }
 
 /**

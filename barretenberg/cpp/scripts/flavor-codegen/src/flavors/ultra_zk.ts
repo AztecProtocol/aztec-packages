@@ -5,6 +5,7 @@ import * as R from "../relations/index.js";
 export const UltraZK = flavor({
     name: "UltraFlavorWithZK",
     family: "ultra_zk",
+    arithmetization: "ultra",
     relations: [
         // Perm first (no gate block) keeps to-be-shifted witnesses contiguous; LogDerivLookup
         // before Arithmetic keeps the lookup block early. See ultra.ts for the full rationale.

@@ -108,8 +108,11 @@ class FrCodec {
         BB_ASSERT_EQ(fr_vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
             return static_cast<bool>(fr_vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, bb::fr>) {
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t>) {
+            BB_ASSERT_LT(uint256_t(fr_vec[0]), uint256_t(1) << (sizeof(T) * 8), "Integer exceeds target range");
             return static_cast<T>(fr_vec[0]);
+        } else if constexpr (IsAnyOf<T, bb::fr>) {
+            return fr_vec[0];
         } else if constexpr (IsAnyOf<T, fq>) {
             return convert_grumpkin_fr_from_bn254_frs(fr_vec);
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
@@ -207,6 +210,7 @@ class FrCodec {
      */
     template <typename T> static T convert_short_challenge(const bb::fr& challenge)
     {
+        static_assert(IsAnyOf<T, bb::fr, fq>, "Unsupported challenge field");
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
         } else if constexpr (std::is_same_v<T, fq>) {
@@ -226,6 +230,7 @@ class FrCodec {
      */
     template <typename T> static T convert_full_challenge(const bb::fr& challenge)
     {
+        static_assert(IsAnyOf<T, bb::fr, fq>, "Unsupported challenge field");
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
         } else if constexpr (std::is_same_v<T, fq>) {
@@ -271,8 +276,11 @@ class U256Codec {
         } else if constexpr (IsAnyOf<T, fq>) {
             BB_ASSERT_LT(vec[0], uint256_t(fq::modulus), "Non-canonical base field element: value >= fq::modulus");
             return static_cast<T>(vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t>) {
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t>) {
+            BB_ASSERT_LT(vec[0], uint256_t(1) << (sizeof(T) * 8), "Integer exceeds target range");
             return static_cast<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, uint256_t>) {
+            return vec[0];
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t N = calc_num_fields<BaseField>();
@@ -359,6 +367,7 @@ class U256Codec {
      */
     template <typename T> static T convert_short_challenge(const bb::fr& challenge)
     {
+        static_assert(IsAnyOf<T, bb::fr, fq>, "Unsupported challenge field");
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
         } else if constexpr (std::is_same_v<T, fq>) {
@@ -374,6 +383,7 @@ class U256Codec {
      */
     template <typename T> static T convert_full_challenge(const bb::fr& challenge)
     {
+        static_assert(IsAnyOf<T, bb::fr, fq>, "Unsupported challenge field");
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
         } else if constexpr (std::is_same_v<T, fq>) {

@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
@@ -7,59 +8,74 @@
 
 namespace acir_format {
 
-template <>
-HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
-    MegaCircuitBuilder& builder,
-    GateCounter<MegaCircuitBuilder>& gate_counter,
+// The Mega family is the primary template: every Mega arithmetization handles Honk and HyperNova recursion
+// constraints the same way. UltraCircuitBuilder, which handles a different set, is specialized below.
+template <typename Builder>
+HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
+    Builder& builder,
+    GateCounter<Builder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
     [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& chonk_recursion_data)
+    const RecursionConstraintData& honk_recursion_data,
+    const RecursionConstraintData& avm_recursion_data,
+    const RecursionConstraintData& hn_recursion_data,
+    const RecursionConstraintData& chonk_recursion_data)
 {
+    static_assert(IsMegaBuilder<Builder>, "the Ultra arithmetization has its own specialization");
     bool has_honk_recursion_constraints = !honk_recursion_data.first.empty();
     bool has_avm_recursion_constraints = !avm_recursion_data.first.empty();
     bool has_hn_recursion_constraints = !hn_recursion_data.first.empty();
     bool has_chonk_recursion_constraints = !chonk_recursion_data.first.empty();
 
-    // Schema invariants: validate constraint type combinations for MegaBuilder
+    // Schema invariants: validate constraint type combinations for a Mega builder
     BB_ASSERT(!(has_honk_recursion_constraints && has_hn_recursion_constraints),
               "create_recursion_constraints: invalid circuit - both honk and HN recursion constraints present");
     BB_ASSERT(
         !has_avm_recursion_constraints,
-        "create_recursion_constraints: invalid circuit - AVM recursion constraints not supported with MegaBuilder");
+        "create_recursion_constraints: invalid circuit - AVM recursion constraints not supported with a Mega builder");
     BB_ASSERT(!has_chonk_recursion_constraints,
               "create_recursion_constraints: invalid circuit - Chonk recursion constraints not supported with "
-              "MegaBuilder");
+              "a Mega builder");
 
-    HonkRecursionConstraintsOutput<MegaCircuitBuilder> output;
+    HonkRecursionConstraintsOutput<Builder> output;
 
-    for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
-        HonkRecursionConstraintOutput<MegaCircuitBuilder> honk_recursion_constraint;
+    // An UltraHonk proof recursively verified here needs the verifier's bigfield base field, hence the
+    // non-native-field gate. Kernels drop it and never carry these constraints.
+    if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Nnf)) {
+        for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
+            HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
-        if (constraint.proof_type == HONK_ZK) {
-            honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                  stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(builder,
-                                                                                                          constraint);
-        } else if (constraint.proof_type == HONK) {
-            honk_recursion_constraint =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                  stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(builder,
-                                                                                                          constraint);
-        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
-            bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
-        } else {
-            bb::assert_failure("Invalid Honk proof type");
+            if (constraint.proof_type == HONK_ZK) {
+                honk_recursion_constraint =
+                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>,
+                                                      stdlib::recursion::honk::DefaultIO<Builder>>(builder, constraint);
+            } else if (constraint.proof_type == HONK) {
+                honk_recursion_constraint =
+                    create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>,
+                                                      stdlib::recursion::honk::DefaultIO<Builder>>(builder, constraint);
+            } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
+                bb::assert_failure("Rollup Honk proof type not supported on a Mega builder");
+            } else {
+                bb::assert_failure("Invalid Honk proof type");
+            }
+
+            output.update(honk_recursion_constraint, /*update_ipa_data=*/false); // Update output
+            gate_counter.track_diff(gates_per_opcode, opcode_idx);               // Track gate count
         }
-
-        output.update(honk_recursion_constraint, /*update_ipa_data=*/false); // Update output
-        gate_counter.track_diff(gates_per_opcode, opcode_idx);               // Track gate count
+    } else {
+        BB_ASSERT(!has_honk_recursion_constraints,
+                  "create_recursion_constraints: Honk recursion constraints are not supported by this "
+                  "arithmetization");
     }
 
-    if (has_hn_recursion_constraints) {
-        process_hn_recursion_constraints(builder, gate_counter, gates_per_opcode, hn_recursion_data, ivc_base);
+    // Only kernel arithmetizations carry recursive verification of the IVC's own proofs.
+    if constexpr (IsKernelCircuit<Builder>) {
+        if (has_hn_recursion_constraints) {
+            process_hn_recursion_constraints(builder, gate_counter, gates_per_opcode, hn_recursion_data, ivc_base);
+        }
+    } else {
+        BB_ASSERT(!has_hn_recursion_constraints,
+                  "create_recursion_constraints: HN recursion constraints are only supported in kernel circuits");
     }
 
     return output;
@@ -71,10 +87,10 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     GateCounter<UltraCircuitBuilder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
     [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& chonk_recursion_data)
+    const RecursionConstraintData& honk_recursion_data,
+    const RecursionConstraintData& avm_recursion_data,
+    const RecursionConstraintData& hn_recursion_data,
+    const RecursionConstraintData& chonk_recursion_data)
 {
     bool has_honk_recursion_constraints = !honk_recursion_data.first.empty();
     bool has_avm_recursion_constraints = !avm_recursion_data.first.empty();
@@ -147,18 +163,19 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     return output;
 }
 
-void process_hn_recursion_constraints(
-    MegaCircuitBuilder& builder,
-    GateCounter<MegaCircuitBuilder>& gate_counter,
-    std::vector<size_t>& gates_per_opcode,
-    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::shared_ptr<Chonk>& ivc_base)
+template <IsKernelCircuit Builder>
+void process_hn_recursion_constraints(Builder& builder,
+                                      GateCounter<Builder>& gate_counter,
+                                      std::vector<size_t>& gates_per_opcode,
+                                      const RecursionConstraintData& hn_recursion_data,
+                                      const std::shared_ptr<Chonk>& ivc_base)
 {
-    using StdlibFF = Chonk::StdlibFF;
-    using AppStdlibVK = Chonk::AppRecursiveFlavor::VerificationKey;
-    using AppStdlibVKAndHash = Chonk::AppRecursiveVKAndHash;
-    using KernelStdlibVK = Chonk::KernelRecursiveFlavor::VerificationKey;
-    using KernelStdlibVKAndHash = Chonk::KernelRecursiveVKAndHash;
+    using Completion = KernelCompletion<Builder>;
+    using StdlibFF = typename Completion::StdlibFF;
+    using AppStdlibVK = typename Completion::AppRecursiveFlavor::VerificationKey;
+    using AppStdlibVKAndHash = typename Completion::AppRecursiveVKAndHash;
+    using KernelStdlibVK = typename Completion::KernelRecursiveFlavor::VerificationKey;
+    using KernelStdlibVKAndHash = typename Completion::KernelRecursiveVKAndHash;
 
     // Validate hn_recursion_data constraints/indices size match
     BB_ASSERT_EQ(hn_recursion_data.first.size(),
@@ -183,7 +200,7 @@ void process_hn_recursion_constraints(
             }
         }
 
-        std::vector<bb::StdlibCircuitVKAndHash> stdlib_vk_and_hashs;
+        std::vector<bb::StdlibCircuitVKAndHash<Builder>> stdlib_vk_and_hashs;
         stdlib_vk_and_hashs.reserve(hn_recursion_data.first.size());
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
             auto hash = StdlibFF::from_witness_index(&builder, constraint.key_hash);
@@ -200,23 +217,24 @@ void process_hn_recursion_constraints(
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
         // Verify stdlib queue size matches after instantiation (invariant check)
-        BB_ASSERT_EQ(ivc->stdlib_verification_queue.size(),
+        BB_ASSERT_EQ(ivc->template completion_for<Builder>().stdlib_verification_queue.size(),
                      hn_recursion_data.first.size(),
                      "process_hn_recursion_constraints: stdlib_verification_queue size mismatch after instantiation");
 
         // Validate constraints against stdlib verification queue entries
         size_t group_index = 0;
-        for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
+        for (auto [constraint, queue_entry] :
+             zip_view(hn_recursion_data.first, ivc->template completion_for<Builder>().stdlib_verification_queue)) {
             // Cross-check the ACIR proof_type and the queued proof's kind against the type/kind implied by the
             // IVC's circuit kinds and the entry's position in the kernel's group. The IVC's circuit kinds (not
             // the proof_type) drive the verification logic; this is defense-in-depth that the two agree.
             BB_ASSERT_EQ(
                 static_cast<PROOF_TYPE>(constraint.proof_type),
-                expected_proof_type(*ivc, group_index),
+                expected_proof_type<Builder>(*ivc, group_index),
                 "process_hn_recursion_constraints: ACIR proof_type disagrees with circuit-kinds-derived state");
             BB_ASSERT_EQ(
                 queue_entry.kind,
-                expected_group_entry_kind(*ivc, group_index),
+                expected_group_entry_kind<Builder>(*ivc, group_index),
                 "process_hn_recursion_constraints: queue entry kind disagrees with circuit-kinds-derived position");
 
             // HN recursion constraints from Noir always have empty public_inputs - the public inputs are handled
@@ -254,10 +272,52 @@ void process_hn_recursion_constraints(
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
+        if (!builder.is_write_vk_mode()) {
+            throw_or_abort("HN recursion requires an IVC outside write-VK mode");
+        }
         process_with_ivc(create_mock_chonk_from_constraints(hn_recursion_data.first));
     } else {
         process_with_ivc(ivc_base);
     }
 }
+
+// One instantiation per Mega arithmetization an ACIR program can be translated into. HyperNova recursion
+// constraints only appear in kernels, so process_hn_recursion_constraints is instantiated for those alone.
+template HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
+    MegaCircuitBuilder&,
+    GateCounter<MegaCircuitBuilder>&,
+    std::vector<size_t>&,
+    const std::shared_ptr<Chonk>&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&);
+template HonkRecursionConstraintsOutput<MegaAppCircuitBuilder> create_recursion_constraints(
+    MegaAppCircuitBuilder&,
+    GateCounter<MegaAppCircuitBuilder>&,
+    std::vector<size_t>&,
+    const std::shared_ptr<Chonk>&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&);
+template HonkRecursionConstraintsOutput<MegaKernelCircuitBuilder> create_recursion_constraints(
+    MegaKernelCircuitBuilder&,
+    GateCounter<MegaKernelCircuitBuilder>&,
+    std::vector<size_t>&,
+    const std::shared_ptr<Chonk>&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&);
+template HonkRecursionConstraintsOutput<MegaHidingKernelCircuitBuilder> create_recursion_constraints(
+    MegaHidingKernelCircuitBuilder&,
+    GateCounter<MegaHidingKernelCircuitBuilder>&,
+    std::vector<size_t>&,
+    const std::shared_ptr<Chonk>&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&,
+    const RecursionConstraintData&);
 
 } // namespace acir_format

@@ -54,7 +54,10 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         BB_BENCH_NAME("allocating polynomials");
         vinfo("allocating polynomials object in prover instance...");
 
-        populate_memory_records(circuit);
+        // Arithmetizations without a memory block have no ROM/RAM records to place.
+        if constexpr (Circuit::ExecutionTrace::has_gate_kind(GateKind::Memory)) {
+            populate_memory_records(circuit);
+        }
         allocate_wires();
         allocate_permutation_argument_polynomials();
         allocate_selectors(circuit);
@@ -125,16 +128,17 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
  */
 template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
-    // For the lookup argument the circuit size must be at least as large as the sum of all tables used
-    const size_t tables_size = circuit.get_tables_size();
-
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
 
-    // Tables are placed at the lookup block's trace offset, so account for blocks preceding lookup
-    const size_t tables_end = circuit.blocks.lookup.trace_offset() + tables_size;
     const size_t trace_end = TRACE_OFFSET + NUM_ZERO_ROWS + min_size_of_execution_trace;
-    size_t total_num_gates = std::max(tables_end, trace_end);
+    size_t total_num_gates = trace_end;
+    if constexpr (Circuit::ExecutionTrace::has_gate_kind(GateKind::Lookup)) {
+        // For the lookup argument the circuit size must be at least as large as the sum of all tables used.
+        // Tables are placed at the lookup block's trace offset, so account for blocks preceding lookup.
+        const size_t tables_end = circuit.blocks.lookup.trace_offset() + circuit.get_tables_size();
+        total_num_gates = std::max(tables_end, trace_end);
+    }
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -369,9 +373,11 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * They are stored in the ProverInstance as indices into the full trace by accounting for the offset of the memory
  * block.
  */
-template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
+template <typename Flavor>
+void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
+    requires(Circuit::ExecutionTrace::has_gate_kind(GateKind::Memory))
 {
-    // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
+    // Store the read/write records as indices into the full trace by accounting for the memory block offset.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {

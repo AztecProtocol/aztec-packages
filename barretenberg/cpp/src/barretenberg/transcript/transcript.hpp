@@ -52,9 +52,6 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         }
     }
 
-    // Verifier-specific constructor.
-    explicit BaseTranscript(const Proof& proof) { load_proof(proof); }
-
   protected:
     Proof proof_data; // Contains the raw data sent by the prover.
 
@@ -204,16 +201,44 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
 
     /**
      * @brief Verifier-specific method. The verifier needs to load a proof or its segment before the verification.
+     * @details On a shared transcript, segments are loaded lazily by each sub-verifier. Everything loaded so far
+     * must have been consumed before the next segment is appended: otherwise data could move across adjacent
+     * segment boundaries without changing the concatenated stream, and two structurally different proofs would
+     * verify against the same transcript reads.
      *
      * @param proof
      */
     void load_proof(const std::vector<DataType>& proof)
     {
+        if (!is_proof_fully_consumed()) {
+            throw_or_abort("Transcript: load_proof called before the previous proof segment was fully consumed");
+        }
         proof_data.insert(proof_data.end(), proof.begin(), proof.end());
     }
 
     // Return the size of proof_data
     size_t get_proof_size() { return proof_data.size(); }
+
+    /**
+     * @brief Verifier-specific method. True iff every field element loaded via load_proof has been consumed by
+     * receive_from_prover.
+     */
+    bool is_proof_fully_consumed() const { return num_frs_read == proof_data.size(); }
+
+    /**
+     * @brief Verifier-specific method. Throws unless every field element loaded via load_proof has been consumed.
+     * @details A proof stream that does not parse exactly is thrown out of verification, matching the contract of
+     * receive_from_prover (too short) and load_proof (interior segment boundaries on a shared transcript): trailing
+     * field elements the transcript never read are not authenticated by Fiat-Shamir. A verifier that owns its
+     * transcript end-to-end must call this once verification is complete — it covers the final segment, after which
+     * no further load occurs.
+     */
+    void enforce_proof_fully_consumed(const char* context) const
+    {
+        if (!is_proof_fully_consumed()) {
+            throw_or_abort(std::string(context) + ": proof contains trailing data not consumed by the transcript");
+        }
+    }
 
     // Enables the manifest
     void enable_manifest() { use_manifest = true; }
@@ -527,7 +552,8 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      */
     static std::shared_ptr<BaseTranscript> test_verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
-        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
+        auto verifier_transcript = std::make_shared<BaseTranscript>();
+        verifier_transcript->load_proof(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };

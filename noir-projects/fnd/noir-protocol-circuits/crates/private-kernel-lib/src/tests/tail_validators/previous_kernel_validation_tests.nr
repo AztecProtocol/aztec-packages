@@ -6,6 +6,32 @@ use types::{
     traits::{Empty, FromField},
 };
 
+// --- min_revertible_side_effect_counter ---
+
+#[test]
+fn unset_min_revertible_side_effect_counter() {
+    // No private call ended the setup phase: every side effect is non-revertible.
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.min_revertible_side_effect_counter = 0;
+    builder.previous_kernel.claimed_revertible_counter = 0;
+    let _ = builder.execute();
+}
+
+#[test]
+fn set_min_revertible_side_effect_counter() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.end_setup();
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "claimed_revertible_counter does not match min_revertible_side_effect_counter")]
+fn mismatch_claimed_revertible_counter() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.previous_kernel.claimed_revertible_counter = 4567;
+    let _ = builder.execute();
+}
+
 // --- validation_requests ---
 
 #[test(should_fail_with = "Non empty note hash read requests")]
@@ -169,6 +195,40 @@ fn invalid_l2_to_l1_msg_recipient() {
     // More than 160 bits.
     l2_to_l1_msg.inner.inner.recipient = EthAddress::from_field(-1);
     builder.previous_kernel.l2_to_l1_msgs.push(l2_to_l1_msg);
+    let _ = builder.execute();
+}
+
+#[test]
+fn can_run_with_l2_to_l1_msgs() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(3);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense")]
+fn empty_l2_to_l1_msg_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    // Add an L2 to L1 message that is empty once exposed to public.
+    builder.previous_kernel.l2_to_l1_msgs.push(Scoped::empty());
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense")]
+fn zero_scope_l2_to_l1_msg_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    // The tx base rollup ends the message array at the first zero contract address, so a message
+    // scoped to zero would truncate the count even though its recipient and content are not empty.
+    let mut l2_to_l1_msg = builder.previous_kernel.l2_to_l1_msgs.pop();
+    l2_to_l1_msg.contract_address = AztecAddress::zero();
+    builder.previous_kernel.l2_to_l1_msgs.push(l2_to_l1_msg);
+
     let _ = builder.execute();
 }
 

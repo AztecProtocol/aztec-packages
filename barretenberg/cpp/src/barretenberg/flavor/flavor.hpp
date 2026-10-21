@@ -49,16 +49,6 @@ class ECCVMShortMonomialFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
 
-template <typename BuilderType> class UltraRecursiveFlavor_;
-template <typename BuilderType> class UltraZKRecursiveFlavor_;
-template <typename BuilderType> class MegaRecursiveFlavor_;
-template <typename BuilderType> class MegaZKRecursiveFlavor_;
-template <typename BuilderType> class MegaAvmRecursiveFlavor_;
-class MegaAppRecursiveFlavor;
-class MegaKernelRecursiveFlavor;
-namespace avm2 {
-class AvmRecursiveFlavor;
-}
 } // namespace bb
 
 namespace bb {

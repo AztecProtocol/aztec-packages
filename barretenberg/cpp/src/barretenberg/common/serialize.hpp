@@ -31,6 +31,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack_apply.hpp"
 #include <array>
 #include <cassert>
@@ -56,6 +57,15 @@ template <typename T>
 concept IntegralOrEnum = std::integral<T> || std::is_enum_v<T>;
 
 namespace serialize {
+inline constexpr size_t MAX_SERIALIZED_VECTOR_BYTES = 1UL << 28;
+
+template <typename T> void validate_vector_size(uint32_t size)
+{
+    if (size > MAX_SERIALIZED_VECTOR_BYTES / sizeof(T)) {
+        throw_or_abort("Serialized vector exceeds maximum allocation");
+    }
+}
+
 // Forward declare derived msgpack methods
 void read(auto& it, msgpack_concepts::HasMsgPack auto& obj);
 void write(auto& buf, const msgpack_concepts::HasMsgPack auto& obj);
@@ -215,6 +225,7 @@ inline void read(uint8_t const*& it, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
     read(it, size);
+    serialize::validate_vector_size<uint8_t>(size);
     value.resize(size);
     std::copy(it, it + size, value.data());
     it += size;
@@ -233,6 +244,7 @@ inline void read(std::istream& is, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
     read(is, size);
+    serialize::validate_vector_size<uint8_t>(size);
     value.resize(size);
     is.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(size));
 }
@@ -282,6 +294,7 @@ template <typename B, typename T, typename A> inline void read(B& it, std::vecto
     using serialize::read;
     uint32_t size = 0;
     read(it, size);
+    serialize::validate_vector_size<T>(size);
     value.resize(size);
     for (size_t i = 0; i < size; ++i) {
         read(it, value[i]);

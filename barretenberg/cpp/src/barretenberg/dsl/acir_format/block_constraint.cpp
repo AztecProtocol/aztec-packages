@@ -46,12 +46,13 @@ template <> void create_block_constraints(UltraCircuitBuilder& builder, const Bl
 }
 
 /**
- * @brief Create block constraints; Specialization for Mega arithmetization
+ * @brief Create block constraints; Mega arithmetizations that keep the memory gate
  *
  */
-template <> void create_block_constraints(MegaCircuitBuilder& builder, const BlockConstraint& constraint)
+template <typename Builder> void create_block_constraints(Builder& builder, const BlockConstraint& constraint)
 {
-    using field_ct = stdlib::field_t<MegaCircuitBuilder>;
+    static_assert(IsMegaBuilder<Builder>, "the Ultra arithmetization has its own specialization");
+    using field_ct = stdlib::field_t<Builder>;
 
     std::vector<field_ct> init;
     init.reserve(constraint.init.size());
@@ -59,12 +60,23 @@ template <> void create_block_constraints(MegaCircuitBuilder& builder, const Blo
         init.push_back(field_ct::from_witness_index(&builder, idx));
     }
 
+    // One ACIR opcode covers four block types with different needs: ROM/RAM are memory-gate tables,
+    // CallData/ReturnData are databus columns. An arithmetization may have one and not the other, so each
+    // type is gated on what it creates rather than the opcode being rejected wholesale.
     switch (constraint.type) {
     case BlockType::ROM: {
-        process_ROM_operations(builder, constraint, init);
+        if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Memory)) {
+            process_ROM_operations(builder, constraint, init);
+        } else {
+            throw_or_abort("ACIR contains a ROM block, which this arithmetization cannot represent.");
+        }
     } break;
     case BlockType::RAM: {
-        process_RAM_operations(builder, constraint, init);
+        if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Memory)) {
+            process_RAM_operations(builder, constraint, init);
+        } else {
+            throw_or_abort("ACIR contains a RAM block, which this arithmetization cannot represent.");
+        }
     } break;
     case BlockType::CallData: {
         process_call_data_operations(builder, constraint, init);
@@ -185,5 +197,17 @@ void process_return_data_operations(Builder& builder,
     databus.return_data.set_context(&builder);
     databus.return_data.set_values(init);
 }
+
+// A block constraint is representable by an arithmetization with the memory gate (ROM/RAM) or the
+// databus (CallData/ReturnData); the switch above rejects the types it cannot express. Listed
+// explicitly because "has either" is not one of the generated gate-kind subsets -- only MegaAvm,
+// which has neither, is absent.
+#define INSTANTIATE_CREATE_BLOCK_CONSTRAINTS(Builder)                                                                  \
+    template void create_block_constraints<Builder>(Builder&, const BlockConstraint&);
+INSTANTIATE_CREATE_BLOCK_CONSTRAINTS(MegaCircuitBuilder)
+INSTANTIATE_CREATE_BLOCK_CONSTRAINTS(MegaAppCircuitBuilder)
+INSTANTIATE_CREATE_BLOCK_CONSTRAINTS(MegaKernelCircuitBuilder)
+INSTANTIATE_CREATE_BLOCK_CONSTRAINTS(MegaHidingKernelCircuitBuilder)
+#undef INSTANTIATE_CREATE_BLOCK_CONSTRAINTS
 
 } // namespace acir_format

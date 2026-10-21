@@ -66,16 +66,14 @@ inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::ar
  * @tparam num_rotated_bits Number of bits to rotate right (0 for no rotation)
  *
  * @param id The identifier for this lookup table
- * @param table_index Index of this table in the table registry
  *
  * @return BasicTable The constructed lookup table
  */
 template <uint64_t base, uint64_t bits_per_slice, uint64_t num_rotated_bits>
-inline BasicTable generate_sparse_table_with_rotation(BasicTableId id, const size_t table_index)
+inline BasicTable generate_sparse_table_with_rotation(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     auto table_size = (1U << bits_per_slice);
     table.use_twin_keys = false;
 
@@ -153,11 +151,10 @@ inline std::array<bb::fr, 2> get_sparse_normalization_values(const std::array<ui
  * @tparam base_table The per-digit normalization table (e.g., choose_normalization_table)
  */
 template <size_t base, uint64_t num_bits, const uint64_t* base_table>
-inline BasicTable generate_sparse_normalization_table(BasicTableId id, const size_t table_index)
+inline BasicTable generate_sparse_normalization_table(BasicTableId id)
 {
     BasicTable table;
     table.id = id;
-    table.table_index = table_index;
     table.use_twin_keys = false;
     auto table_size = numeric::pow64(static_cast<uint64_t>(base), num_bits);
 

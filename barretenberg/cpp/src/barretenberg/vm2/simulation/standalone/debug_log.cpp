@@ -68,7 +68,7 @@ void DebugLogger::debug_log(MemoryInterface& memory,
     }
 
     // Accounting for the memory reads
-    total_memory_reads += memory_reads;
+    total_memory_reads += static_cast<uint32_t>(memory_reads);
 
     // Read message and fields from memory
     std::string message_as_str;

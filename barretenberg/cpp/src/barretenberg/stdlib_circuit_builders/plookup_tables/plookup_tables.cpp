@@ -252,211 +252,219 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
     return lookup;
 }
 
-BasicTable create_basic_table(const BasicTableId id, const size_t index)
+namespace {
+// Builds the table contents (columns, key->value function, step sizes) for `id`. The table_index identity
+// is assigned by create_basic_table.
+BasicTable create_basic_table_contents(const BasicTableId id)
 {
-    BB_ASSERT_GT(index, 0U, "Table index must be greater than 0");
-
     // we have >50 basic fixed base tables so we match with some logic instead of a switch statement
     auto id_var = static_cast<size_t>(id);
     if (id_var >= static_cast<size_t>(FIXED_BASE_0_0) && id_var < static_cast<size_t>(FIXED_BASE_1_0)) {
-        return fixed_base::table::generate_basic_fixed_base_table<0>(
-            id, index, id_var - static_cast<size_t>(FIXED_BASE_0_0));
+        return fixed_base::table::generate_basic_fixed_base_table<0>(id, id_var - static_cast<size_t>(FIXED_BASE_0_0));
     }
     if (id_var >= static_cast<size_t>(FIXED_BASE_1_0) && id_var < static_cast<size_t>(FIXED_BASE_2_0)) {
-        return fixed_base::table::generate_basic_fixed_base_table<1>(
-            id, index, id_var - static_cast<size_t>(FIXED_BASE_1_0));
+        return fixed_base::table::generate_basic_fixed_base_table<1>(id, id_var - static_cast<size_t>(FIXED_BASE_1_0));
     }
     if (id_var >= static_cast<size_t>(FIXED_BASE_2_0) && id_var < static_cast<size_t>(FIXED_BASE_3_0)) {
-        return fixed_base::table::generate_basic_fixed_base_table<2>(
-            id, index, id_var - static_cast<size_t>(FIXED_BASE_2_0));
+        return fixed_base::table::generate_basic_fixed_base_table<2>(id, id_var - static_cast<size_t>(FIXED_BASE_2_0));
     }
     if (id_var >= static_cast<size_t>(FIXED_BASE_3_0) && id_var < static_cast<size_t>(HONK_DUMMY_BASIC1)) {
-        return fixed_base::table::generate_basic_fixed_base_table<3>(
-            id, index, id_var - static_cast<size_t>(FIXED_BASE_3_0));
+        return fixed_base::table::generate_basic_fixed_base_table<3>(id, id_var - static_cast<size_t>(FIXED_BASE_3_0));
     }
     // Four contiguous ranges (32 IDs each) of basic tables back `secp256r1_fixed_base_mul`. ID
     // `SECP256R1_FIXED_BASE_<AXIS>_0 + w` corresponds to axis AXIS, window position w.
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_XLO>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0), index);
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0));
     }
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_XHI>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0), index);
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0));
     }
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_YLO>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0), index);
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0));
     }
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_END)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_YHI>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0), index);
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0));
     }
     switch (id) {
     case AES_SPARSE_MAP: {
-        return sparse_tables::generate_sparse_table_with_rotation<9, 8, 0>(AES_SPARSE_MAP, index);
+        return sparse_tables::generate_sparse_table_with_rotation<9, 8, 0>(AES_SPARSE_MAP);
     }
     case AES_SBOX_MAP: {
-        return aes128_tables::generate_aes_sbox_table(AES_SBOX_MAP, index);
+        return aes128_tables::generate_aes_sbox_table(AES_SBOX_MAP);
     }
     case AES_SPARSE_NORMALIZE: {
-        return aes128_tables::generate_aes_sparse_normalization_table(AES_SPARSE_NORMALIZE, index);
+        return aes128_tables::generate_aes_sparse_normalization_table(AES_SPARSE_NORMALIZE);
     }
     case SHA256_WITNESS_NORMALIZE: {
-        return sha256_tables::generate_witness_extension_normalization_table(SHA256_WITNESS_NORMALIZE, index);
+        return sha256_tables::generate_witness_extension_normalization_table(SHA256_WITNESS_NORMALIZE);
     }
     case SHA256_WITNESS_SLICE_3: {
-        return sparse_tables::generate_sparse_table_with_rotation<16, 3, 0>(SHA256_WITNESS_SLICE_3, index);
+        return sparse_tables::generate_sparse_table_with_rotation<16, 3, 0>(SHA256_WITNESS_SLICE_3);
     }
     case SHA256_WITNESS_SLICE_7_ROTATE_4: {
-        return sparse_tables::generate_sparse_table_with_rotation<16, 7, 4>(SHA256_WITNESS_SLICE_7_ROTATE_4, index);
+        return sparse_tables::generate_sparse_table_with_rotation<16, 7, 4>(SHA256_WITNESS_SLICE_7_ROTATE_4);
     }
     case SHA256_WITNESS_SLICE_8_ROTATE_7: {
-        return sparse_tables::generate_sparse_table_with_rotation<16, 8, 7>(SHA256_WITNESS_SLICE_8_ROTATE_7, index);
+        return sparse_tables::generate_sparse_table_with_rotation<16, 8, 7>(SHA256_WITNESS_SLICE_8_ROTATE_7);
     }
     case SHA256_WITNESS_SLICE_14_ROTATE_1: {
-        return sparse_tables::generate_sparse_table_with_rotation<16, 14, 1>(SHA256_WITNESS_SLICE_14_ROTATE_1, index);
+        return sparse_tables::generate_sparse_table_with_rotation<16, 14, 1>(SHA256_WITNESS_SLICE_14_ROTATE_1);
     }
     case SHA256_CH_NORMALIZE: {
-        return sha256_tables::generate_choose_normalization_table(SHA256_CH_NORMALIZE, index);
+        return sha256_tables::generate_choose_normalization_table(SHA256_CH_NORMALIZE);
     }
     case SHA256_MAJ_NORMALIZE: {
-        return sha256_tables::generate_majority_normalization_table(SHA256_MAJ_NORMALIZE, index);
+        return sha256_tables::generate_majority_normalization_table(SHA256_MAJ_NORMALIZE);
     }
     case SHA256_BASE28: {
-        return sparse_tables::generate_sparse_table_with_rotation<28, 11, 0>(SHA256_BASE28, index);
+        return sparse_tables::generate_sparse_table_with_rotation<28, 11, 0>(SHA256_BASE28);
     }
     case SHA256_BASE28_ROTATE6: {
-        return sparse_tables::generate_sparse_table_with_rotation<28, 11, 6>(SHA256_BASE28_ROTATE6, index);
+        return sparse_tables::generate_sparse_table_with_rotation<28, 11, 6>(SHA256_BASE28_ROTATE6);
     }
     case SHA256_BASE28_ROTATE3: {
         // 10-bit (not 11) for use with L2 slot of SHA256_CH_INPUT
-        return sparse_tables::generate_sparse_table_with_rotation<28, 10, 3>(SHA256_BASE28_ROTATE3, index);
+        return sparse_tables::generate_sparse_table_with_rotation<28, 10, 3>(SHA256_BASE28_ROTATE3);
     }
     case SHA256_BASE16: {
         // 10-bit (not 11) for use with L2 slot of SHA256_CH_INPUT
-        return sparse_tables::generate_sparse_table_with_rotation<16, 10, 0>(SHA256_BASE16, index);
+        return sparse_tables::generate_sparse_table_with_rotation<16, 10, 0>(SHA256_BASE16);
     }
     case SHA256_BASE16_ROTATE2: {
-        return sparse_tables::generate_sparse_table_with_rotation<16, 11, 2>(SHA256_BASE16_ROTATE2, index);
+        return sparse_tables::generate_sparse_table_with_rotation<16, 11, 2>(SHA256_BASE16_ROTATE2);
     }
     case UINT_XOR_SLICE_6_ROTATE_0: {
         return uint_tables::generate_xor_rotate_table</*bits_per_slice=*/6, /*num_rotated_output_bits=*/0>(
-            UINT_XOR_SLICE_6_ROTATE_0, index);
+            UINT_XOR_SLICE_6_ROTATE_0);
     }
     case UINT_XOR_SLICE_4_ROTATE_0: {
         return uint_tables::generate_xor_rotate_table</*bits_per_slice=*/4, /*num_rotated_output_bits=*/0>(
-            UINT_XOR_SLICE_4_ROTATE_0, index);
+            UINT_XOR_SLICE_4_ROTATE_0);
     }
     case UINT_XOR_SLICE_2_ROTATE_0: {
         return uint_tables::generate_xor_rotate_table</*bits_per_slice=*/2, /*num_rotated_output_bits=*/0>(
-            UINT_XOR_SLICE_2_ROTATE_0, index);
+            UINT_XOR_SLICE_2_ROTATE_0);
     }
     case UINT_AND_SLICE_6_ROTATE_0: {
         return uint_tables::generate_and_rotate_table</*bits_per_slice=*/6, /*num_rotated_output_bits=*/0>(
-            UINT_AND_SLICE_6_ROTATE_0, index);
+            UINT_AND_SLICE_6_ROTATE_0);
     }
     case UINT_AND_SLICE_4_ROTATE_0: {
         return uint_tables::generate_and_rotate_table</*bits_per_slice=*/4, /*num_rotated_output_bits=*/0>(
-            UINT_AND_SLICE_4_ROTATE_0, index);
+            UINT_AND_SLICE_4_ROTATE_0);
     }
     case UINT_AND_SLICE_2_ROTATE_0: {
         return uint_tables::generate_and_rotate_table</*bits_per_slice=*/2, /*num_rotated_output_bits=*/0>(
-            UINT_AND_SLICE_2_ROTATE_0, index);
+            UINT_AND_SLICE_2_ROTATE_0);
     }
     case SECP256K1_XLO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xlo_table(SECP256K1_XLO_BASIC, index);
+        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xlo_table(SECP256K1_XLO_BASIC);
     }
     case SECP256K1_XHI_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xhi_table(SECP256K1_XHI_BASIC, index);
+        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xhi_table(SECP256K1_XHI_BASIC);
     }
     case SECP256K1_YLO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_ylo_table(SECP256K1_YLO_BASIC, index);
+        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_ylo_table(SECP256K1_YLO_BASIC);
     }
     case SECP256K1_YHI_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_yhi_table(SECP256K1_YHI_BASIC, index);
+        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_yhi_table(SECP256K1_YHI_BASIC);
     }
     case SECP256K1_XYPRIME_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xyprime_table(SECP256K1_XYPRIME_BASIC,
-                                                                                                index);
+        return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xyprime_table(
+            SECP256K1_XYPRIME_BASIC);
     }
     case SECP256K1_XLO_ENDO_BASIC: {
         return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xlo_endo_table(
-            SECP256K1_XLO_ENDO_BASIC, index);
+            SECP256K1_XLO_ENDO_BASIC);
     }
     case SECP256K1_XHI_ENDO_BASIC: {
         return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xhi_endo_table(
-            SECP256K1_XHI_ENDO_BASIC, index);
+            SECP256K1_XHI_ENDO_BASIC);
     }
     case SECP256K1_XYPRIME_ENDO_BASIC: {
         return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xyprime_endo_table(
-            SECP256K1_XYPRIME_ENDO_BASIC, index);
+            SECP256K1_XYPRIME_ENDO_BASIC);
     }
     case BLAKE_XOR_ROTATE0: {
-        return blake2s_tables::generate_xor_rotate_table<6, 0>(BLAKE_XOR_ROTATE0, index);
+        return blake2s_tables::generate_xor_rotate_table<6, 0>(BLAKE_XOR_ROTATE0);
     }
     case BLAKE_XOR_ROTATE0_SLICE5_MOD4: {
-        return blake2s_tables::generate_xor_rotate_table<5, 0, true>(BLAKE_XOR_ROTATE0_SLICE5_MOD4, index);
+        return blake2s_tables::generate_xor_rotate_table<5, 0, true>(BLAKE_XOR_ROTATE0_SLICE5_MOD4);
     }
     case BLAKE_XOR_ROTATE2: {
-        return blake2s_tables::generate_xor_rotate_table<6, 2>(BLAKE_XOR_ROTATE2, index);
+        return blake2s_tables::generate_xor_rotate_table<6, 2>(BLAKE_XOR_ROTATE2);
     }
     case BLAKE_XOR_ROTATE1: {
-        return blake2s_tables::generate_xor_rotate_table<6, 1>(BLAKE_XOR_ROTATE1, index);
+        return blake2s_tables::generate_xor_rotate_table<6, 1>(BLAKE_XOR_ROTATE1);
     }
     case BLAKE_XOR_ROTATE4: {
-        return blake2s_tables::generate_xor_rotate_table<6, 4>(BLAKE_XOR_ROTATE4, index);
+        return blake2s_tables::generate_xor_rotate_table<6, 4>(BLAKE_XOR_ROTATE4);
     }
     case HONK_DUMMY_BASIC1: {
-        return dummy_tables::generate_honk_dummy_table<HONK_DUMMY_BASIC1>(HONK_DUMMY_BASIC1, index);
+        return dummy_tables::generate_honk_dummy_table<HONK_DUMMY_BASIC1>(HONK_DUMMY_BASIC1);
     }
     case HONK_DUMMY_BASIC2: {
-        return dummy_tables::generate_honk_dummy_table<HONK_DUMMY_BASIC2>(HONK_DUMMY_BASIC2, index);
+        return dummy_tables::generate_honk_dummy_table<HONK_DUMMY_BASIC2>(HONK_DUMMY_BASIC2);
     }
     case KECCAK_INPUT: {
-        return keccak_tables::KeccakInput::generate_keccak_input_table(KECCAK_INPUT, index);
+        return keccak_tables::KeccakInput::generate_keccak_input_table(KECCAK_INPUT);
     }
     case KECCAK_THETA: {
-        return keccak_tables::Theta::generate_theta_renormalization_table(KECCAK_THETA, index);
+        return keccak_tables::Theta::generate_theta_renormalization_table(KECCAK_THETA);
     }
     case KECCAK_CHI: {
-        return keccak_tables::Chi::generate_chi_renormalization_table(KECCAK_CHI, index);
+        return keccak_tables::Chi::generate_chi_renormalization_table(KECCAK_CHI);
     }
     case KECCAK_OUTPUT: {
-        return keccak_tables::KeccakOutput::generate_keccak_output_table(KECCAK_OUTPUT, index);
+        return keccak_tables::KeccakOutput::generate_keccak_output_table(KECCAK_OUTPUT);
     }
     case KECCAK_RHO_1: {
-        return keccak_tables::Rho<1>::generate_rho_renormalization_table(KECCAK_RHO_1, index);
+        return keccak_tables::Rho<1>::generate_rho_renormalization_table(KECCAK_RHO_1);
     }
     case KECCAK_RHO_2: {
-        return keccak_tables::Rho<2>::generate_rho_renormalization_table(KECCAK_RHO_2, index);
+        return keccak_tables::Rho<2>::generate_rho_renormalization_table(KECCAK_RHO_2);
     }
     case KECCAK_RHO_3: {
-        return keccak_tables::Rho<3>::generate_rho_renormalization_table(KECCAK_RHO_3, index);
+        return keccak_tables::Rho<3>::generate_rho_renormalization_table(KECCAK_RHO_3);
     }
     case KECCAK_RHO_4: {
-        return keccak_tables::Rho<4>::generate_rho_renormalization_table(KECCAK_RHO_4, index);
+        return keccak_tables::Rho<4>::generate_rho_renormalization_table(KECCAK_RHO_4);
     }
     case KECCAK_RHO_5: {
-        return keccak_tables::Rho<5>::generate_rho_renormalization_table(KECCAK_RHO_5, index);
+        return keccak_tables::Rho<5>::generate_rho_renormalization_table(KECCAK_RHO_5);
     }
     case KECCAK_RHO_6: {
-        return keccak_tables::Rho<6>::generate_rho_renormalization_table(KECCAK_RHO_6, index);
+        return keccak_tables::Rho<6>::generate_rho_renormalization_table(KECCAK_RHO_6);
     }
     case KECCAK_RHO_7: {
-        return keccak_tables::Rho<7>::generate_rho_renormalization_table(KECCAK_RHO_7, index);
+        return keccak_tables::Rho<7>::generate_rho_renormalization_table(KECCAK_RHO_7);
     }
     case KECCAK_RHO_8: {
-        return keccak_tables::Rho<8>::generate_rho_renormalization_table(KECCAK_RHO_8, index);
+        return keccak_tables::Rho<8>::generate_rho_renormalization_table(KECCAK_RHO_8);
     }
     default: {
         throw_or_abort("table id does not exist");
-        return sparse_tables::generate_sparse_table_with_rotation<9, 8, 0>(AES_SPARSE_MAP, index);
+        return sparse_tables::generate_sparse_table_with_rotation<9, 8, 0>(AES_SPARSE_MAP);
     }
     }
+}
+} // namespace
+
+BasicTable create_basic_table(const BasicTableId id, const size_t index)
+{
+    BB_ASSERT_GT(index, 0U, "Table index must be greater than 0");
+    BasicTable table = create_basic_table_contents(id);
+    // The index is the table's identity in the LogDeriv lookup relation (tables are distinguished by
+    // table_index, not BasicTableId), so assign it at this single allocation choke point.
+    table.table_index = index;
+    return table;
 }
 } // namespace bb::plookup

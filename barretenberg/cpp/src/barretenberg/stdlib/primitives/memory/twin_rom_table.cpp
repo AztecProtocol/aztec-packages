@@ -153,5 +153,6 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
 }
 
 template class twin_rom_table<bb::UltraCircuitBuilder>;
-template class twin_rom_table<bb::MegaCircuitBuilder>;
+// Uses the memory gate: only the arithmetizations that keep it.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(twin_rom_table)
 } // namespace bb::stdlib

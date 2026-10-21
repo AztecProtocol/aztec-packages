@@ -21,34 +21,32 @@ using namespace bb;
 class HypernovaRecursionConstraintTest : public ::testing::Test {
 
   public:
-    using Builder = MegaCircuitBuilder;
+    using AppBuilder = AppCircuit;
+    using KernelBuilder = KernelCircuit;
     using FF = Chonk::FF;
     using VerifierInputs = Chonk::VerifierInputs;
-    using PairingPoints = Chonk::PairingPoints;
 
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
      *
      */
-    static Builder construct_mock_app_circuit(const std::shared_ptr<Chonk>& ivc)
+    static AppBuilder construct_mock_app_circuit(const std::shared_ptr<Chonk>& ivc)
     {
-        Builder circuit{ ivc->goblin.op_queue };
+        AppBuilder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-        stdlib::recursion::honk::AppIO::add_default(circuit);
+        stdlib::recursion::honk::AppIO<AppBuilder>::add_default(circuit);
         return circuit;
     }
 
-    static Chonk::CircuitVerificationKey make_circuit_vk(Builder& builder_in, CircuitKind kind)
+    // The circuit's arithmetization fixes the flavor its VK is derived in.
+    template <typename Circuit> static Chonk::CircuitVerificationKey make_circuit_vk(Circuit& builder_in)
     {
-        MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+        using FlavorT = flavor_for<kind_of_circuit<Circuit>>;
+        Circuit builder{ builder_in };
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        return dispatch_kind(kind, [&]<CircuitKind K>() {
-            using FlavorT = flavor_for<K>;
-            using VK = typename FlavorT::VerificationKey;
-            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(
-                ProverInstance_<FlavorT>(builder).get_precomputed()) };
-        });
+        return Chonk::CircuitVerificationKey{ std::make_shared<typename FlavorT::VerificationKey>(
+            ProverInstance_<FlavorT>(builder).get_precomputed()) };
     }
 
     static void construct_and_accumulate_trailing_kernels(const std::shared_ptr<Chonk>& ivc)
@@ -93,20 +91,20 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      * @brief Constuct a mock app circuit with a UH recursive verifier
      *
      */
-    static Builder construct_mock_UH_recursion_app_circuit(const std::shared_ptr<Chonk>& ivc, const bool tamper_vk)
+    static AppBuilder construct_mock_UH_recursion_app_circuit(const std::shared_ptr<Chonk>& ivc, const bool tamper_vk)
     {
         AcirProgram program;
         std::vector<RecursionConstraint> recursion_constraints;
 
-        Builder circuit{ ivc->goblin.op_queue };
+        AppBuilder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
 
         {
-            using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
-            using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-            using StdlibProof = bb::stdlib::Proof<Builder>;
-            using StdlibIO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
+            using RecursiveFlavor = UltraRecursiveFlavor_<AppBuilder>;
+            using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<AppBuilder>;
+            using StdlibProof = bb::stdlib::Proof<AppBuilder>;
+            using StdlibIO = bb::stdlib::recursion::honk::DefaultIO<AppBuilder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
@@ -244,22 +242,22 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         // construct a mock kernel program (acir) from the ivc verification queue
         const ProgramMetadata metadata{ ivc };
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc);
-        auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
-        // Build the VK in the flavor matching the current kind (Kernel / HidingKernel) from the kernel circuit.
-        Chonk::CircuitVerificationKey vk = dispatch_kind(ivc->current_kind(), [&]<CircuitKind K>() {
+        // Build the kernel in the arithmetization matching the current kind (Kernel / HidingKernel).
+        dispatch_kind(ivc->current_kind(), [&]<CircuitKind K>() {
             using FlavorT = flavor_for<K>;
             using VK = typename FlavorT::VerificationKey;
-            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(
+            auto kernel = acir_format::create_circuit<circuit_for<K>>(mock_kernel_program, metadata);
+            Chonk::CircuitVerificationKey vk{ std::make_shared<VK>(
                 ProverInstance_<FlavorT>(kernel).get_precomputed()) };
+            ivc->accumulate(kernel, vk);
         });
-        ivc->accumulate(kernel, vk);
     }
 
     static void construct_and_accumulate_mock_app(std::shared_ptr<Chonk> ivc)
     {
         BB_ASSERT_EQ(ivc->current_kind(), CircuitKind::App);
         auto app_circuit = construct_mock_app_circuit(ivc);
-        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit, ivc->current_kind()));
+        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit));
     }
 
     /**
@@ -268,7 +266,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      */
     static std::shared_ptr<Chonk::KernelVerificationKey> construct_kernel_vk_from_acir_program(AcirProgram& program)
     {
-        auto kernel = acir_format::create_circuit<Builder>(program);
+        auto kernel = acir_format::create_circuit<KernelBuilder>(program);
         return std::make_shared<Chonk::KernelVerificationKey>(
             ProverInstance_<Chonk::KernelFlavor>(kernel).get_precomputed());
     }
@@ -311,7 +309,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         auto ivc = create_mock_chonk_from_constraints(make_hn_recursion_constraints({ PROOF_TYPE::HN_FINAL }));
         AcirProgram program = construct_mock_kernel_program(ivc);
         program.witness = {};
-        auto kernel = acir_format::create_circuit<Builder>(program);
+        auto kernel = acir_format::create_circuit<HidingKernelCircuit>(program);
         return std::make_shared<Chonk::MegaZKVerificationKey>(
             Chonk::HidingKernelProverInstance(kernel).get_precomputed());
     }
@@ -329,7 +327,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         auto ivc = create_mock_chonk_from_constraints(make_hn_recursion_constraints(proof_types));
         AcirProgram program = construct_mock_kernel_program(ivc);
         ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
-        auto kernel = acir_format::create_circuit<Builder>(program, metadata);
+        auto kernel = acir_format::create_circuit<KernelBuilder>(program, metadata);
         return { program.constraints.gates_per_opcode.size(),
                  program.constraints.gates_per_opcode.empty() ? 0 : program.constraints.gates_per_opcode[0],
                  kernel.op_queue->get_num_rows(),
@@ -521,11 +519,11 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
         CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // construct a mock app_circuit with an UH recursion call
-    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
+    AppBuilder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
 
     // Complete instance and generate an oink proof
     {
-        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit, ivc->current_kind()));
+        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit));
     }
 
     // Construct kernel consisting only of the kernel completion logic
@@ -552,9 +550,9 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
         CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // construct and accumulate mock app_circuit that has bad pairing point object
-    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
+    AppBuilder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
     {
-        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit, ivc->current_kind()));
+        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit));
     }
 
     // Construct kernel consisting only of the kernel completion logic
@@ -650,7 +648,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnConstraintIndicesSizeMismatch)
 
     ProgramMetadata metadata{ .ivc = ivc };
 
-    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, metadata),
                               "hn_recursion_data constraints/indices size mismatch");
 }
 
@@ -669,7 +667,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnAcirQueueSizeMismatch)
 
     ProgramMetadata metadata{ .ivc = ivc };
 
-    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, metadata),
                               "mismatch in number of recursive verifications");
 }
 
@@ -687,7 +685,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnNonEmptyPublicInputs)
 
     ProgramMetadata metadata{ .ivc = ivc };
 
-    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, metadata),
                               "unexpected non-empty public_inputs in HN constraint");
 }
 
@@ -706,6 +704,26 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnProofTypeMismatch)
 
     ProgramMetadata metadata{ .ivc = ivc };
 
-    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, metadata),
                               "ACIR proof_type disagrees with circuit-kinds-derived state");
+}
+
+TEST_F(HypernovaRecursionConstraintTest, FailsOnMissingIvcWithWitness)
+{
+    auto ivc = create_mock_chonk_from_constraints(make_hn_recursion_constraints({ PROOF_TYPE::OINK }));
+    AcirProgram program = construct_mock_kernel_program(ivc);
+    ASSERT_FALSE(program.witness.empty());
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, ProgramMetadata{}),
+                              "HN recursion requires an IVC outside write-VK mode");
+}
+
+TEST_F(HypernovaRecursionConstraintTest, RejectsMissingPreviousAccumulator)
+{
+    auto ivc = create_mock_chonk_from_constraints(make_hn_recursion_constraints({ PROOF_TYPE::HN }));
+    AcirProgram program = construct_mock_kernel_program(ivc);
+    ivc->recursive_verifier_native_accum.challenge.clear();
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<KernelBuilder>(program, ProgramMetadata{ .ivc = ivc }),
+                              "Previous Chonk verifier accumulator is missing");
 }

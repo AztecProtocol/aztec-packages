@@ -48,8 +48,11 @@ using CircuitVerificationKey = std::variant<std::shared_ptr<MegaAppFlavor::Verif
                                             std::shared_ptr<MegaKernelFlavor::VerificationKey>,
                                             std::shared_ptr<MegaZKFlavor::VerificationKey>>;
 
-using StdlibCircuitVKAndHash = std::variant<std::shared_ptr<MegaAppRecursiveFlavor::VKAndHash>,
-                                            std::shared_ptr<MegaKernelRecursiveFlavor::VKAndHash>>;
+// Stdlib verification keys as seen by the kernel doing the verifying, so the variant is parameterised by that
+// kernel's arithmetization.
+template <typename Builder>
+using StdlibCircuitVKAndHash = std::variant<std::shared_ptr<typename MegaAppRecursiveFlavor_<Builder>::VKAndHash>,
+                                            std::shared_ptr<typename MegaKernelRecursiveFlavor_<Builder>::VKAndHash>>;
 
 template <CircuitKind K> struct flavor_for_impl;
 template <> struct flavor_for_impl<CircuitKind::App> {
@@ -63,17 +66,57 @@ template <> struct flavor_for_impl<CircuitKind::HidingKernel> {
 };
 template <CircuitKind K> using flavor_for = typename flavor_for_impl<K>::type;
 
+/**
+ * @brief The circuit builder for a kind: the arithmetization its flavor constrains.
+ * @details Each kind has its own execution trace, so a circuit built for one kind cannot be proven with
+ * another kind's flavor.
+ */
+template <CircuitKind K> using circuit_for = typename flavor_for<K>::CircuitBuilder;
+
+// The circuit type of each kind, named once so Chonk, the kernel completion and their callers share them.
+using AppCircuit = circuit_for<CircuitKind::App>;
+using KernelCircuit = circuit_for<CircuitKind::Kernel>;
+using HidingKernelCircuit = circuit_for<CircuitKind::HidingKernel>;
+
+// Inverse of circuit_for: recovers the kind a circuit type was built for.
+template <typename Circuit> struct kind_of_circuit_impl;
+template <> struct kind_of_circuit_impl<circuit_for<CircuitKind::App>> {
+    static constexpr CircuitKind value = CircuitKind::App;
+};
+template <> struct kind_of_circuit_impl<circuit_for<CircuitKind::Kernel>> {
+    static constexpr CircuitKind value = CircuitKind::Kernel;
+};
+template <> struct kind_of_circuit_impl<circuit_for<CircuitKind::HidingKernel>> {
+    static constexpr CircuitKind value = CircuitKind::HidingKernel;
+};
+template <typename Circuit> inline constexpr CircuitKind kind_of_circuit = kind_of_circuit_impl<Circuit>::value;
+
+// The two arithmetizations that carry recursive verification logic: a regular kernel and the hiding kernel.
+template <typename Circuit>
+concept IsKernelCircuit = std::same_as<Circuit, circuit_for<CircuitKind::Kernel>> ||
+                          std::same_as<Circuit, circuit_for<CircuitKind::HidingKernel>>;
+
+// Every arithmetization the IVC accumulates. A circuit outside this set has no kind for the state machine to
+// check against, so accumulating one is a compile error rather than a link error on a missing instantiation.
+template <typename Circuit>
+concept IsChonkCircuit = std::same_as<Circuit, circuit_for<CircuitKind::App>> || IsKernelCircuit<Circuit>;
+
 template <CircuitKind K, typename Builder> struct io_for_impl;
 template <typename Builder> struct io_for_impl<CircuitKind::App, Builder> {
-    using type = stdlib::recursion::honk::AppIO;
+    using type = stdlib::recursion::honk::AppIO<Builder>;
 };
 template <typename Builder> struct io_for_impl<CircuitKind::Kernel, Builder> {
-    using type = stdlib::recursion::honk::KernelIO;
+    using type = stdlib::recursion::honk::KernelIO<Builder>;
 };
 template <typename Builder> struct io_for_impl<CircuitKind::HidingKernel, Builder> {
     using type = stdlib::recursion::honk::HidingKernelIO<Builder>;
 };
-template <CircuitKind K, typename Builder = MegaCircuitBuilder> using io_for = typename io_for_impl<K, Builder>::type;
+/**
+ * @brief The IO layout of a kind. `Builder` is the circuit the IO lives in: the circuit itself when setting
+ * its public inputs, or the verifying kernel when reconstructing them. Sizes are builder-independent.
+ */
+template <CircuitKind K, typename Builder = circuit_for<CircuitKind::Kernel>>
+using io_for = typename io_for_impl<K, Builder>::type;
 
 template <typename F> constexpr decltype(auto) dispatch_kind(CircuitKind kind, F&& f)
 {

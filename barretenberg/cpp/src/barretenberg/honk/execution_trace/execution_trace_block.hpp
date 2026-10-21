@@ -7,6 +7,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstring>
@@ -65,7 +66,43 @@ enum class GateKind : uint8_t {
     Poseidon2QuadInt,
     Poseidon2QuadIntTerminal,
     Poseidon2TransitionEntry,
+    NUM_GATE_KINDS, // sentinel; not a gate kind
 };
+
+/**
+ * @brief Set of `GateKind`s as a bitmask, bit i holding kind i.
+ */
+using GateKindMask = uint32_t;
+static_assert(static_cast<size_t>(GateKind::NUM_GATE_KINDS) <= sizeof(GateKindMask) * 8);
+
+constexpr GateKindMask gate_kind_bit(GateKind kind)
+{
+    return GateKindMask{ 1 } << static_cast<uint8_t>(kind);
+}
+/**
+ * @brief Fold a flavor's `GATE_KINDS` into the mask its execution trace declares, so the two can be compared
+ * at compile time (see the static_asserts in the generated flavor headers).
+ */
+template <size_t N> constexpr GateKindMask gate_kinds_mask(const std::array<GateKind, N>& gate_kinds)
+{
+    GateKindMask mask = 0;
+    for (GateKind kind : gate_kinds) {
+        mask |= gate_kind_bit(kind);
+    }
+    return mask;
+}
+
+/**
+ * @brief Fold a flavor's `BUILDER_BUS_INDICES` into the databus mask its execution trace declares.
+ */
+template <size_t N> constexpr uint32_t bus_indices_mask(const std::array<size_t, N>& bus_indices)
+{
+    uint32_t mask = 0;
+    for (size_t idx : bus_indices) {
+        mask |= uint32_t{ 1 } << idx;
+    }
+    return mask;
+}
 
 /**
  * @brief One gate: its wire indices, the non-gate selectors present on every block (see
@@ -85,7 +122,6 @@ template <typename FF, size_t NUM_WIRES> struct GateRow {
     FF q_3{};
     FF q_4{};
     FF q_5{};
-    GateKind gate_kind = GateKind::None;
     FF gate_value{};
 
     bool operator==(const GateRow& other) const = default;
@@ -370,23 +406,23 @@ template <typename FF, size_t NUM_WIRES> class WireColumn {
  * @brief Row-major storage for the gates of one execution trace block: one vector of GateRow.
  * Column accessors (wires, q_m..q_5, gate selectors) return persistent views into the rows.
  */
-template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
+template <typename FF> class ExecutionTraceBlockStorage {
   public:
-    static constexpr size_t NUM_WIRES = NUM_WIRES_;
+    static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_NON_GATE_SELECTORS = NON_GATE_SELECTORS<FF, NUM_WIRES>.size();
 
-    using SelectorType = Selector<FF>;
     using Row = GateRow<FF, NUM_WIRES>;
     using Tile = GateTile<FF, NUM_WIRES>;
     using WireType = WireColumn<FF, NUM_WIRES>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
-    ExecutionTraceBlock() = default;
+  protected:
+    ExecutionTraceBlockStorage() = default;
 
     /**
      * @brief Construct a block that owns the listed gate kinds.
      */
-    ExecutionTraceBlock(std::initializer_list<GateKind> kinds)
+    ExecutionTraceBlockStorage(std::initializer_list<GateKind> kinds)
     {
         gate_columns_.reserve(kinds.size());
         for (GateKind k : kinds) {
@@ -394,8 +430,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         }
     }
 
+  public:
     // The column views alias this block's row storage; copies and moves rebind them to their own storage.
-    ExecutionTraceBlock(const ExecutionTraceBlock& other)
+    ExecutionTraceBlockStorage(const ExecutionTraceBlockStorage& other)
         : cached_size_(other.cached_size_)
         , data_freed_(other.data_freed_)
         , trace_offset_(other.trace_offset_)
@@ -405,7 +442,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         copy_stack_traces_from(other);
         copy_gate_columns_from(other);
     }
-    ExecutionTraceBlock& operator=(const ExecutionTraceBlock& other)
+    ExecutionTraceBlockStorage& operator=(const ExecutionTraceBlockStorage& other)
     {
         if (this == &other) {
             return *this;
@@ -419,7 +456,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         copy_gate_columns_from(other);
         return *this;
     }
-    ExecutionTraceBlock(ExecutionTraceBlock&& other) noexcept
+    ExecutionTraceBlockStorage(ExecutionTraceBlockStorage&& other) noexcept
         : cached_size_(other.cached_size_)
         , data_freed_(other.data_freed_)
         , trace_offset_(other.trace_offset_)
@@ -429,7 +466,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         move_stack_traces_from(other);
         copy_gate_columns_from(other);
     }
-    ExecutionTraceBlock& operator=(ExecutionTraceBlock&& other) noexcept
+    ExecutionTraceBlockStorage& operator=(ExecutionTraceBlockStorage&& other) noexcept
     {
         cached_size_ = other.cached_size_;
         data_freed_ = other.data_freed_;
@@ -440,7 +477,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         copy_gate_columns_from(other);
         return *this;
     }
-    ~ExecutionTraceBlock() = default;
+    ~ExecutionTraceBlockStorage() = default;
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
     // If enabled, we keep slow stack traces to be able to correlate gates with code locations where they were added
@@ -472,26 +509,26 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     // The first trace row past this block's data (trace_offset + size).
     size_t trace_end() const { return trace_offset() + size(); }
 
-    bool operator==(const ExecutionTraceBlock& other) const
+    bool operator==(const ExecutionTraceBlockStorage& other) const
     {
         return cached_size_ == other.cached_size_ && data_freed_ == other.data_freed_ &&
-               trace_offset_ == other.trace_offset_ && num_rows_ == other.num_rows_ && tiles == other.tiles &&
-               owned_gate_kinds() == other.owned_gate_kinds();
+               trace_offset_ == other.trace_offset_ && num_rows_ == other.num_rows_ && tiles == other.tiles;
     }
 
     size_t size() const { return data_freed_ ? cached_size_ : num_rows_; }
 
+  private:
+    template <typename, GateKind...> friend class ExecutionTraceBlock;
+
     /**
      * @brief Append one complete gate: wires, non-gate selectors, and the (single) active gate selector.
      */
-    void append_gate(const Row& row)
+    void append_row(Row row, GateKind kind)
     {
 #ifdef CHECK_CIRCUIT_STACKTRACES
         this->stack_traces.populate();
 #endif
         this->tracy_gate();
-        BB_ASSERT_DEBUG(row.gate_kind == GateKind::None || owns_gate_kind(row.gate_kind),
-                        "ExecutionTraceBlock: block does not own this gate kind.");
         Tile& tile = tile_for_append();
         const size_t slot = num_rows_ & GATE_TILE_MASK;
         for (size_t w = 0; w < NUM_WIRES; ++w) {
@@ -500,35 +537,16 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         for (const auto& sel : NON_GATE_SELECTORS<FF, NUM_WIRES>) {
             (tile.*sel.tile_field)[slot] = row.*sel.row_field;
         }
-        tile.gate_kind[slot] = row.gate_kind;
+        tile.gate_kind[slot] = kind;
         tile.gate_value[slot] = row.gate_value;
         ++num_rows_;
     }
 
+  public:
     /**
      * @brief Reserve capacity for `num_rows` gates.
      */
     void reserve(size_t num_rows) { tiles.reserve((num_rows + GATE_TILE_SIZE - 1) >> GATE_TILE_SHIFT); }
-
-    bool owns_gate_kind(GateKind kind) const
-    {
-        for (const auto& col : gate_columns_) {
-            if (col.kind() == kind) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    std::vector<GateKind> owned_gate_kinds() const
-    {
-        std::vector<GateKind> kinds;
-        kinds.reserve(gate_columns_.size());
-        for (const auto& col : gate_columns_) {
-            kinds.push_back(col.kind());
-        }
-        return kinds;
-    }
 
     /**
      * @brief Reference to this block's selector view for `kind`; aborts if the block does not own it.
@@ -562,7 +580,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     }
 
 #ifdef TRACY_HACK_GATES_AS_MEMORY
-    ~ExecutionTraceBlock()
+    ~ExecutionTraceBlockStorage()
     {
         std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
         for ([[maybe_unused]] size_t gate : allocated_gates) {
@@ -612,20 +630,20 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 
   private:
     // The stack traces are indexed by row, so they have to travel with the rows they describe.
-    void copy_stack_traces_from([[maybe_unused]] const ExecutionTraceBlock& other)
+    void copy_stack_traces_from([[maybe_unused]] const ExecutionTraceBlockStorage& other)
     {
 #ifdef CHECK_CIRCUIT_STACKTRACES
         stack_traces = other.stack_traces;
 #endif
     }
-    void move_stack_traces_from([[maybe_unused]] ExecutionTraceBlock& other)
+    void move_stack_traces_from([[maybe_unused]] ExecutionTraceBlockStorage& other)
     {
 #ifdef CHECK_CIRCUIT_STACKTRACES
         stack_traces = std::move(other.stack_traces);
 #endif
     }
 
-    void copy_gate_columns_from(const ExecutionTraceBlock& other)
+    void copy_gate_columns_from(const ExecutionTraceBlockStorage& other)
     {
         for (size_t i = 0; i < NUM_WIRES; ++i) {
             wires[i] = WireType{ &tiles, &num_rows_, i };
@@ -661,12 +679,35 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 };
 
 /**
- * @brief Gate-selector value at `(block, idx)` for `kind`, returning zero if the block does not own
- * this kind or the row's active kind differs. Use at cross-block read sites where the caller
- * iterates blocks of unknown kind.
+ * @brief A trace block whose supported gate kinds are enforced by typed append operations.
  */
-template <typename FF, size_t NUM_WIRES>
-FF read_gate_selector(const ExecutionTraceBlock<FF, NUM_WIRES>& block, GateKind kind, size_t idx)
+template <typename FF, GateKind... OwnedKinds> class ExecutionTraceBlock : public ExecutionTraceBlockStorage<FF> {
+    using Base = ExecutionTraceBlockStorage<FF>;
+
+  public:
+    using typename Base::Row;
+
+    ExecutionTraceBlock()
+        : Base({ OwnedKinds... })
+    {}
+
+    template <GateKind Kind>
+        requires(((Kind == OwnedKinds) || ...))
+    void append_gate(Row row)
+    {
+        Base::append_row(std::move(row), Kind);
+    }
+
+    void append_unconstrained_row(Row row) { Base::append_row(std::move(row), GateKind::None); }
+
+    bool operator==(const ExecutionTraceBlock& other) const = default;
+};
+
+/**
+ * @brief Gate-selector value at `(block, idx)` for `kind`, returning zero if the block does not own
+ * this kind or the row differs. Use when iterating blocks of unknown kind.
+ */
+template <typename FF> FF read_gate_selector(const ExecutionTraceBlockStorage<FF>& block, GateKind kind, size_t idx)
 {
     if (idx >= block.size()) {
         return FF{ 0 };

@@ -173,13 +173,18 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
 INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                       stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>)
 INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO)
-INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                      stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>)
-INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                      stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>)
 INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                                       stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>)
 
+// An UltraHonk proof recursively verified inside a Mega circuit: the verifier's bigfield base field
+// needs the non-native-field gate, so only the arithmetizations that keep it.
+#define INSTANTIATE_MEGA_HONK_RECURSION_CONSTRAINT(Builder)                                                            \
+    INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>) \
+    INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraZKRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>)
+
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_NNF(INSTANTIATE_MEGA_HONK_RECURSION_CONSTRAINT)
+
+#undef INSTANTIATE_MEGA_HONK_RECURSION_CONSTRAINT
 #undef INSTANTIATE_HONK_RECURSION_CONSTRAINT
 
 #ifndef NDEBUG
@@ -191,10 +196,13 @@ INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraZKRecursiveFlavor_<UltraCircuitBuilde
 INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                       stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>)
 INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO)
-INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                      stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>)
-INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                      stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>)
+#define INSTANTIATE_MEGA_NATIVE_VERIFICATION_DEBUG(Builder)                                                            \
+    INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>) \
+    INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraZKRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>)
+
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_NNF(INSTANTIATE_MEGA_NATIVE_VERIFICATION_DEBUG)
+#undef INSTANTIATE_MEGA_NATIVE_VERIFICATION_DEBUG
+
 INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                                       stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>)
 
