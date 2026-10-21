@@ -129,11 +129,13 @@ whether any will change at upgrade time.
 #### 2a. The Labs tag must exist
 
 ```bash
-git -C labs fetch --depth 1 origin tag v<new_version>
-git -C labs tag -l v<new_version>
+git ls-remote --exit-code --tags https://github.com/aztec-labs-eng/aztec-node.git refs/tags/v<new_version>
 ```
 
-**Abort if the fetch fails**: the release has not been tagged.
+**Abort if it exits non-zero**: the release has not been tagged. Ask aztec-node directly:
+`labs/` is often uninitialized here, and `git -C labs` then falls through to this
+repository, which has its own unrelated `v6…` tags. Step 2c fetches the tag into the cut's
+`labs/`.
 
 #### 2b. Record the destination
 
@@ -201,6 +203,21 @@ conflict it prints the paths and changes nothing: make those files agree with th
 where both sides edited the same lines, commit, and rerun. A lone `docs/yarn.lock`
 conflict takes aztec-node's lockfile; run `(cd docs && yarn install)` before committing.
 
+Re-cutting a tag older than `docs/.labs-sync` conflicts on every snapshot path the
+destination changed after the tag, as modify/delete (the tag predates its own snapshot):
+take the deletion with `git rm`, since 2e restores those paths. Whenever `docs/package.json`
+or `docs/yarn.lock` conflicts, or `yarn install --immutable` in 2f reports `YN0028` (the
+merge kept the destination's dependency bumps beside the tag's lockfile), take both files
+from aztec-node at the tag, re-resolve and commit before going on (after a conflict, before
+the rerun):
+
+```bash
+. ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT"
+for f in package.json yarn.lock; do git -C labs show "$LABS_TAG:docs/$f" >"docs/$f"; done
+(cd docs && yarn install) && git add docs/package.json docs/yarn.lock \
+  && git commit -m "docs: take aztec-node's dependencies at $LABS_TAG"
+```
+
 #### 2e. Keep the destination's published versions and live pages
 
 The sync also rolls back what the destination changed after the tag in files that are
@@ -221,10 +238,11 @@ git diff --cached --quiet || git commit -m "docs: keep the destination's publish
 echo "SYNCED=$(git rev-parse HEAD)" >>"$STATE/env.sh"
 ```
 
-The release inputs stay at the tag: `docs/docs-developers/`, `docs/docs-operate/`, the
-two sidebars, `docs/examples/` (the snippets' sources) and the l1-artifacts pin. Tooling
-(`docs/scripts/`, `docs/src/`, `docusaurus.config.js`) stays as the sync left it; Step 12
-reconciles it.
+The release inputs, `docs/docs-developers/`, `docs/docs-operate/`, the two sidebars,
+`docs/examples/` (the snippets' sources) and the l1-artifacts pin, are the tag's content
+plus this repository's own later edits to them, which the merge keeps; Step 11a checks
+them. Tooling (`docs/scripts/`, `docs/src/`, `docusaurus.config.js`) stays as the sync
+left it; Step 12 reconciles it.
 
 #### 2f. Build `labs/` at the tag
 
@@ -246,7 +264,7 @@ which downloads `bb` and `nargo` at the tag's `BB_VERSION`/`NOIR_VERSION`, and c
 scripts/labs_docs_sync.sh --release "$LABS_TAG" check
 git -C labs show "$LABS_TAG:labs-aztec-toolchain/bootstrap.sh" | grep -E '^(BB|NOIR)_VERSION='
 cat labs/labs-aztec-toolchain/bin/.pin
-docs_env sh -c '"$NARGO" --version; "$BB" --version; echo "LABS_REF=$LABS_REF COMMIT_TAG=$COMMIT_TAG"'
+docs_env sh -c '"$NARGO" --version && "$BB" --version && echo "LABS_REF=$LABS_REF COMMIT_TAG=$COMMIT_TAG"'
 node -p 'require("./docs/node_modules/@aztec-foundation/l1-artifacts/package.json").version'
 ```
 
@@ -395,8 +413,8 @@ at the tag and writes `docs/docs-operate/operators/reference/node-api-reference.
 
 It warns about methods missing from `METHOD_GROUPS` in
 `docs/scripts/node_api_reference_generation/generate_node_api_reference.ts`, which it
-renders under "Other methods" (`v6.0.0-rc.3` has two). Add each to its group and rerun;
-the destination needs the same edit (a shared source repair, Step 17).
+renders under "Other methods". Add each to its group and rerun; the destination needs the
+same edit (a shared source repair, Step 17).
 
 ### Step 8: Update Migration Notes
 
@@ -520,7 +538,8 @@ that could not be verified.
 
 The `networks.md` L1 table includes contracts that `aztec_getNodeInfo` does not return.
 Resolve them in three tiers. Determine the L1 RPC from `l1ChainId`: `1` → Ethereum
-mainnet, `11155111` → Sepolia. The Rollup and Registry addresses come from Step 1.
+mainnet (`https://eth.drpc.org`), `11155111` → Sepolia (`https://sepolia.drpc.org`); both
+are keyless. The Rollup and Registry addresses come from Step 1.
 
 **When the rollup version changed**, the network did a rollup upgrade: the per-rollup
 contracts are redeployed (Rollup, Inbox, Outbox, Fee Juice Portal, Slasher, Reward Booster,
@@ -641,7 +660,14 @@ or transcribe one by hand:
     `l1-artifacts/l1-contracts/src/governance/interfaces/IGovernance.sol`, in order:
     `(lockDelay, lockAmount)`, `votingDelay`, `votingDuration`, `executionDelay`,
     `gracePeriod`, `quorum`, `requiredYeaMargin`, `minimumVotes`. The getter decompresses
-    storage, so the times are seconds (`172800` = 2 days).
+    storage, so the voting delay, voting duration and execution delay are seconds
+    (`172800` = 2 days).
+  - *Governance withdrawal delay*: `votingDelay/5 + votingDuration + executionDelay`
+    (`getWithdrawalDelay` in the same package's `ConfigurationLib.sol`; mainnet's
+    259200/604800/172800 give ~9.6 days). Testnet's timings are re-derived the same way,
+    and every page that states them follows: `networks.md`, `governance-participation.md`
+    (its `#if(testnet)` branch), and `governance/proposal-lifecycle.md`, `token/voting.md`
+    and `token/staking.md` under `docs-participate`.
   - *Slashing Quorum / Slashing Round Size*: from the Tally Slashing Proposer,
     `"QUORUM()(uint256)"`, `"ROUND_SIZE()(uint256)"` (slots) and
     `"ROUND_SIZE_IN_EPOCHS()(uint256)"`; write the round as `<epochs> epochs (<slots> slots)`.
@@ -727,7 +753,7 @@ at the tag.
 docs_env yarn preprocess
 grep -rcE 'tag *= *"next"|@next\b|@latest|VERSION=latest|aztec\.network/latest' \
   processed-docs/docs-developers/docs/tutorials/ | grep -v ':0$'
-grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+|/?", *tag *= *"[^"]+")' processed-docs/ |
+grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"#?]+){0,2}|/?", *tag *= *"[^"]+"(, *directory *= *"[^/"]+(/[^/"]+)?)?)|git clone [^`]*AztecProtocol/aztec-packages' processed-docs/ |
   sort | uniq -c
 ```
 
@@ -736,13 +762,23 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+|/?", *
   `#include_version_without_prefix` to `latest` (an older nightly at the v6 rehearsal,
   wire-incompatible with the rc). The build validates neither. Both spacings of
   `tag = "next"` occur, hence the pattern.
-- The second lists every link and Nargo `git` dependency into this repository with its
-  ref, which must be `v<l1-artifacts version>` or `next`. A ref of `v<new_version>` comes
-  from `#include_aztec_version` in a hand-written URL or dependency: this repository's tag
-  of that name is missing (there is no `v6.0.0-rc.3`) or a different commit. Point it at
-  the l1-artifacts version with `#include_foundation_version` (Foundation code such as
-  `l1-contracts/` and `barretenberg/`), or at aztec-node for Labs code. Old migration-note entries are historical; leave them.
-  `master` resolves only through GitHub's redirect to `next`: write `next`.
+- The second lists every link, clone and Nargo `git` dependency into this repository with
+  its ref and the start of its path (a clone's path is in the page's next `cd`). Classify
+  each by path, not by ref: `#include_aztec_version` in a hand-written URL renders
+  `v<new_version>`, which looks right whenever the l1-artifacts version equals the release
+  version (as at `v6.0.0-rc.1`), yet this repository's tag of that name holds no Labs code.
+  - Under `noir-projects/`, `yarn-project/` or `docs/examples`: Labs code, so in the
+    snapshot it names aztec-node at the tag. Clone steps for `docs/examples` are the usual
+    hit: the source clones aztec-packages `next`, where the examples live now, and the
+    snapshot clones `--branch v<new_version> https://github.com/aztec-labs-eng/aztec-node.git`
+    and `cd aztec-node/docs/examples` (fix the snapshot after 11b, not the source).
+  - Under `l1-contracts/` or `barretenberg/`: Foundation code, whose ref is
+    `#include_foundation_version` (`v<l1-artifacts version>`).
+  - Anything else: `v<l1-artifacts version>` or `next`. `master` resolves only through
+    GitHub's redirect to `next`: write `next`.
+
+  `#include_foundation_version` and `#include_foundation_version_without_prefix` (no `v`)
+  are documented in `docs/README.md`. Old migration-note entries are historical; leave them.
 
 #### 11a. Snippet parity
 
@@ -751,7 +787,10 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+|/?", *
 docs_env scripts/labs_docs_parity.sh "$LABS_TAG"
 ```
 
-It must print `rendering parity: ok` and `link provenance: … 0 failed`:
+It must print `rendering parity: ok`. Link provenance fails on every snippet whose source
+this repository changed after the tag, since 2e's merge keeps those edits while the link
+names aztec-node at the tag. Each such failure must be an intentional local fix, listed in
+the Step 17 report; any other failure is a finding.
 
 - **Source content.** aztec-node's own preprocessor at the tag renders the cut's content
   byte-identically to this repository's, and every snippet link names aztec-node at
@@ -969,15 +1008,21 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
      account the owner provides, spending no more than needed.
 
 3. **Walk every tutorial** under
-   `developer_versioned_docs/version-v<new_version>/docs/tutorials/**/*.md`, the whole tree
-   (`testing_governance_rollup_upgrade.md` sits directly under `tutorials/`). Contract
-   compile, deploy and interact flows run against the local network for every release type.
-   Record drift: renamed commands, changed flags, stale addresses, different output.
+   `developer_versioned_docs/version-v<new_version>/docs/tutorials/**/*.md`, the whole tree.
+   Contract compile, deploy and interact flows run against the local network for every
+   release type. That includes the governance rollup upgrade tutorial
+   (`testing_governance_rollup_upgrade.md`, directly under `tutorials/`): run the full
+   upgrade, then its "Quick Test (Empty Payload)" path, with `$ETHEREUM_HOST` and
+   `$AZTEC_NODE_URL` in place of its `localhost` URLs. Record drift: renamed commands,
+   changed flags, stale addresses, different output.
 
 4. **Run the Aztec.js examples** in `docs/examples/ts/` against the local network. They are
    in no snapshot, so they validate the tag's example code. Type-check them all via
-   `bootstrap.sh`, execute the runner-supported set with `aztecjs_runner/run.sh` (it reads
-   `AZTEC_NODE_URL` and `ETHEREUM_HOST`), and list skipped examples with reasons; an example
+   `bootstrap.sh`, execute the runner's default set with `aztecjs_runner/run.sh` (it reads
+   `AZTEC_NODE_URL` and `ETHEREUM_HOST`), then the examples that set skips but a page
+   depends on: `aztecjs_runner/run.sh aave_bridge kernelless_simulation` (the second,
+   `aztecjs_kernelless_simulation`, backs `aztec-js/how_to_simulate_without_signing.md`).
+   Report every failure, and list skipped examples with reasons; an example
    that hardcodes `localhost:8080` or `localhost:8545` cannot reach this network. To test the
    published release instead of the workspace packages `lib.sh` links, temporarily rewrite
    each example's `@aztec-labs/*` dependency to `npm:@aztec-labs/*@<new_version>`, keeping
@@ -1027,6 +1072,12 @@ A first cut of a release type has nothing to clean up.
 - the old entry in `developer_version_config.json`
 - any version-named API docs under `docs/static/aztec-nr-api/` or
   `docs/static/typescript-api/` (the release-type folders are overwritten, not deleted)
+
+and reconcile so `developer_versions.json` drops it too:
+
+```bash
+scripts/update_docs_versions.sh developer
+```
 
 #### Remove stale release type entries from version configs
 
@@ -1080,8 +1131,12 @@ Sort every listed path into exactly one class:
        developer_version_config.json network_version_config.json docs/networks.md; do
      [ -f "$CUT/docs/$f" ] && cp "$CUT/docs/$f" "$DEST_ROOT/docs/$f"
    done
-   [ ! -s "$STATE/deleted.txt" ] || xargs git -C "$DEST_ROOT" rm -r -q -- <"$STATE/deleted.txt"
+   [ ! -s "$STATE/deleted.txt" ] || while IFS= read -r p; do
+     git -C "$DEST_ROOT" rm -r -q -- "$p"
+   done <"$STATE/deleted.txt"
    ```
+
+   `git rm` stages the deletions; they are never passed to `git add` below.
 
 2. **Shared source repairs**: edits to files the destination also has and needs (source
    fixes from Steps 8, 8b, 10, 12 and 15, edits to existing snapshots). Carry them as
@@ -1100,11 +1155,15 @@ Sort every listed path into exactly one class:
    sync, `package.json`/`yarn.lock`, generated source pages (`aztec_js_reference.md`, the CLI
    references, `node-api-reference.md`), and tooling taken for the cut.
 
-Commit on the destination, naming the four release inputs:
+A destination commit cherry-picked into the cut also shows in this list: it is already on
+the destination, so none of its changes is ever carried.
+
+Commit on the destination, naming the four release inputs; the commit runs only if
+`git add` succeeds:
 
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh
-git -C "$DEST_ROOT" add -- <the paths of classes 1 and 2>
+git -C "$DEST_ROOT" add -- <the existing paths of classes 1 and 2> &&
 git -C "$DEST_ROOT" commit -F - <<EOF
 docs: cut $LABS_TAG docs (<release_type>)
 
@@ -1117,11 +1176,13 @@ EOF
 
 Then, from the destination's `docs/`, rerun `yarn install --immutable`, `yarn test`,
 `CONTEXT=production yarn build` (warning extract empty) and
-`../scripts/labs_docs_sync.sh check`.
+`../scripts/labs_docs_sync.sh check`. `check` and the snippets read the destination's
+`labs/`: if it is not initialized, run `labs-patches/bootstrap.sh apply` from `$DEST_ROOT`
+first.
 
 **Owner approval required.** Report `git -C "$DEST_ROOT" show --stat HEAD`, the classes
-with their paths, and anything left unresolved. Pushing the branch and opening a PR are
-the owner's call.
+with their paths, the Step 11a provenance failures with the local fix behind each, and
+anything left unresolved. Pushing the branch and opening a PR are the owner's call.
 
 ### Step 18: Tear Down
 

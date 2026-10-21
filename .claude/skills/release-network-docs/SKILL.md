@@ -117,13 +117,14 @@ Parse the response to extract:
 #### 2a. The Labs tag must exist
 
 ```bash
-git -C labs fetch --depth 1 origin tag v<nodeVersion>
-git -C labs tag -l v<nodeVersion>
+git ls-remote --exit-code --tags https://github.com/aztec-labs-eng/aztec-node.git refs/tags/v<nodeVersion>
 ```
 
-**Abort if the fetch fails**: the release has not been tagged. Below, `<new_version>` is
-`<nodeVersion>`, or the target version the user confirms when the network has not upgraded
-yet.
+**Abort if it exits non-zero**: the release has not been tagged. Ask aztec-node directly:
+`labs/` is often uninitialized here, and `git -C labs` then falls through to this
+repository, which has its own unrelated `v6…` tags. Step 2c fetches the tag into the cut's
+`labs/`. Below, `<new_version>` is `<nodeVersion>`, or the target version the user confirms
+when the network has not upgraded yet.
 
 #### 2b. Record the destination
 
@@ -189,10 +190,13 @@ echo "SYNCED=$(git rev-parse HEAD)" >>"$STATE/env.sh"
 ```
 
 On a sync conflict the script prints the paths and changes nothing: make those files agree
-with the tag, commit, and rerun. The release inputs (`docs/docs-operate/`,
-`docs/sidebars-operate.js`, the l1-artifacts pin) stay at the tag; the unversioned pages
-(`docs/docs/networks.md`) and the existing snapshots are the destination's, which is what
-Step 10 copies back.
+with the tag, commit, and rerun. A re-cut of a tag older than `docs/.labs-sync` resolves
+its modify/delete snapshot conflicts and its `docs/package.json`/`docs/yarn.lock` (or a
+`YN0028` from 2e's install) as `/release-docs` Step 2d says. The release inputs
+(`docs/docs-operate/`, `docs/sidebars-operate.js`, the l1-artifacts pin) are the tag's
+content plus this repository's own later edits to them, which the merge keeps; the
+unversioned pages (`docs/docs/networks.md`) and the existing snapshots are the
+destination's, which is what Step 10 copies back.
 
 #### 2e. Install and check
 
@@ -213,7 +217,8 @@ the tag's `BB_VERSION`. The `labs/yarn-project` install exists only so Step 5a c
 
 The `networks.md` L1 table includes contracts that `aztec_getNodeInfo` does not return.
 Resolve them in three tiers. Determine the L1 RPC from `l1ChainId`: `1` → Ethereum
-mainnet, `11155111` → Sepolia. Convert on-chain hex with `cast to-dec`, never by eye.
+mainnet (`https://eth.drpc.org`), `11155111` → Sepolia (`https://sepolia.drpc.org`); both
+are keyless. Convert on-chain hex with `cast to-dec`, never by eye.
 
 #### Tier 1: Query on-chain from known contracts
 
@@ -291,7 +296,8 @@ truth" subsection of `/release-docs` Step 9: EIP-55 checksum every address with
 `cast to-check-sum-address`, convert hex with `cast to-dec`, read the rollup version from
 `getVersion()` on each network's rollup, confirm the L1 chain id with `cast chain-id`,
 refresh the governance parameters from the Governance, Governance Proposer and Tally
-Slashing Proposer contracts (Governance's `getConfiguration()` returns seconds), and diff
+Slashing Proposer contracts (Governance's `getConfiguration()` returns seconds) along with
+the withdrawal delay and every page that states them, and diff
 against any human-owned deployment data, resolving discrepancies on chain and then with the
 owner.
 
@@ -318,8 +324,8 @@ interfaces and Zod schemas in `labs/yarn-project/stdlib/src/interfaces/` at the 
 reading TypeScript source directly (no build). Verify the method totals it prints. It warns
 about methods missing from `METHOD_GROUPS` in
 `docs/scripts/node_api_reference_generation/generate_node_api_reference.ts`, which it
-renders under "Other methods" (`v6.0.0-rc.3` has two): add each to its group and rerun;
-the destination needs the same edit (a shared source repair, Step 10).
+renders under "Other methods": add each to its group and rerun; the destination needs the
+same edit (a shared source repair, Step 10).
 
 ### Step 5b: Regenerate Operator CLI Reference
 
@@ -379,17 +385,21 @@ and the cut restarts from Step 2 (the destination has moved).
 . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT"
 docs_env scripts/labs_docs_parity.sh "$LABS_TAG"
 cd docs && docs_env yarn build >"$STATE/build.log" 2>&1; echo "build: $?"
-grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+|/?", *tag *= *"[^"]+")' \
+grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"#?]+){0,2}|/?", *tag *= *"[^"]+"(, *directory *= *"[^/"]+(/[^/"]+)?)?)|git clone [^`]*AztecProtocol/aztec-packages' \
   processed-docs/docs-operate/ processed-docs/docs/ | sort | uniq -c
 ```
 
-- Parity must print `rendering parity: ok` and `link provenance: … 0 failed`.
+- Parity must print `rendering parity: ok`. A link provenance failure must be a snippet
+  whose source this repository changed after the tag (2d's merge kept the edit), listed in
+  the Step 10 report; any other failure is a finding.
 - The build must exit 0. Fix broken redirect targets (`validate_redirect_targets.sh`),
   broken API reference links (`validate_api_ref_links.sh`) and spelling, and iterate. A wall
   of invalid redirect targets whose values still carry `to = "` means the tag's validator
   predates its BSD `sed` repair: take the destination's `docs/scripts/` (Step 7a item 4).
-- Every ref in the last command must be `v<l1-artifacts version>` or `next`
-  (`/release-docs` Step 11 explains a `v<new_version>` ref and `master`).
+- Classify every hit of the last command by path, as `/release-docs` Step 11 does: Labs
+  code (`noir-projects/`, `yarn-project/`, `docs/examples`) names aztec-node at the tag in
+  the snapshot, Foundation code (`l1-contracts/`, `barretenberg/`) takes
+  `#include_foundation_version`, and anything else `v<l1-artifacts version>` or `next`.
 
 The build preprocesses into `processed-docs/`, which the cut snapshots.
 
@@ -524,8 +534,12 @@ Sort every listed path into exactly one class:
        network_versions.json network_version_config.json docs/networks.md; do
      cp "$CUT/docs/$f" "$DEST_ROOT/docs/$f"
    done
-   [ ! -s "$STATE/deleted.txt" ] || xargs git -C "$DEST_ROOT" rm -r -q -- <"$STATE/deleted.txt"
+   [ ! -s "$STATE/deleted.txt" ] || while IFS= read -r p; do
+     git -C "$DEST_ROOT" rm -r -q -- "$p"
+   done <"$STATE/deleted.txt"
    ```
+
+   `git rm` stages the deletions; they are never passed to `git add` below.
 
 2. **Shared source repairs**: edits to files the destination also has and needs (Steps 4,
    5, 6 and 7a; edits to existing snapshots). Carry them as reviewed hunks; read the patch
@@ -540,11 +554,15 @@ Sort every listed path into exactly one class:
    sync, `package.json`/`yarn.lock`, the regenerated `node-api-reference.md` and
    `cli-reference.md` sources, and tooling taken for the cut.
 
-Commit on the destination, naming the release inputs:
+A destination commit cherry-picked into the cut also shows in this list: it is already on
+the destination, so none of its changes is ever carried.
+
+Commit on the destination, naming the release inputs; the commit runs only if `git add`
+succeeds:
 
 ```bash
 . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
-git -C "$DEST_ROOT" add -- <the paths of classes 1 and 2>
+git -C "$DEST_ROOT" add -- <the existing paths of classes 1 and 2> &&
 git -C "$DEST_ROOT" commit -F - <<EOF
 docs: cut $LABS_TAG network docs (<release_type>)
 
@@ -557,11 +575,13 @@ EOF
 
 Then, from the destination's `docs/`, rerun `yarn install --immutable`, `yarn test`,
 `CONTEXT=production yarn build` (warning extract empty) and
-`../scripts/labs_docs_sync.sh check`.
+`../scripts/labs_docs_sync.sh check`. `check` and the snippets read the destination's
+`labs/`: if it is not initialized, run `labs-patches/bootstrap.sh apply` from `$DEST_ROOT`
+first.
 
 **Owner approval required.** Report `git -C "$DEST_ROOT" show --stat HEAD`, the classes
-with their paths, and anything left unresolved. Pushing the branch and opening a PR are
-the owner's call.
+with their paths, the Step 6 provenance failures with the local fix behind each, and
+anything left unresolved. Pushing the branch and opening a PR are the owner's call.
 
 ### Step 11: Tear Down
 
