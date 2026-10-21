@@ -43,7 +43,7 @@ When the change is a move of the `labs/` pin rather than a PR (for example
 the shallow clone; a two-commit diff needs no history between them:
 
 ```bash
-old=$(git rev-parse origin/next:labs)
+old=$(git rev-parse "$(git merge-base origin/next HEAD):labs")
 new=$(git rev-parse HEAD:labs)
 git -C labs fetch --depth 1 origin "$old" "$new"
 git -C labs diff --name-only "$old" "$new" | sed 's|^|labs/|'
