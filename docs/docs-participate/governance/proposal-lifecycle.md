@@ -116,7 +116,7 @@ This wrapping prevents proposals that would leave the network without a supermaj
 After submission, the proposal enters a mandatory waiting period before voting opens.
 
 - **Purpose**: Give the community time to review the proposal
-- **Duration**: Configurable (e.g., 12 hours on testnet)
+- **Duration**: Configurable (e.g., 2 minutes on testnet)
 - **State**: Proposal exists but no votes can be cast yet
 
 During this period:
@@ -132,7 +132,7 @@ Voting power is snapshotted at the moment the proposal transitions from Queued t
 
 Once the voting delay passes, the proposal becomes active and voting opens.
 
-- **Duration**: Configurable (e.g., 24 hours on testnet)
+- **Duration**: Configurable (e.g., 6 minutes on testnet)
 - **Who can vote**: Anyone with voting power at the snapshot timestamp
 - **Vote options**: "Yea" (support) or "Nay" (oppose)
 
@@ -165,7 +165,7 @@ If the proposal fails to gain sufficient support:
 Proposals that pass voting enter another waiting period before execution.
 
 - **Purpose**: Allow node operators time to prepare for changes
-- **Duration**: Configurable (e.g., 12 hours on testnet)
+- **Duration**: Configurable (e.g., 2 minutes on testnet)
 - **State**: Approved but not yet executed
 
 This delay is critical for upgrades because:
@@ -189,11 +189,11 @@ If any action reverts, the entire execution reverts and the proposal remains exe
 
 | Stage | Duration | Cumulative Time |
 |-------|----------|-----------------|
-| Signaling | Up to 1 round (~3 hours) | 3 hours |
-| Voting Delay | 12 hours | 15 hours |
-| Voting Period | 24 hours | 39 hours |
-| Execution Delay | 12 hours | 51 hours |
-| **Total** | | **~2 days minimum** |
+| Signaling | Up to 1 round (~2 hours) | 2 hours |
+| Voting Delay | 2 minutes | 2 hours 2 minutes |
+| Voting Period | 6 minutes | 2 hours 8 minutes |
+| Execution Delay | 2 minutes | 2 hours 10 minutes |
+| **Total** | | **~2 hours 10 minutes minimum** |
 
 Note: Mainnet parameters will likely be longer to provide more security.
 

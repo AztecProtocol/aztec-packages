@@ -45,6 +45,7 @@
 <li><a href="#impl-Serialize-for-AztecAddress">AztecAddress</a></li>
 <li><a href="#impl-Serialize-for-BlockConstantData">BlockConstantData</a></li>
 <li><a href="#impl-Serialize-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Serialize-for-BlockReference">BlockReference</a></li>
 <li><a href="#impl-Serialize-for-BoundedVec<T, M>">BoundedVec<T, M></a></li>
 <li><a href="#impl-Serialize-for-CallContext">CallContext</a></li>
 <li><a href="#impl-Serialize-for-CheckpointConstantData">CheckpointConstantData</a></li>
@@ -97,7 +98,6 @@
 <li><a href="#impl-Serialize-for-OffchainMessageWithTx">OffchainMessageWithTx</a></li>
 <li><a href="#impl-Serialize-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-Serialize-for-Option<T>">Option<T></a></li>
-<li><a href="#impl-Serialize-for-OriginBlock">OriginBlock</a></li>
 <li><a href="#impl-Serialize-for-OriginBlockState">OriginBlockState</a></li>
 <li><a href="#impl-Serialize-for-PartialAddress">PartialAddress</a></li>
 <li><a href="#impl-Serialize-for-PartialStateReference">PartialStateReference</a></li>
@@ -277,6 +277,8 @@ fail with an arguments hash mismatch error message.</p>
 
 <h3 id="impl-Serialize-for-BlockHeader"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
 
+<h3 id="impl-Serialize-for-BlockReference"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/oracle/block_reference/struct.BlockReference.html" class="struct">BlockReference</a></code></h3>
+
 <h3 id="impl-Serialize-for-BoundedVec<T, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, M&gt;
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
@@ -392,8 +394,6 @@ fail with an arguments hash mismatch error message.</p>
 <h3 id="impl-Serialize-for-Option<T>"><code class="code-header">impl&lt;T&gt; <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
-
-<h3 id="impl-Serialize-for-OriginBlock"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a></code></h3>
 
 <h3 id="impl-Serialize-for-OriginBlockState"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.OriginBlockState.html" class="struct">OriginBlockState</a></code></h3>
 

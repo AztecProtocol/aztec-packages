@@ -1,6 +1,6 @@
 # @aztec/foundation
 
-Version: 6.0.0-rc.1
+Version: 6.0.0-rc.3
 
 ## Quick Import Reference
 
@@ -931,6 +931,12 @@ function isErrorClass<T extends Error>(value: unknown, errorClass: (...args: any
 ```
 Type guard for error classes
 
+### isRetryableError
+```typescript
+function isRetryableError(err: unknown) => boolean
+```
+Whether a failure was environmental, and so may be retried: the process behind a call died, its connection broke, or it could not be started. The bare `retry` property is the contract, feature-detected rather than imported, so the same check holds across bb.js, ipc-runtime and ProvingError. An error without it failed for a reason retrying cannot fix.
+
 ### isValid
 ```typescript
 function isValid(value: unknown) => boolean
@@ -1047,7 +1053,7 @@ Filters out a service's config mappings to exclude certain keys.
 ```typescript
 function optional<T extends ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>>(schema: T) => ZodPipe<ZodOptional<ZodNullable<T>>, ZodTransform<Awaited<NonNullable<output<T>>> | undefined, output<T> | null | undefined>>
 ```
-Declares a parameter as optional. Use this over z.optional in order to accept nulls as undefineds. This is required as JSON does not have an undefined type, and null is used to represent it, so we need to convert nulls to undefineds as we parse.
+Declares a parameter as optional. Use this over z.optional in order to accept nulls as undefineds. This is required as JSON does not have an undefined type, and null is used to represent it, so we need to convert nulls to undefineds as we parse. A wrapped `.default(...)` must fire when the field arrives as null, so normalize null and undefined to undefined before the schema runs. A default schema is fed the value directly; wrapping it in `.optional()` would short-circuit undefined past the default. A schema without a default is made optional so a missing value is accepted.
 
 ### optionalNumberConfigHelper
 ```typescript

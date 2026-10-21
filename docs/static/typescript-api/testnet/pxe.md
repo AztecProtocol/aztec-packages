@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: 6.0.0-rc.1
+Version: 6.0.0-rc.3
 
 ## Quick Import Reference
 
@@ -214,7 +214,7 @@ new FactService(factStore: FactStore, allowedScopes: AztecAddress[])
 - `deleteFactCollection(factCollectionKey: FactCollectionKey, changeSetId: string) => Promise<void>`
 - `getFactCollection(factCollectionKey: FactCollectionKey, tips: TipBlockNumbers, changeSetId: string) => Promise<FactCollectionWithOriginState | undefined>`
 - `getFactCollectionsByType(factCollectionTypeKey: FactCollectionTypeKey, tips: TipBlockNumbers, changeSetId: string) => Promise<FactCollectionWithOriginState[]>`
-- `recordFact(factCollectionKey: FactCollectionKey, factTypeId: Fr, payload: Fr[], originBlock: OriginBlock | undefined, changeSetId: string) => Promise<void>`
+- `recordFact(factCollectionKey: FactCollectionKey, factTypeId: Fr, payload: Fr[], originBlock: BlockReference | undefined, changeSetId: string) => Promise<void>`
 
 ### FactStore
 
@@ -240,7 +240,7 @@ new FactStore(store: AztecAsyncKVStore)
 - `flushChangeSet(changeSet: FactStoreChangeSet, db: FactStoreDb) => Promise<void>` - Writes the change set's staged data to persistent storage. Runs inside the caller's transaction: it must not open a transaction of its own or call withChangeSetAndDb.
 - `getFactCollection(factCollectionKey: FactCollectionKey, changeSetId: string) => Promise<FactCollection | undefined>` - Returns the fact collection for the (scope-qualified) key, or undefined if it has no facts.
 - `getFactCollectionsByType(factCollectionTypeKey: FactCollectionTypeKey, changeSetId: string) => Promise<FactCollection[]>` - Returns every fact collection of the given type for the queried scope, each holding its facts.
-- `recordFact(factCollectionKey: FactCollectionKey, factTypeId: Fr, payload: Fr[], originBlock: OriginBlock | undefined, changeSetId: string) => Promise<void>` - Records a fact in a collection. The collection is created implicitly on the first fact recorded for its key: recording into an existing collection just adds to it. If `originBlock === undefined`, the fact is non-retractable: it survives reorgs. A defined origin block makes the fact retractable: on a prune below its block, it will be deleted. Idempotent: re-recording an identical fact (same collection, fact type, payload, and origin block) is a no-op. The same payload tied to a different origin block is a distinct fact.
+- `recordFact(factCollectionKey: FactCollectionKey, factTypeId: Fr, payload: Fr[], originBlock: BlockReference | undefined, changeSetId: string) => Promise<void>` - Records a fact in a collection. The collection is created implicitly on the first fact recorded for its key: recording into an existing collection just adds to it. If `originBlock === undefined`, the fact is non-retractable: it survives reorgs. A defined origin block makes the fact retractable: on a prune below its block, it will be deleted. Idempotent: re-recording an identical fact (same collection, fact type, payload, and origin block) is a no-op. The same payload tied to a different origin block is a distinct fact.
 - `rollbackToBlock(toBlock: number) => Promise<void>` - Rolls the store back to `toBlock` via applyRollback. Must be called inside a transaction owned by the caller, since it opens none of its own. Not meant to be overridden: subclasses implement applyRollback.
 - `withChangeSet<R>(changeSetId: string, fn: (changeSet: FactStoreChangeSet) => R | Promise<R>) => Promise<R>` - Runs a change set operation over the staged data alone: takes the store's lock and calls `fn` with the change set's staged data, opening no db transaction. Use withChangeSetAndDb instead when `fn` reads the DB.
 - `withChangeSetAndDb<R>(changeSetId: string, fn: (changeSet: FactStoreChangeSet, db: ReadonlyDb<TDb>) => Promise<R>) => Promise<R>` - Runs a change set operation that reads the DB. Takes the store's lock, opens a transaction, and calls `fn` with the change set's staged data and a read-only view of the DB (writes are staged in memory until flushChangeSet runs on commit). Prefer withChangeSet unless `fn` actually reads the DB. The lock makes the store thread safe: two operations issued concurrently (e.g. under `Promise.all`) cannot interleave across awaits, so `fn` can read staged data and write it back without handling atomicity itself.
@@ -634,6 +634,12 @@ type AuthorizeUtilityCall = (request: UtilityCallAuthorizationRequest) => Promis
 ```
 Hook called when a utility function attempts a cross-contract call. Returns a response indicating whether the call is authorized and an optional denial reason.
 
+### BlockReference
+```typescript
+type BlockReference = unknown
+```
+A block, identified by its number and hash.
+
 ### CONTRACT_LOG_KIND
 ```typescript
 type CONTRACT_LOG_KIND = "aztecnr" | "user"
@@ -712,19 +718,13 @@ A filter used to fetch notes.
 
 ### ORACLE_VERSION_MAJOR
 ```typescript
-type ORACLE_VERSION_MAJOR = 31
+type ORACLE_VERSION_MAJOR = 32
 ```
 
 ### ORACLE_VERSION_MINOR
 ```typescript
-type ORACLE_VERSION_MINOR = 0
+type ORACLE_VERSION_MINOR = 2
 ```
-
-### OriginBlock
-```typescript
-type OriginBlock = unknown
-```
-The block a retractable fact originates from.
 
 ### PXEConfig
 ```typescript
@@ -795,7 +795,7 @@ Hook returning the TaggingSecretStrategy for an outgoing message.
 
 ### RetractableFactOrigin
 ```typescript
-type RetractableFactOrigin = OriginBlock & { blockState: OriginBlockState }
+type RetractableFactOrigin = BlockReference & { blockState: OriginBlockState }
 ```
 A retractable fact's origin block annotated with that block's current chain state.
 

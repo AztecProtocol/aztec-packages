@@ -24,6 +24,7 @@
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#new">new</a></li>
+<li><a href="#with_immutables_hash">with_immutables_hash</a></li>
 <li><a href="#with_salt">with_salt</a></li>
 <li><a href="#with_secret">with_secret</a></li>
 </ul>
@@ -62,8 +63,9 @@ methods setting each value, e.g.:</p>
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self</code>
 
 <div class="padded-description"><div class="comments">
-<p>Creates a new <code>DeployOptions</code> with default values, i.e. the same as if using the <code>deploy</code> method instead of
-<code>deploy_opts</code>. Use the <code>with_salt</code> and <code>with_secret</code> methods to set the desired configuration values.</p>
+<p>Creates a new <code>DeployOptions</code> with default values.</p>
+<p>Equivalent to using <code>deploy</code> instead of <code>deploy_opts</code>. Use the <code>with_salt</code>, <code>with_secret</code> and
+<code>with_immutables_hash</code> methods to set the desired configuration values.</p>
 </div>
 </div><code id="with_salt" class="code-header">pub fn <a href="#with_salt" class="fn">with_salt</a>(&mut self, salt: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
@@ -76,6 +78,12 @@ different salts will have different addresses.</p>
 <div class="padded-description"><div class="comments">
 <p>Sets the secret used for key derivation. The secret affects the contract's public keys and therefore its
 address: the same contract deployed with different secrets will have different addresses.</p>
+</div>
+</div><code id="with_immutables_hash" class="code-header">pub fn <a href="#with_immutables_hash" class="fn">with_immutables_hash</a>(&mut self, immutables_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Sets the instance's immutables hash. The immutables hash affects the resulting contract address: the same
+contract deployed with different immutables hashes will have different addresses.</p>
 </div>
 </div></div></div>
 </main>

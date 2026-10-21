@@ -51,6 +51,7 @@
 <li><a href="#impl-Eq-for-BinaryOp">BinaryOp</a></li>
 <li><a href="#impl-Eq-for-BlockConstantData">BlockConstantData</a></li>
 <li><a href="#impl-Eq-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Eq-for-BlockReference">BlockReference</a></li>
 <li><a href="#impl-Eq-for-BoundedVec<T, MaxLen>">BoundedVec<T, MaxLen></a></li>
 <li><a href="#impl-Eq-for-CallContext">CallContext</a></li>
 <li><a href="#impl-Eq-for-CheckpointConstantData">CheckpointConstantData</a></li>
@@ -96,12 +97,13 @@
 <li><a href="#impl-Eq-for-Module">Module</a></li>
 <li><a href="#impl-Eq-for-NoteHashLeafPreimage">NoteHashLeafPreimage</a></li>
 <li><a href="#impl-Eq-for-NoteMetadata">NoteMetadata</a></li>
+<li><a href="#impl-Eq-for-NoteOrigin">NoteOrigin</a></li>
 <li><a href="#impl-Eq-for-Nullifier">Nullifier</a></li>
 <li><a href="#impl-Eq-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-Eq-for-NullifierStatus">NullifierStatus</a></li>
 <li><a href="#impl-Eq-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-Eq-for-Option<T>">Option<T></a></li>
 <li><a href="#impl-Eq-for-Ordering">Ordering</a></li>
-<li><a href="#impl-Eq-for-OriginBlock">OriginBlock</a></li>
 <li><a href="#impl-Eq-for-OriginBlockState">OriginBlockState</a></li>
 <li><a href="#impl-Eq-for-PartialAddress">PartialAddress</a></li>
 <li><a href="#impl-Eq-for-PartialStateReference">PartialStateReference</a></li>
@@ -347,6 +349,8 @@
 
 <h3 id="impl-Eq-for-BlockHeader"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
 
+<h3 id="impl-Eq-for-BlockReference"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/block_reference/struct.BlockReference.html" class="struct">BlockReference</a></code></h3>
+
 <h3 id="impl-Eq-for-BoundedVec<T, MaxLen>"><code class="code-header">impl&lt;let MaxLen: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, MaxLen&gt;
 <div class="where-clause">where
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
@@ -447,9 +451,13 @@
 
 <h3 id="impl-Eq-for-NoteMetadata"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
 
+<h3 id="impl-Eq-for-NoteOrigin"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/notes/struct.NoteOrigin.html" class="struct">NoteOrigin</a></code></h3>
+
 <h3 id="impl-Eq-for-Nullifier"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
 
 <h3 id="impl-Eq-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-Eq-for-NullifierStatus"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/nullifiers/struct.NullifierStatus.html" class="struct">NullifierStatus</a></code></h3>
 
 <h3 id="impl-Eq-for-OnchainDeliveryMode"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></code></h3>
 
@@ -458,8 +466,6 @@
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
 <h3 id="impl-Eq-for-Ordering"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/cmp/struct.Ordering.html" class="struct">Ordering</a></code></h3>
-
-<h3 id="impl-Eq-for-OriginBlock"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a></code></h3>
 
 <h3 id="impl-Eq-for-OriginBlockState"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/facts/struct.OriginBlockState.html" class="struct">OriginBlockState</a></code></h3>
 

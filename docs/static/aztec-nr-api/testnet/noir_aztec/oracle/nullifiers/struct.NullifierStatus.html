@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
+<script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
+<title>Struct NullifierStatus documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NullifierStatus</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct NullifierStatus</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.exists">exists</a></li>
+<li><a href="#structfield.origin_block">origin_block</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-NullifierStatus">Deserialize</a></li>
+<li><a href="#impl-Eq-for-NullifierStatus">Eq</a></li>
+</ul>
+<h2>In module nullifiers</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NullifierStatus.html">NullifierStatus</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.check_nullifier_exists.html">check_nullifier_exists</a></div></li>
+<li><a href="fn.get_nullifier_statuses.html">get_nullifier_statuses</a></div></li>
+<li><a href="fn.is_nullifier_pending.html">is_nullifier_pending</a></div></li>
+<li><a href="fn.notify_created_nullifier.html">notify_created_nullifier</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">nullifiers</a></div>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">NullifierStatus</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
+<pre><code>pub struct NullifierStatus {
+    pub exists: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    pub origin_block: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/oracle/block_reference/struct.BlockReference.html" class="struct">BlockReference</a>&gt;,
+}
+</code></pre>
+<div class="comments">
+<p>The existence status of a nullifier.</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.exists" class="struct-field"><code class="code-header">exists: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><div id="structfield.origin_block" class="struct-field"><code class="code-header">origin_block: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/oracle/block_reference/struct.BlockReference.html" class="struct">BlockReference</a>&gt;</code></div>
+<div class="padded-description"><div class="comments">
+<p>The block the nullifier was included in.</p>
+<p><code>None</code> if the nullifier does not exist, or if it is pending (emitted earlier in the current transaction and not
+yet in any block).</p>
+</div>
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-NullifierStatus"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/oracle/nullifiers/struct.NullifierStatus.html" class="struct">NullifierStatus</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 4]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Eq-for-NullifierStatus"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../noir_aztec/oracle/nullifiers/struct.NullifierStatus.html" class="struct">NullifierStatus</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></div>
+</main>
+</span>
+</body>
+</html>

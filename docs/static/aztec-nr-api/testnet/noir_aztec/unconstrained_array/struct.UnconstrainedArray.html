@@ -32,6 +32,7 @@
 <li><a href="#filter">filter</a></li>
 <li><a href="#find">find</a></li>
 <li><a href="#for_each">for_each</a></li>
+<li><a href="#from_array">from_array</a></li>
 <li><a href="#get">get</a></li>
 <li><a href="#len">len</a></li>
 <li><a href="#map">map</a></li>
@@ -94,6 +95,13 @@ other frames of the same contract may have written at the slot.</p>
 <p>Use this when the caller does not need a specific slot: the random slot is isolated from every other array of
 the same backend with overwhelming probability. Prefer <a href="../../noir_aztec/unconstrained_array/struct.UnconstrainedArray.html#empty_at"><code>UnconstrainedArray::empty_at</code></a> when the slot must be a
 known value (e.g. one shared with an oracle or another call frame).</p></div>
+</div><code id="from_array" class="code-header">pub unconstrained fn <a href="#from_array" class="fn">from_array</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(values: [T; N]) -> Self
+<div class="where-clause">where
+    T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns an array at a fresh, randomly allocated slot holding <code>values</code> in order.</p>
+</div>
 </div><code id="len" class="code-header">pub unconstrained fn <a href="#len" class="fn">len</a>(self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <div class="padded-description"><div class="comments">

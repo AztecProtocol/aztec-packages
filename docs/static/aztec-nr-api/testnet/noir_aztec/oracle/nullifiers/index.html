@@ -23,6 +23,7 @@
 <h2><a href="#mod">Module nullifiers</a></h2>
 <h3>Module items</h3>
 <ul class="sidebar-list">
+<li><a href="#structs">Structs</a></li>
 <li><a href="#functions">Functions</a></li>
 </ul>
 <h2>In module oracle</h2>
@@ -31,6 +32,7 @@
 <li><a href="../auth_witness/index.html">auth_witness</a></div></li>
 <li><a href="../avm/index.html">avm</a></div></li>
 <li><a href="../block_header/index.html">block_header</a></div></li>
+<li><a href="../block_reference/index.html">block_reference</a></div></li>
 <li><a href="../call_private_function/index.html">call_private_function</a></div></li>
 <li><a href="../call_utility_function/index.html">call_utility_function</a></div></li>
 <li><a href="../capsules/index.html">capsules</a></div></li>
@@ -70,11 +72,12 @@
 <div class="comments">
 <p>Nullifier creation, existence checks, etc.</p>
 </div>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.NullifierStatus.html" class="struct">NullifierStatus</a></div><div class="item-description">The existence status of a nullifier.</div></li>
+</ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.check_nullifier_exists.html" class="fn">check_nullifier_exists</a></div><div class="item-description">Returns <code>true</code> if the nullifier exists. Note that a <code>true</code> value can be constrained by proving existence of the
-nullifier, but a <code>false</code> value should not be relied upon since other transactions may emit this nullifier before
-the current transaction is included in a block. While this might seem of little use at first, certain design
-patterns benefit from this abstraction (see e.g. <code>PrivateMutable</code>).</div></li>
+<li><div class="item-name"><a href="fn.check_nullifier_exists.html" class="fn">check_nullifier_exists</a></div><div class="item-description">Returns <code>true</code> if the nullifier exists.</div></li>
+<li><div class="item-name"><a href="fn.get_nullifier_statuses.html" class="fn">get_nullifier_statuses</a></div><div class="item-description">Returns the existence status of multiple nullifiers.</div></li>
 <li><div class="item-name"><a href="fn.is_nullifier_pending.html" class="fn">is_nullifier_pending</a></div><div class="item-description">Returns <code>true</code> if the nullifier has been emitted in the same transaction, i.e. if <a href="../../../noir_aztec/oracle/nullifiers/fn.notify_created_nullifier.html"><code>notify_created_nullifier</code></a> has
 been
 called for this inner nullifier from the contract with the specified address.</div></li>

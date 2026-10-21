@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 6.0.0-rc.1
+Version: 6.0.0-rc.3
 
 ## Quick Import Reference
 
@@ -2084,6 +2084,11 @@ type ZERO = BlockNumber
 type add = (bn: BlockNumber, increment: number) => BlockNumber
 ```
 
+### diff
+```typescript
+type diff = (a: BlockNumber, b: BlockNumber) => number
+```
+
 ### fromBigInt
 ```typescript
 type fromBigInt = (value: bigint) => BlockNumber
@@ -2107,6 +2112,11 @@ type fromTreeLeafIndex = (value: TreeLeafIndex) => BlockNumber
 ### isValid
 ```typescript
 type isValid = (value: unknown) => boolean
+```
+
+### min
+```typescript
+type min = (...bns: readonly BlockNumber[]) => BlockNumber
 ```
 
 ## Enums

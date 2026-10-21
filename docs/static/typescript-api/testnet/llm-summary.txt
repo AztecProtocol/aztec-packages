@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: 6.0.0-rc.1
-Generated: 2026-10-07T19:12:41.032Z
+Version: 6.0.0-rc.3
+Generated: 2026-10-21T20:09:30.874Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -14,7 +14,7 @@ For detailed API documentation, see the individual package .md files.
   - Transaction creation and submission
   - Account management
   - RPC client for connecting to Aztec nodes
-Exports: 39 classes, 25 interfaces, 34 functions, 85 types
+Exports: 39 classes, 25 interfaces, 34 functions, 87 types
 Key: AccountManager, Contract, Fq, Fr
 
 **@aztec/accounts** - Sample account contract implementations
@@ -53,7 +53,7 @@ Exports: 3 classes, 2 functions, 3 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 88 classes, 44 interfaces, 171 functions, 173 types
+Exports: 88 classes, 46 interfaces, 171 functions, 174 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives
@@ -61,7 +61,7 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Serialization utilities
   - Async helpers and collections
   - Logging infrastructure
-Exports: 22 classes, 6 interfaces, 145 functions, 35 types
+Exports: 22 classes, 6 interfaces, 146 functions, 35 types
 Key: EthAddress
 
 **@aztec/constants** - Protocol constants shared between TypeScript and Noir

@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 6.0.0-rc.1
+Version: 6.0.0-rc.3
 
 ## Quick Import Reference
 
@@ -839,6 +839,7 @@ new GasFees(feePerDaGas: number | bigint, feePerL2Gas: number | bigint)
 - `static fromPlainObject(obj: any) => GasFees` - Creates a GasFees instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `get(dimension: "da" | "l2") => bigint`
 - `isEmpty() => boolean`
+- `static min(a: GasFees, b: GasFees) => GasFees` - The lower of the two fees on each dimension independently.
 - `mul(scalar: number | bigint) => GasFees`
 - `static random() => GasFees`
 - `toBuffer() => Buffer`
@@ -2654,6 +2655,13 @@ Provides the current chain tips. Implemented by world-state, l2-tips-store, and 
 **Methods**
 - `getL2Tips() => Promise<L2Tips>`
 
+### NextBlockMinFeesProvider
+
+Provides the mana min fee the next block this node would build is going to charge. Distinct from BlockMinFeesProvider, which answers the L1-anchored price after the on-chain pending checkpoint and therefore cannot see the fee a locally proposed in-progress checkpoint already froze.
+
+**Methods**
+- `getNextBlockMinFees() => Promise<GasFees | undefined>` - The fee the next block will charge, or undefined when the node cannot resolve it right now. For callers that must not act on a stand-in price, such as evicting transactions the next block could not include.
+
 ### NodeInfo
 
 Provides basic information about the running node.
@@ -2754,6 +2762,17 @@ Extends: `BasicType<"tuple">`
 **Properties**
 - `fields: AbiValue[]`
 - `kind: "tuple"`
+
+### TxAdmissionMinFeesProvider
+
+Provides the mana min fees a transaction is held to on its way into this node, over gossip or into the pool.
+
+Extends: `NextBlockMinFeesProvider`
+
+**Methods**
+- `getAdmissionMinFees() => Promise<GasFees>` - The fee a transaction must be able to pay to enter this node, over gossip or into the pending pool. The next-block fee when it resolves, otherwise the L1-forward fee, so admission never runs without a floor: a zero `maxFeesPerGas` has a zero fee limit, which a fee payer with no balance also covers.
+- `getL1ForwardMinFees() => Promise<GasFees>` - The L1-anchored fee projected after the on-chain pending checkpoint, as BlockMinFeesProvider reports.
+- `getNextBlockMinFees() => Promise<GasFees | undefined>` - The fee the next block will charge, or undefined when the node cannot resolve it right now. For callers that must not act on a stand-in price, such as evicting transactions the next block could not include.
 
 ### TxReceiptInterface
 
@@ -2931,7 +2950,7 @@ Computes the congestion multiplier from excess mana. The protocol fee margin sca
 ```typescript
 function computeContractAddressFromInstance(instance: ContractInstancePreimage | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
 ```
-Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
+Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V3, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
 
 ### computeContractClassId
 ```typescript
@@ -3830,6 +3849,12 @@ type AnyTx = Tx | ProcessedTx
 ```typescript
 type AppTaggingSecretKind = { CONSTRAINED: "constrained"; UNCONSTRAINED: "unconstrained" }
 ```
+
+### ArchiveBlockParameter
+```typescript
+type ArchiveBlockParameter = unknown
+```
+Selector naming a block by its archive tree root: the root after the block's own hash was appended.
 
 ### ArchiverEmitter
 ```typescript

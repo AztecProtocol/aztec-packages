@@ -63,7 +63,7 @@ When you want to withdraw your staked tokens, you must go through an unstaking p
 | Delay Type | Alpha (Mainnet) | Testnet |
 |-----------|-----------------|---------|
 | **Staking Exit Delay** | 4 days | 2 days |
-| **Governance Withdrawal Delay** | ~9.6 days | ~1.6 days |
+| **Governance Withdrawal Delay** | ~9.6 days | ~8.4 minutes |
 
 The **staking exit delay** is the minimum time after initiating withdrawal before you can claim your tokens. It allows time for pending slashing conditions to be detected.
 

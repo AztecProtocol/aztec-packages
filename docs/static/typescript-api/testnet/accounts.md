@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: 6.0.0-rc.1
+Version: 6.0.0-rc.3
 
 ## Quick Import Reference
 

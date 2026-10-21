@@ -72,7 +72,6 @@
 <li><a href="noir_aztec/event/event_emission/struct.NewEvent.html">noir_aztec::event::event_emission::NewEvent</a></li>
 <li><a href="noir_aztec/facts/struct.Fact.html">noir_aztec::facts::Fact</a></li>
 <li><a href="noir_aztec/facts/struct.FactCollection.html">noir_aztec::facts::FactCollection</a></li>
-<li><a href="noir_aztec/facts/struct.OriginBlock.html">noir_aztec::facts::OriginBlock</a></li>
 <li><a href="noir_aztec/facts/struct.OriginBlockState.html">noir_aztec::facts::OriginBlockState</a></li>
 <li><a href="noir_aztec/facts/struct.RetractableFactOrigin.html">noir_aztec::facts::RetractableFactOrigin</a></li>
 <li><a href="noir_aztec/macros/struct.AztecConfig.html">noir_aztec::macros::AztecConfig</a></li>
@@ -108,8 +107,11 @@
 <li><a href="noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html">noir_aztec::note::note_metadata::PendingSamePhaseNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html">noir_aztec::note::note_metadata::SettledNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html">noir_aztec::note::note_viewer_options::NoteViewerOptions</a></li>
+<li><a href="noir_aztec/oracle/block_reference/struct.BlockReference.html">noir_aztec::oracle::block_reference::BlockReference</a></li>
 <li><a href="noir_aztec/oracle/get_l1_to_l2_membership_witness/struct.UnsiloedNullifier.html">noir_aztec::oracle::get_l1_to_l2_membership_witness::UnsiloedNullifier</a></li>
 <li><a href="noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html">noir_aztec::oracle::get_public_data_witness::PublicDataWitness</a></li>
+<li><a href="noir_aztec/oracle/notes/struct.NoteOrigin.html">noir_aztec::oracle::notes::NoteOrigin</a></li>
+<li><a href="noir_aztec/oracle/nullifiers/struct.NullifierStatus.html">noir_aztec::oracle::nullifiers::NullifierStatus</a></li>
 <li><a href="noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html">noir_aztec::oracle::tx_resolution::ResolvedTx</a></li>
 <li><a href="noir_aztec/protocol/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html">noir_aztec::protocol::abis::accumulated_data::avm_accumulated_data::AvmAccumulatedData</a></li>
 <li><a href="noir_aztec/protocol/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html">noir_aztec::protocol::abis::accumulated_data::avm_accumulated_data::AvmAccumulatedDataArrayLengths</a></li>
@@ -622,7 +624,7 @@
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__BLOCK_HEADER_HASH.html">noir_aztec::protocol::constants::DOM_SEP__BLOCK_HEADER_HASH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__CONSTRAINED_MSG_LOG_TAG.html">noir_aztec::protocol::constants::DOM_SEP__CONSTRAINED_MSG_LOG_TAG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET.html">noir_aztec::protocol::constants::DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET</a></li>
-<li><a href="noir_aztec/protocol/constants/global.DOM_SEP__CONTRACT_ADDRESS_V2.html">noir_aztec::protocol::constants::DOM_SEP__CONTRACT_ADDRESS_V2</a></li>
+<li><a href="noir_aztec/protocol/constants/global.DOM_SEP__CONTRACT_ADDRESS_V3.html">noir_aztec::protocol::constants::DOM_SEP__CONTRACT_ADDRESS_V3</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__CONTRACT_CLASS_ID.html">noir_aztec::protocol::constants::DOM_SEP__CONTRACT_CLASS_ID</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__EVENT_COMMITMENT.html">noir_aztec::protocol::constants::DOM_SEP__EVENT_COMMITMENT</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__EVENT_LOG_TAG.html">noir_aztec::protocol::constants::DOM_SEP__EVENT_LOG_TAG</a></li>
@@ -911,6 +913,7 @@
 <span id="fn"></span><h2>Functions</h2>
 <ul class="item-list">
 <li><a href="balance_set/fn.preprocess_notes_min_sum.html">balance_set::preprocess_notes_min_sum</a></li>
+<li><a href="noir_aztec/authwit/account/fn.compute_tx_nullifier.html">noir_aztec::authwit::account::compute_tx_nullifier</a></li>
 <li><a href="noir_aztec/authwit/auth/fn.assert_current_call_valid_authwit.html">noir_aztec::authwit::auth::assert_current_call_valid_authwit</a></li>
 <li><a href="noir_aztec/authwit/auth/fn.assert_current_call_valid_authwit_public.html">noir_aztec::authwit::auth::assert_current_call_valid_authwit_public</a></li>
 <li><a href="noir_aztec/authwit/auth/fn.assert_inner_hash_valid_authwit.html">noir_aztec::authwit::auth::assert_inner_hash_valid_authwit</a></li>
@@ -1074,6 +1077,7 @@
 <li><a href="noir_aztec/oracle/get_contract_instance/fn.get_contract_instance_immutables_hash_avm.html">noir_aztec::oracle::get_contract_instance::get_contract_instance_immutables_hash_avm</a></li>
 <li><a href="noir_aztec/oracle/get_contract_instance/fn.get_contract_instance_initialization_hash_avm.html">noir_aztec::oracle::get_contract_instance::get_contract_instance_initialization_hash_avm</a></li>
 <li><a href="noir_aztec/oracle/get_l1_to_l2_membership_witness/fn.get_l1_to_l2_membership_witness.html">noir_aztec::oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness</a></li>
+<li><a href="noir_aztec/oracle/get_l1_to_l2_membership_witness/fn.try_get_l1_to_l2_membership_witness.html">noir_aztec::oracle::get_l1_to_l2_membership_witness::try_get_l1_to_l2_membership_witness</a></li>
 <li><a href="noir_aztec/oracle/get_membership_witness/fn.are_block_hashes_in_archive.html">noir_aztec::oracle::get_membership_witness::are_block_hashes_in_archive</a></li>
 <li><a href="noir_aztec/oracle/get_membership_witness/fn.get_block_hash_membership_witness.html">noir_aztec::oracle::get_membership_witness::get_block_hash_membership_witness</a></li>
 <li><a href="noir_aztec/oracle/get_membership_witness/fn.get_maybe_block_hash_membership_witness.html">noir_aztec::oracle::get_membership_witness::get_maybe_block_hash_membership_witness</a></li>
@@ -1105,9 +1109,11 @@
 <li><a href="noir_aztec/oracle/notes/fn.get_app_tagging_secret.html">noir_aztec::oracle::notes::get_app_tagging_secret</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_next_tagging_index.html">noir_aztec::oracle::notes::get_next_tagging_index</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_notes.html">noir_aztec::oracle::notes::get_notes</a></li>
+<li><a href="noir_aztec/oracle/notes/fn.get_settled_note_origin.html">noir_aztec::oracle::notes::get_settled_note_origin</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.notify_created_note.html">noir_aztec::oracle::notes::notify_created_note</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.notify_nullified_note.html">noir_aztec::oracle::notes::notify_nullified_note</a></li>
 <li><a href="noir_aztec/oracle/nullifiers/fn.check_nullifier_exists.html">noir_aztec::oracle::nullifiers::check_nullifier_exists</a></li>
+<li><a href="noir_aztec/oracle/nullifiers/fn.get_nullifier_statuses.html">noir_aztec::oracle::nullifiers::get_nullifier_statuses</a></li>
 <li><a href="noir_aztec/oracle/nullifiers/fn.is_nullifier_pending.html">noir_aztec::oracle::nullifiers::is_nullifier_pending</a></li>
 <li><a href="noir_aztec/oracle/nullifiers/fn.notify_created_nullifier.html">noir_aztec::oracle::nullifiers::notify_created_nullifier</a></li>
 <li><a href="noir_aztec/oracle/offchain_effect/fn.emit_offchain_effect.html">noir_aztec::oracle::offchain_effect::emit_offchain_effect</a></li>

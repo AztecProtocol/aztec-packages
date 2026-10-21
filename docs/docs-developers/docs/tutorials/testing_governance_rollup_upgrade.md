@@ -100,12 +100,25 @@ export AZTEC_SLASHER_ENABLED=false
 export AZTEC_SLASHING_VETOER=0x0000000000000000000000000000000000000000
 export AZTEC_SLASHING_DISABLE_DURATION=0
 export AZTEC_MANA_TARGET=100000000
-export AZTEC_EXIT_DELAY_SECONDS=0
+# The deploy script rejects 0; 1 second is the smallest exit delay it accepts
+export AZTEC_EXIT_DELAY_SECONDS=1
 export AZTEC_PROVING_COST_PER_MANA=100
 export AZTEC_SLASH_AMOUNT_SMALL=0
 export AZTEC_SLASH_AMOUNT_MEDIUM=0
 export AZTEC_SLASH_AMOUNT_LARGE=0
 export AZTEC_INITIAL_ETH_PER_FEE_ASSET=10000000
+
+# L1 slot and entry-queue configuration: the bundle's defaults
+for v in ETHEREUM_SLOT_DURATION AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE \
+    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE; do
+  export "$v=$(jq -r ".$v" scripts/network-defaults.json)"
+done
+
+# Genesis state of the new rollup
+GENESIS=$(aztec compute-genesis-values)
+export VK_TREE_ROOT=$(echo "$GENESIS" | jq -r .vkTreeRoot)
+export PROTOCOL_CONTRACTS_HASH=$(echo "$GENESIS" | jq -r .protocolContractsHash)
+export GENESIS_ARCHIVE_ROOT=$(echo "$GENESIS" | jq -r .genesisArchiveRoot)
 ```
 
 ---

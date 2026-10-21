@@ -112,8 +112,8 @@ specifying the type <code>T</code> that is stored in the variable:</p>
     account_types: Map&lt;AztecAddress, PublicImmutable&lt;AccountType, C&gt;, C&gt;,
 }</code></pre>
 <h2>Requirements</h2>
-<p>The type <code>T</code> stored in the <code>PublicImmutable</code> must implement the <code>Eq</code> and
-<a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a> traits.</p>
+<p>The type <code>T</code> stored in the <code>PublicImmutable</code> must implement the <a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a>
+trait.</p>
 <h2>Implementation Details</h2>
 <p>Values are packed and stored directly in the public storage tree, along with the hash of the packed representation.
 A <code>PublicImmutable</code> therefore takes up as many storage slots as the packing length of the stored type <code>T</code>, plus
@@ -137,8 +137,7 @@ that it has not been emitted since then.</p></div>
 
 <div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize" class="fn">initialize</a>(self, value: T)
 <div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Stores a permanent value.</p>
@@ -162,8 +161,7 @@ nullifier.</p>
 <code>EMITNULLIFIER</code> AVM opcode is invoked once.</p></div>
 </div><code id="read" class="code-header">pub fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads the permanent value.</p>
@@ -179,8 +177,7 @@ nullifier.</p>
 opcode is invoked once.</p></div>
 </div><code id="read_unsafe" class="code-header">pub fn <a href="#read_unsafe" class="fn">read_unsafe</a>(self) -> T
 <div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads the permanent value, skipping the initialization check.</p>
@@ -215,8 +212,7 @@ zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
 
 <div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads the permanent value.</p>
@@ -235,8 +231,7 @@ zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
 
 <div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads the permanent value.</p>
