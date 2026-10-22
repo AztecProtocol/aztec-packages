@@ -100,7 +100,7 @@ function release {
 
   # Private releases also run this function but publish only to the internal
   # npm registry; crates.io is public-only.
-  if "$root/ci3/assert_public_release" 2>/dev/null; then
+  if "$root/ci3-local/assert_public_release" 2>/dev/null; then
     release_crate $version
   fi
 }
