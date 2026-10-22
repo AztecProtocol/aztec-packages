@@ -203,7 +203,7 @@ ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
   "cd $BB_SSH_CPP_PATH/build-wasm-threads && \
    HARDWARE_CONCURRENCY=16 \
    /home/ubuntu/.wasmtime/bin/wasmtime run \
-     -Wthreads=y -Sthreads=y \
+     -Wthreads=y -Wshared-memory=y -Wexceptions=y -Sthreads=y \
      --env HARDWARE_CONCURRENCY \
      --env HOME \
      --env BB_BENCH=1 \
