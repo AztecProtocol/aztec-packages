@@ -113,7 +113,10 @@ template <typename Curve> class generator_data {
             next.reserve(target_size);
             next.insert(next.end(), extra.begin(), extra.end());
             // Readers retain spans after releasing the lock, so published storage must stay immutable and alive.
-            retired_generators.emplace_back(std::move(generators));
+            if (!retired_generators.has_value()) {
+                retired_generators = std::vector<GeneratorList>();
+            }
+            retired_generators->emplace_back(std::move(generators));
             generators = std::move(next);
         }
 
@@ -139,7 +142,9 @@ template <typename Curve> class generator_data {
     // compile-time because std::map is a dynamically sized object.
     mutable bool initialized_precomputed_generators = false;
     mutable std::mutex mutex_;
-    mutable std::vector<GeneratorList> retired_generators;
+    // Wrapped in `std::optional` for the same reason as `generator_map`: an empty optional is constant-initializable
+    // even when `std::vector` is not (e.g. libstdc++ debug containers under `_GLIBCXX_DEBUG`).
+    mutable std::optional<std::vector<GeneratorList>> retired_generators = {};
 
     // We wrap the std::map in a `std::optional` so that we can construct `generator_data` at compile time.
     // This allows us to mark `default_data` as `constinit`, which prevents static initialization ordering fiasco
