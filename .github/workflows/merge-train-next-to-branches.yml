@@ -16,6 +16,10 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the
+        # contract libraries. A no-op on refs from before ci3 became a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3; fi
 
       - name: Configure Git
         run: |
