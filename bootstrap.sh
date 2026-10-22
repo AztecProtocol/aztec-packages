@@ -15,7 +15,7 @@ export expected_min_cmake_version=3.24
 export expected_min_node_version=24.12.0
 export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
-export expected_abs_wasi_version=27.0
+export expected_min_wasi_version=27.0
 export expected_abs_foundry_version=1.8.5
 export expected_abs_yarn_version=4.13.0
 
@@ -24,13 +24,16 @@ function ensure {
 }
 
 function install_wasi_sdk {
-  if cat /opt/wasi-sdk/VERSION 2> /dev/null | grep $expected_abs_wasi_version > /dev/null; then
+  local installed_version=$(head -n1 /opt/wasi-sdk/VERSION 2> /dev/null)
+  # Keep any version at or above the minimum. This runs in a subshell without check_minimum_version, so compare inline.
+  if [ -n "$installed_version" ] &&
+    [ "$(printf '%s\n' $expected_min_wasi_version $installed_version | sort -V | head -n1)" == "$expected_min_wasi_version" ]; then
     return
   fi
   local arch=$(uname -m)
   local os=$(os)
-  local triple=$expected_abs_wasi_version-$arch-$os
-  curl -LOs https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${expected_abs_wasi_version%%.*}/wasi-sdk-$triple.tar.gz
+  local triple=$expected_min_wasi_version-$arch-$os
+  curl -LOs https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${expected_min_wasi_version%%.*}/wasi-sdk-$triple.tar.gz
   tar xzf wasi-sdk-$triple.tar.gz
   rm wasi-sdk-$triple.tar.gz
   echo "Installing wasi sdk at /opt/wasi-sdk..."
@@ -274,7 +277,9 @@ function check_toolchains {
     echo -e "${bold}${yellow}WARN: Rust ${expected_abs_rust_version} is not installed. Update build-image.${reset}"
   fi
   # Check wasi-sdk version.
-  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep $expected_abs_wasi_version > /dev/null; then
+  local wasi_installed_version=$(head -n1 /opt/wasi-sdk/VERSION 2> /dev/null)
+  if [ -z "$wasi_installed_version" ] || ! check_minimum_version $expected_min_wasi_version $wasi_installed_version; then
+    echo "Minimum wasi-sdk version $expected_min_wasi_version not found."
     toolchain_incompatible
   fi
   # Check foundry version.

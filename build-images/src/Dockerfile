@@ -61,9 +61,9 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # We use this image for test isolation.
 FROM base-build AS build
 
-# APT repo for node (24.15.0)
+# APT repo for node (26.12.0)
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-ENV NODE_MAJOR=24
+ENV NODE_MAJOR=26
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 
 RUN apt update && \
@@ -102,7 +102,7 @@ RUN apt update && \
         pkg-config \
         libssl-dev \
         # Node
-        nodejs=24.15.0-1nodesource1 \
+        nodejs=26.12.0-1nodesource1 \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
@@ -121,10 +121,10 @@ RUN wget https://apt.llvm.org/llvm.sh && \
 # Install wasi-sdk.
 RUN arch=$(uname -m) && \
     if [ "$arch" = "aarch64" ]; then arch="arm64"; fi && \
-    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz && \
-    tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz && \
-    mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk && \
-    rm wasi-sdk-27.0-${arch}-linux.tar.gz
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-${arch}-linux.tar.gz && \
+    tar xvf wasi-sdk-34.0-${arch}-linux.tar.gz && \
+    mv wasi-sdk-34.0-${arch}-linux /opt/wasi-sdk && \
+    rm wasi-sdk-34.0-${arch}-linux.tar.gz
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
@@ -154,9 +154,9 @@ RUN curl -fsSL https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_li
     && chmod +x /usr/local/bin/terraform \
     && rm terraform.zip
 
-# Install wasmtime.
-RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v20.0.2/wasmtime-v20.0.2-$(uname -m)-linux.tar.xz | tar xJ \
-    && mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin \
+# Install wasmtime. 46 is the last release with wasi-threads (-Sthreads), which the threaded wasm tests use.
+RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v46.0.3/wasmtime-v46.0.3-$(uname -m)-linux.tar.xz | tar xJ \
+    && mv wasmtime-v46.0.3-$(uname -m)-linux/wasmtime /usr/local/bin \
     && rm -rf wasmtime*
 
 # Install zig.
@@ -171,7 +171,7 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_
         -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 # Install playwright for browser testing. Ensure accessible for other users.
-RUN npx -y playwright@1.49 install --with-deps && mv /root/.cache/ms-playwright /opt/ms-playwright
+RUN npx -y playwright@1.63.0 install --with-deps && mv /root/.cache/ms-playwright /opt/ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
 
@@ -214,7 +214,7 @@ RUN apt update && \
         zsh \
         inotify-tools \
         # Annoyingly unminimize upgrades nodejs.
-        nodejs=24.15.0-1nodesource1 \
+        nodejs=26.12.0-1nodesource1 \
         # smt_verification dependencies
         python3-venv \
         python3-pip \
