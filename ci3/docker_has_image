@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-IMAGE="$1"
-docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "$IMAGE"

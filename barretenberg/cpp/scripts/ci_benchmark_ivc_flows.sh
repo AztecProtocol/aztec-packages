@@ -3,8 +3,6 @@
 # Downloads the pinned inputs itself when the requested flow is missing or stale.
 REPO_ROOT=$(git rev-parse --show-toplevel)
 NO_CD=1 source "$REPO_ROOT/ci3/source"
-source "$REPO_ROOT/ci3/source_redis"
-source "$REPO_ROOT/ci3/source_cache"
 source "$REPO_ROOT/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
 default_chonk_flow="ecdsar1+transfer_0_recursions+sponsored_fpc"
