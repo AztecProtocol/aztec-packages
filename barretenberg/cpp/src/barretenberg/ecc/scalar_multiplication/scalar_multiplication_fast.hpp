@@ -162,7 +162,10 @@ template <typename Curve> class MSM_fast {
      * 2^20), this is faster because per-MSM_fast threading dominates over inter-MSM_fast stealing.
      *
      * @param points      Shared point set (SRS prefix). Every MSM_fast indexes into this span.
-     * @param scalars     Per-MSM_fast scalars carrying the start offset into `points`.
+     * @param scalars     Per-MSM_fast scalars carrying the start offset into `points`. The
+     *                    scalars are converted out of Montgomery form in place and restored
+     *                    before return, so the spans must not share memory: members can run
+     *                    concurrently, and an overlap would convert shared scalars twice.
      * @param dedup_hints Optional per-MSM_fast dedup opt-ins (parallel to `scalars`): a
      *                    non-zero entry opts that MSM_fast's input scalars into the
      *                    duplicate-cluster pre-pass. Empty span means no dedup anywhere.

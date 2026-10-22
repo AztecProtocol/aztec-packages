@@ -87,10 +87,9 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
     const size_t capacity_lo = n;
     const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
 
-    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window =
-        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
-    const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
+        rpd::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
+    const size_t chunk_capacity = rpd::compute_tree_reduce_capacity(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
     const size_t phase_a_cluster_members_cap = std::min(rpd::DEDUP_MAX_MEMBERS, n);
     const size_t phase_a_cluster_offsets_cap = (rpd::DEDUP_MAX_CLUSTERS / num_threads) + 2;
@@ -99,24 +98,21 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
                                             (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) +
                                             (profile_threads * size_t{ 1024 });
 
-    const rpd::PerWorkerArenaLayout<Curve> budget_layout(
-        /*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
-        global_max_overflow_per_window,
-        dedup_active,
-        phase_a_cluster_members_cap,
-        phase_a_cluster_offsets_cap,
-        /*windows_per_batch=*/0,
-        /*dense_stride_est=*/0);
+    const rpd::PerWorkerArenaLayout<Curve> budget_layout(chunk_capacity,
+                                                         global_max_overflow_per_window,
+                                                         dedup_active,
+                                                         phase_a_cluster_members_cap,
+                                                         phase_a_cluster_offsets_cap,
+                                                         /*windows_per_batch=*/0,
+                                                         /*dense_stride_est=*/0);
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
                                   (size_t{ 96 } * rpd::MAX_SCHEDULE_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
                                   phase_one_prologue_bytes;
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    const size_t windows_per_batch = (per_window_bytes_lo == 0 || available_budget == 0)
-                                         ? std::max<size_t>(1, sched.num_windows)
-                                         : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo),
-                                                    static_cast<size_t>(sched.num_windows));
+    const size_t windows_per_batch =
+        rpd::solve_wpb(per_window_bytes_lo, available_budget, static_cast<size_t>(sched.num_windows));
 
     auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
     auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
@@ -413,6 +409,51 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
         EXPECT_EQ(result, expected);
     }
+
+#ifndef __wasm__
+    // The concurrent large-member dispatch converts each member's scalars in place, so members must
+    // not share scalar memory. Back-to-back members in one allocation are fine; overlapping ones abort.
+    void test_batch_concurrent_members_scalar_overlap()
+    {
+        const size_t saved_threads = get_num_cpus();
+        constexpr size_t pool_width = 4;
+        set_parallel_for_concurrency(pool_width);
+        // Enough equal-size members, each at the large-member floor, to take the concurrent path.
+        constexpr size_t num_msms = 101;
+        constexpr size_t n = scalar_multiplication::MSM_MIN_PTS_PER_THREAD * pool_width;
+        static_assert(n <= num_points);
+
+        std::vector<ScalarField> backing((num_msms * n) + (n / 2));
+        for (auto& x : backing) {
+            x = ScalarField::random_element(&engine);
+        }
+        auto spans_at = [&](size_t shift_second) {
+            std::vector<PolynomialSpan<ScalarField>> spans;
+            for (size_t k = 0; k < num_msms; ++k) {
+                const size_t offset = (k * n) + (k == 1 ? shift_second : 0);
+                spans.emplace_back(0, std::span<ScalarField>(backing.data() + offset, n));
+            }
+            return spans;
+        };
+
+        auto disjoint = spans_at(0);
+        std::vector<AffineElement> expected(num_msms);
+        for (size_t k = 0; k < num_msms; ++k) {
+            PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(disjoint[k].span));
+            expected[k] = scalar_multiplication::MSM_fast<Curve>::msm(generators, sp, /*handle_edge_cases=*/false);
+        }
+        EXPECT_EQ(scalar_multiplication::MSM_fast<Curve>::batch_multi_scalar_mul(
+                      generators, disjoint, /*handle_edge_cases=*/false),
+                  expected);
+
+        auto overlapping = spans_at(n / 2);
+        EXPECT_DEATH(scalar_multiplication::MSM_fast<Curve>::batch_multi_scalar_mul(
+                         generators, overlapping, /*handle_edge_cases=*/false),
+                     "share scalar memory");
+
+        set_parallel_for_concurrency(saved_threads);
+    }
+#endif
 
     void test_batch_multi_scalar_mul_sparse()
     {
@@ -1832,6 +1873,91 @@ TEST(ScalarMultiplicationArenaTest, MidBandArenaSizerCoversAllEffectiveNumBits)
     EXPECT_FALSE(found_undersize) << "arena sizer under-counts in the non-GLV mid-band";
 }
 
+// Stage 6a tree-reduce scratch (`curr_pts` / `curr_buckets`) holds either one sub-chunk
+// (SUBCHUNK_ENTRIES_CAP entries) or the end-of-window overflow merge (2 × overflow entries),
+// so it grows past SUBCHUNK_ENTRIES_CAP once a task's working chunk exceeds
+// SUBCHUNK_ENTRIES_CAP² / 2 = 2^21 entries. The sizer and the windows-per-batch budget must
+// account for that growth. Few threads put the per-task chunk past the boundary at sizes
+// the dispatch sweep does not reach; external GLV doubles the working count.
+TEST(ScalarMultiplicationArenaTest, Stage6aScratchGrowthFitsComputedArena)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+
+    constexpr size_t boundary = size_t{ 1 } << 21; // working entries per task where growth starts
+    for (const size_t threads : { size_t{ 1 }, size_t{ 2 } }) {
+        bb::set_parallel_for_concurrency(threads);
+        for (const bool ext_glv : { false, true }) {
+            for (const size_t working_chunk : { boundary - 2048, boundary, boundary + 2, boundary * 2, boundary * 4 }) {
+                const size_t working_n = working_chunk * threads;
+                const size_t n_input = ext_glv ? working_n / 2 : working_n;
+                for (const size_t bits : { size_t{ 0 }, size_t{ 128 }, size_t{ 254 } }) {
+                    EXPECT_TRUE(
+                        pippenger_bn254_arena_layout_fits_for_test(n_input, ext_glv, /*dedup_active=*/false, bits))
+                        << "threads=" << threads << " ext_glv=" << ext_glv << " n_input=" << n_input
+                        << " working_chunk=" << working_chunk << " bits=" << bits;
+                }
+            }
+        }
+    }
+
+    bb::set_parallel_for_concurrency(saved_threads);
+}
+
+// The tree-reduce capacity is the sub-chunk cap until the overflow merge (2 × overflow entries)
+// outgrows it, i.e. once a task's working chunk passes 2^21 entries. The fit test above can only
+// see an under-count larger than the sizer's fixed pad; this pins the capacity itself.
+TEST(ScalarMultiplicationArenaTest, TreeReduceCapacityAtGrowthBoundary)
+{
+    namespace rpd = scalar_multiplication::round_parallel_detail;
+    constexpr size_t cap = rpd::SUBCHUNK_ENTRIES_CAP;
+    constexpr size_t boundary = cap * cap / 2;
+    static_assert(boundary == size_t{ 1 } << 21);
+
+    for (const size_t threads : { size_t{ 1 }, size_t{ 16 } }) {
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity((boundary - cap) * threads, threads, cap), cap);
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity(boundary * threads, threads, cap), cap);
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity((boundary * threads) + 1, threads, cap), cap + 2);
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity(boundary * 2 * threads, threads, cap), 2 * cap);
+    }
+}
+
+// The windows-per-batch solve must not grow as the budget shrinks: once the fixed overhead
+// exhausts BATCH_MEM_BUDGET it takes one window per batch, not every window.
+TEST(ScalarMultiplicationArenaTest, WindowsPerBatchMonotoneInBudget)
+{
+    namespace rpd = scalar_multiplication::round_parallel_detail;
+    constexpr size_t W_R = 14;
+    constexpr size_t per_window = 1000;
+    size_t prev = W_R;
+    for (size_t budget = W_R * per_window * 2; budget-- > 0;) {
+        const size_t wpb = rpd::solve_wpb(per_window, budget, W_R);
+        EXPECT_GE(wpb, size_t{ 1 });
+        EXPECT_LE(wpb, prev) << "budget=" << budget;
+        prev = wpb;
+    }
+    EXPECT_EQ(rpd::solve_wpb(per_window, 0, W_R), size_t{ 1 });
+}
+
+// Shapes whose fixed overhead exceeds BATCH_MEM_BUDGET (the n-byte msb array plus one per-worker
+// union per thread). The sizer must stay O(fixed + one window): one window's schedule is 4n bytes,
+// while every window in one batch at the smallest reachable c costs ~128 · 4n.
+TEST(ScalarMultiplicationArenaTest, ArenaSizerPastExhaustedBatchBudget)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+    bb::set_parallel_for_concurrency(128);
+    struct Shape {
+        size_t n;
+        size_t threads;
+    };
+    for (const auto [n, threads] : { Shape{ size_t{ 1 } << 23, 128 }, Shape{ (size_t{ 1 } << 25) - 2048, 4 } }) {
+        const size_t bytes = scalar_multiplication::compute_arena_bytes_for_msm<curve::BN254>(
+            n, /*external_glv_provided=*/false, /*dedup_active=*/false, threads);
+        const size_t bound = (size_t{ 8 } * n) + (threads * (size_t{ 1 } << 20)) + (size_t{ 64 } << 20);
+        EXPECT_LE(bytes, bound) << "n=" << n << " threads=" << threads;
+    }
+    bb::set_parallel_for_concurrency(saved_threads);
+}
+
 // ======================= Test Wrappers =======================
 
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
@@ -1858,6 +1984,12 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSmallMemberDispatch)
 {
     this->test_batch_multi_scalar_mul_small_member_dispatch();
 }
+#ifndef __wasm__
+TYPED_TEST(ScalarMultiplicationTest, BatchConcurrentMembersScalarOverlap)
+{
+    this->test_batch_concurrent_members_scalar_overlap();
+}
+#endif
 TYPED_TEST(ScalarMultiplicationTest, MSM)
 {
     this->test_msm();
