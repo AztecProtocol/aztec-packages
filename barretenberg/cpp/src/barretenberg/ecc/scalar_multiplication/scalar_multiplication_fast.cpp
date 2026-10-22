@@ -1255,6 +1255,8 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
 
     const size_t global_max_overflow_per_window =
         round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
+    const size_t chunk_capacity =
+        round_parallel_detail::compute_tree_reduce_capacity(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
     const bool inline_glv_double = use_glv && !external_glv_provided;
     const size_t profile_threads = std::max<size_t>(1, hw_threads);
@@ -1270,7 +1272,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
     // (the Stage 6 wpb-dependent tail is added below once `windows_per_batch` is known).
     // Passing `windows_per_batch = 0` here skips the tail — we only need the union bytes
     // for the fixed_overhead → wpb solve.
-    const round_parallel_detail::PerWorkerArenaLayout<Curve> union_layout(/*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> union_layout(chunk_capacity,
                                                                           global_max_overflow_per_window,
                                                                           dedup_active,
                                                                           phase_a_cluster_members_cap,
@@ -1667,8 +1669,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t per_window_bytes_lo = round_parallel_detail::compute_per_window_bytes<Curve>(
         num_threads, B_eff, n, dense_stride_est, worker_total_for_budget);
 
-    const size_t global_max_overflow_per_window_for_budget =
+    // Per-thread chunk-capacity scratch sizing. A thread's per-window slice is split into
+    // sub-chunks of at most SUBCHUNK_ENTRIES_CAP entries. Worst-case overflow per
+    // (thread, window) is one partial per sub-chunk boundary that lands mid-run, bounded
+    // above by `ceil(max_chunk_len / SUBCHUNK_ENTRIES_CAP)` where max_chunk_len ≤ n/T.
+    // The windows-per-batch budget below and the live allocation both use this capacity.
+    const size_t global_max_overflow_per_window =
         round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
+    const size_t chunk_capacity =
+        round_parallel_detail::compute_tree_reduce_capacity(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
     const size_t phase_one_prologue_bytes =
         round_parallel_detail::compute_phase_one_prologue_bytes(n, use_glv, inline_glv_double, profile_threads);
@@ -1680,14 +1689,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Zone W per-worker UNION via the canonical layout walk. The wpb-dependent Stage 6
     // tail is added separately after `windows_per_batch` is solved; here we only need
     // the union bytes for the fixed_overhead → wpb budget.
-    const round_parallel_detail::PerWorkerArenaLayout<Curve> budget_layout(
-        /*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
-        global_max_overflow_per_window_for_budget,
-        dedup_active,
-        phase_a_cluster_members_cap,
-        phase_a_cluster_offsets_cap,
-        /*windows_per_batch=*/0,
-        /*dense_stride_est=*/0);
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> budget_layout(chunk_capacity,
+                                                                           global_max_overflow_per_window,
+                                                                           dedup_active,
+                                                                           phase_a_cluster_members_cap,
+                                                                           phase_a_cluster_offsets_cap,
+                                                                           /*windows_per_batch=*/0,
+                                                                           /*dense_stride_est=*/0);
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total_for_budget) +
@@ -1700,19 +1708,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =
         round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.num_windows);
-
-    // Per-thread chunk-capacity scratch sizing. A thread's per-window slice is split into
-    // sub-chunks of at most SUBCHUNK_ENTRIES_CAP entries. Worst-case overflow per
-    // (thread, window) is one partial per sub-chunk boundary that lands mid-run, bounded
-    // above by `ceil(max_chunk_len / SUBCHUNK_ENTRIES_CAP)` where max_chunk_len ≤ n/T.
-    // The Stage 6a end-of-window overflow merge runs tree_reduce on `2 × overflow` entries
-    // (each affected slot contributes a dense head + ≥1 overflow entry). Tree-reduce
-    // scratch must fit either a sub-chunk's reduce_chunk input (up to SUBCHUNK_ENTRIES_CAP)
-    // or a full overflow merge — take the max.
-    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
-    const size_t global_max_overflow_per_window =
-        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
-    const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
 
     // Per-task scratch. Every parallel_for stage below runs `num_threads` tasks, and
     // `thread_scratch` holds one slot per task index, so no two concurrent tasks ever

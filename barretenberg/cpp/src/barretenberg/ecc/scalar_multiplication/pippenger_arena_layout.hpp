@@ -286,6 +286,19 @@ template <typename Curve> struct PerWorkerArenaLayout {
     return (global_max_chunk_len + subchunk_entries_cap - 1) / subchunk_entries_cap;
 }
 
+// Per-worker Stage 6a tree-reduce scratch capacity (`curr_pts` / `curr_buckets` entries). The
+// scratch holds either one sub-chunk's reduce_chunk input (up to `subchunk_entries_cap`) or the
+// end-of-window overflow merge, where each affected slot contributes its dense head plus at least
+// one overflow entry (up to 2 × overflow). The sizer, the windows-per-batch budget, and the live
+// allocation all take this capacity so the layouts they walk agree.
+[[nodiscard]] inline size_t compute_tree_reduce_capacity(size_t n,
+                                                         size_t num_threads,
+                                                         size_t subchunk_entries_cap) noexcept
+{
+    return std::max(subchunk_entries_cap,
+                    2 * compute_global_max_overflow_per_window(n, num_threads, subchunk_entries_cap));
+}
+
 // Per-window byte cost for one window in a windows-per-batch slab. Identical formula
 // at three sites (sizer outer, sizer per-schedule lambda, live allocator); centralised
 // here so they cannot drift.

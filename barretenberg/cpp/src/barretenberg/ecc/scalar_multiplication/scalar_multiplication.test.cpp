@@ -87,10 +87,9 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
     const size_t capacity_lo = n;
     const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
 
-    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window =
-        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
-    const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
+        rpd::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
+    const size_t chunk_capacity = rpd::compute_tree_reduce_capacity(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
     const size_t phase_a_cluster_members_cap = std::min(rpd::DEDUP_MAX_MEMBERS, n);
     const size_t phase_a_cluster_offsets_cap = (rpd::DEDUP_MAX_CLUSTERS / num_threads) + 2;
@@ -99,14 +98,13 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
                                             (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) +
                                             (profile_threads * size_t{ 1024 });
 
-    const rpd::PerWorkerArenaLayout<Curve> budget_layout(
-        /*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
-        global_max_overflow_per_window,
-        dedup_active,
-        phase_a_cluster_members_cap,
-        phase_a_cluster_offsets_cap,
-        /*windows_per_batch=*/0,
-        /*dense_stride_est=*/0);
+    const rpd::PerWorkerArenaLayout<Curve> budget_layout(chunk_capacity,
+                                                         global_max_overflow_per_window,
+                                                         dedup_active,
+                                                         phase_a_cluster_members_cap,
+                                                         phase_a_cluster_offsets_cap,
+                                                         /*windows_per_batch=*/0,
+                                                         /*dense_stride_est=*/0);
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
                                   (size_t{ 96 } * rpd::MAX_SCHEDULE_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
@@ -1830,6 +1828,54 @@ TEST(ScalarMultiplicationArenaTest, MidBandArenaSizerCoversAllEffectiveNumBits)
 
     bb::set_parallel_for_concurrency(saved_threads);
     EXPECT_FALSE(found_undersize) << "arena sizer under-counts in the non-GLV mid-band";
+}
+
+// Stage 6a tree-reduce scratch (`curr_pts` / `curr_buckets`) holds either one sub-chunk
+// (SUBCHUNK_ENTRIES_CAP entries) or the end-of-window overflow merge (2 × overflow entries),
+// so it grows past SUBCHUNK_ENTRIES_CAP once a task's working chunk exceeds
+// SUBCHUNK_ENTRIES_CAP² / 2 = 2^21 entries. The sizer and the windows-per-batch budget must
+// account for that growth. Few threads put the per-task chunk past the boundary at sizes
+// the dispatch sweep does not reach; external GLV doubles the working count.
+TEST(ScalarMultiplicationArenaTest, Stage6aScratchGrowthFitsComputedArena)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+
+    constexpr size_t boundary = size_t{ 1 } << 21; // working entries per task where growth starts
+    for (const size_t threads : { size_t{ 1 }, size_t{ 2 } }) {
+        bb::set_parallel_for_concurrency(threads);
+        for (const bool ext_glv : { false, true }) {
+            for (const size_t working_chunk : { boundary - 2048, boundary, boundary + 2, boundary * 2, boundary * 4 }) {
+                const size_t working_n = working_chunk * threads;
+                const size_t n_input = ext_glv ? working_n / 2 : working_n;
+                for (const size_t bits : { size_t{ 0 }, size_t{ 128 }, size_t{ 254 } }) {
+                    EXPECT_TRUE(
+                        pippenger_bn254_arena_layout_fits_for_test(n_input, ext_glv, /*dedup_active=*/false, bits))
+                        << "threads=" << threads << " ext_glv=" << ext_glv << " n_input=" << n_input
+                        << " working_chunk=" << working_chunk << " bits=" << bits;
+                }
+            }
+        }
+    }
+
+    bb::set_parallel_for_concurrency(saved_threads);
+}
+
+// The tree-reduce capacity is the sub-chunk cap until the overflow merge (2 × overflow entries)
+// outgrows it, i.e. once a task's working chunk passes 2^21 entries. The fit test above can only
+// see an under-count larger than the sizer's fixed pad; this pins the capacity itself.
+TEST(ScalarMultiplicationArenaTest, TreeReduceCapacityAtGrowthBoundary)
+{
+    namespace rpd = scalar_multiplication::round_parallel_detail;
+    constexpr size_t cap = rpd::SUBCHUNK_ENTRIES_CAP;
+    constexpr size_t boundary = cap * cap / 2;
+    static_assert(boundary == size_t{ 1 } << 21);
+
+    for (const size_t threads : { size_t{ 1 }, size_t{ 16 } }) {
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity((boundary - cap) * threads, threads, cap), cap);
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity(boundary * threads, threads, cap), cap);
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity((boundary * threads) + 1, threads, cap), cap + 2);
+        EXPECT_EQ(rpd::compute_tree_reduce_capacity(boundary * 2 * threads, threads, cap), 2 * cap);
+    }
 }
 
 // ======================= Test Wrappers =======================
