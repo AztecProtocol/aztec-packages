@@ -14,6 +14,10 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the
+        # contract libraries. A no-op on refs from before ci3 became a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3; fi
 
       - name: Send Slack notification
         env:
@@ -21,7 +25,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           REF_NAME: ${{ github.event.pull_request.head.ref }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: ./ci3/merge_train_failure_slack_notify --dequeued
+        run: ./ci3-local/merge_train_failure_slack_notify --dequeued
 
   notify-merged:
     name: Notify Slack (Merged)
@@ -32,6 +36,10 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.event.pull_request.base.ref }}
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the
+        # contract libraries. A no-op on refs from before ci3 became a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3; fi
 
       - name: Send Slack notification
         env:
@@ -39,4 +47,4 @@ jobs:
           REF_NAME: ${{ github.event.pull_request.head.ref }}
           TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: ./ci3/merge_train_failure_slack_notify --merged
+        run: ./ci3-local/merge_train_failure_slack_notify --merged
