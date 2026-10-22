@@ -11,8 +11,6 @@
 
 own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
-source "$root/ci3/source_redis"
-source "$root/ci3/source_cache"
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <circuit_name> <inputs_folder> <cpus>"
