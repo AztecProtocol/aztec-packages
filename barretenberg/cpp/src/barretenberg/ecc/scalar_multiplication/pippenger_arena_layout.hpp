@@ -350,17 +350,18 @@ struct PhaseACaps {
     return { std::min(DEDUP_MAX_MEMBERS, n), (DEDUP_MAX_CLUSTERS / num_threads) + 2 };
 }
 
-// Solve `wpb · per_window_bytes ≤ available_budget`, clamped to W_R and ≥ 1.
-// Mirrors the three identical wpb-pickers in the sizer and live allocator.
+// Solve `wpb · per_window_bytes ≤ available_budget`, clamped to [1, W_R]. Shared by the sizer and
+// the live allocator. An exhausted budget (fixed overhead ≥ BATCH_MEM_BUDGET) yields one window
+// per batch, the smallest arena, so wpb never grows as the budget shrinks.
 [[nodiscard]] inline size_t solve_wpb(size_t per_window_bytes, size_t available_budget, size_t W_R) noexcept
 {
     if (W_R == 0) {
         return 1;
     }
-    if (per_window_bytes == 0 || available_budget == 0) {
-        return std::max<size_t>(1, W_R);
+    if (per_window_bytes == 0) {
+        return W_R;
     }
-    return std::min(std::max<size_t>(1, available_budget / per_window_bytes), W_R);
+    return std::clamp<size_t>(available_budget / per_window_bytes, 1, W_R);
 }
 
 } // namespace bb::scalar_multiplication::round_parallel_detail

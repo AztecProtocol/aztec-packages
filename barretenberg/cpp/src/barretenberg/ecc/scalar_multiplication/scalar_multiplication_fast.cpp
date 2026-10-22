@@ -1286,10 +1286,8 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
                                   (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
-    // wpb fallback when fixed_overhead has eaten the BATCH_MEM_BUDGET headroom: the inline
-    // `solve_wpb` in `pippenger_round_parallel` returns `W_R` (the whole region) — running
-    // every window in a single batch — when `available_budget == 0`. This keeps the sizer correct
-    // for large num_threads, where fixed_overhead alone can exceed the budget.
+    // Once fixed_overhead alone exceeds BATCH_MEM_BUDGET (large n or many threads), `solve_wpb`
+    // returns one window per batch here and in `pippenger_round_parallel`.
     const size_t available_budget_outer =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =

@@ -111,10 +111,8 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
                                   phase_one_prologue_bytes;
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    const size_t windows_per_batch = (per_window_bytes_lo == 0 || available_budget == 0)
-                                         ? std::max<size_t>(1, sched.num_windows)
-                                         : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo),
-                                                    static_cast<size_t>(sched.num_windows));
+    const size_t windows_per_batch =
+        rpd::solve_wpb(per_window_bytes_lo, available_budget, static_cast<size_t>(sched.num_windows));
 
     auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
     auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
@@ -1876,6 +1874,43 @@ TEST(ScalarMultiplicationArenaTest, TreeReduceCapacityAtGrowthBoundary)
         EXPECT_EQ(rpd::compute_tree_reduce_capacity((boundary * threads) + 1, threads, cap), cap + 2);
         EXPECT_EQ(rpd::compute_tree_reduce_capacity(boundary * 2 * threads, threads, cap), 2 * cap);
     }
+}
+
+// The windows-per-batch solve must not grow as the budget shrinks: once the fixed overhead
+// exhausts BATCH_MEM_BUDGET it takes one window per batch, not every window.
+TEST(ScalarMultiplicationArenaTest, WindowsPerBatchMonotoneInBudget)
+{
+    namespace rpd = scalar_multiplication::round_parallel_detail;
+    constexpr size_t W_R = 14;
+    constexpr size_t per_window = 1000;
+    size_t prev = W_R;
+    for (size_t budget = W_R * per_window * 2; budget-- > 0;) {
+        const size_t wpb = rpd::solve_wpb(per_window, budget, W_R);
+        EXPECT_GE(wpb, size_t{ 1 });
+        EXPECT_LE(wpb, prev) << "budget=" << budget;
+        prev = wpb;
+    }
+    EXPECT_EQ(rpd::solve_wpb(per_window, 0, W_R), size_t{ 1 });
+}
+
+// Shapes whose fixed overhead exceeds BATCH_MEM_BUDGET (the n-byte msb array plus one per-worker
+// union per thread). The sizer must stay O(fixed + one window): one window's schedule is 4n bytes,
+// while every window in one batch at the smallest reachable c costs ~128 · 4n.
+TEST(ScalarMultiplicationArenaTest, ArenaSizerPastExhaustedBatchBudget)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+    bb::set_parallel_for_concurrency(128);
+    struct Shape {
+        size_t n;
+        size_t threads;
+    };
+    for (const auto [n, threads] : { Shape{ size_t{ 1 } << 23, 128 }, Shape{ (size_t{ 1 } << 25) - 2048, 4 } }) {
+        const size_t bytes = scalar_multiplication::compute_arena_bytes_for_msm<curve::BN254>(
+            n, /*external_glv_provided=*/false, /*dedup_active=*/false, threads);
+        const size_t bound = (size_t{ 8 } * n) + (threads * (size_t{ 1 } << 20)) + (size_t{ 64 } << 20);
+        EXPECT_LE(bytes, bound) << "n=" << n << " threads=" << threads;
+    }
+    bb::set_parallel_for_concurrency(saved_threads);
 }
 
 // ======================= Test Wrappers =======================
