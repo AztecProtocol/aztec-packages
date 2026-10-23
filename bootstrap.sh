@@ -173,6 +173,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
 
+# Skip puppeteer's Chrome download in yarn installs. On node 26 it stops partway through extracting, leaving a Chrome
+# folder without the executable that fails every later install. The browser tests use Playwright's Chromium.
+export PUPPETEER_SKIP_DOWNLOAD=${PUPPETEER_SKIP_DOWNLOAD:-1}
+
 # Number of TXE servers to run when testing.
 export NUM_TXES=1
 
