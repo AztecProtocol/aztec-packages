@@ -2,7 +2,6 @@
 #include "log.hpp"
 #include "memory.h"
 #include "tracy/Tracy.hpp"
-#include "wasm_export.hpp"
 #include <cstdlib>
 #include <memory>
 

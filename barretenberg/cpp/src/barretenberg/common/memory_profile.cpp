@@ -1,8 +1,6 @@
 #include "memory_profile.hpp"
 
-#ifndef __wasm__
-#include "barretenberg/env/logstr.hpp"
-#endif
+#include "barretenberg/common/logstr.hpp"
 
 #include "barretenberg/serialize/msgpack_impl.hpp"
 

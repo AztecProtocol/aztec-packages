@@ -1,5 +1,5 @@
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/env/hardware_concurrency.hpp"
 #include <cstdlib>
 #include <ctime>
 #include <fcntl.h>
@@ -97,7 +97,7 @@ template <typename T, typename... Args> void write_benchmark(const std::string& 
         << "\"eventName\": \"" << name << "\", "
         << "\"type\": \"" << TypeTraits<T>::type << "\", "
         << "\"value\": " << value << ", "
-        << "\"threads\": " << env_hardware_concurrency();
+        << "\"threads\": " << bb::get_num_cpus();
 
     appendToStream(oss, args...); // unpack and append the key-value pairs
 

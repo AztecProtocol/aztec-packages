@@ -10,7 +10,6 @@
 #include "barretenberg/ecc/groups/affine_add_packed.hpp"
 #include "barretenberg/ecc/groups/element_impl.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include <barretenberg/env/hardware_concurrency.hpp>
 
 #include <algorithm>
 #include <atomic>
