@@ -71,6 +71,18 @@ function crate_published {
   curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/ipc-runtime/$1" | jq -e '.version.num' &>/dev/null
 }
 
+# Stage the publishable crate, at <version>, in <dir>/ipc-runtime/rust. The
+# checkout is left untouched: other projects hash these files later in the run.
+# The crate compiles the C++ runtime itself, so it ships a copy of the sources.
+function stage_crate {
+  local version=$1 dest=$2/ipc-runtime/rust
+  mkdir -p $dest/cpp
+  cp -r rust/Cargo.toml rust/build.rs rust/src $dest/
+  cp -r cpp/ipc_runtime $dest/cpp/
+  find $dest/cpp -name '*.test.cpp' -delete
+  sed -i "0,/^version = \".*\"/s//version = \"$version\"/" $dest/Cargo.toml
+}
+
 # Publish the Rust crate to crates.io. barretenberg-rs depends on it at the
 # same version, and its release runs after this one.
 function release_crate {
@@ -81,16 +93,12 @@ function release_crate {
     return 0
   fi
 
-  # The crate compiles the C++ runtime itself, so it ships a copy of the sources.
-  rm -rf rust/cpp
-  mkdir -p rust/cpp
-  cp -r cpp/ipc_runtime rust/cpp/
-  find rust/cpp -name '*.test.cpp' -delete
-  sed -i "0,/^version = \".*\"/s//version = \"$version\"/" rust/Cargo.toml
-
+  local stage=$(mktemp -d)
+  stage_crate $version $stage
   # Verification builds the packaged crate on its own, which proves the copied
-  # sources are complete.
-  (cd rust && retry "denoise 'do_or_dryrun cargo publish --allow-dirty'")
+  # sources are complete. --allow-dirty in case the temp dir is inside a git repo.
+  (cd $stage/ipc-runtime/rust && retry "denoise 'do_or_dryrun cargo publish --allow-dirty'")
+  rm -rf $stage
 }
 
 function release {
