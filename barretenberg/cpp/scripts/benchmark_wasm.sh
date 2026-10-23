@@ -17,4 +17,6 @@ cmake --build --preset wasm-threads --target $BENCHMARK
 cd build-wasm-threads
 # Consistency with _wasm.sh targets / shorter $COMMAND.
 cp ./bin/$BENCHMARK .
-wasmtime run --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND
+# Wasmtime 46 needs shared memory enabled explicitly. Older wasmtimes don't know the option.
+shared_memory=$(wasmtime run -W help 2>&1 | grep -q shared-memory && echo -Wshared-memory=y || true)
+wasmtime run --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y $shared_memory -Sthreads=y --dir=.. $COMMAND

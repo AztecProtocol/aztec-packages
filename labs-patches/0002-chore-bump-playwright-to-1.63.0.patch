@@ -1,0 +1,123 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 15:58:47 +0000
+Subject: [PATCH] chore: bump playwright to 1.63.0
+
+Chromium 131, which playwright 1.49 ships, cannot compile wasm that uses
+standard (exnref) exception handling, and fails with "invalid value type
+'exn', enable with --experimental-wasm-exnref". aztec-packages is moving
+bb's wasm to exnref and its CI image to playwright 1.63.0 browsers
+(Chromium 153), which compile it. The 1.49 pins also point at browsers
+that image no longer installs.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
+
+diff --git a/playground/package.json b/playground/package.json
+index e7a8d5a5c9ea7158cb0a772f15ce62029216426d..e1a133632273d156c41fa43afd3138c3522185a7 100644
+--- a/playground/package.json
++++ b/playground/package.json
+@@ -43,7 +43,7 @@
+   },
+   "devDependencies": {
+     "@eslint/js": "^9.18.0",
+-    "@playwright/test": "1.49.0",
++    "@playwright/test": "1.63.0",
+     "@types/buffer-json": "^2",
+     "@types/node": "^22.15.17",
+     "@types/react": "^19.0.6",
+diff --git a/playground/yarn.lock b/playground/yarn.lock
+index 57f6a7e72a753ba7e2b43c20513e287a19e9d305..d27c7fab9c70c693fb3c8e9eb24a624d6624b69b 100644
+GIT binary patch
+delta 589
+zcmaKpy=qoL5QaGiYzzit@UQ#SP9e<B?9S|@vGNL%*zfG@f`tkOL~H^|8Y?l7gQZ}C
+zScs4!w;<TqXzwj}0pj_@!Ybv!{5;P)KfbNJ`nvM@<?6_EvcLNN@G{c|+}u3BSUhb{
+zb{{-`w7CcyJiXf=)(<WnT^)G3@ocz$@ZxCw+~3Zr?2ND{nyLd=Y{u0%L~Meh*rWH{
+zRhUyLxuz6qV3b^>qfw{892?Z$L7G#Axm56yl9!IXrC>GWrZu!W?=6rFD+y&OP@@)S
+zf*@|wuUq5olilOzzfb9ScsQJX|1iA$c!tV!xHVpxm8VZzW8S0X0V^#6YAx85Bs72-
+zBWG7epxiJTH!wGGa1@g0-XLbmouXQ%GJ9kr<Cr;-gHoD_rJF(sJs^bQrI`9WZ<3cK
+zS4mCF^z-g`XL`LoUObEV%l5eTFa7Dl&Uo$r_&s!=SxQ!GC{>FUmLy(d7ihi5k^+-O
+z?U9zLX%H4`*|5Zngi9w6irMA?s<}7t*@b3atm+k6AYv@W&_h7irt?>VX>4Sm1Dvki
+IAMd^S1G3_(I{*Lx
+
+delta 863
+zcmaKqziXB;5XX5Q{6SkNYE?RjyjDReST4yWm%Jdfe?UR)=#*R%6|}8=rDB&C6c;yr
+z!OTM6x9FlE*g-*Db+L<^gQJ7s>LTV9R~?cIxg)vHeZLPsPJR9~_4597i|*Bf>Fp=S
+z&@I4Rce2yjOdGxHYpdOkSir&iouh-9;qh8ESPHX)d&8OWu?$sTS_e_flu(CgRnQtl
+z7UYSTC<__9Qy8VD96bhUErMnfoyZP@Rg9TK%vmvnWF1TIQ}QYbrO5=6iJhmKGKO-t
+zh(VzQM4ux`FVU2}7tQ>u-e~LBez~9)WO=sSo-W@<&BVUd^_$)DsNWtNEXo6AW!RkS
+zheXz^l<N{!aP*2Zc{GYRXi0%n2oNG9U;h9B+N%&Mm^InS8Wm7v0bXjLWHX|(o+2hz
+z=%R1}GDcDfW6kIwi~uFTq*|O3Dcyv@ySKAtX4J^tZ`;kSrd$~{XUm6CbELdkZV!+9
+zo@-<|w9`NhOFPZh?uAkF`uRUqnJLSc+sWzkyta`R$G}xASJb7}_N8RuNoF4+v!xI#
+zZ*2@bC>bT|;E=}}ctVSn%GSABR@n=-iKP)1s+cZX_KfVEC8)^JRJC-<F1oBSkyoPL
+zK{OP>*~~e!PAIh+JnhYwFBjX%a`JL}@c#gZ|N4q@FKwpP+r4gQZVdBB(YflyPG|jw
+zzk6rn`qgW<|FHfo7}Hj}maltlxBS>_CI+M7nSOE@jgf@JQDALM*Vz-~>LrLiG6+>g
+zbfldofuKxgTTSYLG;43A4}cz>5F&sIB9oEHTZ7Vt7>FIB0SCf5Q}-n6OHiG`$qHh2
+Qs+{`S%<rzQv?m__2Gk@1zW@LL
+
+diff --git a/yarn-project/ivc-integration/package.json b/yarn-project/ivc-integration/package.json
+index 6d92452b009fe0c82fae3c1ac32705243570a468..2353d65681aaa1e813112a14ec3136a6ad879f7d 100644
+--- a/yarn-project/ivc-integration/package.json
++++ b/yarn-project/ivc-integration/package.json
+@@ -69,7 +69,7 @@
+     "@aztec-labs/stdlib": "workspace:^",
+     "change-case": "^5.4.4",
+     "pako": "^2.1.0",
+-    "playwright": "1.49.0",
++    "playwright": "1.63.0",
+     "puppeteer": "^24.22.3",
+     "tslib": "^2.4.0"
+   },
+@@ -81,7 +81,7 @@
+     "@aztec-labs/simulator": "workspace:^",
+     "@aztec-labs/world-state": "workspace:^",
+     "@jest/globals": "^30.0.0",
+-    "@playwright/test": "1.49.0",
++    "@playwright/test": "1.63.0",
+     "@types/jest": "^30.0.0",
+     "@types/node": "^22.15.17",
+     "@types/pako": "^2.0.3",
+diff --git a/yarn-project/kv-store/package.json b/yarn-project/kv-store/package.json
+index 4e4ae9bb7c44393ed393405d8a6f5aa292a0a0f9..1db6846659857956328e6ee86614be8d8c89ab69 100644
+--- a/yarn-project/kv-store/package.json
++++ b/yarn-project/kv-store/package.json
+@@ -54,7 +54,7 @@
+     "@typescript/native-preview": "7.0.0-dev.20260113.1",
+     "@vitest/browser-playwright": "^4.0.0",
+     "jest": "^30.0.0",
+-    "playwright": "1.49.0",
++    "playwright": "1.63.0",
+     "ts-node": "^10.9.1",
+     "typescript": "^5.3.3",
+     "util": "^0.12.5",
+diff --git a/yarn-project/yarn.lock b/yarn-project/yarn.lock
+index 49fa7ada69d22004298c110034ae41aff429a962..0ef807baa31adf291954912ebb94db35d3db42c1 100644
+GIT binary patch
+delta 655
+zcmZ9Jy=&A#5Qe$C=;;{=Arg#Oh*b<IJF~m9vni~tEc7qfk69Jegd`+bNCd&d@{-~w
+zHrk{&2E0O%G^Q3T1i?ZO%UH=-D7ZljwRo6eK9+a(-TR3@M)+)czfF2``-5uUF0_wt
+ze3{+3yN|6}+u8ow?jH1>zPz~k{mJS36Qlmbs5P7zwJ$$zQ8Rh9H&w%@hn*A6gF$Ed
+zAb&JI)4UjTrs`Vrak)3sd>(X8u171DAaVgP%#jsg^qg!e-dSf<F&xB+kH*>(9at1q
+zqF0#(bU~GL(m^PIWv$6tO$H4`?~4tF3Xy^wf(>4z)KsieCULA!V$`8D?RUMo{?<mP
+zGFCZMIXv9j=+4d!Ctr8(wfcLz-O7>S-tN)&&;L1Xs(G{AoBneSt!GtSa>_9kD~dyK
+zRZVa%2IQoiL8q8RW0lLv08$|1vc$~5;E8eq$W*up7{Y>el|m+!yfqf0;;O$y5pWSe
+z$Ojv<52&0f;%sOJG&a|~TIo&xC-U3x(!u|qTD%$VtS#NRc75f1T3C|#GiPrv-kOIC
+ze_1lKp4cTsX0DEq(t*9TF=0?1ivg-egyJ<6vD%}J9*j<+wT`UCV4%zitWQb>Q!t~(
+uhz^uWMN7!p*Wtv0#3mzv3F;t`&ZxA>*@A64SK8<Lvf8U08_Mc<xbzE_KhAFe
+
+delta 906
+zcmZ9KJ7`o<5Qf=oHaB~X31KxFA7Iu(StOkI!@}A^1;NHb@H{Ov?@kheL=0G&Y;nMV
+zTBQ>b18$-2l130MtWu=3uuKqywMf9(5J9~#+{-_6=FWe<*=v)J`($lsr;F+O`Zh{m
+zC%TR<f4{gfw?hh`ZLIHhWu4rscUS7aUY=PPXfF=53ypzx*Nx`|mhgUe1ztB_7muYU
+zOT{7h{xMV<PH&fr6*!hQr*kr|Bvag2<`A*MJ7gU}hS6ZC7Tjs39plaz7G&f$1j7t6
+z))Q?5G88Kzh^9CwC6OfFB98@+%KM<HMA~W@47S9H$eg0oGDMBRlo9Er@Sc!VZ53;a
+ztII`*Zio^@Ph)jCyHG2UQ94S}ovrfubnZhom~JhUPNWyD>{QzQT<V(_mRk|I(1c3D
+zn21qf7d1!NNfBs3jB5kth^3ZC9GxT%BZ{?hm~bPk0wqF52<u^-7%hp;5P`v~2!V6K
+zy@?8WXGGu<gJPZIO1n;jf~Y^be=>b(WwnHwS#RUh`|NSyaOh{>^5L}C%uc6?t@2=J
+z{Blyw?D*g52Tc&iT3LUAq}f*Xa1pvd^fpkl{PWE}{3_|%R6cabY&gwL<!9$Z)J`G=
+z*KfSB7$Hh!@G^Q81Xw~gP=$d?bi^tak%UWNz$X~bSPWJe6*!5|Mj^=q*NhW*w8z|N
+z<2m5LOkx3cqk$~Y3{Eg69TYK^HaB`|sedZZ)Ai{*`)}OY>3s0dy4}9pH_&syvYN)h
+zMsIa|a_ll5J=n%dee!9ZF5T-Jsjp3z)AmxaI*+3TNFHfVl?sjt=SW1+0WqbGvOXvy
+zITFGLuZX8SB4rJw6lol6q|q_&BgRBfqXgnmjbsNl?R1NzqZ%EtcQjbfqQJ=MV4;S=
+VuW1_TtmMi}4soQhGSg?S{sslC8l(UK
+
