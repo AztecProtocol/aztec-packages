@@ -99,18 +99,18 @@ function copy_bb_js_api_wasm {
 function copy_bb_js_api_native {
   local target_dir="bb.js-api/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
-  cp "$ROOT/barretenberg/cpp/build/bin/bb" "$target_dir/bb"
+  cp "$ROOT/barretenberg/cpp/build/bin/dist/bb" "$target_dir/bb"
 }
 
 function copy_bb_js_api_cross {
   if [ -n "${1:-}" ]; then
     local cross_arch="$1"
     mkdir -p "bb.js-api/build/$cross_arch"
-    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/bb" "bb.js-api/build/$cross_arch/bb"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/dist/bb" "bb.js-api/build/$cross_arch/bb"
   elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
     for cross_arch in arm64-linux amd64-macos arm64-macos; do
       mkdir -p "bb.js-api/build/$cross_arch"
-      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/bb" "bb.js-api/build/$cross_arch/bb"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/dist/bb" "bb.js-api/build/$cross_arch/bb"
     done
   else
     echo "This task is expected to be run with an explicit arch or in an x86 release context."
@@ -225,6 +225,7 @@ function build_cdb {
 }
 
 function build {
+  build_bb_js_api
   build_bb_js
   build_bb_avm_sim
   build_cdb
@@ -306,8 +307,7 @@ function cross_copy_bb_js_api {
   prepare_bb_js_api_arch_packages
 }
 
-# bb.js depends on bb.js-api, so it is published first (with its arch packages, the one published
-# home of the bb binary).
+# bb.js depends on bb.js-api, so it is published first, with its arch packages.
 function release_bb_js_api {
   generate_packages
   copy_bb_js_api_wasm
@@ -316,12 +316,6 @@ function release_bb_js_api {
   npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$BB_JS_API_PACKAGE" build
   prepare_bb_js_api_arch_packages
-  # The binaries come from builds keyed on source, not on the release: finalize them so they
-  # carry this release's version like every other copy.
-  local f
-  for f in bb.js-api/packages/*/bb; do
-    [ -f "$f" ] && ../cpp/bootstrap.sh finalize_bb_binary "$(realpath "$f")"
-  done
   for package_dir in bb.js-api/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
