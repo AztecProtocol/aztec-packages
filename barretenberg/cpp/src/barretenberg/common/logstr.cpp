@@ -66,9 +66,11 @@ std::size_t peak_rss_bytes()
 void logstr(char const* msg)
 {
 #ifdef __wasm__
-    // Wasm has no RSS; report the module's linear memory size instead.
-    constexpr std::size_t PAGES_PER_MIB = 16; // 64 KiB pages
-    std::cerr << msg << " (mem: " << __builtin_wasm_memory_size(0) / PAGES_PER_MIB << " MiB)\n";
+    // Wasm has no RSS; report the module's linear memory size instead. The browser benchmarks parse
+    // this exact form, "(mem: 12.34MiB)", which bb.js's host used to append.
+    constexpr double PAGES_PER_MIB = 16; // 64 KiB pages
+    std::cerr << msg << " (mem: " << std::fixed << std::setprecision(2)
+              << static_cast<double>(__builtin_wasm_memory_size(0)) / PAGES_PER_MIB << "MiB)\n";
 #else
 #ifndef NO_MULTITHREADING
     static std::mutex log_mutex;
