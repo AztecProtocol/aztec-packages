@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "barretenberg/env/logstr.hpp"
+#include "barretenberg/common/logstr.hpp"
 
 #define BENCHMARK_INFO_PREFIX "##BENCHMARK_INFO_PREFIX##"
 #define BENCHMARK_INFO_SEPARATOR "#"

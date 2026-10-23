@@ -1,7 +1,7 @@
 #include "thread.hpp"
 #include "log.hpp"
 #include "throw_or_abort.hpp"
-#include <barretenberg/env/hardware_concurrency.hpp>
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 #include <utility>
@@ -13,8 +13,9 @@ namespace {
 uint32_t& get_num_cores_ref()
 {
     static thread_local const char* val = std::getenv("HARDWARE_CONCURRENCY");
-    static thread_local uint32_t cores =
-        val != nullptr ? static_cast<uint32_t>(std::stoul(val)) : std::min(32U, env_hardware_concurrency());
+    // hardware_concurrency() is 0 when the count is unknown. Wasm embedders set HARDWARE_CONCURRENCY.
+    static thread_local uint32_t cores = val != nullptr ? static_cast<uint32_t>(std::stoul(val))
+                                                        : std::clamp(std::thread::hardware_concurrency(), 1U, 32U);
     return cores;
 }
 } // namespace

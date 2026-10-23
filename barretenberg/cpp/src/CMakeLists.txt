@@ -89,7 +89,6 @@ add_subdirectory(barretenberg/crypto)
 add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
-add_subdirectory(barretenberg/env)
 add_subdirectory(barretenberg/hypernova)
 add_subdirectory(barretenberg/honk)
 add_subdirectory(barretenberg/trace_to_polynomials)
@@ -114,13 +113,6 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
-# wasi implements the reactor's env against wasm builtins (__builtin_wasm_memory_size
-# and friends), which a native compiler does not have. Only the WASM branch below
-# consumes wasi_objects, so there is nothing to build here otherwise.
-if(WASM)
-    add_subdirectory(barretenberg/wasi)
-endif()
-
 if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # Mobile builds exclude these modules that aren't needed on mobile
     add_subdirectory(barretenberg/aztec)
@@ -159,10 +151,6 @@ endif()
 
 include(GNUInstallDirs)
 
-# For this library we include everything but the env and wasi modules, as it is the responsibility of the
-# consumer of this library to define how and in what environment its artifact will run.
-# libbarretenberg + libwasi = a wasi "reactor" that implements it's own env (e.g. logstr), e.g. barretenberg.wasm.
-# libbarretenberg + env = a wasi "command" that expects a full wasi runtime (e.g. wasmtime), e.g. test binaries.
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
@@ -228,7 +216,7 @@ add_library(
 
 # bb-external: static library for external consumers (e.g. barretenberg-rs).
 # Uses the core object list without lmdb/world_state — FFI consumers only need bb_ipc_ffi_entry().
-# Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
+# Built with -fvisibility=hidden; only the IPC_FFI_EXPORT symbols remain visible.
 if(NOT WASM)
     # world_state_reference (the in-memory reference merkle DB and its bb_wsref_* C ABI) rides
     # along so an external world-state implementation can link the release archive alone for
@@ -240,19 +228,16 @@ if(NOT WASM)
         bb-external
         STATIC
         ${BB_EXTERNAL_TARGET_OBJECTS}
-        $<TARGET_OBJECTS:env_objects>
         $<TARGET_OBJECTS:vm2_stub>
     )
 endif()
 
 if(WASM)
-    # When building this wasm "executable", we include the wasi module but exclude the env module.
-    # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
-    # to implement the functions in env.
+    # A standard WASI reactor: wasi-sdk's reactor startup provides _initialize, and the module imports
+    # nothing but WASI.
     add_executable(
         barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
-        $<TARGET_OBJECTS:wasi_objects>
         # This is an object library, so doesn't need _objects.
         $<TARGET_OBJECTS:vm2_stub>
     )
@@ -260,7 +245,7 @@ if(WASM)
     target_link_options(
         barretenberg-debug.wasm
         PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
+        -mexec-model=reactor -Wl,--export-dynamic
     )
 
     # Strip debug info to create the release version.

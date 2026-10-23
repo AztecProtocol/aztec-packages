@@ -26,10 +26,7 @@ export interface InstanceOptions {
 export const ENTRY_SUFFIX = "ipc_ffi_entry";
 
 /** Allocator pairs tried after the entry's own `<service>_ipc_ffi_alloc`/`_free`. */
-export const FALLBACK_ALLOCATOR_EXPORTS: Array<[string, string]> = [
-  ["malloc", "free"],
-  ["bbmalloc", "bbfree"],
-];
+export const FALLBACK_ALLOCATOR_EXPORTS: Array<[string, string]> = [["malloc", "free"]];
 
 type WasmFn = (...args: number[]) => number;
 

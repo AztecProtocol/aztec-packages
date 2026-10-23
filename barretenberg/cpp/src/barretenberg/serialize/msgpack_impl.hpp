@@ -16,7 +16,7 @@
 #include "msgpack_impl/struct_map_impl.hpp"
 
 /**
- * Represents this as a bbmalloc'ed object, fit for sending to e.g. TypeScript.
+ * Represents this as an aligned_alloc'ed object, fit for sending to e.g. TypeScript.
  * @param obj The object.
  * @param scratch_buf Optional pre-allocated scratch buffer to use if result fits.
  * @param scratch_size Size of the scratch buffer.

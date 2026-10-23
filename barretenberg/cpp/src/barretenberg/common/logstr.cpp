@@ -5,7 +5,9 @@
 //
 //  Windows note: link with Psapi.lib
 
+#include "logstr.hpp"
 #include <cstddef>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #ifndef NO_MULTITHREADING
@@ -53,19 +55,21 @@ std::size_t peak_rss_bytes()
 }
 
 //---------------------------------------------------------------------
-// C-linkage wrapper: log_with_mem_usage()
+// logstr()
 //---------------------------------------------------------------------
 //   Prints  "<msg> (mem: <value> MiB)"  with two-digit precision.
 //
-//   • Safe to call from C, C++, or dlopen’d plugins.
 //   • Thread-safe w.r.t. internal state; output lines may still
 //     interleave if multiple threads call concurrently (as with any
 //     stderr logging).
 //---------------------------------------------------------------------
-// WASM_EXPORT ensures this symbol stays visible when compiling with -fvisibility=hidden.
-#include <barretenberg/common/wasm_export.hpp>
-WASM_EXPORT void logstr(char const* msg)
+void logstr(char const* msg)
 {
+#ifdef __wasm__
+    // Wasm has no RSS; report the module's linear memory size instead.
+    constexpr std::size_t PAGES_PER_MIB = 16; // 64 KiB pages
+    std::cerr << msg << " (mem: " << __builtin_wasm_memory_size(0) / PAGES_PER_MIB << " MiB)\n";
+#else
 #ifndef NO_MULTITHREADING
     static std::mutex log_mutex;
     std::lock_guard<std::mutex> lock(log_mutex);
@@ -87,4 +91,5 @@ WASM_EXPORT void logstr(char const* msg)
         std::cerr << " (mem: N/A)";
     }
     std::cerr << '\n';
+#endif
 }
