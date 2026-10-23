@@ -74,18 +74,11 @@ function release {
 
   local version=${REF_NAME#v}
 
-  # Set the workspace version to match the release tag
-  sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
-
   # Generated files must exist (created during build step, or generate now)
   if [ ! -d barretenberg-rs/src/generated ]; then
     echo "Generated files not found, generating..."
     generate
   fi
-
-  # ipc-runtime's release (which runs first) publishes its crate at this
-  # version; pin that exact build.
-  sed -i -E "s|^(ipc-runtime = \{ path = \"[^\"]*\", version = \")[^\"]*|\1=$version|" barretenberg-rs/Cargo.toml
 
   # Check if this version is already published on crates.io (idempotent re-runs).
   if crate_published barretenberg-rs $version; then
@@ -93,14 +86,28 @@ function release {
     return 0
   fi
 
-  # Publish to crates.io (--allow-dirty because version was just set and generated files are gitignored)
+  # Publish from a staged copy so the checkout is left untouched. ipc-runtime's
+  # crate is staged beside it, at the same relative path and at this version, so
+  # the path dependency resolves; ipc-runtime's release (which runs first)
+  # publishes that build, and the version pin below names it exactly.
+  local stage=$(mktemp -d)
+  local dest=$stage/barretenberg/rust
+  "$root/ipc-runtime/bootstrap.sh" stage_crate $version $stage
+  mkdir -p $dest
+  tar -c --exclude=./target . | tar -x -C $dest
+  sed -i "s/^version = \".*\"/version = \"$version\"/" $dest/Cargo.toml
+  sed -i -E "s|^(ipc-runtime = \{ path = \"[^\"]*\", version = \")[^\"]*|\1=$version|" $dest/barretenberg-rs/Cargo.toml
+
+  # --allow-dirty because generated files are gitignored
   local extra_flags=""
   if ! gh release view "v$version" --repo AztecProtocol/barretenberg &>/dev/null; then
     # No matching GitHub release yet — skip verification build (which would try to download libbb-external.a)
     echo "No GitHub release found for v$version, adding --no-verify (pass REF_NAME matching a release for full verification)"
     extra_flags="--no-verify"
   fi
-  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" retry "denoise 'do_or_dryrun cargo publish --allow-dirty $extra_flags -p barretenberg-rs'"
+  local bb_lib_dir="$(cd ../cpp/build/lib && pwd)"
+  (cd $dest && BB_LIB_DIR="$bb_lib_dir" retry "denoise 'do_or_dryrun cargo publish --allow-dirty $extra_flags -p barretenberg-rs'")
+  rm -rf $stage
 }
 
 function test_download {
