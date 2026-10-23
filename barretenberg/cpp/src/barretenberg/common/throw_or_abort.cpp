@@ -6,7 +6,7 @@
 #include <backward.hpp>
 #endif
 
-void throw_or_abort_impl [[noreturn]] (const char* err)
+void throw_or_abort [[noreturn]] (std::string const& err)
 {
 #ifdef STACKTRACES
     // Use backward library to print stack trace
