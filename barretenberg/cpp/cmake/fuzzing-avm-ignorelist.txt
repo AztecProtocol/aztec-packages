@@ -16,7 +16,6 @@ src:*barretenberg/common/*
 src:*barretenberg/crypto/*
 src:*barretenberg/ecc/*
 src:*barretenberg/eccvm/*
-src:*barretenberg/env/*
 src:*barretenberg/flavor/*
 src:*barretenberg/honk/*
 src:*barretenberg/numeric/*

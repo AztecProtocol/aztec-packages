@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 18:04:37 +0000
+Subject: [PATCH] fix(playground): measure the bb.js-api wasm by its gzipped
+ size
+
+bb.js inlined its wasm as base64 gzip into assets/barretenberg-*.js, so the
+catch-all 5350 KB limit bounded it. bb.js-api emits the wasm as its own
+uncompressed asset (about 18.6 MB), which that limit fails on. Give .wasm its
+own limit, measured gzipped (about 4100 KB today, limit 4300 KB), and keep the
+catch-all for everything else.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
+
+diff --git a/playground/vite.config.ts b/playground/vite.config.ts
+index d0bb02e39cb88ebfac41ce34cb19a1f4fb290403..13ef81c42c629a91d3822d37b25fe2a76f5a0e9b 100644
+--- a/playground/vite.config.ts
++++ b/playground/vite.config.ts
+@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react-swc';
+ import fs from 'fs';
+ import { builtinModules } from 'module';
+ import path from 'path';
++import { gzipSync } from 'zlib';
+ 
+ // Only required for alternative bb wasm file, left as reference
+ //import { viteStaticCopy } from 'vite-plugin-static-copy';
+@@ -18,6 +19,8 @@ interface ChunkSizeLimit {
+   maxSizeKB: number;
+   /** Optional description for logging */
+   description?: string;
++  /** Measure the gzipped size, for assets served compressed */
++  gzip?: boolean;
+ }
+ 
+ const chunkSizeValidator = (limits: ChunkSizeLimit[]): Plugin => {
+@@ -52,10 +55,9 @@ const chunkSizeValidator = (limits: ChunkSizeLimit[]): Plugin => {
+           if (stat.isDirectory()) {
+             checkDir(filePath, relativePath);
+           } else if (stat.isFile()) {
+-            const sizeKB = stat.size / 1024;
+-
+             for (const limit of limits) {
+               if (limit.pattern.test(relativePath)) {
++                const sizeKB = (limit.gzip ? gzipSync(fs.readFileSync(filePath)).length : stat.size) / 1024;
+                 const desc = limit.description ? ` (${limit.description})` : '';
+                 logger.info(`  ${relativePath}: ${sizeKB.toFixed(2)} KB / ${limit.maxSizeKB} KB${desc}`);
+ 
+@@ -225,10 +227,19 @@ export default defineConfig(({ mode }) => {
+         // - 2026-07-04: bumped from 5000 => 5300 after bb changes on merge-train/barretenberg grew
+         //   assets/barretenberg-*.js to 5079.12 KB and assets/barretenberg-threads-*.js to 5116.65 KB.
+         {
+-          pattern: /.*/,
++          pattern: /^(?!.*\.wasm$)/,
+           maxSizeKB: 5350,
+           description: 'Detect if json artifacts or bb.js wasm get out of control',
+         },
++        // bb.js used to inline its wasm as base64 gzip into assets/barretenberg-*.js, which the limit above caught.
++        // bb.js-api emits the wasm as its own uncompressed asset (about 18.6 MB), so it is measured gzipped
++        // instead: about 4100 KB for both builds when this limit was added.
++        {
++          pattern: /\.wasm$/,
++          maxSizeKB: 4300,
++          gzip: true,
++          description: 'bb.js-api wasm, gzipped',
++        },
+       ]),
+     ],
+     define: {

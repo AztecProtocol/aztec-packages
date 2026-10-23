@@ -51,7 +51,6 @@ target_link_libraries(
     wsdb_ipc_merkle_db
     cdb_ipc_client
     ipc_runtime
-    env
 )
 if(ENABLE_STACKTRACES)
     target_link_libraries(
