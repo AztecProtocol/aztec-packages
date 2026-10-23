@@ -52,8 +52,9 @@ its `BackendType` options and CRS handling. That package ships the bb binary as 
 dependencies (override with `bbPath` or `BB_BINARY_PATH`) and bb's wasm modules (single-thread and threads
 builds), run in-process through `@aztec-foundation/ipc-runtime/wasm`: the module in a worker, wasi threads
 on further workers. Pass `warmup: true` to run bb's `Warmup` command after initialization, which takes the
-prover's hot loops through the engine's optimizing tier before the first real request. bb.js itself only
-bundles bb's LMDB NAPI module (`findNapiBinary`).
+prover's hot loops through the engine's optimizing tier before the first real request. bb.js itself ships
+no native code: the shared-memory transport's NAPI addon comes from `@aztec-foundation/ipc-runtime` (override
+with `napiPath`).
 
 The wasm modules ship uncompressed and are fetched as ordinary assets, so the browser streams them
 straight into `WebAssembly.compileStreaming` and can cache the compiled code between visits. That means
