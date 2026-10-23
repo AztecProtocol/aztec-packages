@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Stages the native bb / bb-avm binaries into their npm platform packages and verifies them
 # against the GitHub release tarballs.
-#   stage <bb|bb-avm> [<arch-os>...]   copy from the cpp build dirs (native, or the named
-#                                      cross builds; a release stages every platform), run
-#                                      finalize_bb_binary (strip + version) on each copy
+#   stage <bb|bb-avm> [<arch-os>...]   copy the finalized binaries from the cpp build dirs' bin/dist
+#                                      (native, or the named cross builds; a release stages every
+#                                      platform)
 #   verify <bb|bb-avm>                 every staged binary must be byte-identical to the one
 #                                      in barretenberg/cpp/build-release/*.tar.gz
 set -euo pipefail
@@ -61,14 +61,12 @@ case "$cmd" in
   stage)
     if [ $# -gt 0 ]; then platforms="$*"; elif [ -n "${REF_NAME:-}" ] && semver check "$REF_NAME" && [ "$(arch)" = amd64 ]; then platforms=$all; else platforms="$(arch)-$(os)"; fi
     for p in $platforms; do
-      src="$(build_dir "$p")/bin/$(file_name "$p")"
+      src="$(build_dir "$p")/bin/dist/$(file_name "$p")"
       [ -f "$src" ] || { echo "native_packages: $src not built" >&2; exit 1; }
       dest="$dir/packages/$name-$(suffix "$p")/bin"
       mkdir -p "$dest"
       write_manifest "$dir/packages/$name-$(suffix "$p")" "$(suffix "$p")"
       cp "$src" "$dest/$(file_name "$p")"
-      # The cpp bootstrap cds into its own directory: hand it an absolute path.
-      "$cpp/bootstrap.sh" finalize_bb_binary "$(pwd)/$dest/$(file_name "$p")"
       echo "staged $name for $(suffix "$p") ($(sha256sum "$dest/$(file_name "$p")" | cut -c1-12))"
     done
     ;;

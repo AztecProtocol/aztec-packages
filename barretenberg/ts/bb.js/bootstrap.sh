@@ -12,23 +12,14 @@ hash=$(hash_str \
   $(semver check $REF_NAME && echo 1 || echo 0) \
   ${AVM_TRANSPILER:-1})
 
-function prepare_project {
-  # Generates the workspace packages (including @aztec-foundation/bb.js-api, which bb.js
-  # compiles against) and installs; same cache-key inputs as barretenberg/ts/bootstrap.sh.
-  (cd .. && ./bootstrap.sh build_bb_js_api_ts)
-}
-
+# bb.js compiles against @aztec-foundation/bb.js-api, which the bb-js-api make target builds first.
 function formatting {
   echo_header "bb.js formatting"
-  prepare_project
   yarn formatting
 }
 
 function build {
   echo_header "bb.js build"
-  # bb.js compiles against @aztec-foundation/bb.js-api and runs the wasm modules and bb binary
-  # that package stages, so stage them whether or not bb.js's own build is cached.
-  (cd .. && ./bootstrap.sh build_bb_js_api)
   yarn formatting
 
   if ! cache_download bb.js-$hash.tar.gz; then

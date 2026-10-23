@@ -251,11 +251,16 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
+# The generated @aztec-foundation/bb.js-api package, with bb's wasm modules and this machine's bb.
+bb-js-api: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
+	$(call build,$@,barretenberg/ts,build_bb_js_api)
+
 # BB TypeScript - TypeScript bindings
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
+bb-ts: bb-js-api
 	$(call build,$@,barretenberg/ts,build_bb_js)
 
-# Copies the cross-compiled bb binaries into bb.js-api, which bb.js runs through.
+# Copies the cross-compiled bb binaries into bb.js-api, which bb.js runs through. Ordered after
+# bb-ts: both install into the same barretenberg/ts node_modules.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
 
