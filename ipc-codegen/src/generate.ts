@@ -125,9 +125,9 @@ Optional:
                            names too (e.g. BbCircuitProve -> CircuitProve).
                            Wire tags always keep the full schema name.
   --uds                    Copy UDS backend templates (rust, zig only)
-  --ffi                    In-process FFI. With --client (rust, zig): copy the FFI
-                           client backend template. With --server (rust, cpp): emit
-                           the exported FFI entry (ipc_ffi_entry) over the dispatch
+  --ffi                    In-process FFI (rust, zig, cpp). With --client: the FFI
+                           client backend. With --server: the exported FFI entry
+                           (<service>_ipc_ffi_entry) over the dispatch
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
@@ -274,7 +274,7 @@ function parseArgs(argv: string[]): Args {
   if (args.uds && args.lang !== "rust" && args.lang !== "zig") {
     console.error(
       `--uds copies backend templates and only applies to rust and zig; ` +
-        `ts and cpp consume transports from ipc-runtime directly`,
+        `ts takes its transports from ipc-runtime, and cpp always gets ipc_codegen/ipc_backend.hpp`,
     );
     process.exit(1);
   }
@@ -285,9 +285,9 @@ function parseArgs(argv: string[]): Args {
     );
     process.exit(1);
   }
-  if (args.ffi && args.lang === "cpp" && !args.server) {
+  if (args.ffi && !args.server && !args.client) {
     console.error(
-      `--ffi for cpp emits the server-side FFI entry; pass --server`,
+      `--ffi emits the client FFI backend (--client) and/or the exported FFI entry (--server)`,
     );
     process.exit(1);
   }
@@ -644,6 +644,9 @@ function generate(args: Args) {
         // No transport template copy — consumers wire @import("ipc_runtime")
         // (the Zig binding shipped from ipc-runtime/zig/) and use its
         // Server.fromPath / listen / run loop directly.
+        if (args.ffi) {
+          writeFile(`${toSnakeCase(prefix)}_ffi.zig`, gen.generateFfi());
+        }
       }
       if (args.client) {
         writeFile(
@@ -712,16 +715,18 @@ function generate(args: Args) {
       if (args.client) {
         cppFiles.push(
           writeFile(
-            `${toSnakeCase(prefix)}_ipc_client.hpp`,
-            gen.generateHeader(compiled, schemaHash),
+            `${toSnakeCase(prefix)}_client.hpp`,
+            gen.generateApi(compiled, schemaHash),
           ),
         );
-        cppFiles.push(
-          writeFile(
-            `${toSnakeCase(prefix)}_ipc_client.cpp`,
-            gen.generateImpl(compiled),
-          ),
-        );
+        if (args.ffi) {
+          cppFiles.push(
+            writeFile(
+              `${toSnakeCase(prefix)}_ffi_backend.hpp`,
+              gen.generateFfiBackend(),
+            ),
+          );
+        }
       }
 
       formatCpp(cppFiles);

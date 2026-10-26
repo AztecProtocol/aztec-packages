@@ -233,8 +233,8 @@ payload in a buffer from `<svc>_ipc_ffi_alloc()` that the caller releases with
 `<svc>_ipc_ffi_free()` (both malloc/free-compatible). Input buffers the caller
 hands over are allocated the same way when the caller lives outside the
 module's memory (wasm). The entry is not thread-safe; callers serialize their
-calls. `--server --ffi` generates it; the client side is the generated Rust/Zig
-`ffi_backend` natively and `@aztec-foundation/ipc-runtime/wasm` for a wasm
+calls. `--server --ffi` generates it; the client side is the generated Rust/Zig/C++
+FFI backend natively and `@aztec-foundation/ipc-runtime/wasm` for a wasm
 module, which also expects a wasi reactor (`_initialize`, WASI imports,
 wasi-threads `thread-spawn` for a threads build) and finds the entry by its
 `_ipc_ffi_entry` suffix when not told its name.

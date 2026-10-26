@@ -54,15 +54,17 @@ pub fn build(b: *std.Build) void {
     golden_exe.root_module.addImport("msgpack", msgpack_mod);
     b.installArtifact(golden_exe);
 
-    // Compile coverage for the generated FFI backend (stub extern symbol).
-    const ffi_check_exe = b.addExecutable(.{
-        .name = "ffi_check",
+    // In-process round trip: the generated client over FfiBackend, against the
+    // generated FFI entry exported from the same binary (libc for its buffers).
+    const ffi_test_exe = b.addExecutable(.{
+        .name = "ffi_test",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/ffi_check.zig"),
+            .root_source_file = b.path("src/ffi_test.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
-    ffi_check_exe.root_module.addImport("msgpack", msgpack_mod);
-    b.installArtifact(ffi_check_exe);
+    ffi_test_exe.root_module.addImport("msgpack", msgpack_mod);
+    b.installArtifact(ffi_test_exe);
 }
