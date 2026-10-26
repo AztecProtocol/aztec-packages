@@ -15,6 +15,7 @@ import {
   AnchoredContractData,
   CapsuleService,
   CapsuleStore,
+  type ChangeSetId,
   type ContractStore,
   type ExecutionHooks,
   FactService,
@@ -212,33 +213,43 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     };
   }
 
-  async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string) {
+  async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, changeSetId: ChangeSetId) {
     if (contractAddress.equals(DEFAULT_ADDRESS)) {
       this.logger.debug(`Skipping sync in getPrivateEvents because the events correspond to the default address.`);
       return;
     }
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      contractAddress,
-      null,
-      async (call, execScopes) => {
-        await this.executeUtilityCall(call, { scopes: execScopes, jobId });
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: contractAddress,
+      functionToInvokeAfterSync: null,
+      utilityExecutor: async (call, execScopes) => {
+        await this.executeUtilityCall(call, { scopes: execScopes, changeSetId });
       },
-      blockHeader,
-      jobId,
-      [scope],
-    );
+      anchorBlockHeader,
+      changeSetId,
+      scopes: [scope],
+      triggeredBy: undefined,
+    });
   }
 
-  async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
+  async getPrivateEvents(
+    selector: EventSelector,
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    changeSetId: ChangeSetId,
+  ) {
     const events = (
-      await this.privateEventStore.getPrivateEvents(selector, {
-        contractAddress,
-        scopes: [scope],
-        fromBlock: 0,
-        toBlock: (await this.getLastBlockNumber()) + 1,
-      })
+      await this.privateEventStore.getPrivateEvents(
+        selector,
+        {
+          contractAddress,
+          scopes: [scope],
+          fromBlock: 0,
+          toBlock: (await this.getLastBlockNumber()) + 1,
+        },
+        changeSetId,
+      )
     ).map(e => e.packedEvent);
 
     if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
@@ -275,6 +286,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     secret: Fr,
     salt: Fr,
     deployer: AztecAddress,
+    immutablesHash: Fr,
   ): Promise<Fr[]> {
     const { artifact, instance } = await this.artifactResolver.resolveDeployArtifact({
       rootPath: this.rootPath,
@@ -285,6 +297,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       secret,
       salt,
       deployer,
+      immutablesHash,
     });
 
     // Emit deployment nullifier
@@ -430,7 +443,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     argsHash: Fr = Fr.zero(),
     isStaticCall: boolean = false,
     additionalScopes: AztecAddress[] = [],
-    jobId: string,
+    changeSetId: ChangeSetId,
     authorizedUtilityCallTargets: AztecAddress[],
     gasSettings: GasSettings,
   ) {
@@ -457,17 +470,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
-      await this.executeUtilityCall(call, { scopes: execScopes, jobId });
+      await this.executeUtilityCall(call, { scopes: execScopes, changeSetId });
     };
 
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
       utilityExecutor,
-      blockHeader,
-      jobId,
+      anchorBlockHeader: blockHeader,
+      changeSetId,
       scopes,
-    );
+      triggeredBy: undefined,
+    });
 
     const blockNumber = await this.getNextBlockNumber();
 
@@ -513,7 +527,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
-      jobId,
+      changeSetId,
       totalPublicCalldataCount: 0,
       sideEffectCounter: minRevertibleSideEffectCounter,
       scopes,
@@ -844,7 +858,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
-    jobId: string,
+    changeSetId: ChangeSetId,
     authorizedUtilityCallTargets: AztecAddress[],
   ) {
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
@@ -860,16 +874,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      async (call, execScopes) => {
-        await this.executeUtilityCall(call, { scopes: execScopes, jobId });
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
+      utilityExecutor: async (call, execScopes) => {
+        await this.executeUtilityCall(call, { scopes: execScopes, changeSetId });
       },
-      blockHeader,
-      jobId,
-      await this.keyStore.getAccounts(),
-    );
+      anchorBlockHeader: blockHeader,
+      changeSetId,
+      scopes: await this.keyStore.getAccounts(),
+      triggeredBy: undefined,
+    });
 
     const call = FunctionCall.from({
       name: artifact.name,
@@ -885,7 +900,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return this.executeUtilityCall(call, {
       from,
       scopes: await this.keyStore.getAccounts(),
-      jobId,
+      changeSetId,
       authorizedUtilityCallTargets,
     });
   }
@@ -895,9 +910,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     {
       from = AztecAddress.NULL_MSG_SENDER,
       scopes,
-      jobId,
+      changeSetId,
       authorizedUtilityCallTargets = [],
-    }: { from?: AztecAddress; scopes: AztecAddress[]; jobId: string; authorizedUtilityCallTargets?: AztecAddress[] },
+    }: {
+      from?: AztecAddress;
+      scopes: AztecAddress[];
+      changeSetId: ChangeSetId;
+      authorizedUtilityCallTargets?: AztecAddress[];
+    },
   ): Promise<Fr[]> {
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
     const anchoredContractData = new AnchoredContractData(
@@ -922,7 +942,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     try {
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId, authorizedUtilityCallTargets });
+        await this.executeUtilityCall(syncCall, { scopes: execScopes, changeSetId, authorizedUtilityCallTargets });
       };
       const oracle = new UtilityExecutionOracle({
         callContext: CallContext.from({
@@ -947,7 +967,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         txResolver: this.stateMachine.txResolver,
         contractSyncService: this.stateMachine.contractSyncService,
         l2TipsStore: this.stateMachine.l2TipsProvider,
-        jobId,
+        changeSetId,
         scopes,
         simulator,
         utilityExecutor,

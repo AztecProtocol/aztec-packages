@@ -115,6 +115,31 @@ export class PrivateExecutionResult {
 }
 
 /**
+ * Built once on first use and reused rather than rebuilt on every `schema` access: the recursion is tied
+ * together by object identity, and a `z.lazy` target that hands back a fresh schema each time it is
+ * dereferenced makes zod recurse until the stack overflows (zod >= 4.5, at any nesting depth).
+ */
+let privateCallExecutionResultSchema: ZodFor<PrivateCallExecutionResult> | undefined;
+
+function getPrivateCallExecutionResultSchema(): ZodFor<PrivateCallExecutionResult> {
+  return (privateCallExecutionResultSchema ??= z
+    .object({
+      acir: schemas.Buffer,
+      vk: schemas.Buffer,
+      partialWitness: mapSchema(z.coerce.number(), z.string()),
+      publicInputs: PrivateCircuitPublicInputs.schema,
+      newNotes: z.array(NoteAndSlot.schema),
+      noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
+      returnValues: z.array(schemas.Fr),
+      offchainEffects: z.array(z.object({ data: z.array(schemas.Fr) })),
+      taggingIndexRanges: z.array(TaggingIndexRangeSchema),
+      nestedExecutionResults: z.array(z.lazy(() => getPrivateCallExecutionResultSchema())),
+      contractClassLogs: z.array(CountedContractClassLog.schema),
+    })
+    .transform(fields => PrivateCallExecutionResult.from(fields)));
+}
+
+/**
  * The result of executing a call to a private function.
  */
 export class PrivateCallExecutionResult {
@@ -151,21 +176,7 @@ export class PrivateCallExecutionResult {
   ) {}
 
   static get schema(): ZodFor<PrivateCallExecutionResult> {
-    return z
-      .object({
-        acir: schemas.Buffer,
-        vk: schemas.Buffer,
-        partialWitness: mapSchema(z.coerce.number(), z.string()),
-        publicInputs: PrivateCircuitPublicInputs.schema,
-        newNotes: z.array(NoteAndSlot.schema),
-        noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
-        returnValues: z.array(schemas.Fr),
-        offchainEffects: z.array(z.object({ data: z.array(schemas.Fr) })),
-        taggingIndexRanges: z.array(TaggingIndexRangeSchema),
-        nestedExecutionResults: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
-        contractClassLogs: z.array(CountedContractClassLog.schema),
-      })
-      .transform(PrivateCallExecutionResult.from);
+    return getPrivateCallExecutionResultSchema();
   }
 
   static from(fields: FieldsOf<PrivateCallExecutionResult>) {

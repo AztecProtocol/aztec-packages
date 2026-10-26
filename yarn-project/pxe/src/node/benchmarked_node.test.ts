@@ -26,7 +26,7 @@ describe('withRecording', () => {
     await node.getPublicStorageAt(read.blockHash, read.contractAddress, read.storageSlot);
     await node.getPublicStorageAt(read.blockHash, read.contractAddress, read.storageSlot);
 
-    const { perMethod, roundTrips } = recording.stop();
+    const { perMethod, roundTrips } = recording.stats();
     expect(roundTrips.roundTrips).toBe(2);
     expect(roundTrips.roundTripMethods).toEqual([['getPublicStorageAt'], ['getPublicStorageAt']]);
     expect(perMethod.getPublicStorageAt!.times).toHaveLength(2);
@@ -41,7 +41,7 @@ describe('withRecording', () => {
       node.getBlockNumber(),
     ]);
 
-    const { roundTrips } = recording.stop();
+    const { roundTrips } = recording.stats();
     expect(roundTrips.roundTrips).toBe(1);
     expect(roundTrips.roundTripMethods).toEqual([['getPublicStorageAt', 'getBlockNumber']]);
   });
@@ -54,8 +54,8 @@ describe('withRecording', () => {
     const secondHalf = node.startRecording();
     await node.getPublicStorageAt(read.blockHash, read.contractAddress, read.storageSlot);
 
-    expect(secondHalf.stop().roundTrips.roundTrips).toBe(1);
-    expect(wholeRun.stop().roundTrips.roundTrips).toBe(2);
+    expect(secondHalf.stats().roundTrips.roundTrips).toBe(1);
+    expect(wholeRun.stats().roundTrips.roundTrips).toBe(2);
   });
 
   it('records nothing once stopped', async () => {
@@ -65,7 +65,7 @@ describe('withRecording', () => {
     recording.stop();
     await node.getPublicStorageAt(read.blockHash, read.contractAddress, read.storageSlot);
 
-    const { perMethod, roundTrips } = recording.stop();
+    const { perMethod, roundTrips } = recording.stats();
     expect(perMethod).toEqual({});
     expect(roundTrips.roundTrips).toBe(0);
   });

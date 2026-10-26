@@ -7,6 +7,7 @@ pub struct ContractDeployment<let O: u32> {
     pub path: str<O>,
     pub secret: Field,
     pub salt: Field,
+    pub immutables_hash: Field,
 }
 
 impl<let O: u32> ContractDeployment<O> {
@@ -46,6 +47,7 @@ impl<let O: u32> ContractDeployment<O> {
             self.secret,
             self.salt,
             AztecAddress::zero(),
+            self.immutables_hash,
         );
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
@@ -92,6 +94,7 @@ impl<let O: u32> ContractDeployment<O> {
             self.secret,
             self.salt,
             AztecAddress::zero(),
+            self.immutables_hash,
         );
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
@@ -118,6 +121,7 @@ impl<let O: u32> ContractDeployment<O> {
             self.secret,
             self.salt,
             AztecAddress::zero(),
+            self.immutables_hash,
         )
             .to_address()
     }

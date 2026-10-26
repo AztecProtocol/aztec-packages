@@ -20,9 +20,7 @@ pub contract TxEffectOracleTest {
 
     #[external("utility")]
     unconstrained fn get_tx_effects_hashes(tx_hashes: [Field; 2]) -> [Field; 2] {
-        let ephemeral_tx_hashes: EphemeralArray<Field> = EphemeralArray::empty();
-        ephemeral_tx_hashes.push(tx_hashes[0]);
-        ephemeral_tx_hashes.push(tx_hashes[1]);
+        let ephemeral_tx_hashes: EphemeralArray<Field> = EphemeralArray::from_array(tx_hashes);
 
         let tx_effects = get_tx_effects(ephemeral_tx_hashes);
         [poseidon2_hash(tx_effects.get(0).unwrap().serialize()), poseidon2_hash(tx_effects.get(1).unwrap().serialize())]

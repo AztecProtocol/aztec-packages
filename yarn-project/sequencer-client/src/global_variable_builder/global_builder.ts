@@ -46,12 +46,17 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
   }
 
-  /** Builds global variables that are constant throughout a checkpoint. */
+  /**
+   * Builds global variables that are constant throughout a checkpoint.
+   * @param options - Optional L1 block number to pin the fee read to, so the fee describes the same L1 state
+   * the caller planned the block from.
+   */
   public async buildCheckpointGlobalVariables(
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber: SlotNumber,
     simulationOverridesPlan?: SimulationOverridesPlan,
+    options?: { blockNumber?: bigint },
   ): Promise<CheckpointGlobalVariables> {
     const { chainId, version } = this;
 
@@ -61,7 +66,10 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     });
 
     const stateOverride = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true, stateOverride));
+    const gasFees = new GasFees(
+      0,
+      await this.rollupContract.getManaMinFeeAt(timestamp, true, { stateOverride, ...options }),
+    );
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };
   }

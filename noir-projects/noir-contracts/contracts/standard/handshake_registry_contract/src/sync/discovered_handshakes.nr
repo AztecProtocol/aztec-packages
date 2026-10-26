@@ -1,8 +1,9 @@
 use crate::sync::rewindable_register::{deserialize_payload, serialize_payload};
 use aztec::{
     ephemeral::EphemeralArray,
-    facts::{get_fact_collection, OriginBlock, record_retractable_fact},
+    facts::{FactScope, get_fact_collection, record_retractable_fact},
     messages::delivery::handshake::DiscoveredHandshake,
+    oracle::block_reference::BlockReference,
     protocol::{address::AztecAddress, hash::sha256_to_field},
 };
 
@@ -26,11 +27,11 @@ pub(crate) unconstrained fn record_discovered_handshake(
     contract_address: AztecAddress,
     recipient: AztecAddress,
     handshake: DiscoveredHandshake,
-    origin_block: OriginBlock,
+    origin_block: BlockReference,
 ) {
     record_retractable_fact(
         contract_address,
-        recipient,
+        FactScope::account(recipient),
         DISCOVERED_HANDSHAKES_TYPE_ID,
         DISCOVERED_HANDSHAKES_COLLECTION_ID,
         HANDSHAKE_DISCOVERED,
@@ -49,7 +50,7 @@ pub(crate) unconstrained fn get_all_discovered_handshakes(
 ) -> EphemeralArray<DiscoveredHandshake> {
     get_fact_collection(
         contract_address,
-        recipient,
+        FactScope::account(recipient),
         DISCOVERED_HANDSHAKES_TYPE_ID,
         DISCOVERED_HANDSHAKES_COLLECTION_ID,
     )
@@ -64,7 +65,7 @@ pub(crate) unconstrained fn origin_block_numbers(
 ) -> EphemeralArray<u32> {
     get_fact_collection(
         contract_address,
-        recipient,
+        FactScope::account(recipient),
         DISCOVERED_HANDSHAKES_TYPE_ID,
         DISCOVERED_HANDSHAKES_COLLECTION_ID,
     )

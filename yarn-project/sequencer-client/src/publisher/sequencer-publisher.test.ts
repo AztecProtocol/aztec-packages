@@ -100,6 +100,7 @@ describe('SequencerPublisher', () => {
 
   // An l1 publisher with some private methods exposed
   let publisher: SequencerPublisher;
+  let slasherListeners: Set<number>;
 
   let testHarnessAttesterAccount: PrivateKeyAccount;
 
@@ -147,6 +148,15 @@ describe('SequencerPublisher', () => {
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();
+    slasherListeners = new Set();
+    let nextListenerId = 0;
+    rollup.listenToSlasherChanged.mockImplementation(() => {
+      const listener = nextListenerId++;
+      slasherListeners.add(listener);
+      return () => {
+        slasherListeners.delete(listener);
+      };
+    });
     rollup.validateHeader.mockReturnValue(Promise.resolve());
     rollup.getL1StartBlock.mockResolvedValue(1n);
     (rollup as any).address = mockRollupAddress;
@@ -212,7 +222,20 @@ describe('SequencerPublisher', () => {
   });
 
   afterEach(() => {
+    publisher?.dispose();
     forwardSpy.mockRestore();
+  });
+
+  it('releases its slasher subscription when its owning scope ends', () => {
+    {
+      using ownedPublisher = publisher;
+      expect(ownedPublisher.slashingProposerContract).toBe(slashingProposerContract);
+      expect(slasherListeners.size).toBe(1);
+    }
+    expect(slasherListeners.size).toBe(0);
+    publisher.dispose();
+    expect(slasherListeners.size).toBe(0);
+    expect(l1TxUtils.interrupt).not.toHaveBeenCalled();
   });
 
   const mockGovernancePayload = () => {

@@ -97,11 +97,11 @@
 use crate::{
     ephemeral::EphemeralArray,
     facts::{
-        delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
+        delete_fact_collection, Fact, FactCollection, FactScope, get_fact_collection, get_fact_collections_by_type,
         record_non_retractable_fact, record_retractable_fact,
     },
     messages::processing::OffchainMessageWithTx,
-    oracle::tx_resolution::ResolvedTx,
+    oracle::{block_reference::BlockReference, tx_resolution::ResolvedTx},
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
@@ -158,7 +158,7 @@ impl OffchainReception {
     pub(crate) unconstrained fn init(contract_address: AztecAddress, message: OffchainMessage) {
         record_non_retractable_fact(
             contract_address,
-            message.recipient,
+            FactScope::account(message.recipient),
             OFFCHAIN_RECEPTION_TYPE_ID,
             Self::id_for(message),
             OFFCHAIN_MESSAGE_RECEIVED,
@@ -171,7 +171,11 @@ impl OffchainReception {
         contract_address: AztecAddress,
         scope: AztecAddress,
     ) -> EphemeralArray<OffchainReception> {
-        get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE_ID)
+        get_fact_collections_by_type(
+            contract_address,
+            FactScope::account(scope),
+            OFFCHAIN_RECEPTION_TYPE_ID,
+        )
             .map(|collection: FactCollection| OffchainReception { collection })
     }
 
@@ -202,7 +206,7 @@ impl OffchainReception {
     ) -> bool {
         get_fact_collection(
             contract_address,
-            scope,
+            FactScope::account(scope),
             OFFCHAIN_RECEPTION_TYPE_ID,
             Self::id_for(message),
         )
@@ -254,7 +258,7 @@ impl OffchainReception {
     ) -> bool {
         let maybe_collection = get_fact_collection(
             contract_address,
-            scope,
+            FactScope::account(scope),
             OFFCHAIN_RECEPTION_TYPE_ID,
             Self::id_for(message),
         );
@@ -275,7 +279,7 @@ impl OffchainReception {
             self.collection.fact_collection_id,
             OFFCHAIN_MESSAGE_PROCESSED,
             empty_payload,
-            OriginBlock { block_number, block_hash },
+            BlockReference { block_number, block_hash },
         );
     }
 
@@ -292,12 +296,7 @@ impl OffchainReception {
 
 /// Serializes an [`OffchainMessage`] into a fact payload.
 unconstrained fn to_payload(message: OffchainMessage) -> EphemeralArray<Field> {
-    let fields = message.serialize();
-    let payload: EphemeralArray<Field> = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
+    EphemeralArray::from_array(message.serialize())
 }
 
 mod test {

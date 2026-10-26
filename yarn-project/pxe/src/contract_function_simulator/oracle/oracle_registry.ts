@@ -11,6 +11,7 @@ import {
   BLOCK_HASH,
   BLOCK_HEADER,
   BLOCK_NUMBER,
+  BLOCK_REFERENCE,
   BOOL,
   BOUNDED_VEC,
   CALL_PRIVATE_RESULT,
@@ -20,6 +21,7 @@ import {
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FACT_COLLECTION,
+  FACT_SCOPE,
   FIELD,
   FIXED_ARRAY,
   FUNCTION_SELECTOR,
@@ -31,11 +33,12 @@ import {
   MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
+  NOTE_ORIGIN,
   NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
+  NULLIFIER_STATUS,
   OPTION,
-  ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
@@ -187,9 +190,9 @@ export const ORACLE_REGISTRY = {
     returnType: OPTION(PUBLIC_KEYS_AND_PARTIAL_ADDRESS),
   }),
 
-  aztec_utl_doesNullifierExist: makeEntry({
-    params: [{ name: 'innerNullifier', type: FIELD }],
-    returnType: BOOL,
+  aztec_utl_getNullifierStatuses: makeEntry({
+    params: [{ name: 'innerNullifiers', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(NULLIFIER_STATUS),
   }),
 
   aztec_utl_getL1ToL2MembershipWitnessV2: makeEntry({
@@ -239,6 +242,15 @@ export const ORACLE_REGISTRY = {
       { name: 'packedHintedNoteLength', type: U32 },
     ],
     returnType: BOUNDED_VEC(NOTE),
+  }),
+
+  aztec_utl_getSettledNoteOrigin: makeEntry({
+    params: [
+      { name: 'noteHash', type: FIELD },
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'noteNonce', type: FIELD },
+    ],
+    returnType: OPTION(NOTE_ORIGIN),
   }),
 
   aztec_utl_getPendingTaggedLogsV2: makeEntry({
@@ -343,41 +355,41 @@ export const ORACLE_REGISTRY = {
     params: [{ name: 'data', type: ARRAY(FIELD) }],
   }),
 
-  aztec_utl_recordFact: makeEntry({
+  aztec_utl_recordFactV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
       { name: 'factTypeId', type: FIELD },
       { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
-      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+      { name: 'originBlock', type: OPTION(BLOCK_REFERENCE) },
     ],
   }),
 
-  aztec_utl_deleteFactCollection: makeEntry({
+  aztec_utl_deleteFactCollectionV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
     ],
   }),
 
-  aztec_utl_getFactCollection: makeEntry({
+  aztec_utl_getFactCollectionV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
     ],
     returnType: OPTION(FACT_COLLECTION),
   }),
 
-  aztec_utl_getFactCollectionsByType: makeEntry({
+  aztec_utl_getFactCollectionsByTypeV2: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'scope', type: FACT_SCOPE },
       { name: 'factCollectionTypeId', type: FIELD },
     ],
     returnType: EPHEMERAL_ARRAY(FACT_COLLECTION),

@@ -2,14 +2,14 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { allToCompletion } from '@aztec/foundation/promise';
-import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
-import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
+import { BaseStagingStore, type ReadonlyDb } from '../base_staging_store.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import { StoredPrivateEvent } from './stored_private_event.js';
 
 export type PrivateEventStoreFilter = {
@@ -31,7 +31,6 @@ type PrivateEventMetadata = InTx & {
 
 /// Alias types for kv map readability
 type EventId = string; // the siloedEventCommitment, stringified
-type JobId = string;
 type ContractAndSelectorKey = string;
 type BlockNum = number;
 type StoredEventBuffer = Buffer;
@@ -42,33 +41,20 @@ type StoredEventBuffer = Buffer;
  * Append-only: events are never deleted during normal operation. Reorgs are handled by delete-on-prune, which removes
  * every event originating on a reorg'd block.
  */
-export class PrivateEventStore implements StagedStore {
-  readonly storeName: string = 'private_event';
-
-  #store: AztecAsyncKVStore;
-  /** Actual private event log entries, keyed by siloedEventCommitment */
-  #events: AztecAsyncMap<EventId, StoredEventBuffer>;
-  /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
-  #eventsByContractAndEventSelector: AztecAsyncMultiMap<ContractAndSelectorKey, EventId>;
-  /** Multi-map from block number to siloedEventCommitment, for delete-on-prune. */
-  #eventsByBlockNumber: AztecAsyncMultiMap<BlockNum, EventId>;
-
-  /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
-  #eventsForJob: Map<JobId, Map<EventId, StoredPrivateEvent>>;
-
-  /** Per-job locks to prevent concurrent writes from affecting each other. */
-  #jobLocks: Map<JobId, Semaphore>;
-
+export class PrivateEventStore extends BaseStagingStore<PrivateEventStoreChangeSet, PrivateEventStoreDb> {
   logger = createLogger('private_event_store');
 
   constructor(store: AztecAsyncKVStore) {
-    this.#store = store;
-    this.#events = this.#store.openMap('private_event_logs');
-    this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
-    this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
-
-    this.#eventsForJob = new Map();
-    this.#jobLocks = new Map();
+    super({
+      storeName: 'private_event',
+      store,
+      buildChangeSet: () => new Map(),
+      buildDb: db => ({
+        events: db.openMap('private_event_logs'),
+        eventsByContractAndEventSelector: db.openMultiMap('events_by_contract_selector'),
+        eventsByBlockNumber: db.openMultiMap('events_by_block_number'),
+      }),
+    });
   }
 
   /**
@@ -89,47 +75,44 @@ export class PrivateEventStore implements StagedStore {
     msgContent: Fr[],
     siloedEventCommitment: Fr,
     metadata: PrivateEventMetadata,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ) {
-    return this.#withJobLock(jobId, () =>
-      this.#store.transactionAsync(async () => {
-        const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash, txIndexInBlock, eventIndexInTx } = metadata;
-        const eventId = siloedEventCommitment.toString();
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash, txIndexInBlock, eventIndexInTx } = metadata;
+      const eventId = siloedEventCommitment.toString();
 
-        this.logger.verbose('storing private event log (job stage)', {
+      this.logger.verbose('storing private event log (staged)', {
+        eventId,
+        contractAddress,
+        scope,
+        msgContent,
+        l2BlockNumber,
+      });
+
+      const existing = await this.#readEvent(changeSet, db, eventId);
+
+      if (existing) {
+        // If we already stored this event, we still want to make sure to track it for the given scope
+        existing.addScope(scope.toString());
+        changeSet.set(eventId, existing);
+      } else {
+        changeSet.set(
           eventId,
-          contractAddress,
-          scope,
-          msgContent,
-          l2BlockNumber,
-        });
-
-        const existing = await this.#readEvent(eventId, jobId);
-
-        if (existing) {
-          // If we already stored this event, we still want to make sure to track it for the given scope
-          existing.addScope(scope.toString());
-          this.#writeEvent(eventId, existing, jobId);
-        } else {
-          this.#writeEvent(
-            eventId,
-            new StoredPrivateEvent(
-              randomness,
-              msgContent,
-              l2BlockNumber,
-              l2BlockHash,
-              txHash,
-              txIndexInBlock,
-              eventIndexInTx,
-              contractAddress,
-              eventSelector,
-              new Set([scope.toString()]),
-            ),
-            jobId,
-          );
-        }
-      }),
-    );
+          new StoredPrivateEvent(
+            randomness,
+            msgContent,
+            l2BlockNumber,
+            l2BlockHash,
+            txHash,
+            txIndexInBlock,
+            eventIndexInTx,
+            contractAddress,
+            eventSelector,
+            new Set([scope.toString()]),
+          ),
+        );
+      }
+    });
   }
 
   /**
@@ -140,27 +123,40 @@ export class PrivateEventStore implements StagedStore {
    *  fromBlock: The block number to search from (inclusive).
    *  toBlock: The block number to search upto (exclusive).
    *  scope: - The addresses that decrypted the logs.
+   * @param changeSetId - the change set to read staged data from.
    * @returns - The event log contents, augmented with metadata about the transaction and block in which the event was
    * included.
    */
   public getPrivateEvents(
     eventSelector: EventSelector,
     filter: PrivateEventStoreFilter,
+    changeSetId: ChangeSetId,
   ): Promise<PackedPrivateEvent[]> {
-    return this.#store.transactionAsync(async () => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       const key = this.#keyFor(filter.contractAddress, eventSelector);
       const targetScopes = new Set(filter.scopes.map(s => s.toString()));
 
-      // Map from eventId to the promise that reads the event buffer.
+      // Map from eventId to the promise that reads the event.
       // We start reads during iteration to keep DB requests pending and avoid IndexedDB auto-commit.
-      const eventReadPromises: Map<string, Promise<Buffer | undefined>> = new Map();
+      const eventReadPromises: Map<EventId, Promise<StoredPrivateEvent | undefined>> = new Map();
 
-      for await (const eventId of this.#eventsByContractAndEventSelector.getValuesAsync(key)) {
-        eventReadPromises.set(eventId, this.#events.getAsync(eventId));
+      // Committed events indexed by contract address and event selector
+      for await (const eventId of db.eventsByContractAndEventSelector.getValuesAsync(key)) {
+        eventReadPromises.set(eventId, this.#readEvent(changeSet, db, eventId));
       }
 
+      // Staged events have no row in the committed index yet, so add them here. Skip any the loop above already
+      // picked up.
+      [...changeSet.entries()]
+        .filter(
+          ([eventId, stagedEvent]) =>
+            !eventReadPromises.has(eventId) &&
+            this.#keyFor(stagedEvent.contractAddress, stagedEvent.eventSelector) === key,
+        )
+        .forEach(([eventId, stagedEvent]) => eventReadPromises.set(eventId, Promise.resolve(stagedEvent)));
+
       const eventIds = [...eventReadPromises.keys()];
-      const eventBuffers = await allToCompletion([...eventReadPromises.values()]);
+      const storedEvents = await allToCompletion([...eventReadPromises.values()]);
 
       const events: Array<{
         l2BlockNumber: number;
@@ -171,17 +167,15 @@ export class PrivateEventStore implements StagedStore {
 
       for (let i = 0; i < eventIds.length; i++) {
         const eventId = eventIds[i];
-        const eventBuffer = eventBuffers[i];
+        const storedPrivateEvent = storedEvents[i];
 
-        // Defensive, if it happens, there's a problem with how we're handling #eventsByContractAndEventSelector
-        if (!eventBuffer) {
+        // Defensive, if it happens, there's a problem with how we're handling db.eventsByContractAndEventSelector
+        if (!storedPrivateEvent) {
           this.logger.verbose(
             `EventId ${eventId} does not exist in main index but it is referenced from contract event selector index`,
           );
           continue;
         }
-
-        const storedPrivateEvent = StoredPrivateEvent.fromBuffer(eventBuffer);
 
         // Filter by block range
         if (storedPrivateEvent.l2BlockNumber < filter.fromBlock || storedPrivateEvent.l2BlockNumber >= filter.toBlock) {
@@ -227,157 +221,85 @@ export class PrivateEventStore implements StagedStore {
     });
   }
 
-  /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by delete-on-prune. */
-  public async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
-    const eventIds: string[] = [];
-    for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(blockNumber)) {
-      eventIds.push(eventId);
-    }
-    return eventIds;
-  }
-
   /**
-   * Rolls the store back to `toBlock`: deletes every event anchored to a block strictly above it, as if nothing past
-   * that block height ever happened. Used by the reorg (`chain-pruned`) path to truncate the orphaned tail. Scanning
-   * from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip.
-   *
-   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg
-   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Throws if any job has
-   * uncommitted staged writes, since rolling back mid-job could later re-introduce events anchored to deleted blocks.
+   * Deletes every event originating on a block strictly above `toBlock`, as if nothing past that block height ever
+   * happened, truncating the orphaned tail on a reorg. Scanning from `toBlock + 1` upward covers everything above the
+   * rollback target without needing to know the chain tip.
    */
-  public async rollback(toBlock: number): Promise<void> {
-    if (this.#eventsForJob.size > 0) {
-      throw new Error('PXE private event store rollback is not allowed while jobs are running');
-    }
+  protected async applyRollback(toBlock: number, db: PrivateEventStoreDb): Promise<void> {
     // Snapshot before mutating so we never delete from the multimap we are iterating.
-    const orphaned: { block: number; eventId: string }[] = [];
-    for await (const [block, eventId] of this.#eventsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
+    const orphaned: { block: BlockNum; eventId: EventId }[] = [];
+    for await (const [block, eventId] of db.eventsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
       orphaned.push({ block, eventId });
     }
     let removedCount = 0;
     for (const { block, eventId } of orphaned) {
-      const buf = await this.#events.getAsync(eventId);
+      const buf = await db.events.getAsync(eventId);
       if (!buf) {
         throw new Error(`Event not found for eventId ${eventId}`);
       }
       const stored = StoredPrivateEvent.fromBuffer(buf);
-      await this.#events.delete(eventId);
-      await this.#eventsByContractAndEventSelector.deleteValue(
+      await db.events.delete(eventId);
+      await db.eventsByContractAndEventSelector.deleteValue(
         this.#keyFor(stored.contractAddress, stored.eventSelector),
         eventId,
       );
-      await this.#eventsByBlockNumber.deleteValue(block, eventId);
+      await db.eventsByBlockNumber.deleteValue(block, eventId);
       removedCount++;
     }
     this.logger.verbose('rolled back private events', { removedCount, toBlock });
   }
 
-  /**
-   * Commits in memory job data to persistent storage.
-   *
-   * Called by JobCoordinator when a job completes successfully.
-   *
-   * Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here
-   * (and using one would throw on IndexedDB as it does not support nested txs).
-   *
-   * @param jobId - The jobId identifying which staged data to commit
-   */
-  async commit(jobId: string): Promise<void> {
-    // Note: Don't use #withJobLock here - commit runs within JobCoordinator's transactionAsync,
-    // and awaiting the lock would create a microtask boundary with no pending DB request,
-    // causing IndexedDB to auto-commit the transaction.
-    for (const [eventId, entry] of this.#getEventsForJob(jobId).entries()) {
+  protected async flushChangeSet(changeSet: PrivateEventStoreChangeSet, db: PrivateEventStoreDb): Promise<void> {
+    for (const [eventId, entry] of changeSet.entries()) {
       const lookupKey = this.#keyFor(entry.contractAddress, entry.eventSelector);
       this.logger.verbose('storing private event log', { eventId, lookupKey });
 
       await allToCompletion([
-        this.#events.set(eventId, entry.toBuffer()),
-        this.#eventsByContractAndEventSelector.set(lookupKey, eventId),
-        this.#eventsByBlockNumber.set(entry.l2BlockNumber, eventId),
+        db.events.set(eventId, entry.toBuffer()),
+        db.eventsByContractAndEventSelector.set(lookupKey, eventId),
+        db.eventsByBlockNumber.set(entry.l2BlockNumber, eventId),
       ]);
     }
-
-    this.#clearJobData(jobId);
   }
 
   /**
-   * Discards in memory job data without persisting it.
-   */
-  discardStaged(jobId: string): Promise<void> {
-    this.#clearJobData(jobId);
-    return Promise.resolve();
-  }
-
-  /**
-   * Reads an event from in-memory job data first, falling back to persistent storage if not found.
+   * Reads an event from in-memory staged data first, falling back to persistent storage if not found.
    *
    * Returns undefined if the event does not exist in the store overall.
    */
-  async #readEvent(eventId: string, jobId: string): Promise<StoredPrivateEvent | undefined> {
+  async #readEvent(
+    changeSet: PrivateEventStoreChangeSet,
+    db: ReadonlyDb<PrivateEventStoreDb>,
+    eventId: EventId,
+  ): Promise<StoredPrivateEvent | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
-    const buffer = await this.#events.getAsync(eventId);
-    const eventForJob = this.#getEventsForJob(jobId).get(eventId);
-    return eventForJob ?? (buffer ? StoredPrivateEvent.fromBuffer(buffer) : undefined);
-  }
-
-  /**
-   * Writes an event to in-memory job data.
-   *
-   * Writes are only allowed in a job context. Events modified during a job will only be persisted when `commit` is
-   * called.
-   */
-  #writeEvent(eventId: string, entry: StoredPrivateEvent, jobId: string) {
-    this.#getEventsForJob(jobId).set(eventId, entry);
-  }
-
-  /**
-   * Get in-memory data only visible to @param jobId
-   */
-  #getEventsForJob(jobId: string): Map<string, StoredPrivateEvent> {
-    let eventsForJob = this.#eventsForJob.get(jobId);
-    if (eventsForJob === undefined) {
-      eventsForJob = new Map();
-      this.#eventsForJob.set(jobId, eventsForJob);
-    }
-    return eventsForJob;
-  }
-
-  /**
-   * Clear data structures supporting a specific job.
-   */
-  #clearJobData(jobId: string) {
-    this.#eventsForJob.delete(jobId);
-    this.#jobLocks.delete(jobId);
-  }
-
-  /**
-   * Ensures a function can only run once it acquires a unique per-job lock, and handles proper lock release after it
-   * runs.
-   *
-   * This primitive allows concurrent writes on this store without risking data corruption due to unsound write
-   * interleaving.
-   */
-  async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-    let lock = this.#jobLocks.get(jobId);
-    if (!lock) {
-      lock = new Semaphore(1);
-      this.#jobLocks.set(jobId, lock);
-    }
-    await lock.acquire();
-    try {
-      return await fn();
-    } finally {
-      lock.release();
-    }
+    const buffer = await db.events.getAsync(eventId);
+    const eventForChangeSet = changeSet.get(eventId);
+    return eventForChangeSet ?? (buffer ? StoredPrivateEvent.fromBuffer(buffer) : undefined);
   }
 
   /**
    * Returns a string key based on @param contractAddress and @param eventSelector.
    *
-   * The returned key is meant to be used when interacting with index #eventsByContractAndEventSelector.
+   * The returned key is meant to be used when interacting with the db.eventsByContractAndEventSelector index.
    */
-  #keyFor(contractAddress: AztecAddress, eventSelector: EventSelector): string {
+  #keyFor(contractAddress: AztecAddress, eventSelector: EventSelector): ContractAndSelectorKey {
     return `${contractAddress.toString()}_${eventSelector.toString()}`;
   }
 }
+
+/** A change set's staged data: the events it has stored, keyed by their siloed event commitment. */
+type PrivateEventStoreChangeSet = Map<EventId, StoredPrivateEvent>;
+
+type PrivateEventStoreDb = {
+  /** Actual private event log entries, keyed by siloedEventCommitment */
+  events: AztecAsyncMap<EventId, StoredEventBuffer>;
+
+  /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
+  eventsByContractAndEventSelector: AztecAsyncMultiMap<ContractAndSelectorKey, EventId>;
+
+  /** Multi-map from block number to siloedEventCommitment, for delete-on-prune. */
+  eventsByBlockNumber: AztecAsyncMultiMap<BlockNum, EventId>;
+};

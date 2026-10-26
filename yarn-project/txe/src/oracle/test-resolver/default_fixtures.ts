@@ -12,6 +12,7 @@ import {
   type CompositeMapping,
   DELIVERY_MODE,
   ETH_ADDRESS,
+  FACT_SCOPE,
   FIELD,
   FUNCTION_SELECTOR,
   LEAF_INDEX,
@@ -102,6 +103,14 @@ const COMPOSITE_IMPLS: CompositeImpl[] = [
       }),
     ),
   ]),
+  // A leaf rather than a combinator, but with one scenario per scope kind, as each serializes differently.
+  {
+    match: type => type === FACT_SCOPE,
+    scenarios: (_type, seed) => [
+      named({ type: 'account', account: testValueFor(AZTEC_ADDRESS, seed) }, 'account'),
+      named({ type: 'public' }, 'public'),
+    ],
+  },
   composite(isStructMapping, (type, seed) => [unnamed(structValue(type, seed))]),
   // A fixed-length array uses its real (signature) length, unlike the generic-length ARRAY which is pinned to
   // DEFAULT_ARRAY_LENGTH.

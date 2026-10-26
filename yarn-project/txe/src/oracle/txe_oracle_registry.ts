@@ -299,6 +299,7 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'secret', type: FIELD },
       { name: 'salt', type: FIELD },
       { name: 'deployer', type: AZTEC_ADDRESS },
+      { name: 'immutablesHash', type: FIELD },
     ],
     returnType: ARRAY(FIELD),
   }),

@@ -104,6 +104,9 @@ type CheckpointProposalResult = {
  * the Sequencer once the check for being the proposer for the slot has succeeded.
  */
 export class CheckpointProposalJob implements Traceable {
+  private votePreparation: Promise<unknown>[] = [];
+  private submission: Promise<unknown> = Promise.resolve();
+
   protected readonly log: Logger;
   private readonly checkpointEventLog: Logger;
 
@@ -169,6 +172,20 @@ export class CheckpointProposalJob implements Traceable {
     });
   }
 
+  /** Executes the job and tracks publisher cleanup through the end of background submission. */
+  public async execute(): Promise<Checkpoint | undefined> {
+    try {
+      return await this.executeCheckpoint();
+    } finally {
+      this.pendingRequests.trackRequest(this.finish(), () => this.interrupt());
+    }
+  }
+
+  private async finish(): Promise<void> {
+    using _publisher = this.publisher;
+    await Promise.allSettled([...this.votePreparation, this.submission]);
+  }
+
   /**
    * The wall-clock slot during which this job builds, i.e. the slot one before {@link targetSlot} under
    * proposer pipelining. Also the slot of the parent checkpoint this job builds on top of.
@@ -225,7 +242,7 @@ export class CheckpointProposalJob implements Traceable {
    * Returns the built checkpoint if successful, undefined otherwise.
    */
   @trackSpan('CheckpointProposalJob.execute')
-  public async execute(): Promise<Checkpoint | undefined> {
+  private async executeCheckpoint(): Promise<Checkpoint | undefined> {
     // Enqueue governance and slashing votes (returns promises that will be awaited later)
     // In fisherman mode, we simulate slashing but don't actually publish to L1
     // These are constant for the whole slot, so we only enqueue them once
@@ -240,6 +257,7 @@ export class CheckpointProposalJob implements Traceable {
       this.metrics,
       this.log,
     ).enqueueVotes();
+    this.votePreparation = votesPromises;
 
     // Build blocks, assemble checkpoint, and broadcast proposal (BLOCKING).
     // Returns after broadcast — attestation collection is deferred.
@@ -254,7 +272,7 @@ export class CheckpointProposalJob implements Traceable {
       // signature verification to fail silently inside Multicall3. Delay submission to the
       // start of `targetSlot` so the tx mines in the slot the vote was signed for.
       if (!this.config.fishermanMode) {
-        this.pendingRequests.trackRequest(this.publisher.sendRequestsAt(this.targetSlot), () => this.interrupt());
+        this.submission = this.publisher.sendRequestsAt(this.targetSlot);
       }
       return undefined;
     }
@@ -269,9 +287,7 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     // Background the attestation → signing → L1 pipeline so the work loop is unblocked
-    this.pendingRequests.trackRequest(this.waitForAttestationsAndEnqueueSubmissionAsync(broadcast, votesPromises), () =>
-      this.interrupt(),
-    );
+    this.submission = this.waitForAttestationsAndEnqueueSubmissionAsync(broadcast, votesPromises);
 
     // Return the built checkpoint immediately — the work loop is now unblocked
     return checkpoint;

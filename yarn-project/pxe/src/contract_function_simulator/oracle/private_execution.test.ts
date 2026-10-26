@@ -139,7 +139,7 @@ describe('Private Execution test suite', () => {
   let recipientIvskM: GrumpkinScalar;
   let senderForTagsIvskM: GrumpkinScalar;
 
-  const TEST_JOB_ID = 'test-job-id';
+  const TEST_CHANGE_SET_ID = 'test-change-set-id';
 
   const treeNameToId: { [name: string]: MerkleTreeId } = {
     noteHash: MerkleTreeId.NOTE_HASH_TREE,
@@ -213,7 +213,7 @@ describe('Private Execution test suite', () => {
       msgSender,
       anchorBlockHeader,
       senderForTags,
-      jobId: TEST_JOB_ID,
+      changeSetId: TEST_CHANGE_SET_ID,
       scopes: [owner, senderForTags],
     });
   };
@@ -307,13 +307,13 @@ describe('Private Execution test suite', () => {
     txResolver.resolveTxs.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, _anchorBlockHeader, _jobId, scopes) => {
+      async ({ contract, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, scopes }) => {
         for (const scope of scopes) {
           await syncScope(
-            contractAddress,
+            contract,
             contractStore,
             contractClassService,
-            _anchorBlockHeader,
+            anchorBlockHeader,
             functionToInvokeAfterSync,
             utilityExecutor,
             scope,
@@ -339,10 +339,11 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
-    // Constrained-delivery tag derivation calls `doesNullifierExist` (e.g. the handshake bootstrap), which reads the
-    // node's nullifier tree. Default to "not found" so the destructured result is iterable; tests that need a specific
-    // nullifier override this.
-    aztecNode.findLeavesIndexes.mockResolvedValue([]);
+    // Constrained-delivery tag derivation calls `getNullifierStatuses` (e.g. the handshake bootstrap), which reads the
+    // node's nullifier tree. Default to "not found"; tests that need a specific nullifier override this.
+    aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+      Promise.resolve(leaves.map(() => undefined)),
+    );
 
     // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
@@ -812,9 +813,9 @@ describe('Private Execution test suite', () => {
         aztecNode.getL1ToL2MessageMembershipWitness.mockImplementation(async () => {
           return Promise.resolve([0n, await fork.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n)]);
         });
-        aztecNode.findLeavesIndexes.mockImplementation(() => {
-          return Promise.resolve([]);
-        });
+        aztecNode.findLeavesIndexes.mockImplementation((_referenceBlock, _treeId, leaves) =>
+          Promise.resolve(leaves.map(() => undefined)),
+        );
       };
 
       it('Should be able to consume a dummy cross chain message', async () => {

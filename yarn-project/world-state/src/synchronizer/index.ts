@@ -1,3 +1,4 @@
 export * from './server_world_state_synchronizer.js';
 export * from './factory.js';
 export * from './errors.js';
+export * from './history.js';

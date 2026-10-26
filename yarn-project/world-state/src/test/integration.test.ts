@@ -1,4 +1,4 @@
-import { MockPrefilledArchiver } from '@aztec/archiver/test';
+import { MockArchiver, MockPrefilledArchiver } from '@aztec/archiver/test';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -237,6 +237,87 @@ describe('world-state integration', () => {
   });
 
   describe('finalized chain', () => {
+    it('retains complete checkpoints before and after a future pin is reached', async () => {
+      const source = new MultiBlockArchiver();
+      await source.setInitialHeader(db.getInitialHeader());
+      source.setGenesisArchiveRoot(new Fr(GENESIS_ARCHIVE_ROOT));
+      const fork = await db.fork(BlockNumber.ZERO);
+      for (let i = 0; i < 7; i++) {
+        const { checkpoint, messages } = await mockCheckpoint(CheckpointNumber(i + 1), fork, {
+          startBlockNumber: BlockNumber(3 * i + 1),
+          numBlocks: 3,
+        });
+        source.addCheckpoint(checkpoint, messages);
+      }
+      await fork.close();
+      synchronizer = new TestWorldStateSynchronizer(db, source, {
+        ...config,
+        worldStateCheckpointHistory: 2,
+        worldStatePruneBeforeCheckpoint: CheckpointNumber(3),
+      });
+      await synchronizer.start();
+
+      for (const [finalized, checkpoint, oldest] of [
+        [5, 2, 4],
+        [10, 4, 7],
+        [17, 6, 7],
+      ]) {
+        await synchronizer.handleBlockStreamEvent({
+          type: 'chain-finalized',
+          block: { number: BlockNumber(finalized), hash: '' },
+          checkpoint: { number: CheckpointNumber(checkpoint), hash: '' },
+        });
+        expect((await db.getStatusSummary()).oldestHistoricalBlock).toBe(oldest);
+        await expect(db.getSnapshot(BlockNumber(oldest - 1)).getTreeInfo(MerkleTreeId.ARCHIVE)).rejects.toThrow();
+        for (let number = oldest; number < oldest + 3; number++) {
+          const snapshot = await db.getSnapshot(BlockNumber(number)).getTreeInfo(MerkleTreeId.ARCHIVE);
+          expect(new Fr(snapshot.root)).toEqual((await source.getBlock({ number: BlockNumber(number) }))!.archive.root);
+        }
+      }
+
+      const nextFork = await db.fork(BlockNumber(21));
+      const next = await mockCheckpoint(CheckpointNumber(8), nextFork, {
+        startBlockNumber: BlockNumber(22),
+        numBlocks: 3,
+      });
+      await nextFork.close();
+      source.addCheckpoint(next.checkpoint, next.messages);
+      await synchronizer.syncImmediate(BlockNumber(24));
+      expect((await db.getStatusSummary()).unfinalizedBlockNumber).toBe(24);
+      expect((await db.getStatusSummary()).oldestHistoricalBlock).toBe(7);
+    });
+
+    it.each([128, 0])('accepts a restart with an increased history window of %i', async history => {
+      await archiver.createBlocks(20);
+      await synchronizer.start();
+      await synchronizer.stopBlockStream();
+      await db.setFinalized(BlockNumber(15));
+      await db.removeHistoricalBlocks(BlockNumber(10));
+
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, {
+        ...config,
+        worldStateCheckpointHistory: history,
+      });
+      await synchronizer.start();
+      await expectSynchedToBlock(20, 15);
+      expect((await db.getStatusSummary()).oldestHistoricalBlock).toBe(10);
+    });
+
+    it('rejects a restart that requests history already pruned from the database', async () => {
+      await archiver.createBlocks(20);
+      await synchronizer.start();
+      await synchronizer.stopBlockStream();
+      await db.setFinalized(BlockNumber(15));
+      await db.removeHistoricalBlocks(BlockNumber(10));
+
+      synchronizer = new TestWorldStateSynchronizer(db, archiver, {
+        ...config,
+        worldStatePruneBeforeCheckpoint: CheckpointNumber(5),
+      });
+      await expect(synchronizer.start()).rejects.toThrow('history is required from the start of checkpoint 5');
+      expect((await db.getStatusSummary()).oldestHistoricalBlock).toBe(10);
+    });
+
     it('syncs finalized chain tip', async () => {
       await archiver.createBlocks(5);
       archiver.setFinalizedBlockNumber(3);
@@ -295,5 +376,13 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   // Stops the block stream but not the db so we can reuse it for another synchronizer
   public async stopBlockStream() {
     await this.blockStream?.stop();
+  }
+}
+
+class MultiBlockArchiver extends MockArchiver {
+  public addCheckpoint(checkpoint: Checkpoint, messages: Fr[]) {
+    this.checkpointList.push(checkpoint);
+    this.setL1ToL2Messages(checkpoint.number, messages);
+    this.addProposedBlocks(checkpoint.blocks);
   }
 }

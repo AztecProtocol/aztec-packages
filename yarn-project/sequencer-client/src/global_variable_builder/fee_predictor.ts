@@ -12,8 +12,8 @@ import {
   computeManaMinFee,
 } from '@aztec/stdlib/gas';
 
-/** Cached rollup state for fee prediction. Refreshed once per L1 block. */
-type FeeOracleState = {
+/** Rollup state a set of fee predictions is computed from, read at a single L1 block. */
+export type FeeOracleState = {
   lastSlot: SlotNumber;
   excessMana: bigint;
   ethPerFeeAsset: bigint;
@@ -28,20 +28,15 @@ type FeeOracleState = {
 /**
  * Predicts min fees for LAG upcoming slots based on the L1 oracle state.
  * A new oracle update can activate at startSlot + LAG, so only the first LAG entries
- * are guaranteed stable. Caches L1 queries per L1 block and recomputes predictions
- * for each mana usage estimate.
+ * are guaranteed stable.
  */
 export class FeePredictor {
-  private cachedState: Promise<FeeOracleState> | undefined;
-  private cachedL1BlockNumber: bigint | undefined;
-
   private readonly slotDuration: number;
   private readonly l1GenesisTime: bigint;
   private readonly ethereumSlotDuration: number;
 
   constructor(
     private readonly rollupContract: RollupContract,
-    private readonly publicClient: { getBlockNumber: (opts?: { cacheTime?: number }) => Promise<bigint> },
     private readonly dateProvider: DateProvider,
     config: { slotDuration: number; l1GenesisTime: bigint; ethereumSlotDuration: number },
   ) {
@@ -50,33 +45,12 @@ export class FeePredictor {
     this.ethereumSlotDuration = config.ethereumSlotDuration;
   }
 
-  /** Returns predicted min fees for each slot in the prediction window. */
-  async getPredictedMinFees(manaUsage: ManaUsageEstimate): Promise<GasFees[]> {
-    const state = await this.getState();
-    return this.computePredictions(state, manaUsage);
-  }
-
-  /** Fetches and caches rollup state. Refreshes when L1 block number advances. */
-  private async getState(): Promise<FeeOracleState> {
-    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
-    if (this.cachedL1BlockNumber === undefined || blockNumber > this.cachedL1BlockNumber) {
-      this.cachedL1BlockNumber = blockNumber;
-      // Reset the cached block number on failure so a transient L1 RPC error does not leave a
-      // rejected promise cached for this block, which would replay the same rejection on every
-      // subsequent call until the next L1 block arrives. Only clear it if it still points at the
-      // block this attempt was for, so a stale rejection from an older block cannot wipe a marker
-      // a newer call already advanced (which would also defeat the monotonic block-number guard).
-      this.cachedState = this.fetchState(blockNumber).catch(err => {
-        if (this.cachedL1BlockNumber === blockNumber) {
-          this.cachedL1BlockNumber = undefined;
-        }
-        throw err;
-      });
-    }
-    return this.cachedState!;
-  }
-
-  private async fetchState(blockNumber: bigint): Promise<FeeOracleState> {
+  /**
+   * Reads the rollup state the predictions are derived from, pinned to the given L1 block. The state is
+   * returned rather than cached: its owner stores it alongside the L1 block it was read at, so a caller that
+   * asks for fees at a specific L1 block is answered from the state read at that block.
+   */
+  async computeState(blockNumber: bigint): Promise<FeeOracleState> {
     // Pin all non-constant queries to this L1 block number for a consistent snapshot.
     const opts = { blockNumber };
 
@@ -125,8 +99,8 @@ export class FeePredictor {
     };
   }
 
-  /** Computes per-slot fee predictions given cached state and a mana usage assumption. */
-  private computePredictions(state: FeeOracleState, manaUsage: ManaUsageEstimate): GasFees[] {
+  /** Computes per-slot fee predictions given rollup state and a mana usage assumption. */
+  computePredictions(state: FeeOracleState, manaUsage: ManaUsageEstimate): GasFees[] {
     const assumedManaUsed = this.getAssumedManaUsed(state, manaUsage);
 
     const result: GasFees[] = [];

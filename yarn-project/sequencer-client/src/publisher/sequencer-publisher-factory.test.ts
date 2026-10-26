@@ -41,6 +41,7 @@ describe('SequencerPublisherFactory', () => {
     mockNodeKeyStore = mock<NodeKeystoreAdapter>();
     mockL1TxUtils = mock<L1TxUtils>();
     mockRollupContract = mock<RollupContract>();
+    mockRollupContract.listenToSlasherChanged.mockReturnValue(() => {});
     mockGovernanceProposerContract = mock<GovernanceProposerContract>();
 
     mockL1TxUtils.getSenderAddress.mockReturnValue(publisherAddress);

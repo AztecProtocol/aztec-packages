@@ -10,9 +10,7 @@ import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { CachingAztecNode } from '../node/caching_aztec_node.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
-import type { FactStore } from '../storage/fact_store/fact_store.js';
-import type { NoteStore } from '../storage/note_store/index.js';
-import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
+import type { Rollbackable } from '../storage/rollbackable.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
 
 /**
@@ -30,9 +28,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private readonly node: CachingAztecNode,
     private readonly store: AztecAsyncKVStore,
     private readonly anchorBlockStore: AnchorBlockStore,
-    private readonly noteStore: NoteStore,
-    private readonly privateEventStore: PrivateEventStore,
-    private readonly factStore: FactStore,
+    private readonly rollbackables: Rollbackable[],
     private readonly l2TipsStore: L2TipsKVStore,
     private readonly contractSyncService: ContractSyncService,
     private readonly config: Partial<BlockSynchronizerConfig> = {},
@@ -138,9 +134,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
         // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          await this.noteStore.rollback(event.block.number);
-          await this.privateEventStore.rollback(event.block.number);
-          await this.factStore.rollback(event.block.number);
+          for (const rollbackable of this.rollbackables) {
+            await rollbackable.rollbackToBlock(event.block.number);
+          }
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;

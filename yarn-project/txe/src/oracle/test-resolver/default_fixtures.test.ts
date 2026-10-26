@@ -1,7 +1,9 @@
 /* eslint-disable camelcase */
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BOUNDED_VEC,
   type BoundedVec,
+  FACT_SCOPE,
   FIELD,
   OPTION,
   type Option,
@@ -66,5 +68,20 @@ describe('synthesizeDefaultFixtures', () => {
     expect((scenarios[0].output as Option<unknown>).isSome()).toBe(true);
     expect((scenarios[1].inputs.p as Option<unknown>).isSome()).toBe(false);
     expect((scenarios[1].output as Option<unknown>).isSome()).toBe(false);
+  });
+
+  it('synthesizes a fact scope param as two cases named account/public', () => {
+    const registry: Record<string, OracleRegistryEntry> = {
+      delete_collection: makeEntry({
+        params: [{ name: 'scope', type: FACT_SCOPE }],
+      }),
+    };
+
+    const scenarios = synthesizeDefaultFixtures(registry)['delete_collection'];
+    expect(scenarios.map(s => s.scenario)).toEqual(['account', 'public']);
+    expect(scenarios.map(s => s.inputs.scope)).toEqual([
+      { type: 'account', account: AztecAddress.fromNumberUnsafe(10) },
+      { type: 'public' },
+    ]);
   });
 });

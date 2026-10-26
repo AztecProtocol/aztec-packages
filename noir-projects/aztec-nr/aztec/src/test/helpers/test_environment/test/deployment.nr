@@ -1,4 +1,7 @@
-use crate::test::helpers::test_environment::{DeployOptions, TestEnvironment};
+use crate::{
+    oracle::get_contract_instance::get_contract_instance,
+    test::helpers::test_environment::{DeployOptions, TestEnvironment},
+};
 
 #[test]
 unconstrained fn deploy_does_not_repeat_addresses() {
@@ -51,6 +54,39 @@ unconstrained fn deploy_with_same_secret_does_not_repeat_addresses() {
         .without_initializer();
     let second_contract = env
         .deploy_opts(DeployOptions::new().with_salt(43).with_secret(100), "../noir-contracts/@test_contract/Test")
+        .without_initializer();
+
+    assert(first_contract != second_contract);
+}
+
+#[test]
+unconstrained fn deploy_with_immutables_hash_sets_instance_immutables_hash() {
+    let mut env = TestEnvironment::new();
+
+    let contract_address = env
+        .deploy_opts(DeployOptions::new().with_immutables_hash(42), "../noir-contracts/@test_contract/Test")
+        .without_initializer();
+
+    env.utility_context_at(contract_address, |_| {
+        assert_eq(get_contract_instance(contract_address).immutables_hash, 42);
+    });
+}
+
+#[test]
+unconstrained fn deploy_with_different_immutables_hash_does_not_repeat_addresses() {
+    let mut env = TestEnvironment::new();
+
+    let first_contract = env
+        .deploy_opts(
+            DeployOptions::new().with_salt(42).with_secret(100).with_immutables_hash(1),
+            "../noir-contracts/@test_contract/Test",
+        )
+        .without_initializer();
+    let second_contract = env
+        .deploy_opts(
+            DeployOptions::new().with_salt(42).with_secret(100).with_immutables_hash(2),
+            "../noir-contracts/@test_contract/Test",
+        )
         .without_initializer();
 
     assert(first_contract != second_contract);

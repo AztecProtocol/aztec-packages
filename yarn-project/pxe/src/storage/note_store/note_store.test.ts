@@ -5,7 +5,9 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import { NoteStore } from './note_store.js';
+import { readNotes } from './test_utils.js';
 
 // -----------------------------------------------------------------------------
 // Shared constants for deterministic fixtures
@@ -41,6 +43,7 @@ describe('NoteStore', () => {
   async function setupNoteStoreWithNotes(storeName: string) {
     const store = await openTmpStore(storeName);
     const noteStore = new NoteStore(store);
+    noteStore.beginChangeSet('before-each-test-change-set');
 
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
@@ -58,9 +61,12 @@ describe('NoteStore', () => {
       siloedNullifier: SILOED_NULLIFIER_3,
     });
 
-    await noteStore.addNotes([note1, note2], SCOPE_1, 'before-each-test-job');
-    await noteStore.addNotes([note3], SCOPE_2, 'before-each-test-job');
-    await noteStore.commit('before-each-test-job');
+    await noteStore.addNotes([note1, note2], SCOPE_1, 'before-each-test-change-set');
+    await noteStore.addNotes([note3], SCOPE_2, 'before-each-test-change-set');
+    await noteStore.commitChangeSet('before-each-test-change-set');
+
+    // Leave a change set open for the tests to operate under: every store operation requires one.
+    noteStore.beginChangeSet('test');
 
     return { store, noteStore, note1, note2, note3 };
   }
@@ -80,17 +86,21 @@ describe('NoteStore', () => {
   }
 
   /**
-   * Runs the same function sequentially in the given list of jobId's.
-   * Handy to assert that state is consistent pre and post commit.
+   * Runs the same function sequentially in the given list of changeSetId's, committing each change set after its run.
+   * The first change set must already be open. Each subsequent one is opened fresh. Handy to assert that state is
+   * consistent pre and post commit.
    */
-  async function verifyAndCommitForEachJob(
-    jobIds: string[],
+  async function verifyAndCommitForEachChangeSet(
+    changeSetIds: ChangeSetId[],
     noteStore: NoteStore,
-    fn: (jobId: string) => Promise<void>,
+    fn: (changeSetId: ChangeSetId) => Promise<void>,
   ) {
-    for (const jobId of jobIds) {
-      await fn(jobId);
-      await noteStore.commit(jobId);
+    for (const [i, changeSetId] of changeSetIds.entries()) {
+      if (i > 0) {
+        noteStore.beginChangeSet(changeSetId);
+      }
+      await fn(changeSetId);
+      await noteStore.commitChangeSet(changeSetId);
     }
   }
 
@@ -99,12 +109,20 @@ describe('NoteStore', () => {
     it('creates a NoteStore on an empty store and confirms getNotes returns an empty array', async () => {
       const store = await openTmpStore('note_store_fresh_store');
       const noteStore = new NoteStore(store);
+      noteStore.beginChangeSet('pre-commit');
 
-      await verifyAndCommitForEachJob(['pre-commit', 'post-commit'], noteStore, async (jobId: string) => {
-        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, jobId);
-        expect(Array.isArray(notes)).toBe(true);
-        expect(notes).toHaveLength(0);
-      });
+      await verifyAndCommitForEachChangeSet(
+        ['pre-commit', 'post-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const notes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(Array.isArray(notes)).toBe(true);
+          expect(notes).toHaveLength(0);
+        },
+      );
 
       await store.close();
     });
@@ -115,22 +133,34 @@ describe('NoteStore', () => {
       // First note store populates the persistent store; second reopens it to verify persistence
       {
         const noteStore1 = new NoteStore(store);
+        noteStore1.beginChangeSet('first-store');
 
         const noteA = await mkNote({ contractAddress: CONTRACT_A, siloedNullifier: SILOED_NULLIFIER_1 });
         const noteB = await mkNote({ contractAddress: CONTRACT_B, siloedNullifier: SILOED_NULLIFIER_2 });
         await noteStore1.addNotes([noteA, noteB], FAKE_ADDRESS, 'first-store');
-        await noteStore1.commit('first-store');
+        await noteStore1.commitChangeSet('first-store');
       }
 
       const noteStore2 = new NoteStore(store);
+      noteStore2.beginChangeSet('second-store');
 
-      await verifyAndCommitForEachJob(['second-store', 'fresh-job'], noteStore2, async (jobId: string) => {
-        const notesA = await noteStore2.getNotes({ contractAddress: CONTRACT_A, scopes: [FAKE_ADDRESS] }, jobId);
-        const notesB = await noteStore2.getNotes({ contractAddress: CONTRACT_B, scopes: [FAKE_ADDRESS] }, jobId);
+      await verifyAndCommitForEachChangeSet(
+        ['second-store', 'fresh-change-set'],
+        noteStore2,
+        async (changeSetId: ChangeSetId) => {
+          const notesA = await noteStore2.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [FAKE_ADDRESS] },
+            changeSetId,
+          );
+          const notesB = await noteStore2.getNotes(
+            { contractAddress: CONTRACT_B, scopes: [FAKE_ADDRESS] },
+            changeSetId,
+          );
 
-        expect(nullifierSet(notesA)).toEqual(nullifierSet([SILOED_NULLIFIER_1]));
-        expect(nullifierSet(notesB)).toEqual(nullifierSet([SILOED_NULLIFIER_2]));
-      });
+          expect(nullifierSet(notesA)).toEqual(nullifierSet([SILOED_NULLIFIER_1]));
+          expect(nullifierSet(notesB)).toEqual(nullifierSet([SILOED_NULLIFIER_2]));
+        },
+      );
 
       await store.close();
     });
@@ -443,27 +473,31 @@ describe('NoteStore', () => {
       await noteStore.applyNullifiers(nullifiers, 'test');
 
       // Verify nullified note remains visible only within its original scope
-      await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const wrongScopeNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            scopes: [SCOPE_2],
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-          },
-          jobId,
-        );
-        expect(nullifierSet(wrongScopeNotes)).not.toContain(note1.siloedNullifier.toBigInt());
+      await verifyAndCommitForEachChangeSet(
+        ['test', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const wrongScopeNotes = await noteStore.getNotes(
+            {
+              contractAddress: CONTRACT_A,
+              scopes: [SCOPE_2],
+              status: NoteStatus.ACTIVE_OR_NULLIFIED,
+            },
+            changeSetId,
+          );
+          expect(nullifierSet(wrongScopeNotes)).not.toContain(note1.siloedNullifier.toBigInt());
 
-        const correctScopeNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            scopes: [SCOPE_1],
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-          },
-          jobId,
-        );
-        expect(nullifierSet(correctScopeNotes)).toContain(note1.siloedNullifier.toBigInt());
-      });
+          const correctScopeNotes = await noteStore.getNotes(
+            {
+              contractAddress: CONTRACT_A,
+              scopes: [SCOPE_1],
+              status: NoteStatus.ACTIVE_OR_NULLIFIED,
+            },
+            changeSetId,
+          );
+          expect(nullifierSet(correctScopeNotes)).toContain(note1.siloedNullifier.toBigInt());
+        },
+      );
     });
 
     it('is atomic — a batch containing an unknown nullifier aborts without recording any emission', async () => {
@@ -481,14 +515,18 @@ describe('NoteStore', () => {
       );
 
       // The known nullifier (note2) must NOT have been recorded: the throw happens before any emission is staged, so
-      // both notes stay active across the staged job and after committing it.
-      await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1, note2]));
-      });
+      // both notes stay active across the change set and after committing it.
+      await verifyAndCommitForEachChangeSet(
+        ['test', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const activeNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1, note2]));
+        },
+      );
     });
 
     // This test ensures applyNullifiers is idempotent: the same nullifier can be applied multiple times
@@ -496,7 +534,8 @@ describe('NoteStore', () => {
     // run concurrently in a Promise.all context without risking unnecessarily defensive checks failing.
     it('applying nullifier a second time is a no-op and returns no transitioned notes', async () => {
       await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
-      await noteStore.commit('test');
+      await noteStore.commitChangeSet('test');
+      noteStore.beginChangeSet('test');
 
       // Second application is idempotent: the emission is already recorded, so no note transitions to nullified. The
       // result is empty (only notes that flip active -> nullified in this call are returned) and visibility is
@@ -504,16 +543,20 @@ describe('NoteStore', () => {
       const result = await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
       expect(result).toEqual([]);
 
-      await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note2]));
-      });
+      await verifyAndCommitForEachChangeSet(
+        ['test', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const activeNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note2]));
+        },
+      );
     });
 
-    it('can nullify a freshly added note in the same job without committing first', async () => {
+    it('can nullify a freshly added note in the same change set without committing first', async () => {
       // This test simulates the validateAndStoreNote flow where a note is added and immediately nullified
       // without committing first (when the note is discovered to already be nullified on chain)
       const freshNullifier = Fr.random();
@@ -524,26 +567,30 @@ describe('NoteStore', () => {
       });
 
       // Add note to stage without committing
-      await noteStore.addNotes([freshNote], SCOPE_1, 'fresh-job');
+      await noteStore.addNotes([freshNote], SCOPE_1, 'test');
 
-      // Immediately nullify it in the same job (simulating validateAndStoreNote when nullifier exists on chain)
+      // Immediately nullify it in the same change set (simulating validateAndStoreNote when nullifier exists on chain)
       const nullifiers = [mkNullifier(freshNote)];
-      await expect(noteStore.applyNullifiers(nullifiers, 'fresh-job')).resolves.toEqual([freshNote]);
+      await expect(noteStore.applyNullifiers(nullifiers, 'test')).resolves.toEqual([freshNote]);
 
       // Verify note is now in nullified state
-      await verifyAndCommitForEachJob(['fresh-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(activeNotes)).not.toContain(freshNullifier.toBigInt());
+      await verifyAndCommitForEachChangeSet(
+        ['test', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const activeNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(activeNotes)).not.toContain(freshNullifier.toBigInt());
 
-        const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(allNotes)).toContain(freshNullifier.toBigInt());
-      });
+          const allNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(allNotes)).toContain(freshNullifier.toBigInt());
+        },
+      );
     });
 
     it('can handle concurrent note additions and nullifications (simulating Promise.all in validateAndStoreNote)', async () => {
@@ -557,58 +604,71 @@ describe('NoteStore', () => {
         ),
       );
 
-      // Simulate concurrent validateAndStoreNote calls where each note is added and immediately nullified
+      // Simulate concurrent validateAndStoreNote calls where each note is added and immediately nullified. Only one
+      // change set can be open at a time, so the setup one is closed first; discarding it throws nothing away, since
+      // setup already committed.
+      noteStore.discardChangeSet('test');
+      noteStore.beginChangeSet('concurrent-change-set');
       const concurrentStoreNoteCalls = notes.map(async note => {
-        await noteStore.addNotes([note], SCOPE_1, 'concurrent-job');
+        await noteStore.addNotes([note], SCOPE_1, 'concurrent-change-set');
         const nullifiers = [mkNullifier(note)];
-        await noteStore.applyNullifiers(nullifiers, 'concurrent-job');
+        await noteStore.applyNullifiers(nullifiers, 'concurrent-change-set');
         return note;
       });
 
       await expect(Promise.all(concurrentStoreNoteCalls)).resolves.toEqual(notes);
 
       // Verify all notes are nullified
-      await verifyAndCommitForEachJob(['concurrent-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        const activeNullifiers = nullifierSet(activeNotes);
-        for (const nullifier of noteNullifiers) {
-          expect(activeNullifiers).not.toContain(nullifier.toBigInt());
-        }
+      await verifyAndCommitForEachChangeSet(
+        ['concurrent-change-set', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const activeNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          const activeNullifiers = nullifierSet(activeNotes);
+          for (const nullifier of noteNullifiers) {
+            expect(activeNullifiers).not.toContain(nullifier.toBigInt());
+          }
 
-        const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([note1, note2, ...noteNullifiers]));
-      });
+          const allNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(allNotes)).toEqual(nullifierSet([note1, note2, ...noteNullifiers]));
+        },
+      );
     });
 
-    it('handles nullification of a persisted note in a new job', async () => {
-      // Scenario: A note was persisted in the DB during a previous job, and we want to nullify it in a new job.
-      // This is the syncNoteNullifiers flow where existing notes are checked for nullification.
+    it('handles nullification of a persisted note in a new change set', async () => {
+      // Scenario: A note was persisted in the DB during a previous change set, and we want to nullify it in a new
+      // change set. This is the syncNoteNullifiers flow where existing notes are checked for nullification.
 
-      // note1 is from setup and committed  (i.e.: it's persisted)
-      // We should be able to nullify it in a new job
+      // note1 is from setup and committed (i.e.: it's persisted) We should be able to nullify it in a new change set
       const nullifiers = [mkNullifier(note1)];
-      await expect(noteStore.applyNullifiers(nullifiers, 'new-job')).resolves.toEqual([note1]);
+      noteStore.discardChangeSet('test');
+      noteStore.beginChangeSet('new-change-set');
+      await expect(noteStore.applyNullifiers(nullifiers, 'new-change-set')).resolves.toEqual([note1]);
 
       // Verify the note is in nullified state
-      await verifyAndCommitForEachJob(['new-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(activeNotes)).not.toContain(note1.siloedNullifier.toBigInt());
+      await verifyAndCommitForEachChangeSet(
+        ['new-change-set', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const activeNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(activeNotes)).not.toContain(note1.siloedNullifier.toBigInt());
 
-        const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(allNotes)).toContain(note1.siloedNullifier.toBigInt());
-      });
+          const allNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(allNotes)).toContain(note1.siloedNullifier.toBigInt());
+        },
+      );
     });
 
     it('handles duplicate note storage requests gracefully (same note added and nullified twice)', async () => {
@@ -622,15 +682,15 @@ describe('NoteStore', () => {
       });
 
       // First attempt to store: add and nullify the note
-      await noteStore.addNotes([duplicateNote], SCOPE_1, 'duplicate-job');
-      await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
+      await noteStore.addNotes([duplicateNote], SCOPE_1, 'test');
+      await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'test');
 
       // Second attempt to store (duplicate): try to add the same note again - should not throw
       // This simulates what happens in concurrent validateAndStoreNote calls when the same note is processed twice
-      await noteStore.addNotes([duplicateNote], SCOPE_2, 'duplicate-job');
+      await noteStore.addNotes([duplicateNote], SCOPE_2, 'test');
       const notesAfterSecondAttempt = await noteStore.getNotes(
         { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE, scopes: [SCOPE_1, SCOPE_2] },
-        'duplicate-job',
+        'test',
       );
 
       // Check that the second attempt at calling validateAndStoreNote didn't accidentally overwrite the first one
@@ -639,29 +699,34 @@ describe('NoteStore', () => {
 
       // The second applyNullifiers is a no-op: the emission is already staged, so nothing transitions to nullified and
       // visibility is unchanged.
-      const secondApply = await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
+      const secondApply = await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'test');
       expect(secondApply).toEqual([]);
 
       // Verify the note is nullified and has both scopes
-      await verifyAndCommitForEachJob(['duplicate-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
-          jobId,
-        );
-        expect(nullifierSet(allNotes)).toContain(duplicateNullifier.toBigInt());
-      });
+      await verifyAndCommitForEachChangeSet(
+        ['test', 'after-change-set-commit'],
+        noteStore,
+        async (changeSetId: ChangeSetId) => {
+          const allNotes = await noteStore.getNotes(
+            { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: [SCOPE_1, SCOPE_2] },
+            changeSetId,
+          );
+          expect(nullifierSet(allNotes)).toContain(duplicateNullifier.toBigInt());
+        },
+      );
     });
   });
 
-  describe('commit, staging, and discard', () => {
+  describe('commit, change set, and discard', () => {
     let store: AztecLMDBStoreV2;
     let noteStore: NoteStore;
-    const JOB = 'note-store-test-job';
+    const CHANGE_SET = 'note-store-test-change-set';
     const activeFilter = { contractAddress: CONTRACT_A, scopes: [SCOPE_1], status: NoteStatus.ACTIVE };
 
     beforeEach(async () => {
       store = await openTmpStore('note_store_visibility');
       noteStore = new NoteStore(store);
+      noteStore.beginChangeSet(CHANGE_SET);
     });
 
     afterEach(async () => {
@@ -670,91 +735,66 @@ describe('NoteStore', () => {
 
     it('shows a note as soon as it is committed', async () => {
       const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
-      await noteStore.addNotes([note], SCOPE_1, JOB);
-      await noteStore.commit(JOB);
+      await noteStore.addNotes([note], SCOPE_1, CHANGE_SET);
+      await noteStore.commitChangeSet(CHANGE_SET);
+      noteStore.beginChangeSet('read-change-set');
 
-      const found = await noteStore.getNotes(activeFilter, 'read-job');
+      const found = await noteStore.getNotes(activeFilter, 'read-change-set');
       expect(found).toHaveLength(1);
       expect(found[0].siloedNullifier.equals(note.siloedNullifier)).toBe(true);
     });
 
     it('marks a note nullified once a nullification origin is recorded for it', async () => {
       const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
-      await noteStore.addNotes([note], SCOPE_1, JOB);
+      await noteStore.addNotes([note], SCOPE_1, CHANGE_SET);
 
       await noteStore.applyNullifiers(
         [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
-        JOB,
+        CHANGE_SET,
       );
-      await noteStore.commit(JOB);
+      await noteStore.commitChangeSet(CHANGE_SET);
+      noteStore.beginChangeSet('read-change-set');
 
-      expect(await noteStore.getNotes(activeFilter, 'read-job')).toHaveLength(0);
+      expect(await noteStore.getNotes(activeFilter, 'read-change-set')).toHaveLength(0);
       expect(
-        await noteStore.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-job'),
+        await noteStore.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-change-set'),
       ).toHaveLength(1);
     });
 
-    it('layers staged writes over committed state within a job', async () => {
+    it('layers staged writes over committed state within a change set', async () => {
       const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
-      await noteStore.addNotes([note], SCOPE_1, JOB);
-      expect(await noteStore.getNotes(activeFilter, JOB)).toHaveLength(1);
-      expect(await noteStore.getNotes(activeFilter, 'other-job')).toHaveLength(0);
+      await noteStore.addNotes([note], SCOPE_1, CHANGE_SET);
+      expect(await noteStore.getNotes(activeFilter, CHANGE_SET)).toHaveLength(1);
+
+      // The staged note was never committed: once the change set ends, the next one does not see it.
+      noteStore.discardChangeSet(CHANGE_SET);
+      noteStore.beginChangeSet('other-change-set');
+      expect(await noteStore.getNotes(activeFilter, 'other-change-set')).toHaveLength(0);
     });
 
-    it('discardStaged drops staged notes and nullifications', async () => {
+    it('discardChangeSet drops staged notes and nullifications', async () => {
       const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
 
-      await noteStore.addNotes([note], SCOPE_1, JOB);
+      await noteStore.addNotes([note], SCOPE_1, CHANGE_SET);
       await noteStore.applyNullifiers(
         [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
-        JOB,
+        CHANGE_SET,
       );
 
-      await noteStore.discardStaged(JOB);
+      noteStore.discardChangeSet(CHANGE_SET);
+      noteStore.beginChangeSet('fresh-change-set');
 
-      // A fresh job sees nothing committed — both the note and the nullification were discarded.
-      expect(await noteStore.getNotes(activeFilter, 'fresh-job')).toHaveLength(0);
+      // A fresh change set sees nothing committed — both the note and the nullification were discarded.
+      expect(await noteStore.getNotes(activeFilter, 'fresh-change-set')).toHaveLength(0);
       expect(
-        await noteStore.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'fresh-job'),
+        await noteStore.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'fresh-change-set'),
       ).toHaveLength(0);
-    });
-  });
-
-  describe('nullifiersOfNotesAtBlock', () => {
-    let store: AztecLMDBStoreV2;
-    let noteStore: NoteStore;
-    const JOB = 'note-store-test-job';
-
-    beforeEach(async () => {
-      store = await openTmpStore('note_store_block_index');
-      noteStore = new NoteStore(store);
-    });
-
-    afterEach(async () => {
-      await store.close();
-    });
-
-    it('indexes note nullifiers by creation block number', async () => {
-      const note = await mkNote({ l2BlockNumber: BlockNumber(9) });
-      await noteStore.addNotes([note], SCOPE_1, JOB);
-      await noteStore.commit(JOB);
-      const nullifiers = await noteStore.nullifiersOfNotesAtBlock(9);
-      expect(nullifiers).toEqual([note.siloedNullifier.toString()]);
-    });
-
-    it('indexes multiple notes created at the same block', async () => {
-      const a = await mkNote({ l2BlockNumber: BlockNumber(9) });
-      const b = await mkNote({ l2BlockNumber: BlockNumber(9) });
-      await noteStore.addNotes([a, b], SCOPE_1, JOB);
-      await noteStore.commit(JOB);
-      const nullifiers = await noteStore.nullifiersOfNotesAtBlock(9);
-      expect(new Set(nullifiers)).toEqual(new Set([a.siloedNullifier.toString(), b.siloedNullifier.toString()]));
     });
   });
 });
 
-describe('NoteStore.rollback', () => {
-  const JOB = 'note-store-test-job';
+describe('NoteStore.rollbackToBlock', () => {
+  const CHANGE_SET = 'note-store-test-change-set';
   const scope = AztecAddress.fromBigIntUnsafe(1n);
   const contract = AztecAddress.fromBigIntUnsafe(100n);
 
@@ -767,6 +807,7 @@ describe('NoteStore.rollback', () => {
   beforeEach(async () => {
     kv = await openTmpStore('note-store-reorg-test');
     store = new NoteStore(kv);
+    store.beginChangeSet(CHANGE_SET);
   });
 
   it('deletes notes and nullifier emissions above the target block, leaving lower blocks intact', async () => {
@@ -782,25 +823,22 @@ describe('NoteStore.rollback', () => {
       l2BlockNumber: BlockNumber(10),
       l2BlockHash: FIXED_BLOCK_HASH,
     });
-    await store.addNotes([noteA, noteB], scope, JOB);
+    await store.addNotes([noteA, noteB], scope, CHANGE_SET);
     // Nullify B at block 11 (also above the target).
     const nullBlockHash = BlockHash.fromString(Fr.fromString('0x0b').toString());
     await store.applyNullifiers(
       [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
-      JOB,
+      CHANGE_SET,
     );
-    await store.commit(JOB);
+    await store.commitChangeSet(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(9));
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
 
-    // Only note A survives.
-    expect(await store.nullifiersOfNotesAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
-    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
-    expect(await store.nullifiersOfNotesAtBlock(11)).toHaveLength(0);
-
-    const found = await store.getNotes(activeFilter, 'read-job');
-    expect(found).toHaveLength(1);
-    expect(found[0].siloedNullifier.equals(noteA.siloedNullifier)).toBe(true);
+    // Only note A survives, and it reads back active: B is gone rather than nullified.
+    const remaining = await notesInStore(NoteStatus.ACTIVE_OR_NULLIFIED);
+    expect(remaining.map(note => note.l2BlockNumber)).toEqual([9]);
+    expect(remaining[0].siloedNullifier.equals(noteA.siloedNullifier)).toBe(true);
+    expect(await notesInStore(NoteStatus.ACTIVE)).toHaveLength(1);
   });
 
   it('sweeps every block above the target, including non-contiguous ones', async () => {
@@ -816,14 +854,12 @@ describe('NoteStore.rollback', () => {
       l2BlockNumber: BlockNumber(50),
       l2BlockHash: FIXED_BLOCK_HASH,
     });
-    await store.addNotes([noteLow, noteHigh], scope, JOB);
-    await store.commit(JOB);
+    await store.addNotes([noteLow, noteHigh], scope, CHANGE_SET);
+    await store.commitChangeSet(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(9));
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
 
-    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
-    expect(await store.nullifiersOfNotesAtBlock(50)).toHaveLength(0);
-    expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
+    expect(await notesInStore(NoteStatus.ACTIVE_OR_NULLIFIED)).toHaveLength(0);
   });
 
   it('restores notes that were nullified after the rollback block', async () => {
@@ -834,23 +870,25 @@ describe('NoteStore.rollback', () => {
       l2BlockNumber: BlockNumber(10),
       l2BlockHash: FIXED_BLOCK_HASH,
     });
-    await store.addNotes([noteB], scope, JOB);
+    await store.addNotes([noteB], scope, CHANGE_SET);
     const nullBlockHash = BlockHash.fromString(Fr.fromString('0x14').toString());
     await store.applyNullifiers(
       [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(20), l2BlockHash: nullBlockHash }],
-      JOB,
+      CHANGE_SET,
     );
-    await store.commit(JOB);
+    await store.commitChangeSet(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(16));
+    await kv.transactionAsync(() => store.rollbackToBlock(16));
 
-    // The creation row at block 10 is untouched.
-    expect(await store.nullifiersOfNotesAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
-
-    // The note should read back ACTIVE again (nullification row gone).
-    const found = await store.getNotes(activeFilter, 'read-job');
+    // The note reads back ACTIVE again (nullification row gone).
+    const found = await notesInStore(NoteStatus.ACTIVE);
     expect(found).toHaveLength(1);
     expect(found[0].siloedNullifier.equals(noteB.siloedNullifier)).toBe(true);
+
+    // Its creation at block 10 came through the sweep intact: rolling back below that block deletes the note, which
+    // only happens while the store still indexes it there.
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
+    expect(await notesInStore(NoteStatus.ACTIVE_OR_NULLIFIED)).toHaveLength(0);
   });
 
   it('is idempotent — re-running an already-applied rollback is a no-op', async () => {
@@ -859,37 +897,35 @@ describe('NoteStore.rollback', () => {
       l2BlockNumber: BlockNumber(10),
       l2BlockHash: FIXED_BLOCK_HASH,
     });
-    await store.addNotes([noteB], scope, JOB);
-    await store.commit(JOB);
+    await store.addNotes([noteB], scope, CHANGE_SET);
+    await store.commitChangeSet(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(9));
-    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
+    expect(await notesInStore(NoteStatus.ACTIVE_OR_NULLIFIED)).toHaveLength(0);
 
     // Second run hits the missing-row guard: no throw, state unchanged.
-    await kv.transactionAsync(() => store.rollback(9));
-    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
+    expect(await notesInStore(NoteStatus.ACTIVE_OR_NULLIFIED)).toHaveLength(0);
   });
 
-  it('throws when rollback is called while jobs are running', async () => {
-    // Stage a note under a job but never commit it, so the store still holds in-flight job data. Rolling back now
-    // could later let the job commit notes anchored to blocks the rollback just deleted.
-    const staged = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(10),
-      l2BlockHash: FIXED_BLOCK_HASH,
-    });
-    await store.addNotes([staged], scope, 'uncommitted-job');
-
-    await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
-      'PXE note store rollback is not allowed while jobs are running',
+  it('throws when rollback is called while a change set is open', async () => {
+    // The change set opened in beforeEach has not ended, so it may still stage notes derived from pre-rollback reads
+    // and commit them anchored to blocks the rollback just deleted.
+    await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).rejects.toThrow(
+      `Store "note": cannot roll back while change set "${CHANGE_SET}" is open`,
     );
 
-    await store.discardStaged('uncommitted-job');
+    store.discardChangeSet(CHANGE_SET);
 
-    await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+    await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).resolves.not.toThrow();
   });
 
   afterEach(async () => {
     await kv.close();
   });
+
+  /** Every note the store holds for the test's contract and scope, at the given status. */
+  function notesInStore(status: NoteStatus): Promise<NoteDao[]> {
+    return readNotes(store, { ...activeFilter, status });
+  }
 });

@@ -462,7 +462,7 @@ describe('single-node/sync/synching', () => {
     const slashingProposerContract = await rollupContract.getSlashingProposer();
     const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
-    const publisher = new SequencerPublisher(
+    using publisher = new SequencerPublisher(
       {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,

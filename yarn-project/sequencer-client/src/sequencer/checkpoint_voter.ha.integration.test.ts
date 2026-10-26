@@ -179,7 +179,7 @@ describe('CheckpointVoter HA Integration', () => {
     // Set up mocks using helper functions
     rollupContract = mock<RollupContract>();
     Object.defineProperty(rollupContract, 'address', { value: EthAddress.random().toString(), writable: false });
-    rollupContract.listenToSlasherChanged.mockReturnValue(undefined as any);
+    rollupContract.listenToSlasherChanged.mockReturnValue(() => {});
     rollupContract.getSlashingProposer.mockResolvedValue(undefined);
 
     governanceProposerContract = createMockGovernanceContract();

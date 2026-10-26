@@ -2,8 +2,10 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { assertAllowedScope } from '../allowed_scopes.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
+import type { FactScope } from './fact_scope.js';
 import type { FactStore } from './fact_store.js';
-import type { FactCollectionKey, FactCollectionTypeKey, OriginBlock } from './fact_store_keys.js';
+import type { BlockReference, FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
 import {
   type FactCollectionWithOriginState,
   type FactWithOriginState,
@@ -16,7 +18,7 @@ import type { Fact } from './stored_fact.js';
  * Wraps a {@link FactStore} with scope-based access control.
  *
  * Each method asserts scope validity before delegating to FactStore, gating which accounts a contract may record facts
- * under or read facts from.
+ * under or read facts from. The public scope belongs to no account, so it is always allowed.
  */
 export class FactService {
   constructor(
@@ -28,25 +30,25 @@ export class FactService {
     factCollectionKey: FactCollectionKey,
     factTypeId: Fr,
     payload: Fr[],
-    originBlock: OriginBlock | undefined,
-    jobId: string,
+    originBlock: BlockReference | undefined,
+    changeSetId: ChangeSetId,
   ): Promise<void> {
-    assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
-    return this.factStore.recordFact(factCollectionKey, factTypeId, payload, originBlock, jobId);
+    this.#assertAllowedFactScope(factCollectionKey.scope);
+    return this.factStore.recordFact(factCollectionKey, factTypeId, payload, originBlock, changeSetId);
   }
 
-  deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<void> {
-    assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
-    return this.factStore.deleteFactCollection(factCollectionKey, jobId);
+  deleteFactCollection(factCollectionKey: FactCollectionKey, changeSetId: ChangeSetId): Promise<void> {
+    this.#assertAllowedFactScope(factCollectionKey.scope);
+    return this.factStore.deleteFactCollection(factCollectionKey, changeSetId);
   }
 
   async getFactCollection(
     factCollectionKey: FactCollectionKey,
     tips: TipBlockNumbers,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<FactCollectionWithOriginState | undefined> {
-    assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
-    const collection = await this.factStore.getFactCollection(factCollectionKey, jobId);
+    this.#assertAllowedFactScope(factCollectionKey.scope);
+    const collection = await this.factStore.getFactCollection(factCollectionKey, changeSetId);
     if (!collection) {
       return undefined;
     }
@@ -56,11 +58,25 @@ export class FactService {
   async getFactCollectionsByType(
     factCollectionTypeKey: FactCollectionTypeKey,
     tips: TipBlockNumbers,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<FactCollectionWithOriginState[]> {
-    assertAllowedScope(factCollectionTypeKey.scope, this.allowedScopes);
-    const collections = await this.factStore.getFactCollectionsByType(factCollectionTypeKey, jobId);
+    this.#assertAllowedFactScope(factCollectionTypeKey.scope);
+    const collections = await this.factStore.getFactCollectionsByType(factCollectionTypeKey, changeSetId);
     return collections.map(collection => ({ key: collection.key, facts: this.#annotate(collection.facts, tips) }));
+  }
+
+  #assertAllowedFactScope(scope: FactScope): void {
+    switch (scope.type) {
+      case 'account':
+        assertAllowedScope(scope.account, this.allowedScopes);
+        break;
+      case 'public':
+        break;
+      default: {
+        const _exhaustive: never = scope;
+        throw new Error(`Unhandled fact scope type: ${JSON.stringify(_exhaustive)}`);
+      }
+    }
   }
 
   #annotate(facts: Fact[], tips: TipBlockNumbers): FactWithOriginState[] {

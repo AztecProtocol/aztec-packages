@@ -41,6 +41,7 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
+import type { FactScope } from '../fact_store/fact_scope.js';
 import { FactStore } from '../fact_store/fact_store.js';
 import { FactCollectionKey } from '../fact_store/fact_store_keys.js';
 import { NoteStore } from '../note_store/note_store.js';
@@ -128,15 +129,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const capsuleStore = new CapsuleStore(kvStore);
 
-      const jobId = 'fixture-job';
+      const changeSetId = 'fixture-change-set';
+      capsuleStore.beginChangeSet(changeSetId);
+
       const contractAddress = AztecAddress.fromBigIntUnsafe(2n);
       const scope = AztecAddress.fromBigIntUnsafe(3n);
 
       // Three setCapsule calls (2-element, 1-element, 0-element value vector) pin every value-encoding length case.
-      capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], jobId, scope);
-      capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], jobId, scope);
-      capsuleStore.setCapsule(contractAddress, new Fr(19n), [], jobId, scope);
-      await kvStore.transactionAsync(() => capsuleStore.commit(jobId));
+      await capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(19n), [], changeSetId, scope);
+      await kvStore.transactionAsync(() => capsuleStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       capsules: await snapshotMap(kvStore.openMap<string, Buffer>('capsules')),
@@ -222,9 +225,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     name: 'FactStore',
     writeToStore: async kvStore => {
       const factStore = new FactStore(kvStore);
-      const jobId = 'fixture-job';
+      const changeSetId = 'fixture-change-set';
+      factStore.beginChangeSet(changeSetId);
       const contract = AztecAddress.fromBigIntUnsafe(100n);
-      const scope = AztecAddress.fromBigIntUnsafe(1n);
+      const scope: FactScope = { type: 'account', account: AztecAddress.fromBigIntUnsafe(1n) };
       const factCollectionTypeId = new Fr(7n);
       const keyA = FactCollectionKey.from({
         contractAddress: contract,
@@ -239,11 +243,32 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         factCollectionId: new Fr(0xbbn),
       });
       // A collection whose only fact is retractable (origin block 6): pruned on a reorg above block 6.
-      await factStore.recordFact(keyA, new Fr(3n), [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
+      await factStore.recordFact(
+        keyA,
+        new Fr(3n),
+        [new Fr(5n)],
+        { blockNumber: 6, blockHash: new Fr(2n) },
+        changeSetId,
+      );
       // A collection with a non-retractable and a retractable fact.
-      await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, jobId);
-      await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, jobId);
-      await kvStore.transactionAsync(() => factStore.commit(jobId));
+      await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, changeSetId);
+      await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, changeSetId);
+      // A collection under the public scope, with a non-retractable and a retractable fact.
+      const publicKey = FactCollectionKey.from({
+        contractAddress: contract,
+        scope: { type: 'public' },
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xccn),
+      });
+      await factStore.recordFact(publicKey, new Fr(4n), [new Fr(8n)], undefined, changeSetId);
+      await factStore.recordFact(
+        publicKey,
+        new Fr(5n),
+        [new Fr(10n)],
+        { blockNumber: 7, blockHash: new Fr(3n) },
+        changeSetId,
+      );
+      await kvStore.transactionAsync(() => factStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
@@ -327,7 +352,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const noteStore = new NoteStore(kvStore);
 
-      const jobId = 'fixture-job';
+      const changeSetId = 'fixture-change-set';
+      noteStore.beginChangeSet(changeSetId);
 
       // Two contracts so `note_nullifiers_by_contract` exhibits both a multi-value row (contractA → {n1, n2}) and a
       // single-value row (contractB → {n3}).
@@ -391,19 +417,19 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       // Adding note1 twice with different scopes triggers `addScope` on the staged StoredNote, producing a 2-element
       // scope vector in the committed buffer.
-      await noteStore.addNotes([note1], scopeX, jobId);
-      await noteStore.addNotes([note1], scopeY, jobId);
-      await noteStore.addNotes([note2], scopeX, jobId);
-      await noteStore.addNotes([note3], scopeX, jobId);
+      await noteStore.addNotes([note1], scopeX, changeSetId);
+      await noteStore.addNotes([note1], scopeY, changeSetId);
+      await noteStore.addNotes([note2], scopeX, changeSetId);
+      await noteStore.addNotes([note3], scopeX, changeSetId);
 
-      // Nullify note3 within the same job. `applyNullifiers` stages the emission block number for the note; `commit`
-      // then flushes it to disk into `note_nullifications_by_nullifier`.
+      // Nullify note3 within the same change set. `applyNullifiers` stages the emission block number for the note;
+      // `commit` then flushes it to disk into `note_nullifications_by_nullifier`.
       await noteStore.applyNullifiers(
         [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
-        jobId,
+        changeSetId,
       );
 
-      await kvStore.transactionAsync(() => noteStore.commit(jobId));
+      await kvStore.transactionAsync(() => noteStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       notes: await snapshotMap(kvStore.openMap<string, Buffer>('notes')),
@@ -425,7 +451,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const privateEventStore = new PrivateEventStore(kvStore);
 
-      const jobId = 'fixture-job';
+      const changeSetId = 'fixture-change-set';
+      privateEventStore.beginChangeSet(changeSetId);
 
       // Two (contract, selector) pairs and two block numbers so each multimap exhibits both a multi-value row
       // (contractA/selectorA → {e1, e2} and blockN1 → {e1, e2}) and a contrasting single-value row.
@@ -455,7 +482,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           txIndexInBlock: 53,
           eventIndexInTx: 59,
         },
-        jobId,
+        changeSetId,
       );
 
       // Same eventId, different scope: takes the `existing.addScope(...)` path in `storePrivateEventLog`.
@@ -473,7 +500,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           txIndexInBlock: 53,
           eventIndexInTx: 59,
         },
-        jobId,
+        changeSetId,
       );
 
       // event2: same (contract, selector) and same block as event1 → multi-value rows in both multimaps.
@@ -491,7 +518,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           txIndexInBlock: 97,
           eventIndexInTx: 101,
         },
-        jobId,
+        changeSetId,
       );
 
       // event3: distinct (contract, selector) and block → contrasting single-value multimap rows.
@@ -509,10 +536,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           txIndexInBlock: 139,
           eventIndexInTx: 149,
         },
-        jobId,
+        changeSetId,
       );
 
-      await kvStore.transactionAsync(() => privateEventStore.commit(jobId));
+      await kvStore.transactionAsync(() => privateEventStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       private_event_logs: await snapshotMap(kvStore.openMap<string, Buffer>('private_event_logs')),
@@ -528,7 +555,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
-      const jobId = 'fixture-job';
+      const changeSetId = 'fixture-change-set';
+      recipientTaggingStore.beginChangeSet(changeSetId);
+
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
       // A constrained secret keys under the `constrained:` prefix, so the snapshot pins both kinds side by side.
@@ -538,12 +567,12 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         AppTaggingSecretKind.CONSTRAINED,
       );
 
-      await recipientTaggingStore.updateHighestFinalizedIndex(secretA, 11, jobId);
-      await recipientTaggingStore.updateHighestAgedIndex(secretA, 13, jobId);
-      await recipientTaggingStore.updateHighestFinalizedIndex(secretB, 17, jobId);
-      await recipientTaggingStore.updateHighestFinalizedIndex(secretConstrained, 11, jobId);
-      await recipientTaggingStore.updateHighestAgedIndex(secretConstrained, 13, jobId);
-      await kvStore.transactionAsync(() => recipientTaggingStore.commit(jobId));
+      await recipientTaggingStore.updateHighestFinalizedIndex(secretA, 11, changeSetId);
+      await recipientTaggingStore.updateHighestAgedIndex(secretA, 13, changeSetId);
+      await recipientTaggingStore.updateHighestFinalizedIndex(secretB, 17, changeSetId);
+      await recipientTaggingStore.updateHighestFinalizedIndex(secretConstrained, 11, changeSetId);
+      await recipientTaggingStore.updateHighestAgedIndex(secretConstrained, 13, changeSetId);
+      await kvStore.transactionAsync(() => recipientTaggingStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       highest_aged_index: await snapshotMap(kvStore.openMap<string, number>('highest_aged_index')),
@@ -589,7 +618,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
-      const jobId = 'fixture-job';
+      const changeSetId = 'fixture-change-set';
+      senderTaggingStore.beginChangeSet(changeSetId);
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
       const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigIntUnsafe(13n));
@@ -612,26 +642,27 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         { extendedSecret: secretA, lowestIndex: 1, highestIndex: 3 },
         { extendedSecret: secretB, lowestIndex: 1, highestIndex: 5 },
       ];
-      await senderTaggingStore.storePendingIndexes(txHashARanges, txHashA, jobId);
+      await senderTaggingStore.storePendingIndexes(txHashARanges, txHashA, changeSetId);
 
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
         txHashB,
-        jobId,
+        changeSetId,
       );
 
-      // Re-store the exact same (secret, txHash, range). Exercises the "exact duplicate — skip" branch at
-      // sender_tagging_store.ts:199. The snapshot must be unchanged by this call; it pins the no-op assumption.
+      // Re-store the exact same (secret, txHash, range). Exercises the "exact duplicate — skip" branch of
+      // SenderTaggingStore#storePendingIndexes. The snapshot must be unchanged by this call; it pins the no-op
+      // assumption.
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
         txHashB,
-        jobId,
+        changeSetId,
       );
 
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 8, highestIndex: 11 }],
         txHashC,
-        jobId,
+        changeSetId,
       );
 
       // secretC's range is never finalized, so it survives commit as a single-element pending array (contrast with
@@ -639,7 +670,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretC, lowestIndex: 1, highestIndex: 9 }],
         txHashD,
-        jobId,
+        changeSetId,
       );
 
       // secretConstrained gets a finalized range (txHashE) plus a surviving higher pending range (txHashF), so the
@@ -647,17 +678,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretConstrained, lowestIndex: 1, highestIndex: 3 }],
         txHashE,
-        jobId,
+        changeSetId,
       );
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretConstrained, lowestIndex: 4, highestIndex: 7 }],
         txHashF,
-        jobId,
+        changeSetId,
       );
 
-      await senderTaggingStore.finalizePendingIndexes([txHashA, txHashE], jobId);
+      await senderTaggingStore.finalizePendingIndexes([txHashA, txHashE], changeSetId);
 
-      await kvStore.transactionAsync(() => senderTaggingStore.commit(jobId));
+      await kvStore.transactionAsync(() => senderTaggingStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       pending_indexes: await snapshotMap(kvStore.openMap<string, Buffer>('pending_indexes')),

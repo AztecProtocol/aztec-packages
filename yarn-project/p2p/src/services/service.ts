@@ -14,6 +14,7 @@ import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 import type EventEmitter from 'events';
 
+import type { P2PConfig } from '../config.js';
 import type { BatchTxRequesterLibP2PService } from './reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { StatusMessage } from './reqresp/index.js';
@@ -162,7 +163,13 @@ export interface P2PService {
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 
-  updateConfig(config: Partial<P2PReqRespConfig>): void;
+  /**
+   * Applies a runtime configuration update to the p2p stack. Preferred peers are re-resolved from their
+   * ENRs, so an invalid entry rejects the whole update.
+   */
+  updateConfig(
+    config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals' | 'preferredPeers'>>,
+  ): Promise<void>;
 
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;

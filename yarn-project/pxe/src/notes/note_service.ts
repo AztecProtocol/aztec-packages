@@ -11,13 +11,14 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 
 export class NoteService {
   constructor(
     private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
-    private readonly jobId: string,
+    private readonly changeSetId: ChangeSetId,
   ) {}
 
   /**
@@ -44,7 +45,7 @@ export class NoteService {
         status,
         scopes,
       },
-      this.jobId,
+      this.changeSetId,
     );
     return noteDaos.map(
       ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier }) => ({
@@ -76,7 +77,7 @@ export class NoteService {
   public async syncNoteNullifiers(contractAddress: AztecAddress, scopes: AztecAddress[]): Promise<void> {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    const contractNotes = await this.noteStore.getNotes({ contractAddress, scopes }, this.jobId);
+    const contractNotes = await this.noteStore.getNotes({ contractAddress, scopes }, this.changeSetId);
 
     if (contractNotes.length === 0) {
       return;
@@ -93,7 +94,7 @@ export class NoteService {
       })
       .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
 
-    await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
+    await this.noteStore.applyNullifiers(foundNullifiers, this.changeSetId);
   }
 
   /**
@@ -213,10 +214,10 @@ export class NoteService {
       }
     }
 
-    await this.noteStore.addNotes(noteDaos, scope, this.jobId);
+    await this.noteStore.addNotes(noteDaos, scope, this.changeSetId);
 
     if (foundNullifiers.length > 0) {
-      await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
+      await this.noteStore.applyNullifiers(foundNullifiers, this.changeSetId);
     }
   }
 

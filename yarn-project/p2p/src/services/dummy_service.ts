@@ -40,7 +40,9 @@ import {
 export class DummyP2PService implements P2PService {
   private allNodesCheckpointReceivedCallback?: P2PCheckpointReceivedCallback;
 
-  updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+  updateConfig(_config: Partial<P2PReqRespConfig>): Promise<void> {
+    return Promise.resolve();
+  }
 
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
@@ -274,6 +276,9 @@ export class DummyPeerManager implements PeerManagerInterface {
   public goodbyeReceived(_peerId: PeerId, _reason: GoodByeReason): void {}
   public penalizePeer(_peerId: PeerId, _penalty: PeerErrorSeverity): void {}
   public addPreferredPeer(_peerId: PeerId): void {}
+  public updatePreferredPeers(_enrs: string[]): Promise<void> {
+    return Promise.resolve();
+  }
   public handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
     return Promise.resolve(StatusMessage.random());
   }

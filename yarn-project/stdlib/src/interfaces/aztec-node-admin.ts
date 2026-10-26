@@ -93,6 +93,8 @@ export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, keyof L1Contr
     maxPendingTxCount: number;
     // Keep in sync with P2PConfig.skipIncomingProposals (circular dep prevents Pick<P2PConfig, ...> here)
     skipIncomingProposals?: boolean;
+    // Keep in sync with P2PConfig.preferredPeers (circular dep prevents Pick<P2PConfig, ...> here)
+    preferredPeers?: string[];
   };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
@@ -105,7 +107,13 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
       skipValidateCheckpointAttestations: true,
     }),
   )
-  .merge(z.object({ maxPendingTxCount: z.number(), skipIncomingProposals: z.boolean().optional() }));
+  .merge(
+    z.object({
+      maxPendingTxCount: z.number(),
+      skipIncomingProposals: z.boolean().optional(),
+      preferredPeers: z.array(z.string()).optional(),
+    }),
+  );
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function({ input: z.tuple([]), output: AztecNodeAdminConfigSchema }),

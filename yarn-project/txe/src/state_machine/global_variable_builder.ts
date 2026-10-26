@@ -24,6 +24,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     _feeRecipient: AztecAddress,
     _slotNumber: SlotNumber,
     _simulationOverridesPlan?: SimulationOverridesPlan,
+    _options?: { blockNumber?: bigint },
   ): Promise<CheckpointGlobalVariables> {
     const vars = makeGlobalVariables();
     return Promise.resolve({

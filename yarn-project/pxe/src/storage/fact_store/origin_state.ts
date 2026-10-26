@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2Tips } from '@aztec/stdlib/block';
 
-import type { FactCollectionKey, OriginBlock } from './fact_store_keys.js';
+import type { BlockReference, FactCollectionKey } from './fact_store_keys.js';
 import type { Fact } from './stored_fact.js';
 
 /**
@@ -49,7 +49,7 @@ export function anchoredTipBlockNumbers(tips: L2Tips, anchorBlockNumber: number)
 }
 
 /** A retractable fact's origin block annotated with that block's current chain state. */
-export type RetractableFactOrigin = OriginBlock & { blockState: OriginBlockState };
+export type RetractableFactOrigin = BlockReference & { blockState: OriginBlockState };
 
 /** A fact enriched with origin-block state. `originBlock` is undefined for a non-retractable fact. */
 export type FactWithOriginState = { factTypeId: Fr; payload: Fr[]; originBlock: RetractableFactOrigin | undefined };
