@@ -143,6 +143,17 @@ bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N)
 }
 
 /**
+ * Copy of `col` with `extra_rows` zero rows appended to its memory-backed support. The virtual size grows with it so
+ * the appended rows stay addressable.
+ */
+template <typename Polynomial> Polynomial pad_column(const Polynomial& col, size_t extra_rows)
+{
+    Polynomial padded(col, col.size() + extra_rows);
+    padded.increase_virtual_size(std::max(padded.virtual_size(), padded.end_index()));
+    return padded;
+}
+
+/**
  * Local prover copy used only in tests, with controlled fault injection points.
  * Important: faults are applied before data is sent to transcript, so Fiat–Shamir remains consistent.
  */
@@ -175,7 +186,7 @@ class TweakableBatchMergeProver : public BatchMergeProver {
                                                                                   : 0;
         if (padding_rows != 0) {
             for (auto& col : subtable_cols[0]) {
-                col = Polynomial(col, col.size() + padding_rows);
+                col = pad_column(col, padding_rows);
             }
         }
 
@@ -190,7 +201,7 @@ class TweakableBatchMergeProver : public BatchMergeProver {
             fault_mode == FaultMode::CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND) {
             // An app must not be allowed to extend its support into the separator's two rows.
             for (auto& col : subtable_cols[0]) {
-                col = Polynomial(col, col.size() + 2);
+                col = pad_column(col, 2);
             }
             subtable_cols[0][0].at(shift_sizes[0]) = -FF(3);
             max_shift_size = std::max(max_shift_size, shift_sizes[0] + 2);
