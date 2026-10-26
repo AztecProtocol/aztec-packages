@@ -105,10 +105,10 @@ node --experimental-strip-types --no-warnings \
 | Flag | Purpose |
 |---|---|
 | `--server` | Emit server dispatch (matches request name to handler, deserialises, calls handler, serialises response). Pair it with an `ipc::IpcServer` from ipc-runtime. |
-| `--client` | Emit a typed client class/struct with one method per command. Pair it with an `ipc::IpcClient` (C++) or the equivalent Rust/Zig/TS binding. |
+| `--client` | Emit the typed client: one method per command over a byte backend, the same shape in every language — `<Service>Api<B: Backend>` (Rust), `<Service>Api<ipc_codegen::Backend B>` (C++), `Client(Backend)` (Zig), `AsyncApi`/`SyncApi` over `IpcClientAsync`/`IpcClientSync` (TS). A backend takes the msgpack request bytes and returns the response bytes: ipc-runtime's transport (C++: `ipc_codegen::IpcBackend`), the service in-process (`--ffi`), or your own. |
 | `--package <dir>` | TS only. Emit a complete client package: the generated API over every backend the package has (`--package-transports`), with a `<Service>Service.create(options)` that picks one by default (the spawned process when the binary resolves, else the wasm module), can be forced to one, or takes a backend object of the consumer's own; one entry per host (node, `browser`, `react-native`) so each host sees only the backends that exist there; the binary resolved from an override path, an environment variable, or the installed per-platform arch package (this package's optional dependencies). With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. |
 | `--uds` | Rust/Zig only. Copies the `Backend` trait template (and `error.rs` for Rust) into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. |
-| `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig): generates `ffi_backend`, a client backend that calls a linked library's `<service>_ipc_ffi_entry`. With `--server` (C++/Rust): emits the entry itself — `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_entry`/`_alloc`/`_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`), or `<service>_ffi.rs` with an `export_<service>_ffi!` macro doing the same over a `Handler + Default` type. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
+| `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig/C++): generates the FFI backend (`ffi_backend.{rs,zig}`, `<service>_ffi_backend.hpp`), which calls a linked library's `<service>_ipc_ffi_entry`. With `--server` (Rust/Zig/C++): emits the entry itself — `<service>_ffi.rs` with an `export_<service>_ffi!` macro over a `Handler + Default` type, `<service>_ffi.zig` with `exportFfi(Handler)` over a default-initialised handler, or `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_entry`/`_alloc`/`_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`). Each example's FFI test runs the generated client over the FFI backend against its own entry, in-process. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). |
 | `--package-wasm-module <file>`, `--package-wasm-threads-module <file>` | TS `wasm` transport. Basenames of the single-thread and threads builds the owning project copies into the package's `wasm/` directory; at least one is required. |
 | `--package-wasm-wide-module <file>`, `--package-wasm-wide-threads-module <file>` | TS `wasm` transport. Optional wide-arithmetic builds of the two, also copied into `wasm/` by the owning project; the package runs one in place of its counterpart where the engine validates the wide-arithmetic proposal. |
@@ -199,11 +199,15 @@ src/generate.ts \
   --cpp-include-dir myservice/generated
 ```
 
-Produces `myservice_types.hpp`, `myservice_ipc_client.{hpp,cpp}`, and
+Produces `myservice_types.hpp`, `myservice_client.hpp`, `myservice_dispatch.hpp` and
 `myservice_ipc_server.hpp`. Cross-includes use the supplied `--cpp-include-dir` prefix
-(`#include "myservice/generated/myservice_types.hpp"`). Wire to an
-`ipc::IpcServer` (from ipc-runtime) plus a hand-written
-`<service>_handlers.cpp` that supplies one `handle_<method>(...)` per command.
+(`#include "myservice/generated/myservice_types.hpp"`). The server side wires an
+`ipc::IpcServer` (from ipc-runtime) to a hand-written
+`<service>_handlers.cpp` that supplies one `handle_<method>(...)` per command. The
+client is header-only, `MyServiceApi<B>`; over ipc-runtime it is
+`MyServiceApi<ipc_codegen::IpcBackend> api(ipc_codegen::IpcBackend("/tmp/myservice.sock"))`
+(`ipc_codegen/ipc_backend.hpp`, which links `ipc_runtime`), and with `--ffi` a
+default-constructed `MyServiceApi<my::ns::FfiBackend>` calls the service linked in-process.
 Generated C++ includes support headers as `ipc_codegen/...`; the generator
 copies those headers from `templates/cpp/ipc_codegen/` into the output
 directory.
@@ -237,8 +241,9 @@ src/generate.ts \
 ```
 
 Produces `myservice_types.zig`, `myservice_client.zig`,
-`myservice_server.zig`, plus `backend.zig` and `ffi_backend.zig`. Consumers
-`@import("ipc_runtime")` for transport.
+`myservice_server.zig`, `myservice_ffi.zig`, plus `backend.zig` and `ffi_backend.zig`.
+Consumers `@import("ipc_runtime")` for transport (`ipc_runtime.Client` is a backend), or
+link a library exporting the FFI entry and use `Client(FfiBackend)`.
 
 ## Adding a new service
 
@@ -254,8 +259,8 @@ Produces `myservice_types.zig`, `myservice_client.zig`,
 3. **Wire transport.** On the C++ server side, instantiate an
    `ipc::IpcServer` via `ipc::make_server(path)` (from ipc-runtime) and feed
    it the codegen-emitted `make_<prefix>_handler(...)`. On the client side
-   (any language), point an `ipc::IpcClient` / equivalent at the same path
-   and wrap it with the codegen-emitted client.
+   (any language), build the codegen-emitted client over ipc-runtime's backend
+   for the same path (C++: `ipc_codegen::IpcBackend(path)`).
 4. **Run `./bootstrap.sh test`** in `ipc-codegen/` to confirm the codegen and
    cross-language wire-compat tests still pass.
 

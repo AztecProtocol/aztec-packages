@@ -45,7 +45,7 @@ template <typename T> std::optional<T> decode_optional_msgpack(const std::option
 } // namespace
 
 CdbIpcContractDB::CdbIpcContractDB(const std::string& ipc_path)
-    : client_(std::make_unique<CdbIpcClient>(ipc_path))
+    : client_(std::make_unique<CdbApi<ipc_codegen::IpcBackend>>(ipc_codegen::IpcBackend(ipc_path)))
 {}
 
 CdbIpcContractDB::~CdbIpcContractDB() = default;

@@ -3,11 +3,11 @@
  * @brief ContractDBInterface adapter over the generated CDB IPC client.
  *
  * Translates ContractDBInterface calls (AVM domain types) into
- * CdbIpcClient command structs, delegating IPC transport to the
- * auto-generated client.
+ * command structs for the generated CdbApi, over ipc-runtime's transport.
  */
 
-#include "barretenberg/cdb/generated/cdb_ipc_client.hpp"
+#include "barretenberg/cdb/generated/cdb_client.hpp"
+#include "barretenberg/cdb/generated/ipc_codegen/ipc_backend.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <memory>
@@ -38,7 +38,7 @@ class CdbIpcContractDB final : public avm2::simulation::ContractDBInterface {
     void revert_checkpoint() override;
 
   private:
-    std::unique_ptr<CdbIpcClient> client_;
+    std::unique_ptr<CdbApi<ipc_codegen::IpcBackend>> client_;
     uint64_t fork_id_ = 0;
 };
 

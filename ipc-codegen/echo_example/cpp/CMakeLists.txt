@@ -42,17 +42,15 @@ target_compile_definitions(echo_common INTERFACE
 add_executable(echo_server src/echo_server.cpp src/echo_handlers.cpp)
 target_link_libraries(echo_server PRIVATE echo_common ipc_runtime)
 
-add_executable(echo_client
-    src/echo_client.cpp
-    src/generated/echo_ipc_client.cpp
-)
+add_executable(echo_client src/echo_client.cpp)
 target_link_libraries(echo_client PRIVATE echo_common ipc_runtime)
 
 add_executable(golden_test src/golden_test.cpp)
 target_link_libraries(golden_test PRIVATE echo_common)
 
 # The service as an in-process library: the generated FFI entry over the same
-# handlers the socket server uses.
+# handlers the socket server uses. ffi_test calls it through the generated
+# EchoApi over FfiBackend, with no process.
 add_library(echo_ffi STATIC
     src/echo_ffi.cpp
     src/echo_handlers.cpp

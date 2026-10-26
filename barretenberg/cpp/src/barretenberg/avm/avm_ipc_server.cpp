@@ -2,7 +2,7 @@
 #include "barretenberg/avm/avm_execute.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2_wsdb/generated/wsdb_ipc_client.hpp"
+#include "barretenberg/vm2_wsdb/wsdb_ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
@@ -64,7 +64,7 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
     std::unique_ptr<wsdb::WsdbIpcClient> wsdb_client;
     for (int attempt = 0; attempt < max_retries; ++attempt) {
         try {
-            wsdb_client = std::make_unique<wsdb::WsdbIpcClient>(wsdb_path);
+            wsdb_client = std::make_unique<wsdb::WsdbIpcClient>(ipc_codegen::IpcBackend(wsdb_path));
             break;
         } catch (const std::exception& e) {
             if (attempt == max_retries - 1) {
