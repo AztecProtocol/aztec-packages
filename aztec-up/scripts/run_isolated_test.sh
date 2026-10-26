@@ -41,7 +41,7 @@ function install_node {
 function install_verdaccio {
   set -euo pipefail
   # Install verdaccio.
-  npm i -g verdaccio
+  npm i -g verdaccio@7.0.1
 }
 
 function start_verdaccio {
@@ -63,7 +63,6 @@ function start_verdaccio {
 
   logs: { type: stdout, format: pretty, level: warn }
 EOF
-  echo 'testuser:$2y$05$R1tRwE1mM3iT1dJ8hG16fOCTq7tFhFJ0IWrZ1bMCGJ6W9unQF3H3K' > /tmp/htpasswd
 
   # Start verdaccio local npm registry.
   verdaccio --config /tmp/verdaccio-config.yaml --listen 0.0.0.0:4873 &>/dev/null &
@@ -73,16 +72,13 @@ EOF
 function install_aztec {
   set -euo pipefail
 
-  # Configure npm client to use local registry.
+  # Configure npm client to use local registry. Installs read anonymously: verdaccio answers 401 to
+  # any request that carries Basic credentials outside its login route.
   export npm_config_registry="http://localhost:4873"
   export npm_config_userconfig=$(mktemp)
   cat > "$npm_config_userconfig" <<'EOF'
   max_body_size=1000mb
   registry=http://localhost:4873/
-  //localhost:4873/:username=testuser
-  //localhost:4873/:_password=dGVzdHBhc3M=
-  //localhost:4873/:email=test@example.com
-  //localhost:4873/:always-auth=true
 EOF
 
   # Install aztec.
