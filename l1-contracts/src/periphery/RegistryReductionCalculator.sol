@@ -5,10 +5,24 @@ pragma solidity >=0.8.27;
 import {ISequencerRewardCalculator} from "@aztec/core/interfaces/ISequencerRewardCalculator.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
-import {ProbeLib} from "@test/reward-calculators/ProbeLib.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {ProbeLib} from "@aztec/periphery/libraries/ProbeLib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+
+/**
+ * @title IRegistryReductionCalculator
+ * @author Aztec Labs
+ * @notice The owner-facing surface of {RegistryReductionCalculator}, beside the calculator interface the rollup
+ *         calls. Declared so that every external method of the implementation overrides a definition, which is
+ *         what `src/` is linted for.
+ */
+interface IRegistryReductionCalculator is ISequencerRewardCalculator {
+  function setRegistryReward(address _registry, uint96 _sequencerReward) external;
+  function removeRegistryReward(address _registry) external;
+  function getRegistryReward(address _registry) external view returns (bool exists, uint96 sequencerReward);
+  function resolveRegistry(address _attester) external view returns (bool resolved, address registry);
+}
 
 /**
  * @title RegistryReductionCalculator
@@ -32,7 +46,7 @@ import {Math} from "@oz/utils/math/Math.sol";
  *      Lookups reflect state when the proof lands. Per call, each distinct proposer is resolved once
  *      and the result is cached in memory per attester.
  */
-contract RegistryReductionCalculator is Ownable, ISequencerRewardCalculator {
+contract RegistryReductionCalculator is Ownable, IRegistryReductionCalculator {
   struct Entry {
     bool exists;
     uint96 sequencerReward;
@@ -81,7 +95,11 @@ contract RegistryReductionCalculator is Ownable, ISequencerRewardCalculator {
    * @param _registry The ATP registry, not zero
    * @param _sequencerReward The sequencer reward per checkpoint
    */
-  function setRegistryReward(address _registry, uint96 _sequencerReward) external onlyOwner {
+  function setRegistryReward(address _registry, uint96 _sequencerReward)
+    external
+    override(IRegistryReductionCalculator)
+    onlyOwner
+  {
     require(_registry != address(0), RegistryReductionCalculator__ZeroRegistry());
     entries[_registry] = Entry({exists: true, sequencerReward: _sequencerReward});
     emit RegistryRewardSet(_registry, _sequencerReward);
@@ -91,7 +109,7 @@ contract RegistryReductionCalculator is Ownable, ISequencerRewardCalculator {
    * @notice Removes the entry of `_registry`, so its validators earn the default again
    * @param _registry The ATP registry, which must have an entry
    */
-  function removeRegistryReward(address _registry) external onlyOwner {
+  function removeRegistryReward(address _registry) external override(IRegistryReductionCalculator) onlyOwner {
     require(entries[_registry].exists, RegistryReductionCalculator__UnknownRegistry(_registry));
     delete entries[_registry];
     emit RegistryRewardRemoved(_registry);
@@ -103,7 +121,12 @@ contract RegistryReductionCalculator is Ownable, ISequencerRewardCalculator {
    * @return exists Whether the registry has an entry
    * @return sequencerReward The configured reward, before the cap at the default
    */
-  function getRegistryReward(address _registry) external view returns (bool exists, uint96 sequencerReward) {
+  function getRegistryReward(address _registry)
+    external
+    view
+    override(IRegistryReductionCalculator)
+    returns (bool exists, uint96 sequencerReward)
+  {
     Entry memory entry = entries[_registry];
     return (entry.exists, entry.sequencerReward);
   }
@@ -150,7 +173,12 @@ contract RegistryReductionCalculator is Ownable, ISequencerRewardCalculator {
    * @return resolved Whether both probes returned a well-formed, non-zero address
    * @return registry The registry, or zero when the lookup did not resolve
    */
-  function resolveRegistry(address _attester) public view returns (bool resolved, address registry) {
+  function resolveRegistry(address _attester)
+    public
+    view
+    override(IRegistryReductionCalculator)
+    returns (bool resolved, address registry)
+  {
     address withdrawer = GSE.getWithdrawer(_attester);
     (bool ok, address atp) = ProbeLib.tryGetAddress(withdrawer, IATPStaker.getATP.selector, PROBE_GAS);
     if (!ok || atp == address(0)) {

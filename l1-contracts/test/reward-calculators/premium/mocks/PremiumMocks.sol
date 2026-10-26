@@ -9,7 +9,7 @@ pragma solidity >=0.8.27;
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
-import {IATPStaker} from "@test/reward-calculators/IATP.sol";
+import {IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 import {IPremiumATPStaker} from "@test/reward-calculators/premium/IPremiumATP.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
