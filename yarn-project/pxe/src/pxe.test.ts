@@ -75,6 +75,7 @@ describe('PXE', () => {
       l1ChainId: 31337,
       rollupVersion: 1,
       autoSync: true,
+      concurrentContractSyncEnabled: false,
     };
 
     // Mock getNodeInfo which is called during PXE creation
@@ -426,6 +427,8 @@ describe('PXE', () => {
       scope = await AztecAddress.random();
 
       privateEventStore = new PrivateEventStore(kvStore);
+      // Leave a change set open for the tests to operate under: every store operation requires one.
+      privateEventStore.beginChangeSet('test');
     });
 
     let eventCounter = 0;
@@ -466,7 +469,7 @@ describe('PXE', () => {
       // Store a couple of events to exercise `getPrivateEvents`
       const event1 = await storeEvent();
       const event2 = await storeEvent();
-      await privateEventStore.commit('test');
+      await privateEventStore.commitChangeSet('test');
 
       const events = await pxe.getPrivateEvents(eventSelector, {
         contractAddress,
@@ -505,7 +508,7 @@ describe('PXE', () => {
         // Events in not-yet-synced blocks; stored only to verify they are filtered out.
         await Promise.all([storeEvent(lastKnownBlockNumber + 1), storeEvent(lastKnownBlockNumber + 1)]);
 
-        await privateEventStore.commit('test');
+        await privateEventStore.commitChangeSet('test');
       });
 
       it('filters by txHash', async () => {

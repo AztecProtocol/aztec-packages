@@ -57,7 +57,7 @@ const ANCHOR_BLOCK_NUMBER = BlockNumber(100);
 const CURRENT_TIMESTAMP = BigInt(Math.floor(Date.now() / 1000));
 const ANCHOR_BLOCK_HEADER = BlockHeader.random({ blockNumber: ANCHOR_BLOCK_NUMBER, timestamp: CURRENT_TIMESTAMP });
 const AGED_TIMESTAMP = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
-const JOB_ID = 'bench-job';
+const CHANGE_SET_ID = 'bench-change-set';
 
 // Every scenario starts warm: index 0 is already persisted, so the scan resumes at index 1 rather than cold-starting.
 const PRIOR_FINALIZED_INDEX = 0;
@@ -164,15 +164,16 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     aztecNode.getPrivateLogsByTags.mockReset();
     const taggingStore = new RecipientTaggingStore(await openTmpStore('bench'));
+    taggingStore.beginChangeSet(CHANGE_SET_ID);
     const secrets = await Promise.all(Array.from({ length: secretCount }, () => randomAppTaggingSecret(kind)));
 
     // Seed the persisted finalized indexes to simulate a recipient that already synced prior finalized messages. The
     // per-secret writes are independent, so run them concurrently.
     await Promise.all(
       secrets.map(async secret => {
-        await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
+        await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, CHANGE_SET_ID);
         if (kind === AppTaggingSecretKind.UNCONSTRAINED) {
-          await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
+          await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, CHANGE_SET_ID);
         }
       }),
     );
@@ -202,7 +203,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
       taggingStore,
       ANCHOR_BLOCK_HEADER,
       FINALIZED_BLOCK_NUMBER,
-      JOB_ID,
+      CHANGE_SET_ID,
     );
 
     const calls = aztecNode.getPrivateLogsByTags.mock.calls;
@@ -210,7 +211,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     // Round-trips and blocking time from the same instrumentation the app benches use. `syncTaggedPrivateLogs` only
     // ever calls `getPrivateLogsByTags`, so every round-trip is that method.
-    const { roundTrips } = recording.stop();
+    const { roundTrips } = recording.stats();
     const rpcRoundTrips = roundTrips.roundTrips;
     const rpcBlockingTimeMs = roundTrips.totalBlockingTime;
 

@@ -246,7 +246,7 @@ Per-block budgets prevent one block from consuming the entire checkpoint budget.
 
 ### Per-transaction enforcement
 
-**Mempool entry** (`GasLimitsValidator`): L2 gas must be ≤ `MAX_PROCESSABLE_L2_GAS` (6,540,000) and ≥ fixed minimums.
+**Mempool entry** (`MaxGasLimitsValidator` / `MinGasLimitsValidator`): L2 gas must be ≤ `MAX_PROCESSABLE_L2_GAS` (6,540,000) and ≥ fixed minimums.
 
 **Block building** (`PublicProcessor.process`): Before processing, txs are skipped if their estimated blob fields or gas limits would exceed the block budget. After processing, actual values are checked and the tx is reverted if limits are exceeded.
 

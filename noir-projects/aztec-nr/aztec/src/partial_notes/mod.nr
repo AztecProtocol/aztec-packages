@@ -1,13 +1,13 @@
 mod fsm;
 
 use crate::{
-    facts::OriginBlock,
     messages::{
         discovery::{ComputeNoteHash, ComputeNoteNullifier},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{get_pending_partial_notes_completion_logs, ResolvedTx},
     },
+    oracle::block_reference::BlockReference,
 };
 
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
@@ -47,7 +47,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
                 note_type_id,
                 packed_private_note_content,
             },
-            OriginBlock { block_number: resolved_tx.block_number, block_hash: resolved_tx.block_hash },
+            BlockReference { block_number: resolved_tx.block_number, block_hash: resolved_tx.block_hash },
         );
     } else {
         aztecnr_warn_log_format!(

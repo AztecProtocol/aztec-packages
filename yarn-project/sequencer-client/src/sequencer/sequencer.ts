@@ -11,12 +11,13 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type {
-  BlockData,
-  L2BlockSink,
-  L2BlockSource,
-  ProposedCheckpointSink,
-  ValidateCheckpointResult,
+import {
+  type BlockData,
+  BlockHash,
+  type L2BlockSink,
+  type L2BlockSource,
+  type ProposedCheckpointSink,
+  type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import {
   type Checkpoint,
@@ -607,6 +608,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // In fisherman mode, pass undefined to use the fisherman's own keystore instead of the actual proposer's
     const proposerForPublisher = this.config.fishermanMode ? undefined : proposer;
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
+    using cleanup = new DisposableStack();
+    cleanup.use(publisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
@@ -738,7 +741,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
 
     // Create and return the checkpoint proposal job
-    return this.createCheckpointProposalJob(
+    const job = this.createCheckpointProposalJob(
       targetSlot,
       targetEpoch,
       checkpointNumber,
@@ -750,6 +753,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       invalidateCheckpoint,
       syncedTo.proposedCheckpointData,
     );
+    cleanup.move();
+    return job;
   }
 
   protected createCheckpointProposalJob(
@@ -887,15 +892,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
+      this.l2BlockSource.getL2Frontier(),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
-      this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getProposedCheckpointData(),
     ] as const);
 
-    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
-      syncedBlocks;
+    const [worldState, frontier, p2p, l1ToL2MessageSourceTips] = syncedBlocks;
+    const { proposedCheckpoint: proposedCheckpointData, pendingChainValidationStatus } = frontier;
+    const l2Tips = { proposed: frontier.tips.proposed, checkpointed: frontier.tips.checkpointed };
 
     const result =
       worldState.hash === l2Tips.proposed.hash &&
@@ -914,8 +918,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // Look the tip block up by its hash rather than its number: the tips come from the cached snapshot, so
+    // after a prune-and-replace commits (but before the cache refreshes) a by-number read could return the
+    // replacement block while every hash check above still described the pruned one. A miss just fails the
+    // sync check and retries.
     const blockNumber = worldState.number;
-    const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
+    const blockData = await this.l2BlockSource.getBlockData({ hash: BlockHash.fromString(l2Tips.proposed.hash) });
     if (!blockData) {
       this.log.warn(`Sequencer sync check failed: failed to get L2 block data ${blockNumber} from the archiver`, {
         blockNumber,
@@ -932,9 +940,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
-    // `getProposedCheckpointData()` returns the latest proposed checkpoint payload, which is always
-    // the leading one (a proposed entry is only stored beyond the confirmed frontier and is deleted
-    // on confirmation). It carries no tip, so there is no tip-vs-payload split read to reconcile.
+    // The L2 frontier carries the leading proposed checkpoint payload (a proposed entry is only stored
+    // beyond the confirmed frontier and is deleted on confirmation) alongside the tips it is compared
+    // against, read atomically, so the two cannot describe different chain states.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
       proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber
@@ -1067,6 +1075,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Get a publisher for voting
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
+    using cleanup = new DisposableStack();
+    cleanup.use(publisher);
 
     this.log.debug(`Attempting to vote despite sync failure at slot ${slot}`, {
       attestorAddress,
@@ -1110,10 +1120,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
     // work loop while waiting for the target slot to start, but track it so stop() can drain it.
-    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
-    });
+    const send = publisher
+      .sendRequestsAt(targetSlot)
+      .catch(err => {
+        this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
+      })
+      .finally(() => publisher.dispose());
     this.pendingRequests.trackRequest(send, () => publisher.interrupt());
+    cleanup.move();
   }
 
   private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
@@ -1147,6 +1161,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.lastSlotForFallbackAction = slot;
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
+    using cleanup = new DisposableStack();
+    cleanup.use(publisher);
 
     this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, {
       slot,
@@ -1185,10 +1201,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
     // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild, but tracked so
     // stop() can drain it.
-    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
-    });
+    const send = publisher
+      .sendRequestsAt(targetSlot)
+      .catch(err => {
+        this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
+      })
+      .finally(() => publisher.dispose());
     this.pendingRequests.trackRequest(send, () => publisher.interrupt());
+    cleanup.move();
   }
 
   /**
@@ -1277,7 +1297,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       validatorToUse = ourValidatorAddresses[0];
     }
 
-    const { publisher } = await this.publisherFactory.create(validatorToUse);
+    const { publisher: createdPublisher } = await this.publisherFactory.create(validatorToUse);
+    using publisher = createdPublisher;
 
     const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(pendingChainValidationStatus);
     if (!invalidateCheckpoint) {

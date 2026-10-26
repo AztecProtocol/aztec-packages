@@ -136,6 +136,7 @@ comptime fn synthesizers() -> [TestValueSynthesizer] {
         array_synth(),
         bounded_vec_synth(),
         tuple_synth(),
+        fact_scope_synth(),
         // Matches ANY named data type: must stay last (find-first).
         struct_synth(),
     ]
@@ -354,6 +355,34 @@ pub(crate) fn oracle_test_tuple2<A, B>(
     seed: u32,
 ) -> (A, B) {
     (build_a(seed), build_b(seed + b_offset))
+}
+
+/// One scenario per [`FactScope`](crate::facts::FactScope) kind: each serializes differently, and the type's private
+/// fields can only be set through its constructors.
+comptime fn fact_scope_synth() -> TestValueSynthesizer {
+    TestValueSynthesizer {
+        matches: |t: Type| is_data_type_named(t, quote { FactScope }),
+        scenarios: |_t: Type, seed: Quoted| {
+            let account = value_expr(
+                std::meta::type_of(std::mem::zeroed::<AztecAddress>()),
+                seed,
+                0,
+            );
+            @[
+                named(
+                    quote { "account" },
+                    quote { crate::facts::FactScope::account($account) },
+                ),
+                named(
+                    quote { "public" },
+                    quote { crate::facts::FactScope::public() },
+                ),
+            ]
+        },
+        // The kind discriminant, then the account.
+        width: |_t: Type| 2,
+        pinned: |t: Type| quote { $t },
+    }
 }
 
 comptime fn struct_synth() -> TestValueSynthesizer {

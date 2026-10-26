@@ -1,6 +1,6 @@
 import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { uniqueBy } from '@aztec/foundation/collection';
+import { chunk, uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -26,12 +26,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstancePreimageWithAddress, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { type UnsiloedMessageNullifier, getL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
-import type { NoteStatus } from '@aztec/stdlib/note';
+import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
@@ -56,9 +56,10 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
-import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
+import type { BlockReference, FactScope, FactService } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
+import type { ChangeSetId } from '../../storage/staged_write_coordinator.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import type { AnchoredContractData } from '../anchored_contract_data.js';
@@ -67,11 +68,13 @@ import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
+import { type FactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
+import type { NoteOrigin } from '../noir-structs/note_origin.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import type { NullifierStatus } from '../noir-structs/nullifier_status.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
@@ -103,7 +106,7 @@ export type UtilityExecutionOracleArgs = {
   txResolver: TxResolverService;
   contractSyncService: ContractSyncService;
   l2TipsStore: L2TipsProvider;
-  jobId: string;
+  changeSetId: ChangeSetId;
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
   simulator: CircuitSimulator;
@@ -155,7 +158,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly txResolver: TxResolverService;
   protected readonly contractSyncService: ContractSyncService;
   protected readonly l2TipsStore: L2TipsProvider;
-  protected readonly jobId: string;
+  protected readonly changeSetId: ChangeSetId;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
   protected readonly simulator: CircuitSimulator;
@@ -180,7 +183,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.txResolver = args.txResolver;
     this.contractSyncService = args.contractSyncService;
     this.l2TipsStore = args.l2TipsStore;
-    this.jobId = args.jobId;
+    this.changeSetId = args.changeSetId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
     this.simulator = args.simulator;
@@ -473,7 +476,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     maxNotes: number,
     packedHintedNoteLength: number,
   ): Promise<BoundedVec<NoteData>> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.changeSetId);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner.value, storageSlot, status, this.scopes);
     const picked = pickNotes<NoteData>(dbNotes, {
@@ -493,19 +496,65 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Check if a nullifier exists in the nullifier tree.
-   * @param innerNullifier - The inner nullifier.
-   * @returns A boolean indicating whether the nullifier exists in the tree or not.
+   * Returns the tx and block in which a settled note of the executing contract was created, or `None` if no such note
+   * is known. Nullified notes are also returned.
    */
-  public async doesNullifierExist(innerNullifier: Fr) {
-    const [nullifier, anchorBlockHash] = await allToCompletion([
-      siloNullifier(this.contractAddress, innerNullifier!),
-      this.anchorBlockHeader.hash(),
-    ]);
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [
-      nullifier,
-    ]);
-    return leafIndex?.data !== undefined;
+  public async getSettledNoteOrigin(
+    noteHash: Fr,
+    contractAddress: AztecAddress,
+    noteNonce: Fr,
+  ): Promise<Option<NoteOrigin>> {
+    this.#assertOwnContract(contractAddress);
+
+    // The store is only indexed by contract, so this scans all of the contract's notes. The query is rare enough and
+    // stores are small enough that this is not a concern.
+    const notes = await this.noteStore.getNotes(
+      { contractAddress, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: this.scopes },
+      this.changeSetId,
+    );
+    const note = notes.find(note => note.noteHash.equals(noteHash) && note.noteNonce.equals(noteNonce));
+
+    return note
+      ? Option.some({
+          txHash: note.txHash.hash,
+          block: { blockNumber: note.l2BlockNumber, blockHash: Fr.fromHexString(note.l2BlockHash) },
+        })
+      : Option.none();
+  }
+
+  /**
+   * Returns the status of each inner nullifier: whether it exists in the nullifier tree at the anchor block and, if
+   * so, the block it was inserted in. Results are aligned with the input.
+   */
+  public async getNullifierStatuses(innerNullifiers: EphemeralArray<Fr>): Promise<EphemeralArray<NullifierStatus>> {
+    const siloedNullifiers = await allToCompletion(
+      innerNullifiers
+        .readAll(this.ephemeralArrayService)
+        .map(innerNullifier => siloNullifier(this.contractAddress, innerNullifier)),
+    );
+    const statuses = await this.getSiloedNullifierStatuses(siloedNullifiers);
+    return EphemeralArray.fromValues(this.ephemeralArrayService, statuses);
+  }
+
+  /** Looks up siloed nullifiers in the nullifier tree at the anchor block, returning one status per input. */
+  protected async getSiloedNullifierStatuses(siloedNullifiers: Fr[]): Promise<NullifierStatus[]> {
+    const anchorBlockHash = await this.anchorBlockHeader.hash();
+    const leaves = (
+      await allToCompletion(
+        chunk(siloedNullifiers, MAX_RPC_LEN).map(batch =>
+          this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch),
+        ),
+      )
+    ).flat();
+    return leaves.map(
+      (leaf): NullifierStatus =>
+        leaf
+          ? {
+              exists: true,
+              originBlock: Option.some({ blockNumber: leaf.l2BlockNumber, blockHash: leaf.l2BlockHash.toFr() }),
+            }
+          : { exists: false, originBlock: Option.none() },
+    );
   }
 
   /**
@@ -562,12 +611,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   async #getContractLogger(): Promise<Logger> {
     if (!this.contractLogger) {
       // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
-      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      // to re-use changeSetId as instanceId here as executions of different PXE operations are isolated.
       this.contractLogger = await createContractLogger(
         this.contractAddress,
         addr => this.anchoredContractData.getDebugContractName(addr),
         'user',
-        { instanceId: this.jobId },
+        { instanceId: this.changeSetId },
       );
     }
     return this.contractLogger;
@@ -579,12 +628,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   async #getAztecnrLogger(): Promise<Logger> {
     if (!this.aztecnrLogger) {
       // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
-      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      // to re-use changeSetId as instanceId here as executions of different PXE operations are isolated.
       this.aztecnrLogger = await createContractLogger(
         this.contractAddress,
         addr => this.anchoredContractData.getDebugContractName(addr),
         'aztecnr',
-        { instanceId: this.jobId },
+        { instanceId: this.changeSetId },
       );
     }
     return this.aztecnrLogger;
@@ -628,7 +677,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.taggingSecretSourcesStore,
       this.addressStore,
       this.scopes,
-      this.jobId,
+      this.changeSetId,
       this.logger.getBindings(),
     );
   }
@@ -655,8 +704,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ...eventValidationRequests.map(r => r.txHash),
     ]);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-    const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.changeSetId);
+    const eventService = new EventService(this.anchorBlockHeader, this.privateEventStore, this.changeSetId);
 
     await allToCompletion([
       noteService.validateAndStoreNotes(noteValidationRequests, scope, validationTxData),
@@ -724,9 +773,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
+  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
+    return this.capsuleService.setCapsule(contractAddress, slot, capsule, this.changeSetId, scope);
   }
 
   public async getCapsule(
@@ -736,13 +785,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
   ): Promise<Option<Fr[]>> {
     this.#assertOwnContract(contractAddress);
-    const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
+    const values = await this.capsuleService.getCapsule(contractAddress, slot, this.changeSetId, scope, this.capsules);
     return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
-  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    this.capsuleService.deleteCapsule(contractAddress, slot, this.jobId, scope);
+    return this.capsuleService.deleteCapsule(contractAddress, slot, this.changeSetId, scope);
   }
 
   public copyCapsule(
@@ -753,7 +802,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
+    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.changeSetId, scope);
   }
 
   /**
@@ -769,14 +818,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Records a fact into a collection. A `Some` origin block makes the fact retractable (pruned on reorg of that
    * block), a `None` origin block makes it non-retractable, surviving reorgs.
    */
-  public recordFact(
+  public recordFactV2(
     contractAddress: AztecAddress,
-    scope: AztecAddress,
+    scope: FactScope,
     factCollectionTypeId: Fr,
     factCollectionId: Fr,
     factTypeId: Fr,
     payload: EphemeralArray<Fr>,
-    originBlock: Option<OriginBlock>,
+    originBlock: Option<BlockReference>,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
     return this.factService.recordFact(
@@ -784,32 +833,32 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       factTypeId,
       payload.readAll(this.ephemeralArrayService),
       originBlock.isSome() ? originBlock.value : undefined,
-      this.jobId,
+      this.changeSetId,
     );
   }
 
   /**
    * Deletes a fact collection, removing all its facts. A no-op if no such collection exists.
    */
-  public deleteFactCollection(
+  public deleteFactCollectionV2(
     contractAddress: AztecAddress,
-    scope: AztecAddress,
+    scope: FactScope,
     factCollectionTypeId: Fr,
     factCollectionId: Fr,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
     return this.factService.deleteFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
-      this.jobId,
+      this.changeSetId,
     );
   }
 
   /**
    * Returns a fact collection.
    */
-  public async getFactCollection(
+  public async getFactCollectionV2(
     contractAddress: AztecAddress,
-    scope: AztecAddress,
+    scope: FactScope,
     factCollectionTypeId: Fr,
     factCollectionId: Fr,
   ): Promise<Option<FactCollection>> {
@@ -818,7 +867,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const collection = await this.factService.getFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       tips,
-      this.jobId,
+      this.changeSetId,
     );
     return collection
       ? Option.some(
@@ -831,13 +880,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
             collection.facts,
           ),
         )
-      : Option.none(emptyFactCollection(this.ephemeralArrayService));
+      : Option.none();
   }
 
   /** Returns every fact collection of `factCollectionTypeId`. */
-  public async getFactCollectionsByType(
+  public async getFactCollectionsByTypeV2(
     contractAddress: AztecAddress,
-    scope: AztecAddress,
+    scope: FactScope,
     factCollectionTypeId: Fr,
   ): Promise<EphemeralArray<FactCollection>> {
     this.#assertOwnContract(contractAddress);
@@ -845,7 +894,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const collections = await this.factService.getFactCollectionsByType(
       new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
       tips,
-      this.jobId,
+      this.changeSetId,
     );
     return EphemeralArray.fromValues(
       this.ephemeralArrayService,
@@ -1056,14 +1105,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         }
       }
 
-      await this.contractSyncService.ensureContractSynced(
-        targetContractAddress,
-        functionSelector,
-        this.utilityExecutor,
-        this.anchorBlockHeader,
-        this.jobId,
-        this.scopes,
-      );
+      await this.contractSyncService.ensureContractSynced({
+        contract: targetContractAddress,
+        functionToInvokeAfterSync: functionSelector,
+        utilityExecutor: this.utilityExecutor,
+        anchorBlockHeader: this.anchorBlockHeader,
+        changeSetId: this.changeSetId,
+        scopes: this.scopes,
+        triggeredBy: { address: this.contractAddress, selector: this.callContext.functionSelector },
+      });
     }
 
     this.logger.debug(
@@ -1093,7 +1143,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
-      jobId: this.jobId,
+      changeSetId: this.changeSetId,
       scopes: this.scopes,
       simulator: this.simulator,
       hooks: this.hooks,

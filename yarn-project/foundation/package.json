@@ -167,7 +167,7 @@
     "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
     "undici": "^5.28.5",
-    "zod": "^4"
+    "zod": "~4.4.3"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

@@ -161,7 +161,9 @@ export interface RequestWithExpiry {
   ) => boolean;
 }
 
-export class SequencerPublisher {
+export class SequencerPublisher implements Disposable {
+  private readonly resources = new DisposableStack();
+
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   private bundleSimulator: SequencerBundleSimulator;
@@ -257,11 +259,13 @@ export class SequencerPublisher {
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
 
-    this.rollupContract.listenToSlasherChanged(async () => {
-      this.log.info('Slashing proposer changed');
-      const newSlashingProposer = await this.rollupContract.getSlashingProposer();
-      this.slashingProposerContract = newSlashingProposer;
-    });
+    this.resources.defer(
+      this.rollupContract.listenToSlasherChanged(async () => {
+        this.log.info('Slashing proposer changed');
+        const newSlashingProposer = await this.rollupContract.getSlashingProposer();
+        this.slashingProposerContract = newSlashingProposer;
+      }),
+    );
     // Initialize L1 fee analyzer for fisherman mode
     if (config.fishermanMode) {
       this.l1FeeAnalyzer = new L1FeeAnalyzer(
@@ -287,6 +291,16 @@ export class SequencerPublisher {
       epochCache: this.epochCache,
       log: this.log.createChild('bundle-simulator'),
     });
+  }
+
+  /** Releases owned subscriptions without interrupting shared L1 senders. */
+  public dispose(): void {
+    this.resources.dispose();
+  }
+
+  /** Disposes this publisher when a using scope ends. */
+  public [Symbol.dispose](): void {
+    this.dispose();
   }
 
   /**

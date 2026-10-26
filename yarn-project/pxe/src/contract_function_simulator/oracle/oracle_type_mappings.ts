@@ -53,9 +53,12 @@ import {
 } from '@aztec/stdlib/tx';
 
 import {
-  type OriginBlock,
+  type BlockReference,
+  type FactScope,
   type OriginBlockState,
   type RetractableFactOrigin,
+  factScopeFromFields,
+  factScopeToFields,
   originBlockStateFromNumber,
 } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
@@ -68,7 +71,9 @@ import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
+import type { NoteOrigin } from '../noir-structs/note_origin.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import type { NullifierStatus } from '../noir-structs/nullifier_status.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
@@ -562,9 +567,19 @@ export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT([
   { name: 'context', type: RESOLVED_TX },
 ]);
 
-export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = STRUCT([
+export const BLOCK_REFERENCE: TypeMapping<BlockReference> = STRUCT([
   { name: 'blockNumber', type: U32 },
   { name: 'blockHash', type: FIELD },
+]);
+
+export const NULLIFIER_STATUS: TypeMapping<NullifierStatus> = STRUCT([
+  { name: 'exists', type: BOOL },
+  { name: 'originBlock', type: OPTION(BLOCK_REFERENCE) },
+]);
+
+export const NOTE_ORIGIN: TypeMapping<NoteOrigin> = STRUCT([
+  { name: 'txHash', type: FIELD },
+  { name: 'block', type: BLOCK_REFERENCE },
 ]);
 
 const ORIGIN_BLOCK_STATE: TypeMapping<OriginBlockState> = SCALAR({
@@ -586,9 +601,19 @@ export const FACT: TypeMapping<Fact> = STRUCT([
   { name: 'originBlock', type: OPTION(RETRACTABLE_FACT_ORIGIN) },
 ]);
 
+export const FACT_SCOPE: TypeMapping<FactScope> = LEAF({
+  kind: 'fact-scope',
+  serialization: { fn: scope => factScopeToFields(scope) },
+  deserialization: {
+    fn: ([kindReader, accountReader]) =>
+      factScopeFromFields(kindReader.readField().toNumber(), accountReader.readField()),
+  },
+  shape: ['scalar', 'scalar'],
+});
+
 export const FACT_COLLECTION: TypeMapping<FactCollection> = STRUCT([
   { name: 'contractAddress', type: AZTEC_ADDRESS },
-  { name: 'scope', type: AZTEC_ADDRESS },
+  { name: 'scope', type: FACT_SCOPE },
   { name: 'factCollectionTypeId', type: FIELD },
   { name: 'factCollectionId', type: FIELD },
   { name: 'facts', type: EPHEMERAL_ARRAY(FACT) },

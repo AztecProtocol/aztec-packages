@@ -285,6 +285,32 @@ where
     });
 }
 
+pub(crate) unconstrained fn from_array_stores_values_in_order<Oracle>()
+where
+    Oracle: ArrayOracles,
+{
+    let env = TestEnvironment::new();
+    env.utility_context(|_| {
+        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::from_array([10, 20, 30]);
+        assert_eq(array.len(), 3);
+        assert_eq(array.get(0), 10);
+        assert_eq(array.get(1), 20);
+        assert_eq(array.get(2), 30);
+    });
+}
+
+pub(crate) unconstrained fn from_array_of_no_values_is_empty<Oracle>()
+where
+    Oracle: ArrayOracles,
+{
+    let env = TestEnvironment::new();
+    env.utility_context(|_| {
+        let values: [Field; 0] = [];
+        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::from_array(values);
+        assert_eq(array.len(), 0);
+    });
+}
+
 pub(crate) unconstrained fn map_transforms_each_element<Oracle>()
 where
     Oracle: ArrayOracles,

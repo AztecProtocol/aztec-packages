@@ -4,18 +4,17 @@ import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock } from '@aztec/stdlib/block';
 import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 
 export class EventService {
   constructor(
     private readonly anchorBlockHeader: BlockHeader,
-    private readonly aztecNode: AztecNode,
     private readonly privateEventStore: PrivateEventStore,
-    private readonly jobId: string,
+    private readonly changeSetId: ChangeSetId,
     private readonly log = createLogger('pxe:event_service'),
   ) {}
 
@@ -118,7 +117,7 @@ export class EventService {
         txIndexInBlock: txData.txIndexInBlock,
         eventIndexInTx,
       },
-      this.jobId,
+      this.changeSetId,
     );
   }
 }

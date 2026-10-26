@@ -9,6 +9,49 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Fact collections are scoped by `FactScope`
+
+The `aztec::facts` functions now take the collection's scope as an `aztec::facts::FactScope` instead of an `AztecAddress`, and `FactCollection::scope` is a `FactScope`. `FactScope::account(address)` is the scope of a single account, as before. The new `FactScope::public()` is shared by all accounts: any execution of the contract can access its collections, whichever accounts are in scope.
+
+**Migration:**
+
+```diff
+- use aztec::facts::record_retractable_fact;
++ use aztec::facts::{FactScope, record_retractable_fact};
+
+- record_retractable_fact(contract_address, recipient, type_id, collection_id, fact_type_id, payload, origin_block);
++ record_retractable_fact(
++     contract_address,
++     FactScope::account(recipient),
++     type_id,
++     collection_id,
++     fact_type_id,
++     payload,
++     origin_block,
++ );
+```
+
+### [Aztec Node] `getPredictedMinFees` leads with the fee the next block will charge
+
+The first entry of `getPredictedMinFees` is now the fee the node's public simulation would charge for the next block: the fee frozen into an in-progress checkpoint when the next block continues one, or the price of the slot the next block opens. The remaining entries are the L1 projections for the current slot and the following ones, unchanged. The node omits the leading entry when it cannot price the next block (for example during an L1 outage), in which case only the projections are returned.
+
+Clients that reduce the list with `max` (the wallet SDK's `getMinFees`, the CLI) are unaffected, and now quote a fee the node's simulation accepts even mid-checkpoint. A client that reads `fees[0]` as "the current min fee" should call `getCurrentMinFees` instead.
+
+### [Aztec.nr] `OriginBlock` replaced by `BlockReference`
+
+`aztec::facts::OriginBlock` has been removed. Retractable facts now identify their origin block with `aztec::oracle::block_reference::BlockReference`, which has the same `block_number` and `block_hash` fields.
+
+**Migration:**
+
+```diff
+- use aztec::facts::{OriginBlock, record_retractable_fact};
++ use aztec::facts::record_retractable_fact;
++ use aztec::oracle::block_reference::BlockReference;
+
+- let origin_block = OriginBlock { block_number, block_hash };
++ let origin_block = BlockReference { block_number, block_hash };
+```
+
 ### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
 
 `@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).

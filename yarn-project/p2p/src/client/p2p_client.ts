@@ -151,7 +151,7 @@ export class P2PClient extends WithTracer implements P2P {
 
   public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
     await this.txPool.updateConfig(config);
-    this.p2pService.updateConfig(config);
+    await this.p2pService.updateConfig(config);
   }
 
   public getL2Tips(): Promise<LocalL2Tips> {

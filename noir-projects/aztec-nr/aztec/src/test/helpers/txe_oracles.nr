@@ -21,7 +21,7 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 4;
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 5;
 pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the TXE oracle interface version is compatible.
@@ -49,8 +49,17 @@ pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     secret: Field,
     salt: Field,
     deployer: AztecAddress,
+    immutables_hash: Field,
 ) -> ContractInstance {
-    let instance_fields = deploy_oracle(path, initializer, args, secret, salt, deployer);
+    let instance_fields = deploy_oracle(
+        path,
+        initializer,
+        args,
+        secret,
+        salt,
+        deployer,
+        immutables_hash,
+    );
     ContractInstance::deserialize(instance_fields)
 }
 
@@ -246,6 +255,7 @@ pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     secret: Field,
     salt: Field,
     deployer: AztecAddress,
+    immutables_hash: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(aztec_txe_createAccount)]

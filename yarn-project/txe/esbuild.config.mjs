@@ -217,10 +217,18 @@ const result = await build({
 // Dump the full metafile so we can audit chunk graph / imports separately from the build.
 await writeFile('dest/metafile.json', JSON.stringify(result.metafile, null, 2));
 
-const totalBytes = Object.values(result.metafile.outputs).reduce((sum, o) => sum + o.bytes, 0);
+// Report runtime JS and external sourcemaps separately: the size guard bounds the JS (what V8
+// parses at cold start), while the `.map` files are loaded lazily and only tracked for growth.
+const jsBytes = Object.entries(result.metafile.outputs)
+  .filter(([p]) => !p.endsWith('.map'))
+  .reduce((sum, [, o]) => sum + o.bytes, 0);
+const mapBytes = Object.entries(result.metafile.outputs)
+  .filter(([p]) => p.endsWith('.map'))
+  .reduce((sum, [, o]) => sum + o.bytes, 0);
 const ms = Date.now() - start;
+const toMiB = b => (b / 1024 / 1024).toFixed(1);
 // eslint-disable-next-line no-console
-console.log(`Bundled TXE in ${ms}ms (${(totalBytes / 1024 / 1024).toFixed(1)} MiB total)`);
+console.log(`Bundled TXE in ${ms}ms (${toMiB(jsBytes)} MiB JS + ${toMiB(mapBytes)} MiB sourcemaps)`);
 
 // Surface the heaviest inputs per bundle. Pass `--inspect` on the command line to print.
 if (process.argv.includes('--inspect')) {

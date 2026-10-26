@@ -501,13 +501,16 @@ impl<let T: u32> ExecuteUtilityOptions<T> {
 pub struct DeployOptions {
     salt: Option<Field>,
     secret: Option<Field>,
+    immutables_hash: Field,
 }
 
 impl DeployOptions {
-    /// Creates a new `DeployOptions` with default values, i.e. the same as if using the `deploy` method instead of
-    /// `deploy_opts`. Use the `with_salt` and `with_secret` methods to set the desired configuration values.
+    /// Creates a new `DeployOptions` with default values.
+    ///
+    /// Equivalent to using `deploy` instead of `deploy_opts`. Use the `with_salt`, `with_secret` and
+    /// `with_immutables_hash` methods to set the desired configuration values.
     pub fn new() -> Self {
-        Self { salt: Option::none(), secret: Option::none() }
+        Self { salt: Option::none(), secret: Option::none(), immutables_hash: 0 }
     }
 
     /// Sets the deployment salt. The salt affects the resulting contract address: the same contract deployed with
@@ -521,6 +524,13 @@ impl DeployOptions {
     /// address: the same contract deployed with different secrets will have different addresses.
     pub fn with_secret(&mut self, secret: Field) -> Self {
         self.secret = Option::some(secret);
+        *self
+    }
+
+    /// Sets the instance's immutables hash. The immutables hash affects the resulting contract address: the same
+    /// contract deployed with different immutables hashes will have different addresses.
+    pub fn with_immutables_hash(&mut self, immutables_hash: Field) -> Self {
+        self.immutables_hash = immutables_hash;
         *self
     }
 }
@@ -1103,8 +1113,9 @@ impl TestEnvironment {
         self.deploy_opts(DeployOptions::new(), path)
     }
 
-    /// Variant of `deploy` which allows specifying configuration values via `DeployOptions`, such as a custom salt
-    /// or secret. If not specified, the salt and secret default to values from internal counters.
+    /// Variant of `deploy` which allows specifying configuration values via `DeployOptions`, such as a custom salt,
+    /// secret or immutables hash. If not specified, the salt and secret default to values from internal counters, and
+    /// the immutables hash defaults to 0.
     pub unconstrained fn deploy_opts<let N: u32>(
         &mut self,
         opts: DeployOptions,
@@ -1112,7 +1123,7 @@ impl TestEnvironment {
     ) -> ContractDeployment<N> {
         let secret = opts.secret.unwrap_or_else(|| self.contract_deployment_secret.next());
         let salt = opts.salt.unwrap_or_else(|| self.contract_deployment_salt.next());
-        ContractDeployment { env: *self, path, secret, salt }
+        ContractDeployment { env: *self, path, secret, salt, immutables_hash: opts.immutables_hash }
     }
 
     /// Performs a private contract function call, including the processing of any nested private calls and enqueued

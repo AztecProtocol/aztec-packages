@@ -4,6 +4,7 @@ export * from './double_spend_validator.js';
 export * from './metadata_validator.js';
 export * from './tx_proof_validator.js';
 export * from './block_header_validator.js';
+export * from './gas_limits_validator.js';
 export * from './gas_validator.js';
 export * from './phases_validator.js';
 export * from './test_utils.js';

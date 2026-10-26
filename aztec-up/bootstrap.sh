@@ -27,6 +27,18 @@ function build {
 storage: $PWD/verdaccio-storage
 max_body_size: 1000mb
 
+auth:
+  htpasswd:
+    file: ./htpasswd
+
+# JWT rather than the default legacy tokens, which re-run the htpasswd bcrypt check on every request
+# that carries one, including every packument and tarball read.
+security:
+  api:
+    jwt:
+      sign:
+        expiresIn: 1d
+
 uplinks:
   npmjs:
     url: https://registry.npmjs.org/
@@ -62,12 +74,12 @@ packages:
 
 logs: { type: stdout, format: pretty, level: warn }
 EOF
-  echo 'testuser:$2y$05$R1tRwE1mM3iT1dJ8hG16fOCTq7tFhFJ0IWrZ1bMCGJ6W9unQF3H3K' > /tmp/htpasswd
 
-  if ! command -v verdaccio &>/dev/null; then
+  local verdaccio_version=7.0.1
+  export PATH="/tmp/verdaccio-pkg/bin:$PATH"
+  if [ "$(verdaccio --version 2>/dev/null)" != "v$verdaccio_version" ]; then
     # Install to a local prefix to avoid requiring root for global npm install.
-    npm i -g --prefix /tmp/verdaccio-pkg verdaccio
-    export PATH="/tmp/verdaccio-pkg/bin:$PATH"
+    npm i -g --prefix /tmp/verdaccio-pkg verdaccio@$verdaccio_version
   fi
 
   local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
@@ -81,21 +93,30 @@ EOF
 
   if ! cache_download aztec-up-test-image-$hash.zst; then
     rm -rf verdaccio-storage
+    # The login below registers the user; a file left by an earlier run could hold another password.
+    rm -f /tmp/htpasswd
     verdaccio --config /tmp/verdaccio-config.yaml --listen 4873 &>/dev/null &
     verdaccio_pid=$!
     trap 'kill $verdaccio_pid &>/dev/null || true' EXIT
     while ! nc -z localhost 4873 &>/dev/null; do sleep 1; done
 
+    # Verdaccio accepts Basic credentials only on its login route and answers 401 to any other
+    # request that carries them, so npm authenticates with the token the login returns.
+    local token
+    if ! token=$(curl -sSf -X PUT -H 'content-type: application/json' \
+      -d '{"name":"testuser","password":"testpass"}' \
+      http://localhost:4873/-/user/org.couchdb.user:testuser | jq -er .token); then
+      echo_stderr "Could not log in to the local registry on :4873."
+      exit 1
+    fi
+
     # Configure local npm registry.
     export npm_config_registry="http://localhost:4873"
     export npm_config_userconfig=$(mktemp)
-    cat > "$npm_config_userconfig" <<'EOF'
+    cat > "$npm_config_userconfig" <<EOF
 max_body_size=1000mb
 registry=http://localhost:4873/
-//localhost:4873/:username=testuser
-//localhost:4873/:_password=dGVzdHBhc3M=
-//localhost:4873/:email=test@example.com
-//localhost:4873/:always-auth=true
+//localhost:4873/:_authToken=$token
 EOF
 
     # Deploy all npm packages to local registry.

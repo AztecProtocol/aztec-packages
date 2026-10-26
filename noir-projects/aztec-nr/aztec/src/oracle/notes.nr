@@ -1,7 +1,8 @@
 use crate::messages::delivery::OnchainDeliveryMode;
 use crate::note::{HintedNote, note_interface::NoteType};
+use crate::oracle::block_reference::BlockReference;
 
-use crate::protocol::{address::AztecAddress, traits::Packable};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Packable}};
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 /// transaction. This note should only be added to the non-volatile database if found in an actual block.
@@ -174,6 +175,37 @@ where
 
     notes_array
 }
+
+/// Where a settled note was created.
+///
+/// None of this can be cheaply constrained: doing so requires proving the transaction, its inclusion in the block, and
+/// the block's ancestry in the anchor block.
+// TODO(F-890): also expose the transaction and block in which the note was nullified, if it was.
+#[derive(Deserialize, Eq)]
+pub struct NoteOrigin {
+    /// Hash of the transaction that created the note.
+    pub tx_hash: Field,
+    /// The block that transaction was included in.
+    pub block: BlockReference,
+}
+
+/// Returns where the settled note with the given hash and nonce was created, or `None` if the note is unknown.
+///
+/// Nullified notes are also returned. Only notes of the executing contract can be looked up.
+pub unconstrained fn get_settled_note_origin(
+    note_hash: Field,
+    contract_address: AztecAddress,
+    note_nonce: Field,
+) -> Option<NoteOrigin> {
+    get_settled_note_origin_oracle(note_hash, contract_address, note_nonce)
+}
+
+#[oracle(aztec_utl_getSettledNoteOrigin)]
+unconstrained fn get_settled_note_origin_oracle(
+    _note_hash: Field,
+    _contract_address: AztecAddress,
+    _note_nonce: Field,
+) -> Option<NoteOrigin> {}
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
 

@@ -10,7 +10,9 @@ import {
   BlocksQuerySchema,
   CheckpointQuerySchema,
   CheckpointsQuerySchema,
+  L1SyncPointSchema,
   type L2BlockSource,
+  L2FrontierSchema,
   L2TipsSchema,
   ProposedCheckpointQuerySchema,
 } from '../block/l2_block_source.js';
@@ -119,6 +121,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),
   isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
+  getL2Frontier: z.function({ input: z.tuple([]), output: L2FrontierSchema }),
+  getL1SyncPoint: z.function({ input: z.tuple([]), output: optional(L1SyncPointSchema) }),
   getPrivateLogsByTags: z.function({
     input: z.tuple([PrivateLogsQuerySchema]),
     output: z.array(z.array(LogResultSchema)),

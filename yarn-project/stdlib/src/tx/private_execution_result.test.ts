@@ -41,6 +41,12 @@ describe('execution_result', () => {
       const instance = await PrivateExecutionResult.random();
       expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
     });
+
+    // The schema refers to itself through `z.lazy`, and zod ties that recursion together by object identity:
+    // handing back a fresh schema on each access makes it recurse until the stack overflows (zod >= 4.5).
+    it('hands out the same call execution result schema instance on every access', () => {
+      expect(PrivateCallExecutionResult.schema).toBe(PrivateCallExecutionResult.schema);
+    });
   });
 
   describe('collectNoteHashNullifierCounterMap', () => {

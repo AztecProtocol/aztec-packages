@@ -226,7 +226,8 @@ must also be buildable into a block and fit a valid checkpoint.
 ### Per-tx protocol maxima
 
 Hard ceilings on what any single tx may declare, independent of network configuration. Declaring more is
-rejected everywhere a tx is validated.
+rejected by `GasLimitsValidator` at every tx validation entry point except simulation, which is exempt
+because gas estimation deliberately declares limits above the per-tx maximum.
 
 - **`MAX_TX_DA_GAS`** (271,200) — `MAX_TX_BLOB_DATA_SIZE_IN_FIELDS` (8,475) × `DA_GAS_PER_FIELD` (32). This
   is the most DA a single tx's effects can encode into a blob, so it is the most DA gas a tx could ever use.
@@ -300,8 +301,8 @@ The outermost limits, enforced as proposal validity in `validateCheckpointLimits
 
 | Limit                                   | Value (mainnet defaults)        | Scope         | Where enforced                                              |
 | --------------------------------------- | ------------------------------- | ------------- | ----------------------------------------------------------- |
-| `MAX_TX_DA_GAS`                         | 271,200                         | per-tx        | every gas validator (hard ceiling)                          |
-| `MAX_PROCESSABLE_L2_GAS`                | 6,540,000                       | per-tx        | every gas validator (hard ceiling)                          |
+| `MAX_TX_DA_GAS`                         | 271,200                         | per-tx        | `GasLimitsValidator` (hard ceiling; simulation exempt)      |
+| `MAX_PROCESSABLE_L2_GAS`                | 6,540,000                       | per-tx        | `GasLimitsValidator` (hard ceiling; simulation exempt)      |
 | Network DA admission limit              | min(271,200, ceil(784,448/10×1.5)) = 117,668 | per-tx (relay) | RPC, gossip, pending pool (`GasLimitsValidator`)         |
 | Network L2 admission limit              | min(6,540,000, ceil(manaLimit/10×1.2)) | per-tx (relay) | RPC, gossip, pending pool (`GasLimitsValidator`)         |
 | Per-block fair share + caps             | remaining budget / blocks × multiplier, min absolute caps & blob-field cap | per-block | `CheckpointBuilder.capLimitsByCheckpointBudgets`         |

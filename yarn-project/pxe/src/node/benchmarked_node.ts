@@ -18,8 +18,10 @@ import type { NodeStats } from '@aztec/stdlib/tx';
  * limits in web browsers which is not a problem when debugging in node.js).
  */
 export interface Recording {
-  /** Closes the recording and returns what it saw. Reads served after this are not recorded. */
-  stop(): NodeStats;
+  /** A snapshot of the reads seen so far. Safe to call while the recording is still open. */
+  stats(): NodeStats;
+  /** Closes the recording. Reads served after this are not recorded. Idempotent. */
+  stop(): void;
 }
 
 /** An {@link AztecNode} wrapper that can report the reads it serves. */
@@ -54,10 +56,9 @@ export function withRecording(node: AztecNode): BenchmarkedAztecNode {
           };
           open.add(stats);
           return {
-            stop: () => {
-              open.delete(stats);
-              return stats;
-            },
+            // Cloned so a snapshot embedded in an operation's results is not mutated by reads served later.
+            stats: () => structuredClone(stats),
+            stop: () => open.delete(stats),
           };
         };
       }

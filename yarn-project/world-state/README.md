@@ -33,6 +33,26 @@ Once a new block is received, the synchronizer checks the uncommitted root value
 
 The interface to the Merkle Tree DB offers a unified asynchronous API to the set of trees available. Reads from the Merkle Trees need to be marked as to whether they should include uncommitted state. For this reason, the MerkleTreeReadOperationsFacade exists to abstract this detail away from the end consumer.
 
+### History retention
+
+By default, `WS_NUM_HISTORIC_CHECKPOINTS=64` retains a rolling window of finalized checkpoints, along with all newer state.
+Setting this value to zero disables history pruning. Increasing the window accumulates more history as the chain advances;
+it does not require an existing database or snapshot to contain that history already.
+
+Set `WS_PRUNE_BEFORE_CHECKPOINT=N` to retain every block in checkpoint N and every later checkpoint permanently. This
+overrides the rolling checkpoint setting. Set N to zero to retain all history from genesis. Pruning always stops at the
+first block of a checkpoint; the checkpoint containing the finalized tip is always retained. Future checkpoint numbers
+are supported.
+
+When `WS_PRUNE_BEFORE_CHECKPOINT` is explicitly set, startup accepts a database with more history than requested and
+rejects one missing required history, including with `SYNC_MODE=force-snapshot`. Rebuild using a fresh world-state
+database to request older history.
+
+When bootstrapping a fresh world-state database with a pin and snapshot sync enabled, the node tries compatible snapshots in
+checkpoint N or earlier, newest first, then syncs forward while preserving complete checkpoints. Existing snapshot
+indexes are mapped from block numbers using the archived checkpoint metadata. Missing or incompatible snapshots are
+skipped. If none can be used, the node rebuilds from genesis. `SYNC_MODE=full` always skips snapshot downloads.
+
 # Building/Testing
 
 Building the package is as simple as calling `yarn build` from the package root.

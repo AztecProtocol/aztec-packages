@@ -57,7 +57,8 @@ import { CachedTxValidator } from './cached_tx_validator.js';
 import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
-import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
+import { MaxGasLimitsValidator, MinGasLimitsValidator } from './gas_limits_validator.js';
+import { GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
@@ -86,7 +87,8 @@ export interface TransactionValidator {
  * without consulting the pool or running proof verification.
  *
  * The `doubleSpendValidator` failure is special-cased by the caller (`handleGossipedTx`)
- * to determine severity based on how recently the nullifier appeared.
+ * to determine severity based on how recently the nullifier appeared. The caller reports the
+ * first failing entry among equally severe ones.
  */
 export function createFirstStageTxValidationsForGossipedTransactions(
   timestamp: UInt64,
@@ -156,13 +158,20 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       ),
       severity: PeerErrorSeverity.MidToleranceError, // This is handled specifically at the point of rejection by considering a recent window where it may have been valid
     },
+    minGasLimitsValidator: {
+      validator: new MinGasLimitsValidator<Tx>(bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    maxGasLimitsValidator: {
+      validator: new MaxGasLimitsValidator<Tx>({ ...gasLimitOpts, bindings }),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
     gasValidator: {
       validator: new GasTxValidator(
         new DatabasePublicStateSource(merkleTree),
         ProtocolContractAddress.FeeJuice,
         gasFees,
         bindings,
-        gasLimitOpts,
       ),
       severity: PeerErrorSeverity.MidToleranceError,
     },
@@ -337,16 +346,17 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new DoubleSpendTxValidator(new NullifierCache(db), bindings),
     new DataTxValidator(bindings),
     new ContractInstanceTxValidator(bindings),
+    // Declared gas-limit admission is not fee enforcement, so it runs even when fees are skipped. The floor
+    // has no exemption: a tx declaring less than the fixed overheads can never be mined, so rejecting it
+    // during simulation is the earliest useful feedback rather than a surprise on sendTx.
+    new MinGasLimitsValidator<Tx>(bindings),
   ];
 
-  // Declared gas-limit admission is not fee enforcement, so it runs even when fees are skipped, but it is
-  // skipped during simulation: gas estimation submits intentionally-inflated `forEstimation` limits (above
-  // the per-tx max) and the wallet clamps the real tx to the admission limit afterward, so enforcing the
-  // limit on the estimation tx would reject a valid estimation. The fee-balance check below stays behind
-  // `skipFeeEnforcement`, and GasTxValidator is constructed without the limit opts so it does not re-run
-  // this same check.
+  // Only the ceiling is exempted during simulation: gas estimation submits intentionally-inflated
+  // `forEstimation` limits (above the per-tx max) and the wallet clamps the real tx to the admission limit
+  // afterward, so enforcing the ceiling on the estimation tx would reject a valid estimation.
   if (!isSimulation) {
-    validators.push(new GasLimitsValidator<Tx>({ maxTxL2Gas, maxTxDAGas, bindings }));
+    validators.push(new MaxGasLimitsValidator<Tx>({ maxTxL2Gas, maxTxDAGas, bindings }));
   }
 
   if (!skipFeeEnforcement) {
@@ -416,6 +426,10 @@ function createTxValidatorForValidatingAgainstCurrentState(
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp, bindings),
     new BlockHeaderTxValidator(archiveSource, bindings),
     new DoubleSpendTxValidator(nullifierSource, bindings),
+    new MinGasLimitsValidator<Tx>(bindings),
+    // No limit opts: enforce only the per-tx protocol ceiling. Network admission limits are relay policy and
+    // must not invalidate a proposed block.
+    new MaxGasLimitsValidator<Tx>({ bindings }),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
   );
 }
@@ -455,7 +469,8 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
     },
   };
   return new AggregateTxValidator<TxMetaData>(
-    new GasLimitsValidator<TxMetaData>({ ...gasLimitOpts, bindings }),
+    new MinGasLimitsValidator<TxMetaData>(bindings),
+    new MaxGasLimitsValidator<TxMetaData>({ ...gasLimitOpts, bindings }),
     new MaxFeePerGasValidator<TxMetaData>(gasFees, bindings),
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
     new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),

@@ -83,7 +83,7 @@
     "node-pg-migrate": "^8.0.4",
     "pg": "^8.11.3",
     "tslib": "^2.4.0",
-    "zod": "^4"
+    "zod": "~4.4.3"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",

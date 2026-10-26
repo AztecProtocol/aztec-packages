@@ -4,6 +4,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type AppTaggingSecret, type LogResult, SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { ChangeSetId } from '../../../storage/staged_write_coordinator.js';
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
 import { type LogQueryAnchor, getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
@@ -19,8 +20,8 @@ import { type LogQueryAnchor, getAllPrivateLogsByTags } from '../../get_all_logs
  * @param aztecNode - The Aztec node instance to query for logs.
  * @param taggingStore - The data provider to store pending indexes.
  * @param anchor - Block the log query is anchored to.
- * @param jobId - Job identifier, used to keep writes in-memory until they can be persisted in a data integrity
- * preserving way.
+ * @param changeSetId - Change set identifier, used to keep writes in-memory until they can be persisted in a data
+ * integrity preserving way.
  */
 export async function loadAndStoreNewTaggingIndexes(
   extendedSecret: AppTaggingSecret,
@@ -29,7 +30,7 @@ export async function loadAndStoreNewTaggingIndexes(
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
   anchor: LogQueryAnchor,
-  jobId: string,
+  changeSetId: ChangeSetId,
 ): Promise<Map<string, TxInLogs>> {
   // We compute the tags for the current window of indexes
   const siloedTagsForWindow = await allToCompletion(
@@ -55,7 +56,7 @@ export async function loadAndStoreNewTaggingIndexes(
     const ranges = [
       { extendedSecret, lowestIndex: Math.min(...taggingIndexes), highestIndex: Math.max(...taggingIndexes) },
     ];
-    await taggingStore.mergePendingIndexes(ranges, txHash, jobId);
+    await taggingStore.mergePendingIndexes(ranges, txHash, changeSetId);
   }
 
   return txsInLogs;
