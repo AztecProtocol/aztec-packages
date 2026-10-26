@@ -136,7 +136,8 @@ function build_packages {
   cd noir-repo
   npm_install_deps
 
-  yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run build
+  NODE_OPTIONS="${NODE_OPTIONS:-} --import $root/noir/yargs-cjs.mjs" \
+    yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or to portal into other projects.
