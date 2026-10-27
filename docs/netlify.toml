@@ -211,6 +211,12 @@
     status = 301
 
 [[redirects]]
+    # A dropped version's own path lands on the same page in the default version.
+    from = "/developers/v6.0.0-rc.1/*"
+    to = "/developers/:splat"
+    status = 301
+
+[[redirects]]
     from = "/developers/nightly/overview"
     to = "/developers/overview"
     status = 301
@@ -242,6 +248,11 @@
 
 [[redirects]]
     from = "/operate/testnet/*"
+    to = "/operate/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/operate/v6.0.0-rc.1/*"
     to = "/operate/:splat"
     status = 301
 

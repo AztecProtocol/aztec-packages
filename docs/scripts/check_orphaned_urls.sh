@@ -220,6 +220,18 @@ resolves_locally() {
 
   local clean="${url_path#/}"
 
+  # A non-default version is served at its own path from its snapshot.
+  if [[ "$clean" =~ ^(developers|operate)/(v[0-9][^/]*)(/(.*))?$ ]]; then
+    local family=${BASH_REMATCH[1]} version=${BASH_REMATCH[2]} rest=${BASH_REMATCH[4]}
+    local prefix=developer default=$DEVELOPER_VERSION
+    [[ "$family" == operate ]] && prefix=network default=$NETWORK_VERSION
+    local snapshot="$DOCS_ROOT/${prefix}_versioned_docs/version-$version"
+    if [[ "$version" != "$default" && -d "$snapshot" ]]; then
+      check_file_or_id "$snapshot" "$rest" && return 0
+      return 1
+    fi
+  fi
+
   if [[ "$clean" =~ ^developers/docs/(.*) ]]; then
     check_file_or_id "$DEVELOPER_DOCS_DIR/docs" "${BASH_REMATCH[1]}" && return 0
     return 1
