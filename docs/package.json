@@ -20,7 +20,7 @@
     "spellcheck": "yarn cspell",
     "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
     "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && yarn docusaurus start --host ${HOST:-localhost}",
-    "test": "node --test src/preprocess/__tests__/*.test.js",
+    "test": "node --test src/preprocess/__tests__/*.test.js src/__tests__/*.test.js",
     "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
   "dependencies": {

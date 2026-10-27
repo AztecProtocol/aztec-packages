@@ -1202,6 +1202,25 @@ discard uncommitted work, hence the status check: Step 17 committed everything, 
 prints nothing. The branch `docs-cut/v<new_version>` stays as the record of the cut until the destination
 commit has merged. `$STATE` holds the CLI's home and logs; remove it once the release is out.
 
+### Step 19: Refresh the Protected URL Snapshot
+
+Run this once the release is live in production on both docs instances: the developer
+docs from this skill and the operator docs from `/release-network-docs`. A draft or preview deploy does not
+count, because the snapshot records what docs.aztec.network serves. The script adds the
+live sitemap's URLs to `docs/snapshots/published-urls.txt` and keeps every URL already
+listed, so a retired page stays protected and keeps needing its redirect. The default
+version is served at unversioned paths, so expect no `/v<new_version>/` URLs.
+
+On a new branch from the branch the cut merged into:
+
+```bash
+cd docs && ./scripts/refresh_url_snapshot.sh
+git diff -- snapshots/published-urls.txt
+git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/published-urls.txt
+```
+
+Apart from the header's date, the diff only adds URLs. Pushing it is the owner's call.
+
 ## Key Points
 
 - **Always query the network first**: the RPC is the source of truth for the version and
