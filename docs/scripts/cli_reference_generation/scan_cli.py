@@ -39,6 +39,9 @@ class CLIScanner:
     # Maximum recursion depth for scanning subcommands (prevents runaway recursion)
     MAX_DEPTH = 5
 
+    # The CLIs take these as option defaults, and their help output prints the values.
+    ENV_DEFAULTS_TO_DROP = ("PRIVATE_KEY", "MNEMONIC", "API_KEY", "ETHEREUM_HOSTS")
+
     def __init__(self, base_command: str = "aztec", cli_format: str = "auto",
                  max_workers: int = 1, timeout: int = 60):
         self.base_command = base_command
@@ -78,6 +81,8 @@ class CLIScanner:
                 # Set a large terminal width to prevent output truncation
                 env = os.environ.copy()
                 env['COLUMNS'] = '200'
+                for name in self.ENV_DEFAULTS_TO_DROP:
+                    env.pop(name, None)
 
                 # Use unique container name only in parallel mode to avoid conflicts
                 # The aztec CLI's .aztec-run script respects CONTAINER_NAME env var

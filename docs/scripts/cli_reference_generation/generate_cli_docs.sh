@@ -207,6 +207,12 @@ EOF
 # Append markdown content (skip first line which is duplicate title)
 tail -n +2 "$TEMP_MD" >> "$TEMP_WITH_FRONTMATTER"
 
+key_defaults=$(grep -oE 'default: "0x[0-9a-fA-F]{64}"' "$TEMP_WITH_FRONTMATTER" | grep -vE '"0x0{64}"' || true)
+if [[ -n "$key_defaults" ]]; then
+  echo "Error: $(wc -l <<<"$key_defaults") option defaults in the ${CLI_COMMAND} help output look like private keys, read from the environment. Unset them and rerun." >&2
+  exit 1
+fi
+
 # Step 4: Deploy to target locations
 echo ""
 echo "Step 3: Deploying documentation..."
