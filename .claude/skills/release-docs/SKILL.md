@@ -213,7 +213,7 @@ the rerun):
 
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT"
-for f in package.json yarn.lock; do git -C labs show "$LABS_TAG:docs/$f" >"docs/$f"; done
+for f in package.json yarn.lock; do git -C labs show "${LABS_TAG}:docs/$f" >"docs/$f"; done
 (cd docs && yarn install) && git add docs/package.json docs/yarn.lock \
   && git commit -m "docs: take aztec-node's dependencies at $LABS_TAG"
 ```
@@ -262,7 +262,7 @@ which downloads `bb` and `nargo` at the tag's `BB_VERSION`/`NOIR_VERSION`, and c
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT"
 scripts/labs_docs_sync.sh --release "$LABS_TAG" check
-git -C labs show "$LABS_TAG:labs-aztec-toolchain/bootstrap.sh" | grep -E '^(BB|NOIR)_VERSION='
+git -C labs show "${LABS_TAG}:labs-aztec-toolchain/bootstrap.sh" | grep -E '^(BB|NOIR)_VERSION='
 cat labs/labs-aztec-toolchain/bin/.pin
 docs_env sh -c '"$NARGO" --version && "$BB" --version && echo "LABS_REF=$LABS_REF COMMIT_TAG=$COMMIT_TAG"'
 node -p 'require("./docs/node_modules/@aztec-foundation/l1-artifacts/package.json").version'
@@ -520,7 +520,7 @@ means the build already fails; treat those as cross-checks.
 and blind to signature drift (a function can keep its name while its arguments change):
 
 - Verify against the source at the tag:
-  `git -C "$CUT/labs" show "$LABS_TAG:<path>"` (the aztec-node path, without `labs/`).
+  `git -C "$CUT/labs" show "${LABS_TAG}:<path>"` (the aztec-node path, without `labs/`).
 - Leave third-party SDK snippets alone; they document someone else's API.
 - Skip historical references: migration-note entries, changelog prose, and "in vX, Y was
   removed" sentences are supposed to name the old syntax.
@@ -538,8 +538,9 @@ that could not be verified.
 
 The `networks.md` L1 table includes contracts that `aztec_getNodeInfo` does not return.
 Resolve them in three tiers. Determine the L1 RPC from `l1ChainId`: `1` → Ethereum
-mainnet (`https://eth.drpc.org`), `11155111` → Sepolia (`https://sepolia.drpc.org`); both
-are keyless. The Rollup and Registry addresses come from Step 1.
+mainnet (`https://eth.drpc.org`), `11155111` → Sepolia
+(`https://ethereum-sepolia-rpc.publicnode.com`; drpc serves Sepolia only on a paid plan);
+both are keyless. The Rollup and Registry addresses come from Step 1.
 
 **When the rollup version changed**, the network did a rollup upgrade: the per-rollup
 contracts are redeployed (Rollup, Inbox, Outbox, Fee Juice Portal, Slasher, Reward Booster,
@@ -845,6 +846,13 @@ The only expected hits are third-party packages versioned on their own: at
 `v6.0.0-rc.3`, the MCP servers in `ai_tooling.md` (`@aztec/mcp-server@latest`,
 `noir-mcp-server@latest`). Fix every other hit.
 
+Hand-written blocks can still carry this repository's `labs/` prefix, which does not exist
+in an aztec-node checkout. Fix every hit:
+
+```bash
+grep -rn '\.\./labs/' developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
+```
+
 #### Hardcoded version references
 
 Grep the source and the new snapshot for the old version and update each hit, except
@@ -915,7 +923,7 @@ not the working tree:
 
 5. For each candidate from 1 to 3, confirm it is valid for the release: compare API
    signatures, function names and trait definitions with the source at the tag
-   (`git -C "$CUT/labs" show "$LABS_TAG:<path>"`). Skip nightly-only changes and APIs the
+   (`git -C "$CUT/labs" show "${LABS_TAG}:<path>"`). Skip nightly-only changes and APIs the
    release lacks.
 
 6. Backport into `developer_versioned_docs/version-v<new_version>/` (and the network
@@ -957,7 +965,8 @@ so the last grep prints nothing. Fix and iterate:
   `viem` (`2.57.1` on later aztec-node), neither with a `6.0.0-rc.1`-style version. Never
   rewrite a viem pin to the release version; CI will not catch it (the import type-checks
   against the linked workspace). Tutorials whose code imports viem (token, aave and uniswap
-  bridges) list the package and version the tag's packages use:
+  bridges) list the package their snippets import. When that is the `@aztec/viem` fork, keep
+  the fork's version in the install line unless Step 15 fails with it:
 
   ```bash
   grep -rh '"viem": "' ~/.cache/aztec-docs-cut/v<new_version>/worktree/labs/yarn-project/*/package.json | sort -u

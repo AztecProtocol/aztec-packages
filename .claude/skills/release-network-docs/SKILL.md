@@ -205,7 +205,7 @@ destination's, which is what Step 10 copies back.
 (cd docs && yarn install --immutable)
 (cd labs/yarn-project && yarn install --immutable)
 scripts/labs_docs_sync.sh --release "$LABS_TAG" check
-git -C labs show "$LABS_TAG:labs-aztec-toolchain/bootstrap.sh" | grep -E '^BB_VERSION='
+git -C labs show "${LABS_TAG}:labs-aztec-toolchain/bootstrap.sh" | grep -E '^BB_VERSION='
 node -p 'require("./docs/node_modules/@aztec-foundation/l1-artifacts/package.json").version'
 ```
 
@@ -217,8 +217,9 @@ the tag's `BB_VERSION`. The `labs/yarn-project` install exists only so Step 5a c
 
 The `networks.md` L1 table includes contracts that `aztec_getNodeInfo` does not return.
 Resolve them in three tiers. Determine the L1 RPC from `l1ChainId`: `1` → Ethereum
-mainnet (`https://eth.drpc.org`), `11155111` → Sepolia (`https://sepolia.drpc.org`); both
-are keyless. Convert on-chain hex with `cast to-dec`, never by eye.
+mainnet (`https://eth.drpc.org`), `11155111` → Sepolia
+(`https://ethereum-sepolia-rpc.publicnode.com`; drpc serves Sepolia only on a paid plan);
+both are keyless. Convert on-chain hex with `cast to-dec`, never by eye.
 
 #### Tier 1: Query on-chain from known contracts
 
@@ -464,7 +465,7 @@ recorded commits, not the working tree:
    ```
 
 Port release-valid page changes into `network_versioned_docs/version-v<new_version>/`,
-checking each against the source at the tag (`git -C "$CUT/labs" show "$LABS_TAG:<path>"`).
+checking each against the source at the tag (`git -C "$CUT/labs" show "${LABS_TAG}:<path>"`).
 If a layout or navigation change is ported, update
 `network_versioned_sidebars/version-v<new_version>-sidebars.json` from the same final
 sidebar source; never combine reconciled pages with the tag-generated sidebar. When adopting
