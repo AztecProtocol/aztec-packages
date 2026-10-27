@@ -29,12 +29,16 @@
 <li><a href="#structfield.salt">salt</a></li>
 <li><a href="#structfield.tx_context">tx_context</a></li>
 </ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#compute_protocol_nullifier">compute_protocol_nullifier</a></li>
+<li><a href="#compute_protocol_nullifier_value">compute_protocol_nullifier_value</a></li>
+</ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
 <li><a href="#impl-Deserialize-for-TxRequest">Deserialize</a></li>
 <li><a href="#impl-Empty-for-TxRequest">Empty</a></li>
 <li><a href="#impl-Eq-for-TxRequest">Eq</a></li>
-<li><a href="#impl-Hash-for-TxRequest">Hash</a></li>
 <li><a href="#impl-Serialize-for-TxRequest">Serialize</a></li>
 </ul>
 <h2>In module tx_request</h2>
@@ -65,7 +69,26 @@
 <div class="padded-description"></div><div id="structfield.tx_context" class="struct-field"><code class="code-header">tx_context: <a href="../../../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></div>
 <div class="padded-description"></div><div id="structfield.function_data" class="struct-field"><code class="code-header">function_data: <a href="../../../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></div>
 <div class="padded-description"></div><div id="structfield.salt" class="struct-field"><code class="code-header">salt: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><h2>Trait implementations</h2>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
+
+<div class="padded-methods"><code id="compute_protocol_nullifier_value" class="code-header">pub fn <a href="#compute_protocol_nullifier_value" class="fn">compute_protocol_nullifier_value</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The unsiloed value of the protocol nullifier: a commitment to the tx request's salt.</p>
+<p>The preimage is deliberately narrow. <code>origin</code> (the first call's contract), <code>chain_id</code> and <code>version</code> name the
+slot the salt belongs to; <code>salt</code> is the per-transaction nonce. Gas settings and the first call's arguments are left out so
+that a fee bump or a cancellation that reuses the salt produces the same nullifier and the two transactions are
+mutually exclusive. The proof is still pinned to the full request by <code>validate_against_tx_request</code>.</p>
+</div>
+</div><code id="compute_protocol_nullifier" class="code-header">pub fn <a href="#compute_protocol_nullifier" class="fn">compute_protocol_nullifier</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The protocol nullifier as it is inserted into the nullifier tree: the value above siloed under
+<code>NULL_MSG_SENDER_CONTRACT_ADDRESS</code>, an address no contract can have. This is the value every private call
+receives in <code>PrivateCircuitPublicInputs.protocol_nullifier</code>.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-TxRequest"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 15]) -> Self</code>
@@ -87,10 +110,6 @@
 </div><h3 id="impl-Eq-for-TxRequest"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
-
-</div><h3 id="impl-Hash-for-TxRequest"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
-
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div><h3 id="impl-Serialize-for-TxRequest"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 

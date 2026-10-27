@@ -58,6 +58,7 @@
 <li><a href="#impl-Deserialize-for-ContractInstance">ContractInstance</a></li>
 <li><a href="#impl-Deserialize-for-Counted<T>">Counted<T></a></li>
 <li><a href="#impl-Deserialize-for-DiscoveredHandshake">DiscoveredHandshake</a></li>
+<li><a href="#impl-Deserialize-for-EcdsaPublicKeyNote">EcdsaPublicKeyNote</a></li>
 <li><a href="#impl-Deserialize-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
 <li><a href="#impl-Deserialize-for-EmbeddedCurveScalar">EmbeddedCurveScalar</a></li>
 <li><a href="#impl-Deserialize-for-Empty">Empty</a></li>
@@ -66,6 +67,7 @@
 <li><a href="#impl-Deserialize-for-EventSelector">EventSelector</a></li>
 <li><a href="#impl-Deserialize-for-Fact">Fact</a></li>
 <li><a href="#impl-Deserialize-for-FactCollection">FactCollection</a></li>
+<li><a href="#impl-Deserialize-for-FactScope">FactScope</a></li>
 <li><a href="#impl-Deserialize-for-Fancier">Fancier</a></li>
 <li><a href="#impl-Deserialize-for-FeeRecipient">FeeRecipient</a></li>
 <li><a href="#impl-Deserialize-for-Field">Field</a></li>
@@ -81,6 +83,7 @@
 <li><a href="#impl-Deserialize-for-HandshakePage">HandshakePage</a></li>
 <li><a href="#impl-Deserialize-for-HasArray">HasArray</a></li>
 <li><a href="#impl-Deserialize-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
+<li><a href="#impl-Deserialize-for-HasOption">HasOption</a></li>
 <li><a href="#impl-Deserialize-for-HintedNote<Note>">HintedNote<Note></a></li>
 <li><a href="#impl-Deserialize-for-IvpkM">IvpkM</a></li>
 <li><a href="#impl-Deserialize-for-KeyValidationRequest">KeyValidationRequest</a></li>
@@ -307,9 +310,11 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
 
-<h3 id="impl-Deserialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<h3 id="impl-Deserialize-for-EcdsaPublicKeyNote"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../ecdsa_public_key_note/struct.EcdsaPublicKeyNote.html" class="struct">EcdsaPublicKeyNote</a></code></h3>
 
-<h3 id="impl-Deserialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+<h3 id="impl-Deserialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Deserialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/scalar/struct.Scalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
 
 <h3 id="impl-Deserialize-for-Empty"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for Empty</code></h3>
 
@@ -322,6 +327,8 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-Fact"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.Fact.html" class="struct">Fact</a></code></h3>
 
 <h3 id="impl-Deserialize-for-FactCollection"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.FactCollection.html" class="struct">FactCollection</a></code></h3>
+
+<h3 id="impl-Deserialize-for-FactScope"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.FactScope.html" class="struct">FactScope</a></code></h3>
 
 <h3 id="impl-Deserialize-for-Fancier"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for Fancier</code></h3>
 
@@ -354,6 +361,8 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-HasArrayWithGenerics<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for HasArrayWithGenerics&lt;T, N&gt;
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<h3 id="impl-Deserialize-for-HasOption"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for HasOption</code></h3>
 
 <h3 id="impl-Deserialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
 <div class="where-clause">where

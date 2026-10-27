@@ -155,10 +155,11 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
             fs.writeFileSync('$CONFIG_FILE', JSON.stringify(newConfig, null, 2) + '\n');
 
             // Generate the Docusaurus-compatible array file:
-            // config-mapped versions first, then any unmapped directories
+            // config-mapped versions first, then any unmapped directories. Types released
+            // together share a version, which Docusaurus must see once.
             const configVersionSet = new Set(Object.values(newConfig).filter(Boolean));
             const unmapped = allVersions.filter(v => !configVersionSet.has(v));
-            const versionsArray = [...Object.values(newConfig).filter(Boolean), ...unmapped];
+            const versionsArray = [...configVersionSet, ...unmapped];
             fs.writeFileSync('$VERSIONS_FILE', JSON.stringify(versionsArray, null, 2) + '\n');
         "
 

@@ -40,7 +40,7 @@
 <pre><code>pub fn encode_private_event_message&lt;Event&gt;(
     event: Event,
     randomness: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
-) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Event as Serialize&gt;::N + 2]
+) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Event as protocol_types::traits::Serialize&gt;::N + 2]
 <div class="where-clause">where
     Event: <a href="../../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></pre>

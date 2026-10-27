@@ -124,7 +124,8 @@ details, see <a href="../../noir_aztec/utils/struct.WithHash.html"><code>WithHas
 <p>Private contract functions however <strong>cannot</strong> determine that a <code>PublicImmutable</code> has not been initialized, as they
 do not have access to the current network state, only the <em>past</em> state at the anchor block. They <em>can</em> perform
 historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
-that it has not been emitted since then.</p></div>
+that it has not been emitted since then.</p>
+<p>A local cache for the immutable value reduces node roundtrips.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;T, Context&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
 

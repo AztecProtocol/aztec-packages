@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 5.2.0
+Version: 6.0.0
 
 ## Quick Import Reference
 
@@ -487,7 +487,7 @@ A request to call a function on a contract.
 
 **Constructor**
 ```typescript
-new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, type: FunctionType, hideMsgSender: boolean, isStatic: boolean, args: Fr[], returnTypes: AbiType[])
+new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, type: FunctionType, hideMsgSender: boolean, isStatic: boolean, args: Fr[], returnType?: AbiType)
 ```
 
 **Properties**
@@ -495,7 +495,7 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `hideMsgSender: boolean` - Only applicable for enqueued public function calls. `hideMsgSender = true` will set the msg_sender field (the caller's address) to "null", meaning the public function (and observers around the world) won't know which smart contract address made the call.
 - `isStatic: boolean` - Whether this call can make modifications to state or not
 - `name: string` - The name of the function to call
-- `returnTypes: AbiType[]` - The return type for decoding
+- `returnType?: AbiType` - The type the call returns, for decoding, or undefined if it returns nothing
 - `static schema: unknown`
 - `selector: FunctionSelector` - The function being called
 - `to: AztecAddress` - The recipient contract
@@ -506,6 +506,7 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
 - `isPublicStatic() => boolean`
+- `toJSON() => FunctionCall & { returnTypes: AbiType[] }` - Serializes the deprecated `returnTypes` alongside `returnType`, so that peers that still require the old field can parse calls sent by this version.
 
 ### FunctionSelector
 
@@ -963,6 +964,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `generateP2PMessageIdentifier() => Promise<BaseBuffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
+- `getDeliveredPublicCalldataCount() => number` - Returns the number of calldata fields the public calls receive. Calldata shared by several calls counts once per call, and a call with no matching calldata entry counts as receiving none.
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
@@ -972,7 +974,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `getSplitContractClassLogs(revertible: boolean) => ContractClassLog[]` - Gets either revertible or non revertible contract class logs emitted by this tx.
 - `getStats() => TxStats` - Returns stats about this tx.
 - `getTeardownPublicCallRequestWithCalldata() => PublicCallRequestWithCalldata | undefined`
-- `getTotalPublicCalldataCount() => number`
+- `getTotalPublicCalldataCount() => number` - Returns the number of calldata fields across the supplied calldata entries, whichever calls use them.
 - `getTxHash() => TxHash` - Return transaction hash.
 - `hasPublicCalls() => boolean`
 - `numberOfPublicCalls() => number`
@@ -1136,6 +1138,14 @@ new UniversalDeployMethod(wallet: Wallet, contract: DeployMethodContract<TContra
 
 ## Interfaces
 
+### AbiNamedValue
+
+An exported value together with the name of the global that produced it.
+
+**Properties**
+- `name: string` - The name of the exported global.
+- `value: AbiValue` - The exported value.
+
 ### AccountContract
 
 An account contract instance. Knows its artifact, deployment arguments, how to create transaction execution requests out of function calls, and how to authorize actions.
@@ -1144,7 +1154,7 @@ An account contract instance. Knows its artifact, deployment arguments, how to c
 - `getAccount(address: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(address: CompleteAddress) => AuthWitnessProvider` - Returns the auth witness provider for the given address.
 - `getContractArtifact() => Promise<ContractArtifact>` - Returns the artifact of this account contract.
-- `getImmutablesHash() => Promise<Fr | undefined>` - The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an on-chain initializer, which contributes to the address through its initialization hash).
+- `getImmutablesHash() => Promise<Fr | undefined>` - The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an onchain initializer, which contributes to the address through its initialization hash).
 - `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[]; constructorName: string } | undefined>` - Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
 
 ### AccountsCapability
@@ -1189,12 +1199,12 @@ Defines artifact of a contract.
 - `functions: FunctionArtifact[]` - The functions of the contract. Includes private and utility functions, plus the public dispatch function.
 - `name: string` - The name of the contract.
 - `nonDispatchPublicFunctions: FunctionAbi[]` - The public functions of the contract, excluding dispatch.
-- `outputs: { globals: Record<string, AbiValue[]>; structs: Record<string, AbiType[]> }` - The outputs of the contract.
+- `outputs: { globals: Record<string, AbiNamedValue[]>; structs: Record<string, AbiType[]> }` - The outputs of the contract.
 - `storageLayout: Record<string, FieldLayout>` - Storage layout
 
 ### ContractClassesCapability
 
-Contract class capability - for querying contract class meatadata and registering contract classes. Maps to wallet methods: - getContractClassMetadata (when canGetMetadata: true) - registerContractClass (when canRegister: true) Contract classes are identified by their class ID (Fr), not by contract address. Multiple contract instances can share the same class. This capability grants permission to query metadata for, and register, specific contract classes. Apps typically acquire this permission automatically when registering a contract with an artifact (the wallet auto-grants permission for that contract's class ID).
+Contract class capability - for querying contract class metadata and registering contract classes. Maps to wallet methods: - getContractClassMetadata (when canGetMetadata: true) - registerContractClass (when canRegister: true) Contract classes are identified by their class ID (Fr), not by contract address. Multiple contract instances can share the same class. This capability grants permission to query metadata for, and register, specific contract classes. Apps typically acquire this permission automatically when registering a contract with an artifact (the wallet auto-grants permission for that contract's class ID).
 
 **Properties**
 - `canGetMetadata: boolean` - Can query contract class metadata. Maps to: getContractClassMetadata
@@ -1213,7 +1223,7 @@ Pattern for matching contract functions with wildcards. Used in simulation and t
 
 ### ContractsCapability
 
-Contract interaction capability - for registering and querying contracts. Maps to wallet methods: - registerContract (when canRegister: true) - getContractMetadata (when canGetMetadata: true) Matching is done by contract address, not class ID. This allows updating existing contracts with new artifacts (e.g., when contract is upgraded to a new contractClassId on-chain). Note: For querying contract class metadata, use ContractClassesCapability instead.
+Contract interaction capability - for registering and querying contracts. Maps to wallet methods: - registerContract (when canRegister: true) - getContractMetadata (when canGetMetadata: true) Matching is done by contract address, not class ID. This allows updating existing contracts with new artifacts (e.g., when contract is upgraded to a new contractClassId onchain). Note: For querying contract class metadata, use ContractClassesCapability instead.
 
 **Properties**
 - `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
@@ -1252,7 +1262,8 @@ The abi entry of a function.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
 - `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
-- `returnTypes: AbiType[]` - The types of the return values.
+- `returnType?: AbiType` - The type of the value the function returns, or undefined if it returns nothing.
+- `returnTypes?: AbiType[]` - The same type as `returnType`, as a list that is either: - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple` type, so this never holds more than one entry. - empty, when the function returns nothing.
 
 ### FunctionArtifact
 
@@ -1271,7 +1282,8 @@ Extends: `FunctionAbi`
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
 - `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
-- `returnTypes: AbiType[]` - The types of the return values.
+- `returnType?: AbiType` - The type of the value the function returns, or undefined if it returns nothing.
+- `returnTypes?: AbiType[]` - The same type as `returnType`, as a list that is either: - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple` type, so this never holds more than one entry. - empty, when the function returns nothing.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
 
 ### GrantedAccountsCapability
@@ -1365,7 +1377,7 @@ The compilation result of an Aztec.nr contract.
 - `file_map: DebugFileMap` - The map of file ID to the source code and path of the file.
 - `functions: NoirFunctionEntry[]` - The functions of the contract.
 - `name: string` - The name of the contract.
-- `outputs: { globals: Record<string, AbiNamedValue | AbiValue[]>; structs: Record<string, AbiType[]> }` - The events of the contract
+- `outputs: { globals: Record<string, AbiNamedValue[]>; structs: Record<string, AbiType[]> }` - The events of the contract
 - `transpiled?: boolean` - Is the contract's public bytecode transpiled?
 
 ### SimulationCapability
@@ -1419,11 +1431,17 @@ function contractArtifactToBuffer(artifact: ContractArtifact) => Buffer
 ```
 Serializes a contract artifact to a buffer for storage.
 
+### decodeEachFromAbi
+```typescript
+function decodeEachFromAbi(types: AbiType[], buffer: Fr[]) => AbiDecoded[]
+```
+Decodes one value per given type, consumed from the buffer in order. Always returns one decoded value per type, so callers can index the result positionally. A function's arguments are encoded this way.
+
 ### decodeFromAbi
 ```typescript
-function decodeFromAbi(typ: AbiType[], buffer: Fr[]) => AbiDecoded
+function decodeFromAbi(type: AbiType | undefined, buffer: Fr[]) => AbiDecoded
 ```
-Decodes values in a flattened Field array using a provided ABI.
+Decodes the single value a function returns, or undefined if it returns nothing. Multiple return values are expressed as one `tuple` type, so they decode through here too.
 
 ### deriveKeys
 ```typescript
@@ -1457,7 +1475,7 @@ Splits an array of offchain effects into decoded offchain messages and remaining
 ```typescript
 function fastForwardContractUpdate(args: { instanceAddress: AztecAddress; newClassId: Fr; node: AztecNode }) => Promise<SimulationOverrides>
 ```
-Builds `SimulationOverrides` that simulate a deployed instance as if it had already been upgraded to a new contract class. Mirrors a real on-chain upgrade (scheduling the new class and waiting out the delay): - `publicStorage` rewrites the `ContractInstanceRegistry`'s delayed-public-mutable storage so the AVM's `UpdateCheck` resolves to the new class id. - `contracts` swaps the deployed instance for one whose `currentContractClassId` is bumped to the new class. The new class must already be registered on chain.
+Builds `SimulationOverrides` that simulate a deployed instance as if it had already been upgraded to a new contract class. Mirrors a real onchain upgrade (scheduling the new class and waiting out the delay): - `publicStorage` rewrites the `ContractInstanceRegistry`'s delayed-public-mutable storage so the AVM's `UpdateCheck` resolves to the new class id. - `contracts` swaps the deployed instance for one whose `currentContractClassId` is bumped to the new class. The new class must already be registered on chain.
 
 ### generateClaimSecret
 ```typescript
@@ -1494,6 +1512,18 @@ Creates a ContractClass from a contract compilation artifact.
 function getContractInstanceFromInstantiationParams(artifact: ContractArtifact, opts: ContractInstantiationData) => Promise<ContractInstanceWithAddress>
 ```
 Generates a Contract Instance from some instantiation params.
+
+### getFunctionReturnType
+```typescript
+function getFunctionReturnType(abi: Pick<FunctionAbi, "returnType" | "returnTypes">) => AbiType | undefined
+```
+The type a function returns, or undefined if it returns nothing. Falls back to the deprecated `returnTypes` so that artifacts serialized before `returnType` existed still resolve.
+
+### getGlobalsByTag
+```typescript
+function getGlobalsByTag(artifact: ContractArtifact, tag: string) => Record<string, AbiValue>
+```
+Returns the globals exported by the contract under an `#[abi(tag)]` attribute, keyed by global name. An unknown tag yields an empty record. Throws if two globals under the same tag share a name.
 
 ### isAddressStruct
 ```typescript
@@ -1537,12 +1567,6 @@ function loadContractArtifactForPublic(input: NoirCompiledContract) => ContractA
 ```
 Gets nargo build output and returns a valid contract artifact instance. Differs from loadContractArtifact() by retaining all bytecode.
 
-### loadContractArtifactWithValidation
-```typescript
-function loadContractArtifactWithValidation(input: NoirCompiledContract) => ContractArtifact
-```
-Like loadContractArtifact, but fully validates an already-processed artifact against the contract artifact schema before returning it. Use when loading an artifact from untrusted or external JSON (e.g. a file path passed to the CLI), so a malformed artifact is rejected up-front with a clear schema error instead of surfacing as an opaque failure later during deployment. `loadContractArtifact` only runs the shallow `isContractArtifact` shape check on already-processed artifacts; raw nargo output is validated via `generateContractArtifact` regardless. The returned object is identical to `loadContractArtifact`'s; the schema parse is used purely for validation.
-
 ### mergeExecutionPayloads
 ```typescript
 function mergeExecutionPayloads(requests: ExecutionPayload[]) => ExecutionPayload
@@ -1581,7 +1605,7 @@ Transforms and cleans up the higher level SimulateInteractionOptions defined by 
 
 ### waitForProven
 ```typescript
-function waitForProven(node: AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) => Promise<NonNullable<BlockNumber>>
+function waitForProven(node: AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) => Promise<BlockNumber>
 ```
 Wait for a transaction to be proven by polling the node
 
@@ -1598,6 +1622,12 @@ A function parameter.
 type AbiType = BasicType<"field"> | BasicType<"boolean"> | IntegerType | ArrayType | StringType | StructType | TupleType
 ```
 A variable type.
+
+### AbiValue
+```typescript
+type AbiValue = BasicValue<"boolean", boolean> | BasicValue<"string", string> | BasicValue<"array", AbiValue[]> | TupleValue | IntegerValue | StructValue
+```
+An exported value.
 
 ### Account
 ```typescript
@@ -2055,6 +2085,11 @@ type ZERO = BlockNumber
 type add = (bn: BlockNumber, increment: number) => BlockNumber
 ```
 
+### diff
+```typescript
+type diff = (a: BlockNumber, b: BlockNumber) => number
+```
+
 ### fromBigInt
 ```typescript
 type fromBigInt = (value: bigint) => BlockNumber
@@ -2070,9 +2105,19 @@ type fromCheckpointNumber = (value: CheckpointNumber) => BlockNumber
 type fromString = (value: string) => BlockNumber
 ```
 
+### fromTreeLeafIndex
+```typescript
+type fromTreeLeafIndex = (value: TreeLeafIndex) => BlockNumber
+```
+
 ### isValid
 ```typescript
 type isValid = (value: unknown) => boolean
+```
+
+### min
+```typescript
+type min = (...bns: readonly BlockNumber[]) => BlockNumber
 ```
 
 ## Enums
@@ -2096,19 +2141,3 @@ Values: `reverted`, `success`
 Block inclusion/finalization status.
 
 Values: `checkpointed`, `dropped`, `finalized`, `pending`, `proposed`, `proven`
-
-## Cross-Package References
-
-This package references types from other Aztec packages:
-
-**@aztec/entrypoints**
-- `AuthWitnessProvider`, `ChainInfo`, `DefaultAccountEntrypointOptions`, `EntrypointInterface`
-
-**@aztec/ethereum**
-- `ExtendedViemWalletClient`, `L1ContractAddresses`, `L1TxUtils`
-
-**@aztec/foundation**
-- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Branded`, `BufferReader`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`, `ZodFor`
-
-**@aztec/stdlib**
-- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiNamedValue`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `CHECKPOINTED`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `ContractOverrides`, `DROPPED`, `DebugFileMap`, `DebugLog`, `DroppedTxReceipt`, `EventSelector`, `ExecutionPayload`, `FINALIZED`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `GasFees`, `GasSettings`, `GasUsed`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `MinedTxReceipt`, `NestedProcessReturnValues`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `Opts`, `PENDING`, `PROPOSED`, `PROVEN`, `PendingTxReceipt`, `PrivateExecutionResult`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `PrivateSimulationResult`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `PublicSimulationOutput`, `PublicStorageOverride`, `RevertCode`, `Selector`, `SimulationOverrides`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxEffect`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxReceiptBase`, `TxReceiptInterface`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`, `TxsLimits`, `UnminedTxReceipt`

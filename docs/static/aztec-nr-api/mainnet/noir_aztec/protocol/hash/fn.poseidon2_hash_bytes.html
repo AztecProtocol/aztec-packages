@@ -23,6 +23,7 @@
 <h2>In module hash</h2>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.accumulate_sha256.html">accumulate_sha256</a></div></li>
+<li><a href="fn.accumulate_sha256_with_separator.html">accumulate_sha256_with_separator</a></div></li>
 <li><a href="fn.compute_app_siloed_secret_key.html">compute_app_siloed_secret_key</a></div></li>
 <li><a href="fn.compute_contract_class_log_hash.html">compute_contract_class_log_hash</a></div></li>
 <li><a href="fn.compute_l2_to_l1_message_hash.html">compute_l2_to_l1_message_hash</a></div></li>
@@ -39,6 +40,7 @@
 <li><a href="fn.poseidon2_hash.html">poseidon2_hash</a></div></li>
 <li><a href="fn.poseidon2_hash_bytes.html">poseidon2_hash_bytes</a></div></li>
 <li><a href="fn.poseidon2_hash_subarray.html">poseidon2_hash_subarray</a></div></li>
+<li><a href="fn.poseidon2_hash_subarray_with_separator.html">poseidon2_hash_subarray_with_separator</a></div></li>
 <li><a href="fn.poseidon2_hash_with_separator.html">poseidon2_hash_with_separator</a></div></li>
 <li><a href="fn.poseidon2_hash_with_separator_bounded_vec.html">poseidon2_hash_with_separator_bounded_vec</a></div></li>
 <li><a href="fn.private_functions_root_from_siblings.html">private_functions_root_from_siblings</a></div></li>
@@ -56,6 +58,14 @@
 <div id="page-content">
 <pre><code>pub fn poseidon2_hash_bytes&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(inputs: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; N]) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
+<div class="comments">
+<p>Computes a Poseidon2 hash of a fixed string, such as a function signature or a domain separator name.</p>
+<p>The bytes are packed into 31-byte little-endian chunks, one <code>Field</code> per chunk, and the result is
+<a href="../../../protocol_types/hash/fn.poseidon2_hash.html"><code>poseidon2_hash</code></a> of those fields.</p>
+<p>The hash commits to the number of chunks but not to the byte length <code>N</code>: zero bytes at the end of the last chunk
+do not change the result, so <code>[1]</code>, <code>[1, 0]</code> and <code>[1, 0, ..., 0]</code> (31 bytes) all hash to the same value. Do not
+use this to commit to variable-length data, e.g. a payload zero-padded to a maximum length, unless the length is
+bound separately.</p></div>
 </div>
 </main>
 </span>

@@ -70,6 +70,13 @@
     pub nodes: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N - 1],
 }
 </code></pre>
+<div class="comments">
+<p>A balanced Merkle tree over <code>N</code> leaves (<code>N</code> must be a power of 2).</p>
+<p>Leaves are stored and consumed as-is; the internal nodes are built by <code>compute_merkle_tree_nodes</code>,
+which applies <code>hasher</code> at every layer with no domain separation between the leaf layer and the
+internal-node layers. Callers must therefore pass leaves that are already domain-separated from the
+node hashes (see the warning on <code>compute_merkle_tree_nodes</code>).</p>
+</div>
 <h2>Fields</h2>
 <div id="structfield.leaves" class="struct-field"><code class="code-header">leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N]</code></div>
 <div class="padded-description"></div><div id="structfield.nodes" class="struct-field"><code class="code-header">nodes: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N - 1]</code></div>

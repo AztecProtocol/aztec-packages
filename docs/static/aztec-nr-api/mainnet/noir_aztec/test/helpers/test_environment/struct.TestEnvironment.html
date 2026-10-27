@@ -390,8 +390,9 @@ path relative to the current workspace:</p>
 ) -> <a href="../../../../noir_aztec/test/helpers/utils/struct.ContractDeployment.html" class="struct">ContractDeployment</a>&lt;N&gt;</code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <code>deploy</code> which allows specifying configuration values via <code>DeployOptions</code>, such as a custom salt
-or secret. If not specified, the salt and secret default to values from internal counters.</p>
+<p>Variant of <code>deploy</code> which allows specifying configuration values via <code>DeployOptions</code>, such as a custom salt,
+secret or immutables hash. If not specified, the salt and secret default to values from internal counters, and
+the immutables hash defaults to 0.</p>
 </div>
 </div><code id="call_private" class="code-header">pub unconstrained fn <a href="#call_private" class="fn">call_private</a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     self,

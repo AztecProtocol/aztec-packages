@@ -19,7 +19,7 @@
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
 <h2 id="crate-name"><a href="../index.html">std</a></h2>
-<div id="crate-version">1.0.0-beta.25</div>
+<div id="crate-version">1.0.0-rc.3</div>
 <h2><a href="#trait">Trait Eq</a></h2>
 <h3>Required methods</h3>
 <ul class="sidebar-list">
@@ -51,6 +51,7 @@
 <li><a href="#impl-Eq-for-BinaryOp">BinaryOp</a></li>
 <li><a href="#impl-Eq-for-BlockConstantData">BlockConstantData</a></li>
 <li><a href="#impl-Eq-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Eq-for-BlockReference">BlockReference</a></li>
 <li><a href="#impl-Eq-for-BoundedVec<T, MaxLen>">BoundedVec<T, MaxLen></a></li>
 <li><a href="#impl-Eq-for-CallContext">CallContext</a></li>
 <li><a href="#impl-Eq-for-CheckpointConstantData">CheckpointConstantData</a></li>
@@ -65,11 +66,13 @@
 <li><a href="#impl-Eq-for-CtString">CtString</a></li>
 <li><a href="#impl-Eq-for-DelayedPublicMutableValues<T, INITIAL_DELAY>">DelayedPublicMutableValues<T, INITIAL_DELAY></a></li>
 <li><a href="#impl-Eq-for-DiscoveredHandshake">DiscoveredHandshake</a></li>
+<li><a href="#impl-Eq-for-EcdsaPublicKeyNote">EcdsaPublicKeyNote</a></li>
 <li><a href="#impl-Eq-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
 <li><a href="#impl-Eq-for-EmbeddedCurveScalar">EmbeddedCurveScalar</a></li>
 <li><a href="#impl-Eq-for-EpochConstantData">EpochConstantData</a></li>
 <li><a href="#impl-Eq-for-EthAddress">EthAddress</a></li>
 <li><a href="#impl-Eq-for-EventSelector">EventSelector</a></li>
+<li><a href="#impl-Eq-for-FactScope">FactScope</a></li>
 <li><a href="#impl-Eq-for-FeeRecipient">FeeRecipient</a></li>
 <li><a href="#impl-Eq-for-Field">Field</a></li>
 <li><a href="#impl-Eq-for-FieldCompressedString">FieldCompressedString</a></li>
@@ -96,12 +99,13 @@
 <li><a href="#impl-Eq-for-Module">Module</a></li>
 <li><a href="#impl-Eq-for-NoteHashLeafPreimage">NoteHashLeafPreimage</a></li>
 <li><a href="#impl-Eq-for-NoteMetadata">NoteMetadata</a></li>
+<li><a href="#impl-Eq-for-NoteOrigin">NoteOrigin</a></li>
 <li><a href="#impl-Eq-for-Nullifier">Nullifier</a></li>
 <li><a href="#impl-Eq-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-Eq-for-NullifierStatus">NullifierStatus</a></li>
 <li><a href="#impl-Eq-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-Eq-for-Option<T>">Option<T></a></li>
 <li><a href="#impl-Eq-for-Ordering">Ordering</a></li>
-<li><a href="#impl-Eq-for-OriginBlock">OriginBlock</a></li>
 <li><a href="#impl-Eq-for-OriginBlockState">OriginBlockState</a></li>
 <li><a href="#impl-Eq-for-PartialAddress">PartialAddress</a></li>
 <li><a href="#impl-Eq-for-PartialStateReference">PartialStateReference</a></li>
@@ -143,13 +147,16 @@
 <li><a href="#impl-Eq-for-SortedTuple<T>">SortedTuple<T></a></li>
 <li><a href="#impl-Eq-for-SpongeBlob">SpongeBlob</a></li>
 <li><a href="#impl-Eq-for-StateReference">StateReference</a></li>
+<li><a href="#impl-Eq-for-TXECallContext">TXECallContext</a></li>
 <li><a href="#impl-Eq-for-TaggingSecretStrategy">TaggingSecretStrategy</a></li>
+<li><a href="#impl-Eq-for-TestAccount">TestAccount</a></li>
 <li><a href="#impl-Eq-for-TraitConstraint">TraitConstraint</a></li>
 <li><a href="#impl-Eq-for-TraitDefinition">TraitDefinition</a></li>
 <li><a href="#impl-Eq-for-TreeSnapshots">TreeSnapshots</a></li>
 <li><a href="#impl-Eq-for-TxConstantData">TxConstantData</a></li>
 <li><a href="#impl-Eq-for-TxContext">TxContext</a></li>
 <li><a href="#impl-Eq-for-TxEffect">TxEffect</a></li>
+<li><a href="#impl-Eq-for-TxEffects">TxEffects</a></li>
 <li><a href="#impl-Eq-for-TxRequest">TxRequest</a></li>
 <li><a href="#impl-Eq-for-Type">Type</a></li>
 <li><a href="#impl-Eq-for-TypeDefinition">TypeDefinition</a></li>
@@ -344,6 +351,8 @@
 
 <h3 id="impl-Eq-for-BlockHeader"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
 
+<h3 id="impl-Eq-for-BlockReference"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/block_reference/struct.BlockReference.html" class="struct">BlockReference</a></code></h3>
+
 <h3 id="impl-Eq-for-BoundedVec<T, MaxLen>"><code class="code-header">impl&lt;let MaxLen: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, MaxLen&gt;
 <div class="where-clause">where
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
@@ -380,15 +389,19 @@
 
 <h3 id="impl-Eq-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
 
-<h3 id="impl-Eq-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<h3 id="impl-Eq-for-EcdsaPublicKeyNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../ecdsa_public_key_note/struct.EcdsaPublicKeyNote.html" class="struct">EcdsaPublicKeyNote</a></code></h3>
 
-<h3 id="impl-Eq-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/scalar/struct.Scalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+<h3 id="impl-Eq-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Eq-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
 
 <h3 id="impl-Eq-for-EpochConstantData"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></h3>
 
 <h3 id="impl-Eq-for-EthAddress"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></h3>
 
 <h3 id="impl-Eq-for-EventSelector"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/event/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
+
+<h3 id="impl-Eq-for-FactScope"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/facts/struct.FactScope.html" class="struct">FactScope</a></code></h3>
 
 <h3 id="impl-Eq-for-FeeRecipient"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a></code></h3>
 
@@ -444,9 +457,13 @@
 
 <h3 id="impl-Eq-for-NoteMetadata"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
 
+<h3 id="impl-Eq-for-NoteOrigin"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/notes/struct.NoteOrigin.html" class="struct">NoteOrigin</a></code></h3>
+
 <h3 id="impl-Eq-for-Nullifier"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
 
 <h3 id="impl-Eq-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-Eq-for-NullifierStatus"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/nullifiers/struct.NullifierStatus.html" class="struct">NullifierStatus</a></code></h3>
 
 <h3 id="impl-Eq-for-OnchainDeliveryMode"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></code></h3>
 
@@ -455,8 +472,6 @@
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
 <h3 id="impl-Eq-for-Ordering"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/cmp/struct.Ordering.html" class="struct">Ordering</a></code></h3>
-
-<h3 id="impl-Eq-for-OriginBlock"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a></code></h3>
 
 <h3 id="impl-Eq-for-OriginBlockState"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/facts/struct.OriginBlockState.html" class="struct">OriginBlockState</a></code></h3>
 
@@ -546,7 +561,11 @@
 
 <h3 id="impl-Eq-for-StateReference"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></h3>
 
+<h3 id="impl-Eq-for-TXECallContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/helpers/txe_oracles/struct.TXECallContext.html" class="struct">TXECallContext</a></code></h3>
+
 <h3 id="impl-Eq-for-TaggingSecretStrategy"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a></code></h3>
+
+<h3 id="impl-Eq-for-TestAccount"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/helpers/utils/struct.TestAccount.html" class="struct">TestAccount</a></code></h3>
 
 <h3 id="impl-Eq-for-TraitConstraint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/primitive.TraitConstraint.html" class="primitive">TraitConstraint</a></code></h3>
 
@@ -559,6 +578,8 @@
 <h3 id="impl-Eq-for-TxContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></h3>
 
 <h3 id="impl-Eq-for-TxEffect"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
+<h3 id="impl-Eq-for-TxEffects"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/helpers/txe_oracles/struct.TxEffects.html" class="struct">TxEffects</a></code></h3>
 
 <h3 id="impl-Eq-for-TxRequest"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 

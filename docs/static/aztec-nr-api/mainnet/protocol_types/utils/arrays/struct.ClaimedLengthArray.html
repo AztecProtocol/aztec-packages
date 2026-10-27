@@ -28,7 +28,6 @@
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#assert_dense_trimmed">assert_dense_trimmed</a></li>
 <li><a href="#assert_empty">assert_empty</a></li>
 <li><a href="#assert_length_within_bounds">assert_length_within_bounds</a></li>
 <li><a href="#for_each">for_each</a></li>
@@ -94,9 +93,7 @@ Validation must include:</p>
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
 
-<div class="padded-methods"><code id="assert_dense_trimmed" class="code-header">pub fn <a href="#assert_dense_trimmed" class="fn">assert_dense_trimmed</a>(self)</code>
-
-<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty" class="fn">assert_empty</a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+<div class="padded-methods"><code id="assert_empty" class="code-header">pub fn <a href="#assert_empty" class="fn">assert_empty</a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
 
 <code id="assert_length_within_bounds" class="code-header">pub fn <a href="#assert_length_within_bounds" class="fn">assert_length_within_bounds</a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
 
@@ -116,7 +113,7 @@ Validation must include:</p>
     T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(
-    fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Deserialize&gt;::N + 1],
+    fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; (N * &lt;T as serde::serialization::Deserialize&gt;::N) + 1],
 ) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
@@ -145,7 +142,7 @@ Validation must include:</p>
 <div class="where-clause">where
     T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Serialize&gt;::N + 1]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; (N * &lt;T as serde::serialization::Serialize&gt;::N) + 1]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
