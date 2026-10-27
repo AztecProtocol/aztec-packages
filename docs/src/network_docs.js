@@ -1,7 +1,11 @@
 // Which docs version each public network reads, and the URL path that version
-// is served at. docusaurus.config.js builds its versions from this.
+// is served at. docusaurus.config.js builds its versions from this and the
+// llms.txt post-build step describes them, so the two cannot disagree.
 
 const NETWORKS = ["mainnet", "testnet"];
+
+const docsPath = (routeBasePath, path) =>
+  `/${[routeBasePath, path].filter(Boolean).join("/")}`;
 
 /**
  * Groups the networks of a version config by docs version, in NETWORKS order,
@@ -54,4 +58,84 @@ function docsInstances(developerConfig, networkConfig, production) {
   ];
 }
 
-module.exports = { docsInstances };
+const sectionName = (title, { version, networks }) =>
+  `${title}: ${networks.length ? `${networks.join(" and ")} (${version})` : "unreleased"}`;
+
+/**
+ * llms-txt plugin options for one instance: a section per built version, named
+ * for the networks that read it, and every cut version no network reads
+ * excluded (Docusaurus serves those at their version name).
+ */
+function llmsRoutes(instance, cutVersions) {
+  const { routeBasePath, versions } = instance;
+  return {
+    routeRules: versions.map((v) => ({
+      route: `${docsPath(routeBasePath, v.path)}/**`,
+      categoryName: sectionName(instance.title, v),
+      ...(v.path && { depth: 2 }),
+    })),
+    excludeRoutes: cutVersions
+      .filter((cut) => !versions.some((v) => v.version === cut))
+      .map((cut) => `${docsPath(routeBasePath, cut)}/**`),
+  };
+}
+
+/**
+ * One line per set of networks that read the same docs: the version of each
+ * instance and its path. A version served under another's path is listed as
+ * an exception to it.
+ */
+function networkLines(instances) {
+  const byDocs = new Map();
+  for (const network of NETWORKS) {
+    const docs = instances
+      .flatMap(({ routeBasePath, title, versions }) => {
+        const own = versions.find((v) => v.networks.includes(network));
+        if (!own) return [];
+        const at = `${docsPath(routeBasePath, own.path)}/`;
+        const nested = versions
+          .map((v) => `${docsPath(routeBasePath, v.path)}/`)
+          .filter((p) => p !== at && p.startsWith(at));
+        const except = nested.length
+          ? ` (except ${nested.map((p) => `\`${p}\``).join(", ")})`
+          : "";
+        return [`${title.toLowerCase()} ${own.version} at \`${at}\`${except}`];
+      })
+      .join("; ");
+    if (docs) byDocs.set(docs, [...(byDocs.get(docs) ?? []), network]);
+  }
+  return [...byDocs].map(
+    ([docs, networks]) => `- **${networks.join(" and ")}**: ${docs}`,
+  );
+}
+
+/**
+ * The llms.txt "Networks and versions" section: the network → version → path
+ * lines, then the built /networks page with its headings demoted below this
+ * section's H2, so llms.txt keeps a single H1.
+ */
+function networkSection(instances, networksPage, siteUrl) {
+  let fence = false;
+  const page = networksPage
+    .trim()
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) fence = !fence;
+      return !fence && /^#{1,4} /.test(line) ? `##${line}` : line;
+    })
+    .join("\n");
+  return [
+    "## Networks and versions",
+    "",
+    "Each public network reads the docs of the version it runs; networks on one version share one set of pages. The sections below are named the same way.",
+    "",
+    ...networkLines(instances),
+    "",
+    `Node URLs, chain IDs and contract addresses for each network, from [Networks](${siteUrl}/networks):`,
+    "",
+    page,
+    "",
+  ].join("\n");
+}
+
+module.exports = { docsInstances, llmsRoutes, networkSection };

@@ -89,14 +89,14 @@ yarn docusaurus docs:version:network v4.2.0              # New network version
 
 ### Version Configuration
 
-The `docusaurus.config.js` file reads both config files to determine version labels, paths, and defaults. The config-based approach replaces fragile substring matching on version strings.
+`src/network_docs.js` maps both config files to the docs version each network reads and the path it is served at; `docusaurus.config.js` takes version labels, paths and defaults from it. The config-based approach replaces fragile substring matching on version strings.
 
 This ensures that:
 
 - Version types are always correct regardless of the version string format
 - When nightly versions are removed by the cleanup script, the build doesn't break
 - Version configurations are conditionally included only if they exist
-- The llms.txt plugin always points to the correct version (mainnet or testnet)
+- `llms.txt` and `llms-full.txt` name the networks and version of every listed page, and leave out versions no network reads
 
 ## Releases
 

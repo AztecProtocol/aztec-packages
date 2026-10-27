@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 /**
- * Post-build script to append static API documentation to llms.txt files.
+ * Post-build script that completes the llms-txt plugin's build/llms.txt and
+ * assembles build/llms-full.txt from it.
  *
  * This script:
- * 1. Finds HTML files in static/aztec-nr-api/
- * 2. Converts them to markdown-like text
- * 3. Appends the content to build/llms-full.txt
- * 4. Adds links to build/llms.txt
+ * 1. Adds a "Networks and versions" section: which docs each network reads,
+ *    then the built /networks page
+ * 2. Writes llms-full.txt: that index, then every page it lists, each labelled
+ *    with its URL and section
+ * 3. Finds the API reference (static/aztec-nr-api/, static/typescript-api/) of
+ *    each version a network reads, links it from llms.txt and appends it to
+ *    llms-full.txt
  */
 
 const fs = require("fs");
 const path = require("path");
+const { docsInstances, networkSection } = require("../src/network_docs.js");
 
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
@@ -33,51 +38,37 @@ function loadSiteUrl() {
 }
 const SITE_URL = loadSiteUrl();
 
-// Load version config (source of truth for type→version mapping)
-let developerVersionConfig;
-try {
-  developerVersionConfig = require("../developer_version_config.json");
-} catch {
-  // Fallback to legacy array-based detection
-  developerVersionConfig = null;
-}
-const developerVersions = require("../developer_versions.json");
+const [developerDocs, operatorDocs] = docsInstances(
+  require("../developer_version_config.json"),
+  require("../network_version_config.json"),
+  process.env.CONTEXT === "production",
+);
 
-// Determine the default (highest-priority) API docs version to append.
-// Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet.
-const defaultType = developerVersionConfig?.mainnet
-  ? "mainnet"
-  : developerVersionConfig?.testnet
-    ? "testnet"
-    : null;
-const defaultVersion = defaultType
-  ? developerVersionConfig[defaultType]
-  : developerVersions[0] || null;
-
+// One API reference set per docs version a network reads. The static folders
+// are named per release type, so a shared version uses its first network's.
 const API_DIRS = [];
-if (
-  defaultType &&
-  fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultType}`))
-) {
-  API_DIRS.push({
-    name: "Aztec.nr API Reference",
-    dir: `aztec-nr-api/${defaultType}`,
-    description: `Auto-generated API documentation for Aztec.nr (${defaultVersion})`,
-    format: "html",
-  });
-} else if (!defaultType) {
-  console.warn("Warning: No default version found for API docs");
+for (const { version, networks } of developerDocs.versions) {
+  if (!networks.length) continue;
+  const scope = `${networks.join(" and ")}, ${version}`;
+  if (fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${networks[0]}`))) {
+    API_DIRS.push({
+      name: "Aztec.nr API Reference",
+      dir: `aztec-nr-api/${networks[0]}`,
+      description: `Auto-generated API documentation for Aztec.nr (${scope})`,
+      format: "html",
+    });
+  }
+  if (fs.existsSync(path.join(STATIC_DIR, `typescript-api/${networks[0]}`))) {
+    API_DIRS.push({
+      name: "TypeScript API Reference",
+      dir: `typescript-api/${networks[0]}`,
+      description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`,
+      format: "markdown",
+    });
+  }
 }
-if (
-  defaultType &&
-  fs.existsSync(path.join(STATIC_DIR, `typescript-api/${defaultType}`))
-) {
-  API_DIRS.push({
-    name: "TypeScript API Reference",
-    dir: `typescript-api/${defaultType}`,
-    description: `Auto-generated TypeScript API documentation for Aztec packages (${defaultVersion})`,
-    format: "markdown",
-  });
+if (!developerDocs.versions.some((v) => v.networks.length)) {
+  console.warn("Warning: No network version found for API docs");
 }
 
 /**
@@ -424,8 +415,52 @@ function stripFrom(content, ...sentinels) {
   return cut === -1 ? content : content.slice(0, cut);
 }
 
+// The section ends at the next H2: networkSection demotes the page's headings.
+const NETWORK_SECTION = /^## Networks and versions\n[\s\S]*?(?=^## )/m;
+
+/** Inserts the network section before the index's first H2. */
+function insertNetworkSection(index) {
+  const page = fs.readFileSync(path.join(BUILD_DIR, "networks.md"), "utf-8");
+  const section = networkSection([developerDocs, operatorDocs], page, SITE_URL);
+  const at = index.search(/^## /m);
+  return at === -1
+    ? `${index}\n${section}`
+    : `${index.slice(0, at)}${section}\n${index.slice(at)}`;
+}
+
 /**
- * Main function to append API docs to llms.txt files.
+ * The markdown of every page the index links, in index order, each headed by
+ * its URL and the index section listing it, which names its networks and
+ * version. Exits if a listed page has no .md file.
+ */
+function pagesContent(index) {
+  let section = "";
+  const pages = [];
+  const missing = [];
+  for (const line of index.split("\n")) {
+    const heading = line.match(/^#{2,6} (.+)/);
+    if (heading) section = heading[1];
+    const link = line.match(/^- \[.*?\]\((\/[^)\s]+)\.md\)/);
+    if (!link || link[1] === "/index") continue;
+    const file = path.join(BUILD_DIR, `${link[1]}.md`);
+    if (!fs.existsSync(file)) {
+      missing.push(file);
+      continue;
+    }
+    const markdown = fs.readFileSync(file, "utf-8").trim();
+    pages.push(`Source: ${SITE_URL}${link[1]}\nSection: ${section}\n\n${markdown}`);
+  }
+  if (missing.length) {
+    console.error(
+      `Error: llms.txt lists pages with no markdown file:\n${missing.join("\n")}`,
+    );
+    process.exit(1);
+  }
+  return pages.join("\n\n---\n\n");
+}
+
+/**
+ * Main function to complete llms.txt and write llms-full.txt.
  */
 function main() {
   const llmsTxtPath = path.join(BUILD_DIR, "llms.txt");
@@ -437,23 +472,17 @@ function main() {
     process.exit(1);
   }
 
-  let llmsTxtContent = fs.readFileSync(llmsTxtPath, "utf-8");
-  let llmsFullTxtContent = fs.existsSync(llmsFullTxtPath)
-    ? fs.readFileSync(llmsFullTxtPath, "utf-8")
-    : "";
-
-  // Drop any sections a previous run of this script appended so re-running it
+  // Drop any sections a previous run of this script added so re-running it
   // replaces rather than duplicates them (the top-of-file insertions below are
   // separately idempotent).
-  llmsTxtContent = stripFrom(
-    llmsTxtContent,
+  const index = stripFrom(
+    fs.readFileSync(llmsTxtPath, "utf-8"),
     "\n\n## API Reference\n\n",
     "\n\n## Optional\n\n",
-  );
-  llmsFullTxtContent = stripFrom(
-    llmsFullTxtContent,
-    "\n\n---\n\n## API Reference Documentation\n\n",
-  );
+  ).replace(NETWORK_SECTION, "");
+
+  let llmsTxtContent = insertNetworkSection(index);
+  const llmsFullTxtContent = `${llmsTxtContent}\n\n---\n\n# Full Documentation Content\n\n${pagesContent(index)}`;
 
   // Point readers at the single-file dump up front. It sits right after the H1
   // title (and its optional blockquote summary) so an agent sees it before any
@@ -654,6 +683,7 @@ function main() {
     // No API docs on disk: still append the Optional section so the
     // awesome-aztec link survives builds that skip API generation.
     fs.writeFileSync(llmsTxtPath, llmsTxtContent + communitySection);
+    fs.writeFileSync(llmsFullTxtPath, llmsFullTxtContent);
     console.log("No API docs found on disk — appended Optional only");
     return;
   }

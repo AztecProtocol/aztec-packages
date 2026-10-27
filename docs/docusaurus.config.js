@@ -17,7 +17,7 @@ const path = require("path");
 // @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
-const { docsInstances } = require("./src/network_docs.js");
+const { docsInstances, llmsRoutes } = require("./src/network_docs.js");
 
 // Version config files are the source of truth for type→version mappings.
 // Generate *_versions.json: config-mapped versions first (preserving config order),
@@ -79,6 +79,11 @@ function versionOptions({ versions }) {
   );
 }
 const rootVersion = ({ versions }) => versions.find((v) => v.path === "")?.version;
+
+const llmsInstances = [
+  llmsRoutes(developerDocs, require("./developer_versions.json")),
+  llmsRoutes(operatorDocs, require("./network_versions.json")),
+];
 
 // Always serve from processed-docs (with resolved macros)
 // Preprocessing runs on both `yarn start` and `yarn build`
@@ -252,16 +257,20 @@ const config = {
           "Build private smart contracts on Ethereum's leading privacy-first L2 zkRollup.",
         content: {
           // Emit a .md sibling for every route so agents can fetch clean
-          // markdown at PAGE.md, and a single-file llms-full.txt dump.
+          // markdown at PAGE.md. llms-full.txt is assembled from those files by
+          // scripts/append_api_docs_to_llms.js, which labels each page with its
+          // source URL and section (the plugin's copy carries neither).
           enableMarkdownFiles: true,
-          enableLlmsFullTxt: true,
+          enableLlmsFullTxt: false,
           includeDocs: true,
           includePages: true,
           includeBlog: false,
-          // In production the served docs ARE the versioned snapshots (the
-          // current version is excluded), so they must be included or the index
-          // covers nothing.
+          // false would keep only lastVersion (the version served at the
+          // root), dropping testnet's docs when it runs another version. Every
+          // built version is kept instead, each in a section named for the
+          // networks that read it; cut versions no network reads are excluded.
           includeVersionedDocs: true,
+          routeRules: llmsInstances.flatMap((l) => l.routeRules),
           // The auto-generated API reference (raw static HTML under
           // /aztec-nr-api and markdown under /typescript-api) is not part of
           // Docusaurus's routes. It is surfaced in llms.txt separately by
@@ -274,6 +283,7 @@ const config = {
             "/**/tags/**",
             "/aztec-nr-api/**",
             "/typescript-api/**",
+            ...llmsInstances.flatMap((l) => l.excludeRoutes),
           ],
         },
       },
