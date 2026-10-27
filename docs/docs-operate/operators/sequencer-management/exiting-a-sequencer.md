@@ -98,7 +98,7 @@ cast call $ROLLUP \
     --rpc-url $L1_RPC
 ```
 
-The fields are `(window, validatorCount, committeeSize, used, allowance, canExit)`. `canExit` is `true` when at least one attester-initiated exit fits right now. `allowance - used` is only an upper bound on how many: each exit lowers `validatorCount`, which can lower `allowance`, and no exit may take `validatorCount` below `committeeSize`. A batch `--dry-run` reports the exact number.
+The fields are `(window, validatorCount, committeeSize, used, allowance, canExit)`. `canExit` is `true` when at least one attester-initiated exit fits right now. `allowance - used` is only an upper bound on how many: each exit lowers `validatorCount`, which can lower `allowance`, and no exit may take `validatorCount` below `committeeSize`. Run the batch with `--dry-run --up-to-limit` to see how many of its authorizations fit right now.
 
 ### Exit one position
 
@@ -159,7 +159,7 @@ Each attester signs an exit authorization offline. One relayer then submits them
 
 By default the batch is all or nothing: if the rate limit cannot fit every authorization, the transaction reverts. Add `--up-to-limit` to process as many authorizations as the limit allows, starting from the top of the file, and leave the rest. The command prints the zero-based indices of the entries it did not process, but it does not edit `exits.json`. Before you resubmit, remove the processed entries from the file (or write the unprocessed ones to a new file): an entry whose attester is already exiting reverts the whole batch. Submit the remainder once the window has room again and before the deadline.
 
-Both modes revert the whole transaction if any authorization they process is invalid: an expired deadline, a bad signature, a duplicate attester, or an attester that is already exiting or has no stake. With `--up-to-limit`, the entries left for later are not checked until you submit them. Always run `--dry-run` first.
+Both modes revert the whole transaction if any authorization they process is invalid: an expired deadline, a bad signature, a duplicate attester, or an attester that is already exiting or has no stake. With `--up-to-limit` the contract does not check the entries it leaves for later; the CLI still checks every signature in the file first, but not their deadlines or duplicates. Always run `--dry-run` first.
 
 ### Name the recipient
 
