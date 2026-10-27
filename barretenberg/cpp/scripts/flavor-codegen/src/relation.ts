@@ -10,6 +10,7 @@ interface RelationInput {
     cppExtraTemplateArgs?: readonly string[];
     structural?: boolean;
     gateBlockName?: string;
+    requiredNonGateSelectors?: readonly EntityName[];
 }
 
 export function relation(input: RelationInput): Relation {
@@ -28,6 +29,7 @@ export function relation(input: RelationInput): Relation {
         cppExtraTemplateArgs: Object.freeze([...(input.cppExtraTemplateArgs ?? [])]),
         structural,
         gateBlockName: input.gateBlockName,
+        requiredNonGateSelectors: Object.freeze([...(input.requiredNonGateSelectors ?? [])]),
     };
 }
 

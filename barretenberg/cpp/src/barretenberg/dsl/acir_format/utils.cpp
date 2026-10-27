@@ -79,18 +79,23 @@ void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fiel
 // Explicit template instantiations
 template std::vector<field_t<UltraCircuitBuilder>> fields_from_witnesses<UltraCircuitBuilder>(
     UltraCircuitBuilder&, std::span<const uint32_t>);
-template std::vector<field_t<MegaCircuitBuilder>> fields_from_witnesses<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                                                            std::span<const uint32_t>);
+#define INSTANTIATE_FIELDS_FROM_WITNESSES(Builder)                                                                     \
+    template std::vector<field_t<Builder>> fields_from_witnesses<Builder>(Builder&, std::span<const uint32_t>);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_FIELDS_FROM_WITNESSES)
+#undef INSTANTIATE_FIELDS_FROM_WITNESSES
 
 template byte_array<UltraCircuitBuilder> fields_to_bytes<UltraCircuitBuilder>(
     UltraCircuitBuilder&, std::vector<field_t<UltraCircuitBuilder>>&);
-template byte_array<MegaCircuitBuilder> fields_to_bytes<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                                            std::vector<field_t<MegaCircuitBuilder>>&);
+#define INSTANTIATE_FIELDS_TO_BYTES(Builder)                                                                           \
+    template byte_array<Builder> fields_to_bytes<Builder>(Builder&, std::vector<field_t<Builder>>&);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_FIELDS_TO_BYTES)
+#undef INSTANTIATE_FIELDS_TO_BYTES
 
 template void populate_fields<UltraCircuitBuilder>(UltraCircuitBuilder&,
                                                    const std::vector<field_t<UltraCircuitBuilder>>&,
                                                    const std::vector<bb::fr>&);
-template void populate_fields<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                  const std::vector<field_t<MegaCircuitBuilder>>&,
-                                                  const std::vector<bb::fr>&);
+#define INSTANTIATE_POPULATE_FIELDS(Builder)                                                                           \
+    template void populate_fields<Builder>(Builder&, const std::vector<field_t<Builder>>&, const std::vector<bb::fr>&);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_POPULATE_FIELDS)
+#undef INSTANTIATE_POPULATE_FIELDS
 } // namespace acir_format

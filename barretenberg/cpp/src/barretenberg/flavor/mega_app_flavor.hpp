@@ -24,7 +24,7 @@ class MegaAppFlavor : public MegaAppFlavor_Generated {
   public:
     using Generated = MegaAppFlavor_Generated;
 
-    using CircuitBuilder = MegaCircuitBuilder;
+    using CircuitBuilder = MegaAppCircuitBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;

@@ -153,7 +153,7 @@ template <typename Builder> class bool_t {
     {
         BB_ASSERT(!is_constant());
         BB_ASSERT(context);
-        context->fix_witness(witness_index, get_value());
+        context->fix_witness(get_witness_index(), get_value());
         unset_free_witness_tag();
     }
 

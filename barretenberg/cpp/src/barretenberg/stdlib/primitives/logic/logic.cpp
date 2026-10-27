@@ -111,5 +111,6 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
     return res;
 }
 template class logic<bb::UltraCircuitBuilder>;
-template class logic<bb::MegaCircuitBuilder>;
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(logic)
 } // namespace bb::stdlib

@@ -38,22 +38,23 @@ class ChonkBatchVerifierTests : public ::testing::Test {
         return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     }
 
+    using IpaCommitment = curve::Grumpkin::AffineElement;
+    using IpaScalar = curve::Grumpkin::ScalarField;
+    static constexpr size_t IPA_COMMITMENT_SIZE = FrCodec::calc_num_fields<IpaCommitment>();
+    static constexpr size_t IPA_SCALAR_SIZE = FrCodec::calc_num_fields<IpaScalar>();
+    static constexpr size_t G_ZERO_OFFSET =
+        ECCVMVerifier::TripleIPA::NUM_CROSS_SUMS * IPA_SCALAR_SIZE + 2 * CONST_ECCVM_LOG_N * IPA_COMMITMENT_SIZE;
+    static_assert(G_ZERO_OFFSET + IPA_COMMITMENT_SIZE + IPA_SCALAR_SIZE == ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH);
+
     static void tamper_ipa_g_zero(ChonkProof& proof)
     {
-        using IpaCommitment = curve::Grumpkin::AffineElement;
-        using IpaScalar = curve::Grumpkin::ScalarField;
-
-        constexpr size_t commitment_size = FrCodec::template calc_num_fields<IpaCommitment>();
-        constexpr size_t scalar_size = FrCodec::template calc_num_fields<IpaScalar>();
-        constexpr size_t g_zero_offset = 2 * CONST_ECCVM_LOG_N * commitment_size;
-        static_assert(g_zero_offset + commitment_size + scalar_size == IPA_PROOF_LENGTH);
-        ASSERT_LE(g_zero_offset + commitment_size, proof.ipa_proof.size());
+        ASSERT_EQ(proof.ipa_proof.size(), ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH);
 
         IpaCommitment wrong_g_zero = IpaCommitment::one() * IpaScalar(7);
         auto wrong_g_zero_fields = FrCodec::serialize_to_fields<IpaCommitment>(wrong_g_zero);
         std::copy(wrong_g_zero_fields.begin(),
                   wrong_g_zero_fields.end(),
-                  proof.ipa_proof.begin() + static_cast<std::ptrdiff_t>(g_zero_offset));
+                  proof.ipa_proof.begin() + static_cast<std::ptrdiff_t>(G_ZERO_OFFSET));
     }
 
     /**
@@ -179,6 +180,17 @@ TEST_F(ChonkBatchVerifierTests, TamperedIpaGZeroRejected)
     auto bad_proof = good_proof;
     tamper_ipa_g_zero(bad_proof);
 
+    EXPECT_TRUE(std::equal(good_proof.ipa_proof.begin(),
+                           good_proof.ipa_proof.begin() + static_cast<std::ptrdiff_t>(G_ZERO_OFFSET),
+                           bad_proof.ipa_proof.begin()));
+    EXPECT_TRUE(std::equal(good_proof.ipa_proof.end() - IPA_SCALAR_SIZE,
+                           good_proof.ipa_proof.end(),
+                           bad_proof.ipa_proof.end() - IPA_SCALAR_SIZE));
+    EXPECT_NE(FrCodec::deserialize_from_fields<IpaCommitment>(
+                  std::span<const bb::fr>(good_proof.ipa_proof).subspan(G_ZERO_OFFSET, IPA_COMMITMENT_SIZE)),
+              FrCodec::deserialize_from_fields<IpaCommitment>(
+                  std::span<const bb::fr>(bad_proof.ipa_proof).subspan(G_ZERO_OFFSET, IPA_COMMITMENT_SIZE)));
+
     ChonkNativeVerifier direct_verifier(vk);
     EXPECT_FALSE(direct_verifier.verify(bad_proof));
 
@@ -282,6 +294,26 @@ TEST_F(ChonkBatchVerifierTests, WrongProofSizeReturnsFailedResult)
     ASSERT_EQ(collector.results.size(), 1);
     EXPECT_FALSE(collector.results[0].verified());
     EXPECT_NE(collector.results[0].error_message.find("wrong size"), std::string::npos);
+}
+
+TEST_F(ChonkBatchVerifierTests, InvalidProofSegmentsReturnFailedResult)
+{
+    auto [proof, vk] = generate_chonk_proof();
+    proof.merge_proof.push_back(proof.eccvm_proof.front());
+    proof.eccvm_proof.erase(proof.eccvm_proof.begin());
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+
+    verifier.enqueue(VerifyRequest{ .request_id = 13, .vk_index = 0, .proof = std::move(proof) });
+    collector.wait_for(1);
+    verifier.stop();
+
+    ASSERT_EQ(collector.results.size(), 1);
+    EXPECT_FALSE(collector.results[0].verified());
+    EXPECT_NE(collector.results[0].error_message.find("invalid segment lengths"), std::string::npos);
 }
 
 TEST_F(ChonkBatchVerifierTests, CallbackExceptionDoesNotKillVerifier)

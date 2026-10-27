@@ -18,7 +18,10 @@ class GoblinAvm : public Goblin {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
-    explicit GoblinAvm(MegaBuilder& builder,
+    // The AVM recursive verifier circuit is built for MegaAvmFlavor's arithmetization.
+    using Builder = MegaAvmCircuitBuilder;
+
+    explicit GoblinAvm(Builder& builder,
                        const std::shared_ptr<Transcript>& avm_transcript = std::make_shared<Transcript>());
 
     /**

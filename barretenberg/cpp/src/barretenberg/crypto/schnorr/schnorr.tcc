@@ -51,7 +51,7 @@ template <typename Fq> static inline Fq compute_schnorr_challenge_dst()
  * @return e as a bb::fr element
  */
 template <typename G1>
-static typename G1::Fq schnorr_generate_challenge(const typename G1::Fq& message_field,
+inline typename G1::Fq schnorr_generate_challenge(const typename G1::Fq& message_field,
                                                   const typename G1::affine_element& pubkey,
                                                   const typename G1::affine_element& R)
 {
@@ -94,7 +94,7 @@ schnorr_signature schnorr_construct_signature(const typename G1::Fq& message_fie
     // for the signature equation s = k - priv * e. Lossless because bb::fr modulus < bb::fq modulus.
     std::array<uint8_t, 32> e_buf;
     Fq::serialize_to_buffer(e, e_buf.data());
-    Fr e_scalar = Fr::serialize_from_buffer(e_buf.data());
+    Fr e_scalar = Fr::from_bytes_reduced(e_buf);
     Fr s = k - (private_key * e_scalar);
     secure_erase_bytes(&k, sizeof(k));
 
@@ -131,7 +131,7 @@ bool schnorr_verify_signature(const typename G1::Fq& message_field,
     Fq target_e = schnorr_generate_challenge<G1>(message_field, public_key, R);
     std::array<uint8_t, 32> target_e_buf;
     Fq::serialize_to_buffer(target_e, target_e_buf.data());
-    Fr target_e_scalar = Fr::serialize_from_buffer(target_e_buf.data());
+    Fr target_e_scalar = Fr::from_bytes_reduced(target_e_buf);
     return (sig.e == target_e_scalar);
 }
 } // namespace bb::crypto

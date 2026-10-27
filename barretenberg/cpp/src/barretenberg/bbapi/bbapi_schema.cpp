@@ -1,6 +1,6 @@
 #include "barretenberg/bbapi/bbapi_schema.hpp"
 
-#include "barretenberg/bbapi/generated/bb_schema_embed.hpp"
+#include "bb_schema_embed.hpp"
 
 namespace bb::bbapi {
 

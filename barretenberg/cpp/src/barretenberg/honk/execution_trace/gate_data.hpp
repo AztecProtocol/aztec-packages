@@ -91,7 +91,7 @@ struct ecc_op_tuple {
     uint32_t y_hi;
     uint32_t z_1;
     uint32_t z_2;
-    bool return_is_infinity;
+    bool return_is_infinity = false;
 };
 
 // Embedded curve point addition/subtraction: (x1, y1) ± (x2, y2) = (x3, y3)

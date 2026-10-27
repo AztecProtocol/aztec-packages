@@ -115,7 +115,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto native_result = native_verifier.reduce_to_triple_ipa_claim();
 
         // Verify the TripleIPA proof against the claim emitted by the native verifier
-        auto ipa_verify_transcript = std::make_shared<Transcript>(prover.ipa_proof);
+        auto ipa_verify_transcript = std::make_shared<Transcript>();
+        ipa_verify_transcript->load_proof(prover.ipa_proof);
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
         auto accumulator =
             NativeTripleIPA::reduce_to_accumulator(native_result.triple_ipa_claim, ipa_verify_transcript);
@@ -285,7 +286,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
                 std::shared_ptr<Transcript> native_transcript = std::make_shared<Transcript>();
                 InnerVerifier native_verifier(native_transcript, proof);
                 auto native_result = native_verifier.reduce_to_triple_ipa_claim();
-                auto ipa_verify_transcript = std::make_shared<Transcript>(ipa_proof);
+                auto ipa_verify_transcript = std::make_shared<Transcript>();
+                ipa_verify_transcript->load_proof(ipa_proof);
                 auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
                 auto accumulator =
                     NativeTripleIPA::reduce_to_accumulator(native_result.triple_ipa_claim, ipa_verify_transcript);
@@ -332,6 +334,26 @@ class ECCVMRecursiveTests : public ::testing::Test {
         compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_20, blocks_40 },
                                                                 { verification_key_20, verification_key_40 });
     };
+
+    static void test_recursive_verifier_vk_hash()
+    {
+        auto inner_circuit = generate_circuit(&engine);
+        auto prover_transcript = std::make_shared<Transcript>();
+        InnerProver inner_prover(inner_circuit, prover_transcript);
+        const auto proof = inner_prover.construct_proof();
+
+        OuterBuilder outer_circuit;
+        auto stdlib_proof = stdlib::Proof<OuterBuilder>(outer_circuit, proof);
+        auto verifier_transcript = std::make_shared<StdlibTranscript>();
+        RecursiveVerifier verifier{ verifier_transcript, stdlib_proof };
+        [[maybe_unused]] auto recursive_triple_ipa_claim = verifier.reduce_to_triple_ipa_claim();
+        stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
+
+        auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
+        auto outer_vk = std::make_shared<OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
+        const OuterFlavor::FF expected_vk_hash{ uint256_t(acir_format::ECCVM_RECURSIVE_VERIFIER_VK_HASH) };
+        EXPECT_EQ(outer_vk->hash(), expected_vk_hash);
+    }
 };
 
 TEST_F(ECCVMRecursiveTests, SingleRecursiveVerification)
@@ -357,6 +379,11 @@ TEST_F(ECCVMRecursiveTests, TargetedProofTampering)
 TEST_F(ECCVMRecursiveTests, IndependentVKHash)
 {
     ECCVMRecursiveTests::test_independent_vk_hash();
+};
+
+TEST_F(ECCVMRecursiveTests, RecursiveVerifierVKHash)
+{
+    ECCVMRecursiveTests::test_recursive_verifier_vk_hash();
 };
 
 } // namespace bb

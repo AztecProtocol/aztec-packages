@@ -11,8 +11,10 @@ namespace bb {
  */
 class CircuitChecker {
   public:
-    static bool check(const UltraCircuitBuilder& builder) { return UltraCircuitChecker::check(builder); }
-    static bool check(const MegaCircuitBuilder& builder) { return UltraCircuitChecker::check(builder); }
+    template <typename Builder> static bool check(const Builder& builder)
+    {
+        return UltraCircuitChecker::check(builder);
+    }
 };
 
 } // namespace bb

@@ -120,11 +120,11 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // Receive Libra masking commitments.
     libra_commitments = {};
-    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
 
     // ZK correction: receive Libra:Sum and Libra:Challenge to set initial target sum.
-    FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-    libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+    FF libra_total_sum = transcript->template receive_from_prover<FF>(LIBRA_SUM_LABEL);
+    libra_challenge = transcript->template get_challenge<FF>(LIBRA_CHALLENGE_LABEL);
 
     // Use committed sumcheck infrastructure: defers per-round checks to Shplemini.
     static constexpr bool UseCommittedSumcheck = true;
@@ -132,11 +132,11 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
-    joint_challenge.clear();
-    joint_challenge.reserve(JOINT_LOG_N);
+    std::vector<FF> challenges;
+    challenges.reserve(JOINT_LOG_N);
 
     for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
-        joint_round.process_round(transcript, joint_challenge, gate_sep, round_idx);
+        joint_round.process_round(transcript, challenges, gate_sep, round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -145,6 +145,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
                     "Sumcheck:minicircuit_evaluations"));
         }
     }
+    joint_challenge = std::move(challenges);
 
     // Receive MegaZK evaluations after all rounds — full N-variable multilinear evaluations.
     {

@@ -22,7 +22,7 @@ if(NOT FUZZING)
     )
     add_custom_command(
         OUTPUT ${BB_GEN_OUTPUTS}
-        COMMAND node --experimental-strip-types --experimental-transform-types --no-warnings
+        COMMAND node --experimental-strip-types --no-warnings
                 ${IPC_CODEGEN_DIR}/src/generate.ts
                 --schema ${BB_SCHEMA}
                 --lang cpp
@@ -40,11 +40,14 @@ endif()
 
 # Embed the schema so `bb msgpack schema` reports the exact contract this
 # binary was built against. Configure-time: re-runs when the schema changes.
+# Written into the build directory: presets configured concurrently (native,
+# wasm, wasm-threads) would otherwise race on one file in the source tree.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${BB_SCHEMA})
 file(READ ${BB_SCHEMA} BB_SCHEMA_CONTENT)
-configure_file(bb_schema_embed.hpp.in ${BB_GEN_DIR}/bb_schema_embed.hpp @ONLY)
+configure_file(bb_schema_embed.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/bb_schema_embed.hpp @ONLY)
 
 barretenberg_module(bbapi common chonk dsl crypto_poseidon2 crypto_pedersen_commitment crypto_pedersen_hash crypto_blake2s crypto_aes128 crypto_schnorr crypto_ecdsa ecc srs)
+target_include_directories(bbapi_objects PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 if(NOT FUZZING)
     add_dependencies(bbapi_objects bb_ipc_generated)

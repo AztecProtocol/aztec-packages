@@ -26,7 +26,7 @@ use types::{
         L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH,
         MAX_L1_TO_L2_MSGS_PER_BLOCK, OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
     },
-    hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    hash::poseidon2_hash_with_separator,
     merkle_tree::{
         append_only_tree::append_leaves_to_snapshot, MerkleTree,
         test_utils::SingleSubtreeMerkleTree,

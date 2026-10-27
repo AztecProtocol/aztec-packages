@@ -23,7 +23,7 @@ export const Poseidon2QuadInternalRelation = relation({
     subsets: {
         gate_selectors: ["q_poseidon2_quad_internal"],
         // q_5 carries the next quad's third round constant; flagged non_gate to align with
-        // MegaTraceBlock::get_selectors() ordering.
+        // execution-trace block selector ordering.
         non_gate_selectors: ["q_5"],
     },
 });

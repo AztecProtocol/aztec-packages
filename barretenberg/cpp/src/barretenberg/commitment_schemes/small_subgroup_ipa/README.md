@@ -37,16 +37,12 @@ The inner product $\langle F, G \rangle$ computes $c \cdot 1 + H_0(u_0) + H_1(u_
 
 ### ECCVM Translation Data Consistency
 
-In ECCVM, the prover must link the transcript wires (`op`, `Px`, `Py`, `z1`, `z2`) to the accumulator computed by the translator. Let $T_0, \ldots, T_4$ denote these 5 **translation polynomials**. The verifier checks:
-$$x \cdot A = \sum_{i=0}^{4} T_i(x) \cdot v^i$$
-where $A$ is the accumulated result and $x$, $v$ are challenges.
+In ECCVM, the prover links the transcript wires (`op`, `Px`, `Py`, `z1`, `z2`) to the accumulator computed by the translator. Let $T_i$ be the unmasked translation polynomials and $M = \text{TRACE_OFFSET}$. The first $M$ coefficients hold the masking polynomials $m_i$:
+$$\widetilde{T}_i(X) = X^M T_i(X) + m_i(X).$$
 
-**The ZK Challenge:** The translation polynomials are masked to preserve zero-knowledge:
-$$\widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X)$$
-where $N = \text{circuit\_size} - M$ and $M = \text{NUM\_DISABLED\_ROWS\_IN\_SUMCHECK}$.
-
-The verifier cannot receive unmasked evaluations $T_i(x)$. With masking, the identity becomes:
-$$x \cdot A = \sum_{i=0}^{4} \widetilde{T}_i(x) \cdot v^i - x^N \cdot \sum_{i=0}^{4} m_i(x) \cdot v^i$$
+For challenges $x,v$ and translator accumulator $A$, the verifier checks
+$$x^{M+1} A = \sum_{i=0}^{4} v^i \bigl(\widetilde{T}_i(x) - m_i(x)\bigr).$$
+The extra factor of $x$ accounts for the shiftable-polynomial offset.
 
 **The Solution:** The prover sends $\widetilde{T}_i(x)$ (safe to reveal) and proves the correction term $\sum_i m_i(x) v^i$ via SmallSubgroupIPA:
 

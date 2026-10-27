@@ -41,7 +41,8 @@ static uint256_t convert_bytes_to_uint256(const uint8_t* data)
 }
 
 // Test function for a specific combination of witness/constant inputs
-template <class Builder> void test_aes128_combination(bool key_as_witness, bool iv_as_witness, bool input_as_witness)
+template <class Builder>
+void test_aes128_combination(bool key_as_witness, bool iv_as_witness, bool input_as_witness, size_t num_blocks = 4)
 {
     using field_pt = stdlib::field_t<Builder>;
 
@@ -60,7 +61,7 @@ template <class Builder> void test_aes128_combination(bool key_as_witness, bool 
 
     // Create input blocks with specified witness/constant configuration
     std::vector<field_pt> in_field;
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < num_blocks; ++i) {
         in_field.push_back(create_field_element(builder, convert_bytes_to_uint256(in + i * 16), input_as_witness));
     }
 
@@ -77,8 +78,10 @@ template <class Builder> void test_aes128_combination(bool key_as_witness, bool 
     // Run AES encryption
     const auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
 
+    ASSERT_EQ(result.size(), num_blocks);
+
     // Verify results
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < num_blocks; ++i) {
         EXPECT_EQ(result[i].get_value(), expected[i])
             << "Combination: key=" << (key_as_witness ? "witness" : "constant")
             << ", iv=" << (iv_as_witness ? "witness" : "constant")
@@ -150,6 +153,14 @@ void test_aes128_mixed_input(bool key_as_witness, bool iv_as_witness, const std:
     if (has_witness) {
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true) << "Circuit check failed for mixed input test";
+    }
+}
+
+TYPED_TEST(StdlibAes128, EncryptShortPrefixes)
+{
+    for (size_t num_blocks : { 1UL, 2UL, 3UL }) {
+        test_aes128_combination<TypeParam>(true, true, true, num_blocks);
+        test_aes128_combination<TypeParam>(false, false, false, num_blocks);
     }
 }
 

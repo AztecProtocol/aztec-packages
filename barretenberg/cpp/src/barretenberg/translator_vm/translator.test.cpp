@@ -222,7 +222,8 @@ class TranslatorTests : public ::testing::Test {
         auto initial_transcript = prover_transcript->export_proof();
 
         // Setup verifier transcript
-        auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
+        auto verifier_transcript = std::make_shared<Transcript>();
+        verifier_transcript->load_proof(initial_transcript);
         verifier_transcript->template receive_from_prover<Fq>("init");
 
         // Create proving key and prover
@@ -267,7 +268,8 @@ class TranslatorTests : public ::testing::Test {
         prover_transcript->send_to_verifier("init", Fq::random_element());
         auto initial_transcript = prover_transcript->export_proof();
 
-        auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
+        auto verifier_transcript = std::make_shared<Transcript>();
+        verifier_transcript->load_proof(initial_transcript);
         verifier_transcript->template receive_from_prover<Fq>("init");
 
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
@@ -445,6 +447,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
     // Seed a no-op to supply the 2 leading zero rows Translator's op-queue wires need for shiftability.
     op_queue->no_op_ultra_only();
     add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
+    op_queue->append_hiding_op(Fq(0), Fq(0));
     add_mixed_ops(op_queue, 100);
     op_queue->merge();
     auto circuit_builder = CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue, /*avm_mode=*/true };
@@ -537,8 +540,9 @@ TEST_F(TranslatorTests, TranscriptPinned)
     // Generate proof
     auto proof = prover.construct_proof();
 
-    // Setup verifier transcript with manifest tracking
-    auto verifier_transcript = std::make_shared<Transcript>(proof);
+    // Setup verifier transcript with manifest tracking; the verifier loads the proof itself in
+    // receive_pre_sumcheck().
+    auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
 
     // Get accumulated_result from the prover

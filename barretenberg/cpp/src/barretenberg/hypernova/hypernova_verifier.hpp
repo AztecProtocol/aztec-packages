@@ -27,19 +27,21 @@ namespace bb {
  * Construct → `accumulate_instance<InstanceFlavor>()` once per incoming proof → `finalize()` exactly once.
  * SINGLE-USE: construct a fresh verifier for each folding group
  */
-template <bool IsRecursive_> class HypernovaFoldingVerifier {
+template <bool IsRecursive_, typename Builder_ = MegaKernelCircuitBuilder> class HypernovaFoldingVerifier {
   public:
     static constexpr bool IsRecursive = IsRecursive_;
+    // The circuit doing the verifying (recursive case only; ignored natively).
+    using Builder = Builder_;
     // Representative flavor: Curve/commitment/transcript shapes are common to the app and kernel flavors, so the kernel
     // one stands in for both.
-    using BaseFlavor = std::conditional_t<IsRecursive, MegaKernelRecursiveFlavor, MegaKernelFlavor>;
+    using BaseFlavor = std::conditional_t<IsRecursive, MegaKernelRecursiveFlavor_<Builder>, MegaKernelFlavor>;
     using FF = typename BaseFlavor::FF;
     using Curve = typename BaseFlavor::Curve;
     using Commitment = typename BaseFlavor::Commitment;
     using Transcript = typename BaseFlavor::Transcript;
     using Accumulator = MultilinearBatchingVerifierClaim<Curve>;
-    using BatchingVerifier = MultilinearBatchingVerifier<IsRecursive>;
-    using Proof = std::conditional_t<IsRecursive, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
+    using BatchingVerifier = MultilinearBatchingVerifier<IsRecursive, Builder>;
+    using Proof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, HonkProof>;
 
     template <typename InstanceFlavor> using VerifierInstance = VerifierInstance_<InstanceFlavor>;
 
@@ -95,6 +97,6 @@ template <bool IsRecursive_> class HypernovaFoldingVerifier {
 };
 
 using HypernovaFoldingNativeVerifier = HypernovaFoldingVerifier<false>;
-using HypernovaFoldingRecursiveVerifier = HypernovaFoldingVerifier<true>;
+template <typename Builder> using HypernovaFoldingRecursiveVerifier_ = HypernovaFoldingVerifier<true, Builder>;
 
 } // namespace bb

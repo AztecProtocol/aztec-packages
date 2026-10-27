@@ -5,6 +5,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include <span>
 #pragma clang diagnostic push
 // TODO(luke/kesha): Add a comment explaining why we need this ignore and what the solution is.
 #pragma clang diagnostic ignored "-Wc99-designator"
@@ -656,7 +657,8 @@ template <typename Builder> class BigFieldBase {
                           opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
                 Instruction instr;
                 instr.id = static_cast<typename Instruction::OPCODE>(opcode);
-                instr.arguments.element.value = bb::fq::serialize_from_buffer(Data);
+                instr.arguments.element.value =
+                    bb::fq::from_bytes_reduced(std::span<const uint8_t>(Data, sizeof(uint256_t)));
                 return instr;
             };
             if constexpr (opcode == Instruction::OPCODE::RANDOMSEED) {

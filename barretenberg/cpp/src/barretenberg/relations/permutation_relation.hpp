@@ -26,8 +26,8 @@ namespace bb {
  when \f$Z_{\text{perm}}(0) = 0\f$.
 
  * @tparam FF_
- * @note `z_perm[1] == 1`. if `idx` is the unique index such that `lagrange_last[idx] == 1`, then `z_perm[y] == 0` for
- all `y>idx` (up to the size of the Boolean hypercube).
+ * @note The first row here is `TRACE_OFFSET`, where `lagrange_first` is 1 and `z_perm` is 0.
+ The prover writes successive products after that row and zero-pads beyond `lagrange_last`.
  * @note This is the only relation in Ultra that requires `lagrange_last`.
  */
 template <typename FF_> class UltraPermutationRelationImpl {

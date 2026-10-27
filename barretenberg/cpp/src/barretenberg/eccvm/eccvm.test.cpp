@@ -246,7 +246,8 @@ TEST_F(ECCVMTests, ShortMonomialProverVerifies)
 
     // The TripleIPA opening is produced inside construct_proof and carried on prover.ipa_proof; discharge it
     // against the reconstructed claim.
-    auto ipa_verifier_transcript = std::make_shared<Transcript>(prover.ipa_proof);
+    auto ipa_verifier_transcript = std::make_shared<Transcript>();
+    ipa_verifier_transcript->load_proof(prover.ipa_proof);
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified =
         ECCVMVerifier::TripleIPA::reduce_verify(ipa_vk, eccvm_result.triple_ipa_claim, ipa_verifier_transcript);
@@ -485,7 +486,8 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
     auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
-    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
     SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);

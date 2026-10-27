@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
@@ -26,7 +27,7 @@ template <typename Curve> struct PairingPoints {
     // Number of bb::fr field elements used to represent pairing points in public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
-    uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
+    uint32_t tag_index = PairingPointsTagging::UNREGISTERED; // Index of the tag for tracking pairing point aggregation
 
     const Group& P0() const { return _points[0]; }
     const Group& P1() const { return _points[1]; }
@@ -76,21 +77,27 @@ template <typename Curve> struct PairingPoints {
      * @details Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁ where r₁,...,rₙ₋₁ are 128-bit challenges
      * depending on all input points.
      *
-     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
-     * @param handle_edge_cases If true, batch_mul handles edge cases where points might be zero or challenges might
-     * cause numerical issues. If false, assumes all points are non-zero and non-colliding (saves circuit gates).
+     * On Ultra, each rᵢ·Pᵢ is a separate short scalar_mul accumulated with complete addition, as in aggregate().
+     * Unlike a multi-point batch_mul, this involves no cross-point incomplete additions, so no edge-case handling
+     * is needed for any inputs.
+     * On Mega, batch_mul queues Goblin operations. Arithmetic correctness and edge cases are enforced by
+     * ECCVM, with Translator binding those operations to the Mega circuit.
      *
-     * Safety of handle_edge_cases=false:
-     * - Safe when all points are verifier-computed (deterministic, won't collide)
-     * - Safe even with untrusted public input points, as the random challenges make collisions negligible
-     * - Provides significant circuit gate savings in recursive verification
+     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
      */
-    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 0UL, "Must provide at least one PairingPoints for aggregation");
+        Builder* builder = nullptr;
         for (const auto& points : pairing_points) {
+            builder = validate_context<Builder>(builder, validate_context<Builder>(points));
             BB_ASSERT(points.has_data_, "Cannot aggregate null pairing points.");
+        }
+        if (builder != nullptr) {
+            for (const auto& points : pairing_points) {
+                builder->pairing_points_tagging.validate_aggregation_input(points.tag_index);
+            }
         }
         if (num_points == 1) {
             return pairing_points[0];
@@ -125,10 +132,10 @@ template <typename Curve> struct PairingPoints {
         Group P0;
         Group P1;
 
-        // For MegaCircuitBuilder (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
+        // For Mega builders (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
         // so we can include all points in a single batch_mul with scalar [1, r₁, r₂, ..., rₙ₋₁]
         // For UltraCircuitBuilder: no optimization for witness point × constant(1), so keep first point separate
-        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        if constexpr (IsMegaBuilder<Builder>) {
             // Single batch_mul for all points (efficient for Goblin with constant scalar 1)
             std::vector<Fr> scalars;
             scalars.reserve(num_points);
@@ -138,25 +145,25 @@ template <typename Curve> struct PairingPoints {
             P0 = Group::batch_mul(first_components, scalars);
             P1 = Group::batch_mul(second_components, scalars);
         } else {
-            // Use first point as base, then batch_mul remaining points
-            std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
-            std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
-
             P0 = first_components[0];
             P1 = second_components[0];
 
-            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
-            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+            for (size_t i = 0; i < challenges.size(); i++) {
+                P0 += first_components[i + 1].scalar_mul(challenges[i], 128);
+                P1 += second_components[i + 1].scalar_mul(challenges[i], 128);
+            }
         }
 
-        PairingPoints aggregated_points(P0, P1);
-
-        // Merge tags
-        Builder* builder = P0.get_context();
+        PairingPoints aggregated_points;
+        aggregated_points._points = { P0, P1 };
+        aggregated_points.has_data_ = true;
         if (builder != nullptr) {
+            std::vector<uint32_t> input_tags;
+            input_tags.reserve(num_points);
             for (const auto& points : pairing_points) {
-                builder->pairing_points_tagging.merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+                input_tags.push_back(points.tag_index);
             }
+            aggregated_points.tag_index = builder->pairing_points_tagging.aggregate_pairing_point_tags(input_tags);
         }
 
         return aggregated_points;
@@ -173,6 +180,15 @@ template <typename Curve> struct PairingPoints {
     {
         BB_ASSERT(other.has_data_, "Cannot aggregate null pairing points.");
 
+        Builder* builder =
+            validate_context<Builder>(validate_context<Builder>(*this), validate_context<Builder>(other));
+        if (builder != nullptr) {
+            builder->pairing_points_tagging.validate_aggregation_input(other.tag_index);
+            if (has_data_) {
+                builder->pairing_points_tagging.validate_aggregation_input(tag_index);
+            }
+        }
+
         // If LHS is empty, simply set it equal to the incoming pairing points
         if (!this->has_data_ && other.has_data_) {
             *this = other;
@@ -188,9 +204,9 @@ template <typename Curve> struct PairingPoints {
         auto recursion_separator =
             transcript.template get_short_challenge<typename Curve::ScalarField>("recursion_separator");
         is_default_ = false; // After aggregation, points are no longer default
-        // If Mega Builder is in use, the EC operations are deferred via Goblin.
+        // If a Mega builder is in use, the EC operations are deferred via Goblin.
         // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
-        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        if constexpr (IsMegaBuilder<Builder>) {
             // Goblin: batch_mul with constant scalar 1 uses add instead of mul
             _points[0] = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
             _points[1] = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
@@ -203,9 +219,9 @@ template <typename Curve> struct PairingPoints {
         }
 
         // Merge the tags in the builder
-        Builder* builder = P0().get_context();
         if (builder != nullptr) {
-            builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
+            const std::array input_tags{ tag_index, other.tag_index };
+            tag_index = builder->pairing_points_tagging.aggregate_pairing_point_tags(input_tags);
         }
 
 #ifndef NDEBUG
@@ -231,7 +247,7 @@ template <typename Curve> struct PairingPoints {
         }
         Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
         BB_ASSERT(builder != nullptr, "set_public on pairing points requires a builder context.");
-        builder->pairing_points_tagging.set_public_pairing_points();
+        builder->pairing_points_tagging.set_public_pairing_points(tag_index);
         uint32_t start_idx = P0().set_public();
         P1().set_public();
         return start_idx;
@@ -267,7 +283,7 @@ template <typename Curve> struct PairingPoints {
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        builder->pairing_points_tagging.set_public_pairing_points();
+        builder->pairing_points_tagging.set_public_pairing_points(PairingPointsTagging::UNREGISTERED);
         // Infinity is represented as (0,0) in biggroup. Directly add zero limbs as public inputs, bypassing bigfield's
         // self_reduce.
         uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());

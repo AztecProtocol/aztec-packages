@@ -1,5 +1,7 @@
 #include "./utils.hpp"
 
+#include <cstdlib>
+
 namespace bb::utils {
 
 std::vector<uint8_t> hex_to_bytes(const std::string& hex)

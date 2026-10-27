@@ -12,6 +12,7 @@ class SpecialPublicInputsTests : public testing::Test {
 // Demonstrates the basic functionality of the KernelIO class for propagating public inputs between circuits
 TEST_F(SpecialPublicInputsTests, Basic)
 {
+    using KernelIO = stdlib::recursion::honk::KernelIO<MegaKernelCircuitBuilder>;
     using Builder = KernelIO::Builder;
     using Curve = KernelIO::Curve;
     using G1 = KernelIO::G1;

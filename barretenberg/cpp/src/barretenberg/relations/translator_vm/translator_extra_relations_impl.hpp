@@ -93,6 +93,14 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     tmp_5 *= lagrange_even_in_minicircuit;
     tmp_5 *= scaling_factor;
     std::get<4>(accumulators) += tmp_5;
+
+    // Contribution (6): the result row holds the hiding op (op = 3, eq and reset). Degree 2, so it uses the shorter
+    // accumulator.
+    using ShorterAccumulator = std::tuple_element_t<5, ContainerOverSubrelations>;
+    using ShorterView = typename ShorterAccumulator::View;
+    auto tmp_6 = (ShorterView(in.op) + minus_three) * ShorterView(in.lagrange_result_row);
+    tmp_6 *= scaling_factor;
+    std::get<5>(accumulators) += tmp_6;
 };
 
 /**

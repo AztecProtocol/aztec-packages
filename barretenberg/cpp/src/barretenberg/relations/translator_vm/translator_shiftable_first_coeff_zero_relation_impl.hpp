@@ -4,7 +4,7 @@
 namespace bb {
 
 /**
- * @brief Anchors ordered_range_constraints_i[0] = 0 for each of the 5 sorted range-check wires.
+ * @brief Anchors the ordered-range and non-range main-wire first values to zero.
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -28,5 +28,18 @@ void TranslatorShiftableFirstCoeffZeroRelationImpl<FF>::accumulate(ContainerOver
     std::get<2>(accumulators) += lagrange_first * View(in.ordered_range_constraints_2) * scaling_factor;
     std::get<3>(accumulators) += lagrange_first * View(in.ordered_range_constraints_3) * scaling_factor;
     std::get<4>(accumulators) += lagrange_first * View(in.ordered_range_constraints_4) * scaling_factor;
+    std::get<5>(accumulators) += lagrange_first * View(in.p_x_low_limbs) * scaling_factor;
+    std::get<6>(accumulators) += lagrange_first * View(in.p_x_high_limbs) * scaling_factor;
+    std::get<7>(accumulators) += lagrange_first * View(in.p_y_low_limbs) * scaling_factor;
+    std::get<8>(accumulators) += lagrange_first * View(in.p_y_high_limbs) * scaling_factor;
+    std::get<9>(accumulators) += lagrange_first * View(in.z_low_limbs) * scaling_factor;
+    std::get<10>(accumulators) += lagrange_first * View(in.z_high_limbs) * scaling_factor;
+    std::get<11>(accumulators) += lagrange_first * View(in.accumulators_binary_limbs_0) * scaling_factor;
+    std::get<12>(accumulators) += lagrange_first * View(in.accumulators_binary_limbs_1) * scaling_factor;
+    std::get<13>(accumulators) += lagrange_first * View(in.accumulators_binary_limbs_2) * scaling_factor;
+    std::get<14>(accumulators) += lagrange_first * View(in.accumulators_binary_limbs_3) * scaling_factor;
+    std::get<15>(accumulators) += lagrange_first * View(in.quotient_low_binary_limbs) * scaling_factor;
+    std::get<16>(accumulators) += lagrange_first * View(in.quotient_high_binary_limbs) * scaling_factor;
+    std::get<17>(accumulators) += lagrange_first * View(in.relation_wide_limbs) * scaling_factor;
 }
 } // namespace bb

@@ -1,6 +1,7 @@
 // Unified transcript tests - works for both native and stdlib transcripts
 // Replaces: transcript.test.cpp and stdlib_transcript.test.cpp
 
+#include "barretenberg/common/assert.hpp"
 #include "transcript_test_fixture.hpp"
 
 namespace bb::test {
@@ -133,7 +134,8 @@ TYPED_TEST(TranscriptTests, BatchChallengeGeneration)
     std::array<std::string, 3> labels = { "alpha", "beta", "gamma" };
     auto [p_alpha, p_beta, p_gamma] = prover.template get_challenges<bb::fr>(labels);
 
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    typename TestFixture::Transcript verifier;
+    verifier.load_proof(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("data");
 
     auto [v_alpha, v_beta, v_gamma] = verifier.template get_challenges<FF>(labels);
@@ -158,7 +160,8 @@ TYPED_TEST(TranscriptTests, VectorChallengeGeneration)
     std::vector<std::string> labels = { "c1", "c2", "c3", "c4", "c5" };
     auto prover_challenges = prover.template get_challenges<bb::fr>(labels);
 
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    typename TestFixture::Transcript verifier;
+    verifier.load_proof(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("init");
     auto verifier_challenges = verifier.template get_challenges<FF>(labels);
 
@@ -183,7 +186,8 @@ TYPED_TEST(TranscriptTests, ShortChallengeGeneration)
     auto [p_alpha, p_beta, p_gamma] = prover.template get_short_challenges<bb::fr>(labels);
     auto p_single = prover.template get_short_challenge<bb::fr>("delta");
 
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    typename TestFixture::Transcript verifier;
+    verifier.load_proof(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("data");
     auto [v_alpha, v_beta, v_gamma] = verifier.template get_short_challenges<FF>(labels);
     auto v_single = verifier.template get_short_challenge<FF>("delta");
@@ -215,6 +219,28 @@ TEST(TranscriptShortVsFull, ShortIsLowLimbOfFull)
     EXPECT_EQ(short_challenge, NativeTranscript::Codec::split_challenge(full)[0]);
     EXPECT_NE(short_challenge, full);
     EXPECT_LT(uint256_t(short_challenge).get_msb(), 127); // fits in 127 bits
+}
+
+TEST(TranscriptConsumption, RejectsLoadBeforeFullConsumption)
+{
+    NativeTranscript transcript;
+    transcript.load_proof({ fr(1), fr(2) });
+    EXPECT_EQ(transcript.receive_from_prover<fr>("first"), fr(1));
+    EXPECT_THROW_WITH_MESSAGE(transcript.load_proof({ fr(3) }), "fully consumed");
+    EXPECT_EQ(transcript.receive_from_prover<fr>("second"), fr(2));
+    transcript.load_proof({ fr(3) });
+    EXPECT_EQ(transcript.receive_from_prover<fr>("third"), fr(3));
+    EXPECT_NO_THROW(transcript.enforce_proof_fully_consumed("test"));
+}
+
+TEST(TranscriptConsumption, RejectsUnreadTrailingData)
+{
+    NativeTranscript transcript;
+    transcript.load_proof({ fr(1), fr(2) });
+    EXPECT_EQ(transcript.receive_from_prover<fr>("first"), fr(1));
+    EXPECT_THROW_WITH_MESSAGE(transcript.enforce_proof_fully_consumed("test"), "proof contains trailing data");
+    EXPECT_EQ(transcript.receive_from_prover<fr>("second"), fr(2));
+    EXPECT_NO_THROW(transcript.enforce_proof_fully_consumed("test"));
 }
 
 } // namespace bb::test

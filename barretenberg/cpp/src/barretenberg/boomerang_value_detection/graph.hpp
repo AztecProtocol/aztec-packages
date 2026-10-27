@@ -113,8 +113,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void process_execution_trace();
 
     // Methods with special handling that can't be inlined as pure patterns
-    std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array);
-    std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
+    std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array)
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory));
+    std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array)
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory));
     std::vector<uint32_t> get_eccop_part_connected_component(size_t index, auto& blk);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
@@ -123,7 +125,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
                             std::vector<uint32_t>& connected_component);
     void mark_range_list_connected_components();
     void mark_finalize_connected_components();
-    void mark_process_rom_connected_component();
+    void mark_process_rom_connected_component()
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory));
     bool is_gate_sorted_rom(auto& memory_block, size_t gate_idx) const;
     bool variable_only_in_sorted_rom_gates(uint32_t var_idx, auto& blk) const;
     std::vector<ConnectedComponent> find_connected_components();
@@ -133,14 +136,20 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void save_constant_variable_indices();
 
     size_t process_current_decompose_chain(size_t index);
-    void process_current_plookup_gate(size_t gate_index);
+    void process_current_plookup_gate(size_t gate_index)
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
     void remove_unnecessary_decompose_variables(const std::unordered_set<uint32_t>& decompose_variables);
-    void remove_unnecessary_plookup_variables();
+    void remove_unnecessary_plookup_variables()
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
     void remove_unnecessary_range_constrains_variables();
-    void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
-    void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
-    void remove_unnecessary_keccak_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
-    void remove_record_witness_variables();
+    void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index)
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
+    void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index)
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
+    void remove_unnecessary_keccak_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index)
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
+    void remove_record_witness_variables()
+        requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory));
 
     std::unordered_set<uint32_t> get_variables_in_one_gate();
     std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit(bool filter_cc = true);
@@ -180,6 +189,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
 // Type aliases for convenience
 using UltraStaticAnalyzer = StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
+template <typename Builder> using MegaStaticAnalyzer_ = StaticAnalyzer_<bb::fr, Builder>;
 using MegaStaticAnalyzer = StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
 using StaticAnalyzer = UltraStaticAnalyzer; // Default to Ultra for backward compatibility
 

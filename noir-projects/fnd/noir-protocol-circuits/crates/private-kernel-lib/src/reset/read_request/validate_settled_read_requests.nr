@@ -63,6 +63,14 @@ where
                 "Settled read request must have zero contract address",
             );
 
+            // Zero is the empty-leaf sentinel of both trees this function serves: an unwritten
+            // note-hash leaf is zero, and `NullifierLeafPreimage::hash` returns zero for an empty
+            // preimage. Those leaves are still part of the tree, so a sibling path for one verifies
+            // against the root, and without this check a zero read request would be satisfied by a
+            // leaf that no transaction ever inserted. A real siloed note hash or nullifier is a hash
+            // output, so it is never zero.
+            assert(read_request.innermost() != 0, "Settled read request must not be zero");
+
             let leaf_preimage = hint.leaf_preimage;
 
             // Validate that the leaf preimage value matches the read request.

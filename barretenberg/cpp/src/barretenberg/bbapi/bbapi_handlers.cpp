@@ -158,7 +158,7 @@ void handle_blake2s_to_field(BBApiRequest& /*ctx*/,
                              Responder<wire::BbBlake2sToFieldResponse> respond)
 {
     auto hash_result = crypto::blake2s(cmd.data);
-    respond.ok({ .field = fr_to_wire(fr::serialize_from_buffer(hash_result.data())) });
+    respond.ok({ .field = fr_to_wire(fr::from_bytes_reduced(hash_result)) });
 }
 void handle_aes_encrypt(BBApiRequest& /*ctx*/, wire::BbAesEncrypt&& cmd, Responder<wire::BbAesEncryptResponse> respond)
 {
@@ -238,7 +238,11 @@ void handle_grumpkin_batch_mul(BBApiRequest& /*ctx*/,
             return;
         }
     }
-    auto output = grumpkin::g1::element::batch_mul_with_endomorphism(points, scalar);
+    std::vector<grumpkin::g1::affine_element> output;
+    output.reserve(points.size());
+    for (const auto& p : points) {
+        output.emplace_back(grumpkin::g1::element(p).mul_const_time(scalar).to_affine_const_time());
+    }
     respond.ok({ .points = grumpkin_point_vec_to_wire(output) });
 }
 wire::BbGrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BBApiRequest& /*ctx*/,

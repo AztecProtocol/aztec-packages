@@ -683,6 +683,16 @@ TEST(TaggedValueTest, BoundaryCases)
     EXPECT_EQ(u16_mul_overflow.get_tag(), ValueTag::U16);
     EXPECT_EQ(u16_mul_overflow.as<uint16_t>(), 0); // 256*256=65536, which is 0 mod 65536
 
+    // U16 products above INT_MAX. These used to be computed in promoted signed arithmetic, where the
+    // overflow is undefined behaviour rather than a wraparound.
+    EXPECT_EQ((u16_max * u16_max).as<uint16_t>(), 1); // 65535*65535=4294836225, which is 1 mod 65536
+
+    auto u16_sqrt_int_max = TaggedValue::from<uint16_t>(46341);
+    EXPECT_EQ((u16_sqrt_int_max * u16_sqrt_int_max).as<uint16_t>(),
+              4633); // 46341 is the smallest u16 whose square (2147488281) exceeds INT_MAX
+
+    EXPECT_EQ((u16_max * TaggedValue::from<uint16_t>(32769)).as<uint16_t>(), 32767); // 65535*32769=2147516415
+
     // Test shift overflow
     auto u8_shift = TaggedValue::from<uint8_t>(1);
     auto u8_shift_amount = TaggedValue::from<uint8_t>(8);

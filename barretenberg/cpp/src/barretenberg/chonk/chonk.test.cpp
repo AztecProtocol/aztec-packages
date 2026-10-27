@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
@@ -57,7 +58,6 @@ class ChonkTests : public ::testing::Test {
 
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
-    using Builder = Chonk::ClientCircuit;
     using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using ChonkVerifier = ChonkNativeVerifier;
@@ -588,6 +588,36 @@ TEST_F(ChonkTests, ProofCompressionRoundtrip)
     EXPECT_TRUE(verify_chonk(decompressed, vk_and_hash));
 }
 
+TEST(ChonkProof, RejectsProofShorterThanMinimumLength)
+{
+    std::vector<fr> fields(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS - 1);
+    EXPECT_THROW_OR_ABORT(ChonkProof::from_field_elements(fields), "proof too short");
+}
+
+TEST(ChonkProof, MsgpackRejectsInvalidSegmentLengths)
+{
+    ChonkProof proof;
+    proof.hiding_oink_proof.resize(ChonkProof::HIDING_OINK_LENGTH);
+    proof.merge_proof.resize(MERGE_PROOF_SIZE + 1);
+    proof.eccvm_proof.resize(ECCVMFlavor::PROOF_LENGTH - 1);
+    proof.ipa_proof.resize(ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH);
+    proof.joint_proof.resize(ChonkProof::JOINT_PROOF_LENGTH);
+
+    EXPECT_THROW_OR_ABORT(ChonkProof::from_msgpack_buffer(proof.to_msgpack_buffer()), "invalid segment lengths");
+}
+
+TEST(ChonkProof, CompressionRejectsShortHidingOinkSegment)
+{
+    ChonkProof proof;
+    proof.hiding_oink_proof.resize(ChonkProof::HIDING_OINK_LENGTH - 1);
+    proof.merge_proof.resize(MERGE_PROOF_SIZE);
+    proof.eccvm_proof.resize(ECCVMFlavor::PROOF_LENGTH);
+    proof.ipa_proof.resize(ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH);
+    proof.joint_proof.resize(ChonkProof::JOINT_PROOF_LENGTH);
+
+    EXPECT_THROW_OR_ABORT(ProofCompressor::compress_chonk_proof(proof), "invalid segment lengths");
+}
+
 /**
  * @brief Build a valid compressed proof, then corrupt a specific 32-byte element.
  */
@@ -603,56 +633,139 @@ static std::vector<uint8_t> compress_and_corrupt(const ChonkProof& proof, size_t
     return compressed;
 }
 
-// Rejects a BN scalar value >= Fr::modulus
-TEST_F(ChonkTests, DecompressionRejectsNonCanonicalBN254Scalar)
+struct GrumpkinIndices {
+    size_t commitment = 0;
+    size_t scalar = 0;
+};
+
+static GrumpkinIndices grumpkin_indices(size_t mega_num_public_inputs)
 {
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
-    size_t mega_num_pub_inputs =
-        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
-    ASSERT_GT(mega_num_pub_inputs, 0); // Need at least one public input (BN254 scalar)
-
-    // Element 0 is the first public input (a BN254 scalar). Set it to Fr::modulus (non-canonical).
-    using Fr = curve::BN254::ScalarField;
-
-    auto corrupted = compress_and_corrupt(proof, 0, Fr::modulus);
-    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(corrupted, mega_num_pub_inputs), "");
+    GrumpkinIndices result;
+    size_t index = 0;
+    bool found_commitment = false;
+    bool found_scalar = false;
+    auto bn254_scalar = [&]() { ++index; };
+    auto bn254_commitment = [&]() { ++index; };
+    auto grumpkin_scalar = [&]() {
+        if (!found_scalar) {
+            result.scalar = index;
+            found_scalar = true;
+        }
+        ++index;
+    };
+    auto grumpkin_commitment = [&]() {
+        if (!found_commitment) {
+            result.commitment = index;
+            found_commitment = true;
+        }
+        ++index;
+    };
+    proof_compression_detail::walk_chonk_proof(
+        bn254_scalar, bn254_commitment, grumpkin_scalar, grumpkin_commitment, mega_num_public_inputs);
+    EXPECT_TRUE(found_commitment);
+    EXPECT_TRUE(found_scalar);
+    return result;
 }
 
-// Rejects a BN commitment x-coordinate >= Fq::modulus
-TEST_F(ChonkTests, DecompressionRejectsNonCanonicalBN254CommitmentX)
+TEST(ChonkProof, DecompressionRejectsNonCanonicalBN254Scalar)
 {
-    using Fq = curve::BN254::BaseField;
-
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
-    size_t mega_num_pub_inputs =
-        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
-
-    // First BN254 commitment is at element index mega_num_pub_inputs.
-    // Set x-coordinate to Fq::modulus + 1 (non-canonical, with no sign bit).
-    auto corrupted = compress_and_corrupt(proof, mega_num_pub_inputs, Fq::modulus + 1);
-    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(corrupted, mega_num_pub_inputs), "");
+    // Include one public input so the first compressed element is a BN254 scalar.
+    auto proof = ChonkProof::from_field_elements(std::vector<fr>(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS + 1));
+    auto corrupted = compress_and_corrupt(proof, 0, fr::modulus);
+    EXPECT_THROW_WITH_MESSAGE(ProofCompressor::decompress_chonk_proof(corrupted, 1), "BN254 scalar out of range");
 }
 
-// Rejects a canonical x-coordinate that is not on the BN254 curve
-TEST_F(ChonkTests, DecompressionRejectsInvalidBN254CurvePoint)
+TEST(ChonkProof, DecompressionRejectsNonCanonicalBN254CommitmentX)
 {
-    using Fq = curve::BN254::BaseField;
+    auto proof = ChonkProof::from_field_elements(std::vector<fr>(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS));
+    auto corrupted = compress_and_corrupt(proof, 0, fq::modulus + 1);
+    EXPECT_THROW_WITH_MESSAGE(ProofCompressor::decompress_chonk_proof(corrupted, 0), "BN254 x-coordinate out of range");
+}
 
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
-    size_t mega_num_pub_inputs =
-        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+TEST(ChonkProof, DecompressionRejectsInvalidBN254CurvePoint)
+{
+    auto proof = ChonkProof::from_field_elements(std::vector<fr>(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS));
+    fq x_not_on_curve(4);
+    ASSERT_FALSE((x_not_on_curve * x_not_on_curve * x_not_on_curve + Bn254G1Params::b).sqrt().first);
+    auto corrupted = compress_and_corrupt(proof, 0, uint256_t(x_not_on_curve));
+    EXPECT_THROW_WITH_MESSAGE(ProofCompressor::decompress_chonk_proof(corrupted, 0), "BN254 point not on curve");
+}
 
-    // x=4 is not on BN254
-    Fq x_not_on_curve(4);
-    Fq rhs = x_not_on_curve * x_not_on_curve * x_not_on_curve + Fq(3);
-    auto [is_sq, _] = rhs.sqrt();
-    ASSERT_FALSE(is_sq);
+TEST(ChonkProof, DecompressionRejectsNonCanonicalGrumpkinCommitmentX)
+{
+    auto proof = ChonkProof::from_field_elements(std::vector<fr>(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS));
+    auto indices = grumpkin_indices(0);
 
-    auto corrupted = compress_and_corrupt(proof, mega_num_pub_inputs, uint256_t(x_not_on_curve));
-    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(corrupted, mega_num_pub_inputs), "");
+    auto corrupted = compress_and_corrupt(proof, indices.commitment, fr::modulus + 1);
+    EXPECT_THROW_WITH_MESSAGE(ProofCompressor::decompress_chonk_proof(corrupted, 0),
+                              "Grumpkin x-coordinate out of range");
+}
+
+TEST(ChonkProof, DecompressionRejectsInvalidGrumpkinCurvePoint)
+{
+    auto proof = ChonkProof::from_field_elements(std::vector<fr>(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS));
+    auto indices = grumpkin_indices(0);
+
+    fr x_not_on_curve(3);
+    ASSERT_FALSE((x_not_on_curve * x_not_on_curve * x_not_on_curve + grumpkin::G1Params::b).sqrt().first);
+    auto corrupted = compress_and_corrupt(proof, indices.commitment, uint256_t(x_not_on_curve));
+    EXPECT_THROW_WITH_MESSAGE(ProofCompressor::decompress_chonk_proof(corrupted, 0), "Grumpkin point not on curve");
+}
+
+TEST(ChonkProof, DecompressionRejectsNonCanonicalGrumpkinScalar)
+{
+    auto proof = ChonkProof::from_field_elements(std::vector<fr>(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS));
+    auto indices = grumpkin_indices(0);
+
+    auto corrupted = compress_and_corrupt(proof, indices.scalar, fq::modulus);
+    EXPECT_THROW_WITH_MESSAGE(ProofCompressor::decompress_chonk_proof(corrupted, 0), "Grumpkin scalar out of range");
+}
+
+static acir_format::AcirProgram empty_acir_program()
+{
+    srs::init_file_crs_factory(srs::bb_crs_path());
+    acir_format::AcirProgram program;
+    program.constraints.max_witness_index = 0;
+    program.constraints.num_acir_opcodes = 0;
+    return program;
+}
+
+TEST(ChonkPrecomputedVk, AcceptsMatchingKey)
+{
+    auto program = empty_acir_program();
+    auto vk = compute_chonk_vk(program, CircuitKind::App);
+
+    auto result = check_precomputed_chonk_vk(program, vk.bytes, CircuitKind::App);
+
+    EXPECT_TRUE(result.valid);
+    EXPECT_TRUE(result.actual_vk.empty());
+}
+
+TEST(ChonkPrecomputedVk, RejectsMetadataMismatch)
+{
+    auto program = empty_acir_program();
+    auto computed = compute_chonk_vk(program, CircuitKind::App);
+    auto vk = from_buffer<std::shared_ptr<MegaAppFlavor::VerificationKey>>(computed.bytes);
+    ++vk->log_circuit_size;
+
+    auto result = check_precomputed_chonk_vk(program, to_buffer(*vk), CircuitKind::App);
+
+    EXPECT_FALSE(result.valid);
+    EXPECT_EQ(result.actual_vk, computed.bytes);
+}
+
+TEST(ChonkPrecomputedVk, RejectsCommitmentMismatch)
+{
+    auto program = empty_acir_program();
+    auto computed = compute_chonk_vk(program, CircuitKind::App);
+    auto vk = from_buffer<std::shared_ptr<MegaAppFlavor::VerificationKey>>(computed.bytes);
+    auto commitments = vk->get_all();
+    std::swap(commitments[0], commitments[1]);
+
+    auto result = check_precomputed_chonk_vk(program, to_buffer(*vk), CircuitKind::App);
+
+    EXPECT_FALSE(result.valid);
+    EXPECT_EQ(result.actual_vk, computed.bytes);
 }
 
 // Rejects a compressed proof that is too short (read_u256 bounds check)
@@ -667,4 +780,44 @@ TEST_F(ChonkTests, DecompressionRejectsTruncatedProof)
     // Truncate by removing the last 32-byte element
     compressed.resize(compressed.size() - 32);
     EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs), "");
+}
+
+TEST_F(ChonkTests, BatchMergeRejectsDirtyAppBoundaryWithFixedReceivingVk)
+{
+    std::shared_ptr<MegaAppFlavor::VerificationKey> receiving_vk;
+    for (bool dirty : { false, true }) {
+        CircuitProducer producer(2, false);
+        Chonk ivc(producer.circuit_kinds());
+        auto first = producer.create_next_circuit<CircuitKind::App>(ivc, SMALL_LOG_2_NUM_GATES);
+        first.queue_ecc_mul_accum(g1::affine_element::one(), dirty ? FF(7) : FF(0));
+        ivc.accumulate(first, producer.make_circuit_verification_key<CircuitKind::App>(first));
+
+        auto second = producer.create_next_circuit<CircuitKind::App>(ivc, SMALL_LOG_2_NUM_GATES);
+        second.queue_ecc_mul_accum(g1::affine_element::one(), FF(11));
+        second.queue_ecc_eq();
+        auto key = producer.make_circuit_verification_key<CircuitKind::App>(second);
+        const auto actual_vk = std::get<std::shared_ptr<MegaAppFlavor::VerificationKey>>(key);
+        if (!dirty) {
+            receiving_vk = actual_vk;
+        } else {
+            ASSERT_EQ(*actual_vk, *receiving_vk);
+        }
+        ivc.accumulate(second, Chonk::CircuitVerificationKey{ receiving_vk });
+
+        while (ivc.get_num_circuits_accumulated() < producer.total_num_circuits) {
+            producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
+        }
+        auto proof = ivc.prove();
+        EXPECT_EQ(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()), !dirty);
+    }
+}
+
+TEST_F(ChonkTests, RejectsCircuitUsingDifferentOpQueue)
+{
+    Chonk ivc({ CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
+    AppCircuit circuit(std::make_shared<ECCOpQueue>());
+    Chonk::CircuitVerificationKey vk{ std::shared_ptr<MegaAppFlavor::VerificationKey>{} };
+
+    EXPECT_THROW_WITH_MESSAGE(ivc.accumulate(circuit, vk),
+                              "Chonk::accumulate: circuit op queue differs from Goblin queue");
 }

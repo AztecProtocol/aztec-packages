@@ -78,6 +78,22 @@ template <bool IsRecursive = false> struct ChonkProof_ {
                joint_proof.size();
     }
 
+    /** @brief Check segment lengths, allowing public inputs in the hiding Oink segment. */
+    bool has_valid_structure() const
+    {
+        return hiding_oink_proof.size() >= HIDING_OINK_LENGTH && merge_proof.size() == MERGE_PROOF_SIZE &&
+               eccvm_proof.size() == ECCVMFlavor::PROOF_LENGTH &&
+               ipa_proof.size() == ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH && joint_proof.size() == JOINT_PROOF_LENGTH;
+    }
+
+    /** @brief Reject proofs with invalid segment lengths. */
+    void validate_structure() const
+    {
+        if (!has_valid_structure()) {
+            throw_or_abort("ChonkProof: invalid segment lengths");
+        }
+    }
+
     /**
      * @brief Serialize proof to field elements (native mode)
      */
@@ -126,6 +142,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         }
         ChonkProof_ proof;
         oh.get().convert(proof);
+        proof.validate_structure();
         return proof;
     }
 

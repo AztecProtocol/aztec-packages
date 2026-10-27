@@ -57,6 +57,10 @@ where
     T: Ordered + Empty,
     S: Empty,
 {
+    // The `i == original_array.length` breakpoint below only fires if `original_array.length <= N`. A larger
+    // claimed length would treat every slot, including empty padding, as a real item mapped through the hints.
+    original_array.assert_length_within_bounds("claimed length exceeds array size");
+
     let mut should_be_empty = false;
     for i in 0..N {
         should_be_empty |= i == original_array.length;
@@ -236,6 +240,26 @@ mod tests {
         // Update the hinted counters.
         builder.hints.sorted_counters[1] = 33;
         builder.hints.sorted_counters[2] = 22;
+
+        builder.execute();
+    }
+
+    #[test]
+    fn full_original_array() {
+        let builder = TestBuilder::<4>::new([
+            TestValue { value: 1, counter: 44 },
+            TestValue { value: 2, counter: 22 },
+            TestValue { value: 3, counter: 11 },
+            TestValue { value: 4, counter: 33 },
+        ]);
+        builder.execute();
+    }
+
+    #[test(should_fail_with = "claimed length exceeds array size")]
+    fn original_length_beyond_array_size() {
+        let mut builder = TestBuilder::default();
+
+        builder.original_array.length = 7;
 
         builder.execute();
     }

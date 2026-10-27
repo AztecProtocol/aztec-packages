@@ -8,6 +8,10 @@ namespace bb::stdlib {
 // 2 builders x (Fr, Fq)
 template class bigfield<UltraCircuitBuilder, Bn254FqParams>;
 template class bigfield<UltraCircuitBuilder, Bn254FrParams>;
-template class bigfield<MegaCircuitBuilder, Bn254FqParams>;
-template class bigfield<MegaCircuitBuilder, Bn254FrParams>;
+// Bigfield-backed: only the arithmetizations that keep the non-native-field gate.
+#define INSTANTIATE_BIGFIELD_BN254(Builder)                                                                            \
+    template class bigfield<Builder, Bn254FqParams>;                                                                   \
+    template class bigfield<Builder, Bn254FrParams>;
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_NNF(INSTANTIATE_BIGFIELD_BN254)
+#undef INSTANTIATE_BIGFIELD_BN254
 } // namespace bb::stdlib

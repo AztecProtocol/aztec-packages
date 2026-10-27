@@ -23,9 +23,8 @@ describe('BBApi Exception Handling from bb.js', () => {
       g2Point: new Uint8Array(10), // Only 10 bytes (needs 128) - will cause exception
     };
 
-    // In WASM builds, throw_or_abort calls abort directly which throws a generic Error
-    // In native builds with exceptions, our try-catch in bbapi converts it to ErrorResponse
-    // This test verifies that errors are catchable from bb.js (even if as generic Error in WASM)
+    // The wasm builds with exception handling, so bbapi's try-catch converts the C++ exception to an ErrorResponse,
+    // as it does natively.
     expect(() => {
       api.srsInitSrs(invalidCommand);
     }).toThrow();
@@ -49,4 +48,22 @@ describe('BBApi Exception Handling from bb.js', () => {
       expect((error as Error).message).toContain('invalid points_buf size');
     }
   });
+
+  it('answers with an error response rather than aborting the module', async () => {
+    const logs: string[] = [];
+    const loggingBackend = await BarretenbergWasmSyncBackend.new(undefined, msg => logs.push(msg));
+    try {
+      expect(() =>
+        new SyncApi(loggingBackend).srsInitSrs({
+          numPoints: 100,
+          pointsBuf: new Uint8Array(10),
+          g2Point: new Uint8Array(10),
+        }),
+      ).toThrow('invalid points_buf size');
+      // The JS environment logs this when the module aborts rather than catching the exception itself.
+      expect(logs.filter(log => log.includes('aborted'))).toEqual([]);
+    } finally {
+      loggingBackend.destroy();
+    }
+  }, 60000);
 });

@@ -13,7 +13,7 @@ template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_ct>&
     return Sponge::hash_internal(inputs);
 }
 
-template class poseidon2<bb::MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(poseidon2)
 template class poseidon2<bb::UltraCircuitBuilder>;
 
 } // namespace bb::stdlib

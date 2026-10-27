@@ -36,7 +36,7 @@ class MegaZKFlavor : public MegaZKFlavor_Generated {
   public:
     using Generated = MegaZKFlavor_Generated;
 
-    using CircuitBuilder = MegaCircuitBuilder;
+    using CircuitBuilder = MegaHidingKernelCircuitBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;

@@ -75,13 +75,15 @@ class ChonkBatchVerifier {
 
   private:
     void coordinator_loop();
+    void fail_all_pending(const std::string& reason);
     void dispatch(VerifyResult result);
     std::vector<ReduceResult> parallel_reduce(const std::vector<VerifyRequest>& batch);
     bool batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices);
     void bisect(std::vector<ReduceResult>& results,
                 std::vector<size_t> indices,
                 uint32_t depth,
-                std::chrono::steady_clock::time_point reduce_start);
+                std::chrono::steady_clock::time_point reduce_start,
+                double condemning_check_ms);
     void emit_ok(const std::vector<ReduceResult>& results,
                  const std::vector<size_t>& indices,
                  std::chrono::steady_clock::time_point reduce_start,

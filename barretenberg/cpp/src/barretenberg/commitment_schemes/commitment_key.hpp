@@ -39,7 +39,7 @@ template <class Curve> class CommitmentKey {
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
 
   public:
-    size_t srs_size;
+    size_t srs_size = 0;
 
     CommitmentKey() = default;
 
@@ -63,8 +63,16 @@ template <class Curve> class CommitmentKey {
      */
     bool initialized() const { return srs != nullptr; }
 
-    std::span<Commitment> get_monomial_points() const { return srs->get_monomial_points(); }
-    size_t get_monomial_size() const { return srs->get_monomial_size(); }
+    std::span<Commitment> get_monomial_points() const
+    {
+        BB_ASSERT(initialized(), "Commitment key is not initialized");
+        return srs->get_monomial_points();
+    }
+    size_t get_monomial_size() const
+    {
+        BB_ASSERT(initialized(), "Commitment key is not initialized");
+        return srs->get_monomial_size();
+    }
 
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)

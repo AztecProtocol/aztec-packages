@@ -99,6 +99,7 @@ typename G1::affine_element ecdsa_recover_public_key(const std::string& message,
     // Note that the second condition occurs with very low probability, so it's highly unlikely.
     auto uncompressed_points = AffineElement::from_compressed_unsafe(r_uint);
     AffineElement point_R = uncompressed_points[is_r_finite ? 0 : 1];
+    BB_ASSERT(point_R.on_curve() && !point_R.is_point_at_infinity(), "Invalid ECDSA recovery point");
 
     // Negate the y-coordinate point of R based on the parity of v
     bool y_parity_R = uint256_t(point_R.y).get_bit(0);
@@ -211,6 +212,6 @@ template <typename Hash, typename Fr> Fr ecdsa_hash_message(const std::string& m
         write(ptr_write, ev_uint);
     }
 
-    return Fr::serialize_from_buffer(&ev[0]);
+    return Fr::from_bytes_reduced(ev);
 }
 } // namespace bb::crypto

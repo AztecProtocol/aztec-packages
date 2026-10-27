@@ -24,61 +24,12 @@ template <typename VK> std::shared_ptr<VK> deserialize_vk(const std::vector<uint
     return from_buffer<std::shared_ptr<VK>>(vk_bytes);
 }
 
-template <typename VK, typename Instance> std::shared_ptr<VK> compute_vk_from_program(acir_format::AcirProgram& program)
+template <CircuitKind K>
+std::shared_ptr<typename flavor_for<K>::VerificationKey> compute_vk_from_program(acir_format::AcirProgram& program)
 {
-    auto builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
-    return std::make_shared<VK>(Instance(builder).get_precomputed());
-}
-
-template <typename VK, typename Instance> ChonkVkData compute_vk_data(acir_format::AcirProgram& program)
-{
-    auto vk = compute_vk_from_program<VK, Instance>(program);
-    return { .bytes = to_buffer(*vk), .fields = vk->to_field_elements() };
-}
-
-template <typename VK, typename Instance>
-ChonkVkCheckResult check_vk(acir_format::AcirProgram& program, const std::vector<uint8_t>& precomputed_vk_bytes)
-{
-    auto computed_vk = compute_vk_from_program<VK, Instance>(program);
-    auto precomputed_vk = deserialize_vk<VK>(precomputed_vk_bytes);
-    if (*computed_vk == *precomputed_vk) {
-        return {};
-    }
-    return { .valid = false, .actual_vk = to_buffer(*computed_vk) };
-}
-
-void accumulate_next_chonk_circuit(Chonk& ivc,
-                                   Chonk::ClientCircuit& circuit,
-                                   Chonk::CircuitKind kind,
-                                   const std::vector<uint8_t>& precomputed_vk,
-                                   ChonkPrecomputedVkPolicy policy)
-{
-    // Throw (not BB_ASSERT) so it survives release/WASM: `kind` defaults to None (an unset step, or
-    // one from an old/external msgpack) and never matches the expected kind, failing clearly here.
-    if (kind != ivc.current_kind()) {
-        throw_or_abort("ChonkStepProcessor: supplied CircuitKind disagrees with the kinds the IVC was started with");
-    }
-
-    dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
-        using FlavorT = flavor_for<K>;
-        using VK = typename FlavorT::VerificationKey;
-        std::shared_ptr<VK> vk;
-        if (policy == ChonkPrecomputedVkPolicy::RECOMPUTE) {
-            vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
-        } else {
-            if (precomputed_vk.empty()) {
-                throw_or_abort("Chonk: precomputed VK is required");
-            }
-            vk = deserialize_vk<VK>(precomputed_vk);
-            if (policy == ChonkPrecomputedVkPolicy::CHECK) {
-                auto computed_vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
-                if (*vk != *computed_vk) {
-                    throw_or_abort("Chonk: precomputed VK does not match computed VK");
-                }
-            }
-        }
-        ivc.accumulate(circuit, Chonk::CircuitVerificationKey{ vk });
-    });
+    using FlavorT = flavor_for<K>;
+    auto builder = acir_format::create_circuit<circuit_for<K>>(program);
+    return std::make_shared<typename FlavorT::VerificationKey>(ProverInstance_<FlavorT>(builder).get_precomputed());
 }
 
 } // namespace
@@ -89,17 +40,46 @@ ChonkStepProcessor::ChonkStepProcessor(std::vector<CircuitKind> circuit_kinds)
 
 void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecomputedVkPolicy policy)
 {
-    const acir_format::ProgramMetadata metadata{ .ivc = ivc };
-    auto circuit = acir_format::create_circuit<Chonk::ClientCircuit>(step.program, metadata);
-    // The circuit holds everything accumulation needs: free the constraint system and witness before accumulating,
-    // which is when memory use peaks.
-    step.program = acir_format::AcirProgram{};
-
-    info("Chonk: accumulating ", step.name);
-    if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(step.name);
+    // Throw (not BB_ASSERT) so it survives release/WASM: `kind` defaults to None (an unset step, or
+    // one from an old/external msgpack) and never matches the expected kind, failing clearly here.
+    if (step.kind != ivc->current_kind()) {
+        throw_or_abort("ChonkStepProcessor: supplied CircuitKind disagrees with the kinds the IVC was started with");
     }
-    accumulate_next_chonk_circuit(*ivc, circuit, step.kind, step.precomputed_vk, policy);
+
+    // The kind fixes the arithmetization, so the circuit is created inside the dispatch: a step is translated
+    // directly into the builder whose flavor will prove it.
+    dispatch_kind(step.kind, [&]<CircuitKind K>() {
+        using FlavorT = flavor_for<K>;
+        using VK = typename FlavorT::VerificationKey;
+
+        const acir_format::ProgramMetadata metadata{ .ivc = ivc };
+        auto circuit = acir_format::create_circuit<circuit_for<K>>(step.program, metadata);
+        // The circuit holds everything accumulation needs: free the constraint system and witness before
+        // accumulating, which is when memory use peaks.
+        step.program = acir_format::AcirProgram{};
+
+        info("Chonk: accumulating ", step.name);
+        if (detail::use_memory_profile) {
+            detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(step.name);
+        }
+
+        std::shared_ptr<VK> vk;
+        if (policy == ChonkPrecomputedVkPolicy::RECOMPUTE) {
+            vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
+        } else {
+            if (step.precomputed_vk.empty()) {
+                throw_or_abort("Chonk: precomputed VK is required");
+            }
+            vk = deserialize_vk<VK>(step.precomputed_vk);
+            if (policy == ChonkPrecomputedVkPolicy::CHECK) {
+                auto computed_vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
+                if (*vk != *computed_vk) {
+                    throw_or_abort("Chonk: precomputed VK does not match computed VK");
+                }
+            }
+        }
+        ivc->accumulate(circuit, Chonk::CircuitVerificationKey{ vk });
+    });
 }
 
 ChonkProof ChonkStepProcessor::prove()
@@ -114,9 +94,9 @@ std::shared_ptr<MegaZKFlavor::VKAndHash> ChonkStepProcessor::get_hiding_kernel_v
 
 ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, CircuitKind kind)
 {
-    return dispatch_kind(kind, [&]<CircuitKind K>() {
-        using FlavorT = flavor_for<K>;
-        return compute_vk_data<typename FlavorT::VerificationKey, ProverInstance_<FlavorT>>(program);
+    return dispatch_kind(kind, [&]<CircuitKind K>() -> ChonkVkData {
+        auto vk = compute_vk_from_program<K>(program);
+        return { .bytes = to_buffer(*vk), .fields = vk->to_field_elements() };
     });
 }
 
@@ -124,9 +104,13 @@ ChonkVkCheckResult check_precomputed_chonk_vk(acir_format::AcirProgram& program,
                                               const std::vector<uint8_t>& precomputed_vk,
                                               CircuitKind kind)
 {
-    return dispatch_kind(kind, [&]<CircuitKind K>() {
-        using FlavorT = flavor_for<K>;
-        return check_vk<typename FlavorT::VerificationKey, ProverInstance_<FlavorT>>(program, precomputed_vk);
+    return dispatch_kind(kind, [&]<CircuitKind K>() -> ChonkVkCheckResult {
+        auto computed_vk = compute_vk_from_program<K>(program);
+        auto expected_vk = deserialize_vk<typename flavor_for<K>::VerificationKey>(precomputed_vk);
+        if (*computed_vk == *expected_vk) {
+            return {};
+        }
+        return { .valid = false, .actual_vk = to_buffer(*computed_vk) };
     });
 }
 

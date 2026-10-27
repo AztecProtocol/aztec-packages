@@ -324,6 +324,9 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         meta.initialRoot = meta.root = current;
         meta.initialSize = meta.size = 0;
     } else {
+        // Appending initial values requires the empty-tree root to derive the sibling path.
+        meta.root = current;
+        store_->put_meta(meta);
         Signal signal(1);
         TypedResponse<AddDataResponse> result;
         add_values(initial_values, [&](const TypedResponse<AddDataResponse>& resp) {
@@ -641,7 +644,12 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
 
     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
         NodePayload nodePayload;
-        store_->get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
+        bool success = store_->get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
+        if (!success && hash != zero_hashes_[level]) {
+            // Only empty subtrees may have no stored node; their children are implicit zero hashes.
+            throw std::runtime_error(
+                format("Unable to find node ", hash, " while deriving append sibling path from tree root"));
+        }
         bool is_right = static_cast<bool>(leaf_index & mask);
         // std::cout << "Level: " << level << ", mask: " << mask << ", is right: " << is_right << ", parent: " << hash
         //           << ", left has value: " << nodePayload.left.has_value()

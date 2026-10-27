@@ -16,4 +16,4 @@ cmake --build --preset wasm-threads --target $BENCHMARK
 cd build-wasm-threads
 # Consistency with _wasm.sh targets / shorter $COMMAND.
 cp ./bin/$BENCHMARK .
-samply record wasmtime run --profile=perfmap --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND
+samply record wasmtime run --profile=perfmap --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Wshared-memory=y -Wexceptions=y -Sthreads=y --dir=.. $COMMAND

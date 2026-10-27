@@ -12,9 +12,9 @@ using namespace bb::crypto;
 
 namespace bb {
 
-template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
+template <typename FF, typename ExecutionTrace> void MegaCircuitBuilder_<FF, ExecutionTrace>::finalize_circuit()
 {
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit();
+    Base::finalize_circuit();
 }
 
 /**
@@ -22,7 +22,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
  *
  * @param point Point to be added into the accumulator
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_add_accum(const bb::g1::affine_element& point)
+template <typename FF, typename ExecutionTrace>
+ecc_op_tuple MegaCircuitBuilder_<FF, ExecutionTrace>::queue_ecc_add_accum(const bb::g1::affine_element& point)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->add_accumulate(point);
@@ -42,10 +43,10 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_add_accum
  * that all variables from some connected component were created after finalize method was called
  * @return ecc_op_tuple encoding the point and scalar inputs to the mul accum
  */
-template <typename FF>
-ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point,
-                                                          const FF& scalar,
-                                                          bool in_finalize)
+template <typename FF, typename ExecutionTrace>
+ecc_op_tuple MegaCircuitBuilder_<FF, ExecutionTrace>::queue_ecc_mul_accum(const bb::g1::affine_element& point,
+                                                                          const FF& scalar,
+                                                                          bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->mul_accumulate(point, scalar);
@@ -62,7 +63,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_e
  * that all variables from some connected component were created after finalize method was called
  * @return ecc_op_tuple encoding the point to which equality has been asserted
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool in_finalize)
+template <typename FF, typename ExecutionTrace>
+ecc_op_tuple MegaCircuitBuilder_<FF, ExecutionTrace>::queue_ecc_eq(bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->eq_and_reset();
@@ -79,7 +81,7 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool i
  * The no-op does not generate any ECCVM operation.
  * @return ecc_op_tuple with all its fields set to zero
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
+template <typename FF, typename ExecutionTrace> ecc_op_tuple MegaCircuitBuilder_<FF, ExecutionTrace>::queue_ecc_no_op()
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->no_op_ultra_only();
@@ -101,8 +103,8 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
  * @note No on-curve checks, this is done in ECCVM.
  */
-template <typename FF>
-ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
+template <typename FF, typename ExecutionTrace>
+ecc_op_tuple MegaCircuitBuilder_<FF, ExecutionTrace>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
 {
     ecc_op_tuple op_tuple;
     op_tuple.op = get_ecc_op_idx(ultra_op.op_code);
@@ -124,13 +126,15 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     // Populate the ecc_op block with TWO rows (matching Ultra format)
     // Row 1: OP   | x_lo | x_hi | y_lo
     // Row 2: 0    | y_hi | z_1  | z_2
-    this->blocks.ecc_op.append_gate({ .wires = { op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo } });
-    this->blocks.ecc_op.append_gate({ .wires = { op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 } });
+    this->blocks.ecc_op.append_unconstrained_row(
+        { .wires = { op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo } });
+    this->blocks.ecc_op.append_unconstrained_row(
+        { .wires = { op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 } });
 
     if (in_finalize) {
-        update_used_witnesses(
+        this->update_used_witnesses(
             { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
-        update_finalize_witnesses(
+        this->update_finalize_witnesses(
             { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
     }
 
@@ -144,7 +148,7 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location. The
  * method does not return a tuple of variable indices as those should not be used in subsequent steps for random ops.
  */
-template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
+template <typename FF, typename ExecutionTrace> void MegaCircuitBuilder_<FF, ExecutionTrace>::queue_ecc_random_op()
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->random_op_ultra_only();
@@ -164,8 +168,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
  * @param Px Random field element for x-coordinate
  * @param Py Random field element for y-coordinate
  */
-template <typename FF>
-void MegaCircuitBuilder_<FF>::queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::queue_ecc_hiding_op(const curve::BN254::BaseField& Px,
+                                                                  const curve::BN254::BaseField& Py)
 {
     // Add the operation to the op queue (returns the UltraOp for gate creation)
     auto ultra_op = op_queue->append_hiding_op(Px, Py);
@@ -174,7 +179,8 @@ void MegaCircuitBuilder_<FF>::queue_ecc_hiding_op(const curve::BN254::BaseField&
     populate_ecc_op_wires(ultra_op);
 }
 
-template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::set_goblin_ecc_op_code_constant_variables()
 {
     null_op_idx = this->zero_idx(); // constant 0 is is associated with the zero index
     add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
@@ -190,9 +196,11 @@ template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_cons
  * @param read_idx_witness_idx Variable index of the read index
  * @return uint32_t Variable index of the result of the read
  */
-template <typename FF>
-uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx)
+template <typename FF, typename ExecutionTrace>
+uint32_t MegaCircuitBuilder_<FF, ExecutionTrace>::read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx)
+    requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
 {
+    assert_bus_allowed(bus_idx, "read from");
     auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
@@ -210,7 +218,9 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     return value_witness_idx;
 }
 
-template <typename FF> void MegaCircuitBuilder_<FF>::create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+    requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
 {
     auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
     BB_ASSERT_LT(slot_idx, bus_vector.size());
@@ -228,8 +238,10 @@ template <typename FF> void MegaCircuitBuilder_<FF>::create_databus_init_read_ga
  * @tparam FF
  * @param databus_lookup_gate_ witness indices corresponding to: read index, result value
  */
-template <typename FF>
-void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in, const BusId bus_idx)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::create_databus_read_gate(const databus_lookup_gate_<FF>& in,
+                                                                       const BusId bus_idx)
+    requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
 {
     auto& block = this->blocks.busread;
     GateRowT row{};
@@ -242,9 +254,8 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
     const size_t idx = static_cast<size_t>(bus_idx);
     BB_ASSERT_LT(idx, databus_selectors.size());
     *databus_selectors[idx] = 1;
-    row.gate_kind = GateKind::BusRead;
     row.gate_value = 1;
-    block.append_gate(row);
+    block.template append_gate<GateKind::BusRead>(row);
     this->increment_num_gates();
 }
 
@@ -253,17 +264,17 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
  * dedicated external block) so every permutation's rows are contiguous and the external/terminal round relations
  * bind across the external<->internal boundary via `w_shift`.
  */
-template <typename FF>
-void MegaCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
     auto& block = this->blocks.poseidon2;
-    block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
-                        .q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0],
-                        .q_2 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1],
-                        .q_3 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2],
-                        .q_4 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3],
-                        .gate_kind = GateKind::Poseidon2Ext,
-                        .gate_value = 1 });
+    block.template append_gate<GateKind::Poseidon2Ext>(
+        { .wires = { in.a, in.b, in.c, in.d },
+          .q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0],
+          .q_2 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1],
+          .q_3 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2],
+          .q_4 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3],
+          .gate_value = 1 });
     this->increment_num_gates();
 }
 
@@ -271,12 +282,12 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ext
  * @brief Poseidon2 initial linear layer gate, activates the q_poseidon2_external_initial selector and relation.
  * @details Constrains the whole initial linear layer with a bespoke row.
  */
-template <typename FF>
-void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::create_poseidon2_initial_external_gate(
+    const poseidon2_initial_external_gate_<FF>& in)
 {
     auto& block = this->blocks.poseidon2;
-    block.append_gate(
-        { .wires = { in.a, in.b, in.c, in.d }, .gate_kind = GateKind::Poseidon2ExtInitial, .gate_value = 1 });
+    block.template append_gate<GateKind::Poseidon2ExtInitial>({ .wires = { in.a, in.b, in.c, in.d }, .gate_value = 1 });
     this->increment_num_gates();
 }
 
@@ -289,8 +300,9 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const posei
  *                                                                           the shifted Vandermonde check)
  *   Terminal rows use q_poseidon2_quad_internal_terminal and set q_m, q_c, q_5 = 0 (no next quad).
  */
-template <typename FF>
-void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::create_poseidon2_quad_internal_gate(
+    const poseidon2_quad_internal_gate_<FF>& in)
 {
     auto& block = this->blocks.poseidon2;
     const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
@@ -303,16 +315,15 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon
         row.q_3 = rc[in.round_idx_start + 2][0];
         row.q_4 = rc[in.round_idx_start + 3][0];
         if (in.is_terminal) {
-            row.gate_kind = GateKind::Poseidon2QuadIntTerminal;
             row.gate_value = 1;
+            block_for_row.template append_gate<GateKind::Poseidon2QuadIntTerminal>(row);
         } else {
             row.q_m = rc[in.next_pair_start + 0][0];
             row.q_c = rc[in.next_pair_start + 1][0];
             row.q_5 = rc[in.next_pair_start + 2][0];
-            row.gate_kind = GateKind::Poseidon2QuadInt;
             row.gate_value = 1;
+            block_for_row.template append_gate<GateKind::Poseidon2QuadInt>(row);
         }
-        block_for_row.append_gate(row);
     }
     this->increment_num_gates();
 }
@@ -327,19 +338,23 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon
  * Enforces the successor's (w_r_shift, w_o_shift, w_4_shift) equal state[0] at rounds
  * `start+1, start+2, start+3` respectively, via 3 degree-7 subrelations.
  */
-template <typename FF>
-void MegaCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
+template <typename FF, typename ExecutionTrace>
+void MegaCircuitBuilder_<FF, ExecutionTrace>::create_poseidon2_transition_entry_gate(
+    const poseidon2_transition_entry_gate_<FF>& in)
 {
     auto& block = this->blocks.poseidon2;
     const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
-    block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
-                        .q_1 = rc[in.round_idx_start + 0][0],
-                        .q_2 = rc[in.round_idx_start + 1][0],
-                        .q_3 = rc[in.round_idx_start + 2][0],
-                        .gate_kind = GateKind::Poseidon2TransitionEntry,
-                        .gate_value = 1 });
+    block.template append_gate<GateKind::Poseidon2TransitionEntry>({ .wires = { in.a, in.b, in.c, in.d },
+                                                                     .q_1 = rc[in.round_idx_start + 0][0],
+                                                                     .q_2 = rc[in.round_idx_start + 1][0],
+                                                                     .q_3 = rc[in.round_idx_start + 2][0],
+                                                                     .gate_value = 1 });
     this->increment_num_gates();
 }
 
-template class MegaCircuitBuilder_<bb::fr>;
+template class MegaCircuitBuilder_<bb::fr, MegaExecutionTraceBlocks>;
+template class MegaCircuitBuilder_<bb::fr, MegaKernelExecutionTraceBlocks>;
+template class MegaCircuitBuilder_<bb::fr, MegaAppExecutionTraceBlocks>;
+template class MegaCircuitBuilder_<bb::fr, MegaZkExecutionTraceBlocks>;
+template class MegaCircuitBuilder_<bb::fr, MegaAvmExecutionTraceBlocks>;
 } // namespace bb

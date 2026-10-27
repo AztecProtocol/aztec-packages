@@ -26,8 +26,9 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
     } else {
         // Non-padded: use actual circuit size from VK (native only)
         const size_t log_circuit_size = static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
-        BB_ASSERT_GTE(
-            log_circuit_size, static_cast<size_t>(1), "VK log_circuit_size is 0, which is invalid for any circuit");
+        // With ZK, the row-disabling factor 1 - prod_{i>=2}(1 - u_i) is identically zero below three rounds.
+        constexpr size_t min_log_circuit_size = Flavor::HasZK ? 3 : 1;
+        BB_ASSERT_GTE(log_circuit_size, min_log_circuit_size, "VK log_circuit_size is below the flavor's minimum");
         return log_circuit_size;
     }
 }
@@ -79,6 +80,7 @@ bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPACla
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     ipa_transcript->load_proof(ipa_proof);
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
+    ipa_transcript->enforce_proof_fully_consumed("UltraVerifier IPA");
     vinfo("UltraVerifier: IPA check: ", ipa_verified ? "true" : "false");
 
     if (!ipa_verified) {
@@ -132,7 +134,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
 
     if constexpr (Flavor::HasZK) {
-        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+        libra_commitments[0] =
+            transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
     }
     // Run the sumcheck verifier
     SumcheckOutput<Flavor> sumcheck_output =
@@ -176,6 +179,18 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     }
     vinfo("Ultra Verifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
     result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
+
+    // A malformed proof can drive PCS reduction to a point at infinity (e.g. a "KZG:W" transcript element of
+    // infinity forces P_1 = -quotient_commitment to infinity). The native verifier must reject that here as an
+    // ordinary verification failure, rather than let it reach PairingPoints::aggregate's internal-misuse guard.
+    if constexpr (!IsRecursive) {
+        using Point = typename PairingPoints::Point;
+        if (result.pairing_points.P0() == Point::infinity() || result.pairing_points.P1() == Point::infinity()) {
+            vinfo("Ultra Verifier: PCS reduction produced a pairing point at infinity");
+            result.reduction_succeeded = false;
+        }
+        transcript->enforce_proof_fully_consumed("Ultra Verifier");
+    }
 
     return result;
 }
@@ -283,14 +298,10 @@ template class UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>;
 // UltraRecursiveFlavor with DefaultIO
 template class UltraVerifier_<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
-template class UltraVerifier_<UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 // UltraZKRecursiveFlavor with DefaultIO
 template class UltraVerifier_<UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
-template class UltraVerifier_<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 // UltraRecursiveFlavor with RollupIO (replaces UltraRollupRecursiveFlavor)
 template class UltraVerifier_<UltraRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO>;
@@ -307,9 +318,13 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
 template class UltraVerifier_<MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
-// MegaZKRecursiveFlavor with HidingKernelIO (Chonk)
-template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                              stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
+// An UltraHonk proof recursively verified inside a Mega circuit: the verifier's bigfield base field
+// needs the non-native-field gate, so only the arithmetizations that keep it.
+#define INSTANTIATE_MEGA_ULTRA_VERIFIER(Builder)                                                                       \
+    template class UltraVerifier_<UltraRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>>;        \
+    template class UltraVerifier_<UltraZKRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>>;
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_NNF(INSTANTIATE_MEGA_ULTRA_VERIFIER)
+#undef INSTANTIATE_MEGA_ULTRA_VERIFIER
 
 // MegaRecursiveFlavor with GoblinAvmIO
 template class UltraVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,

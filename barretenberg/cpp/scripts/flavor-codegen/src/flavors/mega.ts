@@ -28,6 +28,7 @@ const busSpecs: SingleBusLookupSpec[] = (
 export const Mega = flavor({
   name: "MegaFlavor",
   family: "mega",
+  arithmetization: "mega",
   relations: [
     // Perm first (no gate block) keeps to-be-shifted witnesses contiguous; LogDerivLookup
     // before Arithmetic keeps the lookup block early. See ultra.ts for the full rationale.
@@ -47,7 +48,4 @@ export const Mega = flavor({
   composites: {
     selectors: ["non_gate_selectors", "gate_selectors"],
   },
-  // `ecc_op` MUST remain first in the trace so `ecc_op_wire[r] == w_shift[r]` holds.
-  traceExtraBlocks: ["ecc_op", "pub_inputs"],
-  emitsTrace: true,
 });

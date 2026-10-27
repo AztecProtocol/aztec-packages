@@ -119,7 +119,9 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
  * @tparam Builder
  * @param scalar Note: passed by non-const reference since we may call self_reduce on it
  */
-template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& scalar)
+template <typename Builder>
+cycle_scalar<Builder>::cycle_scalar(BigScalarField& scalar)
+    requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf))
 {
     constexpr uint64_t NUM_LIMB_BITS = BigScalarField::NUM_LIMB_BITS;
 
@@ -234,6 +236,6 @@ template <typename Builder> typename cycle_scalar<Builder>::ScalarField cycle_sc
 }
 
 template class cycle_scalar<bb::UltraCircuitBuilder>;
-template class cycle_scalar<bb::MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(cycle_scalar)
 
 } // namespace bb::stdlib

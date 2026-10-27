@@ -15,7 +15,7 @@
 
 namespace bb {
 
-GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
+GoblinAvm::GoblinAvm(Builder& builder, const std::shared_ptr<Transcript>& avm_transcript)
 {
     // Set members of base Goblin class
     avm_mode = true;
@@ -33,8 +33,9 @@ GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& av
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
-    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
-    // does not contribute to the actual MSM circuit.
+    // The AVM does not need ZK, so the hiding op uses fixed (0, 0) coordinates. It is still a genuine eq-and-reset op:
+    // the Translator accumulates it at RESULT_ROW and the ECCVM places it on row 1, where the equality and on-curve
+    // checks are disabled.
     using Fq = curve::Grumpkin::ScalarField;
     builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }

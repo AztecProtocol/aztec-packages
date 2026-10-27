@@ -127,8 +127,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
      */
     static element straus_msm(std::span<const affine_element<Fq, Fr, Params>> points,
                               std::span<const Fr> scalars) noexcept;
-    static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
-        const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 
     /**
      * @brief Fused two-round IPA SRS fold: out[i] = (u1·u2)·P[i] + u1·P[i+t] + u2·P[i+2t] + P[i+3t].

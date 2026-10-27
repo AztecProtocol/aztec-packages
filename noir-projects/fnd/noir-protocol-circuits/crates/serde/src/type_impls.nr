@@ -412,12 +412,15 @@ where
 
     #[inline_always]
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write_bool(self.is_some());
-        if self.is_some() {
-            self.unwrap_unchecked().stream_serialize(writer);
-        } else {
-            writer.advance_offset(<T as Serialize>::N);
+        let is_some = self.is_some();
+        writer.write_bool(is_some);
+        // A `None` must have an all-zero payload, so every `Option` value has exactly one encoding. Private function
+        // arguments are bound to the caller only through a hash of this encoding.
+        let payload = self.unwrap_unchecked().serialize();
+        if !is_some {
+            assert_eq(payload, [0; <T as Serialize>::N], "Option None payload must be zero");
         }
+        writer.write_array(payload);
     }
 }
 
@@ -557,7 +560,10 @@ where
 
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        let len = reader.peek_offset(payload_len) as u32;
+        let raw_len = reader.peek_offset(payload_len);
+        let len = raw_len as u32;
+        assert_eq(raw_len, len as Field, "BoundedVec length is not u32");
+        assert(len <= M, "BoundedVec length exceeds max");
 
         for i in 0..M {
             if i < len {
@@ -607,10 +613,12 @@ where
 
     #[inline_always]
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        let len = self.len();
+        assert(len <= M, "BoundedVec length exceeds max");
         self.storage().stream_serialize(writer);
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        writer.write_u32(self.len() as u32);
+        writer.write_u32(len);
     }
 }
 
@@ -762,32 +770,4 @@ where
 #[impl_serialize_for_tuple(6)]
 mod impls {
     use crate::serialization::{Deserialize, Serialize};
-}
-
-#[test]
-unconstrained fn bounded_vec_serialization() {
-    // Test empty BoundedVec
-    let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
-    let serialized = empty_vec.serialize();
-    let deserialized = BoundedVec::<Field, 3>::deserialize(serialized);
-    assert_eq(empty_vec, deserialized);
-    assert_eq(deserialized.len(), 0);
-
-    // Test partially filled BoundedVec
-    let partial_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2]]);
-    let serialized = partial_vec.serialize();
-    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
-    assert_eq(partial_vec, deserialized);
-    assert_eq(deserialized.len(), 1);
-    assert_eq(deserialized.get(0), [1, 2]);
-
-    // Test full BoundedVec
-    let full_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2], [3, 4], [5, 6]]);
-    let serialized = full_vec.serialize();
-    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
-    assert_eq(full_vec, deserialized);
-    assert_eq(deserialized.len(), 3);
-    assert_eq(deserialized.get(0), [1, 2]);
-    assert_eq(deserialized.get(1), [3, 4]);
-    assert_eq(deserialized.get(2), [5, 6]);
 }

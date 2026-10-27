@@ -335,6 +335,14 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // would effectively become a fingerprint for the nature of the tx. An observer would be able to
         // infer with confidence which contracts have been executed and in what order.
 
+        // Known limitation: sorting two kinds by the same key leaves their relative positions aligned, and
+        // scrubbing the counters afterwards does not undo that. Dropping `PrivateLogData::note_hash_counter`
+        // therefore does not on its own unlink a note log from its note, and was never expected to - the
+        // alignment is an accepted consequence of preserving emission order above.
+        // It is a rank correlation rather than a pairing, since a note may carry no log or several, and a
+        // private log need not belong to a note at all (events, and constrained-tagged note logs, which carry
+        // `note_hash_counter == 0`).
+
         // note_hashes
         if NoteHashSiloingAmount == 0 {
             // No sorting or siloing or padding.
@@ -418,6 +426,16 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     self.output.is_private_only,
                     self.output.claimed_revertible_counter,
                 );
+                // Siloing rewrites the payload but must leave the wrapper's emitting address alone.
+                // Without this the address is free witness on every output item, and the tail's
+                // cross-contract guard in `validate_unsquashable_note_hash_nullifier_ordering`
+                // compares two values the prover picked. The same binding is needed for nullifiers
+                // and private logs below.
+                assert_eq(
+                    out.contract_address,
+                    prev.contract_address,
+                    "Emitting contract address of the note hash not copied correctly",
+                );
                 // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
         );
@@ -449,6 +467,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     prev.innermost().note_hash,
                     "Linked note hash not copied correctly",
                 );
+                assert_eq(
+                    out.contract_address,
+                    prev.contract_address,
+                    "Emitting contract address of the nullifier not copied correctly",
+                );
                 // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
         );
@@ -479,6 +502,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     out.innermost().note_hash_counter,
                     prev.innermost().note_hash_counter,
                     "Linked note_hash_counter of the private log not copied correctly",
+                );
+                assert_eq(
+                    out.contract_address,
+                    prev.contract_address,
+                    "Emitting contract address of the private log not copied correctly",
                 );
                 // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },

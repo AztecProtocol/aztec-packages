@@ -12,10 +12,10 @@
 # Expected toolchain versions.
 export expected_min_clang_version=20.0.0
 export expected_min_cmake_version=3.24
-export expected_min_node_version=24.12.0
+export expected_min_node_version=26.12.0
 export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
-export expected_abs_wasi_version=27.0
+export expected_abs_wasi_version=34.0
 export expected_abs_foundry_version=1.8.5
 export expected_abs_yarn_version=4.13.0
 
@@ -66,8 +66,8 @@ function install_node {
     curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     . "$HOME/.nvm/nvm.sh" --no-use
   fi
-  nvm install --lts
-  nvm alias default lts/*
+  nvm install $expected_min_node_version
+  nvm alias default $expected_min_node_version
 }
 
 function install_node_utils {
@@ -172,6 +172,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
+
+# Skip puppeteer's Chrome download in yarn installs. On node 26 it stops partway through extracting, leaving a Chrome
+# folder without the executable that fails every later install. The browser tests use Playwright's Chromium.
+export PUPPETEER_SKIP_DOWNLOAD=${PUPPETEER_SKIP_DOWNLOAD:-1}
 
 # Number of TXE servers to run when testing.
 export NUM_TXES=1
@@ -1028,6 +1032,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    # bb.js lint resolves @aztec-foundation/ipc-runtime through its built dest/.
+    ipc-runtime/bootstrap.sh build
     barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci

@@ -62,7 +62,7 @@ class Keccak {
             }
         }
 
-        return from_buffer<bb::fr>(result);
+        return bb::fr::from_bytes_reduced(result);
     }
 };
 } // namespace bb::crypto

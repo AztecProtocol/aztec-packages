@@ -194,17 +194,25 @@ template class OinkVerifier<MegaZKFlavor>;
 
 // Recursive flavor instantiations
 template class OinkVerifier<UltraRecursiveFlavor_<UltraCircuitBuilder>>;
-template class OinkVerifier<UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+// An UltraHonk proof recursively verified inside a Mega circuit: the verifier's bigfield base field
+// needs the non-native-field gate, so only the arithmetizations that keep it.
+#define INSTANTIATE_MEGA_OINK_VERIFIER(Builder)                                                                        \
+    template class OinkVerifier<UltraRecursiveFlavor_<Builder>>;                                                       \
+    template class OinkVerifier<UltraZKRecursiveFlavor_<Builder>>;
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_NNF(INSTANTIATE_MEGA_OINK_VERIFIER)
+#undef INSTANTIATE_MEGA_OINK_VERIFIER
 template class OinkVerifier<MegaAppFlavor>;
 template class OinkVerifier<MegaKernelFlavor>;
+// One recursive instantiation per kernel arithmetization that verifies these proofs.
 template class OinkVerifier<MegaAppRecursiveFlavor>;
 template class OinkVerifier<MegaKernelRecursiveFlavor>;
+template class OinkVerifier<HidingMegaAppRecursiveFlavor>;
+template class OinkVerifier<HidingMegaKernelRecursiveFlavor>;
 
 } // namespace bb

@@ -61,7 +61,7 @@ template <typename FF_> class ECCVMWnafShortRelationImpl : public ECCVMWnafRelat
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.precompute_select + in.precompute_select_shift).is_zero();
+        return in.precompute_select.is_zero() && in.precompute_select_shift.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

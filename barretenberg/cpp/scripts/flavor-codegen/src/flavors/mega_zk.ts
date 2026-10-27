@@ -7,6 +7,9 @@ import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 export const MegaZK = flavor({
   name: "MegaZKFlavor",
   family: "mega_zk",
+    // The only circuit built on this arithmetization is the hiding kernel.
+    builderName: "MegaHidingKernelCircuitBuilder",
+  arithmetization: "mega",
   relations: [
     R.ArithmeticRelation,
     R.BilinearOrBatchedEqCheckRelation,

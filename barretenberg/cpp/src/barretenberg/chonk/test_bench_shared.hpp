@@ -24,12 +24,13 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
         precomputed_vks.per_circuit_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        MegaCircuitBuilder circuit;
-        {
-            BB_BENCH_NAME("construct_circuits");
-            circuit = circuit_producer.create_next_circuit(ivc);
-        }
-        ivc.accumulate(circuit, precomputed_vks.per_circuit_vks[circuit_idx]);
+        dispatch_kind(ivc.current_kind(), [&]<CircuitKind K>() {
+            circuit_for<K> circuit = [&] {
+                BB_BENCH_NAME("construct_circuits");
+                return circuit_producer.create_next_circuit<K>(ivc);
+            }();
+            ivc.accumulate(circuit, precomputed_vks.per_circuit_vks[circuit_idx]);
+        });
     }
     return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
 }
@@ -63,19 +64,13 @@ inline PrecomputedVks precompute_vks(PrivateFunctionExecutionMockCircuitProducer
     PrecomputedVks out;
     out.per_circuit_vks.reserve(NUM_CIRCUITS);
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
-        auto circuit = circuit_producer.create_next_circuit(ivc);
-
-        Chonk::CircuitVerificationKey vk = dispatch_kind(ivc.current_kind(), [&]<Chonk::CircuitKind K>() {
-            using FlavorT = flavor_for<K>;
-            using VK = typename FlavorT::VerificationKey;
-            MegaCircuitBuilder_<bb::fr> builder{ circuit };
-            builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(
-                ProverInstance_<FlavorT>(builder).get_precomputed()) };
+        dispatch_kind(ivc.current_kind(), [&]<CircuitKind K>() {
+            auto circuit = circuit_producer.create_next_circuit<K>(ivc);
+            Chonk::CircuitVerificationKey vk =
+                PrivateFunctionExecutionMockCircuitProducer::make_circuit_verification_key<K>(circuit);
+            out.per_circuit_vks.push_back(vk);
+            ivc.accumulate(circuit, vk);
         });
-
-        out.per_circuit_vks.push_back(vk);
-        ivc.accumulate(circuit, vk);
     }
 
     return out;

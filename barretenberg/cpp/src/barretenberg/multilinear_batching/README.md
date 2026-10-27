@@ -285,7 +285,7 @@ is complete — `HypernovaFoldingProver::finalize(previous_accumulator)` batches
 - the single accumulator `finalize` returns is propagated to the next kernel.
 
 The kernel's recursive verifier mirrors this with the verifier-side `accumulate_instance` / `finalize`
-(driven by `Chonk::complete_kernel_circuit_logic`): it runs each proof's sumcheck in-circuit, caches
+(driven by `KernelCompletion::complete_kernel_circuit_logic`): it runs each proof's sumcheck in-circuit, caches
 the claims, then `finalize` loads the batching proof onto the shared transcript and calls
 `MultilinearBatchingRecursiveVerifier::verify_proof`. The decider is verified against the hiding
 kernel's resulting accumulator.

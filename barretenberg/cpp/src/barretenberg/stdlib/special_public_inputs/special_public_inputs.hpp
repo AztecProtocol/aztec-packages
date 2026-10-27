@@ -53,9 +53,9 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
  *
  * @tparam N Number of app return-data commitments carried by the kernel public inputs.
  */
-template <size_t N> class KernelIO_ {
+template <size_t N, typename Builder_> class KernelIO_ {
   public:
-    using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
+    using Builder = Builder_;             // the circuit carrying (or reconstructing) these public inputs
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
@@ -142,7 +142,7 @@ template <size_t N> class KernelIO_ {
     }
 };
 
-using KernelIO = KernelIO_<MAX_APPS_PER_KERNEL>;
+template <typename Builder> using KernelIO = KernelIO_<MAX_APPS_PER_KERNEL, Builder>;
 
 /**
  * @brief Manages the data that is propagated on the public inputs of an application/function circuit
@@ -206,7 +206,7 @@ template <typename Builder_> class DefaultIO {
 /**
  * @brief The data that is propagated on the public inputs of an application/function circuit
  */
-using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
+template <typename Builder> using AppIO = DefaultIO<Builder>;
 
 /**
  * @brief The data that is propagated on the public inputs of the inner GoblinAvmRecursiveVerifier circuit

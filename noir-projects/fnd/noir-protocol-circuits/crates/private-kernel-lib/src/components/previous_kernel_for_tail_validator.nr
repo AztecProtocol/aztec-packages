@@ -23,20 +23,19 @@ pub fn validate_previous_kernel_for_tail(
     let min_revertible_side_effect_counter =
         previous_kernel_public_inputs.min_revertible_side_effect_counter;
 
-    if is_for_public {
-        assert(
-            min_revertible_side_effect_counter != 0,
-            "min_revertible_side_effect_counter must not be 0 for tail_to_public",
-        );
-    } else {
-        // For a private-only tx, `min_revertible_side_effect_counter` can be 0 or non-zero - it doesn't
-        // affect correctness. The reset circuit uses 0 as the split counter for private-only txs, so the
-        // revertible/non-revertible boundary is never applied regardless of this value.
-    }
-
     // Here, we finally reconcile that the "claimed" revertible counter (as hinted by all app circuits
     // and kernel iterations of this tx) actually reconciles with the min_revertible_side_effect counter
     // that was set by one of the app circuits of this tx.
+    //
+    // The Init circuit checks `claimed_revertible_counter` (see `validate_as_first_call`): it is 0 only when
+    // `is_private_only`, and otherwise greater than 2, above the reserved side-effect counters (0 unused, 1 the
+    // protocol nullifier, 2 the start counter of the first call). Every kernel iteration propagates both values
+    // unchanged, and tail-to-public asserts `!is_private_only` below. So this equality also establishes that a
+    // tx with public calls has `min_revertible_side_effect_counter > 2`, and that a private-only tx has it
+    // either unset (0, no private call ended the setup phase and every side effect is non-revertible) or
+    // greater than 2. Independently of that chain, the first-nullifier check below forces
+    // `min_revertible_side_effect_counter >= 2` for tail-to-public within this circuit alone, since no
+    // nullifier counter is below 1.
     assert_eq(
         previous_kernel_public_inputs.claimed_revertible_counter,
         min_revertible_side_effect_counter,

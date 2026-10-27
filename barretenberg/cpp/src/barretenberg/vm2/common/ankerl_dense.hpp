@@ -355,11 +355,13 @@ template <typename Enum> struct hash<Enum, typename std::enable_if<std::is_enum<
 };
 
 template <typename... Args> struct tuple_hash_helper {
-    // Converts the value into 64bit. If it is an integral type, just cast it. Mixing is doing the rest.
+    // Converts the value into 64bit. Casting is only lossless for integral types that fit in 64 bits; wider
+    // ones (unsigned __int128 satisfies std::is_integral_v under GNU extensions) must be hashed, or keys
+    // differing only above bit 63 would share both a bucket and a fingerprint. Mixing is doing the rest.
     // If it isn't an integral we need to hash it.
     template <typename Arg> [[nodiscard]] constexpr static auto to64(Arg const& arg) -> uint64_t
     {
-        if constexpr (std::is_integral_v<Arg> || std::is_enum_v<Arg>) {
+        if constexpr ((std::is_integral_v<Arg> && sizeof(Arg) <= sizeof(uint64_t)) || std::is_enum_v<Arg>) {
             return static_cast<uint64_t>(arg);
         } else {
             return hash<Arg>{}(arg);
@@ -435,6 +437,34 @@ ANKERL_UNORDERED_DENSE_HASH_STATICCAST(unsigned long long);
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
+
+// Local addition, not present in upstream v4.5.0. A 128-bit integer cannot be cast to the 64-bit result
+// without dropping half of it, and libstdc++'s std::hash does exactly that (libc++'s does not), so both
+// halves are hashed here rather than left to the standard library.
+#if defined(__SIZEOF_INT128__)
+__extension__ template <> struct hash<unsigned __int128> {
+    using is_avalanching = void;
+    auto operator()(unsigned __int128 const& obj) const noexcept -> uint64_t
+    {
+        // Each half is hashed before the two are folded. mix(a, b) is lo(a*b) ^ hi(a*b), so it returns 0
+        // whenever either operand is 0: passing two key-derived words into one mix would give whole
+        // families of distinct keys the same hash, and folding in a half that has not been mixed would
+        // let it be solved for. Every other use of mix in this header keeps one operand constant.
+        auto const lo = detail::wyhash::hash(static_cast<uint64_t>(obj));
+        auto const hi = detail::wyhash::hash(static_cast<uint64_t>(obj >> 64U));
+        return detail::wyhash::mix(detail::wyhash::mix(lo, UINT64_C(0x9ddfea08eb382d69)) + hi,
+                                   UINT64_C(0x9ddfea08eb382d69));
+    }
+};
+
+__extension__ template <> struct hash<__int128> {
+    using is_avalanching = void;
+    auto operator()(__int128 const& obj) const noexcept -> uint64_t
+    {
+        return hash<unsigned __int128>{}(static_cast<unsigned __int128>(obj));
+    }
+};
 #endif
 
 // bucket_type //////////////////////////////////////////////////////////

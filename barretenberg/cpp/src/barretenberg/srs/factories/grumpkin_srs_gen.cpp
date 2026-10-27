@@ -21,16 +21,16 @@ std::vector<grumpkin::g1::affine_element> generate_grumpkin_srs(size_t num_point
             while (!rational_point_found) {
                 hash_input.clear();
                 // We hash
-                // |BARRETENBERG_GRUMPKIN_IPA_CRS|POINT_INDEX_IN_LITTLE_ENDIAN|POINT_ATTEMPT_INDEX_IN_LITTLE_ENDIAN|
+                // |BARRETENBERG_GRUMPKIN_IPA_CRS|POINT_INDEX_IN_BIG_ENDIAN|POINT_ATTEMPT_INDEX_IN_BIG_ENDIAN|
                 std::copy(protocol_name.begin(), protocol_name.end(), std::back_inserter(hash_input));
-                uint64_t point_index_le_order = htonll(static_cast<uint64_t>(point_idx));
-                uint64_t point_attempt_le_order = htonll(static_cast<uint64_t>(attempt));
+                uint64_t point_index_be_order = htonll(static_cast<uint64_t>(point_idx));
+                uint64_t point_attempt_be_order = htonll(static_cast<uint64_t>(attempt));
                 hash_input.insert(hash_input.end(),
-                                  reinterpret_cast<uint8_t*>(&point_index_le_order),
-                                  reinterpret_cast<uint8_t*>(&point_index_le_order) + sizeof(uint64_t));
+                                  reinterpret_cast<uint8_t*>(&point_index_be_order),
+                                  reinterpret_cast<uint8_t*>(&point_index_be_order) + sizeof(uint64_t));
                 hash_input.insert(hash_input.end(),
-                                  reinterpret_cast<uint8_t*>(&point_attempt_le_order),
-                                  reinterpret_cast<uint8_t*>(&point_attempt_le_order) + sizeof(uint64_t));
+                                  reinterpret_cast<uint8_t*>(&point_attempt_be_order),
+                                  reinterpret_cast<uint8_t*>(&point_attempt_be_order) + sizeof(uint64_t));
                 auto hash_result = crypto::sha256(hash_input);
                 uint256_t hash_result_uint(
                     ntohll(*reinterpret_cast<uint64_t*>(hash_result.data())),

@@ -200,9 +200,8 @@ impl PrivateContext {
 
         let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
             log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
-        // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond
-        // length are zero. However, it won't be able to check that we didn't add extra padding (trailing zeroes) or
-        // that we cut trailing zeroes from the end.
+        // Safety: The below length is constrained in the base rollup, which checks that all the fields beyond length
+        // are zero and that the field at length - 1 is not, i.e. that the length is exactly the trimmed length.
         let length = unsafe { trimmed_array_length_hint(log_to_emit) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter
         // bytecode.

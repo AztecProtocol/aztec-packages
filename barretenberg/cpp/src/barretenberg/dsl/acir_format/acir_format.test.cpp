@@ -238,7 +238,7 @@ TEST(AcirFormatBilinearBatchedEqTest, UltraThrowsOnBilinearAndBatchedEqCheckGate
 
         UltraCircuitBuilder builder;
         EXPECT_THROW_WITH_MESSAGE(build_constraints(builder, af, {}),
-                                  "Bilinear constraints should only be present when using MegaCircuitBuilder.");
+                                  "ACIR contains bilinear_constraints, which this arithmetization cannot represent.");
     }
 
     {
@@ -269,7 +269,70 @@ TEST(AcirFormatBilinearBatchedEqTest, UltraThrowsOnBilinearAndBatchedEqCheckGate
         ASSERT_EQ(af.batched_eq_check_constraints.size(), 1U);
 
         UltraCircuitBuilder builder;
-        EXPECT_THROW_WITH_MESSAGE(build_constraints(builder, af, {}),
-                                  "BatchedEq constraints should only be present when using MegaCircuitBuilder.");
+        EXPECT_THROW_WITH_MESSAGE(
+            build_constraints(builder, af, {}),
+            "ACIR contains batched_eq_check_constraints, which this arithmetization cannot represent.");
     }
+}
+
+// A reduced arithmetization has no block for the gates these opcodes translate to, so their translation is
+// compiled out; the bytecode carrying them must be rejected rather than silently dropped.
+TEST(AcirFormatReducedArithmetizationTest, RejectsOpcodesItCannotRepresent)
+{
+    // The kernel arithmetization drops the lookup and non-native-field gates.
+    {
+        AcirFormat af;
+        af.logic_constraints.push_back(LogicConstraint{ .a = WitnessOrConstant<bb::fr>::from_index(0),
+                                                        .b = WitnessOrConstant<bb::fr>::from_index(1),
+                                                        .result = 2,
+                                                        .num_bits = 8,
+                                                        .is_xor_gate = false });
+        af.original_opcode_indices.logic_constraints.push_back(0);
+
+        MegaKernelCircuitBuilder builder;
+        EXPECT_THROW_WITH_MESSAGE(build_constraints(builder, af, {}),
+                                  "ACIR contains logic_constraints, which this arithmetization cannot represent.");
+    }
+
+    // The hiding-kernel arithmetization additionally drops the elliptic and memory gates, so it can
+    // represent neither a scalar multiplication nor a ROM table.
+    {
+        AcirFormat af;
+        af.multi_scalar_mul_constraints.push_back(MultiScalarMul{});
+        af.original_opcode_indices.multi_scalar_mul_constraints.push_back(0);
+
+        MegaHidingKernelCircuitBuilder builder;
+        EXPECT_THROW_WITH_MESSAGE(
+            build_constraints(builder, af, {}),
+            "ACIR contains multi_scalar_mul_constraints, which this arithmetization cannot represent.");
+    }
+
+    // A block constraint is rejected per block type, not per opcode: ROM needs the memory gate.
+    {
+        AcirFormat af;
+        af.block_constraints.push_back(BlockConstraint{ .type = BlockType::ROM });
+        af.original_opcode_indices.block_constraints.push_back({ 0 });
+
+        MegaHidingKernelCircuitBuilder builder;
+        EXPECT_THROW_WITH_MESSAGE(build_constraints(builder, af, {}),
+                                  "ACIR contains a ROM block, which this arithmetization cannot represent.");
+    }
+}
+
+// The kernel arithmetization keeps the elliptic and memory gates, so it can represent the scalar
+// multiplications every kernel runs to derive a contract address -- cycle_group reaches those through
+// ROM tables, not the plookup fixed-base path the kernel lacks. Rejecting them on the opcode alone
+// would break every real kernel; the pinned flows are the end-to-end cover for this.
+TEST(AcirFormatReducedArithmetizationTest, KernelRepresentsScalarMultiplication)
+{
+    static_assert(MegaKernelCircuitBuilder::ExecutionTrace::has_gate_kind(GateKind::Elliptic));
+    static_assert(MegaKernelCircuitBuilder::ExecutionTrace::has_gate_kind(GateKind::Memory));
+    static_assert(!MegaKernelCircuitBuilder::ExecutionTrace::has_gate_kind(GateKind::Lookup));
+
+    AcirFormat af;
+    af.multi_scalar_mul_constraints.push_back(MultiScalarMul{});
+    af.original_opcode_indices.multi_scalar_mul_constraints.push_back(0);
+
+    MegaKernelCircuitBuilder builder;
+    EXPECT_NO_THROW(build_constraints(builder, af, {}));
 }

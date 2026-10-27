@@ -14,7 +14,7 @@ namespace bb {
  * @brief Batch merge prover
  *
  * @details This prover proves that the full merged table T is the correct concatenation of all N accumulated subtables
- * C_0, ..., C_{N-1} (padded to MAX_SUBTABLES M).
+ * C_0, ..., C_{N-1} (padded to MAX_SUBTABLES M), with fixed accumulator separators.
  */
 class BatchMergeProver {
   protected:
@@ -34,9 +34,8 @@ class BatchMergeProver {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
     /**
-     * @param op_queue   The ECC op queue containing all accumulated subtables (N subtables, in append order).
-     * @param transcript Shared prover transcript.
-     * @param max_subtables M: the fixed maximum number of subtables (CHONK_MAX_ACCUMULATION_STEPS).
+     * @param op_queue The accumulated subtables in append order, with batch-merge separators already installed.
+     * @param max_subtables M: the fixed maximum number of subtables (CHONK_MAX_NUM_CIRCUITS).
      */
     explicit BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables);
 
@@ -45,7 +44,8 @@ class BatchMergeProver {
      *
      * @details Proves that the full merged table T is the correct concatenation of all N subtables
      * C_0, ..., C_{N-1} stored in the op_queue in append order (C_0 oldest, C_{N-1} most recently merged) together with
-     * an additional zero-knowledge commitment C_zk (prepended at the beginning).
+     * a fixed separator after each subtable and an additional zero-knowledge commitment C_zk prepended at the
+     * beginning.
      *
      */
     MergeProof construct_proof();

@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 14:39:41 +0000
+Subject: [PATCH] fix(foundation): bump supertest to 7.1 for Node 26
+
+On Node 26, supertest 6 resets the second of two concurrent requests
+(read ECONNRESET), which fails the manual batching tests in
+safe_json_rpc_client.test.ts. supertest 7.1.0 and later handle it, on
+Node 24 as well.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
+
+diff --git a/yarn-project/foundation/package.json b/yarn-project/foundation/package.json
+index 2f6f12d141c51d1d550350c4d2800f57b5c0797c..719ab7b36eb133f92563b33e4466b538fc6a0187 100644
+--- a/yarn-project/foundation/package.json
++++ b/yarn-project/foundation/package.json
+@@ -199,7 +199,7 @@
+     "globals": "^16.1.0",
+     "jest": "^30.0.0",
+     "prettier": "^3.5.3",
+-    "supertest": "^6.3.3",
++    "supertest": "^7.1.0",
+     "ts-node": "^10.9.1",
+     "typescript": "^5.3.3",
+     "typescript-eslint": "^8.32.1",
+diff --git a/yarn-project/yarn.lock b/yarn-project/yarn.lock
+index 59075014c16b8c9484647303c29151bc19692eab..49fa7ada69d22004298c110034ae41aff429a962 100644
+GIT binary patch
+delta 117
+zcmccJZhY*o(T1%rC!e~@J$c1$v*vFv+rPbJ1Y#y2W(H!G?cZLq@)b<yzQeB4?iR(i
+z-7SipF|z&a7Iq-!*nV~kr{DK>?KNE6wbyW`u}<H+nVXB>T+cwyKu4jtv>>&pB(->Y
+T{snfKcJ-~?+ts)7Y~cd{?rSx(
+
+delta 752
+zcmY+CyK9qC7{>XUq@VVywboWGSonyG^b*ef5;~-_2s$X#K|EI|q_?CM9HbP7j8Z$C
+zNpNxqm`18(5;q5@x+(qz83b`@1_e(P2Zx6P2cGww_xC&>exa`|+<n_GunG<jZYH%S
+zgMMq!PohSm3Q@)0pkEr_DuBhj)n6U$^;gr{YB+tFT@LML@j`gfNsFUvR_VG6A8!}R
+z;qh^L_gtQDH>-JhV{5&7pN0LWg-d(RNoE~HPD0DDcY+Zvy?0c5Dghu`V^6RHz&LJ<
+zGZt#-Jp`IssDxBdYUr%vh&vcv+(jERm~$<?!~h_O6!lyy4T-l%cx*@<50TZH7<2fk
+zG#_fO(_(AxIE^~fn>#*x@3aIf!_DgLv0lBMZI{BGlj8YFRIZNY`9s%eu5E5qa}ko~
+zh3W9~Rd&80Dli;8%Vxv%PIfgceH%%`jZU_dknpIJt%P^WNjl><8|#0O{9}NkYpt7=
+z!=RI03*Q%#*#rmpKDoGuu?2u52Po9aOK7-d0^)cACXfP*0vl0SpoR6Cc_AV(>x~A;
+zL17Hi1S!TGAsQoZ382a_Z9Mgsa>E>ATzdf=Qo=-P3JS=Wk`^m2JmulwR<;nn9Ay(S
+zcA$d)Uwn8)B8i4;Zq|2q{=g_Vceh+)$2E6q!+3|yS!pL%!ge=XOhiy8qceLk4@fbL
+z4=4$+6cSPeFyb+Bj;(acc&VIr27ACYf!OKzC84p^0((z{*Pac{$V-YC<-#aOhch+s
+woGHv>lO%@(0t~F6%xZ!;R2)Jrm^<9h=fmftY&tCeNGDrU-K;m&9e*?N8?g-VmjD0&
+

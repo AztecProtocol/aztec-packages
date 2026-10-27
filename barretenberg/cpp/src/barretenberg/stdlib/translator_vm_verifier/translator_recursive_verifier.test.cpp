@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -169,8 +170,8 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Set up outer recursive circuit
         OuterBuilder outer_circuit;
-        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
-        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+        // The verifier loads the proof into the transcript itself in receive_pre_sumcheck().
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
 
         // Create recursive verifier inputs
         auto recursive_inputs =
@@ -191,7 +192,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         inputs.set_public();
 
         // Verify with native verifier and compare results
-        auto native_verifier_transcript = std::make_shared<Transcript>(proof);
+        auto native_verifier_transcript = std::make_shared<Transcript>();
         InnerVerifier native_verifier(native_verifier_transcript,
                                       proof,
                                       evaluation_challenge_x,
@@ -335,8 +336,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
                 create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
 
             // Create recursive verifier and verify tampered proof
-            stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
-            auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+            auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
             stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
             RecursiveVerifier verifier{ transcript,
                                         stdlib_proof_for_verifier,
@@ -385,8 +385,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Set up outer recursive circuit
         OuterBuilder outer_circuit;
-        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
-        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
 
         // Create recursive verifier inputs
         auto recursive_inputs =
@@ -417,6 +416,19 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         EXPECT_EQ(variables_in_one_gate.size(), 0);
     }
+
+    /**
+     * @brief Pin the verification key hash of the translator recursive verifier circuit.
+     * @details The outer VK depends only on the circuit structure, which is fixed for the translator recursive
+     * verifier (see IndependentVKHash). A change to this hash means the recursive verifier circuit changed and every
+     * downstream consumer of that VK must be updated.
+     */
+    static void test_recursive_verifier_vk_hash()
+    {
+        auto [outer_circuit, outer_verification_key] = create_recursive_verifier_circuit();
+        const OuterFlavor::FF expected_vk_hash{ uint256_t(acir_format::TRANSLATOR_RECURSIVE_VERIFIER_VK_HASH) };
+        EXPECT_EQ(outer_verification_key->hash(), expected_vk_hash);
+    }
 };
 
 TEST_F(TranslatorRecursiveTests, SingleRecursiveVerification)
@@ -437,6 +449,11 @@ TEST_F(TranslatorRecursiveTests, SingleRecursiveVerificationFailure)
 TEST_F(TranslatorRecursiveTests, IndependentVKHash)
 {
     TranslatorRecursiveTests::test_independent_vk_hash();
+};
+
+TEST_F(TranslatorRecursiveTests, RecursiveVerifierVKHash)
+{
+    TranslatorRecursiveTests::test_recursive_verifier_vk_hash();
 };
 
 TEST_F(TranslatorRecursiveTests, StaticAnalysis)

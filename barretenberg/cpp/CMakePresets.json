@@ -421,8 +421,7 @@
         "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
-        "MULTITHREADING": "OFF",
-        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
+        "MULTITHREADING": "OFF"
       }
     },
     {

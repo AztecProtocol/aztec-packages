@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/eccvm/eccvm_trace_checker.hpp"
 #include "barretenberg/goblin/batch_merge_prover.hpp"
 #include "barretenberg/goblin/batch_merge_verifier.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -15,6 +16,45 @@ namespace bb {
 
 using NativeCurve = curve::BN254;
 using NativeG1 = NativeCurve::AffineElement;
+
+TEST(BatchMergeSeparators, RejectsUnfinishedAccumulatorAtSubtableBoundary)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    for (bool clean_boundary : { true, false }) {
+        auto queue = std::make_shared<ECCOpQueue>();
+        queue->mul_accumulate(NativeG1::one(), fr(7));
+        if (clean_boundary) {
+            queue->eq_and_reset();
+        }
+        queue->merge();
+        queue->initialize_new_subtable();
+        queue->mul_accumulate(NativeG1::one(), fr(11));
+        queue->eq_and_reset();
+        queue->merge();
+
+        queue->add_batch_merge_separators();
+        queue->construct_zk_columns();
+        ECCVMCircuitBuilder builder(queue);
+        EXPECT_EQ(ECCVMTraceChecker::check(builder), clean_boundary);
+    }
+}
+
+TEST(BatchMergeSeparators, ZeroSumMulRunCanEndAtSeparator)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    auto queue = std::make_shared<ECCOpQueue>();
+    for (size_t i = 0; i < 2; ++i) {
+        queue->mul_accumulate(NativeG1::one(), fr(7));
+        queue->mul_accumulate(-NativeG1::one(), fr(7));
+        queue->merge();
+        queue->initialize_new_subtable();
+    }
+    queue->add_batch_merge_separators();
+    queue->construct_zk_columns();
+    ECCVMCircuitBuilder builder(queue);
+    EXPECT_TRUE(ECCVMTraceChecker::check(builder));
+    EXPECT_EQ(queue->get_eccvm_ops().size(), 7UL);
+}
 
 static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
@@ -29,6 +69,14 @@ template <typename Curve> struct BuilderTypeHelper<Curve, std::enable_if_t<Curve
 
 enum class FaultMode : uint8_t {
     NONE,
+    PADDED_SUPPORT,
+    ODD_PADDED_SUPPORT,
+    CANCELLED_SEPARATOR,
+    CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND,
+    OMITTED_SEPARATOR,
+    ALTERED_SEPARATOR,
+    MOVED_SEPARATOR,
+    NONZERO_SEPARATOR_POINT,
     WRONG_MERGED_TABLE,       // merged table commitment/evals/opening are self-consistent but table is wrong
     BAD_DEGREE_CHECK_POLY,    // degree-check commitment/eval/opening are self-consistent but polynomial is wrong
     PADDING_NOT_INFINITY,     // padded slot sends non-zero shift size and non-zero commitment/eval
@@ -95,6 +143,17 @@ bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N)
 }
 
 /**
+ * Copy of `col` with `extra_rows` zero rows appended to its memory-backed support. The virtual size grows with it so
+ * the appended rows stay addressable.
+ */
+template <typename Polynomial> Polynomial pad_column(const Polynomial& col, size_t extra_rows)
+{
+    Polynomial padded(col, col.size() + extra_rows);
+    padded.increase_virtual_size(std::max(padded.virtual_size(), padded.end_index()));
+    return padded;
+}
+
+/**
  * Local prover copy used only in tests, with controlled fault injection points.
  * Important: faults are applied before data is sent to transcript, so Fiat–Shamir remains consistent.
  */
@@ -122,12 +181,33 @@ class TweakableBatchMergeProver : public BatchMergeProver {
         std::vector<std::array<Polynomial, NUM_WIRES>> subtable_cols = op_queue->construct_subtable_columns();
 
         size_t N = subtable_cols.size();
+        const size_t padding_rows = fault_mode == FaultMode::PADDED_SUPPORT       ? 2
+                                    : fault_mode == FaultMode::ODD_PADDED_SUPPORT ? 1
+                                                                                  : 0;
+        if (padding_rows != 0) {
+            for (auto& col : subtable_cols[0]) {
+                col = pad_column(col, padding_rows);
+            }
+        }
 
         std::vector<size_t> shift_sizes(N);
         size_t max_shift_size = 0;
         for (size_t i = 0; i < N; ++i) {
             shift_sizes[i] = subtable_cols[i][0].size();
             max_shift_size = std::max(max_shift_size, shift_sizes[i]);
+        }
+
+        if (fault_mode == FaultMode::CANCELLED_SEPARATOR ||
+            fault_mode == FaultMode::CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND) {
+            // An app must not be allowed to extend its support into the separator's two rows.
+            for (auto& col : subtable_cols[0]) {
+                col = pad_column(col, 2);
+            }
+            subtable_cols[0][0].at(shift_sizes[0]) = -FF(3);
+            max_shift_size = std::max(max_shift_size, shift_sizes[0] + 2);
+            if (fault_mode == FaultMode::CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND) {
+                shift_sizes[0] += 2;
+            }
         }
 
         // Step 2: commit subtable columns
@@ -211,6 +291,47 @@ class TweakableBatchMergeProver : public BatchMergeProver {
 
         // Step 4: merged table
         std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns());
+        if (padding_rows != 0) {
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                merged_table[col] = Polynomial(merged_table[col].size() + padding_rows);
+                for (size_t row = 0; row < UltraEccOpsTable::ZK_ULTRA_OPS; ++row) {
+                    merged_table[col].at(row) = flattened_cols[col][row];
+                }
+                size_t offset = UltraEccOpsTable::ZK_ULTRA_OPS;
+                for (size_t i = 0; i < N; ++i) {
+                    const auto& original = flattened_cols[(i + 1) * NUM_WIRES + col];
+                    for (size_t row = 0; row < original.size(); ++row) {
+                        merged_table[col].at(offset + row) = original[row];
+                    }
+                    offset += shift_sizes[i];
+                    if (col == 0) {
+                        merged_table[col].at(offset) = 3;
+                    }
+                    offset += UltraEccOpsTable::NUM_ROWS_PER_OP;
+                }
+            }
+        }
+        const size_t first_separator = UltraEccOpsTable::ZK_ULTRA_OPS + shift_sizes[0] -
+                                       (fault_mode == FaultMode::CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND ? 2 : 0);
+        switch (fault_mode) {
+        case FaultMode::CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND:
+        case FaultMode::CANCELLED_SEPARATOR:
+        case FaultMode::OMITTED_SEPARATOR:
+            merged_table[0].at(first_separator) = 0;
+            break;
+        case FaultMode::ALTERED_SEPARATOR:
+            merged_table[0].at(first_separator) = 8;
+            break;
+        case FaultMode::MOVED_SEPARATOR:
+            merged_table[0].at(first_separator) = 0;
+            merged_table[0].at(first_separator + 1) = 3;
+            break;
+        case FaultMode::NONZERO_SEPARATOR_POINT:
+            merged_table[1].at(first_separator) = 1;
+            break;
+        default:
+            break;
+        }
         if (fault_mode == FaultMode::WRONG_MERGED_TABLE && !merged_table[0].is_empty()) {
             merged_table[0].at(0) += FF(1);
         } else if (fault_mode == FaultMode::ZERO_SUBTABLES_CLAIM) {
@@ -332,7 +453,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 3035 : 19085;
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 3070 : 19308;
     static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
     struct VerifyResult {
@@ -381,6 +502,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
                                          bool wrong_hash = false,
                                          bool check_manifest = false)
     {
+        op_queue->add_batch_merge_separators();
         TranscriptManifest prover_manifest;
         std::vector<bb::fr> native_proof;
         if (fault_mode == FaultMode::NONE) {
@@ -440,8 +562,39 @@ template <typename Param> class BatchMergeTests : public testing::Test {
 using TestParams = ::testing::Types<TestParam<curve::BN254, 9>,
                                     TestParam<curve::BN254, CHONK_MAX_NUM_CIRCUITS>,
                                     TestParam<stdlib::bn254<MegaCircuitBuilder>, 9>,
-                                    TestParam<stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>>;
+                                    TestParam<stdlib::bn254<MegaHidingKernelCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>>;
 TYPED_TEST_SUITE(BatchMergeTests, TestParams);
+
+TYPED_TEST(BatchMergeTests, RunningHashMatchesTranscript)
+{
+    using FF = typename TestFixture::FF;
+    using Verifier = typename TestFixture::Verifier;
+    using Commitment = typename Verifier::Commitment;
+    typename TestFixture::BuilderType builder;
+    NativeTranscript transcript;
+    std::optional<FF> running_hash;
+    for (size_t round = 0; round < 2; ++round) {
+        std::vector<Commitment> commitments;
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            const auto point = col == 0 ? NativeG1::infinity() : NativeG1::random_element();
+            transcript.send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(round), point);
+            if constexpr (TestFixture::IsRecursive) {
+                commitments.push_back(Commitment::from_witness(&builder, point));
+            } else {
+                commitments.push_back(point);
+            }
+        }
+        running_hash = Verifier::ecc_op_hash_step(commitments, running_hash);
+        const auto expected = transcript.get_challenge<bb::fr>("HASH_" + std::to_string(round));
+        if constexpr (TestFixture::IsRecursive) {
+            EXPECT_EQ(running_hash->get_value(), expected);
+            running_hash->assert_equal(FF(expected));
+        } else {
+            EXPECT_EQ(*running_hash, expected);
+        }
+    }
+    EXPECT_TRUE(TestFixture::check_circuit(builder));
+}
 
 // Completeness
 
@@ -461,6 +614,83 @@ TYPED_TEST(BatchMergeTests, ValidProofMaxSizePasses)
     EXPECT_TRUE(res.reduction_ok);
     EXPECT_TRUE(res.pairing_ok);
     EXPECT_TRUE(res.circuit_ok);
+}
+
+TYPED_TEST(BatchMergeTests, ActiveEmptySubtablesPass)
+{
+    for (size_t count : { size_t(1), TestFixture::NumSubtables }) {
+        auto queue = std::make_shared<ECCOpQueue>();
+        for (size_t i = 0; i < count; ++i) {
+            queue->merge();
+            queue->initialize_new_subtable();
+        }
+        auto res = TestFixture::prove_and_verify(queue);
+        EXPECT_TRUE(res.reduction_ok);
+        EXPECT_TRUE(res.pairing_ok);
+        EXPECT_TRUE(res.circuit_ok);
+        const auto& ops = queue->get_eccvm_ops();
+        EXPECT_EQ(ops.size(), count + 1);
+        for (size_t i = 1; i < ops.size(); ++i) {
+            EXPECT_EQ(ops[i], UltraEccOpsTable::make_separator_op_pair().second);
+        }
+    }
+}
+
+TYPED_TEST(BatchMergeTests, PaddedSupportPreservesOriginalCommitments)
+{
+    // Odd claimed support passes batch merge; Translator separately enforces opcode alignment.
+    for (auto mode : { FaultMode::PADDED_SUPPORT, FaultMode::ODD_PADDED_SUPPORT }) {
+        auto queue = make_op_queue_with_n_subtables(2);
+        const auto original = queue->construct_subtable_columns();
+        CommitmentKey<curve::BN254> key(64);
+        queue->add_batch_merge_separators();
+        TweakableBatchMergeProver prover(queue, TestFixture::NumSubtables, mode);
+        auto native_proof = prover.construct_proof();
+        NativeTranscript transcript;
+        transcript.load_proof(native_proof);
+        for (size_t col = 0; col < 4; ++col) {
+            EXPECT_EQ(transcript.receive_from_prover<NativeG1>("COLUMN_" + std::to_string(col) + "_0"),
+                      key.commit(original[0][col]));
+        }
+        typename TestFixture::BuilderType builder;
+        auto proof = TestFixture::create_proof(builder, native_proof);
+        auto hash = TestFixture::create_hash(builder, compute_running_hash(native_proof, 2));
+        typename TestFixture::Verifier verifier;
+        auto result = verifier.reduce_to_pairing_check(proof, hash);
+        EXPECT_TRUE(result.reduction_succeeded);
+        EXPECT_TRUE(result.pairing_points.check());
+        EXPECT_TRUE(TestFixture::check_circuit(builder));
+    }
+}
+
+TYPED_TEST(BatchMergeTests, SubtableCannotCancelItsSeparator)
+{
+    // The original bound rejects by degree; extending it instead breaks concatenation.
+    for (auto mode : { FaultMode::CANCELLED_SEPARATOR, FaultMode::CANCELLED_SEPARATOR_WITH_EXTENDED_BOUND }) {
+        auto queue = make_op_queue_with_n_subtables(2);
+        auto res = TestFixture::prove_and_verify(queue, mode);
+        EXPECT_FALSE(res.reduction_ok);
+        EXPECT_TRUE(res.pairing_ok);
+        if constexpr (TestFixture::IsRecursive) {
+            EXPECT_FALSE(res.circuit_ok);
+        }
+    }
+}
+
+TYPED_TEST(BatchMergeTests, SeparatorIsMandatoryAndFixed)
+{
+    for (auto mode : { FaultMode::OMITTED_SEPARATOR,
+                       FaultMode::ALTERED_SEPARATOR,
+                       FaultMode::MOVED_SEPARATOR,
+                       FaultMode::NONZERO_SEPARATOR_POINT }) {
+        auto queue = make_op_queue_with_n_subtables(2);
+        auto res = TestFixture::prove_and_verify(queue, mode);
+        EXPECT_FALSE(res.reduction_ok);
+        EXPECT_TRUE(res.pairing_ok);
+        if constexpr (TestFixture::IsRecursive) {
+            EXPECT_FALSE(res.circuit_ok);
+        }
+    }
 }
 
 // Soundness
@@ -574,6 +804,7 @@ TYPED_TEST(BatchMergeTests, GraphDescription)
         using Verifier = typename TestFixture::Verifier;
 
         auto op_queue = make_op_queue_with_n_subtables(5);
+        op_queue->add_batch_merge_separators();
         BatchMergeProver prover{ op_queue, TestFixture::NumSubtables };
         auto native_proof = prover.construct_proof();
         const bb::fr native_hash = compute_running_hash(native_proof, op_queue->num_subtables());
@@ -595,8 +826,8 @@ TYPED_TEST(BatchMergeTests, GraphDescription)
 
         builder.finalize_circuit();
 
-        using Analyzer =
-            std::conditional_t<IsMegaBuilder<BuilderType>, cdg::MegaStaticAnalyzer, cdg::UltraStaticAnalyzer>;
+        using Analyzer = std::
+            conditional_t<IsMegaBuilder<BuilderType>, cdg::MegaStaticAnalyzer_<BuilderType>, cdg::UltraStaticAnalyzer>;
         auto graph = Analyzer(builder);
         auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
 

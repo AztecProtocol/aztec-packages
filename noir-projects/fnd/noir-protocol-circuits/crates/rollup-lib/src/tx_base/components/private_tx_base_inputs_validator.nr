@@ -96,5 +96,7 @@ impl PrivateTxBaseInputsValidator {
             private_tail.end.contract_class_logs_hashes,
             self.contract_class_log_fields,
         );
+
+        private_tail_validator::validate_private_logs(private_tail.end.private_logs);
     }
 }
