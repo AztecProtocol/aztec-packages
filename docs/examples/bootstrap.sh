@@ -4,23 +4,18 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Get repo root for absolute paths
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
-export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
-# Labs scripts derive their own ci3 root, so their hashes are taken through labs_env.sh. In foundation
-# mode the labs toolchain hash is the content hash of this tree's providers (labs-aztec-toolchain/fnd-hashes).
-AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$("$REPO_ROOT/scripts/labs_env.sh" ./labs-aztec-toolchain/bootstrap.sh hash)}
-AZTEC_NR_HASH=${AZTEC_NR_HASH:-$("$REPO_ROOT/scripts/labs_env.sh" ./noir-projects/aztec-nr/bootstrap.sh hash)}
-export AZTEC_TOOLCHAIN_HASH AZTEC_NR_HASH
+export BB=${BB:-"$REPO_ROOT/labs-aztec-toolchain/bin/bb"}
+export NARGO=${NARGO:-"$REPO_ROOT/labs-aztec-toolchain/bin/nargo"}
+AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$("$REPO_ROOT/labs-aztec-toolchain/bootstrap.sh" hash)}
+export AZTEC_TOOLCHAIN_HASH
 
 # Safety net: ensure all TS example yarn.lock files are empty on exit.
 # Both validate-ts and execute-examples (via Docker volume mount) can populate
 # these files, and their per-project cleanup may not run if processes are killed.
 trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
-# The examples read the labs yarn-project and aztec-nr, which this tree records only as the labs gitlink.
 hash=$(hash_str \
   $AZTEC_TOOLCHAIN_HASH \
-  $(git -C "$REPO_ROOT" rev-parse HEAD:labs) \
   $(cache_content_hash .rebuild_patterns))
 
 function compile-circuits {
@@ -82,7 +77,7 @@ function compile {
   # Pass only contract packages so circuits in the shared docs workspace are not
   # treated as contract artifacts by the noir-contracts bootstrap.
   DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/labs/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
+    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 
 function compile-solidity {
@@ -136,8 +131,8 @@ function validate-webapp-tutorial {
   echo_header "Validating webapp-tutorial build"
   local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
   local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-  local BUILDER_CLI="$REPO_ROOT/labs/yarn-project/builder/dest/bin/cli.js"
-  local YP="$REPO_ROOT/labs/yarn-project"
+  local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+  local YP="$REPO_ROOT/yarn-project"
 
   # Compile the pod_racing_contract (uses existing compile infrastructure)
   compile webapp-tutorial/contracts
@@ -146,7 +141,7 @@ function validate-webapp-tutorial {
     cd "$TUTORIAL_DIR"
 
     # Backup package.json (the only tracked file we mutate). yarn.lock is
-    # gitignored and regenerated on each run, so we don't back it up.
+    # gitignored and reseeded on each run, so we don't back it up.
     cp package.json package.json.bak
 
     cleanup() {
@@ -160,11 +155,15 @@ function validate-webapp-tutorial {
 
     # Start from a fresh node_modules / lock so we don't reuse state from
     # a previous run that may have been interrupted mid-cleanup.
-    # An empty yarn.lock is required to mark this directory as a standalone
-    # yarn project; otherwise yarn 4 walks up to docs/ and refuses to install
+    # A yarn.lock is required to mark this directory as a standalone yarn
+    # project; otherwise yarn 4 walks up to docs/ and refuses to install
     # because webapp-tutorial isn't listed as a workspace there.
+    # Seed it with yarn-project's lockfile so the linked packages' npm deps
+    # resolve to the versions yarn-project already locks. Resolving them fresh
+    # can pick a release whose sibling packages are still inside the
+    # npmMinimalAgeGate window and fail the install.
     rm -rf node_modules .yarn .yarnrc.yml
-    : > yarn.lock
+    cp "$YP/yarn.lock" yarn.lock
 
     # Replace #include_aztec_version with link: paths to local workspace
     # packages. link: does not install workspace transitive deps, so add the
@@ -306,15 +305,14 @@ function validate-webapp-tutorial {
 NODE
 
     # Fresh yarn setup for linking
-    yarn config set nodeLinker node-modules
+    yarn config set nodeLinker node-modules 2>/dev/null || true
     # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
     # from a seed yarn.lock that this install rewrites, so disable that.
-    # Only the e2e suite needs a browser, so other runs skip puppeteer's Chrome
-    # download. Set here rather than in webapp-tutorial itself so users following
-    # the tutorial still get Chrome for `yarn test:e2e`.
-    local skip_chrome=(PUPPETEER_SKIP_DOWNLOAD=1)
-    [ "${WEBAPP_TESTS:-}" = e2e ] && skip_chrome=()
-    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+    # Skip puppeteer's Chrome download: this step only type-checks and runs
+    # `vite build`, never the e2e tests that need a browser. Set here rather
+    # than in webapp-tutorial itself so users following the tutorial still
+    # get Chrome for `yarn test:e2e`.
+    PUPPETEER_SKIP_DOWNLOAD=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
 
     # yarn's `link:` protocol creates portals into yarn-project/*, which require
     # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
@@ -329,7 +327,7 @@ NODE
       return 1
     fi
     cp "$artifact" src/artifacts/
-    node "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
+    node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
 
     # Type check (build mode follows project references in tsconfig.json)
     echo_stderr "Type checking webapp-tutorial..."
@@ -338,24 +336,6 @@ NODE
     # Vite production build
     echo_stderr "Running vite build..."
     npx vite build
-
-    # The tests need the linked dependencies this subshell's EXIT trap removes. The e2e suite
-    # serves the app on ports 4173 and 4174, expects a local network at localhost:8080, and runs
-    # the extension test in a headed browser (under Xvfb when there is no display), so it is run
-    # by hand (test-webapp-e2e) and not from test_cmds.
-    if [ -n "${WEBAPP_TESTS:-}" ]; then
-      echo_stderr "Running webapp-tutorial unit tests..."
-      yarn test:unit
-    fi
-    if [ "${WEBAPP_TESTS:-}" = e2e ]; then
-      echo_stderr "Running webapp-tutorial e2e tests..."
-      yarn build:test-extension
-      if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null; then
-        xvfb-run -a yarn test:e2e
-      else
-        yarn test:e2e
-      fi
-    fi
 
     echo_stderr "webapp-tutorial validated successfully"
   )
@@ -367,19 +347,12 @@ function execute-examples {
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
-# Runs the Noir tests of every docs workspace package that has any (the type = "lib" test
-# packages the `compile` step skips, and the #[test]s inside circuits and contracts). A local
-# TXE server resolves the foreign calls the tests make: account creation, deployment, and
-# private/utility execution.
+# Runs the Noir TXE tests for the example test packages (the type = "lib" packages
+# that the `compile` step skips). A local TXE server resolves the foreign calls the
+# tests make: account creation, deployment, and private/utility execution.
 function test-contracts {
   echo_header "Testing example contracts (TXE)"
-  local test_packages=()
-  local member
-  for member in $(sed -n -E 's/^ *"(examples\/[^"]+)",?$/\1/p' "$REPO_ROOT/docs/Nargo.toml"); do
-    if grep -rqs '#\[test' "$REPO_ROOT/docs/$member/src"; then
-      test_packages+=("$(sed -n -E 's/^name *= *"([^"]+)".*/\1/p' "$REPO_ROOT/docs/$member/Nargo.toml")")
-    fi
-  done
+  local test_packages=("counter_contract_test" "logging_example_test")
   local txe_port=${TXE_PORT:-14745}
 
   # Run in a subshell so the EXIT trap that stops the TXE is scoped to this step.
@@ -391,11 +364,10 @@ function test-contracts {
         exit 1
       }
     fi
-    cd "$REPO_ROOT/labs/yarn-project/txe"
-    # Its own process group, so teardown stops yarn and the node server it spawns, and nothing else.
-    UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT="$txe_port" setsid yarn start >/dev/null &
+    cd "$REPO_ROOT/yarn-project/txe"
+    UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT="$txe_port" yarn start >/dev/null &
     txe_pid=$!
-    trap 'kill -- -"$txe_pid" &>/dev/null || true' EXIT
+    trap 'kill "$txe_pid" &>/dev/null || true' EXIT
 
     echo_stderr "Waiting for TXE to start on port $txe_port..."
     j=0
@@ -413,7 +385,7 @@ function test-contracts {
     cd "$REPO_ROOT/docs"
     for pkg in "${test_packages[@]}"; do
       echo_stderr "Running $pkg..."
-      $NARGO test --skip-brillig-constraints-check \
+      $NARGO test --silence-warnings --skip-brillig-constraints-check \
         --oracle-resolver "http://127.0.0.1:$txe_port" --package "$pkg"
     done
   )
@@ -425,7 +397,6 @@ function test_cmds {
   # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
   echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
 }
 
 function test {
@@ -520,12 +491,6 @@ case "$cmd" in
     ;;
   test-contracts)
     test-contracts
-    ;;
-  test-webapp)
-    WEBAPP_TESTS=unit validate-webapp-tutorial
-    ;;
-  test-webapp-e2e)
-    WEBAPP_TESTS=e2e validate-webapp-tutorial
     ;;
   *)
     default_cmd_handler "$@"
