@@ -111,7 +111,8 @@ These resources help you understand Aztec concepts, read docs, or provide additi
 
   These are especially useful as context for code generation since they reflect the current API surface.
 
-- **llms.txt** - The docs site publishes `llms.txt` and `llms-full.txt` at [docs.aztec.network/llms.txt](https://docs.aztec.network/llms.txt) for automatic LLM discovery. Many AI tools can consume these files directly to index documentation.
+- **llms.txt** - The docs site publishes [llms.txt](https://docs.aztec.network/llms.txt), a navigational index of every page following the [llmstxt.org](https://llmstxt.org) standard, and [llms-full.txt](https://docs.aztec.network/llms-full.txt), the complete documentation in a single file. Many AI tools can consume these files directly to index documentation.
+- **Markdown for any page** - Append `.md` to any page URL (for example `https://docs.aztec.network/developers/overview.md`), or request the normal URL with an `Accept: text/markdown` header, to get the page as clean markdown instead of HTML. This is the best format to hand to an agent.
 - **Reference repositories** - Point your AI tool at these repos for additional context:
   - [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages) - main monorepo, best general reference
   - [AztecProtocol/aztec-starter](https://github.com/AztecProtocol/aztec-starter) - smaller starter project, easier for onboarding
@@ -120,7 +121,7 @@ These resources help you understand Aztec concepts, read docs, or provide additi
   - [noir-lang/noir-examples](https://github.com/noir-lang/noir-examples) - common Noir patterns
   - [awesome-noir](https://github.com/noir-lang/awesome-noir) - community Noir resources
   - [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec) - community Aztec resources
-- **Copy docs into context** - Copy docs pages directly into your AI tool's context or conversation using the "Copy page" button at the top of each page.
+- **Copy docs into context** - The "Copy page" button at the top of each page copies the page as markdown. Its menu also opens the page in ChatGPT or Claude so you can ask questions about it, and links to the markdown version of the page.
 - **Context7** - [Context7](https://context7.com) is a generic MCP server. The Aztec index at [context7.com/aztecprotocol/aztec-packages](https://context7.com/aztecprotocol/aztec-packages) is scoped by [`context7.json`](https://github.com/AztecProtocol/aztec-packages/blob/next/context7.json) to the developer docs, `aztec-nr`, and `aztec.js`, and excludes the monorepo's internal deployment and CI infrastructure (`spartan/`, `iac/`, `ci3/`), which is not relevant to building on Aztec. Note that it may be less current than the MCP servers above.
 
 ## Aztec and Noir tool reference
