@@ -308,7 +308,7 @@ NODE
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules
     # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
-    # with an empty yarn.lock that this install populates, so disable that.
+    # from a seed yarn.lock that this install rewrites, so disable that.
     # Only the e2e suite needs a browser, so other runs skip puppeteer's Chrome
     # download. Set here rather than in webapp-tutorial itself so users following
     # the tutorial still get Chrome for `yarn test:e2e`.

@@ -46,7 +46,7 @@
     "remark-math": "6"
   },
   "devDependencies": {
-    "@aztec-foundation/l1-artifacts": "6.0.0-rc.6",
+    "@aztec-foundation/l1-artifacts": "6.0.0-rc.7",
     "@docusaurus/tsconfig": "3.10.2",
     "@tsconfig/docusaurus": "^1.0.7",
     "@types/react": "^18.3.31",
