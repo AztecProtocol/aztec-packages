@@ -50,27 +50,24 @@ echo "Checking for orphaned URLs..."
 echo "  Baseline sitemap: $SITEMAP_SOURCE"
 echo "  netlify.toml:     $NETLIFY_TOML"
 
-# Determine default versions for resolving /developers/* and /operate/*
-DEVELOPER_VERSION=""
-NETWORK_VERSION=""
-if [[ -f "$DOCS_ROOT/developer_versions.json" ]]; then
-  DEVELOPER_VERSION=$(jq -r '.[0]' "$DOCS_ROOT/developer_versions.json")
-fi
-if [[ -f "$DOCS_ROOT/network_versions.json" ]]; then
-  NETWORK_VERSION=$(jq -r '.[0]' "$DOCS_ROOT/network_versions.json")
-fi
-
-if [[ -n "$DEVELOPER_VERSION" ]] && [[ -d "$DOCS_ROOT/developer_versioned_docs/version-$DEVELOPER_VERSION" ]]; then
-  DEVELOPER_DOCS_DIR="$DOCS_ROOT/developer_versioned_docs/version-$DEVELOPER_VERSION"
-else
-  DEVELOPER_DOCS_DIR="$DOCS_ROOT/docs-developers"
-fi
-
-if [[ -n "$NETWORK_VERSION" ]] && [[ -d "$DOCS_ROOT/network_versioned_docs/version-$NETWORK_VERSION" ]]; then
-  OPERATE_DOCS_DIR="$DOCS_ROOT/network_versioned_docs/version-$NETWORK_VERSION"
-else
-  OPERATE_DOCS_DIR="$DOCS_ROOT/docs-operate"
-fi
+# Where production serves each docs version, from the map docusaurus.config.js
+# builds its versions from: "<routeBasePath> <path> <version>" per line, "." for
+# the instance root. Cut versions no network reads are served at their name.
+SERVED=$(cd "$DOCS_ROOT" && node -e '
+const fs = require("fs");
+const { docsInstances } = require("./src/network_docs");
+const json = (f, empty) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf-8")) : empty);
+const [developer, operator] = docsInstances(
+  json("developer_version_config.json", {}),
+  json("network_version_config.json", {}),
+  true,
+);
+for (const [instance, versionsFile] of [[developer, "developer_versions.json"], [operator, "network_versions.json"]]) {
+  const mapped = instance.versions.map((v) => v.version);
+  for (const v of instance.versions) console.log(instance.routeBasePath, v.path || ".", v.version);
+  for (const v of json(versionsFile, []).filter((v) => !mapped.includes(v))) console.log(instance.routeBasePath, v, v);
+}
+') || { echo "ERROR: could not read the docs version map" >&2; exit 1; }
 
 # Load baseline. Two supported formats:
 #   - XML sitemap (starts with <?xml or contains <urlset)
@@ -205,6 +202,30 @@ check_file_or_id() {
   return 1
 }
 
+# Resolves the rest of a /developers or /operate URL against the docs version
+# served at its longest matching path; the root falls back to the source tree
+# when no snapshot is mapped.
+resolves_in_instance() {
+  local base="$1" rest="$2" prefix=developer source=docs-developers
+  [[ "$base" == operate ]] && prefix=network source=docs-operate
+  local b p v root=""
+  while read -r b p v; do
+    [[ "$b" == "$base" ]] || continue
+    if [[ "$p" == . ]]; then
+      root=$v
+    elif [[ "$rest" == "$p" || "$rest" == "$p"/* ]]; then
+      rest=${rest#"$p"}
+      check_file_or_id "$DOCS_ROOT/${prefix}_versioned_docs/version-$v" "${rest#/}"
+      return
+    fi
+  done <<<"$SERVED"
+  if [[ -n "$root" && -d "$DOCS_ROOT/${prefix}_versioned_docs/version-$root" ]]; then
+    check_file_or_id "$DOCS_ROOT/${prefix}_versioned_docs/version-$root" "$rest"
+  else
+    check_file_or_id "$DOCS_ROOT/$source" "$rest"
+  fi
+}
+
 resolves_locally() {
   local url_path="$1"
 
@@ -220,37 +241,9 @@ resolves_locally() {
 
   local clean="${url_path#/}"
 
-  # A non-default version is served at its own path from its snapshot.
-  if [[ "$clean" =~ ^(developers|operate)/(v[0-9][^/]*)(/(.*))?$ ]]; then
-    local family=${BASH_REMATCH[1]} version=${BASH_REMATCH[2]} rest=${BASH_REMATCH[4]}
-    local prefix=developer default=$DEVELOPER_VERSION
-    [[ "$family" == operate ]] && prefix=network default=$NETWORK_VERSION
-    local snapshot="$DOCS_ROOT/${prefix}_versioned_docs/version-$version"
-    if [[ "$version" != "$default" && -d "$snapshot" ]]; then
-      check_file_or_id "$snapshot" "$rest" && return 0
-      return 1
-    fi
-  fi
-
-  if [[ "$clean" =~ ^developers/docs/(.*) ]]; then
-    check_file_or_id "$DEVELOPER_DOCS_DIR/docs" "${BASH_REMATCH[1]}" && return 0
-    return 1
-  fi
-  if [[ "$clean" =~ ^developers/?$ ]]; then
-    check_file_or_id "$DEVELOPER_DOCS_DIR" "" && return 0
-    return 1
-  fi
-  if [[ "$clean" =~ ^developers/(.*) ]]; then
-    check_file_or_id "$DEVELOPER_DOCS_DIR" "${BASH_REMATCH[1]}" && return 0
-    return 1
-  fi
-  if [[ "$clean" =~ ^operate/?$ ]]; then
-    check_file_or_id "$OPERATE_DOCS_DIR" "" && return 0
-    return 1
-  fi
-  if [[ "$clean" =~ ^operate/(.*) ]]; then
-    check_file_or_id "$OPERATE_DOCS_DIR" "${BASH_REMATCH[1]}" && return 0
-    return 1
+  if [[ "$clean" =~ ^(developers|operate)(/(.*))?$ ]]; then
+    resolves_in_instance "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}"
+    return
   fi
   if [[ "$clean" == "participate" ]]; then
     check_file_or_id "$DOCS_ROOT/docs-participate" "" && return 0
