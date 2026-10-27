@@ -17,6 +17,7 @@ const path = require("path");
 // @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const { docsInstances } = require("./src/network_docs.js");
 
 // Version config files are the source of truth for type→version mappings.
 // Generate *_versions.json: config-mapped versions first (preserving config order),
@@ -51,16 +52,33 @@ const developerVersionConfig = syncVersionsFromConfig(
   "developer_versions.json",
   "developer_versioned_docs"
 );
-const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
-const developerTestnetVersion = developerVersionConfig.testnet || null;
-
 const networkVersionConfig = syncVersionsFromConfig(
   "./network_version_config.json",
   "network_versions.json",
   "network_versioned_docs"
 );
-const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
-const testnetVersion = networkVersionConfig.testnet || null;
+const [developerDocs, operatorDocs] = docsInstances(
+  developerVersionConfig,
+  networkVersionConfig,
+  process.env.CONTEXT === "production"
+);
+
+const VERSION_LABELS = { mainnet: "Alpha", testnet: "Testnet" };
+function versionOptions({ versions }) {
+  return Object.fromEntries(
+    versions.map(({ version, networks, path }) => [
+      version,
+      networks.length
+        ? {
+            label: `${networks.map((n) => VERSION_LABELS[n]).join(" / ")} (${version})`,
+            path,
+            banner: "none",
+          }
+        : { label: "dev", path },
+    ])
+  );
+}
+const rootVersion = ({ versions }) => versions.find((v) => v.path === "")?.version;
 
 // Always serve from processed-docs (with resolved macros)
 // Preprocessing runs on both `yarn start` and `yarn build`
@@ -166,33 +184,8 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: mainnetDeveloperVersion || developerTestnetVersion,
-        versions: {
-          ...(mainnetDeveloperVersion && {
-            [mainnetDeveloperVersion]: {
-              label:
-                mainnetDeveloperVersion === developerTestnetVersion
-                  ? `Alpha / Testnet (${mainnetDeveloperVersion})`
-                  : `Alpha (${mainnetDeveloperVersion})`,
-              path: "",
-              banner: "none",
-            },
-          }),
-          ...(developerTestnetVersion &&
-            developerTestnetVersion !== mainnetDeveloperVersion && {
-              [developerTestnetVersion]: {
-                label: `Testnet (${developerTestnetVersion})`,
-                path: mainnetDeveloperVersion ? "testnet" : "",
-                banner: "none",
-              },
-            }),
-          ...(process.env.CONTEXT !== "production" && {
-            current: {
-              label: "dev",
-              path: "dev",
-            },
-          }),
-        },
+        lastVersion: rootVersion(developerDocs),
+        versions: versionOptions(developerDocs),
         remarkPlugins,
         rehypePlugins,
       },
@@ -214,36 +207,8 @@ const config = {
         },
         // Version configuration for Operate docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion:
-          process.env.CONTEXT !== "production"
-            ? "current"
-            : mainnetNetworkVersion,
-        versions: {
-          ...(mainnetNetworkVersion && {
-            [mainnetNetworkVersion]: {
-              label:
-                mainnetNetworkVersion === testnetVersion
-                  ? `Alpha / Testnet (${mainnetNetworkVersion})`
-                  : `Alpha (${mainnetNetworkVersion})`,
-              path: process.env.CONTEXT !== "production" ? "alpha" : "",
-              banner: "none",
-            },
-          }),
-          ...(testnetVersion &&
-            testnetVersion !== mainnetNetworkVersion && {
-              [testnetVersion]: {
-                label: `Testnet (${testnetVersion})`,
-                path: "testnet",
-                banner: "none",
-              },
-            }),
-          ...(process.env.CONTEXT !== "production" && {
-            current: {
-              label: "dev",
-              path: "",
-            },
-          }),
-        },
+        lastVersion: rootVersion(operatorDocs),
+        versions: versionOptions(operatorDocs),
         remarkPlugins,
         rehypePlugins,
       },
