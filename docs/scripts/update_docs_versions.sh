@@ -4,8 +4,8 @@
 # It scans versioned_docs directories, reconciles with the existing config file
 # (preserving type→version mappings), and writes the updated config.
 #
-# The Docusaurus-compatible *_versions.json is auto-generated from the
-# config file (for developer docs) or managed directly (for network docs).
+# The Docusaurus-compatible *_versions.json is generated from the config file
+# by src/network_docs.js's syncVersionsFile.
 #
 # Both developer and network docs use a config file
 # (developer_version_config.json / network_version_config.json).
@@ -49,7 +49,7 @@ if [ -n "$RELEASE_TYPE" ] && [ -n "$NEW_VERSION" ]; then
             config['$RELEASE_TYPE'] = '$NEW_VERSION';
             fs.writeFileSync('$CONFIG_FILE', JSON.stringify(config, null, 2) + '\n');
             console.log('Updated $CONFIG_FILE: $RELEASE_TYPE = $NEW_VERSION');
-        "
+        " || { echo "Error: could not update $CONFIG_FILE" >&2; exit 1; }
     fi
 fi
 
@@ -152,7 +152,7 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
 
             fs.writeFileSync('$CONFIG_FILE', JSON.stringify(newConfig, null, 2) + '\n');
             require('$DOCS_DIR/src/network_docs.js').syncVersionsFile('$CONFIG_FILE', '$VERSIONS_FILE', '$VERSIONED_DOCS_DIR');
-        "
+        " || { echo "Error: could not reconcile $CONFIG_FILE" >&2; exit 1; }
 
         echo "Updated ${INSTANCE}_version_config.json successfully"
 
