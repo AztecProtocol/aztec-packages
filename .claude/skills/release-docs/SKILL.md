@@ -1113,9 +1113,9 @@ version.
 
 #### Redirect the deleted versions' paths
 
-Production serves every version except the default at its own path, and the live
-sitemap lists those URLs. For a deleted version production served, add a redirect to
-`docs/netlify.toml`, next to the `/developers/testnet/*` rule, and the same for `/operate/<old_network_version>/*`:
+A version no network reads is served at its own name (`/developers/<old_version>/*`), and
+the live sitemap lists those URLs. For each deleted version production served there, add
+a redirect to `docs/netlify.toml`, next to the `/developers/testnet/*` rule, and the same for `/operate/<old_network_version>/*`:
 
 ```toml
 [[redirects]]
@@ -1129,6 +1129,18 @@ Then check every live URL still resolves (the build must be current):
 ```bash
 FAIL_ON_ORPHAN=1 scripts/check_orphaned_urls.sh https://docs.aztec.network/sitemap.xml
 ```
+
+That matches a redirect's source only, not its target. Check the targets too, and add a
+specific redirect above the wildcard for any page the default version lacks:
+
+```bash
+curl -fsSL https://docs.aztec.network/sitemap.xml | grep -oE '<loc>[^<]+</loc>' \
+  | sed -E 's#<loc>https?://[^/]+##; s#</loc>##' | grep '^/developers/<old_version>/' \
+  | sed 's#^/developers/<old_version>/#/developers/#' >"$STATE/redirect-targets.txt"
+FAIL_ON_ORPHAN=1 scripts/check_orphaned_urls.sh "$STATE/redirect-targets.txt"
+```
+
+Repeat it for `operate` and `<old_network_version>`.
 
 ### Step 17: Carry the Results Back to the Destination
 
