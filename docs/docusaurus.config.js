@@ -241,6 +241,7 @@ const config = {
           // built version is kept instead, each in a section named for the
           // networks that read it; cut versions no network reads are excluded.
           includeVersionedDocs: true,
+          beforeDefaultRehypePlugins: [require("./src/rehype_drop_hash_links.js")],
           routeRules: llmsInstances.flatMap((l) => l.routeRules),
           // The auto-generated API reference (raw static HTML under
           // /aztec-nr-api and markdown under /typescript-api) is not part of
