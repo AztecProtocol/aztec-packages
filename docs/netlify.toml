@@ -149,7 +149,7 @@
 # =============================================================================
 [[redirects]]
     from = "/favicon.ico"
-    to = "/img/Aztec_Symbol_Dark.png"
+    to = "/img/brand/favicon.png"
     status = 301
 
 [[redirects]]

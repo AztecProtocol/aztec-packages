@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-You are working with the **Aztec Protocol Documentation** - a comprehensive documentation site built with Docusaurus 3 for a privacy-centric zkRollup solution for Ethereum. Your role includes both technical development tasks and ensuring all documentation meets quality standards for accuracy, clarity, and usability.
+You are working with the **Aztec Protocol Documentation** - a comprehensive documentation site built with Docusaurus 3 for Aztec, the decentralized Ethereum L2 for building unstoppable private apps. Your role includes both technical development tasks and ensuring all documentation meets quality standards for accuracy, clarity, and usability.
 
 ## Development Commands
 

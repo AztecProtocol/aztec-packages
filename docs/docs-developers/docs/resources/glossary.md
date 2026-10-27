@@ -14,7 +14,7 @@ The Aztec Virtual Machine (AVM) executes the public section of a transaction. It
 
 ### Aztec
 
-Aztec is a privacy-first Layer 2 rollup on Ethereum. It supports smart contracts with both private & public state and private & public execution.
+Aztec is a decentralized Layer 2 rollup on Ethereum for building unstoppable private apps. It supports smart contracts with both private & public state and private & public execution.
 
 `aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: compile and test contracts, run a node, run a local network, execute tests, generate contract interfaces for javascript and more.
 

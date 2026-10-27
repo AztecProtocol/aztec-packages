@@ -221,7 +221,7 @@ An external service (e.g., Web3Signer) that stores private keys and signs transa
 
 ### Rollup
 
-A scaling solution that processes transactions offchain and submits compressed data and validity proofs to L1. Aztec is a zkRollup with privacy features.
+A scaling solution that processes transactions offchain and submits compressed data and validity proofs to L1. Aztec is a decentralized zkRollup with programmable privacy.
 
 ### RPC (Remote Procedure Call)
 

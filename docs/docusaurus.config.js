@@ -17,7 +17,12 @@ const path = require("path");
 // @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
-const { docsInstances, llmsRoutes, syncVersionsFile } = require("./src/network_docs.js");
+const {
+  docsInstances,
+  historicalVersions,
+  llmsRoutes,
+  syncVersionsFile,
+} = require("./src/network_docs.js");
 
 // Version config files are the source of truth for type→version mappings.
 const syncVersions = (instance) =>
@@ -35,9 +40,12 @@ const [developerDocs, operatorDocs] = docsInstances(
 );
 
 const VERSION_LABELS = { mainnet: "Alpha", testnet: "Testnet" };
-function versionOptions({ versions }) {
-  return Object.fromEntries(
-    versions.map(({ version, networks, path }) => [
+// Cut versions no network reads stay browsable at their version name but are
+// marked noindex (and kept out of llms.txt by llmsRoutes), so search engines
+// and agents land on the current docs.
+function versionOptions(instance, cutVersions) {
+  return Object.fromEntries([
+    ...instance.versions.map(({ version, networks, path }) => [
       version,
       networks.length
         ? {
@@ -46,15 +54,154 @@ function versionOptions({ versions }) {
             banner: "none",
           }
         : { label: "dev", path },
-    ])
-  );
+    ]),
+    ...historicalVersions(instance, cutVersions).map((version) => [
+      version,
+      { noIndex: true },
+    ]),
+  ]);
 }
 const rootVersion = ({ versions }) => versions.find((v) => v.path === "")?.version;
 
+const developerCutVersions = require("./developer_versions.json");
+const networkCutVersions = require("./network_versions.json");
 const llmsInstances = [
-  llmsRoutes(developerDocs, require("./developer_versions.json")),
-  llmsRoutes(operatorDocs, require("./network_versions.json")),
+  llmsRoutes(developerDocs, developerCutVersions),
+  llmsRoutes(operatorDocs, networkCutVersions),
 ];
+
+// Within each instance's section, llms.txt groups pages by product area with
+// readable headings instead of one flat list. A page whose segment count equals
+// its depth becomes a heading of its own, so depth is only raised for
+// directories; standalone pages keep the parent's depth. The most specific
+// matching rule wins per page.
+const productAreaRules = [
+  {
+    route: "/developers/docs/**",
+    depth: 3,
+    categoryName: "Guides and reference",
+  },
+  {
+    route: "/developers/docs/foundational-topics/**",
+    depth: 3,
+    categoryName: "Foundational topics: how Aztec works",
+  },
+  {
+    route: "/developers/docs/aztec-nr/**",
+    depth: 3,
+    categoryName: "Aztec.nr smart contract framework",
+  },
+  {
+    route: "/developers/docs/aztec-js/**",
+    depth: 3,
+    categoryName: "aztec.js TypeScript SDK",
+  },
+  {
+    route: "/developers/docs/tutorials/**",
+    depth: 3,
+    categoryName: "Tutorials",
+  },
+  {
+    route: "/developers/docs/cli/**",
+    depth: 3,
+    categoryName: "Aztec CLI",
+  },
+  {
+    route: "/developers/docs/resources/**",
+    depth: 3,
+    categoryName: "Resources",
+  },
+  {
+    route: "/operate/operators/**",
+    depth: 2,
+    categoryName: "Node operators",
+  },
+  ...Object.entries({
+    concepts: "Concepts",
+    "full-node": "Full node",
+    keystore: "Keystore",
+    monitoring: "Monitoring",
+    prover: "Prover",
+    provider: "Provider",
+    reference: "Reference and changelog",
+    "sequencer-management": "Sequencer management",
+    setup: "Setup",
+    "solo-sequencer": "Solo sequencer",
+    tooling: "Tooling",
+  }).map(([segment, categoryName]) => ({
+    route: `/operate/operators/${segment}/**`,
+    depth: 3,
+    categoryName,
+  })),
+  {
+    route: "/operate/reference/**",
+    depth: 2,
+    categoryName: "Operator reference",
+  },
+  {
+    route: "/participate/**",
+    categoryName: "Participate: network, token, and governance",
+  },
+  { route: "/networks", categoryName: "Networks" },
+  {
+    route: "/aztec_connect_sunset",
+    categoryName: "Aztec Connect sunset (legacy product)",
+  },
+];
+
+const historicalVersionEntries = (versions) =>
+  Object.fromEntries(versions.map((version) => [version, { noIndex: true }]));
+
+const SITE_URL = "https://docs.aztec.network";
+const SITE_TITLE = "Aztec Documentation";
+const SITE_DESCRIPTION =
+  "Build unstoppable private apps on Aztec, the decentralized Ethereum L2 with fully programmable privacy.";
+const OG_IMAGE_ALT =
+  "Aztec documentation: build unstoppable private apps on the decentralized Ethereum L2 with fully programmable privacy";
+
+// Site-wide entities for JSON-LD. Doc pages emit a TechArticle that references
+// these by @id (see src/theme/DocItem/Metadata).
+const ORGANIZATION_ID = "https://aztec.network/#organization";
+const WEBSITE_ID = `${SITE_URL}/#website`;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": ORGANIZATION_ID,
+      name: "Aztec Labs",
+      alternateName: ["Aztec", "Aztec Network"],
+      url: "https://aztec.network",
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/img/brand/favicon.png`,
+      },
+      sameAs: [
+        "https://github.com/AztecProtocol",
+        "https://x.com/aztecnetwork",
+        "https://discord.com/invite/JtqzkdeQ6G",
+        "https://forum.aztec.network",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": WEBSITE_ID,
+      name: SITE_TITLE,
+      url: `${SITE_URL}/`,
+      description: SITE_DESCRIPTION,
+      inLanguage: "en",
+      publisher: { "@id": ORGANIZATION_ID },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
 
 // Always serve from processed-docs (with resolved macros)
 // Preprocessing runs on both `yarn start` and `yarn build`
@@ -77,14 +224,52 @@ const rehypePlugins = [
 ];
 
 const config = {
-  title: "Privacy-first zkRollup | Aztec Documentation",
-  tagline:
-    "Aztec introduces a privacy-centric zkRollup solution for Ethereum, enhancing confidentiality and scalability within the Ethereum ecosystem.",
-  url: "https://docs.aztec.network/",
+  title: SITE_TITLE,
+  tagline: `${SITE_DESCRIPTION} Build freely. Stay private.`,
+  url: `${SITE_URL}/`,
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
-  favicon: "img/Aztec_Symbol_Dark.png",
+  favicon: "img/brand/favicon.png",
+  headTags: [
+    {
+      tagName: "script",
+      attributes: { type: "application/ld+json" },
+      innerHTML: JSON.stringify(structuredData),
+    },
+    {
+      tagName: "link",
+      attributes: {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: "/img/brand/apple-touch-icon.png",
+      },
+    },
+    {
+      tagName: "link",
+      attributes: {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/img/brand/favicon.svg",
+      },
+    },
+    {
+      tagName: "meta",
+      attributes: {
+        name: "theme-color",
+        media: "(prefers-color-scheme: light)",
+        content: "#fff9f2",
+      },
+    },
+    {
+      tagName: "meta",
+      attributes: {
+        name: "theme-color",
+        media: "(prefers-color-scheme: dark)",
+        content: "#141900",
+      },
+    },
+  ],
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -161,7 +346,7 @@ const config = {
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
         lastVersion: rootVersion(developerDocs),
-        versions: versionOptions(developerDocs),
+        versions: versionOptions(developerDocs, developerCutVersions),
         remarkPlugins,
         rehypePlugins,
       },
@@ -184,7 +369,7 @@ const config = {
         // Version configuration for Operate docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
         lastVersion: rootVersion(operatorDocs),
-        versions: versionOptions(operatorDocs),
+        versions: versionOptions(operatorDocs, networkCutVersions),
         remarkPlugins,
         rehypePlugins,
       },
@@ -223,9 +408,10 @@ const config = {
     [
       "@signalwire/docusaurus-plugin-llms-txt",
       {
-        siteTitle: "Aztec Protocol Documentation",
-        siteDescription:
-          "Build private smart contracts on Ethereum's leading privacy-first L2 zkRollup.",
+        siteTitle: SITE_TITLE,
+        siteDescription: SITE_DESCRIPTION,
+        // External links belong in the single "## Optional" section that
+        // scripts/append_api_docs_to_llms.js writes last, after the API index.
         content: {
           // Emit a .md sibling for every route so agents can fetch clean
           // markdown at PAGE.md. llms-full.txt is assembled from those files by
@@ -242,7 +428,10 @@ const config = {
           // networks that read it; cut versions no network reads are excluded.
           includeVersionedDocs: true,
           beforeDefaultRehypePlugins: [require("./src/rehype_drop_hash_links.js")],
-          routeRules: llmsInstances.flatMap((l) => l.routeRules),
+          routeRules: [
+            ...llmsInstances.flatMap((l) => l.routeRules),
+            ...productAreaRules,
+          ],
           // The auto-generated API reference (raw static HTML under
           // /aztec-nr-api and markdown under /typescript-api) is not part of
           // Docusaurus's routes. It is surfaced in llms.txt separately by
@@ -281,15 +470,23 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
-  customFields: {},
+  customFields: {
+    organizationId: ORGANIZATION_ID,
+    websiteId: WEBSITE_ID,
+  },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       metadata: [
         {
           name: "keywords",
-          content: "aztec, noir, privacy, encrypted, ethereum, blockchain",
+          content:
+            "aztec, noir, private smart contracts, unstoppable apps, programmable privacy, zero-knowledge, zk rollup, ethereum l2, decentralized, blockchain",
         },
+        { property: "og:site_name", content: SITE_TITLE },
+        { property: "og:image:alt", content: OG_IMAGE_ALT },
+        { name: "twitter:site", content: "@aztecnetwork" },
+        { name: "twitter:image:alt", content: OG_IMAGE_ALT },
       ],
       image: "img/docs-preview-image.png",
       colorMode: {
@@ -299,10 +496,12 @@ const config = {
       },
       navbar: {
         logo: {
-          alt: "Aztec Logo",
-          srcDark: "img/Aztec Wordmark_Light.svg",
+          alt: "Aztec",
+          src: "img/brand/aztec-wordmark-ink.svg",
+          srcDark: "img/brand/aztec-wordmark-paper.svg",
           href: "/",
-          src: "img/Aztec Wordmark_Dark.svg",
+          width: 104,
+          height: 24,
         },
         items: [
           // Developer sidebar link (Build)
@@ -519,8 +718,7 @@ const config = {
       },
       prism: {
         theme: themes.nightOwlLight,
-        darkTheme: themes.shadesOfPurple,
-        // darkTheme: themes.dracula,
+        darkTheme: themes.okaidia,
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [

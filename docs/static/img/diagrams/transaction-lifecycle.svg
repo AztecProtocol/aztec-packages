@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="1200" height="520" role="img" aria-labelledby="t d">
+<title id="t">Aztec transaction lifecycle</title>
+<desc id="d">A user calls aztec.js, which talks to the Private Execution Environment holding a database, the ACIR simulator and the private kernel circuit. The PXE sends the transaction to an Aztec node, whose sequencer orders it; the prover network proves epochs, and the rollup contract on Ethereum verifies proofs and stores block data.</desc>
+<style>
+svg { font-family: Geist, Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+text { fill: #141900; }
+.muted { fill: #4d4d3e; }
+.faint { fill: #818167; }
+.title { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
+.heading { font-size: 22px; font-weight: 600; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+.card-title { font-size: 14px; font-weight: 600; }
+.body { font-size: 12.5px; }
+.small { font-size: 11.5px; }
+.tiny { font-size: 11px; }
+.quote { font-size: 14px; }
+.badge-text { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+.private-title { fill: #461f65; }
+.public-title { fill: #376799; }
+.eth-title { fill: #506400; }
+.panel-private { fill: #ecebfc; stroke: #c9caf8; stroke-width: 1.5; }
+.panel-public { fill: #e4f0ff; stroke: #bcd8fb; stroke-width: 1.5; }
+.panel-eth { fill: #eefbc8; stroke: #c8e27a; stroke-width: 1.5; }
+.card { fill: #fff9f2; stroke: #d9d6c8; stroke-width: 1.5; }
+.inner { fill: #f8f1e7; stroke: #d9d6c8; stroke-width: 1; }
+.badge-private { fill: #461f65; }
+.badge-private-text { fill: #dcdcff; }
+.badge-public { fill: #376799; }
+.badge-public-text { fill: #dcecff; }
+.badge-eth { fill: #506400; }
+.badge-eth-text { fill: #e3ff9b; }
+.node-public { fill: #cfe3ff; stroke: #9cc4f7; stroke-width: 1.5; }
+.node-private { fill: #dcdcff; stroke: #b4b6fb; stroke-width: 1.5; }
+.line { stroke: #141900; stroke-width: 1.5; fill: none; }
+.arrow { stroke: #141900; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+.arrowhead { fill: #141900; }
+.connector { stroke: #c2c4b6; stroke-width: 1.5; fill: none; }
+.divider { stroke: #c2c4b6; stroke-width: 1.5; stroke-dasharray: 6 6; }
+.burst { fill: #c8fa00; opacity: 0.55; }
+.spent { opacity: 0.45; }
+.cross { stroke: #141900; stroke-width: 2; }
+.mid { text-anchor: middle; }
+</style>
+<defs>
+  <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+  </marker>
+</defs>
+<text x="40" y="52" class="heading">Transaction lifecycle (client side)</text>
+<text x="612" y="52" class="heading">Public execution (network side)</text>
+<line x1="572" y1="30" x2="572" y2="490" class="divider"/>
+<circle cx="70" cy="270" r="28" class="card"/>
+<circle cx="70" cy="262" r="8" class="badge-private"/>
+<path d="M54 290 a16 12 0 0 1 32 0 z" class="badge-private"/>
+<text x="70" y="320" class="small muted mid">User</text>
+<line x1="104" y1="262" x2="146" y2="262" class="arrow"/>
+<line x1="152" y1="278" x2="110" y2="278" class="arrow"/>
+<rect x="152" y="240" width="100" height="60" rx="10" class="card"/>
+<rect x="164" y="256" width="76" height="28" rx="6" class="badge-private"/>
+<text x="202" y="274" class="badge-text badge-private-text mid">AZTEC.JS</text>
+<line x1="252" y1="262" x2="296" y2="262" class="arrow"/>
+<line x1="302" y1="278" x2="258" y2="278" class="arrow"/>
+<rect x="302" y="110" width="240" height="330" rx="14" class="inner"/>
+<text x="322" y="140" class="card-title">Private Execution</text>
+<text x="322" y="158" class="card-title">Environment (PXE)</text>
+<rect x="318" y="180" width="208" height="52" rx="8" class="card"/>
+<rect x="334" y="192" width="86" height="28" rx="6" class="badge-private"/>
+<text x="377.0" y="210" class="badge-text badge-private-text mid">DATABASE</text>
+<rect x="318" y="252" width="208" height="52" rx="8" class="card"/>
+<rect x="334" y="264" width="124" height="28" rx="6" class="badge-private"/>
+<text x="396.0" y="282" class="badge-text badge-private-text mid">ACIR SIMULATOR</text>
+<rect x="318" y="324" width="208" height="52" rx="8" class="card"/>
+<rect x="334" y="336" width="176" height="28" rx="6" class="badge-private"/>
+<text x="422.0" y="354" class="badge-text badge-private-text mid">PRIVATE KERNEL CIRCUIT</text>
+<text x="422" y="420" class="small faint mid">Simulates and proves privately</text>
+<line x1="542" y1="255" x2="606" y2="255" class="arrow"/>
+<line x1="612" y1="271" x2="548" y2="271" class="arrow"/>
+<rect x="612" y="90" width="270" height="380" rx="16" class="panel-public"/>
+<text x="630" y="118" class="eyebrow public-title">AZTEC NETWORK</text>
+<rect x="630" y="135" width="234" height="110" rx="10" class="card"/>
+<text x="646" y="162" class="card-title">Aztec node</text>
+<rect x="646" y="180" width="104" height="28" rx="6" class="badge-public"/>
+<text x="698" y="198" class="badge-text badge-public-text mid">SEQUENCER</text>
+<text x="646" y="230" class="tiny faint">Orders transactions into blocks</text>
+<line x1="740" y1="245" x2="740" y2="296" class="arrow"/>
+<line x1="756" y1="302" x2="756" y2="251" class="arrow"/>
+<rect x="630" y="302" width="234" height="150" rx="10" class="card"/>
+<text x="646" y="329" class="card-title">Prover network</text>
+<rect x="646" y="345" width="92" height="28" rx="6" class="badge-public"/>
+<text x="692" y="363" class="badge-text badge-public-text mid">PROVER</text>
+<rect x="750" y="345" width="92" height="28" rx="6" class="badge-public"/>
+<text x="796" y="363" class="badge-text badge-public-text mid">PROVER</text>
+<rect x="646" y="385" width="92" height="28" rx="6" class="badge-public"/>
+<text x="692" y="403" class="badge-text badge-public-text mid">PROVER</text>
+<rect x="750" y="385" width="92" height="28" rx="6" class="badge-public"/>
+<text x="796" y="403" class="badge-text badge-public-text mid">PROVER</text>
+<text x="646" y="437" class="tiny faint">Proves each epoch of blocks</text>
+<line x1="864" y1="181" x2="926" y2="181" class="arrow"/>
+<line x1="932" y1="197" x2="870" y2="197" class="arrow"/>
+<rect x="932" y="90" width="240" height="380" rx="16" class="panel-eth"/>
+<text x="950" y="118" class="eyebrow eth-title">ETHEREUM</text>
+<rect x="950" y="135" width="204" height="120" rx="10" class="card"/>
+<text x="966" y="162" class="card-title">Ethereum L1</text>
+<rect x="966" y="180" width="150" height="28" rx="6" class="badge-eth"/>
+<text x="1041" y="198" class="badge-text badge-eth-text mid">ROLLUP CONTRACT</text>
+<text x="966" y="234" class="tiny faint">Verifies rollup proofs</text>
+</svg>

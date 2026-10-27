@@ -25,6 +25,13 @@
   letter-spacing: -0.01em;
 }
 
+.footerLede {
+  margin: -0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--ifm-footer-color);
+  opacity: 0.8;
+}
+
 .subscriptionForm {
   display: flex;
   flex-direction: column;

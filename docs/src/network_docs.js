@@ -65,9 +65,20 @@ const sectionName = (title, { version, networks }) =>
   `${title}: ${networks.length ? `${networks.join(" and ")} (${version})` : "unreleased"}`;
 
 /**
+ * The cut versions of an instance that no network reads. Docusaurus serves
+ * them at their version name; they are historical, not current, docs.
+ *
+ * @param {{versions: {version: string}[]}} instance a docsInstances entry
+ * @param {string[]} cutVersions the instance's `*_versions.json`
+ * @returns {string[]}
+ */
+function historicalVersions({ versions }, cutVersions) {
+  return cutVersions.filter((cut) => !versions.some((v) => v.version === cut));
+}
+
+/**
  * llms-txt plugin options for one instance: a section per built version, named
- * for the networks that read it, and every cut version no network reads
- * excluded (Docusaurus serves those at their version name).
+ * for the networks that read it, and every historical version excluded.
  */
 function llmsRoutes(instance, cutVersions) {
   const { routeBasePath, versions } = instance;
@@ -77,9 +88,9 @@ function llmsRoutes(instance, cutVersions) {
       categoryName: sectionName(instance.title, v),
       ...(v.path && { depth: 2 }),
     })),
-    excludeRoutes: cutVersions
-      .filter((cut) => !versions.some((v) => v.version === cut))
-      .map((cut) => `${docsPath(routeBasePath, cut)}/**`),
+    excludeRoutes: historicalVersions(instance, cutVersions).map(
+      (cut) => `${docsPath(routeBasePath, cut)}/**`,
+    ),
   };
 }
 
@@ -168,4 +179,10 @@ function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
   return config;
 }
 
-module.exports = { docsInstances, llmsRoutes, networkSection, syncVersionsFile };
+module.exports = {
+  docsInstances,
+  historicalVersions,
+  llmsRoutes,
+  networkSection,
+  syncVersionsFile,
+};
