@@ -602,8 +602,8 @@ commit has merged; remove `$STATE` once the release is out.
 
 ### Step 12: Refresh the Protected URL Snapshot
 
-Run this once the release is live in production on both docs instances: the developer
-docs from `/release-docs` and the operator docs from this skill. A draft or preview deploy does not
+Run this once this release's operator docs are live in production. A draft or preview
+deploy does not
 count, because the snapshot records what docs.aztec.network serves. The script adds the
 live sitemap's URLs to `docs/snapshots/published-urls.txt` and keeps every URL already
 listed, so a retired page stays protected and keeps needing its redirect. The default

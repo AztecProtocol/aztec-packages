@@ -2,15 +2,6 @@
 /**
  * Post-build script that completes the llms-txt plugin's build/llms.txt and
  * assembles build/llms-full.txt from it.
- *
- * This script:
- * 1. Adds a "Networks and versions" section: which docs each network reads,
- *    then the built /networks page
- * 2. Writes llms-full.txt: that index, then every page it lists, each labelled
- *    with its URL and section
- * 3. Finds the API reference (static/aztec-nr-api/, static/typescript-api/) of
- *    each version a network reads, links it from llms.txt and appends it to
- *    llms-full.txt
  */
 
 const fs = require("fs");
@@ -430,8 +421,8 @@ function insertNetworkSection(index) {
 
 /**
  * The markdown of every page the index links, in index order, each headed by
- * its URL and the index section listing it, which names its networks and
- * version. Exits if a listed page has no .md file.
+ * its URL and the index section listing it, if any, which names its networks
+ * and version. Exits if a listed page has no .md file.
  */
 function pagesContent(index) {
   let section = "";
@@ -441,14 +432,16 @@ function pagesContent(index) {
     const heading = line.match(/^#{2,6} (.+)/);
     if (heading) section = heading[1];
     const link = line.match(/^- \[.*?\]\((\/[^)\s]+)\.md\)/);
-    if (!link || link[1] === "/index") continue;
+    if (!link) continue;
     const file = path.join(BUILD_DIR, `${link[1]}.md`);
     if (!fs.existsSync(file)) {
       missing.push(file);
       continue;
     }
     const markdown = fs.readFileSync(file, "utf-8").trim();
-    pages.push(`Source: ${SITE_URL}${link[1]}\nSection: ${section}\n\n${markdown}`);
+    const route = link[1] === "/index" ? "/" : link[1];
+    const label = section ? `\nSection: ${section}` : "";
+    pages.push(`Source: ${SITE_URL}${route}${label}\n\n${markdown}`);
   }
   if (missing.length) {
     console.error(

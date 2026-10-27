@@ -23,7 +23,7 @@ live=$(curl -fsSL "$SITEMAP_URL" \
   | grep -oE "<loc>[^<]+</loc>" \
   | sed -E 's|<loc>https?://[^/]+||; s|</loc>||' \
   | grep -vE '^/(aztec-nr-api|typescript-api|search)(/|$)' \
-  | grep -vE '^/(developers|operate)/tags(/|$)' \
+  | grep -vE '/tags(/|$)' \
   | sort -u)
 
 if [[ -z "$live" ]]; then
