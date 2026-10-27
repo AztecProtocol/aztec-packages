@@ -502,6 +502,23 @@ Then reconcile so `network_versions.json` drops it, and verify neither
 scripts/update_docs_versions.sh network
 ```
 
+Production serves every version except the default at its own path, and the live
+sitemap lists those URLs. For a deleted version production served, add a redirect to
+`docs/netlify.toml`, next to the `/operate/testnet/*` rule:
+
+```toml
+[[redirects]]
+    from = "/operate/<old_version>/*"
+    to = "/operate/:splat"
+    status = 301
+```
+
+Then check every live URL still resolves (the build must be current):
+
+```bash
+FAIL_ON_ORPHAN=1 scripts/check_orphaned_urls.sh https://docs.aztec.network/sitemap.xml
+```
+
 ### Step 9: Final Build
 
 ```bash

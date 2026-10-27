@@ -1111,6 +1111,25 @@ scripts/update_docs_versions.sh network
 Verify neither `network_version_config.json` nor `network_versions.json` names the old
 version.
 
+#### Redirect the deleted versions' paths
+
+Production serves every version except the default at its own path, and the live
+sitemap lists those URLs. For a deleted version production served, add a redirect to
+`docs/netlify.toml`, next to the `/developers/testnet/*` rule, and the same for `/operate/<old_network_version>/*`:
+
+```toml
+[[redirects]]
+    from = "/developers/<old_version>/*"
+    to = "/developers/:splat"
+    status = 301
+```
+
+Then check every live URL still resolves (the build must be current):
+
+```bash
+FAIL_ON_ORPHAN=1 scripts/check_orphaned_urls.sh https://docs.aztec.network/sitemap.xml
+```
+
 ### Step 17: Carry the Results Back to the Destination
 
 First check that the destination's `docs/` has not moved since Step 2b, then record the
