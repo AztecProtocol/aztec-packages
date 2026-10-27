@@ -23,6 +23,7 @@ const {
   llmsRoutes,
   syncVersionsFile,
 } = require("./src/network_docs.js");
+const { versionLabel } = require("./src/release_names");
 
 // Version config files are the source of truth for type→version mappings.
 const syncVersions = (instance) =>
@@ -39,17 +40,24 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production"
 );
 
-const VERSION_LABELS = { mainnet: "Alpha", testnet: "Testnet" };
-// Cut versions no network reads stay browsable at their version name but are
+const NETWORK_LABELS = { mainnet: "Alpha", testnet: "Testnet" };
+// Docs versions track release lines, so each label carries the line name and
+// exact version (src/release_names.js). The networks are only added when Alpha
+// and Testnet run different versions and both appear in the dropdown. Cut
+// versions no network reads stay browsable at their version name but are
 // marked noindex (and kept out of llms.txt by llmsRoutes), so search engines
 // and agents land on the current docs.
 function versionOptions(instance, cutVersions) {
+  const released = instance.versions.filter((v) => v.networks.length);
   return Object.fromEntries([
     ...instance.versions.map(({ version, networks, path }) => [
       version,
       networks.length
         ? {
-            label: `${networks.map((n) => VERSION_LABELS[n]).join(" / ")} (${version})`,
+            label:
+              released.length === 1
+                ? versionLabel(version)
+                : versionLabel(version, networks.map((n) => NETWORK_LABELS[n]).join(" / ")),
             path,
             banner: "none",
           }
@@ -57,7 +65,7 @@ function versionOptions(instance, cutVersions) {
     ]),
     ...historicalVersions(instance, cutVersions).map((version) => [
       version,
-      { noIndex: true },
+      { label: versionLabel(version), noIndex: true },
     ]),
   ]);
 }
@@ -150,7 +158,12 @@ const productAreaRules = [
 ];
 
 const historicalVersionEntries = (versions) =>
-  Object.fromEntries(versions.map((version) => [version, { noIndex: true }]));
+  Object.fromEntries(
+    versions.map((version) => [
+      version,
+      { label: versionLabel(version), noIndex: true },
+    ])
+  );
 
 const SITE_URL = "https://docs.aztec.network";
 const SITE_TITLE = "Aztec Documentation";

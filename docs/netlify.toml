@@ -214,6 +214,19 @@
     status = 301
 
 [[redirects]]
+    # Release line vanity paths: Tierra is the current line, so its name resolves
+    # to the unprefixed docs. Repoint these at the archived version path when a
+    # later line becomes current.
+    from = "/developers/tierra/*"
+    to = "/developers/:splat"
+    status = 302
+
+[[redirects]]
+    from = "/operate/tierra/*"
+    to = "/operate/:splat"
+    status = 302
+
+[[redirects]]
     # Unified Alpha/Testnet docs: the testnet-prefixed routes fold into the default version
     from = "/developers/testnet/*"
     to = "/developers/:splat"

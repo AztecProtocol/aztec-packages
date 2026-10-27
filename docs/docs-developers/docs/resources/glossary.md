@@ -141,6 +141,10 @@ Included in the local network:
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
+### Release line
+
+A major version of the Aztec software and the name it ships under. The v6 line is called **Tierra**, so `6.0.0`, `6.1.0`, and every other `6.x` release are Tierra. Networks (Alpha and Testnet) run a release line; your code pins an exact version. See the [Networks page](/networks) for what each network runs today.
+
 ### Sequencer
 
 A sequencer is a specialized node that is generally responsible for:

@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { versionLabel } = require("./release_names");
 
 const NETWORKS = ["mainnet", "testnet"];
 
@@ -62,7 +63,7 @@ function docsInstances(developerConfig, networkConfig, production) {
 }
 
 const sectionName = (title, { version, networks }) =>
-  `${title}: ${networks.length ? `${networks.join(" and ")} (${version})` : "unreleased"}`;
+  `${title}: ${networks.length ? `${versionLabel(version)} on ${networks.join(" and ")}` : "unreleased"}`;
 
 /**
  * The cut versions of an instance that no network reads. Docusaurus serves

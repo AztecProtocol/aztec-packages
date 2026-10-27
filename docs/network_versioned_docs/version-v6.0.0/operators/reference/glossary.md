@@ -211,6 +211,10 @@ The client-side component that executes private functions, manages user keys, an
 
 ## R
 
+### Release line
+
+A major version of the Aztec software and the name it ships under. The v6 line is called **Tierra**, so every `6.x` release is Tierra. Networks (Alpha and Testnet) run a release line, while node configuration pins an exact version and keeps `NETWORK_NAME` as `mainnet` or `testnet`. See the [Networks page](/networks) for the version each network runs.
+
 ### Registry
 
 The L1 contract that tracks deployed contract classes and instances. The archiver monitors Registry events to maintain a database of available contracts.
@@ -262,6 +266,10 @@ Collateral locked by a sequencer to participate in block production. Higher stak
 A Merkle tree representing the current world state of all Aztec contracts and accounts.
 
 ## T
+
+### Tierra
+
+The name of the v6 release line. See [Release line](#release-line).
 
 ### Transaction Receipt
 

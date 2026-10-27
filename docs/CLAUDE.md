@@ -87,6 +87,8 @@ The preprocessing system uses these environment variables:
   - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet` → `MAINNET_TAG`
 - `#release_network` - Resolves to the network name for CLI `--network` flag:
   - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet` → `mainnet`
+- `#release_name` - Resolves to the release line name for the current version (`Tierra` for any `6.x`, from `release_names.json`); falls back to the version for an unnamed line
+- `#release_label` - Resolves to the full docs label, e.g. `Tierra (v6.0.0)`
 
 **Foundation macro:**
 
@@ -170,6 +172,7 @@ Uses Docusaurus multi-instance versioning with separate version tracks:
 - **Developer docs**: Version config in `developer_version_config.json`, stored in `developer_versioned_docs/`
 - **Network docs**: Version config in `network_version_config.json`, stored in `network_versioned_docs/`
 - Both config files map release types to version strings (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
+- `release_names.json` maps a major version to its release line name (`{"6": "Tierra"}`); `src/release_names.js` turns that into the dropdown and badge labels (`Tierra (v6.0.0)`) and the `#release_name` macro. Name a new line by adding one entry. Three names stay separate: networks (Alpha, Testnet), release lines (Tierra), and semver versions. Never use a release name as a network ("deploy to Tierra") or in CLI, env, or Docker values, and never write "Alpha V6" in docs
 - `docusaurus.config.js` auto-generates `*_versions.json` from these configs (filtered to versions with existing directories, plus any extra unmapped directories)
 - Use `scripts/update_docs_versions.sh` to update configs and reconcile: `./scripts/update_docs_versions.sh network mainnet v4.2.0`
 - Each docs instance has its own version dropdown in the navbar
