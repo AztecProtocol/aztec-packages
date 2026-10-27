@@ -42,7 +42,7 @@ Every exit goes through the same stages:
 
 1. **Initiate.** The position leaves the active set immediately and its stake moves into an exit record. The node can stop attesting for that key.
 2. **Name the recipient.** A withdrawer-initiated exit names it in step 1. After an attester-initiated exit, the withdrawer must call `initiateWithdraw(attester, recipient)`. This does not restart any delay, and the recipient cannot be changed once set.
-3. **Wait.** The stake unlocks once two delays have both passed, counted from step 1: the rollup's exit delay and the governance withdrawal delay. On Mainnet these are 4 days and about 9.6 days, so the stake is claimable about 9.6 days after the exit starts. An exiting position can still be slashed during this time.
+3. **Wait.** The stake unlocks once two delays have both passed, counted from step 1: the rollup's exit delay and the governance withdrawal delay. On Mainnet these are 4 days and about 9.6 days, so the stake is claimable about 9.6 days after the exit starts. The position can still be slashed until the rollup's exit delay ends; for the rest of the wait the stake is locked but no longer slashable.
 4. **Finalize.** Anyone can call `finalizeWithdraw(attester)`. The stake is sent to the recipient.
 
 Read the current delays for your network:
@@ -98,7 +98,7 @@ cast call $ROLLUP \
     --rpc-url $L1_RPC
 ```
 
-The fields are `(window, validatorCount, committeeSize, used, allowance, canExit)`. You can start `allowance - used` more attester-initiated exits right now, provided `canExit` is `true`.
+The fields are `(window, validatorCount, committeeSize, used, allowance, canExit)`. `canExit` is `true` when at least one attester-initiated exit fits right now. `allowance - used` is only an upper bound on how many: each exit lowers `validatorCount`, which can lower `allowance`, and no exit may take `validatorCount` below `committeeSize`. A batch `--dry-run` reports the exact number.
 
 ### Exit one position
 
@@ -159,7 +159,7 @@ Each attester signs an exit authorization offline. One relayer then submits them
 
 By default the batch is all or nothing: if the rate limit cannot fit every authorization, the transaction reverts. Add `--up-to-limit` to process as many authorizations as the limit allows, starting from the top of the file, and leave the rest. The command prints the zero-based indices of the entries it did not process, but it does not edit `exits.json`. Before you resubmit, remove the processed entries from the file (or write the unprocessed ones to a new file): an entry whose attester is already exiting reverts the whole batch. Submit the remainder once the window has room again and before the deadline.
 
-Both modes still revert the whole transaction if any authorization is invalid: an expired deadline, a bad signature, a duplicate attester, or an attester that is already exiting or has no stake. Always run `--dry-run` first.
+Both modes revert the whole transaction if any authorization they process is invalid: an expired deadline, a bad signature, a duplicate attester, or an attester that is already exiting or has no stake. With `--up-to-limit`, the entries left for later are not checked until you submit them. Always run `--dry-run` first.
 
 ### Name the recipient
 
