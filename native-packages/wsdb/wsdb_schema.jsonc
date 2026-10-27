@@ -472,6 +472,17 @@
         "compact": "bool?"
       },
       "response": {}
+    },
+    // Restarts an in-process world state (wsdb-ref) at this genesis, before any block. aztec-wsdb takes its
+    // genesis on the command line and answers this with an error.
+    "InitGenesis": {
+      "request": {
+        "prefilledPublicData": "PublicDataLeafValue[]",
+        "prefilledNullifiers": "Fr[]",
+        "genesisTimestamp": "u64",
+        "initialHeaderGeneratorPoint": "u32"
+      },
+      "response": {}
     }
   }
 }

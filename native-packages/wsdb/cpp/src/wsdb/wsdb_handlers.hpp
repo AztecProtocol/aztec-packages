@@ -127,5 +127,8 @@ void handle_revert_all_checkpoints(WsdbRequest& ctx,
                                    wire::WsdbRevertAllCheckpoints&& cmd,
                                    Responder<wire::WsdbRevertAllCheckpointsResponse> respond);
 void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<wire::WsdbCopyStoresResponse> respond);
+void handle_init_genesis(WsdbRequest& ctx,
+                         wire::WsdbInitGenesis&& cmd,
+                         Responder<wire::WsdbInitGenesisResponse> respond);
 
 } // namespace azteclabs::wsdb
