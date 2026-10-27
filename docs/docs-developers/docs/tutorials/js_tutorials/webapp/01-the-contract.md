@@ -48,11 +48,11 @@ compiler_version = ">=0.25.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../labs/noir-projects/aztec-nr/aztec" }
+aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
 ```
 
 :::note
-The `aztec` dependency path assumes you're working within the `aztec-packages` monorepo. If you're working outside the monorepo, use the git dependency instead:
+The `aztec` dependency path assumes you're working within the `aztec-node` repository. If you're working outside it, use the git dependency instead:
 ```toml
 aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
 ```
