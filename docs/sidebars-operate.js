@@ -210,6 +210,7 @@ const sequencerManagementCategory = {
     "operators/sequencer-management/creating_and_voting_on_proposals",
     "operators/sequencer-management/slashing_and_offenses",
     "operators/sequencer-management/claiming-rewards",
+    "operators/sequencer-management/exiting-a-sequencer",
     "operators/sequencer-management/useful-commands",
   ],
 };

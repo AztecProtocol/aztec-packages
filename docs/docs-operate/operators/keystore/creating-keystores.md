@@ -376,8 +376,9 @@ key they derive, locally and without RPC calls. The v6 upgrade sets the GSE's `p
 and the default budget is 270,000 gas, that cap minus a 10% margin. About 1 key in 170,000 estimates over the budget:
 
 - **No flag**: the command keeps the key at the usual derivation path. If its check could exceed the gas cap, the command
-  stops with an error before writing anything and suggests one of the flags below. If the command generated the
-  mnemonic itself, re-running without `--mnemonic` generates a new one; pass the mnemonic back with `--mnemonic` to keep it.
+  stops with an error before writing anything and suggests one of the flags below. If the command generated and printed
+  the mnemonic itself, re-running without `--mnemonic` generates a new one; pass the mnemonic back with `--mnemonic` to
+  keep it.
 - **`--bls-key-derivation-v6`**: a key whose check could exceed the gas cap is replaced by the next candidate, derived from
   the same mnemonic at `<path>/1`, `<path>/2`, and so on, until one fits. Keys that already fit are unchanged, and the
   ETH attester and publisher keys never change.
@@ -390,7 +391,17 @@ and the default budget is 270,000 gas, that cap minus a 10% margin. About 1 key 
 
 When a key comes from a candidate other than 0, the summary shows its full derivation path, for example
 `bls derivation path: m/12381/3600/0/0/384795/1 (candidate 1)`, followed by the max gas when
-`--bls-key-derivation-max-gas` was set. With `--json`, the output lists these keys under `blsKeyCandidates`. Encrypted BLS keystore files record each key's derivation path in their `path` field.
+`--bls-key-derivation-max-gas` was set. With `--json`, the output lists these keys under `blsKeyCandidates`. Encrypted
+BLS keystore files record the derivation path of each key the command derived in their `path` field. When
+`aztec validator-keys add --password` encrypts plaintext BLS keys that were already in the keystore, it cannot know where
+they came from, so it leaves their `path` empty.
+
+Governance can change `proofOfPossessionGasLimit` at any time. `aztec validator-keys staker` and
+`aztec validator-keys new --staker-output` read the current value from the GSE and stop with an error naming every
+attester whose BLS key is estimated to need more gas, before writing any output. To replace those BLS keys, regenerate
+the validators with `aztec validator-keys new`, the same mnemonic or IKM and indices, and `--bls-key-derivation-v6`. If
+the current limit minus 10% is below 270,000, also pass `--bls-key-derivation-max-gas` set to that value. The error
+names the exact flags.
 
 :::warning Regenerating keys
 To regenerate keys from your mnemonic, run the command with the same `--bls-key-derivation-v6` and

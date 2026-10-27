@@ -201,7 +201,7 @@ tags:
     --archiver.maxAllowedEthClientDriftSeconds <value>                        (default: 300)                                                ($MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS)
           Maximum allowed drift in seconds between the Ethereum client and current time.
 
-    --archiver.ethereumAllowNoDebugHosts <value>                              (default: true)                                               ($ETHEREUM_ALLOW_NO_DEBUG_HOSTS)
+    --archiver.ethereumAllowNoDebugHosts <value>                              (default: false)                                              ($ETHEREUM_ALLOW_NO_DEBUG_HOSTS)
           Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
 
     --archiver.archiverSkipHistoricalLogsCheck <value>                                                                                      ($ARCHIVER_SKIP_HISTORICAL_LOGS_CHECK)

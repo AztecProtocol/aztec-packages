@@ -40,10 +40,12 @@ AZTEC_ADMIN_PORT=8880
 Find your public IP address with: `curl ipv4.icanhazip.com`
 :::
 
-:::warning
-In order to retrieve blocks posted to L1 via non-standard contract interactions, it is necessary to have access to an L1 rpc endpoint with 'trace' capability (either `trace_transaction` or `debug_traceTransaction`). The variable `ETHEREUM_DEBUG_HOSTS` is used to provide these url/s to the node. If not provided, the value of this will default to that set in `ETHEREUM_HOSTS`. The node will validate whether it is able to execute a trace call on the provided url/s, if not, it looks to the value set in `ETHEREUM_ALLOW_NO_DEBUG_HOSTS` to determine whether this should prevent the node from starting. By default `ETHEREUM_ALLOW_NO_DEBUG_HOSTS` is `true`, allowing the node to start. Any url provided in `ETHEREUM_DEBUG_HOSTS` will only be used in the case of having to execute a trace, it won't be used in regular L1 interactions.
+:::warning Trace-capable L1 endpoint required
+The node needs an L1 execution endpoint that serves `trace_transaction` or `debug_traceTransaction`. A checkpoint published through a non-standard contract, rather than by a direct call to the rollup, cannot be read from the transaction calldata alone. The node traces that transaction to recover the checkpoint, and without a trace it stops syncing at that checkpoint.
 
-Note - if the node does not have access to an rpc url that is capable of trace calls and it encounters a block posted via a transaction using non-standard contract interactions, it may become stuck and unable to progress the chain.
+Set `ETHEREUM_DEBUG_HOSTS` to your trace-capable endpoint. If you leave it unset, the node uses `ETHEREUM_HOSTS` for trace calls. The node only uses `ETHEREUM_DEBUG_HOSTS` for traces, not for regular L1 interactions.
+
+At startup the node checks that it can trace a recent L1 transaction on that endpoint, and refuses to start if neither method works. To start anyway, set `ETHEREUM_ALLOW_NO_DEBUG_HOSTS=true`. The node then logs a warning and runs, but stalls on the first checkpoint it cannot read until you point it at a trace-capable endpoint and restart it.
 :::
 
 ### Step 3: Create Docker Compose File

@@ -69,10 +69,24 @@ could fail.
   `--bls-key-derivation-max-gas`, if you set one) whenever you regenerate these keys.
 - To regenerate a key you already registered with an earlier CLI version, re-run with `--skip-bls-key-gas-check`. It
   keeps the original key without checking it.
-- If you did not pass `--mnemonic`, the command generated a new mnemonic, and re-running generates another one. To keep
-  it, pass it back with `--mnemonic`.
+- If you did not pass `--mnemonic`, the command generated a new mnemonic, and re-running generates another one. If the
+  command printed it, pass it back with `--mnemonic` to keep it.
 
 See [BLS Keys and the Proof-of-Possession Gas Cap](./creating-keystores.md#bls-keys-and-the-proof-of-possession-gas-cap).
+
+### BLS Key Over the GSE Proof-of-Possession Gas Limit
+
+**Error:** `Registering these validators could fail: the GSE at <address> gives each proof-of-possession check <limit> gas, and the BLS keys of these attesters are estimated to need more: ...`
+
+**Cause:** `aztec validator-keys staker` or `aztec validator-keys new --staker-output` read the GSE's current
+`proofOfPossessionGasLimit`, and some BLS keys are estimated to need more gas than that, so their registration could
+fail. This happens when governance set a limit below the one the keys were checked against, or for keys created with
+`--skip-bls-key-gas-check`.
+
+**Solution:** Regenerate the listed validators with `aztec validator-keys new`, the same mnemonic or IKM and indices,
+and the flags the error names: `--bls-key-derivation-v6`, plus `--bls-key-derivation-max-gas` at 10% below the limit when
+that is below 270,000. This replaces their BLS keys and keeps their ETH keys. `aztec validator-keys add` appends new
+validators instead, so it does not replace these keys.
 
 ### Legacy BLS Key Derivation (2.1.4 Users)
 

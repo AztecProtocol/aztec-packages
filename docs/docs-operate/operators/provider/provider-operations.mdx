@@ -135,6 +135,26 @@ cast send {{STAKING_REGISTRY_ADDR}} \\
 
 Run with the smallest number that gets past the offending duplicate. Each call costs gas, so don't over-drip.
 
+## Exit delegated positions
+
+You hold the attester keys for your delegations, so you can exit them yourself with an attester-initiated exit, without your delegators' withdrawer keys. Sign one exit authorization per attester and relay them all in a single transaction:
+
+<ConfigCode language="bash">{`aztec sign-attester-exit --private-key [ATTESTER_PRIVATE_KEY] --attester [ATTESTER_ADDRESS] \\
+  --rollup {{ROLLUP_ADDR}} --l1-chain-id {{L1_CHAIN_ID}} --deadline [UNIX_TIMESTAMP] \\
+  --output exits.json --append
+
+# Simulate first (no key needed), then submit from any funded key
+aztec initiate-withdraw-by-attester-batch --dry-run --authorizations exits.json \\
+  --rollup {{ROLLUP_ADDR}} --l1-chain-id {{L1_CHAIN_ID}} --l1-rpc-urls {{ETH_RPC}}
+
+aztec initiate-withdraw-by-attester-batch --authorizations exits.json \\
+  --rollup {{ROLLUP_ADDR}} --l1-chain-id {{L1_CHAIN_ID}} --l1-rpc-urls {{ETH_RPC}} \\
+  --private-key [RELAYER_PRIVATE_KEY]`}</ConfigCode>
+
+The stake goes to each delegator's withdrawer address. Attester-initiated exits are rate-limited to about 5% of the sequencer set per governance withdrawal delay, so for a batch larger than the current limit, `--up-to-limit` exits as many as the limit allows and leaves the rest for a later submission.
+
+See [Exiting a sequencer](/operate/operators/sequencer-management/exiting-a-sequencer) for the full procedure, the limits, and troubleshooting.
+
 ## Provider config updates
 
 All three calls below must come from your `providerAdmin` address (the one returned by `providerConfigurations` field 1).

@@ -1090,7 +1090,7 @@ aztec sign-attester-exit [options]
   Maximum allowed drift in seconds between the Ethereum client and current time.
   *Environment: `$MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS`*
 
-- `--archiver.ethereumAllowNoDebugHosts <value>` (default: `true`)
+- `--archiver.ethereumAllowNoDebugHosts <value>` (default: `false`)
   Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
   *Environment: `$ETHEREUM_ALLOW_NO_DEBUG_HOSTS`*
 

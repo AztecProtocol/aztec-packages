@@ -72,7 +72,7 @@ Port 8880 is the **admin port** and provides unauthenticated access to node conf
 - **`KEY_STORE_DIRECTORY`** is the path to your validator keystore (the `key1.json` file).
 - **`ETHEREUM_HOSTS`** is your L1 execution client. The node reads rollup contract state and submits proofs here.
 - **`L1_CONSENSUS_HOST_URLS`** is your L1 consensus client (Beacon API). Needed for blob data access.
-- **`ETHEREUM_DEBUG_HOSTS`** is a trace-capable endpoint (`debug_traceTransaction`). It is optional: if you leave it unset, the node uses `ETHEREUM_HOSTS` for trace calls, so set it separately only if your trace-capable endpoint differs from your main execution endpoint.
+- **`ETHEREUM_DEBUG_HOSTS`** is a trace-capable endpoint (`debug_traceTransaction`). It is optional: if you leave it unset, the node uses `ETHEREUM_HOSTS` for trace calls, so set it separately only if your trace-capable endpoint differs from your main execution endpoint. Whichever endpoint the node traces with must serve trace methods: the node refuses to start otherwise, unless you set `ETHEREUM_ALLOW_NO_DEBUG_HOSTS=true`.
 - **`P2P_IP`** is your server's public IP so other nodes can connect to you.
 - **`P2P_PORT 40400`** is the port for peer-to-peer communication, both TCP and UDP. It must be forwarded through your firewall.
 

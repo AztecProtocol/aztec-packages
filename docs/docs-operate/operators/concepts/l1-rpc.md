@@ -39,6 +39,8 @@ The node uses `debug_traceTransaction` to recover proposal data in some cases (s
 
 `ETHEREUM_DEBUG_HOSTS` is optional. When it is unset, the node uses your `ETHEREUM_HOSTS` execution RPC for trace calls, so a self-hosted node that already serves `debug` methods needs nothing extra. Set `ETHEREUM_DEBUG_HOSTS` separately only when your execution RPC does not serve trace methods and you have a different endpoint that does (for example, a hosted execution RPC paired with a separate archive provider).
 
+The node checks at startup that whichever endpoint it traces with serves `debug_traceTransaction` or `trace_transaction`, and refuses to start if it serves neither. You can set `ETHEREUM_ALLOW_NO_DEBUG_HOSTS=true` to start without one, but the node then stops syncing at the first checkpoint it cannot read without a trace.
+
 The node normally reads a proposal's data straight from its L1 transaction. When a proposal's transaction has a non-standard structure, the node falls back to `debug_traceTransaction` to recover the data. Without a debug-capable RPC that holds recent history, the node can fail to follow the chain. This is also why a node syncing from a snapshot needs trace history back to that snapshot.
 
 Whether you need to change anything depends on the client and its sync mode. A Reth full node and any archive node serve this window with no extra configuration; other clients prune historical state too aggressively by default and need the history window set explicitly:
@@ -98,7 +100,7 @@ Raising the interval trades tip-detection latency for fewer calls. The maximum o
 |---|---|
 | Blob-source summary shows `consensusSuperNodes=0` | Beacon client is not serving blob sidecars; restart it with a supernode or semi-supernode flag. |
 | Archiver stuck, blob fetch failures | Same as above, or no blob archive fallback configured. |
-| Archiver fails to start, complains about debug/trace | The execution RPC does not expose `debug`/`trace` methods. Use a node that does, or a hosted tier that offers them. |
+| Archiver fails to start, complains about debug/trace | The endpoint in `ETHEREUM_DEBUG_HOSTS` (or `ETHEREUM_HOSTS` if unset) does not expose `debug`/`trace` methods. Use a node that does, or a hosted tier that offers them. |
 | `429 Too Many Requests` | RPC rate-limited; raise `ARCHIVER_POLLING_INTERVAL_MS` or self-host. |
 | `ECONNREFUSED 127.0.0.1:8545` at startup | The L1 RPC env var points at the container's own loopback, not your L1 node. See [Sequencer troubleshooting](./sequencer-troubleshooting). |
 

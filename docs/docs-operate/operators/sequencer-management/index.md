@@ -18,11 +18,11 @@ Before proceeding, you should:
 - Have access to Foundry's `cast` tool for contract queries
 - Understand your sequencer's role in the network
 
-## Understanding Sequencer Operations
+## Understanding sequencer operations
 
 As a sequencer operator, your responsibilities extend beyond simply running a node. You participate in network governance, manage your stake (whether self-funded or delegated), and monitor your sequencer's performance and status on the network.
 
-### Key Management Areas
+### Key management areas
 
 **Governance Participation**: Sequencers play a crucial role in protocol governance. You signal support for protocol upgrades, vote on proposals, and help shape the network's evolution. Active participation ensures your voice is heard in decisions that affect the protocol.
 
@@ -30,11 +30,11 @@ As a sequencer operator, your responsibilities extend beyond simply running a no
 
 **Operational Monitoring**: Regular monitoring of your sequencer's status, performance metrics, and onchain state helps you catch issues early and maintain optimal operations.
 
-## What This Guide Covers
+## What this guide covers
 
-This guide walks you through sequencer management in four parts:
+This guide walks you through sequencer management in five parts:
 
-### 1. Governance and Proposal Process
+### 1. Governance and proposal process
 
 Learn how to participate in protocol governance:
 
@@ -46,7 +46,7 @@ Learn how to participate in protocol governance:
 
 See [Governance Participation](./governance-participation.md) for detailed instructions.
 
-### 2. Running as a Staking Provider
+### 2. Running as a staking provider
 
 If you're operating a sequencer with delegated stake:
 
@@ -58,7 +58,7 @@ If you're operating a sequencer with delegated stake:
 
 See [Becoming a Staking Provider](../setup/staking-provider.md) for setup instructions.
 
-### 3. Claiming Rewards
+### 3. Claiming rewards
 
 Learn how to claim your sequencer rewards:
 
@@ -69,7 +69,18 @@ Learn how to claim your sequencer rewards:
 
 See [Claiming Rewards](./claiming-rewards.md) for detailed instructions.
 
-### 4. Useful Commands
+### 4. Exiting a sequencer
+
+Learn how to exit a position and withdraw its stake:
+
+- Withdrawer-initiated and attester-initiated exits
+- Batching many attester-signed exits into one transaction
+- The attester exit rate limit and the withdrawal delays
+- Naming the recipient and finalizing the withdrawal
+
+See [Exiting a sequencer](./exiting-a-sequencer.md) for detailed instructions.
+
+### 5. Useful commands
 
 Essential contract query commands for operators:
 
@@ -81,7 +92,7 @@ Essential contract query commands for operators:
 
 See [Useful Commands](./useful-commands.md) for a complete reference.
 
-## Getting Started
+## Getting started
 
 Start with the [Useful Commands](./useful-commands.md) guide to learn how to query your sequencer's status and verify it's operating correctly. This helps you establish a baseline for monitoring.
 
@@ -89,7 +100,7 @@ If you're participating in governance, review the [Governance Participation](./g
 
 For operators running with delegated stake, the [Becoming a Staking Provider](../setup/staking-provider.md) guide walks you through provider registration and management.
 
-## Best Practices
+## Best practices
 
 **Monitor Regularly**: Check your sequencer's status, balance, and attestation activity regularly. Set up alerts for critical thresholds like low balances or missed attestations.
 
@@ -101,7 +112,7 @@ For operators running with delegated stake, the [Becoming a Staking Provider](..
 
 **Communicate with Delegators**: If you're running with delegated stake, maintain open communication with your delegators about performance, commission changes, and planned maintenance.
 
-## Next Steps
+## Next steps
 
 - Query your sequencer status using the [Useful Commands](./useful-commands.md)
 - Learn about [governance participation](./governance-participation.md) to vote on protocol changes
