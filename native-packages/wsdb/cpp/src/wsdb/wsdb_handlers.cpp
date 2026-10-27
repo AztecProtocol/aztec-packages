@@ -759,4 +759,14 @@ void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<
     });
 }
 
+// aztec-wsdb takes its genesis on the command line, before it opens its stores. InitGenesis is for in-process world
+// states (wsdb-ref), which have no command line.
+void handle_init_genesis(WsdbRequest& /*ctx*/,
+                         wire::WsdbInitGenesis&& /*cmd*/,
+                         Responder<wire::WsdbInitGenesisResponse> respond)
+{
+    respond.error("aztec-wsdb takes its genesis on the command line (--prefilled-public-data, --prefilled-nullifiers, "
+                  "--genesis-timestamp, --initial-header-generator-point), not over InitGenesis");
+}
+
 } // namespace azteclabs::wsdb
