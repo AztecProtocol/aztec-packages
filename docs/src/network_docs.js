@@ -2,6 +2,9 @@
 // is served at. docusaurus.config.js builds its versions from this and the
 // llms.txt post-build step describes them, so the two cannot disagree.
 
+const fs = require("fs");
+const path = require("path");
+
 const NETWORKS = ["mainnet", "testnet"];
 
 const docsPath = (routeBasePath, path) =>
@@ -138,4 +141,31 @@ function networkSection(instances, networksPage, siteUrl) {
   ].join("\n");
 }
 
-module.exports = { docsInstances, llmsRoutes, networkSection };
+/**
+ * Writes the Docusaurus versions file for one docs instance: the versions the
+ * config maps that have a snapshot, each once and in config order, then every
+ * snapshot no release type maps.
+ *
+ * @param {string} configFile release type → version JSON
+ * @param {string} versionsFile the `*_versions.json` to write
+ * @param {string} versionedDocsDir the instance's `*_versioned_docs` directory
+ * @returns {Record<string, string>} the config
+ */
+function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
+  const config = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+  const snapshots = fs.existsSync(versionedDocsDir)
+    ? fs
+        .readdirSync(versionedDocsDir)
+        .filter((d) => d.startsWith("version-"))
+        .map((d) => d.slice("version-".length))
+    : [];
+  const mapped = new Set(Object.values(config).filter(Boolean));
+  const versions = [
+    ...[...mapped].filter((v) => snapshots.includes(v)),
+    ...snapshots.filter((v) => !mapped.has(v)),
+  ];
+  fs.writeFileSync(versionsFile, JSON.stringify(versions, null, 2) + "\n");
+  return config;
+}
+
+module.exports = { docsInstances, llmsRoutes, networkSection, syncVersionsFile };

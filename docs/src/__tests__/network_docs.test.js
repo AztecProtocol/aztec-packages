@@ -1,6 +1,9 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
-const { docsInstances, llmsRoutes, networkSection } = require("../network_docs");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { docsInstances, llmsRoutes, networkSection, syncVersionsFile } = require("../network_docs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
@@ -58,5 +61,22 @@ describe("outside production", () => {
         ["/operate/**", "Operator docs: unreleased"],
       ],
     );
+  });
+});
+
+describe("syncVersionsFile", () => {
+  it("lists a shared version once, keeps unmapped snapshots and drops versions without one", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "versions-"));
+    try {
+      const configFile = path.join(dir, "config.json");
+      const versionsFile = path.join(dir, "versions.json");
+      const snapshots = path.join(dir, "versioned_docs");
+      fs.writeFileSync(configFile, JSON.stringify({ ...shared, devnet: "v7.0.0" }));
+      for (const v of ["v6.0.0", "v5.2.0"]) fs.mkdirSync(path.join(snapshots, `version-${v}`), { recursive: true });
+      syncVersionsFile(configFile, versionsFile, snapshots);
+      assert.deepStrictEqual(JSON.parse(fs.readFileSync(versionsFile, "utf-8")), ["v6.0.0", "v5.2.0"]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

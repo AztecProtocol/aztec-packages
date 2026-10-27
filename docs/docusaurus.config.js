@@ -17,46 +17,17 @@ const path = require("path");
 // @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
-const { docsInstances, llmsRoutes } = require("./src/network_docs.js");
+const { docsInstances, llmsRoutes, syncVersionsFile } = require("./src/network_docs.js");
 
 // Version config files are the source of truth for type→version mappings.
-// Generate *_versions.json: config-mapped versions first (preserving config order),
-// then any extra directories not yet in the config (e.g. freshly cut versions).
-function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
-  const config = require(configFile);
-  const docsDir = path.join(__dirname, versionedDocsDir);
-  const configVersions = [
-    ...new Set(
-      Object.values(config).filter(
-        (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
-      )
-    ),
-  ];
-  const configVersionSet = new Set(Object.values(config).filter(Boolean));
-  const extraVersions = fs.existsSync(docsDir)
-    ? fs
-        .readdirSync(docsDir)
-        .filter((d) => d.startsWith("version-"))
-        .map((d) => d.replace("version-", ""))
-        .filter((v) => !configVersionSet.has(v))
-    : [];
-  fs.writeFileSync(
-    path.join(__dirname, versionsFile),
-    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n"
+const syncVersions = (instance) =>
+  syncVersionsFile(
+    path.join(__dirname, `${instance}_version_config.json`),
+    path.join(__dirname, `${instance}_versions.json`),
+    path.join(__dirname, `${instance}_versioned_docs`)
   );
-  return config;
-}
-
-const developerVersionConfig = syncVersionsFromConfig(
-  "./developer_version_config.json",
-  "developer_versions.json",
-  "developer_versioned_docs"
-);
-const networkVersionConfig = syncVersionsFromConfig(
-  "./network_version_config.json",
-  "network_versions.json",
-  "network_versioned_docs"
-);
+const developerVersionConfig = syncVersions("developer");
+const networkVersionConfig = syncVersions("network");
 const [developerDocs, operatorDocs] = docsInstances(
   developerVersionConfig,
   networkVersionConfig,

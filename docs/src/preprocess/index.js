@@ -4,6 +4,7 @@ const childProcess = require("child_process");
 
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
+const { syncVersionsFile } = require("../network_docs");
 
 // const { generateInstructionSet } = require("./InstructionSet/genMarkdown"); // Removed with protocol-specs
 
@@ -127,20 +128,8 @@ async function run() {
   // developer_versions.json reflects the current config, not stale data.
   const devConfigPath = path.join(docsRoot, "developer_version_config.json");
   const devArrayPath = path.join(docsRoot, "developer_versions.json");
-  // The same list docusaurus.config.js writes: types released together share a version, and
-  // snapshots no type maps to stay listed.
   if (fs.existsSync(devConfigPath)) {
-    const config = JSON.parse(fs.readFileSync(devConfigPath, "utf-8"));
-    const mapped = new Set(Object.values(config).filter(Boolean));
-    const versionedDir = path.join(docsRoot, "developer_versioned_docs");
-    const unmapped = fs.existsSync(versionedDir)
-      ? fs
-          .readdirSync(versionedDir)
-          .filter((d) => d.startsWith("version-"))
-          .map((d) => d.replace("version-", ""))
-          .filter((v) => !mapped.has(v))
-      : [];
-    fs.writeFileSync(devArrayPath, JSON.stringify([...mapped, ...unmapped], null, 2) + "\n");
+    syncVersionsFile(devConfigPath, devArrayPath, path.join(docsRoot, "developer_versioned_docs"));
   }
   const baseDestDir = path.join(rootDir, "docs", "processed-docs");
   const baseCachedDestDir = path.join(rootDir, "docs", "processed-docs-cache");

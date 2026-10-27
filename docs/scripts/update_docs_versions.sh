@@ -140,27 +140,18 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
                 }
             }
 
-            // Warn about any versioned docs directories not in the config.
-            // The config file is the source of truth for type→version mapping —
-            // version strings cannot reliably self-identify their release type
+            // Name versioned docs no release type maps: an older release kept in the
+            // version list, or a new cut still to be mapped by hand, since version
+            // strings cannot reliably self-identify their release type
             // (e.g. v4.2.0-aztecnr-rc.2 is mainnet, not testnet).
-            // Unmapped versions are left out of the config; update the config
-            // manually to assign them to the correct release type.
             for (const version of allVersions) {
                 if (!versionToType[version]) {
-                    console.error('WARNING: Version ' + version + ' has versioned docs but is not in the config file. Update ' + '$CONFIG_FILE' + ' manually to assign it a release type.');
+                    console.error('Unmapped: ' + version + ' has versioned docs that no release type in ' + '$CONFIG_FILE' + ' maps; it stays in the version list. If it is a new release, assign it a release type there.');
                 }
             }
 
             fs.writeFileSync('$CONFIG_FILE', JSON.stringify(newConfig, null, 2) + '\n');
-
-            // Generate the Docusaurus-compatible array file:
-            // config-mapped versions first, then any unmapped directories. Types released
-            // together share a version, which Docusaurus must see once.
-            const configVersionSet = new Set(Object.values(newConfig).filter(Boolean));
-            const unmapped = allVersions.filter(v => !configVersionSet.has(v));
-            const versionsArray = [...configVersionSet, ...unmapped];
-            fs.writeFileSync('$VERSIONS_FILE', JSON.stringify(versionsArray, null, 2) + '\n');
+            require('$DOCS_DIR/src/network_docs.js').syncVersionsFile('$CONFIG_FILE', '$VERSIONS_FILE', '$VERSIONED_DOCS_DIR');
         "
 
         echo "Updated ${INSTANCE}_version_config.json successfully"
