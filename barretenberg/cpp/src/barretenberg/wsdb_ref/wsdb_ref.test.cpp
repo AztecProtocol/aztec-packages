@@ -141,46 +141,103 @@ TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
     msgpack::packer<msgpack::sbuffer> pk(buf);
     pk.pack_array(1);
     pk.pack_array(2);
-    pk.pack(std::string("WsdbSyncBlock"));
+    pk.pack(std::string("WsdbNoSuchCommand"));
     pk.pack_map(0);
     uint8_t* output = nullptr;
     size_t output_len = 0;
     wsdb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
     wsdb_ipc_ffi_free(output);
-    EXPECT_EQ(error_of(decode_response<wire::WsdbGetTreeInfoResponse>(frame, "")), "unknown command: WsdbSyncBlock");
+    EXPECT_EQ(error_of(decode_response<wire::WsdbGetTreeInfoResponse>(frame, "")),
+              "unknown command: WsdbNoSuchCommand");
 
     EXPECT_EQ(error_of(call_ffi<wire::WsdbGetTreeInfoResponse>(
                   "WsdbGetTreeInfo",
                   wire::WsdbGetTreeInfo{ .treeId = 9, .revision = LATEST_COMMITTED },
                   "WsdbGetTreeInfoResponse")),
-              "unknown tree id 9");
+              "Unknown tree id 9");
 }
 
-TEST(WsdbRef, RejectsWhatTheReferenceDoesNotModel)
+TEST(WsdbRef, ForksAndHistoryOverTheWire)
 {
     Service service;
+    auto fork = ok(service.call<wire::WsdbCreateForkResponse>(
+        "WsdbCreateFork", wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 }, "WsdbCreateForkResponse"));
+    EXPECT_EQ(fork.forkId, 1);
+    ok(service.call<wire::WsdbAppendLeavesResponse>(
+        "WsdbAppendLeaves",
+        wire::WsdbAppendLeaves{ .treeId = 1, .leaves = { bytes_of<wire::Fr>(fr(42)) }, .forkId = fork.forkId },
+        "WsdbAppendLeavesResponse"));
+    auto on_fork = ok(service.call<wire::WsdbGetTreeInfoResponse>(
+        "WsdbGetTreeInfo",
+        wire::WsdbGetTreeInfo{
+            .treeId = 1, .revision = { .forkId = fork.forkId, .blockNumber = LATEST, .includeUncommitted = true } },
+        "WsdbGetTreeInfoResponse"));
+    EXPECT_EQ(on_fork.size, 1);
+    auto canonical = ok(service.call<wire::WsdbGetTreeInfoResponse>(
+        "WsdbGetTreeInfo",
+        wire::WsdbGetTreeInfo{ .treeId = 1, .revision = LATEST_UNCOMMITTED },
+        "WsdbGetTreeInfoResponse"));
+    EXPECT_EQ(canonical.size, 0);
+
     EXPECT_EQ(error_of(service.call<wire::WsdbGetTreeInfoResponse>(
                   "WsdbGetTreeInfo",
                   wire::WsdbGetTreeInfo{
                       .treeId = 1, .revision = { .forkId = 3, .blockNumber = LATEST, .includeUncommitted = true } },
                   "WsdbGetTreeInfoResponse")),
-              "the reference world state has one fork (0), not 3");
-    EXPECT_NE(error_of(service.call<wire::WsdbGetTreeInfoResponse>(
-                           "WsdbGetTreeInfo",
-                           wire::WsdbGetTreeInfo{
-                               .treeId = 1, .revision = { .forkId = 0, .blockNumber = 5, .includeUncommitted = true } },
-                           "WsdbGetTreeInfoResponse"))
-                  .find("keeps no block history"),
-              std::string::npos);
+              "Fork not found");
+    EXPECT_NE(
+        error_of(service.call<wire::WsdbGetTreeInfoResponse>(
+                     "WsdbGetTreeInfo",
+                     wire::WsdbGetTreeInfo{
+                         .treeId = 1, .revision = { .forkId = 0, .blockNumber = 5, .includeUncommitted = false } },
+                     "WsdbGetTreeInfoResponse"))
+            .find("latest block is 0"),
+        std::string::npos);
     EXPECT_EQ(error_of(service.call<wire::WsdbGetLeafValueResponse>(
                   "WsdbGetLeafValue",
                   wire::WsdbGetLeafValue{ .treeId = 0, .revision = LATEST_UNCOMMITTED, .leafIndex = 0 },
                   "WsdbGetLeafValueResponse")),
-              "get_leaf_value is not supported for tree 0");
+              "Unsupported tree type for get_leaf_value");
     EXPECT_EQ(error_of(service.call<wire::WsdbRevertCheckpointResponse>(
                   "WsdbRevertCheckpoint", wire::WsdbRevertCheckpoint{ .forkId = 0 }, "WsdbRevertCheckpointResponse")),
-              "no checkpoint to revert");
+              "Cannot revert without a checkpoint");
+    EXPECT_NE(error_of(service.call<wire::WsdbCopyStoresResponse>(
+                           "WsdbCopyStores",
+                           wire::WsdbCopyStores{ .dstPath = "/tmp/x", .compact = std::nullopt },
+                           "WsdbCopyStoresResponse"))
+                  .find("not supported"),
+              std::string::npos);
+}
+
+TEST(WsdbRef, InitGenesisRestartsAtTheGivenGenesis)
+{
+    Service service;
+    auto nullifier_root = [&]() {
+        auto info = ok(service.call<wire::WsdbGetTreeInfoResponse>(
+            "WsdbGetTreeInfo",
+            wire::WsdbGetTreeInfo{ .treeId = 0, .revision = LATEST_COMMITTED },
+            "WsdbGetTreeInfoResponse"));
+        return fr_of(info.root);
+    };
+    EXPECT_EQ(nullifier_root(), fr(GENESIS_NULLIFIER_TREE_ROOT));
+    ok(service.call<wire::WsdbInitGenesisResponse>(
+        "WsdbInitGenesis",
+        wire::WsdbInitGenesis{ .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
+                                                          .value = bytes_of<wire::PublicDataValue>(fr(5)) } },
+                               .prefilledNullifiers = {},
+                               .genesisTimestamp = 0,
+                               .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
+        "WsdbInitGenesisResponse"));
+    EXPECT_NE(nullifier_root(), fr(GENESIS_NULLIFIER_TREE_ROOT));
+    auto slot = ok(service.call<wire::WsdbFindPublicDataLeafIndicesResponse>(
+        "WsdbFindPublicDataLeafIndices",
+        wire::WsdbFindPublicDataLeafIndices{ .revision = LATEST_COMMITTED,
+                                             .leaves = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
+                                                           .value = bytes_of<wire::PublicDataValue>(fr(0)) } },
+                                             .startIndex = 0 },
+        "WsdbFindPublicDataLeafIndicesResponse"));
+    EXPECT_EQ(slot.indices, (std::vector<std::optional<uint64_t>>{ 127 }));
 }
 
 TEST(WsdbRef, InsertsNullifiersWithWitnessesAndRejectsDuplicates)
@@ -213,7 +270,7 @@ TEST(WsdbRef, InsertsNullifiersWithWitnessesAndRejectsDuplicates)
                                                          { .nullifier = bytes_of<wire::Nullifier>(nullifier) } },
                                              .forkId = 0 },
         "WsdbSequentialInsertNullifierResponse");
-    EXPECT_NE(error_of(duplicate).find("already exists"), std::string::npos);
+    EXPECT_NE(error_of(duplicate).find("is already present"), std::string::npos);
     auto low = ok(service.call<wire::WsdbFindLowLeafResponse>(
         "WsdbFindLowLeaf",
         wire::WsdbFindLowLeaf{ .treeId = 0, .revision = LATEST_UNCOMMITTED, .key = bytes_of<wire::Fr>(fresh) },
@@ -254,3 +311,12 @@ TEST(WsdbRef, UpdateArchiveChecksTheBlockState)
         "WsdbGetTreeInfoResponse"));
     EXPECT_EQ(archive.size, 2);
 }
+
+// wasm does not find main() in gtest_main (see ecc_tests' secp256r1.test.cpp).
+#ifdef __wasm__
+GTEST_API_ int main(int argc, char** argv)
+{
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+#endif
