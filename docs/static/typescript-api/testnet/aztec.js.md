@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 6.0.0-rc.3
+Version: 6.0.0
 
 ## Quick Import Reference
 
@@ -964,6 +964,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `generateP2PMessageIdentifier() => Promise<BaseBuffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
+- `getDeliveredPublicCalldataCount() => number` - Returns the number of calldata fields the public calls receive. Calldata shared by several calls counts once per call, and a call with no matching calldata entry counts as receiving none.
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
@@ -973,7 +974,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `getSplitContractClassLogs(revertible: boolean) => ContractClassLog[]` - Gets either revertible or non revertible contract class logs emitted by this tx.
 - `getStats() => TxStats` - Returns stats about this tx.
 - `getTeardownPublicCallRequestWithCalldata() => PublicCallRequestWithCalldata | undefined`
-- `getTotalPublicCalldataCount() => number`
+- `getTotalPublicCalldataCount() => number` - Returns the number of calldata fields across the supplied calldata entries, whichever calls use them.
 - `getTxHash() => TxHash` - Return transaction hash.
 - `hasPublicCalls() => boolean`
 - `numberOfPublicCalls() => number`

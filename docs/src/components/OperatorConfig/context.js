@@ -6,6 +6,9 @@ import networkVersionConfig from '@site/network_version_config.json';
 const RECOMMENDED_VERSION =
   networkVersionConfig.testnet || networkVersionConfig.mainnet || 'latest';
 
+// Docker Hub tags carry no leading "v" (azteclabs/aztec:6.0.0), unlike the version config entries.
+const dockerTag = (version) => version.replace(/^v/, '');
+
 const SAFE_FIELDS = [
   'P2P_IP',
   'ATTESTER_ADDR',
@@ -282,30 +285,30 @@ export function maskSecret(val) {
 // from https://docs.aztec.network/networks. Rollup and Slasher addresses change when
 // governance migrates contracts; Registry and GSE addresses are stable anchors and
 // rotate only on major upgrades. Resync this block from /networks on each major release.
-// Last synced: 2026-07-29 (V5).
+// Last synced: 2026-10-23 (V6).
 const NETWORK_TOKENS = {
   testnet: {
     REGISTRY_ADDR: '0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba',
-    ROLLUP_ADDR: '0xD73A91bdcF6891C7642F3e460036e1ef2CC23178',
+    ROLLUP_ADDR: '0x1f435a7F2dA358caF887A470FAeEE7d5D5f4eFBA',
     GSE_ADDR: '0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac',
     STAKING_REGISTRY_ADDR: '0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2',
-    SLASHER_ADDR: '0xBFa3625CfC7cdDAbF29961e12C4399c5bd8D8763',
+    SLASHER_ADDR: '0xaFfC002e2dA0A45176ed6015604aC1fFF1b55fA7',
     L1_CHAIN_ID: '11155111',
     NETWORK_NAME: 'testnet',
     TOKEN_SYMBOL: 'STK',
-    IMAGE_TAG: RECOMMENDED_VERSION,
+    IMAGE_TAG: dockerTag(RECOMMENDED_VERSION),
     DEFAULT_RPC_HINT: 'https://eth-sepolia.g.alchemy.com/v2/...',
   },
   mainnet: {
     REGISTRY_ADDR: '0x35b22e09ee0390539439e24f06da43d83f90e298',
-    ROLLUP_ADDR: '0x91fF8bbD8Ebb07893010D50A48A1609e5EBd8E34',
+    ROLLUP_ADDR: '0xE37A2663Cc9c119BA41572C40fAb0bbb23a5402f',
     GSE_ADDR: '0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f',
     STAKING_REGISTRY_ADDR: '0x042dF8f42790d6943F41C25C2132400fd727f452',
-    SLASHER_ADDR: '0xCD6855470A01aBcd989126A1183Fb50673952548',
+    SLASHER_ADDR: '0x08B364720b6E4C2089FBdD8A6A722F474013a2B7',
     L1_CHAIN_ID: '1',
     NETWORK_NAME: 'mainnet',
     TOKEN_SYMBOL: 'AZTEC',
-    IMAGE_TAG: networkVersionConfig.mainnet || RECOMMENDED_VERSION,
+    IMAGE_TAG: dockerTag(networkVersionConfig.mainnet || RECOMMENDED_VERSION),
     DEFAULT_RPC_HINT: 'https://eth-mainnet.g.alchemy.com/v2/...',
   },
 };

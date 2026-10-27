@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
+<script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
+<title>Function get_nullifier_statuses documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">get_nullifier_statuses</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module nullifiers</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NullifierStatus.html">NullifierStatus</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.check_nullifier_exists.html">check_nullifier_exists</a></div></li>
+<li><a href="fn.get_nullifier_statuses.html">get_nullifier_statuses</a></div></li>
+<li><a href="fn.is_nullifier_pending.html">is_nullifier_pending</a></div></li>
+<li><a href="fn.notify_created_nullifier.html">notify_created_nullifier</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">nullifiers</a></div>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">get_nullifier_statuses</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
+<pre><code>pub unconstrained fn get_nullifier_statuses(
+    inner_nullifiers: <a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;,
+) -> <a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/oracle/nullifiers/struct.NullifierStatus.html" class="struct">NullifierStatus</a>&gt;</code></pre>
+
+<div class="comments">
+<p>Returns the existence status of multiple nullifiers.</p>
+<p>Same guarantees as <a href="../../../noir_aztec/oracle/nullifiers/fn.check_nullifier_exists.html"><code>check_nullifier_exists</code></a>: an existing nullifier can be constrained by proving its inclusion,
+but a non-existent one cannot be relied upon. Proving the <code>origin_block</code> however is fairly involved, as it'd require
+proving existence of the transaction in which the nullifier was emitted, inclusion of the transaction in the block,
+and ancestry of the block in the anchor block.</p></div>
+</div>
+</main>
+</span>
+</body>
+</html>

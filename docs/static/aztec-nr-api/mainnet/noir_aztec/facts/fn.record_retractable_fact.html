@@ -24,7 +24,7 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.Fact.html">Fact</a></div></li>
 <li><a href="struct.FactCollection.html">FactCollection</a></div></li>
-<li><a href="struct.OriginBlock.html">OriginBlock</a></div></li>
+<li><a href="struct.FactScope.html">FactScope</a></div></li>
 <li><a href="struct.OriginBlockState.html">OriginBlockState</a></div></li>
 <li><a href="struct.RetractableFactOrigin.html">RetractableFactOrigin</a></div></li>
 </ul>
@@ -47,12 +47,12 @@
 <div id="page-content">
 <pre><code>pub unconstrained fn record_retractable_fact(
     contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    scope: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    scope: <a href="../../noir_aztec/facts/struct.FactScope.html" class="struct">FactScope</a>,
     fact_collection_type_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     fact_collection_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     fact_type_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     payload: <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;,
-    origin_block: <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a>,
+    origin_block: <a href="../../noir_aztec/oracle/block_reference/struct.BlockReference.html" class="struct">BlockReference</a>,
 )</code></pre>
 
 <div class="comments">

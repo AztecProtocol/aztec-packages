@@ -46,6 +46,7 @@
 <li><a href="note_interface/index.html">note_interface</a></div></li>
 <li><a href="note_metadata/index.html">note_metadata</a></div></li>
 <li><a href="note_viewer_options/index.html">note_viewer_options</a></div></li>
+<li><a href="partial_note/index.html">partial_note</a></div></li>
 <li><a href="utils/index.html">utils</a></div></li>
 </ul>
 <h3>Structs</h3><ul class="item-list">
@@ -92,7 +93,9 @@ converted into a <a href="../../noir_aztec/note/struct.ConfirmedNote.html"><code
 <div class="where-clause">where
     Note: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Deserialize&gt;::N + 6]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(
+    fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Note as protocol_types::traits::Deserialize&gt;::N + 6],
+) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
@@ -106,15 +109,17 @@ converted into a <a href="../../noir_aztec/note/struct.ConfirmedNote.html"><code
 <div class="where-clause">where
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Packable&gt;::N + 6]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Note as protocol_types::traits::Packable&gt;::N + 6]</code>
 
-<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Packable&gt;::N + 6]) -> Self</code>
+<code class="code-header">pub fn <span class="fn">unpack</span>(
+    packed: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Note as protocol_types::traits::Packable&gt;::N + 6],
+) -> Self</code>
 
 </div><h3 id="impl-Serialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Serialize&gt;::N + 6]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Note as protocol_types::traits::Serialize&gt;::N + 6]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 

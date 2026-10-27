@@ -9,6 +9,8 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+## 6.0.0
+
 ### [Aztec.nr] ECDSA note and protocol contract interfaces are published with aztec-nr
 
 `ecdsa_public_key_note` and the protocol contract interfaces now ship in `aztec-labs-eng/aztec-nr`. Depending

@@ -34,7 +34,6 @@
 <li><a href="../contract_class_id/index.html">contract_class_id</a></div></li>
 <li><a href="../contract_instance/index.html">contract_instance</a></div></li>
 <li><a href="../data/index.html">data</a></div></li>
-<li><a href="../debug/index.html">debug</a></div></li>
 <li><a href="../delayed_public_mutable/index.html">delayed_public_mutable</a></div></li>
 <li><a href="../hash/index.html">hash</a></div></li>
 <li><a href="../logging/index.html">logging</a></div></li>
@@ -64,6 +63,8 @@
 <div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.accumulate_sha256.html" class="fn">accumulate_sha256</a></div><div class="item-description">Computes sha256 hash of 2 input fields.</div></li>
+<li><div class="item-name"><a href="fn.accumulate_sha256_with_separator.html" class="fn">accumulate_sha256_with_separator</a></div><div class="item-description">Computes sha256 hash of 2 input fields, prefixed by a domain separator, so that the result cannot collide with an
+<a href="../../protocol_types/hash/fn.accumulate_sha256.html"><code>accumulate_sha256</code></a> over the same two fields.</div></li>
 <li><div class="item-name"><a href="fn.compute_app_siloed_secret_key.html" class="fn">compute_app_siloed_secret_key</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.compute_contract_class_log_hash.html" class="fn">compute_contract_class_log_hash</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.compute_l2_to_l1_message_hash.html" class="fn">compute_l2_to_l1_message_hash</a></div><div class="item-description"></div></li>
@@ -79,10 +80,13 @@ the note hash is scoped to a specific contract). This is used to prevent intermi
 <li><div class="item-name"><a href="fn.create_protocol_nullifier.html" class="fn">create_protocol_nullifier</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.poseidon2_absorb_in_chunks_existing_sponge.html" class="fn">poseidon2_absorb_in_chunks_existing_sponge</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.poseidon2_hash.html" class="fn">poseidon2_hash</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="fn.poseidon2_hash_bytes.html" class="fn">poseidon2_hash_bytes</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash_bytes.html" class="fn">poseidon2_hash_bytes</a></div><div class="item-description">Computes a Poseidon2 hash of a fixed string, such as a function signature or a domain separator name.</div></li>
 <li><div class="item-name"><a href="fn.poseidon2_hash_subarray.html" class="fn">poseidon2_hash_subarray</a></div><div class="item-description">Computes a Poseidon2 hash over a dynamic-length subarray of the given input.
 Only the first <code>in_len</code> fields of <code>input</code> are absorbed; any remaining fields are ignored.
 The caller is responsible for ensuring that the input is padded with zeros if required.</div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash_subarray_with_separator.html" class="fn">poseidon2_hash_subarray_with_separator</a></div><div class="item-description">Computes a Poseidon2 hash with a domain separator over a dynamic-length subarray of the given input.
+Only the first <code>in_len</code> fields of <code>input</code> are absorbed; any remaining fields are ignored.
+For <code>in_len == N</code> this is equivalent to <a href="../../protocol_types/hash/fn.poseidon2_hash_with_separator.html"><code>poseidon2_hash_with_separator</code></a>.</div></li>
 <li><div class="item-name"><a href="fn.poseidon2_hash_with_separator.html" class="fn">poseidon2_hash_with_separator</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.poseidon2_hash_with_separator_bounded_vec.html" class="fn">poseidon2_hash_with_separator_bounded_vec</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.private_functions_root_from_siblings.html" class="fn">private_functions_root_from_siblings</a></div><div class="item-description"></div></li>

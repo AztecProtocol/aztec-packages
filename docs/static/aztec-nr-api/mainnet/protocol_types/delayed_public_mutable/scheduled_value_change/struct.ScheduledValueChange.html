@@ -75,7 +75,9 @@ Additionally, further changes might be later scheduled, potentially canceling th
 </div>
 </div><code id="get_previous" class="code-header">pub fn <a href="#get_previous" class="fn">get_previous</a>(self) -> (T, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
-<code id="get_time_horizon" class="code-header">pub fn <a href="#get_time_horizon" class="fn">get_time_horizon</a>(self, anchor_block_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, minimum_delay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../std/primitive.u64.html" class="primitive">u64</a></code>
+<code id="get_time_horizon" class="code-header">pub fn <a href="#get_time_horizon" class="fn">get_time_horizon</a>(self, anchor_block_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, minimum_delay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../std/primitive.u64.html" class="primitive">u64</a>
+<div class="where-clause">where
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the largest timestamp at which the value returned by <code>get_current_at</code> is known to remain the current

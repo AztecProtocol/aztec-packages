@@ -32,6 +32,7 @@
 <li><a href="#absorb_block_end_data">absorb_block_end_data</a></li>
 <li><a href="#absorb_checkpoint_end_marker">absorb_checkpoint_end_marker</a></li>
 <li><a href="#absorb_tx_blob_data">absorb_tx_blob_data</a></li>
+<li><a href="#absorb_tx_blob_data_sections">absorb_tx_blob_data_sections</a></li>
 <li><a href="#init">init</a></li>
 <li><a href="#squeeze">squeeze</a></li>
 </ul>
@@ -45,18 +46,21 @@
 <h2>In module blob_data</h2>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.SpongeBlob.html">SpongeBlob</a></div></li>
+<li><a href="struct.TxBlobDataSections.html">TxBlobDataSections</a></div></li>
 <li><a href="struct.TxEffect.html">TxEffect</a></div></li>
 <li><a href="struct.TxEffectArrayLengths.html">TxEffectArrayLengths</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
+<li><a href="fn.accumulate_tx_effects_tree_root.html">accumulate_tx_effects_tree_root</a></div></li>
+<li><a href="fn.compute_tx_effect_categories_hash.html">compute_tx_effect_categories_hash</a></div></li>
+<li><a href="fn.compute_tx_effects_tree_leaf.html">compute_tx_effects_tree_leaf</a></div></li>
+<li><a href="fn.compute_tx_effects_tree_leaf_from_blob_data_sections.html">compute_tx_effects_tree_leaf_from_blob_data_sections</a></div></li>
 <li><a href="fn.create_block_end_blob_data.html">create_block_end_blob_data</a></div></li>
 <li><a href="fn.create_block_end_marker.html">create_block_end_marker</a></div></li>
 <li><a href="fn.create_block_end_state_field.html">create_block_end_state_field</a></div></li>
 <li><a href="fn.create_checkpoint_end_marker.html">create_checkpoint_end_marker</a></div></li>
+<li><a href="fn.create_tx_blob_data_sections.html">create_tx_blob_data_sections</a></div></li>
 <li><a href="fn.create_tx_start_marker.html">create_tx_start_marker</a></div></li>
-</ul>
-<h3>Globals</h3><ul class="item-list">
-<li><a href="global.MAX_TX_BLOB_DATA_SIZE_IN_FIELDS.html">MAX_TX_BLOB_DATA_SIZE_IN_FIELDS</a></div></li>
 </ul>
 </nav>
 <main>
@@ -252,14 +256,20 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 </tbody>
 </table>
 </div>
-</div><code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data" class="fn">absorb_block_end_data</a>(
+</div><code id="absorb_tx_blob_data_sections" class="code-header">pub fn <a href="#absorb_tx_blob_data_sections" class="fn">absorb_tx_blob_data_sections</a>(
+    &mut self,
+    tx_effect: <a href="../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a>,
+    array_lengths: <a href="../../protocol_types/blob_data/struct.TxEffectArrayLengths.html" class="struct">TxEffectArrayLengths</a>,
+    sections: <a href="../../protocol_types/blob_data/struct.TxBlobDataSections.html" class="struct">TxBlobDataSections</a>,
+)</code>
+
+<code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data" class="fn">absorb_block_end_data</a>(
     &mut self,
     global_variables: <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
     last_archive: <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
     state: <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a>,
     num_txs: <a href="../../std/primitive.u16.html" class="primitive">u16</a>,
     total_mana_used: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    is_first_block_in_checkpoint: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
 )</code>
 
 <div class="padded-description"><div class="comments">

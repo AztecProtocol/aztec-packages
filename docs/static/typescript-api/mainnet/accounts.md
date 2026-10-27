@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: 5.2.0
+Version: 6.0.0
 
 ## Quick Import Reference
 
@@ -218,19 +218,3 @@ type SchnorrAccountContractArtifact = ContractArtifact
 ```typescript
 type SchnorrInitializerlessAccountContractArtifact = ContractArtifact
 ```
-
-## Cross-Package References
-
-This package references types from other Aztec packages:
-
-**@aztec/aztec.js**
-- `Account`, `AccountContract`
-
-**@aztec/entrypoints**
-- `AuthWitnessProvider`
-
-**@aztec/foundation**
-- `Fq`, `Fr`, `Point`
-
-**@aztec/stdlib**
-- `AztecAddress`, `CompleteAddress`, `ContractArtifact`

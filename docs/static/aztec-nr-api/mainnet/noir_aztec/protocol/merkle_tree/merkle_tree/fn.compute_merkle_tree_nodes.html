@@ -49,6 +49,18 @@
     hasher: fn(<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; N - 1]</code></pre>
 
+<div class="comments">
+<p>Computes the <code>N - 1</code> internal nodes of a balanced Merkle tree from its <code>N</code> leaves (root last);
+<code>N</code> must be a power of 2 greater than 1.</p>
+<p>Leaves are consumed as-is: this helper does not hash leaf preimages, it only hashes pairs upward.
+The same <code>hasher</code> is applied at every layer (the leaf/base layer and all internal-node layers
+alike), so there is NO domain separation between the leaf hashing and the internal-node hashing. An
+internal node is therefore just <code>hasher(left, right)</code>, indistinguishable in form from a leaf.</p>
+<p>WARNING: because of this, callers MUST pass leaves that are already domain-separated from this
+helper's internal-node hashes (i.e. produced by a hash whose domain differs from <code>hasher</code>), so that
+an internal-node value can never be a valid leaf. (Per-tree domain separation of the node hashing
+itself is likewise the caller's choice: pass the tree-specific hasher, e.g. <code>nullifier_merkle_hash</code>.)</p>
+</div>
 </div>
 </main>
 </span>

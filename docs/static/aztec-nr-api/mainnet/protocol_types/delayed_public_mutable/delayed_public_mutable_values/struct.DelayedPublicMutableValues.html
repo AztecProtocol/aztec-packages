@@ -97,9 +97,9 @@ is &quot;hacky&quot; but there is no way around it.</p>
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;T as Packable&gt;::N * 2 + 1]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; (&lt;T as traits::Packable&gt;::N * 2) + 1]</code>
 
-<code class="code-header">pub fn <span class="fn">unpack</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;T as Packable&gt;::N * 2 + 1]) -> Self</code>
+<code class="code-header">pub fn <span class="fn">unpack</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; (&lt;T as traits::Packable&gt;::N * 2) + 1]) -> Self</code>
 
 </div></div>
 </main>

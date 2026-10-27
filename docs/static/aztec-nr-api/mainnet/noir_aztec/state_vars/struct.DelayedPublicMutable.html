@@ -56,6 +56,9 @@
 <li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
 <li><a href="trait.StateVariable.html">StateVariable</a></div></li>
 </ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY.html">DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY</a></div></li>
+</ul>
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
@@ -113,7 +116,9 @@ privacy leak might be large enough to uniquely identify those transactions that 
 defeating the purpose of <code>DelayedPublicMutable</code>.</p>
 <p>Additionally, a lower <code>expiration_timestamp</code> obviously causes transactions to expire earlier, resulting in
 multiple issues. Among others, this can make large transactions that take long to prove be unfeasible, restrict
-users with slow proving devices, and force large transaction fees to guarantee fast inclusion.</p>
+users with slow proving devices, and force large transaction fees to guarantee fast inclusion. Because of this,
+there is a global minimum delay equal to <a href="../../noir_aztec/state_vars/global.DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY.html"><code>DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY</code></a> - any delay change to a value
+below this is rejected.</p>
 <p>In practice, a delay of at least a couple hours is recommended. From a privacy point of view the optimal delay is
 <a href="../../protocol_types/constants/global.MAX_TX_LIFETIME.html"><code>crate::protocol::constants::MAX_TX_LIFETIME</code></a>, which puts contracts in the same privacy set as those that do not
 use <code>DelayedPublicMutable</code> at all.</p>
@@ -193,6 +198,7 @@ function.</p>
 <p>The current delay does not immediately change. Once the current delay passes,
 <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_current_delay"><code>get_current_delay</code></a> automatically begins to return <code>new_delay</code>, and
 <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> begins using it.</p>
+<p><code>new_delay</code> must be at least <a href="../../noir_aztec/state_vars/global.DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY.html"><code>DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY</code></a>.</p>
 <h4>Multiple Scheduled Changes</h4>
 <p>Only a <strong>single</strong> delay can be scheduled to become the new delay at a given point in time. Any prior scheduled
 changes which have not yet become current are <strong>replaced</strong> with the new one and discarded.</p>

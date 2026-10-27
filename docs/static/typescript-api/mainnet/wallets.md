@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: 5.2.0
+Version: 6.0.0
 
 ## Quick Import Reference
 
@@ -67,7 +67,7 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `initStubClasses() => Promise<void>` - Hashes and registers the stub class for every supported account type with PXE, populating stubClassIds. Called on wallet initialization.
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
 - `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
-- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any onchain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[], sendMessagesAs: AztecAddress | undefined) => AztecAddress[]`
@@ -129,7 +129,7 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `initStubClasses() => Promise<void>` - Hashes and registers the stub class for every supported account type with PXE, populating stubClassIds. Called on wallet initialization.
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
 - `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
-- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any onchain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[], sendMessagesAs: AztecAddress | undefined) => AztecAddress[]`
@@ -150,7 +150,7 @@ new WalletDB(store: AztecAsyncKVStore, userLog: LogFn)
 
 **Methods**
 - `close() => Promise<void>`
-- `deleteAccount(address: AztecAddress) => Promise<void>`
+- `deleteAccount(address: AztecAddress) => Promise<void>` - Deletes an account's stored data and every alias pointing at it atomically. Deletion is local to this store; any state the PXE holds for the account is unaffected.
 - `listAccounts() => Promise<Aliased<AztecAddress>[]>`
 - `listSenders() => Promise<Aliased<AztecAddress>[]>`
 - `retrieveAccount(address: string | AztecAddress) => Promise<{ address: string | AztecAddress; salt: Fr; ... }>`
@@ -187,31 +187,3 @@ type EmbeddedWalletOptions = unknown
 type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions
 ```
 Options for the PXE instance created by the EmbeddedWallet.
-
-## Cross-Package References
-
-This package references types from other Aztec packages:
-
-**@aztec/accounts**
-- `InitialAccountData`
-
-**@aztec/aztec.js**
-- `Account`, `AccountManager`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `WalletCapabilities`
-
-**@aztec/entrypoints**
-- `ChainInfo`
-
-**@aztec/foundation**
-- `Fq`, `Fr`, `LogFn`, `Logger`
-
-**@aztec/kv-store**
-- `AztecAsyncKVStore`
-
-**@aztec/pxe**
-- `PXE`, `PXEConfig`, `PXECreationOptions`
-
-**@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `ContractOverrides`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `ManaUsageEstimate`, `MasterSecretKeys`, `TxExecutionRequest`, `TxProfileResult`, `UtilityExecutionResult`
-
-**@aztec/wallet-sdk**
-- `CompleteFeeOptionsConfig`, `FeeOptions`, `SimulateViaEntrypointOptions`

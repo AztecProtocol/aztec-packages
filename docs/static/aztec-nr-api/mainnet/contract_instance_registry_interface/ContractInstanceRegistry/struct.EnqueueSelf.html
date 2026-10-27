@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
+<script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
+<title>Struct EnqueueSelf documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">EnqueueSelf</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">contract_instance_registry_interface</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct EnqueueSelf</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.address">address</a></li>
+<li><a href="#structfield.context">context</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#set_update_delay">set_update_delay</a></li>
+<li><a href="#update">update</a></li>
+</ul>
+<h2>In module ContractInstanceRegistry</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CallInternal.html">CallInternal</a></div></li>
+<li><a href="struct.CallSelf.html">CallSelf</a></div></li>
+<li><a href="struct.CallSelfStatic.html">CallSelfStatic</a></div></li>
+<li><a href="struct.CallSelfUtility.html">CallSelfUtility</a></div></li>
+<li><a href="struct.ContractInstanceRegistry.html">ContractInstanceRegistry</a></div></li>
+<li><a href="struct.EnqueueSelf.html">EnqueueSelf</a></div></li>
+<li><a href="struct.EnqueueSelfStatic.html">EnqueueSelfStatic</a></div></li>
+<li><a href="struct.get_update_delay_abi.html">get_update_delay_abi</a></div></li>
+<li><a href="struct.get_update_delay_parameters.html">get_update_delay_parameters</a></div></li>
+<li><a href="struct.offchain_receive_abi.html">offchain_receive_abi</a></div></li>
+<li><a href="struct.offchain_receive_parameters.html">offchain_receive_parameters</a></div></li>
+<li><a href="struct.publish_for_public_execution_abi.html">publish_for_public_execution_abi</a></div></li>
+<li><a href="struct.publish_for_public_execution_parameters.html">publish_for_public_execution_parameters</a></div></li>
+<li><a href="struct.set_update_delay_abi.html">set_update_delay_abi</a></div></li>
+<li><a href="struct.set_update_delay_parameters.html">set_update_delay_parameters</a></div></li>
+<li><a href="struct.sync_state_abi.html">sync_state_abi</a></div></li>
+<li><a href="struct.sync_state_parameters.html">sync_state_parameters</a></div></li>
+<li><a href="struct.update_abi.html">update_abi</a></div></li>
+<li><a href="struct.update_parameters.html">update_parameters</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.at.html">at</a></div></li>
+<li><a href="fn.interface.html">interface</a></div></li>
+<li><a href="fn.public_dispatch.html">public_dispatch</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">contract_instance_registry_interface</a>::<a href="index.html">ContractInstanceRegistry</a></div>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">EnqueueSelf</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
+<pre><code>pub struct EnqueueSelf&lt;Context&gt; {
+    pub address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub context: Context,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.address" class="struct-field"><code class="code-header">address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../fee_juice_interface/FeeJuice/struct.EnqueueSelf.html" class="struct">EnqueueSelf</a>&lt;&mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="update" class="code-header">pub fn <a href="#update" class="fn">update</a>(self, new_contract_class_id: <a href="../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>)</code>
+
+<code id="set_update_delay" class="code-header">pub fn <a href="#set_update_delay" class="fn">set_update_delay</a>(self, new_update_delay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>)</code>
+
+</div></div>
+</main>
+</span>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 5.2.0
+Version: 6.0.0
 
 ## Quick Import Reference
 
@@ -175,7 +175,7 @@ A header of an L2 block.
 
 **Constructor**
 ```typescript
-new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spongeBlobHash: Fr, globalVariables: GlobalVariables, totalFees: Fr, totalManaUsed: Fr)
+new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spongeBlobHash: Fr, txEffectsTreeRoot: Fr, globalVariables: GlobalVariables, totalFees: Fr, totalManaUsed: Fr)
 ```
 
 **Properties**
@@ -186,6 +186,7 @@ new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spon
 - `readonly state: StateReference` - State reference.
 - `readonly totalFees: Fr` - Total fees in the block, computed by the root rollup circuit
 - `readonly totalManaUsed: Fr` - Total mana used in the block, computed by the root rollup circuit
+- `readonly txEffectsTreeRoot: Fr` - Root of this block's tx effects tree, with one leaf per tx. Zero for an empty block.
 
 **Methods**
 - `[custom]() => string`
@@ -205,6 +206,7 @@ new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spon
 - `static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>>) => BlockHeader`
 - `recomputeHash() => Promise<BlockHash>` - Recomputes the cached hash. Used for testing when header fields are mutated via unfreeze.
 - `setHash(hashed: BlockHash) => void` - Manually set the hash for this block header if already computed
+- `toBlockParameter() => Promise<AnchoredBlockParameter>` - The AnchoredBlockParameter naming this block, for node queries anchored on it. Carrying the height alongside the hash lets a node that has not seen this block yet tell a client racing one block ahead from an anchor that was reorged away.
 - `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 - `toInspect() => { globalVariables: { blockNumber: BlockNumber; chainId: number; ... }; lastArchive: string; ... }`
@@ -223,6 +225,9 @@ new Body(txEffects: TxEffect[])
 
 **Methods**
 - `[custom]() => string`
+- `computeTxEffectsTree() => Promise<TxEffectsTreeData & { root: Fr }>` - Computes the root, leaves, and categories hashes together to avoid hashing the effects again during ingestion.
+- `computeTxEffectsTreeData() => Promise<TxEffectsTreeData>` - Memoizes leaves and categories hashes. Transaction effects must not be mutated after the first call.
+- `computeTxEffectsTreeRoot() => Promise<Fr>` - Root of the block's tx effects tree, with one leaf per tx binding the tx hash to the hash of its effects. Mirrors the accumulation performed by the rollup circuits: an unbalanced (greedily filled) tree over the leaves in tx order. Zero leaves are not skipped — there are no padding txs, so the shape is a function of the tx count alone. A block with no txs has root 0, and a single-tx block's root is that tx's leaf, unhashed.
 - `static empty() => Body`
 - `equals(other: Body) => boolean`
 - `static fromBuffer(buf: Buffer<ArrayBufferLike> | BufferReader) => Body` - Deserializes a block from a buffer
@@ -551,17 +556,6 @@ new DroppedTxReceipt(txHash: TxHash, error?: string)
 - `isMined() => boolean` - Returns true (and narrows) if the transaction has been included in a block.
 - `isPending() => boolean` - Returns true (and narrows) if the transaction is pending.
 
-### EmptyTxValidator
-Implements: `TxValidator<T>`
-
-**Constructor**
-```typescript
-new EmptyTxValidator()
-```
-
-**Methods**
-- `validateTx(_tx: T) => Promise<TxValidationResult>`
-
 ### EthAddress
 
 Represents an Ethereum address as a 20-byte buffer and provides various utility methods for converting between different representations, generating random addresses, validating checksums, and comparing addresses. EthAddress can be instantiated using a buffer or string, and can be serialized/deserialized from a buffer or BufferReader.
@@ -694,7 +688,7 @@ A request to call a function on a contract.
 
 **Constructor**
 ```typescript
-new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, type: FunctionType, hideMsgSender: boolean, isStatic: boolean, args: Fr[], returnTypes: AbiType[])
+new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, type: FunctionType, hideMsgSender: boolean, isStatic: boolean, args: Fr[], returnType?: AbiType)
 ```
 
 **Properties**
@@ -702,7 +696,7 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `hideMsgSender: boolean` - Only applicable for enqueued public function calls. `hideMsgSender = true` will set the msg_sender field (the caller's address) to "null", meaning the public function (and observers around the world) won't know which smart contract address made the call.
 - `isStatic: boolean` - Whether this call can make modifications to state or not
 - `name: string` - The name of the function to call
-- `returnTypes: AbiType[]` - The return type for decoding
+- `returnType?: AbiType` - The type the call returns, for decoding, or undefined if it returns nothing
 - `static schema: unknown`
 - `selector: FunctionSelector` - The function being called
 - `to: AztecAddress` - The recipient contract
@@ -713,6 +707,7 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
 - `isPublicStatic() => boolean`
+- `toJSON() => FunctionCall & { returnTypes: AbiType[] }` - Serializes the deprecated `returnTypes` alongside `returnType`, so that peers that still require the old field can parse calls sent by this version.
 
 ### FunctionData
 
@@ -844,6 +839,7 @@ new GasFees(feePerDaGas: number | bigint, feePerL2Gas: number | bigint)
 - `static fromPlainObject(obj: any) => GasFees` - Creates a GasFees instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `get(dimension: "da" | "l2") => bigint`
 - `isEmpty() => boolean`
+- `static min(a: GasFees, b: GasFees) => GasFees` - The lower of the two fees on each dimension independently.
 - `mul(scalar: number | bigint) => GasFees`
 - `static random() => GasFees`
 - `toBuffer() => Buffer`
@@ -860,18 +856,18 @@ new GasSettings(gasLimits: Gas, teardownGasLimits: Gas, maxFeesPerGas: GasFees, 
 ```
 
 **Properties**
-- `readonly gasLimits: Gas`
-- `readonly maxFeesPerGas: GasFees`
-- `readonly maxPriorityFeesPerGas: GasFees`
+- `readonly gasLimits: Gas` - Total gas the tx may consume across all phases, teardown included.
+- `readonly maxFeesPerGas: GasFees` - Maximum fees per gas unit the sender is willing to pay.
+- `readonly maxPriorityFeesPerGas: GasFees` - Maximum priority fees per gas unit the sender is willing to pay on top of the base fee.
 - `static schema: unknown`
-- `readonly teardownGasLimits: Gas`
+- `readonly teardownGasLimits: Gas` - Portion of gasLimits reserved for the teardown phase, billed in full when the tx has a teardown call.
 
 **Methods**
 - `clone() => GasSettings`
 - `static empty() => GasSettings` - Zero-value gas settings.
 - `equals(other: GasSettings) => boolean`
 - `static fallback(overrides: { gasLimits: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Fills in gas limits high enough for transactions to be included in most cases. Callers must supply `gasLimits` — typically the most a single tx may declare on the network (`min(per-tx max, per-block allocation)`), i.e. a node's advertised `txsLimits.gas`. Since teardown gas is reserved from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead; the teardown default is derived from the effective total so it always stays below it. These values won't work if: - Teardown consumes more than the arbitrarily assigned fallback limits - The rest of the transaction consumes more than the remaining gas after teardown - The DA gas limit is too low for the transaction, while still within the checkpoint limit
-- `static forEstimation(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Gas settings for simulation/estimation only. Since teardown gas is reserved upfront from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead. To ensure estimation never hits gas caps, we set both limits above what the protocol allows: teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable amount remains available for each phase independently. To be used in conjunction with skipTxValidation: true during public simulation, or the node would reject the transaction outright due to gas limits being above protocol max.
+- `static forEstimation(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Gas settings for simulation/estimation only. Since teardown gas is reserved upfront from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead. To ensure estimation never hits gas caps, we set both limits above what the protocol allows: teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable amount remains available for each phase independently. Tx validation exempts simulated txs from gas-limit admission (`isValidTx` with `isSimulation: true`), so these inflated limits pass validation; the wallet clamps the real tx to the admission limit afterward.
 - `static from(args: { gasLimits: FieldsOf<Gas>; maxFeesPerGas: FieldsOf<GasFees>; ... }) => GasSettings`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GasSettings`
 - `static fromFields(fields: Fr[] | FieldReader) => GasSettings`
@@ -1476,6 +1472,7 @@ new PrivateLog(fields: [], emittedLength: number)
 - `getEmittedFields() => Fr[]`
 - `getEmittedFieldsWithoutTag() => Fr[]`
 - `static getFields(fields: FieldsOf<PrivateLog>) => readonly []`
+- `hasZeroPadding() => boolean` - Whether `emittedLength` is within bounds and every field beyond it is zero, as the protocol circuits require of every private log.
 - `isEmpty() => boolean`
 - `static random(tag: Fr) => PrivateLog`
 - `toBlobFields() => Fr[]`
@@ -1503,14 +1500,14 @@ Data that is constant/not modified by neither of the kernels.
 
 **Constructor**
 ```typescript
-new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, txRequestSalt: Fr, vkTreeRoot: Fr, protocolContracts: ProtocolContracts)
+new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, protocolNullifier: Fr, vkTreeRoot: Fr, protocolContracts: ProtocolContracts)
 ```
 
 **Properties**
 - `anchorBlockHeader: BlockHeader` - Header of a block whose state is used during execution (not the block the transaction is included in).
 - `protocolContracts: ProtocolContracts` - List of protocol contracts.
+- `protocolNullifier: Fr` - The transaction's siloed protocol nullifier. Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each app circuit's `protocolNullifier` public input can be checked against it. Not carried into `TxConstantData`: the value is already published as the transaction's first nullifier.
 - `txContext: TxContext` - Context of the transaction. Note: `chainId` and `version` in txContext are not redundant to the values in self.anchor_block_header.global_variables because they can be different in case of a protocol upgrade. In such a situation we could be using header from a block before the upgrade took place but be using the updated protocol to execute and prove the transaction.
-- `txRequestSalt: Fr` - Salt of the transaction request (`TxRequest.salt`). Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each app circuit's `txRequestSalt` public input can be checked against it. It is intentionally not carried into `TxConstantData`: it is dropped by the Tail circuits rather than being exposed by the final (hiding) kernel.
 - `vkTreeRoot: Fr` - Root of the vk tree for the protocol circuits.
 
 **Methods**
@@ -1898,7 +1895,7 @@ new StateReference(l1ToL2MessageTree: AppendOnlyTreeSnapshot, partial: PartialSt
 - `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 - `toInspect() => { l1ToL2MessageTree: string; noteHashTree: string; ... }`
-- `validate() => void` - Validates the trees in world state have the expected number of leaves (multiple of number of insertions per tx)
+- `validate() => void` - Validates the partial-state trees have the expected number of leaves (multiple of number of insertions per tx). The L1-to-L2 message tree is not checked: it grows by real message counts at compact (unaligned) indices, so its next-available leaf index is no longer a multiple of any per-block subtree size.
 
 ### Tag
 
@@ -1977,6 +1974,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `generateP2PMessageIdentifier() => Promise<BaseBuffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
+- `getDeliveredPublicCalldataCount() => number` - Returns the number of calldata fields the public calls receive. Calldata shared by several calls counts once per call, and a call with no matching calldata entry counts as receiving none.
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
@@ -1986,7 +1984,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `getSplitContractClassLogs(revertible: boolean) => ContractClassLog[]` - Gets either revertible or non revertible contract class logs emitted by this tx.
 - `getStats() => TxStats` - Returns stats about this tx.
 - `getTeardownPublicCallRequestWithCalldata() => PublicCallRequestWithCalldata | undefined`
-- `getTotalPublicCalldataCount() => number`
+- `getTotalPublicCalldataCount() => number` - Returns the number of calldata fields across the supplied calldata entries, whichever calls use them.
 - `getTxHash() => TxHash` - Return transaction hash.
 - `hasPublicCalls() => boolean`
 - `numberOfPublicCalls() => number`
@@ -2088,6 +2086,8 @@ new TxEffect(revertCode: RevertCode, txHash: TxHash, transactionFee: Fr, noteHas
 
 **Methods**
 - `[custom]() => string`
+- `computeTxEffectCategoriesHash() => Promise<Fr>` - Hash committing to the full contents of this tx's effects. The hash is structured rather than flat: each variable-length effect category is hashed on its own first, and this hash is taken over those category hashes plus the small scalar fields inline. Proving a single field (e.g. one note hash) therefore only requires its category preimage, with the other category hashes as opaque witnesses. Must match `compute_tx_effect_categories_hash` in noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr.
+- `computeTxEffectsTreeLeaf(categoriesHash?: Fr) => Promise<Fr>` - This tx's leaf of the block's tx effects tree: a hash binding the tx hash to the hash of the tx's effects. A holder of the block header can verify "tx X was included in this block and produced exactly effects E" with a membership proof against `BlockHeader.txEffectsTreeRoot`. The verifier must recompute this leaf from the tx effect rather than accept an untrusted leaf value, because paths have variable depth and internal nodes are valid roots.
 - `static empty() => TxEffect`
 - `equals(other: TxEffect) => boolean`
 - `static from(fields: FieldsOf<TxEffect>) => TxEffect`
@@ -2225,15 +2225,16 @@ new TxRequest(origin: AztecAddress, argsHash: Fr, txContext: TxContext, function
 - `argsHash: Fr` - Pedersen hash of function arguments.
 - `functionData: FunctionData` - Function data representing the function to call.
 - `origin: AztecAddress` - Sender.
-- `salt: Fr` - A salt to make the hash difficult to predict. The hash is used as the first nullifier if there is no nullifier emitted throughout the tx.
+- `salt: Fr` - A fresh random field drawn by the wallet, acting as the tx request's nonce. With `origin`, `chainId` and `version` it is the whole preimage of the protocol nullifier, so it keeps that nullifier unpredictable and unique. The kernel cannot check that it is random; draw it fresh for every transaction, since two requests with the same origin and salt are mutually exclusive.
 - `txContext: TxContext` - Transaction context.
 
 **Methods**
+- `computeProtocolNullifier() => Promise<Fr>` - The protocol nullifier as inserted into the nullifier tree, and as every private call receives it in `PrivateCircuitPublicInputs.protocolNullifier`: the value above siloed under `NULL_MSG_SENDER`.
+- `computeProtocolNullifierValue() => Promise<Fr>` - The unsiloed value of the protocol nullifier: the transaction's nonce commitment. The preimage is only `origin`, `chainId`, `version` and `salt`. Gas settings and the first call's arguments are left out so that a fee bump or a cancellation that reuses the salt produces the same nullifier.
 - `static empty() => TxRequest`
 - `static from(fields: FieldsOf<TxRequest>) => TxRequest`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => TxRequest` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static getFields(fields: FieldsOf<TxRequest>) => readonly []`
-- `hash() => Promise<Fr>`
 - `isEmpty() => boolean`
 - `toBuffer() => Buffer<ArrayBufferLike>` - Serialize as a buffer.
 - `toFields() => Fr[]`
@@ -2332,7 +2333,7 @@ Defines artifact of a contract.
 - `functions: FunctionArtifact[]` - The functions of the contract. Includes private and utility functions, plus the public dispatch function.
 - `name: string` - The name of the contract.
 - `nonDispatchPublicFunctions: FunctionAbi[]` - The public functions of the contract, excluding dispatch.
-- `outputs: { globals: Record<string, AbiValue[]>; structs: Record<string, AbiType[]> }` - The outputs of the contract.
+- `outputs: { globals: Record<string, AbiNamedValue[]>; structs: Record<string, AbiType[]> }` - The outputs of the contract.
 - `storageLayout: Record<string, FieldLayout>` - Storage layout
 
 ### ContractClass
@@ -2373,7 +2374,8 @@ Extends: `FunctionArtifact`
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
 - `parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[]` - Function parameters.
-- `returnTypes: AbiType[]` - The types of the return values.
+- `returnType?: AbiType` - The type of the value the function returns, or undefined if it returns nothing.
+- `returnTypes?: AbiType[]` - The same type as `returnType`, as a list that is either: - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple` type, so this never holds more than one entry. - empty, when the function returns nothing.
 - `selector: FunctionSelector` - Unique identifier for a contract function.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
 
@@ -2440,8 +2442,8 @@ Store for debug logs emitted by public functions during transaction execution. U
 Provides current and predicted fee information for transaction pricing.
 
 **Methods**
-- `getCurrentMinFees() => Promise<GasFees>` - Returns the current minimum fees for inclusion in the next block.
-- `getPredictedMinFees(manaUsage?: ManaUsageEstimate) => Promise<GasFees[]>` - Returns current min fees first, followed by predicted min fees for each slot in the prediction window.
+- `getCurrentMinFees(asOf?: FeeAsOf) => Promise<GasFees>` - Returns the current minimum fees for inclusion in the next block.
+- `getPredictedMinFees(manaUsage?: ManaUsageEstimate, asOf?: FeeAsOf) => Promise<GasFees[]>` - Returns current min fees first, followed by predicted min fees for each slot in the prediction window.
 
 ### FunctionAbi
 
@@ -2455,7 +2457,8 @@ The abi entry of a function.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
 - `parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[]` - Function parameters.
-- `returnTypes: AbiType[]` - The types of the return values.
+- `returnType?: AbiType` - The type of the value the function returns, or undefined if it returns nothing.
+- `returnTypes?: AbiType[]` - The same type as `returnType`, as a list that is either: - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple` type, so this never holds more than one entry. - empty, when the function returns nothing.
 
 ### FunctionArtifact
 
@@ -2474,7 +2477,8 @@ Extends: `FunctionAbi`
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
 - `parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[]` - Function parameters.
-- `returnTypes: AbiType[]` - The types of the return values.
+- `returnType?: AbiType` - The type of the value the function returns, or undefined if it returns nothing.
+- `returnTypes?: AbiType[]` - The same type as `returnType`, as a list that is either: - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple` type, so this never holds more than one entry. - empty, when the function returns nothing.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
 
 ### FunctionArtifactWithContractName
@@ -2495,7 +2499,8 @@ Extends: `FunctionArtifact`
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
 - `parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[]` - Function parameters.
-- `returnTypes: AbiType[]` - The types of the return values.
+- `returnType?: AbiType` - The type of the value the function returns, or undefined if it returns nothing.
+- `returnTypes?: AbiType[]` - The same type as `returnType`, as a list that is either: - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple` type, so this never holds more than one entry. - empty, when the function returns nothing.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
 
 ### FunctionDebugMetadata
@@ -2519,7 +2524,7 @@ Debug metadata for a function.
 Interface for building global variables for Aztec blocks.
 
 **Methods**
-- `buildCheckpointGlobalVariables(coinbase: EthAddress, feeRecipient: AztecAddress, slotNumber: SlotNumber, simulationOverridesPlan?: SimulationOverridesPlan) => Promise<CheckpointGlobalVariables>` - Builds global variables that are constant throughout a checkpoint.
+- `buildCheckpointGlobalVariables(coinbase: EthAddress, feeRecipient: AztecAddress, slotNumber: SlotNumber, simulationOverridesPlan?: SimulationOverridesPlan, options?: { blockNumber?: bigint }) => Promise<CheckpointGlobalVariables>` - Builds global variables that are constant throughout a checkpoint.
 
 ### IntegerType
 
@@ -2548,7 +2553,8 @@ Extends: `BasicValue<"integer", string>`
 Interface for classes that can receive and store L2 blocks.
 
 **Methods**
-- `addBlock(block: L2Block) => Promise<void>` - Adds a block to the store.
+- `addBlock(block: L2Block, inboxPrefixRef: InboxMessagePrefixRef) => Promise<void>` - Adds a proposed block to the store, validating its Inbox consumption against the sink's own canonical messages in the same transaction as the writes: the block's signed prefix reference must equal the sink's rolling hash at the block header's L1-to-L2 leaf count, the parent block must be present, consumption must not rewind, and the consumed count range must be available whole. Every producer of proposed blocks (the checkpoint proposer, automine and a validator's re-execution) carries the reference it built or validated against, which is what stops a block built on messages an L1 reorg has since replaced from entering the chain.
+- `pruneAbandonedProposedBlocks(afterBlockNumber: BlockNumber, firstBlockHash: BlockHash) => Promise<BlockNumber[]>` - Prunes the proposed blocks of a checkpoint its proposer abandoned before enclosing them in a proposed checkpoint, instead of leaving them on the local chain until the orphan prune notices that no checkpoint ever came. Removes every block after `afterBlockNumber`, the block the abandoned checkpoint built on, and notifies subscribers exactly as an orphan prune does. Prunes nothing when the range no longer holds the caller's blocks: when the block after `afterBlockNumber` is not `firstBlockHash`, or when a proposed or L1 checkpoint already covers it. Also prunes nothing when a checkpoint proposal for the block's slot has been received, since another proposer may still be proposing these blocks.
 
 ### L2BlockSource
 
@@ -2569,7 +2575,9 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getGenesisBlockHash() => BlockHash` - Returns the precomputed hash of the genesis block header. Synchronous because the hash is derived from the initial block header at construction time and cached by implementers.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
+- `getL1SyncPoint() => Promise<L1SyncPoint | undefined>` - Returns the L1 block whose state the block source's data reflects. Same value as getL2Frontier's `l1SyncPoint` field; exposed on its own so a consumer that only needs the L1 anchor (such as pinning an L1 read to the same block the archiver read) does not load the whole snapshot. Undefined until the first sync pass.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
+- `getL2Frontier() => Promise<L2Frontier>` - Returns the leading edge of the L2 chain — tips, leading proposed checkpoint, latest block header, latest checkpointed checkpoint, pending-chain validation status, and the L1 block the data reflects — all read at the same instant. Use this instead of pairing getL2Tips with getProposedCheckpointData whenever the fields must describe the same chain state, such as deciding whether the next block opens a new checkpoint and at which fee.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getL2ToL1MembershipWitness(txHash: TxHash, message: Fr, messageIndexInTx?: number) => Promise<L2ToL1MembershipWitness | undefined>` - Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`, built against the smallest partial-proof root on the Outbox that covers the tx's checkpoint. The Outbox roots are read lazily, pinned to the node's synced L1 block, so the witness reflects the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering root has landed on L1 as of the synced block. Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than L1 finality could leave the node serving a witness against a no-longer-canonical root.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
@@ -2579,6 +2587,7 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
 - `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint. Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot. The checkpoint signal handles missed L1 blocks, since a published checkpoint seals the message tree for the next checkpoint via the inbox LAG mechanism.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
+- `getTxEffectMembershipWitness(txHash: TxHash) => Promise<TxEffectMembershipWitness | undefined>` - Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects reported for it, verifiable against the `txEffectsTreeRoot` of that block's header. Returns `undefined` if the tx is unknown.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
 - `isPruneDueAtSlot(slot: SlotNumber) => Promise<boolean>` - Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
@@ -2608,7 +2617,9 @@ Extends: `L2BlockSource`
 - `getGenesisBlockHash() => BlockHash` - Returns the precomputed hash of the genesis block header. Synchronous because the hash is derived from the initial block header at construction time and cached by implementers.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
+- `getL1SyncPoint() => Promise<L1SyncPoint | undefined>` - Returns the L1 block whose state the block source's data reflects. Same value as getL2Frontier's `l1SyncPoint` field; exposed on its own so a consumer that only needs the L1 anchor (such as pinning an L1 read to the same block the archiver read) does not load the whole snapshot. Undefined until the first sync pass.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
+- `getL2Frontier() => Promise<L2Frontier>` - Returns the leading edge of the L2 chain — tips, leading proposed checkpoint, latest block header, latest checkpointed checkpoint, pending-chain validation status, and the L1 block the data reflects — all read at the same instant. Use this instead of pairing getL2Tips with getProposedCheckpointData whenever the fields must describe the same chain state, such as deciding whether the next block opens a new checkpoint and at which fee.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getL2ToL1MembershipWitness(txHash: TxHash, message: Fr, messageIndexInTx?: number) => Promise<L2ToL1MembershipWitness | undefined>` - Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`, built against the smallest partial-proof root on the Outbox that covers the tx's checkpoint. The Outbox roots are read lazily, pinned to the node's synced L1 block, so the witness reflects the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering root has landed on L1 as of the synced block. Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than L1 finality could leave the node serving a witness against a no-longer-canonical root.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
@@ -2618,6 +2629,7 @@ Extends: `L2BlockSource`
 - `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
 - `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint. Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot. The checkpoint signal handles missed L1 blocks, since a published checkpoint seals the message tree for the next checkpoint via the inbox LAG mechanism.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
+- `getTxEffectMembershipWitness(txHash: TxHash) => Promise<TxEffectMembershipWitness | undefined>` - Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects reported for it, verifiable against the `txEffectsTreeRoot` of that block's header. Returns `undefined` if the tx is unknown.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
 - `isPruneDueAtSlot(slot: SlotNumber) => Promise<boolean>` - Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
@@ -2644,6 +2656,13 @@ Provides the current chain tips. Implemented by world-state, l2-tips-store, and 
 
 **Methods**
 - `getL2Tips() => Promise<L2Tips>`
+
+### NextBlockMinFeesProvider
+
+Provides the mana min fee the next block this node would build is going to charge. Distinct from BlockMinFeesProvider, which answers the L1-anchored price after the on-chain pending checkpoint and therefore cannot see the fee a locally proposed in-progress checkpoint already froze.
+
+**Methods**
+- `getNextBlockMinFees() => Promise<GasFees | undefined>` - The fee the next block will charge, or undefined when the node cannot resolve it right now. For callers that must not act on a stand-in price, such as evicting transactions the next block could not include.
 
 ### NodeInfo
 
@@ -2746,6 +2765,17 @@ Extends: `BasicType<"tuple">`
 - `fields: AbiValue[]`
 - `kind: "tuple"`
 
+### TxAdmissionMinFeesProvider
+
+Provides the mana min fees a transaction is held to on its way into this node, over gossip or into the pool.
+
+Extends: `NextBlockMinFeesProvider`
+
+**Methods**
+- `getAdmissionMinFees() => Promise<GasFees>` - The fee a transaction must be able to pay to enter this node, over gossip or into the pending pool. The next-block fee when it resolves, otherwise the L1-forward fee, so admission never runs without a floor: a zero `maxFeesPerGas` has a zero fee limit, which a fee payer with no balance also covers.
+- `getL1ForwardMinFees() => Promise<GasFees>` - The L1-anchored fee projected after the on-chain pending checkpoint, as BlockMinFeesProvider reports.
+- `getNextBlockMinFees() => Promise<GasFees | undefined>` - The fee the next block will charge, or undefined when the node cannot resolve it right now. For callers that must not act on a stand-in price, such as evicting transactions the next block could not include.
+
 ### TxReceiptInterface
 
 Returned from a `getTxReceipt` call to the node RPC API.
@@ -2813,6 +2843,12 @@ Parses a stored `AppTaggingSecret` string key.
 ```typescript
 function appTaggingSecretKindFromDeliveryMode(deliveryMode: number) => AppTaggingSecretKind
 ```
+
+### blockParameterHash
+```typescript
+function blockParameterHash(param: BlockParameter) => BlockHash | undefined
+```
+The block hash `param` pins, or `undefined` when it names a block in a way a reorg can move (a number or a tag) or by an archive root. Every hash-bearing form — a bare BlockHash, `{ hash }`, and the anchored `{ number, hash }` — pins the same block, so callers that only care which fork the answer belongs to treat them alike.
 
 ### bufferAsFields
 ```typescript
@@ -2908,15 +2944,15 @@ Computes the hash of a public function's calldata.
 
 ### computeCongestionMultiplier
 ```typescript
-function computeCongestionMultiplier(excessMana: bigint, manaTarget: bigint) => bigint
+function computeCongestionMultiplier(excessMana: bigint, manaTarget: bigint, protocolFeeMarginBps: bigint) => bigint
 ```
-Computes the congestion multiplier from excess mana (1e9 = no congestion).
+Computes the congestion multiplier from excess mana. The protocol fee margin scales only the fakeExponential factor: (10_000 + bps) * 1e5, which is (1 + mu) * 1e9 and exactly 1e9 at mu = 0. The uncongested baseline is therefore (1 + mu) * 1e9. The MINIMUM_CONGESTION_MULTIPLIER divisor in computeManaMinFee MUST NOT be scaled -- scaling both sites cancels the margin.
 
 ### computeContractAddressFromInstance
 ```typescript
 function computeContractAddressFromInstance(instance: ContractInstancePreimage | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
 ```
-Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
+Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V3, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
 
 ### computeContractClassId
 ```typescript
@@ -2949,7 +2985,7 @@ function computeFunctionArtifactHash(fn: FunctionArtifact | Pick<FunctionArtifac
 
 ### computeFunctionMetadataHash
 ```typescript
-function computeFunctionMetadataHash(fn: FunctionArtifact) => Fr
+function computeFunctionMetadataHash(fn: Pick<FunctionArtifact, "returnType" | "returnTypes">) => Fr
 ```
 
 ### computeInitializationHash
@@ -2980,7 +3016,7 @@ Domain-separates a raw log tag with the given domain separator.
 ```typescript
 function computeManaMinFee(params: ManaMinFeeParams) => bigint
 ```
-Computes the full mana min fee (sequencer + prover + congestion) in fee asset terms. Mirrors FeeLib.getManaMinFeeComponentsAt + summedMinFee.
+Computes the full mana min fee (sequencer + prover + protocol fee) in fee asset terms. Mirrors FeeLib.getManaMinFeeComponentsAt + summedMinFee.
 
 ### computeMerkleHash
 ```typescript
@@ -3048,7 +3084,7 @@ Returns a Merkle tree for the set of private functions in a contract.
 
 ### computeProtocolNullifier
 ```typescript
-function computeProtocolNullifier(txRequestHash: Fr) => Promise<Fr>
+function computeProtocolNullifier(protocolNullifierValue: Fr) => Promise<Fr>
 ```
 Computes the protocol nullifier, which is the hash of the initial tx request siloed with the null msg sender address.
 
@@ -3074,6 +3110,12 @@ Computes a public data tree index from contract address and storage slot.
 function computePublicDataTreeValue(value: Fr) => Fr
 ```
 Computes a public data tree value ready for insertion.
+
+### computeRootFromTxEffectMembershipWitness
+```typescript
+function computeRootFromTxEffectMembershipWitness(leaf: Fr, witness: Pick<TxEffectMembershipWitness, "leafIndex" | "siblingPath">) => Promise<Fr>
+```
+Hashes `leaf` up the witness' sibling path, taking the side of each step from the witness' leaf index (an even index puts the leaf on the left). For a single-tx block the sibling path is empty and the leaf itself is the root.
 
 ### computeSaltedInitializationHash
 ```typescript
@@ -3109,6 +3151,36 @@ function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr) =>
 function computeSiloedPublicInitializationNullifier(contract: AztecAddress) => Promise<Fr>
 ```
 Computes the siloed public initialization nullifier for a contract. Not all contracts emit this nullifier: it is only emitted when the contract has public functions that perform initialization checks (i.e. external public functions that are not `#[noinitcheck]` or `#[only_self]`).
+
+### computeTxEffectLeaves
+```typescript
+function computeTxEffectLeaves(txEffects: TxEffect[]) => Promise<Fr[]>
+```
+Computes the leaves of a block's tx effects tree, in block order. Each leaf is an expensive structured hash over the tx's full effect data, so callers that need the leaves more than once should keep them around.
+
+### computeTxEffectMembershipWitness
+```typescript
+function computeTxEffectMembershipWitness(txEffects: TxEffect[], txIndexInBlock: number) => Promise<Omit<TxEffectMembershipWitness, "blockNumber">>
+```
+Rebuilds a block's tx effects tree from all its tx effects and returns the membership witness for the tx at `txIndexInBlock`. The returned root must be checked against the block header's `txEffectsTreeRoot` by the caller.
+
+### computeTxEffectMembershipWitnessFromLeaves
+```typescript
+function computeTxEffectMembershipWitnessFromLeaves(leaves: readonly Fr[], txIndexInBlock: number) => Promise<Omit<TxEffectMembershipWitness, "blockNumber" | "categoriesHash">>
+```
+Rebuilds a block's tx effects tree from its precomputed leaves and returns the root and membership path for the tx at `txIndexInBlock`. The returned root must be checked against the block header's `txEffectsTreeRoot` by the caller. Only the internal nodes are hashed here (one cheap two-field hash per tx), so this is the cheap path for callers that already hold the leaves.
+
+### computeTxEffectsTreeData
+```typescript
+function computeTxEffectsTreeData(txEffects: TxEffect[]) => Promise<TxEffectsTreeData>
+```
+Computes each categories hash once and retains it alongside the corresponding leaf.
+
+### computeTxEffectsTreeLeaf
+```typescript
+function computeTxEffectsTreeLeaf(txHash: TxHash, categoriesHash: Fr) => Promise<Fr>
+```
+Computes a domain-separated leaf binding a transaction hash to its effects categories hash.
 
 ### computeUniqueNoteHash
 ```typescript
@@ -3169,11 +3241,17 @@ Returns the size of the arguments for a function ABI.
 function dataInBlockSchemaFor<T extends ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>>(schema: T) => ZodObject<{ data: T; l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodPipe<ZodUnion<readonly []>, ZodTransform<BlockNumber, number>> }, $strip>
 ```
 
+### decodeEachFromAbi
+```typescript
+function decodeEachFromAbi(types: AbiType[], buffer: Fr[]) => AbiDecoded[]
+```
+Decodes one value per given type, consumed from the buffer in order. Always returns one decoded value per type, so callers can index the result positionally. A function's arguments are encoded this way.
+
 ### decodeFromAbi
 ```typescript
-function decodeFromAbi(typ: AbiType[], buffer: Fr[]) => AbiDecoded
+function decodeFromAbi(type: AbiType | undefined, buffer: Fr[]) => AbiDecoded
 ```
-Decodes values in a flattened Field array using a provided ABI.
+Decodes the single value a function returns, or undefined if it returns nothing. Multiple return values are expressed as one `tuple` type, so they decode through here too.
 
 ### decodeFunctionSignature
 ```typescript
@@ -3323,6 +3401,18 @@ function getAttestationInfoFromPublishedCheckpoint(block: { attestations: Commit
 ```
 Extracts attestation information from a published checkpoint. Returns info for each attestation, preserving array indices.
 
+### getBlockSourceEmitter
+```typescript
+function getBlockSourceEmitter(source: L2BlockSource | L2BlockSourceEventEmitter) => ArchiverEmitter | undefined
+```
+Returns the emitter of a source that exposes one, or undefined for a source that reports no updates.
+
+### getCheckpointedTipSlot
+```typescript
+function getCheckpointedTipSlot(frontier: L2Frontier) => SlotNumber
+```
+Slot of the checkpointed tip: every block in a checkpoint carries its checkpoint header's slot. Zero before the first checkpoint lands, where no slot is taken yet.
+
 ### getContractClassFromArtifact
 ```typescript
 function getContractClassFromArtifact(artifact: ContractArtifact | ContractArtifactWithHash) => Promise<ContractClass & Pick<ContractClassCommitments, "id"> & ContractClassIdPreimage>
@@ -3344,7 +3434,7 @@ Generates a Contract Instance from some instantiation params.
 ```typescript
 function getDaCheckpointBudgetForTxs(maxBlocksPerCheckpoint: number) => number
 ```
-The DA gas budget available to tx data within a checkpoint of `maxBlocksPerCheckpoint` blocks. This is the raw blob capacity (`BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD`) minus the fields the blob encoding reserves for overhead that no tx pays DA gas for: - one checkpoint-end marker field (`NUM_CHECKPOINT_END_MARKER_FIELDS`), - the first block's block-end fields (`NUM_FIRST_BLOCK_END_BLOB_FIELDS`, 7), and - `NUM_BLOCK_END_BLOB_FIELDS` (6) for each of the `blocks - 1` subsequent blocks. Subtracting the overhead for every block (not just the first) keeps the network DA admission limit at or below the builder's first-block blob-field cap at every geometry. The builder is the MOST generous for the first block — it only reserves that block's own block-end overhead — so being conservative here (assuming the checkpoint is full of blocks, each spending its share) is what guarantees admitted ⇒ buildable: a tx admitted under this budget always fits the first block's blob-field cap, regardless of how many blocks the builder ends up packing.
+The DA gas budget available to tx data within a checkpoint of `maxBlocksPerCheckpoint` blocks. This is the raw blob capacity (`BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD`) minus the fields the blob encoding reserves for overhead that no tx pays DA gas for: - one checkpoint-end marker field (`NUM_CHECKPOINT_END_MARKER_FIELDS`), and - `NUM_BLOCK_END_BLOB_FIELDS` (7, including the per-block l1-to-l2 root) for each of the `blocks` blocks. Subtracting the overhead for every block (not just the first) keeps the network DA admission limit at or below the builder's first-block blob-field cap at every geometry. The builder is the MOST generous for the first block — it only reserves that block's own block-end overhead — so being conservative here (assuming the checkpoint is full of blocks, each spending its share) is what guarantees admitted ⇒ buildable: a tx admitted under this budget always fits the first block's blob-field cap, regardless of how many blocks the builder ends up packing.
 
 ### getDefaultInitializer
 ```typescript
@@ -3373,6 +3463,18 @@ function getFunctionArtifactByName(artifact: ContractArtifact, functionName: str
 function getFunctionDebugMetadata(contractArtifact: ContractArtifact, functionArtifact: FunctionArtifact) => FunctionDebugMetadata | undefined
 ```
 Gets the debug metadata of a given function from the contract artifact
+
+### getFunctionReturnType
+```typescript
+function getFunctionReturnType(abi: Pick<FunctionAbi, "returnType" | "returnTypes">) => AbiType | undefined
+```
+The type a function returns, or undefined if it returns nothing. Falls back to the deprecated `returnTypes` so that artifacts serialized before `returnType` existed still resolve.
+
+### getGlobalsByTag
+```typescript
+function getGlobalsByTag(artifact: ContractArtifact, tag: string) => Record<string, AbiValue>
+```
+Returns the globals exported by the contract under an `#[abi(tag)]` attribute, keyed by global name. An unknown tag yields an empty record. Throws if two globals under the same tag share a name.
 
 ### getInitializer
 ```typescript
@@ -3439,6 +3541,12 @@ function isAddressStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is an Aztec or Ethereum Address defined in Aztec.nr.
 
+### isAnchoredBlockParameter
+```typescript
+function isAnchoredBlockParameter(param: BlockParameter) => boolean
+```
+True when `param` is an AnchoredBlockParameter, naming a block by both its number and its hash.
+
 ### isAztecAddressStruct
 ```typescript
 function isAztecAddressStruct(abiType: AbiType) => boolean
@@ -3475,6 +3583,11 @@ function isPublicKeysStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is a PublicKeys struct from Aztec.nr.
 
+### isReceiverLocalStateDrift
+```typescript
+function isReceiverLocalStateDrift(reasons: string[]) => boolean
+```
+
 ### isWrappedFieldStruct
 ```typescript
 function isWrappedFieldStruct(abiType: AbiType) => boolean
@@ -3498,12 +3611,6 @@ Gets nargo build output and returns a valid contract artifact instance. Does not
 function loadContractArtifactForPublic(input: NoirCompiledContract) => ContractArtifact
 ```
 Gets nargo build output and returns a valid contract artifact instance. Differs from loadContractArtifact() by retaining all bytecode.
-
-### loadContractArtifactWithValidation
-```typescript
-function loadContractArtifactWithValidation(input: NoirCompiledContract) => ContractArtifact
-```
-Like loadContractArtifact, but fully validates an already-processed artifact against the contract artifact schema before returning it. Use when loading an artifact from untrusted or external JSON (e.g. a file path passed to the CLI), so a malformed artifact is rejected up-front with a clear schema error instead of surfacing as an opaque failure later during deployment. `loadContractArtifact` only runs the shallow `isContractArtifact` shape check on already-processed artifacts; raw nargo output is validated via `generateContractArtifact` regardless. The returned object is identical to `loadContractArtifact`'s; the schema parse is used purely for validation.
 
 ### localBlockIdDiffers
 ```typescript
@@ -3673,6 +3780,12 @@ function siloNullifier(contract: AztecAddress, innerNullifier: Fr) => Promise<Fr
 ```
 Computes a siloed nullifier, given the contract address and the inner nullifier. A siloed nullifier effectively namespaces a nullifier to a specific contract.
 
+### verifyTxEffectMembershipWitness
+```typescript
+function verifyTxEffectMembershipWitness(leaf: Fr, witness: Pick<TxEffectMembershipWitness, "leafIndex" | "siblingPath">, expectedRoot: Fr) => Promise<boolean>
+```
+Verifies that a membership witness proves inclusion of `leaf` under `expectedRoot`, which callers must take from a trusted source: the `txEffectsTreeRoot` of the header of block TxEffectMembershipWitness.blockNumber.
+
 ### wrapDataInBlock
 ```typescript
 function wrapDataInBlock<T>(data: T, block: L2Block) => Promise<DataInBlock<T>>
@@ -3728,6 +3841,12 @@ type AbiValue = BasicValue<"boolean", boolean> | BasicValue<"string", string> | 
 ```
 An exported value.
 
+### AnchoredBlockParameter
+```typescript
+type AnchoredBlockParameter = unknown
+```
+Anchor naming a block by both its height and its hash. The hash pins the fork, exactly as a bare `{ hash }` does, and is what every lookup past the RPC boundary goes by. The number only tells a server that has not seen the block whether the anchor is the block right after its tip — a client that raced ahead by one — or a block it should already hold, which means the anchor was reorged away and a prune may yet bring it back. Both readings are worth waiting out, for different budgets.
+
 ### AnyTx
 ```typescript
 type AnyTx = Tx | ProcessedTx
@@ -3737,6 +3856,12 @@ type AnyTx = Tx | ProcessedTx
 ```typescript
 type AppTaggingSecretKind = { CONSTRAINED: "constrained"; UNCONSTRAINED: "unconstrained" }
 ```
+
+### ArchiveBlockParameter
+```typescript
+type ArchiveBlockParameter = unknown
+```
+Selector naming a block by its archive tree root: the root after the block's own hash was appended.
 
 ### ArchiverEmitter
 ```typescript
@@ -3774,9 +3899,9 @@ L2Block metadata. Equivalent to L2Block but without block body containing tx dat
 
 ### BlockParameter
 ```typescript
-type BlockParameter = NormalizedBlockParameter | BlockNumber | BlockHash | BlockTag
+type BlockParameter = NormalizedBlockParameter | AnchoredBlockParameter | BlockNumber | BlockHash | BlockTag
 ```
-Selector for a block in RPC calls. Accepts a block number, a BlockHash, a chain-tip name (e.g. `'proven'`, `'checkpointed'`), `'latest'` (alias for `'proposed'`), or any of the NormalizedBlockParameter object variants (`{ number }`, `{ hash }`, `{ archive }`, `{ tag }`).
+Selector for a block in RPC calls. Accepts a block number, a BlockHash, a chain-tip name (e.g. `'proven'`, `'checkpointed'`), `'latest'` (alias for `'proposed'`), any of the NormalizedBlockParameter object variants (`{ number }`, `{ hash }`, `{ archive }`, `{ tag }`), or the AnchoredBlockParameter form (`{ number, hash }`).
 
 ### BlockQuery
 ```typescript
@@ -3804,7 +3929,7 @@ type BrilligFunctionId = number
 ```typescript
 type CheckpointEquivocationDetectedEvent = unknown
 ```
-Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed checkpoint at the same slot. The slot proposer signed both — equivocation.
+Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed checkpoint at the same slot, and both were signed by the same proposer — equivocation.
 
 ### CheckpointGlobalVariables
 ```typescript
@@ -3905,12 +4030,6 @@ type DebugFileMap = Record<FileId, { function_locations: FunctionLocation[]; pat
 ```
 Maps a file ID to its metadata for debugging purposes.
 
-### DeploymentInfo
-```typescript
-type DeploymentInfo = unknown
-```
-Represents the data generated as part of contract deployment.
-
 ### DescendentOfInvalidAttestationsCheckpointEvent
 ```typescript
 type DescendentOfInvalidAttestationsCheckpointEvent = unknown
@@ -3939,6 +4058,12 @@ Number of L2 slots of lag before new oracle values activate. Defines the predict
 type FailedTx = unknown
 ```
 Represents a tx that failed to be processed by the sequencer public processor.
+
+### FeeAsOf
+```typescript
+type FeeAsOf = unknown
+```
+L1 view a caller wants its fees priced against. A caller that planned from an archiver snapshot passes that snapshot's L1 sync point, so its plan and the fees describe the same L1 block.
 
 ### FieldLayout
 ```typescript
@@ -4035,6 +4160,12 @@ type KeyGenerator = DomainSeparator.NHK_M | DomainSeparator.IVSK_M | DomainSepar
 type KeyPrefix = "n" | "iv" | "ov" | "t"
 ```
 
+### L1SyncPoint
+```typescript
+type L1SyncPoint = unknown
+```
+An L1 block identified by both number and hash, so a same-height reorg is detectable.
+
 ### L1_GAS_PER_CHECKPOINT_PROPOSED
 ```typescript
 type L1_GAS_PER_CHECKPOINT_PROPOSED = [object Object]
@@ -4094,6 +4225,12 @@ Identifier for L2 block tags. Internal counterpart to BlockTag that omits `lates
 ```typescript
 type L2CheckpointEvent = unknown
 ```
+
+### L2Frontier
+```typescript
+type L2Frontier = unknown
+```
+The leading edge of the L2 chain: the tips of every tier plus the in-progress (proposed, not yet L1-confirmed) checkpoint. The L2 fields are read in one store transaction so they all describe the same instant: planning the next block needs the tips and the proposed checkpoint to agree, since reading them separately can classify a just-promoted checkpoint as still in progress and mis-price the block. `l1SyncPoint` is overlaid by the archiver from the sync pass that most recently started, so the L2 data is never ahead of it but may trail it while a pass is in flight.
 
 ### L2PruneUncheckpointedEvent
 ```typescript
@@ -4167,6 +4304,12 @@ type LogResultBase = unknown
 ```
 Required metadata always present on a LogResult.
 
+### LogsQueryAnchor
+```typescript
+type LogsQueryAnchor = BlockHash | AnchoredBlockParameter
+```
+Reorg-safety anchor of a logs query: a bare BlockHash, or the AnchoredBlockParameter form that carries the anchor's height alongside its hash. Both forms pin a fork, which is what an anchor is for. Only the height differs, and a node that has not seen the anchor block uses it to pick how long to wait for it. Forms that do not pin a fork — a number, a tag, an archive root — are deliberately not accepted: a reorg moves what sits at such a position, so they would silently weaken the guarantee the anchor exists to give.
+
 ### LogsQueryBase
 ```typescript
 type LogsQueryBase = unknown
@@ -4224,6 +4367,12 @@ type MasterSecretKeys = unknown
 ```
 The six master secret keys that fully define an account's privacy keys.
 
+### MessageContext
+```typescript
+type MessageContext = unknown
+```
+Additional information needed to process a message. All messages exist in the context of a transaction, and information about that transaction is typically required in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note hashes and the first nullifier in order to find the note's nonce. A TS version of `message_context.nr`.
+
 ### MinedTxStatus
 ```typescript
 type MinedTxStatus = typeof MinedTxStatuses[number]
@@ -4274,6 +4423,12 @@ type OpcodeToLocationsMap = Record<OpcodeLocation, number>
 type PartialAddress = Fr
 ```
 The contract-side preimage of an Aztec address, i.e. the commitment to a specific contract instance. A partial address commits to a contract's code and initialization (`hash(contract_class_id, salted_initialization_hash)`) but not to its keys. Combined with an account's `PublicKeys`, it fully determines the address: `address = (hash(public_keys_hash, partial_address) * G + Ivpk_m).x`. Two accounts therefore share an address only if they share both their public keys and their partial address. See `computePartialAddress` for the derivation.
+
+### PendingTaggedLog
+```typescript
+type PendingTaggedLog = unknown
+```
+Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle inserts found private logs. A TS version of `pending_tagged_log.nr`.
 
 ### PreTag
 ```typescript
@@ -4342,6 +4497,12 @@ Minimal node surface needed by queryAllPublicLogsByTags.
 type PublicLogsQuery = LogsQueryBase & { contractAddress: AztecAddress; tags: TagQuery<Tag>[] }
 ```
 Query for L2LogsSource.getPublicLogsByTags. Returns one inner array per element of `tags`, in input order.
+
+### ResolvedLogsQuery
+```typescript
+type ResolvedLogsQuery = Omit<T, "referenceBlock"> & { referenceBlock?: BlockHash }
+```
+A logs query whose anchor the node has already resolved to the concrete block hash a logs source checks against. The wire form accepts either anchor form, and the node RPC layer reduces the anchored one to its hash — validating the height it claims on the way — before the query reaches a logs source. Everything below that boundary works in hashes alone.
 
 ### RollupHonkProofData
 ```typescript
@@ -4489,6 +4650,11 @@ type TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG = "Failed to parse contract class reg
 type TX_ERROR_MALFORMED_CONTRACT_INSTANCE_LOG = "Failed to parse contract instance deployment log"
 ```
 
+### TX_ERROR_PRIVATE_LOG_PADDING
+```typescript
+type TX_ERROR_PRIVATE_LOG_PADDING = "Non-zero private log fields beyond emitted length"
+```
+
 ### TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED
 ```typescript
 type TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = "Setup function not on allow list"
@@ -4531,6 +4697,18 @@ type TaggingIndexRange = unknown
 ```
 Represents a range of tagging indexes for a given app tagging secret.
 
+### TxEffectMembershipWitness
+```typescript
+type TxEffectMembershipWitness = unknown
+```
+Proof that a tx was included in a block and produced exactly the effects the block reports for it. The witness is verified against `BlockHeader.txEffectsTreeRoot` of block blockNumber by hashing the tx's leaf (`computeTxEffectsTreeLeaf(txHash, categoriesHash)`) up the sibling path. This proves transaction inclusion without fetching the full effects. To also verify specific effects, recompute their categories hash and compare it with the witness.
+
+### TxEffectsTreeData
+```typescript
+type TxEffectsTreeData = unknown
+```
+Precomputed tx effects tree leaves and their categories hashes, both in block order.
+
 ### TxReceipt
 ```typescript
 type TxReceipt = PendingTxReceipt<Opts> | DroppedTxReceipt | MinedTxReceipt<Opts>
@@ -4564,6 +4742,12 @@ type ValidateCheckpointResult = { valid: true } | ValidateCheckpointNegativeResu
 ```
 Result type for validating checkpoint attestations
 
+### txEffectsTreeNodeHash
+```typescript
+type txEffectsTreeNodeHash = (lhs: Uint8Array<ArrayBufferLike>, rhs: Uint8Array<ArrayBufferLike>) => Promise<Buffer<ArrayBuffer>>
+```
+Hasher for the internal nodes of a block's tx effects tree. Must match the accumulation the rollup circuits perform up the tx rollup tree.
+
 ## Enums
 
 ### Comparator
@@ -4592,7 +4776,7 @@ Values: `1`, `2`
 
 ### ProvingRequestType
 
-Values: `10`, `7`, `5`, `8`, `6`, `9`, `14`, `13`, `11`, `12`, `16`, `17`, `2`, `1`, `3`, `0`, `15`, `4`
+Values: `8`, `7`, `5`, `6`, `12`, `11`, `9`, `10`, `14`, `2`, `1`, `3`, `0`, `13`, `4`
 
 ### TxExecutionPhase
 
@@ -4607,19 +4791,3 @@ Values: `reverted`, `success`
 Block inclusion/finalization status.
 
 Values: `checkpointed`, `dropped`, `finalized`, `pending`, `proposed`, `proven`
-
-## Cross-Package References
-
-This package references types from other Aztec packages:
-
-**@aztec/blob-lib**
-- `BlockBlobData`, `TxBlobData`, `TxStartMarker`
-
-**@aztec/constants**
-- `CHONK_PROOF_LENGTH`, `DomainSeparator`, `DomainSeparator.IVSK_M`, `DomainSeparator.NHK_M`, `DomainSeparator.OVSK_M`, `DomainSeparator.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
-
-**@aztec/ethereum**
-- `L1ContractAddresses`, `SimulationOverridesPlan`, `ViemCommitteeAttestation`, `ViemCommitteeAttestations`
-
-**@aztec/foundation**
-- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Buffer32`, `BufferReader`, `Bufferable`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `IndexWithinCheckpoint`, `Logger`, `MerkleTree`, `PickIfFlag`, `Point`, `Prettify`, `Signature`, `SlotNumber`, `TypedEventEmitter`, `ViemSignature`, `ViemTransactionSignature`, `ZodFor`

@@ -38,6 +38,7 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.Fact.html">Fact</a></div></li>
 <li><a href="struct.FactCollection.html">FactCollection</a></div></li>
+<li><a href="struct.FactScope.html">FactScope</a></div></li>
 <li><a href="struct.OriginBlockState.html">OriginBlockState</a></div></li>
 <li><a href="struct.RetractableFactOrigin.html">RetractableFactOrigin</a></div></li>
 </ul>
@@ -60,7 +61,7 @@
 <div id="page-content">
 <pre><code>pub struct FactCollection {
     pub contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    pub scope: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub scope: <a href="../../noir_aztec/facts/struct.FactScope.html" class="struct">FactScope</a>,
     pub fact_collection_type_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub fact_collection_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub facts: <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../noir_aztec/facts/struct.Fact.html" class="struct">Fact</a>&gt;,
@@ -71,7 +72,7 @@
 </div>
 <h2>Fields</h2>
 <div id="structfield.contract_address" class="struct-field"><code class="code-header">contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
-<div class="padded-description"></div><div id="structfield.scope" class="struct-field"><code class="code-header">scope: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.scope" class="struct-field"><code class="code-header">scope: <a href="../../noir_aztec/facts/struct.FactScope.html" class="struct">FactScope</a></code></div>
 <div class="padded-description"></div><div id="structfield.fact_collection_type_id" class="struct-field"><code class="code-header">fact_collection_type_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"><div class="comments">
 <p>The collection's type. A single contract may have facts in collections of different types (e.g. one for the
@@ -85,13 +86,13 @@ processing offchain messages, another for partial notes, etc.).</p>
 <div class="padded-description"></div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-FactCollection"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.FactCollection.html" class="struct">FactCollection</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 5]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 6]) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Serialize-for-FactCollection"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.FactCollection.html" class="struct">FactCollection</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 5]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 6]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 

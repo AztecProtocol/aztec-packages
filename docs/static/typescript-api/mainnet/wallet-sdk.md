@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: 5.2.0
+Version: 6.0.0
 
 ## Quick Import Reference
 
@@ -82,7 +82,7 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
 - `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
-- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any onchain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[], sendMessagesAs: AztecAddress | undefined) => AztecAddress[]`
@@ -540,7 +540,7 @@ Response message from wallet
 
 ### WalletSdkLogger
 
-Minimal logger surface used by the wallet SDK. Defined locally so that wallet hosts (browser extensions, iframe wallet pages) can pass a simple `console`-backed logger without pulling in the full `@aztec/foundation` logging runtime, which is non-trivial to bundle in those contexts. Structurally compatible with `Logger` from `@aztec/foundation/log`, so dApp-side callers can pass that type directly.
+Minimal logger surface used by the wallet SDK. Defined locally so that wallet hosts (browser extensions, iframe wallet pages) can pass a simple `console`-backed logger without pulling in the full `@aztec-labs/foundation` logging runtime, which is non-trivial to bundle in those contexts. Structurally compatible with `Logger` from `@aztec-labs/foundation/log`, so dApp-side callers can pass that type directly.
 
 **Properties**
 - `debug: (message: string, data?: unknown) => void` - Diagnostic messages — typically discarded in production.
@@ -750,22 +750,3 @@ Type of wallet provider
 Message types for wallet SDK communication. All types are prefixed with 'aztec-wallet-' for namespacing.
 
 Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-discovery-response`, `aztec-wallet-key-exchange-request`, `aztec-wallet-key-exchange-response`, `aztec-wallet-ping`, `aztec-wallet-pong`, `aztec-wallet-secure-message`, `aztec-wallet-secure-response`, `aztec-wallet-session-disconnected`, `aztec-wallet-ready`
-
-## Cross-Package References
-
-This package references types from other Aztec packages:
-
-**@aztec/aztec.js**
-- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `Wallet`, `WalletCapabilities`
-
-**@aztec/entrypoints**
-- `ChainInfo`
-
-**@aztec/foundation**
-- `Fr`, `Logger`
-
-**@aztec/pxe**
-- `ContractNameResolver`, `PXE`
-
-**@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `GasSettings`, `GasUsed`, `ManaUsageEstimate`, `MasterSecretKeys`, `SimulationOverrides`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
