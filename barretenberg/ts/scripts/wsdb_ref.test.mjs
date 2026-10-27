@@ -93,19 +93,26 @@ test('nullifier inserts return witnesses, and duplicates are the service saying 
 
   await assert.rejects(service.sequentialInsertNullifier({ leaves: [{ nullifier }], forkId: 0 }), error => {
     assert.ok(error instanceof WsdbError);
-    assert.match(error.message, /already exists/);
+    assert.match(error.message, /is already present/);
     return true;
   });
 });
 
-test('requests outside the reference are errors, not crashes', async () => {
+test('forks are separate world states, and bad requests are errors, not crashes', async () => {
+  const { forkId } = await service.createFork({ latest: true, blockNumber: 0 });
+  await service.appendLeaves({ treeId: NOTE_HASH_TREE, leaves: [randomFr()], forkId });
+  const onFork = await service.getTreeInfo({ treeId: NOTE_HASH_TREE, revision: { ...uncommitted, forkId } });
+  const canonical = await service.getTreeInfo({ treeId: NOTE_HASH_TREE, revision: committed });
+  assert.equal(onFork.size, canonical.size + 1);
+  await service.deleteFork({ forkId });
+
   await assert.rejects(
-    service.getTreeInfo({ treeId: NOTE_HASH_TREE, revision: { ...uncommitted, forkId: 1 } }),
-    /the reference world state has one fork \(0\), not 1/,
+    service.getTreeInfo({ treeId: NOTE_HASH_TREE, revision: { ...uncommitted, forkId } }),
+    /Fork not found/,
   );
   await assert.rejects(
     service.getTreeInfo({ treeId: NOTE_HASH_TREE, revision: { ...uncommitted, blockNumber: 7 } }),
-    /keeps no block history/,
+    /latest block is 0/,
   );
   // The service still answers afterwards (a wasm module that aborted would not).
   const info = await service.getTreeInfo({ treeId: ARCHIVE, revision: committed });
