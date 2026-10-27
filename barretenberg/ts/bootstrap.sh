@@ -73,13 +73,13 @@ function generate_bb_js_api_package {
     --package-wasm-threads-module barretenberg-threads.wasm
 }
 
-# The in-memory reference world state over the wsdb base contract, fully generated: in-process
+# The in-memory reference world state over the node world state's contract, fully generated: in-process
 # through its wasm module (node and browsers) or, opted into here with napi, its Node-API addon.
 # Both run the one FFI entry the bb build generates from the same schema (cpp/.../wsdb_ref).
 function generate_wsdb_ref_package {
   node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
-    --schema "$ROOT/barretenberg/cpp/src/barretenberg/world_state_reference/wsdb_base_schema.jsonc" \
+    --schema "$ROOT/native-packages/wsdb/wsdb_schema.jsonc" \
     --lang ts \
     --package "$ROOT/barretenberg/ts/wsdb-ref" \
     --package-name "$WSDB_REF_PACKAGE" \
