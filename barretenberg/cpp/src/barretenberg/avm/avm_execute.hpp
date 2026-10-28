@@ -19,11 +19,12 @@ extern std::atomic<avm2::simulation::CancellationToken*> g_active_cancellation_t
 
 /**
  * @brief Context passed to each command's execute() method.
- * Provides access to WSDB and CDB IPC clients.
+ * Provides access to WSDB and CDB IPC clients. Both are null when bb-avm-sim runs without them, which leaves
+ * SimulateWithHints alone working.
  */
 struct AvmRequest {
-    cdb::CdbIpcContractDB& cdb_client;
-    wsdb::WsdbIpcClient& wsdb_client;
+    cdb::CdbIpcContractDB* cdb_client = nullptr;
+    wsdb::WsdbIpcClient* wsdb_client = nullptr;
 };
 
 } // namespace bb::avm
