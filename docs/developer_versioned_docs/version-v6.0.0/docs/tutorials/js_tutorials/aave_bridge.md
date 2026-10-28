@@ -119,6 +119,12 @@ cd hardhat-aztec-example
 
 Before adding dependencies, make the starter install with yarn 4 (4.14 or later): create the `.yarnrc.yml`, swap `@aztec/l1-contracts` for `@aztec-foundation/l1-artifacts`, point the `postinstall` remappings at the new package, and add the root `remappings.txt`. These are the first three steps of the [Token Bridge tutorial's project setup](./token_bridge.md#project-setup); without them `yarn add` fails on the starter's git dependencies and `npx hardhat compile` cannot resolve the `@aztec/*` imports.
 
+Then delete the starter's `Counter` contracts. They import the old `@aztec/l1-contracts/src/...` paths, which the new remapping does not resolve, so `npx hardhat compile` fails on them:
+
+```bash
+rm contracts/Counter.sol contracts/Counter.t.sol
+```
+
 When complete, your project will have this structure:
 
 ```
@@ -433,6 +439,9 @@ Create the following mock contracts in `contracts/`.
 `contracts/MockERC20.sol` — a minimal ERC20 with public minting:
 
 ```solidity
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity >=0.8.27;
+
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
@@ -447,6 +456,9 @@ contract MockERC20 is ERC20 {
 `contracts/MockAToken.sol` — Aave's yield-bearing token mock:
 
 ```solidity
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity >=0.8.27;
+
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockAToken is ERC20 {
@@ -465,6 +477,9 @@ contract MockAToken is ERC20 {
 `contracts/MockAavePool.sol` — simplified Aave lending pool that returns a configurable yield:
 
 ```solidity
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity >=0.8.27;
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
