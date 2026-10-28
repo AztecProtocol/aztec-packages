@@ -26,21 +26,14 @@ if [ -n "$pr" ]; then
   done
 fi
 
-if $ready; then
-  from='refs/netlify/pr-merge^1'
-  to=refs/netlify/pr-merge
-  echo "Comparing pull request #$pr with its base branch."
-else
-  git fetch -q "${depth[@]}" origin "+refs/heads/next:refs/remotes/origin/next" || true
-  if ! from=$(git merge-base origin/next "$head"); then
-    echo "No merge base with next: building."
-    exit 1
-  fi
-  to=$head
-  echo "Comparing $head with its merge base with next."
+# Without it (a conflicted pull request, or GitHub still recomputing) the base is unknown: build.
+if ! $ready; then
+  echo "No merge ref for pull request #${pr:-?} at $head: building."
+  exit 1
 fi
 
-if git diff --quiet "$from" "$to" -- .; then
+echo "Comparing pull request #$pr with its base branch."
+if git diff --quiet 'refs/netlify/pr-merge^1' refs/netlify/pr-merge -- .; then
   echo "No changes under docs/: skipping the preview."
   exit 0
 fi

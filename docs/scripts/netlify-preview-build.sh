@@ -9,26 +9,29 @@ root=$(cd "$docs/.." && pwd)
 echo "=== Checking out labs/ with the foundation's patches ==="
 "$root/labs-patches/bootstrap.sh" apply
 
-echo "=== Generating the aztec-nr API reference ==="
-# The noir/noir-repo gitlink is all Netlify's clone needs: the release is the tag that points at it.
-noir_sha=$(git -C "$root" rev-parse HEAD:noir/noir-repo)
-noir_tags=$(git ls-remote --tags https://github.com/noir-lang/noir.git |
-  awk -v sha="$noir_sha" '$1 == sha { sub("^refs/tags/", "", $2); sub("\\^\\{\\}$", "", $2); print $2 }')
-noir_tag=$(grep -m1 -v '^nightly' <<<"$noir_tags" || head -n1 <<<"$noir_tags")
-if [ -z "$noir_tag" ]; then
-  echo "WARNING: no noir-lang/noir release tag points at $noir_sha; this preview has no aztec-nr API reference."
-else
+# Optional: CI builds the docs without it. Called from an `if`, so set -e is off and every step
+# returns explicitly.
+function api_reference {
+  local noir_sha noir_tags noir_tag nargo_dir
+  # The noir/noir-repo gitlink is all Netlify's clone needs: the release is the tag that points at it.
+  noir_sha=$(git -C "$root" rev-parse HEAD:noir/noir-repo) || return 1
+  noir_tags=$(git ls-remote --tags https://github.com/noir-lang/noir.git |
+    awk -v sha="$noir_sha" '$1 == sha { sub("^refs/tags/", "", $2); sub("\\^\\{\\}$", "", $2); print $2 }') || return 1
+  noir_tag=$(grep -m1 -v '^nightly' <<<"$noir_tags" || head -n1 <<<"$noir_tags")
+  [ -n "$noir_tag" ] || { echo "no noir-lang/noir release tag points at $noir_sha"; return 1; }
   nargo_dir=$HOME/.cache/nargo-$noir_tag
   if [ ! -x "$nargo_dir/nargo" ]; then
-    mkdir -p "$nargo_dir"
+    rm -rf "$nargo_dir" && mkdir -p "$nargo_dir" || return 1
     curl -fsSL "https://github.com/noir-lang/noir/releases/download/$noir_tag/noir-x86_64-unknown-linux-gnu.tar.gz" |
-      tar -xz -C "$nargo_dir"
+      tar -xz -C "$nargo_dir" || { rm -rf "$nargo_dir"; return 1; }
   fi
-  export NARGO=$nargo_dir/nargo
-  echo "nargo $noir_tag: $("$NARGO" --version | head -n1)"
-  if ! "$docs/scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"; then
-    echo "WARNING: aztec-nr API generation failed; this preview has no aztec-nr API reference."
-  fi
+  echo "nargo $noir_tag: $("$nargo_dir/nargo" --version | head -n1)"
+  NARGO=$nargo_dir/nargo "$docs/scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"
+}
+
+echo "=== Generating the aztec-nr API reference ==="
+if ! api_reference; then
+  echo "WARNING: this preview has no aztec-nr API reference (see above)."
 fi
 
 echo "=== Building the docs ==="
