@@ -215,6 +215,8 @@ __metadata:
       optional: true
     "@aztec-foundation/wsdb-ref-linux-x64":
       optional: true
+  bin:
+    wsdb-ref: ./dest/bin.js
   languageName: unknown
   linkType: soft
 

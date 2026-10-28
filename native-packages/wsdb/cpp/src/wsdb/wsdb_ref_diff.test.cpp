@@ -1,21 +1,24 @@
 /**
- * @file wsdb_ref_native_diff.test.cpp
- * @brief wsdb-ref against the node world state (native-packages/wsdb's aztec-wsdb), request for request.
+ * @file wsdb_ref_diff.test.cpp
+ * @brief aztec-wsdb against wsdb-ref, barretenberg's reference world state, request for request.
  *
- * Both serve wsdb_schema.jsonc, so one encoded request goes to both: wsdb-ref through its in-process FFI
- * entry, aztec-wsdb through its socket. A seeded random run builds blocks the way a node does (effects on a
+ * Both serve wsdb_schema.jsonc, so one encoded request goes to both, each a child process reached over its
+ * socket: aztec-wsdb, and barretenberg's wsdb-ref binary (so no barretenberg code is compiled or linked
+ * here). A seeded random run builds blocks the way a node does (effects on a
  * fork, then SyncBlock), interleaved with reads at every revision, writes and checkpoints on forks, unwinds,
- * finalization and history removal. Every response must be byte-identical, apart from the store statistics a
- * full status carries; a request must fail on both or on neither.
+ * finalization and history removal. A request must fail on both or on neither, and every success must be
+ * byte-identical, apart from the store statistics a full status carries. Error messages are counted, not
+ * compared.
  *
- * Opt-in: set WSDB_NATIVE_BIN to an aztec-wsdb binary built from the same schema. WSDB_DIFF_SEEDS (default 4)
- * and WSDB_DIFF_STEPS (default 400) size the run.
+ * Skipped when the wsdb-ref binary (WSDB_REF_BIN, see cpp/CMakeLists.txt) is not built. WSDB_DIFF_SEEDS (default 4) and
+ * WSDB_DIFF_STEPS (default 400) size the run.
  */
-#include "barretenberg/aztec/aztec_constants.hpp"
-#include "barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp"
-#include "barretenberg/wsdb_ref/generated/wsdb_ffi.hpp"
-#include "barretenberg/wsdb_ref/wsdb_ref_handlers.hpp"
+#include "common/aztec_constants.hpp"
+#include "field/field_element.hpp"
 #include "ipc_runtime/ipc_client.hpp"
+#include "world_state/genesis_protocol_nullifiers.hpp"
+#include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
+#include "wsdb/generated/wsdb_types.hpp"
 
 #include <gtest/gtest.h>
 
@@ -35,8 +38,7 @@
 
 extern char** environ;
 
-using namespace bb;
-using namespace bb::wsdb_ref;
+using namespace azteclabs::wsdb;
 
 namespace {
 
@@ -95,46 +97,54 @@ template <typename Resp> Resp decode(const Frame& frame)
     return resp;
 }
 
-/** aztec-wsdb in a child process, at the same genesis wsdb-ref is given. */
-class NativeWsdb {
+/** aztec-wsdb's command line: this test's tree shapes and genesis, served on `socket`. */
+std::vector<std::string> aztec_wsdb_command(const std::string& binary,
+                                            const std::filesystem::path& dir,
+                                            const std::string& socket)
+{
+    std::filesystem::create_directories(dir / "data");
+    std::ostringstream nullifiers;
+    nullifiers << "[";
+    auto seeds = world_state::genesis_protocol_nullifiers();
+    for (size_t i = 0; i < seeds.size(); ++i) {
+        std::ostringstream hex;
+        hex << seeds[i];
+        nullifiers << (i > 0 ? "," : "") << "\"" << hex.str().substr(2) << "\"";
+    }
+    nullifiers << "]";
+    std::ostringstream heights;
+    heights << "{0:" << NULLIFIER_TREE_HEIGHT << ",1:" << NOTE_HASH_TREE_HEIGHT << ",2:" << PUBLIC_DATA_TREE_HEIGHT
+            << ",3:" << L1_TO_L2_MSG_TREE_HEIGHT << ",4:" << ARCHIVE_HEIGHT << "}";
+    return {
+        binary,
+        "msgpack",
+        "run",
+        "-i",
+        socket,
+        "-d",
+        (dir / "data").string(),
+        "-t",
+        "4",
+        "--tree-heights",
+        heights.str(),
+        "--tree-prefill",
+        "{0:128,2:128}",
+        "--initial-header-generator-point",
+        std::to_string(DOM_SEP__BLOCK_HEADER_HASH),
+        "--prefilled-public-data",
+        R"([["00000000000000000000000000000000000000000000000000000000000003e8","0000000000000000000000000000000000000000000000000000000000000007"]])",
+        "--prefilled-nullifiers",
+        nullifiers.str()
+    };
+}
+
+/** A wsdb server in a child process, reached over its socket. */
+class WsdbProcess {
   public:
-    NativeWsdb(const std::string& binary, const std::filesystem::path& dir)
-        : socket_path_((dir / "wsdb.sock").string())
+    WsdbProcess(std::vector<std::string> args, std::string socket_path)
+        : socket_path_(std::move(socket_path))
     {
-        std::filesystem::create_directories(dir / "data");
-        std::ostringstream nullifiers;
-        nullifiers << "[";
-        auto seeds = world_state::genesis_protocol_nullifiers();
-        for (size_t i = 0; i < seeds.size(); ++i) {
-            std::ostringstream hex;
-            hex << seeds[i];
-            nullifiers << (i > 0 ? "," : "") << "\"" << hex.str().substr(2) << "\"";
-        }
-        nullifiers << "]";
-        std::ostringstream heights;
-        heights << "{0:" << NULLIFIER_TREE_HEIGHT << ",1:" << NOTE_HASH_TREE_HEIGHT << ",2:" << PUBLIC_DATA_TREE_HEIGHT
-                << ",3:" << L1_TO_L2_MSG_TREE_HEIGHT << ",4:" << ARCHIVE_HEIGHT << "}";
-        std::vector<std::string> args{
-            binary,
-            "msgpack",
-            "run",
-            "-i",
-            socket_path_,
-            "-d",
-            (dir / "data").string(),
-            "-t",
-            "4",
-            "--tree-heights",
-            heights.str(),
-            "--tree-prefill",
-            "{0:128,2:128}",
-            "--initial-header-generator-point",
-            std::to_string(DOM_SEP__BLOCK_HEADER_HASH),
-            "--prefilled-public-data",
-            R"([["00000000000000000000000000000000000000000000000000000000000003e8","0000000000000000000000000000000000000000000000000000000000000007"]])",
-            "--prefilled-nullifiers",
-            nullifiers.str()
-        };
+        const std::string binary = args[0];
         std::vector<char*> argv;
         for (auto& arg : args) {
             argv.push_back(arg.data());
@@ -149,7 +159,7 @@ class NativeWsdb {
         }
     }
 
-    ~NativeWsdb()
+    ~WsdbProcess()
     {
         client_->close();
         kill(pid_, SIGTERM);
@@ -160,11 +170,11 @@ class NativeWsdb {
     std::vector<uint8_t> call(const std::vector<uint8_t>& request)
     {
         if (!client_->send(request.data(), request.size(), 0)) {
-            throw std::runtime_error("send to aztec-wsdb failed");
+            throw std::runtime_error("send to " + socket_path_ + " failed");
         }
         auto response = client_->receive(0);
         if (response.data() == nullptr) {
-            throw std::runtime_error("receive from aztec-wsdb failed");
+            throw std::runtime_error("receive from " + socket_path_ + " failed");
         }
         std::vector<uint8_t> out(response.begin(), response.end());
         client_->release(response.size());
@@ -177,21 +187,12 @@ class NativeWsdb {
     std::unique_ptr<ipc::IpcClient> client_;
 };
 
-std::vector<uint8_t> call_ref(const std::vector<uint8_t>& request)
-{
-    uint8_t* output = nullptr;
-    size_t output_len = 0;
-    wsdb_ipc_ffi_entry(request.data(), request.size(), &output, &output_len);
-    std::vector<uint8_t> frame(output, output + output_len);
-    wsdb_ipc_ffi_free(output);
-    return frame;
-}
-
 /** One differential run: a random but node-shaped workload, every request answered by both. */
 class DiffRun {
   public:
-    DiffRun(NativeWsdb& native, uint64_t seed)
-        : native_(native)
+    DiffRun(WsdbProcess& ref, WsdbProcess& native, uint64_t seed)
+        : ref_(ref)
+        , native_(native)
         , rng_(seed)
     {}
 
@@ -204,7 +205,7 @@ class DiffRun {
     template <typename Cmd> Frame both(const std::string& name, const Cmd& cmd)
     {
         auto request = encode_request(name, cmd);
-        Frame ref = parse(call_ref(request));
+        Frame ref = parse(ref_.call(request));
         Frame nat = parse(native_.call(request));
         ++requests;
         if (std::getenv("WSDB_DIFF_TRACE") != nullptr) {
@@ -266,7 +267,8 @@ class DiffRun {
     }
 
   private:
-    NativeWsdb& native_;
+    WsdbProcess& ref_;
+    WsdbProcess& native_;
     std::mt19937_64 rng_;
     size_t step_ = 0;
     std::vector<uint64_t> forks_{ 0 };
@@ -415,7 +417,7 @@ class DiffRun {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
         auto request = encode_request("WsdbInitGenesis", genesis);
-        ASSERT_FALSE(parse(call_ref(request)).is_error());
+        ASSERT_FALSE(parse(ref_.call(request)).is_error());
         slots_.push_back(fr(1000));
         both("WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{});
     }
@@ -738,7 +740,7 @@ class DiffRun {
             if (fork == 0) {
                 return false;
             }
-            return parse(call_ref(encode_request(
+            return parse(ref_.call(encode_request(
                              "WsdbGetTreeInfo",
                              wire::WsdbGetTreeInfo{
                                  .treeId = 0,
@@ -805,11 +807,10 @@ class DiffRun {
 
 } // namespace
 
-TEST(WsdbRefNativeDiff, MatchesAztecWsdbRequestForRequest)
+TEST(WsdbRefDiff, MatchesWsdbRefRequestForRequest)
 {
-    const char* binary = std::getenv("WSDB_NATIVE_BIN");
-    if (binary == nullptr) {
-        GTEST_SKIP() << "set WSDB_NATIVE_BIN to an aztec-wsdb binary to compare against it";
+    if (!std::filesystem::exists(WSDB_REF_BIN)) {
+        GTEST_SKIP() << "no wsdb-ref binary at " << WSDB_REF_BIN << " (build barretenberg's wsdb-ref target)";
     }
     size_t seeds = std::getenv("WSDB_DIFF_SEEDS") ? std::stoul(std::getenv("WSDB_DIFF_SEEDS")) : 4;
     size_t steps = std::getenv("WSDB_DIFF_STEPS") ? std::stoul(std::getenv("WSDB_DIFF_STEPS")) : 400;
@@ -817,8 +818,11 @@ TEST(WsdbRefNativeDiff, MatchesAztecWsdbRequestForRequest)
         auto dir = std::filesystem::temp_directory_path() /
                    ("wsdb-ref-diff-" + std::to_string(getpid()) + "-" + std::to_string(seed));
         {
-            NativeWsdb native(binary, dir);
-            DiffRun run(native, seed);
+            auto native_socket = (dir / "aztec-wsdb.sock").string();
+            auto ref_socket = (dir / "wsdb-ref.sock").string();
+            WsdbProcess native(aztec_wsdb_command(AZTEC_WSDB_BIN, dir, native_socket), native_socket);
+            WsdbProcess ref({ WSDB_REF_BIN, "msgpack", "run", "--input", ref_socket }, ref_socket);
+            DiffRun run(ref, native, seed);
             run.run(steps);
             std::cout << "seed " << seed << ": " << run.requests << " requests, " << run.errors
                       << " answered with errors on both, " << run.message_mismatches.size()
