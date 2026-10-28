@@ -62,7 +62,15 @@ export interface WasmFfiBackendOptions extends WasmFfiOptions {
 
 const WASM_WORKER = Symbol.for("@aztec-foundation/ipc-runtime/wasm-worker");
 
-function isWasmWorker(value: unknown): value is WasmWorker {
+/** What a worker slot runs: a wasm module's main instance, or an instance of the napi addon at a path (node). */
+export type WorkerInstanceSource =
+  | {
+      module: WebAssembly.Module;
+      options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">;
+    }
+  | { napi: string };
+
+export function isWasmWorker(value: unknown): value is WasmWorker {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -357,8 +365,7 @@ export class WasmWorker {
 
   /** @internal Load a module into a new slot; host-call targets are already described for it. */
   async load(
-    module: WebAssembly.Module,
-    options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">,
+    source: WorkerInstanceSource,
     hostCall: HostCallTargets | undefined,
     logger: ((msg: string) => void) | undefined,
   ): Promise<number> {
@@ -398,8 +405,7 @@ export class WasmWorker {
       this.worker.postMessage({
         type: "load",
         slot,
-        module,
-        options,
+        ...source,
         hostCall: targets,
       });
     });
@@ -579,12 +585,14 @@ export class WasmFfiBackend implements IpcClientAsync {
       : WasmWorker.create(bound);
     try {
       const slot = await worker.load(
-        module,
         {
-          threads: opts.threads,
-          memory: opts.memory,
-          env: opts.env,
-          entry: opts.entry,
+          module,
+          options: {
+            threads: opts.threads,
+            memory: opts.memory,
+            env: opts.env,
+            entry: opts.entry,
+          },
         },
         opts.hostCall,
         opts.logger,

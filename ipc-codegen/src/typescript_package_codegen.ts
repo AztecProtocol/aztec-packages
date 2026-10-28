@@ -1007,23 +1007,34 @@ export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
     const { prefix } = this.opts;
     const findAddon = addonFinderName(prefix);
     return `import {
+  type IpcClientAsync,
+  type IpcClientSync,
   NapiFfiBackend,
   NapiFfiBackendSync,
   loadNapiFfiAddon,
 } from '@aztec-foundation/ipc-runtime';
+import { type HostCallTargets, type WasmWorker, createWasmWorker } from '@aztec-foundation/ipc-runtime/wasm';
 import { ${findAddon} } from './platform.js';
 
 /**
- * Options for the in-process napi backend. The addon is one per process: node caches a native
- * module by path, and the FFI entry behind it holds one service context, so every napi backend
- * loaded from the same file shares the service's state.
+ * Options for the in-process napi backend. Node loads a native module once per process; an addon
+ * generated with instances gives each backend an instance of its own, while an older one serves
+ * every backend from the process's one instance.
  */
 export interface ${prefix}NapiOptions {
   /** The addon to load instead of the installed one (else \`${this.opts.napiAddonEnvVar}\`, else the arch package). */
   addonPath?: string;
+  /**
+   * Where the instance runs (asynchronous backend): a WasmWorker (ipc-runtime's createWasmWorker())
+   * shared with the instances loaded there, wasm modules or napi instances, which it can then reach
+   * as host-call targets synchronously; default a worker of its own.
+   */
+  worker?: WasmWorker;
+  /** The services the service reaches through its host (\`ipc_runtime.host_call\`), by target name. */
+  hostCall?: HostCallTargets;
 }
 
-function loadAddon(options: ${prefix}NapiOptions) {
+function resolveAddon(options: ${prefix}NapiOptions): string {
   const addonPath = ${findAddon}(options.addonPath);
   if (!addonPath) {
     throw new Error(
@@ -1031,17 +1042,30 @@ function loadAddon(options: ${prefix}NapiOptions) {
         "'${this.opts.packageName}-<platform>' package, set ${this.opts.napiAddonEnvVar}, or pass napi.addonPath.",
     );
   }
-  return loadNapiFfiAddon(addonPath, '${prefix}');
+  return addonPath;
 }
 
-/** The service in-process through its napi addon; each call runs on the libuv thread pool. */
-export async function createNapiBackend(options: ${prefix}NapiOptions = {}): Promise<NapiFfiBackend> {
-  return new NapiFfiBackend(loadAddon(options));
+/** The service in-process through its napi addon: an instance of its own on a worker, if the addon has instances. */
+export async function createNapiBackend(options: ${prefix}NapiOptions = {}): Promise<IpcClientAsync> {
+  const addonPath = resolveAddon(options);
+  const addon = loadNapiFfiAddon(addonPath, '${prefix}');
+  if (!addon.create) {
+    return new NapiFfiBackend(addon);
+  }
+  return NapiFfiBackend.instance(
+    { addonPath, worker: options.worker, hostCall: options.hostCall },
+    createWasmWorker,
+  );
 }
 
-/** The synchronous form: each call runs on, and blocks, the calling thread. */
-export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): NapiFfiBackendSync {
-  return new NapiFfiBackendSync(loadAddon(options));
+/** The synchronous form: an instance of its own on, and blocking, the calling thread. */
+export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): IpcClientSync {
+  const addonPath = resolveAddon(options);
+  const addon = loadNapiFfiAddon(addonPath, '${prefix}');
+  if (!addon.create) {
+    return new NapiFfiBackendSync(addon);
+  }
+  return NapiFfiBackendSync.instance({ addonPath, hostCall: options.hostCall });
 }
 `;
   }
