@@ -1,9 +1,9 @@
 //! Types and constants related to the Aztec protocol.
 
-// Traits need to be first for the #[derive(...)] macro to work.
+/// Traits need to be first for the #[derive(...)] macro to work.
 pub mod traits;
 
-// The modules below are in a specific order that makes derivation of serde traits work.
+/// The modules below are in a specific order that makes derivation of serde traits work.
 pub mod address;
 pub mod logging;
 pub mod side_effect;

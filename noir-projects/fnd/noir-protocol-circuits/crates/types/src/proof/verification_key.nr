@@ -23,6 +23,6 @@ pub type RollupHonkVerificationKey = VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>;
 pub type HonkVerificationKey = VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>;
 pub type MegaAppVerificationKey = VerificationKey<MEGA_APP_VK_LENGTH_IN_FIELDS>;
 pub type MegaKernelVerificationKey = VerificationKey<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>;
-// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+/// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub type ChonkVerificationKey = VerificationKey<CHONK_VK_LENGTH_IN_FIELDS>;
 pub type AvmVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;

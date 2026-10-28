@@ -254,11 +254,11 @@ impl PublicTxBaseInputsValidator {
         // block of the previous checkpoint.
     }
 
-    // Defensive: the AVM PIL doesn't constrain the accumulated_data cells past `length` (one-way lookups
-    // gated by sel_write_to_public_inputs), so the prover is free to place arbitrary values in that tail.
-    // Downstream consumers do not, and should not ever, read values past `length`, but we assert the tail
-    // is zero-padded anyway to make that invariant structural rather than rely on every current and future
-    // consumer honoring it.
+    /// Defensive: the AVM PIL doesn't constrain the accumulated_data cells past `length` (one-way lookups
+    /// gated by sel_write_to_public_inputs), so the prover is free to place arbitrary values in that tail.
+    /// Downstream consumers do not, and should not ever, read values past `length`, but we assert the tail
+    /// is zero-padded anyway to make that invariant structural rather than rely on every current and future
+    /// consumer honoring it.
     fn validate_avm_accumulated_data_padding(self) {
         let avm_acc = self.avm_proof_data.public_inputs.accumulated_data;
         let avm_lens = self.avm_proof_data.public_inputs.accumulated_data_array_lengths;

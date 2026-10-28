@@ -13,10 +13,10 @@ use types::{
     proof::proof_data::RollupHonkProofData,
 };
 
-// Note: see `rollup_structure_tests.nr` for valid combinations of left and right vks.
-// Every block root variant handles both the first and the non-first position in a checkpoint, so the same set is
-// allowed on either side; what makes the leftmost block the checkpoint's first block are the start-value asserts in
-// `checkpoint_root_inputs_validator`.
+/// Note: see `rollup_structure_tests.nr` for valid combinations of left and right vks.
+/// Every block root variant handles both the first and the non-first position in a checkpoint, so the same set is
+/// allowed on either side; what makes the leftmost block the checkpoint's first block are the start-value asserts in
+/// `checkpoint_root_inputs_validator`.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
     BLOCK_ROOT_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,

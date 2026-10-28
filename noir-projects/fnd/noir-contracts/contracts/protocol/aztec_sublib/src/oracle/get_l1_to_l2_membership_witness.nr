@@ -10,7 +10,7 @@ pub unconstrained fn get_l1_to_l2_membership_witness(
     get_l1_to_l2_membership_witness_oracle(contract_address, message_hash, secret)
 }
 
-// Obtains membership witness (index and sibling path) for a message in the L1 to L2 message tree.
+/// Obtains membership witness (index and sibling path) for a message in the L1 to L2 message tree.
 #[oracle(aztec_protocol_utl_getL1ToL2MembershipWitness)]
 unconstrained fn get_l1_to_l2_membership_witness_oracle(
     _contract_address: AztecAddress,

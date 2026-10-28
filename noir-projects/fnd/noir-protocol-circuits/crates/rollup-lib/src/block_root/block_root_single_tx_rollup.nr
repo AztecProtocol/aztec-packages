@@ -14,26 +14,26 @@ use types::{
     proof::proof_data::RollupHonkProofData,
 };
 
-// TX_MERGE_ROLLUP_VK_INDEX is not allowed if there is only one previous rollup.
+/// TX_MERGE_ROLLUP_VK_INDEX is not allowed if there is only one previous rollup.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 2] =
     [PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX];
 
 pub struct BlockRootSingleTxRollupPrivateInputs {
     pub(crate) previous_rollup: RollupHonkProofData<TxRollupPublicInputs>,
-    // L1-to-L2 message bundle inserted by this block.
+    /// L1-to-L2 message bundle inserted by this block.
     pub(crate) message_bundle: L1ToL2MessageBundle,
-    // The l1-to-l2 tree snapshot this block builds on. It is a witnessed value: for the checkpoint's first block it is
-    // the pre-insertion snapshot, checked against the previous checkpoint's last block header in the checkpoint root;
-    // for any later block it is pinned by block-merge continuity (`right.start_state == left.end_state`) to the
-    // previous block's end state.
+    /// The l1-to-l2 tree snapshot this block builds on. It is a witnessed value: for the checkpoint's first block it is
+    /// the pre-insertion snapshot, checked against the previous checkpoint's last block header in the checkpoint root;
+    /// for any later block it is pinned by block-merge continuity (`right.start_state == left.end_state`) to the
+    /// previous block's end state.
     pub(crate) previous_l1_to_l2: AppendOnlyTreeSnapshot,
-    // Message sponge this block starts from: the empty sponge for the checkpoint's first block, otherwise the sponge
-    // inherited from the previous block. Checked against the empty sponge in the checkpoint root for the leftmost
-    // block, and against the previous block's `end_msg_sponge` in the block merge otherwise.
+    /// Message sponge this block starts from: the empty sponge for the checkpoint's first block, otherwise the sponge
+    /// inherited from the previous block. Checked against the empty sponge in the checkpoint root for the leftmost
+    /// block, and against the previous block's `end_msg_sponge` in the block merge otherwise.
     pub(crate) start_msg_sponge: L1ToL2MessageSponge,
-    // Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_l1_to_l2`).
+    /// Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_l1_to_l2`).
     pub(crate) l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
-    // Hint for inserting the new block hash to the last archive.
+    /// Hint for inserting the new block hash to the last archive.
     pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
 

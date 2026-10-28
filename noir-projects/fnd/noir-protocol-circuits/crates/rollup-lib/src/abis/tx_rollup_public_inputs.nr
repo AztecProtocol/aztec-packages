@@ -9,42 +9,42 @@ use types::{
 /// Public inputs for the tx base and tx merge rollup circuits.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxRollupPublicInputs {
-    // Number of txs in this rollup.
+    /// Number of txs in this rollup.
     pub num_txs: u16,
 
-    // Constants that applied to all txs in this rollup.
+    /// Constants that applied to all txs in this rollup.
     pub constants: BlockConstantData,
 
-    // Tree snapshots immediately before this tx range.
+    /// Tree snapshots immediately before this tx range.
     pub start_tree_snapshots: PartialStateReference,
-    // Tree snapshots after applying this tx range.
+    /// Tree snapshots after applying this tx range.
     pub end_tree_snapshots: PartialStateReference,
 
-    // Sponge blob after absorbing tx effects of all txs before this tx range.
+    /// Sponge blob after absorbing tx effects of all txs before this tx range.
     pub start_sponge_blob: SpongeBlob,
-    // Sponge blob after additionally absorbing tx effects from this tx range.
+    /// Sponge blob after additionally absorbing tx effects from this tx range.
     pub end_sponge_blob: SpongeBlob,
 
-    // Root of the unbalanced tree composed of all l2-to-l1 messages emitted by this tx. It will be combined with the
-    // `out_hash` values from other txs in the same block to form a *wonky* tree.
-    // The tx out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
+    /// Root of the unbalanced tree composed of all l2-to-l1 messages emitted by this tx. It will be combined with the
+    /// `out_hash` values from other txs in the same block to form a *wonky* tree.
+    /// The tx out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
-    // The accumulating root (accumulated through each recursive tx_merge circuit) of the tx-effects tree for this
-    // block. A tx base outputs its tx's leaf (`compute_tx_effects_tree_leaf`), and a tx merge combines its
-    // children with
-    // `accumulate_tx_effects_tree_root(left, right)`.
-    // The block root places the completed value in `BlockHeader.tx_effects_tree_root`. Unlike `out_hash`, zero roots
-    // are not skipped: there are no padding txs, hence no zero leaves. The tree shape is pinned by
-    // `assert_rollups_filled_greedily`, which admits exactly one shape per tx count. A verifier that knows `num_txs`
-    // therefore knows the shape. A verifier holding only a header must instead recompute and validate the leaf
-    // preimage; accepting a bare untrusted leaf with a variable-depth path could treat an internal node as a leaf.
+    /// The accumulating root (accumulated through each recursive tx_merge circuit) of the tx-effects tree for this
+    /// block. A tx base outputs its tx's leaf (`compute_tx_effects_tree_leaf`), and a tx merge combines its
+    /// children with
+    /// `accumulate_tx_effects_tree_root(left, right)`.
+    /// The block root places the completed value in `BlockHeader.tx_effects_tree_root`. Unlike `out_hash`, zero roots
+    /// are not skipped: there are no padding txs, hence no zero leaves. The tree shape is pinned by
+    /// `assert_rollups_filled_greedily`, which admits exactly one shape per tx count. A verifier that knows `num_txs`
+    /// therefore knows the shape. A verifier holding only a header must instead recompute and validate the leaf
+    /// preimage; accepting a bare untrusted leaf with a variable-depth path could treat an internal node as a leaf.
     pub accumulated_tx_effects_tree_root: Field,
 
-    // Accumulated fees for all txs in this rollup.
+    /// Accumulated fees for all txs in this rollup.
     pub accumulated_fees: Field,
 
-    // Accumulated mana used for all txs in this rollup.
+    /// Accumulated mana used for all txs in this rollup.
     pub accumulated_mana_used: Field,
 }
 

@@ -1,7 +1,7 @@
 use mock_types::{AppPublicInputs, MAX_COMMITMENT_READ_REQUESTS_PER_CALL};
 
-// Mock app for testing that reads the commitments (generates read requests) the user commands.
-// Note: A zero read is a null read.
+/// Mock app for testing that reads the commitments (generates read requests) the user commands.
+/// Note: A zero read is a null read.
 fn main(
     commitments_to_read: [Field; MAX_COMMITMENT_READ_REQUESTS_PER_CALL],
 ) -> return_data AppPublicInputs {

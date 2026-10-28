@@ -14,9 +14,9 @@ pub struct KeyValidationRequestsValidator<let KeyValidationRequestsLen: u32, let
 }
 
 impl<let KeyValidationRequestsLen: u32, let KeyValidationHintsLen: u32> KeyValidationRequestsValidator<KeyValidationRequestsLen, KeyValidationHintsLen> {
-    // Generic parameter is used because generic arrays cannot have zero length.
-    // When a reset circuit does not require key validations, the `hints` array will still contain at least one item,
-    // while `KeyValidationAmount` will be set to zero.
+    /// Generic parameter is used because generic arrays cannot have zero length.
+    /// When a reset circuit does not require key validations, the `hints` array will still contain at least one item,
+    /// while `KeyValidationAmount` will be set to zero.
     pub fn validate<let KeyValidationAmount: u32>(self) {
         if KeyValidationAmount == 0 {
             assert_eq(

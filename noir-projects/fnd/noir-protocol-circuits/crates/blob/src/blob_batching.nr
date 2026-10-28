@@ -19,9 +19,9 @@ use types::{
 
 // Note: fracs and factor are computed once in the checkpoint root rollup and shared across all blobs.
 
-// Evaluates a single blob:
-// - Evaluates the blob at shared challenge z and returns result y_i
-// - Calculates this blob's challenge z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
+/// Evaluates a single blob:
+/// - Evaluates the blob at shared challenge z and returns result y_i
+/// - Calculates this blob's challenge z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
 fn evaluate_blob_for_batching(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: BatchingBlobCommitment,
@@ -40,8 +40,8 @@ fn evaluate_blob_for_batching(
     (z_i, y_i)
 }
 
-// Computes challenge for a single blob:
-// - z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
+/// Computes challenge for a single blob:
+/// - z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
 fn compute_blob_challenge(
     blob_fields_hash: Field,
     kzg_commitment: BatchingBlobCommitment,
@@ -149,8 +149,8 @@ mod tests {
     use protocol_test_utils::{pad_end, pad_end_with};
     use types::{constants::FIELDS_PER_BLOB, hash::sha256_to_field, traits::Empty};
 
-    // A single blob of 400 fields and its batching inputs. The hardcoded values are generated from
-    // labs/yarn-project/blob-lib/src/blob_batching.test.ts; run it with AZTEC_GENERATE_TEST_DATA=1 to rewrite them.
+    /// A single blob of 400 fields and its batching inputs. The hardcoded values are generated from
+    /// labs/yarn-project/blob-lib/src/blob_batching.test.ts; run it with AZTEC_GENERATE_TEST_DATA=1 to rewrite them.
     struct SingleBlobFixture {
         blob_fields: [Field; FIELDS_PER_BLOB],
         num_fields: u32,
@@ -443,7 +443,7 @@ mod tests {
         );
     }
 
-    // Not inlined: inlining several calls to `evaluate_blobs_and_batch` into one test multiplies its compile time.
+    /// Not inlined: inlining several calls to `evaluate_blobs_and_batch` into one test multiplies its compile time.
     #[inline_never]
     unconstrained fn accumulate_checkpoint<let NumBlobs: u32>(
         commitments: [BLSPoint; NumBlobs],

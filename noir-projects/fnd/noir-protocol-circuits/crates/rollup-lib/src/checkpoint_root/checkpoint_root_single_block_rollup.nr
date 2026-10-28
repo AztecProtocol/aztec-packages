@@ -16,9 +16,9 @@ use types::{
     proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-// The sole block of the checkpoint is also its first block, which any block root variant can be: the inputs validator
-// pins the leftmost block's start values to their initial ones. Block merges are excluded, since a merge means the
-// checkpoint has more than one block.
+/// The sole block of the checkpoint is also its first block, which any block root variant can be: the inputs validator
+/// pins the leftmost block's start values to their initial ones. Block merges are excluded, since a merge means the
+/// checkpoint has more than one block.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
     BLOCK_ROOT_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
@@ -27,8 +27,8 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
 
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
     pub(crate) previous_rollup: RollupHonkProofData<BlockRollupPublicInputs>,
-    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
-    // checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
+    /// Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
+    /// checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
     pub(crate) inbox_parity: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) hints: CheckpointRootRollupHints,
 }

@@ -3,7 +3,7 @@ use mock_types::{
     PrivateKernelPublicInputs, PROOF_TYPE_HN, VerificationKey,
 };
 
-// The tail kernel finishes the chonk chain exposing the final public inputs with no remaining calls or unfulfilled read requests.
+/// The tail kernel finishes the chonk chain exposing the final public inputs with no remaining calls or unfulfilled read requests.
 fn main(
     prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,
     kernel_vk: VerificationKey<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,

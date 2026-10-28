@@ -10,8 +10,8 @@ use types::{
     side_effect::Counted,
 };
 
-// This is a temporary workaround to make the noir codegen generate the ts type definitions for the following structs.
-// Remove this file once this issue is fixed: https://github.com/noir-lang/noir/issues/9026
+/// This is a temporary workaround to make the noir codegen generate the ts type definitions for the following structs.
+/// Remove this file once this issue is fixed: https://github.com/noir-lang/noir/issues/9026
 fn main(
     _nullifier: Nullifier,
     _private_log_data: PrivateLogData,

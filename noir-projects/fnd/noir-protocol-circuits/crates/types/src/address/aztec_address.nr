@@ -19,7 +19,7 @@ use std::{
 };
 use std::meta::derive;
 
-// Aztec address
+/// Aztec address
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct AztecAddress {
     pub inner: Field,

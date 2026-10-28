@@ -38,11 +38,11 @@ pub struct TxBlobDataSections {
     pub num_contract_class_log_fields: u32,
 }
 
-// It's worth acknowledging that these values are all significant over-allocations.
-// E.g. a single tx won't have anywhere near 2^16 nullifiers or 2^32 public log fields, and there are constants in
-// kernel/rollup circuits which prescribe much smaller maximums.
-// If you ever want to encode more information into the "tx start marker" (as the protocol changes) there's plenty of
-// room to reduce these values.
+/// It's worth acknowledging that these values are all significant over-allocations.
+/// E.g. a single tx won't have anywhere near 2^16 nullifiers or 2^32 public log fields, and there are constants in
+/// kernel/rollup circuits which prescribe much smaller maximums.
+/// If you ever want to encode more information into the "tx start marker" (as the protocol changes) there's plenty of
+/// room to reduce these values.
 global NUM_NOTE_HASH_BIT_SIZE: u32 = 16;
 global NUM_NULLIFIER_BIT_SIZE: u32 = 16;
 global NUM_L2_TO_L1_MSG_BIT_SIZE: u32 = 16;

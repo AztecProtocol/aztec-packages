@@ -1,14 +1,14 @@
-// Trait: is_empty
-//
-// The general is_empty trait checks if a data type is empty,
-// and it defines empty for the basic data types as 0.
-//
-// If a Field is equal to zero, then it is regarded as zero.
-// We will go with this definition for now, however it can be problematic
-// if a value can actually be zero. In a future refactor, we can
-// use the optional type for safety. Doing it now would lead to a worse devex
-// and would make it harder to sync up with the cpp code.
-// Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.
+/// Trait: is_empty
+///
+/// The general is_empty trait checks if a data type is empty,
+/// and it defines empty for the basic data types as 0.
+///
+/// If a Field is equal to zero, then it is regarded as zero.
+/// We will go with this definition for now, however it can be problematic
+/// if a value can actually be zero. In a future refactor, we can
+/// use the optional type for safety. Doing it now would lead to a worse devex
+/// and would make it harder to sync up with the cpp code.
+/// Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.
 pub trait Empty: Eq {
     fn empty() -> Self;
 
@@ -28,8 +28,8 @@ pub trait Empty: Eq {
     //     assert(!self.is_empty(), msg);
     // }
 
-    // This default impl is overwritten by types like arrays, because there's a much
-    // more efficient approach.
+    /// This default impl is overwritten by types like arrays, because there's a much
+    /// more efficient approach.
     fn assert_empty<let S: u32>(self, msg: str<S>) {
         assert(self.is_empty(), msg);
     }

@@ -262,8 +262,8 @@ where
     poseidon::poseidon2::Poseidon2::hash(inputs_with_separator, in_len + 1)
 }
 
-// This function is  unconstrained because it is intended to be used in unconstrained context only as
-// in constrained contexts it would be too inefficient.
+/// This function is  unconstrained because it is intended to be used in unconstrained context only as
+/// in constrained contexts it would be too inefficient.
 pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(
     inputs: BoundedVec<Field, N>,
     separator: T,

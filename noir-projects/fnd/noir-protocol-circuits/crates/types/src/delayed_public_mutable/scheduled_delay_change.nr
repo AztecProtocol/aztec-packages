@@ -3,20 +3,20 @@ use std::cmp::min;
 
 mod test;
 
-// This data structure is used by DelayedPublicMutable to store the minimum delay with which a ScheduledValueChange
-// object can schedule a change.
-// This delay is initially equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
-// is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
-// delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
-// reduced delay, invalidating prior private reads.
+/// This data structure is used by DelayedPublicMutable to store the minimum delay with which a ScheduledValueChange
+/// object can schedule a change.
+/// This delay is initially equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
+/// is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
+/// delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
+/// reduced delay, invalidating prior private reads.
 pub struct ScheduledDelayChange<let INITIAL_DELAY: u64> {
-    // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
-    // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
-    // ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
-    // effect. Once initialized, the Option will never be none again.
+    /// Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
+    /// they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
+    /// ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
+    /// effect. Once initialized, the Option will never be none again.
     pub(crate) pre: Option<u64>,
     pub(crate) post: Option<u64>,
-    // Timestamp at which `post` value is used instead of `pre`
+    /// Timestamp at which `post` value is used instead of `pre`
     pub(crate) timestamp_of_change: u64,
 }
 

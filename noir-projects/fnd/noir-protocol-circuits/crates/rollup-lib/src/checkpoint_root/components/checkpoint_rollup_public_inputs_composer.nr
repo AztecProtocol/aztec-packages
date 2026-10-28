@@ -21,8 +21,8 @@ use types::{
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     merged_rollup: BlockRollupPublicInputs,
-    // Public inputs of the inbox parity proof (verified by the caller). The checkpoint's `inbox_rolling_hash` is
-    // sourced from it, and its message sponge is checked against the blocks' accumulated one.
+    /// Public inputs of the inbox parity proof (verified by the caller). The checkpoint's `inbox_rolling_hash` is
+    /// sourced from it, and its message sponge is checked against the blocks' accumulated one.
     parity: ParityPublicInputs,
     // The below are all hints:
     previous_out_hash: AppendOnlyTreeSnapshot,

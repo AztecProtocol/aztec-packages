@@ -110,7 +110,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
-    // Use to delimit active arrays in accumulated data. Padding is zero-checked by validate_avm_accumulated_data_padding().
+    /// Use to delimit active arrays in accumulated data. Padding is zero-checked by validate_avm_accumulated_data_padding().
     pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,
@@ -222,12 +222,12 @@ fn set_l2_to_l1_msg_array_in_cols<let SIZE: u32>(
     }
 }
 
-// Serializes the public logs into the column layout.
-//
-// NOTE: the entire fixed-capacity payload (all `FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH`, currently 4096,
-// entries) is written here regardless of `logs.length`; the active entry count is conveyed separately
-// via the `length` header written below. This keeps the serialized layout a constant size, so the
-// Barretenberg/AVM side must mirror it by zero-filling every payload slot beyond `length`.
+/// Serializes the public logs into the column layout.
+///
+/// NOTE: the entire fixed-capacity payload (all `FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH`, currently 4096,
+/// entries) is written here regardless of `logs.length`; the active entry count is conveyed separately
+/// via the `length` header written below. This keeps the serialized layout a constant size, so the
+/// Barretenberg/AVM side must mirror it by zero-filling every payload slot beyond `length`.
 fn set_public_logs_in_cols(
     logs: PublicLogs,
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
@@ -266,8 +266,8 @@ fn set_protocol_contracts_in_cols(
 
 impl AvmCircuitPublicInputs {
 
-    // WARNING: If updating this columns conversion, you must also update columns serialization
-    // in the Cpp `PublicInputs` struct in avm_io.hpp
+    /// WARNING: If updating this columns conversion, you must also update columns serialization
+    /// in the Cpp `PublicInputs` struct in avm_io.hpp
     pub fn to_columns(
         self,
     ) -> [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS] {

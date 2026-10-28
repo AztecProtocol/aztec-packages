@@ -13,31 +13,31 @@ use types::{
 };
 
 pub struct PublicTxBaseRollupPrivateInputs {
-    // The public inputs of `private_tail_to_public` was propagated to `hiding_kernel_to_public` and then to
-    // `public_chonk_verifier`, whose public inputs are identical to those inputs, and are validated in this circuit.
+    /// The public inputs of `private_tail_to_public` was propagated to `hiding_kernel_to_public` and then to
+    /// `public_chonk_verifier`, whose public inputs are identical to those inputs, and are validated in this circuit.
     pub(crate) public_chonk_verifier_proof_data: RollupHonkProofData<PublicChonkVerifierPublicInputs>,
 
-    // AVM proof data. The public inputs contains the data from executing the public functions.
+    /// AVM proof data. The public inputs contains the data from executing the public functions.
     pub(crate) avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
 
-    // The sponge blob immediately before this tx.
-    // This circuit absorbs the tx effect into the sponge blob. The resulting sponge blob becomes the
-    // `start_sponge_blob` for the next tx, and is validated in `tx_merge`, `block_root` and `block_merge` to ensure
-    // continuity.
-    // The `start_sponge_blob` of the first tx in a checkpoint contains no fields and is validated in `checkpoint_root`.
+    /// The sponge blob immediately before this tx.
+    /// This circuit absorbs the tx effect into the sponge blob. The resulting sponge blob becomes the
+    /// `start_sponge_blob` for the next tx, and is validated in `tx_merge`, `block_root` and `block_merge` to ensure
+    /// continuity.
+    /// The `start_sponge_blob` of the first tx in a checkpoint contains no fields and is validated in `checkpoint_root`.
     pub(crate) start_sponge_blob: SpongeBlob,
 
-    // The archive tree snapshot immediately before this tx. This will be set in the block's constant data.
+    /// The archive tree snapshot immediately before this tx. This will be set in the block's constant data.
     pub(crate) last_archive: AppendOnlyTreeSnapshot,
 
-    // Sibling path proving that the anchor block header used during tx execution exists in the archive tree.
+    /// Sibling path proving that the anchor block header used during tx execution exists in the archive tree.
     pub(crate) anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 
-    // Fields of the contract class logs.
-    // These fields are validated against the contract class log hashes that are committed to and propagated
-    // from the private tail kernel. The fields themselves are added to the blobs, instead of the hashes.
-    // Note: if the avm reverted, only the _non-revertible_ contract class logs will be fed into this circuit, and
-    // only the _non-revertible_ contract class log hashes will be reconciled.
+    /// Fields of the contract class logs.
+    /// These fields are validated against the contract class log hashes that are committed to and propagated
+    /// from the private tail kernel. The fields themselves are added to the blobs, instead of the hashes.
+    /// Note: if the avm reverted, only the _non-revertible_ contract class logs will be fed into this circuit, and
+    /// only the _non-revertible_ contract class log hashes will be reconciled.
     pub(crate) contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 

@@ -15,37 +15,37 @@ use types::{
 pub struct CheckpointRollupPublicInputs {
     pub constants: EpochConstantData,
 
-    // Archive tree root immediately before this checkpoint range.
+    /// Archive tree root immediately before this checkpoint range.
     pub previous_archive: AppendOnlyTreeSnapshot,
-    // Archive tree root after applying this checkpoint range.
+    /// Archive tree root after applying this checkpoint range.
     pub new_archive: AppendOnlyTreeSnapshot,
 
-    // Snapshot of the epoch out hash tree immediately before this checkpoint range.
-    // The `previous_out_hash` of the first checkpoint in an epoch must be empty. The out hash of the first checkpoint
-    // will be inserted into the tree at index 0, the second at index 1, and so on.
+    /// Snapshot of the epoch out hash tree immediately before this checkpoint range.
+    /// The `previous_out_hash` of the first checkpoint in an epoch must be empty. The out hash of the first checkpoint
+    /// will be inserted into the tree at index 0, the second at index 1, and so on.
     pub previous_out_hash: AppendOnlyTreeSnapshot,
-    // Snapshot of the epoch out hash tree after applying this checkpoint range.
-    // The `new_out_hash` of the last checkpoint in an epoch contains all checkpoint out hashes. The root becomes the
-    // final epoch out hash inserted into the Outbox on L1.
+    /// Snapshot of the epoch out hash tree after applying this checkpoint range.
+    /// The `new_out_hash` of the last checkpoint in an epoch contains all checkpoint out hashes. The root becomes the
+    /// final epoch out hash inserted into the Outbox on L1.
     pub new_out_hash: AppendOnlyTreeSnapshot,
 
-    // Inbox rolling-hash chain segment consumed by this checkpoint range. `start_inbox_rolling_hash` is the chain value
-    // before the first checkpoint's messages, `end_inbox_rolling_hash` is the value after the last checkpoint's. The end
-    // value is what lands in the checkpoint header. Checkpoint merges assert `right.start == left.end` for continuity.
+    /// Inbox rolling-hash chain segment consumed by this checkpoint range. `start_inbox_rolling_hash` is the chain value
+    /// before the first checkpoint's messages, `end_inbox_rolling_hash` is the value after the last checkpoint's. The end
+    /// value is what lands in the checkpoint header. Checkpoint merges assert `right.start == left.end` for continuity.
     pub start_inbox_rolling_hash: Field,
     pub end_inbox_rolling_hash: Field,
 
-    // Hashes of checkpoint headers for this checkpoint range.
+    /// Hashes of checkpoint headers for this checkpoint range.
     pub checkpoint_header_hashes: [Field; MAX_CHECKPOINTS_PER_EPOCH],
 
-    // Concatenation of all coinbase and fees for each checkpoint in this checkpoint range.
+    /// Concatenation of all coinbase and fees for each checkpoint in this checkpoint range.
     pub fees: [FeeRecipient; MAX_CHECKPOINTS_PER_EPOCH],
 
-    // Accumulated opening proofs for all blobs before this checkpoint range.
+    /// Accumulated opening proofs for all blobs before this checkpoint range.
     pub start_blob_accumulator: BlobAccumulator,
-    // Accumulated opening proofs for all blobs after adding this checkpoint range.
+    /// Accumulated opening proofs for all blobs after adding this checkpoint range.
     pub end_blob_accumulator: BlobAccumulator,
-    // Final values z and gamma. Shared across the epoch.
+    /// Final values z and gamma. Shared across the epoch.
     pub final_blob_challenges: FinalBlobBatchingChallenges,
 }
 
