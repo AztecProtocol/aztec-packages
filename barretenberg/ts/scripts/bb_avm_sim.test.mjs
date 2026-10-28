@@ -1,7 +1,7 @@
 // Tests of the generated @aztec-foundation/bb-avm-sim package, from its build: one public transaction through the
 // spawned bb-avm-sim binary and through the wasm module (the browser's backend) gives the same result, and the wasm
-// module simulates against a world state and contract DB it reaches through its host (hostCall): wsdb-ref's wasm
-// module on the same worker, and a contract DB answered on this thread.
+// module and napi addon instances simulate against a world state and contract DB they reach through their host
+// (hostCall): wsdb-ref on the same thread, and a contract DB answered on this thread.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -13,7 +13,7 @@ import {
   AvmService,
   AvmServiceSync,
 } from "@aztec-foundation/bb-avm-sim";
-import { createWasmWorker } from "@aztec-foundation/ipc-runtime/wasm";
+import { createServiceThread } from "@aztec-foundation/ipc-runtime/wasm";
 import { WsdbService, WsdbServiceSync } from "@aztec-foundation/wsdb-ref";
 import { Packr, unpack } from "msgpackr";
 
@@ -220,7 +220,7 @@ async function simulateOnFork(avm, wsdb, forkId) {
 }
 
 test("on a shared worker, Simulate reaches wsdb-ref beside it and a contract DB on this thread", async () => {
-  const worker = createWasmWorker();
+  const worker = createServiceThread();
   const contractDB = fixtureContractDB();
   const wsdb = await WsdbService.create({
     backend: "wasm",
@@ -286,6 +286,128 @@ test("on the calling thread, Simulate reaches synchronous services, and an async
   } finally {
     avm.destroy();
     asyncCdb.destroy();
+    wsdb.destroy();
+  }
+});
+
+/** The fixture simulated with wsdb-ref and the AVM on one thread, over the given backends. */
+async function simulateOnSharedThread(wsdbBackend, avmBackend) {
+  const worker = createServiceThread();
+  const contractDB = fixtureContractDB();
+  const wsdb = await WsdbService.create({
+    backend: wsdbBackend,
+    [wsdbBackend]: { worker },
+  });
+  const avm = await AvmService.create({
+    backend: avmBackend,
+    [avmBackend]: {
+      worker,
+      hostCall: { wsdb, cdb: async (request) => contractDB.handle(request) },
+    },
+  });
+  try {
+    const { forkId } = await wsdb.createFork({ latest: true, blockNumber: 0 });
+    return await simulateOnFork(avm, wsdb, forkId);
+  } finally {
+    await avm.destroy();
+    await wsdb.destroy();
+    await worker.destroy();
+  }
+}
+
+test("napi instances and wasm modules share a thread in any combination, with the same result", async () => {
+  const reference = await simulateOnSharedThread("wasm", "wasm");
+  assert.ok(reference.added > 0);
+  for (const [wsdbBackend, avmBackend] of [
+    ["napi", "napi"],
+    ["wasm", "napi"],
+    ["napi", "wasm"],
+  ]) {
+    assert.deepEqual(
+      await simulateOnSharedThread(wsdbBackend, avmBackend),
+      reference,
+      `wsdb-ref ${wsdbBackend}, AVM ${avmBackend}`,
+    );
+  }
+});
+
+test("napi instances run on their own threads at once, each with its own state", async () => {
+  const reference = await simulateOnSharedThread("napi", "napi");
+  const sessions = Array.from({ length: 4 }, async () => {
+    const worker = createServiceThread();
+    const contractDB = fixtureContractDB();
+    const wsdb = await WsdbService.create({
+      backend: "napi",
+      napi: { worker },
+    });
+    const avm = await AvmService.create({
+      backend: "napi",
+      napi: {
+        worker,
+        hostCall: { wsdb, cdb: async (request) => contractDB.handle(request) },
+      },
+    });
+    try {
+      const results = [];
+      for (let i = 0; i < 5; i++) {
+        const { forkId } = await wsdb.createFork({
+          latest: true,
+          blockNumber: 0,
+        });
+        results.push(await simulateOnFork(avm, wsdb, forkId));
+      }
+      return results;
+    } finally {
+      await avm.destroy();
+      await wsdb.destroy();
+      await worker.destroy();
+    }
+  });
+  for (const result of (await Promise.all(sessions)).flat()) {
+    assert.deepEqual(result, reference);
+  }
+});
+
+test("a synchronous napi instance on the calling thread, isolated from another, refuses a host call back into itself", async () => {
+  const contractDB = fixtureContractDB();
+  const wsdb = await WsdbServiceSync.create({ backend: "napi" });
+  const other = await WsdbServiceSync.create({ backend: "napi" });
+  const avm = await AvmServiceSync.create({
+    backend: "napi",
+    napi: { hostCall: { wsdb, cdb: contractDB.handle } },
+  });
+  const reentrant = await AvmServiceSync.create({
+    backend: "napi",
+    napi: {
+      hostCall: {
+        wsdb,
+        cdb: (request) => {
+          reentrant.simulateWithHints({ inputs });
+          return contractDB.handle(request);
+        },
+      },
+    },
+  });
+  try {
+    const { forkId } = wsdb.createFork({ latest: true, blockNumber: 0 });
+    const result = decodeResult(
+      avm.simulate({ inputs: fastSimulationInputs(forkId) }),
+    );
+    assert.ok(result.publicTxEffect.nullifiers.length > 0);
+    assert.throws(
+      () =>
+        other.getTreeInfo({ treeId: NULLIFIER_TREE, revision: latest(forkId) }),
+      "another napi instance has no such fork",
+    );
+    const second = wsdb.createFork({ latest: true, blockNumber: 0 });
+    assert.throws(
+      () => reentrant.simulate({ inputs: fastSimulationInputs(second.forkId) }),
+      /in progress/,
+    );
+  } finally {
+    avm.destroy();
+    reentrant.destroy();
+    other.destroy();
     wsdb.destroy();
   }
 });

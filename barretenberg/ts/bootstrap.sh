@@ -3,6 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 ROOT=$(git rev-parse --show-toplevel)
 BB_AVM_SIM_BINARY=bb-avm-sim
+BB_AVM_SIM_ADDON=bb_avm_sim_napi.node
 BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
 BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
@@ -34,8 +35,10 @@ function generate_bb_avm_sim_package {
     --binary-name "$BB_AVM_SIM_BINARY" \
     --prefix Avm \
     --strip-method-prefix \
-    --package-transports uds,wasm \
+    --package-transports uds,napi,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-napi-addon "$BB_AVM_SIM_ADDON" \
+    --package-napi-addon-env-var BB_AVM_SIM_NAPI_PATH \
     --package-wasm-module bb-avm-sim.wasm
 }
 
@@ -174,6 +177,7 @@ function copy_bb_avm_sim_native {
   local target_dir="bb-avm-sim/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
   cp "$ROOT/barretenberg/cpp/build/bin/$BB_AVM_SIM_BINARY" "$target_dir/$BB_AVM_SIM_BINARY"
+  cp "$ROOT/barretenberg/cpp/build/lib/$BB_AVM_SIM_ADDON" "$target_dir/$BB_AVM_SIM_ADDON"
 }
 
 function copy_bb_avm_sim_cross {
@@ -182,11 +186,13 @@ function copy_bb_avm_sim_cross {
     mkdir -p "bb-avm-sim/build/$cross_arch"
     cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$BB_AVM_SIM_BINARY" \
       "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_BINARY"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$BB_AVM_SIM_ADDON" "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_ADDON"
   elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
     for cross_arch in arm64-linux amd64-macos arm64-macos; do
       mkdir -p "bb-avm-sim/build/$cross_arch"
       cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$BB_AVM_SIM_BINARY" \
         "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_BINARY"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$BB_AVM_SIM_ADDON" "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_ADDON"
     done
   else
     echo "This task is expected to be run with an explicit arch or in an x86 release context."
