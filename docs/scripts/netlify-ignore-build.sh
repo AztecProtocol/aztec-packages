@@ -12,11 +12,21 @@ depth=()
 [ "$(git rev-parse --is-shallow-repository)" = true ] && depth=(--depth=2)
 
 # GitHub's merge ref is the pull request merged into its current base (next or a merge train), so
-# its first parent is that base's tip. GitHub recomputes it after each push, so it is used only
-# once its second parent is the commit being built.
-if [ -n "$pr" ] &&
+# its first parent is that base's tip. GitHub recomputes it shortly after each push, so it is used
+# only once its second parent is the commit being built.
+function merge_ref_ready {
   git fetch -q "${depth[@]}" origin "+refs/pull/$pr/merge:refs/netlify/pr-merge" &&
-  [ "$(git rev-parse -q --verify 'refs/netlify/pr-merge^2' || true)" = "$head" ]; then
+    [ "$(git rev-parse -q --verify 'refs/netlify/pr-merge^2' || true)" = "$head" ]
+}
+ready=false
+if [ -n "$pr" ]; then
+  for attempt in 1 2 3; do
+    if merge_ref_ready; then ready=true; break; fi
+    [ "$attempt" = 3 ] || sleep 10
+  done
+fi
+
+if $ready; then
   from='refs/netlify/pr-merge^1'
   to=refs/netlify/pr-merge
   echo "Comparing pull request #$pr with its base branch."
