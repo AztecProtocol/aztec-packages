@@ -711,7 +711,11 @@ void serve(const std::string& input_path, Ctx& ctx)
   generateFfiHeader(): string {
     const { namespace: ns, prefix } = this.opts;
     const dispatchHeader = `${toSnakeCase(prefix)}_dispatch.hpp`;
+    const handler = `make_${toSnakeCase(prefix)}_handler`;
     const entry = this.ffiSymbol("ipc_ffi_entry");
+    const create = this.ffiSymbol("ipc_ffi_create");
+    const call = this.ffiSymbol("ipc_ffi_call");
+    const destroy = this.ffiSymbol("ipc_ffi_destroy");
     const alloc = this.ffiSymbol("ipc_ffi_alloc");
     const free = this.ffiSymbol("ipc_ffi_free");
 
@@ -724,6 +728,8 @@ void serve(const std::string& input_path, Ctx& ctx)
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <utility>
 
 // Default visibility so the symbols survive -fvisibility=hidden in a static library and are
 // exported from a wasm reactor linked with --export-dynamic.
@@ -733,28 +739,62 @@ void serve(const std::string& input_path, Ctx& ctx)
 
 namespace ${ns} {
 
-// Defined by the service, because make_${toSnakeCase(prefix)}_handler() is a template over the
-// context type its handlers run over and the schema cannot name that type. A serve loop takes the
-// context from main(); a library has none, so the service defines this instead:
+/** One instance of the service: a context and the dispatcher over it, like one transport connection. */
+class FfiInstance {
+  public:
+    virtual ~FfiInstance() = default;
+    virtual AsyncDispatchHandler& dispatcher() = 0;
+};
+
+/** The instance over a context of type Ctx, the type the service's handlers run over. */
+template <typename Ctx> class FfiContext final : public FfiInstance {
+  public:
+    template <typename... Args>
+    explicit FfiContext(Args&&... args)
+        : ctx(std::forward<Args>(args)...)
+        , handler_(${handler}(ctx))
+    {}
+    FfiContext(const FfiContext&) = delete;
+    FfiContext& operator=(const FfiContext&) = delete;
+    FfiContext(FfiContext&&) = delete;
+    FfiContext& operator=(FfiContext&&) = delete;
+    ~FfiContext() override = default;
+
+    AsyncDispatchHandler& dispatcher() override { return handler_; }
+
+    Ctx ctx;
+
+  private:
+    AsyncDispatchHandler handler_;
+};
+
+// Defined by the service, because ${handler}() is a template over the context type its handlers
+// run over and the schema cannot name that type. A serve loop takes the context from main(); a
+// library has none, so the service defines this instead:
 //
 //   namespace ${ns} {
-//   AsyncDispatchHandler& ipc_ffi_dispatcher()
+//   std::unique_ptr<FfiInstance> ipc_ffi_create_instance()
 //   {
-//       static MyCtx ctx;
-//       static AsyncDispatchHandler handler = make_${toSnakeCase(prefix)}_handler(ctx);
-//       return handler;
+//       return std::make_unique<FfiContext<MyCtx>>();
 //   }
 //   }
 //
-// One context for the process, built on first use, so stateful command sequences share state the
-// way they would over one transport connection.
-AsyncDispatchHandler& ipc_ffi_dispatcher();
+// Each instance is a fresh context, so stateful command sequences on one instance share state the
+// way they would over one transport connection, and separate instances share nothing.
+std::unique_ptr<FfiInstance> ipc_ffi_create_instance();
 
 } // namespace ${ns}
 
-// Execute one msgpack command payload — the same bytes a transport client puts inside a frame,
-// without the length/id envelope — and leave the response payload in a buffer from
-// ${alloc}(), which the caller releases with ${free}().
+// Instances: ${create}() makes one (null if the service failed to), ${call}() executes one msgpack
+// command payload on it (the same bytes a transport client puts inside a frame, without the
+// length/id envelope) and leaves the response payload in a buffer from ${alloc}(), which the caller
+// releases with ${free}(), and ${destroy}() ends it. Calls on one instance must not overlap; calls on
+// different instances may run concurrently, on any threads.
+IPC_FFI_EXPORT void* ${create}();
+IPC_FFI_EXPORT void ${call}(void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
+IPC_FFI_EXPORT void ${destroy}(void* instance);
+
+// ${call}() on one instance of the process, made on first use.
 IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
 
 // malloc/free-compatible allocation for buffers crossing the FFI boundary in either direction.
@@ -768,6 +808,9 @@ IPC_FFI_EXPORT void ${free}(void* ptr);
     const { namespace: ns, prefix } = this.opts;
     const ffiHeader = `${toSnakeCase(prefix)}_ffi.hpp`;
     const entry = this.ffiSymbol("ipc_ffi_entry");
+    const create = this.ffiSymbol("ipc_ffi_create");
+    const call = this.ffiSymbol("ipc_ffi_call");
+    const destroy = this.ffiSymbol("ipc_ffi_destroy");
     const alloc = this.ffiSymbol("ipc_ffi_alloc");
     const free = this.ffiSymbol("ipc_ffi_free");
 
@@ -794,20 +837,39 @@ IPC_FFI_EXPORT void ${free}(void* ptr)
     std::free(ptr);
 }
 
-IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len)
+IPC_FFI_EXPORT void* ${create}()
 {
+#ifdef BB_NO_EXCEPTIONS
+    return ${ns}::ipc_ffi_create_instance().release();
+#else
+    try {
+        return ${ns}::ipc_ffi_create_instance().release();
+    } catch (...) {
+        return nullptr;
+    }
+#endif
+}
+
+IPC_FFI_EXPORT void ${destroy}(void* instance)
+{
+    delete static_cast<${ns}::FfiInstance*>(instance);
+}
+
+IPC_FFI_EXPORT void ${call}(void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len)
+{
+    auto& dispatcher = static_cast<${ns}::FfiInstance*>(instance)->dispatcher();
     std::vector<uint8_t> response;
     // The dispatch answers a malformed envelope, an unknown command and a throwing
     // handler with an error frame, but an unpack or convert failure still escapes
     // it. An exception cannot cross an FFI boundary, so anything reaching here has
     // to become a response.
 #ifdef BB_NO_EXCEPTIONS
-    ${ns}::ipc_ffi_dispatcher()(std::span<const uint8_t>(input, input_len),
-                                [&response](std::vector<uint8_t> frame) { response = std::move(frame); });
+    dispatcher(std::span<const uint8_t>(input, input_len),
+               [&response](std::vector<uint8_t> frame) { response = std::move(frame); });
 #else
     try {
-        ${ns}::ipc_ffi_dispatcher()(std::span<const uint8_t>(input, input_len),
-                                    [&response](std::vector<uint8_t> frame) { response = std::move(frame); });
+        dispatcher(std::span<const uint8_t>(input, input_len),
+                   [&response](std::vector<uint8_t> frame) { response = std::move(frame); });
     } catch (const std::exception& e) {
         response = ${ns}::detail::make_error(e.what());
     } catch (...) {
@@ -818,6 +880,13 @@ IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** o
     std::memcpy(out, response.data(), response.size());
     *output = out;
     *output_len = response.size();
+}
+
+IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+    static std::unique_ptr<${ns}::FfiInstance> instance = ${ns}::ipc_ffi_create_instance();
+    ${call}(instance.get(), input, input_len, output, output_len);
 }
 `;
   }
@@ -832,6 +901,9 @@ IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** o
     const { prefix } = this.opts;
     const ffiHeader = `${toSnakeCase(prefix)}_ffi.hpp`;
     const entry = this.ffiSymbol("ipc_ffi_entry");
+    const create = this.ffiSymbol("ipc_ffi_create");
+    const callInstance = this.ffiSymbol("ipc_ffi_call");
+    const destroy = this.ffiSymbol("ipc_ffi_destroy");
     const free = this.ffiSymbol("ipc_ffi_free");
     const moduleName = `${toSnakeCase(prefix) || "ipc"}_napi`;
 
@@ -841,15 +913,26 @@ IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** o
 //   call(input: Uint8Array): Buffer                 runs on the calling thread
 //   callAsync(input: Uint8Array): Promise<Buffer>   runs on the libuv thread pool
 //
-// The FFI entry is not thread-safe, so every call, from either form, holds one mutex: async
-// calls queue behind each other and behind any synchronous call in progress.
+// Both run on one instance for the process, and every call from either form holds one mutex:
+// async calls queue behind each other and behind any synchronous call in progress.
+//
+//   create(): object                                a new instance of the service
+//   callInstance(instance, input, hostCall?): Buffer
+//   destroy(instance): void
+//
+// An instance is called on the calling thread, and its calls must not overlap; separate instances
+// share nothing and may be called from separate threads (node workers) at once. hostCall, a
+// function (target: string, request: Uint8Array) => Uint8Array, answers the service's host calls
+// (ipc_runtime.host_call) for that one call, synchronously, on the same thread.
 #include "${ffiHeader}"
 
 #include <napi.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <string>
 #include <vector>
 
 namespace {
@@ -930,15 +1013,180 @@ Napi::Value call_async(const Napi::CallbackInfo& info)
     return promise;
 }
 
+/** The host-call function of the instance call in progress on this thread, if it gave one. */
+struct HostCalls {
+    Napi::Env env;
+    Napi::Function fn;
+};
+thread_local HostCalls* host_calls = nullptr;
+
+/** Sets this thread's host-call function for one call, and restores the previous one after. */
+class HostCallScope {
+  public:
+    explicit HostCallScope(HostCalls* calls)
+        : previous_(host_calls)
+    {
+        host_calls = calls;
+    }
+    HostCallScope(const HostCallScope&) = delete;
+    HostCallScope& operator=(const HostCallScope&) = delete;
+    HostCallScope(HostCallScope&&) = delete;
+    HostCallScope& operator=(HostCallScope&&) = delete;
+    ~HostCallScope() { host_calls = previous_; }
+
+  private:
+    HostCalls* previous_;
+};
+
+/** Holds an instance for JS; destroy() ends it, and collection ends it if destroy() never ran. */
+struct Instance {
+    void* handle = nullptr;
+    bool busy = false;
+};
+
+Instance* instance_arg(const Napi::CallbackInfo& info)
+{
+    if (info.Length() < 1 || !info[0].IsExternal()) {
+        NAPI_THROW(Napi::TypeError::New(info.Env(), "expected an instance from create()"), nullptr);
+    }
+    auto* instance = info[0].As<Napi::External<Instance>>().Data();
+    if (instance->handle == nullptr) {
+        NAPI_THROW(Napi::Error::New(info.Env(), "${prefix}: instance used after destroy()"), nullptr);
+    }
+    return instance;
+}
+
+Napi::Value create(const Napi::CallbackInfo& info)
+{
+    void* handle = ${create}();
+    if (handle == nullptr) {
+        NAPI_THROW(Napi::Error::New(info.Env(), "${prefix}: the service failed to create an instance"),
+                   info.Env().Undefined());
+    }
+    return Napi::External<Instance>::New(info.Env(), new Instance{ .handle = handle }, [](Napi::Env, Instance* instance) {
+        if (instance->handle != nullptr) {
+            ${destroy}(instance->handle);
+        }
+        delete instance;
+    });
+}
+
+Napi::Value call_instance(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    Instance* instance = instance_arg(info);
+    if (env.IsExceptionPending()) {
+        return env.Undefined();
+    }
+    if (info.Length() < 2 || !info[1].IsTypedArray() ||
+        info[1].As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array) {
+        NAPI_THROW(Napi::TypeError::New(env, "expected a Uint8Array input"), env.Undefined());
+    }
+    if (instance->busy) {
+        // A host call reaching back into the instance it came from.
+        NAPI_THROW(Napi::Error::New(env, "${prefix}: instance called while a call on it is in progress"),
+                   env.Undefined());
+    }
+    // Copied: a host call may run JS that touches the caller's buffer.
+    Napi::Uint8Array input_array = info[1].As<Napi::Uint8Array>();
+    std::vector<uint8_t> input(input_array.Data(), input_array.Data() + input_array.ByteLength());
+    HostCalls calls{ env, Napi::Function() };
+    bool has_host_calls = info.Length() >= 3 && info[2].IsFunction();
+    if (has_host_calls) {
+        calls.fn = info[2].As<Napi::Function>();
+    }
+    uint8_t* output = nullptr;
+    size_t output_len = 0;
+    {
+        HostCallScope scope(has_host_calls ? &calls : nullptr);
+        instance->busy = true;
+        ${callInstance}(instance->handle, input.data(), input.size(), &output, &output_len);
+        instance->busy = false;
+    }
+    Napi::Value response = Napi::Buffer<uint8_t>::Copy(env, output, output_len);
+    ${free}(output);
+    return response;
+}
+
+Napi::Value destroy(const Napi::CallbackInfo& info)
+{
+    Instance* instance = instance_arg(info);
+    if (info.Env().IsExceptionPending()) {
+        return info.Env().Undefined();
+    }
+    ${destroy}(instance->handle);
+    instance->handle = nullptr;
+    return info.Env().Undefined();
+}
+
 Napi::Object init(Napi::Env env, Napi::Object exports)
 {
     exports.Set("service", Napi::String::New(env, "${prefix}"));
     exports.Set("call", Napi::Function::New(env, call, "call"));
     exports.Set("callAsync", Napi::Function::New(env, call_async, "callAsync"));
+    exports.Set("create", Napi::Function::New(env, create, "create"));
+    exports.Set("callInstance", Napi::Function::New(env, call_instance, "callInstance"));
+    exports.Set("destroy", Napi::Function::New(env, destroy, "destroy"));
     return exports;
 }
 
+/** A host call's answer: the response bytes, or why there are none (status 1). */
+int32_t answer(std::vector<uint8_t> bytes, int32_t status, uint8_t** response, size_t* response_len)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
+    auto* out = static_cast<uint8_t*>(std::malloc(bytes.empty() ? 1 : bytes.size()));
+    std::memcpy(out, bytes.data(), bytes.size());
+    *response = out;
+    *response_len = bytes.size();
+    return status;
+}
+
+int32_t fail(const std::string& message, uint8_t** response, size_t* response_len)
+{
+    return answer(std::vector<uint8_t>(message.begin(), message.end()), 1, response, response_len);
+}
+
 } // namespace
+
+/**
+ * The service's ipc_runtime.host_call (ipc_codegen::HostCallBackend): answered by the host-call
+ * function the instance call in progress on this thread was given.
+ */
+extern "C" int32_t ipc_runtime_host_call(const uint8_t* target,
+                                         size_t target_len,
+                                         const uint8_t* request,
+                                         size_t request_len,
+                                         uint8_t** response,
+                                         size_t* response_len)
+{
+    HostCalls* calls = host_calls;
+    if (calls == nullptr) {
+        return fail("nothing is bound for this call's host calls (pass hostCall to callInstance)", response,
+                    response_len);
+    }
+    Napi::Env env = calls->env;
+    Napi::HandleScope scope(env);
+    Napi::Value result;
+#ifdef NAPI_CPP_EXCEPTIONS
+    try {
+#endif
+        result = calls->fn.Call({ Napi::String::New(env, reinterpret_cast<const char*>(target), target_len),
+                                  Napi::Buffer<uint8_t>::Copy(env, request, request_len) });
+#ifdef NAPI_CPP_EXCEPTIONS
+    } catch (const Napi::Error& e) {
+        return fail(e.Message(), response, response_len);
+    }
+#endif
+    if (env.IsExceptionPending()) {
+        Napi::Error error = env.GetAndClearPendingException();
+        return fail(error.Message(), response, response_len);
+    }
+    if (!result.IsTypedArray() || result.As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array) {
+        return fail("the host-call function must return a Uint8Array synchronously", response, response_len);
+    }
+    auto bytes = result.As<Napi::Uint8Array>();
+    return answer(std::vector<uint8_t>(bytes.Data(), bytes.Data() + bytes.ByteLength()), 0, response, response_len);
+}
 
 // NOLINTNEXTLINE
 NODE_API_MODULE(${moduleName}, init)
