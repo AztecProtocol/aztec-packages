@@ -807,7 +807,7 @@ export class ${svc}Sync extends SyncApi {
   type WasmFfiBackend,
   type WasmFfiBackendSync,
   type WasmModuleSource,
-  type WasmWorker,
+  type ServiceThread,
   chooseWasmModule,
   createWasmFfiBackend,
   createWasmFfiBackendSync,
@@ -840,10 +840,10 @@ export interface ${prefix}WasmOptions {
    * False runs the module on the calling thread and every call blocks it until the module
    * returns, which is cheaper per call and fine for short work off the main thread. For short
    * work *on* the main thread, prefer the synchronous backend, which always runs there. A
-   * WasmWorker (ipc-runtime's createWasmWorker()) runs it on that worker, beside the other modules
+   * ServiceThread (ipc-runtime's createServiceThread()) runs it on that worker, beside the other modules
    * loaded there, which it can then reach as host-call targets with no message passing.
    */
-  worker?: boolean | WasmWorker;
+  worker?: boolean | ServiceThread;
   /**
    * The services the module reaches from inside through its host (\`ipc_runtime.host_call\`), by
    * the target name it calls them by: another module's service (on the same worker, a direct
@@ -1013,7 +1013,7 @@ export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
   NapiFfiBackendSync,
   loadNapiFfiAddon,
 } from '@aztec-foundation/ipc-runtime';
-import { type HostCallTargets, type WasmWorker, createWasmWorker } from '@aztec-foundation/ipc-runtime/wasm';
+import { type HostCallTargets, type ServiceThread, createServiceThread } from '@aztec-foundation/ipc-runtime/wasm';
 import { ${findAddon} } from './platform.js';
 
 /**
@@ -1025,11 +1025,11 @@ export interface ${prefix}NapiOptions {
   /** The addon to load instead of the installed one (else \`${this.opts.napiAddonEnvVar}\`, else the arch package). */
   addonPath?: string;
   /**
-   * Where the instance runs (asynchronous backend): a WasmWorker (ipc-runtime's createWasmWorker())
+   * Where the instance runs (asynchronous backend): a ServiceThread (ipc-runtime's createServiceThread())
    * shared with the instances loaded there, wasm modules or napi instances, which it can then reach
    * as host-call targets synchronously; default a worker of its own.
    */
-  worker?: WasmWorker;
+  worker?: ServiceThread;
   /** The services the service reaches through its host (\`ipc_runtime.host_call\`), by target name. */
   hostCall?: HostCallTargets;
 }
@@ -1054,7 +1054,7 @@ export async function createNapiBackend(options: ${prefix}NapiOptions = {}): Pro
   }
   return NapiFfiBackend.instance(
     { addonPath, worker: options.worker, hostCall: options.hostCall },
-    createWasmWorker,
+    createServiceThread,
   );
 }
 
@@ -1081,7 +1081,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): IpcCl
       process &&
         `- \`'process'\`: spawns the \`${this.opts.binaryName}\` binary (node) and talks to it over ${this.processTransports.join(" or ")}. The binary is resolved from \`${this.opts.binaryEnvVar}\`, an explicit \`process.binaryPath\`, or the installed arch package (one of this package's optional dependencies).`,
       napi &&
-        `- \`'napi'\`: runs the service in-process (node) through its Node-API addon, \`${this.opts.napiAddon}\`, a thin wrapper over the service's FFI entry. Asynchronous calls run on the libuv thread pool and the synchronous backend runs on the calling thread; either way calls are serialized. Node loads a native module once per process, so every napi backend in a process shares one service instance. The addon is resolved from \`${this.opts.napiAddonEnvVar}\`, an explicit \`napi.addonPath\`, or the installed arch package.`,
+        `- \`'napi'\`: runs the service in-process (node) through its Node-API addon, \`${this.opts.napiAddon}\`, a thin wrapper over the service's FFI entry. Each backend is an instance of the service with state of its own, like one connection to the process. The asynchronous backend runs it on a worker thread, its own or the \`napi.worker\` given (ipc-runtime's \`createServiceThread()\`), where it can share the thread with other instances, wasm modules included, and reach them synchronously through \`napi.hostCall\`; the synchronous backend runs it on the calling thread. An addon built without instances falls back to one instance for the process, called on the libuv thread pool. The addon is resolved from \`${this.opts.napiAddonEnvVar}\`, an explicit \`napi.addonPath\`, or the installed arch package.`,
       wasm &&
         `- \`'wasm'\`: runs the service's wasm module in-process (node and browsers) through \`@aztec-foundation/ipc-runtime/wasm\`: the main instance in a worker, wasi threads on further workers where a shared memory is available (node, or a browser page served with COOP/COEP headers), otherwise the single-thread module. The worker scripts and the module are referenced with \`new URL(..., import.meta.url)\`, so bundlers emit them as chunks and assets of the application, and only the module actually chosen is ever fetched (Vite users: exclude the package from \`optimizeDeps\`). The module ships uncompressed, which is what lets the browser stream it into \`WebAssembly.compileStreaming\` and cache the compiled code between visits; serve it with your host's own compression. Where that is not possible, \`wasm.module\` takes a compressed copy — or bytes, a \`Response\`, or an already compiled \`Module\`.`,
       `- an object: anything with \`call(bytes)\`/\`destroy()\`, for a transport of your own (a bridge to a natively linked library, for instance).`,
