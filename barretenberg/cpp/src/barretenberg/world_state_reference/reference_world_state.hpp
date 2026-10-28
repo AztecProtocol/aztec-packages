@@ -32,10 +32,17 @@ using numeric::uint256_t;
 
 /**
  * @brief The genesis a world state starts from, as a node world state is configured with it.
- * @details canonical() is the protocol's: the protocol contracts' registration nullifiers, no public
- * data, timestamp 0.
+ * @details canonical() is the protocol's: the protocol's tree heights and initial sizes, the protocol contracts'
+ * registration nullifiers, no public data, timestamp 0.
  */
 struct GenesisConfig {
+    /** Each tree's height, by MerkleTreeId. */
+    std::array<uint32_t, 5> tree_heights = {
+        NULLIFIER_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, ARCHIVE_HEIGHT
+    };
+    /** Leaves each indexed tree starts with, its prefill included. */
+    uint64_t nullifier_tree_initial_size = 128;
+    uint64_t public_data_tree_initial_size = 128;
     std::vector<NullifierLeafValue> prefilled_nullifiers;
     std::vector<PublicDataLeafValue> prefilled_public_data;
     uint64_t genesis_timestamp = 0;
@@ -101,7 +108,7 @@ template <typename LeafValueType> struct BatchInsertionResult {
  */
 class ReferenceWorldState {
   public:
-    /** Leaves each indexed tree starts with, prefill included, as on a node. */
+    /** Leaves each indexed tree of the canonical genesis starts with, prefill included, as on a node. */
     static constexpr size_t INDEXED_TREE_INITIAL_SIZE = 128;
 
     explicit ReferenceWorldState(const GenesisConfig& genesis = GenesisConfig::canonical());
@@ -112,8 +119,8 @@ class ReferenceWorldState {
     /** Restarts from `genesis`: every block, fork and uncommitted write is dropped. */
     void reset(const GenesisConfig& genesis);
 
-    /** The tree height the protocol fixes for `tree_id`. */
-    static uint32_t tree_height(MerkleTreeId tree_id);
+    /** The height this world state's genesis gives `tree_id`. */
+    uint32_t tree_height(MerkleTreeId tree_id) const;
 
     // Reads.
     std::vector<TreeState> get_state_reference(const WorldStateRevision& revision) const;
@@ -272,6 +279,7 @@ class ReferenceWorldState {
     static SequentialInsertionResult<LeafValueType> sequential_insert(Tree& tree,
                                                                       std::span<const LeafValueType> leaves);
 
+    std::array<uint32_t, 5> tree_heights_{};
     std::vector<Trees> blocks_;
     std::map<uint64_t, Fork> forks_;
     uint64_t next_fork_id_ = 1;
