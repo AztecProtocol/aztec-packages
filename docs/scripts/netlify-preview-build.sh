@@ -33,5 +33,6 @@ fi
 
 echo "=== Building the docs ==="
 cd "$docs"
+# shellcheck source=docs/scripts/node_options.sh
 source "$docs/scripts/node_options.sh"
 yarn build

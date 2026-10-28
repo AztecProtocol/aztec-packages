@@ -6,7 +6,7 @@
 # upstream deletion, a non-docs file surviving, a dirty tree refused, a conflict refused, and
 # every check failure.
 #
-# Runs from any cwd; needs git, bash and perl.
+# Runs from any cwd; needs git, bash, perl and Python 3.11+.
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
@@ -92,9 +92,10 @@ grep -qx '    "docs/b.md",' "$d/docs-developers/multi.md" || fail "reroot: docs 
 grep -q 'path = "../../../../labs/noir-projects/aztec-nr"' "$d/examples/contracts/c/Nargo.toml" || fail "reroot: Nargo root path"
 grep -q 'path = "../d"' "$d/examples/contracts/c/Nargo.toml" || fail "reroot: Nargo local path untouched"
 grep -q '"labs/yarn-project/stdlib/a.ts"' "$d/scripts/node_api_reference_generation/generate_node_api_reference.ts" || fail "reroot: generator references"
-{ [ "$(grep -c 'ignore' "$d/netlify.toml")" = 1 ] && grep -q '^  ignore = "exit 0"$' "$d/netlify.toml"; } || fail "reroot: Netlify guard"
+cmp -s "$up/docs/netlify.toml" "$d/netlify.toml" || fail "reroot: netlify.toml untouched"
 [ "$(cat "$d/.labs-sync")" = "$v1" ] || fail "import: .labs-sync"
-"$sync" check >/dev/null || fail "check after import"
+out=$("$sync" check 2>&1) && fail "check: Labs' netlify.toml builds production"
+grep -qF "[build] command must be 'exit 1'" <<<"$out" || fail "check: names the Netlify problem"
 ok "import and reroot rules"
 
 before=$(git -C "$fnd" rev-parse 'HEAD^{tree}')
@@ -103,6 +104,28 @@ grep -q "already matches" <<<"$out" || fail "re-import: not a no-op"
 [ "$(git -C "$fnd" rev-parse 'HEAD^{tree}')" = "$before" ] && [ -z "$(git -C "$fnd" status --porcelain)" ] || fail "re-import changed the tree"
 "$sync" reroot --check >/dev/null || fail "reroot not idempotent"
 ok "re-import and reroot are no-ops"
+
+cat > "$d/netlify.toml" <<'EOF'
+[build]
+  ignore = "exit 0"
+  command = "exit 1"
+
+[context.production]
+  ignore = "exit 0"
+  command = "exit 1"
+
+[context.branch-deploy]
+  ignore = "exit 0"
+  command = "exit 1"
+
+[context.deploy-preview]
+  ignore = "./scripts/netlify-ignore-build.sh"
+  command = "./scripts/netlify-preview-build.sh"
+EOF
+g -C "$fnd" commit -qam "netlify: deploy previews only"
+"$sync" check >/dev/null || fail "check after import"
+"$sync" reroot --check >/dev/null || fail "reroot: rewrites the foundation's netlify.toml"
+ok "the foundation's netlify.toml passes check"
 
 # 2. foundation-side edits: a non-docs file, and an adaptation inside docs/
 printf 'ours\n' > "$fnd/notdocs.txt"
@@ -175,9 +198,20 @@ printf '%s\n' "$v4" > docs/.labs-sync
 sed -i.bak 's/"1.0.0"/"2.0.0"/' docs/package.json; rm docs/package.json.bak
 expect_fail "$sync" check || fail "check: l1-artifacts drift"
 git checkout -q -- docs/package.json
-printf '[context.production]\n  ignore = "true"\n' >> docs/netlify.toml
-expect_fail "$sync" check || fail "check: second ignore key"
-git checkout -q -- docs/netlify.toml
+function netlify_case { # <label> <perl substitution on the whole file>
+  perl -0pi -e "$2" docs/netlify.toml
+  expect_fail "$sync" check || fail "check: $1"
+  git checkout -q -- docs/netlify.toml
+}
+# shellcheck disable=SC2016 # perl code
+{
+  netlify_case "[build] builds" 's/command = "exit 1"/command = "yarn build"/'
+  netlify_case "production builds" 's/(\[context\.production\]\n  ignore = )"exit 0"/$1"true"/'
+  netlify_case "branch deploys build" 's/(\[context\.branch-deploy\]\n  ignore = "exit 0"\n  command = )"exit 1"/$1"yarn build"/'
+  netlify_case "a branch-named context" '$_ .= qq{[context.next]\n  command = "yarn build"\n}'
+  netlify_case "a nested build table" '$_ .= qq{[context.deploy-preview.build]\n  command = "yarn build"\n}'
+  netlify_case "a duplicate key" 's/(\[build\]\n)/$1  ignore = "true"\n/'
+}
 printf '#include_code e /noir-projects/aztec-nr/lib.nr rust\n' >> docs/docs-developers/page.md
 expect_fail "$sync" check || fail "check: unrerooted include"
 git checkout -q -- docs/docs-developers/page.md
