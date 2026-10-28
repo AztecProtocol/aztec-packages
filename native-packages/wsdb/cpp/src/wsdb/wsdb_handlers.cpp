@@ -768,8 +768,9 @@ void handle_init_genesis(WsdbRequest& /*ctx*/,
                          wire::WsdbInitGenesis&& /*cmd*/,
                          Responder<wire::WsdbInitGenesisResponse> respond)
 {
-    respond.error("aztec-wsdb takes its genesis on the command line (--prefilled-public-data, --prefilled-nullifiers, "
-                  "--genesis-timestamp, --initial-header-generator-point), not over InitGenesis");
+    respond.error("aztec-wsdb takes its genesis on the command line (--tree-heights, --tree-prefill, "
+                  "--prefilled-public-data, --prefilled-nullifiers, --genesis-timestamp, "
+                  "--initial-header-generator-point), not over InitGenesis");
 }
 
 } // namespace azteclabs::wsdb
