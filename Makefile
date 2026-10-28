@@ -346,7 +346,7 @@ bb-ts-tests: bb-ts
 
 # After bb-cdb, the last of the barretenberg/ts targets to install into node_modules, which the
 # tests run out of.
-bb-avm-sim-tests: bb-avm-sim bb-cdb
+bb-avm-sim-tests: bb-avm-sim bb-cdb bb-wsdb-ref
 	$(call test,$@,barretenberg/ts,bb_avm_sim)
 
 bb-wsdb-ref-tests: bb-wsdb-ref
@@ -475,7 +475,7 @@ LABS_DIR := $(ROOT)/labs
 fnd-artifacts-stage: noir-projects-fnd
 	$(call build,$@,noir-projects/fnd,stage_packages)
 
-labs-deps: bb-ts l1-contracts wsdb kvdb bb-avm-sim bb-cdb constants-codegen noir-projects-fnd fnd-artifacts-stage
+labs-deps: bb-ts l1-contracts wsdb kvdb bb-avm-sim bb-cdb bb-wsdb-ref constants-codegen noir-projects-fnd fnd-artifacts-stage
 
 # Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
 # already there). use-local rewrites are re-done after it, so it must run first.

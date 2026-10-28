@@ -3,8 +3,8 @@
 #   - the bb-avm-sim binary (native builds), served over IPC, reaching world state and contract
 #     data through its wsdb and cdb IPC clients;
 #   - bb-avm-sim.wasm, a WASI reactor (wasm builds) exporting the generated FFI entry
-#     (avm_ipc_ffi_entry). It has no route to world state or contract data yet, so it serves
-#     SimulateWithHints alone.
+#     (avm_ipc_ffi_entry), reaching world state and contract data through the same clients over
+#     its host's ipc_runtime.host_call import (targets "wsdb" and "cdb").
 set(AVM_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/avm_schema.json)
 set(AVM_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
 set(AVM_GEN_OUTPUTS
@@ -60,16 +60,23 @@ barretenberg_module_with_sources(
     avm_ffi
     SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/avm_ffi_dispatcher.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate_with_hints.cpp
         ${AVM_GEN_DIR}/avm_ffi.cpp
-    HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate_with_hints.hpp
+    HEADER_FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate_with_hints.hpp
     TEST_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/avm_ffi.test.cpp
-    DEPENDENCIES vm2_sim
+    DEPENDENCIES vm2_sim wsdb_ipc_merkle_db cdb_ipc_client
 )
-add_dependencies(avm_ffi_objects avm_ipc_generated)
+add_dependencies(avm_ffi_objects avm_ipc_generated wsdb_ipc_generated cdb_ipc_generated)
+target_link_libraries(avm_ffi_objects PRIVATE wsdb_ipc_merkle_db cdb_ipc_client)
 if(TARGET avm_ffi_test_objects)
-    add_dependencies(avm_ffi_test_objects avm_ipc_generated)
+    add_dependencies(avm_ffi_test_objects avm_ipc_generated wsdb_ipc_generated cdb_ipc_generated wsdb_ref_generated)
     target_include_directories(avm_ffi_test_objects PRIVATE ${AVM_TEST_INCLUDE_DIR})
+    target_link_libraries(avm_ffi_test_objects PRIVATE wsdb_ipc_merkle_db cdb_ipc_client)
+    # Simulate is tested over wsdb-ref, linked in and reached through a host_call the test defines.
+    target_link_libraries(avm_ffi_tests PRIVATE wsdb_ref)
 endif()
 
 if(WASM)
@@ -79,7 +86,7 @@ if(WASM)
         bb-avm-sim-debug.wasm
         $<TARGET_OBJECTS:avm_ffi_objects>
     )
-    target_link_libraries(bb-avm-sim-debug.wasm PRIVATE vm2_sim)
+    target_link_libraries(bb-avm-sim-debug.wasm PRIVATE vm2_sim wsdb_ipc_merkle_db cdb_ipc_client)
     target_link_options(bb-avm-sim-debug.wasm PRIVATE -mexec-model=reactor -Wl,--export-dynamic)
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/bb-avm-sim.wasm

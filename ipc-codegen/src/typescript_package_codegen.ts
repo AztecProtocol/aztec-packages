@@ -470,6 +470,11 @@ export class ${svc} extends AsyncApi {
   static async create(options: ${prefix}CreateOptions = {}): Promise<${svc}> {
     return new ${svc}(await createBackend(options));
   }
+
+  /** The backend behind this service, so the service can be bound as a wasm module's host-call target. */
+  get [SERVICE_BACKEND](): IpcClientAsync {
+    return this.backend;
+  }
 ${
   process
     ? `
@@ -533,6 +538,11 @@ export class ${svc}Sync extends SyncApi {
   static async create(options: ${prefix}CreateSyncOptions = {}): Promise<${svc}Sync> {
     return new ${svc}Sync(await createBackendSync(options));
   }
+
+  /** The backend behind this service, so the service can be bound as a wasm module's host-call target. */
+  get [SERVICE_BACKEND](): IpcClientSync {
+    return this.backend;
+  }
 ${
   process && this.shm
     ? `
@@ -584,7 +594,8 @@ ${
 
     return `import {
   type IpcClientAsync,
-  type IpcClientSync,${process ? "\n  SpawnedProcessBackend," : ""}
+  type IpcClientSync,
+  SERVICE_BACKEND,${process ? "\n  SpawnedProcessBackend," : ""}
   pickServiceBackend,
 } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi } from './generated/async.js';
@@ -664,6 +675,7 @@ ${this.serviceClasses({ process, wasm, napi })}`;
     const { prefix, packageName } = this.opts;
 
     return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
+import { SERVICE_BACKEND } from '@aztec-foundation/ipc-runtime/wasm';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';
@@ -791,9 +803,11 @@ export class ${svc}Sync extends SyncApi {
     const ffiExports = `    entry: '${sym}ipc_ffi_entry',`;
 
     return `import {
+  type HostCallTargets,
   type WasmFfiBackend,
   type WasmFfiBackendSync,
   type WasmModuleSource,
+  type WasmWorker,
   chooseWasmModule,
   createWasmFfiBackend,
   createWasmFfiBackendSync,
@@ -825,9 +839,17 @@ export interface ${prefix}WasmOptions {
    * caller — the right choice for proving, and the only safe one on a browser's main thread.
    * False runs the module on the calling thread and every call blocks it until the module
    * returns, which is cheaper per call and fine for short work off the main thread. For short
-   * work *on* the main thread, prefer the synchronous backend, which always runs there.
+   * work *on* the main thread, prefer the synchronous backend, which always runs there. A
+   * WasmWorker (ipc-runtime's createWasmWorker()) runs it on that worker, beside the other modules
+   * loaded there, which it can then reach as host-call targets with no message passing.
    */
-  worker?: boolean;
+  worker?: boolean | WasmWorker;
+  /**
+   * The services the module reaches from inside through its host (\`ipc_runtime.host_call\`), by
+   * the target name it calls them by: another module's service (on the same worker, a direct
+   * synchronous call), any service or backend, or a function from request bytes to response bytes.
+   */
+  hostCall?: HostCallTargets;
   /** WASI environ for the module. */
   env?: Record<string, string>;
   logger?: (msg: string) => void;
@@ -866,6 +888,7 @@ export async function createWasmBackend(options: ${prefix}WasmOptions = {}): Pro
     env: options.env,
     logger: options.logger,
     worker: options.worker,
+    hostCall: options.hostCall,
 ${ffiExports}
   });
   if (options.unref) {
@@ -886,6 +909,7 @@ export async function createWasmBackendSync(options: ${prefix}WasmOptions = {}):
     memory: options.memory,
     env: options.env,
     logger: options.logger,
+    hostCall: options.hostCall,
 ${ffiExports}
   });
   if (options.unref) {
