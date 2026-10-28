@@ -230,8 +230,9 @@ void ${free}(void* ptr);
 
 namespace ${ns} {
 
-// An ipc_codegen::Backend. The entry serializes nothing, so give each thread its own Api or lock
-// around one.
+// An ipc_codegen::Backend over the library's one process instance (its FFI entry). Every FfiBackend
+// shares that instance, and the contract does not promise that the entry serializes calls, so lock
+// around concurrent ones.
 class FfiBackend {
   public:
     std::vector<uint8_t> call(std::span<const uint8_t> request)
