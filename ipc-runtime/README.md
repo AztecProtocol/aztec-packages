@@ -225,7 +225,7 @@ FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
 | `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
 | `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
 | `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
-| `WasmWorker`, `createWasmWorker` | a worker several modules share (`worker: <WasmWorker>`), so each can reach another directly |
+| `ServiceThread`, `createServiceThread` | a worker thread several service instances share (`worker: <ServiceThread>`), wasm modules or napi addon instances, so each can reach another directly |
 | `runMainWorker`, `runThreadWorker` | bodies for a package's own worker scripts                                          |
 | `compileWasmModule`           | `Module` from a URL, `Response`, raw or gzipped bytes; streaming compilation for URLs      |
 
@@ -241,7 +241,7 @@ the load, naming it.
 (the C++ side is ipc-codegen's `HostCallBackend`). The `hostCall` option binds
 each target name the module calls to another module's backend, any backend or
 generated service, or a function from request bytes to response bytes. A
-backend on the same `WasmWorker` is called synchronously from the worker, with
+backend on the same `ServiceThread` is called synchronously from the worker, with
 no message passing; anything else is called on the thread that created the
 backend, while the worker waits on a shared buffer (`Atomics.wait`) for the
 answer. A module only reaches modules loaded before it, so siblings cannot
@@ -249,6 +249,16 @@ call round in a cycle. A handler on the owning thread must not wait on a
 module of the same worker, which cannot run until the handler answers. A
 module on the calling thread (`worker: false`, `WasmFfiBackendSync`) takes
 only synchronous answers.
+
+`NapiFfiBackend` and `NapiFfiBackendSync` (main entry, node only) run a
+service's Node-API addon. An addon that exports instances (`create`,
+`callInstance`, `destroy`; see the FFI section of `SCHEMA_SPEC.md`) gets one
+instance per backend through `instance()`, which takes the same `worker` and
+`hostCall` options as a wasm module: the instance runs on a `ServiceThread`,
+or on the calling thread for the sync backend, and its host calls are routed
+the same way. Wasm modules and napi instances can share one thread and call
+each other in either direction. An addon without instances has one process
+wide context, called on the libuv pool.
 
 ### Zig (`zig/`)
 

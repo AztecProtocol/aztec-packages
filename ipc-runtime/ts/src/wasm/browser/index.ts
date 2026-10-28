@@ -36,6 +36,6 @@ export const binding: WasmFfiBinding = {
 export const {
   createWasmFfiBackend,
   createWasmFfiBackendSync,
-  createWasmWorker,
+  createServiceThread,
   sharedMemoryAvailable,
 } = bindEntry(binding);

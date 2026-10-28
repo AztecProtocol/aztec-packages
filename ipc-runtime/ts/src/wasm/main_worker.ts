@@ -22,7 +22,7 @@ export interface MainWorkerOptions {
 }
 
 /**
- * Body of the worker hosting service instances (see `WasmWorker`): a wasm module's main instance
+ * Body of the worker hosting service instances (see `ServiceThread`): a wasm module's main instance
  * or a napi addon's instance per `load`, serve `call` requests, tear down on `unload` and `destroy`. Calls run to completion on
  * this worker's thread; the parent's event loop stays free.
  *

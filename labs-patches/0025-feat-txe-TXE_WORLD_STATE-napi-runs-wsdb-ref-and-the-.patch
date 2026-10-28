@@ -8,9 +8,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
 
 diff --git a/yarn-project/txe/src/state_machine/synchronizer.ts b/yarn-project/txe/src/state_machine/synchronizer.ts
-index b153448c65ca57d2356b77a6a92f67022948b095..698409abf1818abc289a8a507180fc716e280a75 100644
+index b153448c65ca57d2356b77a6a92f67022948b095..08ad0c57e7e4b62ec632284daa1ca921bdbd6378 100644
 --- a/yarn-project/txe/src/state_machine/synchronizer.ts
 +++ b/yarn-project/txe/src/state_machine/synchronizer.ts
+@@ -1,5 +1,5 @@
+ import { AvmService } from '@aztec-foundation/bb-avm-sim';
+-import { createWasmWorker } from '@aztec-foundation/ipc-runtime/wasm';
++import { createServiceThread } from '@aztec-foundation/ipc-runtime/wasm';
+ import { WsdbService } from '@aztec-foundation/wsdb-ref';
+ 
+ import { BlockNumber } from '@aztec-labs/foundation/branded-types';
 @@ -26,16 +26,19 @@ export class TXESynchronizer implements WorldStateSynchronizer {
    constructor(public nativeWorldStateService: NativeWorldStateService) {}
  
@@ -29,9 +36,10 @@ index b153448c65ca57d2356b77a6a92f67022948b095..698409abf1818abc289a8a507180fc71
 +    if (mode === 'native') {
        return this.createNative();
      }
-+    const backend = mode === 'napi' ? 'napi' : 'wasm';
-     const worker = createWasmWorker();
+-    const worker = createWasmWorker();
 -    const wsdb = await WsdbService.create({ backend: 'wasm', wasm: { worker } });
++    const backend = mode === 'napi' ? 'napi' : 'wasm';
++    const worker = createServiceThread();
 +    const wsdb = await WsdbService.create({ backend, [backend]: { worker } });
      const nativeWorldStateService = await NativeWorldStateService.fromService(
        wsdb,
