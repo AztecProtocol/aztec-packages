@@ -1,0 +1,24 @@
+# Configuration for recursive_verification example
+
+# Setup script to run before index.ts (generates proof data)
+setup: "node --preserve-symlinks --preserve-symlinks-main --import tsx/esm scripts/generate_data.ts"
+
+# Contract artifacts to import for codegen (names without .json extension)
+# These must already be compiled to docs/target/ directory
+contracts:
+  - recursive_verification_contract-ValueNotEqual
+
+# Dependencies:
+#   - @aztec-labs/* packages are auto-linked from yarn-project/
+#   - Use npm:package-name or npm:package-name@range for external npm packages
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"
+  - "@aztec-labs/kv-store"
+  - "@aztec-labs/pxe"
+  - "@aztec-labs/noir-contracts.js"
+  # Published packages pinned to the toolchain's BB_VERSION (enforced by
+  # labs-aztec-toolchain/bootstrap.sh).
+  - "npm:@aztec-foundation/bb.js@6.0.0-rc.7"
+  - "npm:@aztec-foundation/noir-noir_js@6.0.0-rc.7"

@@ -1,0 +1,76 @@
+.copyButtonContainer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.copyButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ifm-color-emphasis-700);
+  background: transparent;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copyButton:hover {
+  color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-emphasis-100);
+}
+
+.copyButton:active {
+  transform: scale(0.98);
+}
+
+.copyButton.copied {
+  color: #31a67b;
+  border-color: #31a67b;
+  background: rgba(49, 166, 123, 0.1);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.label {
+  white-space: nowrap;
+}
+
+/* Hide label on small screens */
+@media (max-width: 576px) {
+  .label {
+    display: none;
+  }
+
+  .copyButton {
+    padding: 0.4rem;
+  }
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .copyButton {
+  color: var(--ifm-color-emphasis-600);
+  border-color: var(--ifm-color-emphasis-400);
+}
+
+[data-theme='dark'] .copyButton:hover {
+  color: var(--ifm-link-color);
+  border-color: var(--ifm-link-color);
+  background: rgba(169, 204, 31, 0.1);
+}
+
+[data-theme='dark'] .copyButton.copied {
+  color: #69b799;
+  border-color: #69b799;
+  background: rgba(105, 183, 153, 0.15);
+}
