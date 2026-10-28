@@ -1,84 +1,38 @@
 #!/usr/bin/env bash
-# Netlify ignore script: Skip builds if no docs-related files changed
-# Exit 0 = skip build, Exit 1 = proceed with build
-#
-# This script runs from the docs/ directory (Netlify base)
-#
-# Strategy:
-# - Production deploys (base branch): Compare against CACHED_COMMIT_REF (last deployed commit)
-# - PR previews (other branches): Compare against merge-base with the base branch (changes introduced by PR)
-#
-# This ensures:
-# - Production builds when docs change on the base branch (including nightly releases)
-# - PR previews only build when the PR has docs changes (no clutter on non-docs PRs)
-
+# Netlify `ignore` command for deploy previews, run from docs/ (the Netlify base). A preview builds
+# only when its pull request changes docs/. Exit 0 skips the build and any other exit builds, so
+# every uncertain case builds.
 set -euo pipefail
 
-BASE_BRANCH="next"
+head=${COMMIT_REF:?COMMIT_REF is not set}
+pr=${REVIEW_ID:-}
 
-# Determine the comparison reference based on deploy context
-if [ "${BRANCH:-}" = "$BASE_BRANCH" ]; then
-  # Production deploy on the base branch - use CACHED_COMMIT_REF
-  if [ -z "${CACHED_COMMIT_REF:-}" ]; then
-    echo "Production deploy without cached commit reference - proceeding with build"
-    exit 1
-  fi
+# Fetching with --depth into a full clone would make Netlify's cached clone shallow.
+depth=()
+[ "$(git rev-parse --is-shallow-repository)" = true ] && depth=(--depth=2)
 
-  # Handle edge case where CACHED_COMMIT_REF equals COMMIT_REF
-  # This happens on first deploys or when Netlify's cache is in an unexpected state
-  if [ "$CACHED_COMMIT_REF" = "$COMMIT_REF" ]; then
-    echo "CACHED_COMMIT_REF equals COMMIT_REF ($COMMIT_REF) - cannot determine changes, proceeding with build"
-    exit 1
-  fi
-
-  COMPARE_REF="$CACHED_COMMIT_REF"
-  echo "Production deploy: comparing $COMMIT_REF against last deployed commit $COMPARE_REF"
+# GitHub's merge ref is the pull request merged into its current base (next or a merge train), so
+# its first parent is that base's tip. GitHub recomputes it after each push, so it is used only
+# once its second parent is the commit being built.
+if [ -n "$pr" ] &&
+  git fetch -q "${depth[@]}" origin "+refs/pull/$pr/merge:refs/netlify/pr-merge" &&
+  [ "$(git rev-parse -q --verify 'refs/netlify/pr-merge^2' || true)" = "$head" ]; then
+  from='refs/netlify/pr-merge^1'
+  to=refs/netlify/pr-merge
+  echo "Comparing pull request #$pr with its base branch."
 else
-  # PR preview or branch deploy - use merge-base to detect PR-specific changes
-  # Fetch the base branch to ensure we have it available for merge-base comparison
-  git fetch origin "$BASE_BRANCH" 2>/dev/null || true
-
-  COMPARE_REF=$(git merge-base "origin/$BASE_BRANCH" "$COMMIT_REF" 2>/dev/null || echo "")
-
-  if [ -z "$COMPARE_REF" ]; then
-    echo "Could not determine merge base with $BASE_BRANCH - proceeding with build"
+  git fetch -q "${depth[@]}" origin "+refs/heads/next:refs/remotes/origin/next" || true
+  if ! from=$(git merge-base origin/next "$head"); then
+    echo "No merge base with next: building."
     exit 1
   fi
-  echo "PR preview: comparing $COMMIT_REF against merge base $COMPARE_REF (from $BASE_BRANCH)"
+  to=$head
+  echo "Comparing $head with its merge base with next."
 fi
 
-# Check for ANY changes in the docs/ directory (current directory in Netlify context)
-if ! git diff --quiet "$COMPARE_REF" "$COMMIT_REF" -- .; then
-  echo "Changes detected in docs/ directory - proceeding with build"
-  exit 1
+if git diff --quiet "$from" "$to" -- .; then
+  echo "No changes under docs/: skipping the preview."
+  exit 0
 fi
-
-# aztec-nr (source of the generated API docs) and every labs/ snippet live in the labs submodule, which
-# this repository sees only as its gitlink plus the foundation's patch series.
-if ! git diff --quiet "$COMPARE_REF" "$COMMIT_REF" -- ../labs ../labs-patches; then
-  echo "Changes detected in labs/ (gitlink) or labs-patches/ - proceeding with build"
-  exit 1
-fi
-
-# Extract all #include_code file references from markdown files
-# Pattern: #include_code identifier /path/to/file language
-# Paths are relative to repo root
-INCLUDE_CODE_PATHS=$(
-  find . -type f \( -name "*.md" -o -name "*.mdx" \) 2>/dev/null | \
-  xargs grep -h '^#include_code' 2>/dev/null | \
-  awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print $3 }' | \
-  sort -u || true
-)
-
-# Check each referenced external file for changes
-for path in $INCLUDE_CODE_PATHS; do
-  if [ -n "$path" ]; then
-    if ! git diff --quiet "$COMPARE_REF" "$COMMIT_REF" -- "../$path" 2>/dev/null; then
-      echo "Changes detected in included file: $path - proceeding with build"
-      exit 1
-    fi
-  fi
-done
-
-echo "No docs-related changes detected - skipping build"
-exit 0
+echo "docs/ changed: building the preview."
+exit 1

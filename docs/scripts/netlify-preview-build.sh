@@ -1,46 +1,37 @@
 #!/usr/bin/env bash
-# Netlify build script for preview deploys
-# Installs nargo and generates aztec-nr API docs before building
+# Netlify build command for deploy previews, run from docs/ (the Netlify base): the docs as CI builds
+# them, plus the aztec-nr API reference generated with the Noir release this commit pins.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOCS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+docs=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+root=$(cd "$docs/.." && pwd)
 
-echo "=== Installing noirup and nargo ==="
-export PATH="$HOME/.nargo/bin:$PATH"
+echo "=== Checking out labs/ with the foundation's patches ==="
+"$root/labs-patches/bootstrap.sh" apply
 
-# Install the noir release this repository builds with: the tag of the noir/noir-repo submodule.
-REPO_ROOT="$DOCS_ROOT/.."
-NOIR_TAG=$(git -C "$REPO_ROOT/noir/noir-repo" describe --tags --exact-match HEAD 2>/dev/null || true)
-if [ -z "$NOIR_TAG" ]; then
-    echo "ERROR: noir/noir-repo is not checked out at a release tag"
-    exit 1
-fi
-echo "Using noir version: $NOIR_TAG"
-
-# Install noirup (ignore shell detection failure - binary still gets installed)
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash || true
-noirup -v "$NOIR_TAG"
-
-# Verify nargo version matches expected tag — stale Netlify cache can leave an old binary
-INSTALLED_VERSION=$(nargo --version 2>/dev/null | head -1 || echo "none")
-if ! echo "$INSTALLED_VERSION" | grep -q "$NOIR_TAG"; then
-    echo "WARNING: nargo version mismatch (expected $NOIR_TAG, got $INSTALLED_VERSION)"
-    echo "Forcing clean reinstall..."
-    rm -rf "$HOME/.nargo"
-    export PATH="$HOME/.nargo/bin:$PATH"
-    curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash || true
-    noirup -v "$NOIR_TAG"
+echo "=== Generating the aztec-nr API reference ==="
+# The noir/noir-repo gitlink is all Netlify's clone needs: the release is the tag that points at it.
+noir_sha=$(git -C "$root" rev-parse HEAD:noir/noir-repo)
+noir_tags=$(git ls-remote --tags https://github.com/noir-lang/noir.git |
+  awk -v sha="$noir_sha" '$1 == sha { sub("^refs/tags/", "", $2); sub("\\^\\{\\}$", "", $2); print $2 }')
+noir_tag=$(grep -m1 -v '^nightly' <<<"$noir_tags" || head -n1 <<<"$noir_tags")
+if [ -z "$noir_tag" ]; then
+  echo "WARNING: no noir-lang/noir release tag points at $noir_sha; this preview has no aztec-nr API reference."
+else
+  nargo_dir=$HOME/.cache/nargo-$noir_tag
+  if [ ! -x "$nargo_dir/nargo" ]; then
+    mkdir -p "$nargo_dir"
+    curl -fsSL "https://github.com/noir-lang/noir/releases/download/$noir_tag/noir-x86_64-unknown-linux-gnu.tar.gz" |
+      tar -xz -C "$nargo_dir"
+  fi
+  export NARGO=$nargo_dir/nargo
+  echo "nargo $noir_tag: $("$NARGO" --version | head -n1)"
+  if ! "$docs/scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"; then
+    echo "WARNING: aztec-nr API generation failed; this preview has no aztec-nr API reference."
+  fi
 fi
 
-echo "=== Verifying nargo installation ==="
-nargo --version
-
-echo "=== Generating aztec-nr API documentation ==="
-if ! "$SCRIPT_DIR/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"; then
-    echo "WARNING: aztec-nr API doc generation failed (nargo version may be incompatible). Skipping API docs for this preview."
-fi
-
-echo "=== Running yarn build ==="
-cd "$DOCS_ROOT"
+echo "=== Building the docs ==="
+cd "$docs"
+source "$docs/scripts/node_options.sh"
 yarn build
