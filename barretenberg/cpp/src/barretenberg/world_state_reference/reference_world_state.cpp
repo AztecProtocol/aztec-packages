@@ -68,11 +68,24 @@ ReferenceWorldState::ReferenceWorldState(const GenesisConfig& genesis)
 
 std::optional<std::string> ReferenceWorldState::check_genesis(const GenesisConfig& genesis)
 {
-    auto check = [](const auto& prefilled) -> std::optional<std::string> {
-        if (prefilled.size() > INDEXED_TREE_INITIAL_SIZE) {
+    for (auto tree_id : ALL_TREES) {
+        uint32_t height = genesis.tree_heights[static_cast<size_t>(tree_id)];
+        if (height == 0 || height > 63) {
+            return "tree " + std::to_string(static_cast<uint32_t>(tree_id)) + ": height " + std::to_string(height) +
+                   " is not in 1..63";
+        }
+    }
+    auto check = [&](const auto& prefilled, uint64_t initial_size, MerkleTreeId tree_id) -> std::optional<std::string> {
+        if (initial_size < 2) {
+            return "Indexed trees must have initial size > 1";
+        }
+        if (initial_size > (uint64_t(1) << genesis.tree_heights[static_cast<size_t>(tree_id)])) {
+            return "Initial size is more than the tree holds";
+        }
+        if (prefilled.size() > initial_size) {
             return "Number of prefilled values can't be more than initial size";
         }
-        size_t num_padding = INDEXED_TREE_INITIAL_SIZE - prefilled.size();
+        size_t num_padding = static_cast<size_t>(initial_size - prefilled.size());
         using LeafType = std::remove_cvref_t<decltype(prefilled[0])>;
         uint256_t previous = num_padding > 0 ? uint256_t(LeafType::padding(num_padding - 1).get_key()) : uint256_t(0);
         for (size_t i = 0; i < prefilled.size(); ++i) {
@@ -85,10 +98,12 @@ std::optional<std::string> ReferenceWorldState::check_genesis(const GenesisConfi
         }
         return std::nullopt;
     };
-    if (auto problem = check(genesis.prefilled_nullifiers)) {
+    if (auto problem =
+            check(genesis.prefilled_nullifiers, genesis.nullifier_tree_initial_size, MerkleTreeId::NULLIFIER_TREE)) {
         return "prefilled nullifiers: " + *problem;
     }
-    if (auto problem = check(genesis.prefilled_public_data)) {
+    if (auto problem = check(
+            genesis.prefilled_public_data, genesis.public_data_tree_initial_size, MerkleTreeId::PUBLIC_DATA_TREE)) {
         return "prefilled public data: " + *problem;
     }
     return std::nullopt;
@@ -99,6 +114,7 @@ void ReferenceWorldState::reset(const GenesisConfig& genesis)
     if (auto problem = check_genesis(genesis)) {
         fail(*problem);
     }
+    tree_heights_ = genesis.tree_heights;
     blocks_.clear();
     forks_.clear();
     blocks_.push_back(build_genesis(genesis));
@@ -108,32 +124,24 @@ void ReferenceWorldState::reset(const GenesisConfig& genesis)
     oldest_historical_block_ = 0;
 }
 
-uint32_t ReferenceWorldState::tree_height(MerkleTreeId tree_id)
+uint32_t ReferenceWorldState::tree_height(MerkleTreeId tree_id) const
 {
-    switch (tree_id) {
-    case MerkleTreeId::NULLIFIER_TREE:
-        return NULLIFIER_TREE_HEIGHT;
-    case MerkleTreeId::NOTE_HASH_TREE:
-        return NOTE_HASH_TREE_HEIGHT;
-    case MerkleTreeId::PUBLIC_DATA_TREE:
-        return PUBLIC_DATA_TREE_HEIGHT;
-    case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        return L1_TO_L2_MSG_TREE_HEIGHT;
-    case MerkleTreeId::ARCHIVE:
-        return ARCHIVE_HEIGHT;
+    auto index = static_cast<size_t>(tree_id);
+    if (index >= tree_heights_.size()) {
+        fail("Unknown tree id ", static_cast<uint32_t>(tree_id));
     }
-    fail("Unknown tree id ", static_cast<uint32_t>(tree_id));
+    return tree_heights_[index];
 }
 
 ReferenceWorldState::Trees ReferenceWorldState::build_genesis(const GenesisConfig& genesis)
 {
     // The indexed trees start as on a node: LeafType::padding(i) for the leaves the prefill leaves
     // free, then the prefill, linked as one ascending chain.
-    auto indexed = [](auto tree, const auto& prefilled) {
+    auto indexed = [](auto tree, const auto& prefilled, uint64_t initial_size) {
         using Tree = decltype(tree);
         using LeafType = std::remove_cvref_t<decltype(prefilled[0])>;
         std::vector<IndexedLeaf<LeafType>> leaves;
-        size_t num_padding = INDEXED_TREE_INITIAL_SIZE - prefilled.size();
+        size_t num_padding = static_cast<size_t>(initial_size - prefilled.size());
         for (size_t i = 0; i < num_padding; ++i) {
             leaves.push_back(IndexedLeaf<LeafType>(LeafType::padding(i), 0, 0));
         }
@@ -152,16 +160,21 @@ ReferenceWorldState::Trees ReferenceWorldState::build_genesis(const GenesisConfi
         tree.size = leaves.size();
         return tree;
     };
-    auto append_only = [](MerkleTreeId tree_id) {
-        return AppendOnlyTree{ .tree = decltype(AppendOnlyTree::tree)(tree_height(tree_id)), .indices = {}, .size = 0 };
+    auto height = [&](MerkleTreeId tree_id) { return genesis.tree_heights[static_cast<size_t>(tree_id)]; };
+    auto append_only = [&](MerkleTreeId tree_id) {
+        return AppendOnlyTree{ .tree = decltype(AppendOnlyTree::tree)(height(tree_id)), .indices = {}, .size = 0 };
     };
 
     Trees trees{
-        .nullifier = indexed(NullifierTree{ .tree = decltype(NullifierTree::tree)(NULLIFIER_TREE_HEIGHT) },
-                             genesis.prefilled_nullifiers),
+        .nullifier =
+            indexed(NullifierTree{ .tree = decltype(NullifierTree::tree)(height(MerkleTreeId::NULLIFIER_TREE)) },
+                    genesis.prefilled_nullifiers,
+                    genesis.nullifier_tree_initial_size),
         .note_hash = append_only(MerkleTreeId::NOTE_HASH_TREE),
-        .public_data = indexed(PublicDataTree{ .tree = decltype(PublicDataTree::tree)(PUBLIC_DATA_TREE_HEIGHT) },
-                               genesis.prefilled_public_data),
+        .public_data =
+            indexed(PublicDataTree{ .tree = decltype(PublicDataTree::tree)(height(MerkleTreeId::PUBLIC_DATA_TREE)) },
+                    genesis.prefilled_public_data,
+                    genesis.public_data_tree_initial_size),
         .l1_to_l2 = append_only(MerkleTreeId::L1_TO_L2_MESSAGE_TREE),
         .archive = append_only(MerkleTreeId::ARCHIVE),
     };

@@ -97,10 +97,17 @@ template <typename Resp> Resp decode(const Frame& frame)
     return resp;
 }
 
+/** The indexed trees' initial sizes, prefill included: a run's one varied part of the genesis. */
+struct InitialSizes {
+    uint64_t nullifier;
+    uint64_t public_data;
+};
+
 /** aztec-wsdb's command line: this test's tree shapes and genesis, served on `socket`. */
 std::vector<std::string> aztec_wsdb_command(const std::string& binary,
                                             const std::filesystem::path& dir,
-                                            const std::string& socket)
+                                            const std::string& socket,
+                                            const InitialSizes& sizes)
 {
     std::filesystem::create_directories(dir / "data");
     std::ostringstream nullifiers;
@@ -128,7 +135,7 @@ std::vector<std::string> aztec_wsdb_command(const std::string& binary,
         "--tree-heights",
         heights.str(),
         "--tree-prefill",
-        "{0:128,2:128}",
+        "{0:" + std::to_string(sizes.nullifier) + ",2:" + std::to_string(sizes.public_data) + "}",
         "--initial-header-generator-point",
         std::to_string(DOM_SEP__BLOCK_HEADER_HASH),
         "--prefilled-public-data",
@@ -190,9 +197,10 @@ class WsdbProcess {
 /** One differential run: a random but node-shaped workload, every request answered by both. */
 class DiffRun {
   public:
-    DiffRun(WsdbProcess& ref, WsdbProcess& native, uint64_t seed)
+    DiffRun(WsdbProcess& ref, WsdbProcess& native, const InitialSizes& sizes, uint64_t seed)
         : ref_(ref)
         , native_(native)
+        , sizes_(sizes)
         , rng_(seed)
     {}
 
@@ -269,6 +277,7 @@ class DiffRun {
   private:
     WsdbProcess& ref_;
     WsdbProcess& native_;
+    InitialSizes sizes_;
     std::mt19937_64 rng_;
     size_t step_ = 0;
     std::vector<uint64_t> forks_{ 0 };
@@ -406,13 +415,21 @@ class DiffRun {
 
     void init()
     {
-        // The genesis aztec-wsdb was started with: the protocol nullifiers and one public-data slot.
-        wire::WsdbInitGenesis genesis{ .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
-                                                                  .value = bytes_of<wire::PublicDataValue>(fr(7)) } },
-                                       .prefilledNullifiers = {},
-                                       .genesisTimestamp = 0,
-                                       .initialHeaderGeneratorPoint =
-                                           static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
+        // The genesis aztec-wsdb was started with: the protocol's tree heights, this run's initial sizes, the
+        // protocol nullifiers and one public-data slot.
+        wire::WsdbInitGenesis genesis{
+            .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
+                             { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
+                             { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
+                             { .treeId = 3, .height = L1_TO_L2_MSG_TREE_HEIGHT },
+                             { .treeId = 4, .height = ARCHIVE_HEIGHT } },
+            .treePrefill = { { .treeId = 0, .size = sizes_.nullifier }, { .treeId = 2, .size = sizes_.public_data } },
+            .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
+                                       .value = bytes_of<wire::PublicDataValue>(fr(7)) } },
+            .prefilledNullifiers = {},
+            .genesisTimestamp = 0,
+            .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH)
+        };
         for (const auto& seed : world_state::genesis_protocol_nullifiers()) {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
@@ -820,9 +837,11 @@ TEST(WsdbRefDiff, MatchesWsdbRefRequestForRequest)
         {
             auto native_socket = (dir / "aztec-wsdb.sock").string();
             auto ref_socket = (dir / "wsdb-ref.sock").string();
-            WsdbProcess native(aztec_wsdb_command(AZTEC_WSDB_BIN, dir, native_socket), native_socket);
+            // Odd seeds run the protocol's initial sizes, even ones others.
+            InitialSizes sizes = seed % 2 == 1 ? InitialSizes{ 128, 128 } : InitialSizes{ 64, 256 };
+            WsdbProcess native(aztec_wsdb_command(AZTEC_WSDB_BIN, dir, native_socket, sizes), native_socket);
             WsdbProcess ref({ WSDB_REF_BIN, "msgpack", "run", "--input", ref_socket }, ref_socket);
-            DiffRun run(ref, native, seed);
+            DiffRun run(ref, native, sizes, seed);
             run.run(steps);
             std::cout << "seed " << seed << ": " << run.requests << " requests, " << run.errors
                       << " answered with errors on both, " << run.message_mismatches.size()
