@@ -594,6 +594,9 @@ std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status)
     }
 
     signal.wait_for_level(0);
+    if (success) {
+        populate_status_summary(status);
+    }
     return std::make_pair(success.load(), message);
 }
 
