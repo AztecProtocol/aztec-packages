@@ -223,6 +223,7 @@ function cmd_check {
   recorded=$(cat "$sync_file" 2>/dev/null || true)
   if [ "$recorded" != "$expected" ]; then
     echo "$sync_file ($recorded) is not the labs commit ($expected): docs and snippet sources would drift" >&2
+    echo "  fix: scripts/labs_docs_sync.sh sync $expected merges aztec-node's docs up to the new pin; commit the result" >&2
     fail=1
   fi
   # Snippets must render the upstream code their links name: diffing the working tree against the
@@ -231,10 +232,18 @@ function cmd_check {
     <(labs diff --name-only "$expected" | sort -u) \
     <(git grep -h -o -E '#include_code[[:space:]]+[^[:space:]]+[[:space:]]+/?labs/[^[:space:]]+' -- "${source_dirs[@]}" |
         awk '{sub(/^\/?labs\//, "", $3); print $3}' | sort -u))
-  [ -z "$touched" ] || { echo "labs/ changes snippet sources against ${expected:0:10}:"$'\n'"$touched" >&2; fail=1; }
+  [ -z "$touched" ] || {
+    echo "labs/ changes snippet sources against ${expected:0:10}:"$'\n'"$touched" >&2
+    echo "  fix: the docs quote these files as aztec-node has them at the pin; keep the change off them or update the quoting pages" >&2
+    fail=1
+  }
   pin=$(sed -n -E 's/^[[:space:]]*"@aztec-foundation\/l1-artifacts":[[:space:]]*"([^"]+)".*/\1/p' docs/package.json)
   bb=$(sed -n -E 's/^BB_VERSION=([^ #]+).*/\1/p' labs/labs-aztec-toolchain/bootstrap.sh)
-  [ -n "$pin" ] && [ "$pin" = "$bb" ] || { echo "docs l1-artifacts ($pin) is not labs BB_VERSION ($bb)" >&2; fail=1; }
+  [ -n "$pin" ] && [ "$pin" = "$bb" ] || {
+    echo "docs l1-artifacts ($pin) is not labs BB_VERSION ($bb)" >&2
+    echo "  fix: the sync above usually moves it; otherwise set it to $bb in docs/package.json and run (cd docs && yarn install)" >&2
+    fail=1
+  }
   ignores=$(grep -E '^[[:space:]]*(build\.)?ignore[[:space:]]*=' docs/netlify.toml || true)
   if [ "$(grep -c . <<<"$ignores")" != 1 ] || ! grep -qE '^[[:space:]]*ignore[[:space:]]*=[[:space:]]*"exit 0"[[:space:]]*$' <<<"$ignores"; then
     echo "docs/netlify.toml must have exactly one ignore key, set to \"exit 0\":"$'\n'"$ignores" >&2

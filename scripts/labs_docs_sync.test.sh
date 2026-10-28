@@ -168,6 +168,8 @@ ok "conflict refused, nothing changed"
 # 5. check failures
 cd "$clone"
 expect_fail "$sync" check || fail "check: .labs-sync behind the gitlink"
+out=$("$sync" check 2>&1) && fail "check: .labs-sync behind the gitlink (output)"
+grep -qF "scripts/labs_docs_sync.sh sync $v4" <<<"$out" || fail "check: drift names the sync command"
 printf '%s\n' "$v4" > docs/.labs-sync
 "$sync" check >/dev/null || fail "check: clean state"
 sed -i.bak 's/"1.0.0"/"2.0.0"/' docs/package.json; rm docs/package.json.bak
