@@ -123,7 +123,7 @@ add_subdirectory(barretenberg/vm2_stub)
 #     vm2; vm2 defines vm2_sim whatever AVM says)
 #   bb-avm-sim (avm)                                 yes    yes    -     -
 #   wsdb-ref (wsdb_ref)                              yes    yes    -     -
-#   wsdb and cdb IPC clients (vm2_wsdb, cdb)         yes     -     -     -
+#   wsdb and cdb clients (vm2_wsdb, cdb)             yes    yes    -     -
 #   ipc-runtime                                      yes    yes    -     -
 #   world_state_reference and api in the archives    yes     -     -     -
 #
@@ -138,6 +138,7 @@ if(WASM)
     set(BB_WITH_AVM_SIM ON)
     set(BB_WITH_AVM_SERVICE ON)
     set(BB_WITH_WSDB_REF ON)
+    set(BB_WITH_IPC_CLIENTS ON)
     set(BB_WITH_IPC_RUNTIME ON)
 elseif(FUZZING)
     set(BB_WITH_AVM_SIM ${FUZZING_AVM})
