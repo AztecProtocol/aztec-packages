@@ -50,19 +50,27 @@ set(IPC_RUNTIME_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(IPC_RUNTIME_BUILD_NAPI OFF CACHE BOOL "" FORCE)
 add_subdirectory(${foundation}/ipc-runtime/cpp ${deps}/ipc-runtime)
 
-# The generated server dispatch and wire types (../wsdb_schema.jsonc owns the wire contract), and
-# the protocol constants from @aztec-foundation/constants-codegen at the pinned version; both are
-# regenerated whenever configure runs, which their inputs below trigger.
+# The wire contract is wsdb_schema.jsonc, owned by barretenberg's wsdb-ref (the reference
+# implementation). It is the one input read from the working tree rather than the pinned release.
+# NOTE: when native-packages moves out of aztec-packages, take the schema from the sparse clone
+# instead: add barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc to its sparse-checkout
+# above and set wsdb_schema to ${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc
+# (bootstrap.sh's WSDB_SCHEMA and .rebuild_patterns follow).
+set(wsdb_schema "${pkg}/../../barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc")
+
+# The generated server dispatch and wire types from that schema, and the protocol constants from
+# @aztec-foundation/constants-codegen at the pinned version; both are regenerated whenever configure
+# runs, which their inputs below trigger.
 execute_process(
     COMMAND node --experimental-strip-types --no-warnings ${foundation}/ipc-codegen/src/generate.ts
-            --schema ${pkg}/wsdb_schema.jsonc --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
+            --schema ${wsdb_schema} --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
             --server --cpp-namespace azteclabs::wsdb --cpp-include-dir wsdb/generated
     COMMAND_ERROR_IS_FATAL ANY)
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env "WSDB_FOUNDATION_VERSION=${version}" "${pkg}/scripts/remake-constants.sh"
     COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    ${pkg}/wsdb_schema.jsonc ${pkg}/foundation.pin ${pkg}/scripts/constants-codegen/cpp.json)
+    ${wsdb_schema} ${pkg}/foundation.pin ${pkg}/scripts/constants-codegen/cpp.json)
 
 set(CLI11_BUILD_TESTS OFF CACHE INTERNAL "")
 set(CLI11_BUILD_EXAMPLES OFF CACHE INTERNAL "")
@@ -87,6 +95,14 @@ target_link_libraries(aztec-wsdb PRIVATE ${libs} CLI11::CLI11)
 list(REMOVE_ITEM sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp)
 add_executable(wsdb_tests ${sources} ${tests})
 target_link_libraries(wsdb_tests PRIVATE ${libs} CLI11::CLI11 gmock_main gmock gtest)
+# wsdb_ref_diff.test.cpp runs the server built alongside next to barretenberg's wsdb-ref binary, taken
+# from the working tree's barretenberg build (the test skips when it is not built).
+# NOTE: when native-packages moves out of aztec-packages, take wsdb-ref from the pinned release instead
+# (its @aztec-foundation/wsdb-ref-<platform> package ships the binary), as for the schema above.
+set(WSDB_REF_BIN "${pkg}/../../barretenberg/cpp/build/bin/wsdb-ref" CACHE FILEPATH "wsdb-ref binary")
+add_dependencies(wsdb_tests aztec-wsdb)
+target_compile_definitions(wsdb_tests PRIVATE AZTEC_WSDB_BIN="$<TARGET_FILE:aztec-wsdb>"
+                                              WSDB_REF_BIN="${WSDB_REF_BIN}")
 
 add_executable(wsdb_bench ${sources} ${benches})
 target_link_libraries(wsdb_bench PRIVATE ${libs} CLI11::CLI11 benchmark::benchmark_main)

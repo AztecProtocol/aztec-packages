@@ -1,11 +1,13 @@
 # wsdb-ref: the in-memory reference world state (world_state_reference) as a service over the node
-# world state's contract, native-packages/wsdb/wsdb_schema.jsonc (the schema the AVM's wsdb client in
-# vm2_wsdb is generated from too). The generated dispatch runs the handlers here; the generated FFI
-# entry (wsdb_ipc_ffi_entry) runs the dispatch in-process. Two artifacts carry that entry to
-# @aztec-foundation/wsdb-ref (barretenberg/ts/wsdb-ref):
+# world state's contract, wsdb_schema.jsonc here. wsdb-ref owns the schema: the AVM's wsdb client in
+# vm2_wsdb and native-packages/wsdb's aztec-wsdb are generated from it too. The generated dispatch
+# runs the handlers here; the generated FFI entry (wsdb_ipc_ffi_entry) runs the dispatch in-process.
+# Three artifacts carry it to @aztec-foundation/wsdb-ref (barretenberg/ts/wsdb-ref), one per transport:
+#   - the wsdb-ref binary (native builds), the dispatch served over IPC, for its process transports
+#     (and for a downstream world state's conformance test, which runs it beside its own server);
 #   - wsdb-ref.wasm, a WASI reactor (wasm builds), for the package's wasm transport;
 #   - wsdb_ref_napi.node, a Node-API addon over the entry (native builds), for its napi transport.
-set(WSDB_REF_SCHEMA ${CMAKE_SOURCE_DIR}/../../native-packages/wsdb/wsdb_schema.jsonc)
+set(WSDB_REF_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/wsdb_schema.jsonc)
 set(WSDB_REF_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
 set(WSDB_REF_GEN_OUTPUTS
     ${WSDB_REF_GEN_DIR}/wsdb_dispatch.hpp
@@ -33,7 +35,7 @@ add_custom_command(
             --cpp-namespace bb::wsdb_ref
             --cpp-include-dir barretenberg/wsdb_ref/generated
     DEPENDS ${WSDB_REF_SCHEMA} ${IPC_CODEGEN_SRC}
-    COMMENT "Generating the wsdb-ref dispatch, FFI entry and Node-API addon from native-packages/wsdb/wsdb_schema.jsonc"
+    COMMENT "Generating the wsdb-ref dispatch, FFI entry and Node-API addon from wsdb_schema.jsonc"
     VERBATIM
 )
 add_custom_target(wsdb_ref_generated DEPENDS ${WSDB_REF_GEN_OUTPUTS})
@@ -41,10 +43,6 @@ add_custom_target(wsdb_ref_generated DEPENDS ${WSDB_REF_GEN_OUTPUTS})
 # Explicit sources: the generated Node-API addon must stay out of the module (it needs napi.h), and
 # the generated FFI entry does not exist yet when a clean tree is configured.
 file(GLOB WSDB_REF_TESTS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.test.cpp)
-if(WASM)
-    # The comparison with aztec-wsdb spawns it and talks over its socket.
-    list(FILTER WSDB_REF_TESTS EXCLUDE REGEX "wsdb_ref_native_diff\\.test\\.cpp$")
-endif()
 barretenberg_module_with_sources(
     wsdb_ref
     SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/wsdb_ref_handlers.cpp ${WSDB_REF_GEN_DIR}/wsdb_ffi.cpp
@@ -55,11 +53,6 @@ barretenberg_module_with_sources(
 add_dependencies(wsdb_ref_objects wsdb_ref_generated)
 if(TARGET wsdb_ref_test_objects)
     add_dependencies(wsdb_ref_test_objects wsdb_ref_generated)
-endif()
-if(TARGET wsdb_ref_tests AND NOT WASM)
-    # wsdb_ref_native_diff.test.cpp reaches aztec-wsdb through ipc-runtime's socket client.
-    target_link_libraries(wsdb_ref_test_objects PRIVATE ipc_runtime)
-    target_link_libraries(wsdb_ref_tests PRIVATE ipc_runtime)
 endif()
 set_target_properties(wsdb_ref_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -96,6 +89,10 @@ else()
     )
     string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR "${NODE_ADDON_API_DIR}")
     string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR "${NODE_API_HEADERS_DIR}")
+
+    add_executable(wsdb-ref ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
+    add_dependencies(wsdb-ref wsdb_ref_generated)
+    target_link_libraries(wsdb-ref PRIVATE wsdb_ref world_state_reference ipc_runtime)
 
     add_library(wsdb_ref_napi SHARED ${WSDB_REF_GEN_DIR}/wsdb_napi.cpp)
     add_dependencies(wsdb_ref_napi wsdb_ref_generated)
