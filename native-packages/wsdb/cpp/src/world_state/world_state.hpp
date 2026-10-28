@@ -361,6 +361,14 @@ class WorldState {
 
     static void populate_status_summary(WorldStateStatusFull& status);
 
+    /**
+     * Runs `insert(on_done)` on `tree` inside a checkpoint of that tree alone, committed if the insertion succeeds and
+     * reverted if it fails. An indexed insertion writes leaf preimages and key indices to the tree's cache before it
+     * finds a duplicate key, so without the checkpoint a failed insertion would leave the cache out of step with the
+     * tree.
+     */
+    template <typename TreeType, typename Insert> static void insert_atomically(TreeType& tree, Insert&& insert);
+
     template <typename TreeType>
     void commit_tree(TreeDBStats& dbStats,
                      Signal& signal,
@@ -678,6 +686,44 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     }
 }
 
+template <typename TreeType, typename Insert> void WorldState::insert_atomically(TreeType& tree, Insert&& insert)
+{
+    auto await_response = [](auto&& call) {
+        Signal signal;
+        bool success = true;
+        std::string message;
+        call([&](const auto& response) {
+            success = response.success;
+            message = response.message;
+            signal.signal_level(0);
+        });
+        signal.wait_for_level();
+        return std::make_pair(success, message);
+    };
+
+    auto [checkpointed, checkpoint_error] = await_response([&](auto on_done) {
+        tree.checkpoint([&, on_done](TypedResponse<CheckpointResponse>& response) { on_done(response); });
+    });
+    if (!checkpointed) {
+        throw std::runtime_error(checkpoint_error);
+    }
+    auto [inserted, insert_error] = await_response(insert);
+    auto [ended, end_error] = await_response([&](auto on_done) {
+        auto callback = [&, on_done](const Response& response) { on_done(response); };
+        if (inserted) {
+            tree.commit_checkpoint(callback);
+        } else {
+            tree.revert_checkpoint(callback);
+        }
+    });
+    if (!inserted) {
+        throw std::runtime_error(insert_error);
+    }
+    if (!ended) {
+        throw std::runtime_error(end_error);
+    }
+}
+
 template <typename T>
 BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
                                                                 const std::vector<T>& leaves,
@@ -690,31 +736,20 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
 
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 
-    Signal signal;
     BatchInsertionResult<T> result;
     const auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
-    bool success = true;
-    std::string error_msg;
 
-    wrapper.tree->add_or_update_values(
-        leaves, subtree_depth, [&](const TypedResponse<AddIndexedDataResponse<T>>& response) {
-            if (response.success) {
-                result.lowLeafWitnessData = *response.inner.lowLeafWitnessData;
-                result.sortedLeaves = *response.inner.sortedLeaves;
-                result.subtreePath = response.inner.subtreePath;
-            } else {
-                success = false;
-                error_msg = response.message;
-            }
-
-            signal.signal_level(0);
-        });
-
-    signal.wait_for_level();
-
-    if (!success) {
-        throw std::runtime_error(error_msg);
-    }
+    insert_atomically(*wrapper.tree, [&](auto on_done) {
+        wrapper.tree->add_or_update_values(
+            leaves, subtree_depth, [&, on_done](const TypedResponse<AddIndexedDataResponse<T>>& response) {
+                if (response.success) {
+                    result.lowLeafWitnessData = *response.inner.lowLeafWitnessData;
+                    result.sortedLeaves = *response.inner.sortedLeaves;
+                    result.subtreePath = response.inner.subtreePath;
+                }
+                on_done(response);
+            });
+    });
 
     return result;
 }
@@ -730,30 +765,19 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
 
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 
-    Signal signal;
     SequentialInsertionResult<T> result;
     const auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
-    bool success = true;
-    std::string error_msg;
 
-    wrapper.tree->add_or_update_values_sequentially(
-        leaves, [&](const TypedResponse<AddIndexedDataSequentiallyResponse<T>>& response) {
-            if (response.success) {
-                result.lowLeafWitnessData = *response.inner.lowLeafWitnessData;
-                result.insertionWitnessData = *response.inner.insertionWitnessData;
-            } else {
-                success = false;
-                error_msg = response.message;
-            }
-
-            signal.signal_level(0);
-        });
-
-    signal.wait_for_level();
-
-    if (!success) {
-        throw std::runtime_error(error_msg);
-    }
+    insert_atomically(*wrapper.tree, [&](auto on_done) {
+        wrapper.tree->add_or_update_values_sequentially(
+            leaves, [&, on_done](const TypedResponse<AddIndexedDataSequentiallyResponse<T>>& response) {
+                if (response.success) {
+                    result.lowLeafWitnessData = *response.inner.lowLeafWitnessData;
+                    result.insertionWitnessData = *response.inner.insertionWitnessData;
+                }
+                on_done(response);
+            });
+    });
 
     return result;
 }

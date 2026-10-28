@@ -543,8 +543,11 @@ void handle_update_archive(WsdbRequest& ctx,
 void handle_commit(WsdbRequest& ctx, wire::WsdbCommit&& /*cmd*/, Responder<wire::WsdbCommitResponse> respond)
 {
     schedule_write(ctx, 0, std::move(respond), [&ctx]() -> wire::WsdbCommitResponse {
-        WorldStateStatusFull status;
-        ctx.world_state.commit(status);
+        WorldStateStatusFull status{};
+        auto [committed, message] = ctx.world_state.commit(status);
+        if (!committed) {
+            throw std::runtime_error(message);
+        }
         return wire::WsdbCommitResponse{ .status = status };
     });
 }
