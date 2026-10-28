@@ -333,6 +333,27 @@ TEST(ReferenceWorldState, BatchInsertionTakesOneSlotPerValue)
     EXPECT_THROW(batch.batch_insert_nullifiers(CANONICAL, duplicate, 1), std::runtime_error);
 }
 
+// A duplicate nullifier fails with aztec-wsdb's message, which names the tree: callers match on it (an aztec-nr test
+// expects "NullifierTree" from a contract deployed twice).
+TEST(ReferenceWorldState, DuplicateNullifiersNameTheTreeAsAztecWsdbDoes)
+{
+    auto message_of = [](auto&& insert) {
+        try {
+            insert();
+        } catch (const std::runtime_error& e) {
+            return std::string(e.what());
+        }
+        return std::string("no error");
+    };
+    ReferenceWorldState ws;
+    std::vector<NullifierLeafValue> leaves{ NullifierLeafValue(FF(0x1234)) };
+    ws.sequential_insert_nullifiers(CANONICAL, leaves);
+    const std::string expected = "Unable to insert values into tree NullifierTree leaf type NullifierLeafValue is not "
+                                 "updateable and ";
+    EXPECT_EQ(message_of([&] { ws.sequential_insert_nullifiers(CANONICAL, leaves); }).rfind(expected, 0), 0U);
+    EXPECT_EQ(message_of([&] { ws.batch_insert_nullifiers(CANONICAL, leaves, 0); }).rfind(expected, 0), 0U);
+}
+
 TEST(ReferenceWorldState, PublicDataUpdatesInPlace)
 {
     ReferenceWorldState ws;
