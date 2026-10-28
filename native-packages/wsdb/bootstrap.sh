@@ -4,9 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 ROOT=$(git rev-parse --show-toplevel)
 PKG="$ROOT/native-packages/wsdb"
 WSDB_BINARY=aztec-wsdb
-# This package owns the wire contract; both the TS client and the C++ server
-# codegen from this schema.
-WSDB_SCHEMA="$PKG/wsdb_schema.jsonc"
+# The wire contract, owned by barretenberg's wsdb-ref; both the TS client and the C++ server codegen
+# from it. Read from the working tree for now: see the NOTE in cpp/CMakeLists.txt for where it comes
+# from once native-packages leaves aztec-packages.
+WSDB_SCHEMA="$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc"
 
 # Everything outside this package comes from the release pinned in foundation.pin (see
 # cpp/CMakeLists.txt), so the build's identity is this package plus the lmdblib sibling.

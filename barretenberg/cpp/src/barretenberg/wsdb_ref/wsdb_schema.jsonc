@@ -17,6 +17,14 @@
       "blockNumber": "BlockNumber",
       "includeUncommitted": "bool"
     },
+    "TreeHeight": {
+      "treeId": "MerkleTreeId",
+      "height": "u32"
+    },
+    "TreePrefill": {
+      "treeId": "MerkleTreeId",
+      "size": "LeafIndex"
+    },
     "TreeStateReference": {
       "treeId": "MerkleTreeId",
       "root": "Fr",
@@ -470,6 +478,20 @@
       "request": {
         "dstPath": "string",
         "compact": "bool?"
+      },
+      "response": {}
+    },
+    // Restarts an in-process world state (wsdb-ref) at this genesis, before any block. treeHeights names each
+    // of the five trees once; treePrefill gives each indexed tree (nullifier, public data) its initial size,
+    // prefill included. aztec-wsdb takes its genesis on the command line and answers this with an error.
+    "InitGenesis": {
+      "request": {
+        "treeHeights": "TreeHeight[]",
+        "treePrefill": "TreePrefill[]",
+        "prefilledPublicData": "PublicDataLeafValue[]",
+        "prefilledNullifiers": "Fr[]",
+        "genesisTimestamp": "u64",
+        "initialHeaderGeneratorPoint": "u32"
       },
       "response": {}
     }
