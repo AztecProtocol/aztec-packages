@@ -838,14 +838,11 @@ void handle_init(WsdbRefContext& ctx, wire::WsdbInit&& cmd, Responder<wire::Wsdb
     });
 }
 
-// The in-process FFI entry's context (generated/wsdb_ffi.hpp): one reference world state per loaded
-// module, created by Init, shared by every call as over one transport connection.
-AsyncDispatchHandler& ipc_ffi_dispatcher()
+// An instance of the in-process FFI entry (generated/wsdb_ffi.hpp): one reference world state, created by Init,
+// shared by every call on the instance as over one transport connection.
+std::unique_ptr<FfiInstance> ipc_ffi_create_instance()
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static WsdbRefContext ctx;
-    static AsyncDispatchHandler handler = make_wsdb_handler(ctx);
-    return handler;
+    return std::make_unique<FfiContext<WsdbRefContext>>();
 }
 
 } // namespace bb::wsdb_ref

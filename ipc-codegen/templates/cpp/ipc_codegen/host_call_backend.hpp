@@ -22,11 +22,13 @@
  * else means the call never reached the service, and the bytes are the host's
  * message saying why.
  *
- * Outside wasm there is no host, and the symbol is a weak definition answering
- * every call with an error, so binaries that link a HostCallBackend they never
- * use still link. A test can define the symbol to stand in for the host; the
- * file defining it defines IPC_CODEGEN_HOST_CALL_DEFINED first, which leaves
- * only the declaration here.
+ * Outside wasm, a native library's host is the process that loaded it, which hands the library
+ * its host-call function through the generated <service>_ipc_ffi_set_host_call (ipc-runtime's
+ * Node-API addon does when it loads one). The symbol is then a weak definition forwarding to that
+ * function, or answering every call with an error before one is set, so binaries that link a
+ * HostCallBackend they never use still link. A test can define the symbol to stand in for the
+ * host; the file defining it defines IPC_CODEGEN_HOST_CALL_DEFINED first, which leaves only the
+ * declaration here.
  *
  * Every service's generated directory carries its own copy of this header, so
  * it is guarded by a fixed macro rather than #pragma once: two services in one
@@ -37,6 +39,7 @@
 
 #include "throw.hpp"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -60,13 +63,30 @@ extern "C" int32_t ipc_runtime_host_call(const uint8_t *target,
                                          size_t request_len, uint8_t **response,
                                          size_t *response_len);
 #else
+namespace ipc_codegen {
+/** The host-call contract above, as a function a native library's host provides. */
+using HostCallFn = int32_t (*)(const uint8_t *target, size_t target_len,
+                               const uint8_t *request, size_t request_len,
+                               uint8_t **response, size_t *response_len);
+
+/** This library's host-call function, set by <service>_ipc_ffi_set_host_call. */
+inline std::atomic<HostCallFn> &native_host_call() {
+  static std::atomic<HostCallFn> fn{nullptr};
+  return fn;
+}
+} // namespace ipc_codegen
+
 extern "C" __attribute__((weak)) int32_t
-ipc_runtime_host_call(const uint8_t * /*target*/, size_t /*target_len*/,
-                      const uint8_t * /*request*/, size_t /*request_len*/,
+ipc_runtime_host_call(const uint8_t *target, size_t target_len,
+                      const uint8_t *request, size_t request_len,
                       uint8_t **response, size_t *response_len) {
+  if (auto fn = ipc_codegen::native_host_call().load()) {
+    return fn(target, target_len, request, request_len, response,
+              response_len);
+  }
   static constexpr char message[] =
-      "host_call: no host here; a HostCallBackend only reaches a service "
-      "from a wasm module";
+      "host_call: no host; a native library has one once the process that "
+      "loaded it sets one with <service>_ipc_ffi_set_host_call";
   // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
   auto *out = static_cast<uint8_t *>(std::malloc(sizeof(message) - 1));
   std::memcpy(out, message, sizeof(message) - 1);
