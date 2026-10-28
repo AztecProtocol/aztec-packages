@@ -114,7 +114,7 @@ index 0c1514dd9b1107f91f889c6851d3c7749a4570d9..85e7b2619eaef23039652431263cada1
        binaryPath: options.binaryPath,
        transport: 'uds',
 diff --git a/yarn-project/simulator/src/public/cdb_ipc_server.ts b/yarn-project/simulator/src/public/cdb_ipc_server.ts
-index 8dc46a0be7a369a80ff5133b3e9dc37374a403c2..41d5b36f0116840d05fce6f4d0e89995cdd4378c 100644
+index 8dc46a0be7a369a80ff5133b3e9dc37374a403c2..f3cd3a0117ee7bf350b1c34c6abe56dfe8993bb1 100644
 --- a/yarn-project/simulator/src/public/cdb_ipc_server.ts
 +++ b/yarn-project/simulator/src/public/cdb_ipc_server.ts
 @@ -1,10 +1,11 @@
@@ -131,7 +131,7 @@ index 8dc46a0be7a369a80ff5133b3e9dc37374a403c2..41d5b36f0116840d05fce6f4d0e89995
   */
  import {
    type CdbAddContracts,
-@@ -90,22 +91,34 @@ function serializeContractClass(contractClass: {
+@@ -90,22 +91,36 @@ function serializeContractClass(contractClass: {
  
  /** Routes AVM CDB IPC requests to registered PublicContractsDB forks. */
  export class CdbIpcServer implements CdbHandler {
@@ -171,11 +171,13 @@ index 8dc46a0be7a369a80ff5133b3e9dc37374a403c2..41d5b36f0116840d05fce6f4d0e89995
 +
 +  /** One encoded CDB request to its encoded response: what the socket serves, for an AVM in this process. */
 +  handle(request: Uint8Array): Promise<Uint8Array> {
-+    return handleRequest(this, request);
++    // As a Buffer, as the socket hands it over: msgpackr decodes nested bytes as Buffers only from a Buffer, and
++    // the contract deployment data parsed from them (Fr and the rest) takes Buffers alone.
++    return handleRequest(this, Buffer.from(request.buffer, request.byteOffset, request.byteLength));
    }
  
    /** Register a PublicContractsDB for a given WSDB fork ID. */
-@@ -120,7 +133,7 @@ export class CdbIpcServer implements CdbHandler {
+@@ -120,7 +135,7 @@ export class CdbIpcServer implements CdbHandler {
  
    /** Close the server and all active connections. */
    async close(): Promise<void> {
