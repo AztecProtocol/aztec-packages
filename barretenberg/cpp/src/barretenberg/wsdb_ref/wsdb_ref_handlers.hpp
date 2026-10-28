@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file wsdb_ref_handlers.hpp
- * @brief The node world state's contract (native-packages/wsdb/wsdb_schema.jsonc) served by the in-memory
+ * @brief The node world state's contract (wsdb_schema.jsonc) served by the in-memory
  * reference world state.
  *
  * The generated dispatch (generated/wsdb_dispatch.hpp) declares template<Ctx> handle_<command>; the

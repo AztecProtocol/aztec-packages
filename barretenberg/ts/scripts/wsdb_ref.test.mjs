@@ -1,5 +1,6 @@
 // Tests of the generated @aztec-foundation/wsdb-ref package against one backend, from its build.
-// Run through wsdb_ref_test.sh, which sets WSDB_REF_TEST_BACKEND to napi or wasm.
+// Run through wsdb_ref_test.sh, which sets WSDB_REF_TEST_BACKEND to process-uds, process-shm (a spawned
+// wsdb-ref binary over a socket or shared memory), napi or wasm.
 //
 // Every napi backend in a process shares one world state (node loads the addon once), so the
 // tests read the genesis through committed reads, which writes never change, and write only fresh
@@ -13,8 +14,14 @@ import { after, before, test } from 'node:test';
 
 import { WsdbError, WsdbService, WsdbServiceSync } from '@aztec-foundation/wsdb-ref';
 
-const backend = process.env.WSDB_REF_TEST_BACKEND;
-assert.ok(backend === 'napi' || backend === 'wasm', `WSDB_REF_TEST_BACKEND must be napi or wasm, got ${backend}`);
+const BACKENDS = {
+  'process-uds': { backend: 'process', process: { transport: 'uds' } },
+  'process-shm': { backend: 'process', process: { transport: 'shm' } },
+  napi: { backend: 'napi' },
+  wasm: { backend: 'wasm' },
+};
+const options = BACKENDS[process.env.WSDB_REF_TEST_BACKEND];
+assert.ok(options, `WSDB_REF_TEST_BACKEND must be one of ${Object.keys(BACKENDS).join(', ')}`);
 
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const constantsNr = readFileSync(
@@ -40,7 +47,7 @@ const randomFr = () => new Uint8Array([0, ...randomBytes(31)]);
 
 let service;
 before(async () => {
-  service = await WsdbService.create({ backend });
+  service = await WsdbService.create(options);
 });
 after(async () => {
   await service.destroy();
@@ -120,7 +127,8 @@ test('forks are separate world states, and bad requests are errors, not crashes'
 });
 
 test('the synchronous service reaches the same world state', async () => {
-  const sync = await WsdbServiceSync.create({ backend });
+  // A synchronous process client is always over shared memory.
+  const sync = await WsdbServiceSync.create({ backend: options.backend });
   try {
     const archive = sync.getTreeInfo({ treeId: ARCHIVE, revision: committed });
     assert.equal(toBigInt(archive.root), protocolConstant('GENESIS_ARCHIVE_ROOT'));
