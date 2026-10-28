@@ -8,6 +8,7 @@ CDB_PACKAGE=@aztec-foundation/cdb
 BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
 WSDB_REF_PACKAGE=@aztec-foundation/wsdb-ref
 WSDB_REF_ADDON=wsdb_ref_napi.node
+WSDB_REF_BINARY=wsdb-ref
 
 hash=$(hash_str \
   $(bb.js/bootstrap.sh hash) \
@@ -73,17 +74,20 @@ function generate_bb_js_api_package {
     --package-wasm-threads-module barretenberg-threads.wasm
 }
 
-# The in-memory reference world state over the node world state's contract, fully generated: in-process
-# through its wasm module (node and browsers) or, opted into here with napi, its Node-API addon.
-# Both run the one FFI entry the bb build generates from the same schema (cpp/.../wsdb_ref).
+# The in-memory reference world state over the node world state's contract, fully generated: a spawned
+# wsdb-ref process over a socket or shared memory (node), in-process through its wasm module (node and
+# browsers), or in-process through its Node-API addon (node). All three run the dispatch the bb build
+# generates from the same schema (cpp/.../wsdb_ref).
 function generate_wsdb_ref_package {
   node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
-    --schema "$ROOT/native-packages/wsdb/wsdb_schema.jsonc" \
+    --schema "$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc" \
     --lang ts \
     --package "$ROOT/barretenberg/ts/wsdb-ref" \
     --package-name "$WSDB_REF_PACKAGE" \
-    --package-transports napi,wasm \
+    --package-transports uds,shm,napi,wasm \
+    --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --binary-name "$WSDB_REF_BINARY" \
     --package-napi-addon "$WSDB_REF_ADDON" \
     --package-napi-addon-env-var WSDB_REF_NAPI_PATH \
     --package-wasm-module wsdb-ref.wasm
@@ -208,6 +212,7 @@ function copy_wsdb_ref_native {
   local target_dir="wsdb-ref/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
   cp "$ROOT/barretenberg/cpp/build/lib/$WSDB_REF_ADDON" "$target_dir/$WSDB_REF_ADDON"
+  cp "$ROOT/barretenberg/cpp/build/bin/$WSDB_REF_BINARY" "$target_dir/$WSDB_REF_BINARY"
 }
 
 function copy_wsdb_ref_cross {
@@ -215,10 +220,13 @@ function copy_wsdb_ref_cross {
     local cross_arch="$1"
     mkdir -p "wsdb-ref/build/$cross_arch"
     cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$WSDB_REF_ADDON" "wsdb-ref/build/$cross_arch/$WSDB_REF_ADDON"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$WSDB_REF_BINARY" "wsdb-ref/build/$cross_arch/$WSDB_REF_BINARY"
   elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
     for cross_arch in arm64-linux amd64-macos arm64-macos; do
       mkdir -p "wsdb-ref/build/$cross_arch"
       cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$WSDB_REF_ADDON" "wsdb-ref/build/$cross_arch/$WSDB_REF_ADDON"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$WSDB_REF_BINARY" \
+        "wsdb-ref/build/$cross_arch/$WSDB_REF_BINARY"
     done
   else
     echo "This task is expected to be run with an explicit arch or in an x86 release context."
@@ -310,7 +318,7 @@ function test_cmds {
       ;;
     wsdb_ref)
       local backend
-      for backend in napi wasm; do
+      for backend in process-uds process-shm napi wasm; do
         echo "$hash barretenberg/ts/scripts/wsdb_ref_test.sh $backend"
       done
       ;;
