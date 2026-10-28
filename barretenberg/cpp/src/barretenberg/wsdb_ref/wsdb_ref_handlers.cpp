@@ -1,6 +1,8 @@
 #include "barretenberg/wsdb_ref/wsdb_ref_handlers.hpp"
 #include "barretenberg/wsdb_ref/generated/wsdb_ffi.hpp"
 
+#include <algorithm>
+#include <array>
 #include <exception>
 #include <optional>
 #include <string>
@@ -327,7 +329,7 @@ void handle_get_tree_info(WsdbRefContext& ctx,
         return { .treeId = cmd.treeId,
                  .root = from_fr<wire::Fr>(info.root),
                  .size = info.size,
-                 .depth = ReferenceWorldState::tree_height(id) };
+                 .depth = ctx.world_state.tree_height(id) };
     });
 }
 
@@ -792,6 +794,37 @@ void handle_init_genesis(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbInitGenesisResponse {
         GenesisConfig genesis;
+        std::array<bool, 5> has_height{};
+        for (const auto& [tree_id, height] : cmd.treeHeights) {
+            auto id = tree_id_of(tree_id);
+            if (has_height[static_cast<size_t>(id)]) {
+                throw std::runtime_error("treeHeights names tree " + std::to_string(tree_id) + " twice");
+            }
+            has_height[static_cast<size_t>(id)] = true;
+            genesis.tree_heights[static_cast<size_t>(id)] = height;
+        }
+        if (std::ranges::find(has_height, false) != has_height.end()) {
+            throw std::runtime_error("treeHeights must name each of the five trees");
+        }
+        std::optional<uint64_t> nullifier_size;
+        std::optional<uint64_t> public_data_size;
+        for (const auto& [tree_id, size] : cmd.treePrefill) {
+            auto id = tree_id_of(tree_id);
+            if (id != MerkleTreeId::NULLIFIER_TREE && id != MerkleTreeId::PUBLIC_DATA_TREE) {
+                throw std::runtime_error("treePrefill names tree " + std::to_string(tree_id) +
+                                         ", which is not an indexed tree");
+            }
+            auto& slot = id == MerkleTreeId::NULLIFIER_TREE ? nullifier_size : public_data_size;
+            if (slot.has_value()) {
+                throw std::runtime_error("treePrefill names tree " + std::to_string(tree_id) + " twice");
+            }
+            slot = size;
+        }
+        if (!nullifier_size || !public_data_size) {
+            throw std::runtime_error("treePrefill must give the nullifier and public data trees their sizes");
+        }
+        genesis.nullifier_tree_initial_size = *nullifier_size;
+        genesis.public_data_tree_initial_size = *public_data_size;
         genesis.prefilled_public_data = all_from_wire<PublicDataLeafValue>(cmd.prefilledPublicData);
         for (const auto& nullifier : cmd.prefilledNullifiers) {
             genesis.prefilled_nullifiers.emplace_back(to_fr(nullifier));
