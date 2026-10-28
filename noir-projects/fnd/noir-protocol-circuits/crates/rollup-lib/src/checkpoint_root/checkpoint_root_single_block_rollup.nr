@@ -16,9 +16,9 @@ use types::{
     proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-/// The sole block of the checkpoint is also its first block, which any block root variant can be: the inputs validator
-/// pins the leftmost block's start values to their initial ones. Block merges are excluded, since a merge means the
-/// checkpoint has more than one block.
+// The sole block of the checkpoint is also its first block, which any block root variant can be: the inputs validator
+// pins the leftmost block's start values to their initial ones. Block merges are excluded, since a merge means the
+// checkpoint has more than one block.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
     BLOCK_ROOT_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,

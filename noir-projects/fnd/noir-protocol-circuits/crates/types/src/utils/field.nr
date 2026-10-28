@@ -118,7 +118,7 @@ unconstrained fn tonelli_shanks_sqrt(x: Field) -> Field {
     z
 }
 
-/// NB: this doesn't return an option, because in the case of there _not_ being a square root, we still want to return a field element that allows us to then assert in the _constrained_ sqrt function that there is no sqrt.
+// NB: this doesn't return an option, because in the case of there _not_ being a square root, we still want to return a field element that allows us to then assert in the _constrained_ sqrt function that there is no sqrt.
 unconstrained fn __sqrt(x: Field) -> (bool, Field) {
     let is_sq = is_square(x);
     if is_sq {

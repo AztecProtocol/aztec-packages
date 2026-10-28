@@ -7,7 +7,7 @@ pub global MAX_ETH_ADDRESS_VALUE: Field = 0xffffffffffffffffffffffffffffffffffff
 pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 
-/// WARNING: do not change without consulting AVM which this constant affects
+// WARNING: do not change without consulting AVM which this constant affects
 pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 
 /**
@@ -86,8 +86,8 @@ pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
-/// Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
-/// hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
+// Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
+// hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = MAX_PRIVATE_LOGS_PER_TX;
 
 // "PER CALL" CONSTANTS
@@ -266,8 +266,8 @@ pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_f
     21888242871839275222246405745257275088548364400416034343698204186575808495616,
 ); // This is `-1`.
 
-/// Randomly chosen slot for the bytecode capsule.
-/// The value was generated and checked in `constants_tests.nr`.
+// Randomly chosen slot for the bytecode capsule.
+// The value was generated and checked in `constants_tests.nr`.
 pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field =
     0x1f61038721b052d5389449bf44f73c817146aedfab1ef13d37f16ce928df1fb7;
 
@@ -656,9 +656,9 @@ pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size
 /// 21 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 
-/// Setting limits for MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS
-/// This value is determined by the length of the AVM trace and the max public bytecode size in bytes
-/// (MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 = 96,000), i.e. 2^21 / 96,000 = 21
+// Setting limits for MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS
+// This value is determined by the length of the AVM trace and the max public bytecode size in bytes
+// (MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 = 96,000), i.e. 2^21 / 96,000 = 21
 pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
 // ---------------------------------------------------------------
@@ -801,7 +801,7 @@ pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 2760353947;
 pub global DOM_SEP__FUNCTION_ARGS: u32 = 3576554347;
 
 pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 3904434327;
-/// Part of the protocol, because some protocol contracts emit events.
+// Part of the protocol, because some protocol contracts emit events.
 pub global DOM_SEP__EVENT_COMMITMENT: u32 = 2517418573;
 
 // ---------------------------------------------------------------
@@ -1157,8 +1157,8 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 = AVM_PUBLIC_INPUTS_CO
     + AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH
     + AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH;
 
-/// AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
-/// Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
+// AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
+// Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
 pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 14532;
 
 // GAS DEFAULTS
@@ -1185,7 +1185,7 @@ pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
 /// The maximum amount of l2 gas that the AVM can process safely.
 pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
-/// The following limit assumes that a private only tx will always be cheaper than a tx with a full public component.
+// The following limit assumes that a private only tx will always be cheaper than a tx with a full public component.
 pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PROCESSABLE_L2_GAS;
 
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
@@ -1257,7 +1257,7 @@ pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITPUBLICLOG_BASE_L2_GAS: u32 = 15;
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 39 + L2_GAS_PER_L2_TO_L1_MSG;
-/// See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
+// See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
 pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 9;

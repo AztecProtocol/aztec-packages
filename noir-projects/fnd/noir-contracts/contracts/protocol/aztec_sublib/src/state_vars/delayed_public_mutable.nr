@@ -122,8 +122,8 @@ pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
     storage_slot: Field,
 }
 
-/// We allocate `M + 1` slots because we're going to store a `WithHash<DelayedPublicMutableValues<T, InitialDelay>>`,
-/// and `WithHash` increases the packing length by one.
+// We allocate `M + 1` slots because we're going to store a `WithHash<DelayedPublicMutableValues<T, InitialDelay>>`,
+// and `WithHash` increases the packing length by one.
 impl<T, let InitialDelay: u64, Context, let M: u32> StateVariable<M + 1, Context> for DelayedPublicMutable<T, InitialDelay, Context>
 where
     DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,

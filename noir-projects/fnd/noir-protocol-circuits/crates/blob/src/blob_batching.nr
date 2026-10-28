@@ -443,7 +443,7 @@ mod tests {
         );
     }
 
-    /// Not inlined: inlining several calls to `evaluate_blobs_and_batch` into one test multiplies its compile time.
+    // Not inlined: inlining several calls to `evaluate_blobs_and_batch` into one test multiplies its compile time.
     #[inline_never]
     unconstrained fn accumulate_checkpoint<let NumBlobs: u32>(
         commitments: [BLSPoint; NumBlobs],

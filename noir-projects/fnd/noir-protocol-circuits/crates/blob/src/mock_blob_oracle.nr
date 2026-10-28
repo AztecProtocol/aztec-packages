@@ -9,8 +9,8 @@ use types::{
 // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
 // If/when simulation times of unconstrained are improved, remove this.
 //
-/// Note: `fracs` and `factor` are computed from `challenge_z` inside `evaluate_blobs_and_batch`.
-/// The oracle does not use them; it receives `_challenge_z` for interface consistency.
+// Note: `fracs` and `factor` are computed from `challenge_z` inside `evaluate_blobs_and_batch`.
+// The oracle does not use them; it receives `_challenge_z` for interface consistency.
 pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     num_blob_fields: u32,

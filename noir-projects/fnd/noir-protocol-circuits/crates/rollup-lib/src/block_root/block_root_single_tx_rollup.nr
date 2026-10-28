@@ -14,7 +14,7 @@ use types::{
     proof::proof_data::RollupHonkProofData,
 };
 
-/// TX_MERGE_ROLLUP_VK_INDEX is not allowed if there is only one previous rollup.
+// TX_MERGE_ROLLUP_VK_INDEX is not allowed if there is only one previous rollup.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 2] =
     [PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX];
 

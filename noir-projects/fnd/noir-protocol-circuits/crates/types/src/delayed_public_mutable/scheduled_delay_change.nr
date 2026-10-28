@@ -10,10 +10,10 @@ mod test;
 /// delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 /// reduced delay, invalidating prior private reads.
 pub struct ScheduledDelayChange<let INITIAL_DELAY: u64> {
-    /// Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
-    /// they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
-    /// ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
-    /// effect. Once initialized, the Option will never be none again.
+    // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
+    // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
+    // ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
+    // effect. Once initialized, the Option will never be none again.
     pub(crate) pre: Option<u64>,
     pub(crate) post: Option<u64>,
     /// Timestamp at which `post` value is used instead of `pre`

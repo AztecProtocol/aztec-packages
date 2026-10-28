@@ -538,8 +538,8 @@ impl<let M: u32> Serialize for str<M> {
     }
 }
 
-/// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
-/// be supported).
+// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+// be supported).
 impl<T, let M: u32> Deserialize for BoundedVec<T, M>
 where
     T: Deserialize,
@@ -578,9 +578,9 @@ where
     }
 }
 
-/// This may cause issues if used as program input, because noir disallows empty arrays for program input.
-/// I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
-/// if someone does run into this in the future.
+// This may cause issues if used as program input, because noir disallows empty arrays for program input.
+// I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
+// if someone does run into this in the future.
 impl Deserialize for () {
     let N: u32 = 0;
 
@@ -597,8 +597,8 @@ impl Deserialize for () {
     }
 }
 
-/// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
-/// be supported).
+// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+// be supported).
 impl<T, let M: u32> Serialize for BoundedVec<T, M>
 where
     T: Serialize,
@@ -724,8 +724,8 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
     }
 }
 
-/// Keeping these manual impls. They are more efficient since they do not
-/// require copying sub-arrays from any serialized arrays.
+// Keeping these manual impls. They are more efficient since they do not
+// require copying sub-arrays from any serialized arrays.
 impl<T1> Serialize for (T1,)
 where
     T1: Serialize,

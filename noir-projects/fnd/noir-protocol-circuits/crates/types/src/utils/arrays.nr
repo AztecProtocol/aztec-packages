@@ -46,7 +46,7 @@ where
     length
 }
 
-/// Extracted into a standalone function to enable testing of bad hints.
+// Extracted into a standalone function to enable testing of bad hints.
 fn validate_array_length_hint<T, let N: u32>(array: [T; N], length: u32)
 where
     T: Empty,

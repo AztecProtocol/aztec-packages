@@ -710,7 +710,7 @@ unconstrained fn build_uniqueness_hints(
     }
 }
 
-/// See also: validate_side_effect_counters_tests.nr
+// See also: validate_side_effect_counters_tests.nr
 mod tests {
     use super::{
         build_uniqueness_hints, SideEffectUniquenessHints,

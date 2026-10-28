@@ -28,8 +28,8 @@ impl PrivateLogData {
 }
 
 impl Scoped<Counted<PrivateLogData>> {
-    /// Dropping `note_hash_counter` does not by itself unlink a log from its note: the reset sorts note hashes
-    /// and private logs by that counter. See `private-kernel-lib/src/components/reset_output_validator.nr`.
+    // Dropping `note_hash_counter` does not by itself unlink a log from its note: the reset sorts note hashes
+    // and private logs by that counter. See `private-kernel-lib/src/components/reset_output_validator.nr`.
     pub fn expose_to_public(self) -> PrivateLog {
         self.innermost().log
     }

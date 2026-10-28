@@ -43,8 +43,8 @@ global TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32 = MAX_NULLIFIERS_PER_TX;
 /// The actual number of iterations for squashing transient data.
 global TRANSIENT_DATA_SQUASHING_AMOUNT: u32 = MAX_NULLIFIERS_PER_TX;
 
-/// Inner resets do not silo. Siloing is performed by the terminal reset_tail variants only.
-/// `execute` asserts these are zero; changing them here will break compilation of every inner variant.
+// Inner resets do not silo. Siloing is performed by the terminal reset_tail variants only.
+// `execute` asserts these are zero; changing them here will break compilation of every inner variant.
 global NOTE_HASH_SILOING_AMOUNT: u32 = 0;
 global NULLIFIER_SILOING_AMOUNT: u32 = 0;
 global PRIVATE_LOG_SILOING_AMOUNT: u32 = 0;

@@ -166,9 +166,9 @@ pub struct FixtureBuilder {
     pub prover_id: Field,
 
     // Proof.
-    /// FixtureBuilder is shared across app-circuit and kernel-circuit fixtures, which carry
-    /// distinct Mega VK shapes. We keep both so a single fixture can be turned into either
-    /// `to_private_call_data` (app) or `to_private_kernel_data` (kernel) without re-typing.
+    // FixtureBuilder is shared across app-circuit and kernel-circuit fixtures, which carry
+    // distinct Mega VK shapes. We keep both so a single fixture can be turned into either
+    // `to_private_call_data` (app) or `to_private_kernel_data` (kernel) without re-typing.
     pub vk: MegaAppVerificationKey,
     pub vk_kernel: MegaKernelVerificationKey,
     pub vk_index: u32,

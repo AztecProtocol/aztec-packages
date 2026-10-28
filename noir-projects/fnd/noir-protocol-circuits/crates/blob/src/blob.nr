@@ -288,7 +288,7 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
     fracs
 }
 
-/// Extracted into a standalone fn to enable testing of invalid fracs.
+// Extracted into a standalone fn to enable testing of invalid fracs.
 pub fn validate_fracs(z: BLS12_381_Fr, fracs: [BLS12_381_Fr; FIELDS_PER_BLOB]) {
     for i in 0..FIELDS_PER_BLOB {
         // frac <-- ROOTS[i] / (z - ROOTS[i])
@@ -425,10 +425,10 @@ mod tests {
         assert(FIELDS_PER_BLOB % 8 == 0, "8 should divide FIELDS_PER_BLOB");
     }
 
-    /// Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
-    /// we don't actually need to operate on it so we've simply encoded it as fitting inside a
-    /// [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
-    /// See yarn-project/blob-lib/src/blob.ts -> commitmentToFields() for encoding
+    // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
+    // we don't actually need to operate on it so we've simply encoded it as fitting inside a
+    // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
+    // See yarn-project/blob-lib/src/blob.ts -> commitmentToFields() for encoding
     fn evaluate_blob(
         blob_as_fields: [Field; FIELDS_PER_BLOB],
         kzg_commitment: [Field; 2],

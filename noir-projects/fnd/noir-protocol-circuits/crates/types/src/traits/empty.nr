@@ -28,8 +28,8 @@ pub trait Empty: Eq {
     //     assert(!self.is_empty(), msg);
     // }
 
-    /// This default impl is overwritten by types like arrays, because there's a much
-    /// more efficient approach.
+    // This default impl is overwritten by types like arrays, because there's a much
+    // more efficient approach.
     fn assert_empty<let S: u32>(self, msg: str<S>) {
         assert(self.is_empty(), msg);
     }

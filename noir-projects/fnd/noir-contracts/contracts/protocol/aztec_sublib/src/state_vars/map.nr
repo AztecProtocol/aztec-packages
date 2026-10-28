@@ -9,8 +9,8 @@ pub struct Map<K, V, Context> {
     storage_slot: Field,
 }
 
-/// Map reserves a single storage slot regardless of what it stores because nothing is stored at said slot: it is only
-/// used to derive the storage slots of nested state variables.
+// Map reserves a single storage slot regardless of what it stores because nothing is stored at said slot: it is only
+// used to derive the storage slots of nested state variables.
 impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
