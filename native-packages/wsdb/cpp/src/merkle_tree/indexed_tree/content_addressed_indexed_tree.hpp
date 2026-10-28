@@ -359,6 +359,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx, false);
                 if (!leaf_hash.has_value()) {
+                    // An unwritten subtree below the tree's size holds only empty leaves (a batch's padding).
+                    TreeMeta meta;
+                    store_->get_meta(meta, *tx, includeUncommitted);
+                    if (index < meta.size) {
+                        response.success = true;
+                        response.inner.indexed_leaf = IndexedLeafValueType::empty();
+                        return;
+                    }
                     response.success = false;
                     response.message = "Failed to find leaf hash for current root";
                     return;
@@ -402,6 +410,12 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.root = blockData.root;
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx, false);
                 if (!leaf_hash.has_value()) {
+                    // An unwritten subtree below the block's tree size holds only empty leaves (a batch's padding).
+                    if (index < blockData.size) {
+                        response.success = true;
+                        response.inner.indexed_leaf = IndexedLeafValueType::empty();
+                        return;
+                    }
                     response.success = false;
                     response.message = format("Failed to find leaf hash for root of block ", blockNumber);
                     return;
