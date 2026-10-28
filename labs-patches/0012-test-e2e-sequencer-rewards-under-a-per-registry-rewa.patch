@@ -126,10 +126,10 @@ index 8c8a5d73909c32eb510679110fe3a0856aa38773..c5af367022611931578fd5538c0abc53
      const { test, context, logger, archiver, validators, nodes, contract, from } = fixture;
 diff --git a/yarn-project/end-to-end/src/multi-node/rewards/registry_reduction_calculator.test.ts b/yarn-project/end-to-end/src/multi-node/rewards/registry_reduction_calculator.test.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d42e592201
+index 0000000000000000000000000000000000000000..5ffc53c1304d0fd120fc0b948b1c1205fafb06e7
 --- /dev/null
 +++ b/yarn-project/end-to-end/src/multi-node/rewards/registry_reduction_calculator.test.ts
-@@ -0,0 +1,347 @@
+@@ -0,0 +1,256 @@
 +import {
 +  MockATPAbi,
 +  MockATPBytecode,
@@ -141,21 +141,16 @@ index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d4
 +  TestERC20Abi,
 +} from '@aztec-foundation/l1-artifacts';
 +
-+import type { Archiver } from '@aztec-labs/archiver';
 +import { EthAddress } from '@aztec-labs/aztec.js/addresses';
 +import { Fr } from '@aztec-labs/aztec.js/fields';
-+import type { Logger } from '@aztec-labs/aztec.js/log';
-+import { EthCheatCodes } from '@aztec-labs/aztec/testing';
 +import { GSEContract } from '@aztec-labs/ethereum/contracts';
-+import type { DeployAztecL1ContractsReturnType } from '@aztec-labs/ethereum/deploy-aztec-l1-contracts';
 +import { deployL1Contract } from '@aztec-labs/ethereum/deploy-l1-contract';
++import type { L1ContractAddresses } from '@aztec-labs/ethereum/l1-contract-addresses';
 +import type { ExtendedViemWalletClient } from '@aztec-labs/ethereum/types';
 +import { asyncMap } from '@aztec-labs/foundation/async-map';
-+import { maxBigint, minBigint, sumBigint } from '@aztec-labs/foundation/bigint';
++import { minBigint } from '@aztec-labs/foundation/bigint';
 +import { CheckpointNumber } from '@aztec-labs/foundation/branded-types';
 +import { retryUntil } from '@aztec-labs/foundation/retry';
-+import { DateProvider } from '@aztec-labs/foundation/timer';
-+import { getTimestampForSlot } from '@aztec-labs/stdlib/epoch-helpers';
 +import { jest } from '@jest/globals';
 +import { type Hex, getContract } from 'viem';
 +
@@ -169,22 +164,15 @@ index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d4
 +
 +jest.setTimeout(1000 * 60 * 20);
 +
-+/** How a validator is staked, which decides what the registry reduction calculator pays its proposals. */
-+type ValidatorKind = 'eoa' | 'zeroRewardRegistry' | 'defaultRewardRegistry';
-+
 +/** The ATP registries the test stakes through. Any non-zero address works: the mock ATPs only report it. */
 +const ZERO_REWARD_REGISTRY = EthAddress.fromNumber(0xa);
 +const DEFAULT_REWARD_REGISTRY = EthAddress.fromNumber(0xb);
 +
 +/**
-+ * The checkpoint reward governance sets, so that the reward portion of a coinbase's accrual is orders of magnitude
-+ * above the fee portion (about 1e18 per checkpoint in this setup) and a wrongly paid or withheld reward cannot be
-+ * mistaken for fees. The reward distributor is funded for far more checkpoints than the test proves at this rate.
++ * The checkpoint reward governance sets: orders of magnitude above the fees of a checkpoint (about 1e18 here), so the
++ * reward and fee portions of a payout cannot be confused, while the reward distributor still funds hundreds of them.
 + */
 +const CHECKPOINT_REWARD = 100_000n * 10n ** 18n;
-+
-+/** The expected reward and fee portions accrued by one coinbase over the proven checkpoints it proposed. */
-+type Accrued = { rewards: bigint; fees: bigint; checkpoints: number; checkpointsWithTxs: number };
 +
 +/**
 + * A committee of EOA-staked and ATP-staked validators, each with its own coinbase, proposes checkpoints carrying txs
@@ -195,120 +183,23 @@ index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d4
 + */
 +describe('multi-node/rewards/registry_reduction_calculator', () => {
 +  let test: MultiNodeTestContext;
-+  let logger: Logger;
 +
 +  afterEach(async () => {
 +    await test?.teardown();
 +  });
 +
 +  it('pays each proposer its registry reward plus its checkpoint fees', async () => {
-+    // One validator of each ATP registry and two EOA validators in a committee of all four. Proposers are drawn
-+    // uniformly per slot, so a single validator of a kind is what bounds the wait: the stop condition needs both ATP
-+    // validators to have proposed, which takes about six slots on average. A committee of four also keeps the
-+    // quorum at three, so one validator missing a slot does not stall the chain, which a committee of three would.
++    // One validator per ATP registry and two EOA validators, in a committee of all four so that one validator missing
++    // a slot still leaves a quorum. Proposers are drawn uniformly per slot, so a single validator of a kind is what
++    // bounds the wait for the stop condition: about six slots on average for both ATP validators to have proposed.
 +    const validators = buildMockGossipValidators(4);
 +    const eoaValidators = validators.slice(0, 2);
-+    const atpValidators: { validator: RegisteredValidator; registry: EthAddress; kind: ValidatorKind }[] = [
-+      { validator: validators[2], registry: ZERO_REWARD_REGISTRY, kind: 'zeroRewardRegistry' },
-+      { validator: validators[3], registry: DEFAULT_REWARD_REGISTRY, kind: 'defaultRewardRegistry' },
++    const [zeroRewardAtpValidator, defaultRewardAtpValidator] = validators.slice(2);
++    const atpValidators = [
++      { validator: zeroRewardAtpValidator, registry: ZERO_REWARD_REGISTRY },
++      { validator: defaultRewardAtpValidator, registry: DEFAULT_REWARD_REGISTRY },
 +    ];
-+    const kindOf = new Map<string, ValidatorKind>([
-+      ...eoaValidators.map(v => [v.attester.toString(), 'eoa'] as const),
-+      ...atpValidators.map(({ validator, kind }) => [validator.attester.toString(), kind] as const),
-+    ]);
-+
-+    let calculatorAddress: EthAddress | undefined;
-+
-+    // Stakes the ATP validators and installs the calculator while L1 still automines, before the setup advances to
-+    // the first epoch with a committee: ATP validators cannot be initial validators, since their stakers, the GSE
-+    // withdrawers the calculator resolves, only exist once deployed.
-+    const deployAtpValidatorsAndCalculator = async ({
-+      l1Client,
-+      deployL1ContractsValues,
-+      logger,
-+    }: {
-+      l1Client: ExtendedViemWalletClient;
-+      deployL1ContractsValues: DeployAztecL1ContractsReturnType;
-+      logger: Logger;
-+    }) => {
-+      const { rollupAddress, gseAddress, stakingAssetAddress } = deployL1ContractsValues.l1ContractAddresses;
-+      const mined = async (hash: Promise<Hex>) => {
-+        const receipt = await l1Client.waitForTransactionReceipt({ hash: await hash });
-+        expect(receipt.status).toEqual('success');
-+      };
-+      const rollup = getContract({ address: rollupAddress.toString(), abi: RollupAbi, client: l1Client });
-+      const stakingAsset = getContract({
-+        address: stakingAssetAddress.toString(),
-+        abi: TestERC20Abi,
-+        client: l1Client,
-+      });
-+      const gse = new GSEContract(l1Client, gseAddress!);
-+
-+      const stake = (await rollup.read.getActivationThreshold()) * BigInt(atpValidators.length);
-+      await mined(stakingAsset.write.mint([l1Client.account.address, stake]));
-+      await mined(stakingAsset.write.approve([rollup.address, stake]));
-+
-+      for (const { validator, registry } of atpValidators) {
-+        const { address: atp } = await deployL1Contract(l1Client, MockATPAbi, MockATPBytecode, [registry.toString()]);
-+        const { address: staker } = await deployL1Contract(l1Client, MockATPStakerAbi, MockATPStakerBytecode, [
-+          atp.toString(),
-+        ]);
-+        const { publicKeyInG1, publicKeyInG2, proofOfPossession } = await gse.makeRegistrationTuple(
-+          validator.bn254SecretKey.getValue(),
-+        );
-+        await mined(
-+          rollup.write.deposit([
-+            validator.attester.toString(),
-+            staker.toString(),
-+            publicKeyInG1,
-+            publicKeyInG2,
-+            proofOfPossession,
-+            false,
-+          ]),
-+        );
-+        logger.warn(`Deposited ATP validator ${validator.attester} through staker ${staker}`, {
-+          attester: validator.attester.toString(),
-+          atp: atp.toString(),
-+          staker: staker.toString(),
-+          registry: registry.toString(),
-+        });
-+      }
-+      await mined(rollup.write.flushEntryQueue());
-+
-+      const governance = await rollup.read.owner();
-+      const { address: calculator } = await deployL1Contract(
-+        l1Client,
-+        RegistryReductionCalculatorAbi,
-+        RegistryReductionCalculatorBytecode,
-+        [gseAddress!.toString(), governance],
-+      );
-+
-+      const ethCheatCodes = new EthCheatCodes([...l1Client.chain.rpcUrls.default.http], new DateProvider());
-+      const asGovernance = { account: governance };
-+      const rollupAsGovernance = getContract({
-+        address: rollup.address,
-+        abi: RollupAbi,
-+        client: ethCheatCodes.publicClient,
-+      });
-+      const calculatorAsGovernance = getContract({
-+        address: calculator.toString(),
-+        abi: RegistryReductionCalculatorAbi,
-+        client: ethCheatCodes.publicClient,
-+      });
-+      await ethCheatCodes.startImpersonating(governance);
-+      await mined(calculatorAsGovernance.write.setRegistryReward([ZERO_REWARD_REGISTRY.toString(), 0n], asGovernance));
-+      await mined(rollupAsGovernance.write.setSequencerRewardCalculator([calculator.toString()], asGovernance));
-+      const { sequencerBps } = await rollup.read.getRewardConfig();
-+      await mined(
-+        rollupAsGovernance.write.setRewardConfig([{ sequencerBps, checkpointReward: CHECKPOINT_REWARD }], asGovernance),
-+      );
-+      await ethCheatCodes.stopImpersonating(governance);
-+      logger.warn(
-+        `Set the sequencer reward calculator to ${calculator} and the checkpoint reward to ${CHECKPOINT_REWARD}`,
-+      );
-+
-+      calculatorAddress = calculator;
-+    };
++    let calculator!: EthAddress;
 +
 +    test = await MultiNodeTestContext.setup({
 +      numberOfAccounts: 0,
@@ -316,6 +207,7 @@ index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d4
 +      aztecTargetCommitteeSize: validators.length,
 +      mockGossipSubNetwork: true,
 +      startProverNode: true,
++      skipInitialSequencer: true,
 +      aztecEpochDuration: 4,
 +      ethereumSlotDuration: 4,
 +      aztecSlotDuration: 36,
@@ -323,157 +215,193 @@ index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d4
 +      attestationPropagationTime: 0.5,
 +      minTxsPerBlock: 0,
 +      pxeOpts: { syncChainTip: 'checkpointed' },
-+      skipInitialSequencer: true,
-+      deployExtraL1Contracts: deployAtpValidatorsAndCalculator,
++      // ATP validators cannot be initial validators: their stakers, the GSE withdrawers the calculator resolves, are
++      // contracts. This hook runs before the setup advances to the first epoch with a committee.
++      deployExtraL1Contracts: async ({ l1Client, deployL1ContractsValues: { l1ContractAddresses } }) => {
++        await depositThroughAtps(l1Client, l1ContractAddresses, atpValidators);
++        calculator = await deployCalculator(l1Client, l1ContractAddresses.gseAddress!);
++      },
 +    });
-+    ({ logger } = test);
-+    const { context, rollup, l1Client } = test;
++    const { context, logger, rollup, l1Client } = test;
 +
-+    const rollupContract = getContract({ address: rollup.address, abi: RollupAbi, client: l1Client });
-+    const calculator = getContract({
-+      address: calculatorAddress!.toString(),
-+      abi: RegistryReductionCalculatorAbi,
-+      client: l1Client,
++    await context.cheatCodes.rollup.asOwner(async (governance, rollupAsGovernance) => {
++      const { sequencerBps } = await rollupAsGovernance.read.getRewardConfig();
++      const asGovernance = { account: governance };
++      await mined(
++        l1Client,
++        rollupAsGovernance.write.setSequencerRewardCalculator([calculator.toString()], asGovernance),
++      );
++      await mined(
++        l1Client,
++        rollupAsGovernance.write.setRewardConfig([{ sequencerBps, checkpointReward: CHECKPOINT_REWARD }], asGovernance),
++      );
++    });
++    const { checkpointReward, sequencerBps } = await rollup.getRewardConfig();
++    const defaultReward = (checkpointReward * sequencerBps) / 10_000n;
++    logger.warn(`Installed calculator ${calculator} with a default reward of ${defaultReward} per checkpoint`, {
++      calculator: calculator.toString(),
++      defaultReward,
 +    });
 +
-+    expect(EthAddress.fromString(await rollupContract.read.getSequencerRewardCalculator())).toEqual(calculatorAddress);
 +    expect((await rollup.getAttesters()).map(a => a.toString()).sort()).toEqual(
 +      validators.map(v => v.attester.toString()).sort(),
 +    );
-+    const resolveRegistry = async (validator: RegisteredValidator) => {
-+      const [resolved, registry] = await calculator.read.resolveRegistry([validator.attester.toString()]);
-+      return { resolved, registry: EthAddress.fromString(registry) };
-+    };
++    const calculatorContract = getContract({
++      address: calculator.toString(),
++      abi: RegistryReductionCalculatorAbi,
++      client: l1Client,
++    });
 +    for (const { validator, registry } of atpValidators) {
-+      expect(await resolveRegistry(validator)).toEqual({ resolved: true, registry });
-+    }
-+    for (const validator of eoaValidators) {
-+      expect(await resolveRegistry(validator)).toEqual({ resolved: false, registry: EthAddress.ZERO });
++      const [resolved, resolvedRegistry] = await calculatorContract.read.resolveRegistry([
++        validator.attester.toString(),
++      ]);
++      expect({ resolved, registry: EthAddress.fromString(resolvedRegistry) }).toEqual({ resolved: true, registry });
 +    }
 +
-+    const { checkpointReward, sequencerBps } = await rollup.getRewardConfig();
-+    const defaultReward = (checkpointReward * sequencerBps) / 10_000n;
-+    const rewardFor = (kind: ValidatorKind) => (kind === 'zeroRewardRegistry' ? 0n : defaultReward);
-+    logger.warn(`Default sequencer reward per checkpoint is ${defaultReward}`, { checkpointReward, sequencerBps });
-+
-+    logger.warn(`Starting ${validators.length} validator nodes`);
 +    const nodes = await asyncMap(validators, ({ privateKey }) =>
 +      test.createValidatorNode([privateKey], { dontStartSequencer: true }),
 +    );
-+    const archiver = nodes[0].getBlockSource() as Archiver;
 +    const wallet = context.wallet as TestWallet;
 +    wallet.updateNode(nodes[0]);
-+    const from = context.accounts[0];
 +    const contract = await test.registerTestContract(wallet);
-+
 +    await test.startSequencers(nodes);
 +    let nullifier = 1;
 +    await using _feeder = startMempoolFeeder(
 +      wallet,
 +      nodes[0],
 +      () => contract.methods.emit_nullifier(new Fr(nullifier++)),
-+      {
-+        from,
-+        minPending: 2,
-+        logger,
-+      },
++      { from: context.accounts[0], minPending: 2, logger },
 +    );
 +
-+    // The expected accruals of every coinbase, built one proven checkpoint at a time from the checkpoint header and
-+    // txs (L1 calldata, via the archiver), the fee header stored on the rollup, and the proposer the rollup derives.
-+    const expected = new Map<string, Accrued>(
-+      validators.map(v => [v.attester.toString(), { rewards: 0n, fees: 0n, checkpoints: 0, checkpointsWithTxs: 0 }]),
-+    );
-+    let lastAccounted = CheckpointNumber(0);
-+    let maxSequencerFee = 0n;
++    // What each coinbase has earned from the proven checkpoints: the calculator's reward per checkpoint it proposed,
++    // plus the sequencer fee the rollup derives from the checkpoint's accumulated fees and its stored fee header.
++    // Every validator node runs a single validator key and no configured coinbase, so it is paid at its attester.
++    const earned = new Map(validators.map(v => [v.attester.toString(), { reward: 0n, fees: 0n }]));
++    const rewardOf = (coinbase: EthAddress) => (coinbase.equals(zeroRewardAtpValidator.attester) ? 0n : defaultReward);
++    const paidFees = (validator: RegisteredValidator) => earned.get(validator.attester.toString())!.fees > 0n;
++    let accounted = 0;
 +
-+    const accountCheckpoint = async (checkpointNumber: CheckpointNumber) => {
-+      const [published] = await archiver.getCheckpoints({ from: checkpointNumber, limit: 1 });
-+      if (published?.checkpoint.number !== checkpointNumber) {
-+        return false;
-+      }
-+      const { header, blocks } = published.checkpoint;
-+      const txFees = blocks.flatMap(block => block.body.txEffects.map(effect => effect.transactionFee.toBigInt()));
-+      const fee = header.accumulatedFees.toBigInt();
-+      expect(fee).toEqual(sumBigint(txFees));
-+
-+      const feeHeader = await rollup.getFeeHeader(BigInt(checkpointNumber));
-+      expect(feeHeader.manaUsed).toEqual(header.totalManaUsed.toBigInt());
-+      const protocolFee = feeHeader.protocolFee * feeHeader.manaUsed;
-+      const proverFee = minBigint(feeHeader.manaUsed * feeHeader.proverCost, fee - protocolFee);
-+      const sequencerFee = fee - protocolFee - proverFee;
-+
-+      // Every validator node runs a single validator key and no configured coinbase, so it is paid at its attester.
-+      const proposer = await rollup.getProposerAt(getTimestampForSlot(header.slotNumber, test.constants));
-+      expect(header.coinbase).toEqual(proposer);
-+      const kind = kindOf.get(proposer.toString());
-+      expect(kind).toBeDefined();
-+
-+      const accrued = expected.get(proposer.toString())!;
-+      accrued.rewards += rewardFor(kind!);
-+      accrued.fees += sequencerFee;
-+      accrued.checkpoints++;
-+      accrued.checkpointsWithTxs += txFees.length > 0 ? 1 : 0;
-+      maxSequencerFee = maxBigint(maxSequencerFee, sequencerFee);
-+      logger.warn(`Accounted proven checkpoint ${checkpointNumber}`, {
-+        checkpointNumber,
-+        slot: header.slotNumber,
-+        proposer: proposer.toString(),
-+        kind,
-+        txs: txFees.length,
-+        fee,
-+        protocolFee,
-+        proverFee,
-+        sequencerFee,
-+      });
-+      return true;
-+    };
-+
-+    const kindsPaidWithFees = () =>
-+      new Set(
-+        [...expected.entries()]
-+          .filter(([, accrued]) => accrued.checkpointsWithTxs > 0)
-+          .map(([attester]) => kindOf.get(attester)),
-+      );
-+
-+    // Checks every coinbase against L1 each time a proof moves the proven tip, until a validator of each kind has had
-+    // a proven checkpoint with txs. Rewards and the proven tip are read at the same L1 block.
-+    const timeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 6;
 +    await retryUntil(
 +      async () => {
++        // The proven tip and the rewards are read at the same L1 block, so a proof landing in between cannot skew them.
 +        const blockNumber = await l1Client.getBlockNumber();
 +        const proven = await rollup.getProvenCheckpointNumber({ blockNumber });
-+        if (proven <= lastAccounted) {
++        if (proven <= accounted) {
 +          return false;
 +        }
-+        for (let checkpoint = lastAccounted + 1; checkpoint <= proven; checkpoint++) {
-+          if (!(await accountCheckpoint(CheckpointNumber(checkpoint)))) {
-+            return false;
-+          }
-+          lastAccounted = CheckpointNumber(checkpoint);
++        const checkpoints = await nodes[0].getCheckpoints(CheckpointNumber(accounted + 1), proven - accounted);
++        if (checkpoints.length < proven - accounted) {
++          return false;
 +        }
-+
-+        for (const [attester, accrued] of expected) {
-+          const onChain = await rollupContract.read.getSequencerRewards([attester as Hex], { blockNumber });
-+          logger.warn(`Sequencer rewards of ${attester} at proven checkpoint ${proven}`, {
-+            kind: kindOf.get(attester),
-+            onChain,
-+            ...accrued,
++        for (const { number, header } of checkpoints) {
++          const fee = header.accumulatedFees.toBigInt();
++          const { manaUsed, protocolFee, proverCost } = await rollup.getFeeHeader(BigInt(number));
++          const feeAfterProtocol = fee - manaUsed * protocolFee;
++          const sequencerFee = feeAfterProtocol - minBigint(manaUsed * proverCost, feeAfterProtocol);
++          expect([...earned.keys()]).toContain(header.coinbase.toString());
++          const coinbase = earned.get(header.coinbase.toString())!;
++          coinbase.reward += rewardOf(header.coinbase);
++          coinbase.fees += sequencerFee;
++          logger.warn(`Proven checkpoint ${number} by ${header.coinbase} earns ${sequencerFee} in fees`, {
++            checkpointNumber: number,
++            coinbase: header.coinbase.toString(),
++            fee,
++            sequencerFee,
 +          });
-+          expect({ attester, onChain }).toEqual({ attester, onChain: accrued.rewards + accrued.fees });
 +        }
-+        return kindsPaidWithFees().size === 3;
++        accounted = proven;
++
++        for (const [coinbase, { reward, fees }] of earned) {
++          const onChain = await rollup.getSequencerRewards(coinbase as Hex, { blockNumber });
++          logger.warn(`Sequencer rewards of ${coinbase} at proven checkpoint ${proven}`, { onChain, reward, fees });
++          expect({ coinbase, onChain }).toEqual({ coinbase, onChain: reward + fees });
++        }
++        return atpValidators.every(({ validator }) => paidFees(validator)) && eoaValidators.some(paidFees);
 +      },
 +      'a proven checkpoint with txs by a validator of each kind',
-+      timeout,
++      test.L2_SLOT_DURATION_IN_S * test.epochDuration * 6,
 +      1,
 +    );
-+
-+    const zeroRewardAttester = atpValidators[0].validator.attester.toString();
-+    const zeroRewardAccrued = expected.get(zeroRewardAttester)!;
-+    expect(zeroRewardAccrued.rewards).toEqual(0n);
-+    expect(zeroRewardAccrued.fees).toBeGreaterThan(0n);
-+    expect(checkpointReward).toEqual(CHECKPOINT_REWARD);
-+    expect(maxSequencerFee * 10_000n).toBeLessThan(defaultReward);
 +  });
 +});
++
++/**
++ * Stakes each validator through a mock ATP of its registry, with the ATP's mock staker as the GSE withdrawer, and
++ * flushes the entry queue so they are active once the committee is sampled.
++ */
++async function depositThroughAtps(
++  l1Client: ExtendedViemWalletClient,
++  { rollupAddress, gseAddress, stakingAssetAddress }: L1ContractAddresses,
++  validators: { validator: RegisteredValidator; registry: EthAddress }[],
++) {
++  const rollup = getContract({ address: rollupAddress.toString(), abi: RollupAbi, client: l1Client });
++  const stakingAsset = getContract({ address: stakingAssetAddress.toString(), abi: TestERC20Abi, client: l1Client });
++  const gse = new GSEContract(l1Client, gseAddress!);
++
++  const stake = (await rollup.read.getActivationThreshold()) * BigInt(validators.length);
++  await mined(l1Client, stakingAsset.write.mint([l1Client.account.address, stake]));
++  await mined(l1Client, stakingAsset.write.approve([rollup.address, stake]));
++  for (const { validator, registry } of validators) {
++    const { address: atp } = await deployL1Contract(l1Client, MockATPAbi, MockATPBytecode, [registry.toString()]);
++    const { address: staker } = await deployL1Contract(l1Client, MockATPStakerAbi, MockATPStakerBytecode, [
++      atp.toString(),
++    ]);
++    const { publicKeyInG1, publicKeyInG2, proofOfPossession } = await gse.makeRegistrationTuple(
++      validator.bn254SecretKey.getValue(),
++    );
++    await mined(
++      l1Client,
++      rollup.write.deposit([
++        validator.attester.toString(),
++        staker.toString(),
++        publicKeyInG1,
++        publicKeyInG2,
++        proofOfPossession,
++        false,
++      ]),
++    );
++  }
++  await mined(l1Client, rollup.write.flushEntryQueue());
++}
++
++/** Deploys a `RegistryReductionCalculator` owned by the deployer that pays nothing to `ZERO_REWARD_REGISTRY`. */
++async function deployCalculator(l1Client: ExtendedViemWalletClient, gseAddress: EthAddress): Promise<EthAddress> {
++  const { address } = await deployL1Contract(
++    l1Client,
++    RegistryReductionCalculatorAbi,
++    RegistryReductionCalculatorBytecode,
++    [gseAddress.toString(), l1Client.account.address],
++  );
++  const calculator = getContract({
++    address: address.toString(),
++    abi: RegistryReductionCalculatorAbi,
++    client: l1Client,
++  });
++  await mined(l1Client, calculator.write.setRegistryReward([ZERO_REWARD_REGISTRY.toString(), 0n]));
++  return address;
++}
++
++/** Awaits the receipt of an L1 tx and fails on a revert, which `waitForTransactionReceipt` alone does not. */
++async function mined(l1Client: ExtendedViemWalletClient, hash: Promise<Hex>) {
++  const receipt = await l1Client.waitForTransactionReceipt({ hash: await hash });
++  expect(receipt.status).toEqual('success');
++}
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index 71e278164fdfbcd02eeb9c0590e76c4b0a4ce712..c7bfde519763a33be576d75aaa5af95000ebbf8a 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -1424,11 +1424,12 @@ export class RollupContract {
+     return Fr.fromString(await this.rollup.read.archiveAt([BigInt(checkpointNumber)]));
+   }
+ 
+-  getSequencerRewards(address: Hex | EthAddress): Promise<bigint> {
++  async getSequencerRewards(address: Hex | EthAddress, options?: { blockNumber?: bigint }): Promise<bigint> {
+     if (address instanceof EthAddress) {
+       address = address.toString();
+     }
+-    return this.rollup.read.getSequencerRewards([address]);
++    await checkBlockTag(options?.blockNumber, this.client);
++    return this.rollup.read.getSequencerRewards([address], options);
+   }
+ 
+   getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress): Promise<bigint> {
