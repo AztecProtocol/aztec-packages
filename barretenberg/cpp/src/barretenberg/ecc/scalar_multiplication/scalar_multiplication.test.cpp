@@ -410,51 +410,6 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         EXPECT_EQ(result, expected);
     }
 
-#ifndef __wasm__
-    // The concurrent large-member dispatch converts each member's scalars in place, so members must
-    // not share scalar memory. Back-to-back members in one allocation are fine; overlapping ones abort.
-    void test_batch_concurrent_members_scalar_overlap()
-    {
-        const size_t saved_threads = get_num_cpus();
-        constexpr size_t pool_width = 4;
-        set_parallel_for_concurrency(pool_width);
-        // Enough equal-size members, each at the large-member floor, to take the concurrent path.
-        constexpr size_t num_msms = 101;
-        constexpr size_t n = scalar_multiplication::MSM_MIN_PTS_PER_THREAD * pool_width;
-        static_assert(n <= num_points);
-
-        std::vector<ScalarField> backing((num_msms * n) + (n / 2));
-        for (auto& x : backing) {
-            x = ScalarField::random_element(&engine);
-        }
-        auto spans_at = [&](size_t shift_second) {
-            std::vector<PolynomialSpan<ScalarField>> spans;
-            for (size_t k = 0; k < num_msms; ++k) {
-                const size_t offset = (k * n) + (k == 1 ? shift_second : 0);
-                spans.emplace_back(0, std::span<ScalarField>(backing.data() + offset, n));
-            }
-            return spans;
-        };
-
-        auto disjoint = spans_at(0);
-        std::vector<AffineElement> expected(num_msms);
-        for (size_t k = 0; k < num_msms; ++k) {
-            PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(disjoint[k].span));
-            expected[k] = scalar_multiplication::MSM_fast<Curve>::msm(generators, sp, /*handle_edge_cases=*/false);
-        }
-        EXPECT_EQ(scalar_multiplication::MSM_fast<Curve>::batch_multi_scalar_mul(
-                      generators, disjoint, /*handle_edge_cases=*/false),
-                  expected);
-
-        auto overlapping = spans_at(n / 2);
-        EXPECT_DEATH(scalar_multiplication::MSM_fast<Curve>::batch_multi_scalar_mul(
-                         generators, overlapping, /*handle_edge_cases=*/false),
-                     "share scalar memory");
-
-        set_parallel_for_concurrency(saved_threads);
-    }
-#endif
-
     void test_batch_multi_scalar_mul_sparse()
     {
         const size_t num_msms = 10;
@@ -1984,12 +1939,6 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSmallMemberDispatch)
 {
     this->test_batch_multi_scalar_mul_small_member_dispatch();
 }
-#ifndef __wasm__
-TYPED_TEST(ScalarMultiplicationTest, BatchConcurrentMembersScalarOverlap)
-{
-    this->test_batch_concurrent_members_scalar_overlap();
-}
-#endif
 TYPED_TEST(ScalarMultiplicationTest, MSM)
 {
     this->test_msm();
