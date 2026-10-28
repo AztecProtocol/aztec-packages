@@ -225,6 +225,7 @@ FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
 | `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
 | `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
 | `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
+| `WasmWorker`, `createWasmWorker` | a worker several modules share (`worker: <WasmWorker>`), so each can reach another directly |
 | `runMainWorker`, `runThreadWorker` | bodies for a package's own worker scripts                                          |
 | `compileWasmModule`           | `Module` from a URL, `Response`, raw or gzipped bytes; streaming compilation for URLs      |
 
@@ -233,7 +234,21 @@ browsers that cache compiled wasm start from optimized code on a repeat visit.
 Memory is created to the module's declared shape (a threads build gets a
 shared memory even for one thread), WASI is served by a small shim (clock,
 random, stdout/stderr to the logger, environ). The module must be a plain WASI
-reactor: an import beyond WASI and wasi-threads fails the load, naming it.
+reactor: an import beyond WASI, wasi-threads and `ipc_runtime.host_call` fails
+the load, naming it.
+
+`ipc_runtime.host_call` is how a module reaches services its host provides
+(the C++ side is ipc-codegen's `HostCallBackend`). The `hostCall` option binds
+each target name the module calls to another module's backend, any backend or
+generated service, or a function from request bytes to response bytes. A
+backend on the same `WasmWorker` is called synchronously from the worker, with
+no message passing; anything else is called on the thread that created the
+backend, while the worker waits on a shared buffer (`Atomics.wait`) for the
+answer. A module only reaches modules loaded before it, so siblings cannot
+call round in a cycle. A handler on the owning thread must not wait on a
+module of the same worker, which cannot run until the handler answers. A
+module on the calling thread (`worker: false`, `WasmFfiBackendSync`) takes
+only synchronous answers.
 
 ### Zig (`zig/`)
 

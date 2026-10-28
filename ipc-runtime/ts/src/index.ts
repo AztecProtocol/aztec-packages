@@ -52,6 +52,12 @@ export {
   spawnServiceBackendSync,
 } from "./service.js";
 export {
+  type HostCallHandler,
+  type HostCallTarget,
+  type HostCallTargets,
+  SERVICE_BACKEND,
+} from "./wasm/host_call.js";
+export {
   type RegisteredBackends,
   registerBackend,
   registeredBackend,
