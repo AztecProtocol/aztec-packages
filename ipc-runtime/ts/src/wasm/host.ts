@@ -20,7 +20,16 @@ export interface InstanceOptions {
   runInitialize?: boolean;
   /** Threads this instance may use, for the WASI environ the module reads. Default 1. */
   threads?: number;
+  /**
+   * Answers the module's `ipc_runtime.host_call(target, request)`: the response bytes of the service
+   * bound to `target`, synchronously. A throw fails the call in the module with its message. Unset,
+   * every host call fails, which leaves a module that never makes one unaffected.
+   */
+  hostCall?: (target: string, request: Uint8Array) => Uint8Array;
 }
+
+/** The import module a module reaches its host's services through (see `InstanceOptions.hostCall`). */
+export const HOST_CALL_NAMESPACE = "ipc_runtime";
 
 /** Every FFI entry export ends with this; the generated ones are prefixed by their service. */
 export const ENTRY_SUFFIX = "ipc_ffi_entry";
@@ -113,7 +122,28 @@ export class WasmInstanceHost {
     let memory = opts.memory;
     const logger = opts.logger ?? (() => {});
     const stderr = new StderrTail();
+    // The import is bound before the instance exists; the calls it makes need the instance.
+    let self: WasmInstanceHost | undefined;
     const imports: Record<string, Record<string, WebAssembly.ImportValue>> = {
+      [HOST_CALL_NAMESPACE]: {
+        host_call: (
+          targetPtr: number,
+          targetLen: number,
+          requestPtr: number,
+          requestLen: number,
+          responsePtrOut: number,
+          responseLenOut: number,
+        ) =>
+          self!.hostCall(
+            opts.hostCall,
+            targetPtr >>> 0,
+            targetLen >>> 0,
+            requestPtr >>> 0,
+            requestLen >>> 0,
+            responsePtrOut >>> 0,
+            responseLenOut >>> 0,
+          ),
+      },
       env: { memory },
       [WASI_NAMESPACE]: createWasiImports(opts.module, () => memory, {
         env: opts.env,
@@ -170,7 +200,7 @@ export class WasmInstanceHost {
           .join(", ")})`,
       );
     }
-    return new WasmInstanceHost(
+    self = new WasmInstanceHost(
       instance,
       memory,
       exports[entry] as WasmFn,
@@ -179,6 +209,56 @@ export class WasmInstanceHost {
       logger,
       stderr,
     );
+    return self;
+  }
+
+  /**
+   * The `host_call` import: read the target and request out of module memory, answer through
+   * `handler`, and leave the answer in a buffer from the module's allocator, which the module frees.
+   * Returns 0 when the bytes are the service's response, 1 when they are a message saying why there
+   * is none.
+   */
+  private hostCall(
+    handler: InstanceOptions["hostCall"],
+    targetPtr: number,
+    targetLen: number,
+    requestPtr: number,
+    requestLen: number,
+    responsePtrOut: number,
+    responseLenOut: number,
+  ): number {
+    this.refreshViews();
+    const target = new TextDecoder().decode(
+      this.bytes.subarray(targetPtr, targetPtr + targetLen),
+    );
+    // A copy: the handler may call back into module memory, growing and detaching this view.
+    const request = this.bytes.slice(requestPtr, requestPtr + requestLen);
+    let status = 0;
+    let response: Uint8Array;
+    try {
+      if (!handler) {
+        throw new Error(
+          "nothing is bound for this module's host calls (pass hostCall)",
+        );
+      }
+      response = handler(target, request);
+    } catch (e) {
+      status = 1;
+      response = new TextEncoder().encode(
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+    const ptr = this.alloc(Math.max(1, response.length)) >>> 0;
+    if (ptr === 0) {
+      throw new Error(
+        `wasm module could not allocate a ${response.length} byte host call response`,
+      );
+    }
+    this.refreshViews();
+    this.bytes.set(response, ptr);
+    this.words.setUint32(responsePtrOut, ptr, true);
+    this.words.setUint32(responseLenOut, response.length, true);
+    return status;
   }
 
   /** Call an arbitrary numeric export (used by thread workers for `wasi_thread_start`). */
