@@ -1,4 +1,5 @@
 import { type WasmFfiBinding, WasmFfiEngine } from "./backend.js";
+import { awaitHostCallAnswer } from "./host_call.js";
 import type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
 
 export interface MainWorkerOptions {
@@ -7,43 +8,86 @@ export interface MainWorkerOptions {
 }
 
 /**
- * Body of the worker hosting a module's main instance: create the engine on `init`, serve `call`
- * requests, tear down on `destroy`. Calls run to completion on this worker's thread; the parent's
- * event loop stays free.
+ * Body of the worker hosting modules' main instances (see `WasmWorker`): create an engine per
+ * `load`, serve `call` requests, tear down on `unload` and `destroy`. Calls run to completion on
+ * this worker's thread; the parent's event loop stays free.
+ *
+ * A module's host calls are answered here: a sibling module is called directly, and anything else
+ * is asked of the parent, this thread blocked on the shared channel until it answers.
  */
 export function runMainWorker(
   side: WorkerSide,
   platform: WasmPlatform,
   opts: MainWorkerOptions,
 ): void {
-  let engine: WasmFfiEngine | undefined;
-  const log = (message: string) => side.postMessage({ type: "log", message });
+  const engines = new Map<number, WasmFfiEngine>();
+  let channel: SharedArrayBuffer | undefined;
+  const binding: WasmFfiBinding = {
+    platform,
+    createThreadWorker: opts.createThreadWorker,
+    // Unused here: this worker is the main worker.
+    createMainWorker: opts.createThreadWorker,
+  };
+
+  function hostCallFor(
+    slot: number,
+    targets: Record<string, { sibling?: number }>,
+  ): (target: string, request: Uint8Array) => Uint8Array {
+    return (target, request) => {
+      const bound = targets[target];
+      if (!bound) {
+        throw new Error(`no host-call target "${target}" is bound`);
+      }
+      if (bound.sibling !== undefined) {
+        const sibling = engines.get(bound.sibling);
+        if (!sibling) {
+          throw new Error(
+            `host-call target "${target}" is a module that is no longer loaded`,
+          );
+        }
+        return sibling.call(request);
+      }
+      side.postMessage({ type: "host-call", slot, target, request }, [
+        request.buffer as ArrayBuffer,
+      ]);
+      const { status, bytes } = awaitHostCallAnswer(channel!);
+      if (status !== 0) {
+        throw new Error(new TextDecoder().decode(bytes));
+      }
+      return bytes;
+    };
+  }
+
   side.onMessage(async (msg) => {
     switch (msg?.type) {
-      case "init": {
+      case "channel":
+        channel = msg.channel;
+        break;
+      case "load": {
+        const slot: number = msg.slot;
         try {
           const o = msg.options ?? {};
-          const binding: WasmFfiBinding = {
-            platform,
-            createThreadWorker: opts.createThreadWorker,
-            // Unused here: this worker is the main worker.
-            createMainWorker: opts.createThreadWorker,
-          };
-          engine = await WasmFfiEngine.create(
-            {
-              module: msg.module,
-              threads: o.threads,
-              memory: o.memory,
-              env: o.env,
-              entry: o.entry,
-              logger: log,
-            },
-            binding,
+          engines.set(
+            slot,
+            await WasmFfiEngine.create(
+              {
+                module: msg.module,
+                threads: o.threads,
+                memory: o.memory,
+                env: o.env,
+                entry: o.entry,
+                logger: (message) =>
+                  side.postMessage({ type: "log", slot, message }),
+                hostCall: hostCallFor(slot, msg.hostCall ?? {}),
+              },
+              binding,
+            ),
           );
-          side.postMessage({ type: "ready" });
+          side.postMessage({ type: "loaded", slot });
         } catch (e) {
           side.postMessage({
-            type: "init-error",
+            type: "load-error",
+            slot,
             message: e instanceof Error ? (e.stack ?? e.message) : String(e),
           });
         }
@@ -51,7 +95,11 @@ export function runMainWorker(
       }
       case "call": {
         try {
-          const output = engine!.call(new Uint8Array(msg.input));
+          const engine = engines.get(msg.slot);
+          if (!engine) {
+            throw new Error("wasm module is not loaded");
+          }
+          const output = engine.call(new Uint8Array(msg.input));
           side.postMessage({ type: "result", id: msg.id, output }, [
             output.buffer as ArrayBuffer,
           ]);
@@ -64,8 +112,16 @@ export function runMainWorker(
         }
         break;
       }
-      case "destroy": {
+      case "unload": {
+        const engine = engines.get(msg.slot);
+        engines.delete(msg.slot);
         await engine?.destroy();
+        side.postMessage({ type: "unloaded", slot: msg.slot });
+        break;
+      }
+      case "destroy": {
+        await Promise.all([...engines.values()].map((e) => e.destroy()));
+        engines.clear();
         side.postMessage({ type: "destroyed" });
         side.close();
         break;

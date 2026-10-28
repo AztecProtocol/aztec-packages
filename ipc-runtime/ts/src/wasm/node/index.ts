@@ -29,5 +29,6 @@ export const binding: WasmFfiBinding = {
 export const {
   createWasmFfiBackend,
   createWasmFfiBackendSync,
+  createWasmWorker,
   sharedMemoryAvailable,
 } = bindEntry(binding);
