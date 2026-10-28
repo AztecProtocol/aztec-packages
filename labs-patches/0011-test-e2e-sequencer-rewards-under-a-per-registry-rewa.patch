@@ -1,0 +1,479 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Wed, 28 Oct 2026 12:58:36 -0300
+Subject: [PATCH] test(e2e): sequencer rewards under a per-registry reward
+ calculator
+
+Adds multi-node/rewards/registry_reduction_calculator: two EOA-staked and two
+ATP-staked validators (one per ATP registry) propose checkpoints with txs under
+a RegistryReductionCalculator that zeroes one registry's reward. After every
+epoch proof, each coinbase's sequencer rewards on L1 must equal its registry
+reward plus the sequencer share of the fees in the proven checkpoints it
+proposed.
+
+The e2e setup no longer forces every node's coinbase to the L1 publisher, so a
+validator node now defaults to the address of its first validator key and each
+single-key validator node accrues rewards at its own address. This drops the
+now-redundant clearInheritedCoinbase option.
+
+diff --git a/yarn-project/end-to-end/src/fixtures/setup.ts b/yarn-project/end-to-end/src/fixtures/setup.ts
+index 33eb805370ac725364f7364a31ad94af5d7140c9..f68e88d5845ee05641cc4adc281e3ca1876e4809 100644
+--- a/yarn-project/end-to-end/src/fixtures/setup.ts
++++ b/yarn-project/end-to-end/src/fixtures/setup.ts
+@@ -5,7 +5,7 @@ import {
+   createAztecNodeService,
+   getConfigEnvVars,
+ } from '@aztec-labs/aztec-node';
+-import { AztecAddress, EthAddress } from '@aztec-labs/aztec.js/addresses';
++import { AztecAddress } from '@aztec-labs/aztec.js/addresses';
+ import type { ContractMethod } from '@aztec-labs/aztec.js/contracts';
+ import { publishContractClass, publishInstance } from '@aztec-labs/aztec.js/deployment';
+ import { Fr } from '@aztec-labs/aztec.js/fields';
+@@ -475,9 +475,8 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
+       config.sequencerPublisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
+     }
+ 
+-    if (config.coinbase === undefined) {
+-      config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+-    }
++    // `coinbase` is deliberately left unset so that each validator node defaults to the address of its first
++    // validator key, giving every single-key validator node its own reward address.
+     logger.trace('Resolved L1 publisher account');
+ 
+     // The accounts setup creates itself: `numberOfAccounts` initializerless accounts, generated here and
+diff --git a/yarn-project/end-to-end/src/multi-node/README.md b/yarn-project/end-to-end/src/multi-node/README.md
+index 514e5898e5b8dbf8a1a91622df14147ad468ee6b..700f817657440ec4b12d52437e39f9ee7d7b2ad2 100644
+--- a/yarn-project/end-to-end/src/multi-node/README.md
++++ b/yarn-project/end-to-end/src/multi-node/README.md
+@@ -58,6 +58,7 @@ suffix marks files with more than one top-level `it`; CI splits each `it` into i
+ | `invalid-attestations/` | `MultiNodeTestContext` (slasher on) | Invalid checkpoints are detected, invalidated on L1, and the chain progresses: `invalidate_block.parallel`, a six-validator suite injecting insufficient/fake/high-s/unrecoverable/shuffled attestations and withheld blobs. |
+ | `high-availability/` | `MultiNodeTestContext` + `setupHaPairs` | HA-pair sync and handoff between nodes that share validator keys: `ha_sync` (a peer that did not build a block syncs to the proposed chain tip over P2P), `ha_checkpoint_handoff` (a peer records and takes over a pipelined checkpoint when its partner proposes the previous slot). |
+ | `slashing/` | `MultiNodeTestContext` + `SLASHER_ENABLED_MULTI_VALIDATOR_OPTS` (`setup.ts`) | Offense detection and the sentinel that drives it. Equivocation — both duplicate-proposal and duplicate-attestation — (`equivocation_offenses`), broadcast of an invalid block or checkpoint proposal (`broadcasted_invalid_block_proposal_slash`, `broadcasted_invalid_checkpoint_proposal_slash.parallel`), attesting to an invalid checkpoint (`attested_invalid_proposal.parallel`), data withholding (`data_withholding_slash`), inactivity (`inactivity_slash`, `inactivity_slash_with_consecutive_epochs`, sharing the `InactivityTest` fixture in `inactivity_setup.ts`), the slasher veto path (`slash_veto_demo`), and sentinel observability (`validators_sentinel.parallel`, `multiple_validators_sentinel.parallel`, `sentinel_status_slash.parallel`). `setup.ts` holds the two timing profiles (`baseSlashingOpts`, `SENTINEL_TIMING`), the shared offense lookup (`findSlashOffense`), and the slashing waiters (`awaitCommitteeExists`, `awaitOffenseDetected`, `advanceToEpochBeforeProposer`, `findUpcomingProposerSlot`, `awaitCommitteeKicked`, `awaitProposalExecution`). |
++| `rewards/` | `MultiNodeTestContext` with a prover node | Sequencer rewards paid on epoch proofs: `registry_reduction_calculator` (EOA- and ATP-staked validators propose checkpoints with txs under a `RegistryReductionCalculator` that zeroes one ATP registry's reward; after every proof each coinbase holds exactly its registry reward plus its checkpoints' sequencer fees). |
+ | `governance/` | `MultiNodeTestContext` + `MOCK_GOSSIP_MULTI_VALIDATOR_OPTS` + `GOVERNANCE_TIMING` (`setup.ts`) | A validator committee drives an L1 governance upgrade. `upgrade_governance_proposer` (the committee signals a new governance-proposer payload, reaches quorum, and the proposal executes) and `add_rollup` (a new rollup version is registered and the nodes migrate to it, exercising L1↔L2 bridging on both rollups). |
+ 
+ ## Helper surface
+diff --git a/yarn-project/end-to-end/src/multi-node/block-production/blob_promotion.test.ts b/yarn-project/end-to-end/src/multi-node/block-production/blob_promotion.test.ts
+index a96d3499246514f4ec1059659855ab6627ec4660..bc8c5f41aee351003786e1f77018e9b2253c2b77 100644
+--- a/yarn-project/end-to-end/src/multi-node/block-production/blob_promotion.test.ts
++++ b/yarn-project/end-to-end/src/multi-node/block-production/blob_promotion.test.ts
+@@ -73,7 +73,6 @@ describe('multi-node/block-production/blob_promotion', () => {
+       maxTxsPerBlock: PIPELINE_MAX_TXS_PER_BLOCK,
+       maxTxsPerCheckpoint: 24,
+       mockGossipSubNetworkLatency: 500,
+-      clearInheritedCoinbase: true,
+       disableCheckpointPromotionOnFirstNode: true,
+     });
+     const { test, context, logger, nodes, contract, from } = fixture;
+diff --git a/yarn-project/end-to-end/src/multi-node/block-production/setup.ts b/yarn-project/end-to-end/src/multi-node/block-production/setup.ts
+index 21c75e8af82cda6bb3f6d5618cbbdb4e66f3e621..9bc26ddc19939de1f762896515b0cbed06fddbcc 100644
+--- a/yarn-project/end-to-end/src/multi-node/block-production/setup.ts
++++ b/yarn-project/end-to-end/src/multi-node/block-production/setup.ts
+@@ -132,8 +132,8 @@ export function setupSimpleBlockProduction(opts: {
+  * Creates validators and sets up a wide-slot test context with the pipelining timing profile and a prover
+  * node, then starts (paused) validator nodes and points the wallet at node 0. Mirrors the per-test
+  * setup from the dissolved `mbps.parallel` file. The blob-promotion and pipeline-prune suites layer their
+- * adverse-network shape on via `mockGossipSubNetworkLatency`, `maxTxsPerCheckpoint`, `clearInheritedCoinbase`,
+- * and `disableCheckpointPromotionOnFirstNode`.
++ * adverse-network shape on via `mockGossipSubNetworkLatency`, `maxTxsPerCheckpoint`, and
++ * `disableCheckpointPromotionOnFirstNode`.
+  */
+ export async function setupBlockProductionWithProver(opts: {
+   syncChainTip: 'proposed' | 'checkpointed';
+@@ -146,8 +146,6 @@ export async function setupBlockProductionWithProver(opts: {
+   skipPushProposedBlocksToArchiver?: boolean;
+   /** Injects artificial mock-gossip propagation latency (ms) to model adverse network conditions. */
+   mockGossipSubNetworkLatency?: number;
+-  /** Clears each validator node's inherited coinbase so it derives one from its own attester key. */
+-  clearInheritedCoinbase?: boolean;
+   /**
+    * Disables checkpoint promotion on node 0 (`skipPromoteProposedCheckpointDuringL1Sync`), so node 0 fetches
+    * blobs during L1 sync while its peers promote their own proposed checkpoints and skip the blob fetch.
+@@ -164,13 +162,7 @@ export async function setupBlockProductionWithProver(opts: {
+    */
+   aztecTargetCommitteeSize?: number;
+ }): Promise<BlockProductionWithProverFixture> {
+-  const {
+-    syncChainTip = 'checkpointed',
+-    clearInheritedCoinbase = false,
+-    disableCheckpointPromotionOnFirstNode = false,
+-    testDeps,
+-    ...setupOpts
+-  } = opts;
++  const { syncChainTip = 'checkpointed', disableCheckpointPromotionOnFirstNode = false, testDeps, ...setupOpts } = opts;
+ 
+   // WIDE_SLOT_TIMING is the wide 72s/12s pipelining cadence (see A-914 on why the tighter 36s/4s breaks
+   // non-proposer nodes); the JSDoc on the profile carries the full rationale.
+@@ -187,7 +179,6 @@ export async function setupBlockProductionWithProver(opts: {
+     },
+     nodeOpts: (index: number) => ({
+       dontStartSequencer: true,
+-      ...(clearInheritedCoinbase ? { coinbase: undefined } : {}),
+       ...(disableCheckpointPromotionOnFirstNode && index === 0
+         ? { skipPromoteProposedCheckpointDuringL1Sync: true }
+         : {}),
+diff --git a/yarn-project/end-to-end/src/multi-node/recovery/pipeline_prune.test.ts b/yarn-project/end-to-end/src/multi-node/recovery/pipeline_prune.test.ts
+index 8c8a5d73909c32eb510679110fe3a0856aa38773..c5af367022611931578fd5538c0abc53184ccee1 100644
+--- a/yarn-project/end-to-end/src/multi-node/recovery/pipeline_prune.test.ts
++++ b/yarn-project/end-to-end/src/multi-node/recovery/pipeline_prune.test.ts
+@@ -56,7 +56,6 @@ describe('multi-node/recovery/pipeline_prune', () => {
+       maxTxsPerBlock: 2,
+       maxTxsPerCheckpoint: 24,
+       mockGossipSubNetworkLatency: 500,
+-      clearInheritedCoinbase: true,
+       disableCheckpointPromotionOnFirstNode: true,
+     });
+     const { test, context, logger, archiver, validators, nodes, contract, from } = fixture;
+diff --git a/yarn-project/end-to-end/src/multi-node/rewards/registry_reduction_calculator.test.ts b/yarn-project/end-to-end/src/multi-node/rewards/registry_reduction_calculator.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..468189afdf7ee9c63b3af681656531d42e592201
+--- /dev/null
++++ b/yarn-project/end-to-end/src/multi-node/rewards/registry_reduction_calculator.test.ts
+@@ -0,0 +1,347 @@
++import {
++  MockATPAbi,
++  MockATPBytecode,
++  MockATPStakerAbi,
++  MockATPStakerBytecode,
++  RegistryReductionCalculatorAbi,
++  RegistryReductionCalculatorBytecode,
++  RollupAbi,
++  TestERC20Abi,
++} from '@aztec-foundation/l1-artifacts';
++
++import type { Archiver } from '@aztec-labs/archiver';
++import { EthAddress } from '@aztec-labs/aztec.js/addresses';
++import { Fr } from '@aztec-labs/aztec.js/fields';
++import type { Logger } from '@aztec-labs/aztec.js/log';
++import { EthCheatCodes } from '@aztec-labs/aztec/testing';
++import { GSEContract } from '@aztec-labs/ethereum/contracts';
++import type { DeployAztecL1ContractsReturnType } from '@aztec-labs/ethereum/deploy-aztec-l1-contracts';
++import { deployL1Contract } from '@aztec-labs/ethereum/deploy-l1-contract';
++import type { ExtendedViemWalletClient } from '@aztec-labs/ethereum/types';
++import { asyncMap } from '@aztec-labs/foundation/async-map';
++import { maxBigint, minBigint, sumBigint } from '@aztec-labs/foundation/bigint';
++import { CheckpointNumber } from '@aztec-labs/foundation/branded-types';
++import { retryUntil } from '@aztec-labs/foundation/retry';
++import { DateProvider } from '@aztec-labs/foundation/timer';
++import { getTimestampForSlot } from '@aztec-labs/stdlib/epoch-helpers';
++import { jest } from '@jest/globals';
++import { type Hex, getContract } from 'viem';
++
++import type { TestWallet } from '../../test-wallet/test_wallet.js';
++import { startMempoolFeeder } from '../../test-wallet/utils.js';
++import {
++  MultiNodeTestContext,
++  type RegisteredValidator,
++  buildMockGossipValidators,
++} from '../multi_node_test_context.js';
++
++jest.setTimeout(1000 * 60 * 20);
++
++/** How a validator is staked, which decides what the registry reduction calculator pays its proposals. */
++type ValidatorKind = 'eoa' | 'zeroRewardRegistry' | 'defaultRewardRegistry';
++
++/** The ATP registries the test stakes through. Any non-zero address works: the mock ATPs only report it. */
++const ZERO_REWARD_REGISTRY = EthAddress.fromNumber(0xa);
++const DEFAULT_REWARD_REGISTRY = EthAddress.fromNumber(0xb);
++
++/**
++ * The checkpoint reward governance sets, so that the reward portion of a coinbase's accrual is orders of magnitude
++ * above the fee portion (about 1e18 per checkpoint in this setup) and a wrongly paid or withheld reward cannot be
++ * mistaken for fees. The reward distributor is funded for far more checkpoints than the test proves at this rate.
++ */
++const CHECKPOINT_REWARD = 100_000n * 10n ** 18n;
++
++/** The expected reward and fee portions accrued by one coinbase over the proven checkpoints it proposed. */
++type Accrued = { rewards: bigint; fees: bigint; checkpoints: number; checkpointsWithTxs: number };
++
++/**
++ * A committee of EOA-staked and ATP-staked validators, each with its own coinbase, proposes checkpoints carrying txs
++ * while a prover node proves every epoch. The rollup's sequencer reward calculator is a `RegistryReductionCalculator`
++ * paying nothing to proposals by validators staked through ATPs of one registry, and the default to everyone else.
++ * After every epoch proof, each coinbase's sequencer rewards on L1 must equal what its proven checkpoints earn: the
++ * calculator's reward, plus the sequencer share of the fees of the txs in them.
++ */
++describe('multi-node/rewards/registry_reduction_calculator', () => {
++  let test: MultiNodeTestContext;
++  let logger: Logger;
++
++  afterEach(async () => {
++    await test?.teardown();
++  });
++
++  it('pays each proposer its registry reward plus its checkpoint fees', async () => {
++    // One validator of each ATP registry and two EOA validators in a committee of all four. Proposers are drawn
++    // uniformly per slot, so a single validator of a kind is what bounds the wait: the stop condition needs both ATP
++    // validators to have proposed, which takes about six slots on average. A committee of four also keeps the
++    // quorum at three, so one validator missing a slot does not stall the chain, which a committee of three would.
++    const validators = buildMockGossipValidators(4);
++    const eoaValidators = validators.slice(0, 2);
++    const atpValidators: { validator: RegisteredValidator; registry: EthAddress; kind: ValidatorKind }[] = [
++      { validator: validators[2], registry: ZERO_REWARD_REGISTRY, kind: 'zeroRewardRegistry' },
++      { validator: validators[3], registry: DEFAULT_REWARD_REGISTRY, kind: 'defaultRewardRegistry' },
++    ];
++    const kindOf = new Map<string, ValidatorKind>([
++      ...eoaValidators.map(v => [v.attester.toString(), 'eoa'] as const),
++      ...atpValidators.map(({ validator, kind }) => [validator.attester.toString(), kind] as const),
++    ]);
++
++    let calculatorAddress: EthAddress | undefined;
++
++    // Stakes the ATP validators and installs the calculator while L1 still automines, before the setup advances to
++    // the first epoch with a committee: ATP validators cannot be initial validators, since their stakers, the GSE
++    // withdrawers the calculator resolves, only exist once deployed.
++    const deployAtpValidatorsAndCalculator = async ({
++      l1Client,
++      deployL1ContractsValues,
++      logger,
++    }: {
++      l1Client: ExtendedViemWalletClient;
++      deployL1ContractsValues: DeployAztecL1ContractsReturnType;
++      logger: Logger;
++    }) => {
++      const { rollupAddress, gseAddress, stakingAssetAddress } = deployL1ContractsValues.l1ContractAddresses;
++      const mined = async (hash: Promise<Hex>) => {
++        const receipt = await l1Client.waitForTransactionReceipt({ hash: await hash });
++        expect(receipt.status).toEqual('success');
++      };
++      const rollup = getContract({ address: rollupAddress.toString(), abi: RollupAbi, client: l1Client });
++      const stakingAsset = getContract({
++        address: stakingAssetAddress.toString(),
++        abi: TestERC20Abi,
++        client: l1Client,
++      });
++      const gse = new GSEContract(l1Client, gseAddress!);
++
++      const stake = (await rollup.read.getActivationThreshold()) * BigInt(atpValidators.length);
++      await mined(stakingAsset.write.mint([l1Client.account.address, stake]));
++      await mined(stakingAsset.write.approve([rollup.address, stake]));
++
++      for (const { validator, registry } of atpValidators) {
++        const { address: atp } = await deployL1Contract(l1Client, MockATPAbi, MockATPBytecode, [registry.toString()]);
++        const { address: staker } = await deployL1Contract(l1Client, MockATPStakerAbi, MockATPStakerBytecode, [
++          atp.toString(),
++        ]);
++        const { publicKeyInG1, publicKeyInG2, proofOfPossession } = await gse.makeRegistrationTuple(
++          validator.bn254SecretKey.getValue(),
++        );
++        await mined(
++          rollup.write.deposit([
++            validator.attester.toString(),
++            staker.toString(),
++            publicKeyInG1,
++            publicKeyInG2,
++            proofOfPossession,
++            false,
++          ]),
++        );
++        logger.warn(`Deposited ATP validator ${validator.attester} through staker ${staker}`, {
++          attester: validator.attester.toString(),
++          atp: atp.toString(),
++          staker: staker.toString(),
++          registry: registry.toString(),
++        });
++      }
++      await mined(rollup.write.flushEntryQueue());
++
++      const governance = await rollup.read.owner();
++      const { address: calculator } = await deployL1Contract(
++        l1Client,
++        RegistryReductionCalculatorAbi,
++        RegistryReductionCalculatorBytecode,
++        [gseAddress!.toString(), governance],
++      );
++
++      const ethCheatCodes = new EthCheatCodes([...l1Client.chain.rpcUrls.default.http], new DateProvider());
++      const asGovernance = { account: governance };
++      const rollupAsGovernance = getContract({
++        address: rollup.address,
++        abi: RollupAbi,
++        client: ethCheatCodes.publicClient,
++      });
++      const calculatorAsGovernance = getContract({
++        address: calculator.toString(),
++        abi: RegistryReductionCalculatorAbi,
++        client: ethCheatCodes.publicClient,
++      });
++      await ethCheatCodes.startImpersonating(governance);
++      await mined(calculatorAsGovernance.write.setRegistryReward([ZERO_REWARD_REGISTRY.toString(), 0n], asGovernance));
++      await mined(rollupAsGovernance.write.setSequencerRewardCalculator([calculator.toString()], asGovernance));
++      const { sequencerBps } = await rollup.read.getRewardConfig();
++      await mined(
++        rollupAsGovernance.write.setRewardConfig([{ sequencerBps, checkpointReward: CHECKPOINT_REWARD }], asGovernance),
++      );
++      await ethCheatCodes.stopImpersonating(governance);
++      logger.warn(
++        `Set the sequencer reward calculator to ${calculator} and the checkpoint reward to ${CHECKPOINT_REWARD}`,
++      );
++
++      calculatorAddress = calculator;
++    };
++
++    test = await MultiNodeTestContext.setup({
++      numberOfAccounts: 0,
++      initialValidators: eoaValidators,
++      aztecTargetCommitteeSize: validators.length,
++      mockGossipSubNetwork: true,
++      startProverNode: true,
++      aztecEpochDuration: 4,
++      ethereumSlotDuration: 4,
++      aztecSlotDuration: 36,
++      blockDurationMs: 6000,
++      attestationPropagationTime: 0.5,
++      minTxsPerBlock: 0,
++      pxeOpts: { syncChainTip: 'checkpointed' },
++      skipInitialSequencer: true,
++      deployExtraL1Contracts: deployAtpValidatorsAndCalculator,
++    });
++    ({ logger } = test);
++    const { context, rollup, l1Client } = test;
++
++    const rollupContract = getContract({ address: rollup.address, abi: RollupAbi, client: l1Client });
++    const calculator = getContract({
++      address: calculatorAddress!.toString(),
++      abi: RegistryReductionCalculatorAbi,
++      client: l1Client,
++    });
++
++    expect(EthAddress.fromString(await rollupContract.read.getSequencerRewardCalculator())).toEqual(calculatorAddress);
++    expect((await rollup.getAttesters()).map(a => a.toString()).sort()).toEqual(
++      validators.map(v => v.attester.toString()).sort(),
++    );
++    const resolveRegistry = async (validator: RegisteredValidator) => {
++      const [resolved, registry] = await calculator.read.resolveRegistry([validator.attester.toString()]);
++      return { resolved, registry: EthAddress.fromString(registry) };
++    };
++    for (const { validator, registry } of atpValidators) {
++      expect(await resolveRegistry(validator)).toEqual({ resolved: true, registry });
++    }
++    for (const validator of eoaValidators) {
++      expect(await resolveRegistry(validator)).toEqual({ resolved: false, registry: EthAddress.ZERO });
++    }
++
++    const { checkpointReward, sequencerBps } = await rollup.getRewardConfig();
++    const defaultReward = (checkpointReward * sequencerBps) / 10_000n;
++    const rewardFor = (kind: ValidatorKind) => (kind === 'zeroRewardRegistry' ? 0n : defaultReward);
++    logger.warn(`Default sequencer reward per checkpoint is ${defaultReward}`, { checkpointReward, sequencerBps });
++
++    logger.warn(`Starting ${validators.length} validator nodes`);
++    const nodes = await asyncMap(validators, ({ privateKey }) =>
++      test.createValidatorNode([privateKey], { dontStartSequencer: true }),
++    );
++    const archiver = nodes[0].getBlockSource() as Archiver;
++    const wallet = context.wallet as TestWallet;
++    wallet.updateNode(nodes[0]);
++    const from = context.accounts[0];
++    const contract = await test.registerTestContract(wallet);
++
++    await test.startSequencers(nodes);
++    let nullifier = 1;
++    await using _feeder = startMempoolFeeder(
++      wallet,
++      nodes[0],
++      () => contract.methods.emit_nullifier(new Fr(nullifier++)),
++      {
++        from,
++        minPending: 2,
++        logger,
++      },
++    );
++
++    // The expected accruals of every coinbase, built one proven checkpoint at a time from the checkpoint header and
++    // txs (L1 calldata, via the archiver), the fee header stored on the rollup, and the proposer the rollup derives.
++    const expected = new Map<string, Accrued>(
++      validators.map(v => [v.attester.toString(), { rewards: 0n, fees: 0n, checkpoints: 0, checkpointsWithTxs: 0 }]),
++    );
++    let lastAccounted = CheckpointNumber(0);
++    let maxSequencerFee = 0n;
++
++    const accountCheckpoint = async (checkpointNumber: CheckpointNumber) => {
++      const [published] = await archiver.getCheckpoints({ from: checkpointNumber, limit: 1 });
++      if (published?.checkpoint.number !== checkpointNumber) {
++        return false;
++      }
++      const { header, blocks } = published.checkpoint;
++      const txFees = blocks.flatMap(block => block.body.txEffects.map(effect => effect.transactionFee.toBigInt()));
++      const fee = header.accumulatedFees.toBigInt();
++      expect(fee).toEqual(sumBigint(txFees));
++
++      const feeHeader = await rollup.getFeeHeader(BigInt(checkpointNumber));
++      expect(feeHeader.manaUsed).toEqual(header.totalManaUsed.toBigInt());
++      const protocolFee = feeHeader.protocolFee * feeHeader.manaUsed;
++      const proverFee = minBigint(feeHeader.manaUsed * feeHeader.proverCost, fee - protocolFee);
++      const sequencerFee = fee - protocolFee - proverFee;
++
++      // Every validator node runs a single validator key and no configured coinbase, so it is paid at its attester.
++      const proposer = await rollup.getProposerAt(getTimestampForSlot(header.slotNumber, test.constants));
++      expect(header.coinbase).toEqual(proposer);
++      const kind = kindOf.get(proposer.toString());
++      expect(kind).toBeDefined();
++
++      const accrued = expected.get(proposer.toString())!;
++      accrued.rewards += rewardFor(kind!);
++      accrued.fees += sequencerFee;
++      accrued.checkpoints++;
++      accrued.checkpointsWithTxs += txFees.length > 0 ? 1 : 0;
++      maxSequencerFee = maxBigint(maxSequencerFee, sequencerFee);
++      logger.warn(`Accounted proven checkpoint ${checkpointNumber}`, {
++        checkpointNumber,
++        slot: header.slotNumber,
++        proposer: proposer.toString(),
++        kind,
++        txs: txFees.length,
++        fee,
++        protocolFee,
++        proverFee,
++        sequencerFee,
++      });
++      return true;
++    };
++
++    const kindsPaidWithFees = () =>
++      new Set(
++        [...expected.entries()]
++          .filter(([, accrued]) => accrued.checkpointsWithTxs > 0)
++          .map(([attester]) => kindOf.get(attester)),
++      );
++
++    // Checks every coinbase against L1 each time a proof moves the proven tip, until a validator of each kind has had
++    // a proven checkpoint with txs. Rewards and the proven tip are read at the same L1 block.
++    const timeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 6;
++    await retryUntil(
++      async () => {
++        const blockNumber = await l1Client.getBlockNumber();
++        const proven = await rollup.getProvenCheckpointNumber({ blockNumber });
++        if (proven <= lastAccounted) {
++          return false;
++        }
++        for (let checkpoint = lastAccounted + 1; checkpoint <= proven; checkpoint++) {
++          if (!(await accountCheckpoint(CheckpointNumber(checkpoint)))) {
++            return false;
++          }
++          lastAccounted = CheckpointNumber(checkpoint);
++        }
++
++        for (const [attester, accrued] of expected) {
++          const onChain = await rollupContract.read.getSequencerRewards([attester as Hex], { blockNumber });
++          logger.warn(`Sequencer rewards of ${attester} at proven checkpoint ${proven}`, {
++            kind: kindOf.get(attester),
++            onChain,
++            ...accrued,
++          });
++          expect({ attester, onChain }).toEqual({ attester, onChain: accrued.rewards + accrued.fees });
++        }
++        return kindsPaidWithFees().size === 3;
++      },
++      'a proven checkpoint with txs by a validator of each kind',
++      timeout,
++      1,
++    );
++
++    const zeroRewardAttester = atpValidators[0].validator.attester.toString();
++    const zeroRewardAccrued = expected.get(zeroRewardAttester)!;
++    expect(zeroRewardAccrued.rewards).toEqual(0n);
++    expect(zeroRewardAccrued.fees).toBeGreaterThan(0n);
++    expect(checkpointReward).toEqual(CHECKPOINT_REWARD);
++    expect(maxSequencerFee * 10_000n).toBeLessThan(defaultReward);
++  });
++});
