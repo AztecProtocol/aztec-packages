@@ -197,7 +197,7 @@ class DiffRun {
 
     size_t requests = 0;
     size_t errors = 0;
-    size_t empty_slot_divergences = 0;
+    size_t failed_writes_reverted = 0;
     std::vector<std::string> message_mismatches;
 
     /** Sends `cmd` to both; returns the reference's frame. */
@@ -213,10 +213,6 @@ class DiffRun {
                               ? " -> error: " + ref.error
                               : (name == "WsdbCreateFork" || name == "WsdbGetStatus" ? " -> " + dump(ref) : ""))
                       << "\n";
-        }
-        if (empty_slot_divergence(name, ref, nat)) {
-            ++empty_slot_divergences;
-            return ref;
         }
         if (ref.is_error() != nat.is_error()) {
             ADD_FAILURE() << name << " step " << step_ << " " << dump_request(request) << ": wsdb-ref "
@@ -287,40 +283,6 @@ class DiffRun {
         return text.size() > 1500 ? text.substr(0, 1500) + "..." : text;
     }
 
-    /**
-     * A read of an indexed-tree slot a batch left empty. aztec-wsdb answers it with the empty leaf or fails (null
-     * for a leaf-value read) depending on how it stored the nodes above it: under a committed all-zero subtree the
-     * path is not found. wsdb-ref always answers the empty leaf. Clients only read slots they found by key.
-     */
-    static bool empty_slot_divergence(const std::string& name, const Frame& ref, const Frame& nat)
-    {
-        auto empty_or_missing = [&](const Frame& frame) {
-            if (frame.is_error()) {
-                return true;
-            }
-            if (name == "WsdbGetNullifierLeafPreimage") {
-                auto p = decode<wire::WsdbGetNullifierLeafPreimageResponse>(frame).preimage;
-                return p.has_value() && fr_of(p->leaf.nullifier).is_zero() && p->nextIndex == 0 &&
-                       fr_of(p->nextKey).is_zero();
-            }
-            if (name == "WsdbGetPublicDataLeafPreimage") {
-                auto p = decode<wire::WsdbGetPublicDataLeafPreimageResponse>(frame).preimage;
-                return p.has_value() && fr_of(p->leaf.slot).is_zero() && fr_of(p->leaf.value).is_zero() &&
-                       p->nextIndex == 0 && fr_of(p->nextKey).is_zero();
-            }
-            if (name == "WsdbGetNullifierLeafValue") {
-                auto v = decode<wire::WsdbGetNullifierLeafValueResponse>(frame).value;
-                return !v.has_value() || fr_of(v->nullifier).is_zero();
-            }
-            if (name == "WsdbGetPublicDataLeafValue") {
-                auto v = decode<wire::WsdbGetPublicDataLeafValueResponse>(frame).value;
-                return !v.has_value() || (fr_of(v->slot).is_zero() && fr_of(v->value).is_zero());
-            }
-            return false;
-        };
-        return ref.bytes != nat.bytes && empty_or_missing(ref) && empty_or_missing(nat);
-    }
-
     static std::string dump_request(const std::vector<uint8_t>& request)
     {
         auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
@@ -384,11 +346,7 @@ class DiffRun {
                      decode<wire::WsdbRemoveHistoricalBlocksResponse>(nat).status };
         }();
         const auto& [r, n] = statuses;
-        // aztec-wsdb's Commit leaves its summary unset (WorldState::commit does not populate it), so only its
-        // meta is compared.
-        if (name != "WsdbCommit") {
-            EXPECT_EQ(summary(r), summary(n)) << name << " step " << step_ << ": status summaries differ";
-        }
+        EXPECT_EQ(summary(r), summary(n)) << name << " step " << step_ << ": status summaries differ";
         EXPECT_EQ(meta(r.meta.nullifierTreeMeta), meta(n.meta.nullifierTreeMeta)) << name << " nullifier meta";
         EXPECT_EQ(meta(r.meta.noteHashTreeMeta), meta(n.meta.noteHashTreeMeta)) << name << " note hash meta";
         EXPECT_EQ(meta(r.meta.publicDataTreeMeta), meta(n.meta.publicDataTreeMeta)) << name << " public data meta";
@@ -603,12 +561,10 @@ class DiffRun {
     }
 
     /**
-     * A fork for writes that may fail. aztec-wsdb's batch and sequential insertions update its leaf caches before
-     * they find a duplicate key, so a failed insertion leaves that fork's caches out of step with its tree (wsdb-ref
-     * changes nothing on a failure). A fork an insertion failed on is deleted, and the canonical fork only gets
-     * writes that cannot fail.
+     * A fork other than the canonical one to write to, sometimes a new one. A failed write changes nothing on either
+     * side, so the fork stays in use after one.
      */
-    uint64_t scratch_fork()
+    uint64_t other_fork()
     {
         std::vector<uint64_t> others(forks_.begin() + 1, forks_.end());
         if (others.empty() || coin(15)) {
@@ -619,19 +575,11 @@ class DiffRun {
         return others[uniform(0, others.size() - 1)];
     }
 
-    void drop_if_failed(const Frame& frame, uint64_t fork)
-    {
-        if (frame.is_error() && fork != 0) {
-            both("WsdbDeleteFork", wire::WsdbDeleteFork{ .forkId = fork });
-            std::erase(forks_, fork);
-        }
-    }
-
     void write_on_fork()
     {
-        uint64_t fork = coin(25) ? 0 : scratch_fork();
-        if (fork == 0) {
-            // Writes the canonical fork takes that cannot fail.
+        uint64_t fork = coin(25) ? 0 : other_fork();
+        if (fork == 0 && coin(50)) {
+            // Writes that cannot fail, so the canonical fork keeps growing.
             both("WsdbAppendLeaves",
                  wire::WsdbAppendLeaves{
                      .treeId = coin(70) ? 1u : 3u, .leaves = some_note_hashes(uniform(0, 5)), .forkId = 0 });
@@ -641,6 +589,11 @@ class DiffRun {
             both("WsdbBatchInsertPublicData",
                  wire::WsdbBatchInsertPublicData{ .leaves = distinct_public_data(4), .subtreeDepth = 2, .forkId = 0 });
             return;
+        }
+        // As the public processor does with each tx: a checkpoint around the write, reverted if the write fails.
+        bool guarded = coin(50);
+        if (guarded) {
+            both("WsdbCreateCheckpoint", wire::WsdbCreateCheckpoint{ .forkId = fork });
         }
         Frame result;
         switch (uniform(0, 6)) {
@@ -675,9 +628,8 @@ class DiffRun {
             result = both("WsdbAppendNullifierLeaves",
                           wire::WsdbAppendNullifierLeaves{ .leaves = some_nullifiers(uniform(1, 3), true, false),
                                                            .forkId = fork });
-            drop_if_failed(result, fork);
             if (result.is_error()) {
-                return;
+                break;
             }
             result = both(
                 "WsdbAppendPublicDataLeaves",
@@ -703,7 +655,13 @@ class DiffRun {
                                          .forkId = fork });
         }
         }
-        drop_if_failed(result, fork);
+        if (guarded) {
+            if (result.is_error()) {
+                failed_writes_reverted++;
+            }
+            both(result.is_error() || coin(50) ? "WsdbRevertCheckpoint" : "WsdbCommitCheckpoint",
+                 wire::WsdbRevertCheckpoint{ .forkId = fork });
+        }
     }
 
     void checkpoint_op()
@@ -864,8 +822,8 @@ TEST(WsdbRefNativeDiff, MatchesAztecWsdbRequestForRequest)
             run.run(steps);
             std::cout << "seed " << seed << ": " << run.requests << " requests, " << run.errors
                       << " answered with errors on both, " << run.message_mismatches.size()
-                      << " with different messages, " << run.empty_slot_divergences
-                      << " empty-slot reads answered differently\n";
+                      << " with different messages, " << run.failed_writes_reverted
+                      << " failed writes reverted by a checkpoint\n";
             for (size_t i = 0; i < std::min<size_t>(run.message_mismatches.size(), 5); ++i) {
                 std::cout << "  " << run.message_mismatches[i] << "\n";
             }
