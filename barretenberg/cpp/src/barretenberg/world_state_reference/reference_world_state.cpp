@@ -4,6 +4,8 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <type_traits>
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
@@ -41,6 +43,13 @@ template <typename... Parts> [[noreturn]] void fail(const Parts&... parts)
 }
 
 /** An indexed-tree leaf as the tree stores it: an empty leaf hashes to zero and carries no preimage. */
+/** The name aztec-wsdb gives the indexed tree holding `LeafValueType`, which its insertion errors carry. */
+template <typename LeafValueType> std::string tree_name()
+{
+    return getMerkleTreeName(std::is_same_v<LeafValueType, NullifierLeafValue> ? MerkleTreeId::NULLIFIER_TREE
+                                                                               : MerkleTreeId::PUBLIC_DATA_TREE);
+}
+
 template <typename Tree, typename Payload> typename Tree::Leaf leaf_of(const Payload& indexed_leaf)
 {
     if (indexed_leaf.is_empty()) {
@@ -493,7 +502,7 @@ BatchInsertionResult<LeafValueType> ReferenceWorldState::batch_insert(Tree& targ
     const uint64_t start = tree.size;
     if (start + leaves.size() > (uint64_t(1) << depth)) {
         fail("Unable to insert values into tree ",
-             LeafValueType::name(),
+             tree_name<LeafValueType>(),
              " new size: ",
              start + leaves.size(),
              " max size: ",
@@ -520,7 +529,10 @@ BatchInsertionResult<LeafValueType> ReferenceWorldState::batch_insert(Tree& targ
         }
         uint256_t key = uint256_t(value.get_key());
         if (!unique.insert(key).second) {
-            fail("Duplicate key not allowed in same batch, key value: ", value.get_key(), ", tree: ", Leaf::name());
+            fail("Duplicate key not allowed in same batch, key value: ",
+                 value.get_key(),
+                 ", tree: ",
+                 tree_name<LeafValueType>());
         }
         uint64_t low_index = 0;
         bool present = false;
@@ -532,7 +544,10 @@ BatchInsertionResult<LeafValueType> ReferenceWorldState::batch_insert(Tree& targ
         }
         const Leaf* stored = tree.tree.payload(low_index);
         if (stored == nullptr) {
-            fail("Unable to insert values into tree ", Leaf::name(), ", failed to find low leaf at index ", low_index);
+            fail("Unable to insert values into tree ",
+                 tree_name<LeafValueType>(),
+                 ", failed to find low leaf at index ",
+                 low_index);
         }
         Leaf low_leaf = *stored;
         if (capture_witness) {
@@ -549,7 +564,7 @@ BatchInsertionResult<LeafValueType> ReferenceWorldState::batch_insert(Tree& targ
             updated = Leaf(value, low_leaf.nextIndex, low_leaf.nextKey);
         } else {
             fail("Unable to insert values into tree ",
-                 Leaf::name(),
+                 tree_name<LeafValueType>(),
                  " leaf type ",
                  Leaf::name(),
                  " is not updateable and ",
@@ -608,7 +623,10 @@ SequentialInsertionResult<LeafValueType> ReferenceWorldState::sequential_insert(
         }
         const Leaf* stored = tree.tree.payload(low_index);
         if (stored == nullptr) {
-            fail("Unable to insert values into tree ", Leaf::name(), ", failed to find low leaf at index ", low_index);
+            fail("Unable to insert values into tree ",
+                 tree_name<LeafValueType>(),
+                 ", failed to find low leaf at index ",
+                 low_index);
         }
         Leaf low_leaf = *stored;
         result.low_leaf_witness_data.emplace_back(low_leaf, low_index, tree.tree.sibling_path(low_index));
@@ -629,7 +647,7 @@ SequentialInsertionResult<LeafValueType> ReferenceWorldState::sequential_insert(
             result.insertion_witness_data.emplace_back(Leaf::empty(), 0, SiblingPath(depth, FF::zero()));
         } else {
             fail("Unable to insert values into tree ",
-                 Leaf::name(),
+                 tree_name<LeafValueType>(),
                  " leaf type ",
                  Leaf::name(),
                  " is not updateable and ",
@@ -638,7 +656,7 @@ SequentialInsertionResult<LeafValueType> ReferenceWorldState::sequential_insert(
         }
     }
     if (tree.size > (uint64_t(1) << depth)) {
-        fail("Unable to insert values into tree ", Leaf::name(), " new size: ", tree.size);
+        fail("Unable to insert values into tree ", tree_name<LeafValueType>(), " new size: ", tree.size);
     }
     target = std::move(tree);
     return result;
