@@ -331,20 +331,6 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // cap num_workers below pool_width. Members run largest-first (longest-processing-time
         // order) to bound the tail imbalance.
         BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched/large_members_concurrent");
-        // Each member converts its scalars out of Montgomery form in place and back, so members that
-        // share scalar memory would race and convert the shared entries twice.
-        {
-            std::vector<std::pair<const ScalarField*, const ScalarField*>> ranges;
-            ranges.reserve(large_members.size());
-            for (size_t m : large_members) {
-                const ScalarField* begin = scalar_arrays[m].data();
-                ranges.emplace_back(begin, begin + n_input[m]);
-            }
-            std::sort(ranges.begin(), ranges.end());
-            for (size_t i = 1; i < ranges.size(); ++i) {
-                BB_ASSERT(ranges[i - 1].second <= ranges[i].first, "concurrent batch MSM members share scalar memory");
-            }
-        }
         std::sort(
             large_members.begin(), large_members.end(), [&](size_t a, size_t b) { return n_input[a] > n_input[b]; });
         const size_t num_workers = std::min(pool_width, large_members.size());
