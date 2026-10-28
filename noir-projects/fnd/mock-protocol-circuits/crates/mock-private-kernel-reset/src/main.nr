@@ -3,8 +3,8 @@ use mock_types::{
     PrivateKernelPublicInputs, PROOF_TYPE_HN, VerificationKey,
 };
 
-/// Mock reset kernel that reset read requests.
-/// It needs hints to locate the commitment that matches the read requests.
+// Mock reset kernel that reset read requests.
+// It needs hints to locate the commitment that matches the read requests.
 fn main(
     mut prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,
     kernel_vk: VerificationKey<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,
