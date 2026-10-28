@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 28 Oct 2026 19:07:15 +0000
+Subject: [PATCH] feat(txe): TXE_WORLD_STATE=napi runs wsdb-ref and the AVM as
+ napi addon instances on the session's worker
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
+
+diff --git a/yarn-project/txe/src/state_machine/synchronizer.ts b/yarn-project/txe/src/state_machine/synchronizer.ts
+index b153448c65ca57d2356b77a6a92f67022948b095..698409abf1818abc289a8a507180fc716e280a75 100644
+--- a/yarn-project/txe/src/state_machine/synchronizer.ts
++++ b/yarn-project/txe/src/state_machine/synchronizer.ts
+@@ -26,16 +26,19 @@ export class TXESynchronizer implements WorldStateSynchronizer {
+   constructor(public nativeWorldStateService: NativeWorldStateService) {}
+ 
+   /**
+-   * The world state is wsdb-ref and the AVM bb-avm-sim's wasm module, both in memory on one worker of their own: the
+-   * AVM reaches the world state there as a synchronous call, and the contract DB on this thread through its host.
+-   * TXE_WORLD_STATE=native runs them as before instead, an aztec-wsdb process and a bb-avm-sim process.
++   * The world state is wsdb-ref and the AVM bb-avm-sim, both in memory on one worker of their own: the AVM reaches the
++   * world state there as a synchronous call, and the contract DB on this thread through its host. By default both are
++   * wasm modules; TXE_WORLD_STATE=napi runs them as instances of their napi addons instead, and
++   * TXE_WORLD_STATE=native as before, an aztec-wsdb process and a bb-avm-sim process.
+    */
+   static async create() {
+-    if (getEnv().TXE_WORLD_STATE === 'native') {
++    const mode = getEnv().TXE_WORLD_STATE;
++    if (mode === 'native') {
+       return this.createNative();
+     }
++    const backend = mode === 'napi' ? 'napi' : 'wasm';
+     const worker = createWasmWorker();
+-    const wsdb = await WsdbService.create({ backend: 'wasm', wasm: { worker } });
++    const wsdb = await WsdbService.create({ backend, [backend]: { worker } });
+     const nativeWorldStateService = await NativeWorldStateService.fromService(
+       wsdb,
+       undefined,
+@@ -51,7 +54,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
+     synchronizer.avmSimulator = await AvmSimulatorPool.spawn({
+       maxSize: 1,
+       spawnProcess: async ({ cdb }) => {
+-        const avm = await AvmService.create({ backend: 'wasm', wasm: { worker, hostCall: { wsdb, cdb } } });
++        const avm = await AvmService.create({ backend, [backend]: { worker, hostCall: { wsdb, cdb } } });
+         return {
+           simulate: async inputs => (await avm.simulate({ inputs })).result,
+           simulateWithHints: async inputs => (await avm.simulateWithHints({ inputs })).result,
