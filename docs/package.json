@@ -107,7 +107,8 @@
     "serve-handler": "^6.1.7",
     "serialize-javascript": "^7.0.3",
     "axios": "^1.13.5",
-    "fastify": "5.8.2"
+    "fastify": "5.8.2",
+    "tinypool": "2.1.2"
   },
   "packageManager": "yarn@4.13.0"
 }
