@@ -210,6 +210,11 @@ client is header-only, `MyServiceApi<B>`; over ipc-runtime it is
 `MyServiceApi<ipc_codegen::IpcBackend> api(ipc_codegen::IpcBackend("/tmp/myservice.sock"))`
 (`ipc_codegen/ipc_backend.hpp`, which links `ipc_runtime`), and with `--ffi` a
 default-constructed `MyServiceApi<my::ns::FfiBackend>` calls the service linked in-process.
+From a wasm module, `MyServiceApi<ipc_codegen::HostCallBackend>
+api(ipc_codegen::HostCallBackend("myservice"))` (`ipc_codegen/host_call_backend.hpp`) calls
+whatever the host binds to `myservice` through the `ipc_runtime.host_call` import (see
+ipc-runtime's `hostCall` option). `ipc_codegen::AnyBackend` (`ipc_codegen/any_backend.hpp`)
+holds any of these behind one type, for code built once for native and wasm binaries.
 Generated C++ includes support headers as `ipc_codegen/...`; the generator
 copies those headers from `templates/cpp/ipc_codegen/` into the output
 directory.
