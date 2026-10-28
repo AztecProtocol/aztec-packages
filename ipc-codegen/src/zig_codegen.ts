@@ -99,11 +99,17 @@ pub const FfiBackend = struct {
 //! In-process FFI entry for ${prefix || "service"}: the ipc-codegen FFI backend contract, with the
 //! symbols prefixed by the service so several services can be linked into one binary.
 //!
-//! exportFfi(Handler) exports \`${sym}ipc_ffi_entry\`, \`${sym}ipc_ffi_alloc\` and \`${sym}ipc_ffi_free\`
-//! over one handler, default-initialised (\`.{}\`) and kept for the life of the process, so
-//! stateful command sequences share state the way they would on one transport connection. Call
-//! it from a comptime block at the root of the library (or wasm reactor), and link libc for the
-//! malloc-compatible buffers:
+//! exportFfi(Handler) exports, over a handler type:
+//! - \`${sym}ipc_ffi_create\`, \`${sym}ipc_ffi_call\` and \`${sym}ipc_ffi_destroy\`: instances, each
+//!   a default-initialised (\`.{}\`) handler and dispatcher of its own, so stateful command
+//!   sequences on one instance share state the way they would on one transport connection, and
+//!   separate instances share nothing. Calls on one instance must not overlap; calls on different
+//!   instances may run concurrently, on any threads.
+//! - \`${sym}ipc_ffi_entry\`: a call on one instance of the process, made on first use and
+//!   serialized.
+//! - \`${sym}ipc_ffi_alloc\` and \`${sym}ipc_ffi_free\`: the malloc-compatible buffers.
+//!
+//! Call it from a comptime block at the root of the library (or wasm reactor), and link libc:
 //!
 //!     comptime { ${toSnakeCase(prefix || "service")}_ffi.exportFfi(MyHandler); }
 const std = @import("std");
@@ -111,19 +117,45 @@ const server = @import("${serverFile}");
 
 pub fn exportFfi(comptime HandlerType: type) void {
     const S = struct {
-        var handler: HandlerType = .{};
-        var dispatcher = server.Dispatcher(HandlerType).init(&handler);
-        // The dispatcher's response scratch is shared, so calls are serialized.
+        /// One instance: a handler, and the dispatcher (with its response scratch) over it.
+        const Instance = struct {
+            handler: HandlerType = .{},
+            dispatcher: server.Dispatcher(HandlerType) = undefined,
+        };
+
+        // The process instance behind entry; its dispatcher's scratch is shared, so calls are serialized.
+        var default_instance: ?*Instance = null;
         var mutex: std.Thread.Mutex = .{};
 
-        fn entry(input: [*]const u8, input_len: usize, output: *[*]u8, output_len: *usize) callconv(.c) void {
-            mutex.lock();
-            defer mutex.unlock();
-            const response = dispatcher.handleRequest(0, input[0..input_len]);
+        fn create() callconv(.c) ?*anyopaque {
+            const instance = std.heap.c_allocator.create(Instance) catch return null;
+            instance.* = .{};
+            instance.dispatcher = server.Dispatcher(HandlerType).init(&instance.handler);
+            return instance;
+        }
+
+        fn call(handle: *anyopaque, input: [*]const u8, input_len: usize, output: *[*]u8, output_len: *usize) callconv(.c) void {
+            const instance: *Instance = @ptrCast(@alignCast(handle));
+            const response = instance.dispatcher.handleRequest(0, input[0..input_len]);
             const out = alloc(response.len);
             @memcpy(out[0..response.len], response);
             output.* = out;
             output_len.* = response.len;
+        }
+
+        fn destroy(handle: ?*anyopaque) callconv(.c) void {
+            const instance: *Instance = @ptrCast(@alignCast(handle orelse return));
+            if (instance.dispatcher.resp_scratch) |scratch| std.heap.page_allocator.free(scratch);
+            std.heap.c_allocator.destroy(instance);
+        }
+
+        fn entry(input: [*]const u8, input_len: usize, output: *[*]u8, output_len: *usize) callconv(.c) void {
+            mutex.lock();
+            defer mutex.unlock();
+            if (default_instance == null) {
+                default_instance = @ptrCast(@alignCast(create() orelse @panic("${sym}ipc_ffi_entry: out of memory")));
+            }
+            call(default_instance.?, input, input_len, output, output_len);
         }
 
         /// malloc-compatible allocation for buffers crossing the FFI boundary in either direction.
@@ -136,6 +168,9 @@ pub fn exportFfi(comptime HandlerType: type) void {
             std.c.free(ptr);
         }
     };
+    @export(&S.create, .{ .name = "${sym}ipc_ffi_create" });
+    @export(&S.call, .{ .name = "${sym}ipc_ffi_call" });
+    @export(&S.destroy, .{ .name = "${sym}ipc_ffi_destroy" });
     @export(&S.entry, .{ .name = "${sym}ipc_ffi_entry" });
     @export(&S.alloc, .{ .name = "${sym}ipc_ffi_alloc" });
     @export(&S.free, .{ .name = "${sym}ipc_ffi_free" });
