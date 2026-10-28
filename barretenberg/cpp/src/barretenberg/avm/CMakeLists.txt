@@ -2,6 +2,8 @@
 # @aztec-foundation/bb-avm-sim (barretenberg/ts/bb-avm-sim):
 #   - the bb-avm-sim binary (native builds), served over IPC, reaching world state and contract
 #     data through its wsdb and cdb IPC clients;
+#   - bb_avm_sim_napi.node (native builds), a Node-API addon over the generated FFI entry, whose
+#     host calls the addon answers through a JS function;
 #   - bb-avm-sim.wasm, a WASI reactor (wasm builds) exporting the generated FFI entry
 #     (avm_ipc_ffi_entry), reaching world state and contract data through the same clients over
 #     its host's ipc_runtime.host_call import (targets "wsdb" and "cdb").
@@ -12,6 +14,7 @@ set(AVM_GEN_OUTPUTS
     ${AVM_GEN_DIR}/avm_ffi.cpp
     ${AVM_GEN_DIR}/avm_ffi.hpp
     ${AVM_GEN_DIR}/avm_ipc_server.hpp
+    ${AVM_GEN_DIR}/avm_napi.cpp
     ${AVM_GEN_DIR}/avm_types.hpp
     ${AVM_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
     ${AVM_GEN_DIR}/ipc_codegen/msgpack_include.hpp
@@ -31,6 +34,7 @@ add_custom_command(
             --out ${AVM_GEN_DIR}
             --server
             --ffi
+            --napi
             --cpp-namespace bb::avm
             --cpp-include-dir barretenberg/avm/generated
             --prefix Avm
@@ -132,4 +136,34 @@ if(ENABLE_STACKTRACES)
         PRIVATE
         -ldw -lelf
     )
+endif()
+
+# The Node-API addon over the FFI entry, built like wsdb-ref's (see wsdb_ref/CMakeLists.txt).
+set(NAPI_PACKAGE_DIR ${CMAKE_SOURCE_DIR}/../../ipc-runtime/cpp/napi)
+execute_process(COMMAND yarn --immutable WORKING_DIRECTORY ${NAPI_PACKAGE_DIR} OUTPUT_QUIET)
+execute_process(
+    COMMAND node -p "require('node-addon-api').include"
+    WORKING_DIRECTORY ${NAPI_PACKAGE_DIR}
+    OUTPUT_VARIABLE NODE_ADDON_API_DIR
+)
+execute_process(
+    COMMAND node -p "require('node-api-headers').include_dir"
+    WORKING_DIRECTORY ${NAPI_PACKAGE_DIR}
+    OUTPUT_VARIABLE NODE_API_HEADERS_DIR
+)
+string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR "${NODE_ADDON_API_DIR}")
+string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR "${NODE_API_HEADERS_DIR}")
+add_library(bb_avm_sim_napi SHARED ${AVM_GEN_DIR}/avm_napi.cpp)
+add_dependencies(bb_avm_sim_napi avm_ipc_generated)
+target_compile_definitions(bb_avm_sim_napi PRIVATE NAPI_VERSION=9)
+target_include_directories(bb_avm_sim_napi SYSTEM PRIVATE ${NODE_API_HEADERS_DIR} ${NODE_ADDON_API_DIR})
+target_link_libraries(bb_avm_sim_napi PRIVATE avm_ffi vm2_sim wsdb_ipc_merkle_db cdb_ipc_client)
+set_target_properties(bb_avm_sim_napi PROPERTIES
+    PREFIX ""
+    SUFFIX ".node"
+    OUTPUT_NAME bb_avm_sim_napi
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+# Node provides the N-API symbols at load time.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    target_link_options(bb_avm_sim_napi PRIVATE -undefined dynamic_lookup)
 endif()
