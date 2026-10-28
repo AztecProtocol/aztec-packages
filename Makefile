@@ -346,7 +346,7 @@ bb-ts-tests: bb-ts
 
 # After bb-cdb, the last of the barretenberg/ts targets to install into node_modules, which the
 # tests run out of.
-bb-avm-sim-tests: bb-avm-sim bb-cdb
+bb-avm-sim-tests: bb-avm-sim bb-cdb bb-wsdb-ref
 	$(call test,$@,barretenberg/ts,bb_avm_sim)
 
 bb-wsdb-ref-tests: bb-wsdb-ref

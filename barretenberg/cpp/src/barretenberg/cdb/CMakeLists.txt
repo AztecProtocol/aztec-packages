@@ -3,7 +3,9 @@ set(CDB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
 set(CDB_GEN_OUTPUTS
     ${CDB_GEN_DIR}/cdb_client.hpp
     ${CDB_GEN_DIR}/cdb_types.hpp
+    ${CDB_GEN_DIR}/ipc_codegen/any_backend.hpp
     ${CDB_GEN_DIR}/ipc_codegen/backend.hpp
+    ${CDB_GEN_DIR}/ipc_codegen/host_call_backend.hpp
     ${CDB_GEN_DIR}/ipc_codegen/ipc_backend.hpp
     ${CDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
     ${CDB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
@@ -43,9 +45,14 @@ target_include_directories(
     PUBLIC
     ${CDB_GEN_DIR}
 )
-target_link_libraries(
-    cdb_ipc_client
-    PUBLIC
-    barretenberg
-    ipc_runtime
-)
+if(WASM)
+    # No transport here: the wasm module reaches its contract DB through host_call.
+    target_link_libraries(cdb_ipc_client PUBLIC vm2_sim)
+else()
+    target_link_libraries(
+        cdb_ipc_client
+        PUBLIC
+        barretenberg
+        ipc_runtime
+    )
+endif()

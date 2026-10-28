@@ -115,10 +115,13 @@ add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 if(WASM)
     # The AVM simulator, without the AVM prover (the wasm presets set AVM off), as bb-avm-sim.wasm,
+    # with the wsdb and cdb clients it reaches its host's world state and contract DB through,
     # and the reference world state as wsdb-ref.wasm (see wsdb_ref/).
     add_subdirectory(barretenberg/aztec)
     add_subdirectory(barretenberg/world_state_reference)
     add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/vm2_wsdb)
+    add_subdirectory(barretenberg/cdb)
     add_subdirectory(barretenberg/avm)
     add_subdirectory(barretenberg/wsdb_ref)
 endif()
