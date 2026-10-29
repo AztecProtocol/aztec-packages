@@ -1,27 +1,38 @@
 #!/usr/bin/env bash
 # Lints the docs release skills for the mistakes that break them in this repository's layout, where
-# aztec-node is the labs/ submodule. Prints <file>:<line>: <rule>: <text> per hit and exits 1 on any.
+# the docs read aztec-node through the checkout of the commit docs/aztec-node.json pins
+# ($AZTEC_NODE_DIR, default docs/.aztec-node/tree), never through the labs/ submodule, which is the
+# foundation's build input. Prints <file>:<line>: <rule>: <text> per hit and exits 1 on any.
 #
 #   check_skills.sh [SKILL.md...]   default: the four docs skills under .claude/skills/
 #   check_skills.sh --self-test
 #
 # Rules:
-#   root-tag          a root `git tag`: Labs tags share names with this repo's tags on other commits,
-#                     so they are only ever addressed as `git -C labs ...`
-#   root-checkout-v   a root `git checkout`/`git switch` of a v... ref or $LABS_TAG
-#   root-labs-ref     a root git command given a Labs version as a revision (v<new_version>,
-#                     v<old_version>, v<nodeVersion>, v<prev_version>, $LABS_TAG)
-#   stash             any `git stash`: every worktree of this repository shares one stash stack
-#   cd-yarn-project   `cd yarn-project`: the TypeScript monorepo is labs/yarn-project
-#   labs-only-path    labs-aztec-toolchain/ or .release-please-manifest.json outside labs/ (the root
-#                     manifest versions the Foundation, not Labs)
-#   owner-approval    a push, PR, Slack message or live-network transaction in a section (from the
-#                     last heading) that does not state the marker below at or before that line
+#   root-tag              a root `git tag`: Labs tags share names with this repo's tags on other
+#                         commits, so they are only ever addressed in the checkout
+#   root-checkout-v       a root `git checkout`/`git switch` of a v... ref or $LABS_TAG
+#   root-labs-ref         a root git command given a Labs version as a revision (v<new_version>,
+#                         v<old_version>, v<nodeVersion>, v<prev_version>, $LABS_TAG)
+#   labs-submodule        labs/ as a directory to run in or read: `git -C` or `cd` into it, a path
+#                         under $VAR/labs or ../labs, labs-patches/, labs_env.sh or a root `make labs-*`
+#   foundation-toolchain  a nargo or bb this repository builds (noir/noir-repo/target/,
+#                         barretenberg/cpp/build/, labs-aztec-toolchain/bin/): the docs run the
+#                         published binaries `aztec_node.mts provision` installs
+#   toolchain-version     a literal version for a package or binary the pin names (@aztec-labs/*,
+#                         @aztec-foundation/*, the installer, nargo, bb, aztec-up): versions come
+#                         from `aztec_node.mts env` (AZTEC_VERSION, BB_VERSION, NOIR_VERSION, ...)
+#   stash                 any `git stash`: every worktree of this repository shares one stash stack
+#   cd-yarn-project       `cd yarn-project`: the TypeScript monorepo is $AZTEC_NODE_DIR/yarn-project
+#   checkout-only-path    labs-aztec-toolchain/ or .release-please-manifest.json outside the checkout
+#                         (the root manifest versions the Foundation, not Labs)
+#   owner-approval        a push, PR, Slack message or live-network transaction in a section (from
+#                         the last heading) that does not state the marker below at or before that line
 #
 # The marker, written in bold in the skills: Owner approval required
-# The git and cd rules read only code (fenced blocks and inline code spans), so prose may say "git tag";
-# a git command counts as labs/-scoped when its last -C names a directory called labs. The path and
-# owner rules read every line except the frontmatter, and the owner rule skips headings.
+# The git, cd and labs-submodule rules read only code (fenced blocks and inline code spans), so prose
+# may say "git tag" and snippet paths may keep their labs/ prefix; a git command counts as
+# checkout-scoped when its last -C names $AZTEC_NODE_DIR or a .aztec-node/tree directory. The path,
+# toolchain and owner rules read every line except the frontmatter, and the owner rule skips headings.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
@@ -55,14 +66,15 @@ function scan {
         my $code = $fence ? $line : join(" ", $line =~ /`([^`]+)`/g);
 
         my @rules;
-        my $labs_git = 0;
+        my $checkout_git = 0;
         while ($code =~ /\bgit((?:\s+(?:-C\s+(?:"[^"]*"|\x27[^\x27]*\x27|\S+)|-c\s+\S+|--no-pager))*)\s+([a-z][a-z-]*)([^;&|]*)/g) {
           my ($opts, $sub, $rest) = ($1, $2, $3);
           my $dir = "";
           while ($opts =~ /-C\s+("[^"]*"|\x27[^\x27]*\x27|\S+)/g) { $dir = $1; }
           $dir =~ s/^["\x27]|["\x27]$//g;
           $dir =~ s{/+$}{};
-          if ($dir =~ m{(?:^|/)labs$}) { $labs_git = 1; next; }
+          if ($dir =~ m{^\$\{?AZTEC_NODE_DIR\}?$|(?:^|/)\.aztec-node/tree$}) { $checkout_git = 1; next; }
+          if ($dir =~ m{(?:^|/)labs$}) { push @rules, "labs-submodule"; next; }
           push @rules, "root-tag" if $sub eq "tag";
           push @rules, "root-checkout-v"
             if ($sub eq "checkout" || $sub eq "switch") && $rest =~ /(?:^|\s)["\x27]?(?:v[0-9<\$]|\$\{?LABS_TAG\b)/;
@@ -72,11 +84,22 @@ function scan {
         }
         push @rules, "stash" if $code =~ /\bgit\b(?:\s+-[Cc]\s+\S+)*\s+stash\b/;
         push @rules, "cd-yarn-project" if $code =~/\bcd\s+["\x27]?(?:\.\/)?yarn-project\b/;
+        push @rules, "labs-submodule"
+          if $code =~ m{\bcd\s+["\x27]?(?:[^\s"\x27;&|]*/)?labs(?:[/"\x27\s;&|)]|$)}
+          || $code =~ m{(?:\$\{?\w+\}?|(?<![\\\w.])\.\.?)/labs(?:[/"\x27\s;&|)]|$)}
+          || $code =~ m{\blabs-patches/|\blabs_env\.sh\b|\bmake\b[^;&|]*\slabs-[\w-]+};
+        push @rules, "foundation-toolchain"
+          if $line =~ m{noir/noir-repo/target/|barretenberg/cpp/build/|labs-aztec-toolchain/bin/};
+        push @rules, "toolchain-version"
+          if $line =~ m{\@aztec-(?:labs|foundation)/[\w.-]+\@v?\d|install\.aztec\.network/v?\d|nargo version = v?\d}
+          || $line =~ m{\b(?:BB|NOIR|AZTEC|L1_ARTIFACTS)_VERSION=["\x27]?v?\d}
+          || $line =~ m{\baztec-up\b[^;&|`]*\s(?:install\s+)?v?\d+\.\d+}
+          || $line =~ m{\b(?:noirup|bbup)\b[^;&|`]*\s-(?:v|-version)\s+v?\d};
         while ($line =~ m{labs-aztec-toolchain/|\.release-please-manifest\.json}g) {
           my $before = substr($line, 0, $-[0]);
-          next if $before =~ m{(?:^|[^\w.-])labs/$};
-          next if $labs_git && $before =~ /:$/;
-          push @rules, "labs-only-path";
+          next if $before =~ m{(?:AZTEC_NODE_DIR\}?|\.aztec-node/tree)/$};
+          next if $checkout_git && $before =~ /:$/;
+          push @rules, "checkout-only-path";
           last;
         }
         my $owner = $line =~ /\bgit\b(?:\s+-[Cc]\s+\S+)*\s+push\b/
@@ -119,10 +142,27 @@ function self_test {
     'stash|Use `git -C "$CUT" stash push -u -m cut`.'
     'cd-yarn-project|```bash\ncd yarn-project && node --input-type=module -e "1"\n```'
     'cd-yarn-project|Run `cd ./yarn-project` first.'
-    'labs-only-path|```bash\ngrep "^BB_VERSION=" labs-aztec-toolchain/bootstrap.sh\n```'
-    'labs-only-path|The pin record is `$root/labs-aztec-toolchain/bin/.pin`.'
-    'labs-only-path|Read .release-please-manifest.json for the major version.'
-    'labs-only-path|```bash\ngit show origin/next:.release-please-manifest.json\n```'
+    'checkout-only-path|```bash\ngrep "^BB_VERSION=" labs-aztec-toolchain/bootstrap.sh\n```'
+    'checkout-only-path|Read .release-please-manifest.json for the major version.'
+    'checkout-only-path|```bash\ngit show origin/next:.release-please-manifest.json\n```'
+    'checkout-only-path|```bash\njq -r ".[\".\"]" labs/.release-please-manifest.json\n```'
+    'labs-submodule|```bash\ngit -C labs tag -l "v<nodeVersion>"\n```'
+    'labs-submodule|```bash\ngit -C "$CUT/labs" checkout --detach "$LABS_TAG"\n```'
+    'labs-submodule|```bash\ncd labs/yarn-project && yarn install\n```'
+    'labs-submodule|```bash\njq -r .version "$CUT/labs/yarn-project/aztec/package.json"\n```'
+    'labs-submodule|Run `grep -rn x ../labs/docs` from docs/.'
+    'labs-submodule|```bash\ncd "$CUT" && labs-patches/bootstrap.sh apply\n```'
+    'labs-submodule|```bash\nmake labs-yarn-project\n```'
+    'foundation-toolchain|```bash\nNARGO=$DEST_ROOT/noir/noir-repo/target/release/nargo yarn generate:aztec-nr-api\n```'
+    'foundation-toolchain|Pass `BB=../barretenberg/cpp/build/bin/bb`.'
+    'foundation-toolchain|The pin record is `$root/labs-aztec-toolchain/bin/.pin`.'
+    'toolchain-version|```bash\nyarn add @aztec-labs/aztec.js@6.0.0-rc.3\n```'
+    'toolchain-version|Its pin must equal `@aztec-foundation/l1-artifacts@6.0.0`.'
+    'toolchain-version|```bash\nbash <(curl -fsSL https://install.aztec.network/6.0.0)\n```'
+    'toolchain-version|It must print `nargo version = 1.0.0-rc.3`.'
+    'toolchain-version|```bash\nexport BB_VERSION=6.0.0\n```'
+    'toolchain-version|Run `aztec-up install 6.0.0` first.'
+    'toolchain-version|```bash\nnoirup -v 1.0.0-rc.3\n```'
     'owner-approval|### Step 6: Open a PR\n\n```bash\ngit push -u origin "$BRANCH"\n```'
     'owner-approval|```bash\ngh pr create --base next --title "docs: x"\n```'
     'owner-approval|Post the diff to the Slack thread.'
@@ -131,20 +171,25 @@ function self_test {
     'owner-approval|**Owner approval required.** Push it.\n\n## Next\n\n```bash\ngit push origin x\n```'
   )
   local good=(
-    '```bash\ngit -C labs tag -l "v<nodeVersion>"\n```'
+    '```bash\ngit -C "$AZTEC_NODE_DIR" tag -l "v<nodeVersion>"\n```'
     'The git tag for the version must exist, and git checkout of a tag is never done here.'
-    '```bash\ngit -C "$CUT/labs" checkout --detach "$LABS_TAG"\n```'
-    '```bash\ngit -C labs fetch --depth 1 origin tag "$LABS_TAG"\n```'
-    '```bash\ngit -C labs diff v<old_version>..v<new_version> -- yarn-project/ noir-projects/\n```'
-    '```bash\ngit -C labs show "$LABS_TAG:labs-aztec-toolchain/bootstrap.sh" | grep BB_VERSION\n```'
-    'Read `git -C labs show "$LABS_TAG:.release-please-manifest.json"`.'
-    '```bash\njq -r ".[\".\"]" labs/.release-please-manifest.json\n```'
-    'Use `NARGO="$CUT/labs/labs-aztec-toolchain/bin/nargo"`.'
-    '```bash\ncd labs/yarn-project && yarn install\n```'
+    '```bash\ngit -C "$AZTEC_NODE_DIR" fetch --depth 1 origin tag "$LABS_TAG"\n```'
+    '```bash\ngit -C "${AZTEC_NODE_DIR}" diff v<old_version>..v<new_version> -- yarn-project/ noir-projects/\n```'
+    '```bash\ngit -C docs/.aztec-node/tree log --oneline v<old_version>..v<new_version>\n```'
+    '```bash\ngit -C "$AZTEC_NODE_DIR" show "$LABS_TAG:labs-aztec-toolchain/bootstrap.sh" | grep BB_VERSION\n```'
+    'Read `git -C "$AZTEC_NODE_DIR" show "$LABS_TAG:.release-please-manifest.json"`.'
+    '```bash\njq -r ".[\".\"]" "$AZTEC_NODE_DIR/.release-please-manifest.json"\n```'
+    '```bash\ncd "$AZTEC_NODE_DIR/yarn-project" && node --input-type=module -e "1"\n```'
+    '```bash\nnode docs/scripts/aztec_node.mts provision nargo bb\n```'
+    '```bash\nyarn add "@aztec-labs/aztec.js@$AZTEC_VERSION" && bash <(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION")\n```'
+    'It must print `nargo version = $NOIR_VERSION`, and `aztec-up install "$AZTEC_VERSION"` is the same.'
+    'The `labs/` prefix in snippet paths names the checkout, never the submodule.'
+    '```markdown\n#include_code hello labs/noir-projects/noir-contracts/contracts/x/src/main.nr rust\n```'
+    '```bash\ngrep -rn "\\.\\./labs/" developer_versioned_docs/\n```'
     '```bash\ngit switch -c "docs/update-refs" origin/next\n```'
-    '```bash\ngit -C "$CUT" diff "$SYNCED" HEAD -- docs/developer_versioned_docs/version-v<new_version>/\n```'
+    '```bash\ngit -C "$CUT" diff "$PINNED" HEAD -- docs/developer_versioned_docs/version-v<new_version>/\n```'
     '```bash\ngit worktree add -b "docs-cut/$LABS_TAG" "$CUT" "$DEST"\n```'
-    '```bash\ngit commit -m "docs: sync from aztec-node@$LABS_TAG"\n```'
+    '```bash\ngit commit -m "docs: pin aztec-node $LABS_TAG"\n```'
     'Never stash: the stash stack is shared by every worktree.'
     '**Owner approval required.** Push and open the PR:\n\n```bash\n# a comment, not a heading\ngit push -u origin "$BRANCH"\ngh pr create --base next\n```'
     '### Step 7: Report to Slack\n\n**Owner approval required.** Post the result to the thread.'
