@@ -10,9 +10,9 @@ const { execFileSync } = require("child_process");
 // On release builds this tag deliberately diverges from COMMIT_TAG (which the
 // rest of the site links at): the snippet is extracted from the installed
 // package's sources, so only the package's own version tag is guaranteed to
-// match it line-for-line. The pin is kept equal to the labs toolchain's
-// BB_VERSION by scripts/labs_docs_sync.sh check, so these links track the
-// pinned toolchain release rather than the docs release.
+// match it line-for-line. `aztec_node.mts check` keeps the pin equal to the
+// pinned aztec-node's BB_VERSION, so these links track the pinned toolchain
+// release rather than the docs release.
 const PUBLISHED_SNIPPET_SOURCES = [
   {
     pathPrefix: "docs/node_modules/@aztec-foundation/l1-artifacts/",
@@ -20,28 +20,76 @@ const PUBLISHED_SNIPPET_SOURCES = [
   },
 ];
 
-// labs/ code comes from aztec-node at docs/.labs-sync (checked equal to the labs gitlink), so links
-// name that commit unless a release sets LABS_REF or COMMIT_TAG. The patched labs/ HEAD exists
-// nowhere upstream and is never linked.
-function labsRef(rootDir) {
-  if (process.env.LABS_REF) return process.env.LABS_REF;
-  if (process.env.COMMIT_TAG) return process.env.COMMIT_TAG;
-  return fs
-    .readFileSync(path.join(rootDir, "docs", ".labs-sync"), "utf8")
-    .trim();
+// labs/<path> snippets are read from the checkout of the commit docs/aztec-node.json pins
+// (docs/scripts/aztec_node.mts), never from the labs/ submodule, and link to that commit.
+const LABS_PREFIX = "labs/";
+
+function aztecNodeDir(rootDir) {
+  return (
+    process.env.AZTEC_NODE_DIR ??
+    path.join(rootDir, "docs", ".aztec-node", "tree")
+  );
+}
+
+// Checked once per process before the first labs/ snippet is read: an edited, untracked or stale
+// file would render code the linked commit does not have.
+const checkedCheckouts = new Set();
+function checkAztecNode(rootDir) {
+  const key = `${rootDir}\0${aztecNodeDir(rootDir)}`;
+  if (checkedCheckouts.has(key)) return;
+  const tool = path.join(rootDir, "docs", "scripts", "aztec_node.mts");
+  try {
+    execFileSync(process.execPath, [tool, "check"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    throw new Error(
+      `labs/ snippets come from the pinned aztec-node checkout, which does not match the pin:\n${(error.stderr || error.message).trim()}`,
+    );
+  }
+  checkedCheckouts.add(key);
+}
+
+function pinnedCommit(rootDir) {
+  return JSON.parse(
+    fs.readFileSync(path.join(rootDir, "docs", "aztec-node.json"), "utf8"),
+  ).commit;
+}
+
+function snippetFilePath(relativeCodeFilePath, rootDir) {
+  if (!relativeCodeFilePath.startsWith(LABS_PREFIX)) {
+    return path.join(rootDir, relativeCodeFilePath);
+  }
+  checkAztecNode(rootDir);
+  return path.join(
+    aztecNodeDir(rootDir),
+    relativeCodeFilePath.slice(LABS_PREFIX.length),
+  );
 }
 
 // This repository's own files (docs/examples/...) link to the aztec-packages commit being built:
-// DOCS_COMMIT, else HEAD. A release cut sets LABS_REF and renders them as synced from that
-// aztec-node tag, so they link there like labs/ code.
-let headCommit;
+// DOCS_COMMIT, else HEAD. A release build sets DOCS_COMMIT to the cut's base on origin/next, since a
+// local HEAD may exist nowhere upstream; RELEASE_TYPE is unset (CI, Netlify) or nightly otherwise.
+const headCommits = new Map();
 function docsCommit(rootDir) {
   if (process.env.DOCS_COMMIT) return process.env.DOCS_COMMIT;
-  headCommit ??= execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: rootDir,
-    encoding: "utf8",
-  }).trim();
-  return headCommit;
+  const releaseType = process.env.RELEASE_TYPE;
+  if (releaseType && releaseType !== "nightly") {
+    throw new Error(
+      `RELEASE_TYPE=${releaseType} needs DOCS_COMMIT: released docs link this repository's files at the cut's base commit on origin/next`,
+    );
+  }
+  if (!headCommits.has(rootDir)) {
+    headCommits.set(
+      rootDir,
+      execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: rootDir,
+        encoding: "utf8",
+      }).trim(),
+    );
+  }
+  return headCommits.get(rootDir);
 }
 
 function resolveSnippetSource(relativeCodeFilePath, rootDir) {
@@ -49,11 +97,11 @@ function resolveSnippetSource(relativeCodeFilePath, rootDir) {
     relativeCodeFilePath.startsWith(source.pathPrefix),
   );
   if (!published) {
-    if (relativeCodeFilePath.startsWith("labs/") || process.env.LABS_REF) {
+    if (relativeCodeFilePath.startsWith(LABS_PREFIX)) {
       return {
         repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
-        ref: labsRef(rootDir),
-        displayPath: relativeCodeFilePath.replace(/^labs\//, ""),
+        ref: pinnedCommit(rootDir),
+        displayPath: relativeCodeFilePath.slice(LABS_PREFIX.length),
       };
     }
     return {
@@ -298,7 +346,9 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
   let updatedContent = markdownContent;
   let matchesFound = false;
   let match;
-  while ((match = regex.exec(markdownContent))) {
+  // A fresh /g regex per call: a shared one keeps lastIndex after a throw and skips the next page's includes.
+  const includeRegex = new RegExp(regex.source, regex.flags);
+  while ((match = includeRegex.exec(markdownContent))) {
     matchesFound = true;
     const fullMatch = match[0];
     const identifier = match[1];
@@ -317,18 +367,17 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
     const noSourceLink = opts.includes("noSourceLink");
 
     try {
-      const absCodeFilePath = path.join(rootDir, codeFilePath);
+      const relativeCodeFilePath = path
+        .resolve(rootDir, codeFilePath)
+        .replace(/^\//, "");
 
       // Extract the code snippet between the specified comments
       const [codeSnippet, startLine, endLine] = extractCodeSnippet(
-        absCodeFilePath,
+        snippetFilePath(relativeCodeFilePath, rootDir),
         identifier,
         filePath,
       );
 
-      const relativeCodeFilePath = path
-        .resolve(rootDir, codeFilePath)
-        .replace(/^\//, "");
       const { repoUrl, ref, displayPath } = resolveSnippetSource(
         relativeCodeFilePath,
         rootDir,
