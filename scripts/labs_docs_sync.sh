@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # Keeps docs/ in step with aztec-node's docs/ (the labs submodule) until the docs are owned here.
 # Code outside docs/ is read through labs/, so every Labs docs tree is "rerooted" before use:
-# snippet and reference paths gain a labs/ prefix, Nargo path dependencies that climb to the
-# repo root descend into labs/, and the Netlify build is disabled (aztec-docs-dev builds this
-# directory, while production is deployed from aztec-node).
+# snippet and reference paths gain a labs/ prefix, and Nargo path dependencies that climb to the
+# repo root descend into labs/. docs/netlify.toml is ours: check holds it to deploy previews only.
 #
 #   import <ref>            replace docs/ with the rerooted Labs docs at <ref> (once)
 #   sync <ref>              3-way merge Labs' docs changes since docs/.labs-sync into docs/
 #   reroot [--check]        apply (or, with --check, list) the layout rewrites on docs/
 #   check                   fail on drift: reroot, .labs-sync vs the gitlink, patched snippet
-#                           sources, l1-artifacts vs BB_VERSION, the Netlify guard
+#                           sources, l1-artifacts vs BB_VERSION, docs/netlify.toml's build shape
 #   --release <tag>         (sync, check) compare against a pristine labs/ at <tag> instead of
 #                           the gitlink; for release cut worktrees only
 #
@@ -45,10 +44,10 @@ function reroot_files {
   local base=$1
   if [ "$base" = "$root" ]; then
     git ls-files -z -- "${source_dirs[@]/%//*.md}" "${source_dirs[@]/%//*.mdx}" "${generated_refs[@]}" \
-      'docs/*Nargo.toml' docs/netlify.toml
+      'docs/*Nargo.toml'
   else
     (cd "$base" && find "${source_dirs[@]}" -type f \( -name '*.md' -o -name '*.mdx' \) -print0 2>/dev/null || true
-     for f in "${generated_refs[@]}" docs/netlify.toml; do [ -f "$f" ] && printf '%s\0' "$f"; done
+     for f in "${generated_refs[@]}"; do [ -f "$f" ] && printf '%s\0' "$f"; done
      find docs -type f -name Nargo.toml -not -path '*/node_modules/*' -print0)
   fi
 }
@@ -59,8 +58,6 @@ function reroot_apply {
   perl -e '
     use strict; use warnings;
     my $check = ($ARGV[0] // "") eq "--check";
-    my $guard = qq{# In aztec-packages, skip every build: aztec-docs-dev builds this directory, while\n}
-              . qq{# docs.aztec.network is deployed from aztec-node with `netlify deploy --prod`.\n};
     my $prefix = sub {   # quoted path not under docs/ or labs/ -> labs/<path>
       my $s = shift;
       $s =~ s{(["\x27])([^"\x27]*)\1}{
@@ -77,11 +74,7 @@ function reroot_apply {
       open(my $in, "<", $f) or die "$f: $!";
       my $s = do { local $/; <$in> }; close $in;
       my $o = $s;
-      if ($f =~ m{(?:^|/)netlify\.toml$}) {
-        $s =~ s{^([ \t]*)ignore[ \t]*=[ \t]*"(?!exit 0")[^"\n]*"[ \t]*$}{
-          my $i = $1; (join "", map { "$i$_\n" } split /\n/, $guard) . qq{${i}ignore = "exit 0"}
-        }gme;
-      } elsif ($f =~ m{(?:^|/)Nargo\.toml$}) {
+      if ($f =~ m{(?:^|/)Nargo\.toml$}) {
         my $depth = () = $f =~ m{/}g;   # directories between the repo root and this file
         $s =~ s{(path\s*=\s*")((?:\.\./){$depth})(?!\.\./|(?:docs|labs)/)}{$1$2labs/}g;
       } elsif ($f =~ m{\.ts$}) {
@@ -181,7 +174,9 @@ function cmd_import {
 }
 
 function cmd_sync {
-  local sha last base theirs out tree status=0 conflicts
+  local sha last base theirs out tree status=0 conflicts major minor
+  read -r major minor < <(git version | sed -E 's/^git version ([0-9]+)\.([0-9]+).*/\1 \2/')
+  (( major > 2 || (major == 2 && minor >= 40) )) || die "sync needs git 2.40+ (merge-tree --merge-base); found $(git version)"
   sha=$(resolve "$1")
   [ "$sha" = "$(expected_labs)" ] || die "$1 is not the labs gitlink; move it with labs-patches/bootstrap.sh bump first"
   require_clean
@@ -216,8 +211,48 @@ function cmd_sync {
   echo "synced docs/ to aztec-node@$sha; review and commit with: git commit -m 'docs: sync from aztec-node@${sha:0:10}'"
 }
 
+# aztec-docs-dev builds docs/ from this repository, and docs.aztec.network is a `netlify deploy
+# --no-build --prod` upload that reads neither key: only deploy previews may build. Production and
+# branch deploys skip (`ignore`), and fail (`command`) should `ignore` fail open. Netlify applies
+# branch-named contexts over [context.production], so no other context may exist.
+function netlify_check {
+  local status=0
+  python3 - "$1" <<'EOF' || status=$?
+import sys
+try:
+    import tomllib
+except ImportError:
+    sys.exit(3)
+path = sys.argv[1]
+try:
+    with open(path, "rb") as f:
+        cfg = tomllib.load(f)
+except (OSError, tomllib.TOMLDecodeError) as e:
+    sys.exit(f"{path}: {e}")
+off = {"ignore": "exit 0", "command": "exit 1"}
+problems = [f"[build] {k} must be {v!r}" for k, v in off.items() if cfg.get("build", {}).get(k) != v]
+contexts = cfg.get("context", {})
+problems += [f"[context.{c}] is not allowed: only production, branch-deploy and deploy-preview"
+             for c in contexts if c not in ("production", "branch-deploy", "deploy-preview")]
+for c in ("production", "branch-deploy"):
+    problems += [f"[context.{c}] {k} must be {v!r}" for k, v in off.items() if contexts.get(c, {}).get(k) != v]
+problems += [f"[context.{c}] must not nest a build table" for c, t in contexts.items() if "build" in t]
+if problems:
+    sys.exit(f"{path} would let more than deploy previews build:\n" + "\n".join(f"  {p}" for p in problems))
+EOF
+  case $status in
+    0) ;;
+    3)
+      [ "${CI:-0}" = 1 ] && { echo "$1: checking it needs Python 3.11+ (tomllib)" >&2; return 1; }
+      echo "WARNING: $1 not checked: needs Python 3.11+ (tomllib); CI checks it" >&2 ;;
+    *)
+      echo "  fix: production and branch deploys keep ignore = \"exit 0\" and command = \"exit 1\"; previews go in [context.deploy-preview]" >&2
+      return 1 ;;
+  esac
+}
+
 function cmd_check {
-  local fail=0 expected recorded touched pin bb ignores
+  local fail=0 expected recorded touched pin bb
   reroot_dir "$root" --check >/dev/null || { echo "reroot would change:" >&2; reroot_dir "$root" --check | sed 's/^/  /' >&2; fail=1; }
   expected=$(expected_labs)
   recorded=$(cat "$sync_file" 2>/dev/null || true)
@@ -244,11 +279,7 @@ function cmd_check {
     echo "  fix: the sync above usually moves it; otherwise set it to $bb in docs/package.json and run (cd docs && yarn install)" >&2
     fail=1
   }
-  ignores=$(grep -E '^[[:space:]]*(build\.)?ignore[[:space:]]*=' docs/netlify.toml || true)
-  if [ "$(grep -c . <<<"$ignores")" != 1 ] || ! grep -qE '^[[:space:]]*ignore[[:space:]]*=[[:space:]]*"exit 0"[[:space:]]*$' <<<"$ignores"; then
-    echo "docs/netlify.toml must have exactly one ignore key, set to \"exit 0\":"$'\n'"$ignores" >&2
-    fail=1
-  fi
+  netlify_check docs/netlify.toml || fail=1
   [ "$fail" = 0 ] && echo "labs docs sync: ok (${expected:0:10})"
   return "$fail"
 }

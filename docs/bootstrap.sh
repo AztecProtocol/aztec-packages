@@ -32,6 +32,7 @@ function build_docs {
   if cache_download docs-$hash.tar.gz; then
     return
   fi
+  source "$repo_root/docs/scripts/node_options.sh"
   denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
 }
