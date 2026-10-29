@@ -40,6 +40,9 @@
 /l1-contracts/src @koenmtb1 @iAmMichaelConnor @just-mitch
 /l1-contracts/test @koenmtb1 @iAmMichaelConnor @just-mitch
 
+# Notify the docs owner of changes to the docs site, its examples and its tooling
+/docs/ @alejoamiras
+
 #####################################################
 # Notify the circuit team of changes to the protocol circuits
 #
