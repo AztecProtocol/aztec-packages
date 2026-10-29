@@ -14,7 +14,8 @@
 #   root-labs-ref         a root git command given a Labs version as a revision (v<new_version>,
 #                         v<old_version>, v<nodeVersion>, v<prev_version>, $LABS_TAG)
 #   labs-submodule        labs/ as a directory to run in or read: `git -C` or `cd` into it, a path
-#                         under $VAR/labs or ../labs, labs-patches/, labs_env.sh or a root `make labs-*`
+#                         under labs/, $VAR/labs or ../labs (not on #include_code, references or
+#                         YAML list lines), labs-patches/, labs_env.sh or a root `make labs-*`
 #   foundation-toolchain  a nargo or bb this repository builds (noir/noir-repo/target/,
 #                         barretenberg/cpp/build/, labs-aztec-toolchain/bin/): the docs run the
 #                         published binaries `aztec_node.mts provision` installs
@@ -87,11 +88,13 @@ function scan {
         push @rules, "labs-submodule"
           if $code =~ m{\bcd\s+["\x27]?(?:[^\s"\x27;&|]*/)?labs(?:[/"\x27\s;&|)]|$)}
           || $code =~ m{(?:\$\{?\w+\}?|(?<![\\\w.])\.\.?)/labs(?:[/"\x27\s;&|)]|$)}
-          || $code =~ m{\blabs-patches/|\blabs_env\.sh\b|\bmake\b[^;&|]*\slabs-[\w-]+};
+          || $code =~ m{\blabs-patches/|\blabs_env\.sh\b|\bmake\b[^;&|]*\slabs-[\w-]+}
+          || ($code =~ m{(?:^|[\s"\x27=(<])labs/[\w.-]}
+              && $line !~ /#include_code|\breferences\b/ && !($fence && $line =~ /^\s*-\s/));
         push @rules, "foundation-toolchain"
           if $line =~ m{noir/noir-repo/target/|barretenberg/cpp/build/|labs-aztec-toolchain/bin/};
         push @rules, "toolchain-version"
-          if $line =~ m{\@aztec-(?:labs|foundation)/[\w.-]+\@v?\d|install\.aztec\.network/v?\d|nargo version = v?\d}
+          if $line =~ m{\@aztec-(?:labs|foundation)/[\w.-]+\@["\x27]?v?\d|install\.aztec\.network/["\x27]?v?\d|nargo version = v?\d}
           || $line =~ m{\b(?:BB|NOIR|AZTEC|L1_ARTIFACTS)_VERSION=["\x27]?v?\d}
           || $line =~ m{\baztec-up\b[^;&|`]*\s(?:install\s+)?v?\d+\.\d+}
           || $line =~ m{\b(?:noirup|bbup)\b[^;&|`]*\s-(?:v|-version)\s+v?\d};
@@ -153,10 +156,13 @@ function self_test {
     'labs-submodule|Run `grep -rn x ../labs/docs` from docs/.'
     'labs-submodule|```bash\ncd "$CUT" && labs-patches/bootstrap.sh apply\n```'
     'labs-submodule|```bash\nmake labs-yarn-project\n```'
+    'labs-submodule|```bash\ncat labs/yarn-project/aztec.js/package.json\n```'
+    'labs-submodule|Compare it with `jq .version "labs/yarn-project/aztec/package.json"`.'
     'foundation-toolchain|```bash\nNARGO=$DEST_ROOT/noir/noir-repo/target/release/nargo yarn generate:aztec-nr-api\n```'
     'foundation-toolchain|Pass `BB=../barretenberg/cpp/build/bin/bb`.'
     'foundation-toolchain|The pin record is `$root/labs-aztec-toolchain/bin/.pin`.'
     'toolchain-version|```bash\nyarn add @aztec-labs/aztec.js@6.0.0-rc.3\n```'
+    'toolchain-version|```bash\nyarn add @aztec-labs/aztec.js@"6.0.0"\n```'
     'toolchain-version|Its pin must equal `@aztec-foundation/l1-artifacts@6.0.0`.'
     'toolchain-version|```bash\nbash <(curl -fsSL https://install.aztec.network/6.0.0)\n```'
     'toolchain-version|It must print `nargo version = 1.0.0-rc.3`.'
@@ -186,6 +192,8 @@ function self_test {
     'The `labs/` prefix in snippet paths names the checkout, never the submodule.'
     '```markdown\n#include_code hello labs/noir-projects/noir-contracts/contracts/x/src/main.nr rust\n```'
     '```bash\ngrep -rn "\\.\\./labs/" developer_versioned_docs/\n```'
+    '```yaml\nreferences:\n  - labs/yarn-project/aztec.js/src/index.ts\n```'
+    '```bash\ngh pr diff 1 --name-only | sed "s|^|labs/|"\n```'
     '```bash\ngit switch -c "docs/update-refs" origin/next\n```'
     '```bash\ngit -C "$CUT" diff "$PINNED" HEAD -- docs/developer_versioned_docs/version-v<new_version>/\n```'
     '```bash\ngit worktree add -b "docs-cut/$LABS_TAG" "$CUT" "$DEST"\n```'

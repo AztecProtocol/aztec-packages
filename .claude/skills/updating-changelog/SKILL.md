@@ -18,8 +18,8 @@ submodule), plus this repository's own code (`l1-contracts/`, `barretenberg/`, â
 The version is the Labs release the docs' pin names, read from the checkout:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/docs"
-node scripts/aztec_node.mts fetch && pin=$(node scripts/aztec_node.mts env) || exit 1
+cd "$(git rev-parse --show-toplevel)"
+node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
 eval "$pin"
 jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"
 ```
@@ -56,6 +56,7 @@ lives:
    `labs` gitlink is the Foundation's build input, not the docs' pin):
 
    ```bash
+   cd "$(git rev-parse --show-toplevel)"
    git diff origin/next...HEAD --stat -- . ':!labs'
    git diff origin/next...HEAD -- . ':!labs'
    ```
@@ -65,10 +66,10 @@ lives:
    commits must be in it, and a two-commit diff needs no history between them:
 
    ```bash
-   cd "$(git rev-parse --show-toplevel)/docs"
+   cd "$(git rev-parse --show-toplevel)"
    old=$(git show "$(git merge-base origin/next HEAD):docs/aztec-node.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
-   new=$(node -p 'require("./aztec-node.json").commit')
-   node scripts/aztec_node.mts fetch && pin=$(node scripts/aztec_node.mts env) || exit 1
+   new=$(node -p 'require("./docs/aztec-node.json").commit')
+   node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
    eval "$pin"
    git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
    git -C "$AZTEC_NODE_DIR" diff --stat "$old" "$new"

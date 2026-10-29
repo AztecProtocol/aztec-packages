@@ -45,10 +45,10 @@ docs/scripts/aztec_node.mts pin <tag>`), take it from the two pin commits, fetch
 checkout. A two-commit diff needs no history between them:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/docs"
+cd "$(git rev-parse --show-toplevel)"
 old=$(git show "$(git merge-base origin/next HEAD):docs/aztec-node.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
-new=$(node -p 'require("./aztec-node.json").commit')
-node scripts/aztec_node.mts fetch && pin=$(node scripts/aztec_node.mts env) || exit 1
+new=$(node -p 'require("./docs/aztec-node.json").commit')
+node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
 eval "$pin"
 git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
 git -C "$AZTEC_NODE_DIR" diff --name-only "$old" "$new" | sed 's|^|labs/|'
@@ -66,6 +66,7 @@ mapping from the docs' frontmatter, from the repository root (the library scans
 never the versioned snapshots):
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 source docs/scripts/lib/extract_doc_references.sh
 map=$(mktemp) changed=$(mktemp)
 extract_references_mapping docs "$map"
