@@ -192,7 +192,7 @@ async function download(url: string): Promise<Uint8Array> {
 }
 
 const versionOf = (binary: string) => execFileSync(binary, ["--version"], { encoding: "utf8" });
-const reportsVersion = { nargo: (out: string, v: string) => out.includes(`nargo version = ${v}`), bb: (out: string, v: string) => out.trim() === v };
+const reportsVersion = { nargo: (out: string, v: string) => out.split("\n").includes(`nargo version = ${v}`), bb: (out: string, v: string) => out.trim() === v };
 
 /** Installs each tool at the pinned version into .aztec-node/bin, skipping those already there. */
 export async function provision(o: Options, pin: Pin, tools: string[], log: (s: string) => void = () => {}): Promise<void> {

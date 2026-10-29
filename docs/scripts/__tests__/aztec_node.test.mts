@@ -169,6 +169,14 @@ test("env quotes every value for the shell and omits unprovisioned binaries", ()
   assert.ok(!lines.some((l) => /^export (NARGO|BB)=/.test(l)));
   const out = execFileSync("bash", ["-c", `${lines.join("\n")}\nprintf '%s|%s' "$AZTEC_NODE_DIR" "$AZTEC_NODE_REF"`], { encoding: "utf8" });
   assert.equal(out, `${path.join(o.docsDir, ".aztec-node/tree")}|v1.0.0`);
+
+  // A nargo whose version only starts with the pinned one is not the pinned nargo.
+  const nargo = path.join(o.docsDir, ".aztec-node/bin/nargo");
+  fs.mkdirSync(path.dirname(nargo), { recursive: true });
+  for (const [reported, exported] of [["0.9.00", false], ["0.9.0", true]] as const) {
+    fs.writeFileSync(nargo, `#!/bin/sh\necho "nargo version = ${reported}"\n`, { mode: 0o755 });
+    assert.equal(envLines(o, f.pinA).some((l) => l.startsWith("export NARGO=")), exported, reported);
+  }
 });
 
 test("registry integrity and platform names", () => {
