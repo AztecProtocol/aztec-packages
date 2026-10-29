@@ -123,9 +123,17 @@ function check_orphaned_urls {
   return $rc
 }
 
-function check_references {
-  echo_header "Check doc references"
+# The lasting docs checks, cheap enough for fast CI: they need neither labs/ nor an install.
+function check {
+  echo_header "docs checks"
   fetch_aztec_node
+  node --test scripts/__tests__/*.test.mts
+  python3 -I scripts/check_netlify_toml.py --self-test
+  python3 -I scripts/check_netlify_toml.py netlify.toml
+  ./scripts/check_skills.sh --self-test
+  ./scripts/check_skills.sh
+  ./scripts/check_warnings.sh --self-test
+  ./scripts/check_cli_defaults.sh
   ./scripts/check_doc_references.sh docs
 }
 
@@ -141,14 +149,14 @@ case "$cmd" in
     check_generated_refs
     test
     check_orphaned_urls
-    check_references
+    check
     ;;
   "")
     build_examples
     build_docs
     check_generated_refs
     check_orphaned_urls
-    check_references
+    check
     ;;
   "hash")
     echo "$hash"

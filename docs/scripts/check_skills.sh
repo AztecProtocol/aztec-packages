@@ -2,8 +2,8 @@
 # Lints the docs release skills for the mistakes that break them in this repository's layout, where
 # aztec-node is the labs/ submodule. Prints <file>:<line>: <rule>: <text> per hit and exits 1 on any.
 #
-#   labs_docs_skills.check.sh [SKILL.md...]   default: the four docs skills under .claude/skills/
-#   labs_docs_skills.check.sh --self-test
+#   check_skills.sh [SKILL.md...]   default: the four docs skills under .claude/skills/
+#   check_skills.sh --self-test
 #
 # Rules:
 #   root-tag          a root `git tag`: Labs tags share names with this repo's tags on other commits,
@@ -24,7 +24,7 @@
 # owner rules read every line except the frontmatter, and the owner rule skips headings.
 set -euo pipefail
 
-root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 marker='Owner approval required'
 skills=(release-docs release-network-docs update-doc-references updating-changelog)
 
@@ -168,7 +168,7 @@ function self_test {
       rc=1
     fi
   done
-  [ "$rc" = 0 ] && echo "labs_docs_skills self-test: ${#bad[@]} hits, ${#good[@]} clean"
+  [ "$rc" = 0 ] && echo "check_skills self-test: ${#bad[@]} hits, ${#good[@]} clean"
   return "$rc"
 }
 
@@ -178,7 +178,7 @@ case ${1:-} in
   '')
     files=()
     for s in "${skills[@]}"; do files+=("$root/.claude/skills/$s/SKILL.md"); done
-    scan "${files[@]}" && echo "labs docs skills: ok (${#files[@]} files)"
+    scan "${files[@]}" && echo "docs skills: ok (${#files[@]} files)"
     ;;
   *) scan "$@" ;;
 esac

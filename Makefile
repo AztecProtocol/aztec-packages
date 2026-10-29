@@ -533,7 +533,7 @@ docs-refs-check: labs-patched
 
 # docs/ must track the labs gitlink, its l1-artifacts pin labs' BB_VERSION, and its Netlify build stay off.
 docs-sync-check: labs-patched
-	$(call run_command,$@,$(ROOT),./scripts/labs_docs_sync.test.sh && ./scripts/labs_docs_sync.sh check && ./scripts/labs_docs_skills.check.sh && ./scripts/labs_docs_skills.check.sh --self-test && ./scripts/labs_docs_warnings.sh --self-test)
+	$(call run_command,$@,$(ROOT),./scripts/labs_docs_sync.test.sh && ./scripts/labs_docs_sync.sh check && ./docs/scripts/check_skills.sh && ./docs/scripts/check_skills.sh --self-test && ./docs/scripts/check_warnings.sh --self-test)
 
 .PHONY: docs docs-tests docs-refs-check docs-sync-check
 
