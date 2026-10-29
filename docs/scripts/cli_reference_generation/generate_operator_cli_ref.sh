@@ -31,6 +31,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source-path=SCRIPTDIR source=../lib/key_defaults.sh
+source "$SCRIPT_DIR/../lib/key_defaults.sh"
 PREAMBLE="$SCRIPT_DIR/operator_cli_preamble.md"
 DEFAULT_TARGET="$DOCS_ROOT/docs-operate/operators/reference/cli-reference.md"
 MAX_ATTEMPTS=3
@@ -136,8 +138,23 @@ trap 'rm -f "$HELP_FILE" "$ERR_FILE" "$TMP"' EXIT INT TERM
 # mode; the sentinel check below is the real success signal. stderr is captured
 # rather than discarded so a genuine failure (missing image, daemon down) is
 # surfaced instead of masquerading as truncation.
+#
+# The CLI takes option defaults from the environment (keys, API keys, database URLs) and its help
+# prints them, so it runs with only the variables it needs (scan_cli.py's ENV_KEPT), and each
+# capture is checked for key-shaped defaults before anything of it is printed or written.
+kept_env=()
+for name in PATH HOME USER LANG LC_ALL TERM TMPDIR DOCKER_HOST; do
+  [[ -z "${!name+x}" ]] || kept_env+=("$name=${!name}")
+done
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-  COLUMNS=200 aztec start --help >"$HELP_FILE" 2>"$ERR_FILE" || true
+  env -i "${kept_env[@]}" COLUMNS=200 aztec start --help >"$HELP_FILE" 2>"$ERR_FILE" || true
+
+  keyed=$(key_defaults_in_file "$HELP_FILE" "aztec start --help")
+  if [[ -n "$keyed" ]]; then
+    echo "ERROR: option defaults in the help output look like private keys; unset what sets them and rerun:" >&2
+    echo "$keyed" >&2
+    exit 1
+  fi
 
   if grep -qF 'Starts Aztec TXE with options' "$HELP_FILE"; then
     break

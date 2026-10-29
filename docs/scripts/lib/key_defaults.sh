@@ -24,6 +24,14 @@ key_defaults_report() {
     }'
 }
 
+# Prints "<label>:<line> 0x<first 4 hex>…" for each key-shaped default in <file>, such as a CLI's
+# captured help: generators run it before they write or print anything from that file.
+key_defaults_in_file() {
+  local matches
+  matches=$(grep -nE "$KEY_DEFAULT_ERE" "$1") || [ $? -eq 1 ] || return 2
+  [ -z "$matches" ] || key_defaults_report <<<"$2:${matches//$'\n'/$'\n'$2:}"
+}
+
 # Removes key-shaped " (default: 0x…)" and ' (default: "0x…")' suffixes from each file, in place.
 scrub_key_defaults() {
   perl -pi -e '

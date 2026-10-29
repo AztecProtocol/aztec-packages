@@ -18,6 +18,10 @@ const page = (file: string) => path.join(root, "docs", file);
 const check = (...args: string[]) => spawnSync("bash", [page("scripts/check_cli_defaults.sh"), ...args], { encoding: "utf8" });
 const scrub = (file: string) =>
   execFileSync("bash", ["-c", `source "$0" && scrub_key_defaults "$1"`, page("scripts/lib/key_defaults.sh"), file]);
+const inFile = (file: string) =>
+  execFileSync("bash", ["-c", `source "$0" && key_defaults_in_file "$1" help`, page("scripts/lib/key_defaults.sh"), file], {
+    encoding: "utf8",
+  });
 
 const zero = `0x${"0".repeat(64)}`;
 const salt = `0x${"0".repeat(63)}1`;
@@ -54,6 +58,12 @@ test("a key-shaped default fails the check, naming its line and only 4 hex chara
   assert.match(out, new RegExp(`docs/cli\\.md:2 0x${key.slice(2, 6)}…`));
   assert.doesNotMatch(out, /cli\.md:[345]\b/);
   assert.ok(!out.includes(key.slice(2, 7)), "prints more than 4 hex characters of the key");
+
+  // The generators' check of a captured help file, outside git.
+  const found = inFile(page("cli.md"));
+  assert.equal(found, `help:1 0x${key.slice(2, 6)}…\nhelp:2 0x${key.slice(2, 6)}…\n`);
+  fs.writeFileSync(page("cli.md"), "clean\n");
+  assert.equal(inFile(page("cli.md")), "");
 });
 
 test("--cached and <rev> read the index and that commit, not the working tree", () => {
