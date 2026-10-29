@@ -15,7 +15,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-YARN_PROJECT_DIR="$(cd "$DOCS_ROOT/../labs/yarn-project" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=../lib/aztec_node.sh
+source "$SCRIPT_DIR/../lib/aztec_node.sh"
+require_aztec_node
+YARN_PROJECT_DIR="$AZTEC_NODE_DIR/yarn-project"
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,9 +51,8 @@ done
 
 OUTPUT_PATH="$OUTPUT_DIR/$OUTPUT_FILE"
 
-# Verify the source files the generator parses are present.
-# The generator reads .ts source via the TS Compiler API, so no build is required —
-# but yarn-project must have node_modules installed so that `npx tsx` can resolve typescript.
+# The generator parses .ts source with the TypeScript compiler API, so neither a build nor an install
+# in the checkout is needed: Node strips the generator's types and it imports docs' own typescript.
 REQUIRED_SOURCES=(
     "$YARN_PROJECT_DIR/stdlib/src/interfaces/aztec-node.ts"
     "$YARN_PROJECT_DIR/stdlib/src/interfaces/aztec-node-admin.ts"
@@ -63,8 +65,8 @@ for src in "${REQUIRED_SOURCES[@]}"; do
     fi
 done
 
-if [[ ! -d "$YARN_PROJECT_DIR/node_modules" ]]; then
-    echo_error "yarn-project/node_modules/ not found. Run 'yarn install' from yarn-project first."
+if [[ ! -d "$DOCS_ROOT/node_modules/typescript" ]]; then
+    echo_error "docs/node_modules/typescript not found. Run 'yarn install' in docs/ first."
     exit 1
 fi
 
@@ -75,9 +77,7 @@ echo_info "Output: $OUTPUT_PATH"
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
-# Run the TypeScript generator from within yarn-project so node_modules resolution works
-cd "$YARN_PROJECT_DIR"
-npx tsx "$SCRIPT_DIR/generate_node_api_reference.ts" \
+node "$SCRIPT_DIR/generate_node_api_reference.mts" \
     --yarn-project "$YARN_PROJECT_DIR" \
     --output "$OUTPUT_PATH"
 

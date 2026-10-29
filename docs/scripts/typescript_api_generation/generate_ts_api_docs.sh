@@ -13,7 +13,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-YARN_PROJECT_DIR="$(cd "$DOCS_ROOT/../labs/yarn-project" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=../lib/aztec_node.sh
+source "$SCRIPT_DIR/../lib/aztec_node.sh"
+require_aztec_node
+YARN_PROJECT_DIR="$AZTEC_NODE_DIR/yarn-project"
 
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"

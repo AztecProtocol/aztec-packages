@@ -17,7 +17,10 @@ for arg in "$@"; do
 done
 
 readonly SCRIPT_DIR OUTPUT_DIR
-readonly AZTEC_JS_SRC="$SCRIPT_DIR/../../../labs/yarn-project/aztec.js/src"
+# shellcheck source-path=SCRIPTDIR source=../lib/aztec_node.sh
+source "$SCRIPT_DIR/../lib/aztec_node.sh"
+require_aztec_node
+readonly AZTEC_JS_SRC="$AZTEC_NODE_DIR/yarn-project/aztec.js/src"
 readonly JSON_FILE="$OUTPUT_DIR/aztec_api_docs.json"
 readonly MD_FILE="$OUTPUT_DIR/aztec_api_reference.md"
 
