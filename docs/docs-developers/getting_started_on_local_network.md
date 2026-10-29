@@ -130,17 +130,19 @@ On successful deployment of the account, you should see something like this:
 ```bash
 New account:
 
-Address:         0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c
-Public key:      0x007343da506ea513e6c05ba4d5e92e3c682333d97447d45db357d05a28df0656181e47a6257e644c3277c0b11223b28f2b36c94f9b0a954523de61ac967b42662b60e402f55e3b7384ba61261335040fe4cd52cb0383f559a36eeea304daf67d1645b06c38ee6098f90858b21b90129e7e1fdc4666dd58d13ef8fab845b2211906656d11b257feee0e91a42cb28f46b80aabdc70baad50eaa6bb2c5a7acff4e30b5036e1eb8bdf96fad3c81e63836b8aa39759d11e1637bd71e3fc76e3119e500fbcc1a22e61df8f060004104c5a75b52a1b939d0f315ac29013e2f908ca6bc50529a5c4a2604c754d52c9e7e3dee158be21b7e8008e950991174e2765740f58
-Secret key:     0x1c94f8b19e91d23fd3ab6e15f7891fde7ba7cae01d3fa94e4c6afb4006ec0cfb
-Partial address: 0x2fd6b540a6bb129dd2c05ff91a9c981fb5aa2ac8beb4268f10b3aa5fb4a0fcd1
+Address:         0x1653045495c127a6033ed7b2e19ed1e13598a027b66eed8eaad3d8d913ed01a0
+Public key:      0x26bc01e8531f455fdaf8e292a84d569a1d2a0b8c7e6a29c968cb9485a27bcff31378289311d6a6e6659c7a21eaff4684a4d6c45a797bd9edde3ef720d821485426f5bef32d4efd025505f944d39c2ea5ef386b4bf1037d53c626e1cbb418d20e2d33546468da0350fde817c09b1f31ccfcf82c7a64d5b120fe1bd7e0e41cd8c62342e51cc7aa750db8982540e4c35fba85fb171357e82d7703de16be0ffde54e24f2f2e494d8249c9c06e5e50ccc9885070dee5cf0d5a1b9d847c47dfb581db4141ed3b7388694ca40c71008b9461d43453a8f193d9f02e5e3fccf4f2d556fe0
+Signing key:     0x164c5ef7bfa426c2be1cd5b44dea22c214e9bbd2e4b0e9aa9f7e938f607df9bb
+Secret key:     0x11dcaef4b44e4ccbdb151bb8d6a2ac3685c2ac1a99c9b9ff671773de7319e5b0
+Partial address: 0x18395659bf180a60e6a4784a48598709a41e4305a257074f2edadd66bcd6afa3
 Salt:            0x0000000000000000000000000000000000000000000000000000000000000000
-Init hash:       0x28df95b579a365e232e1c63316375c45a16f6a6191af86c5606c31a940262db2
-Deployer:        0x0000000000000000000000000000000000000000000000000000000000000000
-
+Init hash:       0x0ba38faf3fc4b22432ea4eceedaef55d096373130182cea8fe0d810c5f4ec121
+Using Fee Juice for fee payment with the balance of account 0x1653045495c127a6033ed7b2e19ed1e13598a027b66eed8eaad3d8d913ed01a0
 Waiting for account contract deployment...
-Deploy tx hash:  0a632ded6269bda38ad6b54cd49bef033078218b4484b902e326c30ce9dc6a36
-Deploy tx fee:   200013616
+ Local processing time: 1.8s
+ Node inclusion time: 3.0s
+Deploy tx hash:  0x154f0e6c3b42551aa8fdca86c2b1ea850c51b27cce48eedcd52f7e777cdf0f75
+Deploy tx fee:   590481708570000000
 Account stored in database with aliases last & my-wallet
 ```
 
@@ -170,13 +172,15 @@ This takes
 On successful deployment, you should see something like this:
 
 ```bash
-aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
-Contract deployed at 0x15ce68d4be65819fe9c335132f10643b725a9ebc7d86fb22871f6eb8bdbc3abd
-Contract partial address 0x25a91e546590d77108d7b184cb81b0a0999e8c0816da1a83a2fa6903480ea138
-Contract init hash 0x0abbaf0570bf684da355bd9a9a4b175548be6999625b9c8e0e9775d140c78506
-Deployment tx hash: 0a8ccd1f4e28092a8fa4d1cb85ef877f8533935c4e94b352a38af73eee17944f
-Deployment salt: 0x266295eb5da322aba96fbb24f9de10b2ba01575dde846b806f884f749d416707
-Deployment fee: 200943060
+Contract deployed at 0x063a076da3e530c1f6cd7e598647d50c3ff0e4225c0767402f93f73f1c2c9174
+Contract partial address 0x09c1b45b9a75cfaccf90c867da84f5180b75fdc6e1ec0e940750aead964a4c5b
+Contract init hash 0x04cb120f3df6e270bb342d816f54562ce5dddb45132065d70cc40e43bb47b527
+Deployment tx hash: 0x16edec75331f8b07da955c4cca4957c25857f6c0fe46fc68e7251bfbd74b1cbe
+Deployment salt: 0x05a1f0a1bae0bb97eff002ac3de719c7e7fdd90db14161cb0c0898610120240a
+Deployer: 0x0e900d357d0a7b9de3c0293c6b1a58dccfc1862f31c745ba5d3a5a5aaf4ac1fd
+Transaction fee: 1101755679159600000
+ Local processing time: 2.0s
+ Node inclusion time: 3.0s
 Contract stored in database with aliases last & testtoken
 ```
 
@@ -202,18 +206,15 @@ This only works because we are using the secret key of the admin who has permiss
 A successful call should print something like this:
 
 ```bash
-aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
-Maximum total tx fee:   1161660
-Estimated total tx fee: 116166
-Estimated gas usage:    da=1127,l2=115039,teardownDA=0,teardownL2=0
-
-Transaction hash: 2ac383e8e2b68216cda154b52e940207a905c1c38dadba7a103c81caacec403d
-Transaction has been mined
- Tx fee: 200106180
- Status: success
- Block number: 17
- Block hash: 1e27d200600bc45ab94d467c230490808d1e7d64f5ee6cee5e94a08ee9580809
-Transaction hash stored in database with aliases last & mint_to_public-9044
+Transaction hash: 0x1cf00af686c20860bc3621a47c6a892d9797c918ba09019431acf26fb16fa13e
+Transaction has been proposed
+ Tx fee: 609443487226800000
+ Status: checkpointed
+ Block number: 6
+ Block hash: 0x23470fd2c6688da45b40df538eb3753f405deabc3ca17dc06f350aad764dbda6
+ Local processing time: 1.5s
+ Node inclusion time: 3.0s
+Transaction hash stored in database with aliases last & mint_to_public-bd68d89b090987cb1a4cb7bd5b627361
 ```
 
 You can double-check by calling the function that checks your public account balance:

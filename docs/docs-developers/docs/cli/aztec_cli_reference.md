@@ -57,7 +57,6 @@ sidebar_position: 1
     - [aztec prover start-proof](#aztec-prover-start-proof)
   - [aztec prune-rollup](#aztec-prune-rollup)
   - [aztec remove-l1-validator](#aztec-remove-l1-validator)
-  - [aztec sequencers](#aztec-sequencers)
   - [aztec setup-protocol-contracts](#aztec-setup-protocol-contracts)
   - [aztec sign-attester-exit](#aztec-sign-attester-exit)
   - [aztec start](#aztec-start)
@@ -111,7 +110,6 @@ aztec [options] [command]
 - `prover` - Operate a prover node via its admin JSON-RPC endpoint
 - `prune-rollup [options]` - Prunes the pending chain on the rollup contract.
 - `remove-l1-validator [options]` - Removes a validator to the L1 rollup contract.
-- `sequencers [options] <command> [who]` - Manages or queries registered sequencers on the L1 rollup contract.
 - `setup-protocol-contracts [options]` - Bootstrap the blockchain by initializing all the protocol contracts
 - `sign-attester-exit [options]` - Signs an exit authorization locally and writes a JSON array for batch submission.
 - `start [options]` - Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.
@@ -813,24 +811,6 @@ aztec remove-l1-validator [options]
 - `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--validator <address>` - ethereum address of the validator
 - `--rollup <address>` - ethereum address of the rollup contract
-- `-h, --help` - display help for command
-
-### aztec sequencers
-
-Manages or queries registered sequencers on the L1 rollup contract.
-
-**Usage:**
-```bash
-aztec sequencers [options] <command> [who]
-```
-
-**Options:**
-
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"])
-- `-m, --mnemonic <string>` - The mnemonic for the sender of the tx (default: "test test test test test test test test test test test junk")
-- `--block-number <number>` - Block number to query next sequencer for
-- `-n, --node-url <string>` - URL of the Aztec node (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
-- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `-h, --help` - display help for command
 
 ### aztec setup-protocol-contracts

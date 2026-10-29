@@ -10,7 +10,7 @@ sidebar_position: 2
 *This documentation is auto-generated from the `aztec-wallet` CLI help output.*
 
 
-*Generated: Tue 18 Aug 2026 18:00:41 UTC*
+*Generated: Thu 22 Oct 2026 18:35:43 UTC*
 
 *Command: `aztec-wallet`*
 
@@ -69,7 +69,7 @@ aztec-wallet [options] [command]
 - `-V --version` - output the version number
 - `-d --data-dir <string>` - Storage directory for wallet data (default: "~/.aztec/wallet")
 - `-p --prover <string>` - The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: PXE_PROVER)
-- `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
+- `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://localhost:8080", env: AZTEC_NODE_URL)
 - `-h --help` - display help for command
 
 ### Subcommands
@@ -115,7 +115,7 @@ aztec-wallet bridge-fee-juice [options] <amount> <recipient>
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"])
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"])
 - `-m, --mnemonic <string>` - The mnemonic to use for deriving the Ethereum address that will mint and bridge (default: "test test test test test test test test test test test junk")
 - `--mint` - Mint the tokens on L1 (default: false)
 - `--l1-private-key <string>` - The private key to the eth account bridging

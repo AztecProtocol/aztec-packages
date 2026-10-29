@@ -2,11 +2,11 @@
 title: Execution hooks
 sidebar_position: 3
 tags: [pxe, wallets]
-description: How wallets use PXE execution hooks to apply custom policies during client-side simulation.
+description: How wallets use PXE execution hooks to apply custom policies while simulating and proving transactions.
 references: ["labs/yarn-project/pxe/src/hooks/*", "labs/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr", "labs/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/*"]
 ---
 
-Execution hooks are callbacks that the PXE invokes during client-side simulation when an operation needs a decision from the wallet. They let the wallet apply its own policies before execution proceeds, such as prompting the user, consulting a dynamic allowlist, or inspecting call arguments. All hooks are optional; when a hook is absent, the PXE applies a conservative default: for example it avoids privacy leaks (such as revealing a message's recipient onchain) unless specifically told otherwise.
+Execution hooks are callbacks that the PXE invokes while simulating and proving transactions when an operation needs a decision from the wallet. They let the wallet apply its own policies before execution proceeds, such as prompting the user, consulting a dynamic allowlist, or inspecting call arguments. All hooks are optional; when a hook is absent, the PXE applies a conservative default: for example it avoids privacy leaks (such as revealing a message's recipient onchain) unless specifically told otherwise.
 
 ## Configuring hooks
 
@@ -121,3 +121,17 @@ When the hook is absent, the request cannot be served and simulation fails.
 ### Example: interactive handshakes
 
 The `HandshakeRegistry`'s `interactive_handshake` uses this hook to obtain the recipient's signed authorization. The payload carries what the signer needs to decide: who the recipient is, the handshake being authorized, and the chain context, but never the sender. The response carries what the registry needs to verify the recipient's signature in-circuit.
+
+## `resolveExpirationAndPadding`
+
+Every transaction publishes an expiration timestamp and its side effects (note hashes, nullifiers and private logs). Both can reveal which contracts a transaction called privately: a contract with a short update delay or a pending upgrade lowers the expiry to a value tied to it, and an unusual number of side effects stands out among other transactions. This hook lets the wallet choose the published expiry and pad the side effects with random values, to place the transaction in a larger privacy set. Padding costs gas like real side effects.
+
+### In production
+
+Pass a `resolveExpirationAndPadding` hook when [creating the PXE](#configuring-hooks). It receives an `ExpirationAndPaddingRequest` with the anchor block timestamp, the latest expiry the transaction allows, and its side effect counts after squashing. For a transaction with public calls, the counts are split into the non-revertible and revertible phases. The hook returns the expiry to publish and the counts to pad each side effect array up to, in the same shape as the request's counts.
+
+The PXE rejects a result that the kernel circuits cannot publish: an expiry later than the request's `maxExpirationTimestamp`, or counts below the request's `minSideEffects` or above the per-transaction maximum (such as `MAX_NOTE_HASHES_PER_TX`).
+
+The hook runs both when simulating and when proving a transaction, so that the gas estimated by simulation includes the padding.
+
+When the hook is absent, the PXE does not pad, and publishes the expiry rounded down by `roundDownTxExpirationTimestamp`. A hook that only changes padding can return `roundDownTxExpirationTimestamp(request)` to keep that expiry.

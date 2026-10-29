@@ -32,22 +32,51 @@ git clone https://github.com/critesjosh/hardhat-aztec-example
 
 You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`.
 
-We want to add a few more dependencies now before we start:
+We want to add a few more dependencies now before we start. The starter needs four changes before it installs with yarn 4.
+
+First, from the `hardhat-aztec-example` directory (`cd hardhat-aztec-example`), tell yarn to install into `node_modules` (the starter's scripts and Hardhat expect a real `node_modules` tree) and allow the starter's one git dependency, `forge-std`. Create `.yarnrc.yml`:
+
+```yaml
+nodeLinker: node-modules
+
+approvedGitRepositories:
+  - "https://github.com/foundry-rs/forge-std.git"
+```
+
+Second, replace the starter's `@aztec/l1-contracts` git dependency, whose repository is no longer updated, with the `@aztec-foundation/l1-artifacts` npm package. Its `postinstall` writes Solidity remappings for that package, so point it at the new one too:
 
 ```bash
-cd hardhat-aztec-example
-yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/stdlib@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix @aztec/viem@2.38.2 tsx
+npm pkg delete dependencies.@aztec/l1-contracts devDependencies.@aztec/l1-contracts
+npm pkg set "dependencies.@aztec-foundation/l1-artifacts=#include_version_without_prefix"
+npm pkg set scripts.postinstall="node -e \"require('fs').writeFileSync('node_modules/@aztec-foundation/l1-artifacts/remappings.txt', '@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/\\n@aztec/=l1-contracts/src/\\n@aztec-blob-lib/=l1-contracts/src/mock/libraries/\\n@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/\\n')\""
 ```
 
-:::note Use `@aztec-foundation/l1-artifacts` for the L1 interfaces
-The starter repo may still pin `@aztec/l1-contracts` as a git dependency; that repository is no longer updated. In `package.json`, replace it with the `@aztec-foundation/l1-artifacts` npm package at the version used in this tutorial, then run `yarn install` again:
+Hardhat resolves the `@aztec/...` imports inside the package's own Solidity sources through that `remappings.txt`, so the `postinstall` has to run after every install.
 
-```json
-"@aztec-foundation/l1-artifacts": "#include_version_without_prefix"
+Third, map your own contracts' imports in a `remappings.txt` at the project root:
+
+```text
+@oz/=node_modules/@openzeppelin/contracts/
+@aztec/=node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/
 ```
 
-The package ships the L1 contract sources under `@aztec-foundation/l1-artifacts/l1-contracts/src`. If the project resolves `@aztec/*` Solidity imports through remappings or aliases, point them at `node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src`. The interfaces the portal imports later in this tutorial must match the contracts deployed by your running network.
+Finally, add the Aztec packages:
+
+```bash
+yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/stdlib@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix @aztec-labs/ethereum@#include_version_without_prefix @aztec-labs/foundation@#include_version_without_prefix @aztec/viem@2.38.2 tsx
+```
+
+:::tip Packages published in the last 24 hours
+Yarn 4 refuses packages younger than a day by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+
+```yaml
+npmPreapprovedPackages:
+  - "@aztec-labs/*"
+  - "@aztec-foundation/*"
+```
 :::
+
+The interfaces the portal imports later in this tutorial come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network.
 
 Now start the local network in another terminal:
 
@@ -171,6 +200,14 @@ The bridge will also need to burn NFTs when users withdraw back to L1:
 
 #include_code burn /docs/examples/contracts/nft/src/main.nr rust
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `nft_test/src/lib.nr` imports the default contract name (`Main`), which no longer exists, so it fails to compile with "Could not resolve 'Main'". Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 ### Compiling!
 
 Let's verify it compiles:
@@ -179,7 +216,7 @@ Let's verify it compiles:
 aztec compile
 ```
 
-🎉 You should see "Compiled successfully!" This means our private NFT contract is ready. Now let's build the bridge.
+🎉 You should see "Compilation complete!" This means our private NFT contract is ready. Now let's build the bridge.
 
 ## Part 2: Building the Bridge
 
@@ -279,6 +316,14 @@ Cross-chain messaging on Aztec is powerful because it doesn't conform to any spe
 
 Both `claim` and `exit` are `#[external("private")]`, which means the bridging process is private—nobody can see who's bridging which NFT by watching the chain.
 
+:::
+
+:::note Clear the scaffold's placeholder test
+The scaffolded `nft_bridge_test/src/lib.nr` imports the default contract name (`Main`), which no longer exists, so it fails to compile with "Could not resolve 'Main'". Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
 :::
 
 ### Compile the Bridge

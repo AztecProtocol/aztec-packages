@@ -135,7 +135,7 @@ With the Aztec CLI installed and the contract source in place:
 yarn prep
 ```
 
-This runs `yarn compile && yarn codegen`, producing `src/artifacts/PodRacing.ts` (the typed contract class) and `src/artifacts/PodRacing.json` (the compiled artifact). You'll import from `PodRacing.ts` throughout the app.
+This runs `yarn compile && yarn codegen`, producing `src/artifacts/PodRacing.ts` (the typed contract class) and `src/artifacts/pod_racing_contract-PodRacing.json` (the compiled artifact). You'll import from `PodRacing.ts` throughout the app.
 
 ## Deploy and interact via script
 
@@ -147,7 +147,7 @@ Open `scripts/deploy-and-interact.ts`. It follows the same pattern as the [aztec
 
 #include_code script-setup /docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts typescript
 
-This uses `EmbeddedWallet` from `@aztec-labs/wallets/embedded` — a ready-made embedded wallet that handles PXE creation and account management. `getInitialTestAccountsData` provides pre-deployed test accounts available on the local network. The `{ ephemeral: true }` option means PXE state is not persisted between runs.
+This uses `EmbeddedWallet` from `@aztec-labs/wallets/embedded` — a ready-made embedded wallet that handles PXE creation and account management. `getInitialTestAccountsData` provides the local network's genesis-funded test accounts, created here as initializerless Schnorr accounts. The `{ ephemeral: true }` option means PXE state is not persisted between runs.
 
 ### Deploy the contract
 

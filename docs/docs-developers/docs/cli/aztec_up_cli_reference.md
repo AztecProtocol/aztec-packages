@@ -10,7 +10,7 @@ sidebar_position: 3
 *This documentation is auto-generated from the `aztec-up` CLI help output.*
 
 
-*Generated: Tue 18 Aug 2026 18:00:41 UTC*
+*Generated: Thu 22 Oct 2026 18:35:43 UTC*
 
 *Command: `aztec-up`*
 

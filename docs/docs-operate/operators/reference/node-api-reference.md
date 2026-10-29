@@ -84,7 +84,7 @@ Returns the rollup constants for the current chain.
 
 **Parameters**: None
 
-**Returns**: `L1RollupConstants`
+**Returns**: `L1RollupConstants`, plus `rollupManaLimit`. The mana limit is deprecated: governance can raise it, so it is not a constant. The node fills it with the live limit when it answers.
 
 **Example**:
 
@@ -851,15 +851,16 @@ curl -X POST http://localhost:8080 \
 
 ### aztec_getPredictedMinFees
 
-Returns predicted min fees for the current slot and next N slots.
-Each entry accounts for the L1 gas oracle transition and congestion growth based on the
-given mana usage estimate. Defaults to target usage (steady state).
+Returns min fees a transaction submitted now may have to pay. When the node can compute it, the list
+leads with the fee its public simulation would charge right now; the rest are the predicted min fees for
+the current slot and next N slots, each accounting for the L1 gas oracle transition and congestion growth
+based on the given mana usage estimate. Defaults to target usage (steady state).
 
 **Parameters**:
 
 1. `manaUsage` - `ManaUsageEstimate | undefined` - Expected mana usage per checkpoint (none, target, or limit).
 
-**Returns**: `GasFees[]` - An array of GasFees with current min fees first, followed by one entry per predicted slot.
+**Returns**: `GasFees[]` - An array of GasFees whose worst entry is the fee a client should pad and quote.
 
 **Example**:
 
@@ -1418,6 +1419,55 @@ curl -X POST http://localhost:8880 \
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_reloadKeystore","params":[],"id":1}'
+```
+
+## Other methods
+
+<!-- WARNING: The following methods are not yet categorized in METHOD_GROUPS. -->
+<!-- Update generate_node_api_reference.ts to place them in the correct section. -->
+
+### aztec_getTxEffectMembershipWitness
+
+Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
+the node reports for it. The witness is verified against the `txEffectsTreeRoot` of the block header of
+`witness.blockNumber`.
+
+Returns `undefined` if the node does not know the tx.
+
+**Parameters**:
+
+1. `txHash` - `TxHash` - The tx to prove inclusion of.
+
+**Returns**: `TxEffectMembershipWitness | undefined`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxEffectMembershipWitness","params":["0x1234..."],"id":1}'
+```
+
+### aztec_getValidatorStatsBatch
+
+Returns stats for up to 100 validators using a shared slot range.
+The slot difference must not exceed the node sentinel's retained history window, and fromSlot must not exceed toSlot.
+Results follow input order, including duplicates; missing validators or disabled statistics return null entries.
+
+**Parameters**:
+
+1. `validatorAddresses` - `EthAddress[]`
+2. `fromSlot` - `SlotNumber | undefined`
+3. `toSlot` - `SlotNumber | undefined`
+
+**Returns**: `object[]`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getValidatorStatsBatch","params":[["0x1234..."],"100","100"],"id":1}'
 ```
 
 ## Next steps
