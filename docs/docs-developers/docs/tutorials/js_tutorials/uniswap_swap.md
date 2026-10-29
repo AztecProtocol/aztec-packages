@@ -34,17 +34,14 @@ This tutorial walks you through three types of contracts (Solidity, Noir, TypeSc
 
 ### Clone the Example Code
 
-The example code lives in the Aztec packages repository:
+The example code lives in the aztec-node repository:
 
 ```bash
-git clone --depth 1 https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-packages
-labs-patches/bootstrap.sh apply
-(cd docs && yarn install)
-cd docs/examples
+git clone --depth 1 --branch #include_aztec_version https://github.com/aztec-labs-eng/aztec-node.git
+cd aztec-node/docs
+yarn install
+cd examples
 ```
-
-`labs-patches/bootstrap.sh apply` checks out the `labs/` submodule, whose `aztec-nr` and token contracts the Noir contract builds against. `yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
 
 ### Project Structure
 
@@ -178,14 +175,14 @@ The private swap follows the same pattern but deposits output tokens privately:
 
 ### Compile Solidity Contracts
 
-With all Solidity contracts from Part 1 and Part 2 ready, compile them using Foundry. From the `examples/solidity` directory:
+With all Solidity contracts from Part 1 and Part 2 ready, compile them using Foundry (`forge`, or the `aztec-forge` the Aztec installer ships). From the `examples` directory:
 
 ```bash
 cd solidity
-forge build
+forge build --contracts example_swap --out ../../target/solidity/example_swap
 ```
 
-This produces JSON artifacts containing the ABI and bytecode. The TypeScript script imports these artifacts to deploy contracts on L1.
+This writes JSON artifacts containing the ABI and bytecode to `docs/target/solidity/example_swap/`, where the TypeScript script imports them from to deploy contracts on L1. The imports resolve from the `@aztec-foundation/l1-artifacts` package that `yarn install` put in `docs/node_modules`.
 
 ## Part 3: Uniswap Contract (Noir)
 
@@ -243,15 +240,15 @@ This is how L1 verifies that L2 actually authorized the swap - not by trusting a
 
 ### Compile and Generate Bindings
 
-From the `examples/contracts/example_uniswap` directory, compile the Noir contract and generate TypeScript bindings:
+From the `docs` directory (the Noir workspace root), compile the Noir contract and generate TypeScript bindings:
 
 ```bash
-cd ../contracts/example_uniswap
-aztec compile
-aztec codegen target -o ../../ts/example_swap/artifacts
+cd ../..
+aztec compile --package example_uniswap
+aztec codegen target/example_uniswap-ExampleUniswap.json -o examples/ts/example_swap/artifacts
 ```
 
-The `aztec compile` command compiles the Noir contract. The `aztec codegen` command generates a TypeScript class (`ExampleUniswapContract`) from the compiled artifact, which you will use in the deployment script.
+Compile from the workspace root rather than inside the contract's directory: the artifact lands in `docs/target/`, and compiling from the root is what transpiles its public functions for the AVM. The `aztec codegen` command generates a TypeScript class (`ExampleUniswapContract`) from the compiled artifact, which you will use in the deployment script.
 
 :::note
 Before proceeding, make sure you have compiled both the Solidity contracts (Part 1-2) and the Noir contract (Part 3). The TypeScript script below imports compiled artifacts from both.
@@ -259,11 +256,12 @@ Before proceeding, make sure you have compiled both the Solidity contracts (Part
 
 ## Install TypeScript Dependencies
 
-From the `examples/ts/example_swap` directory, initialize a project and install the required packages:
+From the `examples/ts/example_swap` directory, initialize a project as an ES module (the script uses top-level `await`) and install the required packages:
 
 ```bash
-cd ../../ts/example_swap
+cd examples/ts/example_swap
 npm init -y
+npm pkg set type=module
 npm install \
   @aztec-labs/aztec.js@#include_aztec_version \
   @aztec-labs/accounts@#include_aztec_version \

@@ -9,6 +9,23 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `generateSimulatedProvingResult` takes the tx's max expiration timestamp and an options object
+
+`generateSimulatedProvingResult` (exported from `@aztec-labs/pxe/simulator`) now takes the latest expiration timestamp the tx may publish as its fourth argument. For a tx that may be sent, compute it with `computeSimulatedMaxExpirationTimestamp`, so that the simulated expiry matches the proven one. The optional settings follow in an options object, which also accepts the wallet's `resolveExpirationAndPadding` hook.
+
+**Migration:**
+
+```diff
+- await generateSimulatedProvingResult(result, getFunctionName, node, minRevertibleSideEffectCounter);
++ await generateSimulatedProvingResult(
++   result,
++   getFunctionName,
++   node,
++   await computeSimulatedMaxExpirationTimestamp(result, node),
++   { minRevertibleSideEffectCounterOverride: minRevertibleSideEffectCounter },
++ );
+```
+
 ## 6.0.0
 
 ### [Aztec.nr] ECDSA note and protocol contract interfaces are published with aztec-nr
@@ -51,30 +68,11 @@ The `aztec::facts` functions now take the collection's scope as an `aztec::facts
 
 This is a breaking change to the PXE oracle interface (version 32 → 33): contracts must be recompiled against the updated `aztec-nr` to run against the new PXE.
 
-## 6.0.0-rc.3
-
-### [Aztec.nr] `AuthRegistry` re-pinned at a new address
-
-A further standard-contract re-pin, against oracle interface version 32, moves the
-canonical `AuthRegistry` to a new address and class id. Authorizations set on the
-previous `AuthRegistry` instance must be set again on the new one. This is separate
-from the re-pin that shipped in 6.0.0-rc.1, which moved only `MultiCallEntrypoint`
-and `HandshakeRegistry`.
-
 ### [Protocol] The contract address domain separator is bumped to V3; every contract address changes
 
 The domain separator that goes into contract address derivation (`preaddress = poseidon2(DOM_SEP__CONTRACT_ADDRESS_Vn, public_keys_hash, partial_address)`) is bumped: `DOM_SEP__CONTRACT_ADDRESS_V2` (`4099338721`) is replaced by `DOM_SEP__CONTRACT_ADDRESS_V3 = 993442748` (`hash_to_u32("az_dom_sep", "contract_address_v3")`). Every protocol version rotates this separator on purpose: an address can never exist on two rollup instances, so funds cannot be sent to an address that is live on one rollup and dead on another. As a result, every contract address, including account addresses, differs from the address the same class, salt, initialization and public keys produced under V2. The `V` number is the separator revision, not the protocol version.
 
-Nothing needs to change in contract code, but anything that hard-codes an address must be updated. The canonical addresses of the standard contracts, which are deterministic in their pinned artifacts and the separator, move to:
-
-| Contract            | V2 address                                                           | V3 address                                                           |
-| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| AuthRegistry        | `0x2e05e8fbfb2ce9a31e4b4ae5097c01b79d9b3529b1e861016c9c9a5d62fdf7c9` | `0x2ba8714679fbee823f108f366f878ce3249861637de705b0ac7cfbd0f81b3a9c` |
-| MultiCallEntrypoint | `0x09b93e8efd54a70cd718bc4d8ecf52c51db8150d300c8877c56796ee8c505137` | `0x265552a432ba2f9420ce5283bec14d7385e7a4accaff6c82648efe312d42fcc2` |
-| PublicChecks        | `0x0468c918e7d7e077f4fa75e275891db9bee8faaeafab83e870eeb39dbfaddbbe` | `0x2cfebe9733e41d10357b4362dc434a24a7c53f12e952f5727a38c6da7ec6d21a` |
-| HandshakeRegistry   | `0x24d2effac2983dfcae3aea48019aa10b80a7d2cfddc52cdbd9b90745ed0b0fc7` | `0x198aa5f21f7a13761f4729c544fb6edcae73a484d57b248b6390eb0dc5c06040` |
-
-`STANDARD_*_ADDRESS` in `@aztec-labs/standard-contracts` and `aztec::standard_addresses` carry the new values, so code that reads them needs only a recompile. HandshakeRegistry derives addresses itself, through `get_public_keys`, so the separator is compiled into its bytecode and the pinned standard-contract build is refreshed with it. That recompile also picks up the current aztec-nr in AuthRegistry and MultiCallEntrypoint, whose bytecode changes with it, so their artifact hashes and addresses move for that reason as well as for the separator. PublicChecks' bytecode is unchanged by the recompile; its address moves through the separator alone.
+Nothing needs to change in contract code, but anything that hard-codes an address must be updated.
 
 The protocol contracts keep their magic addresses (`1`, `2`, ...). Their registration nullifiers are siloed by those magic addresses rather than by the derived ones, so the genesis constants move for a narrower reason: ContractInstanceRegistry calls `AztecAddress::compute` when it publishes an instance, so the separator is in its bytecode, its class id rotates, and exactly one of the six seeded registration nullifiers changes with it.
 
@@ -125,8 +123,6 @@ To prove membership against a given archive root, including a block's own post-b
 ```
 
 Callers that anchor on a block header, such as PXE and its oracles, keep using `getBlockHashMembershipWitness`.
-
-## 6.0.0-rc.1
 
 ### [Aztec.nr] `MultiCallEntrypoint` and `HandshakeRegistry` re-pinned at new addresses
 
