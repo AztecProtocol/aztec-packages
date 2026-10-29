@@ -7,20 +7,18 @@ export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
-# Snippets under labs/ live in the submodule, which this repo's tree records only as a gitlink, so they
-# enter the hash through the gitlink and the patch series (.rebuild_patterns) instead.
+# Snippets under labs/ come from the aztec-node commit docs/aztec-node.json pins, which ^docs/ already keys.
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
     $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
 )
-[ -z "$(git -C "$repo_root/labs" status --porcelain)" ] || hash=disabled-cache
-# Released docs link snippets at their tag, so a release build never shares a cache entry with a dev build.
-# A tag of this repo is not a Labs version: releases set COMMIT_TAG (and LABS_REF) explicitly.
+# A release build renders its own versions and links this repository's files at DOCS_COMMIT, so it
+# never shares a cache entry with a dev build.
 # cache_content_hash hashes blob ids without their names, so the docs tree id keys renamed pages.
-hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" "$(git -C "$repo_root" rev-parse HEAD:labs)" \
-  "${COMMIT_TAG:-}" "${LABS_REF:-}")
+hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" \
+  "${COMMIT_TAG:-}" "${RELEASE_TYPE:-}" "${DOCS_COMMIT:-}")
 
 # Every function that reads aztec-node code fetches and checks the pinned checkout first, on a cache
 # hit too, since later steps read it (scripts/aztec_node.mts; a no-op without network when current).

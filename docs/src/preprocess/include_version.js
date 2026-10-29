@@ -68,8 +68,8 @@ function getReleaseNetwork(releaseType) {
 }
 
 // aztec-packages' own code (l1-contracts, barretenberg) at the release the docs build against:
-// the installed l1-artifacts version, which `scripts/labs_docs_sync.sh check` holds equal to
-// the toolchain's BB_VERSION. The Labs version (#include_aztec_version) is not an aztec-packages
+// the installed l1-artifacts version, which `scripts/aztec_node.mts check` holds equal to the
+// pinned aztec-node's BB_VERSION. The Labs version (#include_aztec_version) is not an aztec-packages
 // tag, and the same names there sit on unrelated commits.
 function foundationVersion() {
   const pkg = path.join(__dirname, "../../node_modules/@aztec-foundation/l1-artifacts/package.json");
