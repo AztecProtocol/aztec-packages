@@ -34,14 +34,17 @@ This tutorial walks you through three types of contracts (Solidity, Noir, TypeSc
 
 ### Clone the Example Code
 
-The example code lives in the aztec-node repository:
+The example code lives in the Aztec packages repository:
 
 ```bash
-git clone --depth 1 --branch #include_aztec_version https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node/docs
-yarn install
-cd examples
+git clone --depth 1 https://github.com/AztecProtocol/aztec-packages.git
+cd aztec-packages
+labs-patches/bootstrap.sh apply
+(cd docs && yarn install)
+cd docs/examples
 ```
+
+`labs-patches/bootstrap.sh apply` checks out the `labs/` submodule, whose `aztec-nr` and token contracts the Noir contract builds against. `yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
 
 ### Project Structure
 
