@@ -145,8 +145,10 @@ export function fetchTree(o: Options, pin: Pin, log: (s: string) => void = () =>
   } else if (tryGit(tree, ["sparse-checkout", "list"]) !== SPARSE.join("\n")) {
     throw new PinError(notOurs);
   }
-  if (tryGit(tree, ["remote", "get-url", "origin"]) === undefined) git(tree, ["remote", "add", "origin", pin.repository]);
-  else git(tree, ["remote", "set-url", "origin", pin.repository]);
+  // A current checkout is only read: parallel test commands fetch it at once, and a write takes a git lock.
+  const origin = tryGit(tree, ["remote", "get-url", "origin"]);
+  if (origin === undefined) git(tree, ["remote", "add", "origin", pin.repository]);
+  else if (origin !== pin.repository) git(tree, ["remote", "set-url", "origin", pin.repository]);
 
   if (headOf(tree) !== pin.commit) {
     const tagged = remoteTagCommit(pin.repository, pin.ref);
@@ -155,7 +157,7 @@ export function fetchTree(o: Options, pin: Pin, log: (s: string) => void = () =>
     withRetries(() => git(tree, ["fetch", "-q", "--depth", "1", "--no-tags", "origin", "--end-of-options", pin.commit]));
     git(tree, ["checkout", "-q", "--force", "--detach", pin.commit, "--"]);
     git(tree, ["clean", "-fdq"]);
-  } else if (git(tree, ["status", "--porcelain"]) !== "") {
+  } else if (git(tree, ["--no-optional-locks", "status", "--porcelain"]) !== "") {
     log(`restoring edited files in ${tree}`);
     git(tree, ["checkout", "-q", "--force", "--detach", pin.commit, "--"]);
     git(tree, ["clean", "-fdq"]);
@@ -175,7 +177,7 @@ export function problems(o: Options, pin: Pin): string[] {
   const fetchFix = "run `node scripts/aztec_node.mts fetch` in docs/";
   const head = fs.existsSync(path.join(tree, ".git")) ? headOf(tree) : undefined;
   if (head !== pin.commit) return [`${tree} is at ${head ?? "nothing"}, not the pinned ${pin.commit}: ${fetchFix}`];
-  if (git(tree, ["status", "--porcelain"]) !== "") return [`${tree} has edited or untracked files: ${fetchFix}`];
+  if (git(tree, ["--no-optional-locks", "status", "--porcelain"]) !== "") return [`${tree} has edited or untracked files: ${fetchFix}`];
 
   const out: string[] = [];
   const { bb, noir } = toolchainVersions(tree);
@@ -250,7 +252,13 @@ function provisionCli(o: Options, pin: Pin, log: (s: string) => void): void {
   // An empty lockfile makes the directory its own project; without one, yarn takes it for an unlisted docs workspace.
   fs.writeFileSync(path.join(dir, "yarn.lock"), "");
   log(`installing ${CLI_PACKAGES.join(", ")} ${version}`);
-  execFileSync("yarn", ["install"], { cwd: dir, stdio: ["ignore", 2, 2], env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: "false" } });
+  try {
+    execFileSync("yarn", ["install"], { cwd: dir, stdio: ["ignore", 2, 2], env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: "false" } });
+  } catch (e) {
+    // A failed native build can leave both manifests in place, which the next run would take for an install.
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
   if (!cliIsAt(o, version)) throw new PinError(`${dir} does not hold ${CLI_PACKAGES.join(" and ")} at ${version}`);
 }
 

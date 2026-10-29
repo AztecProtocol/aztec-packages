@@ -78,17 +78,40 @@ test("fetch checks out the pinned commit without aztec-node's own docs/", () => 
   assert.deepEqual(problems(f.o, f.pinA), []);
 });
 
-test("a checkout at the pinned commit is reused without touching the remote", () => {
+test("a checkout at the pinned commit is reused without touching the remote or taking a lock", () => {
   fetchTree(f.o, f.pinA);
   const saved = process.env.GIT_ALLOW_PROTOCOL;
   process.env.GIT_ALLOW_PROTOCOL = "https"; // a fetch from the file:// remote would now fail
+  // Parallel test commands fetch the same current checkout; a write would contend for these locks.
+  const locks = ["config.lock", "index.lock"].map((l) => path.join(treeDir(f.o), ".git", l));
+  for (const lock of locks) fs.writeFileSync(lock, "");
   try {
     fetchTree(f.o, f.pinA);
+    assert.deepEqual(problems(f.o, f.pinA), []);
   } finally {
+    for (const lock of locks) fs.rmSync(lock);
     if (saved === undefined) delete process.env.GIT_ALLOW_PROTOCOL;
     else process.env.GIT_ALLOW_PROTOCOL = saved;
   }
   assert.equal(head(f.o), f.a);
+});
+
+test("a failed CLI install leaves nothing a later provision would trust", async () => {
+  // A yarn that writes both manifests and then fails, as a failed native build would.
+  const bin = path.join(f.root, "bin");
+  write(
+    path.join(bin, "yarn"),
+    "#!/bin/sh\nfor p in aztec cli-wallet; do mkdir -p node_modules/@aztec-labs/$p; echo '{\"version\":\"1.0.0\"}' > node_modules/@aztec-labs/$p/package.json; done\nexit 1\n",
+  );
+  fs.chmodSync(path.join(bin, "yarn"), 0o755);
+  const saved = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${saved}`;
+  try {
+    await assert.rejects(provision(f.o, f.pinA, ["cli"]));
+  } finally {
+    process.env.PATH = saved;
+  }
+  assert.ok(!envLines(f.o, f.pinA).some((l) => l.startsWith("export AZTEC=")));
 });
 
 test("a moved pin fetches the new commit", () => {
