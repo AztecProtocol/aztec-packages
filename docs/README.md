@@ -188,15 +188,33 @@ $ yarn build
 
 This command runs the preprocess command, generates static content into the `build` directory and can be served using any static contents hosting service.
 
-### Aztec.nr API Documentation
+### aztec-node code: the pin
 
-The Aztec.nr API reference is auto-generated from the `labs/noir-projects/aztec-nr/` source code using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
-
-**Prerequisites:** You need `nargo` installed. Install via [noirup](https://noir-lang.org/docs/getting_started/quick_start#installation):
+Most of the code the docs quote is aztec-node's (the Labs repository). The docs pin the commit they quote in `aztec-node.json`, together with its toolchain versions (aztec, bb, noir and the `@aztec-foundation/l1-artifacts` version), and read a checkout of that commit. They never read this repository's `labs/` submodule, which the Foundation builds against and moves on its own schedule.
 
 ```bash
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-noirup
+node scripts/aztec_node.mts fetch            # check the pinned commit out into .aztec-node/tree
+node scripts/aztec_node.mts check            # fail on any drift between the pin, the checkout and package.json
+node scripts/aztec_node.mts pin <tag>        # move the pin to an aztec-node release or nightly tag
+node scripts/aztec_node.mts provision nargo bb cli   # install the pinned nargo, bb and aztec CLI into .aztec-node/
+eval "$(node scripts/aztec_node.mts env)"    # export AZTEC_NODE_DIR, the versions, NARGO, BB and AZTEC
+```
+
+- `yarn build`, `yarn start` and `./bootstrap.sh` fetch first, so a fresh clone needs nothing else. The checkout is a shallow clone without aztec-node's own `docs/`; `AZTEC_NODE_DIR` moves it elsewhere.
+- `#include_code` and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit (a tag can move; a commit cannot).
+- **Moving the pin:** run `pin <tag>`, then do what `check` asks (usually: set `@aztec-foundation/l1-artifacts` in `package.json` to the pinned `BB_VERSION` and run `yarn install`), and commit `aztec-node.json`, `package.json` and `yarn.lock` together. Snippets whose markers moved fail the build until the pages follow.
+- **Release cuts** move the pin to the release tag inside their own worktree, and the snapshot is generated from that; the dev docs keep their pin. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
+- **Examples** build with the pinned published toolchain against the default checkout, which their Nargo.toml path dependencies name (`../../../.aztec-node/tree/...`), so `AZTEC_NODE_DIR` does not apply to them. The TS examples install `@aztec-labs/*` at the pinned `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION`.
+- Never run nargo inside `docs/` or the checkout: nargo takes `docs/Nargo.toml` as its workspace.
+
+### Aztec.nr API Documentation
+
+The Aztec.nr API reference is auto-generated from the checkout's `noir-projects/aztec-nr/` (copied outside `docs/` first) using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
+
+**Prerequisites:** the nargo release the pinned aztec-node uses. The generator takes `NARGO`, else `.aztec-node/bin/nargo`, and refuses any other version:
+
+```bash
+node scripts/aztec_node.mts provision nargo
 ```
 
 **Generate docs for the "next" version:**
@@ -221,14 +239,20 @@ The generated docs are stored in `static/aztec-nr-api/<version>/` and linked fro
 
 ### TypeScript API Documentation
 
-The TypeScript API reference is auto-generated from the `labs/yarn-project/` packages using TypeDoc. This generates LLM-optimized markdown documentation served from `static/typescript-api/`.
+The TypeScript API reference is auto-generated from the checkout's `yarn-project/` packages using TypeDoc. This generates LLM-optimized markdown documentation served from `static/typescript-api/`.
 
 **Documented packages:**
 
 - **Client SDKs:** `@aztec-labs/aztec.js`, `@aztec-labs/accounts`, `@aztec-labs/pxe`, `@aztec-labs/wallet-sdk`, `@aztec-labs/wallets`, `@aztec-labs/entrypoints`
 - **Core Libraries:** `@aztec-labs/stdlib`, `@aztec-labs/foundation`, `@aztec-labs/constants`
 
-**Prerequisites:** You need `labs/yarn-project` to be built first (the bootstrap process handles this).
+**Prerequisites:** the checkout's `yarn-project` must be built, which is aztec-node's own build. Put the checkout outside `docs/` for it, since the build runs nargo:
+
+```bash
+export AZTEC_NODE_DIR=$HOME/.cache/aztec-docs/aztec-node
+node scripts/aztec_node.mts fetch
+(cd "$AZTEC_NODE_DIR" && env -u root -u ci3 AZTEC_TOOLCHAIN_FND_ROOT= make yarn-project)
+```
 
 **Generate docs for the "next" version:**
 
@@ -272,7 +296,7 @@ The generated docs are linked from the [TypeScript API Reference](/developers/do
 
 ### Aztec.js API Reference Page
 
-The single-page Aztec.js reference (`docs-developers/docs/aztec-js/aztec_js_reference.md`) is auto-generated from `labs/yarn-project/aztec.js/src` by `scripts/aztecjs_reference_generation/`. This is a separate surface from the TypeDoc-based `static/typescript-api/` docs above: it is a Docusaurus page that gets snapshotted into `developer_versioned_docs/` at release cut time. `docs/bootstrap.sh` runs `update_docs.sh --check` in CI, so a change to `yarn-project/aztec.js/src` that alters the reference cannot land without the regenerated page.
+The single-page Aztec.js reference (`docs-developers/docs/aztec-js/aztec_js_reference.md`) is auto-generated from the checkout's `yarn-project/aztec.js/src` by `scripts/aztecjs_reference_generation/`. This is a separate surface from the TypeDoc-based `static/typescript-api/` docs above: it is a Docusaurus page that gets snapshotted into `developer_versioned_docs/` at release cut time. `docs/bootstrap.sh` runs `update_docs.sh --check` in CI, so a pin move that alters the reference cannot land without the regenerated page.
 
 **Prerequisites:** No build is required — the parser reads source `.ts` files directly. `node` and `python3` must be available.
 
@@ -286,20 +310,20 @@ This overwrites `docs-developers/docs/aztec-js/aztec_js_reference.md`. Do not ha
 
 **When to regenerate:**
 
-- When `labs/yarn-project/aztec.js/src` public APIs or JSDoc change (CI's drift check will require it)
-- During a release docs cut (the `release-docs` skill runs this in Step 6, with the working tree checked out at the release tag)
+- When a pin move changes `yarn-project/aztec.js/src` public APIs or JSDoc (CI's drift check will require it)
+- During a release docs cut (the `release-docs` skill runs this in Step 6, with the cut's pin at the release tag)
 
 ### Node JSON-RPC API Reference
 
-The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `labs/yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
+The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in the checkout's `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
 
-**Source files:**
+**Source files** (in the checkout):
 
-- `labs/yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
-- `labs/yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
-- `labs/yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
+- `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
 
-**Prerequisites:** `labs/yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `labs/yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.
+**Prerequisites:** `yarn install` in `docs/` (the generator, `generate_node_api_reference.mts`, runs under `node` and resolves `typescript` from `docs/node_modules`). No build is required — it parses source `.ts` files via the TypeScript Compiler API, not compiled output.
 
 **Generate the reference doc:**
 
@@ -323,7 +347,7 @@ yarn generate:node-api-reference --target-dir network_versioned_docs/version-v4.
 
 **When to regenerate:**
 
-- When interface methods or Zod schemas change in `labs/yarn-project/stdlib/src/interfaces/`
+- When a pin move changes interface methods or Zod schemas in `yarn-project/stdlib/src/interfaces/`
 - When cutting a new versioned snapshot of network docs (pass `--target-dir` to write into the versioned directory)
 - The source doc (`docs-operate/`) should be kept in sync with the latest code
 
@@ -407,7 +431,7 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 
 ### `#include_foundation_version`
 
-This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/labs_docs_sync.sh check` holds equal to the toolchain's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to. `#include_foundation_version_without_prefix` renders the same version without the `v`, as npm wants it.
+This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/aztec_node.mts check` holds equal to the pinned aztec-node's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to. `#include_foundation_version_without_prefix` renders the same version without the `v`, as npm wants it.
 
 ### `#include_testnet_version`
 
@@ -454,25 +478,30 @@ Usage: `--network #release_network`
 
 The `RELEASE_TYPE` environment variable controls which release type the documentation is being built for. Valid values are:
 
-- `nightly` (default) - For nightly developer docs releases
+- `nightly` - For nightly developer docs releases
 - `devnet` - For devnet releases
 - `testnet` - For testnet releases
-- `mainnet` - For mainnet releases
+- `mainnet` (default when unset) - For mainnet releases
+
+Setting any value but `nightly` also requires `DOCS_COMMIT`: released docs link this repository's snippet files (`examples/`) at that commit, which must be on `origin/next`. Unset, links name `HEAD`.
 
 Example build commands:
 
 ```bash
-# Build for nightly (default)
-NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
+# Build with the defaults (mainnet versions, links at HEAD)
+yarn build
+
+# Build for nightly
+RELEASE_TYPE=nightly NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
 
 # Build for devnet
-RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 yarn build
+RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 DOCS_COMMIT=<commit on origin/next> yarn build
 
 # Build for testnet
-RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 yarn build
+RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 DOCS_COMMIT=<commit on origin/next> yarn build
 
 # Build for mainnet
-RELEASE_TYPE=mainnet MAINNET_TAG=4.2.0-aztecnr-rc.2 yarn build
+RELEASE_TYPE=mainnet MAINNET_TAG=4.2.0-aztecnr-rc.2 DOCS_COMMIT=<commit on origin/next> yarn build
 ```
 
 ### Conditional Content

@@ -72,7 +72,7 @@ tags:
     --disable-admin-api-key                                                                                                                 ($AZTEC_DISABLE_ADMIN_API_KEY)
           Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.
 
-    --reset-admin-api-key                                                                                                                   ($AZTEC_RESET_ADMIN_API_KEY)
+    --reset-admin-api-key [value]                                                                                                           ($AZTEC_RESET_ADMIN_API_KEY)
           Force-generate a new admin API key, replacing any previously persisted key hash. The new key is displayed once at startup.
 
     --node-debug                                                                                                                            ($AZTEC_NODE_DEBUG)
@@ -143,8 +143,8 @@ tags:
     --world-state-db-map-size-kb <value>                                                                                                    ($WS_DB_MAP_SIZE_KB)
           The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
 
-    --world-state-checkpoint-history <value>                                  (default: 64)                                                 ($WS_NUM_HISTORIC_CHECKPOINTS)
-          The number of historic checkpoints worth of blocks to maintain. Values less than 1 mean all history is maintained
+    --world-state-history-retention <value>                                   (default: rolling:64)                                         ($WS_HISTORY_RETENTION)
+          World-state history retention: rolling:N retains N finalized checkpoints, pinned:N retains checkpoint N onwards, archive retains all history.
 
   AZTEC NODE
 
@@ -201,7 +201,7 @@ tags:
     --archiver.maxAllowedEthClientDriftSeconds <value>                        (default: 300)                                                ($MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS)
           Maximum allowed drift in seconds between the Ethereum client and current time.
 
-    --archiver.ethereumAllowNoDebugHosts <value>                              (default: false)                                              ($ETHEREUM_ALLOW_NO_DEBUG_HOSTS)
+    --archiver.ethereumAllowNoDebugHosts <value>                                                                                            ($ETHEREUM_ALLOW_NO_DEBUG_HOSTS)
           Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
 
     --archiver.archiverSkipHistoricalLogsCheck <value>                                                                                      ($ARCHIVER_SKIP_HISTORICAL_LOGS_CHECK)
@@ -243,7 +243,7 @@ tags:
           Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).
 
     --sequencer.skipCheckpointProposalValidation <value>                                                                                    
-          Skip checkpoint proposal validation and always attest (default: false)
+          Skip checkpoint proposal validation, including the live Inbox endpoint check, and always attest. For testing only (default: false)
 
     --sequencer.skipPushProposedBlocksToArchiver <value>                                                                                    
           Skip pushing proposed blocks to archiver (test only)
@@ -281,8 +281,8 @@ tags:
     --sequencer.maxStuckDutiesAgeMs <value>                                                                                                 ($VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS)
           The maximum age of a stuck duty in ms (defaults to 2x Aztec slot duration)
 
-    --sequencer.cleanupOldDutiesAfterHours <value>                                                                                          ($VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H)
-          Optional: clean up old duties after this many hours (disabled if not set)
+    --sequencer.cleanupOldDutiesAfterHours <value>                            (default: 24)                                                 ($VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H)
+          Duty retention in hours from signing start (must be positive; minimum two slots)
 
     --sequencer.signingProtectionMapSizeKb <value>                                                                                          ($SIGNING_PROTECTION_MAP_SIZE_KB)
           Maximum size of the local signing-protection LMDB store in KB. Overwrites the general dataStoreMapSizeKb.
@@ -389,6 +389,9 @@ tags:
     --sequencer.injectYParityAttestation <value>                                                                                            
           Inject a non-proposer attestation slot in yParity form in the packed L1 tuple (for testing only)
 
+    --sequencer.republishAfterFakeAttestation <value>                                                                                       
+          Publish the checkpoint with a fake attestation first, then invalidate it and publish it again with the collected attestations within the same slot (for testing only)
+
     --sequencer.shuffleAttestationOrdering <value>                                                                                          
           Shuffle attestation ordering to create invalid ordering (for testing only)
 
@@ -433,6 +436,9 @@ tags:
 
     --sequencer.minPeersToPropose <value>                                     (default: 1)                                                  ($SEQ_MIN_PEERS_TO_PROPOSE)
           Minimum number of connected p2p peers required to build and propose a checkpoint (zero to disable the check). Ignored when p2p is disabled by config.
+
+    --sequencer.allowUnsafeInboxCatchupCapacity <value>                                                                                     
+          Allow starting with fewer block opportunities per checkpoint than a mandatory streaming-Inbox backlog needs (for testing only).
 
     --sequencer.txPublicSetupAllowListExtend <value>                                                                                        ($TX_PUBLIC_SETUP_ALLOWLIST)
           Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
@@ -487,6 +493,9 @@ tags:
 
     --sequencer.publisherFundingAmount <value>                                                                                              ($PUBLISHER_FUNDING_AMOUNT)
           Amount of ETH to send when funding a publisher. Specified in ether (e.g. 0.5). Unset = funding disabled.
+
+    --sequencer.publisherLowBalanceWarningMultiplier <value>                  (default: 4)                                                  ($PUBLISHER_LOW_BALANCE_WARNING_MULTIPLIER)
+          Warn when a publisher balance is below this multiple of the ETH required for a reference L1 send (a first-of-epoch proposal for sequencers, an epoch proof for provers) at current fees. Publishers that cannot afford a send are never used for it.
 
   PROVER NODE
 
@@ -565,14 +574,14 @@ tags:
     --proverNode.proverPublisherAllowInvalidStates <value>                    (default: true)                                               ($PROVER_PUBLISHER_ALLOW_INVALID_STATES)
           True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
 
-    --proverNode.proverPublisherForwarderAddress <value>                                                                                    ($PROVER_PUBLISHER_FORWARDER_ADDRESS)
-          Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
-
     --proverNode.publisherFundingThreshold <value>                                                                                          ($PUBLISHER_FUNDING_THRESHOLD)
           Min ETH balance below which a publisher gets funded. Specified in ether (e.g. 0.1). Unset = funding disabled.
 
     --proverNode.publisherFundingAmount <value>                                                                                             ($PUBLISHER_FUNDING_AMOUNT)
           Amount of ETH to send when funding a publisher. Specified in ether (e.g. 0.5). Unset = funding disabled.
+
+    --proverNode.publisherLowBalanceWarningMultiplier <value>                 (default: 4)                                                  ($PUBLISHER_LOW_BALANCE_WARNING_MULTIPLIER)
+          Warn when a publisher balance is below this multiple of the ETH required for a reference L1 send (a first-of-epoch proposal for sequencers, an epoch proof for provers) at current fees. Publishers that cannot afford a send are never used for it.
 
     --proverNode.proverPublisherPrivateKeys <value>                           (default: )                                                   ($PROVER_PUBLISHER_PRIVATE_KEYS)
           The private keys to be used by the prover publisher.
@@ -609,6 +618,9 @@ tags:
 
     --proverNode.proverNodeDisableProofPublish <value>                                                                                      ($PROVER_NODE_DISABLE_PROOF_PUBLISH)
           Whether the prover node skips publishing proofs to L1
+
+    --proverNode.proverNodeDisableFullEpochProving <value>                                                                                  ($PROVER_NODE_DISABLE_FULL_EPOCH_PROVING)
+          Whether the prover node skips proving complete epochs on its own. It still proves partial epochs requested through the startProof admin API, e.g. by a sidecar that pays for early withdrawal proofs.
 
     --proverNode.proofSubmissionTargetAddress <value>                                                                                       ($PROVER_NODE_PROOF_SUBMISSION_TARGET_ADDRESS)
           Optional L1 address the submitEpochRootProof tx is sent to. Must expose the identical submitEpochRootProof ABI and forward to the rollup. Defaults to the rollup address.
@@ -860,7 +872,7 @@ tags:
           Accept proposal gossip regardless of slot timing (for testing only)
 
     --p2p.skipCheckpointProposalValidation <value>                                                                                          
-          Skip checkpoint proposal validation and always attest, broadcasting the attestation before processing the embedded last block
+          Skip checkpoint proposal validation, including the live Inbox endpoint check, and always attest, broadcasting the attestation before processing the embedded last block. For testing only
 
     --p2p.minTxPoolAgeMs <value>                                              (default: 2000)                                               ($P2P_MIN_TX_POOL_AGE_MS)
           Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.
@@ -1097,13 +1109,22 @@ tags:
           Stops the bot if service becomes unhealthy
 
     --bot.botMode <value>                                                     (default: transfer)                                           ($BOT_MODE)
-          Bot mode: transfer, amm, or crosschain
+          Bot mode: transfer, amm, crosschain, or inbox
 
     --bot.l2ToL1MessagesPerTx <value>                                         (default: 1)                                                  ($BOT_L2_TO_L1_MESSAGES_PER_TX)
           Number of L2→L1 messages per tx (crosschain mode)
 
-    --bot.l1ToL2SeedCount <value>                                             (default: 1)                                                  ($BOT_L1_TO_L2_SEED_COUNT)
-          Max L1→L2 messages to keep in-flight (crosschain mode)
+    --bot.l1ToL2SeedCount <value>                                                                                                           ($BOT_L1_TO_L2_SEED_COUNT)
+          Max L1→L2 messages to keep in-flight (crosschain and inbox modes). Defaults to 1, or 512 in inbox mode.
+
+    --bot.inboxMessagesPerBatch <value>                                       (default: 4)                                                  ($BOT_INBOX_MESSAGES_PER_BATCH)
+          How many L1→L2 messages the inbox bot sends per atomic L1 batch (inbox mode)
+
+    --bot.inboxConsumeMode <value>                                            (default: mixed)                                              ($BOT_INBOX_CONSUME_MODE)
+          Which L2 domain the inbox bot consumes through: mixed, public, or private (inbox mode)
+
+    --bot.inboxSaturationIntervalSeconds <value>                              (default: 86400)                                              ($BOT_INBOX_SATURATION_INTERVAL_SECONDS)
+          How often the inbox bot runs a full-bucket saturation batch, in seconds; 0 disables it
 
   PXE
 

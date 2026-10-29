@@ -6,17 +6,22 @@ description: Updates changelog documentation for contract developers and node op
 # Updating Changelog
 
 The docs live in this repository's `docs/`. The code they describe is mostly aztec-node's,
-checked out here as `labs/` (its version and its changes are read inside `labs/`), plus this
-repository's own code (`l1-contracts/`, `barretenberg/`, …).
+at the commit `docs/aztec-node.json` pins, read through a checkout of it that
+`node docs/scripts/aztec_node.mts fetch` keeps (`$AZTEC_NODE_DIR`, default
+`docs/.aztec-node/tree`; its version and its changes are read there, never in the `labs/`
+submodule), plus this repository's own code (`l1-contracts/`, `barretenberg/`, …).
 
 ## Steps
 
 ### 1. Determine Target Files
 
-The version is the Labs release that `labs/` is pinned to:
+The version is the Labs release the docs' pin names, read from the checkout:
 
 ```bash
-jq -r '."."' labs/.release-please-manifest.json
+cd "$(git rev-parse --show-toplevel)"
+node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
+eval "$pin"
+jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"
 ```
 
 `6.0.0` → edit `v6.md`. The release-please manifest at the repository root versions the
@@ -47,23 +52,28 @@ the page ships unreachable:
 The base is `origin/next` (`git fetch origin next` first). Three sources, each read where it
 lives:
 
-1. **This repository's own changes** (Foundation code, and the docs already written):
+1. **This repository's own changes** (Foundation code, and the docs already written; the
+   `labs` gitlink is the Foundation's build input, not the docs' pin):
 
    ```bash
+   cd "$(git rev-parse --show-toplevel)"
    git diff origin/next...HEAD --stat -- . ':!labs'
    git diff origin/next...HEAD -- . ':!labs'
    ```
 
-2. **Labs code, when this branch moves the `labs/` pin.** The root diff shows only a
-   `Subproject commit` line for it; read the range inside `labs/`. Both commits must be in
-   the shallow clone, and a two-commit diff needs no history between them:
+2. **Labs code, when this branch moves the docs' pin** (`docs/aztec-node.json`, moved with
+   `node docs/scripts/aztec_node.mts pin <tag>`). Read the range in the checkout; both
+   commits must be in it, and a two-commit diff needs no history between them:
 
    ```bash
-   old=$(git rev-parse "$(git merge-base origin/next HEAD):labs")
-   new=$(git rev-parse HEAD:labs)
-   git -C labs fetch --depth 1 origin "$old" "$new"
-   git -C labs diff --stat "$old" "$new"
-   git -C labs diff "$old" "$new" -- yarn-project/ noir-projects/ <other paths>
+   cd "$(git rev-parse --show-toplevel)"
+   old=$(git show "$(git merge-base origin/next HEAD):docs/aztec-node.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
+   new=$(node -p 'require("./docs/aztec-node.json").commit')
+   node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
+   eval "$pin"
+   git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
+   git -C "$AZTEC_NODE_DIR" diff --stat "$old" "$new"
+   git -C "$AZTEC_NODE_DIR" diff "$old" "$new" -- yarn-project/ noir-projects/ <other paths>
    gh api "repos/aztec-labs-eng/aztec-node/compare/$old...$new" \
      --jq '.total_commits, (.commits[].commit.message | split("\n")[0])'
    gh api "repos/aztec-labs-eng/aztec-node/compare/$old...$new" \
@@ -78,7 +88,7 @@ lives:
    commits' dates instead, and keep only those the diff confirms:
 
    ```bash
-   from=$(git -C labs log -1 --format=%cs "$old") to=$(git -C labs log -1 --format=%cs "$new")
+   from=$(git -C "$AZTEC_NODE_DIR" log -1 --format=%cs "$old") to=$(git -C "$AZTEC_NODE_DIR" log -1 --format=%cs "$new")
    gh pr list --repo aztec-labs-eng/aztec-node --state merged --limit 1000 \
      --search "merged:$from..$to" --json number,title --jq '.[] | "\(.number) \(.title)"'
    ```
@@ -105,7 +115,7 @@ reading existing entries in each file.
 ### 4. Edit Documentation
 
 After approval, add entries to the appropriate files in this repository's `docs/` (never
-under `labs/`, and never a versioned snapshot).
+in the checkout or under `labs/`, and never a versioned snapshot).
 
 ## Migration Notes Format
 

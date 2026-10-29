@@ -23,13 +23,15 @@ This project uses Yarn 4.13.0 as specified in the `packageManager` field of pack
 
 ### API Documentation Generation
 
-- `yarn generate:aztec-nr-api` - Generate Aztec.nr API docs (requires `nargo`)
+The generators read the pinned aztec-node checkout (see "aztec-node code: the pin" below):
+
+- `yarn generate:aztec-nr-api` - Generate Aztec.nr API docs (requires the pinned nargo: `node scripts/aztec_node.mts provision nargo`)
 - `yarn generate:aztec-nr-api v1.0.0` - Generate for a specific version
 - `RELEASE_TYPE=mainnet yarn generate:aztec-nr-api v4.2.0` - Generate with explicit release type
-- `yarn generate:typescript-api` - Generate TypeScript API docs (requires labs/yarn-project to be built)
+- `yarn generate:typescript-api` - Generate TypeScript API docs (requires the checkout's `yarn-project` to be built)
 - `yarn generate:typescript-api v3.0.0-devnet.6` - Generate for a specific version
 - `RELEASE_TYPE=mainnet yarn generate:typescript-api v4.2.0` - Generate with explicit release type
-- `yarn generate:node-api-reference` - Generate Node JSON-RPC API reference (requires labs/yarn-project source files and labs/yarn-project/node_modules; no build needed)
+- `yarn generate:node-api-reference` - Generate Node JSON-RPC API reference (reads the checkout's `yarn-project` source with `docs/node_modules/typescript`; no build needed)
 - `yarn generate:node-api-reference --target-dir <dir>` - Generate into a specific versioned docs directory
 
 The `RELEASE_TYPE` env var overrides version string pattern matching for output folder selection. This is useful when the version string doesn't self-identify its release type.
@@ -50,13 +52,25 @@ For development:
 - `yarn start` - Runs preprocessing once at startup and serves from source directories
 - **Important**: Hot reloading is NOT available - you must restart the dev server to see changes
 
+### aztec-node code: the pin
+
+The aztec-node (Labs) code the docs quote is the commit `aztec-node.json` pins, with its toolchain versions (aztec, bb, noir, l1-artifacts). Everything in docs/ that reads aztec-node code (`#include_code`, `references:` frontmatter, the API generators, `check_doc_references.sh`) reads a checkout of that commit, never the `labs/` submodule, which is the Foundation's build input and can move independently.
+
+- `node scripts/aztec_node.mts fetch` checks the commit out into `.aztec-node/tree` (gitignored; `AZTEC_NODE_DIR` overrides the path). `yarn build`, `yarn start` and `./bootstrap.sh` run it first.
+- Snippet and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit.
+- `node scripts/aztec_node.mts check` fails on any drift: a checkout at another commit or with edited files, toolchain versions that differ from the tag's, or an l1-artifacts version in `package.json` that differs from the pin.
+- Move the pin with `node scripts/aztec_node.mts pin <tag>` (a release or nightly tag), never by hand; then set `@aztec-foundation/l1-artifacts` to the version `check` names, run `yarn install`, and commit `aztec-node.json` with `package.json` and `yarn.lock`.
+- Tools that need nargo, bb or the aztec CLI use the pinned published ones: `node scripts/aztec_node.mts provision nargo bb cli`, then `eval "$(node scripts/aztec_node.mts env)"` exports `NARGO`, `BB`, `AZTEC` and the versions. Never run nargo inside `docs/` or the checkout: it takes `docs/Nargo.toml` as its workspace.
+- A release cut moves the pin to the release tag in its own worktree only (`/release-docs`, `/release-network-docs`); the dev docs keep their pin.
+
 ### Preprocessing Environment Variables
 
 The preprocessing system uses these environment variables:
 
 | Variable       | Description                                             | Default                              |
 | -------------- | ------------------------------------------------------- | ------------------------------------ |
-| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet` | `nightly`                            |
+| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet` | `mainnet`                            |
+| `DOCS_COMMIT`  | Commit named by source links into this repository (`docs/examples/` snippets); required when `RELEASE_TYPE` is set to anything but `nightly` | `HEAD` |
 | `NIGHTLY_TAG`  | Version for nightly builds (falls back to `COMMIT_TAG`) | from `developer_version_config.json` |
 | `DEVNET_TAG`   | Version for devnet builds                               | from `developer_version_config.json` |
 | `TESTNET_TAG`  | Version for testnet builds                              | from `developer_version_config.json` |
@@ -139,8 +153,8 @@ This site uses **Docusaurus multi-instance docs** with independent versioning:
 
 Two API reference systems generate documentation from source code:
 
-- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from `labs/noir-projects/aztec-nr/` using `nargo doc`
-- **TypeScript API** (`static/typescript-api/`) - Generated from `labs/yarn-project/` packages using TypeDoc
+- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from the checkout's `noir-projects/aztec-nr/` using `nargo doc`
+- **TypeScript API** (`static/typescript-api/`) - Generated from the checkout's `yarn-project/` packages using TypeDoc
 
 The TypeScript API generation is configured in `scripts/typescript_api_generation/config.json` and documents:
 
@@ -166,12 +180,14 @@ The `examples/` directory contains runnable code examples that are included in d
 
 **Validation (type-checking)**: `examples/bootstrap.sh` compiles Noir circuits, Noir contracts, Solidity, and type-checks TypeScript examples. This runs on every PR.
 
-The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its pin in `package.json` must equal `BB_VERSION` in `labs/labs-aztec-toolchain/bootstrap.sh` - bumping one without the other fails `scripts/labs_docs_sync.sh check` (run from the repository root).
+The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its version in `package.json` must equal `toolchain.l1Artifacts` in `aztec-node.json` (the pinned aztec-node's `BB_VERSION`); `node scripts/aztec_node.mts check` fails until both move together.
+
+The examples build with the pin's published toolchain, the same code the snippets quote: `examples/bootstrap.sh` provisions nargo, bb and the aztec CLI (`@aztec-labs/aztec`) at the pinned versions, the contracts' Nargo path dependencies point into the default checkout (`.aztec-node/tree`; an `AZTEC_NODE_DIR` override never applies to them), and the TS examples install `@aztec-labs/*` at `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION` from npm.
 
 **Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
 
 - **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
-- **Local**: Start a sandbox manually, then run `examples/ts/aztecjs_runner/run.sh`
+- **Local**: Start a sandbox manually, provision the pinned CLI and export the pin (see "aztec-node code: the pin"), then run `examples/ts/aztecjs_runner/run.sh`
 - **`AZTEC_NODE_URL`**: All example `index.ts` files and `run.sh` use this env var (defaults to `http://localhost:8080`). In Docker Compose, it points to `http://local-network:8080`.
 
 When adding new TypeScript examples:
@@ -375,5 +391,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-08-04
-Version: 1.8
+Last updated: 2026-10-29
+Version: 1.9

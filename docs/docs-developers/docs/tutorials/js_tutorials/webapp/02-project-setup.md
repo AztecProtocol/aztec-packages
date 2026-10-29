@@ -80,7 +80,7 @@ If you haven't already compiled the contract from the [previous section](./01-th
 yarn prep
 ```
 
-This produces `src/artifacts/PodRacing.ts` and `src/artifacts/PodRacing.json`. The webapp imports the typed contract class from `PodRacing.ts`.
+This produces `src/artifacts/PodRacing.ts` and `src/artifacts/pod_racing_contract-PodRacing.json`. The webapp imports the typed contract class from `PodRacing.ts`.
 
 ## Next steps
 

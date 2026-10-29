@@ -7,6 +7,7 @@ import { Fr } from '@aztec-labs/aztec.js/fields';
 import { SPONSORED_FPC_SALT } from '@aztec-labs/constants';
 import { AccountFeePaymentMethodOptions } from '@aztec-labs/entrypoints/account';
 import { getInitialTestAccountsData } from '@aztec-labs/accounts/testing/lazy';
+import { openTmpStore } from '@aztec-labs/kv-store/sqlite-opfs';
 import type { ContractArtifact } from '@aztec-labs/stdlib/abi';
 import { type CompleteFeeOptionsConfig, type FeeOptions } from '@aztec-labs/wallet-sdk/base-wallet';
 import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec-labs/wallets/embedded';
@@ -61,6 +62,9 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
     const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
       ephemeral: true,
       pxeConfig: { proverEnabled: !isLocal },
+      // In the browser, createPXE opens one persistent store per chain and rollup and ignores `ephemeral`, so a
+      // second wallet on the same page (the two-player view) would collide with the first. Give each its own.
+      pxeOptions: { store: await openTmpStore(true) },
     });
 
     // Register SponsoredFPC so we can pay fees
@@ -89,14 +93,14 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
   // docs:start:connect-test-account
   /**
    * Connects one of the pre-deployed test accounts available on the local network.
-   * Uses the inherited createSchnorrAccount which handles account creation,
-   * contract registration, and WalletDB persistence.
+   * The local network funds its test accounts at genesis as initializerless Schnorr accounts, so they need
+   * no deployment tx. createSchnorrInitializerlessAccount registers the account and persists it in WalletDB.
    */
   async connectTestAccount(index: number) {
     const testAccounts = await getInitialTestAccountsData();
     const accountData = testAccounts[index];
 
-    const accountManager = await this.createSchnorrAccount(
+    const accountManager = await this.createSchnorrInitializerlessAccount(
       accountData.secret,
       accountData.salt,
       accountData.signingKey,

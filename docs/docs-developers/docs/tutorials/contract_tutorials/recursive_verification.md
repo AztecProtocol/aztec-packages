@@ -140,9 +140,9 @@ This is intentionally minimal to focus on the verification pattern. In productio
 
 The circuit has two inputs with different visibility:
 
-- `x: Field` - A **private input** known only to the prover. This value is never revealed onchain or included in the proof data. The verifier cannot determine what value was used—only that _some_ valid value exists.
+- `x: u64` - A **private input** known only to the prover. This value is never revealed onchain or included in the proof data. The verifier cannot determine what value was used—only that _some_ valid value exists.
 
-- `y: pub Field` - A **public input** that is visible to the verifier. This value is included in the proof data, but since proof verification happens within a private function, it isn't exposed onchain unless you explicitly reveal it.
+- `y: pub u64` - A **public input** that is visible to the verifier. This value is included in the proof data, but since proof verification happens within a private function, it isn't exposed onchain unless you explicitly reveal it.
 
 **Why this distinction matters**: The circuit asserts that `x != y`. The prover demonstrates they know a secret value `x` that differs from the public value `y`.
 
@@ -609,7 +609,7 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 
 In production, you would use real [fee payment methods](../../aztec-js/how_to_pay_fees.md) (native tokens, ERC20, etc.).
 
-#### What Happens During `increment().send().wait()`
+#### What happens during `increment().send()`
 
 This single line triggers a complex flow:
 
@@ -621,7 +621,7 @@ This single line triggers a complex flow:
 
 2. **Proof Generation** (client-side, in PXE):
    - Generate a ZK proof that the private execution was correct
-   - This proof doesn't reveal inputs (including the 508-field proof!)
+   - This proof doesn't reveal inputs (including the 458-field proof!)
 
 3. **Transaction Submission**:
    - Send the proof + encrypted logs + public function calls to the network

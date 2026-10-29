@@ -2,21 +2,21 @@
 # Shared utilities for docs/examples/ts scripts.
 # Source this file — it has no shebang-executable purpose on its own.
 
-# parse_dependencies <config_file> <repo_root>
+# parse_dependencies <config_file>
 #
 # Reads a config.yaml via yq and classifies each dependency entry into one of
-# three global arrays:
-#   AZTEC_DEPS          — @aztec-labs/* packages resolved to pkg@link:<repo_root>/yarn-project/<name>
-#   EXPLICIT_LINK_DEPS  — link: packages resolved to pkg@link:<repo_root>/<path>
-#   NPM_DEPS            — npm: packages (bare names, e.g. viem)
+# two global arrays:
+#   PINNED_DEPS  — @aztec-labs/* at $AZTEC_VERSION and @aztec-foundation/* at $BB_VERSION, the versions
+#                  docs/aztec-node.json pins (`node docs/scripts/aztec_node.mts env` exports both)
+#   NPM_DEPS     — npm: packages as written (npm:@aztec/viem@2.38.2 -> @aztec/viem@2.38.2)
 #
 # Also sets PARSED_DEPS_FOUND to "true" if any dependency was found, "false" otherwise.
 parse_dependencies() {
     local config_file=$1
-    local repo_root=$2
+    local fix="eval the output of node docs/scripts/aztec_node.mts env first"
+    : "${AZTEC_VERSION:?$fix}" "${BB_VERSION:?$fix}"
 
-    AZTEC_DEPS=()
-    EXPLICIT_LINK_DEPS=()
+    PINNED_DEPS=()
     NPM_DEPS=()
     PARSED_DEPS_FOUND=false
 
@@ -33,21 +33,13 @@ parse_dependencies() {
         fi
 
         if [[ "$pkg" =~ ^npm: ]]; then
-            # External package: npm:viem -> viem
-            local npm_pkg="${pkg#npm:}"
-            NPM_DEPS+=("$npm_pkg")
-        elif [[ "$pkg" =~ ^link: ]]; then
-            # Explicit link: link:@aztec/bb.js:barretenberg/ts -> @aztec/bb.js@link:$repo_root/barretenberg/ts
-            local link_spec="${pkg#link:}"
-            local link_pkg_name="${link_spec%%:*}"
-            local link_path="${link_spec#*:}"
-            EXPLICIT_LINK_DEPS+=("${link_pkg_name}@link:${repo_root}/${link_path}")
-        elif [[ "$pkg" =~ ^@ ]]; then
-            # @aztec-labs/* package - auto-link from yarn-project/
-            local pkg_name="${pkg#@aztec-labs/}"
-            AZTEC_DEPS+=("${pkg}@link:${repo_root}/yarn-project/${pkg_name}")
+            NPM_DEPS+=("${pkg#npm:}")
+        elif [[ "$pkg" == @aztec-labs/* ]]; then
+            PINNED_DEPS+=("${pkg}@${AZTEC_VERSION}")
+        elif [[ "$pkg" == @aztec-foundation/* ]]; then
+            PINNED_DEPS+=("${pkg}@${BB_VERSION}")
         else
-            echo "Warning: Unknown dependency format '$pkg' (use '@aztec-labs/pkg', 'link:pkg:path', or 'npm:pkg')" >&2
+            echo "Warning: Unknown dependency format '$pkg' (use '@aztec-labs/pkg', '@aztec-foundation/pkg', or 'npm:pkg')" >&2
         fi
     done < <(yq eval '.dependencies[]' "$config_file")
 }

@@ -45,33 +45,22 @@ You should see:
 - Extension icon in the toolbar
 - "Service Worker" link under "Inspect views"
 
-## First Launch
+## First launch
 
 Click the extension icon to open the popup:
 
-1. You'll see the setup screen prompting you to create a master password
-2. Enter and confirm your password, then click "Create Wallet"
-3. Once the password is set, you'll be prompted to create your first account
-4. Enter an account alias (optional) and click "Create Account"
+1. On the "Welcome to Aztec Wallet" screen, enter a password (at least 8 characters), confirm it, and click "Continue"
+2. Under "Create Your First Account", enter an account name and click "Create Account"
 
-The account appears with status "Pending" (not deployed yet).
+The account appears with the status "Not Deployed".
 
-## Deploying an Account
+## Deploying an account
 
-To deploy the account contract:
+1. Click "Deploy Account"
+2. Wait for the transaction (it uses SponsoredFPC, so no tokens are needed)
+3. The status changes to "Deployed"
 
-1. The wallet should already be unlocked from the setup step above
-2. Click "Deploy" next to the account
-3. Wait for the transaction (uses SponsoredFPC, no tokens needed)
-4. Status changes to "Deployed"
-
-Check the console (Service Worker inspector) for logs:
-
-```text
-[offscreen] Initializing wallet...
-[offscreen] Wallet initialized
-[offscreen] Received message: deploy-account
-```
+If the deployment fails, the error appears above the "Deploy Account" button. See [Debugging](#debugging) for where to find the logs.
 
 ## Running the dApp
 
@@ -86,56 +75,29 @@ yarn dev
 
 Open `http://localhost:5173` in Chrome.
 
-## Connecting the Wallet
+## Connecting the wallet
 
-1. In the dApp, select network "Browser Wallet"
-2. Click "Connect Wallet"
-3. Choose "Browser Wallet"
+1. In the dApp, set **Network** to "Browser Wallet"
+2. The extension receives a **Connection Request** from `localhost:5173` and shows a badge. Open the popup and click "Connect"
+3. Back in the dApp, click "Connect to Aztec Tutorial Wallet"
+4. The dApp shows a grid of emojis, and the popup shows **Verify Connection** with the same emojis. If they match, click "Emojis Match"
+5. The popup then shows a **Capabilities Request** listing the permissions the dApp asks for. Click "Approve"
 
-The extension should:
-1. Show a badge with "1" (pending connection)
-2. When you click the icon, show the connection request
+The dApp now shows your account address and the game lobby.
 
-To approve:
-1. Click the extension icon
-2. Go to "Approvals" tab
-3. Review the origin (localhost:5173)
-4. Click "Connect"
+## Creating a game
 
-The dApp should now show your account address.
+In the dApp, click "Deploy Contract & Create Game". The popup shows a **Send Transaction** approval for each transaction: first the contract deployment, then `create_game`. Review the function calls and click "Approve" for each.
 
-## Deploying a Contract
+Each transaction takes a little while because the proof is generated in the extension (WASM) and then included in a block.
 
-In the dApp:
+## Playing the game
 
-1. Click "Deploy Pod Racing Contract"
-2. The extension shows a pending transaction
+1. Set the track sliders (the total must be less than 10) and click "Submit Allocation"
+2. Approve the `play_round` transaction in the popup
+3. The dApp moves on to the next round
 
-To approve:
-1. Click the extension icon
-2. Go to "Approvals" tab
-3. Review the transaction:
-   - From: your account address
-   - Method: sendTx
-   - Calls: contract deployment
-4. Click "Approve"
-
-Wait for the transaction to complete. This takes 30-60 seconds due to:
-- Proof generation (WASM)
-- Block confirmation
-
-## Playing the Game
-
-Once deployed:
-
-1. Click "Boost" in the dApp
-2. Approve the transaction in the extension
-3. Watch your pod accelerate!
-
-Each boost is a private transaction that:
-- Updates your pod's speed (private state)
-- Generates a ZK proof
-- Gets included in a block
+Each round is a private transaction: your allocation is stored as a private note, and only the round counter is public. To finish a game, a second player joins with the contract address and game ID shown in the dApp.
 
 ## Debugging
 
@@ -200,13 +162,13 @@ Complete test checklist:
 
 1. [ ] Build extension
 2. [ ] Load in Chrome
-3. [ ] Create account in popup
-4. [ ] Deploy account (SponsoredFPC)
-5. [ ] Start dApp
-6. [ ] Connect wallet (approve in popup)
-7. [ ] Verify account shows in dApp
-8. [ ] Deploy Pod Racing contract (approve in popup)
-9. [ ] Play game (approve boost transactions)
+3. [ ] Set a password and create an account in the popup
+4. [ ] Deploy the account (SponsoredFPC)
+5. [ ] Start the dApp
+6. [ ] Connect the wallet (approve the connection, emojis and capabilities in the popup)
+7. [ ] Verify the account address shows in the dApp
+8. [ ] Deploy the Pod Racing contract and create a game (approve in the popup)
+9. [ ] Submit a round (approve the `play_round` transaction)
 10. [ ] Check transactions in explorer
 
 ## Production Considerations

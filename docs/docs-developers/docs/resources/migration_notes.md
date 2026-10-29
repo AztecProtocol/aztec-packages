@@ -9,6 +9,23 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `generateSimulatedProvingResult` takes the tx's max expiration timestamp and an options object
+
+`generateSimulatedProvingResult` (exported from `@aztec-labs/pxe/simulator`) now takes the latest expiration timestamp the tx may publish as its fourth argument. For a tx that may be sent, compute it with `computeSimulatedMaxExpirationTimestamp`, so that the simulated expiry matches the proven one. The optional settings follow in an options object, which also accepts the wallet's `resolveExpirationAndPadding` hook.
+
+**Migration:**
+
+```diff
+- await generateSimulatedProvingResult(result, getFunctionName, node, minRevertibleSideEffectCounter);
++ await generateSimulatedProvingResult(
++   result,
++   getFunctionName,
++   node,
++   await computeSimulatedMaxExpirationTimestamp(result, node),
++   { minRevertibleSideEffectCounterOverride: minRevertibleSideEffectCounter },
++ );
+```
+
 ## 6.0.0
 
 ### [Aztec.nr] ECDSA note and protocol contract interfaces are published with aztec-nr

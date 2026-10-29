@@ -24,6 +24,8 @@ set -euo pipefail  # Added 'u' for undefined variable check, 'o pipefail' for pi
 # Get script directory and source shared config (early, for VALID_CLIS in usage text)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/cli_config.sh"
+# shellcheck source-path=SCRIPTDIR source=../lib/key_defaults.sh
+source "$SCRIPT_DIR/../lib/key_defaults.sh"
 
 # Parse arguments
 FORCE_MODE=false
@@ -207,9 +209,10 @@ EOF
 # Append markdown content (skip first line which is duplicate title)
 tail -n +2 "$TEMP_MD" >> "$TEMP_WITH_FRONTMATTER"
 
-key_defaults=$(grep -oE 'default: "0x[0-9a-fA-F]{64}"' "$TEMP_WITH_FRONTMATTER" | grep -vE '"0x0{64}"' || true)
+key_defaults=$(key_defaults_in_file "$TEMP_WITH_FRONTMATTER" "${CLI_COMMAND} reference")
 if [[ -n "$key_defaults" ]]; then
-  echo "Error: $(wc -l <<<"$key_defaults") option defaults in the ${CLI_COMMAND} help output look like private keys, read from the environment. Unset them and rerun." >&2
+  echo "Error: option defaults in the ${CLI_COMMAND} help output look like private keys, read from the environment. Unset them and rerun:" >&2
+  echo "$key_defaults" >&2
   exit 1
 fi
 

@@ -1,5 +1,5 @@
 // docs:start:vite-config
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import {
   type PolyfillOptions,
@@ -20,7 +20,13 @@ const nodePolyfillsFix = (options?: PolyfillOptions): Plugin => ({
   },
 });
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // process.env is only a shim in the browser, so substitute the node URL from .env (or the shell) at build time.
+  define: {
+    "process.env.AZTEC_NODE_URL": JSON.stringify(
+      loadEnv(mode, process.cwd(), "").AZTEC_NODE_URL ?? "",
+    ),
+  },
   plugins: [
     react(),
     nodePolyfillsFix({
@@ -57,5 +63,5 @@ export default defineConfig({
     // resolve from the webapp tutorial's node_modules.
     preserveSymlinks: true,
   },
-});
+}));
 // docs:end:vite-config

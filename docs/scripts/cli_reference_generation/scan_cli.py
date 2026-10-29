@@ -15,6 +15,7 @@ import argparse
 import os
 import time
 import random
+import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -45,6 +46,9 @@ class CLIScanner:
 
     def __init__(self, base_command: str = "aztec", cli_format: str = "auto",
                  max_workers: int = 1, timeout: int = 60):
+        # `aztec test --help` compiles the Noir workspace around its cwd (and starts a TXE) before it
+        # reads its arguments, so the help commands run in an empty directory.
+        self.workdir = tempfile.TemporaryDirectory(prefix="scan-cli-")
         self.base_command = base_command
         self.cli_format = cli_format
         self.max_workers = max_workers
@@ -94,7 +98,8 @@ class CLIScanner:
                     capture_output=True,
                     text=True,
                     timeout=self.timeout,
-                    env=env
+                    env=env,
+                    cwd=self.workdir.name
                 )
                 # Combine stdout and stderr as help can appear in either
                 output = result.stdout + result.stderr
@@ -115,6 +120,10 @@ class CLIScanner:
                 # Pattern matches: ESC[ followed by any number of digits/semicolons, ending with a letter
                 ansi_pattern = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
                 output = ansi_pattern.sub('', output)
+
+                # Defaults under the home directory print the generator's own path; readers have their own.
+                if env.get('HOME'):
+                    output = output.replace(env['HOME'], '~')
 
                 return output
             except subprocess.TimeoutExpired:

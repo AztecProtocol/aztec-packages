@@ -9,7 +9,7 @@ contracts:
   - recursive_verification_contract-ValueNotEqual
 
 # Dependencies:
-#   - @aztec-labs/* packages are auto-linked from yarn-project/
+#   - @aztec-labs/* and @aztec-foundation/* packages install at the versions docs/aztec-node.json pins
 #   - Use npm:package-name or npm:package-name@range for external npm packages
 dependencies:
   - "@aztec-labs/aztec.js"
@@ -18,7 +18,5 @@ dependencies:
   - "@aztec-labs/kv-store"
   - "@aztec-labs/pxe"
   - "@aztec-labs/noir-contracts.js"
-  # Published packages pinned to the toolchain's BB_VERSION (enforced by
-  # labs-aztec-toolchain/bootstrap.sh).
-  - "npm:@aztec-foundation/bb.js@6.0.0-rc.7"
-  - "npm:@aztec-foundation/noir-noir_js@6.0.0-rc.7"
+  - "@aztec-foundation/bb.js"
+  - "@aztec-foundation/noir-noir_js"

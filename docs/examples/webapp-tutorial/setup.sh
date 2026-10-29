@@ -31,6 +31,8 @@ node -e "
 "
 
 echo "Installing dependencies..."
+# Without its own lockfile, yarn 4 treats this directory as part of the docs/ workspace and refuses to install.
+[ -f yarn.lock ] || touch yarn.lock
 yarn install
 
 echo "Setup complete!"

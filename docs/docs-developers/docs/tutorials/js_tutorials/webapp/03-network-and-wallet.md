@@ -60,7 +60,7 @@ The `initialize` factory calls the inherited `create()` method, which sets up an
 
 ### Connecting a test account
 
-The local network ships with pre-deployed test accounts. These are Schnorr-signature accounts that are already registered and funded, so you can use them immediately without deploying a new account contract. The inherited `createSchnorrAccount` handles account creation, contract registration with PXE, and persistence in the wallet database. You select one by index (0, 1, 2, etc.).
+The local network ships with test accounts that are funded at genesis. They are initializerless Schnorr accounts, so you can use them immediately without deploying an account contract. The inherited `createSchnorrInitializerlessAccount` registers the account with PXE and persists it in the wallet database. You select one by index (0, 1, 2, etc.).
 
 #include_code connect-test-account /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 

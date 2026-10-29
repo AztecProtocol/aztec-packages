@@ -79,6 +79,15 @@ When you select "Local" network, the app renders a two-player split-screen on a 
 
 ## Troubleshooting
 
+### "SQLite worker crashed" when connecting an account
+
+Under `yarn dev`, Vite's dependency pre-bundling breaks the path to the PXE store's SQLite worker, so the in-browser PXE can't start. Run a production build instead and open `http://localhost:4173`:
+
+```bash
+yarn build
+yarn preview
+```
+
 ### "SharedArrayBuffer is not defined"
 
 `SharedArrayBuffer` is a browser API for shared memory between threads. Aztec's WASM proving engine (Barretenberg) uses it for multithreaded proof generation. It requires the `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers to be set, which the Vite config handles. Make sure you're using `yarn dev` (not opening the HTML file directly). Check `vite.config.ts`.

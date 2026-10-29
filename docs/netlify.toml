@@ -5,7 +5,7 @@
   # The aztec-docs-dev site builds this directory, but only deploy previews may build here:
   # docs.aztec.network is published by a `netlify deploy --no-build --prod` upload, which reads
   # neither key. `ignore` fails open (any non-zero exit builds), so `command` also fails.
-  # scripts/labs_docs_sync.sh check enforces this shape; never add branch-named contexts
+  # scripts/check_netlify_toml.py (docs/bootstrap.sh check) enforces this shape; never add branch-named contexts
   # ([context.<branch>]), which take precedence over [context.production].
   ignore = "exit 0"
   command = "exit 1"

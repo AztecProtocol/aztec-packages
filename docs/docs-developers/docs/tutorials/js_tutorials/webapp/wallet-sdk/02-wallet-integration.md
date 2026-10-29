@@ -1,21 +1,21 @@
 ---
 title: "2. Wallet Extension Integration"
 sidebar_position: 2
-description: "Build an Aztec wallet extension — handle discovery, manage sessions, route messages, and extend BaseWallet"
+description: "Build an Aztec wallet extension: handle discovery, manage sessions, route messages, and extend BaseWallet"
 references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
-# Wallet Extension Integration
+# Wallet extension integration
 
-This page is a reference for wallet extension developers. It walks through each component of the SDK integration — you don't need to follow it step-by-step. For the full source, see the [`test-extension/`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension) directory.
+This page is a reference for wallet extension developers. It walks through each component of the SDK integration; you don't need to follow it step-by-step. For the full source, see the [`test-extension/`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension) directory.
 
 ## What you'll learn
 
 - How to set up a **content script** that relays messages between a dApp page and the extension background
 - How to use `BackgroundConnectionHandler` to manage **discovery**, **ECDH key exchange**, and **encrypted sessions**
-- How to **route wallet method calls** — deciding which need user approval and which auto-execute
+- How to **route wallet method calls**: deciding which need user approval and which auto-execute
 - How to extend `BaseWallet` to implement your own **wallet methods** (accounts, transactions, fees)
-- How to handle **session lifecycle** — trusted origins, cleanup, and state persistence across service worker restarts
+- How to handle **session lifecycle**: trusted origins, cleanup, and state persistence across service worker restarts
 
 ## Overview
 
@@ -27,11 +27,11 @@ A wallet extension has three components that use the SDK:
 | Background service worker | `BackgroundConnectionHandler` | Manage sessions, route messages, trigger approvals |
 | Offscreen document | `BaseWallet` subclass | Execute wallet methods (sendTx, simulateTx, etc.) |
 
-## Content Script
+## Content script
 
-The content script is the simplest piece — it relays messages between the page and the background service worker, and never sees encryption keys. Create a `ContentScriptConnectionHandler` with a transport that provides `sendToBackground(message)` and `addBackgroundListener(handler)`, then call `handler.start()`. See [`test-extension/src/content-script.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/content-script.ts) for the full implementation.
+The content script is the simplest piece: it relays messages between the page and the background service worker, and never sees encryption keys. Create a `ContentScriptConnectionHandler` with a transport that provides `sendToBackground(message)` and `addBackgroundListener(handler)`, then call `handler.start()`. See [`test-extension/src/content-script.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/content-script.ts) for the full implementation.
 
-## Background Service Worker
+## Background service worker
 
 The background script is where most of the SDK integration happens.
 
@@ -41,9 +41,9 @@ Define your wallet's identity in a config object with `walletId`, `name`, `icon`
 
 ### Transport
 
-The background transport sends messages to content scripts via `chrome.tabs.sendMessage` and filters incoming messages — only discovery, key exchange, and encrypted wallet messages reach the handler (popup and storage proxy messages are filtered out). See the transport setup in [`test-extension/src/background.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/background.ts).
+The background transport sends messages to content scripts via `chrome.tabs.sendMessage` and filters incoming messages. Only discovery, key exchange, and encrypted wallet messages reach the handler (popup and storage proxy messages are filtered out). See the transport setup in [`test-extension/src/background.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/background.ts).
 
-### Handler Initialization
+### Handler initialization
 
 Create the handler with your config, transport, and callbacks:
 
@@ -63,10 +63,10 @@ Called when a dApp broadcasts a discovery request. You decide whether to show an
 #include_code callbacks /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 Key responsibilities:
-- **Stale session cleanup** — terminate sessions from the same tab (handles page refresh)
-- **Deduplication** — reject duplicate discoveries from the same tab
-- **Trusted origins** — auto-approve if the user previously connected to this origin
-- **Show UI** — open the popup for the user to approve new connections
+- **Stale session cleanup**: terminate sessions from the same tab (handles page refresh)
+- **Deduplication**: reject duplicate discoveries from the same tab
+- **Trusted origins**: auto-approve if the user previously connected to this origin
+- **Show UI**: open the popup for the user to approve new connections
 
 Call `handler.approveDiscovery(requestId)` to proceed with key exchange, or `handler.rejectDiscovery(requestId)` to deny.
 
@@ -83,7 +83,7 @@ Called when a dApp sends an encrypted wallet method call. Messages arriving befo
 
 #include_code on-wallet-message /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
-## Message Routing
+## Message routing
 
 The core routing logic decides which methods need user approval:
 
@@ -102,9 +102,9 @@ The approval matrix:
 | `registerContract` | No | Registers contract with PXE |
 | Everything else | No | Read-only or background operations |
 
-## Sending Responses
+## Sending responses
 
-Every wallet message must get a response. Use `handler.sendResponse()` — it encrypts and sends via the secure channel:
+Every wallet message must get a response. Use `handler.sendResponse()`, which encrypts and sends via the secure channel:
 
 ```typescript
 // Success response
@@ -132,7 +132,7 @@ The offscreen document hosts your wallet implementation. Extend `BaseWallet` to 
 
 #include_code wallet-instance /docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
-### What You Must Implement
+### What you must implement
 
 | Method | Purpose |
 |--------|---------|
@@ -140,10 +140,10 @@ The offscreen document hosts your wallet implementation. Extend `BaseWallet` to 
 | `getAccounts()` | Return all accounts (with aliases) |
 
 :::tip Custom Fee Payment
-`completeFeeOptions` has a default implementation that uses the sender's fee juice balance. Override it to inject a custom fee payment strategy (e.g., `SponsoredFPC`). The tutorial wallet overrides this — see [`test-extension/src/offscreen/offscreen.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts) for the implementation.
+`completeFeeOptions` has a default implementation that uses the sender's fee juice balance. Override it to inject a custom fee payment strategy (e.g., `SponsoredFPC`). The tutorial wallet overrides this; see [`test-extension/src/offscreen/offscreen.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts) for the implementation.
 :::
 
-### What BaseWallet Provides
+### What BaseWallet provides
 
 | Method | What it does |
 |--------|-------------|
@@ -156,18 +156,18 @@ The offscreen document hosts your wallet implementation. Extend `BaseWallet` to 
 | `getChainInfo()` | Returns chain ID and version |
 
 :::note
-`requestCapabilities()` is part of the `Wallet` interface but throws `"Not implemented"` in BaseWallet by default. The `BackgroundConnectionHandler` handles capability requests for extension wallets — see [Callbacks](#callbacks) above.
+`requestCapabilities()` is part of the `Wallet` interface but throws `"Not implemented"` in BaseWallet by default. The `BackgroundConnectionHandler` handles capability requests for extension wallets (see [Callbacks](#callbacks) above).
 :::
 
-### Dynamic Method Dispatch
+### Dynamic method dispatch
 
 The offscreen document handles all wallet methods dynamically using `WalletSchema` for type-safe argument parsing:
 
 #include_code wallet-method-handler /docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
-## Session Lifecycle
+## Session lifecycle
 
-### Trusted Origins
+### Trusted origins
 
 Store approved origins so returning users get auto-reconnected. When a trusted origin connects, the wallet:
 1. Auto-approves discovery (no popup)
@@ -177,29 +177,29 @@ Store approved origins so returning users get auto-reconnected. When a trusted o
 ### Cleanup
 
 Sessions are cleaned up when:
-- **Page refresh** — `onPendingDiscovery` terminates stale sessions from the same tab
-- **Tab closed** — `chrome.tabs.onRemoved` calls `handler.terminateForTab(tabId)`
-- **User disconnects** — popup sends `DISCONNECT_SESSION`, which also removes the origin from trusted origins
+- **Page refresh**: `onPendingDiscovery` terminates stale sessions from the same tab
+- **Tab closed**: `chrome.tabs.onRemoved` calls `handler.terminateForTab(tabId)`
+- **User disconnects**: popup sends `DISCONNECT_SESSION`, which also removes the origin from trusted origins
 
 The handler provides cleanup methods:
-- `handler.terminateSession(sessionId)` — end a specific session
-- `handler.terminateForTab(tabId)` — end all sessions for a tab
-- `handler.getPendingDiscoveries()` — list pending discovery requests
-- `handler.getActiveSessions()` — list active sessions
+- `handler.terminateSession(sessionId)`: end a specific session
+- `handler.terminateForTab(tabId)`: end all sessions for a tab
+- `handler.getPendingDiscoveries()`: list pending discovery requests
+- `handler.getActiveSessions()`: list active sessions
 
-## State Persistence
+## State persistence
 
-Service workers restart frequently. Use `chrome.storage.session` to persist critical state (like trusted origins) — it survives service worker restarts but clears when the browser closes.
+Service workers restart frequently. Use `chrome.storage.session` to persist critical state (like trusted origins), which survives service worker restarts but clears when the browser closes.
 
 :::note
-The `BackgroundConnectionHandler`'s internal state (active sessions, pending discoveries) is **not** persisted — sessions don't survive extension reloads. On restart, dApps will re-discover and reconnect. Trusted origin auto-approve makes this seamless.
+The `BackgroundConnectionHandler`'s internal state (active sessions, pending discoveries) is **not** persisted, so sessions don't survive extension reloads. On restart, dApps will re-discover and reconnect. Trusted origin auto-approve makes this seamless.
 :::
 
-## Extension Lifecycle
+## Extension lifecycle
 
 On install/update, clear pending state since sessions don't survive reloads. On startup, restore persisted state and preload the offscreen document to warm up WASM. See the lifecycle handlers in [`test-extension/src/background.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/background.ts).
 
 ## Next steps
 
-- [dApp Integration](./01-dapp-integration.md) — See how the other side connects to your wallet
-- [Wallet Extension Tutorial](../../wallet-extension/index.md) — Full step-by-step guide to building a wallet extension, including accounts, transactions, and approval UIs
+- [dApp integration](./01-dapp-integration.md): See how the other side connects to your wallet
+- [Wallet extension tutorial](../../wallet-extension/index.md): Full step-by-step guide to building a wallet extension, including accounts, transactions, and approval UIs

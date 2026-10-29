@@ -23,8 +23,14 @@ cd "$REPO_ROOT"
 
 # Source shared library for reference extraction
 source "$SCRIPT_DIR/lib/extract_doc_references.sh"
+# shellcheck source-path=SCRIPTDIR source=lib/aztec_node.sh
+source "$SCRIPT_DIR/lib/aztec_node.sh"
 
 DOCS_DIR="${1:-docs}"
+
+# labs/ references name aztec-node files at the pinned commit, so they are tested in its checkout;
+# the check refuses untracked files there, which would pass for deleted ones.
+require_aztec_node
 
 # Extract all reference file paths from markdown frontmatter
 # Expected format: references: ["path/from/repo/root/file.ts", "another/file.ts"]
@@ -48,6 +54,7 @@ MISSING_PATHS=""
 while IFS='|' read -r ref_path doc_file; do
   # Strip /* suffix for directory references before checking existence
   check_path="${ref_path%/\*}"
+  [[ "$check_path" != labs/* ]] || check_path="$AZTEC_NODE_DIR/${check_path#labs/}"
   if [[ ! -e "$check_path" ]]; then
     MISSING_PATHS="${MISSING_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
   fi

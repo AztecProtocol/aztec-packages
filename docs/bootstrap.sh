@@ -2,25 +2,27 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 repo_root=$(git rev-parse --show-toplevel)
-export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
-# Snippets under labs/ live in the submodule, which this repo's tree records only as a gitlink, so they
-# enter the hash through the gitlink and the patch series (.rebuild_patterns) instead.
+# Snippets under labs/ come from the aztec-node commit docs/aztec-node.json pins, which ^docs/ already keys.
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
     $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
 )
-[ -z "$(git -C "$repo_root/labs" status --porcelain)" ] || hash=disabled-cache
-# Released docs link snippets at their tag, so a release build never shares a cache entry with a dev build.
-# A tag of this repo is not a Labs version: releases set COMMIT_TAG (and LABS_REF) explicitly.
+# A release build renders its own versions and links this repository's files at DOCS_COMMIT, so it
+# never shares a cache entry with a dev build.
 # cache_content_hash hashes blob ids without their names, so the docs tree id keys renamed pages.
-hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" "$(git -C "$repo_root" rev-parse HEAD:labs)" \
-  "${COMMIT_TAG:-}" "${LABS_REF:-}")
+hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" \
+  "${COMMIT_TAG:-}" "${RELEASE_TYPE:-}" "${DOCS_COMMIT:-}")
+
+# Every function that reads aztec-node code fetches and checks the pinned checkout first, on a cache
+# hit too, since later steps read it (scripts/aztec_node.mts; a no-op without network when current).
+function fetch_aztec_node {
+  node scripts/aztec_node.mts fetch
+}
 
 function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
@@ -28,6 +30,7 @@ function build_docs {
     return
   fi
   echo_header "build docs"
+  fetch_aztec_node
   npm_install_deps
   if cache_download docs-$hash.tar.gz; then
     return
@@ -43,6 +46,7 @@ function check_generated_refs {
     return
   fi
   echo_header "check generated aztec.js reference"
+  fetch_aztec_node
   ./scripts/aztecjs_reference_generation/update_docs.sh --check
 }
 
@@ -62,6 +66,8 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
+  # The examples' test commands share one checkout and toolchain: install them before they run in parallel.
+  (cd examples && ./bootstrap.sh pin_toolchain)
   test_cmds | parallelize
 }
 
@@ -72,18 +78,6 @@ function check_orphaned_urls {
   # diff. The committed snapshot only grows the protected set for future PRs;
   # the check a PR must satisfy is the base-branch version it cannot edit.
   local snapshot=snapshots/published-urls.txt
-  # While docs/ tracks aztec-node (.labs-sync), the protected set is the one Labs published, which
-  # this repository cannot edit.
-  if [ -f .labs-sync ]; then
-    local labs_baseline
-    labs_baseline=$(mktemp)
-    # shellcheck disable=SC2064
-    trap "rm -f '$labs_baseline'" RETURN
-    git -C ../labs show "$(cat .labs-sync):docs/${snapshot}" >"$labs_baseline"
-    echo "Using aztec-node baseline ($(cat .labs-sync))."
-    FAIL_ON_ORPHAN=1 ./scripts/check_orphaned_urls.sh "$labs_baseline"
-    return
-  fi
   local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-next}}"
   base_ref="${base_ref#refs/heads/}"
   local tmp
@@ -127,8 +121,17 @@ function check_orphaned_urls {
   return $rc
 }
 
-function check_references {
-  echo_header "Check doc references"
+# The lasting docs checks, cheap enough for fast CI: they need neither labs/ nor an install.
+function check {
+  echo_header "docs checks"
+  fetch_aztec_node
+  node --test scripts/__tests__/*.test.mts
+  python3 -I scripts/check_netlify_toml.py --self-test
+  python3 -I scripts/check_netlify_toml.py netlify.toml
+  ./scripts/check_skills.sh --self-test
+  ./scripts/check_skills.sh
+  ./scripts/check_warnings.sh --self-test
+  ./scripts/check_cli_defaults.sh
   ./scripts/check_doc_references.sh docs
 }
 
@@ -144,14 +147,14 @@ case "$cmd" in
     check_generated_refs
     test
     check_orphaned_urls
-    check_references
+    check
     ;;
   "")
     build_examples
     build_docs
     check_generated_refs
     check_orphaned_urls
-    check_references
+    check
     ;;
   "hash")
     echo "$hash"

@@ -75,7 +75,7 @@ cast send $ROLLUP "initiateWithdraw(address,address)" $ATTESTER [RECIPIENT_ADDRE
 Choose the recipient carefully: it cannot be changed once set. Then [finalize](#finalize-the-withdrawal) once the delays have passed.
 
 :::note Older CLI versions
-Before v6.0.0, `aztec remove-l1-validator` and `aztec sequencers remove` had no `--recipient` flag and always named the attester's own address as the recipient. Do not use an older CLI to exit.
+Before v6.0.0, `aztec remove-l1-validator` had no `--recipient` flag and always named the attester's own address as the recipient. Do not use an older CLI to exit.
 :::
 
 ## Attester-initiated exit

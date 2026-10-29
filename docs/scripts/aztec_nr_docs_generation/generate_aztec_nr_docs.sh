@@ -13,7 +13,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-AZTEC_NR_DIR="$(cd "$DOCS_ROOT/../labs/noir-projects/aztec-nr" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=../lib/aztec_node.sh
+source "$SCRIPT_DIR/../lib/aztec_node.sh"
+require_aztec_node
+# nargo takes the topmost workspace above the current directory, which inside the checkout is
+# docs/Nargo.toml, so aztec-nr (git dependencies only) is documented from a copy outside docs/.
+BUILD_DIR=$(mktemp -d)
+trap 'rm -rf "$BUILD_DIR"' EXIT
+git -C "$AZTEC_NODE_DIR" archive --format=tar HEAD noir-projects/aztec-nr | tar -x -C "$BUILD_DIR"
+AZTEC_NR_DIR="$BUILD_DIR/noir-projects/aztec-nr"
 
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"
@@ -57,19 +65,27 @@ echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# An explicit NARGO wins over PATH: release cuts pin the toolchain of the version they document.
-if [[ -n "${NARGO:-}" ]] || ! command -v nargo &> /dev/null; then
-    NARGO="${NARGO:-$DOCS_ROOT/../noir/noir-repo/target/release/nargo}"
+# nargo must be the version the pinned aztec-node builds with: NARGO, else the provisioned one,
+# else PATH.
+PROVISION_FIX="run \`node scripts/aztec_node.mts provision nargo\` in docs/, or set NARGO"
+NOIR_VERSION=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).toolchain.noir)' \
+    "$DOCS_ROOT/aztec-node.json")
+if [[ -n "${NARGO:-}" ]]; then
     # Convert to absolute path (important since we cd to aztec-nr directory later)
-    if [[ "$NARGO" != /* ]]; then
+    if [[ "$NARGO" != /* && "$NARGO" == */* ]]; then
         NARGO="$(cd "$DOCS_ROOT" && cd "$(dirname "$NARGO")" && pwd)/$(basename "$NARGO")"
     fi
-    if [[ ! -x "$NARGO" ]]; then
-        echo_error "nargo not found. Please ensure nargo is installed or set NARGO environment variable."
-        exit 1
-    fi
-else
+elif [[ -x "$DOCS_ROOT/.aztec-node/bin/nargo" ]]; then
+    NARGO="$DOCS_ROOT/.aztec-node/bin/nargo"
+elif command -v nargo &> /dev/null; then
     NARGO="nargo"
+else
+    echo_error "nargo not found: $PROVISION_FIX."
+    exit 1
+fi
+if ! "$NARGO" --version 2> /dev/null | grep -qxF "nargo version = $NOIR_VERSION"; then
+    echo_error "$NARGO is not nargo $NOIR_VERSION, which the pinned aztec-node builds with: $PROVISION_FIX."
+    exit 1
 fi
 
 echo_info "Using nargo: $NARGO"
@@ -103,10 +119,6 @@ cp -r "$AZTEC_NR_DIR/target/docs/"* "$OUTPUT_DIR/"
 # Count files
 FILE_COUNT=$(find "$OUTPUT_DIR" -name "*.html" | wc -l)
 echo_info "Copied $FILE_COUNT HTML files to $OUTPUT_DIR"
-
-# Clean up generated artifacts in aztec-nr directory
-echo_info "Cleaning up build artifacts..."
-rm -rf "$AZTEC_NR_DIR/target/docs"
 
 echo_info "Documentation generation complete!"
 echo_info "Access at: /aztec-nr-api/$OUTPUT_FOLDER/index.html"

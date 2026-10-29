@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/aztec-labs-eng/aztec-node",
+  "ref": "v6.1.0-nightly.20261029",
+  "commit": "a6ca030427db42b5187ce983a92621c38b4380c0",
+  "toolchain": {
+    "aztec": "6.1.0-nightly.20261029",
+    "bb": "6.0.0-rc.7",
+    "noir": "1.0.0-rc.3",
+    "l1Artifacts": "6.0.0-rc.7"
+  }
+}

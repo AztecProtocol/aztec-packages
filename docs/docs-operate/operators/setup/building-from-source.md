@@ -65,20 +65,20 @@ Build the container image with all necessary compilation tools:
 
 ```bash
 cd build-images/src
-docker build --target build -t aztec-build-local:3.1 .
+docker build --target build -t aztec-build-local:3.2 .
 cd ../..
 ```
 
 :::tip
-The tag `aztec-build-local:3.1` avoids conflicts with the official Docker Hub image and clearly indicates this is a locally-built version.
+The tag `aztec-build-local:3.2` avoids conflicts with the official Docker Hub image and clearly indicates this is a locally-built version.
 :::
 
 **What this does:**
 - Builds the `build` stage from `build-images/src/Dockerfile`
-- Installs Node.js 24.12.0 from NodeSource repository
+- Installs Node.js 26.12.0 from NodeSource repository
 - Installs Clang 16, 18, and 20 from LLVM
 - Installs Rust 1.85.0 using the Rust toolchain installer with wasm32 targets
-- Downloads and installs WASI SDK 27 from GitHub releases
+- Downloads and installs WASI SDK 34 from GitHub releases
 - Installs Foundry v1.8.5 with foundryup
 - Installs CMake, Ninja, and other build essentials
 
@@ -91,10 +91,10 @@ After the build completes, inspect the image to verify its contents:
 
 ```bash
 # Run a shell in the container to explore
-docker run -it --rm aztec-build-local:3.1 /bin/bash
+docker run -it --rm aztec-build-local:3.2 /bin/bash
 
 # Check specific versions once inside:
-node --version        # Should show v24.12.0
+node --version        # Should show v26.12.0
 rustc --version       # Should show Rust 1.85.0
 clang-20 --version    # Should show clang 20.x
 forge --version       # Should show v1.8.5
@@ -112,7 +112,7 @@ Run the bootstrap script inside the build container to compile all source code:
 docker run --rm \
   -v $(pwd):/workspaces/aztec-node \
   -w /workspaces/aztec-node \
-  aztec-build-local:3.1 \
+  aztec-build-local:3.2 \
   ./bootstrap.sh full
 ```
 
@@ -215,7 +215,7 @@ If all checks pass, your image is ready to use.
 
 ### Build image fails
 
-**Issue**: Errors during Step 3 when building `aztec-build-local:3.1`.
+**Issue**: Errors during Step 3 when building `aztec-build-local:3.2`.
 
 **Solutions**:
 - Verify you're in the `build-images/src` directory
@@ -237,7 +237,7 @@ If all checks pass, your image is ready to use.
 **Issue**: Errors during `./bootstrap.sh` in Step 4.
 
 **Solutions**:
-- Verify you're using the correct build image: `aztec-build-local:3.1`
+- Verify you're using the correct build image: `aztec-build-local:3.2`
 - Confirm you checked out a valid release tag (not a branch)
 - Retry the build—the bootstrap script is incremental and resumes where it left off
 - Review error messages for specifics—missing dependencies should not occur in the build container
@@ -289,8 +289,8 @@ docker run --rm aztec-local:#release_version --version
 To save time, skip Step 3 and pull the pre-built image from Docker Hub, then tag it locally:
 
 ```bash
-docker pull aztecprotocol/build:3.1
-docker tag aztecprotocol/build:3.1 aztec-build-local:3.1
+docker pull aztecprotocol/build:3.2
+docker tag aztecprotocol/build:3.2 aztec-build-local:3.2
 ```
 
 This approach is faster but requires trusting the published image. The official image is built from the same `build-images/src/Dockerfile`.
@@ -299,7 +299,7 @@ This approach is faster but requires trusting the published image. The official 
 
 To build without Docker, install all build dependencies locally and run `./bootstrap.sh` directly:
 
-- Install all toolchains from the build image (Node.js 24, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
+- Install all toolchains from the build image (Node.js 26, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
 - Run `bootstrap.sh check` to verify your environment
 - See `build-images/README.md` for details
 

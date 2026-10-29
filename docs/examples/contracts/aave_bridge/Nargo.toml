@@ -3,6 +3,6 @@ name = "aave_bridge"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../labs/noir-projects/aztec-nr/aztec" }
-token_portal_content_hash_lib = { path = "../../../../labs/noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
-token = { path = "../../../../labs/noir-projects/noir-contracts/contracts/app/token_contract" }
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }
+token_portal_content_hash_lib = { path = "../../../.aztec-node/tree/noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
+token = { path = "../../../.aztec-node/tree/noir-projects/noir-contracts/contracts/app/token_contract" }
