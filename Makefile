@@ -516,11 +516,9 @@ labs-bench: labs-use-local
 # Docs
 #==============================================================================
 
-# The docs snippets, generators and examples read the labs yarn-project. Under full, labs-full
-# builds it in its one sub-make; a second sub-make would rebuild it under labs-full's running tests.
-DOCS_LABS_DEP := $(if $(filter full full-labs,$(MAKECMDGOALS)),labs-full,labs-yarn-project)
-
-docs: $(DOCS_LABS_DEP) bb-cpp-native noir
+# The docs read aztec-node through the commit docs/aztec-node.json pins, and their examples build with
+# that commit's published toolchain, so nothing in this tree is a prerequisite.
+docs:
 	$(call build,$@,docs)
 
 docs-tests: docs
