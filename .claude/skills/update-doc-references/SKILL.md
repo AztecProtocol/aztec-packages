@@ -118,9 +118,8 @@ If documentation updates are needed, edit this repository's source docs (`docs/d
 4. Do not make cosmetic changes unrelated to the code changes.
 5. Do not add or remove sections unless required by the code change.
 6. Update code examples if the API changed; a path in `#include_code` or `references` keeps
-   its `labs/` prefix. Until `docs/examples/` builds from the published toolchain, it
-   compiles against the Foundation's `labs/` gitlink (`git rev-parse HEAD:labs`), not the
-   pin, while snippets quote the pin: an example may only use APIs present at both.
+   its `labs/` prefix. `docs/examples/` builds with the pin's published toolchain, so after a
+   pin move run `docs/examples/bootstrap.sh` to compile and type-check them at the new pin.
 7. Correct explanations if behavior changed.
 
 Then run `docs/scripts/check_doc_references.sh`, which checks `labs/` references in the

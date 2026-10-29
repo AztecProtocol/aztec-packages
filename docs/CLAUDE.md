@@ -60,7 +60,7 @@ The aztec-node (Labs) code the docs quote is the commit `aztec-node.json` pins, 
 - Snippet and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit.
 - `node scripts/aztec_node.mts check` fails on any drift: a checkout at another commit or with edited files, toolchain versions that differ from the tag's, or an l1-artifacts version in `package.json` that differs from the pin.
 - Move the pin with `node scripts/aztec_node.mts pin <tag>` (a release or nightly tag), never by hand; then set `@aztec-foundation/l1-artifacts` to the version `check` names, run `yarn install`, and commit `aztec-node.json` with `package.json` and `yarn.lock`.
-- Tools that need nargo or bb use the pinned published binaries: `node scripts/aztec_node.mts provision nargo bb`, then `eval "$(node scripts/aztec_node.mts env)"` exports `NARGO`, `BB` and the versions. Never run nargo inside `docs/` or the checkout: it takes `docs/Nargo.toml` as its workspace.
+- Tools that need nargo, bb or the aztec CLI use the pinned published ones: `node scripts/aztec_node.mts provision nargo bb cli`, then `eval "$(node scripts/aztec_node.mts env)"` exports `NARGO`, `BB`, `AZTEC` and the versions. Never run nargo inside `docs/` or the checkout: it takes `docs/Nargo.toml` as its workspace.
 - A release cut moves the pin to the release tag in its own worktree only (`/release-docs`, `/release-network-docs`); the dev docs keep their pin.
 
 ### Preprocessing Environment Variables
@@ -182,12 +182,12 @@ The `examples/` directory contains runnable code examples that are included in d
 
 The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its version in `package.json` must equal `toolchain.l1Artifacts` in `aztec-node.json` (the pinned aztec-node's `BB_VERSION`); `node scripts/aztec_node.mts check` fails until both move together.
 
-Until the examples build from the published toolchain, `examples/bootstrap.sh` compiles and type-checks them against the Foundation's `labs/` gitlink, not the pin, while snippets quote the pin. A new or edited example may only use APIs present at both (`git rev-parse HEAD:labs` names the gitlink's aztec-node commit).
+The examples build with the pin's published toolchain, the same code the snippets quote: `examples/bootstrap.sh` provisions nargo, bb and the aztec CLI (`@aztec-labs/aztec`) at the pinned versions, the contracts' Nargo path dependencies point into the default checkout (`.aztec-node/tree`; an `AZTEC_NODE_DIR` override never applies to them), and the TS examples install `@aztec-labs/*` at `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION` from npm.
 
 **Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
 
 - **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
-- **Local**: Start a sandbox manually, then run `examples/ts/aztecjs_runner/run.sh`
+- **Local**: Start a sandbox manually, provision the pinned CLI and export the pin (see "aztec-node code: the pin"), then run `examples/ts/aztecjs_runner/run.sh`
 - **`AZTEC_NODE_URL`**: All example `index.ts` files and `run.sh` use this env var (defaults to `http://localhost:8080`). In Docker Compose, it points to `http://local-network:8080`.
 
 When adding new TypeScript examples:

@@ -64,11 +64,11 @@ paste the key into the conversation or onto a command line.
   requires (`include_code.js` refuses to preprocess a `RELEASE_TYPE` other than `nightly`
   without it). The cut never changes `docs/examples/`, so those links show the lines the
   snapshot quotes.
-- **Examples build from `labs/` for now.** Until `docs/examples/` builds from the published
-  toolchain, `docs/examples/bootstrap.sh` compiles and type-checks the examples against
-  the Foundation's `labs/` gitlink, not the pin, while snippets quote the pin: an example
-  may only use APIs present at both, and the cut cannot build the examples at the tag
-  (Step 15).
+- **Examples build from the pin.** `docs/examples/bootstrap.sh` builds them with the pin's
+  published toolchain against the default checkout, `docs/.aztec-node/tree`, which their
+  Nargo.toml path dependencies name; it ignores `AZTEC_NODE_DIR`. In the cut that is a
+  second checkout of the tag's commit, so the examples the snapshot quotes build and run
+  at the tag (Step 15).
 - **State** lives in `~/.cache/aztec-docs-cut/v<new_version>/`: `env.sh` (sourced by every
   command block from Step 2 on, since shell state does not carry over between commands),
   the worktree, the CLI's home, the local network and logs.
@@ -984,13 +984,22 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    `$AZTEC_NODE_URL` in place of its `localhost` URLs. Record drift: renamed commands,
    changed flags, stale addresses, different output.
 
-4. **The Aztec.js examples: skipped until they build from the published toolchain.**
-   `docs/examples/` builds and runs against the Foundation's `labs/` gitlink (Release
-   model), which the cut neither initializes nor moves to the tag, so the cut cannot run
-   the examples the snapshot quotes against the release. Report this step as skipped, with
-   that reason, and name the gitlink's aztec-node version CI validated them at
-   (`git -C "$DEST_ROOT" rev-parse "$DEST:labs"`). When the examples build from the pin,
-   this step runs them in the cut against the local network, at the cut's pin.
+4. **Build and run the Aztec.js examples at the tag**, in the cut, against the local network:
+
+   ```bash
+   . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && . "$STATE/network.env" && cd "$CUT/docs"
+   examples/bootstrap.sh compile
+   TXE_PORT=<a free port> examples/bootstrap.sh test-contracts
+   docs_env examples/ts/aztecjs_runner/run.sh
+   ```
+
+   `examples/bootstrap.sh` provisions the tag's nargo, bb and CLI and fetches its commit into
+   `$CUT/docs/.aztec-node/tree` (Release model), so the contracts compile and their TXE tests
+   run at the tag. `run.sh` installs the tag's packages into each example and runs it
+   against `$AZTEC_NODE_URL`. The examples are the destination's: a failure here means the
+   snapshot quotes code that does not work at the release. Report it with the example and
+   the error. Never edit `docs/examples/` in the cut (Step 17 refuses it): a fix that also
+   holds at the destination's pin lands on `next` first, and the cut restarts.
 
 5. **Stop the network**, which kills only its process group and releases its ports:
 
@@ -1250,8 +1259,8 @@ Apart from the header's date, the diff only adds URLs. Pushing it is the owner's
   drift (Step 8b). CI only protects `#include_code` snippets and `docs/examples/`.
 - **Check the content against the tag after cutting** (Step 12): the pages follow the
   destination's pin, which may be ahead of the release.
-- **Functionally validate before shipping**: guides and tutorials against a local network
-  of the release (Step 15).
+- **Functionally validate before shipping**: guides, tutorials and the examples against a
+  local network of the release (Step 15).
 - **User confirmation required** before deleting versioned docs and before adding
   migration notes.
 - **Changes land on the destination as one commit** that names the release inputs; the
