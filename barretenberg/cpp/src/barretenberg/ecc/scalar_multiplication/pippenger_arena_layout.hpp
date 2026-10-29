@@ -286,6 +286,19 @@ template <typename Curve> struct PerWorkerArenaLayout {
     return (global_max_chunk_len + subchunk_entries_cap - 1) / subchunk_entries_cap;
 }
 
+// Per-worker Stage 6a tree-reduce scratch capacity (`curr_pts` / `curr_buckets` entries). The
+// scratch holds either one sub-chunk's reduce_chunk input (up to `subchunk_entries_cap`) or the
+// end-of-window overflow merge, where each affected slot contributes its dense head plus at least
+// one overflow entry (up to 2 × overflow). The sizer, the windows-per-batch budget, and the live
+// allocation all take this capacity so the layouts they walk agree.
+[[nodiscard]] inline size_t compute_tree_reduce_capacity(size_t n,
+                                                         size_t num_threads,
+                                                         size_t subchunk_entries_cap) noexcept
+{
+    return std::max(subchunk_entries_cap,
+                    2 * compute_global_max_overflow_per_window(n, num_threads, subchunk_entries_cap));
+}
+
 // Per-window byte cost for one window in a windows-per-batch slab. Identical formula
 // at three sites (sizer outer, sizer per-schedule lambda, live allocator); centralised
 // here so they cannot drift.
@@ -337,17 +350,18 @@ struct PhaseACaps {
     return { std::min(DEDUP_MAX_MEMBERS, n), (DEDUP_MAX_CLUSTERS / num_threads) + 2 };
 }
 
-// Solve `wpb · per_window_bytes ≤ available_budget`, clamped to W_R and ≥ 1.
-// Mirrors the three identical wpb-pickers in the sizer and live allocator.
+// Solve `wpb · per_window_bytes ≤ available_budget`, clamped to [1, W_R]. Shared by the sizer and
+// the live allocator. An exhausted budget (fixed overhead ≥ BATCH_MEM_BUDGET) yields one window
+// per batch, the smallest arena, so wpb never grows as the budget shrinks.
 [[nodiscard]] inline size_t solve_wpb(size_t per_window_bytes, size_t available_budget, size_t W_R) noexcept
 {
     if (W_R == 0) {
         return 1;
     }
-    if (per_window_bytes == 0 || available_budget == 0) {
-        return std::max<size_t>(1, W_R);
+    if (per_window_bytes == 0) {
+        return W_R;
     }
-    return std::min(std::max<size_t>(1, available_budget / per_window_bytes), W_R);
+    return std::clamp<size_t>(available_budget / per_window_bytes, 1, W_R);
 }
 
 } // namespace bb::scalar_multiplication::round_parallel_detail
