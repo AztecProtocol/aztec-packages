@@ -9,10 +9,12 @@ When source files referenced by documentation change, analyze the changes and up
 affected documentation if needed.
 
 The docs live in this repository's `docs/`. Most of the code they document is aztec-node's,
-checked out here as `labs/`. A page's frontmatter `references` names paths from this
-repository's root: `labs/<path in aztec-node>` for Labs code, plain paths for this
-repository's own files (`docs/examples/...`). A reference ending in `/*` covers every file
-under that directory.
+at the commit `docs/aztec-node.json` pins, read through a checkout of it
+(`docs/.aztec-node/tree`, or `$AZTEC_NODE_DIR`) that `node docs/scripts/aztec_node.mts
+fetch` keeps. A page's frontmatter `references` names paths from this repository's root:
+`labs/<path in aztec-node>` for Labs code, where the `labs/` prefix names that checkout and
+never the `labs/` submodule, and plain paths for this repository's own files
+(`docs/examples/...`). A reference ending in `/*` covers every file under that directory.
 
 ## Workflow
 
@@ -38,17 +40,23 @@ gh pr diff <PR_NUMBER> --repo <REPO>
 An aztec-node PR names paths from aztec-node's root: prefix them with `labs/` to compare
 them with `references`.
 
-When the change is a move of the `labs/` pin rather than a PR (for example
-`labs-patches/bootstrap.sh bump`), take it from the two gitlinks. Both commits must be in
-the shallow clone; a two-commit diff needs no history between them:
+When the change is a move of the docs' pin rather than a PR (`node
+docs/scripts/aztec_node.mts pin <tag>`), take it from the two pin commits, fetched into the
+checkout. A two-commit diff needs no history between them:
 
 ```bash
-old=$(git rev-parse "$(git merge-base origin/next HEAD):labs")
-new=$(git rev-parse HEAD:labs)
-git -C labs fetch --depth 1 origin "$old" "$new"
-git -C labs diff --name-only "$old" "$new" | sed 's|^|labs/|'
-git -C labs diff "$old" "$new" -- <path without labs/>
+cd "$(git rev-parse --show-toplevel)/docs"
+old=$(git show "$(git merge-base origin/next HEAD):docs/aztec-node.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
+new=$(node -p 'require("./aztec-node.json").commit')
+node scripts/aztec_node.mts fetch && pin=$(node scripts/aztec_node.mts env) || exit 1
+eval "$pin"
+git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
+git -C "$AZTEC_NODE_DIR" diff --name-only "$old" "$new" | sed 's|^|labs/|'
+git -C "$AZTEC_NODE_DIR" diff "$old" "$new" -- <path without labs/>
 ```
+
+The pin file also names the toolchain: when `bb`, `noir` or `l1Artifacts` moved, say so in
+the report, since the examples and the Solidity snippets follow them.
 
 ### Step 3: Identify Affected Documentation
 
@@ -101,7 +109,7 @@ Changes that typically do NOT require doc updates:
 ### Step 5: Make Updates
 
 If documentation updates are needed, edit this repository's source docs (`docs/docs-*` and
-`docs/docs/`), never a versioned snapshot and never `labs/`:
+`docs/docs/`), never a versioned snapshot, the checkout or `labs/`:
 
 1. Make precise, minimal changes with the Edit tool.
 2. Only modify content directly affected by the code changes.
@@ -109,11 +117,18 @@ If documentation updates are needed, edit this repository's source docs (`docs/d
 4. Do not make cosmetic changes unrelated to the code changes.
 5. Do not add or remove sections unless required by the code change.
 6. Update code examples if the API changed; a path in `#include_code` or `references` keeps
-   its `labs/` prefix.
+   its `labs/` prefix. Until `docs/examples/` builds from the published toolchain, it
+   compiles against the Foundation's `labs/` gitlink (`git rev-parse HEAD:labs`), not the
+   pin, while snippets quote the pin: an example may only use APIs present at both.
 7. Correct explanations if behavior changed.
 
-Then run `docs/scripts/check_doc_references.sh` (it must print `All referenced paths
-exist.`) and, from `docs/`, `yarn spellcheck`.
+Then run `docs/scripts/check_doc_references.sh`, which checks `labs/` references in the
+pinned checkout (run `node docs/scripts/aztec_node.mts fetch` first; it must print `All
+referenced paths exist.`), and, from `docs/`, `yarn spellcheck`. An aztec-node PR newer
+than the pin is not in the checkout yet, so an edit that quotes its code (a new
+`#include_code` marker, a moved file in `references`) fails until the pin includes it:
+make such edits together with the pin move, or report them, rather than editing them to
+pass.
 
 ### Step 6: Commit on a Branch
 
