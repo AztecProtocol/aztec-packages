@@ -15,8 +15,9 @@ services:
     volumes:
       - ../../../:/root/aztec-node
       - ${HOME}/.bb-crs:/root/.bb-crs
-    working_dir: /root/aztec-node/labs/yarn-project/aztec
-    command: 'node ./dest/bin start --local-network'
+    # The pinned CLI that docs/scripts/aztec_node.mts provisions into docs/.aztec-node/cli.
+    working_dir: /root/aztec-node/docs/.aztec-node/cli/node_modules/@aztec-labs/aztec
+    command: 'node ./dest/bin/index.js start --local-network'
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOSTS: http://fork:8545
@@ -44,6 +45,8 @@ services:
       FORCE_COLOR: ${FORCE_COLOR:-1}
       AZTEC_NODE_URL: http://local-network:8080
       ETHEREUM_HOST: http://fork:8545
+      AZTEC_VERSION: ${AZTEC_VERSION:?}
+      BB_VERSION: ${BB_VERSION:?}
     entrypoint: >
       bash -c '
         while ! nc -z local-network 8080; do sleep 1; done;

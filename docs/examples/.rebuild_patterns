@@ -1,4 +1,6 @@
 ^docs/examples/
+^docs/aztec-node.json
+^docs/scripts/aztec_node.mts
 ^docs/package.json
 ^docs/yarn.lock
-^labs-patches/
+^docs/.yarnrc.yml

@@ -4,27 +4,48 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Get repo root for absolute paths
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
-export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
-# Labs scripts derive their own ci3 root, so their hashes are taken through labs_env.sh. In foundation
-# mode the labs toolchain hash is the content hash of this tree's providers (labs-aztec-toolchain/fnd-hashes).
-AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$("$REPO_ROOT/scripts/labs_env.sh" ./labs-aztec-toolchain/bootstrap.sh hash)}
-AZTEC_NR_HASH=${AZTEC_NR_HASH:-$("$REPO_ROOT/scripts/labs_env.sh" ./noir-projects/aztec-nr/bootstrap.sh hash)}
-export AZTEC_TOOLCHAIN_HASH AZTEC_NR_HASH
+# The examples build with the published toolchain docs/aztec-node.json pins. Their Nargo.toml path
+# dependencies name the default checkout (docs/.aztec-node/tree), so an AZTEC_NODE_DIR override never applies.
+unset AZTEC_NODE_DIR
 
 # Safety net: ensure all TS example yarn.lock files are empty on exit.
 # Both validate-ts and execute-examples (via Docker volume mount) can populate
 # these files, and their per-project cleanup may not run if processes are killed.
 trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
-# The examples read the labs yarn-project and aztec-nr, which this tree records only as the labs gitlink.
-hash=$(hash_str \
-  $AZTEC_TOOLCHAIN_HASH \
-  $(git -C "$REPO_ROOT" rev-parse HEAD:labs) \
-  $(cache_content_hash .rebuild_patterns))
+# The pin names the aztec-node commit and every toolchain version, so it keys the examples.
+hash=$(cache_content_hash .rebuild_patterns)
+
+# Fetches the pinned checkout, installs the pinned nargo, bb and aztec CLI, and exports NARGO, BB, AZTEC
+# and the versions. Each step is a local check when already current, so concurrent test commands only read.
+function pin_toolchain {
+  local tool="$REPO_ROOT/docs/scripts/aztec_node.mts" pin
+  node "$tool" fetch
+  node "$tool" provision nargo bb cli
+  pin=$(node "$tool" env)
+  eval "$pin"
+}
+
+# Compiles one example contract (a path under docs/) as aztec-nr compiles its own: nargo with the same
+# checks, then bb transpiles the public functions and adds verification keys. `aztec compile` would skip
+# a package whenever target/ already holds a newer artifact of another one, so it is not used here.
+function compile_contract {
+  set -euo pipefail
+  local dir=$1 package contract json
+  package=$(sed -n -E 's/^name *= *"([^"]+)".*/\1/p' "$dir/Nargo.toml")
+  contract=$(awk '/^contract / { print $2 } /^pub contract / { print $3 }' "$dir/src/main.nr")
+  json=target/$package-$contract.json
+  "$NARGO" compile --package "$package" --inliner-aggressiveness 0 \
+    --skip-underconstrained-check --skip-brillig-constraints-check --deny-warnings
+  "$BB" aztec_process -i "$json"
+  jq --arg v "$AZTEC_VERSION" '.aztec_version = $v' "$json" >"$json.tmp"
+  mv "$json.tmp" "$json"
+}
+export -f compile_contract
 
 function compile-circuits {
   echo_header "Compiling vanilla Noir circuits"
+  pin_toolchain
   local CIRCUITS_DIR="$REPO_ROOT/docs/examples/circuits"
 
   if [ ! -d "$CIRCUITS_DIR" ]; then
@@ -52,6 +73,7 @@ function compile-circuits {
 
 function compile {
   echo_header "Compiling example contracts"
+  pin_toolchain
   local CONTRACTS_DIR="$REPO_ROOT/docs/examples/contracts"
 
   if [ ! -d "$CONTRACTS_DIR" ]; then
@@ -78,11 +100,11 @@ function compile {
     done
   fi
 
-  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/).
-  # Pass only contract packages so circuits in the shared docs workspace are not
-  # treated as contract artifacts by the noir-contracts bootstrap.
-  DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/labs/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
+  # nargo resolves packages from the docs/ workspace, so it runs there.
+  (
+    cd "$REPO_ROOT/docs"
+    parallel -j"${PARALLELISM:-4}" --halt now,fail=1 --line-buffer --tag compile_contract examples/{} ::: "${contracts[@]}"
+  )
 }
 
 function compile-solidity {
@@ -129,17 +151,16 @@ function compile-solidity {
 
 function validate-ts {
   echo_header "Validating TypeScript examples"
+  pin_toolchain
   (cd ts && ./bootstrap.sh "$@")
 }
 
 function validate-webapp-tutorial {
   echo_header "Validating webapp-tutorial build"
+  pin_toolchain
   local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
   local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-  local BUILDER_CLI="$REPO_ROOT/labs/yarn-project/builder/dest/bin/cli.js"
-  local YP="$REPO_ROOT/labs/yarn-project"
 
-  # Compile the pod_racing_contract (uses existing compile infrastructure)
   compile webapp-tutorial/contracts
 
   (
@@ -160,170 +181,16 @@ function validate-webapp-tutorial {
 
     # Start from a fresh node_modules / lock so we don't reuse state from
     # a previous run that may have been interrupted mid-cleanup.
-    # A yarn.lock is required to mark this directory as a standalone yarn
-    # project; otherwise yarn 4 walks up to docs/ and refuses to install
-    # because webapp-tutorial isn't listed as a workspace there.
-    # Seed it with yarn-project's lockfile so the linked packages' npm deps
-    # resolve to the versions yarn-project already locks. Resolving them fresh
-    # can pick a release whose sibling packages are still inside the
-    # npmMinimalAgeGate window and fail the install.
-    rm -rf node_modules .yarn .yarnrc.yml
-    cp "$YP/yarn.lock" yarn.lock
+    rm -rf node_modules .yarn .yarnrc.yml yarn.lock
 
-    # Replace #include_aztec_version with link: paths to local workspace
-    # packages. link: does not install workspace transitive deps, so add the
-    # local @aztec dependency closure that published npm packages would bring in.
-    echo_stderr "Linking local @aztec packages..."
-    REPO_ROOT="$REPO_ROOT" YP="$YP" node <<'NODE'
-      const fs = require('fs');
-      const path = require('path');
-
-      const repoRoot = process.env.REPO_ROOT;
-      const yp = process.env.YP;
-      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-      const packageDirs = new Map();
-
-      // Workspace packages are @aztec-labs; the foundation packages yarn-project pins
-      // (bb.js, wsdb, noir-*, ...) are @aztec-foundation, and @aztec still holds the viem
-      // fork. All three are "ours" for linking purposes.
-      const isAztecScoped = name =>
-        name.startsWith('@aztec/') || name.startsWith('@aztec-labs/') || name.startsWith('@aztec-foundation/');
-
-      function addPackageDir(dir) {
-        const pkgPath = path.join(dir, 'package.json');
-        if (!fs.existsSync(pkgPath)) return;
-        const manifest = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-        if (manifest.name && isAztecScoped(manifest.name)) {
-          packageDirs.set(manifest.name, dir);
-        }
-      }
-
-      for (const base of [yp, path.join(repoRoot, 'barretenberg/ts')]) {
-        if (!fs.existsSync(base)) continue;
-        addPackageDir(base);
-        for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
-          if (entry.isDirectory()) addPackageDir(path.join(base, entry.name));
-        }
-      }
-
-      // yarn-project pins the packages built outside it (e.g. @aztec-foundation/bb.js,
-      // @aztec-foundation/ipc-runtime, @aztec-foundation/wsdb, @aztec-foundation/noir-*) to published npm versions via
-      // its root resolutions. Workspace manifests declare those with placeholder
-      // versions that only the resolutions rewrite, so mirror the pins here: consume
-      // them from npm at the pinned version, never link them. Path-based entries
-      // (portal:/file:) still resolve to local dirs for the closure walk.
-      const rootManifest = JSON.parse(fs.readFileSync(path.join(yp, 'package.json'), 'utf8'));
-      const npmPins = new Map();
-      for (const [name, ver] of Object.entries(rootManifest.resolutions || {})) {
-        if (!isAztecScoped(name)) continue;
-        const m = /^(portal:|file:)(.*)$/.exec(String(ver));
-        if (m) addPackageDir(path.resolve(yp, m[2]));
-        else npmPins.set(name, String(ver));
-      }
-
-      function setLinkedDependency(name, dir) {
-        let replaced = false;
-        for (const section of ['dependencies', 'devDependencies']) {
-          if (pkg[section]?.[name]) {
-            pkg[section][name] = 'link:' + dir;
-            replaced = true;
-          }
-        }
-        if (!replaced) {
-          pkg.dependencies ??= {};
-          pkg.dependencies[name] = 'link:' + dir;
-        }
-      }
-
-      function addNpmDependency(name, ver) {
-        if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) return;
-        ver = String(ver);
-        if (ver.startsWith('workspace:') || ver.startsWith('portal:') || ver.startsWith('file:')) return;
-        pkg.dependencies ??= {};
-        pkg.dependencies[name] = ver;
-      }
-
-      function registerLocalDependency(ownerDir, dep, ver) {
-        if (!isAztecScoped(dep)) return false;
-        ver = String(ver);
-
-        if (ver.startsWith('workspace:')) {
-          return packageDirs.has(dep);
-        }
-
-        if (ver.startsWith('portal:') || ver.startsWith('file:')) {
-          addPackageDir(path.resolve(ownerDir, ver.replace(/^(portal:|file:)/, '')));
-          return packageDirs.has(dep);
-        }
-
-        return false;
-      }
-
-      const queue = [];
-      const queued = new Set();
-      for (const section of ['dependencies', 'devDependencies']) {
-        for (const [name, ver] of Object.entries(pkg[section] || {})) {
-          if (ver === '#include_aztec_version' && isAztecScoped(name)) {
-            if (npmPins.has(name)) {
-              pkg[section][name] = npmPins.get(name);
-            } else {
-              queue.push(name);
-              queued.add(name);
-            }
-          }
-        }
-      }
-
-      for (let i = 0; i < queue.length; i++) {
-        const name = queue[i];
-        const dir = packageDirs.get(name);
-        if (!dir) {
-          throw new Error(`Could not find local package for ${name}`);
-        }
-        setLinkedDependency(name, dir);
-
-        const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-        for (const section of ['dependencies', 'peerDependencies']) {
-          for (const [dep, ver] of Object.entries(manifest[section] || {})) {
-            // Pinned packages always come from npm at the pinned version, matching
-            // how yarn-project's own resolutions rewrite them; the declared version
-            // is a placeholder and a local dir (if any) is not what workspaces use.
-            if (npmPins.has(dep)) {
-              if (section === 'dependencies') addNpmDependency(dep, npmPins.get(dep));
-              continue;
-            }
-            // Link any @aztec dep we have a local dir for — either resolved by
-            // version (workspace:/portal:/file:) or discovered as a local portal
-            // in the root resolutions above. Otherwise it's a published npm dep.
-            const localByDir = isAztecScoped(dep) && packageDirs.has(dep);
-            if (!queued.has(dep) && (registerLocalDependency(dir, dep, ver) || localByDir)) {
-              queue.push(dep);
-              queued.add(dep);
-            } else if (section === 'dependencies') {
-              addNpmDependency(dep, ver);
-            }
-          }
-        }
-      }
-
-      fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-NODE
-
-    # Fresh yarn setup for linking
-    yarn config set nodeLinker node-modules
-    # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
-    # from a seed yarn.lock that this install rewrites, so disable that.
+    # The tutorial's own setup installs the published packages a reader gets, at the pinned version.
+    # It starts from an empty lockfile, which the --immutable yarn 4 turns on under CI would refuse.
     # Only the e2e suite needs a browser, so other runs skip puppeteer's Chrome
     # download. Set here rather than in webapp-tutorial itself so users following
     # the tutorial still get Chrome for `yarn test:e2e`.
     local skip_chrome=(PUPPETEER_SKIP_DOWNLOAD=1)
     [ "${WEBAPP_TESTS:-}" = e2e ] && skip_chrome=()
-    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
-
-    # yarn's `link:` protocol creates portals into yarn-project/*, which require
-    # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
-    # (vite in particular fails to load its config without it).
-    export NODE_OPTIONS="${NODE_OPTIONS:-} --preserve-symlinks"
+    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false ./setup.sh "$AZTEC_VERSION"
 
     # Copy compiled contract artifact and run codegen
     mkdir -p src/artifacts
@@ -333,7 +200,7 @@ NODE
       return 1
     fi
     cp "$artifact" src/artifacts/
-    node "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
+    "$AZTEC" codegen "$artifact" -o src/artifacts
 
     # Type check (build mode follows project references in tsconfig.json)
     echo_stderr "Type checking webapp-tutorial..."
@@ -343,7 +210,7 @@ NODE
     echo_stderr "Running vite build..."
     npx vite build
 
-    # The tests need the linked dependencies this subshell's EXIT trap removes. The e2e suite
+    # The tests need the dependencies this subshell's EXIT trap removes. The e2e suite
     # serves the app on ports 4173 and 4174, expects a local network at localhost:8080, and runs
     # the extension test in a headed browser (under Xvfb when there is no display), so it is run
     # by hand (test-webapp-e2e) and not from test_cmds.
@@ -367,6 +234,7 @@ NODE
 
 function execute-examples {
   echo_header "Executing TypeScript documentation examples"
+  pin_toolchain
   local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
@@ -377,6 +245,7 @@ function execute-examples {
 # private/utility execution.
 function test-contracts {
   echo_header "Testing example contracts (TXE)"
+  pin_toolchain
   local test_packages=()
   local member
   for member in $(sed -n -E 's/^ *"(examples\/[^"]+)",?$/\1/p' "$REPO_ROOT/docs/Nargo.toml"); do
@@ -395,9 +264,8 @@ function test-contracts {
         exit 1
       }
     fi
-    cd "$REPO_ROOT/labs/yarn-project/txe"
-    # Its own process group, so teardown stops yarn and the node server it spawns, and nothing else.
-    UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT="$txe_port" setsid yarn start >/dev/null &
+    # Its own process group, so teardown stops the CLI wrapper and the node server it runs, and nothing else.
+    UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent setsid "$AZTEC" start --txe --port "$txe_port" >/dev/null &
     txe_pid=$!
     trap 'kill -- -"$txe_pid" &>/dev/null || true' EXIT
 
@@ -434,6 +302,7 @@ function test_cmds {
 
 function test {
   echo_header "docs examples test"
+  pin_toolchain
   test_cmds | filter_test_cmds | parallelize
 }
 

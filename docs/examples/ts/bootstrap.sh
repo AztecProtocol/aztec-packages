@@ -6,7 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-export BUILDER_CLI="$REPO_ROOT/labs/yarn-project/builder/dest/bin/cli.js"
+: "${AZTEC:?the pinned aztec CLI is not exported: run docs/examples/bootstrap.sh validate-ts}"
 
 # Each project starts from an empty yarn.lock that its own install fills. ci3 exports CI=0, which
 # yarn's CI detection treats as CI, turning on immutable installs; `yarn init` then fails its install.
@@ -130,7 +130,7 @@ validate_project() {
             while IFS= read -r contract_name; do
                 local artifact="$ARTIFACTS_DIR/${contract_name}.json"
                 echo_stderr "  - ${contract_name}..."
-                node "$BUILDER_CLI" codegen "$artifact" -o artifacts
+                "$AZTEC" codegen "$artifact" -o artifacts
             done < <(yq eval '.contracts[]' config.yaml)
         else
             echo_stderr "No custom contracts for '${project_name}', skipping codegen..."
@@ -147,98 +147,27 @@ validate_project() {
         # Read dependencies from config.yaml
         echo_stderr "Installing dependencies for '${project_name}'..."
 
-        parse_dependencies config.yaml "$REPO_ROOT/labs"
-
-        local aztec_deps=("${AZTEC_DEPS[@]}")
-        local explicit_link_deps=("${EXPLICIT_LINK_DEPS[@]}")
-        local npm_deps=("${NPM_DEPS[@]}")
+        parse_dependencies config.yaml
 
         if [ "$PARSED_DEPS_FOUND" = true ]; then
-            # Install linked @aztec-labs dependencies from yarn-project/
-            if [ ${#aztec_deps[@]} -gt 0 ]; then
-                echo_stderr "Adding aztec deps: ${aztec_deps[*]}"
-                yarn add "${aztec_deps[@]}"
+            if [ ${#PINNED_DEPS[@]} -gt 0 ]; then
+                echo_stderr "Adding pinned deps: ${PINNED_DEPS[*]}"
+                yarn add "${PINNED_DEPS[@]}"
             fi
 
-            # Install explicit link dependencies (packages outside yarn-project/)
-            if [ ${#explicit_link_deps[@]} -gt 0 ]; then
-                echo_stderr "Adding explicit link deps: ${explicit_link_deps[*]}"
-                yarn add "${explicit_link_deps[@]}"
-            fi
-
-            # Install external npm dependencies
-            if [ ${#npm_deps[@]} -gt 0 ]; then
-                echo_stderr "Adding npm deps: ${npm_deps[*]}"
-                yarn add "${npm_deps[@]}"
+            if [ ${#NPM_DEPS[@]} -gt 0 ]; then
+                echo_stderr "Adding npm deps: ${NPM_DEPS[*]}"
+                yarn add "${NPM_DEPS[@]}"
             fi
         else
             # Fallback to default dependencies if none specified
             echo_stderr "No dependencies in config.yaml, using defaults..."
             yarn add \
-                @aztec-labs/aztec.js@link:$REPO_ROOT/labs/yarn-project/aztec.js \
-                @aztec-labs/accounts@link:$REPO_ROOT/labs/yarn-project/accounts \
-                @aztec-labs/wallets@link:$REPO_ROOT/labs/yarn-project/wallets \
-                @aztec-labs/kv-store@link:$REPO_ROOT/labs/yarn-project/kv-store
+                "@aztec-labs/aztec.js@$AZTEC_VERSION" \
+                "@aztec-labs/accounts@$AZTEC_VERSION" \
+                "@aztec-labs/wallets@$AZTEC_VERSION" \
+                "@aztec-labs/kv-store@$AZTEC_VERSION"
         fi
-
-        # Verify linked packages exist and have built artifacts
-        echo_stderr "Verifying linked packages..."
-        for dep in "${aztec_deps[@]}"; do
-            # Extract package name from @aztec-labs/foo@link:... format
-            local pkg_full=$(echo "$dep" | cut -d'@' -f2)  # aztec-labs/foo
-            local pkg_name=${pkg_full#aztec-labs/}  # foo
-            local link_target="$REPO_ROOT/labs/yarn-project/$pkg_name"
-
-            if [ ! -d "$link_target" ]; then
-                echo_stderr "ERROR: Link target does not exist: $link_target"
-                return 1
-            fi
-
-            if [ ! -d "$link_target/dest" ]; then
-                echo_stderr "ERROR: Package not built (no dest/): $link_target"
-                ls -la "$link_target" || true
-                return 1
-            fi
-
-            # Check for .d.ts files (type declarations)
-            local dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
-            if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target/dest"
-                ls -la "$link_target/dest" | head -20 || true
-                return 1
-            fi
-
-            echo_stderr "  ✓ @aztec-labs/$pkg_name: $dts_count .d.ts files"
-        done
-
-        # Verify explicit link packages
-        for dep in "${explicit_link_deps[@]}"; do
-            # Extract path from @aztec-labs/pkg@link:$REPO_ROOT/path format
-            local link_target="${dep#*@link:}"
-            local pkg_name="${dep%%@link:*}"
-
-            if [ ! -d "$link_target" ]; then
-                echo_stderr "ERROR: Link target does not exist: $link_target"
-                return 1
-            fi
-
-            # Check for .d.ts files in common output dirs
-            local dts_count=0
-            for check_dir in dest lib nodejs web; do
-                if [ -d "$link_target/$check_dir" ]; then
-                    dts_count=$(find "$link_target/$check_dir" -name "*.d.ts" 2>/dev/null | wc -l)
-                    [ "$dts_count" -gt 0 ] && break
-                fi
-            done
-
-            if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/, lib/, nodejs/, web/)"
-                ls -la "$link_target" | head -20 || true
-                return 1
-            fi
-
-            echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
-        done
 
         yarn add -D "typescript@^5.3.3"
 

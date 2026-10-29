@@ -6,7 +6,7 @@ contracts:
   - bob_token_contract-BobToken
 
 # Dependencies:
-#   - @aztec-labs/* packages are auto-linked from yarn-project/
+#   - @aztec-labs/* and @aztec-foundation/* packages install at the versions docs/aztec-node.json pins
 #   - Use npm:package-name for external npm packages
 dependencies:
   - "@aztec-labs/aztec.js"

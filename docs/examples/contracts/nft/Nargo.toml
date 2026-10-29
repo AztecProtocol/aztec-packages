@@ -3,4 +3,4 @@ name = "nft"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../labs/noir-projects/aztec-nr/aztec" }
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }

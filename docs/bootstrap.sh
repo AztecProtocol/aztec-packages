@@ -2,8 +2,6 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 repo_root=$(git rev-parse --show-toplevel)
-export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
@@ -68,6 +66,8 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
+  # The examples' test commands share one checkout and toolchain: install them before they run in parallel.
+  (cd examples && ./bootstrap.sh pin_toolchain)
   test_cmds | parallelize
 }
 

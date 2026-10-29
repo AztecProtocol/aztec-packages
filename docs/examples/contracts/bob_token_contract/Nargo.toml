@@ -3,5 +3,5 @@ name = "bob_token_contract"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../labs/noir-projects/aztec-nr/aztec" }
-balance_set = { path = "../../../../labs/noir-projects/aztec-nr/balance-set" }
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }
+balance_set = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/balance-set" }

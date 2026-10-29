@@ -14,18 +14,14 @@ Each example directory contains:
 The `bootstrap.sh` script validates all examples by:
 
 1. Reading `config.yaml` to determine dependencies and custom contracts
-2. Running codegen for any custom contracts specified (from `docs/target/`)
-3. Installing linked `@aztec/*` dependencies from `yarn-project/`
+2. Running `aztec codegen` for any custom contracts specified (from `docs/target/`)
+3. Installing `@aztec-labs/*` at the pinned `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION` from npm (`docs/aztec-node.json`)
 4. Running `tsc --noEmit` to type-check the example
 
-Run validation for all examples:
+It needs the pinned CLI and versions, which `docs/examples/bootstrap.sh validate-ts` provisions and exports:
 ```bash
-./bootstrap.sh
-```
-
-Run validation for specific example(s):
-```bash
-./bootstrap.sh aztecjs_connection aztecjs_advanced
+cd docs/examples && ./bootstrap.sh validate-ts                      # all examples
+cd docs/examples && ./bootstrap.sh validate-ts aztecjs_connection aztecjs_advanced
 ```
 
 ## Execution: Test Runner
@@ -52,7 +48,7 @@ For local development, start the sandbox manually and run examples directly.
 
 - Local Aztec network running (default: `localhost:8080`)
 - Local L1 RPC running for examples that touch Ethereum (default: `localhost:8545`)
-- Built yarn-project packages
+- The pinned CLI and versions: in `docs/`, `node scripts/aztec_node.mts provision cli` and `eval "$(node scripts/aztec_node.mts env)"`
 
 #### Usage
 

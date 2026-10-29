@@ -3,7 +3,9 @@
 #
 # Prerequisites:
 #   - Local Aztec network running on localhost:8080
-#   - yarn-project packages built
+#   - The pinned toolchain provisioned and exported: in docs/, `node scripts/aztec_node.mts provision cli`
+#     and `eval "$(node scripts/aztec_node.mts env)"` (AZTEC_VERSION, BB_VERSION; AZTEC defaults to
+#     the provisioned CLI)
 #
 # Usage:
 #   ./run.sh                # Run all examples
@@ -21,6 +23,8 @@ source "$EXAMPLES_DIR/lib.sh"
 # git safe.directory failures when running inside Docker containers.
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 export AZTEC_NODE_URL="${AZTEC_NODE_URL:-http://localhost:8080}"
+# In the compose run the host's CLI path does not exist, so the default names it inside the mount.
+AZTEC="${AZTEC:-$REPO_ROOT/docs/.aztec-node/cli/node_modules/.bin/aztec}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -78,7 +82,6 @@ setup_project() {
 
     if [ "$contract_count" -gt 0 ]; then
         local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-        local BUILDER_CLI="$REPO_ROOT/labs/yarn-project/builder/dest/bin/cli.js"
 
         while IFS= read -r contract_name; do
             local artifact="$ARTIFACTS_DIR/${contract_name}.json"
@@ -88,7 +91,7 @@ setup_project() {
                 return 1
             fi
             echo -e "  Generating TS interface for ${contract_name}..."
-            node "$BUILDER_CLI" codegen "$artifact" -o artifacts
+            "$AZTEC" codegen "$artifact" -o artifacts
         done < <(yq eval '.contracts[]' config.yaml)
 
         # Verify codegen produced the expected files
@@ -104,10 +107,9 @@ setup_project() {
     node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
 
     # Read dependencies from config.yaml and install
-    parse_dependencies config.yaml "$REPO_ROOT/labs"
+    parse_dependencies config.yaml
     if [ "$PARSED_DEPS_FOUND" = true ]; then
-        local all_link_deps=("${AZTEC_DEPS[@]}" "${EXPLICIT_LINK_DEPS[@]}")
-        [ ${#all_link_deps[@]} -gt 0 ] && yarn_add_with_retry "${all_link_deps[@]}"
+        [ ${#PINNED_DEPS[@]} -gt 0 ] && yarn_add_with_retry "${PINNED_DEPS[@]}"
         [ ${#NPM_DEPS[@]} -gt 0 ] && yarn_add_with_retry "${NPM_DEPS[@]}"
     fi
 
