@@ -5,7 +5,7 @@
 //   node scripts/aztec_node.mts fetch            check out the pinned commit (no network when current)
 //   node scripts/aztec_node.mts check            fail on any drift between the pin, the checkout and docs
 //   node scripts/aztec_node.mts pin <tag>        move the pin to an aztec-node release or nightly tag
-//   node scripts/aztec_node.mts provision <nargo|bb>...   install the pinned published binaries
+//   node scripts/aztec_node.mts provision <nargo|bb|cli>...   install the pinned published toolchain
 //   node scripts/aztec_node.mts env              print the pin as shell exports, for eval
 //
 // .mts because docs/package.json declares no module type: a .ts file with ESM syntax makes every run
@@ -54,6 +54,10 @@ export function treeDir(o: Options): string {
   return dir;
 }
 const binDir = (o: Options) => path.join(stateDir(o), "bin");
+const cliDir = (o: Options) => path.join(stateDir(o), "cli");
+// The CLIs the docs run and document, published at the pin's aztec version.
+const CLI_PACKAGES = ["@aztec-labs/aztec", "@aztec-labs/cli-wallet"];
+const cliManifest = (o: Options, pkg: string) => path.join(cliDir(o), "node_modules", pkg, "package.json");
 
 function git(cwd: string, args: string[]): string {
   return execFileSync("git", ["-C", cwd, ...args], {
@@ -222,12 +226,44 @@ async function download(url: string): Promise<Uint8Array> {
 const versionOf = (binary: string) => execFileSync(binary, ["--version"], { encoding: "utf8" });
 const reportsVersion = { nargo: (out: string, v: string) => out.split("\n").includes(`nargo version = ${v}`), bb: (out: string, v: string) => out.trim() === v };
 
-/** Installs each tool at the pinned version into .aztec-node/bin, skipping those already there. */
+function cliIsAt(o: Options, version: string): boolean {
+  return CLI_PACKAGES.every((pkg) => {
+    try {
+      return JSON.parse(fs.readFileSync(cliManifest(o, pkg), "utf8")).version === version;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** Installs the CLIs at the pinned version into .aztec-node/cli, under docs' yarn settings (age gate, preapproved scopes). */
+function provisionCli(o: Options, pin: Pin, log: (s: string) => void): void {
+  const version = pin.toolchain.aztec;
+  if (cliIsAt(o, version)) return;
+  const dir = cliDir(o);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  const { packageManager } = JSON.parse(fs.readFileSync(path.join(docsDirOf(o), "package.json"), "utf8"));
+  const dependencies = Object.fromEntries(CLI_PACKAGES.map((pkg) => [pkg, version]));
+  const manifest = { name: "aztec-node-cli", private: true, packageManager, dependencies };
+  fs.writeFileSync(path.join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  // An empty lockfile makes the directory its own project; without one, yarn takes it for an unlisted docs workspace.
+  fs.writeFileSync(path.join(dir, "yarn.lock"), "");
+  log(`installing ${CLI_PACKAGES.join(", ")} ${version}`);
+  execFileSync("yarn", ["install"], { cwd: dir, stdio: ["ignore", 2, 2], env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: "false" } });
+  if (!cliIsAt(o, version)) throw new PinError(`${dir} does not hold ${CLI_PACKAGES.join(" and ")} at ${version}`);
+}
+
+/** Installs each tool at the pinned version into .aztec-node/bin (or cli/), skipping those already there. */
 export async function provision(o: Options, pin: Pin, tools: string[], log: (s: string) => void = () => {}): Promise<void> {
   const bin = binDir(o);
   fs.mkdirSync(bin, { recursive: true });
   for (const tool of tools) {
-    if (tool !== "nargo" && tool !== "bb") throw new PinError(`cannot provision ${tool}: only nargo and bb`);
+    if (tool === "cli") {
+      provisionCli(o, pin, log);
+      continue;
+    }
+    if (tool !== "nargo" && tool !== "bb") throw new PinError(`cannot provision ${tool}: only nargo, bb and cli`);
     const version = tool === "nargo" ? pin.toolchain.noir : pin.toolchain.bb;
     const binary = path.join(bin, tool);
     if (fs.existsSync(binary) && reportsVersion[tool](versionOf(binary), version)) continue;
@@ -263,7 +299,7 @@ export async function provision(o: Options, pin: Pin, tools: string[], log: (s: 
 
 const shellQuote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
-/** The pin as shell exports; NARGO and BB only once provisioned at the pinned version. */
+/** The pin as shell exports; NARGO, BB and AZTEC (the CLI) only once provisioned at the pinned version. */
 export function envLines(o: Options, pin: Pin): string[] {
   const vars: [string, string][] = [
     ["AZTEC_NODE_DIR", path.resolve(treeDir(o))],
@@ -278,6 +314,7 @@ export function envLines(o: Options, pin: Pin): string[] {
     const binary = path.join(binDir(o), tool);
     if (fs.existsSync(binary) && reportsVersion[tool](versionOf(binary), version)) vars.push([name, binary]);
   }
+  if (cliIsAt(o, pin.toolchain.aztec)) vars.push(["AZTEC", path.join(cliDir(o), "node_modules/.bin/aztec")]);
   return vars.map(([k, v]) => `export ${k}=${shellQuote(v)}`);
 }
 

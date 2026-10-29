@@ -17,6 +17,7 @@ import {
   pinTag,
   platform,
   problems,
+  provision,
   readPin,
   treeDir,
   validatePin,
@@ -182,7 +183,7 @@ test("pin writes the tag's commit and toolchain, peeling annotated tags", () => 
   assert.throws(() => pinTag(f.o, "v9.9.9"), /has no tag v9\.9\.9/);
 });
 
-test("env quotes every value for the shell and omits unprovisioned binaries", () => {
+test("env quotes every value for the shell and omits unprovisioned binaries", async () => {
   const o = { ...f.o, docsDir: path.join(f.root, "it's docs") };
   fs.cpSync(f.o.docsDir, o.docsDir, { recursive: true });
   fetchTree(o, f.pinA);
@@ -198,6 +199,18 @@ test("env quotes every value for the shell and omits unprovisioned binaries", ()
     fs.writeFileSync(nargo, `#!/bin/sh\necho "nargo version = ${reported}"\n`, { mode: 0o755 });
     assert.equal(envLines(o, f.pinA).some((l) => l.startsWith("export NARGO=")), exported, reported);
   }
+
+  // The CLIs count only when both are at the pinned version, and current ones are kept without a reinstall.
+  const manifest = (pkg: string) => path.join(o.docsDir, ".aztec-node/cli/node_modules/@aztec-labs", pkg, "package.json");
+  const cliAt = (aztec: string, wallet: string) => {
+    for (const [pkg, version] of [["aztec", aztec], ["cli-wallet", wallet]]) write(manifest(pkg), JSON.stringify({ version }));
+    return envLines(o, f.pinA).some((l) => l.startsWith("export AZTEC="));
+  };
+  assert.equal(cliAt("1.0.1", "1.0.0"), false);
+  assert.equal(cliAt("1.0.0", "1.0.1"), false);
+  assert.equal(cliAt("1.0.0", "1.0.0"), true);
+  await provision(o, f.pinA, ["cli"]);
+  assert.ok(fs.existsSync(manifest("aztec")));
 });
 
 test("registry integrity and platform names", () => {
