@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/inject_llms_directive.js",
+    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/inject_llms_directive.js",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "check:orphaned-urls": "./scripts/check_orphaned_urls.sh",
@@ -19,7 +19,7 @@
     "serve": "yarn docusaurus serve",
     "spellcheck": "yarn cspell",
     "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
-    "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && yarn docusaurus start --host ${HOST:-localhost}",
+    "start": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn generate:aztec-nr-api && yarn docusaurus start --host ${HOST:-localhost}",
     "test": "node --test src/preprocess/__tests__/*.test.js src/__tests__/*.test.js scripts/__tests__/*.test.mts",
     "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
