@@ -26,7 +26,7 @@ const LABS_PREFIX = "labs/";
 
 function aztecNodeDir(rootDir) {
   return (
-    process.env.AZTEC_NODE_DIR ??
+    process.env.AZTEC_NODE_DIR ||
     path.join(rootDir, "docs", ".aztec-node", "tree")
   );
 }

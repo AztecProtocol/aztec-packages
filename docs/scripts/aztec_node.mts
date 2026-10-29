@@ -46,7 +46,13 @@ export class PinError extends Error {}
 const docsDirOf = (o: Options) => path.resolve(o.docsDir);
 export const pinFile = (o: Options) => path.join(docsDirOf(o), "aztec-node.json");
 export const stateDir = (o: Options) => path.join(docsDirOf(o), ".aztec-node");
-export const treeDir = (o: Options) => process.env.AZTEC_NODE_DIR ?? path.join(stateDir(o), "tree");
+// Readers run from different directories, so a relative override would name different trees.
+export function treeDir(o: Options): string {
+  const dir = process.env.AZTEC_NODE_DIR;
+  if (!dir) return path.join(stateDir(o), "tree");
+  if (!path.isAbsolute(dir)) throw new PinError(`AZTEC_NODE_DIR must be an absolute path, not ${dir}`);
+  return dir;
+}
 const binDir = (o: Options) => path.join(stateDir(o), "bin");
 
 function git(cwd: string, args: string[]): string {
@@ -87,10 +93,12 @@ export function readPin(o: Options): Pin {
 /** The commit a tag names on the remote (the peeled commit for an annotated tag). */
 export function remoteTagCommit(repository: string, tag: string): string {
   if (!TAG.test(tag)) throw new PinError(`not a release or nightly tag: ${tag}`);
-  const out = execFileSync("git", ["ls-remote", "--tags", "--end-of-options", repository, `refs/tags/${tag}`, `refs/tags/${tag}^{}`], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const out = withRetries(() =>
+    execFileSync("git", ["ls-remote", "--tags", "--end-of-options", repository, `refs/tags/${tag}`, `refs/tags/${tag}^{}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }),
+  );
   const refs = new Map(out.trim().split("\n").filter(Boolean).map((l) => l.split("\t").reverse() as [string, string]));
   const commit = refs.get(`refs/tags/${tag}^{}`) ?? refs.get(`refs/tags/${tag}`);
   if (!commit) throw new PinError(`${repository} has no tag ${tag}`);
@@ -101,6 +109,20 @@ function headOf(tree: string): string | undefined {
   return tryGit(tree, ["rev-parse", "--verify", "-q", "--end-of-options", "HEAD^{commit}"]);
 }
 
+/** Network git calls get three tries: a transient GitHub error would otherwise fail fast CI. */
+function withRetries<T>(call: () => T): T {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return call();
+    } catch (e) {
+      if (attempt === 3) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000 * attempt);
+    }
+  }
+}
+
+const SPARSE = ["/*", "!/docs/"];
+
 /**
  * Checks the pinned commit out into the tree directory: a shallow clone whose sparse rule leaves out
  * aztec-node's own docs/, which the docs never read. A checkout already at the commit is restored if
@@ -108,10 +130,16 @@ function headOf(tree: string): string | undefined {
  */
 export function fetchTree(o: Options, pin: Pin, log: (s: string) => void = () => {}): void {
   const tree = treeDir(o);
+  // Everything below force-checks out and cleans the tree, so it only ever touches a directory this
+  // tool created: new or empty, or a repository with its sparse rule.
+  const notOurs = `${tree} is a directory this tool did not create: point AZTEC_NODE_DIR at a new one`;
   if (!fs.existsSync(path.join(tree, ".git"))) {
+    if (fs.existsSync(tree) && fs.readdirSync(tree).length) throw new PinError(notOurs);
     fs.mkdirSync(tree, { recursive: true });
     git(tree, ["init", "-q"]);
-    git(tree, ["sparse-checkout", "set", "--no-cone", "/*", "!/docs/"]);
+    git(tree, ["sparse-checkout", "set", "--no-cone", ...SPARSE]);
+  } else if (tryGit(tree, ["sparse-checkout", "list"]) !== SPARSE.join("\n")) {
+    throw new PinError(notOurs);
   }
   if (tryGit(tree, ["remote", "get-url", "origin"]) === undefined) git(tree, ["remote", "add", "origin", pin.repository]);
   else git(tree, ["remote", "set-url", "origin", pin.repository]);
@@ -120,7 +148,7 @@ export function fetchTree(o: Options, pin: Pin, log: (s: string) => void = () =>
     const tagged = remoteTagCommit(pin.repository, pin.ref);
     if (tagged !== pin.commit) throw new PinError(`${pin.ref} names ${tagged} on ${pin.repository}, but the pin says ${pin.commit}`);
     log(`fetching ${pin.ref} (${pin.commit.slice(0, 10)})`);
-    git(tree, ["fetch", "-q", "--depth", "1", "--no-tags", "origin", "--end-of-options", pin.commit]);
+    withRetries(() => git(tree, ["fetch", "-q", "--depth", "1", "--no-tags", "origin", "--end-of-options", pin.commit]));
     git(tree, ["checkout", "-q", "--force", "--detach", pin.commit, "--"]);
     git(tree, ["clean", "-fdq"]);
   } else if (git(tree, ["status", "--porcelain"]) !== "") {

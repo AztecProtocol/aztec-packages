@@ -134,6 +134,27 @@ test("check fails on a missing or foreign checkout", () => {
   assert.match(problems(f.o, f.pinA).join(), new RegExp(`at ${f.b}, not the pinned ${f.a}`));
 });
 
+test("fetch refuses a directory it did not create, and AZTEC_NODE_DIR must be absolute", () => {
+  const work = path.join(f.root, "work");
+  write(path.join(work, "notes.txt"), "mine\n");
+  const clone = path.join(f.root, "clone");
+  fs.mkdirSync(clone);
+  git(clone, "init", "-q");
+  write(path.join(clone, "untracked.txt"), "mine\n");
+  for (const dir of [work, clone]) {
+    process.env.AZTEC_NODE_DIR = dir;
+    assert.throws(() => fetchTree(f.o, f.pinA), (e) => e instanceof PinError && /did not create/.test(e.message), dir);
+  }
+  assert.ok(fs.existsSync(path.join(work, "notes.txt")) && !fs.existsSync(path.join(work, ".git")));
+  assert.ok(fs.existsSync(path.join(clone, "untracked.txt")));
+  assert.equal(git(clone, "remote"), "");
+
+  process.env.AZTEC_NODE_DIR = "relative/tree";
+  assert.throws(() => treeDir(f.o), (e) => e instanceof PinError && /absolute/.test(e.message));
+  process.env.AZTEC_NODE_DIR = "";
+  assert.equal(treeDir(f.o), path.join(f.o.docsDir, ".aztec-node", "tree"));
+});
+
 test("malformed pin fields are refused before they reach git", () => {
   const bad: [string, Partial<Pin>][] = [
     ["repository", { repository: "https://example.com/other" }],
