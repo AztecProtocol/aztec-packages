@@ -76,6 +76,13 @@ python transform_to_markdown.py --input cli_docs.json --output aztec-cli-referen
 
 ### Convenience Scripts
 
+The nightly pages (`current`) document the CLIs at the version `docs/aztec-node.json` pins. Provision them and put them, with the pinned nargo (which `aztec compile --help` lists the options of), first on `PATH`:
+
+```bash
+cd docs && node scripts/aztec_node.mts provision nargo cli
+export PATH="$PWD/.aztec-node/cli/node_modules/.bin:$PWD/.aztec-node/bin:$PATH"
+```
+
 For easy generation and deployment, use the provided shell scripts:
 
 ```bash

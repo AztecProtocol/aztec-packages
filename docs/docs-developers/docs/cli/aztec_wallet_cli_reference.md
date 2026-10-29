@@ -10,7 +10,7 @@ sidebar_position: 2
 *This documentation is auto-generated from the `aztec-wallet` CLI help output.*
 
 
-*Generated: Thu 22 Oct 2026 18:35:43 UTC*
+*Generated: Thu 29 Oct 2026 20:11:01 UTC*
 
 *Command: `aztec-wallet`*
 

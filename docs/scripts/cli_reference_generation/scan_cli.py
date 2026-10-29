@@ -116,6 +116,10 @@ class CLIScanner:
                 ansi_pattern = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
                 output = ansi_pattern.sub('', output)
 
+                # Defaults under the home directory print the generator's own path; readers have their own.
+                if env.get('HOME'):
+                    output = output.replace(env['HOME'], '~')
+
                 return output
             except subprocess.TimeoutExpired:
                 self._print(f"Warning: Command {' '.join(cmd)} timed out")
