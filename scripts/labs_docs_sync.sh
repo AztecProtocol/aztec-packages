@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Keeps docs/ in step with aztec-node's docs/ (the labs submodule) until the docs are owned here.
+# Keeps docs/ in step with aztec-node's docs/ until the docs are owned here. aztec-node's history is
+# read from the docs checkout (docs/.aztec-node/tree, or AZTEC_NODE_DIR; docs/scripts/aztec_node.mts).
 # Code outside docs/ is read through labs/, so every Labs docs tree is "rerooted" before use:
 # snippet and reference paths gain a labs/ prefix, and Nargo path dependencies that climb to the
 # repo root descend into labs/. docs/netlify.toml is ours: check holds it to deploy previews only.
 #
 #   import <ref>            replace docs/ with the rerooted Labs docs at <ref> (once)
-#   sync <ref>              3-way merge Labs' docs changes since docs/.labs-sync into docs/
+#   sync <ref>              3-way merge Labs' docs changes since docs/.labs-sync into docs/; the
+#                           versioned snapshots, version files and networks page stay ours
 #   reroot [--check]        apply (or, with --check, list) the layout rewrites on docs/
 #   check                   fail on drift: reroot, .labs-sync vs the gitlink, patched snippet
 #                           sources, l1-artifacts vs BB_VERSION, docs/netlify.toml's build shape
@@ -13,8 +15,9 @@
 #                           the gitlink; for release cut worktrees only
 #
 # A sync merges R(last) -> R(ref) into HEAD, where R(x) is a parentless commit holding only the
-# rerooted docs/ of Labs commit x, rebuilt from labs/ on every run. Both sides are rerooted, so
-# Labs edits to rewritten lines merge cleanly, and non-docs paths count as ours and stay.
+# rerooted docs/ of Labs commit x, rebuilt on every run. Both sides are rerooted, so Labs edits to
+# rewritten lines merge cleanly, and non-docs paths count as ours and stay. Both also lack the kept
+# set and every key-shaped option default, so neither reaches this repository's objects.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
@@ -28,13 +31,16 @@ generated_refs=(
 )
 
 function die { echo "labs_docs_sync: $*" >&2; exit 1; }
-function labs { git -C "$root/labs" "$@"; }
+# shellcheck source-path=SCRIPTDIR source=../docs/scripts/lib/key_defaults.sh
+source "$root/docs/scripts/lib/key_defaults.sh"
+src=${AZTEC_NODE_DIR:-$root/docs/.aztec-node/tree}
+function labs { git -C "$src" "$@"; }
 
-# Resolves <ref> to a commit SHA in labs/, fetching it (shallow) when absent.
+# Resolves <ref> to a commit SHA in the checkout, fetching it (shallow) when absent.
 function resolve {
   local sha
   if sha=$(labs rev-parse --verify -q "$1^{commit}"); then echo "$sha"; return; fi
-  labs fetch -q --depth 1 origin "$1" || die "cannot fetch $1 into labs/"
+  labs fetch -q --depth 1 origin "$1" || die "cannot fetch $1 into $src"
   labs rev-parse --verify 'FETCH_HEAD^{commit}'
 }
 
@@ -113,6 +119,15 @@ function rerooted_commit {
   mkdir "$tmp/tree"
   labs archive --format=tar "$sha" docs | tar -x -C "$tmp/tree"
   reroot_dir "$tmp/tree" >/dev/null
+  (cd "$tmp/tree/docs" && rm -rf -- *_versioned_docs *_versioned_sidebars *_versions.json *_version_config.json \
+    docs/networks.md static/{aztec-nr-api,typescript-api}/{mainnet,testnet})
+  local keyed left
+  keyed=$(cd "$tmp/tree" && grep -rlIE "$KEY_DEFAULT_ERE" docs || true)
+  if [ -n "$keyed" ]; then
+    (cd "$tmp/tree" && while IFS= read -r f; do scrub_key_defaults "$f"; done <<<"$keyed")
+  fi
+  left=$(cd "$tmp/tree" && { grep -rnIE "$KEY_DEFAULT_ERE" docs || true; } | key_defaults_report)
+  [ -z "$left" ] || { rm -rf "$tmp"; die "key-shaped defaults the scrub cannot remove at ${sha:0:10}:"$'\n'"$left"; }
   # -f: Labs tracks files this repo's .gitignore matches; no attribute filters may alter blobs.
   (cd "$tmp/tree" && GIT_INDEX_FILE=$tmp/index git --git-dir="$gitdir" --work-tree=. \
     -c core.autocrlf=false -c core.attributesFile=/dev/null -c core.fsmonitor=false add -A -f .)
@@ -140,7 +155,7 @@ function require_clean {
   if ! { git diff --quiet --ignore-submodules=all && git diff --cached --quiet --ignore-submodules=all; }; then
     die "uncommitted changes in this repository; commit them first"
   fi
-  [ -z "$(labs status --porcelain)" ] || die "labs/ has uncommitted changes"
+  [ -z "$(labs status --porcelain)" ] || die "$src has uncommitted changes"
 }
 
 # Replaces docs/ (index and worktree) with <tree>'s docs/, asserting nothing else moves.
@@ -178,7 +193,6 @@ function cmd_sync {
   read -r major minor < <(git version | sed -E 's/^git version ([0-9]+)\.([0-9]+).*/\1 \2/')
   (( major > 2 || (major == 2 && minor >= 40) )) || die "sync needs git 2.40+ (merge-tree --merge-base); found $(git version)"
   sha=$(resolve "$1")
-  [ "$sha" = "$(expected_labs)" ] || die "$1 is not the labs gitlink; move it with labs-patches/bootstrap.sh bump first"
   require_clean
   last=$(git show "HEAD:$sync_file" 2>/dev/null) || die "no $sync_file; run import first"
   [ "$last" != "$sha" ] || { echo "docs/ already synced to $sha"; return; }
