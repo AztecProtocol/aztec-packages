@@ -140,8 +140,8 @@ trap 'rm -f "$HELP_FILE" "$ERR_FILE" "$TMP"' EXIT INT TERM
 # surfaced instead of masquerading as truncation.
 #
 # The CLI takes option defaults from the environment (keys, API keys, database URLs) and its help
-# prints them, so it runs with only the variables it needs (scan_cli.py's ENV_KEPT), and each
-# capture is checked for key-shaped defaults before anything of it is printed or written.
+# prints them, so it runs with only the variables it needs (scan_cli.py's ENV_KEPT), and both
+# streams of each capture are checked for key-shaped defaults before anything is printed or written.
 kept_env=()
 for name in PATH HOME USER LANG LC_ALL TERM TMPDIR DOCKER_HOST; do
   [[ -z "${!name+x}" ]] || kept_env+=("$name=${!name}")
@@ -150,9 +150,10 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   env -i "${kept_env[@]}" COLUMNS=200 aztec start --help >"$HELP_FILE" 2>"$ERR_FILE" || true
 
   keyed=$(key_defaults_in_file "$HELP_FILE" "aztec start --help")
-  if [[ -n "$keyed" ]]; then
+  keyed_err=$(key_defaults_in_file "$ERR_FILE" "aztec start --help (stderr)")
+  if [[ -n "$keyed$keyed_err" ]]; then
     echo "ERROR: option defaults in the help output look like private keys; unset what sets them and rerun:" >&2
-    echo "$keyed" >&2
+    printf '%s\n' "$keyed" "$keyed_err" | grep -v '^$' >&2
     exit 1
   fi
 

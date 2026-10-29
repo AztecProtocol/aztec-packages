@@ -86,6 +86,22 @@ test("--cached and <rev> read the index and that commit, not the working tree", 
   assert.equal(check("no-such-rev").status, 2);
 });
 
+test("the operator CLI generator checks both help streams before printing either", () => {
+  const bin = path.join(root, "bin");
+  fs.mkdirSync(bin);
+  const fake = ["#!/usr/bin/env bash", 'echo "Usage: aztec start [options]"', `echo "  --l1-private-key <value>  (default: ${key})" >&2`, "exit 1", ""];
+  fs.writeFileSync(path.join(bin, "aztec"), fake.join("\n"), { mode: 0o755 });
+  const target = path.join(root, "cli-reference.md");
+  const r = spawnSync(path.join(scripts, "cli_reference_generation/generate_operator_cli_ref.sh"), [target], {
+    encoding: "utf8",
+    env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, new RegExp(`aztec start --help \\(stderr\\):1 0x${key.slice(2, 6)}…`));
+  assert.ok(!(r.stdout + r.stderr).includes(key.slice(2, 7)), "prints more than 4 hex characters of the key");
+  assert.equal(fs.existsSync(target), false);
+});
+
 test("scrub drops key-shaped defaults and leaves salts and plain values", () => {
   fs.writeFileSync(page("cli.md"), leakyPage());
   scrub(page("cli.md"));
