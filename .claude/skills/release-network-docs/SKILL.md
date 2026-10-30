@@ -169,15 +169,16 @@ DEST_BRANCH=$(printf %q "$(git branch --show-current)")
 DEST_PIN_REF=$(node -p 'require("./docs/aztec-node.json").ref')
 DOCS_COMMIT=$DOCS_COMMIT
 export AZTEC_NODE_DIR=$STATE/aztec-node
+CLI_PATH=$CUT/docs/.aztec-node/cli/node_modules/.bin:$CUT/docs/.aztec-node/bin:$STATE/aztec-node/aztec-up/bin/0.0.1
 docs_env() {
   local pin; pin=\$(node "$CUT/docs/scripts/aztec_node.mts" env) || return 1
   eval "\$pin"
   COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT "\$@"
 }
 aztec_cli() {
-  [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
+  [ -x $CUT/docs/.aztec-node/cli/node_modules/.bin/aztec ] || { echo "no release CLI: run Step 5b" >&2; return 1; }
   env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME HOME=$CLI_HOME \\
-    PATH=$CLI_HOME/.aztec/current/bin:$CLI_HOME/.aztec/bin:\$PATH "\$@"
+    PATH=$CLI_PATH:\$PATH "\$@"
 }
 EOF
 ```
@@ -342,30 +343,24 @@ same edit (a shared source repair, Step 10).
 ### Step 5b: Regenerate Operator CLI Reference
 
 `docs/docs-operate/operators/reference/cli-reference.md` is `aztec start --help` of the
-release CLI. Install the release into its own home, so nothing changes in the real one:
+release CLI. Install the release's published CLI into the cut and run it with its own home,
+so nothing changes in the real one:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
-pin=$(node scripts/aztec_node.mts env) || exit 1
-eval "$pin"
-env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
-  HOME="$CLI_HOME" NON_INTERACTIVE=1 bash <(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION")
+node scripts/aztec_node.mts provision cli || exit 1
 aztec_cli aztec --version
 aztec_cli ./scripts/cli_reference_generation/generate_operator_cli_ref.sh -v "$LABS_TAG"
 grep -n -e "$CLI_HOME" -e /home/ -e /Users/ docs-operate/operators/reference/cli-reference.md
 ```
 
-`AZTEC_VERSION` is the pin's; `aztec --version` must print it, and the generator refuses a
-mismatch. The generator runs the CLI under an environment allowlist and refuses to print
-or write a capture that carries a key-shaped default (`docs/scripts/lib/key_defaults.sh`). The
-installer runs with `HOME` set to `$CLI_HOME`, so its node, foundry, nargo and
-shell-profile edits stay out of the real home. Clearing `NARGO_HOME` and `AZTEC_HOME`
-keeps noirup and the toolchain under that home too (with `NARGO_HOME` set, noirup lands
-in the real home and the install fails), and clearing `NARGO` stops the installer from
-copying that binary in as the release's nargo. `NON_INTERACTIVE=1` skips the prompt and
-the closing `exec $SHELL`, which would leave the terminal in a shell whose home is
-`$CLI_HOME`. foundryup refuses to install while any `anvil` runs on the host
-(`'anvil' is currently running`): wait for it to exit, and never stop another run's anvil.
+`provision cli` installs `@aztec-labs/aztec` and `@aztec-labs/cli-wallet` at the pin's
+`AZTEC_VERSION` into `docs/.aztec-node/cli`, as `/release-docs` Step 3 does; `aztec
+--version` must print it, and the generator refuses a mismatch. The generator runs the CLI
+under an environment allowlist and refuses to print or write a capture that carries a
+key-shaped default (`docs/scripts/lib/key_defaults.sh`). Never run the
+`install.aztec.network` installer here: it installs node, nargo and foundry and edits
+shell profiles, all from scripts fetched at run time.
 
 The generator retries until the capture contains the help's last line, so the file ends
 with `Starts Aztec TXE with options` and a closing fence. Help defaults derived from `$HOME`
@@ -677,8 +672,8 @@ Apart from the header's date, the diff only adds URLs. Pushing it is the owner's
   the L1/L2 contract addresses; the missing ones come from on-chain getters, the
   deployment output or the user (Step 3).
 - **`networks.md` publishes the public endpoint**, never an operator one.
-- **Prerequisites**: `yarn`, `curl`/`jq`, `cast`, and the release CLI installed into the
-  cut's own home (Step 5b). No aztec-node build, nargo or bb.
+- **Prerequisites**: `yarn`, `curl`/`jq`, `cast`, and the release's published CLI provisioned
+  into the cut (Step 5b). No aztec-node build, nargo or bb.
 - **Build before cutting and after**: the cut snapshots the build's `processed-docs/`, and
   the final builds (Step 9) validate the snapshot.
 - **User confirmation required** before deleting old versioned docs and before content

@@ -208,15 +208,16 @@ DEST_BRANCH=$(printf %q "$(git branch --show-current)")
 DEST_PIN_REF=$(node -p 'require("./docs/aztec-node.json").ref')
 DOCS_COMMIT=$DOCS_COMMIT
 export AZTEC_NODE_DIR=$STATE/aztec-node
+CLI_PATH=$CUT/docs/.aztec-node/cli/node_modules/.bin:$CUT/docs/.aztec-node/bin:$STATE/aztec-node/aztec-up/bin/0.0.1
 docs_env() {
   local pin; pin=\$(node "$CUT/docs/scripts/aztec_node.mts" env) || return 1
   eval "\$pin"
   COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT "\$@"
 }
 aztec_cli() {
-  [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
+  [ -x $CUT/docs/.aztec-node/cli/node_modules/.bin/aztec ] || { echo "no release CLI: run Step 3" >&2; return 1; }
   env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME HOME=$CLI_HOME \\
-    PATH=$CLI_HOME/.aztec/current/bin:$CLI_HOME/.aztec/bin:\$PATH "\$@"
+    PATH=$CLI_PATH:\$PATH "\$@"
 }
 EOF
 ```
@@ -227,7 +228,7 @@ EOF
 `docs_env` checks the cut's pin and checkout, exports the pin's versions and binaries
 (`aztec_node.mts env`), and runs a docs command with the release variables; it fails
 when the pin and the checkout disagree. `aztec_cli` runs the release CLI (Step 3) with its
-own home. `COMMIT_TAG` keeps its `v`: `#include_aztec_version` emits it as a git ref, and
+own home, and `CLI_PATH` first on `PATH`. `COMMIT_TAG` keeps its `v`: `#include_aztec_version` emits it as a git ref, and
 `#include_version_without_prefix` falls back to `latest` when it lacks one.
 
 `DOCS_COMMIT` is the destination's base on `origin/next`, and the check above proves the
@@ -340,24 +341,18 @@ the version fields. Step 17 copies `networks.md` back.
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
-pin=$(node scripts/aztec_node.mts env) || exit 1
-eval "$pin"
-env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
-  HOME="$CLI_HOME" NON_INTERACTIVE=1 bash <(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION")
+node scripts/aztec_node.mts provision cli || exit 1
 aztec_cli aztec --version
+aztec_cli aztec-up --help >/dev/null && echo "aztec-up: ok"
 ```
 
-`AZTEC_VERSION` is the pin's (`v<new_version>` without its `v`). The CLI must report it;
-abort otherwise (`install.aztec.network/<version>` serves the installer with that version
-fixed). The installer runs with `HOME`
-set to `$CLI_HOME`, so its node, foundry, nargo and shell-profile edits stay out of the
-real home. Clearing `NARGO_HOME` and `AZTEC_HOME`
-keeps noirup and the toolchain under that home too (with `NARGO_HOME` set, noirup lands
-in the real home and the install fails), and clearing `NARGO` stops the installer from
-copying that binary in as the release's nargo. `NON_INTERACTIVE=1` skips the prompt and
-the closing `exec $SHELL`, which would leave the terminal in a shell whose home is
-`$CLI_HOME`. foundryup refuses to install while any `anvil` runs on the host
-(`'anvil' is currently running`): wait for it to exit, and never stop another run's anvil.
+`provision cli` installs `@aztec-labs/aztec` and `@aztec-labs/cli-wallet` at the pin's
+`AZTEC_VERSION` (`v<new_version>` without its `v`) into `docs/.aztec-node/cli`, under
+docs' yarn settings, as `examples/bootstrap.sh` does in CI. The CLI must report that
+version; abort otherwise. `CLI_PATH` adds the pin's nargo and bb (2c) and the tag's
+`aztec-up` script, which the npm packages do not ship. Never run the
+`install.aztec.network` installer here: it installs node, nargo and foundry and edits
+shell profiles, all from scripts fetched at run time.
 
 ### Step 4: Get Sponsored FPC Address
 
@@ -450,11 +445,9 @@ This updates `aztec_cli_reference.md`, `aztec_wallet_cli_reference.md` and
 `aztec start` reference `docs/docs-operate/operators/reference/cli-reference.md`. Both
 generators run the CLI under an environment allowlist and refuse to print or write a
 capture that carries a key-shaped default (`docs/scripts/lib/key_defaults.sh`); afterwards
-`docs/scripts/check_cli_defaults.sh` must exit 0. Do not hand-edit the pages, with one
-exception: `--help` prints defaults derived from `$HOME`
-(`aztec-wallet --data-dir` shows `(default: "<home>/.aztec/wallet")`), so the scrape
-contains `$CLI_HOME`. Normalise those paths to `~/.aztec/...`; the grep must then print
-nothing.
+`docs/scripts/check_cli_defaults.sh` must exit 0. Do not hand-edit the pages. The scanner
+writes defaults under the home directory as `~` (`aztec-wallet --data-dir` shows
+`~/.aztec/wallet`), so the grep prints nothing.
 
 ### Step 7b: Generate Node API Reference Docs
 
@@ -1046,11 +1039,20 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
 
    ```bash
    . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
-   CLI_HOME="$CLI_HOME" .claude/skills/release-docs/local_network.sh start <new_version> "$STATE"
+   foundry=$(sed -n 's/^ENV FOUNDRY_VERSION=v//p' "$AZTEC_NODE_DIR/build-images/src/Dockerfile")
+   for tool in anvil forge cast; do
+     aztec_cli "$tool" --version 2>/dev/null | grep -qx "$tool Version: $foundry" \
+       || { echo "$tool is not foundry $foundry" >&2; exit 1; }
+   done
+   CLI_HOME="$CLI_HOME" CLI_PATH="$CLI_PATH" .claude/skills/release-docs/local_network.sh start <new_version> "$STATE"
    . "$STATE/network.env"
    ```
 
-   It claims its ports in `~/.agents/ports.md`, runs in its own process group with a data
+   The network and the governance tutorial run foundry from `PATH`, and the npm packages
+   ship none. Older foundry fails the release's L1 deployment (v6.0.0 with forge 1.4.1:
+   `unexpected argument '--disable-external-identification'`), so the check stops unless
+   `anvil`, `forge` and `cast` are the version the tag's build image pins. Ask the owner
+   for that foundry on `PATH`. It claims its ports in `~/.agents/ports.md`, runs in its own process group with a data
    directory under `$STATE`, and waits up to `READY_TIMEOUT` seconds (default 600) for the
    node to report `<new_version>`. `network.env` exports `AZTEC_NODE_URL` (read by
    `aztec-wallet` and the examples runner) and `ETHEREUM_HOST`.
