@@ -711,7 +711,11 @@ or transcribe one by hand:
   row and the RPC's `l1ChainId`.
 - **Governance parameters**, both columns, every release:
   - *Proposer Quorum*: `cast call <GOVERNANCE_PROPOSER> "QUORUM_SIZE()(uint256)"` and
-    `"ROUND_SIZE()(uint256)"`.
+    `"ROUND_SIZE()(uint256)"`. The same pair, with the slot length
+    (`cast call <ROLLUP> "getSlotDuration()(uint256)"`), is the signaling round that
+    `governance-participation.md` states per branch (`<slots> slots each (<minutes> at
+    <seconds> per slot)`, `<quorum> or more signals`) and `governance/proposal-lifecycle.md`
+    under `docs-participate` uses in its round examples and timeline.
   - *Voting Delay / Voting Duration / Execution Delay*:
     `cast call <GOVERNANCE> "getConfiguration()(((uint256,uint256),uint256,uint256,uint256,uint256,uint256,uint256,uint256))" --rpc-url <L1_RPC>`
     returns the `Configuration` struct of
