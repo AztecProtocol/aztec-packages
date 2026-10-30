@@ -9,8 +9,8 @@ import {Test} from "forge-std/Test.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
-import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {RegistryReductionCalculator} from "@aztec/periphery/RegistryReductionCalculator.sol";
 import {FakeGSE} from "@test/reward-calculators/mocks/FakeGSE.sol";
 import {
   MockATP,

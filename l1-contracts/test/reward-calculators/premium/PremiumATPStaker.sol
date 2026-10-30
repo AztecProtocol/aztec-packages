@@ -7,7 +7,7 @@ import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
-import {IATPStaker} from "@test/reward-calculators/IATP.sol";
+import {IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 import {IPremiumATP, IPremiumATPStaker, IStakingRegistry} from "@test/reward-calculators/premium/IPremiumATP.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
