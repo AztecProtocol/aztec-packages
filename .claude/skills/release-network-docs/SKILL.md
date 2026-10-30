@@ -605,6 +605,8 @@ scripts/check_warnings.sh "$STATE/destination-build.log"
 **Owner approval required.** Report `git -C "$DEST_ROOT" show --stat HEAD`, the classes
 with their paths, the release-only edits with the reason for each, the Step 7a findings,
 and anything left unresolved. Pushing the branch and opening a PR are the owner's call.
+Merging it into `next` publishes docs.aztec.network about 15 minutes later, unversioned
+pages included, so merge only when the release may go live.
 
 ### Step 11: Tear Down
 
@@ -621,9 +623,9 @@ release is out.
 
 ### Step 12: Refresh the Protected URL Snapshot
 
-Run this once this release's operator docs are live in production. A draft or preview
-deploy does not
-count, because the snapshot records what docs.aztec.network serves. The script adds the
+Run this once this release's operator docs are live in production: the merge's Netlify
+production deploy is published, not just merged. A draft or preview deploy does not count,
+because the snapshot records what docs.aztec.network serves. The script adds the
 live sitemap's URLs to `docs/snapshots/published-urls.txt` and keeps every URL already
 listed, so a retired page stays protected and keeps needing its redirect. The default
 version is served at unversioned paths, so expect no `/v<new_version>/` URLs.
