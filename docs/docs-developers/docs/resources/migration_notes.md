@@ -9,6 +9,30 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] The `resolveTaggingSecretStrategy` hook also decides self-sends
+
+The PXE used to replace the hook's answer with an address-derived secret for unconstrained delivery to one of the wallet's own accounts. It now applies the hook's answer to every message, including those. `DEFAULT_TAGGING_SECRET_STRATEGY` is replaced by `defaultTaggingSecretStrategy`, which returns the strategy the PXE applies when no hook is configured.
+
+In Noir tests, a strategy set with `with_default_tag_secret_strategy` now also applies to self-sends.
+
+**Migration:** to keep an address-derived secret for a send from an account to itself, return `defaultTaggingSecretStrategy` for the messages your hook has no policy for. To keep it for the wallet's other accounts as well, return `{ type: 'address-derived' }` for them explicitly:
+
+```diff
+ resolveTaggingSecretStrategy: async (request) =>
+   knownContacts.has(request.recipient.toString())
+     ? { type: 'address-derived' }
+-    : { type: 'non-interactive-handshake' },
++    : defaultTaggingSecretStrategy(request),
+```
+
+### [PXE] Only a send from an account to itself defaults to an address-derived secret
+
+Without a `resolveTaggingSecretStrategy` hook, unconstrained delivery to another account in the same wallet now uses a non-interactive handshake, like delivery to any other recipient, instead of an address-derived secret. Only a send from an account to itself, such as a change note, still uses an address-derived secret. A PXE that holds the recipient account but not the sender (for example, on the recipient's other device) cannot discover an address-derived message, but it does discover a handshake.
+
+In Noir tests, an unconstrained message from one `TestEnvironment` account to another now establishes a non-interactive handshake unless a strategy is set with `with_default_tag_secret_strategy`.
+
+**Migration:** to keep address-derived secrets for sends between the wallet's own accounts, return `{ type: 'address-derived' }` from `resolveTaggingSecretStrategy` when the recipient is one of them; a hook that falls back to `defaultTaggingSecretStrategy` picks up the new default.
+
 ### [PXE] `generateSimulatedProvingResult` takes the tx's max expiration timestamp and an options object
 
 `generateSimulatedProvingResult` (exported from `@aztec-labs/pxe/simulator`) now takes the latest expiration timestamp the tx may publish as its fourth argument. For a tx that may be sent, compute it with `computeSimulatedMaxExpirationTimestamp`, so that the simulated expiry matches the proven one. The optional settings follow in an options object, which also accepts the wallet's `resolveExpirationAndPadding` hook.
