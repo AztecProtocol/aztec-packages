@@ -60,11 +60,16 @@ $$
 \mathbf{s}^{(j+1)} = P\left(\mathbf{s}^{(j)} + (B_j, 0)\right)
 $$
 
-where $P$ is the Poseidon2 permutation. The single-output squeeze is:
+where $P$ is the Poseidon2 permutation. The single-output squeeze returns the first entry of the
+state after absorbing the last block:
 
 $$
-y_0 = \left(P(\mathbf{s}^{(m)})\right)_0
+y_0 = \left(\mathbf{s}^{(m)}\right)_0
 $$
+
+The hash uses $\lceil N/3 \rceil$ permutations. For $N = 0$ it uses one, and $y_0 = \left(P(\mathbf{s}^{(0)})\right)_0$.
+
+All inputs must be witnesses; a constant input aborts circuit construction.
 
 The IV is created as a fixed witness so the first permutation starts from normalized stdlib
 field values.
@@ -122,7 +127,7 @@ itself. This lets the implementation compute the internal matrix product as
 `(D_i - 1) * x_i + sum(x)`, which is equal to $D_i x_i + \sum_{j \ne i} x_j$.
 
 The constants are generated from the Sage script authored by Markus Schofnegger in the Horizen
-Labs Poseidon2 parameter tooling. With `R_P = 56`, `R_F = 8`, `d = 5`, and a 254-bit scalar
+Labs Poseidon2 parameter tooling; the in-tree copy is `crypto/poseidon2/poseidon2_cpp_params.sage`. With `R_P = 56`, `R_F = 8`, `d = 5`, and a 254-bit scalar
 field, the parameter set targets 128-bit security.
 
 ## Trace Layouts
@@ -144,11 +149,9 @@ Ultra permutation rows
 73 rows
 ```
 
-Mega keeps the same permutation but uses custom rows for the initial external linear layer and
-compresses all 56 internal rounds into K=4 rows. All five gate kinds share the single `poseidon2`
-block, so each permutation's rows are contiguous: the external and terminal round relations
-constrain their successor row's wires via `w_shift`, so each round's output lands on the next row
-directly across the external↔internal boundary.
+Mega uses custom rows for the initial linear layer and compresses the 56 internal rounds into
+14 rows (K=4). All five gate kinds share the `poseidon2` block, so a permutation's rows are
+contiguous. Each external and terminal relation constrains the next row through `w_shift`.
 
 ```text
 Mega permutation rows (all in the `poseidon2` block)
@@ -421,13 +424,9 @@ $$
 Each later S-box ($u_1, u_2$) consumes an already-committed compressed-row wire instead of
 inlining the previous round's S-box, keeping per-variable degree at 5.
 
-This boundary has no hidden degrees of freedom: after the shared witness index fixes $w_l'$,
-the three equations above form a triangular system in the remaining first-compressed-row
-variables $(w_r', w_o', w_4')$. `A_0` fixes $w_r'$. Then `A_1` uses that fixed $w_r'$ in
-$u_1 = (w_r' + c_1)^5$ and fixes $w_o'$. Then `A_2` uses that fixed $w_o'$ in
-$u_2 = (w_o' + c_2)^5$ and fixes $w_4'$. Each subrelation has coefficient $-1$ on the next
-wire it solves for, so the first compressed row is uniquely determined by the standard entry
-state and the fixed round constants.
+After the shared witness index fixes $w_l'$, the equations are triangular in $(w_r', w_o', w_4')$:
+`A_0` fixes $w_r'$ → $u_1 = (w_r' + c_1)^5$ uses $w_r'$ → `A_1` fixes $w_o'$ →
+$u_2 = (w_o' + c_2)^5$ uses $w_o'$ → `A_2` fixes $w_4'$, each with coefficient $-1$ on the solved wire.
 
 ### Terminal: Final Quad Row to First Final-External Row
 
@@ -447,9 +446,6 @@ $$
 Because the rows are contiguous in the `poseidon2` block, the shift lands on the real consumer:
 the same four witnesses are the input to the first final-external-round gate.
 
-This boundary has no hidden degrees of freedom: the successor is a full standard-encoded row,
-and each equation has coefficient $-1$ on a distinct shifted wire. Once the current terminal quad
-row determines `out`, the four successor wires $(w_l', w_r', w_o', w_4')$ are uniquely determined.
 
 ### Interior: Quad Row to Quad Row
 
@@ -489,12 +485,6 @@ $$
 Each subrelation has per-variable degree 5 before multiplying by selector and gate separator,
 giving partial length 7.
 
-This quad-row-to-quad-row transition has no hidden degrees of freedom either. `A_0` fixes the next row's first
-`state[0]` value. The remaining three equations say that the Vandermonde encoding of
-$(\operatorname{out}_1, \operatorname{out}_2, \operatorname{out}_3)$ equals
-$(b_1', b_2', b_3')$, the encoding reconstructed from the next row's claimed `state[0]` chain.
-Because the Vandermonde matrix is invertible, equality of these three encoded values is
-equivalent to equality of the underlying `state[1..3]` values.
 
 ## Soundness Argument
 
@@ -521,10 +511,10 @@ quad row 13
 final external input
 ```
 
-For each interior quad-row-to-quad-row transition:
-
 Steps 1 and 2 are the row-local content of [QUAD_THEOREM.md](QUAD_THEOREM.md); this section
 composes that theorem with the entry, interior, terminal, and shared-witness boundary checks.
+
+For each interior quad-row-to-quad-row transition:
 
 1. The row's four `state[0]` values uniquely determine the hidden starting `state[1..3]` values
    by the Vandermonde reconstruction.
@@ -565,7 +555,7 @@ state entries.
 
 ## Selectors and File Map
 
-Mega removes `q_poseidon2_internal` and adds the following Poseidon2-specific selectors:
+Mega has no `q_poseidon2_internal`. Its Poseidon2 selectors are:
 
 | Selector | Purpose |
 |----------|---------|
@@ -591,4 +581,4 @@ Implementation entry points:
 | `relations/poseidon2_quad_internal_terminal_relation.hpp` | Terminal boundary relation |
 | `crypto/poseidon2/poseidon2_quad_params.hpp` | Vandermonde constants and static checks |
 | `honk/execution_trace/mega_execution_trace.hpp` | Mega trace blocks and selector partitioning |
-| `flavor/mega_flavor.hpp` | Mega relation and selector set |
+| `flavor/generated/mega_flavor_generated.hpp` | Mega relation and selector set (code-generated; included by `flavor/mega_flavor.hpp`; the Mega app, kernel, ZK and AVM flavors have their own generated files) |

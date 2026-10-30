@@ -2,6 +2,8 @@
 
 A description of the modular inverse algorithm implemented in `bernstein_yang_inverse.hpp`.
 
+`field::invert()` (`field_impl.hpp`) calls it for every field with $p < 2^{255}$ (`supported_v`), outside compile-time evaluation. Other fields, such as secp256k1 and secp256r1, and all compile-time inversions use Fermat inversion. The algorithm is **variable-time** (`invert_vartime`).
+
 Throughout, $p$ is an **odd prime**, $0 < a < p$, and we want
 $$a^{-1} \bmod p.$$
 
@@ -98,12 +100,10 @@ the magnitude of the lower-left entry $g$ on average.
 Unpacking $L_a, L_b, L_c$ as row operations on $(f, g)$:
 
 - $L_a$: $g \leftarrow g/2$. Valid only when $g$ is even, otherwise the result is non-integer.
-- $L_b$: $g \leftarrow (g + f)/2$. Used when $g$ is odd but $|g| \le |f|$ in spirit (tracked by $\delta \le 0$): adding $f$ first makes the sum even.
-- $L_c$: $(f, g) \leftarrow (g, (g - f)/2)$. Swap-and-subtract; used when $g$ is odd and $|g| > |f|$ in spirit ($\delta > 0$).
+- $L_b$: $g \leftarrow (g + f)/2$. Used when $g$ is odd and $\delta \le 0$: adding $f$ first makes the sum even.
+- $L_c$: $(f, g) \leftarrow (g, (g - f)/2)$. Swap-and-subtract; used when $g$ is odd and $\delta > 0$.
 
-The "in spirit" caveats are because BY tracks $|f|$ vs. $|g|$ comparisons via the
-integer $\delta$ rather than by an actual size comparison — $\delta$ effectively
-measures the running deficit "extra divisions of $g$ over extra divisions of $f$."
+$\delta$ stands in for the $|f|$ vs. $|g|$ comparison: it counts the extra divisions of $g$ over the extra divisions of $f$.
 
 ### Right-column $p$-shift
 
@@ -227,7 +227,7 @@ Those sums are held in the temporary six-limb arrays inside
 
 For the right column, $d$ and $e$ need extra resting headroom too. The 2-adic
 correction adds $k \cdot p$ before the shift, and repeated matrix applications
-can move   00,p)1 The implementation therefore reduces them
+can move $d$ and $e$ outside $[0, p)$. The implementation therefore reduces them
 to canonical form every `REDUCE_INTERVAL = 4` iterations rather than after every
 matrix application.
 
@@ -235,6 +235,8 @@ Between reductions, $|d|$ and $|e|$ are bounded by roughly $32p$. Five signed
 64-bit limbs provide about 319 bits of magnitude, enough room for that growth.
 `Native5x64::reduce_to_canonical(p)` then repeatedly adds or subtracts $p$,
 with a loop bound of 36 to cover the same worst-case headroom.
+
+The WASM kernel `Wasm9x29` stores each value in nine signed 29-bit limbs (capacity about $2^{260}$). Between reductions $|d|$ and $|e|$ reach about $31p \approx 2^{259}$, which still fits. Both kernels use the same `REDUCE_INTERVAL = 4` and `REDUCE_TO_CANONICAL_MAX_ITERS = 36`.
 
 ---
 
