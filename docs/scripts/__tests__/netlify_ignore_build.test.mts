@@ -99,6 +99,11 @@ test("previews compare the pull request's merge ref with its base", () => {
   assert.equal(ignore(clone, { COMMIT_REF: c.P, REVIEW_ID: "7" }, "preview").status, 1);
   assert.equal(ignore(clone, { COMMIT_REF: c.Q, REVIEW_ID: "8" }, "preview").status, 0);
   assert.equal(ignore(clone, { COMMIT_REF: c.Q }, "preview").status, 1);
+  for (const env of [{ COMMIT_REF: c.Q, REVIEW_ID: "8\nforged" }, { COMMIT_REF: "x\nforged", REVIEW_ID: "8" }]) {
+    const r = ignore(clone, env, "preview");
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.doesNotMatch(r.stdout, /forged/, "echoes an unchecked value");
+  }
 });
 
 test("a missing or unknown mode is a usage error", () => {

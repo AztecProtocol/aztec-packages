@@ -24,6 +24,8 @@ except ImportError:
     tomllib = None
 
 OFF = {"ignore": "exit 0", "command": "exit 1"}
+# The publish directory is a site setting (build/); a `publish` key here would override it.
+BUILD = {**OFF, "functions": "netlify/functions"}
 CONTEXTS = {
     "production": {"ignore": "./scripts/netlify-ignore-build.sh production", "command": "./scripts/netlify-build.sh"},
     "deploy-preview": {"ignore": "./scripts/netlify-ignore-build.sh preview", "command": "./scripts/netlify-build.sh"},
@@ -37,7 +39,7 @@ def problems(path):
             cfg = tomllib.load(f)
     except (OSError, tomllib.TOMLDecodeError) as e:
         return [f"{path}: {e}"]
-    found = [f"[build] {k} must be {v!r}" for k, v in OFF.items() if cfg.get("build", {}).get(k) != v]
+    found = [f"[build] must be exactly {BUILD!r}"] if cfg.get("build") != BUILD else []
     contexts = cfg.get("context", {})
     found += [f"[context.{c}] is not allowed: only {', '.join(CONTEXTS)}" for c in contexts if c not in CONTEXTS]
     found += [f"[context.{c}] must be exactly {t!r}" for c, t in CONTEXTS.items() if contexts.get(c) != t]
@@ -47,6 +49,7 @@ def problems(path):
 GOOD = """[build]
   ignore = "exit 0"
   command = "exit 1"
+  functions = "netlify/functions"
 
 [context.production]
   ignore = "./scripts/netlify-ignore-build.sh production"
@@ -64,6 +67,7 @@ GOOD = """[build]
 # Each must fail: (label, text replaced, replacement), applied to GOOD; "" appends.
 BAD = [
     ("[build] builds", '[build]\n  ignore = "exit 0"\n  command = "exit 1"', '[build]\n  ignore = "exit 0"\n  command = "yarn build"'),
+    ("[build] changes the publish directory", "[build]\n", '[build]\n  publish = "."\n'),
     ("production builds without the decision", '[context.production]\n  ignore = "./scripts/netlify-ignore-build.sh production"\n', "[context.production]\n"),
     ("production decides but cannot build", '  command = "./scripts/netlify-build.sh"\n\n[context.branch-deploy]', '  command = "exit 1"\n\n[context.branch-deploy]'),
     ("production with an extra key", "[context.production]\n", '[context.production]\n  publish = "elsewhere"\n'),

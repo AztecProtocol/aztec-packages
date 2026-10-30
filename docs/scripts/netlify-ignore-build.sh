@@ -13,12 +13,22 @@ function usage {
   exit 2
 }
 [ $# = 1 ] || usage
-mode=$1
+case $1 in
+  preview | production) mode=$1 ;;
+  *) usage ;;
+esac
 
-head=${COMMIT_REF:?COMMIT_REF is not set}
+# Netlify sets these; they are still checked before they reach git or the log.
+sha='^[0-9a-f]{40}$'
+head=${COMMIT_REF:-}
+if [[ ! $head =~ $sha ]]; then
+  echo "COMMIT_REF is not a commit id: building $mode."
+  exit 1
+fi
 
 function preview {
   local pr=${REVIEW_ID:-}
+  [[ $pr =~ ^[0-9]+$ ]] || pr=
 
   # Fetching with --depth into a full clone would make Netlify's cached clone shallow.
   local depth=()
@@ -55,16 +65,10 @@ function preview {
 }
 
 # CACHED_COMMIT_REF names the last build that saved Netlify's cache; cancelled builds, and per Netlify
-# failed ones, save none. Without a cache it equals COMMIT_REF, where a plain diff would skip. Both are
-# checked before they reach git and never echoed unchecked.
+# failed ones, save none. Without a cache it equals COMMIT_REF, where a plain diff would skip.
 function production {
   local base=${CACHED_COMMIT_REF:-}
-  local sha='^[0-9a-f]{40}$'
 
-  if [[ ! $head =~ $sha ]]; then
-    echo "COMMIT_REF is not a commit id: building production."
-    exit 1
-  fi
   if [[ ! $base =~ $sha ]] || [ "$base" = "$head" ]; then
     echo "No earlier production build to compare with: building production."
     exit 1
@@ -91,8 +95,4 @@ function production {
   exit 1
 }
 
-case $mode in
-  preview) preview ;;
-  production) production ;;
-  *) usage ;;
-esac
+"$mode"
