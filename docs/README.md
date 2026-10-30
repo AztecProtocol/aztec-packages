@@ -49,7 +49,7 @@ Note that you cannot use the macros (`#include_aztec_version` and `#include_code
 
 The way docs builds work is the following:
 
-- **Publishing is paused.** docs.aztec.network still serves the last build published from this repository (2026-08-19). Netlify builds of this directory are disabled (`ignore = "exit 0"` in `netlify.toml`), so merging to `next` does not reach readers and pull requests get no deploy preview. Delete this bullet once previews and publishing from `next` are restored.
+- Netlify builds this directory (`netlify.toml`). A push to `next` that changes `docs/` publishes docs.aztec.network about 15 minutes later; a push that changes nothing under `docs/` publishes nothing. A pull request that changes `docs/` gets a deploy preview. See [Publishing](#publishing).
 - Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function and the markdown edge function.
 - [The main CI workflow](../.github/workflows/ci3.yml) runs the docs reference and sync checks on every pull request. The docs build and tests (`make docs docs-tests`) run in full CI, for example with the `ci-full` label.
 
@@ -100,7 +100,21 @@ This ensures that:
 
 ## Releases
 
-A new docs site is published on every merge to `main` — once publishing is restored; see the note under "The way docs builds work" above.
+A new docs site is published on every merge to `next` that changes `docs/`, unversioned pages (`docs/docs`, `docs-participate`) included.
+
+### Publishing
+
+Netlify (site `aztec-docs-dev`) runs `scripts/netlify-ignore-build.sh` first, and `scripts/netlify-build.sh` when it says to build. Its decision and the reason are the first lines of the deploy log.
+
+- **Production** (`next`): builds when `docs/` changed since the last production build that passed, and whenever that build cannot be identified (no build cache, a commit that is not in `next`'s history). It leaves out the dev docs (`CONTEXT=production`).
+- **Deploy previews**: build when the pull request changes `docs/`.
+
+Failed production deploys post to the `#docs-alert` Slack channel. These actions are for site owners, in the Netlify UI:
+
+- **Roll back**: publish an earlier production deploy (Deploys, then the deploy, then Publish deploy). First check that no production build is running, or it publishes over the rollback. A rollback lasts until the next production build. To hold it, also stop builds in the build settings, which stops previews too. Never lock deploys.
+- **Force a production build**: Trigger deploy, then Clear cache and deploy. Without a cache the build always runs. Use it after a failed production deploy, and after a change to a Netlify environment variable, which changes the output without a `docs/` change. Retry is not enough: it can be skipped.
+- A push whose tip commit message contains `[skip ci]` or `[skip netlify]` gets no deploy; the next push to `next` builds its changes.
+- A manual `netlify deploy --prod` upload is replaced by the next production build.
 
 ### Installation
 
