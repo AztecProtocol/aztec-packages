@@ -37,6 +37,7 @@ function makeRoot() {
       ref: "v1.0.0",
       commit,
       toolchain: { aztec: "1.0.0", bb: "1.0.0", noir: "0.1.0", l1Artifacts: "1.0.0" },
+      noirArchives: { "x86_64-unknown-linux-gnu": `sha256:${"0".repeat(64)}` },
     }),
   );
   write(path.join(rootDir, "labs/noir-projects/a.nr"), "// docs:start:x\nfn submodule() {}\n// docs:end:x\n");
