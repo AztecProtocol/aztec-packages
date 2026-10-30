@@ -30,7 +30,7 @@ The Aztec network uses a consensus-based slashing mechanism where validators vot
 
 **Vote Encoding**: Votes are encoded as bytes where each validator's vote is represented by 2 bits indicating the slash amount (0-3 slash units). The L1 contract tallies these votes and slashes validators that reach quorum.
 
-**Execution**: After a round ends, there's an execution delay period (approximately 3 days) during which the slashing vetoer can pause execution if needed. Once the delay passes, anyone can execute the round to apply the slashing.
+**Execution**: After a round ends, there's an execution delay period (approximately 3 days on mainnet, 5 hours on testnet) during which the slashing vetoer can pause execution if needed. Once the delay passes, anyone can execute the round to apply the slashing.
 
 ### Slashing Rounds and Offsets
 
@@ -43,10 +43,10 @@ Round N: Proposers vote on offenses from Round N-2
 ```
 
 **Key parameters**:
-- **Round Size**: 128 L2 slots (approximately 2.6 hours at 72 seconds per slot)
+- **Round Size**: 128 L2 slots on mainnet and testnet (approximately 2.6 hours at 72 seconds per slot)
 - **Slashing Offset**: 2 rounds (proposers in round N vote on offenses from round N-2)
-- **Execution Delay**: 28 rounds (~3 days)
-- **Grace Period**: First 8,400 slots after the rollup becomes canonical (~7 days; configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`)
+- **Execution Delay**: 28 rounds on mainnet (~3 days), 2 rounds on testnet (~5 hours)
+- **Grace Period**: First 8,400 slots on mainnet (~7 days) and 64 slots on testnet (~77 minutes) after the rollup becomes canonical (configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`)
 
 ### Slashing Amounts
 
@@ -249,9 +249,9 @@ When slashing rounds become executable (after the execution delay):
 
 The slashing vetoer is an independent security group that can pause slashing to protect validators from unfair slashing due to software bugs.
 
-**Execution Delay**: All slashing proposals have a ~3 day execution delay (28 rounds on mainnet) during which the vetoer can review and potentially block execution.
+**Execution Delay**: All slashing proposals have an execution delay (28 rounds, about 3 days, on mainnet; 2 rounds, about 5 hours, on testnet) during which the vetoer can review and potentially block execution.
 
-**Temporary Disable**: The vetoer can disable all slashing for up to 3 days if needed, with the ability to extend this period.
+**Temporary Disable**: The vetoer can disable all slashing for up to 3 days on mainnet (5 days on testnet) if needed, with the ability to extend this period.
 
 **Purpose**: This failsafe protects sequencers from being unfairly slashed due to client software bugs or network issues that might cause false positives in offense detection.
 
@@ -320,7 +320,7 @@ cast call [SLASHING_PROPOSER_ADDRESS] \
 2. Verify Sentinel is tracking data: Check logs for "Sentinel" messages
 3. Ensure `SLASH_INACTIVITY_PENALTY` is greater than 0
 4. Check that `SENTINEL_HISTORY_LENGTH_IN_EPOCHS` is configured appropriately (see configuration section)
-5. Remember: Validators need to be inactive for consecutive epochs (threshold: 2 by default)
+5. Remember: Validators need to be inactive for consecutive epochs (threshold: 2 by default on mainnet, 1 on testnet)
 
 ### Own Validators Being Slashed
 
@@ -339,7 +339,7 @@ cast call [SLASHING_PROPOSER_ADDRESS] \
 **Symptom**: Your configured penalties don't result in slashing on L1.
 
 **Solutions**:
-1. For the current network, all penalties should be set to `2000000000000000000000` (2000 tokens, 1%)
+1. Your node sums each validator's penalties per epoch and votes for the highest L1 slash amount the sum reaches, or for no slash below the smallest one. The amounts are 2,000 and 5,000 tokens on mainnet (`2000000000000000000000` and `5000000000000000000000`) and 100,000 and 250,000 tokens on testnet (`100000000000000000000000` and `250000000000000000000000`).
 2. Verify your penalty configuration matches the default values shown in the Environment Variables section
 
 ## Best Practices
