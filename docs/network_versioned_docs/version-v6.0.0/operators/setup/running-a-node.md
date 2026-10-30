@@ -25,7 +25,7 @@ These requirements are subject to change as the network throughput increases.
 
 **Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md).
 
-This setup includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
+This setup includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options. For testnet, replace every `--network mainnet` in this guide with `--network testnet`, and use Sepolia L1 endpoints.
 
 ## Setup
 

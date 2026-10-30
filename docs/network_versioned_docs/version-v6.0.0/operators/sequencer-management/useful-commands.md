@@ -308,7 +308,7 @@ cast --to-address 0x000000000000000000000000742d35Cc6634C0532925a3b844Bc9e7595f0
 
 **Solutions**:
 - Verify your RPC endpoint is accessible and correct
-- Check that you're connected to the right network (Ethereum mainnet)
+- Check that you're connected to the right network (Ethereum mainnet for mainnet, Sepolia for testnet)
 - Ensure your RPC provider supports the `eth_call` method
 - Try a different RPC endpoint
 

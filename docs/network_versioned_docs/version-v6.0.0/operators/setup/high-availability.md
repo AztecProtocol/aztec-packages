@@ -157,6 +157,7 @@ aztec validator-keys new \
   --data-dir ~/ha-keys-temp
 ```
 
+This command uses the mainnet GSE address. On testnet, use `--gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`.
 
 This command generates:
 
@@ -428,7 +429,7 @@ docker compose up -d
 
 Ensure both nodes are configured with:
 
-- The same network (`--network mainnet`)
+- The same network (`--network mainnet` or `--network testnet`)
 - Proper L1 endpoints
 - Correct P2P configuration
 - **HA signing enabled** with the same database URL

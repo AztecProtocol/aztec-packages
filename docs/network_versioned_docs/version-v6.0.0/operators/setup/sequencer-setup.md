@@ -120,8 +120,8 @@ aztec validator-keys new \
 **Relevant parameters:**
 - `--fee-recipient`: Set to all zeros (not currently used by the protocol)
 - `--staker-output`: Generate the public keystore for the staking dashboard
-- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` for mainnet)
-- `--l1-rpc-urls`: Your Ethereum mainnet RPC endpoint
+- `--gse-address`: The GSE (Governance Staking Escrow) contract address: `0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` on mainnet, `0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac` on testnet. The commands on this page use the mainnet address.
+- `--l1-rpc-urls`: Your L1 RPC endpoint (Ethereum mainnet, or Sepolia for testnet)
   - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your Ethereum mainnet RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
 - `--count`: Number of validator identities to generate (default: 1)
   - Use this to generate multiple attester identities in a single keystore
@@ -368,7 +368,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
 ```
 :::
 
-This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options. For testnet, replace every `--network mainnet` in this guide with `--network testnet`, and use Sepolia L1 endpoints.
 
 ### Step 6: Start the Sequencer
 
