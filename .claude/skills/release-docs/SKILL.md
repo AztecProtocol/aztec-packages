@@ -191,11 +191,11 @@ git diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
 LABS_TAG=v<new_version>
 CUT_ID=<cut>
 STATE=$HOME/.cache/aztec-docs-cut/$CUT_ID
-[ ! -e "$STATE" ] && ! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" \
+! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" && mkdir -p "${STATE%/*}" && mkdir "$STATE" \
   || { echo "$STATE or docs-cut/$CUT_ID exists: pick another <cut>, or remove that cut first" >&2; exit 1; }
 CUT=$STATE/worktree
 CLI_HOME=$STATE/cli-home
-mkdir -p "$STATE" "$CLI_HOME"
+mkdir "$CLI_HOME"
 cat >"$STATE/env.sh" <<EOF
 LABS_TAG=$LABS_TAG
 CUT_ID=$CUT_ID
@@ -278,15 +278,17 @@ with nargo and bb this repository builds.
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 pin=$(node scripts/aztec_node.mts env) || exit 1
 eval "$pin"
-cd "$AZTEC_NODE_DIR/yarn-project"
-yarn install --immutable --mode=skip-build
-PUB=$STATE/published && rm -rf "$PUB" && mkdir -p "$PUB"
+cd "$AZTEC_NODE_DIR/yarn-project" && yarn install --immutable --mode=skip-build || exit 1
+PUB=$STATE/published && rm -rf "$PUB" && mkdir -p "$PUB" || exit 1
+yarn workspaces list --json --no-private >"$PUB/workspaces.jsonl" &&
+  node -e 'for (const l of require("fs").readFileSync(0, "utf8").trim().split("\n")) { const w = JSON.parse(l); console.log(w.name, w.location); }' \
+    <"$PUB/workspaces.jsonl" >"$PUB/workspaces.txt" && [ -s "$PUB/workspaces.txt" ] \
+  || { echo "cannot list the public workspaces" >&2; exit 1; }
 while read -r name location; do
   tgz=$(cd "$PUB" && npm pack -q "$name@$AZTEC_VERSION") || { echo "$name@$AZTEC_VERSION is not published" >&2; exit 1; }
-  mkdir -p "$PUB/x/$location" && tar xzf "$PUB/$tgz" -C "$PUB/x/$location" --strip-components=1
-  rsync -a --ignore-existing "$PUB/x/$location/" "$location/"
-done < <(yarn workspaces list --json --no-private |
-  node -e 'for (const l of require("fs").readFileSync(0, "utf8").trim().split("\n")) { const w = JSON.parse(l); console.log(w.name, w.location); }')
+  mkdir -p "$PUB/x/$location" && tar xzf "$PUB/$tgz" -C "$PUB/x/$location" --strip-components=1 &&
+    rsync -a --ignore-existing "$PUB/x/$location/" "$location/" || { echo "cannot overlay $name" >&2; exit 1; }
+done <"$PUB/workspaces.txt"
 git -C "$AZTEC_NODE_DIR" status --porcelain
 ```
 
@@ -944,19 +946,29 @@ them are where to look:
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 echo "destination pin: $DEST_PIN_REF  release: $LABS_TAG"
-base=$(gh api "repos/aztec-labs-eng/aztec-node/compare/$LABS_TAG...$DEST_PIN_REF" --jq .merge_base_commit.sha)
-since=$(gh api "repos/aztec-labs-eng/aztec-node/commits/$base" --jq .commit.committer.date)
-git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$since" origin tag "$LABS_TAG" tag "$DEST_PIN_REF"
-[ "$(git -C "$AZTEC_NODE_DIR" merge-base "$LABS_TAG" "$DEST_PIN_REF")" = "$base" ] \
-  || { echo "merge base $base not fetched" >&2; exit 1; }
-git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/ noir-projects/
-git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick --name-only "$LABS_TAG...$DEST_PIN_REF" -- docs/
+cmp=$(gh api "repos/aztec-labs-eng/aztec-node/compare/$LABS_TAG...$DEST_PIN_REF" \
+  --jq '"\(.merge_base_commit.sha) \(.behind_by) \(.ahead_by)"') || exit 1
+read -r base behind ahead <<<"$cmp"
+since=$(gh api "repos/aztec-labs-eng/aztec-node/commits/$base" --jq .commit.committer.date) || exit 1
+AZTEC_NODE_HISTORY=$STATE/aztec-node-history
+rm -rf "$AZTEC_NODE_HISTORY" && git init -q "$AZTEC_NODE_HISTORY" &&
+  git -C "$AZTEC_NODE_HISTORY" fetch -q --shallow-since="$since" https://github.com/aztec-labs-eng/aztec-node.git \
+    tag "$LABS_TAG" tag "$DEST_PIN_REF" || exit 1
+[ "$(git -C "$AZTEC_NODE_HISTORY" merge-base "$LABS_TAG" "$DEST_PIN_REF")" = "$base" ] &&
+  [ "$(git -C "$AZTEC_NODE_HISTORY" rev-list --count "$DEST_PIN_REF..$LABS_TAG")" = "$behind" ] &&
+  [ "$(git -C "$AZTEC_NODE_HISTORY" rev-list --count "$LABS_TAG..$DEST_PIN_REF")" = "$ahead" ] \
+  || { echo "history down to $base is incomplete: GitHub counts $behind/$ahead" >&2; exit 1; }
+git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/ noir-projects/
+git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-only "$LABS_TAG...$DEST_PIN_REF" -- docs/
 ```
 
 Skip this step when the two refs name the same commit. `--cherry-pick` drops commits that
-reached both sides as ports. The fetch reaches back to the refs' merge base, which GitHub
-names without local history; it can shorten the history Step 8 fetched, so Steps 8 and 8b
-come first. Never fetch with `--shallow-exclude=<previous release>`: the
+reached both sides as ports. The history goes into a checkout of its own, fetched afresh
+down to the refs' merge base, which GitHub names without local history; fetching it into
+`$AZTEC_NODE_DIR` instead keeps that checkout's earlier shallow boundaries (the merge base
+goes missing) and shortens the history Step 8 fetched. The check compares the merge base
+and both sides' counts with GitHub's; if only the counts differ, a merged branch predates
+the merge base: fetch again with an earlier `--shallow-since`. Never fetch with `--shallow-exclude=<previous release>`: the
 merge base is usually reachable from the previous release, so it is cut off and the range
 lists both sides back to the boundary (v6.0.0 against `v6.0.0-rc.3`: 166/166 commits
 instead of 57/2). Then:

@@ -115,8 +115,9 @@ Parse the response to extract:
 
 **Detect release type** from the version string:
 
-- Contains `mainnet`, or is a plain semver like `5.2.0` → `mainnet`; ask whether testnet
-  reads it too (`/release-docs` "One version, several release types")
+- Contains `mainnet` → `mainnet`
+- A plain semver like `5.2.0` → ask which types will read it: `mainnet`, `testnet` or both
+  (both: `/release-docs` "One version, several release types" decides which one renders)
 - Contains `testnet` → `testnet`
 - Contains `rc` → usually `testnet`; confirm with the user, since an rc can ship to mainnet
 - Contains `devnet` → **abort**: network docs have no devnet version; use `/release-docs`
@@ -151,11 +152,11 @@ git diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
 LABS_TAG=v<new_version>
 CUT_ID=<cut>
 STATE=$HOME/.cache/aztec-docs-cut/$CUT_ID
-[ ! -e "$STATE" ] && ! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" \
+! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" && mkdir -p "${STATE%/*}" && mkdir "$STATE" \
   || { echo "$STATE or docs-cut/$CUT_ID exists: pick another <cut>, or remove that cut first" >&2; exit 1; }
 CUT=$STATE/worktree
 CLI_HOME=$STATE/cli-home
-mkdir -p "$STATE" "$CLI_HOME"
+mkdir "$CLI_HOME"
 cat >"$STATE/env.sh" <<EOF
 LABS_TAG=$LABS_TAG
 CUT_ID=$CUT_ID
@@ -448,24 +449,32 @@ Step 8.
 The cut's operator pages are the destination's, written against the destination's pin
 (`DEST_PIN_REF`); the snapshot must describe the tag. When the two refs name different
 commits, list the code between them, as `/release-docs` Step 12 does, fetching both
-histories down to their merge base:
+histories down to their merge base into a checkout of their own:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 echo "destination pin: $DEST_PIN_REF  release: $LABS_TAG"
-base=$(gh api "repos/aztec-labs-eng/aztec-node/compare/$LABS_TAG...$DEST_PIN_REF" --jq .merge_base_commit.sha)
-since=$(gh api "repos/aztec-labs-eng/aztec-node/commits/$base" --jq .commit.committer.date)
-git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$since" origin tag "$LABS_TAG" tag "$DEST_PIN_REF"
-[ "$(git -C "$AZTEC_NODE_DIR" merge-base "$LABS_TAG" "$DEST_PIN_REF")" = "$base" ] \
-  || { echo "merge base $base not fetched" >&2; exit 1; }
-git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/
-git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick --name-only "$LABS_TAG...$DEST_PIN_REF" -- docs/docs-operate/
+cmp=$(gh api "repos/aztec-labs-eng/aztec-node/compare/$LABS_TAG...$DEST_PIN_REF" \
+  --jq '"\(.merge_base_commit.sha) \(.behind_by) \(.ahead_by)"') || exit 1
+read -r base behind ahead <<<"$cmp"
+since=$(gh api "repos/aztec-labs-eng/aztec-node/commits/$base" --jq .commit.committer.date) || exit 1
+AZTEC_NODE_HISTORY=$STATE/aztec-node-history
+rm -rf "$AZTEC_NODE_HISTORY" && git init -q "$AZTEC_NODE_HISTORY" &&
+  git -C "$AZTEC_NODE_HISTORY" fetch -q --shallow-since="$since" https://github.com/aztec-labs-eng/aztec-node.git \
+    tag "$LABS_TAG" tag "$DEST_PIN_REF" || exit 1
+[ "$(git -C "$AZTEC_NODE_HISTORY" merge-base "$LABS_TAG" "$DEST_PIN_REF")" = "$base" ] &&
+  [ "$(git -C "$AZTEC_NODE_HISTORY" rev-list --count "$DEST_PIN_REF..$LABS_TAG")" = "$behind" ] &&
+  [ "$(git -C "$AZTEC_NODE_HISTORY" rev-list --count "$LABS_TAG..$DEST_PIN_REF")" = "$ahead" ] \
+  || { echo "history down to $base is incomplete: GitHub counts $behind/$ahead" >&2; exit 1; }
+git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/
+git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-only "$LABS_TAG...$DEST_PIN_REF" -- docs/docs-operate/
 ```
 
 Never fetch with `--shallow-exclude=<previous release>`: the merge base is usually reachable
 from it, so it is cut off and the range lists both sides back to the boundary (v6.0.0
 against `v6.0.0-rc.3`: 166/166 commits instead of 57/2). This fetch needs no previous
-release, so it also works when that is not a Labs tag.
+release, so it also works when that is not a Labs tag. The separate history checkout and
+a failed count check work as in `/release-docs` Step 12.
 
 `>` commits are in the destination's pin but not in the release. Start with the operator
 pages the second log names (aztec-node held the docs until they moved here, so a code
