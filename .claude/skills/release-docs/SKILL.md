@@ -107,7 +107,7 @@ curl -sS -w '%{stderr}[http %{http_code}]\n' -X POST -H 'Content-Type: applicati
   -d '{"jsonrpc":"2.0","id":1,"method":"aztec_getNodeInfo","params":[]}' <RPC_URL> | jq '.result // .'
 ```
 
-- dRPC serves only the legacy `node_` namespace: on error `-32601`, repeat with
+- On error `-32601` (dRPC used to serve only the legacy `node_` namespace), repeat with
   `node_getNodeInfo`.
 - `403 {"message":"Forbidden"}` (rpc2) or `401 No API key found in request` (Kong) means a
   missing or wrong key for that endpoint, not an endpoint that is down.
@@ -116,7 +116,8 @@ Parse the response to extract:
 
 - `nodeVersion` (e.g. `6.0.0-rc.3`)
 - L1 contract addresses from `l1ContractAddresses`: registry, rollup, inbox, outbox,
-  fee juice, staking asset, fee juice portal, fee asset handler, coin issuer,
+  fee juice, staking asset, fee juice portal, fee asset handler (absent where none is
+  deployed, as on mainnet), coin issuer,
   reward distributor, governance proposer, governance, and GSE (`gseAddress`, newer
   nodes only)
 - L2 protocol contract addresses from `protocolContractAddresses`: instance registry,
@@ -829,7 +830,9 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
   wire-incompatible with the rc). The build validates neither. Both spacings of
   `tag = "next"` occur, hence the pattern.
 - The second lists every link, clone and Nargo `git` dependency into this repository with
-  its ref and the start of its path (a clone's path is in the page's next `cd`). Classify
+  its ref and the start of its path (a clone's path is in the page's next `cd`). Hits under
+  `processed-docs/docs-participate/` and `processed-docs/docs/` are unversioned and never
+  reach a snapshot. Classify
   each by path, not by ref: `#include_aztec_version` in a hand-written URL renders
   `v<new_version>`, which looks right whenever the l1-artifacts version equals the release
   version (as at `v6.0.0-rc.1`), yet this repository's tag of that name holds no Labs code.
@@ -927,11 +930,8 @@ grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/ \
   developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
 ```
 
-Known hits:
-`docs/tutorials/js_tutorials/webapp/wallet-sdk/01-dapp-integration.md`, in the source and
-the snapshot (`npm install @aztec-labs/wallet-sdk@<version> @aztec-labs/aztec.js@<version>`),
-and the operator changelog page of the major, whose rc-specific notices (`v6.0.0-rc.1 is
-Testnet only`) need the owner's call on whether they still hold.
+Known hit: the operator changelog page of the major, whose rc-specific notices
+(`v6.0.0-rc.1 is Testnet only`) need the owner's call on whether they still hold.
 
 ### Step 12: Check the Content Against the Tag
 
@@ -955,7 +955,8 @@ git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick --name-only "$
 
 Skip this step when the two refs name the same commit. `--cherry-pick` drops commits that
 reached both sides as ports. The fetch reaches back to the refs' merge base, which GitHub
-names without local history. Never fetch with `--shallow-exclude=<previous release>`: the
+names without local history; it can shorten the history Step 8 fetched, so Steps 8 and 8b
+come first. Never fetch with `--shallow-exclude=<previous release>`: the
 merge base is usually reachable from the previous release, so it is cut off and the range
 lists both sides back to the boundary (v6.0.0 against `v6.0.0-rc.3`: 166/166 commits
 instead of 57/2). Then:
@@ -1194,7 +1195,7 @@ pin commit (Step 2c):
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
-cd "$CUT" && git add -A -- docs && git commit -m "docs: cut $LABS_TAG"
+cd "$CUT" && git add -- docs && git commit -m "docs: cut $LABS_TAG"
 git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
   || { echo "the cut changed docs/examples: land the change on next and restart the cut" >&2; exit 1; }
 git -C "$CUT" diff --name-status "$PINNED" HEAD -- docs

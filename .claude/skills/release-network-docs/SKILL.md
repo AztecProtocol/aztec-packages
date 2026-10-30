@@ -95,7 +95,7 @@ curl -sS -w '%{stderr}[http %{http_code}]\n' -X POST -H 'Content-Type: applicati
   -d '{"jsonrpc":"2.0","id":1,"method":"aztec_getNodeInfo","params":[]}' <RPC_URL> | jq '.result // .'
 ```
 
-- dRPC serves only the legacy `node_` namespace: on error `-32601`, repeat with
+- On error `-32601` (dRPC used to serve only the legacy `node_` namespace), repeat with
   `node_getNodeInfo`.
 - `403 {"message":"Forbidden"}` (rpc2) or `401 No API key found in request` (Kong) means a
   missing or wrong key for that endpoint, not an endpoint that is down.
@@ -104,7 +104,8 @@ Parse the response to extract:
 
 - `nodeVersion` (e.g. `5.2.0` or `6.0.0-rc.3`)
 - L1 contract addresses from `l1ContractAddresses`: registry, rollup, inbox, outbox,
-  fee juice, staking asset, fee juice portal, fee asset handler, coin issuer,
+  fee juice, staking asset, fee juice portal, fee asset handler (absent where none is
+  deployed, as on mainnet), coin issuer,
   reward distributor, governance proposer, governance, and GSE (`gseAddress`, newer
   nodes only)
 - L2 protocol contract addresses from `protocolContractAddresses`: instance registry,
@@ -551,7 +552,7 @@ fixed goes to the owner.
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
-cd "$CUT" && git add -A -- docs && git commit -m "docs: cut $LABS_TAG network docs"
+cd "$CUT" && git add -- docs && git commit -m "docs: cut $LABS_TAG network docs"
 git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
   || { echo "the cut changed docs/examples: land the change on next and restart the cut" >&2; exit 1; }
 git -C "$CUT" diff --name-status "$PINNED" HEAD -- docs
