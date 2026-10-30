@@ -18,16 +18,23 @@ little. `RESULTS.md` holds every number, the derivation of the floor and the con
 
 ## Files
 
+`gasFloorInputs.t.sol` uses a fresh `Bn254LibWrapper` and asserts that its codehash equals the GSE's own wrapper at
+`CREATE(GSE, nonce 1)`.
+
 | File | Component | What it measures |
 |---|---|---|
-| `gasFloorInputs.t.sol` | `Bn254LibWrapper` (BN254 proof of possession), Rollup flush | (a) full proof-of-possession verification gas per key; (b) the smallest stipend for which verification succeeds, per key; (d) a traced successful flush (GSE and wrapper frames); (e) a traced flush of an invalid deposit, to read the refund-branch cost. The wrapper is a fresh `Bn254LibWrapper`; the test asserts its codehash equals the GSE's own wrapper at `CREATE(GSE, nonce 1)`. |
+| `gasFloorInputs.t.sol` | `Bn254LibWrapper` (BN254 proof of possession) | (a) full proof-of-possession verification gas per key. |
+| `gasFloorInputs.t.sol` | `Bn254LibWrapper` | (b) the smallest stipend for which verification succeeds, per key. |
+| `gasFloorInputs.t.sol` | Rollup flush | (d) a traced successful flush (GSE and wrapper frames). |
+| `gasFloorInputs.t.sol` | Rollup flush | (e) a traced flush of an invalid deposit, to read the refund-branch cost. |
 | `gsePreVerificationGas.t.sol` | `GSE.deposit` | (c) gas the GSE spends from `deposit` entry to the instant before the verifier call, given a known stipend. Run under several EVM versions to show how much of it is EIP-8037 state gas. |
 | `GSEMeasureProbe.sol` | `GSE` | Helper for the test above: a GSE whose `_checkProofOfPossession` is the production body plus two `gasleft()` logs around the wrapper call. Not used anywhere else. |
 | `RESULTS.md` | | All measured numbers, the derived floor, the constants and the follow-ups. |
 
 The floor itself is covered by `test/staking/flushGasFloor.t.sol`, which runs in the default suite: revert
 below the floor, exact boundaries, gas sweeps that allow no refund of a valid entry, later entries in a batch,
-cap changes, and invalid deposits still being refunded.
+cap changes, and invalid deposits still being refunded. CI runs it only under `prague` with Foundry 1.4.1,
+which is not the schedule the floor is sized for. Run the `amsterdam` and `osaka` commands below by hand.
 
 ## Requirements
 

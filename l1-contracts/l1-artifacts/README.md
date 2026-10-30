@@ -1,8 +1,18 @@
 # L1 Artifacts
 
-Exposes TS-importable artifacts (bytecode + ABIs) of L1 contracts.
+The `@aztec-foundation/l1-artifacts` package exposes TypeScript-importable artifacts of the L1 contracts. aztec-node `yarn-project` consumes it.
+
+It contains:
+
+- `dest/`: the compiled package: ABIs, bytecode and storage layouts.
+- `src/`: the generated TypeScript sources.
+- `l1-contracts/`: a self-contained Foundry tree that the runtime forge deploy path uses.
+- the `network-defaults.json` export.
+
+`src/`, `dest/` and `l1-contracts/` are generated. They are not in git.
 
 ## Usage
 
-The classes get automatically generated and built once `/bootstrap.sh` is called.
-If you prefer to do so manually of `/l1-contracts`, run `./bootstrap.sh` there, and then run `yarn build` here.
+`l1-contracts/bootstrap.sh` generates and builds the package in its `build_artifacts` step, after it builds the verifier. To build by hand, run `./bootstrap.sh` in `l1-contracts/`, then `yarn build` in `l1-contracts/l1-artifacts/`.
+
+`l1-contracts/bootstrap.sh release` publishes the package to npm.
