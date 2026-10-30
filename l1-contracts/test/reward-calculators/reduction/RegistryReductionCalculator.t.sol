@@ -12,9 +12,9 @@ import {IGSE} from "@aztec/governance/GSE.sol";
 import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 import {RegistryReductionCalculator} from "@aztec/periphery/RegistryReductionCalculator.sol";
 import {FakeGSE} from "@test/reward-calculators/mocks/FakeGSE.sol";
+import {MockATP} from "@aztec/mock/atps/MockATP.sol";
+import {MockATPStaker} from "@aztec/mock/atps/MockATPStaker.sol";
 import {
-  MockATP,
-  MockATPStaker,
   MockATPStakerImplementation,
   deployMockATPStaker,
   deployMainnetShapedATPStaker,

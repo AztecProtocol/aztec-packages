@@ -8,9 +8,9 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 import {ProbeLib} from "@aztec/periphery/libraries/ProbeLib.sol";
+import {MockATP} from "@aztec/mock/atps/MockATP.sol";
+import {MockATPStaker} from "@aztec/mock/atps/MockATPStaker.sol";
 import {
-  MockATP,
-  MockATPStaker,
   RevertingAddressGetter,
   VariableReturnDataAddressGetter,
   DirtyAddressGetter,

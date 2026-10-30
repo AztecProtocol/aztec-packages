@@ -7,41 +7,10 @@ pragma solidity >=0.8.27;
 // solhint-disable payable-fallback
 
 import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {MockATP} from "@aztec/mock/atps/MockATP.sol";
+import {MockATPStaker} from "@aztec/mock/atps/MockATPStaker.sol";
 import {Clones} from "@oz/proxy/Clones.sol";
 import {ERC1967Proxy} from "@oz/proxy/ERC1967/ERC1967Proxy.sol";
-
-/**
- * @notice Minimal stand-in for an Aztec Token Position (ATP): the vesting contract that knows its registry.
- * @dev Also serves as the implementation of mainnet-shaped positions: those are EIP-1167 clones of it, and the
- *      registry is an immutable of the implementation, so a clone answers `getRegistry()` through a delegatecall.
- */
-contract MockATP is IATP {
-  address internal immutable REGISTRY;
-
-  constructor(address _registry) {
-    REGISTRY = _registry;
-  }
-
-  function getRegistry() external view override(IATP) returns (address) {
-    return REGISTRY;
-  }
-}
-
-/**
- * @notice Minimal stand-in for an ATP staker: the contract an ATP stakes through, which registers itself as the
- *         GSE withdrawer and exposes the ATP it belongs to.
- */
-contract MockATPStaker is IATPStaker {
-  address internal immutable ATP;
-
-  constructor(address _atp) {
-    ATP = _atp;
-  }
-
-  function getATP() external view override(IATPStaker) returns (address) {
-    return ATP;
-  }
-}
 
 /**
  * @notice Deploys a mock ATP for `_registry` and a mock staker pointing at it.
