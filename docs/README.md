@@ -195,7 +195,7 @@ Most of the code the docs quote is aztec-node's (the Labs repository). The docs 
 ```bash
 node scripts/aztec_node.mts fetch            # check the pinned commit out into .aztec-node/tree
 node scripts/aztec_node.mts check            # fail on any drift between the pin, the checkout and package.json
-node scripts/aztec_node.mts pin <tag>        # move the pin to an aztec-node release or nightly tag
+node scripts/aztec_node.mts pin <tag>        # move the pin to an aztec-node release or nightly tag (needs gh)
 node scripts/aztec_node.mts provision nargo bb cli   # install the pinned nargo, bb and aztec CLI into .aztec-node/
 eval "$(node scripts/aztec_node.mts env)"    # export AZTEC_NODE_DIR, the versions, NARGO, BB and AZTEC
 ```
@@ -203,6 +203,7 @@ eval "$(node scripts/aztec_node.mts env)"    # export AZTEC_NODE_DIR, the versio
 - `yarn build`, `yarn start` and `./bootstrap.sh` fetch first, so a fresh clone needs nothing else. The checkout is a shallow clone without aztec-node's own `docs/`; `AZTEC_NODE_DIR` moves it elsewhere.
 - `#include_code` and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit (a tag can move; a commit cannot).
 - **Moving the pin:** run `pin <tag>`, then do what `check` asks (usually: set `@aztec-foundation/l1-artifacts` in `package.json` to the pinned `BB_VERSION` and run `yarn install`), and commit `aztec-node.json`, `package.json` and `yarn.lock` together. Snippets whose markers moved fail the build until the pages follow.
+- **Verified nargo:** `pin` needs the GitHub CLI, logged in. It downloads noir's release archive for each platform, has `gh attestation verify` check that noir's `publish-nargo.yml` workflow built it, and records its sha256 in `noirArchives`. `provision nargo` needs no `gh`: it refuses an archive whose sha256 differs from the pin, and a platform the pin has no sha256 for. Never edit `noirArchives` by hand; a mismatch means the release archive changed after the pin.
 - **Release cuts** move the pin to the release tag inside their own worktree, and the snapshot is generated from that; the dev docs keep their pin. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
 - **Examples** build with the pinned published toolchain against the default checkout, which their Nargo.toml path dependencies name (`../../../.aztec-node/tree/...`), so `AZTEC_NODE_DIR` does not apply to them. The TS examples install `@aztec-labs/*` at the pinned `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION`.
 - Never run nargo inside `docs/` or the checkout: nargo takes `docs/Nargo.toml` as its workspace.
