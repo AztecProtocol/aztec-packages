@@ -7,6 +7,8 @@ description: Show my Linear issues for the current cycle, grouped by status.
 
 Query the user's Linear issues for the current cycle and display them grouped by status.
 
+Requires a Linear MCP server named `linear-server` in your user-level Claude Code config. The repo does not configure one.
+
 ## Steps
 
 1. Use `mcp__linear-server__get_user` with query "me" to get the user's teams.

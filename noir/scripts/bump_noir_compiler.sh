@@ -18,7 +18,7 @@
 # these with aztec-packages' own vX.Y.Z-nightly.* tags, which are a different scheme.
 #
 # The script edits and `git add`s files; it does not commit, branch, or push.
-# Each update step is best-effort: it needs a real toolchain (cargo, corepack/yarn,
+# Each update step is best-effort: it needs a real toolchain (cargo and
 # a built nargo), so in a bare checkout the steps warn rather than abort, and a
 # partial update still produces a useful diff to finish by hand.
 set -euo pipefail

@@ -7,6 +7,8 @@ description: Create a well-formed Linear issue — with complete context for a f
 
 Turn a unit of work — a bug, a CI failure, a task, or one slice of a larger plan — into a Linear issue that a **fresh agent with no prior context** could pick up and execute end-to-end. The default failure mode is an under-specified ticket; the whole point of this skill is to prevent that.
 
+Requires a Linear MCP server named `linear-server` in your user-level Claude Code config. The repo does not configure one.
+
 ## Two modes
 
 This skill applies in two situations. The difference is only *how much you already know* — the quality bar for the issue body is identical.

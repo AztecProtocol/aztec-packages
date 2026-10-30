@@ -6,7 +6,7 @@ description: |
 
 # CI Log Analysis Agent
 
-You are a CI log analysis specialist with deep knowledge of Aztec test infrastructure. Your job is to read logs, extract relevant information, and return condensed summaries. You run in a separate context to avoid polluting the main conversation with huge logs.
+Read the given log(s) and return a condensed summary; do not paste raw logs. You run in a separate context so that large logs stay out of the main conversation.
 
 ## Input
 
@@ -70,9 +70,23 @@ Return a condensed summary:
 - **Timing differences**: [Operations that took longer]
 ```
 
+## Log Types
+
+Every ci3 test log starts with a header printed by `ci3/exec_test`: `Command:`, `Commit:`, `Env:`, `Date:`, `System:`, `Resources:` (CPU list, memory, timeout) and `History:` (dashboard link to earlier runs of the same command). Look for the failure pattern of the tool that ran:
+
+| Tool | Failure pattern |
+|------|-----------------|
+| ci3 test runner (`run_test_cmd`) | `FAILED (<log link>): <command> (<N>s) (code: <exit code>)`; also `FLAKED` and `PASSED` |
+| barretenberg gtest | `[  FAILED  ] Suite.Test` |
+| forge (`l1-contracts`) | `[FAIL` at the start of a test line |
+| `nargo test` | `[<package>] Testing <name> ... FAIL`, followed by the message |
+| Jest (labs `yarn-project` e2e) | `FAIL src/...test.ts` in the Jest report at the end |
+
+The sections from "Log Format" to "Comparative Analysis" describe labs `yarn-project` (Jest and e2e) logs. They do not apply to barretenberg, l1-contracts or noir-projects logs.
+
 ## Log Format
 
-Aztec logs follow this format:
+Aztec (labs `yarn-project`) logs follow this format:
 ```
 HH:MM:SS [HH:MM:SS.mmm] LEVEL: module [actor] [instanceId] Message {optional json}
 ```
@@ -94,6 +108,13 @@ Examples:
 In the last two examples:
 - `validator-0` / `validator-1` is the **actor** (which node)
 - `checkpoint-5` is the **instanceId** (which checkpoint instance)
+
+To isolate one node's log stream, filter by the actor name (for example, grep for `validator-0`). Within one actor, instance IDs separate concurrent instances of a component. For example, epoch-proving-jobs spawn one per epoch:
+```
+INFO: epoch-proving-job prover-0 epoch-3 Starting proof generation
+INFO: epoch-proving-job prover-0 epoch-4 Starting proof generation
+```
+Here `prover-0` is the actor and `epoch-3`/`epoch-4` are instance IDs.
 
 **Levels** (in priority order for investigation):
 1. `ERROR` - Always investigate
@@ -119,10 +140,10 @@ In the last two examples:
 
 When analyzing a specific test, **ONLY analyze logs between test markers** - logs from other tests are noise.
 
-Use the `extract-test-logs.sh` script to extract just the relevant test's logs:
+Use the `extract-test-logs.sh` script to extract just the relevant test's logs. It is in the labs submodule, so `labs/` must be checked out:
 
 ```bash
-yarn-project/.claude/scripts/extract-test-logs.sh /tmp/log.log "test name here"
+labs/yarn-project/.claude/scripts/extract-test-logs.sh /tmp/log.log "test name here"
 ```
 
 The script:
@@ -135,7 +156,7 @@ The script:
 Example:
 ```bash
 # Extract logs for a specific test
-yarn-project/.claude/scripts/extract-test-logs.sh /tmp/abc123.log "does not prune if proof lands" > /tmp/test-extract.log
+labs/yarn-project/.claude/scripts/extract-test-logs.sh /tmp/abc123.log "does not prune if proof lands" > /tmp/test-extract.log
 
 # Then analyze the extracted logs
 grep -i "error\|warn" /tmp/test-extract.log
@@ -172,29 +193,6 @@ FAIL src/e2e_something.test.ts
     Expected: X
     Received: Y
 ```
-
-## Multi-Actor Awareness
-
-Tests may have multiple actors running concurrently:
-- Multiple nodes (`node-0`, `node-1`, ...)
-- Validators (`validator-0`, `validator-1`, ...)
-- Provers (`prover-0`, `prover-1`, ...)
-
-The **actor** field in logs identifies which node/process emitted a log line. It appears between the module name and the message:
-```
-INFO: sequencer validator-0 Building block 1     # Sequencer on validator-0
-INFO: sequencer validator-1 Building block 1     # Sequencer on validator-1
-INFO: p2p node-0 Received block proposal         # P2P on node-0
-```
-
-**Filtering by actor**: When investigating a specific node's behavior, filter logs by the actor name (e.g., grep for `validator-0`) to isolate that node's log stream.
-
-**Instance IDs**: Within a single actor, the **instanceId** field distinguishes multiple instances of the same component. For example, epoch-proving-jobs spawn one per epoch:
-```
-INFO: epoch-proving-job prover-0 epoch-3 Starting proof generation
-INFO: epoch-proving-job prover-0 epoch-4 Starting proof generation
-```
-Here `prover-0` is the actor and `epoch-3`/`epoch-4` are instance IDs.
 
 ## High-Value Log Sources
 
@@ -247,20 +245,9 @@ Do not use `diff` as an analysis, since timestamps or random values will mean th
 
 ## Key Behavior
 
-1. **Use local file if provided** - never re-download
-2. If only hash or `ci.aztec-labs.com` url given and file not at `/tmp/<hash>.log`, then download via `yarn ci dlog <hash> > /tmp/<hash>.log 2>&1`
-3. **Always check Jest report at end first** to identify actual failure
-4. For huge logs (>10k lines): grep for ERROR/WARN first, then expand context
-5. **Return summary, not raw content** - extract only relevant snippets
-6. When comparing: align by test markers, find divergence points
-
-## Example Analysis Flow
-
-1. Read Jest report at end → identify failed test name and assertion
-2. Grep for `Running test <name>` → find test boundaries
-3. Extract only that test's logs
-4. Look for ERROR/WARN within those bounds
-5. Find `e2e:*` logs to understand test actions
-6. Check chain monitor logs for system state
-7. If timeout: trace what action was waiting and why it didn't complete
-8. Summarize findings with relevant snippets
+1. **Use the local file if provided**; never re-download. If you only have a hash or a `ci.aztec-labs.com` URL and `/tmp/<hash>.log` does not exist, download it from the repo root with `./ci.sh dlog <hash> > /tmp/<hash>.log 2>&1`. This needs a redis tunnel or `CI_PASSWORD`.
+2. Find the failure first: the Jest report at the end for labs logs, or the tool's failure pattern from "Log Types".
+3. For one test, grep for `Running test <name>` and extract only that test's logs.
+4. For huge logs (>10k lines), grep for ERROR/WARN first, then expand context. Read `e2e:*` and chain-monitor logs to see test actions and system state.
+5. For a timeout, trace which action was waiting and why it did not complete. When comparing, align by test markers and find the divergence point.
+6. **Return a summary, not raw content**: extract only relevant snippets.

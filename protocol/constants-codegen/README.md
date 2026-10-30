@@ -1,8 +1,15 @@
 # Constants codegen
 
-This directory will contain the standalone cross-language generator for Aztec protocol constants.
+Generates Aztec protocol constants for TypeScript, C++, PIL, Solidity and Rust from the Noir definitions in
+`noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr`. It is published as
+`@aztec-foundation/constants-codegen`.
 
-## Version 1 interface
+## Build and test
+
+From the repo root: `make constants-codegen` and `make constants-codegen-tests`. In this directory, `yarn test`
+runs `node --test src/*.test.ts`, builds, then runs `scripts/test-package.sh`.
+
+## Usage
 
 The command reads a Noir source file and writes one of the supported outputs.
 
@@ -13,10 +20,10 @@ constants-codegen \
   (--typescript <output.ts> | --cpp <output.hpp> | --pil <output.pil> | --solidity <output.sol> | --rust <output.rs>)
 ```
 
-- `--input` defaults to `inputs/constants.nr` under the package root, the file `scripts/embed-inputs.sh` copies in
-  as part of the package build, so both the published npm package and the built in-repo package work without
-  `--input`. In-repo callers invoke `scripts/generate.sh`, which refreshes the embedded copy from the monorepo
-  sources before running the CLI.
+- `--input` defaults to `inputs/constants.nr` under the package root. `scripts/embed-inputs.sh` copies it in at build
+  time, so both the published npm package and the built in-repo package work without `--input`.
+- In-repo callers use `scripts/generate.sh`, which refreshes that copy from the sources first and then forwards its
+  arguments to the CLI, for example `scripts/generate.sh --typescript <out.ts>`.
 - Exactly one output option is required. Run the command once per desired output.
 - `--selection` filters the output to the selected symbols. Without it, the output contains every supported symbol
   from the input.
@@ -37,13 +44,13 @@ name matches it. Duplicate entries, invalid patterns, unknown symbols, and patte
 Rust emits all parsed constants and domain separators: values that fit `u128` become `pub const NAME: u128` items,
 and larger field-sized values become `pub const NAME: &str` hex-string items.
 
-## Compatibility target
+## Consumers
 
-The implementation must preserve the symbols and values currently checked in at:
-
-- `yarn-project/constants/src/constants.gen.ts`
-- `barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp`
-- `barretenberg/cpp/pil/vm2/constants_gen.pil`
-- `l1-contracts/src/core/libraries/ConstantsGen.sol`
-
-Generator instructions and formatter-only whitespace may change intentionally.
+- barretenberg C++: `barretenberg/cpp/scripts/remake-constants.sh` (`--cpp`, run at CMake configure time) writes
+  `aztec_constants.hpp`, which is gitignored.
+- AVM PIL: `barretenberg/cpp/scripts/avm2_gen.sh` (`--pil`) writes `barretenberg/cpp/pil/vm2/constants_gen.pil`,
+  which is gitignored.
+- Solidity: `l1-contracts/scripts/remake-constants.sh` (`--solidity`) writes
+  `l1-contracts/src/core/libraries/ConstantsGen.sol`, which is checked in.
+- TypeScript: labs `yarn-project/constants/scripts/remake-constants.sh` (`--typescript`) writes `constants.gen.ts`
+  in aztec-node, which is gitignored there.

@@ -2,8 +2,6 @@
 # Stress-grind the SHM ring test in parallel. Usage: grind_ipc.sh [jobs]
 source $(git rev-parse --show-toplevel)/ci3/source
 
-cd "$(dirname "$0")"
-
 trap 'clean' EXIT
 
 function clean {

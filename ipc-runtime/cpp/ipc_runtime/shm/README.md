@@ -1,27 +1,6 @@
 # Lock-Free Shared Memory Ring Buffers (C++)
 
-Ultra-low-latency shared-memory ring buffers for inter-process communication using modern C++. Built on POSIX `shm_open` + `mmap` with lock-free atomics and efficient futex-based blocking (Linux futex; `os_sync_wait_on_address` on macOS).
-
-## Features
-
-- **Zero-copy IPC** between processes via MAP_SHARED
-- **Lock-free**: No mutexes, no syscalls in hot path
-- **Adaptive blocking**: Brief spin, then futex sleep for power efficiency
-- **Single-Producer Single-Consumer (SPSC)**: Lock-free ring buffer building block
-- **Multi-Producer Single-Consumer (MPSC)**: Compositional layer using SPSC + doorbell
-- **Modern C++**: RAII, move semantics, factory methods
-- **Cache-optimized**: Careful alignment to avoid false sharing
-
-## Performance
-
-| Operation                          | Latency          | Notes                          |
-|------------------------------------|------------------|--------------------------------|
-| SPSC roundtrip (hot)               | 0.3–1 µs         | No contention, busy loop       |
-| SPSC roundtrip (cold)              | 3–6 µs           | After futex wakeup             |
-| MPSC roundtrip (3 producers, hot)  | ~40 µs           | 3-way contention               |
-| Pipe/socket (for comparison)       | 6–15 µs          | Requires syscalls              |
-
-*Measured on AMD Ryzen 9 5950X, Ubuntu 24.04, small messages (<1KB)*
+Lock-free, zero-copy SPSC and MPSC ring buffers over POSIX shared memory (`shm_open` + `mmap` with `MAP_SHARED`), with futex blocking (`os_sync_wait_on_address` on macOS). There are no mutexes. Every publish/release makes one `futex_wake` syscall, which is cheap when no thread waits. Waiters spin briefly, then sleep on a futex. SPSC is the building block; MPSC composes per-producer SPSC rings with a doorbell. Control fields are cache-line aligned to avoid false sharing.
 
 ## Architecture
 
@@ -86,7 +65,7 @@ Ultra-low-latency shared-memory ring buffers for inter-process communication usi
 **Key characteristics:**
 - Each producer gets dedicated SPSC ring (no contention between producers)
 - Consumer polls all rings in round-robin fashion
-- Shared doorbell futex: producers ring on empty→non-empty transition
+- Shared doorbell futex: producers bump the doorbell and wake the consumer on every publish
 - Per-producer backpressure (full ring blocks only that producer)
 
 ## API Overview
@@ -187,6 +166,8 @@ public:
 These use the message framing helpers from `../shm_common.hpp`
 (`ring_send_msg` / `ring_receive_msg`), which add the 4-byte length prefix
 plus the 8-byte request id and take care of the matched claim/peek sizing.
+The largest message is `capacity/2 - 12` bytes; `ring_send_msg` throws on a
+larger one.
 
 **Producer process:**
 ```cpp
@@ -242,10 +223,11 @@ and the same framing.
 ### Memory Layout
 
 The shared memory region contains:
-1. **SpscCtrl** (control block, 256 bytes)
-   - Atomic head/tail counters (cache-line aligned)
-   - Futex sequencers for sleep/wake
-   - Capacity and mask (immutable)
+1. **SpscCtrl** (control block, 4 cache lines = 256 bytes)
+   - `head` + `wrap_head` (producer line)
+   - `tail` (consumer line)
+   - `capacity` and `mask` (immutable)
+   - Futex waits use `head`/`tail` directly
 2. **Data buffer** (power-of-2 size, follows control block)
 
 Total size: `sizeof(SpscCtrl) + capacity`
@@ -293,9 +275,17 @@ The doorbell is a simple futex counter in shared memory:
 struct alignas(64) MpscDoorbell {
     // Producer-written (incremented in publish())
     alignas(64) std::atomic<uint32_t> seq;
+    // Number of producer slots, written once by the consumer at create()
+    std::atomic<uint32_t> num_slots;
     // (+ cache-line padding)
 };
 ```
+
+A per-slot owner table follows the doorbell in the same mapping
+(`mpsc_slot_owners`): one pid per producer slot, 0 when free. A client that
+connects with `kAutoClientId` claims the lowest free slot, or one owned by a
+dead process, through `MpscSlotClaim`. That slot index is its producer id.
+`ServerOptions::max_shm_clients` (default 2) sets the number of slots.
 
 **Protocol:**
 1. Producer publishes data to its SPSC ring
@@ -309,15 +299,12 @@ This ensures the consumer wakes promptly when any producer has data, while minim
 
 ### Spin Time
 
-The `spin_ns` parameter controls busy-wait duration before sleeping:
-
-- **Low latency**: Use longer spin (e.g., 100 µs) to avoid futex overhead
-- **Power efficiency**: Use shorter spin (e.g., 1 µs) to sleep sooner
-- **Recommended**: 10-20 µs balances latency and power
+Spin is fixed at 100 µs (`SPIN_NS` in `spsc_shm.cpp` and `mpsc_shm.cpp`) and is
+skipped after a call that found no data. It is not configurable.
 
 ### Ring Size
 
-- Must be **power of two**
+- Capacity is rounded up to a power of two
 - Larger rings reduce wrapping overhead but use more memory
 - Recommended: 1 MB (1 << 20) for most use cases
 - Small messages (<1 KB): Can use smaller rings (256 KB)
@@ -337,36 +324,20 @@ The `spin_ns` parameter controls busy-wait duration before sleeping:
 - Cannot share producer or consumer role across threads
 
 ### MPSC
-- **Multiple producer threads** (one per producer instance)
-- **One consumer thread**
-- Each producer is independent (no contention)
-- Consumer must be single-threaded
+- Each `MpscProducer` must be used by one thread. Many producers can run in parallel.
+- The consumer must be one thread.
 
 ## Limitations
 
 1. **Platform**: Linux and macOS (futex / `os_sync_wait_on_address`); other platforms fail the build
-2. **Capacity**: Must be power of two
+2. **Capacity**: Rounded up to a power of two
 3. **Fixed size**: Cannot resize after creation
 4. **No security**: All processes with access can read/write shared memory
-5. **Manual cleanup**: Must call `unlink()` to remove `/dev/shm` objects
-
-## Comparison with Other IPC Mechanisms
-
-| Mechanism          | Latency    | Throughput | Complexity | Use Case                |
-|--------------------|------------|------------|------------|-------------------------|
-| Pipe               | 6-15 µs    | 150K/s     | Low        | Simple IPC              |
-| Unix Socket        | 6-15 µs    | 150K/s     | Low        | Network-like API        |
-| SPSC Ring          | 0.3-1 µs   | 1M/s       | Medium     | Ultra-low latency       |
-| MPSC Ring          | ~3 µs      | 700K/s     | Medium     | Multiple producers      |
-| POSIX MQ           | 10-20 µs   | 100K/s     | Medium     | Message queue semantics |
+5. **Cleanup**: At this layer you must call `unlink()` to remove `/dev/shm` objects. `IpcServer` does it for you.
 
 ## See Also
 
-- Parent IPC module: [`../README.md`](../README.md)
+- Parent IPC module: [ipc-runtime README](../../../README.md)
 - Tests: [`../shm.test.cpp`](../shm.test.cpp)
 - Benchmarks: build a harness against the `ipc_runtime` CMake target.
 - Higher-level wrappers: `ShmClient` / `ShmServer` in [`../shm_client.hpp`](../shm_client.hpp)
-
-## License
-
-See repository root for license details.
