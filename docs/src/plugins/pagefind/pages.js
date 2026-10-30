@@ -1,5 +1,4 @@
-// Which built pages the search index holds, and the markup Pagefind reads from
-// each. The stamping happens in memory; the served HTML is never rewritten.
+// Stamping happens in memory: the served HTML is never rewritten.
 
 // Navigation repeated on every docs page, which would otherwise match queries.
 const EXCLUDE_SELECTORS = [

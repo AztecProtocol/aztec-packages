@@ -1,4 +1,4 @@
-// Pure search helpers, shared by the search bar and scripts/check_search_index.mts.
+// scripts/check_search_index.mts imports this in Node: no browser or Docusaurus imports.
 
 const VERSIONED = ["developer", "network"];
 
@@ -49,8 +49,12 @@ export function excerptParts(excerpt) {
   return parts;
 }
 
-/** The URL when it is a same-origin path, else null; browsers read `//host` and `/\host` as another origin. */
-export const safeHref = (url) => (typeof url === "string" && /^\/(?![/\\])/.test(url) ? url : null);
+/**
+ * The URL when it is a same-origin path, else null. Browsers read `//host` and
+ * `/\host` as another origin, and drop tabs and newlines before parsing.
+ */
+export const safeHref = (url) =>
+  typeof url === "string" && /^\/(?![/\\])[^\u0000-\u001f\u007f]*$/.test(url) ? url : null;
 
 /**
  * An Aztec.nr API page's title from its URL, e.g. `…/state_vars/struct.PrivateSet`

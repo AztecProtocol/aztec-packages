@@ -70,7 +70,16 @@ describe("excerptParts", () => {
 
 it("safeHref accepts same-origin paths only", () => {
   assert.strictEqual(safeHref("/developers/overview#install"), "/developers/overview#install");
-  for (const url of ["https://evil.example/", "//evil.example/", "/\\evil.example/", "javascript:alert(1)", "developers", undefined]) {
+  for (const url of [
+    "https://evil.example/",
+    "//evil.example/",
+    "/\\evil.example/",
+    "/\t/evil.example/",
+    "/\r\n/evil.example/",
+    "javascript:alert(1)",
+    "developers",
+    undefined,
+  ]) {
     assert.strictEqual(safeHref(url), null, String(url));
   }
 });

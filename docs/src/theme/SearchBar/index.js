@@ -149,14 +149,16 @@ export default function SearchBar() {
   }, [open, query, allVersions, tagsKey, loadPagefind]);
 
   const showMore = async () => {
-    const id = searchId.current;
     const { results, data } = search;
     input.current?.focus();
+    // A batch applies only to the list it was fetched for: a newer search or an
+    // earlier batch replaces `results` or `data`.
+    const owns = (s) => s.results === results && s.data === data;
     try {
       const more = await Promise.all(results.slice(data.length, data.length + PAGE_SIZE).map((r) => r.data()));
-      if (id === searchId.current) setSearch((s) => ({ ...s, data: [...s.data, ...more] }));
+      setSearch((s) => (owns(s) ? { ...s, data: [...data, ...more] } : s));
     } catch {
-      if (id === searchId.current) setSearch({ status: "error" });
+      setSearch((s) => (owns(s) ? { status: "error" } : s));
     }
   };
 
