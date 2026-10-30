@@ -120,6 +120,7 @@ function cmd_start {
     open STDERR, ">&", \*STDOUT;
     exec @ARGV or die "exec: $!";
   ' "$state/network.log" env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME \
+      -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN \
       HOME="$CLI_HOME" PATH="$CLI_PATH:$PATH" \
       ANVIL_PORT="${ports[2]}" DATA_DIRECTORY="$state/network-data" P2P_ENABLED=false \
       aztec start --local-network --port "${ports[0]}" --admin-port "${ports[1]}")
