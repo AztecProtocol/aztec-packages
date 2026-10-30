@@ -214,7 +214,7 @@ docker exec -it prover-node curl -X POST http://localhost:8880 \
 
 **Important:** The broker exposes port 8080 via `ports: - ${PROVER_BROKER_PORT}:8080`, making it accessible to external prover agents. Ensure this port is reachable from your agent machines.
 
-This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options. For testnet, replace every `--network mainnet` in this guide with `--network testnet`, and use Sepolia L1 endpoints.
 
 #### Step 4: Start Node and Broker
 
