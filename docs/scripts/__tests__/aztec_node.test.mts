@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, test } from "node:test";
+import { after, afterEach, before, beforeEach, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import {
   type Options,
@@ -13,6 +15,7 @@ import {
   envLines,
   fetchTree,
   integrityMatches,
+  noirArchiveUrl,
   pinFile,
   pinTag,
   platform,
@@ -21,7 +24,81 @@ import {
   readPin,
   treeDir,
   validatePin,
+  verifyNoirAttestation,
 } from "../aztec_node.mts";
+
+// A local stand-in for noir's releases: an archive per version and triple, served over HTTP, and a fake
+// gh that attests the digests in `attested` and fails unless it is given the whole signer policy.
+const TARGETS = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"];
+const CI_TARGET = "x86_64-unknown-linux-gnu";
+const archivePath = (version: string, target: string) => `/v${version}/noir-${target}.tar.gz`;
+const digestOf = (bytes: Uint8Array) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+const archives = new Map<string, Uint8Array>();
+let noirDir: string;
+let server: http.Server;
+let releases: string;
+let routes: Map<string, Uint8Array | number>;
+let attested: Map<string, { name?: string; digest?: string; raw?: string }>;
+
+const FAKE_GH = `
+const fs = require("node:fs");
+const { createHash } = require("node:crypto");
+const args = process.argv.slice(2);
+const policy = [["--repo", "noir-lang/noir"], ["--signer-workflow", "noir-lang/noir/.github/workflows/publish-nargo.yml"],
+  ["--source-ref", "refs/heads/master"], ["--format", "json"]];
+if (args[0] !== "attestation" || args[1] !== "verify" || !args.includes("--deny-self-hosted-runners") ||
+    policy.some(([flag, value]) => args[args.indexOf(flag) + 1] !== value)) {
+  console.error("fake gh: the signer policy is incomplete: " + args.join(" "));
+  process.exit(2);
+}
+const hex = createHash("sha256").update(fs.readFileSync(args[2])).digest("hex");
+const entry = JSON.parse(fs.readFileSync(process.env.FAKE_GH_ATTESTED, "utf8"))[hex];
+if (!entry) {
+  console.error("Error: no attestations found for sha256:" + hex);
+  process.exit(1);
+}
+if (entry.raw !== undefined) process.stdout.write(entry.raw);
+else console.log(JSON.stringify([{ verificationResult: { statement: { subject: [{ name: entry.name, digest: { sha256: entry.digest ?? hex } }] } } }]));
+`;
+
+before(async () => {
+  noirDir = fs.mkdtempSync(path.join(os.tmpdir(), "aztec-node-noir-"));
+  for (const version of ["0.9.0", "0.9.1"])
+    for (const target of TARGETS) {
+      const dir = path.join(noirDir, version, target);
+      write(path.join(dir, "nargo"), `#!/bin/sh\n# ${target}\necho "nargo version = ${version}"\n`);
+      fs.chmodSync(path.join(dir, "nargo"), 0o755);
+      execFileSync("tar", ["-czf", `${dir}.tar.gz`, "-C", dir, "nargo"]);
+      archives.set(archivePath(version, target), fs.readFileSync(`${dir}.tar.gz`));
+    }
+  write(path.join(noirDir, "bin/gh"), `#!${process.execPath}\n${FAKE_GH}`);
+  fs.chmodSync(path.join(noirDir, "bin/gh"), 0o755);
+  server = http.createServer((req, res) => {
+    const body = routes.get(req.url ?? "");
+    if (body instanceof Uint8Array) res.writeHead(200).end(body);
+    else res.writeHead(body ?? 404).end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  releases = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+after(() => {
+  server.closeAllConnections();
+  server.close();
+  fs.rmSync(noirDir, { recursive: true, force: true });
+});
+
+function saveAttested() {
+  fs.writeFileSync(path.join(f.root, "attested.json"), JSON.stringify(Object.fromEntries(attested)));
+}
+
+function usingGh() {
+  process.env.PATH = `${path.join(noirDir, "bin")}${path.delimiter}${process.env.PATH}`;
+  process.env.FAKE_GH_ATTESTED = path.join(f.root, "attested.json");
+  saveAttested();
+}
+
+const archivesOf = (version: string) =>
+  Object.fromEntries(TARGETS.map((t) => [t, digestOf(archives.get(archivePath(version, t)) as Uint8Array)]));
 
 // A local stand-in for aztec-node: commit A tagged v1.0.0 (annotated), commit B tagged
 // v1.1.0-nightly.20260101 (lightweight), and a docs/ directory whose package.json pins l1-artifacts.
@@ -56,17 +133,36 @@ function makeFixture(): Fixture {
   const docsDir = path.join(root, "docs");
   write(path.join(docsDir, "package.json"), JSON.stringify({ devDependencies: { "@aztec-foundation/l1-artifacts": "1.0.0-rc.1" } }));
   const remote = pathToFileURL(repo).href;
-  const pinA: Pin = { repository: remote, ref: "v1.0.0", commit: a, toolchain: { aztec: "1.0.0", bb: "1.0.0-rc.1", noir: "0.9.0", l1Artifacts: "1.0.0-rc.1" } };
-  const pinB: Pin = { repository: remote, ref: "v1.1.0-nightly.20260101", commit: b, toolchain: { aztec: "1.1.0-nightly.20260101", bb: "1.1.0", noir: "0.9.1", l1Artifacts: "1.1.0" } };
-  return { root, o: { docsDir, repository: remote }, remote, a, b, pinA, pinB };
+  const pinA: Pin = {
+    repository: remote,
+    ref: "v1.0.0",
+    commit: a,
+    toolchain: { aztec: "1.0.0", bb: "1.0.0-rc.1", noir: "0.9.0", l1Artifacts: "1.0.0-rc.1" },
+    noirArchives: archivesOf("0.9.0"),
+  };
+  const pinB: Pin = {
+    repository: remote,
+    ref: "v1.1.0-nightly.20260101",
+    commit: b,
+    toolchain: { aztec: "1.1.0-nightly.20260101", bb: "1.1.0", noir: "0.9.1", l1Artifacts: "1.1.0" },
+    noirArchives: archivesOf("0.9.1"),
+  };
+  return { root, o: { docsDir, repository: remote, noirReleases: releases }, remote, a, b, pinA, pinB };
 }
 
 let f: Fixture;
+let savedPath: string | undefined;
 beforeEach(() => {
   delete process.env.AZTEC_NODE_DIR;
+  savedPath = process.env.PATH;
   f = makeFixture();
+  routes = new Map(archives);
+  attested = new Map([...archives].map(([route, bytes]) => [digestOf(bytes).slice("sha256:".length), { name: path.basename(route) }]));
 });
-afterEach(() => fs.rmSync(f.root, { recursive: true, force: true }));
+afterEach(() => {
+  process.env.PATH = savedPath;
+  fs.rmSync(f.root, { recursive: true, force: true });
+});
 
 const head = (o: Options) => git(treeDir(o), "rev-parse", "HEAD");
 
@@ -187,24 +283,99 @@ test("malformed pin fields are refused before they reach git", () => {
     ["commit", { commit: "abc123" }],
     ["commit", { commit: f.a.toUpperCase() }],
     ["toolchain.bb", { toolchain: { ...f.pinA.toolchain, bb: "-x" } }],
+    ["noirArchives", { noirArchives: undefined }],
+    [`noirArchives must record ${CI_TARGET}`, { noirArchives: {} }],
+    ["noirArchives.x86_64-pc-windows-msvc", { noirArchives: { ...f.pinA.noirArchives, "x86_64-pc-windows-msvc": f.pinA.noirArchives[CI_TARGET] } }],
+    [`noirArchives.${CI_TARGET}`, { noirArchives: { [CI_TARGET]: f.pinA.noirArchives[CI_TARGET].toUpperCase() } }],
   ];
   for (const [field, change] of bad)
     assert.throws(() => validatePin({ ...f.pinA, ...change }, f.o), (e) => e instanceof PinError && e.message.includes(field), field);
   assert.throws(() => validatePin(f.pinA, { docsDir: f.o.docsDir }), /repository must be https:\/\/github\.com\/aztec-labs-eng\/aztec-node/);
 });
 
-test("pin writes the tag's commit and toolchain, peeling annotated tags", () => {
-  const nightly = pinTag(f.o, "v1.1.0-nightly.20260101");
+test("pin writes the tag's commit, toolchain and attested noir archives, peeling annotated tags", async () => {
+  usingGh();
+  const nightly = await pinTag(f.o, "v1.1.0-nightly.20260101");
   assert.deepEqual(nightly, f.pinB);
   assert.deepEqual(readPin(f.o), f.pinB);
   assert.match(problems(f.o, nightly).join(), /set it to 1\.1\.0 and run yarn install/);
 
-  const release = pinTag(f.o, "v1.0.0");
+  const release = await pinTag(f.o, "v1.0.0");
   assert.equal(release.commit, f.a);
   assert.deepEqual(problems(f.o, release), []);
   assert.equal(fs.readFileSync(pinFile(f.o), "utf8"), `${JSON.stringify(f.pinA, null, 2)}\n`);
-  assert.throws(() => pinTag(f.o, "v9.9.9"), /has no tag v9\.9\.9/);
+  await assert.rejects(pinTag(f.o, "v9.9.9"), /has no tag v9\.9\.9/);
+
+  routes.delete(archivePath("0.9.0", "aarch64-apple-darwin"));
+  const { "aarch64-apple-darwin": _, ...published } = f.pinA.noirArchives;
+  assert.deepEqual((await pinTag(f.o, "v1.0.0")).noirArchives, published);
 });
+
+test("pin refuses a noir archive it cannot verify and keeps the previous pin", async () => {
+  usingGh();
+  await pinTag(f.o, "v1.0.0");
+  const previous = fs.readFileSync(pinFile(f.o), "utf8");
+  const darwin = archivePath("0.9.1", "x86_64-apple-darwin");
+  const hex = digestOf(archives.get(darwin) as Uint8Array).slice("sha256:".length);
+  const cases: [string, () => void, RegExp][] = [
+    ["an unattested archive", () => attested.delete(hex), /could not verify noir-x86_64-apple-darwin\.tar\.gz[^]*no attestations found/],
+    ["another platform's subject", () => attested.set(hex, { name: "noir-aarch64-apple-darwin.tar.gz" }), /none names noir-x86_64-apple-darwin/],
+    ["another digest", () => attested.set(hex, { name: path.basename(darwin), digest: "0".repeat(64) }), /none names noir-x86_64-apple-darwin/],
+    ["output that is not JSON", () => attested.set(hex, { raw: "verified!" }), /no JSON/],
+    ["no results", () => attested.set(hex, { raw: "[]" }), /none names noir-x86_64-apple-darwin/],
+    [
+      "the name and the digest in different subjects",
+      () => {
+        const subject = (name: string, sha256: string) => ({ name, digest: { sha256 } });
+        const statement = { subject: [subject(path.basename(darwin), "0".repeat(64)), subject("noir-other.tar.gz", hex)] };
+        attested.set(hex, { raw: JSON.stringify([{ verificationResult: { statement } }]) });
+      },
+      /none names noir-x86_64-apple-darwin/,
+    ],
+    ["HTTP 500 on an optional platform", () => routes.set(darwin, 500), /HTTP 500/],
+    ["HTTP 404 on the CI platform", () => routes.delete(archivePath("0.9.1", CI_TARGET)), /HTTP 404/],
+  ];
+  for (const [name, breakIt, error] of cases) {
+    routes = new Map(archives);
+    attested.set(hex, { name: path.basename(darwin) });
+    breakIt();
+    saveAttested();
+    await assert.rejects(pinTag(f.o, "v1.1.0-nightly.20260101"), (e) => e instanceof PinError && error.test(e.message), name);
+    assert.equal(fs.readFileSync(pinFile(f.o), "utf8"), previous, name);
+  }
+});
+
+test("provision installs nargo only from an archive whose sha256 the pin records", async () => {
+  const target = platform().rust;
+  const route = archivePath("0.9.0", target);
+  const nargo = path.join(f.o.docsDir, ".aztec-node/bin/nargo");
+  // Not a gzip: only a digest check before tar runs can report the digest.
+  routes.set(route, new TextEncoder().encode("tampered"));
+  await assert.rejects(provision(f.o, f.pinA, ["nargo"]), (e) => e instanceof PinError && /has sha256:[0-9a-f]{64}, not/.test(e.message));
+  assert.ok(!fs.existsSync(nargo));
+
+  routes.set(route, archives.get(route) as Uint8Array);
+  await provision(f.o, f.pinA, ["nargo"]);
+  assert.equal(execFileSync(nargo, ["--version"], { encoding: "utf8" }).trim(), "nargo version = 0.9.0");
+
+  // A platform without a recorded digest fails even where a pinned nargo is already installed.
+  const { [target]: _, ...others } = f.pinA.noirArchives;
+  await assert.rejects(provision(f.o, { ...f.pinA, noirArchives: others }, ["nargo"]), (e) => e instanceof PinError && e.message.includes(`no sha256 for ${target}`));
+});
+
+test(
+  "the committed pin's CI digest is noir's attested release archive",
+  { skip: process.env.NOIR_ATTESTATION_LIVE ? false : "set NOIR_ATTESTATION_LIVE=1 (downloads the archive, needs gh logged in)" },
+  async () => {
+    const o = { docsDir: path.resolve(import.meta.dirname, "../..") };
+    const pin = readPin(o);
+    const bytes = new Uint8Array(await (await fetch(noirArchiveUrl(o, pin.toolchain.noir, CI_TARGET))).arrayBuffer());
+    assert.equal(digestOf(bytes), pin.noirArchives[CI_TARGET]);
+    const file = path.join(f.root, `noir-${CI_TARGET}.tar.gz`);
+    fs.writeFileSync(file, bytes);
+    verifyNoirAttestation(file, pin.noirArchives[CI_TARGET]);
+  },
+);
 
 test("env quotes every value for the shell and omits unprovisioned binaries", async () => {
   const o = { ...f.o, docsDir: path.join(f.root, "it's docs") };

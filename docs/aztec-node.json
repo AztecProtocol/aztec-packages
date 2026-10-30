@@ -7,5 +7,11 @@
     "bb": "6.0.0-rc.7",
     "noir": "1.0.0-rc.3",
     "l1Artifacts": "6.0.0-rc.7"
+  },
+  "noirArchives": {
+    "x86_64-unknown-linux-gnu": "sha256:5792dd962afce1eed834570f95d9f72cc4a09d45cd846d3b80b7a57392732973",
+    "x86_64-apple-darwin": "sha256:9014ea4b7e88ab2441a949454f2b3dbc2920a82a9353a7a3649a444afed78910",
+    "aarch64-unknown-linux-gnu": "sha256:98be47cd6b2a81f3857c029acd8298fd590eebeb153ef51e1dc6f10c973e00e9",
+    "aarch64-apple-darwin": "sha256:44157443519c8ede9a2df7e6a4ee513b3d49ef9fdd5774c43311fe6f32887a59"
   }
 }

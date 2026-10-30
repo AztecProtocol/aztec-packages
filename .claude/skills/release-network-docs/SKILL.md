@@ -199,7 +199,9 @@ cd "$CUT/docs" && node scripts/aztec_node.mts pin "$LABS_TAG"
 ```
 
 `pin` checks the tag out into `$AZTEC_NODE_DIR`, writes its commit and toolchain into
-`docs/aztec-node.json`, and prints every remaining drift with its fix. Expect
+`docs/aztec-node.json`, and prints every remaining drift with its fix. It needs `gh` logged
+in (tested with 2.85.0): it records the sha256 of each noir archive that `gh attestation
+verify` proves noir's publish workflow built, and `provision` checks it. Expect
 `docs/package.json pins @aztec-foundation/l1-artifacts …` whenever the tag's bb differs from
 the destination's; take the version from the pin, install and commit:
 
