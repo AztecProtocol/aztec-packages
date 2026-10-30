@@ -204,8 +204,8 @@ own home. `COMMIT_TAG` keeps its `v`: `#include_aztec_version` emits it as a git
 `DOCS_COMMIT` is the destination's base on `origin/next`, and the check above proves the
 destination's `docs/examples/` equals it, so links to it resolve and show the snapshot's
 lines. `AZTEC_NODE_DIR` puts the cut's checkout outside the worktree: nargo run anywhere
-under `docs/` takes `docs/Nargo.toml` as its workspace, and aztec-node's build (2d) must
-never see it.
+under `docs/` takes `docs/Nargo.toml` as its workspace, and nothing run in the checkout
+(2d, Step 6) may see it.
 
 #### 2c. Create the worktree and move its pin to the tag
 
@@ -243,18 +243,40 @@ Never initialize `labs/` in the cut and run no root `make` target there: the cut
 aztec-node only through its checkout, and those targets build `labs/` in Foundation mode
 with nargo and bb this repository builds.
 
-#### 2d. Build the tag's yarn-project
+#### 2d. Install the tag's yarn-project from its published packages
 
 ```bash
-. ~/.cache/aztec-docs-cut/v<new_version>/env.sh
-cd "$AZTEC_NODE_DIR" && env -u root -u ci3 AZTEC_TOOLCHAIN_FND_ROOT= make yarn-project
+. ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$CUT/docs"
+pin=$(node scripts/aztec_node.mts env) || exit 1
+eval "$pin"
+cd "$AZTEC_NODE_DIR/yarn-project"
+yarn install --immutable --mode=skip-build
+PUB=$STATE/published && rm -rf "$PUB" && mkdir -p "$PUB"
+while read -r name location; do
+  tgz=$(cd "$PUB" && npm pack -q "$name@$AZTEC_VERSION") || { echo "$name@$AZTEC_VERSION is not published" >&2; exit 1; }
+  mkdir -p "$PUB/x/$location" && tar xzf "$PUB/$tgz" -C "$PUB/x/$location" --strip-components=1
+  rsync -a --ignore-existing "$PUB/x/$location/" "$location/"
+done < <(yarn workspaces list --json --no-private |
+  node -e 'for (const l of require("fs").readFileSync(0, "utf8").trim().split("\n")) { const w = JSON.parse(l); console.log(w.name, w.location); }')
+git -C "$AZTEC_NODE_DIR" status --porcelain
 ```
 
-This is aztec-node's own build: an empty `AZTEC_TOOLCHAIN_FND_ROOT` selects pinned mode,
-which downloads `bb` and `nargo` at the tag's `BB_VERSION`/`NOIR_VERSION`, and clearing
-`root`/`ci3` keeps this repository's ci3 out of it. Step 4 and TypeDoc (Step 6) read its
-output. Its outputs are gitignored in aztec-node, so the checkout stays clean, which 2e
-checks: `aztec_node.mts` refuses an edited or untracked file there.
+The published `@aztec-labs/*` packages are the tag's yarn-project as its release CI built
+it: `src/` is the checkout's plus the files the build generates, `dest/` the compiled
+output. `yarn install` takes every third-party dependency from the tag's lockfile, and the
+loop adds what the build would have added, never overwriting a tracked file. All of it is
+gitignored in aztec-node, so `status` prints nothing (2e checks it again: `aztec_node.mts`
+refuses an edited or untracked file). Step 4 and TypeDoc (Step 6) read this tree; no bb or
+nargo runs. At v6.0.0 it took 85 s and reproduced the SponsoredFPC address and the
+TypeScript API byte for byte.
+
+- Overlay the packages into their workspaces, never install them into `node_modules`:
+  TypeDoc's `--excludeExternals` drops every re-export it resolves there.
+- Keep the tag's lockfile: semver-resolved dependencies render different types (pino 9.14
+  instead of the lock's 9.5 changes `foundation.md`).
+
+If a workspace is not published at the tag, build it instead (aztec-node's own build, not
+yet run by a cut): `cd "$AZTEC_NODE_DIR" && env -u root -u ci3 AZTEC_TOOLCHAIN_FND_ROOT= make yarn-project`.
 
 #### 2e. Check the environment before preprocessing
 
@@ -309,7 +331,7 @@ the closing `exec $SHELL`, which would leave the terminal in a shell whose home 
 ### Step 4: Get Sponsored FPC Address
 
 The address is a hash of the SponsoredFPC contract class and a zero salt
-(`SPONSORED_FPC_SALT`), so derive it from the tag's code built in Step 2d:
+(`SPONSORED_FPC_SALT`), so derive it from the tag's code installed in Step 2d:
 
 ```bash
 . ~/.cache/aztec-docs-cut/v<new_version>/env.sh && cd "$AZTEC_NODE_DIR/yarn-project"
@@ -371,7 +393,7 @@ This writes:
 - `docs/static/aztec-nr-api/<release_type>/`
 - `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
 
-The generators read the checkout at the tag: TypeDoc over the `yarn-project` Step 2d built,
+The generators read the checkout at the tag: TypeDoc over the `yarn-project` Step 2d installed,
 `nargo doc` over a copy of `noir-projects/aztec-nr` made outside `docs/` (so nargo cannot
 take `docs/Nargo.toml` as its workspace), and the Aztec.js reference from
 `yarn-project/aztec.js/src`. `generate_aztec_nr_docs.sh` takes `NARGO`, which `docs_env`
