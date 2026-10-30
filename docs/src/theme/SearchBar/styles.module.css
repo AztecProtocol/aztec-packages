@@ -43,6 +43,11 @@
     justify-content: center;
     min-width: calc(2.25rem + 2 * var(--ifm-navbar-item-padding-horizontal));
   }
+
+  /* Until the component has measured the shift, so the trigger does not jump after hydration. */
+  :global(.navbar-search-center:not([data-placed])) .trigger {
+    visibility: hidden;
+  }
 }
 
 .trigger {
@@ -93,6 +98,17 @@
 .keys {
   display: flex;
   gap: 0.2rem;
+}
+
+/* Centres the trigger on the navbar: it narrows to 16rem at most, and the shift stays
+   inside the gap, so it never covers a link. A compact trigger (below) is not shifted. */
+@container navbar-search (width > 12.5rem) {
+  .trigger {
+    --width: clamp(min(100cqw, 16rem), 100cqw - 2 * var(--navbar-search-offset, 0px), 28.75rem);
+    --max-shift: max(0px, (100cqw - var(--width)) / 2);
+    width: var(--width);
+    translate: clamp(-1 * var(--max-shift), var(--navbar-search-shift, 0px), var(--max-shift));
+  }
 }
 
 @container navbar-search (max-width: 12.5rem) {

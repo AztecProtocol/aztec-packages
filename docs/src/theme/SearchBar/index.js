@@ -130,6 +130,28 @@ export default function SearchBar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // The navbar item spans the gap between the link groups, which differ in width (per
+  // page too: the version dropdown), so its centre is not the page's. Pass the offset to
+  // the stylesheet, which shifts the trigger by as much of it as the gap allows.
+  useEffect(() => {
+    const slot = trigger.current?.closest(".navbar-search-center");
+    if (!slot) return undefined;
+    const bar = slot.closest(".navbar__inner") ?? document.documentElement;
+    const place = () => {
+      const s = slot.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      const shift = (b.left + b.right - s.left - s.right) / 2;
+      slot.style.setProperty("--navbar-search-shift", `${shift}px`);
+      slot.style.setProperty("--navbar-search-offset", `${Math.abs(shift)}px`);
+      slot.dataset.placed = "";
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(bar);
+    observer.observe(slot);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!open) return undefined;
     input.current?.focus();
