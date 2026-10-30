@@ -188,6 +188,15 @@ $ yarn build
 
 This command runs the preprocess command, generates static content into the `build` directory and can be served using any static contents hosting service.
 
+### Search
+
+Search is [Pagefind](https://pagefind.app), built by every `yarn build`. There is no search server, key or crawler, and each deploy preview searches its own pages.
+
+- **Index**: `src/plugins/pagefind/` runs after the Docusaurus build and writes `build/pagefind/`. It indexes every docs page under Docusaurus's own `docusaurus_tag` (for example `docs-developer-v6.0.0`), and the Aztec.nr API item pages of each network's version under `default`, ranked below the guides. The served HTML is not changed. The TypeScript API reference is markdown only, so it is not searchable.
+- **Search bar**: `src/theme/SearchBar/` opens with Ctrl+K (⌘K on macOS) and loads `/pagefind/pagefind.js` on first use. It searches the version being read in both the developer and the operator docs, plus the unversioned pages. On an unversioned page it uses the developer version the reader last picked in the version menu, else the latest. "All versions" removes the filter.
+- **Check**: `scripts/check_search_index.mts` runs last in `yarn build`. It fails the build when a `sitemap.xml` page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query's page is not in the top 10 for a served version. A probe page outside the top 3 only prints a warning. After a build, run it alone with `node scripts/check_search_index.mts build`, with the build's `CONTEXT`.
+- **Probes**: `PROBES` in the check names each query's expected page by URL suffix. When you rename or move a probed page, add its new path to the probe, or the build fails.
+
 ### aztec-node code: the pin
 
 Most of the code the docs quote is aztec-node's (the Labs repository). The docs pin the commit they quote in `aztec-node.json`, together with its toolchain versions (aztec, bb, noir and the `@aztec-foundation/l1-artifacts` version), and read a checkout of that commit. They never read this repository's `labs/` submodule, which the Foundation builds against and moves on its own schedule.

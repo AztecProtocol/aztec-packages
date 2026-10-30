@@ -17,6 +17,7 @@ This project uses Yarn 4.13.0 as specified in the `packageManager` field of pack
 - `yarn` - Install dependencies
 - `yarn start` - Start development server (runs preprocessing first, then starts Docusaurus)
 - `yarn build` - Build production site with full validation (includes clean, preprocess, spellcheck, and move steps)
+  - It ends with the search index check: renaming or moving a page a search probe expects (`PROBES` in `scripts/check_search_index.mts`) fails the build until the probe lists the new path
 - `yarn serve` - Serve the built static site
 - `yarn spellcheck` - Run spell checking with cspell on markdown files
 - `yarn clean` - Clean build artifacts and processed docs
@@ -391,5 +392,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-10-29
-Version: 1.9
+Last updated: 2026-10-30
+Version: 1.10
