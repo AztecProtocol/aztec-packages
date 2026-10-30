@@ -10,6 +10,8 @@ const EXCLUDE_SELECTORS = [
   ".theme-doc-version-badge",
   ".theme-doc-version-banner",
   ".theme-edit-this-page",
+  // The "Source code: <path>" link under every `#include_code` snippet.
+  "blockquote > sup > sub > a",
 ];
 
 // Ranks reference pages below the guides that use the same terms.
