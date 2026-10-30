@@ -66,8 +66,11 @@ The rules of `/release-docs` (its "Release model" section) apply unchanged:
   the cut's pin to the Labs tag; the destination, and its pin, are not touched until Step 10.
 - A release build links `docs/examples/` snippets to this repository at `DOCS_COMMIT`, the
   destination's base on `origin/next`, and the cut never changes `docs/examples/`.
-- State lives in `~/.cache/aztec-docs-cut/network-v<new_version>/`, whose `env.sh` every
-  command block from Step 2 on sources.
+- State lives in `~/.cache/aztec-docs-cut/<cut>/`, whose `env.sh` every
+  command block from Step 2 on sources. `<cut>` is `network-v<new_version>`, or another
+  name (`dryrun-network-v<new_version>`) for a rehearsal or a second cut of the same
+  version; the cut's branch is `docs-cut/<cut>`. Step 2b refuses a `<cut>` whose state or
+  branch exists.
 - A step marked **Owner approval required.** stops until the owner says yes.
 - Never stash: every worktree of this repository shares one stash stack.
 
@@ -92,7 +95,7 @@ curl -sS -w '%{stderr}[http %{http_code}]\n' -X POST -H 'Content-Type: applicati
   -d '{"jsonrpc":"2.0","id":1,"method":"aztec_getNodeInfo","params":[]}' <RPC_URL> | jq '.result // .'
 ```
 
-- dRPC serves only the legacy `node_` namespace: on error `-32601`, repeat with
+- On error `-32601` (dRPC used to serve only the legacy `node_` namespace), repeat with
   `node_getNodeInfo`.
 - `403 {"message":"Forbidden"}` (rpc2) or `401 No API key found in request` (Kong) means a
   missing or wrong key for that endpoint, not an endpoint that is down.
@@ -101,7 +104,8 @@ Parse the response to extract:
 
 - `nodeVersion` (e.g. `5.2.0` or `6.0.0-rc.3`)
 - L1 contract addresses from `l1ContractAddresses`: registry, rollup, inbox, outbox,
-  fee juice, staking asset, fee juice portal, fee asset handler, coin issuer,
+  fee juice, staking asset, fee juice portal, fee asset handler (absent where none is
+  deployed, as on mainnet), coin issuer,
   reward distributor, governance proposer, governance, and GSE (`gseAddress`, newer
   nodes only)
 - L2 protocol contract addresses from `protocolContractAddresses`: instance registry,
@@ -111,7 +115,9 @@ Parse the response to extract:
 
 **Detect release type** from the version string:
 
-- Contains `mainnet`, or is a plain semver like `5.2.0` → `mainnet`
+- Contains `mainnet` → `mainnet`
+- A plain semver like `5.2.0` → ask which types will read it: `mainnet`, `testnet` or both
+  (both: `/release-docs` "One version, several release types" decides which one renders)
 - Contains `testnet` → `testnet`
 - Contains `rc` → usually `testnet`; confirm with the user, since an rc can ship to mainnet
 - Contains `devnet` → **abort**: network docs have no devnet version; use `/release-docs`
@@ -144,12 +150,16 @@ DOCS_COMMIT=$(git merge-base HEAD origin/next)
 git diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
   || { echo "docs/examples differs from origin/next: land those changes on next first" >&2; exit 1; }
 LABS_TAG=v<new_version>
-STATE=$HOME/.cache/aztec-docs-cut/network-$LABS_TAG
+CUT_ID=<cut>
+STATE=$HOME/.cache/aztec-docs-cut/$CUT_ID
+! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" && mkdir -p "${STATE%/*}" && mkdir "$STATE" \
+  || { echo "$STATE or docs-cut/$CUT_ID exists: pick another <cut>, or remove that cut first" >&2; exit 1; }
 CUT=$STATE/worktree
 CLI_HOME=$STATE/cli-home
-mkdir -p "$STATE" "$CLI_HOME"
+mkdir "$CLI_HOME"
 cat >"$STATE/env.sh" <<EOF
 LABS_TAG=$LABS_TAG
+CUT_ID=$CUT_ID
 STATE=$STATE
 CUT=$CUT
 CLI_HOME=$CLI_HOME
@@ -159,20 +169,22 @@ DEST_BRANCH=$(printf %q "$(git branch --show-current)")
 DEST_PIN_REF=$(node -p 'require("./docs/aztec-node.json").ref')
 DOCS_COMMIT=$DOCS_COMMIT
 export AZTEC_NODE_DIR=$STATE/aztec-node
+CLI_PATH=$CUT/docs/.aztec-node/cli/node_modules/.bin:$CUT/docs/.aztec-node/bin:$STATE/aztec-node/aztec-up/bin/0.0.1
 docs_env() {
   local pin; pin=\$(node "$CUT/docs/scripts/aztec_node.mts" env) || return 1
   eval "\$pin"
-  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> DOCS_COMMIT=$DOCS_COMMIT "\$@"
+  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT "\$@"
 }
 aztec_cli() {
-  [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
-  env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME HOME=$CLI_HOME \\
-    PATH=$CLI_HOME/.aztec/current/bin:$CLI_HOME/.aztec/bin:\$PATH "\$@"
+  [ -x $CUT/docs/.aztec-node/cli/node_modules/.bin/aztec ] || { echo "no release CLI: run Step 5b" >&2; return 1; }
+  env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME \\
+    -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN HOME=$CLI_HOME PATH=\$CLI_PATH:\$PATH "\$@"
 }
 EOF
 ```
 
-`<TAG_VAR>` is `MAINNET_TAG` or `TESTNET_TAG`, and its value has no `v`; `COMMIT_TAG`
+`<TAG_VAR>` is `MAINNET_TAG` or `TESTNET_TAG`, and its value has no `v`; `<OTHER_TAG_VARS>`
+sets the other type's tag to the version its network runs, or is empty. `COMMIT_TAG`
 keeps its `v` (the preprocessor emits it as a git ref). `docs_env` checks the cut's pin
 and checkout and exports the pin's versions before running a docs command; it fails when
 they disagree. `AZTEC_NODE_DIR` keeps the cut's checkout outside the worktree, as
@@ -181,8 +193,8 @@ they disagree. `AZTEC_NODE_DIR` keeps the cut's checkout outside the worktree, a
 #### 2c. Create the worktree and move its pin to the tag
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
-git -C "$DEST_ROOT" worktree add -b "docs-cut/network-$LABS_TAG" "$CUT" "$DEST"
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
+git -C "$DEST_ROOT" worktree add -b "docs-cut/$CUT_ID" "$CUT" "$DEST"
 cd "$CUT/docs" && node scripts/aztec_node.mts pin "$LABS_TAG"
 ```
 
@@ -192,7 +204,7 @@ cd "$CUT/docs" && node scripts/aztec_node.mts pin "$LABS_TAG"
 the destination's; take the version from the pin, install and commit:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT/docs"
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 node -e '
   const fs = require("fs");
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -283,7 +295,7 @@ Update the column matching the release type (**Alpha (Mainnet)** or **Testnet**)
 Then grep the cut for the network's old addresses:
 
 ```bash
-grep -r "<old_address>" ~/.cache/aztec-docs-cut/network-v<new_version>/worktree/docs/
+grep -r "<old_address>" ~/.cache/aztec-docs-cut/<cut>/worktree/docs/
 ```
 
 Hits outside `docs/docs/networks.md` are shared source repairs (Step 10). When the public
@@ -316,7 +328,7 @@ shared source repairs (Step 10). If there are none, skip to Step 5a.
 ### Step 5a: Regenerate Node API Reference
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT/docs"
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 docs_env yarn generate:node-api-reference
 ```
 
@@ -331,30 +343,24 @@ same edit (a shared source repair, Step 10).
 ### Step 5b: Regenerate Operator CLI Reference
 
 `docs/docs-operate/operators/reference/cli-reference.md` is `aztec start --help` of the
-release CLI. Install the release into its own home, so nothing changes in the real one:
+release CLI. Install the release's published CLI into the cut and run it with its own home,
+so nothing changes in the real one:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT/docs"
-pin=$(node scripts/aztec_node.mts env) || exit 1
-eval "$pin"
-env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
-  HOME="$CLI_HOME" NON_INTERACTIVE=1 bash <(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION")
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
+node scripts/aztec_node.mts provision cli || exit 1
 aztec_cli aztec --version
 aztec_cli ./scripts/cli_reference_generation/generate_operator_cli_ref.sh -v "$LABS_TAG"
 grep -n -e "$CLI_HOME" -e /home/ -e /Users/ docs-operate/operators/reference/cli-reference.md
 ```
 
-`AZTEC_VERSION` is the pin's; `aztec --version` must print it, and the generator refuses a
-mismatch. The generator runs the CLI under an environment allowlist and refuses to print
-or write a capture that carries a key-shaped default (`docs/scripts/lib/key_defaults.sh`). The
-installer runs with `HOME` set to `$CLI_HOME`, so its node, foundry, nargo and
-shell-profile edits stay out of the real home. Clearing `NARGO_HOME` and `AZTEC_HOME`
-keeps noirup and the toolchain under that home too (with `NARGO_HOME` set, noirup lands
-in the real home and the install fails), and clearing `NARGO` stops the installer from
-copying that binary in as the release's nargo. `NON_INTERACTIVE=1` skips the prompt and
-the closing `exec $SHELL`, which would leave the terminal in a shell whose home is
-`$CLI_HOME`. foundryup refuses to install while any `anvil` runs on the host
-(`'anvil' is currently running`): wait for it to exit, and never stop another run's anvil.
+`provision cli` installs `@aztec-labs/aztec` and `@aztec-labs/cli-wallet` at the pin's
+`AZTEC_VERSION` into `docs/.aztec-node/cli`, as `/release-docs` Step 3 does; `aztec
+--version` must print it, and the generator refuses a mismatch. The generator runs the CLI
+under an environment allowlist and refuses to print or write a capture that carries a
+key-shaped default (`docs/scripts/lib/key_defaults.sh`). Never run the
+`install.aztec.network` installer here: it installs node, nargo and foundry and edits
+shell profiles, all from scripts fetched at run time.
 
 The generator retries until the capture contains the help's last line, so the file ends
 with `Starts Aztec TXE with options` and a closing fence. Help defaults derived from `$HOME`
@@ -367,7 +373,7 @@ The snapshot (Step 7) includes `docs/docs-operate/operators/reference/changelog/
 page usually lands after the tag, so check the destination commit:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
 major=$(jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json" | cut -d. -f1)
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
@@ -387,7 +393,7 @@ and the cut restarts from Step 2 (the destination has moved).
 ### Step 6: Preprocess, Check and Build
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT/docs"
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 docs_env yarn build >"$STATE/build.log" 2>&1; echo "build: $?"
 docs_env sh -c 'echo "aztec-node: $AZTEC_NODE_COMMIT  aztec-packages: $DOCS_COMMIT"'
 grep -rhoE 'github\.com/aztec-labs-eng/aztec-node/blob/[^/)"]+' processed-docs/docs-operate/ processed-docs/docs/ | sort | uniq -c
@@ -415,10 +421,10 @@ The build preprocesses into `processed-docs/`, which the cut snapshots.
 Record the current network version for this release type first; Step 8 deletes it:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT/docs"
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 cat network_version_config.json
 docs_env yarn docusaurus docs:version:network "$LABS_TAG"
-scripts/update_docs_versions.sh network <release_type> "$LABS_TAG"
+scripts/update_docs_versions.sh network <release_type> "$LABS_TAG"  # once per release type this version serves
 grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#include_foundation_version|#release_version|#release_network|#include_code' \
   network_versioned_docs/version-v<new_version>/
 ```
@@ -437,30 +443,48 @@ Step 8.
 
 The cut's operator pages are the destination's, written against the destination's pin
 (`DEST_PIN_REF`); the snapshot must describe the tag. When the two refs name different
-commits, list the code between them, as `/release-docs` Step 12 does. `<old_version>` is
-the network version Step 7 recorded, with its `v`; fetch both histories down to it:
+commits, list the code between them, as `/release-docs` Step 12 does, fetching both
+histories down to their merge base into a checkout of their own:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
 echo "destination pin: $DEST_PIN_REF  release: $LABS_TAG"
-git -C "$AZTEC_NODE_DIR" fetch --depth 1 origin tag <old_version>
-git -C "$AZTEC_NODE_DIR" fetch --shallow-exclude=<old_version> origin tag "$LABS_TAG" tag "$DEST_PIN_REF"
-git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/
+cmp=$(gh api "repos/aztec-labs-eng/aztec-node/compare/$LABS_TAG...$DEST_PIN_REF" \
+  --jq '"\(.merge_base_commit.sha) \(.behind_by) \(.ahead_by)"') || exit 1
+read -r base behind ahead <<<"$cmp"
+since=$(gh api "repos/aztec-labs-eng/aztec-node/commits/$base" --jq .commit.committer.date) || exit 1
+AZTEC_NODE_HISTORY=$STATE/aztec-node-history
+rm -rf "$AZTEC_NODE_HISTORY" && git init -q "$AZTEC_NODE_HISTORY" &&
+  git -C "$AZTEC_NODE_HISTORY" fetch -q --shallow-since="$since" https://github.com/aztec-labs-eng/aztec-node.git \
+    tag "$LABS_TAG" tag "$DEST_PIN_REF" || exit 1
+[ "$(git -C "$AZTEC_NODE_HISTORY" merge-base "$LABS_TAG" "$DEST_PIN_REF")" = "$base" ] &&
+  [ "$(git -C "$AZTEC_NODE_HISTORY" rev-list --count "$DEST_PIN_REF..$LABS_TAG")" = "$behind" ] &&
+  [ "$(git -C "$AZTEC_NODE_HISTORY" rev-list --count "$LABS_TAG..$DEST_PIN_REF")" = "$ahead" ] \
+  || { echo "history down to $base is incomplete: GitHub counts $behind/$ahead" >&2; exit 1; }
+git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/
+git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-only "$LABS_TAG...$DEST_PIN_REF" -- docs/docs-operate/
 ```
 
-`>` commits are in the destination's pin but not in the release. For each that changes
-what an operator sees (a configuration option, environment variable, CLI flag, default or
-RPC method), grep `network_versioned_docs/version-v<new_version>/` for it and check it
-against `$AZTEC_NODE_DIR` (the tag). Fix the snapshot only: those fixes are release-only
+Never fetch with `--shallow-exclude=<previous release>`: the merge base is usually reachable
+from it, so it is cut off and the range lists both sides back to the boundary (v6.0.0
+against `v6.0.0-rc.3`: 166/166 commits instead of 57/2). This fetch needs no previous
+release, so it also works when that is not a Labs tag. The separate history checkout and
+a failed count check work as in `/release-docs` Step 12.
+
+`>` commits are in the destination's pin but not in the release. Start with the operator
+pages the second log names (aztec-node held the docs until they moved here, so a code
+change and its doc edit landed in one commit) and revert those hunks in the snapshot,
+removals included; at v6.0.0 they were a removed CLI command and newer build images. Then,
+for each commit that changes what an operator sees (a configuration option, environment
+variable, CLI flag, default or RPC method), grep
+`network_versioned_docs/version-v<new_version>/` for it and check it against
+`$AZTEC_NODE_DIR` (the tag). Fix the snapshot only: those fixes are release-only
 (Step 10). Present what was found, fixed and skipped. The generated references (Steps 5a
 and 5b) already come from the tag.
 
-When the previous version is not a Labs tag (v5 and earlier are tags of this repository),
-use `--shallow-since=<date of that release>` instead of `--shallow-exclude`.
-
 ### Step 8: Clean Up Old Network Version
 
-Work in `~/.cache/aztec-docs-cut/network-v<new_version>/worktree/docs`, use the old version
+Work in `~/.cache/aztec-docs-cut/<cut>/worktree/docs`, use the old version
 recorded in Step 7, and append every removed path to `$STATE/deleted.txt`, one per line
 and written as listed below (from the repository root, `docs/...`); Step 10 removes the
 same paths on the destination. On a first release of this type, skip.
@@ -518,7 +542,7 @@ FAIL_ON_ORPHAN=1 scripts/check_orphaned_urls.sh "$STATE/redirect-targets.txt"
 ### Step 9: Final Build
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$CUT/docs"
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 docs_env yarn build >"$STATE/build.log" 2>&1; echo "dev build: $?"
 CONTEXT=production docs_env yarn build >"$STATE/build-production.log" 2>&1; echo "production build: $?"
 scripts/check_warnings.sh "$STATE/build.log" "$STATE/build-production.log"
@@ -530,9 +554,9 @@ fixed goes to the owner.
 ### Step 10: Carry the Results Back to the Destination
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
-cd "$CUT" && git add -A -- docs && git commit -m "docs: cut $LABS_TAG network docs"
+cd "$CUT" && git add -- docs && git commit -m "docs: cut $LABS_TAG network docs"
 git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
   || { echo "the cut changed docs/examples: land the change on next and restart the cut" >&2; exit 1; }
 git -C "$CUT" diff --name-status "$PINNED" HEAD -- docs
@@ -543,7 +567,7 @@ Sort every listed path into exactly one class:
 1. **Release results**, copied per named path, with the Step 8 deletions run explicitly:
 
    ```bash
-   . ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
+   . ~/.cache/aztec-docs-cut/<cut>/env.sh
    d=network_versioned_docs/version-$LABS_TAG
    rsync -a --delete "$CUT/docs/$d/" "$DEST_ROOT/docs/$d/"
    for f in network_versioned_sidebars/version-$LABS_TAG-sidebars.json \
@@ -577,7 +601,7 @@ Commit on the destination, naming the release inputs; the commit runs only if `g
 succeeds:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
 pin=$(node "$CUT/docs/scripts/aztec_node.mts" env) || exit 1
 eval "$pin"
 git -C "$DEST_ROOT" add -- <the existing paths of classes 1 and 2> &&
@@ -595,7 +619,7 @@ EOF
 Then rerun the destination's own checks, without the cut's `AZTEC_NODE_DIR`:
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh && cd "$DEST_ROOT/docs" && unset AZTEC_NODE_DIR
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$DEST_ROOT/docs" && unset AZTEC_NODE_DIR
 yarn install --immutable && yarn test
 CONTEXT=production yarn build >"$STATE/destination-build.log" 2>&1; echo "production build: $?"
 scripts/check_warnings.sh "$STATE/destination-build.log"
@@ -609,13 +633,13 @@ and anything left unresolved. Pushing the branch and opening a PR are the owner'
 ### Step 11: Tear Down
 
 ```bash
-. ~/.cache/aztec-docs-cut/network-v<new_version>/env.sh
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" worktree remove "$CUT"
 ```
 
 `worktree remove` refuses while the cut has uncommitted changes (Step 10 committed
 everything); ignored files such as `docs/node_modules/` go with it. The branch
-`docs-cut/network-v<new_version>` stays as the record of the cut until the destination
+`docs-cut/<cut>` stays as the record of the cut until the destination
 commit has merged; remove `$STATE` (the CLI's home, the checkout and the logs) once the
 release is out.
 
@@ -648,8 +672,8 @@ Apart from the header's date, the diff only adds URLs. Pushing it is the owner's
   the L1/L2 contract addresses; the missing ones come from on-chain getters, the
   deployment output or the user (Step 3).
 - **`networks.md` publishes the public endpoint**, never an operator one.
-- **Prerequisites**: `yarn`, `curl`/`jq`, `cast`, and the release CLI installed into the
-  cut's own home (Step 5b). No aztec-node build, nargo or bb.
+- **Prerequisites**: `yarn`, `curl`/`jq`, `cast`, and the release's published CLI provisioned
+  into the cut (Step 5b). No aztec-node build, nargo or bb.
 - **Build before cutting and after**: the cut snapshots the build's `processed-docs/`, and
   the final builds (Step 9) validate the snapshot.
 - **User confirmation required** before deleting old versioned docs and before content

@@ -32,7 +32,8 @@
 # The marker, written in bold in the skills: Owner approval required
 # The git, cd and labs-submodule rules read only code (fenced blocks and inline code spans), so prose
 # may say "git tag" and snippet paths may keep their labs/ prefix; a git command counts as
-# checkout-scoped when its last -C names $AZTEC_NODE_DIR or a .aztec-node/tree directory. The path,
+# checkout-scoped when its last -C names $AZTEC_NODE_DIR, $AZTEC_NODE_HISTORY (a history-only clone of
+# aztec-node) or a .aztec-node/tree directory. The path,
 # toolchain and owner rules read every line except the frontmatter, and the owner rule skips headings.
 set -euo pipefail
 
@@ -74,7 +75,7 @@ function scan {
           while ($opts =~ /-C\s+("[^"]*"|\x27[^\x27]*\x27|\S+)/g) { $dir = $1; }
           $dir =~ s/^["\x27]|["\x27]$//g;
           $dir =~ s{/+$}{};
-          if ($dir =~ m{^\$\{?AZTEC_NODE_DIR\}?$|(?:^|/)\.aztec-node/tree$}) { $checkout_git = 1; next; }
+          if ($dir =~ m{^\$\{?AZTEC_NODE_(?:DIR|HISTORY)\}?$|(?:^|/)\.aztec-node/tree$}) { $checkout_git = 1; next; }
           if ($dir =~ m{(?:^|/)labs$}) { push @rules, "labs-submodule"; next; }
           push @rules, "root-tag" if $sub eq "tag";
           push @rules, "root-checkout-v"
@@ -182,6 +183,7 @@ function self_test {
     '```bash\ngit -C "$AZTEC_NODE_DIR" fetch --depth 1 origin tag "$LABS_TAG"\n```'
     '```bash\ngit -C "${AZTEC_NODE_DIR}" diff v<old_version>..v<new_version> -- yarn-project/ noir-projects/\n```'
     '```bash\ngit -C docs/.aztec-node/tree log --oneline v<old_version>..v<new_version>\n```'
+    '```bash\ngit -C "$AZTEC_NODE_HISTORY" log --oneline --left-right "$LABS_TAG...$DEST_PIN_REF"\n```'
     '```bash\ngit -C "$AZTEC_NODE_DIR" show "$LABS_TAG:labs-aztec-toolchain/bootstrap.sh" | grep BB_VERSION\n```'
     'Read `git -C "$AZTEC_NODE_DIR" show "$LABS_TAG:.release-please-manifest.json"`.'
     '```bash\njq -r ".[\".\"]" "$AZTEC_NODE_DIR/.release-please-manifest.json"\n```'

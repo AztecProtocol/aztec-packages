@@ -53,6 +53,8 @@
     "dotenv": "^16.6.1",
     "netlify-cli": "^24.3.0",
     "pagefind": "1.5.2",
+    "tsx": "^4.23.15",
+    "typedoc": "0.28.16",
     "typescript": "^5.9.3"
   },
   "cspell": {

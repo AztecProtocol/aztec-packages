@@ -6,8 +6,8 @@
 #   local_network.sh start <version> <state-dir>
 #   local_network.sh stop <state-dir>
 #
-# CLI_HOME is the HOME the release CLI was installed into; the network runs with it, so nothing is
-# written under the real home. start waits up to READY_TIMEOUT seconds (default 600) for the node to
+# CLI_HOME is the HOME the network runs with, so nothing is written under the real home; CLI_PATH
+# (prepended to PATH) holds the release's aztec CLI and the tools it runs. start waits up to READY_TIMEOUT seconds (default 600) for the node to
 # report <version>, then writes <state-dir>/network.env (AZTEC_NODE_URL, ETHEREUM_HOST, the ports)
 # for later commands to source; the log is <state-dir>/network.log.
 set -euo pipefail
@@ -92,8 +92,10 @@ function started_at { LC_ALL=C TZ=UTC ps -o lstart= -p "$1" 2>/dev/null || true;
 
 function cmd_start {
   local version=$1 state=$2 run picked ports attempt pgid deadline info
-  [ -n "${CLI_HOME:-}" ] && [ -x "$CLI_HOME/.aztec/current/bin/aztec" ] ||
-    die "CLI_HOME must name the HOME the release CLI was installed into ($CLI_HOME/.aztec/current/bin/aztec)"
+  [ -d "${CLI_HOME:-}" ] || die "CLI_HOME must name the run's home directory"
+  if [ -z "${CLI_PATH:-}" ] || ! PATH="$CLI_PATH" command -v aztec >/dev/null; then
+    die "CLI_PATH must hold the release's aztec CLI"
+  fi
   mkdir -p "$state"
   state=$(cd "$state" && pwd -P)
   [ ! -f "$state/network.env" ] || die "$state/network.env exists: stop that network first"
@@ -118,7 +120,8 @@ function cmd_start {
     open STDERR, ">&", \*STDOUT;
     exec @ARGV or die "exec: $!";
   ' "$state/network.log" env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME \
-      HOME="$CLI_HOME" PATH="$CLI_HOME/.aztec/current/bin:$CLI_HOME/.aztec/bin:$PATH" \
+      -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN \
+      HOME="$CLI_HOME" PATH="$CLI_PATH:$PATH" \
       ANVIL_PORT="${ports[2]}" DATA_DIRECTORY="$state/network-data" P2P_ENABLED=false \
       aztec start --local-network --port "${ports[0]}" --admin-port "${ports[1]}")
   with_registry repoint_rows "$run" "$pgid"
