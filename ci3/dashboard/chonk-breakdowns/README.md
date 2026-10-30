@@ -2,59 +2,32 @@
 
 This viewer displays hierarchical timing breakdowns for Barretenberg's Chonk (IVC) proving system. It shows where time is spent during proof generation, with drill-down capabilities to explore component performance.
 
-## What This Shows
+It shows the per-phase timings that `bb`'s `--bench_out_hierarchical` flag produces (ChonkAccumulate, ChonkProve, OinkProver, etc.), with each phase's share of the total; click a component to drill down into its child operations.
 
-The breakdown viewer visualizes:
-- **Hierarchical component timings** from Barretenberg's `--bench_out_hierarchical` flag
-- **Time spent in each proving phase**: ChonkAccumulate, ChonkProve, OinkProver, etc.
-- **Nested operations**: Click on components to drill down into child operations
-- **Percentage distribution**: See which operations dominate proving time
-
-Data comes from CI benchmark runs and is stored in `/logs-disk/bench/bb-breakdown/`.
+`barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh` uploads the breakdowns from CI benchmark runs to S3, under `$CI_LOGS_S3_LOCATION/bench/bb-breakdown/` (default `s3://aztec-ci-artifacts/logs/bench/bb-breakdown/`), one `<runtime>-<flow>-<sha>.log.gz` per run (memory profiles sit beside them as `memory-<runtime>-<flow>-<sha>.log.gz`). The viewer (route `/chonk-breakdowns` in `ci3/dashboard/rk.py`) reads them from `s3://$S3_LOGS_BUCKET/$S3_LOGS_PREFIX/bench/bb-breakdown/`; the defaults of both sides agree.
 
 ## Local Testing
 
-### Quick Start
-
-1. **Install dependencies (first time only):**
+1. **Start the server** from `ci3/dashboard`, with AWS credentials that can read the bucket above:
    ```bash
-   cd rkapp
-   python3 -m venv venv
-   venv/bin/pip install -r requirements.txt
-   ```
-
-2. **Fetch sample test data:**
-   ```bash
-   mkdir -p /tmp/rkapp-test-data/bench/bb-breakdown
-   # Fetch all breakdowns for a specific SHA (e.g., f4decd6)
-   scp -i ~/.ssh/build_instance_key \
-     "ubuntu@ci.aztec-labs.com:/logs-disk/bench/bb-breakdown/*-f4decd6*.log.gz" \
-     /tmp/rkapp-test-data/bench/bb-breakdown/
-   ```
-
-3. **Start the server:**
-   ```bash
-   cd rkapp
+   cd ci3/dashboard
    ./chonk-breakdowns/run-local.sh
    ```
+   On first run, the script creates `ci3/dashboard/venv` (not gitignored; do not commit it) and installs `requirements.txt`.
 
-4. **Test in browser:**
+2. **Test in browser:**
    - Open: http://localhost:8080/chonk-breakdowns
-   - Enter credentials when prompted
+   - The dashboard uses HTTP basic auth (user `aztec`, password `$DASHBOARD_PASSWORD`). If `DASHBOARD_PASSWORD` is unset, no auth is applied.
    - The SHA field will auto-populate with the latest commit from `aztec-packages` `next` branch
    - Select Runtime: `native` or `wasm`
    - The Flow dropdown will dynamically show flows available for the selected runtime and SHA
    - Click "Load Breakdown"
 
-## What the Script Does
-
-- Sets `LOGS_DISK_PATH=/tmp/rkapp-test-data` to use local test data
-- Sets `REDIS_TIMEOUT=0.1` for fast failover to disk
-- Runs rk.py directly (no mocking needed)
-
 ## Environment Variables
 
-- `LOGS_DISK_PATH` - Path to logs directory (default: `/logs-disk`)
-- `REDIS_HOST` - Redis hostname (default for local: `localhost`)
-- `REDIS_PORT` - Redis port (default for local: `9999` - non-existent)
-- `REDIS_TIMEOUT` - Connection timeout in seconds (default: `0.1`)
+- `S3_LOGS_BUCKET` - Bucket holding the breakdowns (default: `aztec-ci-artifacts`)
+- `S3_LOGS_PREFIX` - Key prefix (default: `logs`)
+- `DASHBOARD_PASSWORD` - Basic-auth password; unset means no auth
+- `LOGS_DISK_PATH` - Directory where the `ci-metrics` sidecar that `rk.py` starts keeps `metrics.db` (default: `/logs-disk`; `run-local.sh` sets `/tmp/ci-dashboard-local`)
+- `REDIS_HOST` - Redis hostname (default: `localhost`)
+- `REDIS_PORT` - Redis port (default: `6379`; `run-local.sh` sets `9999`, where no redis runs, because the breakdowns viewer does not need redis)

@@ -1,90 +1,25 @@
-# Build System
+# ci3
 
-This repository uses a custom build system that is **agnostic to CI platforms** and **leverages a remote cache** (S3 or MinIO) for caching build artifacts. Our approach enables efficient incremental builds, distributed parallel testing, and consistent deployment to ephemeral infrastructure (e.g., AWS Spot Instances).
+`ci3/` holds the shell tools behind the aztec-packages build, cache and test system. Project `bootstrap.sh` scripts source them to hash their inputs, upload and download build artifacts, run tests in parallel with a shared test cache, store logs, and run CI on EC2 instances. The same scripts run on a laptop, in the devbox container and in CI; GitHub Actions only calls into them. The remote build cache is in S3 (MinIO is used only in ci3's own tests).
 
-We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework (ci3 folder). Each project defines its own bootstrap or build script but relies on the shared `ci3` folder for advanced features like:
+For usage (building, running tests, triggering CI, labels, logs, cache), see [CI.md](../CI.md).
 
-- Generating **content hashes** to skip unchanged builds
-- Uploading/downloading build artifacts
-- Parallelizing & caching test results
-- Logging ephemeral output
-- Provisioning ephemeral AWS instances for maximum compute at minimal cost
+## Concepts
 
-## Requirements & Rationale
+- **Content hashes.** Artifacts are keyed by a hash of the files that make them up, not by commit or branch. `cache_content_hash` computes it from patterns, usually a project's `.rebuild_patterns` file (for example `^barretenberg/cpp/src/.*.cpp`). A change to a matched file produces a new hash, so the cached artifact is not downloaded and the project rebuilds.
+- **Test commands.** Each project prints its tests with `test_cmds`, one line per test: `<test hash> <command run from the repository root>`. The root `Makefile` `*-tests` targets append these lines to `/tmp/test_cmds`, and `test_engine` runs them as they arrive.
+- **Test cache.** After a test passes, `run_test_cmd` records the whole line in redis for 7 days. `filter_cached_test_cmd` drops lines that already passed.
 
-1. **Monorepo-friendly**
-   Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
+## Tools
 
-2. **Remote Caching**
-   A stateless approach using S3-compatible storage (AWS S3 or MinIO). This replaces older Docker-image-based caches, streamlines artifact reuse, and easily shares builds across different runners or machines.
+Only the main tools are listed; see `ls ci3` for the rest.
 
-3. **Content-based Rebuilds**
-   We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
-
-4. **Ephemeral Infrastructure**
-   We frequently run on EC2 spot instances to take advantage of cost savings. On eviction, the system gracefully shuts down and requeues tasks if needed.
-
-5. **Avoiding CI Lock-In**
-   We do *not* rely on special vendor features. Our build is run via shell scripts that can be triggered on any platform.
-
-## Important Concepts
-
-### Content Hashes
-Instead of tagging artifacts by commit or branch, we compute a hash of the actual files that matter (via `.rebuild_patterns`). If code, dependencies, or scripts in that set change, we produce a new content hash and thus trigger a fresh build.
-
-### CI-Agnostic
-All logic is in shell scripts, grouped under the **ci3** folder. A minimal layer of environment detection handles toggling debug modes, caches, or ephemeral logs. This means the same build system can run on local machines, ephemeral Docker containers, or GitHub Actions.
-
-### Rebuild Patterns
-Each project folder often contains a `.rebuild_patterns` file. This file has patterns that, if matched by changed files, triggers a new build. Typical patterns might include: `^barretenberg/cpp/src/.*.cpp` and other patterns from root.
-
-When `cache_content_hash` sees new changes in these paths, it regenerates a new hash which prevents a cache download until an S3 artifact with that hash is uploaded.
-
-### Tools
-
-Tools are provided for the following themes.
-
-1. **Caching**
-   - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
-   - **`cache_upload`, `cache_download`**: Upload/download `.tar.gz` artifacts from a remote S3-like cache.
-   - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
-
-2. **Test Parallelization & Caching**
-   - **`parallelize`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
-   - **`run_test_cmd`**: Single test runner that can skip tests cached as “already passed.”
-   - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (based on flags in redis).
-
-3. **Ephemeral Logging**
-   - **`denoise`**: Minimizes output spam; prints dots for each line, reveals full logs only if a command fails.
-   - **`cache_log`**, **`dump_fail`**: Captures output for ephemeral storage and prints or reveals logs when needed.
-
-4. **AWS Provisioning**
-   - **`aws_request_instance`** & **`aws_terminate_instance`**: Provision ephemeral spot or on-demand instances.
-   - **`aws_handle_evict`**: Detects spot-instance eviction signals, handles graceful shutdown or requeue.
-
-5. **Docker Isolation**
-   - **`docker_isolate`**: Executes a script in a new Docker container with ephemeral volumes, isolating host environment from side effects.
-
-6. **General Utilities**
-   - **`source_bootstrap`, `source_refname`, `source_color`**: Shared environment, color-coded logging, or version detection.
-   - **`echo_header`**: Prints a heading for better log readability.
-   - **ci3/source** is the central include-script for Aztec’s build system, automatically configuring Bash strict mode, setting up your `$PATH` to include all ci3 utilities (e.g. caching, parallel test commands), and providing helper functions and color-coded logging. Simply add source `$(git rev-parse --show-toplevel)/ci3/source` at the top of any project script to inherit a robust, preconfigured environment.
-
-### Usage Flow
-
-1. **In each project**: A `bootstrap.sh` might:
-   - Call `cache_content_hash` to detect changes.
-   - If changed, do the relevant compile step, then `cache_upload`.
-   - If not changed, do `cache_download` to restore a previously built artifact.
-
-2. **In test scripts**:
-   - We gather test commands (`test_cmds`) in a form easily read by `parallelize`.
-   - `parallelize` calls `run_test_cmd` on each line, skipping or running tests as needed.
-
-3. **In local or ephemeral servers**:
-   - Either manually run `./bootstrap.sh fast` or let the CI invoke it on a fresh machine.
-   - The system pulls dependencies, attempts to restore from remote caches, rebuilds only if necessary, then parallelizes tests.
-
-4. **On success**:
-   - Artifacts can be re-uploaded or flagged as “passed,” letting future runs skip unchanged steps.
-
+| Group | Tools |
+| --- | --- |
+| Sourcing | `source` (strict mode, `PATH` with all ci3 tools, helper functions; add `source $(git rev-parse --show-toplevel)/ci3/source` at the top of a script), `source_bootstrap` (for project `bootstrap.sh` scripts, adds the default command handler), `source_redis`, `source_cache`, `source_refname`, `source_color` |
+| Build cache | `cache_content_hash`, `cache_upload`, `cache_download`, `cache_exists`, `cache_delete` |
+| Tests | `filter_test_cmds` (drops `skip: true` entries from the root `.test_patterns.yml`, then cached tests), `filter_cached_test_cmd`, `parallelize`, `run_test_cmd`, `test_engine`, `grind_test`, `get_test_owner` |
+| Logs | `denoise` (prints dots per output line and the full log only on failure), `cache_log`, `dump_fail`, `color_prefix`, `echo_header` |
+| EC2 | `bootstrap_ec2` (requests an instance, runs a command in the devbox container on it, handles spot termination), `aws_request_instance`, `aws_terminate_instance`, `watch_ci` |
+| Docker | `docker_isolate` (runs a command in a container with its own network stack and CPU, memory and tmpfs limits, with the repository mounted as-is) |
+| Dashboard | `dashboard/` (the CI dashboard at `ci.aztec-labs.com`) |
