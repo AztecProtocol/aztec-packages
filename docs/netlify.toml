@@ -2,10 +2,11 @@
 # BUILD CONFIGURATION
 # =============================================================================
 [build]
-  # The aztec-docs-dev site builds this directory, but only deploy previews may build here:
-  # docs.aztec.network is published by a `netlify deploy --no-build --prod` upload, which reads
-  # neither key. `ignore` fails open (any non-zero exit builds), so `command` also fails.
-  # scripts/check_netlify_toml.py (docs/bootstrap.sh check) enforces this shape; never add branch-named contexts
+  # The aztec-docs-dev site builds this directory. Production (docs.aztec.network, from `next`)
+  # builds and publishes when docs/ changed since its last build; deploy previews build when their
+  # pull request changes docs/; nothing else builds. `ignore` fails open (any non-zero exit builds),
+  # so contexts that never build also fail in `command`. scripts/check_netlify_toml.py
+  # (docs/bootstrap.sh check) enforces this shape; never add branch-named contexts
   # ([context.<branch>]), which take precedence over [context.production].
   ignore = "exit 0"
   command = "exit 1"
@@ -16,8 +17,8 @@
 # does not need a [[edge_functions]] entry here (declaring both runs it twice).
 
 [context.production]
-  ignore = "exit 0"
-  command = "exit 1"
+  ignore = "./scripts/netlify-ignore-build.sh production"
+  command = "./scripts/netlify-build.sh"
 
 [context.branch-deploy]
   ignore = "exit 0"
@@ -25,7 +26,7 @@
 
 [context.deploy-preview]
   ignore = "./scripts/netlify-ignore-build.sh preview"
-  command = "./scripts/netlify-preview-build.sh"
+  command = "./scripts/netlify-build.sh"
 
 # =============================================================================
 # ACTIVE REDIRECTS: Core Navigation
