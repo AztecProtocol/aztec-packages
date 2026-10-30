@@ -266,7 +266,7 @@ export default function SearchBar() {
         onClick={() => setOpen(true)}
       >
         <SearchIcon className={styles.icon} />
-        <span className={styles.triggerLabel}>Search</span>
+        <span className={styles.triggerLabel}>Search docs…</span>
         <span className={styles.keys} aria-hidden="true">
           <kbd>{mac ? "⌘" : "Ctrl"}</kbd>
           <kbd>K</kbd>

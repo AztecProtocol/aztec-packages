@@ -329,6 +329,12 @@ const config = {
             position: "left",
             label: "Participate",
           },
+          // Last left item, so it can span the gap before the right group.
+          {
+            type: "search",
+            position: "left",
+            className: "navbar-search-center",
+          },
           // Unified version dropdown - shows context-aware versions based on current section
           {
             type: "custom-unifiedVersionDropdown",

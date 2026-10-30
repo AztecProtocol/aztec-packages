@@ -33,10 +33,23 @@
   text-align: center;
 }
 
+/* The navbar item (`className` in docusaurus.config.js) spans the gap between the
+   left links and the right group, and the trigger sizes itself to that gap. */
+@media (min-width: 997px) {
+  :global(.navbar-search-center) {
+    container: navbar-search / inline-size;
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    min-width: calc(2.25rem + 2 * var(--ifm-navbar-item-padding-horizontal));
+  }
+}
+
 .trigger {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: min(100%, 28.75rem);
   height: 2.25rem;
   padding: 0 0.4rem 0 0.75rem;
   border: 1px solid var(--search-line);
@@ -64,9 +77,44 @@
   outline-offset: 2px;
 }
 
+.icon,
+.keys {
+  flex-shrink: 0;
+}
+
+.triggerLabel {
+  flex: 1;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .keys {
   display: flex;
   gap: 0.2rem;
+}
+
+@container navbar-search (max-width: 12.5rem) {
+  .trigger {
+    width: auto;
+  }
+
+  .triggerLabel {
+    display: none;
+  }
+}
+
+@container navbar-search (max-width: 6rem) {
+  .keys {
+    display: none;
+  }
+
+  .trigger {
+    justify-content: center;
+    width: 2.25rem;
+    padding: 0;
+  }
 }
 
 .backdrop {
