@@ -1039,10 +1039,11 @@ The build checks links and spelling, not whether the documented commands run. Va
 the **cut snapshot** (`developer_versioned_docs/version-v<new_version>/docs/...`), except
 the Aztec.js examples, which are source-only. Long-running and install-heavy.
 
-1. **Install the release as readers do, and start its local network.** **Owner approval
-   required.** The guides and tutorials start with the installer and call what it installs
-   (`aztec-nargo`, `aztec-forge`, `aztec-anvil`, `aztec-cast`, `aztec-up`), which the
-   published CLI of Step 3 does not ship. Run the installer only after the owner says yes:
+1. **Install the release as readers do, and start its local network.**
+   **Owner approval required.** The guides and tutorials start with the installer and call
+   what it installs (`aztec-nargo`, `aztec-forge`, `aztec-anvil`, `aztec-cast`, `aztec-up`),
+   which the published CLI of Step 3 does not ship. Run the installer only after the owner
+   says yes:
 
    ```bash
    . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
@@ -1104,13 +1105,15 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    . ~/.cache/aztec-docs-cut/<cut>/env.sh && . "$STATE/network.env" && cd "$CUT/docs"
    examples/bootstrap.sh compile-circuits
    examples/bootstrap.sh compile
+   examples/bootstrap.sh compile-solidity
    TXE_PORT=<a port claimed in ~/.agents/ports.md> examples/bootstrap.sh test-contracts
    docs_env examples/ts/aztecjs_runner/run.sh
    ```
 
    `examples/bootstrap.sh` provisions the tag's nargo, bb and CLI and fetches its commit into
    `$CUT/docs/.aztec-node/tree` (Release model), so the circuit and contracts compile and the
-   TXE tests run at the tag (`recursive_verification` reads the circuit's artifact). `run.sh` installs the tag's packages into each example and runs it
+   TXE tests run at the tag (`recursive_verification` reads the circuit's artifact);
+   `compile-solidity` builds the artifacts `example_swap` imports. `run.sh` installs the tag's packages into each example and runs it
    against `$AZTEC_NODE_URL`. The examples are the destination's: a failure here means the
    snapshot quotes code that does not work at the release. Report it with the example and
    the error. Never edit `docs/examples/` in the cut (Step 17 refuses it): a fix that also
