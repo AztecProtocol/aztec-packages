@@ -24,44 +24,44 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
 
 pub struct CheckpointRootRollupPrivateInputs {
     pub(crate) previous_rollups: [RollupHonkProofData<BlockRollupPublicInputs>; 2],
-    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
-    // checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
+    /// Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
+    /// checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
     pub(crate) inbox_parity: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) hints: CheckpointRootRollupHints,
 }
 
 pub struct CheckpointRootRollupHints {
-    // Previous block header is used to verify the start states of the checkpoint.
-    // Its hash is checked against the previous archive, which will be outputted and checked against the previous
-    // checkpoint, or against the value on L1 if it's the first checkpoint in the epoch.
+    /// Previous block header is used to verify the start states of the checkpoint.
+    /// Its hash is checked against the previous archive, which will be outputted and checked against the previous
+    /// checkpoint, or against the value on L1 if it's the first checkpoint in the epoch.
     pub(crate) previous_block_header: BlockHeader,
-    // Hint for checking that the hash of `previous_block_header` is the last leaf of the previous archive.
+    /// Hint for checking that the hash of `previous_block_header` is the last leaf of the previous archive.
     pub(crate) previous_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 
-    // Snapshot of the epoch out hash tree immediately before this checkpoint, or *empty* if this is the first checkpoint
-    // in the epoch.
-    // Note: *empty* means the tree has all zero leaves, not that the root itself is zero.
+    /// Snapshot of the epoch out hash tree immediately before this checkpoint, or *empty* if this is the first checkpoint
+    /// in the epoch.
+    /// Note: *empty* means the tree has all zero leaves, not that the root itself is zero.
     pub(crate) previous_out_hash: AppendOnlyTreeSnapshot,
-    // Hint for inserting this checkpoint's out hash into the tree.
+    /// Hint for inserting this checkpoint's out hash into the tree.
     pub(crate) new_out_hash_sibling_path: [Field; OUT_HASH_TREE_HEIGHT],
 
-    // The current blob accumulation state immediately before this checkpoint.
-    // It will be outputted and checked against the `end_blob_accumulator` of the previous checkpoint in checkpoint
-    // merge or root rollup. The start_blob_accumulator of the first checkpoint in an epoch must be empty, which will be
-    // checked in the root rollup.
+    /// The current blob accumulation state immediately before this checkpoint.
+    /// It will be outputted and checked against the `end_blob_accumulator` of the previous checkpoint in checkpoint
+    /// merge or root rollup. The start_blob_accumulator of the first checkpoint in an epoch must be empty, which will be
+    /// checked in the root rollup.
     pub(crate) start_blob_accumulator: BlobAccumulator,
-    // Finalized challenges z and gamma for performing blob batching. Shared value across the epoch.
-    // It will be outputted and checked against the values in other checkpoints to ensure consistency. It will be
-    // confirmed in the root rollup against the last `end_blob_accumulator`.
+    /// Finalized challenges z and gamma for performing blob batching. Shared value across the epoch.
+    /// It will be outputted and checked against the values in other checkpoints to ensure consistency. It will be
+    /// confirmed in the root rollup against the last `end_blob_accumulator`.
     pub(crate) final_blob_challenges: FinalBlobBatchingChallenges,
-    // Fields made of all blob data in this checkpoint. Used to compute the `end_blob_accumulator`. It will be checked
-    // against the `end_sponge_blob`.
+    /// Fields made of all blob data in this checkpoint. Used to compute the `end_blob_accumulator`. It will be checked
+    /// against the `end_sponge_blob`.
     pub(crate) blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT],
-    // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating each blob's challenge z_i.
+    /// see blob/src/blob.nr -> evaluate_blob() -  these are used for creating each blob's challenge z_i.
     pub(crate) blob_commitments: [BLSPoint; BLOBS_PER_CHECKPOINT],
-    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity.
-    // Only exists so we have a link between EVM blob hashes and the block header for users to check.
-    // NB: to fit it into a field, we truncate to 31 bytes
+    /// Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity.
+    /// Only exists so we have a link between EVM blob hashes and the block header for users to check.
+    /// NB: to fit it into a field, we truncate to 31 bytes
     pub(crate) blobs_hash: Field,
 }
 

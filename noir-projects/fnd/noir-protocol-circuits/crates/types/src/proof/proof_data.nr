@@ -87,7 +87,7 @@ impl<T> ProofDataForFixedVk<T, AVM_V2_PROOF_LENGTH_IN_FIELDS> {
     }
 }
 
-// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+/// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub type ChonkProofData<T> = ProofData<T, CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS>;
 
 /// Using this type for both RECURSIVE_PROOF_LENGTH and NESTED_RECURSIVE_PROOF_LENGTH.

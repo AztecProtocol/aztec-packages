@@ -14,7 +14,7 @@ pub fn field_from_bytes<let N: u32>(bytes: [u8; N], big_endian: bool) -> Field {
     as_field
 }
 
-// Convert a 32 byte array to a field element by truncating the final byte
+/// Convert a 32 byte array to a field element by truncating the final byte
 pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
     // Convert it to a field element
     let mut v = 1;
@@ -49,10 +49,10 @@ global C1: u32 = 28;
 global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
 global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
 
-// @dev: only use this for _huge_ exponents y, when writing a constrained function.
-// If you're only exponentiating by a small value, first consider writing-out the multiplications by hand.
-// Only after you've measured the gates of that approach, consider using the native Field::pow_32 function.
-// Only if your exponent is larger than 32 bits, resort to using this function.
+/// @dev: only use this for _huge_ exponents y, when writing a constrained function.
+/// If you're only exponentiating by a small value, first consider writing-out the multiplications by hand.
+/// Only after you've measured the gates of that approach, consider using the native Field::pow_32 function.
+/// Only if your exponent is larger than 32 bits, resort to using this function.
 pub fn pow(x: Field, y: Field) -> Field {
     let mut r = 1 as Field;
     let b: [bool; 254] = y.to_le_bits();
@@ -83,17 +83,17 @@ pub fn sqrt(x: Field) -> Option<Field> {
     }
 }
 
-// Boolean indicating whether Field element is a square, i.e. whether there exists a y in Field s.t. x = y*y.
+/// Boolean indicating whether Field element is a square, i.e. whether there exists a y in Field s.t. x = y*y.
 unconstrained fn is_square(x: Field) -> bool {
     let v = pow(x, -1 / 2);
     v * (v - 1) == 0
 }
 
-// Tonelli-Shanks algorithm for computing the square root of a Field element.
-// Requires C1 = max{c: 2^c divides (p-1)}, where p is the order of Field
-// as well as C3 = (C2 - 1)/2, where C2 = (p-1)/(2^c1),
-// and C5 = ZETA^C2, where ZETA is a non-square element of Field.
-// These are pre-computed above as globals.
+/// Tonelli-Shanks algorithm for computing the square root of a Field element.
+/// Requires C1 = max{c: 2^c divides (p-1)}, where p is the order of Field
+/// as well as C3 = (C2 - 1)/2, where C2 = (p-1)/(2^c1),
+/// and C5 = ZETA^C2, where ZETA is a non-square element of Field.
+/// These are pre-computed above as globals.
 unconstrained fn tonelli_shanks_sqrt(x: Field) -> Field {
     let mut z = pow(x, C3);
     let mut t = z * z * x;

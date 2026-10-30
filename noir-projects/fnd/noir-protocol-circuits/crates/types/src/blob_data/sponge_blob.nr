@@ -39,7 +39,7 @@ use super::{
 #[derive(Deserialize, Eq, Serialize)]
 pub struct SpongeBlob {
     pub sponge: Poseidon2Sponge,
-    // The number of fields absorbed so far.
+    /// The number of fields absorbed so far.
     pub num_absorbed_fields: u32,
 }
 

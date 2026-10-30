@@ -26,37 +26,37 @@ use types::{
 //
 // The globals listed here are those which can be reconfigured:
 
-// The length of the hints array used to validate read requests for pending note hashes.
+/// The length of the hints array used to validate read requests for pending note hashes.
 global NOTE_HASH_PENDING_READ_HINTS_LEN: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
-// The actual number of iterations for verifying and removing read requests for pending note hashes.
+/// The actual number of iterations for verifying and removing read requests for pending note hashes.
 global NOTE_HASH_PENDING_READ_AMOUNT: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
 // These two values may differ because an array cannot be empty.
 // If no read requests are required, `_READ_AMOUNT` will be 0, while the hints array length will still be > 0.
 // The same rule applies to the following variables.
 
-// The length of the hints array used to validate read requests for settled note hashes.
+/// The length of the hints array used to validate read requests for settled note hashes.
 global NOTE_HASH_SETTLED_READ_HINTS_LEN: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
-// The actual number of iterations for verifying and removing read requests for settled note hashes.
+/// The actual number of iterations for verifying and removing read requests for settled note hashes.
 global NOTE_HASH_SETTLED_READ_AMOUNT: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
 
-// The length of the hints array used to validate read requests for pending nullifiers.
+/// The length of the hints array used to validate read requests for pending nullifiers.
 global NULLIFIER_PENDING_READ_HINTS_LEN: u32 = MAX_NULLIFIER_READ_REQUESTS_PER_TX;
-// The actual number of iterations for verifying and removing read requests for pending nullifiers.
+/// The actual number of iterations for verifying and removing read requests for pending nullifiers.
 global NULLIFIER_PENDING_READ_AMOUNT: u32 = MAX_NULLIFIER_READ_REQUESTS_PER_TX;
 
-// The length of the hints array used to validate read requests for settled nullifiers.
+/// The length of the hints array used to validate read requests for settled nullifiers.
 global NULLIFIER_SETTLED_READ_HINTS_LEN: u32 = MAX_NULLIFIER_READ_REQUESTS_PER_TX;
-// The actual number of iterations for verifying and removing read requests for settled nullifiers.
+/// The actual number of iterations for verifying and removing read requests for settled nullifiers.
 global NULLIFIER_SETTLED_READ_AMOUNT: u32 = MAX_NULLIFIER_READ_REQUESTS_PER_TX;
 
-// The length of the hints array used to validate key validation requests.
+/// The length of the hints array used to validate key validation requests.
 global KEY_VALIDATION_HINTS_LEN: u32 = MAX_KEY_VALIDATION_REQUESTS_PER_TX;
-// The actual number of iterations for verifying and removing key validation requests.
+/// The actual number of iterations for verifying and removing key validation requests.
 global KEY_VALIDATION_AMOUNT: u32 = MAX_KEY_VALIDATION_REQUESTS_PER_TX;
 
-// The length of the hints array used to squash transient data.
+/// The length of the hints array used to squash transient data.
 global TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32 = MAX_NULLIFIERS_PER_TX;
-// The actual number of iterations for squashing transient data.
+/// The actual number of iterations for squashing transient data.
 global TRANSIENT_DATA_SQUASHING_AMOUNT: u32 = MAX_NULLIFIERS_PER_TX;
 
 // Siloing is performed by the terminal reset_tail variants only.

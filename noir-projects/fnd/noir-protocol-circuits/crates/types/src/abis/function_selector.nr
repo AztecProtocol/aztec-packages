@@ -3,7 +3,7 @@ use std::meta::derive;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct FunctionSelector {
-    // Low 32 bits of the poseidon2 hash of the function signature.
+    /// Low 32 bits of the poseidon2 hash of the function signature.
     pub inner: u32,
 }
 

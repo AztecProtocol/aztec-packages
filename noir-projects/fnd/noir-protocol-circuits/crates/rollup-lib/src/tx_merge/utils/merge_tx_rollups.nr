@@ -1,8 +1,8 @@
 use crate::abis::TxRollupPublicInputs;
 use types::{blob_data::accumulate_tx_effects_tree_root, hash::accumulate_sha256};
 
-// The `out_hash` is the root of a (potentially wonky, greedy) subtree of L2->L1 messages that the
-// various functions of txs of this block have emitted.
+/// The `out_hash` is the root of a (potentially wonky, greedy) subtree of L2->L1 messages that the
+/// various functions of txs of this block have emitted.
 pub fn accumulate_out_hash(left_out_hash: Field, right_out_hash: Field) -> Field {
     // An out_hash will only be 0 if no L2->L1 msgs were emitted by the functions of the txs of the
     // left/right subtree.
@@ -19,9 +19,9 @@ pub fn accumulate_out_hash(left_out_hash: Field, right_out_hash: Field) -> Field
     }
 }
 
-// Accumulates items that need to be accumulated to the next rollup circuit.
-// Constructs the public inputs of this circuit, taking care to ascribe left and right
-// subtree data to the correct start and end positions.
+/// Accumulates items that need to be accumulated to the next rollup circuit.
+/// Constructs the public inputs of this circuit, taking care to ascribe left and right
+/// subtree data to the correct start and end positions.
 pub fn merge_tx_rollups(
     left: TxRollupPublicInputs,
     right: TxRollupPublicInputs,

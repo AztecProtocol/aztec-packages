@@ -4,8 +4,8 @@ use std::meta::derive;
 #[derive(Deserialize, Eq, Serialize)]
 pub struct Nullifier {
     pub value: Field,
-    // A nullifier may track the note hash that it nullifies, to enable squashing. This will be discarded in the
-    // private tail and only the value is sent to public-land.
+    /// A nullifier may track the note hash that it nullifies, to enable squashing. This will be discarded in the
+    /// private tail and only the value is sent to public-land.
     pub note_hash: Field,
 }
 

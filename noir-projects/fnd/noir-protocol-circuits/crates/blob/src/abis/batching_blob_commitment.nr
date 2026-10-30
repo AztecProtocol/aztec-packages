@@ -13,8 +13,8 @@ pub struct BatchingBlobCommitment {
 }
 
 impl BatchingBlobCommitment {
-    // The compressed form is a BLS12Fq field encoded as 2 BN254Fr fields.
-    // The first is the first 31 bytes, and the second is the next 17 bytes:
+    /// The compressed form is a BLS12Fq field encoded as 2 BN254Fr fields.
+    /// The first is the first 31 bytes, and the second is the next 17 bytes:
     pub fn to_compressed_fields(self) -> [Field; 2] {
         [
             // field 0 is bytes 0..31
@@ -24,7 +24,7 @@ impl BatchingBlobCommitment {
         ]
     }
 
-    // Helper fn largely used in testing to simplify fixtures
+    /// Helper fn largely used in testing to simplify fixtures
     pub fn from_limbs(x_limbs: [u128; 4], y_limbs: [u128; 4]) -> Self {
         let x = BLS12_381_Fq::from_limbs(x_limbs);
         let y = BLS12_381_Fq::from_limbs(y_limbs);

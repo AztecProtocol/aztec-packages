@@ -33,9 +33,9 @@ pub struct BlockRollupPublicInputsComposer {
     start_msg_sponge: L1ToL2MessageSponge,
     end_msg_sponge: L1ToL2MessageSponge,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
-    // Set by `with_message_bundle` and asserted by `finish`. Without it, a variant that forgot to apply its bundle
-    // would emit `previous_l1_to_l2 == new_l1_to_l2 == constants.l1_to_l2_tree_snapshot`: a silent no-op append that
-    // still satisfies the snapshot check against the constants.
+    /// Set by `with_message_bundle` and asserted by `finish`. Without it, a variant that forgot to apply its bundle
+    /// would emit `previous_l1_to_l2 == new_l1_to_l2 == constants.l1_to_l2_tree_snapshot`: a silent no-op append that
+    /// still satisfies the snapshot check against the constants.
     bundle_applied: bool,
 }
 

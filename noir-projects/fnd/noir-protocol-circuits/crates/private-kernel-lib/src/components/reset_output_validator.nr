@@ -78,12 +78,12 @@ fn assert_correctly_siloed_nullifier(out_nullifier: Field, prev: Scoped<Counted<
     );
 }
 
-// Verifies that the first field of a private log is siloed with the contract address.
-// Apps can define the meaning of the first field: it could be a tag, part of a tag, or a random value embedded in the
-// content, etc.
-// This siloing ensures that the log is verifiably linked to the specified contract address.
-// Without this check, an app could impersonate another by emitting a log identical to one from a different contract
-// or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
+/// Verifies that the first field of a private log is siloed with the contract address.
+/// Apps can define the meaning of the first field: it could be a tag, part of a tag, or a random value embedded in the
+/// content, etc.
+/// This siloing ensures that the log is verifiably linked to the specified contract address.
+/// Without this check, an app could impersonate another by emitting a log identical to one from a different contract
+/// or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
 fn assert_valid_siloed_private_log(out: PrivateLog, prev: Scoped<Counted<PrivateLogData>>) -> () {
     let prev_log_fields = prev.innermost().log.fields;
     let expected_first_field = if prev.contract_address.is_zero() {

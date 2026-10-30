@@ -622,7 +622,7 @@ where
     }
 }
 
-// Create a slice of the given length with each element made from `f(i)` where `i` is the current index
+/// Create a slice of the given length with each element made from `f(i)` where `i` is the current index
 comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
     let mut slice = @[];
     for i in 0..length {
@@ -631,7 +631,7 @@ comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
     slice
 }
 
-// Implements Serialize and Deserialize for an arbitrary tuple type
+/// Implements Serialize and Deserialize for an arbitrary tuple type
 comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
     // `T0`, `T1`, `T2`
     let type_names = make_slice(length, |i| f"T{i}".quoted_contents());

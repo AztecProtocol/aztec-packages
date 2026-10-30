@@ -8,11 +8,11 @@ use std::meta::derive;
 // docs:start:tx-context
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxContext {
-    // The chain ID on which this transaction is executed.
+    /// The chain ID on which this transaction is executed.
     pub chain_id: Field,
-    // The version of the L1 Rollup contract.
+    /// The version of the L1 Rollup contract.
     pub version: Field,
-    // The gas settings for the transaction.
+    /// The gas settings for the transaction.
     pub gas_settings: GasSettings,
 }
 // docs:end:tx-context

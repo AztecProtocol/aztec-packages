@@ -165,7 +165,7 @@ impl PreviousRollupData {
     }
 }
 
-// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+/// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub struct ChonkProofData {
     pub public_inputs: KernelPublicInputs,
     pub proof: [Field; CHONK_PROOF_LENGTH],

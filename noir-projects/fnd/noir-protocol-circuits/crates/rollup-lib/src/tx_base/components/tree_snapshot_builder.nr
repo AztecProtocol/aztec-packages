@@ -28,7 +28,7 @@ pub struct TreeSnapshotDiffHints {
     pub nullifier_predecessor_membership_witnesses: [MembershipWitness<NULLIFIER_TREE_HEIGHT>; MAX_NULLIFIERS_PER_TX],
     pub nullifier_subtree_root_sibling_path: [Field; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT],
 
-    // Membership witness used to validate that the `fee_payer_balance_leaf_preimage` exists in the public data tree.
+    /// Membership witness used to validate that the `fee_payer_balance_leaf_preimage` exists in the public data tree.
     pub fee_payer_balance_membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
 }
 

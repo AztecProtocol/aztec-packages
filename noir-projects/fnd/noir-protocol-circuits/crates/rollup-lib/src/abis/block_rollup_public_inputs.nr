@@ -15,47 +15,47 @@ use types::{
 pub struct BlockRollupPublicInputs {
     pub constants: CheckpointConstantData,
 
-    // Archive tree root immediately before this block range.
+    /// Archive tree root immediately before this block range.
     pub previous_archive: AppendOnlyTreeSnapshot,
-    // Archive tree root after applying this block range.
+    /// Archive tree root after applying this block range.
     pub new_archive: AppendOnlyTreeSnapshot,
 
-    // State reference immediately before this block range.
+    /// State reference immediately before this block range.
     pub start_state: StateReference,
-    // State reference after applying this block range.
+    /// State reference after applying this block range.
     pub end_state: StateReference,
 
-    // Sponge blob after absorbing tx effects and block end markers of all the blocks before this block range.
+    /// Sponge blob after absorbing tx effects and block end markers of all the blocks before this block range.
     pub start_sponge_blob: SpongeBlob,
-    // Sponge blob after additionally absorbing tx effects and block end markers from this block range.
+    /// Sponge blob after additionally absorbing tx effects and block end markers from this block range.
     pub end_sponge_blob: SpongeBlob,
 
-    // Timestamp of the blocks in this block range.
-    // All blocks within a checkpoint must share the same timestamp. This value will be set to the checkpoint header and
-    // checked on L1 to match the slot's timestamp.
+    /// Timestamp of the blocks in this block range.
+    /// All blocks within a checkpoint must share the same timestamp. This value will be set to the checkpoint header and
+    /// checked on L1 to match the slot's timestamp.
     pub timestamp: u64,
 
-    // Hash of the headers of all blocks in this block range. It will be combined with the `block_headers_hash` from
-    // other blocks in the same checkpoint to form an unbalanced tree. The root of that tree becomes the final hash
-    // stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
+    /// Hash of the headers of all blocks in this block range. It will be combined with the `block_headers_hash` from
+    /// other blocks in the same checkpoint to form an unbalanced tree. The root of that tree becomes the final hash
+    /// stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
     pub block_headers_hash: Field,
 
-    // Poseidon2 message-bundle sponge threaded across the blocks of the checkpoint. The leftmost block starts from the
-    // empty sponge and each block absorbs its bundle's leaves; `validate_consecutive_block_rollups` asserts
-    // `right.start_msg_sponge == left.end_msg_sponge`, and merges take `start` from the left and `end` from the right.
-    // The checkpoint root asserts the merged end equals the parity root's sponge over the same (padded) leaf list.
+    /// Poseidon2 message-bundle sponge threaded across the blocks of the checkpoint. The leftmost block starts from the
+    /// empty sponge and each block absorbs its bundle's leaves; `validate_consecutive_block_rollups` asserts
+    /// `right.start_msg_sponge == left.end_msg_sponge`, and merges take `start` from the left and `end` from the right.
+    /// The checkpoint root asserts the merged end equals the parity root's sponge over the same (padded) leaf list.
     pub start_msg_sponge: L1ToL2MessageSponge,
     pub end_msg_sponge: L1ToL2MessageSponge,
 
-    // Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
-    // values from other blocks within the same checkpoint to form a *wonky* tree.
-    // The tx and block out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
+    /// Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
+    /// values from other blocks within the same checkpoint to form a *wonky* tree.
+    /// The tx and block out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
-    // Accumulated fees for all blocks in this block range.
+    /// Accumulated fees for all blocks in this block range.
     pub accumulated_fees: Field,
 
-    // Accumulated mana used for all blocks in this block range.
+    /// Accumulated mana used for all blocks in this block range.
     pub accumulated_mana_used: Field,
 }
 

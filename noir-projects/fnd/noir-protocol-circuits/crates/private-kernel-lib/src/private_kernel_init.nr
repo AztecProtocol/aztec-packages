@@ -9,29 +9,29 @@ use types::abis::{
 };
 
 pub struct PrivateKernelInitCircuitPrivateInputs {
-    // The user's intent to start the execution of the transaction.
+    /// The user's intent to start the execution of the transaction.
     pub tx_request: TxRequest,
-    // The data for the first private function call in the transaction.
+    /// The data for the first private function call in the transaction.
     pub private_call: PrivateCallData,
-    // The root of the vk tree. Used for validating the protocol circuits being used.
-    // This value must remain the same throughout the private execution and the rollups. It will be output from the root
-    // rollup and checked on L1.
+    /// The root of the vk tree. Used for validating the protocol circuits being used.
+    /// This value must remain the same throughout the private execution and the rollups. It will be output from the root
+    /// rollup and checked on L1.
     pub vk_tree_root: Field,
-    // A list of the protocol contract addresses. Used for validating the "magic" addresses called by the apps.
-    // It must remain the same throughout the tx execution. The hash of this list will be output from the
-    // Tail(-to-Public) circuits, which must remain the same for all rollups and output from the root rollup to be
-    // checked on L1.
+    /// A list of the protocol contract addresses. Used for validating the "magic" addresses called by the apps.
+    /// It must remain the same throughout the tx execution. The hash of this list will be output from the
+    /// Tail(-to-Public) circuits, which must remain the same for all rollups and output from the root rollup to be
+    /// checked on L1.
     pub protocol_contracts: ProtocolContracts,
-    // Whether this tx only makes private calls. `false` if at least one public call will be made throughout the tx.
-    // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
+    /// Whether this tx only makes private calls. `false` if at least one public call will be made throughout the tx.
+    /// This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
     pub is_private_only: bool,
-    // A hint indicating what the `min_revertible_side_effect_counter` will be.
-    // The revertible counter separates non-revertible side effects (which persist even if the tx reverts) from
-    // revertible ones.
-    // This hint is used in the Reset circuit to squash transient data. It is necessary to avoid using a Reset circuit
-    // before the counter is set.
-    // It also enables private functions to check whether they're in the revertible or non-revertible phase.
-    // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
+    /// A hint indicating what the `min_revertible_side_effect_counter` will be.
+    /// The revertible counter separates non-revertible side effects (which persist even if the tx reverts) from
+    /// revertible ones.
+    /// This hint is used in the Reset circuit to squash transient data. It is necessary to avoid using a Reset circuit
+    /// before the counter is set.
+    /// It also enables private functions to check whether they're in the revertible or non-revertible phase.
+    /// This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
     pub revertible_counter_hint: u32,
 }
 

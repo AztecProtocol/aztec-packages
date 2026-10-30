@@ -65,8 +65,8 @@ where
     }
 }
 
-// Returns an array length defined by fully trimming _all_ "empty" items
-// from the RHS.
+/// Returns an array length defined by fully trimming _all_ "empty" items
+/// from the RHS.
 pub unconstrained fn trimmed_array_length_hint<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty,
@@ -80,8 +80,8 @@ where
     length
 }
 
-// Returns the number of consecutive elements at the start of the array for which the predicate returns false.
-// This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
+/// Returns the number of consecutive elements at the start of the array for which the predicate returns false.
+/// This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
 pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](T) -> bool) -> u32 {
     let mut length = 0;
     let mut stop = false;
