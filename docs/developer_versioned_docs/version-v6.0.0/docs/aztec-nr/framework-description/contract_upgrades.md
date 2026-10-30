@@ -86,9 +86,9 @@ The minimum update delay is `600` seconds.
 
 ### Transaction expiration
 
-When sending a transaction, the expiration timestamp is calculated as the current block timestamp plus the minimum update delay of all contracts you interact with. For example:
+When sending a transaction, the expiration timestamp is calculated as the current block timestamp plus the minimum update delay of all contracts you interact with, minus one second. The expiration timestamp is the last timestamp at which the transaction can be included. For example:
 
-- If you interact with contracts having delays of 1000 and 10000 seconds, expiration is current timestamp + 1000 seconds
+- If you interact with contracts having delays of 1000 and 10000 seconds, expiration is current timestamp + 999 seconds
 - If a contract has a pending upgrade in 100 seconds, expiration would be current timestamp + 99 seconds
 
 Other `DelayedPublicMutable` storage variables in your transaction may reduce the expiration timestamp further.

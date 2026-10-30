@@ -1,11 +1,11 @@
 ---
 title: "1. dApp Integration"
 sidebar_position: 1
-description: "Connect your dApp to Aztec wallet extensions — discovery, secure channels, capabilities, and wallet usage"
+description: "Connect your dApp to Aztec wallet extensions: discovery, secure channels, capabilities, and wallet usage"
 references: ["docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/components/WalletConnect.tsx", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
-# dApp Integration
+# dApp integration
 
 This page covers how a dApp discovers wallet extensions, establishes an encrypted channel, requests permissions, and uses the wallet. The patterns here come from the [Pod Racing tutorial](../03-network-and-wallet.md) and [GregoSwap](https://github.com/AztecProtocol/gregoswap), a reference Aztec DEX.
 
@@ -26,7 +26,7 @@ import { Fr } from '@aztec-labs/aztec.js/fields';
 import type { Wallet, AppCapabilities, GrantedAccountsCapability } from '@aztec-labs/aztec.js/wallet';
 ```
 
-## Step 1: Discover Wallets
+## Step 1: Discover wallets
 
 Wallet discovery broadcasts a request via `window.postMessage`. Any installed Aztec wallet extension that the user has approved responds with its info.
 
@@ -85,21 +85,21 @@ const manager = WalletManager.configure({
 ```
 
 `getAvailableWallets()` returns a `DiscoverySession` with:
-- `wallets` — an `AsyncIterable<WalletProvider>` that yields providers as they're discovered
-- `cancel()` — stops discovery
-- `done` — a `Promise` that resolves when the discovery timeout expires
+- `wallets`: an `AsyncIterable<WalletProvider>` that yields providers as they're discovered
+- `cancel()`: stops discovery
+- `done`: a `Promise` that resolves when the discovery timeout expires
 
 The `onWalletDiscovered` callback fires each time a wallet extension responds. Each `WalletProvider` includes:
-- `id` — unique wallet identifier
-- `name` — display name (e.g., "Aztec Tutorial Wallet")
-- `icon` — optional data URI or URL for the wallet icon
-- `metadata` — optional version info
+- `id`: unique wallet identifier
+- `name`: display name (e.g., "Aztec Tutorial Wallet")
+- `icon`: optional data URI or URL for the wallet icon
+- `metadata`: optional version info
 
 :::note
-Discovery requires user action in the wallet extension — the wallet won't reveal itself without the user clicking "Connect" in their extension popup. This is a privacy feature: websites can't silently detect which wallets you have installed.
+Discovery requires user action in the wallet extension. The wallet won't reveal itself without the user clicking "Connect" in their extension popup. This is a privacy feature: websites can't silently detect which wallets you have installed.
 :::
 
-## Step 2: Establish a Secure Channel
+## Step 2: Establish a secure channel
 
 Once the user picks a wallet, establish an encrypted channel using ECDH key exchange:
 
@@ -134,11 +134,11 @@ export async function connectToProvider(
 
 
 `establishSecureChannel()` performs the ECDH P-256 key exchange and returns a `PendingConnection` with:
-- `verificationHash` — hex string that both sides compute independently
-- `confirm()` — creates the encrypted `Wallet` proxy (call after user verifies emojis)
-- `cancel()` — aborts the connection
+- `verificationHash`: hex string that both sides compute independently
+- `confirm()`: creates the encrypted `Wallet` proxy (call after user verifies emojis)
+- `cancel()`: aborts the connection
 
-## Step 3: Emoji Verification
+## Step 3: Emoji verification
 
 The verification hash is converted to a 9-emoji grid using `hashToEmoji()`. Both the dApp and wallet extension compute the same emojis independently. The user visually confirms they match, defending against man-in-the-middle attacks.
 
@@ -169,11 +169,11 @@ const wallet = await confirm();
 On subsequent visits, the wallet extension can auto-approve discovery and skip emoji verification for trusted origins. The user only goes through the full flow once per origin.
 :::
 
-## Step 4: Request Capabilities
+## Step 4: Request capabilities
 
 After connecting, your dApp should declare the permissions it needs using `requestCapabilities()`. The wallet extension shows the user an approval dialog.
 
-The `AppCapabilities` manifest describes your dApp's identity and the permissions it requires. Each capability type maps to a set of wallet operations — for example, `accounts` lets you read account addresses, `transaction` lets you send transactions, and `simulation` lets you simulate without sending. The wallet may grant all, some, or none of the requested capabilities.
+The `AppCapabilities` manifest describes your dApp's identity and the permissions it requires. Each capability type maps to a set of wallet operations. For example, `accounts` lets you read account addresses, `transaction` lets you send transactions, and `simulation` lets you simulate without sending. The wallet may grant all, some, or none of the requested capabilities.
 
 ```typescript title="app-capabilities" showLineNumbers 
 export function getAppCapabilities(): AppCapabilities {
@@ -197,7 +197,7 @@ export function getAppCapabilities(): AppCapabilities {
 > <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L94-L112" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L94-L112</a></sub></sup>
 
 
-### Capability Types
+### Capability types
 
 | Type | What it grants | Key properties |
 |------|---------------|----------------|
@@ -208,7 +208,7 @@ export function getAppCapabilities(): AppCapabilities {
 | `transaction` | Send transactions | `scope: '*' \| ContractFunctionPattern[]` |
 | `data` | Read address book, private events | `addressBook`, `privateEvents: { contracts }` |
 
-### Checking Granted Capabilities
+### Checking granted capabilities
 
 The wallet may deny or reduce capabilities. Check what was actually granted:
 
@@ -230,12 +230,12 @@ console.log(`Connected as: ${account.alias} (${account.item})`);
 ```
 
 The `WalletCapabilities` response includes:
-- `granted` — array of capabilities the wallet approved (missing = denied)
-- `wallet` — wallet name and version
+- `granted`: array of capabilities the wallet approved (missing = denied)
+- `wallet`: wallet name and version
 
-## Step 5: Use the Wallet
+## Step 5: Use the wallet
 
-After `confirm()`, you have a standard `Wallet` instance. All method calls are encrypted transparently — you use it like any other wallet:
+After `confirm()`, you have a standard `Wallet` instance. All method calls are encrypted transparently, so you use it like any other wallet:
 
 ```typescript
 // Get accounts
@@ -260,7 +260,7 @@ const results = await wallet.batch([
 ]);
 ```
 
-## Disconnect Handling
+## Disconnect handling
 
 The wallet can disconnect unexpectedly (extension unloaded, user disconnects from popup). Register a callback to handle this:
 
@@ -296,7 +296,7 @@ function handleUnexpectedDisconnect() {
 const unsubscribe = provider.onDisconnect(handleUnexpectedDisconnect);
 ```
 
-## Complete Flow
+## Complete flow
 
 Here's the full connection flow in a React component:
 
@@ -378,7 +378,7 @@ async function connectExtension(provider: WalletProvider) {
 > <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L55-L130" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L55-L130</a></sub></sup>
 
 
-## State Types
+## State types
 
 For tracking wallet discovery state in your app:
 
@@ -406,5 +406,5 @@ export const initialWalletState: WalletDiscoveryState = {
 
 ## Next steps
 
-- [Wallet Extension Integration](./02-wallet-integration.md) — Build the other side: handle discovery, manage sessions, and extend `BaseWallet`
-- [Contract Interaction](../04-contract-interaction.md) — Deploy and call contracts with the connected wallet
+- [Wallet extension integration](./02-wallet-integration.md): Build the other side by handling discovery, managing sessions, and extending `BaseWallet`
+- [Contract interaction](../04-contract-interaction.md): Deploy and call contracts with the connected wallet

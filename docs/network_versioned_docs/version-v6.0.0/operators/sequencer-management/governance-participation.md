@@ -89,10 +89,10 @@ The governance process follows these stages:
 
 1. **Signaling**: Sequencers signal support for a payload when proposing blocks. A payload needs a quorum of support to be promoted to a proposal. Signaling can start any time from the moment a payload is deployed.
 2. **Proposal Creation**: After reaching quorum, anyone can submit the payload as an official proposal.
-3. **Voting Delay** (3 days): A mandatory waiting period before voting opens (allows time for community review).
-4. **Voting Period** (7 days): Users who hold stake in the network vote on the proposal using their staked tokens. A proposal passes if it receives at least 20% quorum, 2/3 of votes are "yea", and a minimum of 500 validators' worth of voting power is cast.
-5. **Execution Delay** (2 days): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
-6. **Execution**: Anyone can execute the proposal, which applies the changes. There is a 7-day grace period after the execution delay during which the proposal can still be executed.
+3. **Voting Delay** (mainnet 3 days, testnet 2 minutes): A mandatory waiting period before voting opens (allows time for community review).
+4. **Voting Period** (mainnet 7 days, testnet 6 minutes): Users who hold stake in the network vote on the proposal using their staked tokens. A proposal passes if at least 20% of the total voting power votes, more than 66.5% of the votes cast are "yea" (testnet: more than 55%), and the total voting power is at least 500 validators' worth (testnet: 48).
+5. **Execution Delay** (mainnet 2 days, testnet 2 minutes): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
+6. **Execution**: Anyone can execute the proposal, which applies the changes. After the execution delay there is a grace period (mainnet 7 days, testnet 1 day) during which the proposal can still be executed.
 
 ## Signaling Support for a Payload
 
@@ -102,7 +102,7 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 
 - Only you can signal during slots when you're the block proposer
 - Your sequencer node automatically calls `signal` on the `GovernanceProposer` contract when proposing a block (if you've configured a payload address)
-- Rounds consist of 1000 slots each (20 hours at 72 seconds per slot). At every 1000-slot boundary, the system checks if any payload has received 600 or more signals (the quorum threshold, which is 60% of the round size)
+- Rounds consist of 1000 slots each on mainnet (20 hours at 72 seconds per slot) and 100 slots each on testnet (2 hours at 72 seconds per slot). At every round boundary, the system checks if any payload has received the quorum threshold of signals, which is 60% of the round size: 600 or more on mainnet, 60 or more on testnet
 - Payloads that reach quorum can be submitted as official proposals by anyone
 
 ### Configure Your Signaling Preference
@@ -153,7 +153,7 @@ Since v5.2.0 the node stops signalling on its own once the payload's proposal go
 
 ## Creating a Proposal
 
-Once a payload receives the required quorum (600 signals in a 1000-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
+Once a payload receives the required quorum (600 signals in a 1000-slot round on mainnet, 60 signals in a 100-slot round on testnet), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
 
 ### Submit the Payload
 

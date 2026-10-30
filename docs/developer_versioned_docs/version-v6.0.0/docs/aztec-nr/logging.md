@@ -138,14 +138,14 @@ Use different log levels strategically: add `info_log` calls for key state trans
 
 ### In TypeScript tests (jest, vitest)
 
-TypeScript test environments do not enable contract logs by default. Set the `LOG_LEVEL` environment variable to include the `contract_log` module:
+TypeScript test environments do not enable contract logs by default. Set the `LOG_LEVEL` environment variable to include `^contract:`, which matches the logs of every contract (see the [`LOG_LEVEL` syntax reference](#log_level-syntax-reference) for how module filters match). Logs that Aztec.nr emits on its own use the `aztecnr:` module instead; add `^aztecnr:` to the filter (for example, `debug:^contract:,^aztecnr:`) to see them too:
 
 ```bash
 # Show contract logs at debug level and above
-LOG_LEVEL="info;debug:contract_log" yarn test
+LOG_LEVEL="info;debug:^contract:" yarn test
 
 # Show all contract log levels (most verbose)
-LOG_LEVEL="error;trace:contract_log" yarn test
+LOG_LEVEL="error;trace:^contract:" yarn test
 ```
 
 ### With a local network
@@ -156,7 +156,7 @@ When running TypeScript tests against a local network, set `LOG_LEVEL` on the **
 
 ```bash
 # Your test process sees contract logs
-LOG_LEVEL="error;trace:contract_log" yarn test
+LOG_LEVEL="error;trace:^contract:" yarn test
 ```
 
 You do not need to change the `LOG_LEVEL` on `aztec start --local-network` to see contract logs.
@@ -173,19 +173,19 @@ The `LOG_LEVEL` environment variable uses a semicolon-delimited format:
 - **Remaining segments**: `level:module` pairs that override the default for specific modules
 - Modules are comma-separated within a segment
 - The `aztec:` prefix is automatically stripped from module names
-- Module names support regex or prefix matching
+- Module filters are regular expressions matched anywhere in the module name, so anchor a filter with `^` (for example, `^contract:`) to match only the modules whose names start with it. A filter that is not a valid regular expression matches the modules whose names start with it
 
 ### Common configurations
 
 | Scenario | `LOG_LEVEL` value |
 |----------|-------------------|
 | Contract logs in `aztec test` (TXE) | `error;trace:debug_log` |
-| Contract logs in TypeScript tests (PXE) | `error;trace:contract_log` |
-| Contract debug+ logs with system info | `info;debug:contract_log` |
-| Only contract warnings and errors | `warn;warn:contract_log` |
+| Contract logs in TypeScript tests (PXE) | `error;trace:^contract:` |
+| Contract debug+ logs with system info | `info;debug:^contract:` |
+| Only contract warnings and errors | `warn;warn:^contract:` |
 | Everything verbose | `verbose` |
 | Debug a specific system module | `info;debug:sequencer` |
-| Multiple module overrides | `warn;debug:sequencer,archiver;trace:contract_log` |
+| Multiple module overrides | `warn;debug:sequencer,archiver;trace:^contract:` |
 
 ## How contract logs are displayed
 
@@ -202,8 +202,8 @@ Contract logs appear under the `debug_log` module:
 When running through the PXE, the output includes the contract name with an abbreviated address:
 
 ```
-[07:40:29.937] INFO: contract_log::Counter(0x1234abcd) 164f9c87bca0cf8c Transfer completed
-[07:40:29.947] DEBUG: contract_log::Counter(0x1234abcd) 164f9c87bca0cf8c Processing value: 0x2a
+[07:40:29.937] INFO: contract:Counter(0x1234abcd) 164f9c87bca0cf8c Transfer completed
+[07:40:29.947] DEBUG: contract:Counter(0x1234abcd) 164f9c87bca0cf8c Processing value: 0x2a
 ```
 
 The hex value after the address (`164f9c87bca0cf8c`) is an internal request identifier. If the contract name cannot be resolved, you see `Unknown` in its place.
@@ -281,10 +281,10 @@ If no output appears, check the troubleshooting section below.
 | Problem | Solution |
 |---------|----------|
 | No contract logs appear in `aztec test` | Set `LOG_LEVEL` to include `debug_log`, e.g., `LOG_LEVEL="error;trace:debug_log" aztec test`. Also verify you are calling a log function inside the contract function being tested. |
-| No contract logs in TypeScript tests | Set `LOG_LEVEL` to include `contract_log`, e.g., `LOG_LEVEL="error;trace:contract_log" yarn test`. |
+| No contract logs in TypeScript tests | Set `LOG_LEVEL` to include `^contract:`, e.g., `LOG_LEVEL="error;trace:^contract:" yarn test`. |
 | Import error on `dep::aztec::oracle::debug_log` | This path was removed. Update to `use aztec::oracle::logging::{debug_log, debug_log_format};`. |
 | `receipt.debugLogs` is `undefined` | Debug logs are only collected in test mode (non-real-proofs). They are not available in production. |
-| Too much noise in log output | Narrow the default level and use module filters, e.g., `LOG_LEVEL="error;debug:contract_log"`. |
+| Too much noise in log output | Narrow the default level and use module filters, e.g., `LOG_LEVEL="error;debug:^contract:"`. |
 
 ## Quick reference
 
@@ -294,7 +294,7 @@ If no output appears, check the troubleshooting section below.
 | Simple log | `debug_log("message");` |
 | Log with values | `debug_log_format("val: {0}", [my_field]);` |
 | Run Noir tests with logs | `LOG_LEVEL="error;trace:debug_log" aztec test` |
-| JS tests with contract logs | `LOG_LEVEL="error;trace:contract_log" yarn test` |
+| JS tests with contract logs | `LOG_LEVEL="error;trace:^contract:" yarn test` |
 
 ## Next steps
 
