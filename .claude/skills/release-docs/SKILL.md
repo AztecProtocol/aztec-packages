@@ -453,15 +453,21 @@ same edit (a shared source repair, Step 17).
 
 **File:** `docs/docs-developers/docs/resources/migration_notes.md` (in the cut)
 
-The checkout is shallow; fetch the release range before any history command. When
-the previous release is not a Labs tag (v5 and earlier are tags of this repository),
-use `--shallow-since=<date of that release>` instead of `--shallow-exclude`, and skip
-the diff in item 4.
+The checkout is shallow; fetch the release range before any history command:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$AZTEC_NODE_DIR" fetch --depth 1 origin tag v<old_version>
 git -C "$AZTEC_NODE_DIR" fetch --shallow-exclude=v<old_version> origin tag "$LABS_TAG"
+```
+
+When the previous release is not a Labs tag (v5 and earlier are tags of this repository),
+aztec-node has neither ref: replace both fetches with one dated by that tag here, read
+`v<old_version>..$LABS_TAG` below (Step 8b) as `$LABS_TAG`, and skip the diff in item 4:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh
+git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$(git -C "$DEST_ROOT" log -1 --format=%cI v<old_version>)" origin tag "$LABS_TAG"
 ```
 
 1. **Triage existing TBD items.** Not every item under `## TBD` belongs to this release.
@@ -488,7 +494,9 @@ git -C "$AZTEC_NODE_DIR" fetch --shallow-exclude=v<old_version> origin tag "$LAB
    before `NOT-in-tag`: that is unknown, not absent. Ask GitHub instead, which needs no
    history: `gh api "repos/aztec-labs-eng/aztec-node/compare/<commit>...$LABS_TAG" --jq .status`
    prints `ahead` or `identical` when the commit is in the tag, `diverged` or `behind` when
-   it is not.
+   it is not. Entries do not name their commit; without one, look for the entry's new
+   syntax at the tag, which needs no history and prints nothing when it has not shipped:
+   `git -C "$AZTEC_NODE_DIR" grep -n '<new symbol>' "$LABS_TAG" -- yarn-project noir-projects`.
 
 2. Create the `## <new_version>` heading below `## TBD` (and below any `## Unreleased`
    sections) and move the shipped items under it.
@@ -516,8 +524,9 @@ tag drift silently. CI only protects code that compiles (`#include_code` snippet
 (Step 11) so the snapshot is already correct.
 
 **1. Enumerate the release's syntax changes.** The source of truth is the entries Step 8
-filed under `## <new_version>` in this repository's migration notes, not the GitHub release
-body (hand-written prose). Parse every `### [Component] …` entry and its `**Migration:**`
+filed under `## <new_version>` in this repository's migration notes, plus every section
+between it and the previous release of this type (a mainnet `v6.0.0` after `v5.2.0` also
+spans the `6.0.0-rc.*` sections), not the GitHub release body (hand-written prose). Parse every `### [Component] …` entry and its `**Migration:**`
 diff block into `(component, old syntax, new syntax)` triples. Cross-check against
 breaking commits in the tag range that never got a migration note:
 
