@@ -112,10 +112,10 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 - Only you can signal during slots when you're the block proposer
 - Your sequencer node automatically calls `signal` on the `GovernanceProposer` contract when proposing a block (if you've configured a payload address)
 #if(testnet)
-- Rounds consist of 300 slots each (180 minutes at 36 seconds per slot). At every 300-block boundary, the system checks if any payload has received 151 or more signals (the quorum threshold, which is >50% of the round size)
+- Rounds consist of 100 slots each (2 hours at 72 seconds per slot). At every 100-slot boundary, the system checks if any payload has received 60 or more signals (the quorum threshold, which is 60% of the round size)
 - Payloads that reach quorum can be submitted as official proposals by anyone
 
-**Note:** Round size and quorum threshold will change between testnet and ignition. These values and any further references to these values are relevant for testnet only.
+**Note:** These round size and quorum values apply to testnet only.
 #else
 - Rounds consist of 1000 slots each (20 hours at 72 seconds per slot). At every 1000-slot boundary, the system checks if any payload has received 600 or more signals (the quorum threshold, which is 60% of the round size)
 - Payloads that reach quorum can be submitted as official proposals by anyone
@@ -199,7 +199,7 @@ Since v5.2.0 the node stops signalling on its own once the payload's proposal go
 ## Creating a Proposal
 
 #if(testnet)
-Once a payload receives the required quorum (151 signals in a 300-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
+Once a payload receives the required quorum (60 signals in a 100-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
 #else
 Once a payload receives the required quorum (600 signals in a 1000-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
 #endif

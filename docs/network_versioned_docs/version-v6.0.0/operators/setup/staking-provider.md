@@ -188,6 +188,8 @@ aztec validator-keys new \
   --l1-chain-id 1
 ```
 
+This command uses mainnet values. On testnet, use `--gse-address 0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac` and `--l1-chain-id 11155111`.
+
 This command automatically:
 1. Generates the private keystore with ETH and BLS keys
 2. Generates the public keystore with G1 and G2 public keys
@@ -263,6 +265,8 @@ To be featured on the staking dashboard, submit metadata about your provider.
 1. Copy [`_example.json`](https://github.com/AztecProtocol/staking-dashboard/blob/master/providers/_example.json) from the [`providers`](https://github.com/AztecProtocol/staking-dashboard/tree/master/providers) folder in the [staking-dashboard GitHub repository](https://github.com/AztecProtocol/staking-dashboard).
 2. Rename it to `{providerId}-{your-provider-name}.json` (e.g. `42-my-provider.json`), where `providerId` matches your on chain registration.
 3. Fill in your metadata and open a pull request adding the file to the `providers` folder.
+
+On testnet, use the [`providers-testnet`](https://github.com/AztecProtocol/staking-dashboard/tree/master/providers-testnet) folder instead.
 
 The JSON file should follow this format:
 

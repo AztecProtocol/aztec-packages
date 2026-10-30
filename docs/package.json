@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/inject_llms_directive.js",
+    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/inject_llms_directive.js && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_search_index.mts build",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "check:orphaned-urls": "./scripts/check_orphaned_urls.sh",
@@ -35,7 +35,6 @@
     "@rspack/core": "^1.0.0",
     "@signalwire/docusaurus-plugin-llms-txt": "^1.2.2",
     "clsx": "^2.1.1",
-    "docusaurus-theme-search-typesense": "0.27.0",
     "prism-react-renderer": "^2.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -53,6 +52,9 @@
     "cspell": "^8.19.4",
     "dotenv": "^16.6.1",
     "netlify-cli": "^24.3.0",
+    "pagefind": "1.5.2",
+    "tsx": "^4.23.15",
+    "typedoc": "0.28.16",
     "typescript": "^5.9.3"
   },
   "cspell": {

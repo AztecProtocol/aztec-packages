@@ -187,7 +187,7 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 **Symptom**: Transaction fails or contract calls return unexpected results.
 
 **Solution**:
-1. Verify your RPC URL points to the correct network (Ethereum mainnet)
+1. Verify your RPC URL points to the correct network (Ethereum mainnet for mainnet, Sepolia for testnet)
 2. Verify the Rollup contract address matches your target network
 3. Check your account has ETH on the correct network
 
