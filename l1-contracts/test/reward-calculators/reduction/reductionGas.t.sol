@@ -81,8 +81,9 @@ contract CalculatorMeter {
  *         shaped positions and with withdrawers that make every probe as expensive as it can be.
  *
  * @dev Isolation runs every external call as its own transaction, so every account and storage slot is cold when the
- *      meter calls the calculator, as in a proof submission. All proposers are distinct, the worst case: repeated
- *      proposers are served from the per-call cache.
+ *      meter calls the calculator, as in a proof submission. Proposers are distinct, except in the scenario where one
+ *      gas-burning proposer holds every slot: the calculator resolves every checkpoint on its own, so a repeated
+ *      burner burns both probe stipends again on each of its checkpoints.
  */
 contract RegistryReductionCalculatorGasTest is Test {
   enum Scenario {
@@ -90,7 +91,8 @@ contract RegistryReductionCalculatorGasTest is Test {
     ExpensiveSuccess,
     BurningWithdrawer,
     ExpensiveWithdrawerBurningATP,
-    ExpensiveWithdrawerReturnBombATP
+    ExpensiveWithdrawerReturnBombATP,
+    RepeatedBurningWithdrawer
   }
 
   uint256 internal constant DEFAULT_REWARD = 50e18;
@@ -150,6 +152,11 @@ contract RegistryReductionCalculatorGasTest is Test {
     _assertFitsTheStipend(Scenario.ExpensiveWithdrawerReturnBombATP);
   }
 
+  /// forge-config: default.isolate = true
+  function test_RepeatedGasBurningProposerFitsTheStipend() external {
+    _assertFitsTheStipend(Scenario.RepeatedBurningWithdrawer);
+  }
+
   function _assertFitsTheStipend(Scenario _scenario) internal {
     uint256[4] memory sizes = [uint256(1), 8, 16, 32];
     for (uint256 s = 0; s < sizes.length; s++) {
@@ -178,6 +185,15 @@ contract RegistryReductionCalculatorGasTest is Test {
   {
     proposers = new address[](_n);
     expected = new uint256[](_n);
+    if (_scenario == Scenario.RepeatedBurningWithdrawer) {
+      address proposer = address(uint160(uint256(keccak256(abi.encode("proposer", _scenario, _n)))));
+      gse.setWithdrawer(proposer, address(new ExpensiveAddressGetter(address(new GasBurningAddressGetter()))));
+      for (uint256 i = 0; i < _n; i++) {
+        proposers[i] = proposer;
+        expected[i] = DEFAULT_REWARD;
+      }
+      return (proposers, expected);
+    }
     for (uint256 i = 0; i < _n; i++) {
       proposers[i] = address(uint160(uint256(keccak256(abi.encode("proposer", _scenario, _n, i)))));
       address withdrawer;

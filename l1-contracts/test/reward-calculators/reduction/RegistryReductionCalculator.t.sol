@@ -330,9 +330,8 @@ contract RegistryReductionCalculatorTest is Test {
     assertEq(calculator.getSequencerRewards(EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD), expected);
   }
 
-  function test_RepeatedProposersAreResolvedOnce() external {
-    (MockATPStaker staker, MockATP atp) = deployMockATPStaker(registry);
-    address attester = _attesterWithWithdrawer(address(staker));
+  function test_RepeatedProposersGetTheirRewardOnEveryCheckpoint() external {
+    address attester = _stakeThrough(registry);
     address other = _stakeThrough(otherRegistry);
 
     address[] memory proposers = new address[](5);
@@ -342,10 +341,6 @@ contract RegistryReductionCalculatorTest is Test {
     proposers[3] = attester;
     proposers[4] = other;
 
-    vm.expectCall(address(gse), abi.encodeCall(FakeGSE.getWithdrawer, (attester)), 1);
-    vm.expectCall(address(gse), abi.encodeCall(FakeGSE.getWithdrawer, (other)), 1);
-    vm.expectCall(address(staker), abi.encodeWithSelector(IATPStaker.getATP.selector), 1);
-    vm.expectCall(address(atp), abi.encodeWithSelector(IATP.getRegistry.selector), 1);
     uint256[] memory rewards = calculator.getSequencerRewards(EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD);
 
     assertEq(rewards.length, 5);
@@ -357,7 +352,6 @@ contract RegistryReductionCalculatorTest is Test {
   }
 
   function test_AttestersSharingAStakerAreBothReduced() external {
-    // The cache is per attester, so each attester is resolved on its own even when the withdrawer is shared.
     (MockATPStaker staker,) = deployMockATPStaker(registry);
     address[] memory proposers = new address[](2);
     proposers[0] = _attesterWithWithdrawer(address(staker));
