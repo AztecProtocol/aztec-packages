@@ -109,11 +109,28 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 
 Use the `setConfig` method on your node's admin interface to specify which payload address you want to signal support for.
 
+The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs. See [admin API key authentication](../reference/changelog/v4.md#admin-api-key-authentication).
 
+**CLI Method**:
+
+```bash
+curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"aztecAdmin_setConfig",
+    "params":[{"governanceProposerPayload":"0x1234567890abcdef1234567890abcdef12345678"}],
+    "id":1
+  }'
+```
+
+**Docker Method**:
 
 ```bash
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{
     "jsonrpc":"2.0",
     "method":"aztecAdmin_setConfig",
@@ -133,11 +150,25 @@ Expected response:
 
 Use the `getConfig` method to verify the payload address:
 
+**CLI Method**:
 
+```bash
+curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"aztecAdmin_getConfig",
+    "id":1
+  }'
+```
+
+**Docker Method**:
 
 ```bash
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{
     "jsonrpc":"2.0",
     "method":"aztecAdmin_getConfig",
