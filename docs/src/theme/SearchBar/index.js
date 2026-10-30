@@ -4,18 +4,17 @@ import { useHistory } from "@docusaurus/router";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import {
   useActivePluginAndVersion,
+  useAllDocsData,
   useDocsPreferredVersion,
   useLatestVersion,
   useVersions,
 } from "@docusaurus/plugin-content-docs/client";
-import { apiTitle, contextTags, excerptParts, safeHref, sectionLabel } from "./search.mjs";
+import { API_PREFIX, contextTags, excerptParts, resultMeta, safeHref } from "./search.mjs";
 import styles from "./styles.module.css";
 
 const PAGE_SIZE = 5;
 const SUB_RESULTS = 3;
 const DEBOUNCE_MS = 150;
-// Static HTML outside the router, so it needs a full page load.
-const STATIC_PREFIX = "/aztec-nr-api/";
 
 function useSearchTags() {
   const active = useActivePluginAndVersion();
@@ -38,16 +37,17 @@ function useSearchTags() {
 const cleanTitle = (title) => title?.replaceAll("​", "");
 
 /** The rows the list renders: each result and its heading sub-results, minus any unsafe URL. */
-function toRows(results) {
+function toRows(results, versionPaths) {
   const rows = [];
   for (const result of results) {
     const href = safeHref(result.url);
     if (!href) continue;
+    const meta = resultMeta(href, result.filters?.docusaurus_tag?.[0], versionPaths);
     rows.push({
+      ...meta,
       href,
-      title: apiTitle(href) ?? (cleanTitle(result.meta?.title) || href),
+      title: meta.title ?? (cleanTitle(result.meta?.title) || href),
       excerpt: result.excerpt,
-      section: sectionLabel(result.filters?.docusaurus_tag?.[0]),
     });
     for (const sub of (result.sub_results ?? []).filter((s) => s.url !== result.url).slice(0, SUB_RESULTS)) {
       const subHref = safeHref(sub.url);
@@ -63,8 +63,24 @@ function Excerpt({ excerpt }) {
   );
 }
 
+function SearchIcon({ className }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
+      <path
+        d="M14.386 14.386l4.088 4.088-4.088-4.088A7.533 7.533 0 1 1 3.733 3.733a7.533 7.533 0 0 1 10.653 10.653z"
+        stroke="currentColor"
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export default function SearchBar() {
   const tagsKey = useSearchTags().join(" ");
+  const readVersion = /(?:^| )docs-developer-(\S+)/.exec(tagsKey)?.[1];
+  const versionPaths = Object.values(useAllDocsData()).flatMap((d) => d.versions.map((v) => v.path));
   const history = useHistory();
   const pagefindUrl = useBaseUrl("/pagefind/pagefind.js");
   const listId = useId();
@@ -72,8 +88,9 @@ export default function SearchBar() {
   const [query, setQuery] = useState("");
   const [allVersions, setAllVersions] = useState(false);
   const [search, setSearch] = useState({ status: "idle" });
+  const [pending, setPending] = useState(false);
   const [active, setActive] = useState(0);
-  const [shortcut, setShortcut] = useState("Ctrl K");
+  const [mac, setMac] = useState(false);
   const pagefind = useRef(null);
   // Only the newest search may render; a slower earlier one is dropped.
   const searchId = useRef(0);
@@ -102,7 +119,7 @@ export default function SearchBar() {
   }, []);
 
   useEffect(() => {
-    if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcut("⌘ K");
+    setMac(/Mac|iPhone|iPad/.test(navigator.platform));
     const onKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -130,8 +147,10 @@ export default function SearchBar() {
     const term = query.trim();
     if (!term) {
       setSearch({ status: "idle" });
+      setPending(false);
       return undefined;
     }
+    setPending(true);
     const timer = setTimeout(async () => {
       try {
         const module = await loadPagefind();
@@ -144,6 +163,7 @@ export default function SearchBar() {
       } catch {
         if (id === searchId.current) setSearch({ status: "error" });
       }
+      if (id === searchId.current) setPending(false);
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [open, query, allVersions, tagsKey, loadPagefind]);
@@ -162,11 +182,13 @@ export default function SearchBar() {
     }
   };
 
-  const rows = search.status === "done" ? toRows(search.data) : [];
+  const rows = search.status === "done" ? toRows(search.data, versionPaths) : [];
+  const versionLabel = readVersion === "current" ? "dev" : readVersion;
+  const scope = allVersions || !readVersion ? "all versions" : `the ${versionLabel} docs`;
 
   const go = (href) => {
     close();
-    if (href.startsWith(STATIC_PREFIX)) window.location.assign(href);
+    if (href.startsWith(API_PREFIX)) window.location.assign(href);
     else history.push(href);
   };
 
@@ -203,27 +225,52 @@ export default function SearchBar() {
     }
   };
 
+  const failed = "Search could not load. Check your connection and try again.";
+  let message = null;
+  if (!query.trim()) {
+    message = search.status === "error" ? failed : `Type to search ${scope}.`;
+  } else if ((pending && !rows.length) || search.status === "idle") {
+    // A pending search replaces any message about the previous one; results stay until it lands.
+    message = "Searching…";
+  } else if (search.status === "error") {
+    message = failed;
+  } else if (!rows.length) {
+    message = (
+      <>
+        No results for “{search.term}” in {scope}.
+        {!allVersions && (
+          <button
+            type="button"
+            className={styles.inlineAction}
+            onClick={() => {
+              // This button unmounts on click; keep focus inside the dialog.
+              input.current?.focus();
+              setAllVersions(true);
+            }}
+          >
+            Search all versions
+          </button>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <button
         ref={trigger}
         type="button"
         className={styles.trigger}
-        aria-label={`Search (${shortcut})`}
+        aria-label={`Search (${mac ? "⌘" : "Ctrl"}+K)`}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
-        <svg className={styles.icon} width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
-          <path
-            d="M14.386 14.386l4.088 4.088-4.088-4.088A7.533 7.533 0 1 1 3.733 3.733a7.533 7.533 0 0 1 10.653 10.653z"
-            stroke="currentColor"
-            fill="none"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
+        <SearchIcon className={styles.icon} />
         <span className={styles.triggerLabel}>Search</span>
-        <kbd className={styles.triggerKeys}>{shortcut}</kbd>
+        <span className={styles.keys} aria-hidden="true">
+          <kbd>{mac ? "⌘" : "Ctrl"}</kbd>
+          <kbd>K</kbd>
+        </span>
       </button>
       {open &&
         createPortal(
@@ -237,39 +284,52 @@ export default function SearchBar() {
               onKeyDown={onDialogKeyDown}
             >
               <div className={styles.header}>
-                <input
-                  ref={input}
-                  className={styles.input}
-                  type="search"
-                  placeholder="Search the docs"
-                  autoComplete="off"
-                  spellCheck="false"
-                  role="combobox"
-                  aria-expanded={rows.length > 0}
-                  aria-controls={listId}
-                  aria-activedescendant={rows.length ? `${listId}-${active}` : undefined}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
+                <div className={styles.field}>
+                  <SearchIcon className={styles.fieldIcon} />
+                  <input
+                    ref={input}
+                    className={styles.input}
+                    type="search"
+                    placeholder="Search the docs"
+                    autoComplete="off"
+                    spellCheck="false"
+                    role="combobox"
+                    aria-expanded={rows.length > 0}
+                    aria-controls={listId}
+                    aria-activedescendant={rows.length ? `${listId}-${active}` : undefined}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  {pending && <span className={styles.spinner} aria-hidden="true" />}
+                </div>
                 <button type="button" className={styles.close} aria-label="Close search" onClick={close}>
-                  Esc
+                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                    <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
                 </button>
               </div>
-              <div className={styles.scope}>
-                <button type="button" aria-pressed={!allVersions} onClick={() => setAllVersions(false)}>
-                  This version
-                </button>
-                <button type="button" aria-pressed={allVersions} onClick={() => setAllVersions(true)}>
-                  All versions
-                </button>
+              <div className={styles.toolbar}>
+                <div className={styles.scope} role="group" aria-label="Versions to search">
+                  <button type="button" aria-pressed={!allVersions} onClick={() => setAllVersions(false)}>
+                    This version
+                    {versionLabel && <span className={styles.scopeVersion}>{versionLabel}</span>}
+                  </button>
+                  <button type="button" aria-pressed={allVersions} onClick={() => setAllVersions(true)}>
+                    All versions
+                  </button>
+                </div>
+                {search.status === "done" && rows.length > 0 && (
+                  <span className={styles.count}>
+                    {search.results.length} {search.results.length === 1 ? "result" : "results"}
+                  </span>
+                )}
               </div>
               <div className={styles.body}>
                 <div aria-live="polite">
-                  {search.status === "error" && (
-                    <p className={styles.message}>Search could not load. Check your connection and try again.</p>
-                  )}
-                  {search.status === "done" && !rows.length && (
-                    <p className={styles.message}>No results for “{search.term}”.</p>
+                  {message && (
+                    <p className={styles.message} data-part="message">
+                      {message}
+                    </p>
                   )}
                 </div>
                 <ul id={listId} role="listbox" className={styles.results} aria-label="Search results">
@@ -287,20 +347,52 @@ export default function SearchBar() {
                         onClick={(e) => onLinkClick(e, row.href)}
                         onMouseMove={() => setActive(i)}
                       >
-                        <span className={styles.title}>{row.title}</span>
-                        {row.section && <span className={styles.section}>{row.section}</span>}
-                        <span className={styles.excerpt}>
-                          <Excerpt excerpt={row.excerpt} />
+                        {!row.sub && (row.section || row.trail.length > 0) && (
+                          <span className={styles.trail} data-part="trail">
+                            {[row.section, ...row.trail].filter(Boolean).join(" › ")}
+                          </span>
+                        )}
+                        <span className={styles.titleRow}>
+                          <span className={styles.title} data-part="title">
+                            {row.title}
+                          </span>
+                          {allVersions && row.version && (
+                            <span className={styles.badge} data-part="badge">
+                              {row.version}
+                            </span>
+                          )}
+                          {row.api && (
+                            <span className={`${styles.badge} ${styles.apiBadge}`} data-part="badge">
+                              API
+                            </span>
+                          )}
                         </span>
+                        {row.excerpt && (
+                          <span className={styles.excerpt} data-part="excerpt">
+                            <Excerpt excerpt={row.excerpt} />
+                          </span>
+                        )}
                       </a>
                     </li>
                   ))}
                 </ul>
                 {search.status === "done" && search.data.length < search.results.length && (
                   <button type="button" className={styles.more} onClick={showMore}>
-                    Show more
+                    Show more results
                   </button>
                 )}
+              </div>
+              <div className={styles.footer} data-part="footer" aria-hidden="true">
+                <span>
+                  <kbd>↑</kbd>
+                  <kbd>↓</kbd> navigate
+                </span>
+                <span>
+                  <kbd>↵</kbd> open
+                </span>
+                <span>
+                  <kbd>esc</kbd> close
+                </span>
               </div>
             </div>
           </div>,

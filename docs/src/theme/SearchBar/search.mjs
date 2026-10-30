@@ -56,25 +56,46 @@ export function excerptParts(excerpt) {
 export const safeHref = (url) =>
   typeof url === "string" && /^\/(?![/\\])[^\u0000-\u001f\u007f]*$/.test(url) ? url : null;
 
+/** Static Aztec.nr API pages, outside the router. */
+export const API_PREFIX = "/aztec-nr-api/";
+
+// The navbar's names for the doc sets.
+const SECTIONS = { developer: "Build", network: "Run a Node", participate: "Participate" };
+
 /**
- * An Aztec.nr API page's title from its URL, e.g. `…/state_vars/struct.PrivateSet`
- * gives `struct noir_aztec::state_vars::PrivateSet`; null for other pages. The
- * index titles every API page by its crate name (see the pagefind plugin).
+ * How a result is labelled: its section, its version (null when unversioned;
+ * the current docs are "dev", as in the version menu), up to two folders above
+ * it, and for API pages a title, since the index titles them all by their crate.
+ *
+ * @param {string} url the result's path
+ * @param {string | undefined} tag its `docusaurus_tag`
+ * @param {string[]} versionPaths every docs version's base path, e.g. `/developers/v5.2.0`
+ * @returns {{section: string, version: string | null, trail: string[], api: boolean, title?: string}}
  */
-export function apiTitle(url) {
-  const path = /^\/aztec-nr-api\/[^/]+\/(.+?)\/?$/.exec(url)?.[1];
-  if (!path) return null;
-  const segments = path.split("/");
-  const [, kind, name] = /^([a-z_]+)\.(.+)$/.exec(segments.at(-1)) ?? [];
-  return kind ? `${kind} ${[...segments.slice(0, -1), name].join("::")}` : `module ${segments.join("::")}`;
-}
-
-const SECTIONS = { developer: "Developer docs", network: "Operator docs", participate: "Participate" };
-
-/** A result's section label, from its `docusaurus_tag`; the current version is labelled "dev", as in the version menu. */
-export function sectionLabel(tag) {
-  if (tag === "default") return "Aztec.nr API";
+export function resultMeta(url, tag, versionPaths) {
+  if (url.startsWith(API_PREFIX)) {
+    // `/aztec-nr-api/<tree>/<crate>/<module>/.../<kind>.<Name>`, or a module's index.
+    const segments = url.split("/").filter(Boolean).slice(2);
+    const last = segments.pop();
+    if (!last) return { section: "Aztec.nr API", version: null, trail: [], api: true };
+    const [, kind, name] = /^([a-z_]+)\.(.+)$/.exec(last) ?? [null, "module", last];
+    return { section: "Aztec.nr API", version: null, trail: segments, api: true, title: `${kind} ${name}` };
+  }
   const [, pluginId, version] = /^docs-([a-z]+)-(.+)$/.exec(tag ?? "") ?? [];
-  const section = SECTIONS[pluginId] ?? "";
-  return VERSIONED.includes(pluginId) ? `${section} · ${version === "current" ? "dev" : version}` : section;
+  const root = versionPaths
+    .filter((p) => url === p || url.startsWith(p.endsWith("/") ? p : `${p}/`))
+    .reduce((longest, p) => (p.length > longest.length ? p : longest), "");
+  const trail = url
+    .slice(root.length)
+    .split("/")
+    .filter((s) => s && s !== "docs")
+    .slice(0, -1)
+    .slice(-2)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/[-_]+/g, " "));
+  return {
+    section: SECTIONS[pluginId] ?? "",
+    version: VERSIONED.includes(pluginId) ? (version === "current" ? "dev" : version) : null,
+    trail,
+    api: false,
+  };
 }

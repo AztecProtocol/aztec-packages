@@ -1,6 +1,6 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
-const { apiTitle, contextTags, excerptParts, safeHref, sectionLabel } = require("../theme/SearchBar/search.mjs");
+const { contextTags, excerptParts, resultMeta, safeHref } = require("../theme/SearchBar/search.mjs");
 
 const ALWAYS = ["default", "docs-participate-current", "docs-root-current"];
 const production = {
@@ -84,20 +84,57 @@ it("safeHref accepts same-origin paths only", () => {
   }
 });
 
-it("sectionLabel names each tag's doc set and version", () => {
-  assert.strictEqual(sectionLabel("docs-developer-v5.2.0"), "Developer docs · v5.2.0");
-  assert.strictEqual(sectionLabel("docs-network-current"), "Operator docs · dev");
-  assert.strictEqual(sectionLabel("docs-participate-current"), "Participate");
-  assert.strictEqual(sectionLabel("docs-root-current"), "");
-  assert.strictEqual(sectionLabel("default"), "Aztec.nr API");
-});
+describe("resultMeta", () => {
+  // Outside production: the operator docs serve their current version at the root.
+  const versionPaths = ["/developers", "/developers/v5.2.0", "/developers/dev", "/operate/alpha", "/operate", "/participate", "/"];
 
-it("apiTitle names an API page by its kind and path", () => {
-  assert.strictEqual(
-    apiTitle("/aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateSet"),
-    "struct noir_aztec::state_vars::PrivateSet",
-  );
-  assert.strictEqual(apiTitle("/aztec-nr-api/testnet/noir_aztec/state_vars/"), "module noir_aztec::state_vars");
-  assert.strictEqual(apiTitle("/aztec-nr-api/mainnet/"), null);
-  assert.strictEqual(apiTitle("/developers/docs/aztec-js"), null);
+  it("labels docs pages by section, version and the folders above them", () => {
+    assert.deepStrictEqual(
+      resultMeta("/developers/v5.2.0/docs/aztec-nr/framework-description/advanced/partial_notes", "docs-developer-v5.2.0", versionPaths),
+      { section: "Build", version: "v5.2.0", trail: ["Framework description", "Advanced"], api: false },
+    );
+    assert.deepStrictEqual(
+      resultMeta("/developers/docs/aztec-js/how_to_deploy_contract", "docs-developer-v6.0.0", versionPaths),
+      { section: "Build", version: "v6.0.0", trail: ["Aztec js"], api: false },
+    );
+    assert.deepStrictEqual(
+      resultMeta("/operate/operators/full-node/setup", "docs-network-current", versionPaths),
+      { section: "Run a Node", version: "dev", trail: ["Operators", "Full node"], api: false },
+    );
+    assert.deepStrictEqual(resultMeta("/participate/basics/fees", "docs-participate-current", versionPaths), {
+      section: "Participate",
+      version: null,
+      trail: ["Basics"],
+      api: false,
+    });
+    assert.deepStrictEqual(resultMeta("/networks", "docs-root-current", versionPaths), {
+      section: "",
+      version: null,
+      trail: [],
+      api: false,
+    });
+  });
+
+  it("titles API pages by kind and name, under their module path", () => {
+    assert.deepStrictEqual(resultMeta("/aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateSet", "default", versionPaths), {
+      section: "Aztec.nr API",
+      version: null,
+      trail: ["noir_aztec", "state_vars"],
+      api: true,
+      title: "struct PrivateSet",
+    });
+    assert.deepStrictEqual(resultMeta("/aztec-nr-api/testnet/noir_aztec/state_vars/", "default", versionPaths), {
+      section: "Aztec.nr API",
+      version: null,
+      trail: ["noir_aztec"],
+      api: true,
+      title: "module state_vars",
+    });
+    assert.deepStrictEqual(resultMeta("/aztec-nr-api/mainnet/", "default", versionPaths), {
+      section: "Aztec.nr API",
+      version: null,
+      trail: [],
+      api: true,
+    });
+  });
 });
