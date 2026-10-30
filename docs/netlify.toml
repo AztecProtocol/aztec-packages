@@ -24,7 +24,7 @@
   command = "exit 1"
 
 [context.deploy-preview]
-  ignore = "./scripts/netlify-ignore-build.sh"
+  ignore = "./scripts/netlify-ignore-build.sh preview"
   command = "./scripts/netlify-preview-build.sh"
 
 # =============================================================================
