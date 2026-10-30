@@ -270,6 +270,15 @@ const config = {
         disableInDev: false,
       },
     ],
+    [
+      "./src/plugins/pagefind",
+      {
+        // The API reference each network's docs version links to, as llms.txt lists it.
+        apiDirs: developerDocs.versions
+          .filter((v) => v.networks.length)
+          .map((v) => `aztec-nr-api/${v.networks[0]}/`),
+      },
+    ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {},
