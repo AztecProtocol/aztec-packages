@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 10:22:35 +0000
+Subject: [PATCH] fix(e2e): remove the key store directory with fs.rm on Node
+ 26
+
+Node 26 dropped fs.rmdir's recursive option, so the web3signer multi
+validator test's cleanup threw after the test itself had passed.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
+
+diff --git a/yarn-project/end-to-end/src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts b/yarn-project/end-to-end/src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts
+index 47079dd9dc41459b2d40fbb7f9f69f043cf6fc1b..3c444262499217de1454220a751a2dbe45e257a3 100644
+--- a/yarn-project/end-to-end/src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts
++++ b/yarn-project/end-to-end/src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts
+@@ -21,7 +21,7 @@ import type { BlockProposalOptions } from '@aztec-labs/stdlib/p2p';
+ import type { BlockHeader, Tx } from '@aztec-labs/stdlib/tx';
+ import { NodeKeystoreAdapter, ValidatorClient } from '@aztec-labs/validator-client';
+ import { jest } from '@jest/globals';
+-import { mkdtemp, rmdir } from 'fs/promises';
++import { mkdtemp, rm } from 'fs/promises';
+ import { tmpdir } from 'os';
+ import { join } from 'path';
+ import { privateKeyToAccount } from 'viem/accounts';
+@@ -332,7 +332,7 @@ describe('e2e_multi_validator_node', () => {
+ 
+   afterEach(async () => {
+     await teardown();
+-    await rmdir(keyStoreDirectory, { recursive: true });
++    await rm(keyStoreDirectory, { recursive: true, force: true });
+   });
+ 
+   const sendTx = (salt: Fr) => {

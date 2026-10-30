@@ -18,3 +18,7 @@ if(NOT benchmark_FOUND)
     set_property(DIRECTORY ${benchmark_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL)
     set_property(DIRECTORY ${benchmark_BINARY_DIR} PROPERTY EXCLUDE_FROM_ALL)
 endif()
+# The library builds with -pedantic-errors, and clang 23 (wasi-sdk 34) flags its __COUNTER__ as a C2y extension.
+if(TARGET benchmark AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 23)
+    target_compile_options(benchmark PRIVATE -Wno-c2y-extensions)
+endif()
