@@ -140,23 +140,19 @@ has_typedoc_options() {
     " 2>/dev/null
 }
 
-# Check if typedoc is available
+# docs' own devDependencies, so the versions come from docs/yarn.lock and its age gate, never from npx.
+TYPEDOC="$DOCS_ROOT/node_modules/.bin/typedoc"
+TSX="$DOCS_ROOT/node_modules/.bin/tsx"
+
 check_typedoc() {
-    if command -v typedoc &> /dev/null; then
-        TYPEDOC="typedoc"
-    elif command -v npx &> /dev/null; then
-        # Verify npx can find typedoc
-        if npx typedoc --version &> /dev/null; then
-            TYPEDOC="npx typedoc"
-        else
-            echo_error "typedoc not found via npx. Please install: npm install -g typedoc"
+    local bin
+    for bin in "$TYPEDOC" "$TSX"; do
+        if [[ ! -x "$bin" ]]; then
+            echo_error "$bin not found: run yarn install in docs/"
             exit 1
         fi
-    else
-        echo_error "Neither typedoc nor npx found. Please install Node.js and typedoc."
-        exit 1
-    fi
-    echo_info "Using TypeDoc: $TYPEDOC"
+    done
+    echo_info "Using $("$TYPEDOC" --version | grep -m1 TypeDoc)"
 }
 
 # Generate TypeDoc JSON for a single package
@@ -207,7 +203,7 @@ generate_json_for_package() {
     (
         cd "$pkg_dir"
         # --excludeExternals prevents including types from node_modules (e.g., viem)
-        $TYPEDOC --json "$raw_output_file" \
+        "$TYPEDOC" --json "$raw_output_file" \
             --excludePrivate \
             --excludeInternal \
             --excludeExternals \
@@ -231,7 +227,7 @@ generate_json_for_package() {
         # Write metadata to temp dir (used for summary generation, not kept in output)
         local metadata_file="$TEMP_TYPEDOC_DIR/${pkg_name}.meta.json"
         echo_info "Transforming $pkg_name to markdown..."
-        if npx tsx "$TRANSFORMER_SCRIPT" "$raw_output_file" "$output_file" "$VERSION" --metadata-output "$metadata_file"; then
+        if "$TSX" "$TRANSFORMER_SCRIPT" "$raw_output_file" "$output_file" "$VERSION" --metadata-output "$metadata_file"; then
             echo_info "Generated: $output_file"
             return 0
         else
@@ -249,7 +245,7 @@ generate_json_for_package() {
 generate_llm_summary() {
     echo_info "Generating LLM summary file..."
 
-    npx tsx "$TRANSFORMER_SCRIPT" \
+    "$TSX" "$TRANSFORMER_SCRIPT" \
         --generate-summary \
         --metadata-dir "$TEMP_TYPEDOC_DIR" \
         --config "$CONFIG_FILE" \
