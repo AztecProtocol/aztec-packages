@@ -444,26 +444,36 @@ Step 8.
 
 The cut's operator pages are the destination's, written against the destination's pin
 (`DEST_PIN_REF`); the snapshot must describe the tag. When the two refs name different
-commits, list the code between them, as `/release-docs` Step 12 does. `<old_version>` is
-the network version Step 7 recorded, with its `v`; fetch both histories down to it:
+commits, list the code between them, as `/release-docs` Step 12 does, fetching both
+histories down to their merge base:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 echo "destination pin: $DEST_PIN_REF  release: $LABS_TAG"
-git -C "$AZTEC_NODE_DIR" fetch --depth 1 origin tag <old_version>
-git -C "$AZTEC_NODE_DIR" fetch --shallow-exclude=<old_version> origin tag "$LABS_TAG" tag "$DEST_PIN_REF"
+base=$(gh api "repos/aztec-labs-eng/aztec-node/compare/$LABS_TAG...$DEST_PIN_REF" --jq .merge_base_commit.sha)
+since=$(gh api "repos/aztec-labs-eng/aztec-node/commits/$base" --jq .commit.committer.date)
+git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$since" origin tag "$LABS_TAG" tag "$DEST_PIN_REF"
+[ "$(git -C "$AZTEC_NODE_DIR" merge-base "$LABS_TAG" "$DEST_PIN_REF")" = "$base" ] \
+  || { echo "merge base $base not fetched" >&2; exit 1; }
 git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick "$LABS_TAG...$DEST_PIN_REF" -- yarn-project/
+git -C "$AZTEC_NODE_DIR" log --oneline --left-right --cherry-pick --name-only "$LABS_TAG...$DEST_PIN_REF" -- docs/docs-operate/
 ```
 
-`>` commits are in the destination's pin but not in the release. For each that changes
-what an operator sees (a configuration option, environment variable, CLI flag, default or
-RPC method), grep `network_versioned_docs/version-v<new_version>/` for it and check it
-against `$AZTEC_NODE_DIR` (the tag). Fix the snapshot only: those fixes are release-only
+Never fetch with `--shallow-exclude=<previous release>`: the merge base is usually reachable
+from it, so it is cut off and the range lists both sides back to the boundary (v6.0.0
+against `v6.0.0-rc.3`: 166/166 commits instead of 57/2). This fetch needs no previous
+release, so it also works when that is not a Labs tag.
+
+`>` commits are in the destination's pin but not in the release. Start with the operator
+pages the second log names (aztec-node held the docs until they moved here, so a code
+change and its doc edit landed in one commit) and revert those hunks in the snapshot,
+removals included; at v6.0.0 they were a removed CLI command and newer build images. Then,
+for each commit that changes what an operator sees (a configuration option, environment
+variable, CLI flag, default or RPC method), grep
+`network_versioned_docs/version-v<new_version>/` for it and check it against
+`$AZTEC_NODE_DIR` (the tag). Fix the snapshot only: those fixes are release-only
 (Step 10). Present what was found, fixed and skipped. The generated references (Steps 5a
 and 5b) already come from the tag.
-
-When the previous version is not a Labs tag (v5 and earlier are tags of this repository),
-use `--shallow-since=<date of that release>` instead of `--shallow-exclude`.
 
 ### Step 8: Clean Up Old Network Version
 
