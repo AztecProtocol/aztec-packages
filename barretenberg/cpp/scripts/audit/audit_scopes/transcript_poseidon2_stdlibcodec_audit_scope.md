@@ -1,7 +1,7 @@
 # External Audit Scope: Transcript + Stdlib Poseidon2 + StdlibCodec
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 ## Files to Audit
 
@@ -24,7 +24,7 @@ Commit hash: Most recent commit on branch 'next'
 10. `barretenberg/cpp/src/barretenberg/stdlib/hash/poseidon2/poseidon2.hpp`
 11. `barretenberg/cpp/src/barretenberg/stdlib/hash/poseidon2/poseidon2.cpp`
 
-Two last modules are wrappers for `Sponge::hash_internal`.
+Items 10-11 wrap `Sponge::hash_internal`.
 
 
 #### Poseidon2 Custom Gate Relations
@@ -35,12 +35,11 @@ Two last modules are wrappers for `Sponge::hash_internal`.
 
 14. `barretenberg/cpp/src/barretenberg/dsl/acir_format/poseidon2_constraint.hpp`
 15. `barretenberg/cpp/src/barretenberg/dsl/acir_format/poseidon2_constraint.cpp`
-16. `barretenberg/cpp/src/barretenberg/dsl/acir_format/poseidon2_constraint.test.cpp`
 
 ### StdlibCodec (Serde + `field_t` splitting)
-17. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_conversion.hpp`
-18. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_utils.hpp`
-19. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_utils.cpp`
+16. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_conversion.hpp`
+17. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_utils.hpp`
+18. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_utils.cpp`
 
 ## Brief Summary of Modules
 
@@ -51,12 +50,7 @@ Universal transcript implementation (both native and in-circuit) for Fiat-Shamir
 **Documentation:** `barretenberg/cpp/src/barretenberg/transcript/README.md`
 
 ### Native Poseidon2
-Poseidon2 is a cryptographic hash function optimized for use in zero-knowledge proof systems. It is an improved version of the Poseidon hash function with better performance characteristics. The implementation uses a sponge construction with a permutation function based on substitution-permutation networks (SPNs). The hash function operates over finite fields and is particularly efficient when used in arithmetic circuits.
-
-Key features:
-- Sponge-based construction with configurable rate and capacity
-- Optimized permutation function with external and internal rounds
-- Supports BN254 scalar field parameters
+Native Poseidon2 permutation (external and internal rounds) and sponge over the BN254 scalar field.
 
 ### Stdlib Poseidon2
 Circuit-friendly Poseidon2 hash implementation following the [Poseidon2
@@ -93,10 +87,13 @@ test utilities
 ### StdlibCodec Tests
 1. `barretenberg/cpp/src/barretenberg/stdlib/primitives/field/field_conversion.test.cpp`
 
+### Poseidon2 DSL Tests
+1. `barretenberg/cpp/src/barretenberg/dsl/acir_format/poseidon2_constraint.test.cpp`
+
 ## Security Mechanisms
 
 ### Security Features
-1. **Origin Tags**: Runtime tracking of value provenance to prevent Fiat-Shamir vulnerabilities (see Transcript README and `Origin Tags Security.md` in the same folder)
+1. **Origin Tags**: Runtime tracking of value provenance to prevent Fiat-Shamir vulnerabilities (see `barretenberg/cpp/src/barretenberg/transcript/README.md`, section "Origin Tag Security Mechanism")
 2. **Boomerang Value Detector**: static analysis of `Poseidon2` circuit witnesses `barretenberg/cpp/src/barretenberg/boomerang_value_detection/graph_description_poseidon2s_permutation.test.cpp`
 
 

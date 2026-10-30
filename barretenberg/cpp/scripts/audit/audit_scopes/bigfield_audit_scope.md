@@ -2,7 +2,7 @@
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
 
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 ## Files to Audit
 
@@ -12,9 +12,9 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 2. `stdlib/primitives/bigfield/bigfield_impl.hpp`
 3. `stdlib/primitives/bigfield/constants.hpp`
 
-Relations: (wasn't explicitly in the SoW but was still audited)
+Also in scope:
 
-4. `relations/non_native_field_relations.hpp`
+4. `relations/non_native_field_relation.hpp`
 
 ## Summary of Module
 
@@ -49,7 +49,7 @@ The value is: `limb[0] + limb[1] * 2^68 + limb[2] * 2^136 + limb[3] * 2^204`
 - Compute appropriate range constraints for quotient/carry values
 - Enable batching multiple operations before reduction
 
-Please refer to the [bigfield README](https://github.com/AztecProtocol/aztec-packages-private/blob/d0ee94134b6cf290cf93cccf30354278d2bdff59/barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for detailed specification of the multiplication, addition, subtraction, and division algorithms.
+Please refer to the [bigfield README](../../../src/barretenberg/stdlib/primitives/bigfield/README.md) for detailed specification of the multiplication, addition, subtraction, and division algorithms.
 
 > Note: The README uses LaTeX notation which doesn't render well on GitHub; you might need to use Markdown preview in VS Code to render the file.
 
