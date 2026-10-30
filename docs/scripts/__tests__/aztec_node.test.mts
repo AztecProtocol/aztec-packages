@@ -91,7 +91,6 @@ function saveAttested() {
   fs.writeFileSync(path.join(f.root, "attested.json"), JSON.stringify(Object.fromEntries(attested)));
 }
 
-/** Puts the fake gh first on PATH until the test ends. */
 function usingGh() {
   process.env.PATH = `${path.join(noirDir, "bin")}${path.delimiter}${process.env.PATH}`;
   process.env.FAKE_GH_ATTESTED = path.join(f.root, "attested.json");
@@ -323,6 +322,16 @@ test("pin refuses a noir archive it cannot verify and keeps the previous pin", a
     ["another platform's subject", () => attested.set(hex, { name: "noir-aarch64-apple-darwin.tar.gz" }), /none names noir-x86_64-apple-darwin/],
     ["another digest", () => attested.set(hex, { name: path.basename(darwin), digest: "0".repeat(64) }), /none names noir-x86_64-apple-darwin/],
     ["output that is not JSON", () => attested.set(hex, { raw: "verified!" }), /no JSON/],
+    ["no results", () => attested.set(hex, { raw: "[]" }), /none names noir-x86_64-apple-darwin/],
+    [
+      "the name and the digest in different subjects",
+      () => {
+        const subject = (name: string, sha256: string) => ({ name, digest: { sha256 } });
+        const statement = { subject: [subject(path.basename(darwin), "0".repeat(64)), subject("noir-other.tar.gz", hex)] };
+        attested.set(hex, { raw: JSON.stringify([{ verificationResult: { statement } }]) });
+      },
+      /none names noir-x86_64-apple-darwin/,
+    ],
     ["HTTP 500 on an optional platform", () => routes.set(darwin, 500), /HTTP 500/],
     ["HTTP 404 on the CI platform", () => routes.delete(archivePath("0.9.1", CI_TARGET)), /HTTP 404/],
   ];

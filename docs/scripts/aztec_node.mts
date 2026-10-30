@@ -37,7 +37,6 @@ const TAG = /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
 const COMMIT = /^[0-9a-f]{40}$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
 
-// process.platform / process.arch → [npm platform tag, rust target triple part].
 const OS: Record<string, [string, string]> = { linux: ["linux", "unknown-linux-gnu"], darwin: ["darwin", "apple-darwin"] };
 const CPU: Record<string, [string, string]> = { x64: ["x64", "x86_64"], arm64: ["arm64", "aarch64"] };
 /** Every platform the docs install nargo on, as noir's archives name them. */
@@ -234,7 +233,7 @@ export function problems(o: Options, pin: Pin): string[] {
 
 /**
  * Moves the pin to <tag>, taking the toolchain versions from the tag's own toolchain script and the
- * digest of each noir archive gh attests. Writes nothing unless every archive noir publishes verifies.
+ * digest of each noir archive gh attests. Writes the pin only after every downloaded archive verifies.
  */
 export async function pinTag(o: Options, tag: string, log: (s: string) => void = () => {}): Promise<Pin> {
   const repository = o.repository ?? REPOSITORY;
