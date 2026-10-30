@@ -110,7 +110,7 @@ const config = {
       removeLegacyPostBuildHeadAttribute: true,
     },
   },
-  themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
+  themes: ["@docusaurus/theme-mermaid"],
   presets: [
     [
       "@docusaurus/preset-classic",
@@ -292,24 +292,6 @@ const config = {
         },
       ],
       image: "img/docs-preview-image.png",
-      typesense: {
-        typesenseCollectionName: "aztec-docs",
-        typesenseServerConfig: {
-          nodes: [
-            {
-              host: "cpk69vuom0ilr4abp.a1.typesense.net",
-              port: 443,
-              protocol: "https",
-            },
-          ],
-          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
-        },
-        // aztec-nr-api pages live in /static/ as raw HTML, not React Router
-        // routes. Without this, the dropdown calls history.push() and the SPA
-        // 404s on click. Matching the regex makes the theme use
-        // window.location.href for a real page load that Netlify resolves.
-        externalUrlRegex: "/aztec-nr-api/",
-      },
       colorMode: {
         defaultMode: "light",
         disableSwitch: false,

@@ -7,7 +7,7 @@ const docsPage = (tag, body = "<p>Install the sandbox.</p>") =>
   `<html><head><meta data-rh=true name=docusaurus_tag content=${tag} />` +
   `<meta data-rh=true name=docsearch:docusaurus_tag content=${tag} /></head>` +
   `<body><nav>Docs</nav><main><article class="doc">${body}</article></main></body></html>`;
-const apiPage = "<html><body><main><h1>Struct PrivateSet</h1></main></body></html>";
+const apiPage = "<html><body><nav><h1>aztec-nr</h1></nav><main><h1>Struct PrivateSet</h1></main></body></html>";
 
 describe("classifyPage", () => {
   it("tags docs pages with Docusaurus's own tag", () => {
@@ -68,9 +68,11 @@ describe("stampPage", () => {
   });
 
   it("weights API pages and fails on a page without its content element", () => {
-    assert.match(
+    assert.strictEqual(
       stampPage(apiPage, { tag: "default", body: "main", weight: "0.5" }),
-      /<main data-pagefind-body data-pagefind-weight="0\.5"><span hidden data-pagefind-filter="docusaurus_tag:default"><\/span><h1>/,
+      "<html><body><nav><h1>aztec-nr</h1></nav>" +
+        '<main data-pagefind-body data-pagefind-weight="0.5"><span hidden data-pagefind-filter="docusaurus_tag:default"></span>' +
+        "<h1>Struct PrivateSet</h1></main></body></html>",
     );
     assert.strictEqual(stampPage("<html><body><mainland></mainland></body></html>", { tag: "default", body: "main" }), null);
   });

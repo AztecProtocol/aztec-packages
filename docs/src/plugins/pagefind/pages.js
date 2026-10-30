@@ -48,6 +48,8 @@ function classifyPage(rel, html, apiDirs) {
 
 /**
  * Marks the page's content element for Pagefind and attaches its tag filter.
+ * API pages keep Pagefind's default title, their sidebar's crate name: Pagefind
+ * ranks metadata, so their headings as titles would outrank the guides.
  *
  * @returns {string | null} the stamped HTML, or null when the page lacks its content element
  */

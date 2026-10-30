@@ -29,3 +29,48 @@ export function contextTags({ active, preferred, versions }) {
     ),
   ];
 }
+
+/**
+ * Splits a Pagefind excerpt into text runs, flagging the highlighted ones.
+ * Pagefind escapes only `<` and `>` in page text and adds `<mark>` and
+ * `</mark>`, so those exact tokens are the only markup; all else is text.
+ *
+ * @param {string} excerpt
+ * @returns {{text: string, mark: boolean}[]}
+ */
+export function excerptParts(excerpt) {
+  const parts = [];
+  let mark = false;
+  for (const token of excerpt.split(/(<\/?mark>)/)) {
+    if (token === "<mark>") mark = true;
+    else if (token === "</mark>") mark = false;
+    else if (token) parts.push({ text: token.replaceAll("&lt;", "<").replaceAll("&gt;", ">"), mark });
+  }
+  return parts;
+}
+
+/** The URL when it is a same-origin path, else null; browsers read `//host` and `/\host` as another origin. */
+export const safeHref = (url) => (typeof url === "string" && /^\/(?![/\\])/.test(url) ? url : null);
+
+/**
+ * An Aztec.nr API page's title from its URL, e.g. `…/state_vars/struct.PrivateSet`
+ * gives `struct noir_aztec::state_vars::PrivateSet`; null for other pages. The
+ * index titles every API page by its crate name (see the pagefind plugin).
+ */
+export function apiTitle(url) {
+  const path = /^\/aztec-nr-api\/[^/]+\/(.+?)\/?$/.exec(url)?.[1];
+  if (!path) return null;
+  const segments = path.split("/");
+  const [, kind, name] = /^([a-z_]+)\.(.+)$/.exec(segments.at(-1)) ?? [];
+  return kind ? `${kind} ${[...segments.slice(0, -1), name].join("::")}` : `module ${segments.join("::")}`;
+}
+
+const SECTIONS = { developer: "Developer docs", network: "Operator docs", participate: "Participate" };
+
+/** A result's section label, from its `docusaurus_tag`; the current version is labelled "dev", as in the version menu. */
+export function sectionLabel(tag) {
+  if (tag === "default") return "Aztec.nr API";
+  const [, pluginId, version] = /^docs-([a-z]+)-(.+)$/.exec(tag ?? "") ?? [];
+  const section = SECTIONS[pluginId] ?? "";
+  return VERSIONED.includes(pluginId) ? `${section} · ${version === "current" ? "dev" : version}` : section;
+}

@@ -1,0 +1,196 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 999px;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-emphasis-700);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.trigger:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-emphasis-900);
+}
+
+.icon {
+  flex: none;
+}
+
+.triggerKeys {
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ifm-z-index-fixed) + 10);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10vh 1rem 1rem;
+  background: rgb(0 0 0 / 50%);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 40rem;
+  max-height: 80vh;
+  border-radius: var(--ifm-global-radius);
+  background: var(--ifm-background-surface-color);
+  box-shadow: var(--ifm-global-shadow-tl);
+}
+
+.header {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--ifm-color-primary);
+  border-radius: var(--ifm-global-radius);
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.close,
+.scope button,
+.more {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-global-radius);
+  background: none;
+  color: var(--ifm-color-emphasis-800);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.close {
+  padding: 0 0.6rem;
+}
+
+.scope {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.scope button {
+  padding: 0.15rem 0.6rem;
+}
+
+.scope button[aria-pressed="true"] {
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary);
+  color: var(--ifm-color-primary-contrast-foreground, #fff);
+}
+
+.body {
+  overflow-y: auto;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.message {
+  margin: 1rem 0.25rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result,
+.subResult {
+  margin-top: 0.25rem;
+}
+
+.subResult {
+  margin-left: 1.25rem;
+}
+
+.result a,
+.subResult a {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ifm-global-radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+.result[aria-selected="true"] a,
+.subResult[aria-selected="true"] a {
+  background: var(--ifm-color-emphasis-200);
+}
+
+.title {
+  font-weight: var(--ifm-font-weight-semibold);
+  color: var(--ifm-color-primary);
+}
+
+.section {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.excerpt {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.excerpt mark {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-weight: var(--ifm-font-weight-bold);
+  text-decoration: underline;
+}
+
+.more {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.4rem;
+}
+
+@media (max-width: 996px) {
+  .triggerLabel,
+  .triggerKeys {
+    display: none;
+  }
+
+  .trigger {
+    padding: 0 0.6rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .backdrop {
+    padding: 0;
+  }
+
+  .dialog {
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+}

@@ -39,15 +39,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@algolia/autocomplete-core@npm:1.8.2":
-  version: 1.8.2
-  resolution: "@algolia/autocomplete-core@npm:1.8.2"
-  dependencies:
-    "@algolia/autocomplete-shared": "npm:1.8.2"
-  checksum: 10c0/e237fb98435091aaf0a3fd8b86ce79dcd533a7efb828ed3fbd0df09902af5c0bb10f3266757a723b2381d12a8c611564b3465d40d03b7e497e61d5142f7a46df
-  languageName: node
-  linkType: hard
-
 "@algolia/autocomplete-core@npm:^1.19.2":
   version: 1.19.8
   resolution: "@algolia/autocomplete-core@npm:1.19.8"
@@ -80,18 +71,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@algolia/autocomplete-preset-algolia@npm:1.8.2":
-  version: 1.8.2
-  resolution: "@algolia/autocomplete-preset-algolia@npm:1.8.2"
-  dependencies:
-    "@algolia/autocomplete-shared": "npm:1.8.2"
-  peerDependencies:
-    "@algolia/client-search": ">= 4.9.1 < 6"
-    algoliasearch: ">= 4.9.1 < 6"
-  checksum: 10c0/adf7212905c5d0838a82613b5549e273a99f5cd49aa005ae6d230bc5d035419d5eb09d511dfbba6598012964b796871c4d1fc195068645d2982543144e010b87
-  languageName: node
-  linkType: hard
-
 "@algolia/autocomplete-shared@npm:1.19.2":
   version: 1.19.2
   resolution: "@algolia/autocomplete-shared@npm:1.19.2"
@@ -109,13 +88,6 @@ __metadata:
     "@algolia/client-search": ">= 4.9.1 < 6"
     algoliasearch: ">= 4.9.1 < 6"
   checksum: 10c0/235218aefa4dbe8558c699d8888c79ecf611180d8ac6d6ad24c3ee964ece61b1b6e206335d051fa5578fba6cbf900ad6f4a6a19ab2682dc0f3d63617af33f755
-  languageName: node
-  linkType: hard
-
-"@algolia/autocomplete-shared@npm:1.8.2":
-  version: 1.8.2
-  resolution: "@algolia/autocomplete-shared@npm:1.8.2"
-  checksum: 10c0/339004b719b5b2a5e657750afcc3796d0818e66d7be215a2b443f45ac0c801fb8760d0fce68d7ea3f2ca29bc958318e35206432700108137cfce8947a363e561
   languageName: node
   linkType: hard
 
@@ -2914,7 +2886,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/core@npm:3.10.2, @docusaurus/core@npm:^3.9.0":
+"@docusaurus/core@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/core@npm:3.10.2"
   dependencies:
@@ -3006,7 +2978,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/logger@npm:3.10.2, @docusaurus/logger@npm:^3.9.0":
+"@docusaurus/logger@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/logger@npm:3.10.2"
   dependencies:
@@ -3113,7 +3085,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/plugin-content-docs@npm:3.10.2, @docusaurus/plugin-content-docs@npm:^3.9.0":
+"@docusaurus/plugin-content-docs@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/plugin-content-docs@npm:3.10.2"
   dependencies:
@@ -3379,7 +3351,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/theme-common@npm:3.10.2, @docusaurus/theme-common@npm:^3.9.0":
+"@docusaurus/theme-common@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/theme-common@npm:3.10.2"
   dependencies:
@@ -3453,7 +3425,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/theme-translations@npm:3.10.2, @docusaurus/theme-translations@npm:^3.9.0":
+"@docusaurus/theme-translations@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/theme-translations@npm:3.10.2"
   dependencies:
@@ -3501,7 +3473,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/utils-validation@npm:3.10.2, @docusaurus/utils-validation@npm:^3.9.0":
+"@docusaurus/utils-validation@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/utils-validation@npm:3.10.2"
   dependencies:
@@ -3517,7 +3489,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@docusaurus/utils@npm:3.10.2, @docusaurus/utils@npm:^3.9.0":
+"@docusaurus/utils@npm:3.10.2":
   version: 3.10.2
   resolution: "@docusaurus/utils@npm:3.10.2"
   dependencies:
@@ -8100,7 +8072,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"algoliasearch-helper@npm:^3.13.3, algoliasearch-helper@npm:^3.26.0":
+"algoliasearch-helper@npm:^3.26.0":
   version: 3.26.0
   resolution: "algoliasearch-helper@npm:3.26.0"
   dependencies:
@@ -8470,7 +8442,6 @@ __metadata:
     "@types/react": "npm:^18.3.31"
     clsx: "npm:^2.1.1"
     cspell: "npm:^8.19.4"
-    docusaurus-theme-search-typesense: "npm:0.27.0"
     dotenv: "npm:^16.6.1"
     netlify-cli: "npm:^24.3.0"
     pagefind: "npm:1.5.2"
@@ -11335,35 +11306,6 @@ __metadata:
   dependencies:
     esutils: "npm:^2.0.2"
   checksum: 10c0/c96bdccabe9d62ab6fea9399fdff04a66e6563c1d6fb3a3a063e8d53c3bb136ba63e84250bbf63d00086a769ad53aef92d2bd483f03f837fc97b71cbee6b2520
-  languageName: node
-  linkType: hard
-
-"docusaurus-theme-search-typesense@npm:0.27.0":
-  version: 0.27.0
-  resolution: "docusaurus-theme-search-typesense@npm:0.27.0"
-  dependencies:
-    "@docusaurus/core": "npm:^3.9.0"
-    "@docusaurus/logger": "npm:^3.9.0"
-    "@docusaurus/plugin-content-docs": "npm:^3.9.0"
-    "@docusaurus/theme-common": "npm:^3.9.0"
-    "@docusaurus/theme-translations": "npm:^3.9.0"
-    "@docusaurus/utils": "npm:^3.9.0"
-    "@docusaurus/utils-validation": "npm:^3.9.0"
-    algoliasearch-helper: "npm:^3.13.3"
-    clsx: "npm:^2.0.0"
-    eta: "npm:^2.2.0"
-    fs-extra: "npm:^11.1.1"
-    lodash: "npm:^4.17.21"
-    tslib: "npm:^2.6.0"
-    typesense-docsearch-react: "npm:^3.4.1"
-    typesense-instantsearch-adapter: "npm:^2.9.0-5"
-    utility-types: "npm:^3.10.0"
-  peerDependencies:
-    "@docusaurus/core": ">=3.9.0 <4.0.0"
-    "@docusaurus/theme-common": ">=3.9.0 <4.0.0"
-    react: ^18.0.0 || ^19.0.0
-    react-dom: ^18.0.0 || ^19.0.0
-  checksum: 10c0/bb44c816fa55e44b5b8c778d621a35a7ef783be3af4d1fa3195cb62ba67199116dc7bb2e3053e3a7654d13e1051127e262995b4ccc425090a91ad34dfa67a4fc
   languageName: node
   linkType: hard
 
@@ -15835,13 +15777,6 @@ __metadata:
     safe-stable-stringify: "npm:^2.3.1"
     triple-beam: "npm:^1.3.0"
   checksum: 10c0/6e02f8617a03155b2fce451bacf777a2c01da16d32c4c745b3ec85be6c3f2602f2a4953a8bd096441cb4c42c447b52318541d6b6bc335dce903cb9ad77a1749f
-  languageName: node
-  linkType: hard
-
-"loglevel@npm:^1.8.1":
-  version: 1.9.2
-  resolution: "loglevel@npm:1.9.2"
-  checksum: 10c0/1e317fa4648fe0b4a4cffef6de037340592cee8547b07d4ce97a487abe9153e704b98451100c799b032c72bb89c9366d71c9fb8192ada8703269263ae77acdc7
   languageName: node
   linkType: hard
 
@@ -22956,71 +22891,6 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10c0/ad09fdf7a756814dce65bc60c1657b40d44451346858eea230e10f2e95a289d9183b6e32e5c11e95acc0ccc214b4f36289dcad4bf1886b0adb84d711d336a430
-  languageName: node
-  linkType: hard
-
-"typesense-docsearch-css@npm:^0.4.1":
-  version: 0.4.1
-  resolution: "typesense-docsearch-css@npm:0.4.1"
-  checksum: 10c0/1e455d4e8ab4a9c335de1f234e6cd458ddccabd265c85f003bd01c77b5b3000a8c2c066db80dbf905b4fbcdca828efef35d223727c9e36b25f4e0d7f92d989f0
-  languageName: node
-  linkType: hard
-
-"typesense-docsearch-react@npm:^3.4.1":
-  version: 3.4.1
-  resolution: "typesense-docsearch-react@npm:3.4.1"
-  dependencies:
-    "@algolia/autocomplete-core": "npm:1.8.2"
-    "@algolia/autocomplete-preset-algolia": "npm:1.8.2"
-    typesense: "npm:^1.7.2"
-    typesense-docsearch-css: "npm:^0.4.1"
-    typesense-instantsearch-adapter: "npm:^2.7.1"
-  peerDependencies:
-    "@types/react": ">= 16.8.0 < 19.0.0"
-    react: ">= 16.8.0 < 19.0.0"
-    react-dom: ">= 16.8.0 < 19.0.0"
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-    react:
-      optional: true
-    react-dom:
-      optional: true
-  checksum: 10c0/7b8b149f7077d079ba0abfc4410e388c222df723c599d075c17c82d147df28eb97e4464ac8346b920c63b229180fc1c84abb85dda94cf5ad840f948011be2efe
-  languageName: node
-  linkType: hard
-
-"typesense-instantsearch-adapter@npm:^2.7.1":
-  version: 2.8.0
-  resolution: "typesense-instantsearch-adapter@npm:2.8.0"
-  dependencies:
-    typesense: "npm:^1.7.2"
-  peerDependencies:
-    "@babel/runtime": ^7.17.2
-  checksum: 10c0/ce54f03cc57bf888839a099abf61adce7dd65b3728eb5a5db32d21a00f760f833d52d55ee36415cb25d7220ab2cde4e4259fadf89eec88e125f41242ca620063
-  languageName: node
-  linkType: hard
-
-"typesense-instantsearch-adapter@npm:^2.9.0-5":
-  version: 2.9.0-6
-  resolution: "typesense-instantsearch-adapter@npm:2.9.0-6"
-  dependencies:
-    typesense: "npm:^1.8.2"
-  peerDependencies:
-    "@babel/runtime": ^7.24.1
-  checksum: 10c0/94873f681b0b03e8caace79e81d105f86820ecd64210954362e3b5fb98703ae73dca1240c356cf95b5aa728b02ee63a64764475d5e38719e56e6e24adaa840dc
-  languageName: node
-  linkType: hard
-
-"typesense@npm:^1.7.2, typesense@npm:^1.8.2":
-  version: 1.8.2
-  resolution: "typesense@npm:1.8.2"
-  dependencies:
-    axios: "npm:^1.6.0"
-    loglevel: "npm:^1.8.1"
-  peerDependencies:
-    "@babel/runtime": ^7.23.2
-  checksum: 10c0/9a553b479ebbd435867dd257035ce6dda78e1e7c2e1c1fb9fc90aef2cf36c67ecdc5e322a8d10ff069bb27efd017d1b29c4496b54581ad453f5eb54af4cd0696
   languageName: node
   linkType: hard
 
