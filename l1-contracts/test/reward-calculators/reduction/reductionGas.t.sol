@@ -77,13 +77,12 @@ contract CalculatorMeter {
 }
 
 /**
- * @notice The reduction calculator fits the rollup's stipend at 1, 8, 16 and 32 distinct proposers, with mainnet
+ * @notice The reduction calculator fits the rollup's stipend at 1, 8, 16 and 32 proposers, with mainnet
  *         shaped positions and with withdrawers that make every probe as expensive as it can be.
  *
  * @dev Isolation runs every external call as its own transaction, so every account and storage slot is cold when the
  *      meter calls the calculator, as in a proof submission. Proposers are distinct, except in the scenario where one
- *      gas-burning proposer holds every slot: the calculator resolves every checkpoint on its own, so a repeated
- *      burner burns both probe stipends again on each of its checkpoints.
+ *      gas-burning proposer holds every slot and burns both probe stipends again on each of them.
  */
 contract RegistryReductionCalculatorGasTest is Test {
   enum Scenario {

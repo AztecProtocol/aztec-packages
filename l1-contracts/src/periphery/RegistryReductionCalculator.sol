@@ -44,8 +44,9 @@ interface IRegistryReductionCalculator is ISequencerRewardCalculator {
  *      The calculator binds the GSE as an immutable and ignores `msg.sender`: every rollup sharing that GSE that
  *      configures this calculator gets the same policy, and replacing the GSE requires deploying a new calculator.
  *      Lookups reflect state when the proof lands. Every checkpoint is resolved on its own, without deduplicating
- *      repeated proposers: a repeat touches only warm accounts and slots, so resolving it again is cheaper than the
- *      search that would find it, at the repeat rates a committee produces.
+ *      repeated proposers: for an honest position a repeat touches only warm state, which costs less than searching
+ *      for it. A withdrawer that burns its probe stipends burns them again on each of its checkpoints, which the
+ *      per-checkpoint stipend covers.
  */
 contract RegistryReductionCalculator is Ownable, IRegistryReductionCalculator {
   struct Entry {

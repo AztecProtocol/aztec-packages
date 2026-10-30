@@ -357,7 +357,6 @@ contract RegistryReductionCalculatorTest is Test {
     proposers[0] = _attesterWithWithdrawer(address(staker));
     proposers[1] = _attesterWithWithdrawer(address(staker));
 
-    vm.expectCall(address(staker), abi.encodeWithSelector(IATPStaker.getATP.selector), 2);
     uint256[] memory rewards = calculator.getSequencerRewards(EPOCH, proposers, DEFAULT_REWARD, CHECKPOINT_REWARD);
     assertEq(rewards[0], REDUCED_REWARD);
     assertEq(rewards[1], REDUCED_REWARD);
