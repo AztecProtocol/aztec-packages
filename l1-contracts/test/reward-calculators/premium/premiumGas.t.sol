@@ -9,8 +9,8 @@ import {
   CALCULATOR_GAS_BASE,
   CALCULATOR_GAS_PER_CHECKPOINT
 } from "@aztec/core/libraries/rollup/SequencerRewardCalculatorLib.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
-import {ProbeLib} from "@test/reward-calculators/ProbeLib.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {ProbeLib} from "@aztec/periphery/libraries/ProbeLib.sol";
 import {CalculatorMeter} from "@test/reward-calculators/reduction/reductionGas.t.sol";
 import {IPremiumATP, IPremiumATPFactory, IPremiumATPStaker} from "@test/reward-calculators/premium/IPremiumATP.sol";
 import {PremiumATP} from "@test/reward-calculators/premium/PremiumATP.sol";

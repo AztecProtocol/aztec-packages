@@ -13,9 +13,9 @@ import {
 } from "@aztec/core/libraries/rollup/SequencerRewardCalculatorLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
-import {ProbeLib} from "@test/reward-calculators/ProbeLib.sol";
-import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {ProbeLib} from "@aztec/periphery/libraries/ProbeLib.sol";
+import {RegistryReductionCalculator} from "@aztec/periphery/RegistryReductionCalculator.sol";
 
 interface IMainnetRollup {
   function getStatus(address _attester) external view returns (uint8);

@@ -2,7 +2,7 @@
 // Copyright 2026 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IATP} from "@test/reward-calculators/IATP.sol";
+import {IATP} from "@aztec/periphery/interfaces/IATP.sol";
 import {IPremiumATP} from "@test/reward-calculators/premium/IPremiumATP.sol";
 import {PremiumATPRegistry} from "@test/reward-calculators/premium/PremiumATPRegistry.sol";
 import {PremiumATPStaker} from "@test/reward-calculators/premium/PremiumATPStaker.sol";

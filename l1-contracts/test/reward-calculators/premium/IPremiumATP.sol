@@ -2,7 +2,7 @@
 // Copyright 2026 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 
 /**
  * @notice The provenance record of a premium ATP factory: every position it created, and nothing else.
