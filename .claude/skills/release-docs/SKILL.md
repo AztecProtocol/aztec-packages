@@ -1105,7 +1105,7 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    . ~/.cache/aztec-docs-cut/<cut>/env.sh && . "$STATE/network.env" && cd "$CUT/docs"
    examples/bootstrap.sh compile-circuits
    examples/bootstrap.sh compile
-   examples/bootstrap.sh compile-solidity
+   PATH="$CLI_HOME/.aztec/current/internal-bin:$PATH" examples/bootstrap.sh compile-solidity
    TXE_PORT=<a port claimed in ~/.agents/ports.md> examples/bootstrap.sh test-contracts
    docs_env examples/ts/aztecjs_runner/run.sh
    ```
@@ -1113,7 +1113,8 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    `examples/bootstrap.sh` provisions the tag's nargo, bb and CLI and fetches its commit into
    `$CUT/docs/.aztec-node/tree` (Release model), so the circuit and contracts compile and the
    TXE tests run at the tag (`recursive_verification` reads the circuit's artifact);
-   `compile-solidity` builds the artifacts `example_swap` imports. `run.sh` installs the tag's packages into each example and runs it
+   `compile-solidity` builds the artifacts `example_swap` imports, with the forge item 1
+   checked. `run.sh` installs the tag's packages into each example and runs it
    against `$AZTEC_NODE_URL`. The examples are the destination's: a failure here means the
    snapshot quotes code that does not work at the release. Report it with the example and
    the error. Never edit `docs/examples/` in the cut (Step 17 refuses it): a fix that also
