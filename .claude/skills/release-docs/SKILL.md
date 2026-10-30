@@ -132,7 +132,9 @@ Slashing Proposer, Honk Verifier, Slash Payload Cloneable, …) are resolved in 
 - Contains `devnet` → `devnet`
 - Contains `testnet` → `testnet`
 - Contains `mainnet` → `mainnet`
-- Otherwise (`rc` tags included) ask the user: an `rc` can be a testnet or a mainnet release
+- Otherwise (`rc` tags and plain versions included) ask the user which release types will
+  read this version: an `rc` can be a testnet or a mainnet release, and one version can
+  serve both (v6.0.0 did)
 
 Store all values for the following steps.
 
@@ -143,6 +145,23 @@ RPC returns (the network still runs `6.0.0-rc.1` and the docs are for `6.0.0-rc.
 confirm the target version and use it as `<new_version>` throughout. Its Labs tag must
 still exist. Contract addresses from the RPC reflect the current network; ask the user
 whether any will change at upgrade time.
+
+#### One version, several release types
+
+A snapshot renders one `RELEASE_TYPE`: its `#if(<type>)` branches, and the other types'
+`#include_<type>_version` from their `<TAG_VAR>` or else the pre-cut config. When another
+type will also read this version, its readers get the cut type's content. The v6.0.0
+snapshot served testnet mainnet's governance timings, and a mainnet-only rehearsal's
+testnet guide said `5.2.0` while testnet ran 6.0.0. **Owner approval required.** Count
+the pages with release-type branches and get the owner's call on which type the shared
+snapshot renders:
+
+```bash
+grep -rlE '#if\((devnet|testnet|mainnet|nightly)\)' docs/docs-developers/ docs/docs-operate/ | wc -l
+```
+
+Then set each other type's `<TAG_VAR>` in `docs_env` (2b) to the version its network
+reports in Step 1, and run Step 11b's `update_docs_versions.sh` once per type.
 
 ### Step 2: Prepare the Cut Worktree
 
@@ -191,7 +210,7 @@ export AZTEC_NODE_DIR=$STATE/aztec-node
 docs_env() {
   local pin; pin=\$(node "$CUT/docs/scripts/aztec_node.mts" env) || return 1
   eval "\$pin"
-  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> DOCS_COMMIT=$DOCS_COMMIT "\$@"
+  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT "\$@"
 }
 aztec_cli() {
   [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
@@ -202,6 +221,8 @@ EOF
 ```
 
 `<TAG_VAR>` is `DEVNET_TAG`, `TESTNET_TAG` or `MAINNET_TAG`, and its value has no `v`.
+`<OTHER_TAG_VARS>` sets the other types' tags to the versions their networks run
+(`TESTNET_TAG=6.0.0`), or is empty; see "One version, several release types".
 `docs_env` checks the cut's pin and checkout, exports the pin's versions and binaries
 (`aztec_node.mts env`), and runs a docs command with the release variables; it fails
 when the pin and the checkout disagree. `aztec_cli` runs the release CLI (Step 3) with its
@@ -859,7 +880,8 @@ docs_env yarn docusaurus docs:version:network "$LABS_TAG"
 scripts/update_docs_versions.sh network <release_type> "$LABS_TAG"
 ```
 
-Verify the new version appears in both `developer_version_config.json` and
+Repeat both `update_docs_versions.sh` lines for each other release type this version
+serves. Verify the new version appears in both `developer_version_config.json` and
 `network_version_config.json`.
 
 **Strip the `## TBD` section from the snapshot; it is not cosmetic.** Step 8 leaves

@@ -114,7 +114,8 @@ Parse the response to extract:
 
 **Detect release type** from the version string:
 
-- Contains `mainnet`, or is a plain semver like `5.2.0` → `mainnet`
+- Contains `mainnet`, or is a plain semver like `5.2.0` → `mainnet`; ask whether testnet
+  reads it too (`/release-docs` "One version, several release types")
 - Contains `testnet` → `testnet`
 - Contains `rc` → usually `testnet`; confirm with the user, since an rc can ship to mainnet
 - Contains `devnet` → **abort**: network docs have no devnet version; use `/release-docs`
@@ -169,7 +170,7 @@ export AZTEC_NODE_DIR=$STATE/aztec-node
 docs_env() {
   local pin; pin=\$(node "$CUT/docs/scripts/aztec_node.mts" env) || return 1
   eval "\$pin"
-  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> DOCS_COMMIT=$DOCS_COMMIT "\$@"
+  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT "\$@"
 }
 aztec_cli() {
   [ -x $CLI_HOME/.aztec/current/bin/aztec ] || { echo "no release CLI in $CLI_HOME" >&2; return 1; }
@@ -179,7 +180,8 @@ aztec_cli() {
 EOF
 ```
 
-`<TAG_VAR>` is `MAINNET_TAG` or `TESTNET_TAG`, and its value has no `v`; `COMMIT_TAG`
+`<TAG_VAR>` is `MAINNET_TAG` or `TESTNET_TAG`, and its value has no `v`; `<OTHER_TAG_VARS>`
+sets the other type's tag to the version its network runs, or is empty. `COMMIT_TAG`
 keeps its `v` (the preprocessor emits it as a git ref). `docs_env` checks the cut's pin
 and checkout and exports the pin's versions before running a docs command; it fails when
 they disagree. `AZTEC_NODE_DIR` keeps the cut's checkout outside the worktree, as
@@ -425,7 +427,7 @@ Record the current network version for this release type first; Step 8 deletes i
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 cat network_version_config.json
 docs_env yarn docusaurus docs:version:network "$LABS_TAG"
-scripts/update_docs_versions.sh network <release_type> "$LABS_TAG"
+scripts/update_docs_versions.sh network <release_type> "$LABS_TAG"  # once per release type this version serves
 grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#include_foundation_version|#release_version|#release_network|#include_code' \
   network_versioned_docs/version-v<new_version>/
 ```
