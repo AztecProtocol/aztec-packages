@@ -543,8 +543,11 @@ void handle_update_archive(WsdbRequest& ctx,
 void handle_commit(WsdbRequest& ctx, wire::WsdbCommit&& /*cmd*/, Responder<wire::WsdbCommitResponse> respond)
 {
     schedule_write(ctx, 0, std::move(respond), [&ctx]() -> wire::WsdbCommitResponse {
-        WorldStateStatusFull status;
-        ctx.world_state.commit(status);
+        WorldStateStatusFull status{};
+        auto [committed, message] = ctx.world_state.commit(status);
+        if (!committed) {
+            throw std::runtime_error(message);
+        }
         return wire::WsdbCommitResponse{ .status = status };
     });
 }
@@ -757,6 +760,17 @@ void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<
         ctx.world_state.copy_stores(cmd.dstPath, cmd.compact.value_or(false));
         return wire::WsdbCopyStoresResponse{};
     });
+}
+
+// aztec-wsdb takes its genesis on the command line, before it opens its stores. InitGenesis is for in-process world
+// states (wsdb-ref), which have no command line.
+void handle_init_genesis(WsdbRequest& /*ctx*/,
+                         wire::WsdbInitGenesis&& /*cmd*/,
+                         Responder<wire::WsdbInitGenesisResponse> respond)
+{
+    respond.error("aztec-wsdb takes its genesis on the command line (--tree-heights, --tree-prefill, "
+                  "--prefilled-public-data, --prefilled-nullifiers, --genesis-timestamp, "
+                  "--initial-header-generator-point), not over InitGenesis");
 }
 
 } // namespace azteclabs::wsdb
