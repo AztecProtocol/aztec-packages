@@ -225,7 +225,7 @@ FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
 | `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
 | `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
 | `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
-| `WasmWorker`, `createWasmWorker` | a worker several modules share (`worker: <WasmWorker>`), so each can reach another directly |
+| `ServiceThread`, `createServiceThread` | a worker thread several service instances share (`worker: <ServiceThread>`), wasm modules or napi addon instances, so each can reach another directly |
 | `runMainWorker`, `runThreadWorker` | bodies for a package's own worker scripts                                          |
 | `compileWasmModule`           | `Module` from a URL, `Response`, raw or gzipped bytes; streaming compilation for URLs      |
 
@@ -243,22 +243,35 @@ each target name the module calls to another module's backend, any backend or
 generated service, or a function from request bytes to response bytes, which
 may answer asynchronously.
 
-An asynchronous backend (`WasmFfiBackend`, on a worker or on the calling
-thread) waits for an asynchronous answer through JSPI
+An asynchronous backend's wasm module (`WasmFfiBackend`, on a service thread
+or on the calling thread) waits for an asynchronous answer through JSPI
 (`WebAssembly.Suspending`/`promising`): the module's stack is suspended until
 the answer settles, with no worker, `SharedArrayBuffer` or cross-origin
 isolation needed. JSPI suspends on every host call, so only a module that
 imports `host_call` is run that way; calls into one module are queued, since
 one suspended mid-call must not be entered again. An engine without JSPI
-fails such a module's load.
+fails such a module's load. A napi instance calls its host from a native
+stack, which JSPI can't suspend: on a service thread, the thread waits on a
+shared buffer (`Atomics.wait`) for the owner's answer instead.
 
-A backend on the same `WasmWorker` is called directly from the worker, with no
-message passing; anything else is called on the thread that created the
+A backend on the same `ServiceThread` is called directly from the thread, with
+no message passing; anything else is called on the thread that created the
 backend. A module only reaches modules loaded before it, so siblings cannot
-call round in a cycle. The modules on one worker run one call at a time, so a
-handler on the owning thread must not wait on a module of the same worker,
-which cannot run until the handler answers. `WasmFfiBackendSync` takes only
-synchronous answers.
+call round in a cycle. The instances on one thread run one call at a time, so a
+handler on the owning thread must not wait on an instance of the same thread,
+which cannot run until the handler answers. A napi instance's siblings must
+answer it synchronously. `WasmFfiBackendSync` and napi instances on the
+calling thread take only synchronous answers.
+
+`NapiFfiBackend` and `NapiFfiBackendSync` (main entry, node only) run a
+service's Node-API addon. An addon that exports instances (`create`,
+`callInstance`, `destroy`; see the FFI section of `SCHEMA_SPEC.md`) gets one
+instance per backend through `instance()`, which takes the same `worker` and
+`hostCall` options as a wasm module: the instance runs on a `ServiceThread`,
+or on the calling thread for the sync backend, and its host calls are routed
+the same way. Wasm modules and napi instances can share one thread and call
+each other in either direction. An addon without instances has one process
+wide context, called on the libuv pool.
 
 ### Zig (`zig/`)
 

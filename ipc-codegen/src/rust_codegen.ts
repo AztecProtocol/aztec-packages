@@ -981,8 +981,8 @@ extern "C" {
 ///
 /// # Thread Safety
 ///
-/// Not thread-safe: the FFI entry serializes nothing, so each thread should have its own
-/// \`FfiBackend\` or callers should synchronize externally.
+/// Every \`FfiBackend\` shares the library's one process instance (its FFI entry), and the contract
+/// does not promise that the entry serializes calls, so synchronize concurrent ones externally.
 pub struct FfiBackend {
     _initialized: bool,
 }
@@ -1048,6 +1048,9 @@ impl Default for FfiBackend {
     const snake = toSnakeCase(prefix || "ipc");
     const macroName = `export_${snake}_ffi`;
     const entry = this.ffiSymbol("ipc_ffi_entry");
+    const create = this.ffiSymbol("ipc_ffi_create");
+    const call = this.ffiSymbol("ipc_ffi_call");
+    const destroy = this.ffiSymbol("ipc_ffi_destroy");
     const alloc = this.ffiSymbol("ipc_ffi_alloc");
     const free = this.ffiSymbol("ipc_ffi_free");
 
@@ -1055,10 +1058,15 @@ impl Default for FfiBackend {
 //! In-process FFI entry for ${prefix || "service"}: the ipc-codegen FFI backend contract, with the
 //! symbols prefixed by the service so several services can be linked into one binary.
 //!
-//! \`${macroName}!\` defines the exported C-ABI symbols \`${entry}\`, \`${alloc}\` and
-//! \`${free}\` over one handler, built with \`Default\` on the first call and kept for the life
-//! of the process, so stateful command sequences share state the way they would on one transport
-//! connection. Invoke it once at the crate root of a \`cdylib\`/\`staticlib\`, or of a wasm reactor:
+//! \`${macroName}!\` defines the exported C-ABI symbols over a handler type:
+//! - \`${create}\`, \`${call}\` and \`${destroy}\`: instances, each a handler of its own built
+//!   with \`Default\`, so stateful command sequences on one instance share state the way they would
+//!   on one transport connection, and separate instances share nothing. Calls on one instance must
+//!   not overlap; calls on different instances may run concurrently, on any threads.
+//! - \`${entry}\`: a call on one instance of the process, made on first use.
+//! - \`${alloc}\` and \`${free}\`: the malloc-compatible buffers.
+//!
+//! Invoke it once at the crate root of a \`cdylib\`/\`staticlib\`, or of a wasm reactor:
 //!
 //! \`\`\`ignore
 //! ${macroName}!(crate::generated::${snake}_ffi, MyHandler);
@@ -1113,6 +1121,34 @@ pub unsafe fn ffi_free(ptr: *mut u8) {
 #[macro_export]
 macro_rules! ${macroName} {
     ($ffi:path, $handler:ty) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn ${create}() -> *mut ::std::ffi::c_void {
+            ::std::boxed::Box::into_raw(::std::boxed::Box::new(<$handler as ::std::default::Default>::default()))
+                as *mut ::std::ffi::c_void
+        }
+
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn ${call}(
+            instance: *mut ::std::ffi::c_void,
+            input: *const u8,
+            input_len: usize,
+            output: *mut *mut u8,
+            output_len: *mut usize,
+        ) {
+            use $ffi as ffi;
+            // SAFETY: instance came from ${create} and is not in another call (the contract).
+            let handler = unsafe { &mut *(instance as *mut $handler) };
+            unsafe { ffi::ffi_call(handler, input, input_len, output, output_len) };
+        }
+
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn ${destroy}(instance: *mut ::std::ffi::c_void) {
+            if !instance.is_null() {
+                // SAFETY: instance came from ${create} and is destroyed once.
+                drop(unsafe { ::std::boxed::Box::from_raw(instance as *mut $handler) });
+            }
+        }
+
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn ${entry}(
             input: *const u8,
