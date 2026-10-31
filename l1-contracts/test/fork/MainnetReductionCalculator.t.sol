@@ -238,7 +238,7 @@ contract MainnetReductionCalculatorTest is Test {
     assertEq(rewards, _expectedRewards(_auctionReward, _genesisSaleReward));
   }
 
-  /// @dev Every case, then every case again (served from the cache), then an address that is not a validator.
+  /// @dev Every case, then every case again in reverse, then an address that is not a validator.
   function _proposers() internal view returns (address[] memory proposers) {
     proposers = new address[](2 * cases.length + 1);
     for (uint256 i = 0; i < cases.length; i++) {
