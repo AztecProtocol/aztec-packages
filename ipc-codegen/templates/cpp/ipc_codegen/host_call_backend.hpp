@@ -7,7 +7,8 @@
  * the module imports `ipc_runtime.host_call` and names the service by a
  * target string the host binds when it instantiates the module (ipc-runtime's
  * `hostCall` option: another module on the same worker, or a function of the
- * host's own). The call blocks until the host answers.
+ * host's own, which may answer asynchronously). The call blocks, or is suspended
+ * by the host (JSPI), until the host answers.
  *
  * The import's contract:
  *
