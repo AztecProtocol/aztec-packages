@@ -1,0 +1,6 @@
+[package]
+name = "oracles"
+type = "bin"
+authors = [""]
+
+[dependencies]

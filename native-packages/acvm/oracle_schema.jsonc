@@ -1,0 +1,34 @@
+// The oracles an ACVM execution calls out to: a Brillig foreign call, answered by the caller of
+// acvm_schema.jsonc's ExecuteProgram. The aztec-acvm binary reaches it as a client over a socket the
+// caller serves (--oracle); its wasm module through the host's `oracle` host-call target.
+{
+  "service": "Oracle",
+
+  "aliases": {
+    "Fr": "bin32"
+  },
+
+  "types": {
+    // A foreign call's input or output: one field, or an array of them.
+    "ForeignCallValue": {
+      "values": "Fr[]",
+      "array": "bool"
+    }
+  },
+
+  "error": { "message": "string" },
+
+  "commands": {
+    "ForeignCall": {
+      "request": {
+        // The ExecuteProgram this call belongs to.
+        "executionId": "u64",
+        "name": "string",
+        "inputs": "ForeignCallValue[]"
+      },
+      "response": {
+        "outputs": "ForeignCallValue[]"
+      }
+    }
+  }
+}

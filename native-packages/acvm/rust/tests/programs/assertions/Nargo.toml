@@ -1,0 +1,6 @@
+[package]
+name = "assertions"
+type = "bin"
+authors = [""]
+
+[dependencies]
