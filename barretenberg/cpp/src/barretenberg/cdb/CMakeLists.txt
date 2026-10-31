@@ -1,9 +1,10 @@
 set(CDB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/cdb_schema.json)
 set(CDB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
 set(CDB_GEN_OUTPUTS
-    ${CDB_GEN_DIR}/cdb_ipc_client.cpp
-    ${CDB_GEN_DIR}/cdb_ipc_client.hpp
+    ${CDB_GEN_DIR}/cdb_client.hpp
     ${CDB_GEN_DIR}/cdb_types.hpp
+    ${CDB_GEN_DIR}/ipc_codegen/backend.hpp
+    ${CDB_GEN_DIR}/ipc_codegen/ipc_backend.hpp
     ${CDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
     ${CDB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
     ${CDB_GEN_DIR}/ipc_codegen/throw.hpp
@@ -34,7 +35,6 @@ add_custom_target(cdb_ipc_generated DEPENDS ${CDB_GEN_OUTPUTS})
 add_library(
     cdb_ipc_client
     STATIC
-    ${CDB_GEN_DIR}/cdb_ipc_client.cpp
     cdb_ipc_client.cpp
 )
 add_dependencies(cdb_ipc_client cdb_ipc_generated)

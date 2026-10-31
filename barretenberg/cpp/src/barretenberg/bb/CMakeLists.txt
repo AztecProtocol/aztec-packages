@@ -10,7 +10,6 @@ if (NOT(FUZZING))
         bb
         PRIVATE
         barretenberg
-        env
         api
         circuit_checker
         vm2_stub
@@ -50,7 +49,6 @@ if (NOT(FUZZING))
             bb-avm
             PRIVATE
             barretenberg
-            env
             api
             circuit_checker
             vm2

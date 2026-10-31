@@ -1,7 +1,8 @@
-// Echo IPC client (C++) — uses the generated EchoIpcClient.
+// Echo IPC client (C++): the generated EchoApi over ipc-runtime's transport.
 // Usage: echo_client --socket /tmp/echo.sock
 
-#include "generated/echo_ipc_client.hpp"
+#include "generated/echo_client.hpp"
+#include "generated/ipc_codegen/ipc_backend.hpp"
 
 #include <array>
 #include <iostream>
@@ -37,7 +38,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  echo::EchoIpcClient client(socket_path);
+  echo::EchoApi<ipc_codegen::IpcBackend> client(
+      ipc_codegen::IpcBackend{socket_path});
 
   {
     auto resp = client.bytes({.data = {0xDE, 0xAD, 0xBE, 0xEF, 0x42}});

@@ -1,0 +1,97 @@
+// logstr()
+// --------------------
+// Logs a message to stderr and appends the *peak* resident-set size (RSS)
+// of the current process in MiB.
+//
+//  Windows note: link with Psapi.lib
+
+#include "logstr.hpp"
+#include <cstddef>
+#include <cstdlib>
+#include <iomanip>
+#include <iostream>
+#ifndef NO_MULTITHREADING
+#include <mutex>
+#endif
+
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+#include <sys/resource.h>
+#elif defined(_WIN32)
+#define NOMINMAX
+#define PSAPI_VERSION 1
+// clang-format off
+#include <windows.h>
+#include <psapi.h>
+// clang-format on
+#endif
+
+//---------------------------------------------------------------------
+// peak_rss_bytes()
+//---------------------------------------------------------------------
+// Returns the *peak* RSS in **bytes** for the current process,
+// or 0 on failure / unsupported platform.
+//---------------------------------------------------------------------
+std::size_t peak_rss_bytes()
+{
+#if defined(_WIN32)
+    PROCESS_MEMORY_COUNTERS pmc{};
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+        return static_cast<std::size_t>(pmc.PeakWorkingSetSize);
+
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+    struct rusage usage{};
+    if (getrusage(RUSAGE_SELF, &usage) == 0)
+        // ru_maxrss is already bytes on macOS / BSD
+        return static_cast<std::size_t>(usage.ru_maxrss);
+
+#elif defined(__linux__)
+    struct rusage usage{};
+    if (getrusage(RUSAGE_SELF, &usage) == 0)
+        // ru_maxrss is kilobytes on Linux → convert to bytes
+        return static_cast<std::size_t>(usage.ru_maxrss) * 1024ULL;
+#endif
+
+    return 0; // fallback on error / unknown OS
+}
+
+//---------------------------------------------------------------------
+// logstr()
+//---------------------------------------------------------------------
+//   Prints  "<msg> (mem: <value> MiB)"  with two-digit precision.
+//
+//   • Thread-safe w.r.t. internal state; output lines may still
+//     interleave if multiple threads call concurrently (as with any
+//     stderr logging).
+//---------------------------------------------------------------------
+void logstr(char const* msg)
+{
+#ifdef __wasm__
+    // Wasm has no RSS; report the module's linear memory size instead. The browser benchmarks parse
+    // this exact form, "(mem: 12.34MiB)", which bb.js's host used to append.
+    constexpr double PAGES_PER_MIB = 16; // 64 KiB pages
+    std::cerr << msg << " (mem: " << std::fixed << std::setprecision(2)
+              << static_cast<double>(__builtin_wasm_memory_size(0)) / PAGES_PER_MIB << "MiB)\n";
+#else
+#ifndef NO_MULTITHREADING
+    static std::mutex log_mutex;
+    std::lock_guard<std::mutex> lock(log_mutex);
+#endif
+
+    static bool disable_mem_usage = std::getenv("BB_DISABLE_MEM_USAGE") != nullptr;
+    if (disable_mem_usage) {
+        std::cerr << msg << '\n';
+        return;
+    }
+
+    const std::size_t bytes = peak_rss_bytes();
+    std::cerr << msg;
+
+    if (bytes != 0) {
+        const double mib = static_cast<double>(bytes) / (1024.0 * 1024.0);
+        std::cerr << " (mem: " << std::fixed << std::setprecision(2) << mib << " MiB)";
+    } else {
+        std::cerr << " (mem: N/A)";
+    }
+    std::cerr << '\n';
+#endif
+}

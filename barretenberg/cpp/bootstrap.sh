@@ -47,9 +47,7 @@ function inject_version {
   fi
 }
 
-# The one path every distributed bb/bb-avm binary goes through, so the npm packages, the GitHub
-# release tarballs and bb.js's bundled copies are byte-identical and report the release version:
-# strip (llvm-strip-20 where available; bb.exe is left as built), then inject_version (which also
+# Strip (llvm-strip-20 where available; bb.exe is left as built), then inject_version (which also
 # re-signs Mach-O). Idempotent.
 function finalize_bb_binary {
   local binary=$1
@@ -68,6 +66,22 @@ function inject_bb_versions {
      fi
    done
  }
+
+# The distributed copies of a build's bb, bb.exe and bb-avm: finalized into bin/dist, beside the
+# unstripped originals (kept for debugging). Every channel that ships them (the GitHub release
+# tarballs, the @aztec-foundation/bb and bb.js-api platform packages) copies from bin/dist, so they
+# are byte-identical and report this build's version.
+function stage_dist_binaries {
+  local bin_dir=$1
+  rm -rf "$bin_dir/dist"
+  local f
+  for f in "$bin_dir"/bb "$bin_dir"/bb.exe "$bin_dir"/bb-avm; do
+    [ -f "$f" ] || continue
+    mkdir -p "$bin_dir/dist"
+    cp "$f" "$bin_dir/dist/"
+    finalize_bb_binary "$bin_dir/dist/$(basename "$f")"
+  done
+}
 
 # Raw cmake configure + build. Internal helper.
 function cmake_build {
@@ -115,6 +129,10 @@ function build_preset {
     cache_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
   fi
   inject_bb_versions $build_dir/bin
+  # Only the native and cross builds ship binaries. The wasm presets' bin/bb is a test binary.
+  case $preset in
+    $native_preset|arm64-linux|amd64-macos|arm64-macos|amd64-windows) stage_dist_binaries $build_dir/bin ;;
+  esac
 }
 
 # Only check formatting if we're actually going to build (not cached).
@@ -228,11 +246,7 @@ function build_smt_verification {
 # platform packages ship (barretenberg/ts/scripts/native_packages.sh verifies that).
 function release_tar {
   local out=$1 src_dir=$2 name=$3
-  local tmp; tmp=$(mktemp -d)
-  cp "$src_dir/$name" "$tmp/$name"
-  finalize_bb_binary "$tmp/$name"
-  tar -czf "$out" -C "$tmp" "$name"
-  rm -rf "$tmp"
+  tar -czf "$out" -C "$src_dir/dist" "$name"
 }
 
 function build_release_dir {
@@ -269,7 +283,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_windows_syntax_check_only build_smt_verification inject_version inject_bb_versions finalize_bb_binary release_tar
+export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_windows_syntax_check_only build_smt_verification inject_version inject_bb_versions finalize_bb_binary stage_dist_binaries release_tar
 
 function build {
   echo_header "bb cpp build"

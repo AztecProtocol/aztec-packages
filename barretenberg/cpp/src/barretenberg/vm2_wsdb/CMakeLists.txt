@@ -10,11 +10,12 @@ if(TARGET vm2_sim)
     set(WSDB_SCHEMA ${CMAKE_SOURCE_DIR}/../../native-packages/wsdb/wsdb_schema.jsonc)
     set(WSDB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
     set(WSDB_GEN_OUTPUTS
-        ${WSDB_GEN_DIR}/wsdb_ipc_client.cpp
-        ${WSDB_GEN_DIR}/wsdb_ipc_client.hpp
+        ${WSDB_GEN_DIR}/wsdb_client.hpp
         ${WSDB_GEN_DIR}/wsdb_types.hpp
+        ${WSDB_GEN_DIR}/ipc_codegen/backend.hpp
+        ${WSDB_GEN_DIR}/ipc_codegen/ipc_backend.hpp
         ${WSDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/named_union.hpp
+        ${WSDB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
         ${WSDB_GEN_DIR}/ipc_codegen/throw.hpp
     )
     set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
@@ -42,7 +43,6 @@ if(TARGET vm2_sim)
         wsdb_ipc_merkle_db
         STATIC
         wsdb_ipc_merkle_db.cpp
-        ${WSDB_GEN_DIR}/wsdb_ipc_client.cpp
     )
     add_dependencies(wsdb_ipc_merkle_db wsdb_ipc_generated)
     target_include_directories(
