@@ -1,0 +1,6 @@
+[package]
+name = "acir_calls"
+type = "bin"
+authors = [""]
+
+[dependencies]

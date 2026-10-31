@@ -1,0 +1,17 @@
+{
+  "name": "@aztec-labs/acvm-packages",
+  "packageManager": "yarn@4.13.0",
+  "private": true,
+  "scripts": {
+    "build": "yarn workspace @aztec-labs/acvm build && yarn workspace @aztec-labs/acvm-oracle build",
+    "clean": "yarn workspaces foreach -A -p -v run clean"
+  },
+  "workspaces": [
+    "ts",
+    "ts/packages/*",
+    "oracle"
+  ],
+  "resolutions": {
+    "@aztec-foundation/ipc-runtime": "portal:../../ipc-runtime/ts"
+  }
+}
