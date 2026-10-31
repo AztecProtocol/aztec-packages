@@ -1,0 +1,71 @@
+// The ACVM execution service: runs compiled Noir (ACIR) programs to a solved witness. Served by the
+// Rust crate in rust/ as a native binary (aztec-acvm) and as a wasm module, behind the generated
+// @aztec-labs/acvm client. Oracles (Brillig foreign calls) are answered by the Oracle service
+// (oracle_schema.jsonc), which the caller provides.
+{
+  "service": "Acvm",
+
+  // A field element, 32 bytes big-endian.
+  "aliases": {
+    "Fr": "bin32"
+  },
+
+  "types": {
+    // One solved (or initial) witness: its index and value. A witness map crosses the wire as an
+    // array of these.
+    "WitnessEntry": {
+      "index": "u32",
+      "value": "Fr"
+    },
+
+    // An assertion's payload as the circuit raised it, for the caller to decode against the ABI:
+    // the error selector (decimal u64) and the data (0x-hex fields), the shape acvm_js reports.
+    "RawAssertionPayload": {
+      "selector": "string",
+      "data": "string[]"
+    },
+
+    // The program failed to solve: an assertion or a Brillig trap. This is the program's outcome, not
+    // the service's error: it comes back on the response, so the caller can rebuild acvm_js's
+    // ExecutionError (message, call stack, payload, function ids) and map it to source.
+    "ExecutionFailure": {
+      "message": "string",
+      // Opcode locations of the failure, outermost first, each as acvm's OpcodeLocation displays it
+      // ("12", or "3.5" inside a Brillig call).
+      "callStack": "string[]?",
+      "rawAssertionPayload": "RawAssertionPayload?",
+      "acirFunctionId": "u32?",
+      "brilligFunctionId": "u32?"
+    }
+  },
+
+  "error": { "message": "string" },
+
+  "commands": {
+    // Solve a program from its main function's initial witness. Oracles go to the Oracle service,
+    // tagged with `executionId` so one Oracle server can answer several callers' executions.
+    "ExecuteProgram": {
+      "request": {
+        "executionId": "u64",
+        // The program as Program::serialize_program writes it (a compiled artifact's bytecode,
+        // base64-decoded).
+        "bytecode": "bytes",
+        "initialWitness": "WitnessEntry[]",
+        // Return the main function's solved witness (it can run to millions of entries).
+        "returnWitnessMap": "bool",
+        // Return the witness stack in the form bb takes as a prover's witness: msgpack, uncompressed.
+        "returnWitnessStack": "bool"
+      },
+      "response": {
+        // The main function's return values: its solved witness at the circuit's return indices.
+        "returnWitness": "WitnessEntry[]",
+        // When asked for, the main function's solved witness.
+        "witness": "WitnessEntry[]",
+        // When asked for, every function's solved witness, as bb takes it.
+        "witnessStack": "bytes?",
+        // Set when the program failed to solve; the witnesses are then empty.
+        "failure": "ExecutionFailure?"
+      }
+    }
+  }
+}
