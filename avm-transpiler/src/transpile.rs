@@ -592,7 +592,7 @@ fn parse_u128_arithmetic_oracle(foreign_call: &BrilligOpcode<FieldElement>) -> U
     let u128_type = HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U128));
     let mut expected_inputs = vec![u128_type.clone(), u128_type.clone()];
     if is_mul_div {
-        expected_inputs.push(HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U64)));
+        expected_inputs.push(u128_type.clone());
     }
     let expected_outputs = vec![u128_type; if is_mul_div { 1 } else { 2 }];
     assert_eq!(input_value_types.as_slice(), expected_inputs, "{function}: invalid input types");
@@ -639,13 +639,7 @@ fn lower_u128_arithmetic(
             (Procedure::U128WideMul, vec![(3, lo), (4, hi)])
         }
         U128ArithmeticOperation::MulDiv { denominator, quotient } => {
-            avm_instrs.push(generate_cast_instruction(
-                &denominator,
-                false,
-                &MemoryAddress::direct((scratch_space_range().start + 9) as u32),
-                false,
-                AvmTypeTag::UINT128,
-            ));
+            avm_instrs.push(generate_mov_to_procedure(&denominator, 9));
             avm_instrs.push(generate_set_to_procedure(AvmTypeTag::UINT128, &64u32.into(), 12));
             (Procedure::U128MulDiv, vec![(21, quotient)])
         }
@@ -2015,7 +2009,7 @@ mod u128_arithmetic_tests {
         };
         *function = "aztec_avm_u128_mul_div".into();
         inputs.push(ValueOrArray::MemoryAddress(MemoryAddress::direct(104)));
-        input_value_types.push(HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U64)));
+        input_value_types.push(HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U128)));
         destinations.pop();
         destination_value_types.pop();
         instruction
@@ -2028,12 +2022,12 @@ mod u128_arithmetic_tests {
     }
 
     #[test]
-    fn rejects_wide_denominator() {
+    fn rejects_narrow_denominator() {
         let mut instruction = mul_div_oracle();
         let BrilligOpcode::ForeignCall { input_value_types, .. } = &mut instruction else {
             unreachable!()
         };
-        input_value_types[2] = HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U128));
+        input_value_types[2] = HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U64));
         assert!(std::panic::catch_unwind(|| brillig_to_avm(&[instruction])).is_err());
     }
 

@@ -13,11 +13,12 @@ limb from the field product and multiplying by the field inverse of `2^128`.
 The recovered high limb fits U128, so its field residue is the exact integer.
 The inverse is computed during transpilation and emitted in one `SET_FF`.
 
-The same package exposes `mul_div(a: u128, b: u128, d: u64) -> u128`.
+The same package exposes `mul_div(a: u128, b: u128, d: u128) -> u128`.
 It rounds the exact product divided by `d` down, and fails for a zero denominator
-or a quotient exceeding U128. `10^18` uses this general U64 routine. The
-transpiler widens the denominator with one CAST and retains the arithmetic
-`hi < d` check.
+or a quotient exceeding U128. Denominators below `2^64`, including `10^18`,
+use the existing two-stage division path. Larger denominators use normalized
+base-`2^64` division with quotient correction. The transpiler transfers the
+U128 denominator directly and retains the arithmetic `hi < d` check.
 
 ## Use from Noir
 

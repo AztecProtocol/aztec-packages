@@ -15,9 +15,9 @@ unconstrained fn wide_mul_oracle(a: u128, b: u128) -> (u128, u128) {}
 
 /// Returns floor(a * b / d) using the exact product. Public AVM execution only.
 /// Fails when d is zero or the quotient exceeds U128.
-pub unconstrained fn mul_div(a: u128, b: u128, d: u64) -> u128 {
+pub unconstrained fn mul_div(a: u128, b: u128, d: u128) -> u128 {
     mul_div_oracle(a, b, d)
 }
 
 #[oracle(aztec_avm_u128_mul_div)]
-unconstrained fn mul_div_oracle(a: u128, b: u128, d: u64) -> u128 {}
+unconstrained fn mul_div_oracle(a: u128, b: u128, d: u128) -> u128 {}
