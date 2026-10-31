@@ -22,10 +22,46 @@ export interface InstanceOptions {
   threads?: number;
   /**
    * Answers the module's `ipc_runtime.host_call(target, request)`: the response bytes of the service
-   * bound to `target`, synchronously. A throw fails the call in the module with its message. Unset,
+   * bound to `target`. A throw or rejection fails the call in the module with its message. Unset,
    * every host call fails, which leaves a module that never makes one unaffected.
    */
-  hostCall?: (target: string, request: Uint8Array) => Uint8Array;
+  hostCall?: HostCallAnswer;
+  /**
+   * Let host calls be answered asynchronously, through JSPI: the module's stack is suspended while
+   * an answer is awaited, and calls are made with `callAsync`. JSPI suspends on every host call,
+   * answered synchronously or not, so an instance either suspends or doesn't: without this, `call`
+   * runs synchronously and an asynchronous answer fails the host call.
+   */
+  suspending?: boolean;
+}
+
+/** What a module's host call is answered with. */
+export type HostCallAnswer = (
+  target: string,
+  request: Uint8Array,
+) => Uint8Array | Promise<Uint8Array>;
+
+/** JSPI (`WebAssembly.Suspending` and `WebAssembly.promising`), which the lib typings predate. */
+interface Jspi {
+  Suspending: new (fn: (...args: number[]) => unknown) => WebAssembly.ImportValue;
+  promising: (fn: WasmFn) => (...args: number[]) => Promise<unknown>;
+}
+
+/** The engine's JSPI, or undefined where it has none. */
+export function jspi(): Jspi | undefined {
+  const wasm = WebAssembly as unknown as Partial<Jspi>;
+  return typeof wasm.Suspending === "function" &&
+    typeof wasm.promising === "function"
+    ? (wasm as Jspi)
+    : undefined;
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
 }
 
 /** The import module a module reaches its host's services through (see `InstanceOptions.hostCall`). */
@@ -109,6 +145,10 @@ export class WasmInstanceHost {
     readonly instance: WebAssembly.Instance,
     readonly memory: WebAssembly.Memory,
     private readonly entry: WasmFn,
+    /** The entry as JSPI's `promising` wraps it, when the instance suspends. */
+    private readonly suspendingEntry:
+      | ((...args: number[]) => Promise<unknown>)
+      | undefined,
     private readonly alloc: WasmFn,
     private readonly free: WasmFn,
     readonly logger: (msg: string) => void,
@@ -122,27 +162,35 @@ export class WasmInstanceHost {
     let memory = opts.memory;
     const logger = opts.logger ?? (() => {});
     const stderr = new StderrTail();
+    const suspend = opts.suspending ? jspi() : undefined;
+    if (opts.suspending && !suspend) {
+      throw new Error(
+        "this engine has no JSPI (WebAssembly.Suspending), which asynchronous host calls need",
+      );
+    }
     // The import is bound before the instance exists; the calls it makes need the instance.
     let self: WasmInstanceHost | undefined;
+    const hostCall = (
+      targetPtr: number,
+      targetLen: number,
+      requestPtr: number,
+      requestLen: number,
+      responsePtrOut: number,
+      responseLenOut: number,
+    ) =>
+      self!.hostCall(
+        opts.hostCall,
+        suspend !== undefined,
+        targetPtr >>> 0,
+        targetLen >>> 0,
+        requestPtr >>> 0,
+        requestLen >>> 0,
+        responsePtrOut >>> 0,
+        responseLenOut >>> 0,
+      );
     const imports: Record<string, Record<string, WebAssembly.ImportValue>> = {
       [HOST_CALL_NAMESPACE]: {
-        host_call: (
-          targetPtr: number,
-          targetLen: number,
-          requestPtr: number,
-          requestLen: number,
-          responsePtrOut: number,
-          responseLenOut: number,
-        ) =>
-          self!.hostCall(
-            opts.hostCall,
-            targetPtr >>> 0,
-            targetLen >>> 0,
-            requestPtr >>> 0,
-            requestLen >>> 0,
-            responsePtrOut >>> 0,
-            responseLenOut >>> 0,
-          ),
+        host_call: suspend ? new suspend.Suspending(hostCall) : hostCall,
       },
       env: { memory },
       [WASI_NAMESPACE]: createWasiImports(opts.module, () => memory, {
@@ -204,6 +252,7 @@ export class WasmInstanceHost {
       instance,
       memory,
       exports[entry] as WasmFn,
+      suspend?.promising(exports[entry] as WasmFn),
       exports[pair[0]] as WasmFn,
       exports[pair[1]] as WasmFn,
       logger,
@@ -216,25 +265,32 @@ export class WasmInstanceHost {
    * The `host_call` import: read the target and request out of module memory, answer through
    * `handler`, and leave the answer in a buffer from the module's allocator, which the module frees.
    * Returns 0 when the bytes are the service's response, 1 when they are a message saying why there
-   * is none.
+   * is none; a promise of that when the instance suspends.
    */
   private hostCall(
     handler: InstanceOptions["hostCall"],
+    suspending: boolean,
     targetPtr: number,
     targetLen: number,
     requestPtr: number,
     requestLen: number,
     responsePtrOut: number,
     responseLenOut: number,
-  ): number {
+  ): number | Promise<number> {
     this.refreshViews();
     const target = new TextDecoder().decode(
       this.bytes.subarray(targetPtr, targetPtr + targetLen),
     );
     // A copy: the handler may call back into module memory, growing and detaching this view.
     const request = this.bytes.slice(requestPtr, requestPtr + requestLen);
-    let status = 0;
-    let response: Uint8Array;
+    const fail = (e: unknown) =>
+      this.answer(
+        1,
+        new TextEncoder().encode(e instanceof Error ? e.message : String(e)),
+        responsePtrOut,
+        responseLenOut,
+      );
+    let response: Uint8Array | Promise<Uint8Array>;
     try {
       if (!handler) {
         throw new Error(
@@ -243,11 +299,33 @@ export class WasmInstanceHost {
       }
       response = handler(target, request);
     } catch (e) {
-      status = 1;
-      response = new TextEncoder().encode(
-        e instanceof Error ? e.message : String(e),
+      return fail(e);
+    }
+    if (isThenable(response)) {
+      if (!suspending) {
+        // Nothing can settle it: the module holds this thread until it returns.
+        void Promise.resolve(response).catch(() => {});
+        return fail(
+          new Error(
+            `host call "${target}" answered asynchronously; a synchronous backend needs synchronous answers`,
+          ),
+        );
+      }
+      return Promise.resolve(response).then(
+        (bytes) => this.answer(0, bytes, responsePtrOut, responseLenOut),
+        fail,
       );
     }
+    return this.answer(0, response, responsePtrOut, responseLenOut);
+  }
+
+  /** Leave a host call's answer in a buffer from the module's allocator, and return its status. */
+  private answer(
+    status: number,
+    response: Uint8Array,
+    responsePtrOut: number,
+    responseLenOut: number,
+  ): number {
     const ptr = this.alloc(Math.max(1, response.length)) >>> 0;
     if (ptr === 0) {
       throw new Error(
@@ -287,11 +365,17 @@ export class WasmInstanceHost {
 
   /**
    * A buffer held across calls for the request and the two response slots, so a round trip costs
-   * no allocator traffic of its own. It only ever grows, and calls are serialized (the entry is
-   * synchronous and single-threaded), so one buffer is enough.
+   * no allocator traffic of its own. It only ever grows, and calls never overlap (see `inCall`), so
+   * one buffer is enough.
    */
   private scratch = 0;
   private scratchCapacity = 0;
+  /**
+   * Whether a call is in progress. A suspended call leaves the thread free, and a second call
+   * entering the module then would run its handler mid-call and overwrite the scratch, so callers
+   * queue their calls (see `WasmFfiBackend`); this only catches one that doesn't.
+   */
+  private inCall = false;
 
   private reserveScratch(size: number): number {
     if (size <= this.scratchCapacity) {
@@ -316,39 +400,86 @@ export class WasmInstanceHost {
     return scratch;
   }
 
+  /** Whether this instance suspends on host calls, and so is called through `callAsync`. */
+  get suspends(): boolean {
+    return this.suspendingEntry !== undefined;
+  }
+
   /**
    * One FFI round trip: request bytes in, a copy of the response bytes out. The request is placed
    * in module memory, and the response is read from where the module left it and released with the
    * module's own free, as the FFI contract requires.
    */
   call(input: Uint8Array): Uint8Array {
-    const slots = this.reserveScratch(SLOTS_BYTES + input.length);
-    const inPtr = slots + SLOTS_BYTES;
-    let outPtr = 0;
-    this.stderr.reset();
+    if (this.suspendingEntry) {
+      throw new Error(
+        "this wasm instance suspends on host calls; call it with callAsync",
+      );
+    }
+    const slots = this.begin(input);
     try {
-      this.refreshViews();
-      this.bytes.set(input, inPtr);
-      this.words.setUint32(slots, 0, true);
-      this.words.setUint32(slots + 4, 0, true);
-      try {
-        this.entry(inPtr, input.length, slots, slots + 4);
-      } catch (cause) {
-        const reported = this.stderr.text();
-        if (!reported) {
-          throw cause;
-        }
-        throw new Error(reported, { cause });
-      }
-      // The call may have grown memory, detaching the buffer the views were built over.
-      this.refreshViews();
-      outPtr = this.words.getUint32(slots, true);
-      const outLen = this.words.getUint32(slots + 4, true);
+      this.entry(slots + SLOTS_BYTES, input.length, slots, slots + 4);
+    } catch (cause) {
+      this.inCall = false;
+      throw this.explain(cause);
+    }
+    return this.finish(slots);
+  }
+
+  /** `call`, for an instance that suspends on host calls: it settles once the module returns. */
+  async callAsync(input: Uint8Array): Promise<Uint8Array> {
+    if (!this.suspendingEntry) {
+      return this.call(input);
+    }
+    const slots = this.begin(input);
+    try {
+      await this.suspendingEntry(
+        slots + SLOTS_BYTES,
+        input.length,
+        slots,
+        slots + 4,
+      );
+    } catch (cause) {
+      this.inCall = false;
+      throw this.explain(cause);
+    }
+    return this.finish(slots);
+  }
+
+  /** Place the request in module memory and clear the response slots; returns the slots. */
+  private begin(input: Uint8Array): number {
+    if (this.inCall) {
+      throw new Error("wasm module called while a call into it is in progress");
+    }
+    const slots = this.reserveScratch(SLOTS_BYTES + input.length);
+    this.inCall = true;
+    this.stderr.reset();
+    this.refreshViews();
+    this.bytes.set(input, slots + SLOTS_BYTES);
+    this.words.setUint32(slots, 0, true);
+    this.words.setUint32(slots + 4, 0, true);
+    return slots;
+  }
+
+  /** Copy out the response the module left in the slots and release it. */
+  private finish(slots: number): Uint8Array {
+    this.inCall = false;
+    // The call may have grown memory, detaching the buffer the views were built over.
+    this.refreshViews();
+    const outPtr = this.words.getUint32(slots, true);
+    const outLen = this.words.getUint32(slots + 4, true);
+    try {
       return this.bytes.slice(outPtr, outPtr + outLen);
     } finally {
       if (outPtr !== 0) {
         this.free(outPtr);
       }
     }
+  }
+
+  /** A trap with what the module wrote to stderr before it, which says what went wrong. */
+  private explain(cause: unknown): unknown {
+    const reported = this.stderr.text();
+    return reported ? new Error(reported, { cause }) : cause;
   }
 }

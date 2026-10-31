@@ -1,12 +1,10 @@
 import type { IpcClientAsync, IpcClientSync } from "../types.js";
-import { WasmInstanceHost } from "./host.js";
 import {
-  type HostCallTargets,
-  answerHostCall,
-  createHostCallChannel,
-  synchronousHostCall,
-  unwrapTarget,
-} from "./host_call.js";
+  HOST_CALL_NAMESPACE,
+  type HostCallAnswer,
+  WasmInstanceHost,
+} from "./host.js";
+import { type HostCallTargets, hostCallOn, unwrapTarget } from "./host_call.js";
 import { type WasmModuleSource, compileWasmModule } from "./module_source.js";
 import type { WasmPlatform, WorkerHandle } from "./platform.js";
 
@@ -27,9 +25,21 @@ export interface WasmFfiOptions {
   hostCall?: HostCallTargets;
 }
 
-/** What the engine is given: the host calls already resolved to a synchronous answer. */
+/** What the engine is given: the host calls already resolved to one function answering them. */
 export interface WasmEngineOptions extends Omit<WasmFfiOptions, "hostCall"> {
-  hostCall?: (target: string, request: Uint8Array) => Uint8Array;
+  hostCall?: HostCallAnswer;
+  /**
+   * Answer host calls asynchronously (JSPI), and be called through `callAsync`. Taken only by a
+   * module that makes host calls, since JSPI suspends on every one; any other runs synchronously.
+   */
+  suspending?: boolean;
+}
+
+/** Whether a module imports `ipc_runtime.host_call`, and so may need to wait on its host. */
+export function importsHostCall(module: WebAssembly.Module): boolean {
+  return WebAssembly.Module.imports(module).some(
+    (i) => i.module === HOST_CALL_NAMESPACE && i.name === "host_call",
+  );
 }
 
 /**
@@ -52,7 +62,7 @@ export interface WasmFfiBackendOptions extends WasmFfiOptions {
    * the caller's event loop and, in browsers, the thread pool is spawned from a worker. A
    * `WasmWorker`: that worker, shared with the other modules loaded on it, which can then be each
    * other's host-call targets with no message passing between them. False: the calling thread,
-   * and every call blocks it until it returns.
+   * and every call blocks it until it returns or waits on a host call.
    */
   worker?: boolean | WasmWorker;
   /** Override the worker factories the platform entry binds. */
@@ -229,6 +239,7 @@ export class WasmFfiEngine {
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
       hostCall: opts.hostCall,
+      suspending: opts.suspending && importsHostCall(module),
     });
     // host.memory is the one the module actually uses, which is its own when it exports one.
     logger(
@@ -239,8 +250,24 @@ export class WasmFfiEngine {
     return new WasmFfiEngine(host, threadWorkers, host.memory, threads);
   }
 
+  /** Whether calls must go through `callAsync`, the module suspending on its host calls. */
+  get suspends(): boolean {
+    return this.host.suspends;
+  }
+
   call(input: Uint8Array): Uint8Array {
     return this.host.call(input);
+  }
+
+  callAsync(input: Uint8Array): Promise<Uint8Array> {
+    return this.host.callAsync(input);
+  }
+
+  /** Any call, by whichever way this engine is called. */
+  callEither(input: Uint8Array): Uint8Array | Promise<Uint8Array> {
+    return this.host.suspends
+      ? this.host.callAsync(input)
+      : this.host.call(input);
   }
 
   unref(): void {
@@ -318,8 +345,8 @@ function createMemory(
 /**
  * A worker hosting the main instances of one or more modules, each in a slot of its own. The
  * modules on one worker run one call at a time between them, and a module can reach another as a
- * host-call target directly, as a synchronous call. Handlers of the owner's own answer through a
- * shared channel while the worker waits for them.
+ * host-call target directly. Handlers of the owner's own answer by message, the module suspended
+ * (JSPI) until the answer arrives.
  *
  * A module is loaded with `WasmFfiBackend.create({ worker })`; the worker lives until `destroy()`,
  * which ends every module on it.
@@ -340,7 +367,6 @@ export class WasmWorker {
 
   private constructor(
     private readonly worker: WorkerHandle,
-    private readonly channel: SharedArrayBuffer,
     readonly binding: WasmFfiBinding,
   ) {
     worker.onMessage((msg) => this.onMessage(msg));
@@ -349,10 +375,7 @@ export class WasmWorker {
 
   /** Spawn the worker; nothing runs on it until a module is loaded. */
   static create(binding: WasmFfiBinding): WasmWorker {
-    const channel = createHostCallChannel();
-    const worker = binding.createMainWorker();
-    worker.postMessage({ type: "channel", channel });
-    return new WasmWorker(worker, channel, binding);
+    return new WasmWorker(binding.createMainWorker(), binding);
   }
 
   /** @internal Load a module into a new slot; host-call targets are already described for it. */
@@ -443,7 +466,12 @@ export class WasmWorker {
         this.loggers.get(msg.slot)?.(msg.message);
         return;
       case "host-call":
-        void this.answer(msg.slot, msg.target, new Uint8Array(msg.request));
+        void this.answer(
+          msg.slot,
+          msg.id,
+          msg.target,
+          new Uint8Array(msg.request),
+        );
         return;
       case "loaded":
       case "unloaded":
@@ -473,25 +501,33 @@ export class WasmWorker {
     }
   }
 
-  /** Run the owner's handler for a module's host call and hand the answer to the waiting worker. */
+  /** Run the owner's handler for a module's host call and send the answer to the waiting module. */
   private async answer(
     slot: number,
+    id: number,
     target: string,
     request: Uint8Array,
   ): Promise<void> {
     const handler = this.handlers.get(slot)?.get(target);
+    let status = 0;
+    let bytes: Uint8Array;
     try {
       if (!handler) {
         throw new Error(`no host-call target "${target}" is bound`);
       }
-      answerHostCall(this.channel, 0, await handler(request));
+      bytes = await handler(request);
     } catch (e) {
-      answerHostCall(
-        this.channel,
-        1,
-        new TextEncoder().encode(e instanceof Error ? e.message : String(e)),
+      status = 1;
+      bytes = new TextEncoder().encode(
+        e instanceof Error ? e.message : String(e),
       );
     }
+    // A private copy to transfer, for the reason `call` makes one.
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    this.worker.postMessage({ type: "host-answer", id, status, bytes: copy }, [
+      copy.buffer,
+    ]);
   }
 
   private failAll(err: unknown): void {
@@ -561,7 +597,8 @@ export class WasmFfiBackend implements IpcClientAsync {
         await WasmFfiEngine.create(
           {
             ...opts,
-            hostCall: synchronousHostCall(opts.hostCall, syncCallerOf),
+            hostCall: hostCallOn(opts.hostCall, syncCallerOf),
+            suspending: true,
           },
           bound,
         ),
@@ -603,21 +640,35 @@ export class WasmFfiBackend implements IpcClientAsync {
     return this.worker === worker ? this.slot : undefined;
   }
 
-  /** @internal A synchronous call into the module, when it runs on the calling thread. */
+  /**
+   * @internal A synchronous call into the module, when it runs on the calling thread and makes no
+   * host calls (one that does is suspended through them, so it can only be called asynchronously).
+   */
   syncCaller(): ((input: Uint8Array) => Uint8Array) | undefined {
     const engine = this.engine;
-    return engine && ((input) => engine.call(input));
+    return engine && !engine.suspends
+      ? (input) => engine.call(input)
+      : undefined;
   }
 
+  /** Calls on the calling thread, chained: a suspended call leaves the thread free for another. */
+  private queue: Promise<unknown> = Promise.resolve();
+
   call(input: Uint8Array): Promise<Uint8Array> {
-    if (this.engine) {
+    const engine = this.engine;
+    if (!engine) {
+      return this.worker!.call(this.slot, input);
+    }
+    if (!engine.suspends) {
       try {
-        return Promise.resolve(this.engine.call(input));
+        return Promise.resolve(engine.call(input));
       } catch (e) {
         return Promise.reject(e);
       }
     }
-    return this.worker!.call(this.slot, input);
+    const result = this.queue.then(() => engine.callAsync(input));
+    this.queue = result.catch(() => {});
+    return result;
   }
 
   /** Let the host process exit even while the module's workers are alive (node). */
@@ -657,7 +708,7 @@ export class WasmFfiBackendSync implements IpcClientSync {
         {
           threads: 1,
           ...opts,
-          hostCall: synchronousHostCall(opts.hostCall, syncCallerOf),
+          hostCall: hostCallOn(opts.hostCall, syncCallerOf),
         },
         binding,
       ),

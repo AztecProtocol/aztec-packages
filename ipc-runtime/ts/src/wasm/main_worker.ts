@@ -1,5 +1,5 @@
 import { type WasmFfiBinding, WasmFfiEngine } from "./backend.js";
-import { awaitHostCallAnswer } from "./host_call.js";
+import type { HostCallAnswer } from "./host.js";
 import type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
 
 export interface MainWorkerOptions {
@@ -13,7 +13,9 @@ export interface MainWorkerOptions {
  * this worker's thread; the parent's event loop stays free.
  *
  * A module's host calls are answered here: a sibling module is called directly, and anything else
- * is asked of the parent, this thread blocked on the shared channel until it answers.
+ * is asked of the parent, the module suspended (JSPI) until the parent answers. Calls run one at a
+ * time across the worker's modules: while one is suspended, a call into any of them could re-enter
+ * a module mid-call through a sibling.
  */
 export function runMainWorker(
   side: WorkerSide,
@@ -21,7 +23,12 @@ export function runMainWorker(
   opts: MainWorkerOptions,
 ): void {
   const engines = new Map<number, WasmFfiEngine>();
-  let channel: SharedArrayBuffer | undefined;
+  const answers = new Map<
+    number,
+    { resolve: (bytes: Uint8Array) => void; reject: (err: Error) => void }
+  >();
+  let nextHostCall = 0;
+  let queue: Promise<unknown> = Promise.resolve();
   const binding: WasmFfiBinding = {
     platform,
     createThreadWorker: opts.createThreadWorker,
@@ -32,7 +39,7 @@ export function runMainWorker(
   function hostCallFor(
     slot: number,
     targets: Record<string, { sibling?: number }>,
-  ): (target: string, request: Uint8Array) => Uint8Array {
+  ): HostCallAnswer {
     return (target, request) => {
       const bound = targets[target];
       if (!bound) {
@@ -45,24 +52,50 @@ export function runMainWorker(
             `host-call target "${target}" is a module that is no longer loaded`,
           );
         }
-        return sibling.call(request);
+        return sibling.callEither(request);
       }
-      side.postMessage({ type: "host-call", slot, target, request }, [
+      const id = nextHostCall++;
+      const answer = new Promise<Uint8Array>((resolve, reject) =>
+        answers.set(id, { resolve, reject }),
+      );
+      side.postMessage({ type: "host-call", slot, id, target, request }, [
         request.buffer as ArrayBuffer,
       ]);
-      const { status, bytes } = awaitHostCallAnswer(channel!);
-      if (status !== 0) {
-        throw new Error(new TextDecoder().decode(bytes));
-      }
-      return bytes;
+      return answer;
     };
+  }
+
+  async function call(msg: { slot: number; id: number; input: ArrayBuffer }) {
+    try {
+      const engine = engines.get(msg.slot);
+      if (!engine) {
+        throw new Error("wasm module is not loaded");
+      }
+      const output = await engine.callEither(new Uint8Array(msg.input));
+      side.postMessage({ type: "result", id: msg.id, output }, [
+        output.buffer as ArrayBuffer,
+      ]);
+    } catch (e) {
+      side.postMessage({
+        type: "error",
+        id: msg.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   side.onMessage(async (msg) => {
     switch (msg?.type) {
-      case "channel":
-        channel = msg.channel;
+      case "host-answer": {
+        const pending = answers.get(msg.id);
+        answers.delete(msg.id);
+        if (msg.status === 0) {
+          pending?.resolve(new Uint8Array(msg.bytes));
+        } else {
+          pending?.reject(new Error(new TextDecoder().decode(msg.bytes)));
+        }
         break;
+      }
       case "load": {
         const slot: number = msg.slot;
         try {
@@ -79,6 +112,7 @@ export function runMainWorker(
                 logger: (message) =>
                   side.postMessage({ type: "log", slot, message }),
                 hostCall: hostCallFor(slot, msg.hostCall ?? {}),
+                suspending: true,
               },
               binding,
             ),
@@ -93,25 +127,9 @@ export function runMainWorker(
         }
         break;
       }
-      case "call": {
-        try {
-          const engine = engines.get(msg.slot);
-          if (!engine) {
-            throw new Error("wasm module is not loaded");
-          }
-          const output = engine.call(new Uint8Array(msg.input));
-          side.postMessage({ type: "result", id: msg.id, output }, [
-            output.buffer as ArrayBuffer,
-          ]);
-        } catch (e) {
-          side.postMessage({
-            type: "error",
-            id: msg.id,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
+      case "call":
+        queue = queue.then(() => call(msg));
         break;
-      }
       case "unload": {
         const engine = engines.get(msg.slot);
         engines.delete(msg.slot);

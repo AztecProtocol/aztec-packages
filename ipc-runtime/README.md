@@ -240,15 +240,25 @@ the load, naming it.
 `ipc_runtime.host_call` is how a module reaches services its host provides
 (the C++ side is ipc-codegen's `HostCallBackend`). The `hostCall` option binds
 each target name the module calls to another module's backend, any backend or
-generated service, or a function from request bytes to response bytes. A
-backend on the same `WasmWorker` is called synchronously from the worker, with
-no message passing; anything else is called on the thread that created the
-backend, while the worker waits on a shared buffer (`Atomics.wait`) for the
-answer. A module only reaches modules loaded before it, so siblings cannot
-call round in a cycle. A handler on the owning thread must not wait on a
-module of the same worker, which cannot run until the handler answers. A
-module on the calling thread (`worker: false`, `WasmFfiBackendSync`) takes
-only synchronous answers.
+generated service, or a function from request bytes to response bytes, which
+may answer asynchronously.
+
+An asynchronous backend (`WasmFfiBackend`, on a worker or on the calling
+thread) waits for an asynchronous answer through JSPI
+(`WebAssembly.Suspending`/`promising`): the module's stack is suspended until
+the answer settles, with no worker, `SharedArrayBuffer` or cross-origin
+isolation needed. JSPI suspends on every host call, so only a module that
+imports `host_call` is run that way; calls into one module are queued, since
+one suspended mid-call must not be entered again. An engine without JSPI
+fails such a module's load.
+
+A backend on the same `WasmWorker` is called directly from the worker, with no
+message passing; anything else is called on the thread that created the
+backend. A module only reaches modules loaded before it, so siblings cannot
+call round in a cycle. The modules on one worker run one call at a time, so a
+handler on the owning thread must not wait on a module of the same worker,
+which cannot run until the handler answers. `WasmFfiBackendSync` takes only
+synchronous answers.
 
 ### Zig (`zig/`)
 
