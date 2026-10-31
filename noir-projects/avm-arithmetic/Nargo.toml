@@ -1,0 +1,4 @@
+[package]
+name = "avm_u128"
+type = "lib"
+authors = []

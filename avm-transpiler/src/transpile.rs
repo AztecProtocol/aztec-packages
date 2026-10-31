@@ -3,12 +3,12 @@ use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
 use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use std::collections::BTreeMap;
 
-use acvm::FieldElement;
 use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapValueType, HeapVector, MemoryAddress,
     ValueOrArray,
 };
+use acvm::{AcirField, FieldElement};
 use noirc_artifacts::debug::DebugInfo;
 
 use crate::bit_traits::{BitsQueryable, bits_needed_for};
@@ -450,17 +450,26 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 function,
                 destinations,
                 inputs,
-                destination_value_types: _,
                 input_value_types,
-            } => {
-                handle_foreign_call(
+                ..
+            } => match function.as_str() {
+                "aztec_avm_u128_wide_mul" | "aztec_avm_u128_mul_div" => {
+                    let arithmetic = parse_u128_arithmetic_oracle(brillig_instr);
+                    lower_u128_arithmetic(
+                        &mut avm_instrs,
+                        arithmetic,
+                        &mut procedures_used,
+                        &mut unresolved_jumps,
+                    );
+                }
+                _ => handle_foreign_call(
                     &mut avm_instrs,
                     function,
                     destinations,
                     inputs,
                     input_value_types,
-                );
-            }
+                ),
+            },
             BrilligOpcode::BlackBox(operation) => {
                 handle_black_box_function(
                     &mut avm_instrs,
@@ -551,6 +560,110 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
     }
 
     (bytecode, brillig_pcs_to_avm_pcs)
+}
+
+enum U128ArithmeticOperation {
+    WideMul { lo: MemoryAddress, hi: MemoryAddress },
+    MulDiv { denominator: MemoryAddress, quotient: MemoryAddress },
+}
+
+struct U128Arithmetic {
+    a: MemoryAddress,
+    b: MemoryAddress,
+    operation: U128ArithmeticOperation,
+}
+
+fn parse_u128_arithmetic_oracle(foreign_call: &BrilligOpcode<FieldElement>) -> U128Arithmetic {
+    let BrilligOpcode::ForeignCall {
+        function,
+        destinations,
+        inputs,
+        input_value_types,
+        destination_value_types,
+    } = foreign_call
+    else {
+        unreachable!("expected an arithmetic oracle call");
+    };
+    let is_mul_div = match function.as_str() {
+        "aztec_avm_u128_wide_mul" => false,
+        "aztec_avm_u128_mul_div" => true,
+        _ => unreachable!("expected an arithmetic oracle name"),
+    };
+    let u128_type = HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U128));
+    let mut expected_inputs = vec![u128_type.clone(), u128_type.clone()];
+    if is_mul_div {
+        expected_inputs.push(HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U64)));
+    }
+    let expected_outputs = vec![u128_type; if is_mul_div { 1 } else { 2 }];
+    assert_eq!(input_value_types.as_slice(), expected_inputs, "{function}: invalid input types");
+    assert_eq!(
+        destination_value_types.as_slice(),
+        expected_outputs,
+        "{function}: invalid output types"
+    );
+    assert_eq!(inputs.len(), expected_inputs.len(), "{function}: invalid input count");
+    assert_eq!(destinations.len(), expected_outputs.len(), "{function}: invalid output count");
+    let scalar = |value: &ValueOrArray| match value {
+        ValueOrArray::MemoryAddress(address) => *address,
+        _ => panic!("{function}: requires scalar inputs and outputs"),
+    };
+    U128Arithmetic {
+        a: scalar(&inputs[0]),
+        b: scalar(&inputs[1]),
+        operation: if is_mul_div {
+            U128ArithmeticOperation::MulDiv {
+                denominator: scalar(&inputs[2]),
+                quotient: scalar(&destinations[0]),
+            }
+        } else {
+            U128ArithmeticOperation::WideMul {
+                lo: scalar(&destinations[0]),
+                hi: scalar(&destinations[1]),
+            }
+        },
+    }
+}
+
+fn lower_u128_arithmetic(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    arithmetic: U128Arithmetic,
+    procedures_used: &mut HashSet<Procedure>,
+    unresolved_jumps: &mut HashMap<UnresolvedPCLocation, Label>,
+) {
+    avm_instrs.push(generate_mov_to_procedure(&arithmetic.a, 0));
+    avm_instrs.push(generate_mov_to_procedure(&arithmetic.b, 1));
+    let inverse = FieldElement::from(2u128).pow(&128u32.into()).inverse();
+    avm_instrs.push(generate_set_to_procedure(AvmTypeTag::FIELD, &inverse, 2));
+    let (procedure, outputs) = match arithmetic.operation {
+        U128ArithmeticOperation::WideMul { lo, hi } => {
+            (Procedure::U128WideMul, vec![(3, lo), (4, hi)])
+        }
+        U128ArithmeticOperation::MulDiv { denominator, quotient } => {
+            avm_instrs.push(generate_cast_instruction(
+                &denominator,
+                false,
+                &MemoryAddress::direct((scratch_space_range().start + 9) as u32),
+                false,
+                AvmTypeTag::UINT128,
+            ));
+            avm_instrs.push(generate_set_to_procedure(AvmTypeTag::UINT128, &64u32.into(), 12));
+            (Procedure::U128MulDiv, vec![(21, quotient)])
+        }
+    };
+    avm_instrs.push(generate_procedure_call(procedure, avm_instrs.len(), unresolved_jumps));
+    procedures_used.insert(procedure);
+    for (index, destination) in outputs {
+        let source = MemoryAddress::direct((scratch_space_range().start + index) as u32);
+        let mode = AddressingModeBuilder::default()
+            .direct_operand(&source)
+            .direct_operand(&destination)
+            .build();
+        avm_instrs.push(generate_mov_instruction(
+            Some(mode),
+            source.to_u32(),
+            destination.to_u32(),
+        ));
+    }
 }
 
 /// Handle brillig foreign calls
@@ -1865,4 +1978,123 @@ fn handle_success_copy(
         operands: vec![AvmOperand::U16 { value: dst_offset.to_u32() as u16 }],
         ..Default::default()
     });
+}
+
+#[cfg(test)]
+mod u128_arithmetic_tests {
+    use super::*;
+
+    fn oracle() -> BrilligOpcode<FieldElement> {
+        let scalar = HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U128));
+        BrilligOpcode::ForeignCall {
+            function: "aztec_avm_u128_wide_mul".into(),
+            inputs: vec![
+                ValueOrArray::MemoryAddress(MemoryAddress::direct(100)),
+                ValueOrArray::MemoryAddress(MemoryAddress::direct(101)),
+            ],
+            destinations: vec![
+                ValueOrArray::MemoryAddress(MemoryAddress::direct(102)),
+                ValueOrArray::MemoryAddress(MemoryAddress::direct(103)),
+            ],
+            input_value_types: vec![scalar.clone(), scalar.clone()],
+            destination_value_types: vec![scalar.clone(), scalar],
+        }
+    }
+
+    fn mul_div_oracle() -> BrilligOpcode<FieldElement> {
+        let mut instruction = oracle();
+        let BrilligOpcode::ForeignCall {
+            function,
+            inputs,
+            destinations,
+            input_value_types,
+            destination_value_types,
+        } = &mut instruction
+        else {
+            unreachable!()
+        };
+        *function = "aztec_avm_u128_mul_div".into();
+        inputs.push(ValueOrArray::MemoryAddress(MemoryAddress::direct(104)));
+        input_value_types.push(HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U64)));
+        destinations.pop();
+        destination_value_types.pop();
+        instruction
+    }
+
+    #[test]
+    fn accepts_mul_div_signature() {
+        let (bytecode, _) = brillig_to_avm(&[mul_div_oracle()]);
+        assert!(!bytecode.is_empty());
+    }
+
+    #[test]
+    fn rejects_wide_denominator() {
+        let mut instruction = mul_div_oracle();
+        let BrilligOpcode::ForeignCall { input_value_types, .. } = &mut instruction else {
+            unreachable!()
+        };
+        input_value_types[2] = HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U128));
+        assert!(std::panic::catch_unwind(|| brillig_to_avm(&[instruction])).is_err());
+    }
+
+    #[test]
+    fn accepts_scalar_u128_signature() {
+        let (bytecode, _) = brillig_to_avm(&[oracle()]);
+        assert!(!bytecode.is_empty());
+    }
+
+    #[test]
+    fn rejects_malformed_signatures() {
+        for mutation in 0..16 {
+            let mut instruction = if mutation < 8 { oracle() } else { mul_div_oracle() };
+            let BrilligOpcode::ForeignCall {
+                inputs,
+                destinations,
+                input_value_types,
+                destination_value_types,
+                ..
+            } = &mut instruction
+            else {
+                unreachable!()
+            };
+            match mutation % 8 {
+                0 => {
+                    inputs.pop();
+                }
+                1 => {
+                    destinations.pop();
+                }
+                2 => {
+                    input_value_types[0] = HeapValueType::Simple(BitSize::Field);
+                }
+                3 => {
+                    destination_value_types[0] =
+                        HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U64));
+                }
+                4 => {
+                    input_value_types.pop();
+                }
+                5 => {
+                    destination_value_types.pop();
+                }
+                6 => {
+                    inputs[0] = ValueOrArray::HeapArray(HeapArray {
+                        pointer: MemoryAddress::direct(100),
+                        size: SemiFlattenedLength(2),
+                    });
+                }
+                7 => {
+                    destinations[0] = ValueOrArray::HeapArray(HeapArray {
+                        pointer: MemoryAddress::direct(102),
+                        size: SemiFlattenedLength(2),
+                    });
+                }
+                _ => unreachable!(),
+            }
+            assert!(
+                std::panic::catch_unwind(|| brillig_to_avm(&[instruction])).is_err(),
+                "accepted malformed signature {mutation}"
+            );
+        }
+    }
 }
