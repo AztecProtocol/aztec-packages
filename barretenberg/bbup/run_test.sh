@@ -54,9 +54,10 @@ function test_install {
     install_bb $bb_path --no-modify-path
 
     local seen_version=$($bb_path/bb --version)
-    if ! grep "$VERSION" <<< "$seen_version" > /dev/null; then
+    local expected_version=${VERSION#v}
+    if ! grep "$expected_version" <<< "$seen_version" > /dev/null; then
         echo "Did not find expected version of bb"
-        echo "Expected: $VERSION"
+        echo "Expected: $expected_version"
         echo "Found: $seen_version"
         exit 1
     fi
