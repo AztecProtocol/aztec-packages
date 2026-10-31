@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Append this run's benchmark results to its repository's benchmark series in S3, which the CI
+# dashboard serves at ci.aztec-labs.com/bench/<org>/<repo>/<section>.
+#
+# Usage: bench_upload <bench-json>
+#   bench-json  customSmallerIsBetter results for HEAD: [{name, value, unit}, ...]
+#
+# The series is s3://<bucket>/bench/<org>/<repo>/<section>/data.json (gzip-encoded), in the
+# window.BENCHMARK_DATA shape of benchmark-action/github-action-benchmark. The section is the
+# run's CI dashboard section (CI_DASHBOARD, which ci.sh sets): "next", a merge queue's target
+# branch, or "prs". Releases never publish.
+#
+# Concurrent runs on the same section are safe: the object is replaced with a conditional put
+# against the ETag it was read at, and a lost race re-reads and retries.
+#
+# Env:
+#   BENCH_S3_BUCKET        Bucket (default: aztec-ci-artifacts).
+#   BENCH_S3_REGION        Its region (default: us-east-2).
+#   BENCH_ENTRY_NAME       Series name within the data file (default: Benchmarks).
+#   MAX_ITEMS              Datapoints kept per series (default: 100).
+#   BENCH_UPLOAD_ATTEMPTS  Conditional-put attempts before giving up (default: 5).
+#   S3_BUILD_CACHE_AWS_PARAMS  Extra aws args, e.g. a MinIO --endpoint-url (tests).
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+bench_json=${1:?usage: bench_upload <bench-json>}
+[ -f "$bench_json" ] || { echo_stderr "bench_upload: bench json not found: $bench_json"; exit 1; }
+
+if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
+  echo_stderr "Skipping benchmark upload because CI=0 and S3_FORCE_UPLOAD not set."
+  exit 0
+fi
+
+repo=${GITHUB_REPOSITORY:-}
+[ -n "$repo" ] || { echo_stderr "bench_upload: GITHUB_REPOSITORY (<org>/<repo>) is not set."; exit 1; }
+section=${CI_DASHBOARD:-}
+[ -n "$section" ] || { echo_stderr "bench_upload: CI_DASHBOARD is not set."; exit 1; }
+if [ "$section" == "releases" ]; then
+  echo_stderr "Skipping benchmark upload for a release run."
+  exit 0
+fi
+if [ "$(jq 'length' "$bench_json")" -eq 0 ]; then
+  echo_stderr "Skipping benchmark upload: no results in $bench_json."
+  exit 0
+fi
+
+bucket=${BENCH_S3_BUCKET:-aztec-ci-artifacts}
+key="bench/$repo/$section/data.json"
+entry_name=${BENCH_ENTRY_NAME:-Benchmarks}
+max_items=${MAX_ITEMS:-100}
+attempts=${BENCH_UPLOAD_ATTEMPTS:-5}
+repo_url="https://github.com/$repo"
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+function s3api {
+  aws --region "${BENCH_S3_REGION:-us-east-2}" ${S3_BUILD_CACHE_AWS_PARAMS:-} s3api "$@"
+}
+
+# Commit metadata comes from the checkout being benchmarked, so no API token is needed.
+sha=$(git -C "$root" rev-parse HEAD)
+git -C "$root" log -1 --format='%an%x00%cn%x00%aI%x00%s' HEAD > "$tmp/commit"
+jq -n \
+  --rawfile commit "$tmp/commit" \
+  --arg id "$sha" \
+  --arg url "$repo_url/commit/$sha" \
+  --slurpfile benches "$bench_json" \
+  '($commit | rtrimstr("\n") | split("\u0000")) as [$author, $committer, $timestamp, $message] |
+  {
+    commit: {
+      author: { name: $author, username: "" },
+      committer: { name: $committer, username: "" },
+      id: $id,
+      message: $message,
+      timestamp: $timestamp,
+      url: $url
+    },
+    date: (now * 1000 | floor),
+    tool: "customSmallerIsBetter",
+    benches: $benches[0]
+  }' > "$tmp/entry.json"
+
+# Reads the current series (or an empty one) into $tmp/current.json and prints its ETag, or
+# nothing when the object does not exist yet.
+function read_current {
+  if s3api get-object --bucket "$bucket" --key "$key" "$tmp/current.gz" > "$tmp/head.json" 2> "$tmp/get.err"; then
+    gunzip -c "$tmp/current.gz" > "$tmp/current.json" || return 1
+    jq -r '.ETag' "$tmp/head.json" || return 1
+  elif grep -q 'NoSuchKey' "$tmp/get.err"; then
+    echo '{"lastUpdate":0,"repoUrl":"","entries":{}}' > "$tmp/current.json"
+  else
+    cat "$tmp/get.err" >&2
+    return 1
+  fi
+}
+
+function append_and_put {
+  local etag
+  etag=$(read_current) || return 1
+  jq --arg name "$entry_name" \
+     --arg repo_url "$repo_url" \
+     --slurpfile entry "$tmp/entry.json" \
+     --argjson max "$max_items" \
+     '.lastUpdate = (now * 1000 | floor)
+      | .repoUrl = $repo_url
+      | .entries[$name] = ((.entries[$name] // []) + $entry | if length > $max then .[length - $max:] else . end)' \
+     "$tmp/current.json" | gzip -c > "$tmp/data.gz" || return 1
+  local condition=(--if-none-match '*')
+  [ -n "$etag" ] && condition=(--if-match "$etag")
+  s3api put-object --bucket "$bucket" --key "$key" --body "$tmp/data.gz" \
+    --content-type application/json --content-encoding gzip "${condition[@]}" > /dev/null
+}
+
+for attempt in $(seq 1 $attempts); do
+  if append_and_put; then
+    echo_stderr "Benchmark datapoint for $sha uploaded to s3://$bucket/$key."
+    exit 0
+  fi
+  echo_stderr "Benchmark upload attempt $attempt/$attempts failed (concurrent update?); retrying..."
+  # Random backoff so racing writers spread out.
+  backoff_ms=$((RANDOM % (attempt * 1000)))
+  sleep "$((backoff_ms / 1000)).$(printf %03d $((backoff_ms % 1000)))"
+done
+echo_stderr "bench_upload: failed after $attempts attempts."
+exit 1
