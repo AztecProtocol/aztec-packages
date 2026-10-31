@@ -51,6 +51,12 @@ function check_cache {
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
   # Export for use by ci3_success.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
+  # A merge to next always runs, even when its tree already passed on the PR: it is what benchmarks
+  # the landed code and records it in the next sections of the CI and bench dashboards.
+  if [ "${GITHUB_EVENT_NAME:-}" == "push" ] && [ "${GITHUB_REF:-}" == "refs/heads/next" ]; then
+    echo "Not using the .github/ci3.sh CI cache for a push to next."
+    return
+  fi
   # Only whitelist some ci modes for cache.
   # E.g. we skip cache for release builds - they must always produce versioned images
   cached_ci_modes=(

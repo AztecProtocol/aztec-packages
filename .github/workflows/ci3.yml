@@ -19,8 +19,10 @@ concurrency:
   # merge-train PRs: one run per commit — distinct commits run concurrently (each is a real
   # train state to test), but duplicate events for the same commit (synchronize + the bot's
   # label re-applies) collapse. Keying on head.sha instead of run_id is what collapses them;
-  # run_id is unique per run and never collapsed anything. Everything else: one run per branch.
-  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.head.sha) || github.event.merge_group.head_ref || github.ref_name }}
+  # run_id is unique per run and never collapsed anything. Pushes to next: one run per commit
+  # too, so a later merge does not cancel the full run (and benchmarks) of the one before.
+  # Everything else: one run per branch.
+  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.head.sha) || (github.event_name == 'push' && github.ref == 'refs/heads/next' && github.sha) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -143,15 +145,6 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: ./.github/ci3_success.sh
-
-      # Uses ci3/upload_benchmarks rather than github-action-benchmark: the action full-clones
-      # the multi-GB data repo per upload; the script does a shallow sparse clone instead.
-      - name: Upload benchmarks
-        if: env.BENCH_UPLOAD == '1'
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
 
   # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
   # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the

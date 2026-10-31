@@ -524,14 +524,15 @@ function bench_merge {
 
 }
 
-# Merge all component bench-out/*.bench.json into one and upload it to the
-# bench-<treehash> cache key, which the GA "Upload benchmarks" step then publishes.
-# Used both by `bench` (dedicated box) and by the inline benches-as-tests path.
+# Merge all component bench-out/*.bench.json into one and, on uploadable runs, append it to
+# this run's series on the CI dashboard (ci.aztec-labs.com/bench/<org>/<repo>/<section>).
 function bench_publish {
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+  if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
+    bench_upload bench-out/bench.json || echo_stderr "WARNING: bench_upload failed; the benches themselves passed."
+  fi
 }
 
 function bench {

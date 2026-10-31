@@ -45,21 +45,6 @@ function handle_squash_merge {
   echo "Squash and merge completed"
 }
 
-function handle_benchmarks {
-  if [ "${BENCH_UPLOAD:-0}" -eq 0 ]; then
-    return
-  fi
-  # Handle benchmarks download (internal only)
-  echo "Downloading benchmarks..."
-  if ./ci.sh gh-bench && [ -f "./bench-out/bench.json" ] && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
-    echo "Benchmarks downloaded successfully"
-    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
-  else
-    echo "No benchmarks to upload"
-    echo "BENCH_UPLOAD=0" >> $GITHUB_ENV
-  fi
-}
-
 function handle_chonk_input_update {
   local github_repository="$1"
   echo_header "Chonk Input Update"
@@ -78,7 +63,6 @@ function main {
   fi
   save_cache "${github_repository}"
   handle_squash_merge "${github_repository}"
-  handle_benchmarks
   echo_header "Post-Actions Complete"
 }
 

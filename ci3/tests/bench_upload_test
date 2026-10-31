@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Tests ci3/bench_upload against a throwaway LocalStack S3, which enforces the conditional puts
+# bench_upload relies on (MinIO no longer publishes images). Run directly.
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bench_upload"
+WORK=$(mktemp -d)
+container=bench-upload-test-$$
+
+cleanup() {
+  docker rm -f "$container" &>/dev/null || true
+  rm -rf "$WORK"
+}
+trap cleanup EXIT
+
+fail() { echo "FAIL: $1" >&2; exit 1; }
+pass() { echo "PASS: $1"; }
+
+if ! docker info &>/dev/null; then
+  echo "SKIP: docker not available to run LocalStack"
+  exit 0
+fi
+
+docker run -d --name "$container" -e SERVICES=s3 -p 127.0.0.1::4566 localstack/localstack:4 > /dev/null
+port=$(docker port "$container" 4566/tcp | head -1 | sed 's/.*://')
+export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1
+export S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://127.0.0.1:$port"
+for _ in $(seq 120); do
+  curl -sf "http://127.0.0.1:$port/_localstack/health" > /dev/null && break
+  sleep 0.5
+done
+aws $S3_BUILD_CACHE_AWS_PARAMS s3 mb s3://aztec-ci-artifacts > /dev/null
+
+# The datapoint is for this checkout's HEAD.
+repo_root=$(git rev-parse --show-toplevel)
+sha=$(git -C "$repo_root" rev-parse HEAD)
+
+echo '[{"name":"proof_time","value":123.4,"unit":"ms"}]' > "$WORK/bench.json"
+echo '[]' > "$WORK/empty.json"
+
+upload() { # [env...]
+  env root="$repo_root" CI=1 GITHUB_REPOSITORY=acme/widgets BENCH_UPLOAD_ATTEMPTS=20 \
+    "$@" "$SCRIPT" "${BENCH_FILE:-$WORK/bench.json}" 2>> "$WORK/log"
+}
+
+series() { # section -> data.json contents
+  aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "s3://aztec-ci-artifacts/bench/acme/widgets/$1/data.json" - | gunzip -c
+}
+
+exists() { # section
+  aws $S3_BUILD_CACHE_AWS_PARAMS s3api head-object --bucket aztec-ci-artifacts \
+    --key "bench/acme/widgets/$1/data.json" &>/dev/null
+}
+
+# --- New series ---
+upload CI_DASHBOARD=main
+[ "$(series main | jq '.entries.Benchmarks | length')" -eq 1 ] || fail "new: expected 1 entry"
+entry=$(series main | jq -c '.entries.Benchmarks[0]')
+[ "$(jq -r .commit.id <<< "$entry")" == "$sha" ] || fail "new: commit id"
+[ "$(jq -r .commit.message <<< "$entry")" == "$(git -C "$repo_root" log -1 --format=%s)" ] || fail "new: commit message"
+[ "$(jq -r .commit.author.name <<< "$entry")" == "$(git -C "$repo_root" log -1 --format=%an)" ] || fail "new: author"
+[ "$(jq -r .commit.url <<< "$entry")" == "https://github.com/acme/widgets/commit/$sha" ] || fail "new: commit url"
+[ "$(jq -r '.benches[0].name' <<< "$entry")" == "proof_time" ] || fail "new: benches"
+[ "$(series main | jq -r .repoUrl)" == "https://github.com/acme/widgets" ] || fail "new: repoUrl"
+encoding=$(aws $S3_BUILD_CACHE_AWS_PARAMS s3api head-object --bucket aztec-ci-artifacts \
+  --key bench/acme/widgets/main/data.json | jq -r .ContentEncoding)
+[ "$encoding" == "gzip" ] || fail "new: content encoding $encoding"
+pass "new series"
+
+# --- Append, trimmed to MAX_ITEMS ---
+for _ in 1 2 3 4; do upload CI_DASHBOARD=main MAX_ITEMS=3; done
+[ "$(series main | jq '.entries.Benchmarks | length')" -eq 3 ] || fail "trim: expected 3 entries"
+pass "append trims to MAX_ITEMS"
+
+# --- Releases and empty results never publish ---
+upload CI_DASHBOARD=releases
+exists releases && fail "releases: a release run published"
+BENCH_FILE=$WORK/empty.json upload CI_DASHBOARD=empty
+exists empty && fail "empty: published an empty result"
+pass "releases and empty results are skipped"
+
+# --- Not in CI ---
+upload CI=0 CI_DASHBOARD=local
+exists local && fail "CI=0: published outside CI"
+pass "skipped outside CI"
+
+# --- Concurrent writers to one section all land ---
+pids=()
+for _ in $(seq 8); do
+  upload CI_DASHBOARD=race & pids+=($!)
+done
+for pid in "${pids[@]}"; do wait "$pid" || fail "race: an upload failed (see $WORK/log)"; done
+n=$(series race | jq '.entries.Benchmarks | length')
+[ "$n" -eq 8 ] || fail "race: expected 8 entries, got $n"
+pass "concurrent uploads keep every datapoint"

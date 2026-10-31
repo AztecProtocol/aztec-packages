@@ -435,10 +435,6 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench)
-    cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
-    ;;
-
   help|"")
     print_usage
     ;;
