@@ -9,13 +9,9 @@ resolves inside the barretenberg/ts workspace, and bb.js-api carries four
 per-arch optional dependencies that are not published. use-local has to portal
 all five or `yarn install` fails with "Workspace not found", so pin them the way
 bb-avm-sim's family is already pinned.
----
- labs-aztec-toolchain/pins.mjs | 9 +++++++++
- yarn-project/package.json     | 5 +++++
- 2 files changed, 14 insertions(+)
 
 diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
-index e510068f..6820997b 100755
+index e510068f74ce4bfb1d56fc911282ed1da44a48e5..6820997b0d11ab4592063e59f7dac570d78179c2 100755
 --- a/labs-aztec-toolchain/pins.mjs
 +++ b/labs-aztec-toolchain/pins.mjs
 @@ -63,6 +63,15 @@ const LOCAL_PACKAGES = {
@@ -35,7 +31,7 @@ index e510068f..6820997b 100755
    "@aztec-foundation/constants-codegen": "portal:protocol/constants-codegen",
    "@aztec-foundation/ipc-runtime": "portal:ipc-runtime/ts",
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index 48db8124..ee783a94 100644
+index 48db8124dd1b6fa60d077574277a29dfd2c9b593..ee783a94ab422ff67d1169dac69b4d5ce7320aa4 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
 @@ -90,6 +90,11 @@
@@ -50,6 +46,3 @@ index 48db8124..ee783a94 100644
      "@aztec-foundation/cdb": "6.0.0-rc.7",
      "@aztec-foundation/constants-codegen": "6.0.0-rc.7",
      "@aztec-foundation/ipc-runtime": "6.0.0-rc.7",
--- 
-2.43.0
-

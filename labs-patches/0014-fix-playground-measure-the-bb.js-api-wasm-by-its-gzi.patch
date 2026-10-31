@@ -14,7 +14,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
 
 diff --git a/playground/vite.config.ts b/playground/vite.config.ts
-index d0bb02e39cb88ebfac41ce34cb19a1f4fb290403..13ef81c42c629a91d3822d37b25fe2a76f5a0e9b 100644
+index 70cb9f22c4a03b21e92496331a29fa4433bbff0b..20b3c668bbce3cda59e83df9c2acd24785b1eb36 100644
 --- a/playground/vite.config.ts
 +++ b/playground/vite.config.ts
 @@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react-swc';
@@ -46,13 +46,13 @@ index d0bb02e39cb88ebfac41ce34cb19a1f4fb290403..13ef81c42c629a91d3822d37b25fe2a7
                  const desc = limit.description ? ` (${limit.description})` : '';
                  logger.info(`  ${relativePath}: ${sizeKB.toFixed(2)} KB / ${limit.maxSizeKB} KB${desc}`);
  
-@@ -225,10 +227,19 @@ export default defineConfig(({ mode }) => {
-         // - 2026-07-04: bumped from 5000 => 5300 after bb changes on merge-train/barretenberg grew
-         //   assets/barretenberg-*.js to 5079.12 KB and assets/barretenberg-threads-*.js to 5116.65 KB.
+@@ -228,10 +230,19 @@ export default defineConfig(({ mode }) => {
+         //   https://github.com/AztecProtocol/aztec-packages/pull/25669) grew assets/barretenberg-*.js to 5433.92 KB
+         //   and assets/barretenberg-threads-*.js to 5438.53 KB.
          {
 -          pattern: /.*/,
 +          pattern: /^(?!.*\.wasm$)/,
-           maxSizeKB: 5350,
+           maxSizeKB: 5550,
            description: 'Detect if json artifacts or bb.js wasm get out of control',
          },
 +        // bb.js used to inline its wasm as base64 gzip into assets/barretenberg-*.js, which the limit above caught.
