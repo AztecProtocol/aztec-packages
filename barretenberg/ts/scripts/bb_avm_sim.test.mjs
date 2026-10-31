@@ -258,6 +258,47 @@ test("on a shared worker, Simulate reaches wsdb-ref beside it and a contract DB 
   }
 });
 
+test("on the calling thread, the asynchronous service waits on an asynchronous contract DB", async () => {
+  const contractDB = fixtureContractDB();
+  const wsdb = await WsdbService.create({
+    backend: "wasm",
+    wasm: { worker: false },
+  });
+  // JSPI suspends the AVM's module while this thread answers; wsdb-ref, making no host calls, answers it directly.
+  const avm = await AvmService.create({
+    backend: "wasm",
+    wasm: {
+      worker: false,
+      hostCall: {
+        wsdb,
+        cdb: async (request) => {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+          return contractDB.handle(request);
+        },
+      },
+    },
+  });
+  try {
+    const { forkId } = await wsdb.createFork({ latest: true, blockNumber: 0 });
+    const second = await wsdb.createFork({ latest: true, blockNumber: 0 });
+    // Two simulations at once: calls into the module queue, and each sees its own fork.
+    const [a, b] = await Promise.all([
+      simulateOnFork(avm, wsdb, forkId),
+      simulateOnFork(avm, wsdb, second.forkId),
+    ]);
+    assert.ok(a.result.publicTxEffect.nullifiers.length > 0);
+    assert.ok(a.added > 0 && b.added > 0);
+    assert.deepEqual(b.result, a.result);
+    assert.deepEqual(
+      [...contractDB.seen.forkIds].sort(),
+      [forkId, second.forkId].sort(),
+    );
+  } finally {
+    await avm.destroy();
+    await wsdb.destroy();
+  }
+});
+
 test("on the calling thread, Simulate reaches synchronous services, and an asynchronous one fails the call", async () => {
   const contractDB = fixtureContractDB();
   const wsdb = await WsdbServiceSync.create({ backend: "wasm" });
