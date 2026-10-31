@@ -43,8 +43,10 @@ interface IRegistryReductionCalculator is ISequencerRewardCalculator {
  *
  *      The calculator binds the GSE as an immutable and ignores `msg.sender`: every rollup sharing that GSE that
  *      configures this calculator gets the same policy, and replacing the GSE requires deploying a new calculator.
- *      Lookups reflect state when the proof lands. Per call, each distinct proposer is resolved once
- *      and the result is cached in memory per attester.
+ *      Lookups reflect state when the proof lands. Every checkpoint is resolved on its own, without deduplicating
+ *      repeated proposers: for an honest position a repeat touches only warm state, which costs less than searching
+ *      for it. A withdrawer that burns its probe stipends burns them again on each of its checkpoints, which the
+ *      per-checkpoint stipend covers.
  */
 contract RegistryReductionCalculator is Ownable, IRegistryReductionCalculator {
   struct Entry {
@@ -53,8 +55,8 @@ contract RegistryReductionCalculator is Ownable, IRegistryReductionCalculator {
   }
 
   /// @notice Gas forwarded to each probe.
-  /// @dev A withdrawer can make both probes burn their whole stipend, so the worst case per distinct proposer is one
-  ///      GSE read plus two full stipends, which must fit `CALCULATOR_GAS_PER_CHECKPOINT`. Mainnet ATP hops cost
+  /// @dev A withdrawer can make both probes burn their whole stipend, so the worst case per checkpoint is one GSE
+  ///      read plus two full stipends, which must fit `CALCULATOR_GAS_PER_CHECKPOINT`. Mainnet ATP hops cost
   ///      well under this (ERC1967 proxy or EIP-1167 clone delegation and at most two storage reads).
   uint256 public constant PROBE_GAS = 20_000;
 
@@ -148,22 +150,8 @@ contract RegistryReductionCalculator is Ownable, IRegistryReductionCalculator {
   {
     uint256 n = _proposers.length;
     rewards = new uint256[](n);
-    address[] memory seen = new address[](n);
-    uint256[] memory seenRewards = new uint256[](n);
-    uint256 distinct = 0;
-
     for (uint256 i = 0; i < n; i++) {
-      address proposer = _proposers[i];
-      uint256 j = 0;
-      while (j < distinct && seen[j] != proposer) {
-        j++;
-      }
-      if (j == distinct) {
-        seen[j] = proposer;
-        seenRewards[j] = _getSequencerReward(proposer, _defaultReward);
-        distinct++;
-      }
-      rewards[i] = seenRewards[j];
+      rewards[i] = _getSequencerReward(_proposers[i], _defaultReward);
     }
   }
 
