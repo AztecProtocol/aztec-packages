@@ -16,8 +16,10 @@ The inverse is computed during transpilation and emitted in one `SET_FF`.
 The same package exposes `mul_div(a: u128, b: u128, d: u128) -> u128`.
 It rounds the exact product divided by `d` down, and fails for a zero denominator
 or a quotient exceeding U128. Denominators below `2^64`, including `10^18`,
-use the existing two-stage division path. Larger denominators use normalized
-base-`2^64` division with quotient correction. The transpiler transfers the
+use the existing two-stage division path. Larger denominators use multiplicatively
+normalized base-`2^64` division with at most two corrections per quotient digit.
+The [procedure notes](../../avm-transpiler/src/procedures/u128_mul_div.md) explain
+the normalization and correction bounds. The transpiler transfers the
 U128 denominator directly and retains the arithmetic `hi < d` check.
 
 ## Use from Noir
