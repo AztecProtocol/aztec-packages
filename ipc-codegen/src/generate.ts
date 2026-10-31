@@ -678,6 +678,10 @@ function generate(args: Args) {
         copyTemplate("rust", "backend.rs", absOut);
         copyTemplate("rust", "error.rs", absOut);
       }
+      if (args.client && (args.uds || args.ffi)) {
+        // For a client inside a wasm module, reaching a service its host provides.
+        copyTemplate("rust", "host_call_backend.rs", absOut);
+      }
       if (args.ffi) {
         // Generated rather than a template: it links the service-prefixed symbols.
         writeFile("ffi_backend.rs", gen.generateFfiBackend());

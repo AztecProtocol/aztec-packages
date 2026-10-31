@@ -11,6 +11,7 @@ pub mod generated {
     pub mod error;
     #[cfg(feature = "ffi")]
     pub mod ffi_backend;
+    pub mod host_call_backend;
 }
 
 pub mod handler;

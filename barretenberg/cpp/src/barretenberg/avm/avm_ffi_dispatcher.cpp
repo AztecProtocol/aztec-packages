@@ -3,25 +3,29 @@
  * @brief Names the context the AVM handlers run over in the in-process FFI entry (avm_ipc_ffi_entry), the entry
  * bb-avm-sim.wasm exports.
  *
- * The in-process build has no route to a world state or contract DB yet, so it serves SimulateWithHints, whose hints
- * answer every read, and answers Simulate with an error.
+ * The in-process build has no sockets, so Simulate reaches the world state and the contract DB through its host:
+ * the `ipc_runtime.host_call` import, with the targets "wsdb" and "cdb" (ipc-runtime's `hostCall` option binds them).
+ * SimulateWithHints reads neither: its hints answer every read.
  */
+#include "barretenberg/avm/avm_simulate.hpp"
 #include "barretenberg/avm/avm_simulate_with_hints.hpp"
 #include "barretenberg/avm/generated/avm_ffi.hpp"
+#include "barretenberg/vm2_wsdb/generated/ipc_codegen/host_call_backend.hpp"
 
 namespace bb::avm {
 
 namespace {
-struct AvmFfiRequest {};
+/** The host's world state and contract DB, bound once: a HostCallBackend holds only its target's name. */
+struct AvmFfiRequest {
+    wsdb::WsdbIpcClient wsdb{ ipc_codegen::AnyBackend(ipc_codegen::HostCallBackend("wsdb")) };
+    cdb::CdbIpcContractDB cdb{ ipc_codegen::AnyBackend(ipc_codegen::HostCallBackend("cdb")) };
+};
 } // namespace
 
 template <>
-void handle_simulate(AvmFfiRequest& /*request*/,
-                     wire::AvmSimulate&& /*command*/,
-                     Responder<wire::AvmSimulateResponse> respond)
+void handle_simulate(AvmFfiRequest& request, wire::AvmSimulate&& command, Responder<wire::AvmSimulateResponse> respond)
 {
-    respond.error("Simulate needs a world state and contract DB, which the in-process bb-avm-sim cannot reach yet; "
-                  "SimulateWithHints needs neither");
+    respond.ok(wire::AvmSimulateResponse{ .result = simulate(request.cdb, request.wsdb, command.inputs) });
 }
 
 template <>
@@ -33,8 +37,7 @@ void handle_simulate_with_hints(AvmFfiRequest& /*request*/,
 }
 
 /**
- * @brief The dispatcher behind the generated in-process FFI entry (see avm_ffi.hpp). The context is stateless, so one
- * serves every call.
+ * @brief The dispatcher behind the generated in-process FFI entry (see avm_ffi.hpp). One context serves every call.
  */
 AsyncDispatchHandler& ipc_ffi_dispatcher()
 {

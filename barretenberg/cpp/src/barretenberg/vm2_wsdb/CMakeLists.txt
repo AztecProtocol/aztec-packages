@@ -1,5 +1,6 @@
-# VM2 binding to the wsdb service: the generated IPC client plus the AVM adapter
-# (WsdbIpcMerkleDB) that drives native AVM simulation against aztec-wsdb.
+# VM2 binding to the wsdb service: the generated client plus the AVM adapter (WsdbIpcMerkleDB)
+# that drives AVM simulation against a world state: aztec-wsdb over IPC from bb-avm-sim, the
+# host's world state over host_call from bb-avm-sim.wasm.
 #
 # The wsdb wire contract (wsdb_schema.jsonc) lives with wsdb-ref, its reference implementation, in
 # ../wsdb_ref. The AVM only needs the generated client.
@@ -9,7 +10,9 @@ if(TARGET vm2_sim)
     set(WSDB_GEN_OUTPUTS
         ${WSDB_GEN_DIR}/wsdb_client.hpp
         ${WSDB_GEN_DIR}/wsdb_types.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/backend.hpp
+        ${WSDB_GEN_DIR}/ipc_codegen/any_backend.hpp
+    ${WSDB_GEN_DIR}/ipc_codegen/backend.hpp
+    ${WSDB_GEN_DIR}/ipc_codegen/host_call_backend.hpp
         ${WSDB_GEN_DIR}/ipc_codegen/ipc_backend.hpp
         ${WSDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
         ${WSDB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
@@ -47,12 +50,17 @@ if(TARGET vm2_sim)
         PUBLIC
         ${WSDB_GEN_DIR}
     )
-    target_link_libraries(
-        wsdb_ipc_merkle_db
-        PUBLIC
-        barretenberg
-        vm2_sim
-        ipc_runtime
-    )
+    if(WASM)
+        # No transport here: the wasm module reaches its world state through host_call.
+        target_link_libraries(wsdb_ipc_merkle_db PUBLIC vm2_sim)
+    else()
+        target_link_libraries(
+            wsdb_ipc_merkle_db
+            PUBLIC
+            barretenberg
+            vm2_sim
+            ipc_runtime
+        )
+    endif()
     set_target_properties(wsdb_ipc_merkle_db PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
