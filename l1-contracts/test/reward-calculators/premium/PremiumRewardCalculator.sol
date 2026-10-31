@@ -6,8 +6,8 @@ import {ISequencerRewardCalculator} from "@aztec/core/interfaces/ISequencerRewar
 import {MAX_SEQUENCER_REWARD_PER_CHECKPOINT} from "@aztec/core/libraries/rollup/SequencerRewardCalculatorLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
-import {ProbeLib} from "@test/reward-calculators/ProbeLib.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {ProbeLib} from "@aztec/periphery/libraries/ProbeLib.sol";
 import {IPremiumATP, IPremiumATPFactory, IPremiumATPStaker} from "@test/reward-calculators/premium/IPremiumATP.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
