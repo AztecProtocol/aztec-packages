@@ -1,0 +1,9 @@
+^native-packages/acvm/bootstrap\.sh$
+^native-packages/acvm/package\.json$
+^native-packages/acvm/\.rebuild_patterns$
+^native-packages/acvm/foundation\.pin$
+^native-packages/acvm/[a-z_]+_schema\.jsonc$
+^native-packages/acvm/rust/
+^native-packages/acvm/scripts/
+^ipc-codegen/src/
+^ipc-codegen/templates/

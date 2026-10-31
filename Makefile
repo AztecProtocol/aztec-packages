@@ -59,7 +59,7 @@ endef
 # Fast bootstrap.
 # wsdb belongs to foundation until disentangled.
 fast-foundation: barretenberg bb-tests \
-		wsdb wsdb-tests lmdblib-tests kvdb-tests \
+		wsdb wsdb-tests lmdblib-tests kvdb-tests acvm acvm-tests \
 		l1-contracts l1-contracts-tests \
 		mock-protocol-circuits \
 		noir-protocol-circuits noir-protocol-circuits-tests \
@@ -416,7 +416,7 @@ ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-a
 
 # lmdblib and kvdb are barretenberg-free: they build against their own deps
 # (lmdb, msgpack-c, node-addon-api) only, never bb.
-.PHONY: lmdblib kvdb lmdblib-tests kvdb-tests wsdb-tests
+.PHONY: lmdblib kvdb lmdblib-tests kvdb-tests wsdb-tests acvm acvm-tests
 lmdblib:
 	$(call build,$@,native-packages/lmdblib)
 
@@ -425,6 +425,12 @@ kvdb: lmdblib
 
 wsdb: lmdblib
 	$(call build,$@,native-packages/wsdb)
+
+# @aztec-labs/acvm. Generated with this tree's ipc-codegen until foundation.pin names a release whose
+# ipc-codegen emits Rust's HostCallBackend; then drop IPC_CODEGEN_DIR and the ipc-codegen prerequisite.
+acvm: export IPC_CODEGEN_DIR := $(ROOT)/ipc-codegen
+acvm: ipc-codegen ipc-runtime
+	$(call build,$@,native-packages/acvm)
 
 # Native-package tests. lmdblib and wsdb are self-contained gtest binaries. kvdb has no
 # C++ tests: its NAPI protocol is driven from node (ts/test) and exercised further by
@@ -440,6 +446,9 @@ kvdb-tests: kvdb
 
 wsdb-tests: wsdb bb-cpp-native
 	$(call test,$@,native-packages/wsdb)
+
+acvm-tests: acvm
+	$(call test,$@,native-packages/acvm)
 
 #==============================================================================
 # .claude tooling
