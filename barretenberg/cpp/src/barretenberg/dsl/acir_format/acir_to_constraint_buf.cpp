@@ -968,6 +968,7 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
 
                         // Add the recursion constraint to the appropriate container based on proof type
                         switch (c.proof_type) {
+                        case BN254_MSM:
                         case HONK_ZK:
                         case HONK:
                         case ROLLUP_HONK:
