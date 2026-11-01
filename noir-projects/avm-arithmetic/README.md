@@ -31,6 +31,9 @@ Add a path dependency to this package. Keep `avm_u128` as the dependency name:
 avm_u128 = { path = "../path/to/noir-projects/avm-arithmetic" }
 ```
 
+`U256` implements `Eq` and `Ord`, ordered by `hi` then `lo`, so the exact products from `wide_mul` can be
+compared with `==`, `<`, `>=` and so on. These comparisons are plain Noir and work in any context.
+
 Import `avm_u128::{wide_mul, mul_div}`. Both wrappers and their oracle declarations
 live in this package. The AVM assembly procedures and oracle lowering live in
 `avm-transpiler/src` alongside the MSM implementation.
