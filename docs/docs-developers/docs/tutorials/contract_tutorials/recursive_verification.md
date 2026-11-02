@@ -397,10 +397,10 @@ Create the following files in your project root directory.
   "dependencies": {
     "@aztec-labs/accounts": "#include_version_without_prefix",
     "@aztec-labs/aztec.js": "#include_version_without_prefix",
-    "@aztec-foundation/bb.js": "#include_version_without_prefix",
+    "@aztec-foundation/bb.js": "#include_foundation_version_without_prefix",
     "@aztec-labs/kv-store": "#include_version_without_prefix",
     "@aztec-labs/noir-contracts.js": "#include_version_without_prefix",
-    "@aztec-foundation/noir-noir_js": "#include_version_without_prefix",
+    "@aztec-foundation/noir-noir_js": "#include_foundation_version_without_prefix",
     "@aztec-labs/pxe": "#include_version_without_prefix",
     "@aztec-labs/wallets": "#include_version_without_prefix",
     "tsx": "^4.20.6"

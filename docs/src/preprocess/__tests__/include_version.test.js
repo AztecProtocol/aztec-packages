@@ -109,6 +109,17 @@ describe("preprocessIncludeVersion", () => {
       assert.strictEqual(content, "1.2.3");
     });
 
+    it("without COMMIT_TAG, names the pinned aztec-node tag, independent of NIGHTLY_TAG", async () => {
+      const { ref } = JSON.parse(fs.readFileSync(path.join(__dirname, "../../../aztec-node.json"), "utf8"));
+      setEnv({ RELEASE_TYPE: "nightly", NIGHTLY_TAG: "v9.9.9-nightly.1" });
+      delete process.env.COMMIT_TAG;
+      const { content } = await preprocessIncludeVersion(
+        "#include_aztec_version #include_version_without_prefix #release_version",
+        "test.md",
+      );
+      assert.strictEqual(content, `${ref} ${ref.slice(1)} 9.9.9-nightly.1`);
+    });
+
     const versionMacros = [
       ["#include_devnet_version", "DEVNET_TAG", "3.0.0-devnet.5"],
       ["#include_testnet_version", "TESTNET_TAG", "2.1.11"],

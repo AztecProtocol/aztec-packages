@@ -47,7 +47,7 @@ Second, replace the starter's `@aztec/l1-contracts` git dependency, whose reposi
 
 ```bash
 npm pkg delete dependencies.@aztec/l1-contracts devDependencies.@aztec/l1-contracts
-npm pkg set "dependencies.@aztec-foundation/l1-artifacts=#include_version_without_prefix"
+npm pkg set "dependencies.@aztec-foundation/l1-artifacts=#include_foundation_version_without_prefix"
 npm pkg set scripts.postinstall="node -e \"require('fs').writeFileSync('node_modules/@aztec-foundation/l1-artifacts/remappings.txt', '@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/\\n@aztec/=l1-contracts/src/\\n@aztec-blob-lib/=l1-contracts/src/mock/libraries/\\n@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/\\n')\""
 ```
 

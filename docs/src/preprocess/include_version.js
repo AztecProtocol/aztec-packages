@@ -76,6 +76,10 @@ function foundationVersion() {
   return `v${JSON.parse(fs.readFileSync(pkg, "utf8")).version}`;
 }
 
+function pinnedAztecNodeRef() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "../../aztec-node.json"), "utf8")).ref;
+}
+
 /**
  * Preprocesses markdown content to replace version macros and conditional blocks.
  * @param {string} markdownContent - The markdown content to process
@@ -94,8 +98,9 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const testnetTag = process.env.TESTNET_TAG || stripV(developerVersionConfig.testnet) || "0.0.0";
   const mainnetTag = process.env.MAINNET_TAG || stripV(developerVersionConfig.mainnet) || "0.0.0";
   const releaseType = process.env.RELEASE_TYPE || "mainnet";
-  // COMMIT_TAG kept for backwards compatibility
-  const commitTag = process.env.COMMIT_TAG || "next";
+  // COMMIT_TAG kept for backwards compatibility. Release cuts set it to the Labs tag; any other build
+  // names the pinned aztec-node tag, the code the pages quote.
+  const commitTag = process.env.COMMIT_TAG || pinnedAztecNodeRef();
 
   // Validate release type
   if (!VALID_RELEASE_TYPES.includes(releaseType)) {
