@@ -157,14 +157,6 @@ const productAreaRules = [
   },
 ];
 
-const historicalVersionEntries = (versions) =>
-  Object.fromEntries(
-    versions.map((version) => [
-      version,
-      { label: versionLabel(version), noIndex: true },
-    ])
-  );
-
 const SITE_URL = "https://docs.aztec.network";
 const SITE_TITLE = "Aztec Documentation";
 const SITE_DESCRIPTION =
