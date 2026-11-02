@@ -12,7 +12,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <bit>
 #include <vector>
 
 #include "./fixed_base/fixed_base_params.hpp"
@@ -238,17 +240,18 @@ struct MultiTable {
 /**
  * @brief A map from 'entry' to 'index' where entry is a row in a BasicTable and index is the row at which that entry
  * exists in the table
- * @details Such a map is needed to in order to construct read_counts (the polynomial containing the number of reads
- * from each entry in a table) for the log-derivative lookup argument. A BasicTable essentially consists of 3 columns,
- * and 'lookups' are recorded as rows in this table. The index at which this data exists in the table is not explicitly
- * known at the time of lookup gate creation. This map can be used to construct read counts from the set of lookups that
- * have been performed via an operation like read_counts[index_map[lookup_data]]++
- *
+ * @details Needed to construct read_counts (the polynomial containing the number of reads from each entry in a table)
+ * for the log-derivative lookup argument: a lookup gate is created from an entry, and the row holding it has to be
+ * found. The map is an open-addressing index over the table's own columns: each slot holds a row number (plus one; 0
+ * is empty), and a probe compares the candidate row's columns with the entry, so the map stores no keys of its own.
+ * It lives for the whole circuit construction, where an unordered_map of 3-field keys over the Keccak tables was
+ * 7 MiB; this is 8 bytes per table row.
  */
 struct LookupHashTable {
     using FF = bb::fr;
     using Key = std::array<FF, 3>; // an entry in a lookup table
     using Value = size_t;          // the index of an entry in a lookup table
+    using Columns = std::array<const std::vector<FF>*, 3>;
 
     // Define a simple hash on three field elements
     struct HashFunction {
@@ -267,25 +270,39 @@ struct LookupHashTable {
         }
     };
 
-    std::unordered_map<Key, Value, HashFunction> index_map;
+    std::vector<uint32_t> slots; // row + 1, or 0 when empty; a power of two in size, at most half full
 
     LookupHashTable() = default;
 
     // Initialize the entry-index map with the columns of a table
-    void initialize(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3)
+    void initialize(const std::vector<FF>& column_1, const std::vector<FF>& column_2, const std::vector<FF>& column_3)
     {
         BB_ASSERT_DEBUG(column_1.size() == column_2.size() && column_2.size() == column_3.size());
+        const size_t capacity = std::bit_ceil(std::max<size_t>(2 * column_1.size(), 2));
+        slots.assign(capacity, 0);
+        const HashFunction hash;
         for (size_t i = 0; i < column_1.size(); ++i) {
-            index_map[{ column_1[i], column_2[i], column_3[i] }] = i;
+            size_t slot = hash({ column_1[i], column_2[i], column_3[i] }) & (capacity - 1);
+            while (slots[slot] != 0) {
+                slot = (slot + 1) & (capacity - 1);
+            }
+            slots[slot] = static_cast<uint32_t>(i + 1);
         }
     }
 
-    // Given an entry in the table, return its index in the table
-    Value operator[](const Key& key) const
+    // Given an entry in the table, return its index in the table. The columns are the ones the map was initialized
+    // with.
+    Value find(const Key& key, const Columns& columns) const
     {
-        auto it = index_map.find(key);
-        BB_ASSERT_DEBUG(it != index_map.end(), "LookupHashTable: Key not found!");
-        return it->second;
+        BB_ASSERT(!slots.empty(), "LookupHashTable: not initialized");
+        const size_t mask = slots.size() - 1;
+        for (size_t slot = HashFunction{}(key)&mask;; slot = (slot + 1) & mask) {
+            BB_ASSERT(slots[slot] != 0, "LookupHashTable: Key not found!");
+            const size_t row = slots[slot] - 1;
+            if ((*columns[0])[row] == key[0] && (*columns[1])[row] == key[1] && (*columns[2])[row] == key[2]) {
+                return row;
+            }
+        }
     }
 
     bool operator==(const LookupHashTable& other) const = default;
@@ -334,12 +351,21 @@ struct BasicTable {
     std::vector<bb::fr> column_1;
     std::vector<bb::fr> column_2;
     std::vector<bb::fr> column_3;
-    std::vector<LookupEntry> lookup_gates; // wire data for all lookup gates created for lookups on this table
+    // The table row each lookup gate on this table reads, in gate creation order; all the read-count construction
+    // needs. (A 128-byte LookupEntry per gate was 15 MiB on a Keccak-heavy circuit.)
+    std::vector<uint32_t> lookup_gate_rows;
 
-    // Map from a table entry to its index in the table; used for constructing read counts
+    // Map from a table entry to its index in the table; filled when the table is created, used by create_lookup_gate.
     LookupHashTable index_map;
 
     void initialize_index_map() { index_map.initialize(column_1, column_2, column_3); }
+
+    /** @brief The row of this table holding entry; the table's index map must have been initialized. */
+    uint32_t row_of(const LookupEntry& entry) const
+    {
+        return static_cast<uint32_t>(
+            index_map.find(entry.to_table_components(use_twin_keys), { &column_1, &column_2, &column_3 }));
+    }
 
     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
 
