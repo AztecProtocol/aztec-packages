@@ -3,6 +3,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "unistd.h"
 #include <atomic>
+#include <cerrno>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -78,16 +79,15 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode.
+    // Allocate memory, file-backed in low memory mode (failing rather than falling back to the heap).
     // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
 #if !defined(__wasm__) && !defined(_WIN32)
-        if (slow_low_memory) {
-            if (try_allocate_file_backed(memory, size)) {
-                return memory;
-            }
+        if (slow_low_memory && size > 0) {
+            allocate_file_backed(memory, size);
+            return memory;
         }
 #endif
         allocate_aligned(memory, size);
@@ -113,14 +113,11 @@ template <typename Fr> struct BackingMemory {
     }
 
 #if !defined(__wasm__) && !defined(_WIN32)
-    static bool try_allocate_file_backed(BackingMemory& memory, size_t size)
+    // A heap fallback would silently break the memory bound slow_low_memory was requested for.
+    static void allocate_file_backed(BackingMemory& memory, size_t size)
     {
-        if (size == 0) {
-            return false;
-        }
-
         if (size > std::numeric_limits<size_t>::max() / sizeof(Fr)) {
-            return false;
+            throw_or_abort("slow_low_memory: polynomial of " + std::to_string(size) + " elements overflows size_t");
         }
 
         size_t required_bytes = size * sizeof(Fr);
@@ -129,7 +126,9 @@ template <typename Fr> struct BackingMemory {
         size_t current_usage = current_storage_usage.load();
         while (true) {
             if (current_usage + required_bytes > storage_budget) {
-                return false;
+                throw_or_abort("slow_low_memory: allocating " + std::to_string(required_bytes) +
+                               " bytes would exceed the storage budget (" + std::to_string(current_usage) + " of " +
+                               std::to_string(storage_budget) + " bytes in use)");
             }
             if (current_storage_usage.compare_exchange_weak(current_usage, current_usage + required_bytes)) {
                 break;
@@ -149,10 +148,18 @@ template <typename Fr> struct BackingMemory {
 
         std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
+        auto fail = [&](int fd, const std::string& step, int error) {
+            if (fd >= 0) {
+                close(fd);
+            }
+            current_storage_usage.fetch_sub(required_bytes);
+            throw_or_abort("slow_low_memory: " + step + " failed for " + std::to_string(file_size) + "-byte file " +
+                           filename + ": " + std::strerror(error));
+        };
+
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC | O_EXCL, 0600);
         if (fd < 0) {
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+            fail(-1, "open", errno);
         }
         // The open fd and the mapping keep the file alive; unlinking now means a crash cannot leave
         // witness data behind in the temp directory.
@@ -161,23 +168,20 @@ template <typename Fr> struct BackingMemory {
         // Reserve the blocks up front: with a shared mapping, a write into a hole on a full disk raises
         // SIGBUS instead of failing here. Apple has no posix_fallocate and keeps that exposure.
 #if defined(__APPLE__)
-        const bool sized = ftruncate(fd, static_cast<off_t>(file_size)) == 0;
-#else
-        const bool sized = posix_fallocate(fd, 0, static_cast<off_t>(file_size)) == 0;
-#endif
-        if (!sized) {
-            close(fd);
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
+            fail(fd, "ftruncate", errno);
         }
+#else
+        if (int error = posix_fallocate(fd, 0, static_cast<off_t>(file_size)); error != 0) {
+            fail(fd, "posix_fallocate", error);
+        }
+#endif
 
         // Shared, so dirty pages are file pages the kernel can write back and reclaim; a private mapping
         // would turn every written page into an anonymous copy-on-write page.
         void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
-            close(fd);
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+            fail(fd, "mmap", errno);
         }
 
         auto file_backed_data = std::make_shared<FileBackedData>();
@@ -187,8 +191,6 @@ template <typename Fr> struct BackingMemory {
 
         memory.raw_data = static_cast<Fr*>(addr);
         memory.file_backed = std::move(file_backed_data);
-
-        return true;
     }
 #endif
 };

@@ -328,8 +328,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand
             ->add_option("--storage_budget",
                          flags.storage_budget,
-                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
-                         "back to RAM (requires --slow_low_memory).")
+                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). Proving fails when it is "
+                         "exceeded (requires --slow_low_memory).")
             ->group(advanced_group);
     };
 
