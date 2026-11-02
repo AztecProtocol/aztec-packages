@@ -13,6 +13,8 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/srs/factories/bn254_crs_data.hpp"
+#include "barretenberg/srs/factories/get_bn254_crs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 #include <cstddef>
@@ -22,11 +24,20 @@ using namespace bb;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
-}
+constexpr size_t MAX_TEST_POINTS = 1200000;
+} // namespace
 
 template <typename Curve> class ScalarMultiplicationTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+    static void SetUpTestSuite()
+    {
+        // BN254 points are read into memory rather than through the file factory, which would write its native cache
+        // into the shared CRS directory.
+        bb::srs::init_bn254_mem_crs_factory(
+            bb::get_bn254_g1_data(bb::srs::bb_crs_path(), MAX_TEST_POINTS, /*allow_download=*/false),
+            bb::srs::get_bn254_g2_crs_element());
+        bb::srs::init_grumpkin_file_crs_factory(bb::srs::bb_crs_path());
+    }
 };
 
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
@@ -76,7 +87,7 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
 
     // for point ranges with more than 1 << 20 points, we split into chunks of smaller multi-exps.
     // Check that this is done correctly
-    size_t target_degree = 1200000;
+    size_t target_degree = MAX_TEST_POINTS;
     std::span<const AffineElement> monomials =
         srs::get_crs_factory<Curve>()->get_crs(target_degree)->get_monomial_points();
 
