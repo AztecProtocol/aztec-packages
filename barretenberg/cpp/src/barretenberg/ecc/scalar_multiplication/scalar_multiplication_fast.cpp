@@ -4,6 +4,7 @@
 #include "./pippenger_constantine.hpp"
 #include "./pippenger_dedup.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -207,7 +208,7 @@ template <typename Curve> struct ThreadScratch {
 };
 
 struct MsmArena {
-    std::unique_ptr<std::byte[]> local_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    bb::ScratchBuffer local_owner;
     std::byte* data = nullptr;
     uintptr_t base_addr = 0;
     size_t capacity = 0;
@@ -219,9 +220,8 @@ struct MsmArena {
             data = external_arena.data();
             capacity = external_arena.size();
         } else {
-            // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-            local_owner = std::make_unique_for_overwrite<std::byte[]>(required_bytes);
-            data = local_owner.get();
+            local_owner = bb::ScratchBuffer(required_bytes);
+            data = local_owner.data();
             capacity = required_bytes;
         }
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -1178,7 +1178,7 @@ template <typename Curve>
  * @brief Round-parallel Pippenger MSM_fast. Windows process sequentially (high-to-low) but each
  *        window is fully parallel across threads. Windows are processed in batches of
  *        `windows_in_batch` to amortise parallel_for barriers; the batch count is sized at
- *        runtime to fit BATCH_MEM_BUDGET (~32 MiB).
+ *        runtime to fit the batch memory budget (get_msm_batch_mem_budget(), 32 MiB by default).
  *
  *        Per batch the stages are:
  *          1. digit extraction   — decode signed digits, tally per-(thread, window) digit counts
@@ -1219,7 +1219,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
                   size_t{ round_parallel_detail::SCHEDULE_INDEX_MASK } + 1,
                   "working scalar indices must fit in the 29-bit schedule payload");
 
-    using round_parallel_detail::BATCH_MEM_BUDGET;
+    const size_t batch_mem_budget = get_msm_batch_mem_budget();
     using round_parallel_detail::MIN_AFFINE_THREAD_RATIO;
     using round_parallel_detail::MIN_BATCH_CAPACITY;
     using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
@@ -1285,10 +1285,10 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
                                   (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
-    // Once fixed_overhead alone exceeds BATCH_MEM_BUDGET (large n or many threads), `solve_wpb`
+    // Once fixed_overhead alone exceeds the batch memory budget (large n or many threads), `solve_wpb`
     // returns one window per batch here and in `pippenger_round_parallel`.
     const size_t available_budget_outer =
-        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+        (batch_mem_budget > fixed_overhead) ? (batch_mem_budget - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =
         round_parallel_detail::solve_wpb(per_window_bytes, available_budget_outer, num_windows);
     // Dedup state lives in the arena (allocated post-Phase-1, retained through Stage 6a).
@@ -1306,7 +1306,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
             num_threads, B_eff_layout, n, dense_stride_layout, worker_total_for_budget);
 
         const size_t available_budget =
-            (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+            (batch_mem_budget > fixed_overhead) ? (batch_mem_budget - fixed_overhead) : size_t{ 0 };
         const size_t wpb = round_parallel_detail::solve_wpb(
             per_window_bytes_layout, available_budget, static_cast<size_t>(layout_sched.num_windows));
         return fixed_overhead + (wpb * per_window_bytes_layout) + 32768 + dedup_bytes;
@@ -1314,7 +1314,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
 
     // Tight return: the arena holds `fixed_overhead + wpb · per_window_bytes` of typed
     // buffers plus a 32 KiB alignment pad and the dedup state (when active). Sizing
-    // tightly — rather than padding up to BATCH_MEM_BUDGET — matters for many-MSM_fast flows
+    // tightly — rather than padding up to the batch memory budget — matters for many-MSM_fast flows
     // (e.g. PerMsmChonk's 256 separate per-circuit MSMs) where every per-MSM_fast
     // `make_unique_for_overwrite<std::byte[]>` mmap/munmaps the buffer above glibc's
     // M_MMAP_THRESHOLD; a 32 MiB floor here would tax every MSM_fast with the page-fault
@@ -1631,7 +1631,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                   "window schedule exceeds compile-time max window count");
 
     using round_parallel_detail::BATCH_CAPACITY;
-    using round_parallel_detail::BATCH_MEM_BUDGET;
+    const size_t batch_mem_budget = get_msm_batch_mem_budget();
     using round_parallel_detail::MIN_BATCH_CAPACITY;
     using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
 
@@ -1653,7 +1653,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // recovers most of the small-batch loss).
     // The per_window_bytes / fixed_overhead formulas below mirror this enum of allocations
     // exactly. Anyone adding an arena buffer must update both the alloc and the corresponding
-    // term in those formulas, otherwise windows_per_batch drifts off the BATCH_MEM_BUDGET.
+    // term in those formulas, otherwise windows_per_batch drifts off the batch memory budget.
 
     // Per-(w, t) slot stride must fit the widest schedule window. The schedule is uniform, so the
     // widest window's bucket count is the per-window cap computed above.
@@ -1700,9 +1700,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                                   (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
-    // Solve `wpb · per_window_bytes ≤ BATCH_MEM_BUDGET − fixed_overhead`.
+    // Solve `wpb · per_window_bytes ≤ batch_mem_budget − fixed_overhead`.
     const size_t available_budget =
-        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+        (batch_mem_budget > fixed_overhead) ? (batch_mem_budget - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =
         round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.num_windows);
 
@@ -1751,7 +1751,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     //                                       (+1.29% regression observed when D was overlaid
     //                                       at the HIST offset).
     //
-    // wpb solve: BATCH_MEM_BUDGET - bytes_P - bytes_W_fixed - bytes_S_shared - 32 KiB pad,
+    // wpb solve: batch_mem_budget - bytes_P - bytes_W_fixed - bytes_S_shared - 32 KiB pad,
     // divided by (bytes_S_per_window + bytes_W_per_wpb). per_window_bytes_shared accounts
     // for HIST + DENSE as two separate slots.
     // ---------------------------------------------------------------------------------------
@@ -1805,7 +1805,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t bytes_W = per_worker_bytes * worker_total;
 
     // Sanity: zones must fit. The conservative `compute_arena_bytes_for_msm` upper bound
-    // sized the buffer to `BATCH_MEM_BUDGET + 32K + dedup_bytes` at worst, which dominates
+    // sized the buffer to `batch_mem_budget + 32K + dedup_bytes` at worst, which dominates
     // every reachable (P + W + S) sum at the inline-tight wpb chosen above.
     BB_ASSERT_LTE(bytes_P + bytes_W, arena.capacity);
     const size_t bytes_S_total = arena.capacity - bytes_P - bytes_W;

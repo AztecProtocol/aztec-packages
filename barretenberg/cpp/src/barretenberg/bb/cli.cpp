@@ -328,8 +328,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand
             ->add_option("--storage_budget",
                          flags.storage_budget,
-                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
-                         "back to RAM (requires --slow_low_memory).")
+                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). Proving fails when it is "
+                         "exceeded (requires --slow_low_memory).")
             ->group(advanced_group);
     };
 
@@ -859,7 +859,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     } else if (flags.verbose) {
         bb_log_level = LogLevel::VERBOSE;
     }
-    slow_low_memory = flags.slow_low_memory;
+    // BB_SLOW_LOW_MEMORY=1 enables the mode as well; the flag only ever turns it on.
+    if (flags.slow_low_memory) {
+        set_slow_low_memory(true);
+    }
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);

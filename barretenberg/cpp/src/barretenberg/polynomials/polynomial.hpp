@@ -652,7 +652,8 @@ template <typename Fr> class Polynomial {
   private:
     // allocate a fresh memory pointer for backing memory
     // DOES NOT initialize memory
-    void allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index);
+    // Returns whether the new memory already reads as zero (see BackingMemory::allocate).
+    bool allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index);
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.

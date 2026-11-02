@@ -260,7 +260,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
     // mirror the predicate used inside pippenger_round_parallel.
     size_t shared_arena_bytes = 0;
-    std::unique_ptr<std::byte[]> shared_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    bb::ScratchBuffer shared_arena_owner;
     std::span<std::byte> shared_arena;
     if (!large_members_concurrent) {
         for (size_t m : large_members) {
@@ -272,9 +272,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             shared_arena_bytes = std::max(shared_arena_bytes, bytes);
         }
         if (shared_arena_bytes > 0) {
-            shared_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
-                shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
-            shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
+            shared_arena_owner = bb::ScratchBuffer(shared_arena_bytes);
+            shared_arena = std::span<std::byte>(shared_arena_owner.data(), shared_arena_bytes);
         }
     }
     // Concurrent small-member dispatch: workers pull members off an atomic cursor and run
@@ -293,20 +292,19 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // The per-worker arenas are one contiguous block of `num_workers * small_arena_bytes`.
         // Cap it at one MSM's budget so a wide batch doesn't hold many full arenas at once,
         // matching the large-member path's single reused arena of the same budget.
-        const size_t workers_by_budget =
-            small_arena_bytes > 0 ? std::max<size_t>(1, round_parallel_detail::BATCH_MEM_BUDGET / small_arena_bytes)
-                                  : std::numeric_limits<size_t>::max();
+        const size_t workers_by_budget = small_arena_bytes > 0
+                                             ? std::max<size_t>(1, get_msm_batch_mem_budget() / small_arena_bytes)
+                                             : std::numeric_limits<size_t>::max();
         const size_t num_workers = std::min({ pool_width, small_members.size(), workers_by_budget });
-        std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+        bb::ScratchBuffer small_arena_owner;
         if (small_arena_bytes > 0) {
-            small_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
-                num_workers * small_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
+            small_arena_owner = bb::ScratchBuffer(num_workers * small_arena_bytes);
         }
         std::atomic<size_t> next_member{ 0 };
         bb::parallel_for(num_workers, [&](size_t tid) {
             std::span<std::byte> worker_arena;
             if (small_arena_bytes > 0) {
-                worker_arena = { small_arena_owner.get() + (tid * small_arena_bytes), small_arena_bytes };
+                worker_arena = { small_arena_owner.data() + (tid * small_arena_bytes), small_arena_bytes };
             }
             while (true) {
                 const size_t s = next_member.fetch_add(1, std::memory_order_relaxed);
@@ -327,7 +325,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // (max_threads=1). This skips the member's cross-thread reduction. It also keeps the member
         // off the pool, so there is no nested parallel_for. The gate above guarantees at least
         // pool_width members, so every worker stays busy. Each call self-allocates its arena (empty
-        // span), because a shared num_workers × max-member arena would exceed BATCH_MEM_BUDGET and
+        // span), because a shared num_workers × max-member arena would exceed the batch memory budget and
         // cap num_workers below pool_width. Members run largest-first (longest-processing-time
         // order) to bound the tail imbalance.
         BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched/large_members_concurrent");

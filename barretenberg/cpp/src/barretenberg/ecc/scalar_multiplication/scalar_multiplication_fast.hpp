@@ -207,6 +207,29 @@ inline constexpr size_t MSM_MIN_PTS_PER_THREAD = 256;
 // path so the concurrent pool retains full worker width. Members at or below it dispatch one-per-worker.
 inline constexpr size_t SMALL_MSM_BATCH_THRESHOLD = size_t{ 1 } << 13;
 
+inline constexpr size_t DEFAULT_MSM_BATCH_MEM_BUDGET = size_t{ 32 } << 20;
+
+namespace detail {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+inline std::atomic<size_t> msm_batch_mem_budget{ DEFAULT_MSM_BATCH_MEM_BUDGET };
+} // namespace detail
+
+/**
+ * @brief Bytes of scratch one MSM_fast arena may use for the windows it processes together.
+ * @details The arena holds a fixed part (per-scalar and per-worker state) plus as many windows' schedules and buckets
+ * as fit in this budget, with at least one window per batch, so a smaller budget means more passes over the
+ * scalars. Each MSM reads the budget once at its start; set it before proving, not while an MSM is running.
+ */
+inline size_t get_msm_batch_mem_budget() noexcept
+{
+    return detail::msm_batch_mem_budget.load(std::memory_order_relaxed);
+}
+
+inline void set_msm_batch_mem_budget(size_t bytes) noexcept
+{
+    detail::msm_batch_mem_budget.store(bytes, std::memory_order_relaxed);
+}
+
 // Per-MSM_fast arena sizer. Returns 0 for shapes that fall back to the Jacobian-fast path
 // (no affine arena). Mirrors the inline budget calc inside `pippenger_round_parallel`;
 // declared here so the test suite can exercise the same sizer.

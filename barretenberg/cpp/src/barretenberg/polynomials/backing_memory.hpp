@@ -3,6 +3,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "unistd.h"
 #include <atomic>
+#include <cerrno>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -14,6 +15,26 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
 
+/**
+ * @brief MSM batch memory budget used in low memory mode (see scalar_multiplication::set_msm_batch_mem_budget).
+ * @details Measured on the pinned transfer flows, 16 MiB is the smallest budget whose proof at its memory floor stays
+ * within 4x of ordinary mode; below it the floor no longer drops and the capped wall time rises steeply.
+ */
+inline constexpr size_t LOW_MEMORY_MSM_BATCH_MEM_BUDGET = size_t{ 16 } << 20;
+
+/**
+ * @brief Whether BB_SLOW_LOW_MEMORY asks for low memory mode ("1"). When it does, the heap and the MSM budget are
+ * configured for it as set_slow_low_memory(true) would. slow_low_memory is initialized from this.
+ */
+bool slow_low_memory_from_environment();
+
+/**
+ * @brief Turn low memory mode on or off. Turning it on also configures the heap to return freed memory promptly
+ * (bb::configure_heap_for_low_memory) and sets the MSM batch memory budget to LOW_MEMORY_MSM_BATCH_MEM_BUDGET;
+ * turning it off leaves both as they are.
+ */
+void set_slow_low_memory(bool enabled);
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern size_t storage_budget;
 
@@ -23,6 +44,21 @@ extern std::atomic<size_t> current_storage_usage;
 // Parse storage size string (e.g., "500m", "2g", "1024k")
 size_t parse_size_string(const std::string& size_str);
 
+/**
+ * @brief Storage for polynomial coefficients: an aligned heap allocation, or in low memory mode a file in the temp
+ * directory mapped MAP_SHARED.
+ *
+ * @details In low memory mode the coefficients, witness polynomials included, are written to files under TMPDIR (or
+ * the system temp directory). Because the mapping is shared, the kernel writes dirty pages back to those files under
+ * memory pressure, so witness data reaches the filesystem rather than only anonymous memory or swap. Each file is
+ * created with mode 0600 and unlinked as soon as it is opened, so no name refers to it and it disappears when the
+ * mapping goes, but its blocks are not wiped and may stay on the device until they are reused. Where that matters,
+ * point TMPDIR at an encrypted or ephemeral filesystem.
+ *
+ * The file's blocks are reserved with posix_fallocate, so a full disk fails the allocation instead of raising SIGBUS
+ * on a later write. On filesystems without native fallocate support glibc emulates it by writing every block, which
+ * makes allocating a large polynomial correspondingly slow.
+ */
 template <typename Fr> struct BackingMemory {
     // Common raw data pointer used by all storage types
     Fr* raw_data = nullptr;
@@ -31,8 +67,6 @@ template <typename Fr> struct BackingMemory {
     // File-backed data substruct with cleanup metadata
     struct FileBackedData {
         size_t file_size;
-        std::string filename;
-        int fd;
         Fr* raw_data_ptr;
 
         ~FileBackedData()
@@ -40,12 +74,6 @@ template <typename Fr> struct BackingMemory {
             if (raw_data_ptr != nullptr && file_size > 0) {
                 munmap(raw_data_ptr, file_size);
                 current_storage_usage.fetch_sub(file_size);
-            }
-            if (fd >= 0) {
-                close(fd);
-            }
-            if (!filename.empty()) {
-                std::filesystem::remove(filename);
             }
         }
     };
@@ -82,16 +110,29 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode.
+    // Allocate memory, file-backed in low memory mode (failing rather than falling back to the heap).
     // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
+        bool reads_as_zero = false;
+        return allocate(size, reads_as_zero);
+    }
+
+    /**
+     * @brief Allocate as allocate(size) does, and report whether the memory already reads as zero.
+     * @details A file-backed allocation is a new file region (posix_fallocate or ftruncate on a new file), which reads
+     * as zero without being written. A caller that needs zeroed memory should then not write the zeros: that would
+     * dirty every page, and a dirty file page must be written back before it can be reclaimed.
+     */
+    static BackingMemory allocate(size_t size, bool& reads_as_zero)
+    {
         BackingMemory memory;
+        reads_as_zero = false;
 #if !defined(__wasm__) && !defined(_WIN32)
-        if (slow_low_memory) {
-            if (try_allocate_file_backed(memory, size)) {
-                return memory;
-            }
+        if (slow_low_memory && size > 0) {
+            allocate_file_backed(memory, size);
+            reads_as_zero = true;
+            return memory;
         }
 #endif
         allocate_aligned(memory, size);
@@ -117,14 +158,11 @@ template <typename Fr> struct BackingMemory {
     }
 
 #if !defined(__wasm__) && !defined(_WIN32)
-    static bool try_allocate_file_backed(BackingMemory& memory, size_t size)
+    // A heap fallback would silently break the memory bound slow_low_memory was requested for.
+    static void allocate_file_backed(BackingMemory& memory, size_t size)
     {
-        if (size == 0) {
-            return false;
-        }
-
         if (size > std::numeric_limits<size_t>::max() / sizeof(Fr)) {
-            return false;
+            throw_or_abort("slow_low_memory: polynomial of " + std::to_string(size) + " elements overflows size_t");
         }
 
         size_t required_bytes = size * sizeof(Fr);
@@ -133,7 +171,9 @@ template <typename Fr> struct BackingMemory {
         size_t current_usage = current_storage_usage.load();
         while (true) {
             if (current_usage + required_bytes > storage_budget) {
-                return false;
+                throw_or_abort("slow_low_memory: allocating " + std::to_string(required_bytes) +
+                               " bytes would exceed the storage budget (" + std::to_string(current_usage) + " of " +
+                               std::to_string(storage_budget) + " bytes in use)");
             }
             if (current_storage_usage.compare_exchange_weak(current_usage, current_usage + required_bytes)) {
                 break;
@@ -153,37 +193,51 @@ template <typename Fr> struct BackingMemory {
 
         std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
+        auto fail = [&](int fd, const std::string& step, int error) {
+            if (fd >= 0) {
+                close(fd);
+            }
+            current_storage_usage.fetch_sub(required_bytes);
+            throw_or_abort("slow_low_memory: " + step + " failed for " + std::to_string(file_size) + "-byte file " +
+                           filename + ": " + std::strerror(error));
+        };
+
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC | O_EXCL, 0600);
         if (fd < 0) {
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+            fail(-1, "open", errno);
         }
+        // The open fd, and after it the mapping, keep the file alive; unlinking now means a crash cannot
+        // leave witness data behind in the temp directory.
+        std::filesystem::remove(filename);
 
+        // Reserve the blocks up front: with a shared mapping, a write into a hole on a full disk raises
+        // SIGBUS instead of failing here. Apple has no posix_fallocate and keeps that exposure.
+#if defined(__APPLE__)
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            close(fd);
-            std::filesystem::remove(filename);
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+            fail(fd, "ftruncate", errno);
         }
+#else
+        if (int error = posix_fallocate(fd, 0, static_cast<off_t>(file_size)); error != 0) {
+            fail(fd, "posix_fallocate", error);
+        }
+#endif
 
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+        // Shared, so dirty pages are file pages the kernel can write back and reclaim; a private mapping
+        // would turn every written page into an anonymous copy-on-write page.
+        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
-            close(fd);
-            std::filesystem::remove(filename);
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+            fail(fd, "mmap", errno);
         }
+        // The mapping holds its own reference to the file, so the descriptor is not needed past this point;
+        // keeping one per polynomial would hit RLIMIT_NOFILE on large proofs.
+        close(fd);
 
         auto file_backed_data = std::make_shared<FileBackedData>();
         file_backed_data->file_size = file_size;
-        file_backed_data->filename = filename;
-        file_backed_data->fd = fd;
         file_backed_data->raw_data_ptr = static_cast<Fr*>(addr);
 
         memory.raw_data = static_cast<Fr*>(addr);
         memory.file_backed = std::move(file_backed_data);
-
-        return true;
     }
 #endif
 };
