@@ -98,8 +98,8 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const testnetTag = process.env.TESTNET_TAG || stripV(developerVersionConfig.testnet) || "0.0.0";
   const mainnetTag = process.env.MAINNET_TAG || stripV(developerVersionConfig.mainnet) || "0.0.0";
   const releaseType = process.env.RELEASE_TYPE || "mainnet";
-  // COMMIT_TAG kept for backwards compatibility. Release cuts set it to the Labs tag; any other build
-  // names the pinned aztec-node tag, the code the pages quote.
+  // Release cuts set COMMIT_TAG to the Labs tag; any other build names the pinned aztec-node tag,
+  // the code the pages quote.
   const commitTag = process.env.COMMIT_TAG || pinnedAztecNodeRef();
 
   // Validate release type
