@@ -77,7 +77,8 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     // for point ranges with more than 1 << 20 points, we split into chunks of smaller multi-exps.
     // Check that this is done correctly
     size_t target_degree = 1200000;
-    std::span<AffineElement> monomials = srs::get_crs_factory<Curve>()->get_crs(target_degree)->get_monomial_points();
+    std::span<const AffineElement> monomials =
+        srs::get_crs_factory<Curve>()->get_crs(target_degree)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * target_degree));
 

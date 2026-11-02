@@ -25,7 +25,7 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     }
 
     ~MemGrumpkinCrs() override = default;
-    std::span<Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
+    std::span<const Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
     size_t get_monomial_size() const override { return monomials_.size(); }
     Grumpkin::AffineElement get_g1_identity() const override { return monomials_[0]; };
 
