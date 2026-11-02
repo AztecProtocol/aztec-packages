@@ -14,6 +14,8 @@
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "http_download.hpp"
+#include <chrono>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <span>
 #include <utility>
@@ -335,3 +337,132 @@ TEST(CrsFactory, GrumpkinGeneratedCacheCoversWholeChunks)
     EXPECT_EQ(get_grumpkin_g1_data(cache_path, 2, /*allow_download=*/false), expected);
     fs::remove_all(cache_path);
 }
+
+#if !defined(__wasm__) && !defined(_WIN32)
+namespace {
+constexpr size_t NATIVE_CACHE_TEST_POINTS = 64;
+
+std::vector<g1::affine_element> native_cache_test_points()
+{
+    auto points = bb::get_bn254_g1_data(bb::srs::bb_crs_path(), NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    points[2] = g1::affine_element::infinity();
+    return points;
+}
+
+void write_uncompressed_source(const fs::path& dir, const std::vector<g1::affine_element>& points)
+{
+    std::vector<uint8_t> bytes;
+    for (const auto& point : points) {
+        auto serialized = to_buffer(point);
+        bytes.insert(bytes.end(), serialized.begin(), serialized.end());
+    }
+    bb::write_file(dir / "bn254_g1.dat", bytes);
+}
+
+void expect_points_eq(std::span<const g1::affine_element> actual, const std::vector<g1::affine_element>& expected)
+{
+    ASSERT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_EQ(std::make_pair(i, actual[i]), std::make_pair(i, expected[i]));
+    }
+}
+} // namespace
+
+TEST(CrsFactory, Bn254NativeCacheRoundTrip)
+{
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_round_trip";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+
+    const auto decoded = bb::get_bn254_g1_data(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    expect_points_eq(decoded, points);
+    EXPECT_TRUE(decoded[2].is_point_at_infinity());
+
+    const auto written = bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    expect_points_eq(written.points, decoded);
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+    EXPECT_EQ(fs::file_size(cache_path), (NATIVE_CACHE_TEST_POINTS + 1) * sizeof(g1::affine_element));
+
+    const auto mapped = bb::load_bn254_g1_points(temp_path, /*num_points=*/16, /*allow_download=*/false);
+    expect_points_eq(mapped.points, std::vector<g1::affine_element>(decoded.begin(), decoded.begin() + 16));
+    EXPECT_TRUE(mapped.points[2].is_point_at_infinity());
+
+    // The points are a shared mapping of the cache file: a write to the file shows through the span.
+    {
+        std::fstream cache(cache_path, std::ios::in | std::ios::out | std::ios::binary);
+        cache.seekp(static_cast<std::streamoff>((1 + 5) * sizeof(g1::affine_element)));
+        cache.write(reinterpret_cast<const char*>(&decoded[6]), sizeof(g1::affine_element));
+    }
+    EXPECT_EQ(mapped.points[5], decoded[6]);
+
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheRegeneratedOnHeaderMismatch)
+{
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_header";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+    const auto original = bb::read_file(cache_path);
+    // Header offsets: magic, version, point_size, endian marker, num_points.
+    for (size_t offset : { 0UL, 8UL, 12UL, 16UL, 24UL }) {
+        auto corrupted = original;
+        corrupted[offset] ^= 0x01;
+        bb::write_file(cache_path, corrupted);
+        const auto loaded = bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+        expect_points_eq(loaded.points, points);
+        EXPECT_EQ(bb::read_file(cache_path), original) << "cache not regenerated after corrupting byte " << offset;
+    }
+
+    // A truncated cache is rejected and rewritten.
+    bb::write_file(cache_path, std::span<const uint8_t>(original.data(), original.size() - 1));
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, false).points, points);
+    EXPECT_EQ(bb::read_file(cache_path), original);
+
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheFollowsRefreshedSource)
+{
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_source";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+
+    std::swap(points[3], points[4]);
+    write_uncompressed_source(temp_path, points);
+    const auto source_path = temp_path / "bn254_g1.dat";
+    fs::last_write_time(source_path, fs::last_write_time(source_path) + std::chrono::seconds(1));
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, false).points, points);
+
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheGrowsWithRequest)
+{
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_grow";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + 16);
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, prefix.size(), false).points, prefix);
+    EXPECT_EQ(fs::file_size(cache_path), (prefix.size() + 1) * sizeof(g1::affine_element));
+
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, points.size(), false).points, points);
+    EXPECT_EQ(fs::file_size(cache_path), (points.size() + 1) * sizeof(g1::affine_element));
+
+    fs::remove_all(temp_path);
+}
+#endif
