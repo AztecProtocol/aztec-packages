@@ -1,6 +1,11 @@
 #pragma once
 #include "acir_format.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "serde/index.hpp"
+
+#include <functional>
+#include <string>
+#include <vector>
 
 namespace acir_format {
 
@@ -76,13 +81,45 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 ///   which constructs a barretenberg circuit by adding the relevant constraints and witnesses to a Builder
 
 /**
- * @brief Deserialize `buf` containing msgpack-compact format data.
+ * @brief Deserialize `buf` containing msgpack-compact format data into a whole msgpack object tree.
  *
  * @note The function expects the first byte to be a format marker (2 for msgpack, 3 for msgpack-compact).
- * The data must be in msgpack array format (compact format), not map format.
+ * The data must be in msgpack array format (compact format), not map format. The circuit and witness readers below
+ * do not use it: they read the bytes one value at a time, because the tree of a large program is several times the
+ * size of its bytes.
  */
 template <typename T>
-T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack);
+T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack)
+{
+    BB_ASSERT(!buf.empty(), "deserialize_msgpack_compact: buffer is empty");
+
+    // Expect format marker for msgpack, msgpack-compact or msgpack-tagged
+    const uint8_t FORMAT_MSGPACK = 2;
+    const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+    const uint8_t FORMAT_MSGPACK_TAGGED = 4;
+    uint8_t format_u8 = buf[0];
+    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT || format_u8 == FORMAT_MSGPACK_TAGGED,
+              "deserialize_msgpack_compact: expected msgpack format marker (2, 3 or 4), got " +
+                  std::to_string(format_u8));
+
+    // Skip the format marker to get the data.
+    const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
+    size_t size = buf.size() - 1;
+
+    auto oh = msgpack::unpack(buffer, size);
+    auto o = oh.get();
+    // Without a reference function, unpack copies every STR/BIN/EXT payload into the object's zone, so the serialized
+    // buffer is no longer needed; the caller handed it over by rvalue reference.
+    std::vector<uint8_t>().swap(buf);
+
+    // Expect ARRAY type for msgpack-compact format
+    if (format_u8 == FORMAT_MSGPACK_COMPACT) {
+        BB_ASSERT(o.type == msgpack::type::ARRAY,
+                  "deserialize_msgpack_compact: expected ARRAY type, got " + std::to_string(o.type));
+    }
+
+    return decode_msgpack(o);
+}
 
 /**
  * @brief Convert an Acir::Circuit into an AcirFormat by processing all the opcodes.
