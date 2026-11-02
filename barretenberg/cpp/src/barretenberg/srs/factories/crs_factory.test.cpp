@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
 #include "barretenberg/srs/factories/get_bn254_crs.hpp"
@@ -89,8 +90,8 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
 
 TEST(CrsFactory, bn254)
 {
-    // A fixture holding a prefix of the user's CRS, so the factory's native cache is written there and never into
-    // the shared CRS directory.
+    // A fixture holding a prefix of the user's CRS, so that in low memory mode the factory writes its native cache
+    // there and never into the shared CRS directory.
     const fs::path fixture_path = "barretenberg_srs_test_crs_bn254_fixture";
     fs::remove_all(fixture_path);
     fs::create_directories(fixture_path);
@@ -354,6 +355,22 @@ TEST(CrsFactory, GrumpkinGeneratedCacheCoversWholeChunks)
 namespace {
 constexpr size_t NATIVE_CACHE_TEST_POINTS = 64;
 
+// Sets slow_low_memory for one test. The native cache is only used in low memory mode.
+class SlowLowMemoryScope {
+  public:
+    explicit SlowLowMemoryScope(bool enabled)
+        : saved_(slow_low_memory)
+    {
+        slow_low_memory = enabled;
+    }
+    ~SlowLowMemoryScope() { slow_low_memory = saved_; }
+    SlowLowMemoryScope(const SlowLowMemoryScope&) = delete;
+    SlowLowMemoryScope& operator=(const SlowLowMemoryScope&) = delete;
+
+  private:
+    bool saved_;
+};
+
 std::vector<g1::affine_element> native_cache_test_points()
 {
     auto points = bb::get_bn254_g1_data(bb::srs::bb_crs_path(), NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
@@ -415,8 +432,27 @@ void expect_points_eq(std::span<const g1::affine_element> actual, const std::vec
 }
 } // namespace
 
+/**
+ * @brief Outside low memory mode the points are decoded onto the heap and no native cache is written or read.
+ */
+TEST(CrsFactory, Bn254OrdinaryModeKeepsPointsOnTheHeap)
+{
+    const SlowLowMemoryScope ordinary_mode(false);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_ordinary_mode";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false).points,
+                     points);
+    EXPECT_FALSE(fs::exists(temp_path / "bn254_g1.native.dat"));
+    fs::remove_all(temp_path);
+}
+
 TEST(CrsFactory, Bn254NativeCacheRoundTrip)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_round_trip";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -449,6 +485,7 @@ TEST(CrsFactory, Bn254NativeCacheRoundTrip)
 
 TEST(CrsFactory, Bn254NativeCacheRegeneratedOnHeaderMismatch)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_header";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -478,6 +515,7 @@ TEST(CrsFactory, Bn254NativeCacheRegeneratedOnHeaderMismatch)
 
 TEST(CrsFactory, Bn254NativeCacheFollowsRefreshedSource)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_source";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -496,6 +534,7 @@ TEST(CrsFactory, Bn254NativeCacheFollowsRefreshedSource)
 
 TEST(CrsFactory, Bn254NativeCacheGrowsWithRequest)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_grow";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -517,6 +556,7 @@ TEST(CrsFactory, Bn254NativeCacheGrowsWithRequest)
 // treat the other's cache as stale.
 TEST(CrsFactory, Bn254NativeCacheStampIsToolchainIndependent)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_stamp";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -528,6 +568,7 @@ TEST(CrsFactory, Bn254NativeCacheStampIsToolchainIndependent)
 
 TEST(CrsFactory, Bn254NativeCacheLegacyEpochStampIsStaleOnce)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_legacy_stamp";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -555,6 +596,7 @@ TEST(CrsFactory, Bn254NativeCacheLegacyEpochStampIsStaleOnce)
 
 TEST(CrsFactory, Bn254NativeCacheNeverShrinks)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const fs::path temp_path = "barretenberg_srs_test_native_cache_shrink";
     fs::remove_all(temp_path);
     fs::create_directories(temp_path);
@@ -583,6 +625,7 @@ TEST(CrsFactory, Bn254NativeCacheNeverShrinks)
 
 TEST(CrsFactory, Bn254NativeCacheConcurrentRequestsKeepTheLargest)
 {
+    const SlowLowMemoryScope low_memory_mode(true);
     const auto points = native_cache_test_points();
     const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + 16);
     for (size_t trial = 0; trial < 8; ++trial) {
