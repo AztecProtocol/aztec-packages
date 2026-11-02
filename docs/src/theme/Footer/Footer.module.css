@@ -18,7 +18,7 @@
 .footerTitle {
   font-family: var(--aztec-font-display);
   font-size: 1.6rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--ifm-footer-title-color);
   margin: 0;
   line-height: 1.3;

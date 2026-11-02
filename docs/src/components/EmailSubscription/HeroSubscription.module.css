@@ -32,7 +32,7 @@
 .heroTitle {
   font-family: var(--aztec-font-display);
   font-size: clamp(2.5rem, 5vw, 4rem);
-  font-weight: 600;
+  font-weight: 400;
   color: #a9cc1f;
   margin: 0 0 2rem 0;
   line-height: 1.2;
