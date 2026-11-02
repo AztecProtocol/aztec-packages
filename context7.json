@@ -1,7 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "Aztec",
-  "description": "Aztec is a privacy-first Layer 2 on Ethereum. Write private smart contracts in Aztec.nr (Noir) and build apps with aztec.js.",
+  "description": "Aztec is the decentralized Ethereum L2 for building unstoppable private apps. Write private smart contracts in Aztec.nr (Noir) and build apps with aztec.js.",
   "url": "https://context7.com/aztecprotocol/aztec-packages",
   "public_key": "pk_t0YiN5OA9Udc9Xnb98tqO",
   "folders": [
