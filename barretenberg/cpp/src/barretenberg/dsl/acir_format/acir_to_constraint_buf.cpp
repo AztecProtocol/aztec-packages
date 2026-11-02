@@ -508,6 +508,60 @@ std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::stri
 }
 
 /**
+ * @brief Give back the growth slack of the AcirFormat's constraint vectors.
+ * @details The vectors are filled by push_back, so each holds up to twice its final size. The slack is a few MiB for a
+ * kernel and would otherwise stay resident through circuit construction.
+ */
+void release_growth_slack(AcirFormat& af)
+{
+    auto shrink = [](auto&... vectors) { (vectors.shrink_to_fit(), ...); };
+    shrink(af.public_inputs,
+           af.logic_constraints,
+           af.range_constraints,
+           af.aes128_constraints,
+           af.sha256_compression,
+           af.ecdsa_k1_constraints,
+           af.ecdsa_r1_constraints,
+           af.blake2s_constraints,
+           af.blake3_constraints,
+           af.keccak_permutations,
+           af.poseidon2_constraints,
+           af.multi_scalar_mul_constraints,
+           af.ec_add_constraints,
+           af.honk_recursion_constraints,
+           af.avm_recursion_constraints,
+           af.hn_recursion_constraints,
+           af.chonk_recursion_constraints,
+           af.quad_constraints,
+           af.big_quad_constraints,
+           af.bilinear_constraints,
+           af.batched_eq_check_constraints,
+           af.block_constraints);
+    auto& indices = af.original_opcode_indices;
+    shrink(indices.logic_constraints,
+           indices.range_constraints,
+           indices.aes128_constraints,
+           indices.sha256_compression,
+           indices.ecdsa_k1_constraints,
+           indices.ecdsa_r1_constraints,
+           indices.blake2s_constraints,
+           indices.blake3_constraints,
+           indices.keccak_permutations,
+           indices.poseidon2_constraints,
+           indices.multi_scalar_mul_constraints,
+           indices.ec_add_constraints,
+           indices.honk_recursion_constraints,
+           indices.avm_recursion_constraints,
+           indices.hn_recursion_constraints,
+           indices.chonk_recursion_constraints,
+           indices.quad_constraints,
+           indices.big_quad_constraints,
+           indices.bilinear_constraints,
+           indices.batched_eq_check_constraints,
+           indices.block_constraints);
+}
+
+/**
  * @brief circuit_serde_to_acir_format with the opcodes supplied one at a time instead of from `circuit.opcodes`.
  *
  * @param stream_circuit Called once with a visitor, which it must call with (index, opcode) for each opcode in order,
@@ -601,6 +655,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
             return CircuitHeader{ circuit.public_parameters, circuit.return_values, circuit.opcodes.size() };
         },
         is_mega);
+    release_growth_slack(af);
     return af;
 }
 
@@ -659,8 +714,10 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
             return header;
         },
         is_mega);
-    // The caller handed the serialized program over by rvalue reference; it is not needed past this point.
+    // The caller handed the serialized program over by rvalue reference; it is not needed past this point. It goes
+    // before the vectors are shrunk so the copies that makes do not add to the parse peak.
     std::vector<uint8_t>().swap(buf);
+    release_growth_slack(af);
     return af;
 }
 
