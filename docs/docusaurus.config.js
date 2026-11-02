@@ -426,7 +426,10 @@ const config = {
           // built version is kept instead, each in a section named for the
           // networks that read it; cut versions no network reads are excluded.
           includeVersionedDocs: true,
-          beforeDefaultRehypePlugins: [require("./src/rehype_drop_hash_links.js")],
+          beforeDefaultRehypePlugins: [
+            require("./src/rehype_drop_hash_links.js"),
+            require("./src/rehype_code_blocks.js"),
+          ],
           routeRules: [
             ...llmsInstances.flatMap((l) => l.routeRules),
             ...productAreaRules,
