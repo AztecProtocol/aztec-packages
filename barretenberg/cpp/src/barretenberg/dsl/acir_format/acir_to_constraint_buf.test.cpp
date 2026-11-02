@@ -3,6 +3,7 @@
 
 #include "acir_serde_test_utils.hpp"
 #include "acir_to_constraint_buf.hpp"
+#include "barretenberg/common/assert.hpp"
 
 using namespace acir_format;
 
@@ -31,4 +32,155 @@ TEST(AcirToConstraintBuf, ParsingConsumesTheSerializedProgram)
     auto constraints = circuit_buf_to_acir_format(std::move(buf), /*is_mega=*/false);
     EXPECT_EQ(constraints.num_acir_opcodes, 1U);
     EXPECT_EQ(buf.capacity(), 0U); // NOLINT(bugprone-use-after-move)
+}
+
+namespace {
+
+Acir::Expression linear(std::initializer_list<std::pair<int, uint32_t>> terms, int constant)
+{
+    Acir::Expression expr{ .q_c = bb::fr(constant).to_buffer() };
+    for (const auto& [coefficient, witness] : terms) {
+        expr.linear_combinations.emplace_back(bb::fr(coefficient).to_buffer(), Acir::Witness{ witness });
+    }
+    return expr;
+}
+
+/**
+ * @brief A circuit exercising each opcode-handling path whose result depends on
+ * state carried across opcodes: batched linear AssertZeros, memory blocks and
+ * their operations, plus a black-box call and public inputs.
+ */
+Acir::Circuit mixed_circuit()
+{
+    Acir::Expression product = linear({ { 1, 2 } }, 0);
+    product.mul_terms.emplace_back(bb::fr(-1).to_buffer(), Acir::Witness{ 0 }, Acir::Witness{ 1 });
+
+    Acir::Circuit circuit{
+      .function_name = "mixed",
+      .opcodes =
+          {
+              Acir::Opcode{Acir::Opcode::AssertZero{.value = product}},
+              Acir::Opcode{Acir::Opcode::AssertZero{
+                  .value = linear({{1, 3}, {-1, 4}}, 0)}},
+              Acir::Opcode{Acir::Opcode::AssertZero{
+                  .value = linear({{1, 5}, {-1, 6}}, 7)}},
+              Acir::Opcode{
+                  Acir::Opcode::BlackBoxFuncCall{
+                      .value =
+                          Acir::BlackBoxFuncCall{
+                              .value =
+                                  Acir::BlackBoxFuncCall::RANGE{
+                                      .input = Acir::FunctionInput{.value = Acir::FunctionInput::Witness{.value =
+                                                                                                             Acir::Witness{
+                                                                                                                 2}}},
+                                      .num_bits = 32}}}},
+              Acir::
+                  Opcode{
+                      Acir::
+                          Opcode::MemoryInit{.block_id = Acir::BlockId{0},
+                                             .init = {Acir::Witness{3}, Acir::Witness{5}},
+                                             .block_type =
+                                                 Acir::BlockType{.value = Acir::BlockType::Memory{}}}},
+              Acir::
+                  Opcode{
+                      Acir::Opcode::MemoryOp{.block_id = Acir::BlockId{0},
+                                             .op = Acir::MemOp{.read = true,
+                                                               .index = Acir::Witness{7},
+                                                               .value =
+                                                                   Acir::Witness{
+                                                                       8}}}},
+              Acir::
+                  Opcode{
+                      Acir::Opcode::AssertZero{.value =
+                                                   linear(
+                                                       {{2, 8}, {-1, 9}}, 0)}},
+          },
+      .private_parameters = {Acir::Witness{0}, Acir::Witness{1}},
+      .public_parameters = Acir::PublicInputs{.value = {Acir::Witness{9}}},
+      .return_values = Acir::PublicInputs{.value = {Acir::Witness{2}}},
+  };
+    return circuit;
+}
+
+enum class Layout { IntKeyedMap, StringKeyedMap };
+
+void pack_key(msgpack::packer<msgpack::sbuffer>& packer, Layout layout, uint32_t index, const char* name)
+{
+    if (layout == Layout::IntKeyedMap) {
+        packer.pack(index);
+    } else {
+        packer.pack(std::string(name));
+    }
+}
+
+/**
+ * @brief Serialize a single-function program with the program and circuit as
+ * maps in the given layout (the generated msgpack_pack only emits arrays).
+ */
+std::vector<uint8_t> serialize_program_as_maps(const Acir::Circuit& circuit, Layout layout)
+{
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+
+    packer.pack_map(1);
+    pack_key(packer, layout, 0, "functions");
+    packer.pack_array(1);
+    packer.pack_map(6);
+    pack_key(packer, layout, 0, "function_name");
+    packer.pack(circuit.function_name);
+    pack_key(packer, layout, 1, "opcodes");
+    packer.pack(circuit.opcodes);
+    pack_key(packer, layout, 2, "private_parameters");
+    packer.pack(circuit.private_parameters);
+    pack_key(packer, layout, 3, "public_parameters");
+    packer.pack(circuit.public_parameters);
+    pack_key(packer, layout, 4, "return_values");
+    packer.pack(circuit.return_values);
+    pack_key(packer, layout, 5, "assert_messages");
+    packer.pack(circuit.assert_messages);
+
+    std::vector<uint8_t> buf{ 0x02 }; // FORMAT_MSGPACK
+    buf.insert(buf.end(), sbuf.data(), sbuf.data() + sbuf.size());
+    return buf;
+}
+
+} // namespace
+
+/**
+ * @brief Converting opcodes one at a time from the msgpack tree gives the
+ * AcirFormat of the fully converted circuit
+ */
+TEST(AcirToConstraintBuf, ArrayLayoutMatchesCircuitConversion)
+{
+    const Acir::Circuit circuit = mixed_circuit();
+    for (bool is_mega : { false, true }) {
+        const AcirFormat expected = circuit_serde_to_acir_format(circuit, is_mega);
+        EXPECT_EQ(circuit_buf_to_acir_format(test::serialize_program_with_circuit(circuit), is_mega), expected);
+    }
+}
+
+TEST(AcirToConstraintBuf, MapLayoutsMatchCircuitConversion)
+{
+    const Acir::Circuit circuit = mixed_circuit();
+    const AcirFormat expected = circuit_serde_to_acir_format(circuit, /*is_mega=*/true);
+    for (Layout layout : { Layout::IntKeyedMap, Layout::StringKeyedMap }) {
+        EXPECT_EQ(circuit_buf_to_acir_format(serialize_program_as_maps(circuit, layout), /*is_mega=*/true), expected);
+    }
+}
+
+TEST(AcirToConstraintBuf, MissingOpcodesFieldIsRejected)
+{
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+    packer.pack_map(1);
+    packer.pack(std::string("functions"));
+    packer.pack_array(1);
+    packer.pack_map(1);
+    packer.pack(std::string("function_name"));
+    packer.pack(std::string("f"));
+    std::vector<uint8_t> buf{ 0x02 };
+    buf.insert(buf.end(), sbuf.data(), sbuf.data() + sbuf.size());
+
+    EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(buf), /*is_mega=*/true),
+                              "missing field 'opcodes' in Circuit");
 }
