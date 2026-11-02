@@ -5,13 +5,13 @@
   z-index: 10;
 }
 
-/* The button sits over the first breadcrumb line; this spacer keeps breadcrumbs out from under it.
-   Its width must stay above the button's (about 6.7rem with the label, 1.8rem without). */
+/* The buttons sit over the first breadcrumb line; this spacer keeps breadcrumbs out from under them.
+   It must stay larger than the button group: about 8.4rem by 1.77rem with the label, 3.55rem by 1.8rem without. */
 :global(.theme-doc-breadcrumbs .breadcrumbs)::before {
   content: '';
   float: right;
-  width: 7rem;
-  height: 1.75rem;
+  width: 8.75rem;
+  height: 1.8rem;
 }
 
 .group {
@@ -147,7 +147,7 @@
   }
 
   :global(.theme-doc-breadcrumbs .breadcrumbs)::before {
-    width: 2.25rem;
+    width: 4rem;
   }
 }
 
