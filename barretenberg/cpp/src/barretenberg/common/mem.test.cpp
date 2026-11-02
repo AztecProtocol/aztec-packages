@@ -1,10 +1,16 @@
 #include "mem.hpp"
+#include <array>
 #include <cstring>
 #include <gtest/gtest.h>
 
 namespace {
 // Keeps the allocations below observable, so the compiler cannot pair and elide them.
 void* volatile sink = nullptr;
+
+// Over-aligned like bb::field, so arrays of it take the aligned operator new.
+struct alignas(32) Wide {
+    std::array<unsigned char, 32> bytes;
+};
 
 void* touched_malloc(size_t bytes)
 {
@@ -60,6 +66,42 @@ TEST(HeapRelease, ReleaseFreeHeapMemoryLeavesTheHeapUsable)
     ASSERT_NE(buffer, nullptr);
     EXPECT_EQ(static_cast<const unsigned char*>(buffer)[4 * MiB - 1], 1);
     std::free(buffer);
+}
+
+/**
+ * @brief On Apple, after configure_heap_for_low_memory a large operator new allocation is a mapping of its own rather
+ * than a libmalloc block, small ones stay on the heap, and both are usable and deletable.
+ */
+TEST(HeapConfigurationDeathTest, LargeAllocationsAreMappedDirectlyOnApple)
+{
+#if defined(__APPLE__) && !defined(TRACY_MEMORY)
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(
+        {
+            constexpr size_t MiB = size_t{ 1 } << 20;
+            auto* before = new unsigned char[2 * MiB];
+            const bool before_on_heap = !bb::detail::is_directly_mapped_allocation(before);
+            bb::configure_heap_for_low_memory();
+            auto* large = new unsigned char[2 * MiB];
+            auto* small = new unsigned char[64 * 1024];
+            auto* aligned = new Wide[(2 * MiB) / sizeof(Wide)];
+            std::memset(large, 1, 2 * MiB);
+            const bool large_mapped = bb::detail::is_directly_mapped_allocation(large);
+            const bool aligned_mapped = bb::detail::is_directly_mapped_allocation(aligned) &&
+                                        reinterpret_cast<uintptr_t>(aligned) % alignof(Wide) == 0;
+            const bool small_on_heap = !bb::detail::is_directly_mapped_allocation(small);
+            const bool usable = large[2 * MiB - 1] == 1;
+            delete[] aligned;
+            delete[] small;
+            delete[] large;
+            delete[] before;
+            std::_Exit(before_on_heap && large_mapped && aligned_mapped && small_on_heap && usable ? 0 : 1);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
+#else
+    GTEST_SKIP() << "Apple only";
+#endif
 }
 
 /**
