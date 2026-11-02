@@ -13,9 +13,9 @@
 #include <atomic>
 #include <bit>
 #include <cerrno>
-#include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <optional>
 #include <span>
 #include <type_traits>
@@ -220,7 +220,7 @@ bb::Bn254G1Points heap_g1_points(std::vector<bb::g1::affine_element> points)
 
 #if !defined(__wasm__) && !defined(_WIN32)
 constexpr std::array<char, 8> NATIVE_CACHE_MAGIC = { 'B', 'B', 'G', '1', 'N', 'A', 'T', 'V' };
-constexpr uint32_t NATIVE_CACHE_VERSION = 1;
+constexpr uint32_t NATIVE_CACHE_VERSION = 2;
 constexpr uint32_t NATIVE_CACHE_ENDIAN_MARKER = 0x01020304;
 
 /**
@@ -234,8 +234,8 @@ struct NativeCacheHeader {
     uint32_t endian_marker;
     uint32_t reserved;
     uint64_t num_points;
-    // Size and modification time of the bn254_g1.dat the points were decoded from; a refreshed source invalidates
-    // the cache.
+    // Size and POSIX modification time (ns since the Unix epoch) of the bn254_g1.dat the points were decoded from; a
+    // refreshed source invalidates the cache.
     uint64_t source_size;
     int64_t source_mtime_ns;
     std::array<uint8_t, 16> padding;
@@ -249,19 +249,21 @@ struct SourceStamp {
     int64_t mtime_ns;
 };
 
+// Read with stat rather than std::filesystem::last_write_time: file_clock's epoch differs between libstdc++ and
+// libc++, and binaries built with either share one cache.
 std::optional<SourceStamp> stamp_of(const std::filesystem::path& path)
 {
-    std::error_code ec;
-    const auto size = std::filesystem::file_size(path, ec);
-    if (ec) {
+    struct stat st{};
+    if (stat(path.c_str(), &st) != 0) {
         return std::nullopt;
     }
-    const auto mtime = std::filesystem::last_write_time(path, ec);
-    if (ec) {
-        return std::nullopt;
-    }
-    const auto mtime_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(mtime.time_since_epoch()).count();
-    return SourceStamp{ static_cast<uint64_t>(size), static_cast<int64_t>(mtime_ns) };
+#if defined(__APPLE__)
+    const auto& mtime = st.st_mtimespec;
+#else
+    const auto& mtime = st.st_mtim;
+#endif
+    return SourceStamp{ static_cast<uint64_t>(st.st_size),
+                        static_cast<int64_t>(mtime.tv_sec) * 1'000'000'000 + static_cast<int64_t>(mtime.tv_nsec) };
 }
 
 NativeCacheHeader make_native_cache_header(uint64_t num_points, const SourceStamp& source)
@@ -275,6 +277,24 @@ NativeCacheHeader make_native_cache_header(uint64_t num_points, const SourceStam
     header.source_size = source.size;
     header.source_mtime_ns = source.mtime_ns;
     return header;
+}
+
+/**
+ * @brief Points held by an existing cache, whatever source or format version it was written for (num_points has kept
+ * its offset since version 1); 0 if there is none. Only used to size a regenerated cache.
+ */
+size_t native_cache_point_count(const std::filesystem::path& cache_path)
+{
+    std::ifstream file(cache_path, std::ios::binary);
+    NativeCacheHeader header{};
+    if (!file.read(reinterpret_cast<char*>(&header), sizeof(header))) {
+        return 0;
+    }
+    if (header.magic != NATIVE_CACHE_MAGIC || header.point_size != sizeof(bb::g1::affine_element) ||
+        header.endian_marker != NATIVE_CACHE_ENDIAN_MARKER) {
+        return 0;
+    }
+    return static_cast<size_t>(header.num_points);
 }
 
 /**
@@ -333,21 +353,46 @@ bool write_all(int fd, const void* data, size_t bytes)
 }
 
 /**
- * @brief Write the cache under a temporary name and rename it into place, so a reader never maps a partial file.
+ * @brief Write the cache from the first num_points points of the uncompressed source, decoding it in bounded chunks so
+ * regeneration holds no full copy of the points. Written under a temporary name and renamed into place, so a reader
+ * never maps a partial file and a process with the old file mapped keeps its inode.
  */
 bool write_native_cache(const std::filesystem::path& cache_path,
-                        std::span<const bb::g1::affine_element> points,
+                        const std::filesystem::path& uncompressed_path,
+                        size_t num_points,
                         const SourceStamp& source)
 {
+    constexpr size_t CHUNK_POINTS = size_t{ 1 } << 14;
+    std::ifstream input(uncompressed_path, std::ios::binary);
+    if (!input) {
+        return false;
+    }
     auto tmp_path = cache_path;
     tmp_path += ".tmp." + std::to_string(getpid());
     int fd = open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         return false;
     }
-    const NativeCacheHeader header = make_native_cache_header(points.size(), source);
-    bool ok =
-        write_all(fd, &header, sizeof(header)) && write_all(fd, points.data(), points.size_bytes()) && fsync(fd) == 0;
+    const NativeCacheHeader header = make_native_cache_header(num_points, source);
+    bool ok = write_all(fd, &header, sizeof(header));
+    std::vector<uint8_t> bytes(std::min(num_points, CHUNK_POINTS) * UNCOMPRESSED_POINT_SIZE);
+    std::vector<bb::g1::affine_element> points(std::min(num_points, CHUNK_POINTS));
+    for (size_t done = 0; ok && done < num_points;) {
+        const size_t count = std::min(CHUNK_POINTS, num_points - done);
+        if (!input.read(reinterpret_cast<char*>(bytes.data()),
+                        static_cast<std::streamsize>(count * UNCOMPRESSED_POINT_SIZE))) {
+            ok = false;
+            break;
+        }
+        bb::parallel_for([&](bb::ThreadChunk chunk) {
+            for (auto i : chunk.range(count)) {
+                points[i] = from_buffer<bb::g1::affine_element>(bytes, i * UNCOMPRESSED_POINT_SIZE);
+            }
+        });
+        ok = write_all(fd, points.data(), count * sizeof(bb::g1::affine_element));
+        done += count;
+    }
+    ok = ok && fsync(fd) == 0;
     ok = close(fd) == 0 && ok;
     ok = ok && std::rename(tmp_path.c_str(), cache_path.c_str()) == 0;
     if (!ok) {
@@ -361,23 +406,20 @@ bool write_native_cache(const std::filesystem::path& cache_path,
 
 namespace bb {
 
-// Main implementation with configurable URLs
-std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
-                                                  size_t num_points,
-                                                  bool allow_download,
-                                                  const std::string& primary_url,
-                                                  const std::string& fallback_url)
+namespace {
+// Body of get_bn254_g1_data; the caller holds the CRS lock.
+std::vector<g1::affine_element> get_bn254_g1_data_locked(const std::filesystem::path& path,
+                                                         size_t num_points,
+                                                         bool allow_download,
+                                                         const std::string& primary_url,
+                                                         const std::string& fallback_url)
 {
     BB_BENCH_NAME("get_bn254_g1_data");
     const bool verify_cached_crs = std::getenv("BB_VERIFY_CRS") != nullptr;
     const size_t cached_read_points = verify_cached_crs ? round_up_to_chunk_boundary(num_points) : num_points;
-    std::filesystem::create_directories(path);
 
     auto uncompressed_path = path / "bn254_g1.dat";
     auto compressed_path = path / "bn254_g1_compressed.dat";
-    auto lock_path = path / "crs.lock";
-    // Acquire exclusive lock to prevent simultaneous downloads
-    FileLockGuard lock(lock_path.string());
 
     // Uncompressed caches have no pinned hashes; verified loads must use the compressed source.
     // 1. Prefer cached uncompressed (fastest: parallel from_buffer, ~0.3s for 2^20 points)
@@ -440,6 +482,20 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     vinfo("cached uncompressed bn254 crs at ", uncompressed_path);
     return points;
 }
+} // namespace
+
+// Main implementation with configurable URLs
+std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
+                                                  size_t num_points,
+                                                  bool allow_download,
+                                                  const std::string& primary_url,
+                                                  const std::string& fallback_url)
+{
+    std::filesystem::create_directories(path);
+    // Acquire exclusive lock to prevent simultaneous downloads
+    FileLockGuard lock((path / "crs.lock").string());
+    return get_bn254_g1_data_locked(path, num_points, allow_download, primary_url, fallback_url);
+}
 
 // Default overload using production URLs
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
@@ -457,31 +513,41 @@ Bn254G1Points load_bn254_g1_points(const std::filesystem::path& path, size_t num
     }
     const auto uncompressed_path = path / "bn254_g1.dat";
     const auto cache_path = path / "bn254_g1.native.dat";
-    const auto lock_path = path / "crs.lock";
     std::filesystem::create_directories(path);
-    {
-        FileLockGuard lock(lock_path.string());
-        if (auto source = stamp_of(uncompressed_path)) {
-            if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
-                vinfo("mapped native bn254 crs cache at ", cache_path);
-                return *mapped;
-            }
+    // Held across check and regeneration, so concurrent requests of different sizes cannot overwrite each other.
+    FileLockGuard lock((path / "crs.lock").string());
+
+    auto source = stamp_of(uncompressed_path);
+    if (source) {
+        if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
+            vinfo("mapped native bn254 crs cache at ", cache_path);
+            return *mapped;
         }
     }
 
-    // get_bn254_g1_data takes the CRS lock itself, so it cannot be held across this call.
-    auto points = get_bn254_g1_data(path, num_points, allow_download);
-    FileLockGuard lock(lock_path.string());
-    if (auto source = stamp_of(uncompressed_path)) {
-        if (write_native_cache(cache_path, points, *source)) {
+    std::optional<std::vector<g1::affine_element>> decoded;
+    if (!source || source->size / UNCOMPRESSED_POINT_SIZE < num_points) {
+        // Only this path, which has to produce bn254_g1.dat, decodes the points onto the heap.
+        decoded = get_bn254_g1_data_locked(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
+        source = stamp_of(uncompressed_path);
+    }
+    if (source) {
+        // Never shrink the cache: another process may need the points a smaller request does not.
+        const size_t available = source->size / UNCOMPRESSED_POINT_SIZE;
+        const size_t cache_points = std::min(available, std::max(num_points, native_cache_point_count(cache_path)));
+        decoded.reset();
+        if (cache_points >= num_points && write_native_cache(cache_path, uncompressed_path, cache_points, *source)) {
             if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
-                vinfo("wrote and mapped native bn254 crs cache at ", cache_path);
+                vinfo("wrote and mapped native bn254 crs cache (", cache_points, " points) at ", cache_path);
                 return *mapped;
             }
         }
     }
     vinfo("could not use a native bn254 crs cache at ", cache_path, "; keeping the points on the heap");
-    return heap_g1_points(std::move(points));
+    if (!decoded) {
+        decoded = get_bn254_g1_data_locked(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
+    }
+    return heap_g1_points(std::move(*decoded));
 #else
     return heap_g1_points(get_bn254_g1_data(path, num_points, allow_download));
 #endif
