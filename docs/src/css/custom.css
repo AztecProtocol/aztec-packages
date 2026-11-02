@@ -718,6 +718,14 @@ html[data-theme="dark"] .sidebar-divider {
   white-space: normal;
 }
 
+/* The link colour is under 3:1 against body text in both themes, so links in running text
+   need a cue that is not colour (WCAG 1.4.1). Cards and buttons wrap their text, not the reverse. */
+.markdown :is(p, li, td, th, dd, blockquote) a:not(.button) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
 /* ============================================
    Table Wrapping Styles for Long Content
    ============================================ */
