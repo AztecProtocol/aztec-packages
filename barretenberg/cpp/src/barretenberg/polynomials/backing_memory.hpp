@@ -36,6 +36,21 @@ extern std::atomic<size_t> current_storage_usage;
 // Parse storage size string (e.g., "500m", "2g", "1024k")
 size_t parse_size_string(const std::string& size_str);
 
+/**
+ * @brief Storage for polynomial coefficients: an aligned heap allocation, or in low memory mode a file in the temp
+ * directory mapped MAP_SHARED.
+ *
+ * @details In low memory mode the coefficients, witness polynomials included, are written to files under TMPDIR (or
+ * the system temp directory). Because the mapping is shared, the kernel writes dirty pages back to those files under
+ * memory pressure, so witness data reaches the filesystem rather than only anonymous memory or swap. Each file is
+ * created with mode 0600 and unlinked as soon as it is opened, so no name refers to it and it disappears when the
+ * mapping goes, but its blocks are not wiped and may stay on the device until they are reused. Where that matters,
+ * point TMPDIR at an encrypted or ephemeral filesystem.
+ *
+ * The file's blocks are reserved with posix_fallocate, so a full disk fails the allocation instead of raising SIGBUS
+ * on a later write. On filesystems without native fallocate support glibc emulates it by writing every block, which
+ * makes allocating a large polynomial correspondingly slow.
+ */
 template <typename Fr> struct BackingMemory {
     // Common raw data pointer used by all storage types
     Fr* raw_data = nullptr;
