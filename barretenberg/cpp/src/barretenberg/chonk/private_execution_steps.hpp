@@ -2,6 +2,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,19 @@ namespace bb {
  *  await fs.writeFile(path, encode(executionSteps.map(stepToStruct)));
  *  See format notes below.
  */
+/**
+ * @brief Upper bound on the decompressed size of a gzip stream of compressed_size bytes, saturating at size_max.
+ * @details Deflate expands its input by at most 1032:1. Computed in 64 bits: on a 32-bit target the product wraps for
+ * inputs of a few MiB and the wrapped bound would reject valid data.
+ */
+constexpr size_t max_gzip_output_size(size_t compressed_size, size_t size_max = std::numeric_limits<size_t>::max())
+{
+    constexpr uint64_t MAX_DEFLATE_RATIO = 1032;
+    constexpr uint64_t GZIP_HEADER_SLACK = 1024;
+    const uint64_t bound = (static_cast<uint64_t>(compressed_size) * MAX_DEFLATE_RATIO) + GZIP_HEADER_SLACK;
+    return bound > size_max ? size_max : static_cast<size_t>(bound);
+}
+
 struct PrivateExecutionStepRaw {
     // Represents bincode.
     std::vector<uint8_t> bytecode;

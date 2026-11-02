@@ -219,7 +219,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         BB_ASSERT_EQ(a_vec.size(),
                      poly_length,
                      "IPA witness length must equal the compile-time poly_length (2^log_poly_length)");
-        std::span<Commitment> srs_elements = ck.get_monomial_points();
+        std::span<const Commitment> srs_elements = ck.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }

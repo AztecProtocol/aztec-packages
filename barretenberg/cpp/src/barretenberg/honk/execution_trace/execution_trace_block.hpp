@@ -7,11 +7,16 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstddef>
 #include <cstring>
+#include <functional>
+#include <limits>
+#include <memory>
 #include <utility>
+#include <vector>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
 #include <backward.hpp>
@@ -128,36 +133,168 @@ template <typename FF, size_t NUM_WIRES> struct GateRow {
 };
 
 // Gates are stored in tiles of GATE_TILE_SIZE: within a tile each field is a small contiguous
-// array, so per-gate writes stay within one hot tile of sizeof(GateTile) bytes — roughly
-// GATE_TILE_SIZE * sizeof(GateRow), ~2.4KB for a 32-byte FF — while per-column reads see
-// contiguous multi-cache-line runs instead of one strided element per row (AoSoA).
-// GATE_TILE_SIZE is a benchmarked cache trade-off for the 32-byte bn254 FF, deliberately a fixed
-// constant rather than derived from sizeof(FF) so it cannot drift silently with the field type.
+// array, so per-gate writes stay within one hot tile while per-column reads see contiguous runs
+// instead of one strided element per row (AoSoA). GATE_TILE_SIZE is a benchmarked cache trade-off,
+// deliberately a fixed constant.
 static constexpr size_t GATE_TILE_SIZE = 8;
 static_assert(std::has_single_bit(GATE_TILE_SIZE));
 static constexpr size_t GATE_TILE_SHIFT = std::countr_zero(GATE_TILE_SIZE);
 static constexpr size_t GATE_TILE_MASK = GATE_TILE_SIZE - 1;
 
-template <typename FF, size_t NUM_WIRES> struct GateTile {
-    std::array<std::array<uint32_t, GATE_TILE_SIZE>, NUM_WIRES> wires{};
-    std::array<FF, GATE_TILE_SIZE> q_m{};
-    std::array<FF, GATE_TILE_SIZE> q_c{};
-    std::array<FF, GATE_TILE_SIZE> q_1{};
-    std::array<FF, GATE_TILE_SIZE> q_2{};
-    std::array<FF, GATE_TILE_SIZE> q_3{};
-    std::array<FF, GATE_TILE_SIZE> q_4{};
-    std::array<FF, GATE_TILE_SIZE> q_5{};
-    std::array<FF, GATE_TILE_SIZE> gate_value{};
-    std::array<GateKind, GATE_TILE_SIZE> gate_kind{};
+/**
+ * @brief Append-only storage in fixed-size chunks of 2^ChunkShift elements, so growth never reallocates or copies
+ * existing elements (references to them stay valid) and the slack is under one chunk (a std::vector peaks at up to 3x
+ * the used size while doubling).
+ */
+template <typename Tile, size_t ChunkShift = 8> class TileChunks {
+  public:
+    static constexpr size_t CHUNK_SHIFT = ChunkShift;
+    static constexpr size_t CHUNK_TILES = size_t{ 1 } << CHUNK_SHIFT;
+    static constexpr size_t CHUNK_MASK = CHUNK_TILES - 1;
+    using Chunk = std::array<Tile, CHUNK_TILES>;
 
-    // Gate-selector read semantics: a slot reads its gate_value for the kind it holds, zero for
-    // every other kind.
-    FF gate_selector_or_zero(size_t slot, GateKind kind) const
+    TileChunks() = default;
+    TileChunks(const TileChunks& other)
+        : size_(other.size_)
     {
-        return gate_kind[slot] == kind ? gate_value[slot] : FF{ 0 };
+        chunks_.reserve(other.chunks_.size());
+        for (const auto& chunk : other.chunks_) {
+            chunks_.push_back(std::make_unique<Chunk>(*chunk));
+        }
+    }
+    TileChunks& operator=(const TileChunks& other)
+    {
+        if (this != &other) {
+            *this = TileChunks(other);
+        }
+        return *this;
+    }
+    TileChunks(TileChunks&& other) noexcept
+        : chunks_(std::move(other.chunks_))
+        , size_(std::exchange(other.size_, 0))
+    {}
+    TileChunks& operator=(TileChunks&& other) noexcept
+    {
+        chunks_ = std::move(other.chunks_);
+        size_ = std::exchange(other.size_, 0);
+        return *this;
+    }
+    ~TileChunks() = default;
+
+    Tile& operator[](size_t i) { return (*chunks_[i >> CHUNK_SHIFT])[i & CHUNK_MASK]; }
+    const Tile& operator[](size_t i) const { return (*chunks_[i >> CHUNK_SHIFT])[i & CHUNK_MASK]; }
+
+    /** @brief Append a zero-initialized element. */
+    Tile& emplace_back()
+    {
+        if (size_ == chunks_.size() * CHUNK_TILES) {
+            chunks_.push_back(std::make_unique<Chunk>());
+        }
+        return (*this)[size_++];
     }
 
-    bool operator==(const GateTile& other) const = default;
+    void reserve(size_t num_tiles) { chunks_.reserve((num_tiles + CHUNK_MASK) >> CHUNK_SHIFT); }
+
+    size_t size() const { return size_; }
+    size_t capacity() const { return chunks_.size() * CHUNK_TILES; }
+
+    void clear()
+    {
+        chunks_.clear();
+        chunks_.shrink_to_fit();
+        size_ = 0;
+    }
+
+  private:
+    std::vector<std::unique_ptr<Chunk>> chunks_;
+    size_t size_ = 0;
+};
+
+/**
+ * @brief Dedup table of one selector column's values: each distinct value is stored once and gates store its id.
+ * @details Selector values are circuit structure drawn from a small set (0, ±1, small integers, ACIR coefficients), so
+ * a uint32 id per gate replaces a 32-byte field element. Id 0 is always zero, so a zero-initialized tile reads as all
+ * selectors zero. Values live in chunked storage so the references Selector::operator[] returns stay valid as the table
+ * grows;
+ * the index is open-addressed over ids and hashes the reduced value, matching field equality.
+ */
+template <typename FF> class SelectorValueTable {
+  public:
+    SelectorValueTable() { values_.emplace_back() = FF(0); }
+
+    uint32_t intern(const FF& value)
+    {
+        if (value.is_zero()) {
+            return 0;
+        }
+        if (2 * values_.size() >= slots_.size()) {
+            grow();
+        }
+        const FF reduced = value.reduce_once();
+        const size_t mask = slots_.size() - 1;
+        for (size_t slot = std::hash<FF>{}(reduced)&mask;; slot = (slot + 1) & mask) {
+            const uint32_t id = slots_[slot];
+            if (id == EMPTY_SLOT) {
+                BB_ASSERT_LT(values_.size(), static_cast<size_t>(EMPTY_SLOT), "SelectorValueTable: too many values");
+                const auto new_id = static_cast<uint32_t>(values_.size());
+                values_.emplace_back() = reduced;
+                slots_[slot] = new_id;
+                return new_id;
+            }
+            if (values_[id] == reduced) {
+                return id;
+            }
+        }
+    }
+
+    const FF& operator[](uint32_t id) const { return values_[id]; }
+
+    /** @brief Number of distinct values, zero included. */
+    size_t size() const { return values_.size(); }
+
+    /** @brief Approximate heap bytes held by the table. */
+    size_t memory_bytes() const { return values_.capacity() * sizeof(FF) + slots_.capacity() * sizeof(uint32_t); }
+
+    void clear() { *this = SelectorValueTable{}; }
+
+  private:
+    static constexpr uint32_t EMPTY_SLOT = std::numeric_limits<uint32_t>::max();
+
+    void grow()
+    {
+        const size_t new_size = std::max<size_t>(16, slots_.size() * 2);
+        slots_.assign(new_size, EMPTY_SLOT);
+        const size_t mask = new_size - 1;
+        for (uint32_t id = 1; id < values_.size(); ++id) {
+            size_t slot = std::hash<FF>{}(values_[id]) & mask;
+            while (slots_[slot] != EMPTY_SLOT) {
+                slot = (slot + 1) & mask;
+            }
+            slots_[slot] = id;
+        }
+    }
+
+    // 16 values per chunk: most tables hold a handful of values, and a block has one table per selector column.
+    TileChunks<FF, 4> values_;
+    std::vector<uint32_t> slots_;
+};
+
+/**
+ * @brief Eight gates: wire indices, and per selector column the SelectorValueTable id of each gate's value.
+ */
+template <typename FF, size_t NUM_WIRES> struct GateTile {
+    using Ids = std::array<uint32_t, GATE_TILE_SIZE>;
+
+    std::array<Ids, NUM_WIRES> wires{};
+    Ids q_m{};
+    Ids q_c{};
+    Ids q_1{};
+    Ids q_2{};
+    Ids q_3{};
+    Ids q_4{};
+    Ids q_5{};
+    Ids gate_value{};
+    std::array<GateKind, GATE_TILE_SIZE> gate_kind{};
 };
 
 /**
@@ -165,12 +302,13 @@ template <typename FF, size_t NUM_WIRES> struct GateTile {
  */
 template <typename FF, size_t NUM_WIRES> struct NonGateSelectorField {
     FF GateRow<FF, NUM_WIRES>::* row_field;
-    std::array<FF, GATE_TILE_SIZE> GateTile<FF, NUM_WIRES>::* tile_field;
+    typename GateTile<FF, NUM_WIRES>::Ids GateTile<FF, NUM_WIRES>::* tile_field;
 };
 
 // The single definition of the non-gate selector list and its order: the selector count,
 // append_gate's row->tile copies, and the block's column wiring all derive from this table.
-// The q_m()..q_5() accessors on ExecutionTraceBlock index columns_ in this order.
+// The q_m()..q_5() accessors on ExecutionTraceBlock index columns_ in this order, and the
+// block's value tables are indexed the same way, with the gate value table last.
 template <typename FF, size_t NUM_WIRES>
 inline constexpr std::array NON_GATE_SELECTORS{
     NonGateSelectorField<FF, NUM_WIRES>{ &GateRow<FF, NUM_WIRES>::q_m, &GateTile<FF, NUM_WIRES>::q_m },
@@ -229,26 +367,29 @@ template <typename FF> class Selector {
 };
 
 /**
- * @brief Column view over one non-gate selector field of the row-major gate storage.
+ * @brief Column view over one non-gate selector field of the row-major gate storage: the tiles hold ids into the
+ * column's SelectorValueTable.
  */
 template <typename FF, size_t NUM_WIRES> class SelectorColumn : public Selector<FF> {
   public:
     using Tile = GateTile<FF, NUM_WIRES>;
-    using Tiles = std::vector<Tile>;
-    using Field = std::array<FF, GATE_TILE_SIZE> Tile::*;
+    using Tiles = TileChunks<Tile>;
+    using Field = typename Tile::Ids Tile::*;
+    using Table = SelectorValueTable<FF>;
 
-    SelectorColumn(Tiles* tiles, const size_t* num_rows, Field field)
+    SelectorColumn(Tiles* tiles, const size_t* num_rows, Field field, Table* table)
         : tiles_(tiles)
         , num_rows_(num_rows)
         , field_(field)
+        , table_(table)
     {}
 
-    void set(size_t idx, int value) override { at(idx) = value; }
-    void set(size_t idx, const FF& value) override { at(idx) = value; }
+    void set(size_t idx, int value) override { set(idx, FF(value)); }
+    void set(size_t idx, const FF& value) override { id_at(idx) = table_->intern(value); }
 
     const FF& operator[](size_t i) const override
     {
-        return ((*tiles_)[i >> GATE_TILE_SHIFT].*field_)[i & GATE_TILE_MASK];
+        return (*table_)[((*tiles_)[i >> GATE_TILE_SHIFT].*field_)[i & GATE_TILE_MASK]];
     }
     const FF& back() const override { return (*this)[*num_rows_ - 1]; }
 
@@ -263,8 +404,8 @@ template <typename FF, size_t NUM_WIRES> class SelectorColumn : public Selector<
             ++i;
         }
         for (; i + GATE_TILE_SIZE <= count; i += GATE_TILE_SIZE) {
-            const auto& run = (*tiles_)[(start + i) >> GATE_TILE_SHIFT].*field_;
-            memcpy(static_cast<void*>(dst + i), static_cast<const void*>(run.data()), sizeof(FF) * GATE_TILE_SIZE);
+            const auto& ids = (*tiles_)[(start + i) >> GATE_TILE_SHIFT].*field_;
+            constexpr_for<0, GATE_TILE_SIZE, 1>([&]<size_t k>() { dst[i + k] = (*table_)[ids[k]]; });
         }
         for (; i < count; ++i) {
             dst[i] = (*this)[start + i];
@@ -272,11 +413,12 @@ template <typename FF, size_t NUM_WIRES> class SelectorColumn : public Selector<
     }
 
   private:
-    FF& at(size_t i) { return ((*tiles_)[i >> GATE_TILE_SHIFT].*field_)[i & GATE_TILE_MASK]; }
+    uint32_t& id_at(size_t i) { return ((*tiles_)[i >> GATE_TILE_SHIFT].*field_)[i & GATE_TILE_MASK]; }
 
     Tiles* tiles_;
     const size_t* num_rows_;
     Field field_;
+    Table* table_;
 };
 
 /**
@@ -286,12 +428,14 @@ template <typename FF, size_t NUM_WIRES> class SelectorColumn : public Selector<
 template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selector<FF> {
   public:
     using Tile = GateTile<FF, NUM_WIRES>;
-    using Tiles = std::vector<Tile>;
+    using Tiles = TileChunks<Tile>;
+    using Table = SelectorValueTable<FF>;
 
-    GateSelectorColumn(Tiles* tiles, const size_t* num_rows, GateKind kind)
+    GateSelectorColumn(Tiles* tiles, const size_t* num_rows, GateKind kind, Table* gate_values)
         : tiles_(tiles)
         , num_rows_(num_rows)
         , kind_(kind)
+        , gate_values_(gate_values)
     {}
 
     void set(size_t idx, int value) override { set(idx, FF(value)); }
@@ -301,19 +445,19 @@ template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selec
         const size_t slot = idx & GATE_TILE_MASK;
         if (tile.gate_kind[slot] != kind_) {
             // Only one gate kind may be active per row; claiming the row is only legal if no other
-            // kind holds a nonzero value on it.
-            BB_ASSERT(tile.gate_value[slot] == FF{ 0 },
+            // kind holds a nonzero value on it (id 0 is zero).
+            BB_ASSERT(tile.gate_value[slot] == 0,
                       "GateSelectorColumn: overwriting an active gate selector of another kind");
             tile.gate_kind[slot] = kind_;
         }
-        tile.gate_value[slot] = value;
+        tile.gate_value[slot] = gate_values_->intern(value);
     }
 
     const FF& operator[](size_t i) const override
     {
         const Tile& tile = (*tiles_)[i >> GATE_TILE_SHIFT];
         const size_t slot = i & GATE_TILE_MASK;
-        return tile.gate_kind[slot] == kind_ ? tile.gate_value[slot] : zero_value();
+        return (*gate_values_)[tile.gate_kind[slot] == kind_ ? tile.gate_value[slot] : 0];
     }
     const FF& back() const override { return (*this)[*num_rows_ - 1]; }
 
@@ -329,7 +473,8 @@ template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selec
         }
         for (; i + GATE_TILE_SIZE <= count; i += GATE_TILE_SIZE) {
             const Tile& tile = (*tiles_)[(start + i) >> GATE_TILE_SHIFT];
-            constexpr_for<0, GATE_TILE_SIZE, 1>([&]<size_t k>() { dst[i + k] = tile.gate_selector_or_zero(k, kind_); });
+            constexpr_for<0, GATE_TILE_SIZE, 1>(
+                [&]<size_t k>() { dst[i + k] = (*gate_values_)[tile.gate_kind[k] == kind_ ? tile.gate_value[k] : 0]; });
         }
         for (; i < count; ++i) {
             dst[i] = (*this)[start + i];
@@ -339,15 +484,10 @@ template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selec
     GateKind kind() const { return kind_; }
 
   private:
-    static const FF& zero_value()
-    {
-        static const FF zero{};
-        return zero;
-    }
-
     Tiles* tiles_;
     const size_t* num_rows_;
     GateKind kind_;
+    Table* gate_values_;
 };
 
 /**
@@ -356,7 +496,7 @@ template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selec
 template <typename FF, size_t NUM_WIRES> class WireColumn {
   public:
     using Tile = GateTile<FF, NUM_WIRES>;
-    using Tiles = std::vector<Tile>;
+    using Tiles = TileChunks<Tile>;
 
     WireColumn(Tiles* tiles, const size_t* num_rows, size_t wire_idx)
         : tiles_(tiles)
@@ -413,6 +553,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
 
     using Row = GateRow<FF, NUM_WIRES>;
     using Tile = GateTile<FF, NUM_WIRES>;
+    using Table = SelectorValueTable<FF>;
     using WireType = WireColumn<FF, NUM_WIRES>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
@@ -426,7 +567,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
     {
         gate_columns_.reserve(kinds.size());
         for (GateKind k : kinds) {
-            gate_columns_.emplace_back(&tiles, &num_rows_, k);
+            gate_columns_.emplace_back(&tiles, &num_rows_, k, &gate_value_table());
         }
     }
 
@@ -438,6 +579,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
         , trace_offset_(other.trace_offset_)
         , tiles(other.tiles)
         , num_rows_(other.num_rows_)
+        , value_tables_(other.value_tables_)
     {
         copy_stack_traces_from(other);
         copy_gate_columns_from(other);
@@ -452,6 +594,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
         trace_offset_ = other.trace_offset_;
         tiles = other.tiles;
         num_rows_ = other.num_rows_;
+        value_tables_ = other.value_tables_;
         copy_stack_traces_from(other);
         copy_gate_columns_from(other);
         return *this;
@@ -462,6 +605,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
         , trace_offset_(other.trace_offset_)
         , tiles(std::move(other.tiles))
         , num_rows_(other.num_rows_)
+        , value_tables_(std::move(other.value_tables_))
     {
         move_stack_traces_from(other);
         copy_gate_columns_from(other);
@@ -473,6 +617,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
         trace_offset_ = other.trace_offset_;
         tiles = std::move(other.tiles);
         num_rows_ = other.num_rows_;
+        value_tables_ = std::move(other.value_tables_);
         move_stack_traces_from(other);
         copy_gate_columns_from(other);
         return *this;
@@ -509,10 +654,64 @@ template <typename FF> class ExecutionTraceBlockStorage {
     // The first trace row past this block's data (trace_offset + size).
     size_t trace_end() const { return trace_offset() + size(); }
 
+    // Compares gate values, not ids: ids depend on the order in which each block first saw a value.
     bool operator==(const ExecutionTraceBlockStorage& other) const
     {
-        return cached_size_ == other.cached_size_ && data_freed_ == other.data_freed_ &&
-               trace_offset_ == other.trace_offset_ && num_rows_ == other.num_rows_ && tiles == other.tiles;
+        if (cached_size_ != other.cached_size_ || data_freed_ != other.data_freed_ ||
+            trace_offset_ != other.trace_offset_ || num_rows_ != other.num_rows_) {
+            return false;
+        }
+        for (size_t i = 0; i < num_rows_; ++i) {
+            const Tile& lhs = tiles[i >> GATE_TILE_SHIFT];
+            const Tile& rhs = other.tiles[i >> GATE_TILE_SHIFT];
+            const size_t slot = i & GATE_TILE_MASK;
+            for (size_t w = 0; w < NUM_WIRES; ++w) {
+                if (lhs.wires[w][slot] != rhs.wires[w][slot]) {
+                    return false;
+                }
+            }
+            for (size_t c = 0; c < NUM_NON_GATE_SELECTORS; ++c) {
+                const auto field = NON_GATE_SELECTORS<FF, NUM_WIRES>[c].tile_field;
+                if (value_tables_[c][(lhs.*field)[slot]] != other.value_tables_[c][(rhs.*field)[slot]]) {
+                    return false;
+                }
+            }
+            if (lhs.gate_kind[slot] != rhs.gate_kind[slot] ||
+                gate_value_table()[lhs.gate_value[slot]] != other.gate_value_table()[rhs.gate_value[slot]]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @brief Gate-selector value at row `idx` for `kind`: the row's gate value if it holds that kind, zero otherwise.
+     */
+    const FF& gate_selector_or_zero(size_t idx, GateKind kind) const
+    {
+        const Tile& tile = tiles[idx >> GATE_TILE_SHIFT];
+        const size_t slot = idx & GATE_TILE_MASK;
+        return gate_value_table()[tile.gate_kind[slot] == kind ? tile.gate_value[slot] : 0];
+    }
+
+    /** @brief Heap bytes held by the selector value tables. */
+    size_t value_table_bytes() const
+    {
+        size_t bytes = 0;
+        for (const auto& table : value_tables_) {
+            bytes += table.memory_bytes();
+        }
+        return bytes;
+    }
+
+    /** @brief Distinct values per column (zero included): q_m..q_5 in NON_GATE_SELECTORS order, then gate values. */
+    std::array<size_t, NUM_NON_GATE_SELECTORS + 1> value_table_sizes() const
+    {
+        std::array<size_t, NUM_NON_GATE_SELECTORS + 1> sizes{};
+        for (size_t c = 0; c < sizes.size(); ++c) {
+            sizes[c] = value_tables_[c].size();
+        }
+        return sizes;
     }
 
     size_t size() const { return data_freed_ ? cached_size_ : num_rows_; }
@@ -534,11 +733,12 @@ template <typename FF> class ExecutionTraceBlockStorage {
         for (size_t w = 0; w < NUM_WIRES; ++w) {
             tile.wires[w][slot] = row.wires[w];
         }
-        for (const auto& sel : NON_GATE_SELECTORS<FF, NUM_WIRES>) {
-            (tile.*sel.tile_field)[slot] = row.*sel.row_field;
+        for (size_t c = 0; c < NUM_NON_GATE_SELECTORS; ++c) {
+            const auto& sel = NON_GATE_SELECTORS<FF, NUM_WIRES>[c];
+            (tile.*sel.tile_field)[slot] = value_tables_[c].intern(row.*sel.row_field);
         }
         tile.gate_kind[slot] = kind;
-        tile.gate_value[slot] = row.gate_value;
+        tile.gate_value[slot] = gate_value_table().intern(row.gate_value);
         ++num_rows_;
     }
 
@@ -601,7 +801,9 @@ template <typename FF> class ExecutionTraceBlockStorage {
         cached_size_ = num_rows_;
         data_freed_ = true;
         tiles.clear();
-        tiles.shrink_to_fit();
+        for (auto& table : value_tables_) {
+            table.clear();
+        }
         num_rows_ = 0;
     }
 
@@ -619,7 +821,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
     SelectorColumn<FF, NUM_WIRES>& q_4() { return columns_[5]; };
     SelectorColumn<FF, NUM_WIRES>& q_5() { return columns_[6]; };
 
-    std::vector<Tile> tiles;
+    TileChunks<Tile> tiles;
     size_t num_rows_ = 0;
 
     // Wire column views; rebound on copy/move alongside the selector views.
@@ -651,7 +853,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
         gate_columns_.clear();
         gate_columns_.reserve(other.gate_columns_.size());
         for (const auto& col : other.gate_columns_) {
-            gate_columns_.emplace_back(&tiles, &num_rows_, col.kind());
+            gate_columns_.emplace_back(&tiles, &num_rows_, col.kind(), &gate_value_table());
         }
     }
 
@@ -663,12 +865,19 @@ template <typename FF> class ExecutionTraceBlockStorage {
         return tiles[num_rows_ >> GATE_TILE_SHIFT];
     }
 
+    Table& gate_value_table() { return value_tables_.back(); }
+    const Table& gate_value_table() const { return value_tables_.back(); }
+
     template <size_t... Is>
     std::array<SelectorColumn<FF, NUM_WIRES>, NUM_NON_GATE_SELECTORS> make_selector_columns(std::index_sequence<Is...>)
     {
         return { SelectorColumn<FF, NUM_WIRES>{
-            &tiles, &num_rows_, NON_GATE_SELECTORS<FF, NUM_WIRES>[Is].tile_field }... };
+            &tiles, &num_rows_, NON_GATE_SELECTORS<FF, NUM_WIRES>[Is].tile_field, &value_tables_[Is] }... };
     }
+
+    // One value table per non-gate selector in NON_GATE_SELECTORS order, then the gate value table shared by the
+    // block's gate kinds. Declared before the column views that point into it.
+    std::array<Table, NUM_NON_GATE_SELECTORS + 1> value_tables_{};
 
     // Column views into the tiles, one per NON_GATE_SELECTORS entry in table order; rebound on
     // copy/move (see the copy/move constructors).
@@ -712,9 +921,7 @@ template <typename FF> FF read_gate_selector(const ExecutionTraceBlockStorage<FF
     if (idx >= block.size()) {
         return FF{ 0 };
     }
-    const auto& tile = block.tiles[idx >> GATE_TILE_SHIFT];
-    const size_t slot = idx & GATE_TILE_MASK;
-    return tile.gate_selector_or_zero(slot, kind);
+    return block.gate_selector_or_zero(idx, kind);
 }
 
 } // namespace bb
