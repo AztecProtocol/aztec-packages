@@ -40,6 +40,8 @@ template <typename FF> struct mul_quad_ {
     FF c_scaling;
     FF d_scaling;
     FF const_scaling;
+
+    friend bool operator==(mul_quad_<FF> const& lhs, mul_quad_<FF> const& rhs) = default;
 };
 
 // Bilinear / batched-eq gate (Mega flavors only; see relations/bilinear_or_batched_eq_check_relation.hpp).

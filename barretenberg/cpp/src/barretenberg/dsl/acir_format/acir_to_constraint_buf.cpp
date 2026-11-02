@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -324,13 +327,25 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
     return decode_msgpack(o);
 }
 
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
+namespace {
+
+/**
+ * @brief circuit_serde_to_acir_format with the opcodes supplied one at a time instead of from `circuit.opcodes`.
+ *
+ * @param circuit Every field but `opcodes` is read from here.
+ * @param for_each_opcode Called once with a visitor, which it must call with (index, opcode) for each of the
+ * `num_opcodes` opcodes in order. The opcode only needs to live for the duration of the call.
+ */
+template <typename ForEachOpcode>
+AcirFormat circuit_serde_to_acir_format_impl(Acir::Circuit const& circuit,
+                                             size_t num_opcodes,
+                                             ForEachOpcode&& for_each_opcode,
+                                             bool is_mega)
 {
-    BB_ASSERT_LT(
-        circuit.opcodes.size(), UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
+    BB_ASSERT_LT(num_opcodes, UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
 
     AcirFormat af;
-    af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
+    af.num_acir_opcodes = static_cast<uint32_t>(num_opcodes);
     af.public_inputs = join({
         transform::map(circuit.public_parameters.value,
                        [&](const Acir::Witness& e) {
@@ -353,8 +368,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
     // They are batched later via the function batched_eq_assert_zeros_into_constraints
     std::vector<BatchedEqEntry> batched_eq_assert_zeros;
 
-    for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
-        const auto& gate = circuit.opcodes[i];
+    for_each_opcode([&](size_t i, Acir::Opcode const& gate) {
         update_max_witness_index_from_opcode(gate, af);
         std::visit(
             overloaded{
@@ -381,7 +395,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
                 },
             },
             gate.value);
-    }
+    });
     // Pair any buffered batched-eq AssertZeros (≤2-witness linear opcodes) into BATCHED_EQ rows.
     batched_eq_assert_zeros_into_constraints(af, batched_eq_assert_zeros);
 
@@ -399,26 +413,90 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
     return af;
 }
 
+/**
+ * @brief The field at `index` (named `name`) of a serde struct, in any wire layout its generated msgpack_unpack
+ * accepts: an array, an integer-keyed map or a string-keyed map.
+ */
+msgpack::object& serde_field(msgpack::object& o, uint32_t index, std::string_view name, std::string_view type_name)
+{
+    if (o.type == msgpack::type::ARRAY && index < o.via.array.size) {
+        return o.via.array.ptr[index];
+    }
+    if (o.type == msgpack::type::MAP) {
+        for (auto& entry : std::span(o.via.map.ptr, o.via.map.size)) {
+            const bool index_matches =
+                entry.key.type == msgpack::type::POSITIVE_INTEGER && entry.key.via.u64 == static_cast<uint64_t>(index);
+            const bool name_matches = entry.key.type == msgpack::type::STR &&
+                                      std::string_view(entry.key.via.str.ptr, entry.key.via.str.size) == name;
+            if (index_matches || name_matches) {
+                return entry.val;
+            }
+        }
+    }
+    bb::assert_failure("acir_format::circuit_buf_to_acir_format: missing field '" + std::string(name) + "' in " +
+                       std::string(type_name));
+    __builtin_unreachable();
+}
+
+template <typename T> void convert_or_fail(msgpack::object const& o, T& out, std::string_view type_name)
+{
+    try {
+        o.convert(out);
+    } catch (const msgpack::type_error&) {
+        std::cerr << o << std::endl;
+        bb::assert_failure("acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to " +
+                           std::string(type_name));
+    }
+}
+
+} // namespace
+
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
+{
+    return circuit_serde_to_acir_format_impl(
+        circuit,
+        circuit.opcodes.size(),
+        [&](auto&& visit) {
+            for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
+                visit(i, circuit.opcodes[i]);
+            }
+        },
+        is_mega);
+}
+
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
 {
-    // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
-    auto program = deserialize_msgpack_compact<Acir::ProgramWithoutBrillig>(
-        std::move(buf), [](auto o) -> Acir::ProgramWithoutBrillig {
-            Acir::ProgramWithoutBrillig program_wob;
-            try {
-                // Deserialize into a partial structure that ignores the Brillig parts,
-                // so that new opcodes can be added without breaking Barretenberg.
-                o.convert(program_wob);
-            } catch (const msgpack::type_error&) {
-                std::cerr << o << std::endl;
-                bb::assert_failure(
-                    "acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
-            }
-            return program_wob;
-        });
-    BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
+    // The program is read as a ProgramWithoutBrillig (ignoring the Brillig parts, so that new Brillig opcodes do not
+    // break Barretenberg), but its opcodes are converted from the msgpack tree one at a time: a fully converted
+    // Acir::Program is larger than the tree, and never needs to be resident.
+    return deserialize_msgpack_compact<AcirFormat>(std::move(buf), [&](msgpack::object const& root) -> AcirFormat {
+        // deserialize_msgpack_compact owns the tree; it is edited in place below and discarded afterwards.
+        auto& program = const_cast<msgpack::object&>(root);
+        msgpack::object& functions = serde_field(program, 0, "functions", "ProgramWithoutBrillig");
+        BB_ASSERT(functions.type == msgpack::type::ARRAY && functions.via.array.size == 1,
+                  "circuit_buf_to_acir_format: expected single function in ACIR program");
+        msgpack::object& circuit = functions.via.array.ptr[0];
+        msgpack::object& opcodes_field = serde_field(circuit, 1, "opcodes", "Circuit");
+        BB_ASSERT(opcodes_field.type == msgpack::type::ARRAY, "circuit_buf_to_acir_format: expected an opcode array");
 
-    return circuit_serde_to_acir_format(program.functions[0], is_mega);
+        // Detach the opcodes so that converting the circuit reads only its other fields.
+        const msgpack::object_array opcodes = opcodes_field.via.array;
+        opcodes_field.via.array = msgpack::object_array{ 0, nullptr };
+        Acir::Circuit header;
+        convert_or_fail(circuit, header, "Circuit");
+
+        return circuit_serde_to_acir_format_impl(
+            header,
+            opcodes.size,
+            [&](auto&& visit) {
+                for (size_t i = 0; i < opcodes.size; ++i) {
+                    Acir::Opcode opcode;
+                    convert_or_fail(opcodes.ptr[i], opcode, "Opcode");
+                    visit(i, opcode);
+                }
+            },
+            is_mega);
+    });
 }
 
 AcirFormat circuit_buf_to_mega_acir_format(std::vector<uint8_t>&& buf)
