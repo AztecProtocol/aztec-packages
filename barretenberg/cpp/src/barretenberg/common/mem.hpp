@@ -60,7 +60,8 @@ inline void release_free_heap_memory()
     malloc_trim(0);
 #elif defined(__APPLE__)
     // All zones, with no goal: return as much cached free memory as possible. On recent macOS this returns nothing from
-    // the large cache, which holds most of the retained memory; ScratchBuffer keeps the largest buffers out of it.
+    // the large cache, which holds most of the retained memory; configure_heap_for_low_memory() keeps large
+    // allocations out of it instead.
     malloc_zone_pressure_relief(nullptr, 0);
 #endif
 }
@@ -72,12 +73,19 @@ inline void release_free_heap_memory()
  * the heap instead of mapped, and up to 64 MiB of free heap is kept resident. Setting both thresholds explicitly turns
  * that adjustment off: chunks of 1 MiB or more are always mapped and unmapped on free, and free heap above 1 MiB is
  * returned. Apple's libmalloc has no mallopt equivalent that can be set from inside the process (its tuning is
- * environment variables read at startup); there the retention is its large cache, and the in-process workaround is to
- * map large scratch directly (see ScratchBuffer), which this enables on every platform.
+ * environment variables read at startup); there the retention is its large cache, which malloc_zone_pressure_relief
+ * does not empty. So on Apple a replacement global operator new (mem.cpp) applies the same idea at libmalloc's own
+ * large-block threshold: once this has run, every allocation of 128 KiB or more is an anonymous mapping of its own,
+ * unmapped when it is deleted, and never enters the cache. Allocations made through malloc directly still do.
+ * ScratchBuffer maps its buffer directly on every platform.
  */
 namespace detail {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline std::atomic<bool> map_scratch_directly{ false };
+// Defined in mem.cpp next to the operator new replacement, so a binary that configures the heap always links it.
+void enable_large_allocation_mapping();
+/** @brief Whether ptr is a block the replacement operator new mapped directly (always false off Apple). */
+bool is_directly_mapped_allocation(const void* ptr);
 } // namespace detail
 
 inline void configure_heap_for_low_memory()
@@ -88,6 +96,7 @@ inline void configure_heap_for_low_memory()
     mallopt(M_TRIM_THRESHOLD, threshold);
 #endif
     detail::map_scratch_directly.store(true, std::memory_order_relaxed);
+    detail::enable_large_allocation_mapping();
 }
 
 /**
