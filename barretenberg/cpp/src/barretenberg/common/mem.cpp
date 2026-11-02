@@ -10,6 +10,7 @@
 #include <mutex>
 #include <new>
 #include <sys/mman.h>
+#include <type_traits>
 
 namespace {
 
@@ -22,8 +23,28 @@ constexpr size_t MAPPED_ALLOCATION_THRESHOLD = size_t{ 128 } << 10;
 std::atomic<bool> mapping_enabled{ false };
 
 /**
+ * @brief A lock that is trivially destructible, unlike std::mutex.
+ * @details The block registry below must outlive static destruction: a static object constructed before it can free
+ * a mapped block after it has been destroyed, and locking a destroyed std::mutex fails with EINVAL (chonk_tests under
+ * BB_SLOW_LOW_MEMORY=1 died at exit with "mutex lock failed"). With no destructor the registry stays usable to the end.
+ * The critical sections are a scan of a small array, so spinning is fine.
+ */
+class SpinLock {
+  public:
+    void lock()
+    {
+        while (locked_.exchange(true, std::memory_order_acquire)) {
+        }
+    }
+    void unlock() { locked_.store(false, std::memory_order_release); }
+
+  private:
+    std::atomic<bool> locked_{ false };
+};
+
+/**
  * @brief The live directly mapped blocks, so operator delete can tell them from heap pointers.
- * @details A fixed array under a mutex; at most a few hundred such blocks are live at once, so a scan is cheap. Most
+ * @details A fixed array under a lock; at most a few hundred such blocks are live at once, so a scan is cheap. Most
  * deletes never reach it: a mapped block starts on a page boundary, and a pointer that does not cannot be one. No
  * allocation happens under the lock. When the array is full, new large allocations fall back to the heap.
  */
@@ -33,7 +54,7 @@ class MappedBlocks {
 
     bool insert(void* ptr, size_t size)
     {
-        const std::lock_guard<std::mutex> guard(mutex_);
+        const std::lock_guard<SpinLock> guard(lock_);
         if (count_ == CAPACITY) {
             return false;
         }
@@ -49,7 +70,7 @@ class MappedBlocks {
         if ((reinterpret_cast<uintptr_t>(ptr) & PAGE_MASK) != 0 || live_.load(std::memory_order_acquire) == 0) {
             return 0;
         }
-        const std::lock_guard<std::mutex> guard(mutex_);
+        const std::lock_guard<SpinLock> guard(lock_);
         for (size_t i = 0; i < count_; ++i) {
             if (entries_[i].ptr == ptr) {
                 const size_t size = entries_[i].size;
@@ -69,8 +90,9 @@ class MappedBlocks {
     std::array<Entry, CAPACITY> entries_{};
     size_t count_ = 0;
     std::atomic<size_t> live_{ 0 };
-    std::mutex mutex_;
+    SpinLock lock_;
 };
+static_assert(std::is_trivially_destructible_v<MappedBlocks>);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 MappedBlocks mapped_blocks;
