@@ -24,8 +24,7 @@ inline constexpr size_t LOW_MEMORY_MSM_BATCH_MEM_BUDGET = size_t{ 16 } << 20;
 
 /**
  * @brief Whether BB_SLOW_LOW_MEMORY asks for low memory mode ("1"). When it does, the heap and the MSM budget are
- * configured for it as
- * set_slow_low_memory(true) would. slow_low_memory is initialized from this.
+ * configured for it as set_slow_low_memory(true) would. slow_low_memory is initialized from this.
  */
 bool slow_low_memory_from_environment();
 
