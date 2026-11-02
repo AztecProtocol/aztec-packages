@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useDoc, useDocsVersion } from '@docusaurus/plugin-content-docs/client';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import { buildAgentLinks } from '@site/src/utils/agentLinks';
@@ -81,6 +81,8 @@ export default function CopyMarkdownButton() {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
   const { metadata } = useDoc();
   // noIndex versions are excluded from the llms build, so they have no .md twin for the menu's
   // links to point at; the DOM-based Copy button still works there.
@@ -97,7 +99,9 @@ export default function CopyMarkdownButton() {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      if (rootRef.current?.contains(document.activeElement)) toggleRef.current?.focus();
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -148,7 +152,16 @@ ${markdownContent}`;
   }, [metadata.title]);
 
   return (
-    <div className={styles.copyButtonContainer} ref={rootRef}>
+    <div
+      className={styles.copyButtonContainer}
+      ref={rootRef}
+      onBlur={(event) => {
+        // Safari does not focus links on click, so a null relatedTarget can be a click on a menu
+        // link; closing then would unmount it mid-click. Outside clicks close on mousedown instead.
+        const next = event.relatedTarget as Node | null;
+        if (next && !event.currentTarget.contains(next)) setOpen(false);
+      }}
+    >
       <div className={styles.group}>
         <button
           className={`${styles.copyButton} ${copied ? styles.copied : ''}`}
@@ -161,10 +174,11 @@ ${markdownContent}`;
         </button>
         {!noIndex && (
           <button
+            ref={toggleRef}
             className={`${styles.menuToggle} ${open ? styles.menuToggleOpen : ''}`}
             onClick={() => setOpen((value) => !value)}
-            aria-haspopup="menu"
             aria-expanded={open}
+            aria-controls={menuId}
             aria-label="More ways to use this page"
             title="Open this page in an AI assistant"
             type="button"
@@ -174,10 +188,9 @@ ${markdownContent}`;
         )}
       </div>
       {open && !noIndex && (
-        <div className={styles.menu} role="menu">
+        <div className={styles.menu} id={menuId}>
           <a
             className={styles.menuItem}
-            role="menuitem"
             href={markdownUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -191,7 +204,6 @@ ${markdownContent}`;
           </a>
           <a
             className={styles.menuItem}
-            role="menuitem"
             href={chatGptUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -205,7 +217,6 @@ ${markdownContent}`;
           </a>
           <a
             className={styles.menuItem}
-            role="menuitem"
             href={claudeUrl}
             target="_blank"
             rel="noopener noreferrer"
