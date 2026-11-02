@@ -31,7 +31,6 @@ template <typename Fr> struct BackingMemory {
     // File-backed data substruct with cleanup metadata
     struct FileBackedData {
         size_t file_size;
-        std::string filename;
         int fd;
         Fr* raw_data_ptr;
 
@@ -43,9 +42,6 @@ template <typename Fr> struct BackingMemory {
             }
             if (fd >= 0) {
                 close(fd);
-            }
-            if (!filename.empty()) {
-                std::filesystem::remove(filename);
             }
         }
     };
@@ -158,25 +154,34 @@ template <typename Fr> struct BackingMemory {
             current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
+        // The open fd and the mapping keep the file alive; unlinking now means a crash cannot leave
+        // witness data behind in the temp directory.
+        std::filesystem::remove(filename);
 
-        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
+        // Reserve the blocks up front: with a shared mapping, a write into a hole on a full disk raises
+        // SIGBUS instead of failing here. Apple has no posix_fallocate and keeps that exposure.
+#if defined(__APPLE__)
+        const bool sized = ftruncate(fd, static_cast<off_t>(file_size)) == 0;
+#else
+        const bool sized = posix_fallocate(fd, 0, static_cast<off_t>(file_size)) == 0;
+#endif
+        if (!sized) {
             close(fd);
-            std::filesystem::remove(filename);
             current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+        // Shared, so dirty pages are file pages the kernel can write back and reclaim; a private mapping
+        // would turn every written page into an anonymous copy-on-write page.
+        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
             close(fd);
-            std::filesystem::remove(filename);
             current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
         auto file_backed_data = std::make_shared<FileBackedData>();
         file_backed_data->file_size = file_size;
-        file_backed_data->filename = filename;
         file_backed_data->fd = fd;
         file_backed_data->raw_data_ptr = static_cast<Fr*>(addr);
 
