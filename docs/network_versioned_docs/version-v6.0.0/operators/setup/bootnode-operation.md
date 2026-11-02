@@ -49,6 +49,20 @@ environment:
   BOOTSTRAP_NODES: ${BOOTSTRAP_NODES}
 ```
 
+**On testnet (CLI method):** Pass the ENR to your node at startup using the `--p2p.bootstrapNodes` flag.
+
+The flag accepts a comma-separated list of bootstrap node ENRs:
+
+```bash
+aztec start --node --network testnet --p2p.bootstrapNodes [ENR]
+```
+
+For multiple bootnodes:
+
+```bash
+aztec start --node --network testnet --p2p.bootstrapNodes [ENR1],[ENR2],[ENR3]
+```
+
 ## Running a bootnode
 
 To run your own bootnode, create a dedicated Docker Compose configuration.
