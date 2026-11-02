@@ -36,8 +36,8 @@ class FileBackedMemory : public ::testing::Test {
 };
 
 #if defined(__linux__)
-// Size of the anonymous (copy-on-write or private) pages in the mapping that contains addr, from /proc/self/smaps.
-size_t anonymous_kb_of_mapping(const void* addr)
+// The kB value of an smaps field (e.g. "Anonymous:", "Rss:") for the mapping that contains addr.
+size_t smaps_kb_of_mapping(const void* addr, const std::string& field)
 {
     const auto target = reinterpret_cast<uintptr_t>(addr);
     std::ifstream smaps("/proc/self/smaps");
@@ -48,11 +48,17 @@ size_t anonymous_kb_of_mapping(const void* addr)
         uintptr_t end = 0;
         if (std::sscanf(line.c_str(), "%lx-%lx ", &start, &end) == 2 && line.find(':') > line.find(' ')) {
             in_mapping = start <= target && target < end;
-        } else if (in_mapping && line.rfind("Anonymous:", 0) == 0) {
-            return std::stoul(line.substr(std::string("Anonymous:").size()));
+        } else if (in_mapping && line.rfind(field, 0) == 0) {
+            return std::stoul(line.substr(field.size()));
         }
     }
     throw std::runtime_error("mapping not found in /proc/self/smaps");
+}
+
+// Size of the anonymous (copy-on-write or private) pages in the mapping that contains addr.
+size_t anonymous_kb_of_mapping(const void* addr)
+{
+    return smaps_kb_of_mapping(addr, "Anonymous:");
 }
 
 // Writes through the mapping must land in the file's page cache, not in private anonymous copies.
@@ -67,6 +73,18 @@ TEST_F(FileBackedMemory, WrittenPagesAreFilePagesNotAnonymous)
     EXPECT_EQ(anonymous_kb_of_mapping(memory.raw_data), 0UL);
     for (size_t i = 0; i < SIZE; ++i) {
         EXPECT_EQ(memory.raw_data[i], FF(i + 1));
+    }
+}
+
+// A new file-backed polynomial already reads as zero, so zero-initializing it must not write (and so dirty) its pages:
+// under a memory cap every dirtied page has to be written back to the file before it can be reclaimed.
+TEST_F(FileBackedMemory, ZeroInitializedPolynomialLeavesItsPagesUntouched)
+{
+    constexpr size_t SIZE = size_t{ 1 } << 16;
+    bb::Polynomial<FF> polynomial(SIZE);
+    EXPECT_LT(smaps_kb_of_mapping(polynomial.data(), "Rss:"), 64UL);
+    for (size_t i = 0; i < SIZE; ++i) {
+        ASSERT_EQ(polynomial[i], FF(0)) << i;
     }
 }
 #endif
