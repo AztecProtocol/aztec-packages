@@ -32,7 +32,6 @@ template <typename Fr> struct BackingMemory {
     // File-backed data substruct with cleanup metadata
     struct FileBackedData {
         size_t file_size;
-        int fd;
         Fr* raw_data_ptr;
 
         ~FileBackedData()
@@ -40,9 +39,6 @@ template <typename Fr> struct BackingMemory {
             if (raw_data_ptr != nullptr && file_size > 0) {
                 munmap(raw_data_ptr, file_size);
                 current_storage_usage.fetch_sub(file_size);
-            }
-            if (fd >= 0) {
-                close(fd);
             }
         }
     };
@@ -161,8 +157,8 @@ template <typename Fr> struct BackingMemory {
         if (fd < 0) {
             fail(-1, "open", errno);
         }
-        // The open fd and the mapping keep the file alive; unlinking now means a crash cannot leave
-        // witness data behind in the temp directory.
+        // The open fd, and after it the mapping, keep the file alive; unlinking now means a crash cannot
+        // leave witness data behind in the temp directory.
         std::filesystem::remove(filename);
 
         // Reserve the blocks up front: with a shared mapping, a write into a hole on a full disk raises
@@ -183,10 +179,12 @@ template <typename Fr> struct BackingMemory {
         if (addr == MAP_FAILED) {
             fail(fd, "mmap", errno);
         }
+        // The mapping holds its own reference to the file, so the descriptor is not needed past this point;
+        // keeping one per polynomial would hit RLIMIT_NOFILE on large proofs.
+        close(fd);
 
         auto file_backed_data = std::make_shared<FileBackedData>();
         file_backed_data->file_size = file_size;
-        file_backed_data->fd = fd;
         file_backed_data->raw_data_ptr = static_cast<Fr*>(addr);
 
         memory.raw_data = static_cast<Fr*>(addr);
