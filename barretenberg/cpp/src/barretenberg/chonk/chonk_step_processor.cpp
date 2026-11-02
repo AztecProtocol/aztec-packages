@@ -85,6 +85,10 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
         }
         ivc->accumulate(circuit, Chonk::CircuitVerificationKey{ vk });
     });
+    // The circuit and accumulation's transients are freed now; the next step's parse does not reuse their memory.
+    if (slow_low_memory) {
+        release_free_heap_memory();
+    }
 }
 
 ChonkProof ChonkStepProcessor::prove()

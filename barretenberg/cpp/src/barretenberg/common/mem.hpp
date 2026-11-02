@@ -6,6 +6,8 @@
 #include <memory>
 #if defined(__GLIBC__)
 #include <malloc.h>
+#elif defined(__APPLE__)
+#include <malloc/malloc.h>
 #endif
 
 // This can be altered to capture stack traces, though more expensive
@@ -40,14 +42,18 @@ static std::set<size_t> FREED_GATES; // hack to prevent instrumentation failures
 namespace bb {
 /**
  * @brief Return free heap memory to the operating system.
- * @details glibc keeps freed memory in its arenas, where it stays resident until reused. Call after releasing a large
- * structure whose memory the next phase will not reuse. The prover calls it only in low memory mode: when resident
- * memory is not bounded, returning the pages just means faulting them back in later. No-op on other allocators.
+ * @details glibc keeps freed memory in its arenas and Apple's libmalloc in its zones, where it stays resident (and on
+ * Apple counts towards the process footprint) until reused. Call after releasing a large structure whose memory the
+ * next phase will not reuse. The prover calls it only in low memory mode: when resident memory is not bounded,
+ * returning the pages just means faulting them back in later. No-op on other allocators.
  */
 inline void release_free_heap_memory()
 {
 #if defined(__GLIBC__)
     malloc_trim(0);
+#elif defined(__APPLE__)
+    // All zones, with no goal: return as much cached free memory as possible.
+    malloc_zone_pressure_relief(nullptr, 0);
 #endif
 }
 
@@ -57,7 +63,9 @@ inline void release_free_heap_memory()
  * its trim threshold to twice that. After one large buffer is freed, later buffers of up to 32 MiB are carved from
  * the heap instead of mapped, and up to 64 MiB of free heap is kept resident. Setting both thresholds explicitly turns
  * that adjustment off: chunks of 1 MiB or more are always mapped and unmapped on free, and free heap above 1 MiB is
- * returned. No-op on other allocators.
+ * returned. No-op on other allocators: Apple's libmalloc has no mallopt equivalent that can be set from inside the
+ * process (its tuning is environment variables read at startup), so there low memory mode relies on
+ * release_free_heap_memory() at phase boundaries instead.
  */
 inline void configure_heap_for_low_memory()
 {
