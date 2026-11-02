@@ -260,7 +260,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
     // mirror the predicate used inside pippenger_round_parallel.
     size_t shared_arena_bytes = 0;
-    std::unique_ptr<std::byte[]> shared_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    bb::ScratchBuffer shared_arena_owner;
     std::span<std::byte> shared_arena;
     if (!large_members_concurrent) {
         for (size_t m : large_members) {
@@ -272,9 +272,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             shared_arena_bytes = std::max(shared_arena_bytes, bytes);
         }
         if (shared_arena_bytes > 0) {
-            shared_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
-                shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
-            shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
+            shared_arena_owner = bb::ScratchBuffer(shared_arena_bytes);
+            shared_arena = std::span<std::byte>(shared_arena_owner.data(), shared_arena_bytes);
         }
     }
     // Concurrent small-member dispatch: workers pull members off an atomic cursor and run
@@ -297,16 +296,15 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
                                              ? std::max<size_t>(1, get_msm_batch_mem_budget() / small_arena_bytes)
                                              : std::numeric_limits<size_t>::max();
         const size_t num_workers = std::min({ pool_width, small_members.size(), workers_by_budget });
-        std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+        bb::ScratchBuffer small_arena_owner;
         if (small_arena_bytes > 0) {
-            small_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
-                num_workers * small_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
+            small_arena_owner = bb::ScratchBuffer(num_workers * small_arena_bytes);
         }
         std::atomic<size_t> next_member{ 0 };
         bb::parallel_for(num_workers, [&](size_t tid) {
             std::span<std::byte> worker_arena;
             if (small_arena_bytes > 0) {
-                worker_arena = { small_arena_owner.get() + (tid * small_arena_bytes), small_arena_bytes };
+                worker_arena = { small_arena_owner.data() + (tid * small_arena_bytes), small_arena_bytes };
             }
             while (true) {
                 const size_t s = next_member.fetch_add(1, std::memory_order_relaxed);

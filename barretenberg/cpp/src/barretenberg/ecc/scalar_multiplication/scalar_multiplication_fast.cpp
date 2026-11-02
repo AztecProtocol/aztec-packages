@@ -4,6 +4,7 @@
 #include "./pippenger_constantine.hpp"
 #include "./pippenger_dedup.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -207,7 +208,7 @@ template <typename Curve> struct ThreadScratch {
 };
 
 struct MsmArena {
-    std::unique_ptr<std::byte[]> local_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    bb::ScratchBuffer local_owner;
     std::byte* data = nullptr;
     uintptr_t base_addr = 0;
     size_t capacity = 0;
@@ -219,9 +220,8 @@ struct MsmArena {
             data = external_arena.data();
             capacity = external_arena.size();
         } else {
-            // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-            local_owner = std::make_unique_for_overwrite<std::byte[]>(required_bytes);
-            data = local_owner.get();
+            local_owner = bb::ScratchBuffer(required_bytes);
+            data = local_owner.data();
             capacity = required_bytes;
         }
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
