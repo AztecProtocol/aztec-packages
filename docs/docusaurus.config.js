@@ -18,6 +18,7 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const {
+  apiReferenceDirs,
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
@@ -429,6 +430,14 @@ const config = {
           beforeDefaultRehypePlugins: [
             require("./src/rehype_drop_hash_links.js"),
             require("./src/rehype_code_blocks.js"),
+            [
+              require("./src/rehype_api_links.js"),
+              {
+                dirs: apiReferenceDirs(developerDocs)
+                  .filter(({ kind }) => kind === "aztec-nr")
+                  .map(({ dir }) => dir),
+              },
+            ],
           ],
           routeRules: [
             ...llmsInstances.flatMap((l) => l.routeRules),

@@ -34,6 +34,18 @@ const DIRECTIVE =
 
 const BODY_TAG = /<body[^>]*>/i;
 
+// An Aztec.nr API page with a markdown sibling (aztec_nr_api_markdown.mjs) names it the way the
+// theme names a docs page's twin.
+const API_DIR = path.join(BUILD_DIR, "aztec-nr-api");
+const ALTERNATE = 'rel="alternate" type="text/markdown"';
+
+function withMarkdownAlternate(html, file) {
+  const twin = file.replace(/\.html$/, ".md");
+  if (!file.startsWith(API_DIR + path.sep) || !fs.existsSync(twin) || html.includes(ALTERNATE)) return html;
+  const href = `/${path.relative(BUILD_DIR, twin).split(path.sep).join("/")}`;
+  return html.replace(/<\/head>/i, `<link ${ALTERNATE} href="${href}" title="Markdown">\n</head>`);
+}
+
 function* walkHtml(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
@@ -58,23 +70,20 @@ function main() {
   let noBody = 0;
 
   for (const file of walkHtml(BUILD_DIR)) {
-    const html = fs.readFileSync(file, "utf-8");
+    const original = fs.readFileSync(file, "utf-8");
+    let html = withMarkdownAlternate(original, file);
+    const match = html.match(BODY_TAG);
 
     if (html.includes(MARKER)) {
       skipped++;
-      continue;
-    }
-
-    const match = html.match(BODY_TAG);
-    if (!match) {
+    } else if (!match) {
       noBody++;
-      continue;
+    } else {
+      const insertAt = match.index + match[0].length;
+      html = html.slice(0, insertAt) + DIRECTIVE + html.slice(insertAt);
+      injected++;
     }
-
-    const insertAt = match.index + match[0].length;
-    const updated = html.slice(0, insertAt) + DIRECTIVE + html.slice(insertAt);
-    fs.writeFileSync(file, updated);
-    injected++;
+    if (html !== original) fs.writeFileSync(file, html);
   }
 
   console.log(

@@ -25,7 +25,7 @@ url_re='https?://docs\.aztec\.network[^][:space:]"<>(){}|\`'"'"'\\]*'
 ignored_re='^/((developers|operate)/tags(/|$)|search/?$|aztec-nr-api/next(/|$))'
 # The version macros src/preprocess/include_version.js substitutes.
 macro_re='#(release_(version|network|name|label)|include_(aztec|devnet|testnet|mainnet|foundation)_version(_without_prefix)?|include_version_without_prefix)([^A-Za-z0-9_]|$)'
-excludes=(':(exclude)static/aztec-nr-api' ':(exclude)static/typescript-api' ':(exclude)snapshots' ':(exclude)yarn.lock')
+excludes=(':(exclude)snapshots' ':(exclude)yarn.lock')
 
 # Prints ok, unresolved, deferred or ignored for one URL.
 function classify {

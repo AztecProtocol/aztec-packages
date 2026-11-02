@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  apiCoverage,
   brokenLinks,
   markdownLinks,
   missingTwins,
@@ -80,6 +81,7 @@ test("brokenLinks checks absolute docs links in pages only in production's layou
     "1: link to https://docs.aztec.network/aztec-nr/testing_contracts has no built target",
   ]);
   assert.deepEqual(problemsIn("llms.txt", "[x](https://docs.aztec.network/developers/docs/aztec-js.md)", false), []);
+  assert.deepEqual(problemsIn("aztec-nr-api/mainnet/noir_aztec/index.md", text, true), []);
 });
 
 test("brokenLinks checks a preview's llms.txt on the preview's host", () => {
@@ -121,4 +123,17 @@ test("startHereProblems names entries missing from the first lines", () => {
     "Start here lacks B (https://x/b.md) in its first 40 lines",
   ]);
   assert.equal(startHereProblems("# T\n## Other\n", expected).length, 1);
+});
+
+test("apiCoverage names a folder without its index and a page without markdown", () => {
+  const dirs = [
+    { kind: "aztec-nr", dir: "aztec-nr-api/mainnet" },
+    { kind: "typescript", dir: "typescript-api/mainnet" },
+  ];
+  assert.deepEqual(apiCoverage(files, dirs).map((p) => `${p.file}: ${p.message}`), [
+    "aztec-nr-api/mainnet: an API reference folder with no scoped llms.txt",
+    "aztec-nr-api/mainnet/noir_aztec/index.html: an API reference page with no markdown page",
+    "aztec-nr-api/mainnet/noir_aztec/macros/fn.aztec.html: an API reference page with no markdown page",
+    "typescript-api/mainnet: an API reference folder with no scoped llms.txt",
+  ]);
 });

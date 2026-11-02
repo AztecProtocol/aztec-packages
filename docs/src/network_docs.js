@@ -77,6 +77,26 @@ const aztecNrApiFolders = (instance) =>
       .map((v) => [v.version, v.networks[0]])
   );
 
+/**
+ * The API reference folders of each docs version a network reads, one per kind, in the folder
+ * aztecNrApiFolders names (the TypeScript reference is published per network the same way).
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @returns {{kind: "aztec-nr" | "typescript", dir: string, folder: string, version: string, networks: string[]}[]}
+ *   `dir` is the folder's path under `static/` and the site root
+ */
+function apiReferenceDirs(instance) {
+  const folders = aztecNrApiFolders(instance);
+  return instance.versions
+    .filter((v) => folders[v.version])
+    .flatMap(({ version, networks }) =>
+      [
+        ["aztec-nr", "aztec-nr-api"],
+        ["typescript", "typescript-api"],
+      ].map(([kind, root]) => ({ kind, dir: `${root}/${folders[version]}`, folder: folders[version], version, networks })),
+    );
+}
+
 const sectionName = (title, { version, networks }) =>
   `${title}: ${networks.length ? `${versionLabel(version)} on ${networks.join(" and ")}` : "unreleased"}`;
 
@@ -184,7 +204,7 @@ const START_HERE = [
   { title: "Getting started on testnet", task: "deploy to testnet", docs: "developers", page: "getting_started_on_testnet" },
   { title: "Running a full node", task: "run a node", docs: "operate", page: "operators/setup/running_a_node" },
   { title: "Hardware spec", task: "size a node, sequencer or prover", docs: "operate", page: "operators/concepts/hardware" },
-  { title: "Aztec.nr API reference", task: "every Aztec.nr module and its items", api: "aztec-nr-api" },
+  { title: "Aztec.nr API reference", task: "look up an Aztec.nr struct, trait or function signature", api: "aztec-nr-api" },
   { title: "TypeScript API reference", task: "the aztec.js, accounts, wallets and PXE packages", api: "typescript-api" },
   { title: "AI tooling", task: "set up a coding agent for Aztec", docs: "developers", page: "ai_tooling" },
 ];
@@ -252,6 +272,7 @@ function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
 }
 
 module.exports = {
+  apiReferenceDirs,
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,

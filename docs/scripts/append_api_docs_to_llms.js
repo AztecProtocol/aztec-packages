@@ -6,7 +6,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { docsInstances, networkSection, startHere } = require("../src/network_docs.js");
+const { apiReferenceDirs, docsInstances, networkSection, startHere } = require("../src/network_docs.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 const { DIRECTIVE } = require("./inject_md_directive.js");
 
@@ -22,84 +22,18 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production",
 );
 
-// One API reference set per docs version a network reads. The static folders
-// are named per release type, so a shared version uses its first network's.
-const API_DIRS = [];
-for (const { version, networks } of developerDocs.versions) {
-  if (!networks.length) continue;
-  const scope = `${networks.join(" and ")}, ${version}`;
-  if (fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${networks[0]}`))) {
-    API_DIRS.push({
-      name: "Aztec.nr API Reference",
-      dir: `aztec-nr-api/${networks[0]}`,
-      description: `Auto-generated API documentation for Aztec.nr (${scope})`,
-      format: "html",
-    });
-  }
-  if (fs.existsSync(path.join(STATIC_DIR, `typescript-api/${networks[0]}`))) {
-    API_DIRS.push({
-      name: "TypeScript API Reference",
-      dir: `typescript-api/${networks[0]}`,
-      description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`,
-      format: "markdown",
-    });
-  }
-}
+// One API reference set per docs version a network reads. The Aztec.nr reference is read from the
+// build, where aztec_nr_api_markdown.mjs has written a markdown sibling of every page.
+const API_DIRS = apiReferenceDirs(developerDocs)
+  .filter(({ dir }) => fs.existsSync(path.join(STATIC_DIR, dir)))
+  .map(({ kind, dir, version, networks }) => {
+    const scope = `${networks.join(" and ")}, ${version}`;
+    return kind === "aztec-nr"
+      ? { name: "Aztec.nr API Reference", dir, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
+      : { name: "TypeScript API Reference", dir, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: STATIC_DIR, format: "markdown" };
+  });
 if (!developerDocs.versions.some((v) => v.networks.length)) {
   console.warn("Warning: No network version found for API docs");
-}
-
-/**
- * Extract text content from HTML, stripping tags and normalizing whitespace.
- * Only extracts content from <main> element to avoid redundant navigation.
- */
-function htmlToText(html) {
-  // Extract only the <main> content to avoid sidebar/navigation redundancy
-  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  const content = mainMatch ? mainMatch[1] : html;
-
-  return (
-    content
-      // Remove the breadcrumb div (first div with navigation links)
-      .replace(/<div><a[^>]*>aztec-nr<\/a>[\s\S]*?<\/div>/i, "")
-      // Remove script and style elements entirely
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      // Remove HTML comments
-      .replace(/<!--[\s\S]*?-->/g, "")
-      // Convert headers to markdown
-      .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n")
-      .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n")
-      .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n")
-      .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, "\n#### $1\n")
-      // Convert code blocks
-      .replace(
-        /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
-        "\n```\n$1\n```\n",
-      )
-      .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`")
-      // Convert links - extract href and text
-      .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
-      // Convert lists
-      .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n")
-      // Convert paragraphs
-      .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n$1\n")
-      // Convert line breaks
-      .replace(/<br\s*\/?>/gi, "\n")
-      // Remove remaining HTML tags
-      .replace(/<[^>]+>/g, "")
-      // Decode common HTML entities
-      .replace(/&nbsp;/g, " ")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      // Normalize whitespace
-      .replace(/\n{3,}/g, "\n\n")
-      .replace(/[ \t]+/g, " ")
-      .trim()
-  );
 }
 
 /**
@@ -122,13 +56,6 @@ function findFiles(dir, ext, files = []) {
   }
 
   return files;
-}
-
-/**
- * Recursively find all HTML files in a directory.
- */
-function findHtmlFiles(dir) {
-  return findFiles(dir, ".html");
 }
 
 /**
@@ -271,8 +198,8 @@ function findMarkdownFiles(dir) {
  * page links the llms-txt plugin emits are root-relative. Both resolve on the
  * deployed site.
  */
-function getUrlPath(filePath, staticDir) {
-  const relativePath = path.relative(staticDir, filePath);
+function getUrlPath(filePath, rootDir) {
+  const relativePath = path.relative(rootDir, filePath);
   // Convert to URL path format
   return SITE_URL + "/" + relativePath.replace(/\\/g, "/");
 }
@@ -507,7 +434,7 @@ function main() {
   const apiReferenceLinks = [];
 
   for (const apiDir of API_DIRS) {
-    const dirPath = path.join(STATIC_DIR, apiDir.dir);
+    const dirPath = path.join(apiDir.root, apiDir.dir);
 
     if (!fs.existsSync(dirPath)) {
       console.log(`Skipping ${apiDir.name}: directory not found`);
@@ -517,11 +444,9 @@ function main() {
     const isMarkdown = apiDir.format === "markdown";
     const files = isMarkdown
       ? findMarkdownFiles(dirPath).sort()
-      : sortByImportance(findHtmlFiles(dirPath));
-    const ext = isMarkdown ? ".md" : ".html";
-    console.log(
-      `Found ${files.length} ${isMarkdown ? "markdown" : "HTML"} files in ${apiDir.dir}`,
-    );
+      : sortByImportance(findMarkdownFiles(dirPath));
+    const ext = ".md";
+    console.log(`Found ${files.length} markdown files in ${apiDir.dir}`);
 
     if (files.length === 0) {
       continue;
@@ -548,7 +473,7 @@ function main() {
       }
       scopedDoc += "## Package reference files\n\n";
       for (const file of files) {
-        const urlPath = getUrlPath(file, STATIC_DIR);
+        const urlPath = getUrlPath(file, apiDir.root);
         const fileName = path.basename(file, ext);
         scopedDoc += `- [${fileName}](${urlPath})\n`;
       }
@@ -558,7 +483,7 @@ function main() {
       // the names of exported structs, traits, and functions. The item names
       // are what makes specific types (e.g. SingleUseClaim) findable: an agent
       // searching this index for the name lands on the owning module, then
-      // follows the link to the rustdoc page.
+      // follows the link to the module page.
       const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
         const rel = path.relative(dirPath, f);
         const parts = rel.split(path.sep);
@@ -579,11 +504,13 @@ function main() {
 
       moduleIndexes.sort();
 
-      scopedDoc += `## Module index\n\nEach entry lists the module's exported structs, traits, and functions; follow the link to the rustdoc page for full signatures and docs.\n\n`;
+      scopedDoc +=
+        "## Module index\n\n" +
+        "Each entry links the module's page and names its exported structs, traits and functions. Every page is markdown, and an item's page sits beside its module's `index.md`: `struct.<Name>.md`, `trait.<Name>.md`, `fn.<name>.md`, `type.<Name>.md`, `global.<NAME>.md`.\n\n";
 
       let itemNameCount = 0;
       for (const file of moduleIndexes) {
-        const urlPath = getUrlPath(file, STATIC_DIR);
+        const urlPath = getUrlPath(file, apiDir.root).replace(/\.html$/, ".md");
         const moduleName = moduleNameFromPath(file, dirPath);
         const summary = extractModuleSummary(file);
         const items = extractModuleItems(file);
@@ -602,7 +529,7 @@ function main() {
       }
 
       console.log(
-        `  Emitted ${moduleIndexes.length} module-index entries (${itemNameCount} item names, from ${files.length} HTML files)`,
+        `  Emitted ${moduleIndexes.length} module-index entries (${itemNameCount} item names, from ${files.length} markdown files)`,
       );
 
       // Fail loud if extraction collapsed (e.g. nargo changed its HTML and the
@@ -649,11 +576,11 @@ function main() {
     for (const file of files) {
       try {
         const raw = fs.readFileSync(file, "utf-8");
-        const text = isMarkdown ? raw.trim() : htmlToText(raw);
+        const text = raw.trim();
 
         if (text.length > 100) {
           // Only include if there's meaningful content
-          const urlPath = getUrlPath(file, STATIC_DIR);
+          const urlPath = getUrlPath(file, apiDir.root);
           fullContentSection += `### ${urlPath}\n\n`;
           fullContentSection += text + "\n\n---\n\n";
           totalFiles++;

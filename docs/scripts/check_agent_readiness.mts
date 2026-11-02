@@ -1,7 +1,7 @@
 // Fails a build whose markdown an agent would trip over: a link in a markdown page or an llms.txt
 // that points at no built file, a sitemap page without its markdown twin, a shell command in a
-// twin's code block split by a blank line after its `\` continuation, or an llms.txt whose Start
-// here misses a task. Reads only the build directory, the docs version configs and the Netlify
+// twin's code block split by a blank line after its `\` continuation, an llms.txt whose Start
+// here misses a task, or an API reference folder without its index or markdown pages. Reads only the build directory, the docs version configs and the Netlify
 // build variables that pick the layout and host: no network, no clock.
 //
 //   node scripts/check_agent_readiness.mts <build-dir>
@@ -15,6 +15,7 @@ export const SITE_ORIGIN: string = siteUrl.SITE_URL;
 
 /** Built only by deploy previews (scripts/netlify-build.sh), so CI's build may lack it. */
 const PREVIEW_ONLY = /^\/aztec-nr-api\/next(\/|$)/;
+const API_REFERENCE = /^(aztec-nr-api|typescript-api)\//;
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
@@ -104,7 +105,9 @@ export type Problem = { file: string; line?: number; message: string };
 /**
  * Broken links in the markdown pages and llms.txt files of a build. Absolute links are checked in
  * llms.txt files on the host they were written for (`llmsOrigin`, a preview's own) and in pages on
- * the docs origin only when the build is production's layout, which those links name.
+ * the docs origin only when the build is production's layout, which those links name. An API
+ * reference page's absolute links come from upstream doc comments, which only a redirect can fix:
+ * check_source_urls.sh checks them in the committed reference, redirects included.
  */
 export function brokenLinks(
   pages: { file: string; text: string }[],
@@ -117,7 +120,7 @@ export function brokenLinks(
   for (const { file, text } of pages) {
     const pagePath = `/${file}`;
     const llms = file.endsWith("llms.txt");
-    const absolute = llms || production;
+    const absolute = llms || (production && !API_REFERENCE.test(file));
     const origin = llms ? llmsOrigin : SITE_ORIGIN;
     const candidates = [...markdownLinks(text), ...(absolute ? siteUrls(text, origin) : [])];
     const seen = new Set<string>();
@@ -162,6 +165,24 @@ export function startHereProblems(llms: string, expected: { title: string; url: 
     .map(({ title, url }) => ({ file: "llms.txt", message: `Start here lacks ${title} (${url}) in its first ${within} lines` }));
 }
 
+/**
+ * API reference folders the build lacks or only half converts: each folder `apiReferenceDirs`
+ * lists needs its scoped llms.txt, and an Aztec.nr folder a markdown page beside every HTML page.
+ */
+export function apiCoverage(files: Set<string>, dirs: { kind: string; dir: string }[]): Problem[] {
+  const problems: Problem[] = [];
+  for (const { kind, dir } of dirs) {
+    if (!files.has(`${dir}/llms.txt`)) problems.push({ file: dir, message: "an API reference folder with no scoped llms.txt" });
+    if (kind !== "aztec-nr") continue;
+    for (const file of files) {
+      if (file.startsWith(`${dir}/`) && file.endsWith(".html") && !files.has(file.replace(/\.html$/, ".md"))) {
+        problems.push({ file, message: "an API reference page with no markdown page" });
+      }
+    }
+  }
+  return problems;
+}
+
 /** Lines of fenced code ending in a `\` continuation that a blank line then cuts off. */
 export function splitContinuations(markdown: string): number[] {
   const lines = markdown.split("\n");
@@ -204,6 +225,7 @@ export function main(buildDir: string, env = process.env): number {
   const { problems, checked, previewOnly } = brokenLinks(pages, files, { production, llmsOrigin });
   problems.push(...missingTwins(sitemapPaths(read("sitemap.xml")), files));
   problems.push(...startHereProblems(read("llms.txt"), networkDocs.startHereLinks(instances, llmsOrigin)));
+  problems.push(...apiCoverage(files, networkDocs.apiReferenceDirs(instances[0])));
   for (const { file, text } of pages) {
     for (const line of splitContinuations(text)) {
       problems.push({ file, line, message: "a blank line splits this `\\` continuation" });
