@@ -204,14 +204,6 @@ const structuredData = {
       description: SITE_DESCRIPTION,
       inLanguage: "en",
       publisher: { "@id": ORGANIZATION_ID },
-      potentialAction: {
-        "@type": "SearchAction",
-        target: {
-          "@type": "EntryPoint",
-          urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
-        },
-        "query-input": "required name=search_term_string",
-      },
     },
   ],
 };
