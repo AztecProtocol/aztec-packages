@@ -41,10 +41,8 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
  */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
-    // Deflate expands its input by at most 1032:1, so no valid gzip stream decompresses to more than this.
-    constexpr size_t MAX_DEFLATE_RATIO = 1032;
-    constexpr size_t GZIP_HEADER_SLACK = 1024;
-    const size_t max_plausible_size = (size * MAX_DEFLATE_RATIO) + GZIP_HEADER_SLACK;
+    // No valid gzip stream decompresses to more than this.
+    const size_t max_plausible_size = max_gzip_output_size(size);
 
     std::vector<uint8_t> content;
     // The gzip trailer ends with the uncompressed size modulo 2^32 (RFC 1952 ISIZE): start there so the buffer is
@@ -72,7 +70,9 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
             if (content.size() >= max_plausible_size) {
                 THROW std::invalid_argument("bad gzip data in bb main");
             }
-            content.resize(std::min(content.size() * 2, max_plausible_size));
+            // Doubling must not wrap either when the bound saturated.
+            const size_t doubled = content.size() > max_plausible_size / 2 ? max_plausible_size : content.size() * 2;
+            content.resize(doubled);
             continue;
         }
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
