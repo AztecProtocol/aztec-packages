@@ -4,6 +4,8 @@
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "crs_factory.hpp"
 #include <cstddef>
+#include <memory>
+#include <span>
 #include <utility>
 
 namespace bb::srs::factories {
@@ -16,6 +18,14 @@ namespace bb::srs::factories {
 class MemBn254CrsFactory : public CrsFactory<curve::BN254> {
   public:
     MemBn254CrsFactory(std::vector<g1::affine_element> points, g2::affine_element const& g2_point);
+
+    /**
+     * @brief Serve points held by storage (a heap vector or a file mapping) without copying them; storage must keep
+     * points alive.
+     */
+    MemBn254CrsFactory(std::shared_ptr<const void> storage,
+                       std::span<const g1::affine_element> points,
+                       g2::affine_element const& g2_point);
 
     std::shared_ptr<Crs<curve::BN254>> get_crs(size_t degree) override;
 

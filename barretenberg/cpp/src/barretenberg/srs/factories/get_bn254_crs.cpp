@@ -9,8 +9,22 @@
 #include "bn254_crs_data.hpp"
 #include "bn254_g1_chunk_hashes.hpp"
 #include "http_download.hpp"
+#include <array>
 #include <atomic>
+#include <bit>
+#include <cerrno>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
+#include <optional>
 #include <span>
+#include <type_traits>
+#if !defined(__wasm__) && !defined(_WIN32)
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 namespace {
 // Primary CRS URL (Cloudflare R2)
@@ -198,6 +212,151 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
     return data;
 }
 
+bb::Bn254G1Points heap_g1_points(std::vector<bb::g1::affine_element> points)
+{
+    auto storage = std::make_shared<const std::vector<bb::g1::affine_element>>(std::move(points));
+    return { storage, std::span<const bb::g1::affine_element>(*storage) };
+}
+
+#if !defined(__wasm__) && !defined(_WIN32)
+constexpr std::array<char, 8> NATIVE_CACHE_MAGIC = { 'B', 'B', 'G', '1', 'N', 'A', 'T', 'V' };
+constexpr uint32_t NATIVE_CACHE_VERSION = 1;
+constexpr uint32_t NATIVE_CACHE_ENDIAN_MARKER = 0x01020304;
+
+/**
+ * @brief Header of `bn254_g1.native.dat`, followed by the points exactly as they are laid out in memory (Montgomery
+ * form, native-endian limbs). Its size keeps every point 64-byte aligned in the mapping.
+ */
+struct NativeCacheHeader {
+    std::array<char, 8> magic;
+    uint32_t version;
+    uint32_t point_size;
+    uint32_t endian_marker;
+    uint32_t reserved;
+    uint64_t num_points;
+    // Size and modification time of the bn254_g1.dat the points were decoded from; a refreshed source invalidates
+    // the cache.
+    uint64_t source_size;
+    int64_t source_mtime_ns;
+    std::array<uint8_t, 16> padding;
+};
+static_assert(sizeof(NativeCacheHeader) == UNCOMPRESSED_POINT_SIZE);
+static_assert(sizeof(bb::g1::affine_element) == UNCOMPRESSED_POINT_SIZE);
+static_assert(std::is_trivially_copyable_v<bb::g1::affine_element>);
+
+struct SourceStamp {
+    uint64_t size;
+    int64_t mtime_ns;
+};
+
+std::optional<SourceStamp> stamp_of(const std::filesystem::path& path)
+{
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(path, ec);
+    if (ec) {
+        return std::nullopt;
+    }
+    const auto mtime = std::filesystem::last_write_time(path, ec);
+    if (ec) {
+        return std::nullopt;
+    }
+    const auto mtime_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(mtime.time_since_epoch()).count();
+    return SourceStamp{ static_cast<uint64_t>(size), static_cast<int64_t>(mtime_ns) };
+}
+
+NativeCacheHeader make_native_cache_header(uint64_t num_points, const SourceStamp& source)
+{
+    NativeCacheHeader header{};
+    header.magic = NATIVE_CACHE_MAGIC;
+    header.version = NATIVE_CACHE_VERSION;
+    header.point_size = sizeof(bb::g1::affine_element);
+    header.endian_marker = NATIVE_CACHE_ENDIAN_MARKER;
+    header.num_points = num_points;
+    header.source_size = source.size;
+    header.source_mtime_ns = source.mtime_ns;
+    return header;
+}
+
+/**
+ * @brief Map the native-layout cache read-only and shared, returning its first num_points points, or nullopt when the
+ * cache is missing, truncated, too short, or was written for another layout or source.
+ */
+std::optional<bb::Bn254G1Points> map_native_cache(const std::filesystem::path& cache_path,
+                                                  size_t num_points,
+                                                  const SourceStamp& source)
+{
+    int fd = open(cache_path.c_str(), O_RDONLY);
+    if (fd < 0) {
+        return std::nullopt;
+    }
+    struct stat st{};
+    if (fstat(fd, &st) != 0 || static_cast<size_t>(st.st_size) < sizeof(NativeCacheHeader)) {
+        close(fd);
+        return std::nullopt;
+    }
+    const auto file_size = static_cast<size_t>(st.st_size);
+    void* addr = mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);
+    if (addr == MAP_FAILED) {
+        return std::nullopt;
+    }
+    std::shared_ptr<const void> storage(addr, [file_size](const void* p) { munmap(const_cast<void*>(p), file_size); });
+
+    NativeCacheHeader header;
+    std::memcpy(&header, addr, sizeof(header));
+    const NativeCacheHeader expected = make_native_cache_header(header.num_points, source);
+    const size_t payload_bytes = file_size - sizeof(NativeCacheHeader);
+    if (std::memcmp(&header, &expected, sizeof(header)) != 0 || payload_bytes % UNCOMPRESSED_POINT_SIZE != 0 ||
+        header.num_points != payload_bytes / UNCOMPRESSED_POINT_SIZE || header.num_points < num_points) {
+        return std::nullopt;
+    }
+    const auto* points =
+        reinterpret_cast<const bb::g1::affine_element*>(static_cast<const uint8_t*>(addr) + sizeof(NativeCacheHeader));
+    return bb::Bn254G1Points{ std::move(storage), std::span<const bb::g1::affine_element>(points, num_points) };
+}
+
+bool write_all(int fd, const void* data, size_t bytes)
+{
+    const auto* cursor = static_cast<const uint8_t*>(data);
+    while (bytes > 0) {
+        const ssize_t written = write(fd, cursor, bytes);
+        if (written < 0 && errno == EINTR) {
+            continue;
+        }
+        if (written <= 0) {
+            return false;
+        }
+        cursor += written;
+        bytes -= static_cast<size_t>(written);
+    }
+    return true;
+}
+
+/**
+ * @brief Write the cache under a temporary name and rename it into place, so a reader never maps a partial file.
+ */
+bool write_native_cache(const std::filesystem::path& cache_path,
+                        std::span<const bb::g1::affine_element> points,
+                        const SourceStamp& source)
+{
+    auto tmp_path = cache_path;
+    tmp_path += ".tmp." + std::to_string(getpid());
+    int fd = open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        return false;
+    }
+    const NativeCacheHeader header = make_native_cache_header(points.size(), source);
+    bool ok =
+        write_all(fd, &header, sizeof(header)) && write_all(fd, points.data(), points.size_bytes()) && fsync(fd) == 0;
+    ok = close(fd) == 0 && ok;
+    ok = ok && std::rename(tmp_path.c_str(), cache_path.c_str()) == 0;
+    if (!ok) {
+        unlink(tmp_path.c_str());
+    }
+    return ok;
+}
+#endif
+
 } // namespace
 
 namespace bb {
@@ -288,6 +447,44 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                                                   bool allow_download)
 {
     return get_bn254_g1_data(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
+}
+
+Bn254G1Points load_bn254_g1_points(const std::filesystem::path& path, size_t num_points, bool allow_download)
+{
+#if !defined(__wasm__) && !defined(_WIN32)
+    if (std::endian::native != std::endian::little || std::getenv("BB_VERIFY_CRS") != nullptr) {
+        return heap_g1_points(get_bn254_g1_data(path, num_points, allow_download));
+    }
+    const auto uncompressed_path = path / "bn254_g1.dat";
+    const auto cache_path = path / "bn254_g1.native.dat";
+    const auto lock_path = path / "crs.lock";
+    std::filesystem::create_directories(path);
+    {
+        FileLockGuard lock(lock_path.string());
+        if (auto source = stamp_of(uncompressed_path)) {
+            if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
+                vinfo("mapped native bn254 crs cache at ", cache_path);
+                return *mapped;
+            }
+        }
+    }
+
+    // get_bn254_g1_data takes the CRS lock itself, so it cannot be held across this call.
+    auto points = get_bn254_g1_data(path, num_points, allow_download);
+    FileLockGuard lock(lock_path.string());
+    if (auto source = stamp_of(uncompressed_path)) {
+        if (write_native_cache(cache_path, points, *source)) {
+            if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
+                vinfo("wrote and mapped native bn254 crs cache at ", cache_path);
+                return *mapped;
+            }
+        }
+    }
+    vinfo("could not use a native bn254 crs cache at ", cache_path, "; keeping the points on the heap");
+    return heap_g1_points(std::move(points));
+#else
+    return heap_g1_points(get_bn254_g1_data(path, num_points, allow_download));
+#endif
 }
 
 // Loads the canonical 128-byte serialization of [x]_2 from disk and verifies it against the pinned
