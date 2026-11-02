@@ -485,29 +485,6 @@ struct CircuitHeader {
 };
 
 /**
- * @brief Check the format marker in front of a serialized program or witness and return the msgpack data after it.
- */
-std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::string_view what)
-{
-    BB_ASSERT(!buf.empty(), std::string(what) + ": buffer is empty");
-    const uint8_t FORMAT_MSGPACK = 2;
-    const uint8_t FORMAT_MSGPACK_COMPACT = 3;
-    const uint8_t FORMAT_MSGPACK_TAGGED = 4;
-    const uint8_t format_marker = buf[0];
-    BB_ASSERT(format_marker == FORMAT_MSGPACK || format_marker == FORMAT_MSGPACK_COMPACT ||
-                  format_marker == FORMAT_MSGPACK_TAGGED,
-              std::string(what) + ": expected msgpack format marker (2, 3 or 4), got " + std::to_string(format_marker));
-    std::span<const char> payload(reinterpret_cast<const char*>(buf.data()) + 1, buf.size() - 1);
-    if (format_marker == FORMAT_MSGPACK_COMPACT) {
-        BB_ASSERT(!payload.empty() &&
-                      ((static_cast<uint8_t>(payload[0]) & 0xf0) == 0x90 || static_cast<uint8_t>(payload[0]) == 0xdc ||
-                       static_cast<uint8_t>(payload[0]) == 0xdd),
-                  std::string(what) + ": expected ARRAY type at the root of msgpack-compact data");
-    }
-    return payload;
-}
-
-/**
  * @brief Give back the growth slack of the AcirFormat's constraint vectors.
  * @details The vectors are filled by push_back, so each holds up to twice its final size. The slack is a few MiB for a
  * kernel and would otherwise stay resident through circuit construction.
@@ -644,6 +621,26 @@ AcirFormat circuit_serde_to_acir_format_impl(StreamCircuit&& stream_circuit, boo
 }
 
 } // namespace
+
+std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::string_view what)
+{
+    BB_ASSERT(!buf.empty(), std::string(what) + ": buffer is empty");
+    const uint8_t FORMAT_MSGPACK = 2;
+    const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+    const uint8_t FORMAT_MSGPACK_TAGGED = 4;
+    const uint8_t format_marker = buf[0];
+    BB_ASSERT(format_marker == FORMAT_MSGPACK || format_marker == FORMAT_MSGPACK_COMPACT ||
+                  format_marker == FORMAT_MSGPACK_TAGGED,
+              std::string(what) + ": expected msgpack format marker (2, 3 or 4), got " + std::to_string(format_marker));
+    std::span<const char> payload(reinterpret_cast<const char*>(buf.data()) + 1, buf.size() - 1);
+    if (format_marker == FORMAT_MSGPACK_COMPACT) {
+        BB_ASSERT(!payload.empty() &&
+                      ((static_cast<uint8_t>(payload[0]) & 0xf0) == 0x90 || static_cast<uint8_t>(payload[0]) == 0xdc ||
+                       static_cast<uint8_t>(payload[0]) == 0xdd),
+                  std::string(what) + ": expected ARRAY type at the root of msgpack-compact data");
+    }
+    return payload;
+}
 
 AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
 {
