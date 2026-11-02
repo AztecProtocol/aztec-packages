@@ -179,6 +179,12 @@
     to = "/developers/docs/aztec-nr/testing_contracts"
     status = 301
 
+# The tutorials linked this path from contract code that readers paste; the v5.2.0 snapshot still does.
+[[redirects]]
+    from = "/aztec-nr/testing_contracts"
+    to = "/developers/docs/aztec-nr/testing_contracts"
+    status = 301
+
 [[redirects]]
     from = "/aztec/glossary"
     to = "/developers/docs/resources/glossary"

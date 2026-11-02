@@ -6,6 +6,8 @@ description: Learn how to manage your sequencer on the Aztec network, including 
 references: ["labs/yarn-project/node-keystore/src/schemas.ts", "labs/yarn-project/cli/src/cmds/validator_keys/new.ts", "labs/yarn-project/aztec/src/cli/aztec_start_options.ts", "labs/yarn-project/sequencer-client/src/config.ts"]
 ---
 
+import NodeHardware from "../_node_hardware.mdx";
+
 ## Overview
 
 This guide covers sequencer lifecycle management on the Aztec network: keystore configuration, node setup, registration, ongoing operations, and eventual exit.
@@ -26,10 +28,7 @@ Once sufficient attestations are collected (two-thirds of the committee plus one
 
 ### Minimum Hardware Requirements
 
-- 8 core / 16 vCPU (Skylake or newer microarchitecture)
-- 8 GB RAM
-- 1 TB NVMe SSD
-- 25 Mbps network connection
+<NodeHardware />
 
 These requirements are subject to change as the network throughput increases.
 
