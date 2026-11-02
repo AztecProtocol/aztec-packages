@@ -18,22 +18,30 @@ void* touched_malloc(size_t bytes)
 /**
  * @brief After configure_heap_for_low_memory, freeing a large mapped buffer does not move later buffers onto the heap.
  * @details Without fixed thresholds glibc raises its mmap threshold to the freed buffer's size, so the next 2 MiB
- * allocation is carved from the heap and stays resident after it is freed.
+ * allocation is carved from the heap and stays resident after it is freed. The check runs in a freshly started process
+ * ("threadsafe" death tests re-execute the binary): glibc cannot be put back to its dynamic thresholds, so configuring
+ * the test process itself would change allocation behaviour for every later test.
  */
-TEST(HeapConfiguration, FreedLargeBufferDoesNotRaiseMmapThreshold)
+TEST(HeapConfigurationDeathTest, FreedLargeBufferDoesNotRaiseMmapThreshold)
 {
 #if defined(__GLIBC__)
-    constexpr size_t MiB = size_t{ 1 } << 20;
-    bb::configure_heap_for_low_memory();
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(
+        {
+            constexpr size_t MiB = size_t{ 1 } << 20;
+            bb::configure_heap_for_low_memory();
 
-    std::free(touched_malloc(16 * MiB));
+            std::free(touched_malloc(16 * MiB));
 
-    const size_t mapped_before = mallinfo2().hblkhd;
-    void* buffer = touched_malloc(2 * MiB);
-    const size_t mapped_after = mallinfo2().hblkhd;
-    std::free(buffer);
+            const size_t mapped_before = mallinfo2().hblkhd;
+            void* buffer = touched_malloc(2 * MiB);
+            const size_t mapped_after = mallinfo2().hblkhd;
+            std::free(buffer);
 
-    EXPECT_GE(mapped_after - mapped_before, 2 * MiB);
+            std::_Exit(mapped_after - mapped_before >= 2 * MiB ? 0 : 1);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
 #else
     GTEST_SKIP() << "glibc only";
 #endif
