@@ -4,16 +4,7 @@
  * work well with content-centric websites.
  */
 
-/* Geist for body copy; ABC Oracle (bundled, Book weight only) for display headings. */
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
-
-@font-face {
-  font-family: "ABC Oracle";
-  src: url("../../static/font/ABCOracle-Book.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 
 /* ============================================
    Brand tokens
@@ -74,7 +65,7 @@
     var(--aztec-lime) 89%
   );
 
-  --aztec-font-display: "ABC Oracle", "Geist", sans-serif;
+  --aztec-font-display: "Geist", sans-serif;
 }
 
 /* ============================================
