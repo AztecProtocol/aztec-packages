@@ -4,12 +4,15 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const {
+  aztecNrApiFolders,
   docsInstances,
   historicalVersions,
   llmsRoutes,
   networkSection,
   syncVersionsFile,
 } = require("../network_docs");
+const { versionLabel } = require("../release_names");
+const { aztecNrApiFolder } = require("../utils/aztecNrApi.mjs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
@@ -71,6 +74,27 @@ describe("outside production", () => {
         ["/operate/**", "Operator docs: unreleased"],
       ],
     );
+  });
+});
+
+describe("Aztec.nr API folders", () => {
+  it("map each version a network reads to that network's folder, mainnet first", () => {
+    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(shared, shared, true)[0]), { "v6.0.0": "mainnet" });
+    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(split, split, true)[0]), {
+      "v5.2.0": "mainnet",
+      "v6.0.0-rc.3": "testnet",
+    });
+  });
+
+  it("send the API page of every released version to a folder that exists, whatever its label", () => {
+    const config = require("../../developer_version_config.json");
+    const [developer] = docsInstances(config, config, true);
+    const folders = aztecNrApiFolders(developer);
+    for (const { version } of developer.versions) {
+      const folder = aztecNrApiFolder({ name: version, label: versionLabel(version) }, folders);
+      const index = path.join(__dirname, "../../static/aztec-nr-api", folder, "noir_aztec/index.html");
+      assert.ok(fs.existsSync(index), `${version} links into aztec-nr-api/${folder}/, which does not exist`);
+    }
   });
 });
 

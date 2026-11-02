@@ -62,6 +62,21 @@ function docsInstances(developerConfig, networkConfig, production) {
   ];
 }
 
+/**
+ * The Aztec.nr API reference folder (`static/aztec-nr-api/<folder>/`) of each docs version a
+ * network reads. The reference is published per network, so a version uses the first network
+ * that reads it, in NETWORKS order.
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance a docsInstances entry
+ * @returns {Record<string, string>} version → folder
+ */
+const aztecNrApiFolders = (instance) =>
+  Object.fromEntries(
+    instance.versions
+      .filter((v) => v.networks.length)
+      .map((v) => [v.version, v.networks[0]])
+  );
+
 const sectionName = (title, { version, networks }) =>
   `${title}: ${networks.length ? `${versionLabel(version)} on ${networks.join(" and ")}` : "unreleased"}`;
 
@@ -181,6 +196,7 @@ function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
 }
 
 module.exports = {
+  aztecNrApiFolders,
   docsInstances,
   historicalVersions,
   llmsRoutes,

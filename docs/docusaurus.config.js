@@ -18,6 +18,7 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const {
+  aztecNrApiFolders,
   docsInstances,
   historicalVersions,
   llmsRoutes,
@@ -39,6 +40,7 @@ const [developerDocs, operatorDocs] = docsInstances(
   networkVersionConfig,
   process.env.CONTEXT === "production"
 );
+const developerApiFolders = aztecNrApiFolders(developerDocs);
 
 const NETWORK_LABELS = { mainnet: "Alpha", testnet: "Testnet" };
 // Docs versions track release lines, so each label carries the line name and
@@ -460,9 +462,7 @@ const config = {
       "./src/plugins/pagefind",
       {
         // The API reference each network's docs version links to, as llms.txt lists it.
-        apiDirs: developerDocs.versions
-          .filter((v) => v.networks.length)
-          .map((v) => `aztec-nr-api/${v.networks[0]}/`),
+        apiDirs: Object.values(developerApiFolders).map((folder) => `aztec-nr-api/${folder}/`),
       },
     ],
     // ["./src/plugins/plugin-embed-code", {}],
@@ -470,6 +470,8 @@ const config = {
   customFields: {
     organizationId: ORGANIZATION_ID,
     websiteId: WEBSITE_ID,
+    // Read by the Aztec.nr API page (src/utils/aztecNrApi.mjs); labels carry names, not networks.
+    aztecNrApiFolders: developerApiFolders,
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
