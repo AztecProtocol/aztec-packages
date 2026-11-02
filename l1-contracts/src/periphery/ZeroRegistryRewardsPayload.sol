@@ -23,34 +23,27 @@ interface IZeroRegistryRewardsPayload is IPayload {
 /**
  * @title ZeroRegistryRewardsPayload
  * @author Aztec Labs
- * @notice Stops paying a sequencer checkpoint reward to validators staked through an ATP of any listed registry.
+ * @notice Installs a {RegistryReductionCalculator} on a rollup and sets the sequencer checkpoint reward to zero for
+ *         validators staked through an ATP of any listed registry.
  *
- * @dev Stake that cannot be sold, lent or deployed elsewhere has no opportunity cost, so it stakes at any positive
- *      reward. The checkpoint reward pool is fixed in absolute terms, so such stake dilutes every other validator
- *      while the reward buys no retention from a holder who could not sell in the first place. This pays it nothing.
- *
- *      The actions, in order, are one `setRegistryReward(registry, 0)` per listed registry followed by
+ * @dev The actions, in order, are one `setRegistryReward(registry, 0)` per listed registry followed by
  *      `setSequencerRewardCalculator(calculator)` on the rollup.
  *
- *      The calculator is deployed by this payload's constructor and owned by the rollup's owner (governance) from
- *      that moment, so the configuring calls are the owner's own and the reward values are visible in the proposal
- *      rather than in a deployed contract's storage. The owner and the GSE are read from the rollup rather than
- *      taken as arguments: a deployer who could name the owner could name itself, write entries the list does not
- *      show, and transfer the calculator to governance before the vote. The calculator is not consulted by the
- *      rollup until the final action, and the
- *      actions execute atomically, so the window in which it exists unconfigured pays nobody anything different:
- *      an unconfigured calculator returns the default for every proposer.
+ *      The calculator is deployed by this payload's constructor. Its owner is the rollup's owner and its GSE is the
+ *      rollup's GSE, both read from the rollup rather than taken as arguments, so the deployer never holds owner
+ *      rights over the calculator and the only entries it can carry are the ones these actions write. The rollup
+ *      does not consult the calculator until the final action, and the actions execute atomically. An unconfigured
+ *      calculator returns the default reward for every proposer.
  *
- *      Only the listed registries are configured. Every other ATP registry is left without an entry and its
- *      validators keep the default reward. The list is fixed at construction and is the whole of the policy, so a
- *      reviewer reads it off this contract and is done.
+ *      Registries that are not listed have no entry, and their validators receive the default reward. The list is
+ *      fixed at construction and can be read from {registries}.
  *
- *      Governance keeps ownership of the calculator, so a later proposal can retune or remove an entry without
- *      deploying anything. `RegistryReductionCalculator` caps every entry at the default when it is read, so no
- *      configuration of it can ever pay a validator more than it would have earned without it.
+ *      The rollup's owner keeps ownership of the calculator and can change or remove an entry later without
+ *      deploying anything. `RegistryReductionCalculator` caps every entry at the default reward when it is read, so
+ *      no configuration of it pays a validator more than the default.
  */
 contract ZeroRegistryRewardsPayload is IZeroRegistryRewardsPayload {
-  /// @dev What a checkpoint proposed by a listed registry's validator earns.
+  /// @dev The reward set for every listed registry.
   uint96 internal constant NO_REWARD = 0;
 
   /// @notice The rollup that will consult the calculator.
@@ -59,7 +52,7 @@ contract ZeroRegistryRewardsPayload is IZeroRegistryRewardsPayload {
   /// @notice The calculator deployed by this payload, owned by the rollup's owner.
   RegistryReductionCalculator public immutable CALCULATOR;
 
-  /// @notice The ATP registries whose validators earn nothing. Fixed at construction.
+  /// @notice The ATP registries set to a zero reward. Fixed at construction.
   address[] public registries;
 
   error ZeroRegistryRewardsPayload__DuplicateRegistry(address registry);
@@ -77,7 +70,7 @@ contract ZeroRegistryRewardsPayload is IZeroRegistryRewardsPayload {
 
     for (uint256 i = 0; i < _registries.length; i++) {
       require(_registries[i] != address(0), ZeroRegistryRewardsPayload__ZeroAddress());
-      // A repeated entry would make the proposal claim more reach than it has.
+      // Each registry appears once, so the actions map one-to-one onto {registries}.
       for (uint256 j = 0; j < i; j++) {
         require(_registries[i] != _registries[j], ZeroRegistryRewardsPayload__DuplicateRegistry(_registries[i]));
       }
