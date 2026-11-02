@@ -86,6 +86,13 @@ inline std::atomic<bool> map_scratch_directly{ false };
 void enable_large_allocation_mapping();
 /** @brief Whether ptr is a block the replacement operator new mapped directly (always false off Apple). */
 bool is_directly_mapped_allocation(const void* ptr);
+/**
+ * @brief Called with the size of every operator new request while set; for a test that bounds a function's allocations.
+ * @details Only where this library replaces operator new (Apple without TRACY_MEMORY): a test cannot define a second
+ * replacement there. Elsewhere the setter is a no-op and a test replaces operator new itself.
+ */
+using AllocationObserver = void (*)(size_t);
+void set_allocation_observer(AllocationObserver observer);
 } // namespace detail
 
 inline void configure_heap_for_low_memory()

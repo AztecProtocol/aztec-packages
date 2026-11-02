@@ -21,6 +21,15 @@ constexpr size_t MAPPED_ALLOCATION_THRESHOLD = size_t{ 128 } << 10;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<bool> mapping_enabled{ false };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::atomic<bb::detail::AllocationObserver> allocation_observer{ nullptr };
+
+void observe(size_t size)
+{
+    if (auto* observer = allocation_observer.load(std::memory_order_relaxed)) {
+        observer(size);
+    }
+}
 
 /**
  * @brief A lock that is trivially destructible, unlike std::mutex.
@@ -118,6 +127,7 @@ void* try_map(size_t size)
 
 void* allocate(size_t size)
 {
+    observe(size);
     if (void* mapped = try_map(size); mapped != nullptr) {
         return mapped;
     }
@@ -133,6 +143,7 @@ void* allocate(size_t size)
 // aligned operator new, which libc++ serves from posix_memalign: the same large cache.
 void* allocate_aligned(size_t size, size_t alignment)
 {
+    observe(size);
     if (alignment <= PAGE_SIZE) {
         if (void* mapped = try_map(size); mapped != nullptr) {
             return mapped;
@@ -168,6 +179,11 @@ void enable_large_allocation_mapping()
 bool is_directly_mapped_allocation(const void* ptr)
 {
     return malloc_size(ptr) == 0;
+}
+
+void set_allocation_observer(AllocationObserver observer)
+{
+    allocation_observer.store(observer, std::memory_order_relaxed);
 }
 } // namespace bb::detail
 
@@ -228,6 +244,7 @@ bool is_directly_mapped_allocation(const void*)
 {
     return false;
 }
+void set_allocation_observer(AllocationObserver) {}
 } // namespace bb::detail
 
 #endif
