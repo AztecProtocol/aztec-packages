@@ -49,7 +49,7 @@ environment:
   BOOTSTRAP_NODES: ${BOOTSTRAP_NODES}
 ```
 
-**On testnet (CLI method):** Pass the ENR to your node at startup using the `--p2p.bootstrapNodes` flag.
+**On testnet (CLI method):** Pass the ENR to your node at startup using the `--p2p.bootstrapNodes` flag. Add it to the `aztec start` command you already run: the examples below omit your node's other options, such as its L1 endpoints and P2P IP.
 
 The flag accepts a comma-separated list of bootstrap node ENRs:
 
