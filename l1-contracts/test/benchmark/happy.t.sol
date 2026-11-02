@@ -83,7 +83,7 @@ import {
 } from "@test/mock/SequencerRewardCalculatorMocks.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEWithSkip} from "@test/GSEWithSkip.sol";
-import {RegistryReductionCalculator} from "@test/reward-calculators/reduction/RegistryReductionCalculator.sol";
+import {RegistryReductionCalculator} from "@aztec/periphery/RegistryReductionCalculator.sol";
 import {
   MockATP,
   MockATPStaker,
