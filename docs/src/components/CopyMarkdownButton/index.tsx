@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDoc } from '@docusaurus/plugin-content-docs/client';
+import { useDoc, useDocsVersion } from '@docusaurus/plugin-content-docs/client';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import { buildAgentLinks } from '@site/src/utils/agentLinks';
 import styles from './styles.module.css';
@@ -82,6 +82,9 @@ export default function CopyMarkdownButton() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const { metadata } = useDoc();
+  // noIndex versions are excluded from the llms build, so they have no .md twin for the menu's
+  // links to point at; the DOM-based Copy button still works there.
+  const { noIndex } = useDocsVersion();
   const { siteConfig } = useDocusaurusContext();
   const { markdownUrl, chatGptUrl, claudeUrl } = buildAgentLinks(
     siteConfig.url,
@@ -156,19 +159,21 @@ ${markdownContent}`;
           {copied ? <CheckIcon /> : <ClipboardIcon />}
           <span className={styles.label}>{copied ? 'Copied!' : 'Copy page'}</span>
         </button>
-        <button
-          className={`${styles.menuToggle} ${open ? styles.menuToggleOpen : ''}`}
-          onClick={() => setOpen((value) => !value)}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-label="More ways to use this page"
-          title="Open this page in an AI assistant"
-          type="button"
-        >
-          <ChevronIcon />
-        </button>
+        {!noIndex && (
+          <button
+            className={`${styles.menuToggle} ${open ? styles.menuToggleOpen : ''}`}
+            onClick={() => setOpen((value) => !value)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label="More ways to use this page"
+            title="Open this page in an AI assistant"
+            type="button"
+          >
+            <ChevronIcon />
+          </button>
+        )}
       </div>
-      {open && (
+      {open && !noIndex && (
         <div className={styles.menu} role="menu">
           <a
             className={styles.menuItem}

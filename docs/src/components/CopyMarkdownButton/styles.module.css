@@ -41,6 +41,10 @@
   border-radius: 6px 0 0 6px;
 }
 
+.copyButton:only-child {
+  border-radius: 6px;
+}
+
 .menuToggle {
   padding: 0.35rem 0.4rem;
   border-left: 0;
