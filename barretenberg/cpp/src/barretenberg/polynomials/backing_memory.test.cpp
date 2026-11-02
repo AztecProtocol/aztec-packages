@@ -62,6 +62,34 @@ TEST_F(FileBackedMemory, PolynomialCopiesAreIndependent)
     }
 }
 
+TEST_F(FileBackedMemory, ExceedingStorageBudgetFailsInsteadOfFallingBackToHeap)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    storage_budget = current_storage_usage.load() + sizeof(FF);
+    EXPECT_THROW_WITH_MESSAGE(BackingMemory<FF>::allocate(2), "storage budget");
+}
+
+TEST_F(FileBackedMemory, ZeroSizeAllocationNeedsNoFile)
+{
+    storage_budget = 0;
+    auto memory = BackingMemory<FF>::allocate(0);
+    EXPECT_EQ(memory.raw_data, nullptr);
+    EXPECT_EQ(memory.file_backed, nullptr);
+}
+
+TEST(HeapBackedMemory, StorageBudgetIgnoredWithoutSlowLowMemory)
+{
+    const bool saved_slow_low_memory = slow_low_memory;
+    const size_t saved_storage_budget = storage_budget;
+    slow_low_memory = false;
+    storage_budget = 0;
+    auto memory = BackingMemory<FF>::allocate(16);
+    EXPECT_NE(memory.raw_data, nullptr);
+    EXPECT_EQ(memory.file_backed, nullptr);
+    slow_low_memory = saved_slow_low_memory;
+    storage_budget = saved_storage_budget;
+}
+
 } // namespace
 
 #endif
