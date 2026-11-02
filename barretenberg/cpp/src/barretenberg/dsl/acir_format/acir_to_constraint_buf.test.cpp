@@ -303,30 +303,38 @@ TEST(AcirToConstraintBuf, WitnessLayoutsMatchWitnessMapConversion)
 }
 
 /**
- * @brief Entries out of wire order, with a repeated index, land as std::map would place them: sorted, first wins.
+ * @brief Entries out of wire order, with a repeated index, give what the whole-tree path gives for the same bytes:
+ * sorted by index, and the last of two values for an index wins (msgpack's std::map conversion assigns each entry in
+ * turn).
  */
-TEST(AcirToConstraintBuf, UnorderedWitnessEntriesMatchWitnessMapConversion)
+TEST(AcirToConstraintBuf, UnorderedWitnessEntriesMatchTreeConversion)
 {
-    const Witnesses::WitnessStack stack = dense_witness_stack(4);
-    const WitnessVector expected = witness_map_to_witness_vector(stack.stack[0].witness);
-
     msgpack::sbuffer sbuf;
     msgpack::packer<msgpack::sbuffer> packer(sbuf);
     packer.pack_array(1);
     packer.pack_array(1);
     packer.pack_array(2);
     packer.pack(uint32_t{ 0 });
-    packer.pack_map(5);
-    bool first_index_1 = true;
-    for (uint32_t index : { 3U, 1U, 0U, 1U, 2U }) {
+    packer.pack_map(6);
+    for (const auto& [index, value] : std::initializer_list<std::pair<uint32_t, int>>{
+             { 3, 22 }, { 1, 8 }, { 0, 1 }, { 1, 999 }, { 2, 15 }, { 2, 16 } }) {
         packer.pack(index);
-        const bool repeated = index == 1 && !std::exchange(first_index_1, false);
-        packer.pack(repeated ? bb::fr(999).to_buffer() : bb::fr(index * 7 + 1).to_buffer());
+        packer.pack(bb::fr(value).to_buffer());
     }
-    const WitnessVector streamed = witness_buf_to_witness_vector(with_marker(0x03, sbuf));
-    ASSERT_EQ(streamed.size(), expected.size());
-    EXPECT_EQ(streamed[1], bb::fr(8)) << "the first of two values for index 1 wins";
-    EXPECT_EQ(streamed, expected);
+    const std::vector<uint8_t> bytes = with_marker(0x03, sbuf);
+
+    auto tree_bytes = bytes;
+    const auto stack =
+        deserialize_msgpack_compact<Witnesses::WitnessStack>(std::move(tree_bytes), [](msgpack::object const& o) {
+            Witnesses::WitnessStack witness_stack;
+            o.convert(witness_stack);
+            return witness_stack;
+        });
+    const WitnessVector from_tree = witness_map_to_witness_vector(stack.stack[0].witness);
+    ASSERT_EQ(from_tree.size(), 4U);
+    ASSERT_EQ(from_tree[1], bb::fr(999));
+
+    EXPECT_EQ(witness_buf_to_witness_vector(std::vector<uint8_t>(bytes)), from_tree);
 }
 
 /**
