@@ -46,3 +46,18 @@ TEST(HeapConfigurationDeathTest, FreedLargeBufferDoesNotRaiseMmapThreshold)
     GTEST_SKIP() << "glibc only";
 #endif
 }
+
+/**
+ * @brief Returning free heap memory is safe on every platform (malloc_trim on glibc, zone pressure relief on Apple, a
+ * no-op elsewhere), and the heap stays usable afterwards.
+ */
+TEST(HeapRelease, ReleaseFreeHeapMemoryLeavesTheHeapUsable)
+{
+    constexpr size_t MiB = size_t{ 1 } << 20;
+    std::free(touched_malloc(4 * MiB));
+    bb::release_free_heap_memory();
+    void* buffer = touched_malloc(4 * MiB);
+    ASSERT_NE(buffer, nullptr);
+    EXPECT_EQ(static_cast<const unsigned char*>(buffer)[4 * MiB - 1], 1);
+    std::free(buffer);
+}
