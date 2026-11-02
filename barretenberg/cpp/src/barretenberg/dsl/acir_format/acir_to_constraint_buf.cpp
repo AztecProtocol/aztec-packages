@@ -366,8 +366,9 @@ class MsgpackCursor {
     {
         try {
             return msgpack::unpack(zone, data_, size_, offset_);
-        } catch (const msgpack::unpack_error& e) {
-            fail("malformed msgpack while reading " + std::string(what) + ": " + e.what());
+        } catch (const msgpack::unpack_error&) {
+            // Unnamed: under BB_NO_EXCEPTIONS the shim turns this into `if (false)` and the variable would not exist.
+            fail("malformed msgpack while reading " + std::string(what));
         }
     }
 
