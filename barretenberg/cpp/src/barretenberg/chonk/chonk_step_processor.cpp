@@ -1,9 +1,11 @@
 #include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 
 namespace bb {
@@ -57,6 +59,9 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
         // The circuit holds everything accumulation needs: free the constraint system and witness before
         // accumulating, which is when memory use peaks.
         step.program = acir_format::AcirProgram{};
+        if (slow_low_memory) {
+            release_free_heap_memory();
+        }
 
         info("Chonk: accumulating ", step.name);
         if (detail::use_memory_profile) {

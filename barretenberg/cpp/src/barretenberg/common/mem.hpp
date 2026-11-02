@@ -4,6 +4,9 @@
 #include "tracy/Tracy.hpp"
 #include <cstdlib>
 #include <memory>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 // This can be altered to capture stack traces, though more expensive
 // so wrap TracyAlloc or TracyAllocS. We disable these if gates are being tracked
@@ -33,6 +36,21 @@ static std::set<size_t> FREED_GATES; // hack to prevent instrumentation failures
 #endif
 // #define TRACY_ALLOC(t, size) TracyAlloc(t, size)
 // #define TRACY_FREE(t) TracyFree(t)
+
+namespace bb {
+/**
+ * @brief Return free heap memory to the operating system.
+ * @details glibc keeps freed memory in its arenas, where it stays resident until reused. Call after releasing a large
+ * structure whose memory the next phase will not reuse. The prover calls it only in low memory mode: when resident
+ * memory is not bounded, returning the pages just means faulting them back in later. No-op on other allocators.
+ */
+inline void release_free_heap_memory()
+{
+#if defined(__GLIBC__)
+    malloc_trim(0);
+#endif
+}
+} // namespace bb
 
 #define pad(size, alignment) (size - (size % alignment) + ((size % alignment) == 0 ? 0 : alignment))
 
