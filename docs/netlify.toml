@@ -152,6 +152,27 @@
     to = "/img/brand/favicon.png"
     status = 301
 
+# Logo files replaced by img/brand/; other sites embed the old URLs.
+[[redirects]]
+    from = "/img/Aztec_Symbol_Dark.png"
+    to = "/img/brand/favicon.png"
+    status = 301
+
+[[redirects]]
+    from = "/img/Aztec Symbol_Light.png"
+    to = "/img/brand/aztec-symbol-paper.svg"
+    status = 301
+
+[[redirects]]
+    from = "/img/Aztec Wordmark_Dark.svg"
+    to = "/img/brand/aztec-wordmark-ink.svg"
+    status = 301
+
+[[redirects]]
+    from = "/img/Aztec Wordmark_Light.svg"
+    to = "/img/brand/aztec-wordmark-paper.svg"
+    status = 301
+
 [[redirects]]
     from = "/developers/guides/smart_contracts/testing"
     to = "/developers/docs/aztec-nr/testing_contracts"
