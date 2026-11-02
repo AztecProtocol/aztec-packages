@@ -3,6 +3,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include <algorithm>
 #include <fstream>
 #include <libdeflate.h>
 #include <memory>
@@ -40,16 +41,23 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
  */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
+    // Deflate expands its input by at most 1032:1, so no valid gzip stream decompresses to more than this.
+    constexpr size_t MAX_DEFLATE_RATIO = 1032;
+    constexpr size_t GZIP_HEADER_SLACK = 1024;
+    const size_t max_plausible_size = (size * MAX_DEFLATE_RATIO) + GZIP_HEADER_SLACK;
+
     std::vector<uint8_t> content;
     // The gzip trailer ends with the uncompressed size modulo 2^32 (RFC 1952 ISIZE): start there so the buffer is
-    // allocated once at its final size. The doubling below still covers multi-member and larger inputs.
+    // allocated once at its final size. The trailer is unchecked input until decompression verifies it, so it is
+    // capped at what the compressed bytes can expand to. The doubling below still covers multi-member and larger
+    // inputs.
     size_t initial_size = 1024ULL * 128ULL;
     if (size >= 18) {
         const auto* trailer = static_cast<const uint8_t*>(bytes) + size - 4;
         const size_t isize = static_cast<size_t>(trailer[0]) | (static_cast<size_t>(trailer[1]) << 8) |
                              (static_cast<size_t>(trailer[2]) << 16) | (static_cast<size_t>(trailer[3]) << 24);
         if (isize > 0) {
-            initial_size = isize;
+            initial_size = std::min(isize, max_plausible_size);
         }
     }
     content.resize(initial_size);
@@ -61,8 +69,10 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
         libdeflate_result decompress_result =
             libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
         if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
+            if (content.size() >= max_plausible_size) {
+                THROW std::invalid_argument("bad gzip data in bb main");
+            }
+            content.resize(std::min(content.size() * 2, max_plausible_size));
             continue;
         }
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
