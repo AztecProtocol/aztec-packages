@@ -5,16 +5,7 @@
 
 using namespace bb;
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor,
-                                   UltraZKFlavor,
-                                   UltraKeccakFlavor,
-                                   UltraKeccakZKFlavor,
-                                   UltraStarknetFlavor,
-                                   UltraStarknetZKFlavor>;
-#else
 using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
-#endif
 template <typename T> using RangeTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(RangeTests, FlavorTypes);
 

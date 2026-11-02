@@ -17,10 +17,6 @@
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#ifdef STARKNET_GARAGA_FLAVORS
-#include "barretenberg/flavor/ultra_starknet_flavor.hpp"
-#include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
-#endif
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -128,7 +124,7 @@ struct ProofSystemSettings {
      * @brief The oracle hash type to be used for the proof.
      *
      * This is used to determine the hash function used in the proof generation.
-     * Valid values are "poseidon2", "keccak", and "starknet".
+     * Valid values are "poseidon2" and "keccak".
      */
     std::string oracle_hash_type = "poseidon2";
 
@@ -148,15 +144,12 @@ struct ProofSystemSettings {
 /**
  * @brief Convert oracle hash type string to enum for internal use
  */
-enum class OracleHashType { POSEIDON2, KECCAK, STARKNET };
+enum class OracleHashType { POSEIDON2, KECCAK };
 
 inline OracleHashType parse_oracle_hash_type(const std::string& type)
 {
     if (type == "keccak") {
         return OracleHashType::KECCAK;
-    }
-    if (type == "starknet") {
-        return OracleHashType::STARKNET;
     }
     return OracleHashType::POSEIDON2; // default
 }
@@ -343,15 +336,6 @@ template <typename Operation> auto dispatch_by_settings(const ProofSystemSetting
         }
         return operation.template operator()<UltraKeccakZKFlavor, DefaultIO>();
     }
-
-#ifdef STARKNET_GARAGA_FLAVORS
-    if (settings.oracle_hash_type == "starknet") {
-        if (settings.disable_zk) {
-            return operation.template operator()<UltraStarknetFlavor, DefaultIO>();
-        }
-        return operation.template operator()<UltraStarknetZKFlavor, DefaultIO>();
-    }
-#endif
 
     // Invalid configuration
     throw_or_abort("Invalid proof system settings: oracle_hash_type='" + settings.oracle_hash_type +

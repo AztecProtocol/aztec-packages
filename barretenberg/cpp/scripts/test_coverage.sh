@@ -35,7 +35,6 @@ llvm-cov-20 show \
   -format=html \
   -output-dir=build-coverage/coverage-report \
   --ignore-filename-regex=".*/_deps/.*" \
-  --ignore-filename-regex=".*/ext/starknet/.*" \
   --ignore-filename-regex=".*/lmdblib/.*" \
   --ignore-filename-regex=".*/vm2/.*" \
   "${args[@]}"

@@ -80,16 +80,12 @@ bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_targ
 
 # For recursive verification in Noir circuits (uses poseidon2 hash)
 bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target noir-recursive -o target
-
-# For Starknet verification via Garaga (reserved for future use — disabled in default builds)
-bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target starknet -o target
 ```
 
 Available targets:
 - `evm` / `evm-no-zk`: Ethereum/Solidity verification (keccak)
 - `noir-recursive` / `noir-recursive-no-zk`: Recursive verification in Noir circuits (poseidon2)
 - `noir-rollup` / `noir-rollup-no-zk`: Rollup circuits with IPA accumulation (poseidon2)
-- `starknet` / `starknet-no-zk`: Starknet verification via Garaga (reserved for future use)
 
 For a detailed explanation of each target, see the [CLI Options guide](./cli_options.md).
 

@@ -6,23 +6,10 @@
 
 using namespace bb;
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor,
-                                   UltraZKFlavor,
-                                   UltraKeccakFlavor,
-                                   UltraKeccakZKFlavor,
-                                   UltraStarknetFlavor,
-                                   UltraStarknetZKFlavor>;
-#else
 using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
-#endif
 template <typename T> using PermutationTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationTests, FlavorTypes);
-#ifdef STARKNET_GARAGA_FLAVORS
-using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
-#else
 using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
-#endif
 template <typename T> using PermutationNonZKTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationNonZKTests, NonZKFlavorTypes);
 

@@ -56,7 +56,6 @@ UltraHonk supports different verifier targets for different verification environ
 - `evm` / `evm-no-zk`: For Ethereum/Solidity verification (uses keccak)
 - `noir-recursive` / `noir-recursive-no-zk`: For recursive verification in Noir circuits (uses poseidon2)
 - `noir-rollup` / `noir-rollup-no-zk`: For rollup circuits with IPA accumulation (uses poseidon2)
-- `starknet` / `starknet-no-zk`: For Starknet verification via Garaga (reserved for future use)
 
 #include_code verifier_targets examples/basic.test.ts typescript
 

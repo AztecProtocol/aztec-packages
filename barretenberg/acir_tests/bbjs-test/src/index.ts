@@ -35,7 +35,6 @@ async function generateProof({
   const witness = await fs.readFile(witnessPath);
   const proof = await backend.generateProof(new Uint8Array(witness), {
     keccakZK: oracleHash === 'keccakZK',
-    starknetZK: oracleHash === 'starknetZK',
   });
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
@@ -53,7 +52,6 @@ async function generateProof({
 
   const verificationKey = await backend.getVerificationKey({
     keccakZK: oracleHash === 'keccakZK',
-    starknetZK: oracleHash === 'starknetZK',
   });
   await fs.writeFile(vkeyPath(outputDirectory), Buffer.from(verificationKey));
   logger.debug('Verification key written to ' + vkeyPath(outputDirectory));

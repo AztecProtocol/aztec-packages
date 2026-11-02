@@ -229,10 +229,6 @@ using UltraZKVerifier = UltraVerifier_<UltraZKFlavor, DefaultIO>;
 using UltraRollupVerifier = UltraVerifier_<UltraFlavor, RollupIO>;
 using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor, DefaultIO>;
 using UltraKeccakZKVerifier = UltraVerifier_<UltraKeccakZKFlavor, DefaultIO>;
-#ifdef STARKNET_GARAGA_FLAVORS
-using UltraStarknetVerifier = UltraVerifier_<UltraStarknetFlavor, DefaultIO>;
-using UltraStarknetZKVerifier = UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>;
-#endif
 using MegaVerifier = UltraVerifier_<MegaFlavor, DefaultIO>;
 using MegaZKVerifier = UltraVerifier_<MegaZKFlavor, HidingKernelIO>;
 using MegaZKRecursiveVerifier = UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
