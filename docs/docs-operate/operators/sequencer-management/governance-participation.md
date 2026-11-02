@@ -98,7 +98,7 @@ The governance process follows these stages:
 **Note:** These timeline values are specific to testnet and are subject to change for future network phases.
 #else
 3. **Voting Delay** (3 days): A mandatory waiting period before voting opens (allows time for community review).
-4. **Voting Period** (7 days): Users who hold stake in the network vote on the proposal using their staked tokens. A proposal passes if it receives at least 20% quorum, 2/3 of votes are "yea", and a minimum of 500 validators' worth of voting power is cast.
+4. **Voting Period** (7 days): Users who hold stake in the network vote on the proposal using their staked tokens. A proposal passes if at least 20% of the total voting power votes, more than 66.5% of the votes cast are "yea", and the total voting power is at least 500 validators' worth.
 5. **Execution Delay** (2 days): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
 6. **Execution**: Anyone can execute the proposal, which applies the changes. There is a 7-day grace period after the execution delay during which the proposal can still be executed.
 #endif
