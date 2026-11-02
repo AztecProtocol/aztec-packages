@@ -328,3 +328,31 @@ TEST(AcirToConstraintBuf, UnorderedWitnessEntriesMatchWitnessMapConversion)
     EXPECT_EQ(streamed[1], bb::fr(8)) << "the first of two values for index 1 wins";
     EXPECT_EQ(streamed, expected);
 }
+
+/**
+ * @brief The constraint vectors come back without the slack of push_back growth, which would otherwise stay resident
+ * through circuit construction.
+ */
+TEST(AcirToConstraintBuf, ConstraintVectorsCarryNoGrowthSlack)
+{
+    Acir::Circuit circuit;
+    for (uint32_t i = 0; i < 3; ++i) {
+        Acir::Expression expr = linear({ { 1, 2 * i }, { -1, 2 * i + 1 } }, 0);
+        expr.mul_terms.emplace_back(bb::fr(1).to_buffer(), Acir::Witness{ 2 * i }, Acir::Witness{ 2 * i + 1 });
+        circuit.opcodes.emplace_back(Acir::Opcode::AssertZero{ .value = expr });
+        circuit.opcodes.emplace_back(Acir::Opcode::BlackBoxFuncCall{
+            .value = Acir::BlackBoxFuncCall{
+                .value = Acir::BlackBoxFuncCall::RANGE{
+                    .input =
+                        Acir::FunctionInput{ .value = Acir::FunctionInput::Witness{ .value = Acir::Witness{ 2 * i } } },
+                    .num_bits = 8 } } });
+    }
+    for (bool is_mega : { false, true }) {
+        const AcirFormat af = circuit_buf_to_acir_format(test::serialize_program_with_circuit(circuit), is_mega);
+        ASSERT_EQ(af.quad_constraints.size(), 3U);
+        ASSERT_EQ(af.range_constraints.size(), 3U);
+        EXPECT_EQ(af.quad_constraints.capacity(), af.quad_constraints.size());
+        EXPECT_EQ(af.range_constraints.capacity(), af.range_constraints.size());
+        EXPECT_EQ(af.original_opcode_indices.quad_constraints.capacity(), af.quad_constraints.size());
+    }
+}
