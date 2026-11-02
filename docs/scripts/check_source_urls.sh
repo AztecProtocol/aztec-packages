@@ -135,6 +135,15 @@ function self_test {
     [[ "$got" == "$verdict" ]] || { echo "self-test: $url is $got, not $verdict" >&2; rc=1; }
   done
 
+  mkdir "$tmp/pages"
+  printf -- '---\nid: actual\n---\n\nText.\n\n---\n\nid: example\ndraft: true\n' >"$tmp/pages/04-named.md"
+  printf -- '---\ndraft: true # hide until ready\n---\n' >"$tmp/pages/draft.md"
+  printf -- 'No front matter.\n---\nid: rule\n---\n' >"$tmp/pages/05-plain.md"
+  for want in "04-named.md actual" "draft.md " "05-plain.md plain"; do
+    got=$(doc_route_name "$tmp/pages/${want%% *}")
+    [[ "$got" == "${want#* }" ]] || { echo "self-test: ${want%% *} routes at '$got', not '${want#* }'" >&2; rc=1; }
+  done
+
   local re
   re=$(from_to_regex "/self-test/:section/*")
   if ! [[ "/self-test/a/b/c" =~ $re ]] || [[ "/self-test/a" =~ $re ]]; then
@@ -143,7 +152,7 @@ function self_test {
   fi
 
   local matches st=0
-  matches=$(cd "$tmp" && git grep --no-index -nIoE "$url_re" -- . | sed -E 's/[.,;:!?*]+$//')
+  matches=$(cd "$tmp" && git grep --no-index -nIoE "$url_re" -- fixture.md | sed -E 's/[.,;:!?*]+$//')
   want=$(printf '%s' "$expected_urls")
   got=$(cut -d: -f3- <<<"$matches")
   [[ "$got" == "$want" ]] || { echo "self-test: extracted URLs differ:" >&2; diff <(echo "$want") <(echo "$got") >&2 || true; rc=1; }

@@ -82,6 +82,26 @@ function matches_any_redirect {
   return 1
 }
 
+# Prints "<key>: <value>" for the id, slug and draft keys of the front matter block that opens a
+# file, without quotes or a trailing YAML comment. A later `---` (a rule in the body) is not front matter.
+function front_matter {
+  local key value
+  while read -r key value; do
+    value=${value%%[[:space:]]\#*}
+    value=${value#[\"\']}
+    value=${value%[\"\']}
+    echo "$key $value"
+  done < <(sed -nE '1{/^---$/!q;d;}; /^---$/q; s/^(id|slug|draft):[[:space:]]*/\1: /p' "$1")
+}
+
+function is_draft {
+  local key value
+  while read -r key value; do
+    [[ "$key" == draft: && "$value" == true ]] && return 0
+  done < <(front_matter "$1")
+  return 1
+}
+
 # The last URL segment Docusaurus serves a docs file at: its `id`, else its file name without a
 # number prefix. Prints nothing for a draft (dropped from builds) or a file with a `slug`.
 function doc_route_name {
@@ -92,7 +112,7 @@ function doc_route_name {
       draft:) [[ "$value" == true ]] && return 0 ;;
       id:) id=$value ;;
     esac
-  done < <(sed -nE '/^---$/,/^---$/{s/^(id|slug|draft):[[:space:]]*/\1: /p;}' "$file")
+  done < <(front_matter "$file")
   name=${file##*/}
   name=${name%.*}
   [[ "$name" =~ ^[0-9]+[-_.](.+)$ ]] && name=${BASH_REMATCH[1]}
@@ -102,7 +122,7 @@ function doc_route_name {
 function serves_index {
   local file
   for file in "$1/index.md" "$1/index.mdx"; do
-    [[ -f "$file" ]] && [[ -z "$(sed -nE '/^---$/,/^---$/{/^draft:[[:space:]]*true/p;}' "$file")" ]] && return 0
+    [[ -f "$file" ]] && ! is_draft "$file" && return 0
   done
   return 1
 }
