@@ -410,6 +410,14 @@ directory yet makes every docusaurus command fail, `docs:version` included:
 Step 11 writes it with `scripts/update_docs_versions.sh` once the directory exists; the
 network config follows the same rule.
 
+**Release line name:** `docs/release_names.json` maps a major version to the name its
+release line ships under (`{"6": "Tierra"}`). The version dropdown, the version badges and
+the `#release_name` and `#release_label` macros read it. A release in a major the file
+already names needs nothing here. A release that starts a new major needs its line's name:
+ask the owner for it (never invent one) and add the entry now, before Step 11 preprocesses,
+or the snapshot and the dropdown show the bare version. A line name labels the docs only:
+networks stay Alpha and Testnet, and CLI, env and Docker values stay `mainnet` and `testnet`.
+
 ### Step 6: Generate API Reference Docs
 
 ```bash
@@ -1268,8 +1276,9 @@ Sort every listed path into exactly one class:
    `git rm` stages the deletions; they are never passed to `git add` below.
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
-   destination's pin too (source fixes from Steps 8, 8b, 10 and 15, edits to existing
-   snapshots). Carry them as reviewed hunks; the cut shares this repository's objects, so
+   destination's pin too (source fixes from Steps 8, 8b, 10 and 15, a new
+   `release_names.json` entry from Step 5, edits to existing snapshots). Carry them as
+   reviewed hunks; the cut shares this repository's objects, so
    `-3` can merge them:
 
    ```bash
