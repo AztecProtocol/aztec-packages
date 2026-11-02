@@ -108,9 +108,6 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
 
     auto oh = msgpack::unpack(buffer, size);
     auto o = oh.get();
-    // Without a reference function, unpack copies every STR/BIN/EXT payload into the object's zone, so the serialized
-    // buffer is no longer needed; the caller handed it over by rvalue reference.
-    std::vector<uint8_t>().swap(buf);
 
     // Expect ARRAY type for msgpack-compact format
     if (format_u8 == FORMAT_MSGPACK_COMPACT) {
