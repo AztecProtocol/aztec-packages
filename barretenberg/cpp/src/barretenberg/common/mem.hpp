@@ -50,6 +50,23 @@ inline void release_free_heap_memory()
     malloc_trim(0);
 #endif
 }
+
+/**
+ * @brief Make glibc return freed memory to the operating system promptly, for runs that bound resident memory.
+ * @details By default glibc raises its mmap threshold to the size of each freed mmap-served chunk (up to 32 MiB) and
+ * its trim threshold to twice that. After one large buffer is freed, later buffers of up to 32 MiB are carved from
+ * the heap instead of mapped, and up to 64 MiB of free heap is kept resident. Setting both thresholds explicitly turns
+ * that adjustment off: chunks of 1 MiB or more are always mapped and unmapped on free, and free heap above 1 MiB is
+ * returned. No-op on other allocators.
+ */
+inline void configure_heap_for_low_memory()
+{
+#if defined(__GLIBC__)
+    constexpr int threshold = 1 << 20;
+    mallopt(M_MMAP_THRESHOLD, threshold);
+    mallopt(M_TRIM_THRESHOLD, threshold);
+#endif
+}
 } // namespace bb
 
 #define pad(size, alignment) (size - (size % alignment) + ((size % alignment) == 0 ? 0 : alignment))

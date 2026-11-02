@@ -28,6 +28,7 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
@@ -860,6 +861,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
         bb_log_level = LogLevel::VERBOSE;
     }
     slow_low_memory = flags.slow_low_memory;
+    if (slow_low_memory) {
+        configure_heap_for_low_memory();
+    }
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
