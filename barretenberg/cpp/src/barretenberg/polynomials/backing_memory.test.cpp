@@ -148,6 +148,7 @@ TEST(HeapBackedMemory, StorageBudgetIgnoredWithoutSlowLowMemory)
 #endif
 
 #if defined(__GLIBC__)
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication_fast.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <malloc.h>
@@ -182,23 +183,30 @@ bool freed_buffers_do_not_raise_mmap_threshold()
 
 // Each case runs in a freshly started process ("threadsafe" death tests re-execute the binary), so slow_low_memory is
 // initialized from the environment as in production and no allocator configuration leaks into other tests.
-TEST(SlowLowMemoryDeathTest, EnvironmentVariableConfiguresTheHeap)
+TEST(SlowLowMemoryDeathTest, EnvironmentVariableConfiguresHeapAndMsmBudget)
 {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     setenv("BB_SLOW_LOW_MEMORY", "1", /*overwrite=*/1);
-    EXPECT_EXIT(std::_Exit(slow_low_memory && freed_buffers_do_not_raise_mmap_threshold() ? 0 : 1),
-                ::testing::ExitedWithCode(0),
-                "");
+    EXPECT_EXIT(
+        std::_Exit(slow_low_memory && freed_buffers_do_not_raise_mmap_threshold() &&
+                           bb::scalar_multiplication::get_msm_batch_mem_budget() == LOW_MEMORY_MSM_BATCH_MEM_BUDGET
+                       ? 0
+                       : 1),
+        ::testing::ExitedWithCode(0),
+        "");
     unsetenv("BB_SLOW_LOW_MEMORY");
 }
 
-TEST(SlowLowMemoryDeathTest, SetterConfiguresTheHeap)
+TEST(SlowLowMemoryDeathTest, SetterConfiguresHeapAndMsmBudget)
 {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     EXPECT_EXIT(
         {
             set_slow_low_memory(true);
-            std::_Exit(slow_low_memory && freed_buffers_do_not_raise_mmap_threshold() ? 0 : 1);
+            std::_Exit(slow_low_memory && freed_buffers_do_not_raise_mmap_threshold() &&
+                               bb::scalar_multiplication::get_msm_batch_mem_budget() == LOW_MEMORY_MSM_BATCH_MEM_BUDGET
+                           ? 0
+                           : 1);
         },
         ::testing::ExitedWithCode(0),
         "");
