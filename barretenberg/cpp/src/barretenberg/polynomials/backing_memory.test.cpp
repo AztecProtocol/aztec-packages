@@ -146,3 +146,61 @@ TEST(HeapBackedMemory, StorageBudgetIgnoredWithoutSlowLowMemory)
 } // namespace
 
 #endif
+
+#if defined(__GLIBC__)
+#include <cstdlib>
+#include <cstring>
+#include <malloc.h>
+
+namespace {
+// Keeps the allocations below observable, so the compiler cannot pair and elide them.
+void* volatile heap_sink = nullptr;
+
+void* touched_malloc(size_t bytes)
+{
+    void* ptr = std::malloc(bytes);
+    std::memset(ptr, 1, bytes);
+    heap_sink = ptr;
+    return ptr;
+}
+
+/**
+ * @brief Whether a 2 MiB buffer allocated after a 16 MiB one was freed is still mapped. With glibc's default dynamic
+ * thresholds the free raises the mmap threshold to 16 MiB and the 2 MiB buffer comes from the heap.
+ */
+bool freed_buffers_do_not_raise_mmap_threshold()
+{
+    constexpr size_t MiB = size_t{ 1 } << 20;
+    std::free(touched_malloc(16 * MiB));
+    const size_t mapped_before = mallinfo2().hblkhd;
+    void* buffer = touched_malloc(2 * MiB);
+    const size_t mapped_after = mallinfo2().hblkhd;
+    std::free(buffer);
+    return mapped_after - mapped_before >= 2 * MiB;
+}
+} // namespace
+
+// Each case runs in a freshly started process ("threadsafe" death tests re-execute the binary), so slow_low_memory is
+// initialized from the environment as in production and no allocator configuration leaks into other tests.
+TEST(SlowLowMemoryDeathTest, EnvironmentVariableConfiguresTheHeap)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    setenv("BB_SLOW_LOW_MEMORY", "1", /*overwrite=*/1);
+    EXPECT_EXIT(std::_Exit(slow_low_memory && freed_buffers_do_not_raise_mmap_threshold() ? 0 : 1),
+                ::testing::ExitedWithCode(0),
+                "");
+    unsetenv("BB_SLOW_LOW_MEMORY");
+}
+
+TEST(SlowLowMemoryDeathTest, SetterConfiguresTheHeap)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(
+        {
+            set_slow_low_memory(true);
+            std::_Exit(slow_low_memory && freed_buffers_do_not_raise_mmap_threshold() ? 0 : 1);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
+}
+#endif
