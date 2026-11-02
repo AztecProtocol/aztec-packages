@@ -6,6 +6,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "bn254_crs_data.hpp"
 #include "bn254_g1_chunk_hashes.hpp"
 #include "http_download.hpp"
@@ -508,7 +509,9 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
 Bn254G1Points load_bn254_g1_points(const std::filesystem::path& path, size_t num_points, bool allow_download)
 {
 #if !defined(__wasm__) && !defined(_WIN32)
-    if (std::endian::native != std::endian::little || std::getenv("BB_VERIFY_CRS") != nullptr) {
+    // The cache trades a second on-disk copy of the points for keeping them out of anonymous memory, which only
+    // low memory mode asks for.
+    if (!slow_low_memory || std::endian::native != std::endian::little || std::getenv("BB_VERIFY_CRS") != nullptr) {
         return heap_g1_points(get_bn254_g1_data(path, num_points, allow_download));
     }
     const auto uncompressed_path = path / "bn254_g1.dat";
