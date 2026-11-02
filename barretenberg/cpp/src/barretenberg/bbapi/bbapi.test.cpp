@@ -232,6 +232,27 @@ TEST(PrivateExecutionStepRaw, SelfDecompressIsIdempotent)
     EXPECT_EQ(loaded[0].witness, step.witness);
 }
 
+TEST(PrivateExecutionStepRaw, SelfDecompressAllocatesExactSize)
+{
+    // Larger than the initial decompression buffer, so a doubling strategy would over-allocate.
+    std::vector<uint8_t> bytecode(300 * 1024);
+    for (size_t i = 0; i < bytecode.size(); ++i) {
+        bytecode[i] = static_cast<uint8_t>((i * 2654435761ULL) >> 13);
+    }
+    const PrivateExecutionStepRaw step{ .bytecode = bytecode, .witness = { 4, 5 }, .vk = {}, .function_name = "f" };
+    auto tmp = std::filesystem::temp_directory_path() / "bb_test_step_exact_size.msgpack";
+    PrivateExecutionStepRaw::compress_and_save({ step }, tmp);
+
+    auto loaded = PrivateExecutionStepRaw::load(tmp);
+    std::filesystem::remove(tmp);
+    ASSERT_EQ(loaded.size(), 1);
+    loaded[0].self_decompress();
+
+    EXPECT_EQ(loaded[0].bytecode, step.bytecode);
+    EXPECT_EQ(loaded[0].bytecode.capacity(), step.bytecode.size());
+    EXPECT_EQ(loaded[0].witness, step.witness);
+}
+
 TEST(PrivateExecutionStepRaw, SelfDecompressLeavesUncompressedStepsUnchanged)
 {
     const PrivateExecutionStepRaw step{ .bytecode = { 1, 2, 3 }, .witness = { 4, 5 }, .vk = {}, .function_name = "f" };

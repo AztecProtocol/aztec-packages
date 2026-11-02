@@ -19,6 +19,7 @@
 #include <regex>
 #include <vector>
 
+#include "acir_serde_test_utils.hpp"
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -28,33 +29,7 @@ using namespace acir_format;
 
 class AcirNullDerefTest : public ::testing::Test {};
 
-/**
- * Helper: build a ProgramWithoutBrillig wire format by manually packing with msgpack.
- * We can't use ProgramWithoutBrillig::msgpack_pack because std::monostate lacks a pack adaptor.
- * Instead, we pack the structure by hand: ARRAY[ARRAY[circuit], NIL].
- */
-static std::vector<uint8_t> serialize_program_with_circuit(const Acir::Circuit& circuit)
-{
-    msgpack::sbuffer sbuf;
-    msgpack::packer<msgpack::sbuffer> packer(sbuf);
-
-    // ProgramWithoutBrillig = ARRAY[functions, unconstrained_functions]
-    packer.pack_array(2);
-
-    // functions = ARRAY[circuit]
-    packer.pack_array(1);
-    packer.pack(circuit);
-
-    // unconstrained_functions = NIL (std::monostate — ignored by ProgramWithoutBrillig::msgpack_unpack)
-    packer.pack_nil();
-
-    // Prepend format marker 0x03 (FORMAT_MSGPACK_COMPACT)
-    std::vector<uint8_t> buf;
-    buf.reserve(1 + sbuf.size());
-    buf.push_back(0x03);
-    buf.insert(buf.end(), sbuf.data(), sbuf.data() + sbuf.size());
-    return buf;
-}
+using acir_format::test::serialize_program_with_circuit;
 
 // ============================================================================
 // Exploit tests: These construct null shared_ptr directly in the struct,
