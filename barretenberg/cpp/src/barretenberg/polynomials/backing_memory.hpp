@@ -114,10 +114,24 @@ template <typename Fr> struct BackingMemory {
     // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
+        bool reads_as_zero = false;
+        return allocate(size, reads_as_zero);
+    }
+
+    /**
+     * @brief Allocate as allocate(size) does, and report whether the memory already reads as zero.
+     * @details A file-backed allocation is a new file region (posix_fallocate or ftruncate on a new file), which reads
+     * as zero without being written. A caller that needs zeroed memory should then not write the zeros: that would
+     * dirty every page, and a dirty file page must be written back before it can be reclaimed.
+     */
+    static BackingMemory allocate(size_t size, bool& reads_as_zero)
+    {
         BackingMemory memory;
+        reads_as_zero = false;
 #if !defined(__wasm__) && !defined(_WIN32)
         if (slow_low_memory && size > 0) {
             allocate_file_backed(memory, size);
+            reads_as_zero = true;
             return memory;
         }
 #endif
