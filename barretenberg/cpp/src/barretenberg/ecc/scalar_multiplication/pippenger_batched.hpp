@@ -293,9 +293,9 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // The per-worker arenas are one contiguous block of `num_workers * small_arena_bytes`.
         // Cap it at one MSM's budget so a wide batch doesn't hold many full arenas at once,
         // matching the large-member path's single reused arena of the same budget.
-        const size_t workers_by_budget =
-            small_arena_bytes > 0 ? std::max<size_t>(1, round_parallel_detail::BATCH_MEM_BUDGET / small_arena_bytes)
-                                  : std::numeric_limits<size_t>::max();
+        const size_t workers_by_budget = small_arena_bytes > 0
+                                             ? std::max<size_t>(1, get_msm_batch_mem_budget() / small_arena_bytes)
+                                             : std::numeric_limits<size_t>::max();
         const size_t num_workers = std::min({ pool_width, small_members.size(), workers_by_budget });
         std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
         if (small_arena_bytes > 0) {
@@ -327,7 +327,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // (max_threads=1). This skips the member's cross-thread reduction. It also keeps the member
         // off the pool, so there is no nested parallel_for. The gate above guarantees at least
         // pool_width members, so every worker stays busy. Each call self-allocates its arena (empty
-        // span), because a shared num_workers × max-member arena would exceed BATCH_MEM_BUDGET and
+        // span), because a shared num_workers × max-member arena would exceed the batch memory budget and
         // cap num_workers below pool_width. Members run largest-first (longest-processing-time
         // order) to bound the tail imbalance.
         BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched/large_members_concurrent");

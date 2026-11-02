@@ -60,7 +60,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
 
     using rpd::BATCH_CAPACITY;
     constexpr size_t MIN_BATCH_CAPACITY = 32;
-    constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
+    const size_t batch_mem_budget = scalar_multiplication::get_msm_batch_mem_budget();
     constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
 
     const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
@@ -110,7 +110,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
                                   (size_t{ 96 } * rpd::MAX_SCHEDULE_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
                                   phase_one_prologue_bytes;
     const size_t available_budget =
-        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+        (batch_mem_budget > fixed_overhead) ? (batch_mem_budget - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =
         rpd::solve_wpb(per_window_bytes_lo, available_budget, static_cast<size_t>(sched.num_windows));
 
@@ -1877,7 +1877,7 @@ TEST(ScalarMultiplicationArenaTest, TreeReduceCapacityAtGrowthBoundary)
 }
 
 // The windows-per-batch solve must not grow as the budget shrinks: once the fixed overhead
-// exhausts BATCH_MEM_BUDGET it takes one window per batch, not every window.
+// exhausts the batch memory budget it takes one window per batch, not every window.
 TEST(ScalarMultiplicationArenaTest, WindowsPerBatchMonotoneInBudget)
 {
     namespace rpd = scalar_multiplication::round_parallel_detail;
@@ -1893,7 +1893,7 @@ TEST(ScalarMultiplicationArenaTest, WindowsPerBatchMonotoneInBudget)
     EXPECT_EQ(rpd::solve_wpb(per_window, 0, W_R), size_t{ 1 });
 }
 
-// Shapes whose fixed overhead exceeds BATCH_MEM_BUDGET (the n-byte msb array plus one per-worker
+// Shapes whose fixed overhead exceeds the batch memory budget (the n-byte msb array plus one per-worker
 // union per thread). The sizer must stay O(fixed + one window): one window's schedule is 4n bytes,
 // while every window in one batch at the smallest reachable c costs ~128 · 4n.
 TEST(ScalarMultiplicationArenaTest, ArenaSizerPastExhaustedBatchBudget)
