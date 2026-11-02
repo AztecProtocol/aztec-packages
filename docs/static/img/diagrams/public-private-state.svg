@@ -5,7 +5,7 @@
 svg { font-family: Geist, Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; }
 text { fill: #141900; }
 .muted { fill: #4d4d3e; }
-.faint { fill: #818167; }
+.faint { fill: #5c5c4f; }
 .title { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
 .heading { font-size: 22px; font-weight: 600; }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; }
