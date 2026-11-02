@@ -4,6 +4,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
@@ -21,23 +22,35 @@ namespace {
 std::atomic<bool> track_largest_allocation{ false };
 std::atomic<size_t> largest_allocation{ 0 };
 
-struct LargestAllocationScope {
-    LargestAllocationScope()
-    {
-        largest_allocation = 0;
-        track_largest_allocation = true;
-    }
-    ~LargestAllocationScope() { track_largest_allocation = false; }
-};
-} // namespace
-
-void* operator new(size_t size)
+void record_allocation(size_t size)
 {
     if (track_largest_allocation.load(std::memory_order_relaxed)) {
         size_t seen = largest_allocation.load(std::memory_order_relaxed);
         while (size > seen && !largest_allocation.compare_exchange_weak(seen, size)) {
         }
     }
+}
+
+struct LargestAllocationScope {
+    LargestAllocationScope()
+    {
+        largest_allocation = 0;
+        track_largest_allocation = true;
+        bb::detail::set_allocation_observer(record_allocation);
+    }
+    ~LargestAllocationScope()
+    {
+        bb::detail::set_allocation_observer(nullptr);
+        track_largest_allocation = false;
+    }
+};
+} // namespace
+
+#if !(defined(__APPLE__) && !defined(TRACY_MEMORY))
+// Where common/mem.cpp does not replace operator new, this test does, so every request is seen.
+void* operator new(size_t size)
+{
+    record_allocation(size);
     if (void* ptr = std::malloc(size == 0 ? 1 : size)) {
         return ptr;
     }
@@ -51,6 +64,7 @@ void operator delete(void* ptr, size_t /*size*/) noexcept
 {
     std::free(ptr);
 }
+#endif
 
 // Template for testing roundtrip serialization
 template <typename T> class BBApiSerializationTest : public ::testing::Test {};
