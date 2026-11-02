@@ -159,7 +159,7 @@ const productAreaRules = [
   },
 ];
 
-const SITE_URL = "https://docs.aztec.network";
+const { SITE_URL } = require("./src/site_url");
 const SITE_TITLE = "Aztec Documentation";
 const SITE_DESCRIPTION =
   "Build unstoppable private apps on Aztec, the decentralized Ethereum L2 with fully programmable privacy.";

@@ -6,33 +6,15 @@
 
 const fs = require("fs");
 const path = require("path");
-const { docsInstances, networkSection } = require("../src/network_docs.js");
+const { docsInstances, networkSection, startHere } = require("../src/network_docs.js");
+const { llmsSiteUrl } = require("../src/site_url.js");
+const { DIRECTIVE } = require("./inject_md_directive.js");
 
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
 
-// Site URL used to build absolute links for the API reference sections. Read
-// from docusaurus.config.js so it tracks the configured domain. Trailing slash
-// stripped so it can be concatenated with leading-slash paths.
-function loadSiteUrl() {
-  try {
-    const config = fs.readFileSync(
-      path.join(__dirname, "..", "docusaurus.config.js"),
-      "utf-8",
-    );
-    // The config declares SITE_URL once and derives `url` from it. Match the
-    // constant rather than any `url:` key: the JSON-LD Organization block also
-    // has a `url:` (aztec.network), which is not the docs origin.
-    const match =
-      config.match(/^const SITE_URL = ["']([^"']+)["']/m) ||
-      config.match(/^\s*url:\s*["']([^"']+)["']/m);
-    if (match) return match[1].replace(/\/$/, "");
-  } catch {
-    // fall through to default
-  }
-  return "https://docs.aztec.network";
-}
-const SITE_URL = loadSiteUrl();
+// The origin of every absolute link in the llms files: the deploy URL in a deploy preview.
+const SITE_URL = llmsSiteUrl(process.env);
 
 const [developerDocs, operatorDocs] = docsInstances(
   require("../developer_version_config.json"),
@@ -323,20 +305,20 @@ function sortByImportance(files) {
   });
 }
 
+const FULL_TXT_LINK = "For the complete documentation as a single file";
+const AI_TOOLING_POINTER = "**Setting up an AI agent?**";
+
 /**
  * Insert a link to llms-full.txt after the H1 title block.
  *
  * The llms.txt spec opens with a single H1, optionally followed by a blockquote
  * summary, before any other content. We insert the link after that block so it
  * is the first thing an agent reads while preserving the single-H1 structure.
- * Idempotent: a second pass over content that already has the link is a no-op.
+ * The size tells an agent whether the file fits its context before it fetches it.
  */
-function insertFullTxtLink(content) {
-  const link = `For the complete documentation as a single file, see [llms-full.txt](${SITE_URL}/llms-full.txt).`;
-  // Match the exact link line, not a bare "/llms-full.txt" substring, so an
-  // unrelated mention of that path in the generated content can't suppress
-  // insertion. Keeps the function a no-op only on its own prior output.
-  if (content.includes(link)) return content;
+function insertFullTxtLink(content, bytes) {
+  const size = bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.ceil(bytes / 1e3)} KB`;
+  const link = `${FULL_TXT_LINK} (${size}), see [llms-full.txt](${SITE_URL}/llms-full.txt).`;
 
   const lines = content.split("\n");
   const h1Index = lines.findIndex((line) => /^# /.test(line));
@@ -367,7 +349,7 @@ function insertFullTxtLink(content) {
  * always short-circuit and the pointer would never be inserted.
  */
 function insertAiToolingPointer(content) {
-  const sentinel = "**Setting up an AI agent?**";
+  const sentinel = AI_TOOLING_POINTER;
   const url = `${SITE_URL}/developers/ai_tooling`;
   const pointer = `${sentinel} Read the [AI Tooling guide](${url}) first for recommended CLAUDE.md/AGENTS.md instructions and common-mistake guidance (use the \`aztec\` CLI, not \`nargo\` or \`bb\` directly).`;
   if (content.includes(sentinel)) return content;
@@ -411,17 +393,34 @@ function stripFrom(content, ...sentinels) {
   return cut === -1 ? content : content.slice(0, cut);
 }
 
-// The section ends at the next H2: networkSection demotes the page's headings.
-const NETWORK_SECTION = /^## Networks and versions\n[\s\S]*?(?=^## )/m;
+// Each section this script adds ends at the next H2 or at the end of the file: networkSection
+// demotes the page's headings, and the network section is the last one left after stripFrom.
+const sectionPattern = (heading) => new RegExp(`^## ${heading}\\n[\\s\\S]*?(?=^## |(?![\\s\\S]))`, "m");
+const ADDED_SECTIONS = [sectionPattern("Start here"), sectionPattern("Networks and versions")];
 
-/** Inserts the network section before the index's first H2. */
-function insertNetworkSection(index) {
-  const page = fs.readFileSync(path.join(BUILD_DIR, "networks.md"), "utf-8");
-  const section = networkSection([developerDocs, operatorDocs], page, SITE_URL);
+/** The lines this script inserts at the top, so a re-run replaces rather than repeats them. */
+function stripAddedLines(content) {
+  return content
+    .split("\n")
+    .filter((line) => !line.startsWith(FULL_TXT_LINK) && !line.startsWith(AI_TOOLING_POINTER))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+/**
+ * A page's markdown twin without the llms.txt directive, which inject_md_directive.js adds after
+ * the first run of this script: the llms files read the same on every run.
+ */
+const readTwin = (file) => fs.readFileSync(file, "utf-8").replace(`${DIRECTIVE}\n\n`, "");
+
+/** Inserts Start here before the index's first H2, and the network section after its last. */
+function addSections(index) {
+  const instances = [developerDocs, operatorDocs];
+  const page = readTwin(path.join(BUILD_DIR, "networks.md"));
+  const start = startHere(instances, SITE_URL);
   const at = index.search(/^## /m);
-  return at === -1
-    ? `${index}\n${section}`
-    : `${index.slice(0, at)}${section}\n${index.slice(at)}`;
+  const withStart = at === -1 ? `${index.trimEnd()}\n\n${start}` : `${index.slice(0, at)}${start}\n${index.slice(at)}`;
+  return `${withStart.trimEnd()}\n\n${networkSection(instances, page, SITE_URL)}`;
 }
 
 /**
@@ -443,7 +442,7 @@ function pagesContent(index) {
       missing.push(file);
       continue;
     }
-    const markdown = fs.readFileSync(file, "utf-8").trim();
+    const markdown = readTwin(file).trim();
     const route = link[1] === "/index" ? "/" : link[1];
     const label = section ? `\nSection: ${section}` : "";
     pages.push(`Source: ${SITE_URL}${route}${label}\n\n${markdown}`);
@@ -473,21 +472,13 @@ function main() {
   // Drop any sections a previous run of this script added so re-running it
   // replaces rather than duplicates them (the top-of-file insertions below are
   // separately idempotent).
-  const index = stripFrom(
-    fs.readFileSync(llmsTxtPath, "utf-8"),
-    "\n\n## API Reference\n\n",
-    "\n\n## Optional\n\n",
-  ).replace(NETWORK_SECTION, "");
+  const index = ADDED_SECTIONS.reduce(
+    (content, section) => content.replace(section, ""),
+    stripAddedLines(stripFrom(fs.readFileSync(llmsTxtPath, "utf-8"), "\n\n## API Reference\n\n", "\n\n## Optional\n\n")),
+  ).trimEnd() + "\n";
 
-  let llmsTxtContent = insertNetworkSection(index);
+  let llmsTxtContent = addSections(index).trimEnd();
   const llmsFullTxtContent = `${llmsTxtContent}\n\n---\n\n# Full Documentation Content\n\n${pagesContent(index)}`;
-
-  // Point readers at the single-file dump up front. It sits right after the H1
-  // title (and its optional blockquote summary) so an agent sees it before any
-  // section, but stays out of the H1 to keep a single top-level heading.
-  llmsTxtContent = insertFullTxtLink(llmsTxtContent);
-  // Then steer agents to the AI Tooling guide (setup + common-mistake guidance).
-  llmsTxtContent = insertAiToolingPointer(llmsTxtContent);
 
   let totalFiles = 0;
   let sectionsAdded = 0;
@@ -684,11 +675,16 @@ function main() {
       "\n";
   }
 
+  const fullText = sectionsAdded === 0 ? llmsFullTxtContent : llmsFullTxtContent + fullContentSection;
+  // The full-file link (with its size) and the AI Tooling pointer go right after
+  // the H1 title block, so an agent reads them before any section.
+  llmsTxtContent = insertAiToolingPointer(insertFullTxtLink(llmsTxtContent, Buffer.byteLength(fullText)));
+
   if (sectionsAdded === 0) {
     // No API docs on disk: still append the Optional section so the
     // awesome-aztec link survives builds that skip API generation.
     fs.writeFileSync(llmsTxtPath, llmsTxtContent + communitySection);
-    fs.writeFileSync(llmsFullTxtPath, llmsFullTxtContent);
+    fs.writeFileSync(llmsFullTxtPath, fullText);
     console.log("No API docs found on disk — appended Optional only");
     return;
   }
@@ -701,7 +697,7 @@ function main() {
   );
 
   // Append to llms-full.txt
-  fs.writeFileSync(llmsFullTxtPath, llmsFullTxtContent + fullContentSection);
+  fs.writeFileSync(llmsFullTxtPath, fullText);
   console.log(`Updated llms-full.txt with ${totalFiles} API reference files`);
 }
 

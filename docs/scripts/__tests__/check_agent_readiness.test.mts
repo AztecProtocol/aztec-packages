@@ -7,6 +7,7 @@ import {
   served,
   siteUrls,
   splitContinuations,
+  startHereProblems,
 } from "../check_agent_readiness.mts";
 
 const files = new Set([
@@ -81,6 +82,13 @@ test("brokenLinks checks absolute docs links in pages only in production's layou
   assert.deepEqual(problemsIn("llms.txt", "[x](https://docs.aztec.network/developers/docs/aztec-js.md)", false), []);
 });
 
+test("brokenLinks checks a preview's llms.txt on the preview's host", () => {
+  const run = (target: string) =>
+    brokenLinks([{ file: "llms.txt", text: `[x](${target})` }], files, { production: false, llmsOrigin: "https://p.example" }).problems.length;
+  assert.equal(run("https://p.example/developers/docs/aztec-js.md"), 0);
+  assert.equal(run("https://p.example/developers/docs/gone.md"), 1);
+});
+
 test("brokenLinks counts links into the preview-only API folder outside production", () => {
   const text = "[next](/aztec-nr-api/next/noir_aztec/index.html)";
   const run = (production: boolean) => brokenLinks([{ file: "index.md", text }], files, { production });
@@ -100,4 +108,17 @@ test("splitContinuations finds a blank line after a fenced \\ continuation", () 
   const whole = "```bash\nnpm install a \\\n  b\n```\nA prose line ending in \\\n\n";
   assert.deepEqual(splitContinuations(split), [2]);
   assert.deepEqual(splitContinuations(whole), []);
+});
+
+test("startHereProblems names entries missing from the first lines", () => {
+  const expected = [
+    { title: "A", url: "https://x/a.md" },
+    { title: "B", url: "https://x/b.md" },
+  ];
+  const llms = (filler: number) => ["# T", ...Array(filler).fill(""), "## Start here", "- [A](https://x/a.md): a", "- [B](https://x/b.md): b", "## Next"].join("\n");
+  assert.deepEqual(startHereProblems(llms(0), expected), []);
+  assert.deepEqual(startHereProblems(llms(37), expected).map((p) => p.message), [
+    "Start here lacks B (https://x/b.md) in its first 40 lines",
+  ]);
+  assert.equal(startHereProblems("# T\n## Other\n", expected).length, 1);
 });
