@@ -12,8 +12,8 @@ namespace acir_format {
  * proof        = claimed MSM result in the same four-limb representation
  * key_hash     = reserved, must be zero
  *
- * This asserts an MSM only. It does NOT assert Groth16 verification or enqueue a
- * pairing check. Mega's group implementation sends every group operation to the
+ * This asserts an MSM only; unlike the recursion proof types it produces no pairing
+ * accumulator. Mega's group implementation sends every group operation to the
  * ECCVM. Soundness requires verification of the complete Chonk/Goblin proof.
  *
  * Coordinates must be canonical Fq values; infinity is (0, 0). The predicate must be
