@@ -30,7 +30,7 @@
 }
 
 .heroTitle {
-  font-family: "Oracle", sans-serif;
+  font-family: var(--aztec-font-display);
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 600;
   color: #a9cc1f;
@@ -69,7 +69,7 @@
   border-bottom: 2px solid rgba(242, 238, 225, 0.3);
   padding: 1rem 0;
   font-size: 1.1rem;
-  font-family: "Oracle", sans-serif;
+  font-family: var(--aztec-font-display);
   color: #f2eee1;
   transition: all 0.3s ease;
   outline: none;

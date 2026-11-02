@@ -16,7 +16,7 @@
 }
 
 .footerTitle {
-  font-family: "Oracle", sans-serif;
+  font-family: var(--aztec-font-display);
   font-size: 1.6rem;
   font-weight: 600;
   color: var(--ifm-footer-title-color);
@@ -57,7 +57,7 @@
   border: none;
   padding: 0.6rem 0;
   font-size: 0.95rem;
-  font-family: "Oracle", sans-serif;
+  font-family: var(--aztec-font-display);
   color: var(--ifm-footer-color);
   outline: none;
 }
