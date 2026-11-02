@@ -779,10 +779,18 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
     std::vector<uint8_t>().swap(buf);
 
     if (!sorted) {
-        // std::map semantics: ordered by index, and the first of duplicate keys wins.
+        // Match msgpack's std::map conversion, which assigns each entry in wire order: ordered by index, and the last
+        // of duplicate keys wins. The stable sort keeps duplicates in wire order.
         std::ranges::stable_sort(entries, {}, &std::pair<uint32_t, bb::fr>::first);
-        const auto duplicates = std::ranges::unique(entries, {}, &std::pair<uint32_t, bb::fr>::first);
-        entries.erase(duplicates.begin(), duplicates.end());
+        size_t kept = 0;
+        for (const auto& entry : entries) {
+            if (kept > 0 && entries[kept - 1].first == entry.first) {
+                entries[kept - 1].second = entry.second;
+            } else {
+                entries[kept++] = entry;
+            }
+        }
+        entries.resize(kept);
     }
 
     WitnessVector witness_vector;
