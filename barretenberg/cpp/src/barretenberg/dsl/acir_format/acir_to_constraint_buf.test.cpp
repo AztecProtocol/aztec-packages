@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <utility>
 #include <vector>
 
 #include "acir_serde_test_utils.hpp"
@@ -183,4 +184,147 @@ TEST(AcirToConstraintBuf, MissingOpcodesFieldIsRejected)
 
     EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(buf), /*is_mega=*/true),
                               "missing field 'opcodes' in Circuit");
+}
+
+namespace {
+
+std::vector<uint8_t> with_marker(uint8_t marker, const msgpack::sbuffer& sbuf)
+{
+    std::vector<uint8_t> buf{ marker };
+    buf.insert(buf.end(), sbuf.data(), sbuf.data() + sbuf.size());
+    return buf;
+}
+
+} // namespace
+
+/**
+ * @brief In a map layout the circuit header may follow the opcodes; the streaming reader must still see it.
+ */
+TEST(AcirToConstraintBuf, HeaderFieldsAfterOpcodesMatchCircuitConversion)
+{
+    const Acir::Circuit circuit = mixed_circuit();
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+    packer.pack_map(1);
+    packer.pack(std::string("functions"));
+    packer.pack_array(1);
+    packer.pack_map(6);
+    packer.pack(std::string("assert_messages"));
+    packer.pack(circuit.assert_messages);
+    packer.pack(std::string("return_values"));
+    packer.pack(circuit.return_values);
+    packer.pack(std::string("opcodes"));
+    packer.pack(circuit.opcodes);
+    packer.pack(std::string("public_parameters"));
+    packer.pack(circuit.public_parameters);
+    packer.pack(std::string("private_parameters"));
+    packer.pack(circuit.private_parameters);
+    packer.pack(std::string("function_name"));
+    packer.pack(circuit.function_name);
+
+    EXPECT_EQ(circuit_buf_to_acir_format(with_marker(0x02, sbuf), /*is_mega=*/true),
+              circuit_serde_to_acir_format(circuit, /*is_mega=*/true));
+}
+
+/**
+ * @brief The Brillig bytecode of a full Program is skipped, whatever it contains.
+ */
+TEST(AcirToConstraintBuf, BrilligBytecodeIsSkipped)
+{
+    const Acir::Circuit circuit = mixed_circuit();
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+    packer.pack_array(2);
+    packer.pack_array(1);
+    packer.pack(circuit);
+    // unconstrained_functions: one BrilligBytecode whose opcodes use variants this build does not know.
+    packer.pack_array(1);
+    packer.pack_array(2);
+    packer.pack(std::string("brillig_main"));
+    packer.pack_array(3);
+    for (uint32_t i = 0; i < 3; ++i) {
+        packer.pack_map(1);
+        packer.pack(std::string("FutureOpcode"));
+        packer.pack_bin(64);
+        packer.pack_bin_body(std::string(64, static_cast<char>(i)).data(), 64);
+    }
+
+    EXPECT_EQ(circuit_buf_to_acir_format(with_marker(0x03, sbuf), /*is_mega=*/true),
+              circuit_serde_to_acir_format(circuit, /*is_mega=*/true));
+}
+
+TEST(AcirToConstraintBuf, TruncatedProgramIsRejected)
+{
+    auto buf = test::serialize_program_with_circuit(mixed_circuit());
+    buf.resize(buf.size() / 2);
+    EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(buf), /*is_mega=*/true), "malformed msgpack");
+}
+
+namespace {
+
+Witnesses::WitnessStack dense_witness_stack(uint32_t num_witnesses)
+{
+    Witnesses::StackItem item{ .index = 0 };
+    for (uint32_t i = 0; i < num_witnesses; ++i) {
+        item.witness.value.emplace(Witnesses::Witness{ i }, bb::fr(i * 7 + 1).to_buffer());
+    }
+    return Witnesses::WitnessStack{ .stack = { item } };
+}
+
+} // namespace
+
+/**
+ * @brief The streamed witness equals the conversion of the fully deserialized WitnessMap in every wire layout.
+ */
+TEST(AcirToConstraintBuf, WitnessLayoutsMatchWitnessMapConversion)
+{
+    const Witnesses::WitnessStack stack = dense_witness_stack(37);
+    const WitnessVector expected = witness_map_to_witness_vector(stack.stack[0].witness);
+    ASSERT_EQ(expected.size(), 37U);
+
+    msgpack::sbuffer array_layout;
+    msgpack::packer<msgpack::sbuffer> array_packer(array_layout);
+    array_packer.pack(stack);
+    EXPECT_EQ(witness_buf_to_witness_vector(with_marker(0x03, array_layout)), expected);
+
+    for (Layout layout : { Layout::IntKeyedMap, Layout::StringKeyedMap }) {
+        msgpack::sbuffer sbuf;
+        msgpack::packer<msgpack::sbuffer> packer(sbuf);
+        packer.pack_map(1);
+        pack_key(packer, layout, 0, "stack");
+        packer.pack_array(1);
+        packer.pack_map(2);
+        pack_key(packer, layout, 1, "witness");
+        packer.pack(stack.stack[0].witness);
+        pack_key(packer, layout, 0, "index");
+        packer.pack(stack.stack[0].index);
+        EXPECT_EQ(witness_buf_to_witness_vector(with_marker(0x02, sbuf)), expected);
+    }
+}
+
+/**
+ * @brief Entries out of wire order, with a repeated index, land as std::map would place them: sorted, first wins.
+ */
+TEST(AcirToConstraintBuf, UnorderedWitnessEntriesMatchWitnessMapConversion)
+{
+    const Witnesses::WitnessStack stack = dense_witness_stack(4);
+    const WitnessVector expected = witness_map_to_witness_vector(stack.stack[0].witness);
+
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+    packer.pack_array(1);
+    packer.pack_array(1);
+    packer.pack_array(2);
+    packer.pack(uint32_t{ 0 });
+    packer.pack_map(5);
+    bool first_index_1 = true;
+    for (uint32_t index : { 3U, 1U, 0U, 1U, 2U }) {
+        packer.pack(index);
+        const bool repeated = index == 1 && !std::exchange(first_index_1, false);
+        packer.pack(repeated ? bb::fr(999).to_buffer() : bb::fr(index * 7 + 1).to_buffer());
+    }
+    const WitnessVector streamed = witness_buf_to_witness_vector(with_marker(0x03, sbuf));
+    ASSERT_EQ(streamed.size(), expected.size());
+    EXPECT_EQ(streamed[1], bb::fr(8)) << "the first of two values for index 1 wins";
+    EXPECT_EQ(streamed, expected);
 }
