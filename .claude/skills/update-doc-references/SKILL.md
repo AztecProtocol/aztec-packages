@@ -40,6 +40,21 @@ gh pr diff <PR_NUMBER> --repo <REPO>
 An aztec-node PR names paths from aztec-node's root: prefix them with `labs/` to compare
 them with `references`.
 
+The source docs follow aztec-node `main`. An aztec-node PR into a release line
+(`baseRefName` `v6`) changes code the pin may never get. Test its merge commit against the
+pin (an unmerged PR is not in it):
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+merge=$(gh pr view <PR_NUMBER> --repo aztec-labs-eng/aztec-node --json mergeCommit -q .mergeCommit.oid)
+pin=$(node -p 'require("./docs/aztec-node.json").commit')
+gh api "repos/aztec-labs-eng/aztec-node/compare/$merge...$pin" --jq .status
+```
+
+`ahead` or `identical` means the pin has it: continue as for any PR. Otherwise edit no
+source docs, since they describe `main`. Still run Steps 3 and 4, and report what the
+docs of the line's next release would need; that release's cut (`/release-docs`) decides.
+
 When the change is a move of the docs' pin rather than a PR (`node
 docs/scripts/aztec_node.mts pin <tag>`), take it from the two pin commits, fetched into the
 checkout. A two-commit diff needs no history between them:

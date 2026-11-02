@@ -25,7 +25,11 @@ jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"
 ```
 
 `6.0.0` → edit `v6.md`. The release-please manifest at the repository root versions the
-Foundation tree (`7.0.0` while Labs is on v6): never take the version from it.
+Foundation tree, whose numbers are unrelated to Labs': never take the version from it.
+
+Documenting one aztec-node PR (source 3 below) takes the major from the PR's line instead,
+since the pin can lag it: `baseRefName` `main` is the major `main` carries (v7 from
+2026-11-04), `v6` is v6.
 
 **Target files:**
 
@@ -96,7 +100,7 @@ lives:
 3. **One aztec-node PR**, when asked to document a change that has not reached the pin yet:
 
    ```bash
-   gh pr view <PR_NUMBER> --repo aztec-labs-eng/aztec-node --json title,body,files,url
+   gh pr view <PR_NUMBER> --repo aztec-labs-eng/aztec-node --json title,body,baseRefName,files,url
    gh pr diff <PR_NUMBER> --repo aztec-labs-eng/aztec-node
    ```
 

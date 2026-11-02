@@ -227,7 +227,8 @@ eval "$(node scripts/aztec_node.mts env)"    # export AZTEC_NODE_DIR, the versio
 - `#include_code` and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit (a tag can move; a commit cannot).
 - **Moving the pin:** run `pin <tag>`, then do what `check` asks (usually: set `@aztec-foundation/l1-artifacts` in `package.json` to the pinned `BB_VERSION` and run `yarn install`), and commit `aztec-node.json`, `package.json` and `yarn.lock` together. Snippets whose markers moved fail the build until the pages follow.
 - **Verified nargo:** `pin` needs the GitHub CLI, logged in. It downloads noir's release archive for each platform, has `gh attestation verify` check that noir's `publish-nargo.yml` workflow built it, and records its sha256 in `noirArchives`. `provision nargo` needs no `gh`: it refuses an archive whose sha256 differs from the pin, and a platform the pin has no sha256 for. Never edit `noirArchives` by hand; a mismatch means the release archive changed after the pin.
-- **Release cuts** move the pin to the release tag inside their own worktree, and the snapshot is generated from that; the dev docs keep their pin. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
+- **Which tag:** the dev docs follow aztec-node `main`. Move their pin to the newest nightly of the major `main` carries (v7 from 2026-11-04), never to a tag of a release line such as `v6`. Older nightlies on `main` are still v6, so check the major; then check that the recorded commit is on `main` (from `docs/`): `gh api "repos/aztec-labs-eng/aztec-node/compare/main...$(node -p 'require("./aztec-node.json").commit')" --jq .status` prints `behind` or `identical`.
+- **Release cuts** move the pin to the release tag inside their own worktree, and the snapshot is generated from that; the dev docs keep their pin. v6.x releases are cut from their tags on aztec-node's `v6` branch. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
 - **Examples** build with the pinned published toolchain against the default checkout, which their Nargo.toml path dependencies name (`../../../.aztec-node/tree/...`), so `AZTEC_NODE_DIR` does not apply to them. The TS examples install `@aztec-labs/*` at the pinned `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION`.
 - Never run nargo inside `docs/` or the checkout: nargo takes `docs/Nargo.toml` as its workspace.
 
@@ -444,7 +445,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
 
 ### `#include_aztec_version`
 
-This macro will be replaced inline with `COMMIT_TAG`: the Labs release tag in a release cut, `next` otherwise. It is an aztec-node (Labs) version, never a ref into this repository; use `#include_foundation_version` for that.
+This macro will be replaced inline with `COMMIT_TAG`: the Labs release tag in a release cut, the pin's `ref` from `aztec-node.json` otherwise. It is an aztec-node (Labs) version, never a ref into this repository and never an `@aztec-foundation/*` version; use `#include_foundation_version` (or `#include_foundation_version_without_prefix`) for those.
 
 Alternatively, you can also use the `AztecPackagesVersion()` js function, which you need to import explicitly:
 
