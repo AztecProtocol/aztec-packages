@@ -29,10 +29,10 @@ contract StubRollup {
 }
 
 contract ZeroRegistryRewardsPayloadTest is Test {
-  /// @dev The registries this proposal zeroes.
+  /// @dev The registries the payload lists.
   address internal constant LISTED_A = 0x667d2641cb96734f386adA6A9afCF07B1815fB8b;
   address internal constant LISTED_B = 0xD938bE4A2cB41105Bc2FbE707dca124A2e5d0c80;
-  /// @dev Registries that must keep the default reward. The first holds the great majority of ATPs on mainnet.
+  /// @dev Mainnet ATP registries that are not listed and must keep the default reward.
   address internal constant UNLISTED_A = 0x63841bAD6B35b6419e15cA9bBBbDf446D4dC3dde;
   address internal constant UNLISTED_B = 0x8F778768aDed86AB778a47cd81b3b42B4b3F655B;
 
@@ -134,10 +134,10 @@ contract ZeroRegistryRewardsPayloadTest is Test {
 
     (bool exists, uint96 reward) = calc.getRegistryReward(LISTED_A);
     assertTrue(exists);
-    assertEq(reward, 0, "a listed registry must earn nothing");
+    assertEq(reward, 0, "a listed registry must be set to zero");
     (exists, reward) = calc.getRegistryReward(LISTED_B);
     assertTrue(exists);
-    assertEq(reward, 0, "a listed registry must earn nothing");
+    assertEq(reward, 0, "a listed registry must be set to zero");
 
     // Every registry not on the list must have no entry at all.
     (exists,) = calc.getRegistryReward(UNLISTED_A);
