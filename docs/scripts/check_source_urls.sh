@@ -152,7 +152,8 @@ function self_test {
   fi
 
   local matches st=0
-  matches=$(cd "$tmp" && git grep --no-index -nIoE "$url_re" -- fixture.md | sed -E 's/[.,;:!?*]+$//')
+  matches=$(cd "$tmp" && git grep --no-index -nIoE "$url_re" -- fixture.md | sed -E 's/[.,;:!?*]+$//') ||
+    { echo "self-test: no URL extracted from the fixtures" >&2; return 1; }
   want=$(printf '%s' "$expected_urls")
   got=$(cut -d: -f3- <<<"$matches")
   [[ "$got" == "$want" ]] || { echo "self-test: extracted URLs differ:" >&2; diff <(echo "$want") <(echo "$got") >&2 || true; rc=1; }
