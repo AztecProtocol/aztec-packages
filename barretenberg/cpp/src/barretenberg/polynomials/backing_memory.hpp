@@ -15,6 +15,18 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
 
+/**
+ * @brief Whether BB_SLOW_LOW_MEMORY asks for low memory mode ("1"). When it does, the heap is configured for it as
+ * set_slow_low_memory(true) would. slow_low_memory is initialized from this.
+ */
+bool slow_low_memory_from_environment();
+
+/**
+ * @brief Turn low memory mode on or off. Turning it on also configures the heap to return freed memory promptly
+ * (bb::configure_heap_for_low_memory); turning it off leaves the heap configuration as it is.
+ */
+void set_slow_low_memory(bool enabled);
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern size_t storage_budget;
 

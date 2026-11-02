@@ -1,4 +1,5 @@
 #include "barretenberg/polynomials/backing_memory.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <atomic>
 #include <cctype>
@@ -6,9 +7,26 @@
 #include <limits>
 #include <string>
 
+bool slow_low_memory_from_environment()
+{
+    const char* value = std::getenv("BB_SLOW_LOW_MEMORY");
+    const bool enabled = value != nullptr && std::string(value) == "1";
+    if (enabled) {
+        bb::configure_heap_for_low_memory();
+    }
+    return enabled;
+}
+
+void set_slow_low_memory(bool enabled)
+{
+    if (enabled) {
+        bb::configure_heap_for_low_memory();
+    }
+    slow_low_memory = enabled;
+}
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-bool slow_low_memory =
-    std::getenv("BB_SLOW_LOW_MEMORY") == nullptr ? false : std::string(std::getenv("BB_SLOW_LOW_MEMORY")) == "1";
+bool slow_low_memory = slow_low_memory_from_environment();
 
 // Storage budget is disabled for WASM builds unless ENABLE_WASM_BENCH is defined
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
