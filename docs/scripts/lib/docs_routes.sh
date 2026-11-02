@@ -40,13 +40,10 @@ const [developer] = docsInstances(require("./developer_version_config.json"), re
 for (const folder of new Set(Object.values(aztecNrApiFolders(developer)))) console.log(folder);
 ') || { echo "ERROR: could not read the API reference folders" >&2; return 1; }
 
-  # Parse netlify.toml redirect `from` patterns, in declaration order.
-  # (Netlify processes redirects top-to-bottom, first match wins.)
   REDIRECT_FROMS=()
   while IFS= read -r line; do REDIRECT_FROMS+=("$line"); done < <(grep -E '^[[:space:]]*from[[:space:]]*=' "$NETLIFY_TOML" \
     | sed -E 's/^[[:space:]]*from[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
 
-  # Pre-compute regexes once
   REDIRECT_REGEXES=()
   local from
   for from in "${REDIRECT_FROMS[@]}"; do
@@ -60,8 +57,9 @@ for (const folder of new Set(Object.values(aztecNrApiFolders(developer)))) conso
 #   :name    — named segment, matches one path segment (no slashes)
 function from_to_regex {
   local pattern="$1"
-  # Replace :name placeholders with a sentinel that won't collide with regex metachars.
-  pattern=$(echo "$pattern" | sed -E 's@:[A-Za-z_][A-Za-z0-9_]*@\x01@g')
+  # Replace :name placeholders with a sentinel that won't collide with regex metachars. The
+  # sentinel byte comes from bash: BSD sed has no \x escapes in a replacement.
+  pattern=$(echo "$pattern" | sed -E "s@:[A-Za-z_][A-Za-z0-9_]*@"$'\x01'"@g")
   # Escape regex metachars except * and our sentinel
   pattern=$(echo "$pattern" | sed -E 's/[][\\.^$+?{}()|]/\\&/g')
   pattern="${pattern//\*/.*}"
@@ -73,11 +71,7 @@ function from_to_regex {
   echo "^${pattern}$"
 }
 
-# Note: this only confirms a redirect *rule* matches; it does NOT verify the
-# rule's substituted target itself resolves. A wildcard rule pointing to a
-# missing page will appear as "redirected" here but actually 404 in production.
-# validate_redirect_targets.sh is the complementary check for non-wildcard
-# targets; wildcard targets are not currently validated by either script.
+# Matches redirect sources only; validate_redirect_targets.sh checks non-wildcard targets.
 function matches_any_redirect {
   local url_path="$1"
   for re in "${REDIRECT_REGEXES[@]}"; do
@@ -88,8 +82,19 @@ function matches_any_redirect {
   return 1
 }
 
-# Local-file resolution. Mirrors validate_redirect_targets.sh check_file_or_id
-# but trimmed to the path families that appear in the sitemap.
+# A docs file is served at its file name unless its front matter names another id or a slug.
+function served_at_file_name {
+  local file="$1" stem key value
+  stem=${file##*/}
+  stem=${stem%.*}
+  while read -r key value; do
+    [[ "$key" == slug: || "$value" != "$stem" ]] && return 1
+  done < <(sed -nE '/^---$/,/^---$/{s/^(id|slug):[[:space:]]*/\1: /p;}' "$file")
+  return 0
+}
+
+# Whether a Docusaurus docs directory serves <sub_path>: a file at its name, a directory index,
+# a number-prefixed file or an `id`. Partials (`_` names) and `index` itself are never routes.
 function check_file_or_id {
   local base_dir="$1"
   local sub_path="$2"
@@ -98,9 +103,10 @@ function check_file_or_id {
     [[ -f "$base_dir/index.md" || -f "$base_dir/index.mdx" ]] && return 0
     return 1
   fi
+  [[ "/$sub_path" == */_* || "/$sub_path" == */index ]] && return 1
 
   for ext in md mdx; do
-    [[ -f "$base_dir/${sub_path}.${ext}" ]] && return 0
+    [[ -f "$base_dir/${sub_path}.${ext}" ]] && served_at_file_name "$base_dir/${sub_path}.${ext}" && return 0
   done
 
   if [[ -d "$base_dir/${sub_path}" ]]; then
@@ -127,6 +133,7 @@ function check_file_or_id {
       [[ -f "$file" ]] || continue
       # Docusaurus drops a number prefix from the route: 01-the-contract.md serves the-contract.
       name=${file##*/}
+      [[ "$name" == _* ]] && continue
       if [[ "${name%.*}" =~ ^[0-9]+[-_.](.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
         return 0
       fi
@@ -198,7 +205,7 @@ function resolves_locally {
 function resolves_static {
   local p="${1#/}"
   p="${p%/}"
-  [[ -n "$p" && "/$p/" != */../* ]] || return 1
+  [[ -n "$p" ]] || return 1
   [[ -f "$DOCS_ROOT/static/$p" || -f "$DOCS_ROOT/static/$p.html" || -f "$DOCS_ROOT/static/$p/index.html" ]]
 }
 
@@ -215,7 +222,7 @@ function is_historical_version_path {
 function resolves_generated {
   local p="$1" folder
   case "$p" in
-    /sitemap.xml | /llms.txt | /llms-full.txt) return 0 ;;
+    /sitemap.xml | /llms.txt | /llms-full.txt | /index.md) return 0 ;;
   esac
   if [[ "$p" =~ ^/(aztec-nr-api|typescript-api)/([^/]+)/llms\.txt$ ]]; then
     folder="${BASH_REMATCH[2]}"
@@ -229,6 +236,26 @@ function resolves_generated {
   resolves_locally "${p%.md}"
 }
 
+# Resolves "." and ".." segments as a browser does before requesting the path.
+function normalize_url_path {
+  local rest="${1#/}" seg out=""
+  while [[ -n "$rest" ]]; do
+    seg="${rest%%/*}"
+    if [[ "$rest" == */* ]]; then rest="${rest#*/}"; else rest=""; fi
+    case "$seg" in
+      "" | .) ;;
+      ..) out="${out%/*}" ;;
+      *) out="$out/$seg" ;;
+    esac
+  done
+  [[ "$1" == */ && -n "$out" ]] && out="$out/"
+  echo "${out:-/}"
+}
+
+# The resolvers test files under DOCS_ROOT, so they only ever see a normalized path: a dot
+# segment would otherwise reach files outside the docs version the URL names.
 function resolves_url_path {
-  resolves_locally "$1" || resolves_static "$1" || resolves_generated "$1" || matches_any_redirect "$1"
+  local p
+  p=$(normalize_url_path "$1")
+  resolves_locally "$p" || resolves_static "$p" || resolves_generated "$p" || matches_any_redirect "$p"
 }

@@ -23,16 +23,20 @@ source "$SCRIPT_DIR/lib/docs_routes.sh"
 # markdown, HTML, JSON, shell or a template literal.
 url_re='https?://docs\.aztec\.network[^][:space:]"<>(){}|\`'"'"'\\]*'
 ignored_re='^/((developers|operate)/tags(/|$)|search/?$|aztec-nr-api/next(/|$))'
+# The version macros src/preprocess/include_version.js substitutes.
+macro_re='#(release_(version|network|name|label)|include_(aztec|devnet|testnet|mainnet|foundation)_version(_without_prefix)?|include_version_without_prefix)([^A-Za-z0-9_]|$)'
 excludes=(':(exclude)static/aztec-nr-api' ':(exclude)static/typescript-api' ':(exclude)snapshots' ':(exclude)yarn.lock')
 
 # Prints ok, unresolved, deferred or ignored for one URL.
 function classify {
   local url="$1" path
-  if [[ "$url" == *'$' || "$url" =~ \#(release|include)_ ]]; then
+  if [[ "$url" == *'$' || "$url" =~ $macro_re ]]; then
     echo deferred
     return
   fi
   path="${url#*://docs.aztec.network}"
+  path="${path#:443}"
+  path="${path#:80}"
   path="${path%%[?#]*}"
   if [[ -n "$path" && "$path" != /* ]]; then
     echo ignored # another host that starts with this one
@@ -102,6 +106,15 @@ function self_test {
     "deferred|$h/developers/#release_version/overview|$h/developers/#release_version/overview"
     "ignored|$h/aztec-nr-api/next/noir_aztec/index.html|Preview only: $h/aztec-nr-api/next/noir_aztec/index.html"
     "ignored|$h/developers/tags/aztec-nr|$h/developers/tags/aztec-nr"
+    "unresolved|$h/self_test_missing_page#release_notes|A fragment is not a macro: $h/self_test_missing_page#release_notes"
+    "unresolved|$h:443/self_test_missing_page|Default port: $h:443/self_test_missing_page"
+    "unresolved|$h/operate/../../docs/aztec_connect_sunset|Dot segments: $h/operate/../../docs/aztec_connect_sunset"
+    "unresolved|$h/operate/operators/_node_hardware|Partials are not pages: $h/operate/operators/_node_hardware"
+    "unresolved|$h/operate/operators/setup/running-a-node|The file name of a page with an id: $h/operate/operators/setup/running-a-node"
+    "ok|$h/operate/operators/setup/running_a_node|Its id route: $h/operate/operators/setup/running_a_node"
+    "ok|$h/developers/docs/aztec-nr.md|Index twin: $h/developers/docs/aztec-nr.md"
+    "unresolved|$h/developers/docs/aztec-nr/index.md|Not a twin: $h/developers/docs/aztec-nr/index.md"
+    "ok|$h/index.md|Root twin: $h/index.md"
   )
   local expected_urls="" expected_out=""
   local n=0
@@ -116,6 +129,13 @@ function self_test {
     got=$(classify "$url")
     [[ "$got" == "$verdict" ]] || { echo "self-test: $url is $got, not $verdict" >&2; rc=1; }
   done
+
+  local re
+  re=$(from_to_regex "/self-test/:section/*")
+  if ! [[ "/self-test/a/b/c" =~ $re ]] || [[ "/self-test/a" =~ $re ]]; then
+    echo "self-test: from_to_regex mishandles a :name placeholder" >&2
+    rc=1
+  fi
 
   local matches st=0
   matches=$(cd "$tmp" && git grep --no-index -nIoE "$url_re" -- . | sed -E 's/[.,;:!?*]+$//')
