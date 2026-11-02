@@ -115,6 +115,11 @@ function self_test {
     "ok|$h/developers/docs/aztec-nr.md|Index twin: $h/developers/docs/aztec-nr.md"
     "unresolved|$h/developers/docs/aztec-nr/index.md|Not a twin: $h/developers/docs/aztec-nr/index.md"
     "ok|$h/index.md|Root twin: $h/index.md"
+    "unresolved|$h/developers/docs/foundational-topics/ethereum-aztec-messaging/portals.md|The id of an index file: $h/developers/docs/foundational-topics/ethereum-aztec-messaging/portals.md"
+    "ok|$h/developers/docs/foundational-topics/ethereum-aztec-messaging.md|Its directory twin: $h/developers/docs/foundational-topics/ethereum-aztec-messaging.md"
+    "unresolved|$h/developers/docs/tutorials/js_tutorials/webapp/03-network-and-wallet|A number-prefixed file name: $h/developers/docs/tutorials/js_tutorials/webapp/03-network-and-wallet"
+    "ok|$h/developers/docs/tutorials/js_tutorials/webapp/network-and-wallet|Its route: $h/developers/docs/tutorials/js_tutorials/webapp/network-and-wallet"
+    "unresolved|$h/operate/operators/keystore/examples|A draft: $h/operate/operators/keystore/examples"
   )
   local expected_urls="" expected_out=""
   local n=0

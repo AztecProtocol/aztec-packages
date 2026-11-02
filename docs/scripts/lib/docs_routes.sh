@@ -82,66 +82,59 @@ function matches_any_redirect {
   return 1
 }
 
-# A docs file is served at its file name unless its front matter names another id or a slug.
-function served_at_file_name {
-  local file="$1" stem key value
-  stem=${file##*/}
-  stem=${stem%.*}
+# The last URL segment Docusaurus serves a docs file at: its `id`, else its file name without a
+# number prefix. Prints nothing for a draft (dropped from builds) or a file with a `slug`.
+function doc_route_name {
+  local file="$1" key value id="" name
   while read -r key value; do
-    [[ "$key" == slug: || "$value" != "$stem" ]] && return 1
-  done < <(sed -nE '/^---$/,/^---$/{s/^(id|slug):[[:space:]]*/\1: /p;}' "$file")
-  return 0
+    case "$key" in
+      slug:) return 0 ;;
+      draft:) [[ "$value" == true ]] && return 0 ;;
+      id:) id=$value ;;
+    esac
+  done < <(sed -nE '/^---$/,/^---$/{s/^(id|slug|draft):[[:space:]]*/\1: /p;}' "$file")
+  name=${file##*/}
+  name=${name%.*}
+  [[ "$name" =~ ^[0-9]+[-_.](.+)$ ]] && name=${BASH_REMATCH[1]}
+  echo "${id:-$name}"
 }
 
-# Whether a Docusaurus docs directory serves <sub_path>: a file at its name, a directory index,
-# a number-prefixed file or an `id`. Partials (`_` names) and `index` itself are never routes.
-function check_file_or_id {
-  local base_dir="$1"
-  local sub_path="$2"
+function serves_index {
+  local file
+  for file in "$1/index.md" "$1/index.mdx"; do
+    [[ -f "$file" ]] && [[ -z "$(sed -nE '/^---$/,/^---$/{/^draft:[[:space:]]*true/p;}' "$file")" ]] && return 0
+  done
+  return 1
+}
 
+# Whether a Docusaurus docs directory serves <sub_path>: a directory index, or a file whose route
+# name (doc_route_name) is the last segment. Partials (`_` names) and index files are served at no
+# name of their own.
+function check_file_or_id {
+  local base_dir="$1" sub_path="$2"
   if [[ -z "$sub_path" ]]; then
-    [[ -f "$base_dir/index.md" || -f "$base_dir/index.mdx" ]] && return 0
-    return 1
+    serves_index "$base_dir"
+    return
   fi
   [[ "/$sub_path" == */_* || "/$sub_path" == */index ]] && return 1
+  [[ -d "$base_dir/$sub_path" ]] && serves_index "$base_dir/$sub_path" && return 0
 
-  for ext in md mdx; do
-    [[ -f "$base_dir/${sub_path}.${ext}" ]] && served_at_file_name "$base_dir/${sub_path}.${ext}" && return 0
-  done
-
-  if [[ -d "$base_dir/${sub_path}" ]]; then
-    for ext in md mdx; do
-      [[ -f "$base_dir/${sub_path}/index.${ext}" ]] && return 0
-    done
-  fi
-
-  # Docusaurus number-prefix and id frontmatter fallbacks
-  local parent_dir slug search_dir
+  local dir="$base_dir" slug="$sub_path" file name ext
   if [[ "$sub_path" == */* ]]; then
-    parent_dir="${sub_path%/*}"
-    slug="${sub_path##*/}"
-    search_dir="$base_dir/$parent_dir"
-  else
-    parent_dir=""
-    slug="$sub_path"
-    search_dir="$base_dir"
+    dir="$base_dir/${sub_path%/*}"
+    slug=${sub_path##*/}
   fi
-
-  if [[ -d "$search_dir" ]]; then
-    local file file_id name
-    for file in "$search_dir"/*.md "$search_dir"/*.mdx; do
-      [[ -f "$file" ]] || continue
-      # Docusaurus drops a number prefix from the route: 01-the-contract.md serves the-contract.
-      name=${file##*/}
-      [[ "$name" == _* ]] && continue
-      if [[ "${name%.*}" =~ ^[0-9]+[-_.](.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
-        return 0
-      fi
-      file_id=$(sed -n '/^---$/,/^---$/{s/^id:[[:space:]]*//p;}' "$file" | head -1)
-      [[ "$file_id" == "$slug" ]] && return 0
-    done
-  fi
-
+  for ext in md mdx; do
+    file="$dir/$slug.$ext"
+    [[ -f "$file" && "$(doc_route_name "$file")" == "$slug" ]] && return 0
+  done
+  [[ -d "$dir" ]] || return 1
+  for file in "$dir"/*.md "$dir"/*.mdx; do
+    [[ -f "$file" ]] || continue
+    name=${file##*/}
+    [[ "$name" == _* || "${name%.*}" == index ]] && continue
+    [[ "$(doc_route_name "$file")" == "$slug" ]] && return 0
+  done
   return 1
 }
 
