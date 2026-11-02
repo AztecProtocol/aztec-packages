@@ -12,7 +12,6 @@
 #include <bit>
 #include <cstddef>
 #include <cstring>
-#include <deque>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -143,79 +142,13 @@ static constexpr size_t GATE_TILE_SHIFT = std::countr_zero(GATE_TILE_SIZE);
 static constexpr size_t GATE_TILE_MASK = GATE_TILE_SIZE - 1;
 
 /**
- * @brief Dedup table of one selector column's values: each distinct value is stored once and gates store its id.
- * @details Selector values are circuit structure drawn from a small set (0, ±1, small integers, ACIR coefficients), so
- * a uint32 id per gate replaces a 32-byte field element. Id 0 is always zero, so a zero-initialized tile reads as all
- * selectors zero. Values live in a deque so the references Selector::operator[] returns stay valid as the table grows;
- * the index is open-addressed over ids and hashes the reduced value, matching field equality.
+ * @brief Append-only storage in fixed-size chunks of 2^ChunkShift elements, so growth never reallocates or copies
+ * existing elements (references to them stay valid) and the slack is under one chunk (a std::vector peaks at up to 3x
+ * the used size while doubling).
  */
-template <typename FF> class SelectorValueTable {
+template <typename Tile, size_t ChunkShift = 8> class TileChunks {
   public:
-    SelectorValueTable() { values_.emplace_back(0); }
-
-    uint32_t intern(const FF& value)
-    {
-        if (value.is_zero()) {
-            return 0;
-        }
-        if (2 * values_.size() >= slots_.size()) {
-            grow();
-        }
-        const FF reduced = value.reduce_once();
-        const size_t mask = slots_.size() - 1;
-        for (size_t slot = std::hash<FF>{}(reduced)&mask;; slot = (slot + 1) & mask) {
-            const uint32_t id = slots_[slot];
-            if (id == EMPTY_SLOT) {
-                BB_ASSERT_LT(values_.size(), static_cast<size_t>(EMPTY_SLOT), "SelectorValueTable: too many values");
-                const auto new_id = static_cast<uint32_t>(values_.size());
-                values_.push_back(reduced);
-                slots_[slot] = new_id;
-                return new_id;
-            }
-            if (values_[id] == reduced) {
-                return id;
-            }
-        }
-    }
-
-    const FF& operator[](uint32_t id) const { return values_[id]; }
-
-    /** @brief Number of distinct values, zero included. */
-    size_t size() const { return values_.size(); }
-
-    /** @brief Approximate heap bytes held by the table. */
-    size_t memory_bytes() const { return values_.size() * sizeof(FF) + slots_.capacity() * sizeof(uint32_t); }
-
-    void clear() { *this = SelectorValueTable{}; }
-
-  private:
-    static constexpr uint32_t EMPTY_SLOT = std::numeric_limits<uint32_t>::max();
-
-    void grow()
-    {
-        const size_t new_size = std::max<size_t>(16, slots_.size() * 2);
-        slots_.assign(new_size, EMPTY_SLOT);
-        const size_t mask = new_size - 1;
-        for (uint32_t id = 1; id < values_.size(); ++id) {
-            size_t slot = std::hash<FF>{}(values_[id]) & mask;
-            while (slots_[slot] != EMPTY_SLOT) {
-                slot = (slot + 1) & mask;
-            }
-            slots_[slot] = id;
-        }
-    }
-
-    std::deque<FF> values_;
-    std::vector<uint32_t> slots_;
-};
-
-/**
- * @brief Append-only tile storage in fixed-size chunks, so growth never reallocates or copies existing tiles and the
- * slack is under one chunk per block (a std::vector peaks at up to 3x the used size while doubling).
- */
-template <typename Tile> class TileChunks {
-  public:
-    static constexpr size_t CHUNK_SHIFT = 8;
+    static constexpr size_t CHUNK_SHIFT = ChunkShift;
     static constexpr size_t CHUNK_TILES = size_t{ 1 } << CHUNK_SHIFT;
     static constexpr size_t CHUNK_MASK = CHUNK_TILES - 1;
     using Chunk = std::array<Tile, CHUNK_TILES>;
@@ -251,7 +184,7 @@ template <typename Tile> class TileChunks {
     Tile& operator[](size_t i) { return (*chunks_[i >> CHUNK_SHIFT])[i & CHUNK_MASK]; }
     const Tile& operator[](size_t i) const { return (*chunks_[i >> CHUNK_SHIFT])[i & CHUNK_MASK]; }
 
-    /** @brief Append a zero-initialized tile. */
+    /** @brief Append a zero-initialized element. */
     Tile& emplace_back()
     {
         if (size_ == chunks_.size() * CHUNK_TILES) {
@@ -275,6 +208,75 @@ template <typename Tile> class TileChunks {
   private:
     std::vector<std::unique_ptr<Chunk>> chunks_;
     size_t size_ = 0;
+};
+
+/**
+ * @brief Dedup table of one selector column's values: each distinct value is stored once and gates store its id.
+ * @details Selector values are circuit structure drawn from a small set (0, ±1, small integers, ACIR coefficients), so
+ * a uint32 id per gate replaces a 32-byte field element. Id 0 is always zero, so a zero-initialized tile reads as all
+ * selectors zero. Values live in chunked storage so the references Selector::operator[] returns stay valid as the table
+ * grows;
+ * the index is open-addressed over ids and hashes the reduced value, matching field equality.
+ */
+template <typename FF> class SelectorValueTable {
+  public:
+    SelectorValueTable() { values_.emplace_back() = FF(0); }
+
+    uint32_t intern(const FF& value)
+    {
+        if (value.is_zero()) {
+            return 0;
+        }
+        if (2 * values_.size() >= slots_.size()) {
+            grow();
+        }
+        const FF reduced = value.reduce_once();
+        const size_t mask = slots_.size() - 1;
+        for (size_t slot = std::hash<FF>{}(reduced)&mask;; slot = (slot + 1) & mask) {
+            const uint32_t id = slots_[slot];
+            if (id == EMPTY_SLOT) {
+                BB_ASSERT_LT(values_.size(), static_cast<size_t>(EMPTY_SLOT), "SelectorValueTable: too many values");
+                const auto new_id = static_cast<uint32_t>(values_.size());
+                values_.emplace_back() = reduced;
+                slots_[slot] = new_id;
+                return new_id;
+            }
+            if (values_[id] == reduced) {
+                return id;
+            }
+        }
+    }
+
+    const FF& operator[](uint32_t id) const { return values_[id]; }
+
+    /** @brief Number of distinct values, zero included. */
+    size_t size() const { return values_.size(); }
+
+    /** @brief Approximate heap bytes held by the table. */
+    size_t memory_bytes() const { return values_.capacity() * sizeof(FF) + slots_.capacity() * sizeof(uint32_t); }
+
+    void clear() { *this = SelectorValueTable{}; }
+
+  private:
+    static constexpr uint32_t EMPTY_SLOT = std::numeric_limits<uint32_t>::max();
+
+    void grow()
+    {
+        const size_t new_size = std::max<size_t>(16, slots_.size() * 2);
+        slots_.assign(new_size, EMPTY_SLOT);
+        const size_t mask = new_size - 1;
+        for (uint32_t id = 1; id < values_.size(); ++id) {
+            size_t slot = std::hash<FF>{}(values_[id]) & mask;
+            while (slots_[slot] != EMPTY_SLOT) {
+                slot = (slot + 1) & mask;
+            }
+            slots_[slot] = id;
+        }
+    }
+
+    // 16 values per chunk: most tables hold a handful of values, and a block has one table per selector column.
+    TileChunks<FF, 4> values_;
+    std::vector<uint32_t> slots_;
 };
 
 /**
