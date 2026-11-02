@@ -142,19 +142,6 @@ struct ProofSystemSettings {
 };
 
 /**
- * @brief Convert oracle hash type string to enum for internal use
- */
-enum class OracleHashType { POSEIDON2, KECCAK };
-
-inline OracleHashType parse_oracle_hash_type(const std::string& type)
-{
-    if (type == "keccak") {
-        return OracleHashType::KECCAK;
-    }
-    return OracleHashType::POSEIDON2; // default
-}
-
-/**
  * @brief Convert VK policy string to enum for internal use
  */
 inline VkPolicy parse_vk_policy(const std::string& policy)

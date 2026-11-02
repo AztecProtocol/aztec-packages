@@ -109,21 +109,8 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
     {
         const size_t in_len = input.size();
         const uint256_t iv = (static_cast<uint256_t>(in_len) << 64);
-        return hash_internal(input, iv);
-    }
-
-    /**
-     * @brief Use the sponge to hash an input vector with a custom IV.
-     *
-     * @param input Field elements (a_0, ..., a_{N-1})
-     * @param iv Initial value for domain separation
-     * @return Hash of the input, a single field element.
-     */
-    static FF hash_internal(std::span<const FF> input, FF iv)
-    {
         FieldSponge sponge(iv);
 
-        const size_t in_len = input.size();
         for (size_t i = 0; i < in_len; ++i) {
             sponge.absorb(input[i]);
         }

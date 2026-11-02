@@ -59,10 +59,7 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
   if (options?.verifierTarget) {
     const legacyOptions = [options.keccak, options.keccakZK].filter(Boolean);
     if (legacyOptions.length > 0) {
-      throw new Error(
-        'Cannot use verifierTarget with legacy options (keccak, keccakZK). ' +
-          'Use verifierTarget alone.',
-      );
+      throw new Error('Cannot use verifierTarget with legacy options (keccak, keccakZK). Use verifierTarget alone.');
     }
 
     switch (options.verifierTarget) {

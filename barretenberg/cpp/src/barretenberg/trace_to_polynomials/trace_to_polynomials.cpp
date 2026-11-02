@@ -2,7 +2,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/constants.hpp"
-
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
