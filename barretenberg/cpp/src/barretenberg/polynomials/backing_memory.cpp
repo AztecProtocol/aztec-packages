@@ -1,18 +1,28 @@
 #include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication_fast.hpp"
 #include <atomic>
 #include <cctype>
 #include <cstdlib>
 #include <limits>
 #include <string>
 
+namespace {
+// Everything low memory mode configures besides file-backed polynomials.
+void configure_for_low_memory()
+{
+    bb::configure_heap_for_low_memory();
+    bb::scalar_multiplication::set_msm_batch_mem_budget(LOW_MEMORY_MSM_BATCH_MEM_BUDGET);
+}
+} // namespace
+
 bool slow_low_memory_from_environment()
 {
     const char* value = std::getenv("BB_SLOW_LOW_MEMORY");
     const bool enabled = value != nullptr && std::string(value) == "1";
     if (enabled) {
-        bb::configure_heap_for_low_memory();
+        configure_for_low_memory();
     }
     return enabled;
 }
@@ -20,7 +30,7 @@ bool slow_low_memory_from_environment()
 void set_slow_low_memory(bool enabled)
 {
     if (enabled) {
-        bb::configure_heap_for_low_memory();
+        configure_for_low_memory();
     }
     slow_low_memory = enabled;
 }

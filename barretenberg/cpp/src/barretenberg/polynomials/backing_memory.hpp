@@ -16,14 +16,23 @@
 extern bool slow_low_memory;
 
 /**
- * @brief Whether BB_SLOW_LOW_MEMORY asks for low memory mode ("1"). When it does, the heap is configured for it as
+ * @brief MSM batch memory budget used in low memory mode (see scalar_multiplication::set_msm_batch_mem_budget).
+ * @details Measured on the pinned transfer flows, 16 MiB is the smallest budget whose proof at its memory floor stays
+ * within 4x of ordinary mode; below it the floor no longer drops and the capped wall time rises steeply.
+ */
+inline constexpr size_t LOW_MEMORY_MSM_BATCH_MEM_BUDGET = size_t{ 16 } << 20;
+
+/**
+ * @brief Whether BB_SLOW_LOW_MEMORY asks for low memory mode ("1"). When it does, the heap and the MSM budget are
+ * configured for it as
  * set_slow_low_memory(true) would. slow_low_memory is initialized from this.
  */
 bool slow_low_memory_from_environment();
 
 /**
  * @brief Turn low memory mode on or off. Turning it on also configures the heap to return freed memory promptly
- * (bb::configure_heap_for_low_memory); turning it off leaves the heap configuration as it is.
+ * (bb::configure_heap_for_low_memory) and sets the MSM batch memory budget to LOW_MEMORY_MSM_BATCH_MEM_BUDGET;
+ * turning it off leaves both as they are.
  */
 void set_slow_low_memory(bool enabled);
 
