@@ -4,8 +4,8 @@
 <style>
 svg { font-family: Geist, Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; }
 text { fill: #fff9f2; }
-.muted { fill: #c2c4b6; }
-.faint { fill: #818167; }
+.muted { fill: #b6b8b0; }
+.faint { fill: #93958a; }
 .title { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
 .heading { font-size: 22px; font-weight: 600; }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; }
@@ -20,9 +20,9 @@ text { fill: #fff9f2; }
 .eth-title { fill: #d9ff66; }
 .panel-private { fill: #231b38; stroke: #4a3d6e; stroke-width: 1.5; }
 .panel-public { fill: #162a3e; stroke: #2f4f6e; stroke-width: 1.5; }
-.panel-eth { fill: #1f2a00; stroke: #3f5200; stroke-width: 1.5; }
-.card { fill: #1c2300; stroke: #4d4d3e; stroke-width: 1.5; }
-.inner { fill: #141900; stroke: #4d4d3e; stroke-width: 1; }
+.panel-eth { fill: #282d16; stroke: #626554; stroke-width: 1.5; }
+.card { fill: #1f240c; stroke: #626554; stroke-width: 1.5; }
+.inner { fill: #141900; stroke: #626554; stroke-width: 1; }
 .badge-private { fill: #a5a7fe; }
 .badge-private-text { fill: #2a1240; }
 .badge-public { fill: #5babff; }
@@ -34,8 +34,8 @@ text { fill: #fff9f2; }
 .line { stroke: #fff9f2; stroke-width: 1.5; fill: none; }
 .arrow { stroke: #fff9f2; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
 .arrowhead { fill: #fff9f2; }
-.connector { stroke: #4d4d3e; stroke-width: 1.5; fill: none; }
-.divider { stroke: #4d4d3e; stroke-width: 1.5; stroke-dasharray: 6 6; }
+.connector { stroke: #626554; stroke-width: 1.5; fill: none; }
+.divider { stroke: #626554; stroke-width: 1.5; stroke-dasharray: 6 6; }
 .burst { fill: #c8fa00; opacity: 0.55; }
 .spent { opacity: 0.45; }
 .cross { stroke: #fff9f2; stroke-width: 2; }

@@ -15,6 +15,14 @@
   --search-radius: var(--ifm-global-radius);
 }
 
+/* On the dark theme the accent is a saturated lime, and a wash of it over the
+   near-black background turns olive; the selected row keeps its accent bar and
+   takes a neutral raised fill instead. */
+[data-theme="dark"] .trigger,
+[data-theme="dark"] .backdrop {
+  --search-selected: color-mix(in srgb, var(--search-fg) 9%, var(--search-bg));
+}
+
 .trigger kbd,
 .footer kbd {
   display: inline-block;

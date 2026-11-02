@@ -13,9 +13,9 @@
   background:
     radial-gradient(
       120% 140% at 100% 0%,
-      color-mix(in srgb, var(--aztec-lime) 38%, transparent) 0%,
-      color-mix(in srgb, var(--aztec-steel) 45%, transparent) 38%,
-      transparent 70%
+      color-mix(in srgb, var(--aztec-gray-dark) 50%, transparent) 0%,
+      color-mix(in srgb, var(--aztec-gray-dark) 20%, transparent) 38%,
+      transparent 68%
     ),
     var(--aztec-ink);
   color: var(--aztec-paper);
@@ -34,7 +34,7 @@
 }
 
 [data-theme="dark"] .heroSymbol {
-  color: var(--aztec-lime);
+  color: var(--aztec-gray-light);
   opacity: 0.14;
 }
 

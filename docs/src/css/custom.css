@@ -26,7 +26,17 @@
   --aztec-moss: #818167;
   --aztec-olive-gray: #4d4d3e;
   --aztec-ink: #141900;
-  --aztec-ink-2: #1c2300;
+
+  --aztec-gray-light: #b6b8b0;
+  --aztec-gray: #93958a;
+  --aztec-gray-dark: #626554;
+
+  /* Dark-mode surfaces: ink mixed toward the dark gray (14%, 26%, 45%, 70%),
+     so raised panels and borders read as black and gray rather than olive. */
+  --aztec-ink-raised: #1f240c;
+  --aztec-ink-raised-2: #282d16;
+  --aztec-ink-line: #373b26;
+  --aztec-ink-line-strong: #4b4e3b;
 
   --aztec-lime: #c8fa00;
   --aztec-lime-pale: #e3ff9b;
@@ -140,19 +150,19 @@
   --ifm-color-primary-lightest: var(--aztec-lime-pale);
 
   --ifm-color-emphasis-0: var(--aztec-ink);
-  --ifm-color-emphasis-100: var(--aztec-ink-2);
-  --ifm-color-emphasis-200: var(--aztec-olive-deep);
-  --ifm-color-emphasis-300: #3a3f1e;
-  --ifm-color-emphasis-400: var(--aztec-olive-gray);
-  --ifm-color-emphasis-500: var(--aztec-moss);
-  --ifm-color-emphasis-600: #a3a494;
-  --ifm-color-emphasis-700: var(--aztec-stone);
-  --ifm-color-emphasis-800: #e9e3d6;
+  --ifm-color-emphasis-100: var(--aztec-ink-raised);
+  --ifm-color-emphasis-200: var(--aztec-ink-line);
+  --ifm-color-emphasis-300: var(--aztec-ink-line-strong);
+  --ifm-color-emphasis-400: var(--aztec-gray-dark);
+  --ifm-color-emphasis-500: var(--aztec-gray);
+  --ifm-color-emphasis-600: #a4a69d;
+  --ifm-color-emphasis-700: var(--aztec-gray-light);
+  --ifm-color-emphasis-800: #dad8d1;
   --ifm-color-emphasis-900: var(--aztec-paper-2);
   --ifm-color-emphasis-1000: var(--aztec-paper);
 
   --ifm-background-color: var(--aztec-ink);
-  --ifm-background-surface-color: var(--aztec-ink-2);
+  --ifm-background-surface-color: var(--aztec-ink-raised);
   --ifm-font-color-base: var(--aztec-paper);
   --ifm-navbar-background-color: var(--aztec-ink);
   --ifm-footer-background-color: var(--aztec-ink);
@@ -161,22 +171,23 @@
   --ifm-link-hover-color: var(--aztec-lime-pale);
   --ifm-menu-color: var(--aztec-paper);
   --ifm-menu-color-active: var(--aztec-lime);
-  --ifm-menu-color-background-active: var(--aztec-olive-deep);
-  --ifm-menu-color-background-hover: var(--aztec-ink-2);
+  --ifm-menu-color-background-active: var(--aztec-ink-raised-2);
+  --ifm-menu-color-background-hover: var(--aztec-ink-raised);
   --ifm-navbar-link-hover-color: var(--aztec-lime);
-  --ifm-breadcrumb-item-background-active: var(--aztec-ink-2);
+  --ifm-breadcrumb-item-background-active: var(--aztec-ink-raised);
 
   --ifm-color-success: var(--aztec-lime);
   --ifm-color-info: var(--aztec-sky);
   --ifm-color-warning: var(--aztec-coral);
   --ifm-color-danger: var(--aztec-coral);
 
-  --prism-background-color: var(--aztec-ink-2);
-  --docusaurus-highlighted-code-line-bg: rgba(200, 250, 0, 0.14);
+  --prism-background-color: var(--aztec-ink-raised);
+  --docusaurus-highlighted-code-line-bg: rgba(200, 250, 0, 0.12);
 
   --brand-background: var(--aztec-ink);
-  --aztec-card-bg: var(--aztec-ink-2);
-  background: var(--aztec-ink);}
+  --aztec-card-bg: var(--aztec-ink-raised);
+  background: var(--aztec-ink);
+}
 
 /* ============================================
    Type
@@ -287,10 +298,10 @@ h6 {
 }
 
 [data-theme="dark"] .alert--secondary {
-  --ifm-alert-background-color: var(--aztec-ink-2);
-  --ifm-alert-background-color-highlight: var(--aztec-olive-deep);
+  --ifm-alert-background-color: var(--aztec-ink-raised);
+  --ifm-alert-background-color-highlight: var(--aztec-ink-raised-2);
   --ifm-alert-foreground-color: var(--aztec-paper);
-  --ifm-alert-border-color: var(--aztec-olive-gray);
+  --ifm-alert-border-color: var(--aztec-gray-dark);
 }
 
 [data-theme="light"] .alert--success {
@@ -301,8 +312,8 @@ h6 {
 }
 
 [data-theme="dark"] .alert--success {
-  --ifm-alert-background-color: var(--aztec-olive-deep);
-  --ifm-alert-background-color-highlight: var(--aztec-olive-dark);
+  --ifm-alert-background-color: var(--aztec-ink-raised);
+  --ifm-alert-background-color-highlight: var(--aztec-ink-raised-2);
   --ifm-alert-foreground-color: var(--aztec-paper);
   --ifm-alert-border-color: var(--aztec-lime);
 }
@@ -324,7 +335,7 @@ h6 {
    at higher specificity than Infima's `.footer--dark`. */
 [data-theme="dark"] .footer {
   --ifm-footer-background-color: var(--aztec-ink);
-  --ifm-footer-color: var(--aztec-stone);
+  --ifm-footer-color: var(--aztec-gray-light);
   --ifm-footer-link-color: var(--aztec-paper-2);
   --ifm-footer-title-color: var(--aztec-paper);
   border-top: 1px solid var(--ifm-color-emphasis-200);
@@ -385,7 +396,7 @@ html[data-theme="dark"] .sidebar-divider {
 }
 
 [data-theme="dark"] #optout-form {
-  background: var(--aztec-ink-2);
+  background: var(--aztec-ink-raised);
 }
 
 [data-theme="light"] #optout-form {
