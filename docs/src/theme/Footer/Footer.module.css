@@ -16,13 +16,20 @@
 }
 
 .footerTitle {
-  font-family: "Oracle", sans-serif;
+  font-family: var(--aztec-font-display);
   font-size: 1.6rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--ifm-footer-title-color);
   margin: 0;
   line-height: 1.3;
   letter-spacing: -0.01em;
+}
+
+.footerLede {
+  margin: -0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--ifm-footer-color);
+  opacity: 0.8;
 }
 
 .subscriptionForm {
@@ -50,7 +57,7 @@
   border: none;
   padding: 0.6rem 0;
   font-size: 0.95rem;
-  font-family: "Oracle", sans-serif;
+  font-family: var(--aztec-font-display);
   color: var(--ifm-footer-color);
   outline: none;
 }

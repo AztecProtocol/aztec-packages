@@ -1,190 +1,390 @@
 /**
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * work well with content-centric websites.
  */
 
-/* Import Geist font from Google Fonts */
+/* Geist for body copy; ABC Oracle (bundled, Book weight only) for display headings. */
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
 
-/* You can override the default Infima variables here. */
-:root {
-  --ifm-font-family-base: "Geist", sans-serif;
-  --ifm-color-primary: #1a1400;
-  --ifm-color-primary-dark: #171200;
-  --ifm-color-primary-darker: #161100;
-  --ifm-color-primary-darkest: #120e00;
-  --ifm-color-primary-light: #1d1600;
-  --ifm-color-primary-lighter: #1e1700;
-  --ifm-color-primary-lightest: #221a00;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
-  --ifm-link-color: #cc24c3;
-  --ifm-link-hover-color: #ff2df4;
-  --ifm-menu-color-active: #cc24c3;
-  --ifm-navbar-link-hover-color: #cc24c3;
+@font-face {
+  font-family: "ABC Oracle";
+  src: url("../../static/font/Oracle-Book.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
+/* ============================================
+   Brand tokens
+   ============================================ */
+
+:root {
+  --aztec-paper: #fff9f2;
+  --aztec-paper-2: #f8f1e7;
+  --aztec-stone: #c2c4b6;
+  --aztec-moss: #818167;
+  --aztec-olive-gray: #4d4d3e;
+  --aztec-ink: #141900;
+
+  --aztec-gray-light: #b6b8b0;
+  --aztec-gray: #93958a;
+  --aztec-gray-dark: #626554;
+
+  /* Dark-mode surfaces: ink mixed toward the dark gray (14%, 26%, 45%, 70%),
+     so raised panels and borders read as black and gray rather than olive. */
+  --aztec-ink-raised: #1f240c;
+  --aztec-ink-raised-2: #282d16;
+  --aztec-ink-line: #373b26;
+  --aztec-ink-line-strong: #4b4e3b;
+
+  --aztec-lime: #c8fa00;
+  --aztec-lime-pale: #e3ff9b;
+  --aztec-lime-deep: #9df201;
+  --aztec-olive: #789600;
+  --aztec-olive-dark: #506400;
+  --aztec-olive-deep: #283200;
+
+  --aztec-lavender: #a5a7fe;
+  --aztec-purple: #461f65;
+  --aztec-coral: #ff6944;
+  --aztec-mauve: #815257;
+  --aztec-sky: #5babff;
+  --aztec-steel: #376799;
+
+  --aztec-gradient-mono: linear-gradient(
+    -30deg,
+    var(--aztec-paper) 0%,
+    var(--aztec-paper-2) 32%,
+    var(--aztec-lime-pale) 71%,
+    var(--aztec-lime-deep) 99%
+  );
+  --aztec-gradient-bi: linear-gradient(
+    -31deg,
+    var(--aztec-steel) 0%,
+    var(--aztec-sky) 18%,
+    var(--aztec-lime-pale) 46%,
+    var(--aztec-lime) 100%
+  );
+  --aztec-gradient-three: linear-gradient(
+    -30deg,
+    var(--aztec-lavender) 10%,
+    var(--aztec-paper) 50%,
+    var(--aztec-lime-pale) 69%,
+    var(--aztec-lime) 89%
+  );
+
+  --aztec-font-display: "ABC Oracle", "Geist", sans-serif;
+}
+
+/* ============================================
+   Infima overrides: light theme (paper + ink)
+   ============================================ */
+
+:root {
+  --ifm-font-family-base: "Geist", sans-serif;
+  --ifm-heading-font-family: var(--aztec-font-display);
+  --ifm-heading-font-weight: 400;
+  --ifm-code-font-size: 95%;
+
+  --ifm-color-primary: var(--aztec-ink);
+  --ifm-color-primary-dark: #0f1300;
+  --ifm-color-primary-darker: #0d1000;
+  --ifm-color-primary-darkest: #0a0c00;
+  --ifm-color-primary-light: var(--aztec-olive-deep);
+  --ifm-color-primary-lighter: var(--aztec-olive-gray);
+  --ifm-color-primary-lightest: var(--aztec-moss);
+
+  --ifm-color-emphasis-0: var(--aztec-paper);
+  --ifm-color-emphasis-100: var(--aztec-paper-2);
+  --ifm-color-emphasis-200: #e9e3d6;
+  --ifm-color-emphasis-300: var(--aztec-stone);
+  --ifm-color-emphasis-400: #a3a494;
+  --ifm-color-emphasis-500: var(--aztec-moss);
+  --ifm-color-emphasis-600: #67675a;
+  --ifm-color-emphasis-700: var(--aztec-olive-gray);
+  --ifm-color-emphasis-800: #33331f;
+  --ifm-color-emphasis-900: var(--aztec-ink);
+  --ifm-color-emphasis-1000: var(--aztec-ink);
+
+  --ifm-background-color: var(--aztec-paper);
+  --ifm-background-surface-color: var(--aztec-paper-2);
+  --ifm-font-color-base: var(--aztec-ink);
+  --ifm-navbar-background-color: var(--aztec-paper);
+  --ifm-footer-background-color: var(--aztec-paper-2);
+
+  --ifm-link-color: var(--aztec-olive-dark);
+  --ifm-link-hover-color: var(--aztec-olive-deep);
+  --ifm-menu-color: var(--aztec-ink);
+  --ifm-menu-color-active: var(--aztec-ink);
+  --ifm-menu-color-background-active: var(--aztec-lime-pale);
+  --ifm-menu-color-background-hover: var(--aztec-paper-2);
+  --ifm-navbar-link-hover-color: var(--aztec-olive-dark);
+  --ifm-breadcrumb-item-background-active: var(--aztec-paper-2);
+  --ifm-toc-border-color: var(--ifm-color-emphasis-200);
+  --ifm-hr-background-color: var(--ifm-color-emphasis-200);
+
+  --ifm-color-success: var(--aztec-olive);
+  --ifm-color-info: var(--aztec-steel);
+  --ifm-color-warning: var(--aztec-coral);
+  --ifm-color-danger: var(--aztec-mauve);
+
+  --prism-background-color: var(--aztec-paper-2);
+  --docusaurus-highlighted-code-line-bg: rgba(200, 250, 0, 0.28);
+
+  --brand-background: var(--aztec-paper);
+  --aztec-card-bg: var(--aztec-paper-2);
+}
+
+/* ============================================
+   Infima overrides: dark theme (ink + lime)
+   ============================================ */
+
+[data-theme="dark"] {
+  --ifm-color-primary: var(--aztec-lime);
+  --ifm-color-primary-dark: #b4e100;
+  --ifm-color-primary-darker: #a8d300;
+  --ifm-color-primary-darkest: #8ab000;
+  --ifm-color-primary-light: #d0fa1f;
+  --ifm-color-primary-lighter: #d6fb3d;
+  --ifm-color-primary-lightest: var(--aztec-lime-pale);
+
+  --ifm-color-emphasis-0: var(--aztec-ink);
+  --ifm-color-emphasis-100: var(--aztec-ink-raised);
+  --ifm-color-emphasis-200: var(--aztec-ink-line);
+  --ifm-color-emphasis-300: var(--aztec-ink-line-strong);
+  --ifm-color-emphasis-400: var(--aztec-gray-dark);
+  --ifm-color-emphasis-500: var(--aztec-gray);
+  --ifm-color-emphasis-600: #a4a69d;
+  --ifm-color-emphasis-700: var(--aztec-gray-light);
+  --ifm-color-emphasis-800: #dad8d1;
+  --ifm-color-emphasis-900: var(--aztec-paper-2);
+  --ifm-color-emphasis-1000: var(--aztec-paper);
+
+  --ifm-background-color: var(--aztec-ink);
+  --ifm-background-surface-color: var(--aztec-ink-raised);
+  --ifm-font-color-base: var(--aztec-paper);
+  --ifm-navbar-background-color: var(--aztec-ink);
+  --ifm-footer-background-color: var(--aztec-ink);
+
+  --ifm-link-color: var(--aztec-lime);
+  --ifm-link-hover-color: var(--aztec-lime-pale);
+  --ifm-menu-color: var(--aztec-paper);
+  --ifm-menu-color-active: var(--aztec-lime);
+  --ifm-menu-color-background-active: var(--aztec-ink-raised-2);
+  --ifm-menu-color-background-hover: var(--aztec-ink-raised);
+  --ifm-navbar-link-hover-color: var(--aztec-lime);
+  --ifm-breadcrumb-item-background-active: var(--aztec-ink-raised);
+
+  --ifm-color-success: var(--aztec-lime);
+  --ifm-color-info: var(--aztec-sky);
+  --ifm-color-warning: var(--aztec-coral);
+  --ifm-color-danger: var(--aztec-coral);
+
+  --prism-background-color: var(--aztec-ink-raised);
+  --docusaurus-highlighted-code-line-bg: rgba(200, 250, 0, 0.12);
+
+  --brand-background: var(--aztec-ink);
+  --aztec-card-bg: var(--aztec-ink-raised);
+  background: var(--aztec-ink);
+}
+
+/* ============================================
+   Type
+   ============================================ */
+
+h1,
+h2,
+.hero__title {
+  letter-spacing: -0.01em;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 600;
+}
+
+/* ============================================
+   Buttons: ink on lime / paper on ink
+   ============================================ */
+
+.button--primary {
+  --ifm-button-color: var(--aztec-paper);
+}
+
+[data-theme="dark"] .button--primary {
+  --ifm-button-color: var(--aztec-ink);
+}
+
+.button--secondary {
+  --ifm-button-background-color: transparent;
+  --ifm-button-border-color: var(--aztec-ink);
+  --ifm-button-color: var(--aztec-ink);
+}
+
+/* Infima hardcodes `color: var(--ifm-color-gray-900)` on secondary buttons, which
+   stays dark in dark mode; route it back through the button color variable. */
+.button.button--secondary {
+  color: var(--ifm-button-color);
+}
+
+.button--secondary:hover {
+  --ifm-button-background-color: color-mix(in srgb, var(--aztec-ink) 8%, transparent);
+}
+
+[data-theme="dark"] .button--secondary {
+  --ifm-button-border-color: var(--aztec-paper);
+  --ifm-button-color: var(--aztec-paper);
+}
+
+[data-theme="dark"] .button--secondary:hover {
+  --ifm-button-background-color: color-mix(in srgb, var(--aztec-paper) 10%, transparent);
+}
+
+/* ============================================
+   Admonitions
+   ============================================ */
+
 [data-theme="light"] .alert--danger {
-  --ifm-alert-background-color: #ffd1cb;
-  --ifm-alert-background-color-highlight: #ffbab1;
-  --ifm-alert-foreground-color: rgb(66, 69, 73);
-  --ifm-alert-border-color: #ff7764;
+  --ifm-alert-background-color: color-mix(in srgb, var(--aztec-coral) 24%, var(--aztec-paper));
+  --ifm-alert-background-color-highlight: color-mix(in srgb, var(--aztec-coral) 36%, var(--aztec-paper));
+  --ifm-alert-foreground-color: var(--aztec-ink);
+  --ifm-alert-border-color: var(--aztec-mauve);
 }
 
 [data-theme="dark"] .alert--danger {
-  --ifm-alert-background-color: #962a1c;
-  --ifm-alert-background-color-highlight: #cf5545;
-  --ifm-alert-foreground-color: white;
-  --ifm-alert-border-color: #cf5545;
+  --ifm-alert-background-color: var(--aztec-mauve);
+  --ifm-alert-background-color-highlight: color-mix(in srgb, var(--aztec-coral) 40%, var(--aztec-mauve));
+  --ifm-alert-foreground-color: var(--aztec-paper);
+  --ifm-alert-border-color: var(--aztec-coral);
 }
 
 [data-theme="light"] .alert--warning {
-  --ifm-alert-background-color: #ffe2b1;
-  --ifm-alert-background-color-highlight: #ffd998;
-  --ifm-alert-foreground-color: rgb(66, 69, 73);
-  --ifm-alert-border-color: #ffc564;
+  --ifm-alert-background-color: color-mix(in srgb, var(--aztec-coral) 14%, var(--aztec-paper));
+  --ifm-alert-background-color-highlight: color-mix(in srgb, var(--aztec-coral) 24%, var(--aztec-paper));
+  --ifm-alert-foreground-color: var(--aztec-ink);
+  --ifm-alert-border-color: var(--aztec-coral);
 }
 
 [data-theme="dark"] .alert--warning {
-  --ifm-alert-background-color: #5b4b2f;
-  --ifm-alert-background-color-highlight: #8a6a32;
-  --ifm-alert-foreground-color: white;
-  --ifm-alert-border-color: #8a6a32;
+  --ifm-alert-background-color: color-mix(in srgb, var(--aztec-mauve) 55%, var(--aztec-ink));
+  --ifm-alert-background-color-highlight: var(--aztec-mauve);
+  --ifm-alert-foreground-color: var(--aztec-paper);
+  --ifm-alert-border-color: var(--aztec-coral);
 }
 
 [data-theme="light"] .alert--info {
-  --ifm-alert-background-color: #d8e0fd;
-  --ifm-alert-background-color-highlight: #c0cdfc;
-  --ifm-alert-foreground-color: rgb(66, 69, 73);
-  --ifm-alert-border-color: #466cf7;
+  --ifm-alert-background-color: color-mix(in srgb, var(--aztec-sky) 18%, var(--aztec-paper));
+  --ifm-alert-background-color-highlight: color-mix(in srgb, var(--aztec-sky) 30%, var(--aztec-paper));
+  --ifm-alert-foreground-color: var(--aztec-ink);
+  --ifm-alert-border-color: var(--aztec-steel);
 }
 
 [data-theme="dark"] .alert--info {
-  --ifm-alert-background-color: #2d2a55;
-  --ifm-alert-background-color-highlight: #514b99;
-  --ifm-alert-foreground-color: white;
-  --ifm-alert-border-color: #514b99;
+  --ifm-alert-background-color: var(--aztec-steel);
+  --ifm-alert-background-color-highlight: color-mix(in srgb, var(--aztec-sky) 35%, var(--aztec-steel));
+  --ifm-alert-foreground-color: var(--aztec-paper);
+  --ifm-alert-border-color: var(--aztec-sky);
 }
 
 [data-theme="light"] .alert--secondary {
-  --ifm-alert-background-color: #d8e0fd;
-  --ifm-alert-background-color-highlight: #c0cdfc;
-  --ifm-alert-foreground-color: rgb(66, 69, 73);
-  --ifm-alert-border-color: #466cf7;
+  --ifm-alert-background-color: var(--aztec-paper-2);
+  --ifm-alert-background-color-highlight: #e9e3d6;
+  --ifm-alert-foreground-color: var(--aztec-ink);
+  --ifm-alert-border-color: var(--aztec-stone);
 }
 
 [data-theme="dark"] .alert--secondary {
-  --ifm-alert-background-color: #2d2a55;
-  --ifm-alert-background-color-highlight: #514b99;
-  --ifm-alert-foreground-color: white;
-  --ifm-alert-border-color: #514b99;
+  --ifm-alert-background-color: var(--aztec-ink-raised);
+  --ifm-alert-background-color-highlight: var(--aztec-ink-raised-2);
+  --ifm-alert-foreground-color: var(--aztec-paper);
+  --ifm-alert-border-color: var(--aztec-gray-dark);
 }
 
 [data-theme="light"] .alert--success {
-  --ifm-alert-background-color: #ccf0e3;
-  --ifm-alert-background-color-highlight: #b8ead8;
-  --ifm-alert-foreground-color: rgb(66, 69, 73);
-  --ifm-alert-border-color: #31a67b;
+  --ifm-alert-background-color: color-mix(in srgb, var(--aztec-lime-pale) 70%, var(--aztec-paper));
+  --ifm-alert-background-color-highlight: var(--aztec-lime-pale);
+  --ifm-alert-foreground-color: var(--aztec-ink);
+  --ifm-alert-border-color: var(--aztec-olive);
 }
 
 [data-theme="dark"] .alert--success {
-  --ifm-alert-background-color: #34584a;
-  --ifm-alert-background-color-highlight: #69b799;
-  --ifm-alert-foreground-color: white;
-  --ifm-alert-border-color: #69b799;
+  --ifm-alert-background-color: var(--aztec-ink-raised);
+  --ifm-alert-background-color-highlight: var(--aztec-ink-raised-2);
+  --ifm-alert-foreground-color: var(--aztec-paper);
+  --ifm-alert-border-color: var(--aztec-lime);
 }
 
-[data-theme="light"] {
-  --ifm-background-color: #f2eee1;
-  --ifm-navbar-background-color: #f2eee1;
-  --ifm-footer-background-color: #f2eee1;
-  --ifm-menu-color: #1a1400;
-  --ifm-breadcrumb-item-background-active: #f2eee1;
-  --brand-background: #f2eee1;
-  --aztec-card-bg: #ebe6d3;
-}
-[data-theme="dark"] {
-  --ifm-color-primary: #f2eee1;
-  --ifm-color-primary-dark: #e4dcc0;
-  --ifm-color-primary-darker: #ddd2b0;
-  --ifm-color-primary-darkest: #c8b77f;
-  --ifm-color-primary-light: #ffffff;
-  --ifm-color-primary-lighter: #ffffff;
-  --ifm-color-primary-lightest: #ffffff;
-  --ifm-link-color: #a9cc1f;
-  --ifm-link-hover-color: #d4ff28;
-  --ifm-menu-color-active: #a9cc1f;
-  --ifm-navbar-link-hover-color: #a9cc1f;
-  --ifm-navbar-background-color: #1a1400;
-  --ifm-footer-background-color: #1a1400;
-  --brand-background: #1a1400;
-  --aztec-card-bg: var(--ifm-background-surface-color);
-  --ifm-font-color-base: #f2eee1;
-  background: #1a1400;
+/* ============================================
+   Chrome: navbar, footer, cards, lists
+   ============================================ */
+
+.navbar {
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: none;
 }
 
+.navbar__logo {
+  height: 1.5rem;
+}
+
+/* The custom footer always carries `footer--dark`, so set the background per theme
+   at higher specificity than Infima's `.footer--dark`. */
 [data-theme="dark"] .footer {
-  --ifm-footer-background-color: #1a1400;
-  --ifm-footer-color: var(--ifm-footer-link-color);
-  --ifm-footer-link-color: var(--ifm-color-secondary);
-  --ifm-footer-title-color: var(--ifm-color-white);
-  /* border-top: 1px solid #303846;
-  box-shadow: 0px -1px 5px 0px #0000001a; */
-}
-
-[data-theme="light"] .navbar {
-  background-color: #f2eee1;
+  --ifm-footer-background-color: var(--aztec-ink);
+  --ifm-footer-color: var(--aztec-gray-light);
+  --ifm-footer-link-color: var(--aztec-paper-2);
+  --ifm-footer-title-color: var(--aztec-paper);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
 }
 
 [data-theme="light"] .footer {
-  --ifm-footer-background-color: #f2eee1;
-  --ifm-footer-color: #1a1400;
-  --ifm-footer-link-color: #1a1400;
-  --ifm-footer-title-color: #1a1400;
+  --ifm-footer-background-color: var(--aztec-paper-2);
+  --ifm-footer-color: var(--aztec-olive-gray);
+  --ifm-footer-link-color: var(--aztec-ink);
+  --ifm-footer-title-color: var(--aztec-ink);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
 }
 
 [data-theme="dark"] .card {
-  /* 85% opacity of the brand background */
-  background-color: color-mix(in srgb, var(--brand-background) 85%, white);
-}
-
-[data-theme="light"] {
-  /* --docusaurus-highlighted-code-line-bg: rgb(72, 77, 91); */
-  --docusaurus-highlighted-code-line-bg: rgba(230, 211, 238, 0.75);
-}
-
-/* If you have a different syntax highlighting theme for dark mode. */
-[data-theme="dark"] {
-  /* Color which works with dark mode syntax highlighting theme */
-  /* --docusaurus-highlighted-code-line-bg: rgb(100, 100, 100); */
-  --docusaurus-highlighted-code-line-bg: rgb(72, 77, 91);
+  background-color: var(--aztec-card-bg);
 }
 
 ul li::marker {
-  color: #cc24c3;
+  color: var(--aztec-olive-dark);
 }
 
 [data-theme="dark"] ul li::marker {
-  color: #a9cc1f;
+  color: var(--aztec-lime);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  font-weight: 600;
+}
+
+.table-of-contents__link--active {
+  font-weight: 600;
 }
 
 .code-block-error-line {
-  background-color: #f0000038;
+  background-color: color-mix(in srgb, var(--aztec-coral) 22%, transparent);
   display: block;
   margin: 0 calc(-1 * var(--ifm-pre-padding));
   padding: 0 var(--ifm-pre-padding);
-  border-left: 3px solid #ff000080;
+  border-left: 3px solid var(--aztec-coral);
 }
 
 .sidebar-divider {
-  border-top: 1px solid var(--ifm-color-gray-200);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
   display: block;
   margin: 0.5rem 0 0.25rem 1rem;
 }
 
 html[data-theme="dark"] .sidebar-divider {
-  border-top: 1px solid var(--ifm-color-gray-800);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
 }
 
 .sidebar-title {
@@ -192,27 +392,15 @@ html[data-theme="dark"] .sidebar-divider {
   letter-spacing: 0.05rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: var(--ifm-color-gray-600);
-}
-
-html[data-theme="dark"] .sidebar-divider {
-  color: var(--ifm-color-gray-200);
+  color: var(--ifm-color-emphasis-600);
 }
 
 [data-theme="dark"] #optout-form {
-  background: #211733;
+  background: var(--aztec-ink-raised);
 }
 
 [data-theme="light"] #optout-form {
-  background: white;
-}
-
-[data-theme="light"] .button--secondary {
-  background: var(--ifm-color-primary-lightest);
-}
-
-[data-theme="dark"] .button--secondary {
-  background: var(--ifm-color-primary-dark);
+  background: var(--aztec-paper-2);
 }
 
 #optout-form {
@@ -226,11 +414,10 @@ html[data-theme="dark"] .sidebar-divider {
 
 .homepage_footer {
   text-align: center;
-  /* margin-bottom: 1rem; */
   padding: 1.5rem 2rem;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--ifm-color-primary-lightest);
+  border: 1px solid var(--ifm-color-emphasis-200);
 }
 
 .homepage_cta_footer_container {
@@ -304,8 +491,10 @@ html[data-theme="dark"] .sidebar-divider {
 
 .navbar__item.dropdown .dropdown__menu {
   padding: 0.5rem 0;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 10px 15px -3px rgba(20, 25, 0, 0.12),
+    0 4px 6px -2px rgba(20, 25, 0, 0.06);
   min-width: 200px;
 }
 
@@ -319,16 +508,6 @@ html[data-theme="dark"] .sidebar-divider {
   font-weight: bold;
   color: var(--ifm-color-primary);
   font-size: 0.9rem;
-}
-
-.twitter-item {
-  display: flex;
-  align-items: center;
-}
-
-.navbar .dropdown__link::after {
-  content: "\2197";
-  margin-left: 5px;
 }
 
 .navbar .dropdown__link.no-external-icon::after {
@@ -367,8 +546,7 @@ html[data-theme="dark"] .sidebar-divider {
 
 .card {
   display: flex;
-  border-radius: 8px;
-  /* box-shadow: none; */
+  border-radius: 12px;
   flex-direction: column;
   height: 100%;
   transition: all 0.3s ease;
@@ -394,16 +572,19 @@ html[data-theme="dark"] .sidebar-divider {
 }
 
 .codeBlockContainer_Ckt0 {
-  border-radius: unset !important;
-  /* box-shadow: none !important; */
+  border-radius: 12px !important;
 }
 
 .pagination-nav__link {
-  border-radius: unset;
+  border-radius: 12px;
+}
+
+.pagination-nav__link:hover {
+  border-color: var(--ifm-color-primary);
 }
 
 .badge {
-  border-radius: unset;
+  border-radius: 999px;
 }
 
 /* ============================================
@@ -454,13 +635,14 @@ html[data-theme="dark"] .sidebar-divider {
 .portal-card {
   padding: 1.5rem;
   border: 1px solid var(--ifm-color-emphasis-300);
-  border-radius: 8px;
+  border-radius: 12px;
+  background: var(--aztec-card-bg);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .portal-card:hover {
   border-color: var(--ifm-color-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(20, 25, 0, 0.1);
 }
 
 .portal-card h3 {
@@ -510,21 +692,22 @@ html[data-theme="dark"] .sidebar-divider {
  ============================================ */
 
 .cardContainer {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(20, 25, 0, 0.06);
   border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--aztec-card-bg);
   transition: all 0.3s ease;
 }
 
 .cardContainer:hover {
   border-color: var(--ifm-color-primary);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 16px rgba(20, 25, 0, 0.12);
   transform: translateY(-4px);
 }
 
 [data-theme="dark"] .cardContainer:hover {
-  border-color: #a9cc1f;
-  box-shadow: 0 8px 16px rgba(169, 204, 31, 0.15);
+  border-color: var(--aztec-lime);
+  box-shadow: 0 8px 16px rgba(200, 250, 0, 0.12);
 }
 
 /* Allow DocCard titles and descriptions to wrap instead of being clipped to a
@@ -533,6 +716,14 @@ html[data-theme="dark"] .sidebar-divider {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
+}
+
+/* The link colour is under 3:1 against body text in both themes, so links in running text
+   need a cue that is not colour (WCAG 1.4.1). Cards and buttons wrap their text, not the reverse. */
+.markdown :is(p, li, td, th, dd, blockquote) a:not(.button) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
 }
 
 /* ============================================

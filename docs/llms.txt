@@ -1,6 +1,6 @@
 # Aztec Protocol Documentation
 
-> Privacy-centric zkRollup for Ethereum. This repository builds the developer documentation site; the canonical `llms.txt` is auto-generated from it and published on the docs site.
+> Aztec is the decentralized Ethereum L2 for building unstoppable private apps. This repository builds the developer documentation site; the canonical `llms.txt` is auto-generated from it and published on the docs site.
 
 The published, always-current LLM-friendly files live on the docs site:
 
@@ -12,3 +12,7 @@ These are regenerated on every docs build, so prefer them over this checked-in p
 ## AI tooling
 
 - [AI Tooling guide](https://docs.aztec.network/developers/ai_tooling): recommended `CLAUDE.md` / `AGENTS.md` instructions, MCP servers, and skills for Aztec and Noir development. Read this first when setting up an AI coding agent for an Aztec project.
+
+## Reading pages as markdown
+
+- Append `.md` to any page URL (for example `https://docs.aztec.network/developers/overview.md`), or request the page with an `Accept: text/markdown` header, to get clean markdown instead of HTML.

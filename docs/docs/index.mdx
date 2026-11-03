@@ -1,14 +1,15 @@
 ---
-title: Aztec Documentation
-description: "Build private smart contracts on Ethereum's leading privacy-first L2 zkRollup. Get started with Aztec developer guides, tutorials, and network documentation."
+title: Build unstoppable private apps
+description: "Build unstoppable private apps on Aztec, the decentralized Ethereum L2 with fully programmable privacy. Developer guides, tutorials, and node operator docs."
 hide_table_of_contents: true
 hide_title: true
+hide_copy_button: true
 ---
 
 import {
   Hero,
-  ProductCard,
   FeatureCard,
+  PillarCard,
   QuickLink,
 } from "@site/src/components/LandingPage";
 import styles from "@site/src/components/LandingPage/styles.module.css";
@@ -17,16 +18,54 @@ import styles from "@site/src/components/LandingPage/styles.module.css";
 
 <div className="container">
 
-## What is Aztec?
+## The platform for unstoppable private apps
 
-Aztec is a **privacy-first Layer 2** zkRollup on Ethereum. While Ethereum makes everything publicly visible, Aztec brings privacy to smart contracts, enabling confidential transactions and private state. Aztec is _not EVM compatible_ and extends the Ethereum ecosystem with a new
-privacy-preserving virtual machine. To learn more about how Aztec achieves
-privacy, check out the [foundational topics](/developers/docs/foundational-topics).
+Aztec is a decentralized Layer 2 on Ethereum for building applications that are private by design, permissionless to use, and beyond the control of any single party. Smart contracts have both private and public functions and state. Private functions execute and are proven on the user's device, so sensitive data never reaches the network. Public functions run in the Aztec Virtual Machine. Aztec is _not EVM compatible_: contracts are written in [Noir](https://noir-lang.org/docs) with the Aztec.nr framework. To learn how it all fits together, start with the [foundational topics](/developers/docs/foundational-topics).
+
+<h2 className={styles.sectionHeading}>Why build on Aztec</h2>
+
+<div className={styles.pillarGrid}>
+
+<PillarCard
+  index="01"
+  title="Unstoppable by design"
+  description="A decentralized L2 with over 3,000 validators and no centralized sequencer. No single party is in control, and the network is designed to keep operating independently of its creators."
+  link="/operate/operators"
+  linkLabel="Run a node"
+/>
+
+<PillarCard
+  index="02"
+  title="Privacy without privileged access"
+  description="No network-wide viewing key and no special access for operators. Private transactions execute and are proven on the user's device, so privacy is enforced by cryptography rather than entrusted to an intermediary."
+  link="/developers/docs/foundational-topics/pxe"
+  linkLabel="How the PXE works"
+/>
+
+<PillarCard
+  index="03"
+  title="Fully programmable freedom"
+  description="Composable smart contracts with privacy built in. You decide which functions are private and which are public, and private calls stay confidential across entire contract call chains."
+  link="/developers/docs/aztec-nr/framework-description/functions/visibility"
+  linkLabel="Private and public functions"
+/>
+
+<PillarCard
+  index="04"
+  title="Built on breakthrough technology"
+  description="Fast client-side zero-knowledge proofs, pioneering cryptography including PLONK, and a roadmap toward post-quantum security. Secured by Ethereum and powered by $AZTEC for staking, governance, and fees."
+  link="/developers/docs/foundational-topics/advanced/circuits"
+  linkLabel="Explore the circuits"
+/>
+
+</div>
+
+<h2 className={styles.sectionHeading}>Building blocks</h2>
 
 <div className={styles.featureGrid}>
 
 <FeatureCard
-  title="Private Functions"
+  title="Private functions"
   description="Execute and prove functions on a user's device, keeping logic and data confidential."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -38,7 +77,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <FeatureCard
-  title="Public Functions"
+  title="Public functions"
   description="Execute transparent operations in the Aztec Virtual Machine when visibility is needed."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -50,7 +89,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <FeatureCard
-  title="Private State"
+  title="Private state"
   description="Store data as encrypted UTXOs that only the owner can decrypt and access."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -61,7 +100,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <FeatureCard
-  title="Public State"
+  title="Public state"
   description="Maintain transparent state in a public Merkle tree when required by your application."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -74,7 +113,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 
 <FeatureCard
   title="Composability"
-  description="Seamlessly compose private and public execution with private and public state."
+  description="Compose private and public execution with private and public state across contracts."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="2" y="2" width="8" height="8" rx="1" />
@@ -88,7 +127,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <FeatureCard
-  title="L1 ↔ L2 Messaging"
+  title="L1 to L2 messaging"
   description="Send public and private messages between Ethereum and Aztec."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -100,13 +139,13 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 
 </div>
 
-<h2 className={styles.sectionHeading}>Quick Links</h2>
+<h2 className={styles.sectionHeading}>Quick links</h2>
 
 <div className={styles.quickLinksGrid}>
 
 <QuickLink
   title="Quickstart"
-  description="Deploy your first contract in minutes"
+  description="Deploy your first private contract in minutes"
   link="/developers/getting_started_on_local_network"
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -116,7 +155,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <QuickLink
-  title="AI Tooling"
+  title="AI tooling"
   description="Set up Claude Code, Cursor, and Codex for Aztec development"
   link="/developers/ai_tooling"
   icon={
@@ -140,7 +179,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <QuickLink
-  title="Write Smart Contracts"
+  title="Write smart contracts"
   description="Aztec.nr framework documentation"
   link="/developers/docs/aztec-nr"
   icon={
@@ -164,7 +203,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <QuickLink
-  title="Run a Sequencer"
+  title="Run a sequencer"
   description="Set up and operate a sequencer node"
   link="/operate/operators/setup/sequencer_management"
   icon={
@@ -182,7 +221,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 <div className={styles.quickLinksGrid}>
 
 <QuickLink
-  title="Video Lessons"
+  title="Video lessons"
   description="Prefer video? Learn Aztec through short explainers"
   link="/developers/docs/resources/video_lessons"
   icon={
@@ -194,7 +233,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <QuickLink
-  title="Aztec Starter Repo"
+  title="Aztec starter repo"
   description="Template project to kickstart development"
   link="https://github.com/AztecProtocol/aztec-starter"
   icon={
@@ -205,7 +244,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <QuickLink
-  title="Noir Language Docs"
+  title="Noir language docs"
   description="Learn the Noir programming language"
   link="https://noir-lang.org/docs"
   icon={

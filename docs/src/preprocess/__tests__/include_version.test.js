@@ -96,6 +96,32 @@ describe("preprocessIncludeVersion", () => {
     });
   });
 
+  describe("#release_name and #release_label macros", () => {
+    it("resolve to the release line name for a named major", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", MAINNET_TAG: "v6.0.0" });
+      const { content } = await preprocessIncludeVersion("#release_name / #release_label", "test.md");
+      assert.strictEqual(content, "Tierra / Tierra (v6.0.0)");
+    });
+
+    it("cover every minor of the line", async () => {
+      setEnv({ RELEASE_TYPE: "testnet", TESTNET_TAG: "6.3.1" });
+      const { content } = await preprocessIncludeVersion("#release_label", "test.md");
+      assert.strictEqual(content, "Tierra (v6.3.1)");
+    });
+
+    it("fall back to the version for an unnamed line", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", MAINNET_TAG: "v5.2.0" });
+      const { content } = await preprocessIncludeVersion("#release_name / #release_label", "test.md");
+      assert.strictEqual(content, "v5.2.0 / v5.2.0");
+    });
+
+    it("do not clobber #release_network", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", MAINNET_TAG: "v6.0.0" });
+      const { content } = await preprocessIncludeVersion("#release_network #release_name", "test.md");
+      assert.strictEqual(content, "mainnet Tierra");
+    });
+  });
+
   describe("legacy macros", () => {
     it("#include_aztec_version uses COMMIT_TAG", async () => {
       setEnv({ RELEASE_TYPE: "nightly", COMMIT_TAG: "v1.2.3" });

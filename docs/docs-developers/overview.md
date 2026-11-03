@@ -2,18 +2,17 @@
 title: Aztec Overview
 sidebar_position: 0
 tags: [protocol]
-description: Overview of Aztec, a privacy-first Layer 2 on Ethereum supporting smart contracts with private and public state and execution.
+description: Overview of Aztec, the decentralized Ethereum L2 for unstoppable private apps, with private and public state and execution.
 ---
 
-import Image from "@theme/IdealImage";
 
 This page outlines Aztec's fundamental technical concepts. It is recommended to read this before diving into building on Aztec.
 
 ## What is Aztec?
 
-Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with both private & public state and private & public execution.
+Aztec is a decentralized Layer 2 on Ethereum for building unstoppable private apps. It supports smart contracts with both private & public state and private & public execution: private functions run and are proven on the user's device, public functions run on the network, and you decide which is which.
 
-<Image img={require("@site/static/img/Aztec_overview.png")} />
+<Diagram name="aztec-overview" alt="Private side: the PXE in the user's wallet executes and proves private functions. Public side: decentralized sequencers order transactions into rollup blocks and publish block data to the data availability layer." />
 
 ## Getting started
 
@@ -31,7 +30,7 @@ Learn about Aztec, what it is, how it works and how to get start writing smart c
 
 ## High level view
 
-<Image img={require("@site/static/img/aztec-high-level.png")} />
+<Diagram name="transaction-lifecycle" alt="Transaction lifecycle: a user calls aztec.js, the PXE simulates and proves privately, an Aztec node sequences the transaction, the prover network proves it, and the rollup contract on Ethereum verifies it." />
 
 1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs)
 2. Private functions are executed in the PXE, which is client-side
@@ -65,7 +64,7 @@ Private state works with UTXOs, which are chunks of data that we call notes. To 
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a public data tree.
 
-![Public vs private state](@site/static/img/public-and-private-state-diagram.png)
+<Diagram name="public-private-state" alt="Public state is a data tree whose leaves are updated in place. Private state is a UTXO model: spending a note emits a nullifier and creates new notes." />
 
 Aztec [smart contract](./docs/aztec-nr/framework-description/contract_structure.md) developers should keep in mind that different data types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
 

@@ -392,6 +392,16 @@ destination's.
 the destination first (`/updating-changelog`), through a PR the owner opens and merges,
 and the cut restarts from Step 2 (the destination has moved).
 
+### Step 5d: Name a New Release Line
+
+`docs/release_names.json` maps a major version to the name its release line ships under
+(`{"6": "Tierra"}`). The version dropdown, the version badges and the `#release_name` and
+`#release_label` macros read it. If `$LABS_TAG` starts a major the file does not name, ask
+the owner for the line's name (never invent one) and add the entry before Step 6
+preprocesses; without it the dropdown and the snapshot show the bare version. A line name
+labels the docs only: networks stay Alpha and Testnet, and CLI, env and Docker values stay
+`mainnet` and `testnet`.
+
 ### Step 6: Preprocess, Check and Build
 
 ```bash
@@ -584,7 +594,7 @@ Sort every listed path into exactly one class:
    `git rm` stages the deletions; they are never passed to `git add` below.
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
-   destination's pin too (Steps 4, 5 and 6; edits to existing snapshots). Carry them as
+   destination's pin too (Steps 4, 5, 5d and 6; edits to existing snapshots). Carry them as
    reviewed hunks; read the patch before applying it:
 
    ```bash

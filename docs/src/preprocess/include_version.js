@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
+const { releaseNameFor, versionLabel } = require("../release_names");
 
 // Load version defaults from config file (source of truth for version→type mapping)
 const developerVersionConfig = require(path.join(__dirname, "../../developer_version_config.json"));
@@ -130,6 +131,16 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   // Step 2: Replace new release-type-aware macros
   markdownContent = markdownContent.replaceAll(`#release_version`, releaseVersion);
   markdownContent = markdownContent.replaceAll(`#release_network`, releaseNetwork);
+  // Release line name ("Tierra") and full label ("Tierra (v6.0.0)"); an unnamed
+  // line falls back to the version so prose never renders an empty word.
+  markdownContent = markdownContent.replaceAll(
+    `#release_label`,
+    versionLabel(releaseVersion),
+  );
+  markdownContent = markdownContent.replaceAll(
+    `#release_name`,
+    releaseNameFor(releaseVersion) || `v${releaseVersion}`,
+  );
   markdownContent = markdownContent.replaceAll(`#api_ref_version`, apiRefVersion);
   if (markdownContent.includes("#include_foundation_version")) {
     const foundation = foundationVersion();

@@ -20,7 +20,12 @@ function loadSiteUrl() {
       path.join(__dirname, "..", "docusaurus.config.js"),
       "utf-8",
     );
-    const match = config.match(/^\s*url:\s*["']([^"']+)["']/m);
+    // The config declares SITE_URL once and derives `url` from it. Match the
+    // constant rather than any `url:` key: the JSON-LD Organization block also
+    // has a `url:` (aztec.network), which is not the docs origin.
+    const match =
+      config.match(/^const SITE_URL = ["']([^"']+)["']/m) ||
+      config.match(/^\s*url:\s*["']([^"']+)["']/m);
     if (match) return match[1].replace(/\/$/, "");
   } catch {
     // fall through to default
@@ -494,7 +499,14 @@ function main() {
   // docs, so they are always appended (see write logic below).
   let communitySection =
     "\n\n## Optional\n\n" +
-    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n";
+    "- [Aztec website](https://aztec.network): Aztec Network home page.\n" +
+    "- [Noir language documentation](https://noir-lang.org/docs): The language Aztec smart contracts are written in, documented separately.\n" +
+    "- [Aztec starter repository](https://github.com/AztecProtocol/aztec-starter): Template project for a new Aztec app.\n" +
+    "- [Aztec MCP server](https://github.com/AztecProtocol/mcp-server): Code search, doc search, and example discovery for AI coding tools.\n" +
+    "- [Aztec on GitHub](https://github.com/AztecProtocol): Source code, examples, and community resources.\n" +
+    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n" +
+    "- [Community forum](https://forum.aztec.network): Protocol discussion and governance proposals.\n" +
+    "- [Discord](https://discord.com/invite/JtqzkdeQ6G): Developer and operator support channels.\n";
   let fullContentSection = "\n\n---\n\n## API Reference Documentation\n\n";
 
   // Hub-and-spoke (the pattern used by Cloudflare/Next/Svelte): the root
