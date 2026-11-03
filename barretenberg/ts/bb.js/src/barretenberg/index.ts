@@ -16,6 +16,7 @@ export {
   flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  type AztecClientProveOptions,
   type AztecClientProveResult,
   type UltraHonkBackendOptions,
   type VerifierTarget,
@@ -33,10 +34,57 @@ export type CircuitOptions = {
  */
 export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
+  /** The generated base types its backend with only `call` and `destroy`. */
+  private readonly transport: IpcClientAsync;
+  private interruptsHonoured = true;
+  private readonly loggedOnce = new Set<string>();
 
   constructor(backend: IpcClientAsync, options: BackendOptions) {
     super(backend);
+    this.transport = backend;
     this.options = options;
+  }
+
+  /**
+   * Whether aborting an {@link AztecClientBackend.prove} call can stop the command bb is running. When false,
+   * an abort takes effect between commands. False for the direct `Wasm` backend, the single-thread wasm module,
+   * native bb on Windows, and once a bb binary has not honoured an interrupt (an older `bbPath` binary reads
+   * true until its first abort).
+   */
+  get interruptible(): boolean {
+    return this.interruptsHonoured && this.transport.interruptible === true;
+  }
+
+  /**
+   * Asks bb to stop the Chonk command it is running; bb then fails each Chonk load, accumulate and prove until
+   * `clearInterrupt`.
+   * Returns whether the request was delivered.
+   * @internal
+   */
+  interrupt(): boolean {
+    return this.interruptible && this.transport.interrupt?.() === true;
+  }
+
+  /**
+   * Records that bb did not honour an interrupt, so later aborts on this instance take effect between commands.
+   * @internal
+   */
+  interruptNotHonoured(cause: string): void {
+    this.interruptsHonoured = false;
+    this.logOnce(`${cause}; aborting a Chonk proof on this instance now takes effect between commands`);
+  }
+
+  /** @internal */
+  log(message: string): void {
+    this.options.logger?.(message);
+  }
+
+  /** @internal */
+  logOnce(message: string): void {
+    if (!this.loggedOnce.has(message)) {
+      this.loggedOnce.add(message);
+      this.log(message);
+    }
   }
 
   /**
@@ -189,6 +237,10 @@ let barretenbergSingleton: Barretenberg | undefined;
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync> | undefined;
 let barretenbergSyncSingleton: BarretenbergSync | undefined;
 
+/**
+ * The generated API with synchronous calls. A call blocks the calling thread until bb answers, so nothing can
+ * abort it; a Chonk proof that must be abortable goes through {@link AztecClientBackend} on a {@link Barretenberg}.
+ */
 export class BarretenbergSync extends SyncApi {
   /**
    * Create a new BarretenbergSync instance.

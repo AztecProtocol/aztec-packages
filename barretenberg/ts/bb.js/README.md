@@ -64,6 +64,38 @@ does not unless `application/wasm` is added to `gzip_types`. Where you cannot co
 cost of the compiled-code cache. `wasmPath` also takes any other build of the module, and is used verbatim:
 unlike earlier versions, bb.js no longer rewrites the filename to pick a `-threads` variant.
 
+### Aborting a Chonk proof
+
+Pass an `AbortSignal` to `AztecClientBackend.prove` to stop a proof that is no longer wanted:
+
+```typescript
+const controller = new AbortController();
+const proving = backend.prove(witnesses, vks, { signal: controller.signal });
+// Later, for example when the user cancels the transaction:
+controller.abort();
+await proving; // rejects with controller.signal.reason
+```
+
+When `api.interruptible` is true (native bb as a spawned process, except on Windows, and the multithreaded wasm
+module in a worker), bb stops the command it is running at its next checkpoint and fails the rest of the proof.
+`prove()` settles once bb has confirmed the interrupt is cleared, so the same instance, with its CRS, is ready for the
+next proof. Elsewhere (the direct `Wasm` backend, the single-thread module, native bb on Windows), the command in hand
+finishes and no further one is issued.
+
+| When `abort()` happens | `prove()` |
+|---|---|
+| Before the call, or while an earlier `prove()` on the same instance runs | Rejects with the reason at once; nothing reaches bb |
+| While bb proves | Rejects with the reason once bb has stopped |
+| During the verification or compression that follow proving | The step in hand finishes, the rest is skipped; rejects with the reason |
+| After `prove()` settled | No effect |
+
+`prove()` calls on one `Barretenberg` instance run one after another, so a proof started right after an abort waits
+for the aborted one to settle. A failure that races the abort, such as a crashed bb or a real proving error, is
+rethrown instead of the reason. An abort stops whichever Chonk command bb is running, so do not issue your own
+`chonk*` commands on an instance while an abortable `prove()` is in flight. An older bb binary passed as `bbPath`
+ignores interrupts: its first aborted proof runs to the end, and `interruptible` reads false from then on.
+`BarretenbergSync` calls block their thread and cannot be aborted.
+
 ### Browser Context
 
 It's recommended to use a dynamic import. This allows the developer to pick the time at which the package (several MB

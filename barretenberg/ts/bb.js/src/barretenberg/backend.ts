@@ -1,4 +1,4 @@
-import { ChonkProof, fromChonkProof, toChonkProof } from '@aztec-foundation/bb.js-api';
+import { BbError, ChonkProof, ChonkProveResponse, fromChonkProof, toChonkProof } from '@aztec-foundation/bb.js-api';
 import { Decoder, Encoder } from 'msgpackr';
 import { ungzip } from 'pako';
 
@@ -288,6 +288,89 @@ export interface AztecClientProveResult {
   compressedProof?: Uint8Array;
 }
 
+/** Options for {@link AztecClientBackend.prove}. */
+export type AztecClientProveOptions = {
+  /** Compress the proof after verifying it. */
+  compress?: boolean;
+  /** Aborts the proof; see {@link AztecClientBackend.prove} for what an abort does at each point. */
+  signal?: AbortSignal;
+};
+
+/**
+ * What bb answers a Chonk command with once an interrupt stopped it (`INTERRUPTED_MESSAGE` in bb's
+ * `common/interrupt.hpp`).
+ */
+export const INTERRUPTED_MESSAGE = 'bb: interrupted';
+
+/**
+ * How long a fence waits for bb to report an interrupt it was sent. A signal or an atomic store reaches a scheduled
+ * process within microseconds, so a binary silent for a second ignores interrupts or is starved of CPU; a second
+ * tolerates heavy scheduler delay and still keeps an abort prompt for a user.
+ */
+const FENCE_DEADLINE_MS = 1000;
+
+/** Spacing of a fence's reads: adds at most this to an abort, and bounds a fence at 100 reads. */
+const FENCE_RETRY_MS = 10;
+
+/**
+ * The last `prove()` of each instance, settling once it and every earlier one has. A proof issued before an aborted
+ * one's fence would reach bb ahead of that fence's `clearInterrupt` and fail on the flag still set.
+ */
+const proveTurns = new WeakMap<Barretenberg, Promise<void>>();
+
+type FenceOutcome = 'cleared' | 'unsupported' | 'transport-failed' | 'deadline';
+
+function isInterruption(error: unknown): boolean {
+  return error instanceof BbError && error.message === INTERRUPTED_MESSAGE;
+}
+
+/** Waits for `turn`, or rejects with the signal's reason as soon as it aborts. */
+function waitForTurn(turn: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    return turn;
+  }
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    void turn.then(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    });
+  });
+}
+
+/**
+ * Reads `clearInterrupt` until bb reports it cleared an interrupt. Transport calls have no timeout, so a deadline races
+ * the reads; a read still pending then settles on its own.
+ */
+async function readUntilInterruptCleared(api: Barretenberg): Promise<FenceOutcome> {
+  let expired = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<FenceOutcome>(resolve => {
+    timer = setTimeout(() => resolve('deadline'), FENCE_DEADLINE_MS);
+  });
+  const reads = (async (): Promise<FenceOutcome> => {
+    while (!expired) {
+      try {
+        if ((await api.clearInterrupt({})).interrupted) {
+          return 'cleared';
+        }
+      } catch (error) {
+        // bb answers ClearInterrupt with an error only when it does not know the command.
+        return error instanceof BbError ? 'unsupported' : 'transport-failed';
+      }
+      await new Promise(resolve => setTimeout(resolve, FENCE_RETRY_MS));
+    }
+    return 'deadline';
+  })();
+  try {
+    return await Promise.race([reads, deadline]);
+  } finally {
+    expired = true;
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Flatten a structured bb.js ChonkProof into a flat array of field element Uint8Arrays.
  * The order matches the C++ ChonkProof::to_field_elements() layout.
@@ -322,10 +405,23 @@ export class AztecClientBackend {
     });
   }
 
+  /**
+   * Proves a Chonk transaction from one witness and one precomputed VK per circuit.
+   *
+   * `prove()` calls on one {@link Barretenberg} run one after another. With `options.signal`, an abort rejects with
+   * `signal.reason` once bb has stopped and the instance is ready for the next proof:
+   * - before the call, or while an earlier `prove()` on the instance runs: nothing is sent to bb;
+   * - while bb proves, on an {@link Barretenberg.interruptible} instance: bb stops the command it is running;
+   * - otherwise, and during the verification and compression that follow: the command in hand finishes and no
+   *   further one is issued.
+   *
+   * Argument errors are thrown before an abort is looked at, and a failure that races the abort is rethrown in place
+   * of the reason.
+   */
   async prove(
     witnessBuf: Uint8Array[],
     vksBuf?: Uint8Array[],
-    options?: { compress?: boolean },
+    options?: AztecClientProveOptions,
   ): Promise<AztecClientProveResult> {
     vksBuf = vksBuf ?? [];
     if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
@@ -336,7 +432,6 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
       if (!vksBuf[i]?.length) {
         const functionName = this.circuitNames[i] || `circuit_${i}`;
@@ -347,13 +442,48 @@ export class AztecClientBackend {
       }
     }
 
-    // Pipelined: every command is issued before any is awaited, so proving pays one round trip rather than one per
-    // command. Inputs are validated above so that nothing can throw between issuing and awaiting. Setup is awaited
-    // first so a failure reports the command that failed, not chonkProve's knock-on error.
+    const signal = options?.signal;
+    signal?.throwIfAborted();
+    const { previous, release } = this.joinTurn();
+    try {
+      if (previous) {
+        await waitForTurn(previous, signal);
+        // The abort can land after the turn passed and before this resumes.
+        signal?.throwIfAborted();
+      }
+      return await this.proveInTurn(witnessBuf, vksBuf, signal, options?.compress);
+    } finally {
+      release();
+    }
+  }
+
+  /** Queues a `prove()` on this instance; with no `previous`, it may start at once. */
+  private joinTurn(): { previous?: Promise<void>; release: () => void } {
+    const previous = proveTurns.get(this.api);
+    let release!: () => void;
+    const settled = new Promise<void>(resolve => (release = resolve));
+    const tail = previous ? previous.then(() => settled) : settled;
+    proveTurns.set(this.api, tail);
+    void tail.then(() => {
+      if (proveTurns.get(this.api) === tail) {
+        proveTurns.delete(this.api);
+      }
+    });
+    return { previous, release };
+  }
+
+  private async proveInTurn(
+    witnessBuf: Uint8Array[],
+    vksBuf: Uint8Array[],
+    signal: AbortSignal | undefined,
+    compress: boolean | undefined,
+  ): Promise<AztecClientProveResult> {
     // CircuitKind values travel as u8 on the wire.
-    const setup: Promise<unknown>[] = [this.api.chonkStart({ kinds: Uint8Array.from(this.circuitKinds) })];
+    const commands: (() => Promise<unknown>)[] = [
+      () => this.api.chonkStart({ kinds: Uint8Array.from(this.circuitKinds) }),
+    ];
     for (let i = 0; i < this.acirBuf.length; i++) {
-      setup.push(
+      commands.push(() =>
         this.api.chonkLoad({
           circuit: {
             name: this.circuitNames[i] || `circuit_${i}`,
@@ -363,17 +493,17 @@ export class AztecClientBackend {
           kind: this.circuitKinds[i],
         }),
       );
-      setup.push(this.api.chonkAccumulate({ witness: witnessBuf[i] || new Uint8Array(0) }));
+      commands.push(() => this.api.chonkAccumulate({ witness: witnessBuf[i] || new Uint8Array(0) }));
     }
-    const setupDone = Promise.all(setup);
-    const proveCall = this.api.chonkProve({});
-    // Both are awaited below; these only stop the one still pending from being reported as an unhandled rejection.
-    setupDone.catch(() => {});
-    proveCall.catch(() => {});
+    commands.push(() => this.api.chonkProve({}));
+    const proveResult = (
+      signal && !this.api.interruptible
+        ? await this.runOneAtATime(commands, signal)
+        : await this.runPipelined(commands, signal)
+    ) as ChonkProveResponse;
 
-    await setupDone;
-    const proveResult = await proveCall;
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
+    const lastIdx = this.acirBuf.length - 1;
     if (this.circuitKinds[lastIdx] !== CircuitKind.HidingKernel) {
       throw new AztecClientBackendError(
         `Last circuit must be tagged CircuitKind.HidingKernel, got ${this.circuitKinds[lastIdx]}.`,
@@ -383,16 +513,153 @@ export class AztecClientBackend {
 
     const proofFields = flattenChonkProofFields(proveResult.proof);
 
+    // bb does not interrupt verification or compression: an abort lets the one running finish and skips the rest.
+    // This first check catches an abort fired from a promise continuation since the commands were checked.
+    await this.abandonIfAborted(signal);
     // Verify using native proof directly to avoid redundant encode/decode cycle
     if (!(await this.verifyNative(proveResult.proof, hidingKernelVk))) {
       throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
 
-    const compressedProof = options?.compress
+    await this.abandonIfAborted(signal);
+    const compressedProof = compress
       ? (await this.api.chonkCompressProof({ proof: proveResult.proof })).compressedProof
       : undefined;
 
+    await this.abandonIfAborted(signal);
     return { proofFields, proof, vk: hidingKernelVk, compressedProof };
+  }
+
+  /**
+   * Issues every command before awaiting any, so proving pays one round trip rather than one per command, and returns
+   * the last one's result. Inputs are validated before this, so nothing throws between issuing and awaiting.
+   */
+  private async runPipelined(commands: (() => Promise<unknown>)[], signal?: AbortSignal): Promise<unknown> {
+    const issued = commands.map(issue => issue());
+    let startReplied = false;
+    let fenceDecided = false;
+    let interruptRequested = false;
+    let interruptDelivered = false;
+    // Held until chonkStart answers, since bb may still be running another caller's command queued ahead of it.
+    // Never sent once the fence is decided: a flag set after it would fail the next proof.
+    const requestInterrupt = () => {
+      if (signal?.aborted && startReplied && !fenceDecided && !interruptRequested) {
+        interruptRequested = true;
+        interruptDelivered = this.api.interrupt();
+      }
+    };
+    const onStartReply = () => {
+      startReplied = true;
+      requestInterrupt();
+    };
+    void issued[0].then(onStartReply, onStartReply);
+    signal?.addEventListener('abort', requestInterrupt, { once: true });
+    try {
+      // Every answer is awaited before any failure is reported: a fence must follow the last of them, and the first
+      // failure in issue order is the cause, later ones its knock-on errors.
+      const results = await Promise.allSettled(issued);
+      fenceDecided = true;
+      const failures = results.flatMap(result => (result.status === 'rejected' ? [result.reason] : []));
+      if (signal?.aborted) {
+        return await this.abandon(signal, failures, interruptDelivered);
+      }
+      await this.throwFirstFailure(failures);
+      return (results[results.length - 1] as PromiseFulfilledResult<unknown>).value;
+    } finally {
+      signal?.removeEventListener('abort', requestInterrupt);
+    }
+  }
+
+  /**
+   * Issues one command at a time, for a backend that cannot stop a running command, so that an abort takes effect
+   * between commands. Returns the last one's result.
+   */
+  private async runOneAtATime(commands: (() => Promise<unknown>)[], signal: AbortSignal): Promise<unknown> {
+    this.api.logOnce(
+      'this bb backend cannot stop a running command; aborting a Chonk proof takes effect between commands',
+    );
+    let result: unknown;
+    for (let i = 0; i < commands.length; i++) {
+      if (i > 0) {
+        // A direct wasm call answers synchronously, so without a macrotask an abort from a timer or an event could not
+        // land between commands.
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      if (signal.aborted) {
+        return await this.abandon(signal, [], false);
+      }
+      try {
+        result = await commands[i]();
+      } catch (error) {
+        if (signal.aborted) {
+          return await this.abandon(signal, [error], false);
+        }
+        await this.throwFirstFailure([error]);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Rethrows the first failure. An interruption with no abort comes from an interrupt whose fence gave up; clearing it
+   * keeps it from failing the next proof too.
+   */
+  private async throwFirstFailure(failures: unknown[]): Promise<void> {
+    if (failures.length === 0) {
+      return;
+    }
+    if (failures.some(isInterruption)) {
+      await this.clearInterruptOnce();
+    }
+    throw failures[0];
+  }
+
+  private async abandonIfAborted(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) {
+      await this.abandon(signal, [], false);
+    }
+  }
+
+  /**
+   * Ends an aborted proof once bb's interrupt flag is clear: rethrows the first failure that is not the interruption
+   * (one that raced the abort), or rejects with the reason.
+   */
+  private async abandon(signal: AbortSignal, failures: unknown[], interruptDelivered: boolean): Promise<never> {
+    await this.fence(interruptDelivered);
+    const raced = failures.findIndex(error => !isInterruption(error));
+    if (raced >= 0) {
+      throw failures[raced];
+    }
+    if (failures.length > 0) {
+      this.api.log(`Chonk proof aborted: bb answered "${INTERRUPTED_MESSAGE}"`);
+    }
+    throw signal.reason;
+  }
+
+  /**
+   * bb answers in order, so once every command has answered, a `clearInterrupt` that reads true proves the interrupt
+   * arrived and was cleared before anything issued after it. A signal can arrive after the last answer, hence the
+   * repeated reads.
+   */
+  private async fence(interruptDelivered: boolean): Promise<void> {
+    if (!interruptDelivered) {
+      await this.clearInterruptOnce();
+      return;
+    }
+    const outcome = await readUntilInterruptCleared(this.api);
+    if (outcome === 'unsupported') {
+      this.api.interruptNotHonoured('this bb binary does not support interrupts');
+    } else if (outcome === 'deadline') {
+      this.api.interruptNotHonoured(`bb did not report an interrupt within ${FENCE_DEADLINE_MS} ms`);
+    }
+  }
+
+  /**
+   * Releases bb's Chonk session and clears its interrupt flag. Errors are ignored: an older binary does not know the
+   * command, and a dead transport leaves nothing to clear.
+   */
+  private async clearInterruptOnce(): Promise<void> {
+    await this.api.clearInterrupt({}).catch(() => {});
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
