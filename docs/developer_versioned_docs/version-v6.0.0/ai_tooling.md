@@ -109,7 +109,7 @@ These resources help you understand Aztec concepts, read docs, or provide additi
   - [Aztec.nr API reference](./docs/aztec-nr/api.mdx) - generated from aztec-nr source with `nargo doc`
   - [TypeScript API reference](./docs/aztec-js/typescript_api_reference.mdx) - generated from yarn-project packages with TypeDoc
 
-  These are especially useful as context for code generation since they reflect the current API surface. Agents can read both as markdown: the [Aztec.nr index](pathname:///aztec-nr-api/mainnet/llms.txt) links a page per module and item, and the [TypeScript index](pathname:///typescript-api/mainnet/llms.txt) a page per exported name.
+  These are especially useful as context for code generation since they reflect the current API surface. Agents can read both as markdown: the [Aztec.nr index](https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt) links a page per module and item, and the [TypeScript index](https://docs.aztec.network/typescript-api/mainnet/llms.txt) a page per exported name.
 
 - **llms.txt** - The docs site publishes [llms.txt](https://docs.aztec.network/llms.txt), a navigational index of every page following the [llmstxt.org](https://llmstxt.org) standard, and [llms-full.txt](https://docs.aztec.network/llms-full.txt), the complete documentation in a single file. Many AI tools can consume these files directly to index documentation.
 - **Markdown for any page** - Append `.md` to any page URL (for example `https://docs.aztec.network/developers/overview.md`), or request the normal URL with an `Accept: text/markdown` header, to get the page as clean markdown instead of HTML. This is the best format to hand to an agent.
