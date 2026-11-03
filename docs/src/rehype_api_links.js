@@ -1,7 +1,6 @@
 // Docs pages link the Aztec.nr API reference as HTML. In the markdown twins those links point at the
 // page's markdown sibling instead, which scripts/aztec_nr_api_markdown.mjs writes after the build.
 
-// Targets that are not a reference page: left as written.
 const NOT_A_PAGE = /\.(md|txt|js|css)$/;
 
 function markdownTarget(href, prefixes) {

@@ -58,6 +58,11 @@ test("splitPackage merges names that differ only in case and keeps every kind", 
   assert.doesNotMatch(pages.map((p) => p.markdown).join(""), /Quick Import|from '@aztec\/foundation'/);
 });
 
+test("a comment flattened to one line of backticks does not hide the declarations after it", () => {
+  const markdown = "## Classes\n\n### Wallet\n```typescript new Wallet() ```\n\n### ZWallet\nZ.\n";
+  assert.deepEqual(splitPackage(markdown, options).map((p) => p.name), ["Wallet", "ZWallet"]);
+});
+
 test("every declaration of the committed reference lands in exactly one page", () => {
   const dir = new URL("../../static/typescript-api/mainnet/", import.meta.url);
   for (const { name } of packages.documentedPackages()) {

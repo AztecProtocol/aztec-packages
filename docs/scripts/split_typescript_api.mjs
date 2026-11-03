@@ -8,11 +8,11 @@ import { pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { apiReferenceDirs, docsInstances } = require("../src/network_docs.js");
+const { fencedLines } = require("../src/markdown_fences.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 const { documentedPackages, npmName } = require("./typescript_api_generation/packages.js");
 
 const KINDS = { Classes: "class", Interfaces: "interface", Functions: "function", Types: "type", Enums: "enum" };
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
 /** A package file's declarations in file order; sections other than the five kinds are skipped. */
@@ -20,11 +20,11 @@ export function declarations(markdown) {
   const found = [];
   let kind = null;
   let current = null;
-  let fence = false;
-  for (const line of markdown.split("\n")) {
-    if (FENCE.test(line)) fence = !fence;
-    const section = !fence && line.match(/^## (.+)$/);
-    const heading = !fence && line.match(/^### (.+)$/);
+  const lines = markdown.split("\n");
+  const fenced = fencedLines(lines);
+  for (const [i, line] of lines.entries()) {
+    const section = !fenced[i] && line.match(/^## (.+)$/);
+    const heading = !fenced[i] && line.match(/^### (.+)$/);
     if (section) {
       kind = KINDS[section[1].trim()] ?? null;
       current = null;

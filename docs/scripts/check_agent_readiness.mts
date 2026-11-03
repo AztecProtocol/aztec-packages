@@ -8,7 +8,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import fences from "../src/markdown_fences.js";
 import networkDocs from "../src/network_docs.js";
+import { splitPackage } from "./split_typescript_api.mjs";
+import tsPackages from "./typescript_api_generation/packages.js";
 import siteUrl from "../src/site_url.js";
 
 export const SITE_ORIGIN: string = siteUrl.SITE_URL;
@@ -17,26 +20,12 @@ export const SITE_ORIGIN: string = siteUrl.SITE_URL;
 const PREVIEW_ONLY = /^\/aztec-nr-api\/next(\/|$)/;
 const API_REFERENCE = /^(aztec-nr-api|typescript-api)\//;
 
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /** The text outside fenced code blocks and inline code spans, line breaks kept. */
 export function proseOf(markdown: string): string {
-  let fence = "";
-  return markdown
-    .split("\n")
-    .map((line) => {
-      const open = FENCE.exec(line)?.[1];
-      if (fence) {
-        if (open && open[0] === fence[0] && open.length >= fence.length && !line.trim().slice(open.length)) fence = "";
-        return "";
-      }
-      if (open) {
-        fence = open;
-        return "";
-      }
-      return line.replace(/(`+)(?:(?!\1)[\s\S])*?\1/g, "");
-    })
-    .join("\n");
+  const lines = markdown.split("\n");
+  const fenced: boolean[] = fences.fencedLines(lines);
+  return lines.map((line, i) => (fenced[i] ? "" : line.replace(/(`+)(?:(?!\1)[\s\S])*?\1/g, ""))).join("\n");
 }
 
 /** Every link and image target in a markdown text, outside code, with the 1-based line it starts on. */
@@ -168,9 +157,14 @@ export function startHereProblems(llms: string, expected: { title: string; url: 
 /**
  * API reference folders the build lacks or only half converts: each folder `apiReferenceDirs`
  * lists needs its scoped llms.txt, an Aztec.nr folder a markdown page beside every HTML page, and a
- * TypeScript folder per-name pages for every package file. No two pages may differ only in case.
+ * TypeScript folder every page `namePages` expects (package file → page paths). No two pages may
+ * differ only in case.
  */
-export function apiCoverage(files: Set<string>, dirs: { kind: string; dir: string }[]): Problem[] {
+export function apiCoverage(
+  files: Set<string>,
+  dirs: { kind: string; dir: string }[],
+  namePages = new Map<string, string[]>(),
+): Problem[] {
   const problems: Problem[] = [];
   for (const { kind, dir } of dirs) {
     if (!files.has(`${dir}/llms.txt`)) problems.push({ file: dir, message: "an API reference folder with no scoped llms.txt" });
@@ -184,8 +178,8 @@ export function apiCoverage(files: Set<string>, dirs: { kind: string; dir: strin
       if (kind === "aztec-nr" && page.endsWith(".html") && !files.has(file.replace(/\.html$/, ".md"))) {
         problems.push({ file, message: "an API reference page with no markdown page" });
       }
-      if (kind === "typescript" && /^[^/]+\.md$/.test(page) && !inDir.some((f) => f.startsWith(file.replace(/\.md$/, "/")))) {
-        problems.push({ file, message: "a TypeScript package with no per-name pages" });
+      for (const expected of kind === "typescript" ? (namePages.get(file) ?? []) : []) {
+        if (!files.has(expected)) problems.push({ file, message: `declares a name with no page ${expected}` });
       }
     }
   }
@@ -195,16 +189,8 @@ export function apiCoverage(files: Set<string>, dirs: { kind: string; dir: strin
 /** Lines of fenced code ending in a `\` continuation that a blank line then cuts off. */
 export function splitContinuations(markdown: string): number[] {
   const lines = markdown.split("\n");
-  const hits: number[] = [];
-  let fence = "";
-  lines.forEach((line, i) => {
-    const open = FENCE.exec(line)?.[1];
-    if (fence) {
-      if (open && open[0] === fence[0] && open.length >= fence.length && !line.trim().slice(open.length)) fence = "";
-      else if (/\\$/.test(line) && lines[i + 1]?.trim() === "") hits.push(i + 1);
-    } else if (open) fence = open;
-  });
-  return hits;
+  const fenced: boolean[] = fences.fencedLines(lines);
+  return lines.flatMap((line, i) => (fenced[i] && fenced[i + 1] && /\\$/.test(line) && lines[i + 1].trim() === "" ? [i + 1] : []));
 }
 
 export const sitemapPaths = (xml: string) =>
@@ -234,7 +220,17 @@ export function main(buildDir: string, env = process.env): number {
   const { problems, checked, previewOnly } = brokenLinks(pages, files, { production, llmsOrigin });
   problems.push(...missingTwins(sitemapPaths(read("sitemap.xml")), files));
   problems.push(...startHereProblems(read("llms.txt"), networkDocs.startHereLinks(instances, llmsOrigin)));
-  problems.push(...apiCoverage(files, networkDocs.apiReferenceDirs(instances[0])));
+  const apiDirs = networkDocs.apiReferenceDirs(instances[0]);
+  const namePages = new Map<string, string[]>();
+  for (const { kind, dir } of apiDirs) {
+    for (const { name: pkg } of kind === "typescript" ? tsPackages.documentedPackages() : []) {
+      const file = `${dir}/${pkg}.md`;
+      if (!files.has(file)) continue;
+      const pages = splitPackage(read(file), { pkg, npmName: "", version: "", index: "" });
+      namePages.set(file, pages.map((page: { file: string }) => `${dir}/${page.file}`));
+    }
+  }
+  problems.push(...apiCoverage(files, apiDirs, namePages));
   for (const { file, text } of pages) {
     for (const line of splitContinuations(text)) {
       problems.push({ file, line, message: "a blank line splits this `\\` continuation" });

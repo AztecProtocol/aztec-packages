@@ -42,11 +42,21 @@ it("turns a module's tables and item lists into GFM tables and one line per item
 it("drops hidden content and links without an http(s) target", async () => {
   const html = `<main><div><a href="../index.html">aztec-nr</a> - x</div><h1>Module x</h1><div id="page-content">
     <p>shown</p><p hidden>one</p><div aria-hidden="true">two</div><span style="display: none">three</span><!-- four -->
+    <p style="visibility: hidden">five</p><pre><code>code<span hidden>six</span></code></pre>
+    <code class="code-header">pub fn f()<span aria-hidden="true">seven</span></code>
     <p><a href="javascript:alert(1)">js</a> <a href="">empty</a> <a href="https://noir-lang.org/docs">ext</a> <a href="../y/">dir</a></p>
   </div></main>`;
   const md = await convert(html, "x/index.html");
   assert.match(md, /shown/);
-  assert.doesNotMatch(md, /one|two|three|four|javascript/);
+  assert.match(md, /```rust\ncode\n```\n\n```rust\npub fn f\(\)\n```/);
+  assert.doesNotMatch(md, /one|two|three|four|five|six|seven|javascript/);
   assert.match(md, /^js empty \[ext\]\(https:\/\/noir-lang\.org\/docs\) \[dir\]\(\/aztec-nr-api\/mainnet\/y\/index\.md\)$/m);
   assert.strictEqual(await convert("<p>not a nargo doc page</p>", "x.html"), null);
+});
+
+it("unescapes underscores in prose only, also around a code block that holds a fence", async () => {
+  const html = '<main><h1>Module x</h1><div id="page-content"><p>see a_b</p><pre><code>```\nfoo\\_bar\n```\nlast\\_line</code></pre></div></main>';
+  const md = await convert(html, "x/index.html");
+  assert.match(md, /^see a_b$/m);
+  assert.match(md, /^````rust\n```\nfoo\\_bar\n```\nlast\\_line\n````$/m);
 });

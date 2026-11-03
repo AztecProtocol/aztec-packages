@@ -17,6 +17,7 @@ import { unified } from "unified";
 
 const require = createRequire(import.meta.url);
 const { apiReferenceDirs, docsInstances } = require("../src/network_docs.js");
+const { fencedLines } = require("../src/markdown_fences.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 
 const parser = unified().use(rehypeParse);
@@ -39,7 +40,7 @@ function isHidden(node) {
     hidden != null ||
     String(ariaHidden) === "true" ||
     String(id ?? "").startsWith("search-") ||
-    /display\s*:\s*none/i.test(String(style ?? ""))
+    /display\s*:\s*none|visibility\s*:\s*(hidden|collapse)/i.test(String(style ?? ""))
   );
 }
 
@@ -64,9 +65,14 @@ function markdownHref(href, pagePath, folder) {
   return target + url.hash;
 }
 
+function dropHidden(node) {
+  if (!node.children) return;
+  node.children = node.children.filter((child) => !isHidden(child));
+  node.children.forEach(dropHidden);
+}
+
 function rewrite(node, context) {
   node.children = node.children.flatMap((child) => {
-    if (isHidden(child)) return [];
     if (!isElement(child)) return [child];
     // A signature: impl headers sit in an <h3>, method and field signatures beside their docs.
     const header = isElement(child, "h3") && child.children.find((c) => isElement(c, "code") && classes(c).includes("code-header"));
@@ -115,6 +121,8 @@ export function convertRustdocPage(html, { pagePath, folder, banner }) {
   const body = select("main", parser.parse(html));
   const content = body && select("#page-content", body);
   if (!content) return null;
+  // Before any text is read: signatures and code blocks are flattened with toString.
+  dropHidden(body);
   const title = toString(select("h1", body) ?? text("")).trim();
   const crumbs = body.children.find((c) => isElement(c, "div") && !classes(c).length);
   const module = crumbs ? toString(crumbs).split(" - ").slice(1).join(" - ").trim() : "";
@@ -132,13 +140,10 @@ export function convertRustdocPage(html, { pagePath, folder, banner }) {
 // remark escapes every `_`, but CommonMark never reads a run of them between two alphanumerics as
 // emphasis; unescaped, a search for `assert_current_call_valid_authwit` finds the title and lists.
 function unescapeIntraword(markdown) {
-  let code = false;
-  return markdown
-    .split("\n")
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) code = !code;
-      return code ? line : line.replace(/(?<=[A-Za-z0-9])(?:\\_)+(?=[A-Za-z0-9])/g, (run) => run.replaceAll("\\", ""));
-    })
+  const lines = markdown.split("\n");
+  const fenced = fencedLines(lines);
+  return lines
+    .map((line, i) => (fenced[i] ? line : line.replace(/(?<=[A-Za-z0-9])(?:\\_)+(?=[A-Za-z0-9])/g, (run) => run.replaceAll("\\", ""))))
     .join("\n");
 }
 
@@ -185,4 +190,6 @@ export function main(buildDir, env = process.env) {
   return failed ? 1 : 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = main(process.argv[2] ?? "build");
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  process.exitCode = main(process.argv[2] ?? "build");
+}

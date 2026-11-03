@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { fencedLines } = require("./markdown_fences");
 const { versionLabel } = require("./release_names");
 
 const NETWORKS = ["mainnet", "testnet"];
@@ -165,15 +166,9 @@ function networkLines(instances) {
  * section's H2, so llms.txt keeps a single H1.
  */
 function networkSection(instances, networksPage, siteUrl) {
-  let fence = false;
-  const page = networksPage
-    .trim()
-    .split("\n")
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) fence = !fence;
-      return !fence && /^#{1,4} /.test(line) ? `##${line}` : line;
-    })
-    .join("\n");
+  const lines = networksPage.trim().split("\n");
+  const fenced = fencedLines(lines);
+  const page = lines.map((line, i) => (!fenced[i] && /^#{1,4} /.test(line) ? `##${line}` : line)).join("\n");
   return [
     "## Networks and versions",
     "",

@@ -8,7 +8,8 @@
 #   check_source_urls.sh
 #   check_source_urls.sh --self-test
 #
-# Not read: the generated API references, the URL snapshots and yarn.lock. Not resolved: tag
+# Not read: the URL snapshots and yarn.lock. The committed API references are read: their URLs come
+# from upstream doc comments, which only a redirect can fix. Not resolved: tag
 # pages, /search and /aztec-nr-api/next/ (built only in previews). A URL finished at build or run
 # time (a `${...}` template after the host, or a macro such as #release_version) is counted as
 # deferred.
