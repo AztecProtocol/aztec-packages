@@ -122,8 +122,6 @@ function self_test {
     "hdr.svg|[[headers]]\nfor = \"/*\"\n[headers.values]\nfrom = \"/hdr.svg\"|fail"
     "sub.svg|[[redirects]]\nfrom = \"/real\"\nto = \"/x\"\n[redirects.headers]\nfrom = \"/sub.svg\"|fail"
     "subq.svg|[[redirects]]\nfrom = \"/real2\"\nto = \"/x\"\n[ redirects . query ] # q\nfrom = \"/subq.svg\"|fail"
-    "ml.svg|[[redirects]]\nfrom = \"\"\"\nfrom = \"/ml.svg\"\n\"\"\"\nto = \"/x\"|fail"
-    "mlto.svg|[[redirects]]\nfrom = \"/real3\"\nto = '''\nfrom = \"/mlto.svg\"\n'''|fail"
     "aztec-nr-api/mainnet/gone.html||ignored"
   )
   local fixture file rules verdict expected="" listed="" toml=""
@@ -192,6 +190,16 @@ function self_test {
     st=0
     (NETLIFY_TOML="$tmp/missing.toml" docs_routes_init_redirects) 2>/dev/null || st=$?
     [[ "$st" != 0 ]] || { echo "self-test: a missing netlify.toml initialized" >&2; exit 1; }
+
+    # A multi-line string can hide a `from` line, whichever delimiter opens it.
+    local body
+    for body in $'from = """\nfrom = "/gone.svg"\n"""' $'from = "/real"\nto = \'\'\'\n"""\nfrom = "/gone.svg"\n\'\'\'' \
+      $'# a """ in a comment\nfrom = "/real"'; do
+      printf '[[redirects]]\n%s\n' "$body" >"$tmp/multiline.toml"
+      st=0
+      (NETLIFY_TOML="$tmp/multiline.toml" docs_routes_init_redirects) 2>/dev/null || st=$?
+      [[ "$st" != 0 ]] || { printf 'self-test: a multi-line string was read: %q\n' "$body" >&2; exit 1; }
+    done
   ) || rc=1
 
   # The engine's answers for each pattern shape: <from>|<path>|<1 match, 0 no match>.
@@ -226,7 +234,7 @@ case "${1:-}" in
   --self-test) self_test ;;
   --update) update ;;
   "")
-    docs_routes_init_redirects
+    docs_routes_init_redirects || exit 2
     check
     ;;
   *)

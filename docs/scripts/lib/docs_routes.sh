@@ -49,6 +49,12 @@ for (const folder of new Set(Object.values(aztecNrApiFolders(developer)))) conso
 
 function docs_routes_init_redirects {
   [[ -r "$NETLIFY_TOML" ]] || { echo "ERROR: cannot read $NETLIFY_TOML" >&2; return 1; }
+  # A multi-line string's body can hold a line that reads as a `from` key, and only a full TOML
+  # lexer could tell, so such a file is refused rather than read.
+  if grep -qE "\"\"\"|'''" "$NETLIFY_TOML"; then
+    echo "ERROR: $NETLIFY_TOML holds a multi-line string (\"\"\" or '''); write the value on one line" >&2
+    return 1
+  fi
   REDIRECT_FROMS=()
   local line
   while IFS= read -r line; do REDIRECT_FROMS+=("$line"); done < <(redirect_froms "$NETLIFY_TOML")
@@ -62,16 +68,10 @@ function docs_routes_init_redirects {
 
 # Prints the `from` of each [[redirects]] table. Any other table header ends one, its own
 # subtables ([redirects.headers]) included, whose keys are not redirects. Only a one-line basic
-# string without escapes is read, and lines inside a multi-line string are skipped: a rule in any
-# other form is missed, which can only fail a check, never pass one.
+# string without escapes is read: a rule in another form is missed, which can only fail a check.
+# Assumes no multi-line strings (docs_routes_init_redirects refuses them).
 function redirect_froms {
   awk '
-    {
-      line = $0
-      quotes = gsub(/"""|'"'''"'/, "", line)
-      if (in_multiline) { if (quotes % 2) in_multiline = 0; next }
-      if (quotes % 2) { in_multiline = 1; next }
-    }
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*\[/ {
       header = $0
