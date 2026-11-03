@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { generateDocument, type MethodInfo } from "../node_api_reference_generation/generate_node_api_reference.mts";
+import { generateDocument, type MethodInfo } from "../node_api_reference_generation/node_api_reference_document.mts";
 
 const method = (namespace: string, name: string): MethodInfo => ({
   name,
