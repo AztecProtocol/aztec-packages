@@ -11,6 +11,7 @@
 import * as ts from 'typescript';
 import * as path from 'path';
 import * as fs from 'fs';
+import { pathToFileURL } from 'url';
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -46,7 +47,7 @@ interface MethodJSDoc {
   remarks?: string;
 }
 
-interface MethodInfo {
+export interface MethodInfo {
   name: string;
   namespace: string;
   jsdoc: MethodJSDoc;
@@ -666,6 +667,8 @@ function generateExampleParam(paramType: string, paramName?: string): string {
   return '"0x1234..."';
 }
 
+const ADMIN_API_KEY_HEADER = 'x-api-key: [ADMIN_API_KEY]';
+
 function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
   const lines: string[] = [];
   const rpcName = `${method.namespace}_${method.name}`;
@@ -715,36 +718,24 @@ function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
     .map((t, i) => generateExampleParam(t, method.paramNames[i]))
     .join(',');
 
+  const headers = ['Content-Type: application/json', ...(isAdmin ? [ADMIN_API_KEY_HEADER] : [])];
+  const curl = (prefix = '') => [
+    '```bash',
+    `${prefix}curl -X POST http://localhost:${port} \\`,
+    ...headers.map((header) => `  -H '${header}' \\`),
+    `  -d '{"jsonrpc":"2.0","method":"${rpcName}","params":[${exampleParams}],"id":1}'`,
+    '```',
+  ];
   if (isAdmin) {
-    lines.push('**Example (CLI)**:');
-    lines.push('');
-    lines.push('```bash');
-    lines.push(`curl -X POST http://localhost:${port} \\`);
-    lines.push(`  -H 'Content-Type: application/json' \\`);
-    lines.push(`  -d '{"jsonrpc":"2.0","method":"${rpcName}","params":[${exampleParams}],"id":1}'`);
-    lines.push('```');
-    lines.push('');
-    lines.push('**Example (Docker)**:');
-    lines.push('');
-    lines.push('```bash');
-    lines.push(`docker exec -it aztec-node curl -X POST http://localhost:${port} \\`);
-    lines.push(`  -H 'Content-Type: application/json' \\`);
-    lines.push(`  -d '{"jsonrpc":"2.0","method":"${rpcName}","params":[${exampleParams}],"id":1}'`);
-    lines.push('```');
+    lines.push('**Example (CLI)**:', '', ...curl(), '', '**Example (Docker)**:', '', ...curl('docker exec -it aztec-node '));
   } else {
-    lines.push('**Example**:');
-    lines.push('');
-    lines.push('```bash');
-    lines.push(`curl -X POST http://localhost:${port} \\`);
-    lines.push(`  -H 'Content-Type: application/json' \\`);
-    lines.push(`  -d '{"jsonrpc":"2.0","method":"${rpcName}","params":[${exampleParams}],"id":1}'`);
-    lines.push('```');
+    lines.push('**Example**:', '', ...curl());
   }
 
   return lines.join('\n');
 }
 
-function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames: { aztec: string[]; aztecAdmin: string[] }): string {
+export function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames: { aztec: string[]; aztecAdmin: string[] }): string {
   const lines: string[] = [];
 
   // Frontmatter
@@ -794,19 +785,21 @@ function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames
       lines.push('');
       lines.push('Administrative operations are exposed on port 8880 under the `aztecAdmin_` namespace.');
       lines.push('');
+      lines.push('The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; pass it with the `x-api-key` header, as the examples below do, or as `Authorization: Bearer [ADMIN_API_KEY]`. See [admin API key authentication](./changelog/v4.md#admin-api-key-authentication).');
+      lines.push('');
       lines.push(':::warning Security: Admin API Access');
       lines.push('For security reasons, the admin port (8880) should **not be exposed** to the host machine in Docker deployments. The examples below show both CLI and Docker methods:');
       lines.push('');
       lines.push('**CLI Method** (when running with `aztec start` directly):');
       lines.push('');
       lines.push('```bash');
-      lines.push('curl -X POST http://localhost:8880 ...');
+      lines.push(`curl -X POST http://localhost:8880 -H '${ADMIN_API_KEY_HEADER}' ...`);
       lines.push('```');
       lines.push('');
       lines.push('**Docker Method** (when running with Docker Compose):');
       lines.push('');
       lines.push('```bash');
-      lines.push('docker exec -it <container-name> curl -X POST http://localhost:8880 ...');
+      lines.push(`docker exec -it <container-name> curl -X POST http://localhost:8880 -H '${ADMIN_API_KEY_HEADER}' ...`);
       lines.push('```');
       lines.push('');
       lines.push('Replace `<container-name>` with your container name (e.g., `aztec-node`, `aztec-sequencer`, `prover-node`).');
@@ -966,4 +959,6 @@ function main() {
   console.log( `\nTotal: ${nodeMethodNames.length} aztec_ + ${adminMethodNames.length} aztecAdmin_ = ${nodeMethodNames.length + adminMethodNames.length} methods`);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main();
+}
