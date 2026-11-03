@@ -28,6 +28,13 @@
   ignore = "./scripts/netlify-ignore-build.sh preview"
   command = "./scripts/netlify-build.sh"
 
+# Names the docs index on every response (RFC 8288 `describedby`), for agents that read headers
+# before content; pages also link it in their body.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Link = '</llms.txt>; rel="describedby"'
+
 # =============================================================================
 # ACTIVE REDIRECTS: Core Navigation
 # =============================================================================

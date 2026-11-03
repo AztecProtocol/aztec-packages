@@ -5,7 +5,8 @@
   "url": "https://context7.com/aztecprotocol/aztec-packages",
   "public_key": "pk_t0YiN5OA9Udc9Xnb98tqO",
   "folders": [
-    "noir-projects/fnd"
+    "docs/developer_versioned_docs/version-v6.0.0",
+    "docs/network_versioned_docs/version-v6.0.0"
   ],
   "excludeFolders": [
     "iac",
