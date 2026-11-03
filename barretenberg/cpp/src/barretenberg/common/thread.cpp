@@ -1,4 +1,5 @@
 #include "thread.hpp"
+#include "interrupt.hpp"
 #include "log.hpp"
 #include "throw_or_abort.hpp"
 #include <algorithm>
@@ -112,6 +113,7 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
+    const detail::ParallelRegion region;
 #ifdef NO_MULTITHREADING
     for (size_t i = 0; i < num_iterations; ++i) {
         func(i);
