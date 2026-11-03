@@ -959,6 +959,7 @@ function main() {
   console.log( `\nTotal: ${nodeMethodNames.length} aztec_ + ${adminMethodNames.length} aztecAdmin_ = ${nodeMethodNames.length + adminMethodNames.length} methods`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+// Node resolves symlinks in the entry module's URL, so argv[1] is compared by its real path too.
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
   main();
 }
