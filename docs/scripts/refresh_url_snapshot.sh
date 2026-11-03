@@ -12,6 +12,10 @@ set -euo pipefail
 # published pages into the protected set, so future PRs can't silently delete
 # them; the release skills run it once a release is live in production.
 #
+# It also lists the static files this checkout serves in
+# docs/snapshots/published-static.txt (check_static_redirects.sh --update), which,
+# unlike this snapshot, CI reads from the working tree.
+#
 # Usage: scripts/refresh_url_snapshot.sh [sitemap_url]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,3 +58,5 @@ urls=$(printf '%s\n%s\n' "$kept" "$live" | grep -v '^$' | sort -u)
 total=$(wc -l <<<"$urls" | tr -d ' ')
 before=$(grep -c . <<<"$kept" || true)
 echo "Wrote $total URLs ($((total - before)) new) to $SNAPSHOT"
+
+"$SCRIPT_DIR/check_static_redirects.sh" --update
