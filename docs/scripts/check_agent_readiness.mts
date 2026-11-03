@@ -167,16 +167,25 @@ export function startHereProblems(llms: string, expected: { title: string; url: 
 
 /**
  * API reference folders the build lacks or only half converts: each folder `apiReferenceDirs`
- * lists needs its scoped llms.txt, and an Aztec.nr folder a markdown page beside every HTML page.
+ * lists needs its scoped llms.txt, an Aztec.nr folder a markdown page beside every HTML page, and a
+ * TypeScript folder per-name pages for every package file. No two pages may differ only in case.
  */
 export function apiCoverage(files: Set<string>, dirs: { kind: string; dir: string }[]): Problem[] {
   const problems: Problem[] = [];
   for (const { kind, dir } of dirs) {
     if (!files.has(`${dir}/llms.txt`)) problems.push({ file: dir, message: "an API reference folder with no scoped llms.txt" });
-    if (kind !== "aztec-nr") continue;
-    for (const file of files) {
-      if (file.startsWith(`${dir}/`) && file.endsWith(".html") && !files.has(file.replace(/\.html$/, ".md"))) {
+    const inDir = [...files].filter((file) => file.startsWith(`${dir}/`));
+    const folded = new Map<string, string>();
+    for (const file of inDir) {
+      const other = folded.get(file.toLowerCase());
+      if (other) problems.push({ file, message: `differs from ${other} only in case` });
+      folded.set(file.toLowerCase(), file);
+      const page = file.slice(dir.length + 1);
+      if (kind === "aztec-nr" && page.endsWith(".html") && !files.has(file.replace(/\.html$/, ".md"))) {
         problems.push({ file, message: "an API reference page with no markdown page" });
+      }
+      if (kind === "typescript" && /^[^/]+\.md$/.test(page) && !inDir.some((f) => f.startsWith(file.replace(/\.md$/, "/")))) {
+        problems.push({ file, message: "a TypeScript package with no per-name pages" });
       }
     }
   }

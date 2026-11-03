@@ -9,6 +9,8 @@ const path = require("path");
 const { apiReferenceDirs, docsInstances, networkSection, startHere } = require("../src/network_docs.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 const { DIRECTIVE } = require("./inject_md_directive.js");
+const { npmName } = require("./typescript_api_generation/packages.js");
+const TS_PACKAGES = require("./typescript_api_generation/config.json").packages;
 
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
@@ -22,15 +24,15 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production",
 );
 
-// One API reference set per docs version a network reads. The Aztec.nr reference is read from the
-// build, where aztec_nr_api_markdown.mjs has written a markdown sibling of every page.
+// One API reference set per docs version a network reads, read from the build, where
+// aztec_nr_api_markdown.mjs and split_typescript_api.mjs have added their pages.
 const API_DIRS = apiReferenceDirs(developerDocs)
   .filter(({ dir }) => fs.existsSync(path.join(STATIC_DIR, dir)))
   .map(({ kind, dir, version, networks }) => {
     const scope = `${networks.join(" and ")}, ${version}`;
     return kind === "aztec-nr"
       ? { name: "Aztec.nr API Reference", dir, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
-      : { name: "TypeScript API Reference", dir, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: STATIC_DIR, format: "markdown" };
+      : { name: "TypeScript API Reference", dir, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: BUILD_DIR, format: "markdown" };
   });
 if (!developerDocs.versions.some((v) => v.networks.length)) {
   console.warn("Warning: No network version found for API docs");
@@ -56,6 +58,39 @@ function findFiles(dir, ext, files = []) {
   }
 
   return files;
+}
+
+/**
+ * The TypeScript scoped index body: how packages are named and imported, a link to every name a
+ * client SDK exports (its split_typescript_api.mjs page), and one link per core library.
+ */
+function typescriptIndex(dirPath, dir) {
+  const url = (file) => `${SITE_URL}/${dir}/${file}`;
+  const present = (pkgs) => pkgs.filter((p) => p.status === "active" && fs.existsSync(path.join(dirPath, `${p.name}.md`)));
+  // A package file generated before the rename names the old scope in its title and imports.
+  const whole = (pkg) => {
+    const title = fs.readFileSync(path.join(dirPath, `${pkg.name}.md`), "utf-8").split("\n", 1)[0].replace(/^# /, "");
+    const stale = title === npmName(pkg.name) ? "" : ` (it still names the package \`${title}\`)`;
+    return `[Whole package](${url(`${pkg.name}.md`)})${stale}`;
+  };
+  const lines = [
+    `Packages are published as \`${npmName("<name>")}\`, and most have no root export: import from the subpath that exports a name, as [aztec.js](${SITE_URL}/developers/docs/aztec-js.md) shows. Each name links its own page, with every declaration of that name; a package link is the whole package in one file.`,
+    "",
+    "## Client SDKs",
+    "",
+  ];
+  for (const pkg of present(TS_PACKAGES.client_sdks)) {
+    const names = fs.existsSync(path.join(dirPath, pkg.name))
+      ? fs.readdirSync(path.join(dirPath, pkg.name)).filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3)).sort()
+      : [];
+    lines.push(`### ${npmName(pkg.name)}`, "", `${pkg.description}. ${whole(pkg)}`, "");
+    lines.push(...names.map((name) => `- [${name}](${url(`${pkg.name}/${name}.md`)})`), "");
+  }
+  lines.push("## Core libraries", "", `Each name in these packages also has its own page, \`/${dir}/<package>/<Name>.md\` on this site.`, "");
+  for (const pkg of present(TS_PACKAGES.core_libraries)) {
+    lines.push(`- ${npmName(pkg.name)}: ${pkg.description}. ${whole(pkg)}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -442,8 +477,9 @@ function main() {
     }
 
     const isMarkdown = apiDir.format === "markdown";
+    // A TypeScript package's whole file, not its split pages, which repeat it.
     const files = isMarkdown
-      ? findMarkdownFiles(dirPath).sort()
+      ? fs.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().map((f) => path.join(dirPath, f))
       : sortByImportance(findMarkdownFiles(dirPath));
     const ext = ".md";
     console.log(`Found ${files.length} markdown files in ${apiDir.dir}`);
@@ -461,22 +497,7 @@ function main() {
     let scopedDoc = `# ${apiDir.name}\n\n> ${apiDir.description}\n\n`;
 
     if (isMarkdown) {
-      // Include the generated llm-summary.txt (package overview). It carries its
-      // own heading hierarchy starting at H1; demote by one level so it nests
-      // under this scoped file's H1 (which is the only top-level heading).
-      const summaryPath = path.join(dirPath, "llm-summary.txt");
-      if (fs.existsSync(summaryPath)) {
-        const summary = fs
-          .readFileSync(summaryPath, "utf-8")
-          .replace(/^(#{1,5}) /gm, "#$1 ");
-        scopedDoc += summary + "\n\n";
-      }
-      scopedDoc += "## Package reference files\n\n";
-      for (const file of files) {
-        const urlPath = getUrlPath(file, apiDir.root);
-        const fileName = path.basename(file, ext);
-        scopedDoc += `- [${fileName}](${urlPath})\n`;
-      }
+      scopedDoc += typescriptIndex(dirPath, apiDir.dir);
     } else {
       // Module-index TOC. One entry per module (every subdirectory with an
       // index.html), with its first-paragraph docstring as description, plus

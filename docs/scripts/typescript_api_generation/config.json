@@ -1,5 +1,6 @@
 {
   "description": "Configuration for TypeScript API documentation generation",
+  "npm_scope": "@aztec-labs",
   "packages": {
     "client_sdks": [
       {

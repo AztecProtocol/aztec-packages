@@ -227,7 +227,9 @@ generate_json_for_package() {
         # Write metadata to temp dir (used for summary generation, not kept in output)
         local metadata_file="$TEMP_TYPEDOC_DIR/${pkg_name}.meta.json"
         echo_info "Transforming $pkg_name to markdown..."
-        if "$TSX" "$TRANSFORMER_SCRIPT" "$raw_output_file" "$output_file" "$VERSION" --metadata-output "$metadata_file"; then
+        local npm_name
+        npm_name=$(node -p "require('$pkg_dir/package.json').name")
+        if "$TSX" "$TRANSFORMER_SCRIPT" "$raw_output_file" "$output_file" "$VERSION" --npm-name "$npm_name" --metadata-output "$metadata_file"; then
             echo_info "Generated: $output_file"
             return 0
         else

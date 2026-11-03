@@ -135,5 +135,10 @@ test("apiCoverage names a folder without its index and a page without markdown",
     "aztec-nr-api/mainnet/noir_aztec/index.html: an API reference page with no markdown page",
     "aztec-nr-api/mainnet/noir_aztec/macros/fn.aztec.html: an API reference page with no markdown page",
     "typescript-api/mainnet: an API reference folder with no scoped llms.txt",
+    "typescript-api/mainnet/aztec.js.md: a TypeScript package with no per-name pages",
+  ]);
+  const split = new Set(["typescript-api/mainnet/llms.txt", "typescript-api/mainnet/aztec.js.md", "typescript-api/mainnet/aztec.js/Logger.md", "typescript-api/mainnet/aztec.js/logger.md"]);
+  assert.deepEqual(apiCoverage(split, dirs.slice(1)).map((p) => `${p.file}: ${p.message}`), [
+    "typescript-api/mainnet/aztec.js/logger.md: differs from typescript-api/mainnet/aztec.js/Logger.md only in case",
   ]);
 });

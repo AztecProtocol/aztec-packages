@@ -205,7 +205,7 @@ const START_HERE = [
   { title: "Running a full node", task: "run a node", docs: "operate", page: "operators/setup/running_a_node" },
   { title: "Hardware spec", task: "size a node, sequencer or prover", docs: "operate", page: "operators/concepts/hardware" },
   { title: "Aztec.nr API reference", task: "look up an Aztec.nr struct, trait or function signature", api: "aztec-nr-api" },
-  { title: "TypeScript API reference", task: "the aztec.js, accounts, wallets and PXE packages", api: "typescript-api" },
+  { title: "TypeScript API reference", task: "look up an aztec.js, accounts, wallet or PXE class, function or type", api: "typescript-api" },
   { title: "AI tooling", task: "set up a coding agent for Aztec", docs: "developers", page: "ai_tooling" },
 ];
 
