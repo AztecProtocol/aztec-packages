@@ -1298,6 +1298,22 @@ Sort every listed path into exactly one class:
 A destination commit cherry-picked into the cut also shows in this list: it is already on
 the destination, so none of its changes is ever carried.
 
+**Context7.** If the cut's version is now the one production serves at that tree's
+unversioned path (`/developers`, `/operate`): the copied version config's `mainnet` version,
+or `testnet`'s when it names no `mainnet` (`rootVersion` in `docusaurus.config.js`), point the
+tree's entry in the root `context7.json` `folders` at the new snapshot. Any other cut, an rc
+or a testnet release ahead of mainnet, leaves the file alone:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$DEST_ROOT"
+for tree in developer network; do
+  jq -e --arg v "$LABS_TAG" '(.mainnet // .testnet) == $v' "docs/${tree}_version_config.json" >/dev/null || continue
+  jq --arg p "docs/${tree}_versioned_docs/version-" --arg v "$LABS_TAG" \
+    '.folders |= map(if startswith($p) then $p + $v else . end)' context7.json >"$STATE/context7.json" &&
+    mv "$STATE/context7.json" context7.json
+done
+```
+
 Commit on the destination, naming the release inputs; the commit runs only if `git add`
 succeeds:
 
@@ -1305,7 +1321,7 @@ succeeds:
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 pin=$(node "$CUT/docs/scripts/aztec_node.mts" env) || exit 1
 eval "$pin"
-git -C "$DEST_ROOT" add -- <the existing paths of classes 1 and 2> &&
+git -C "$DEST_ROOT" add -- context7.json <the existing paths of classes 1 and 2> &&
 git -C "$DEST_ROOT" commit -F - <<EOF
 docs: cut $LABS_TAG docs (<release_type>)
 
