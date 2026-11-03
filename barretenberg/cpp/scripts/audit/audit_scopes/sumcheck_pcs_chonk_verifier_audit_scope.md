@@ -1,7 +1,7 @@
 # External Audit Scope: Sumcheck + PCS + Chonk Verifier
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 This scope combines Sumcheck, Polynomial Commitment Schemes, and Chonk verifier components since they are tightly coupled and benefit from being audited together.
 
@@ -16,31 +16,31 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 3. `sumcheck/sumcheck_round.hpp`
 4. `sumcheck/sumcheck_output.hpp`
 5. `sumcheck/zk_sumcheck_data.hpp`
-6. `sumcheck/masking_tail_data.hpp`
-7. `polynomials/row_disabling_polynomial.hpp`
-8. `polynomials/gate_separator.hpp`
-9. `polynomials/univariate.hpp`
-10. `stdlib/primitives/padding_indicator_array/*.hpp`
-11. `relations/nested_containers.hpp`
-12. `relations/relation_types.hpp`
-13. `relations/utils.hpp`
-14. `flavor/partially_evaluated_multivariates.hpp`
+6. `polynomials/row_disabling_polynomial.hpp`
+7. `polynomials/gate_separator.hpp`
+8. `polynomials/univariate.hpp`
+9. `relations/nested_containers.hpp`
+10. `relations/relation_types.hpp`
+11. `relations/utils.hpp`
+12. `flavor/partially_evaluated_multivariates.hpp`
 
 ### PCS (Polynomial Commitment Schemes)
-15. `commitment_schemes/shplonk/shplemini.hpp`
-16. `commitment_schemes/shplonk/shplonk.hpp`
-17. `commitment_schemes/gemini/gemini.hpp`
-18. `commitment_schemes/gemini/gemini_impl.hpp`
-19. `commitment_schemes/gemini/gemini.cpp`
-20. `commitment_schemes/kzg/kzg.hpp`
-21. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp`
-22. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp`
-23. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp`
-24. `commitment_schemes/claim_batcher.hpp`
-25. `commitment_schemes/claim.hpp`
-26. `commitment_schemes/pairing_points.hpp`
-27. `commitment_schemes/verification_key.hpp`
-28. `stdlib/primitives/pairing_points.hpp`
+13. `commitment_schemes/shplonk/shplemini.hpp`
+14. `commitment_schemes/shplonk/shplonk.hpp`
+15. `commitment_schemes/gemini/gemini.hpp`
+16. `commitment_schemes/gemini/gemini_impl.hpp`
+17. `commitment_schemes/gemini/gemini.cpp`
+18. `commitment_schemes/kzg/kzg.hpp`
+19. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp`
+20. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp`
+21. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp`
+22. `commitment_schemes/claim_batcher.hpp`
+23. `commitment_schemes/claim.hpp`
+24. `commitment_schemes/pairing_points.hpp`
+25. `commitment_schemes/verification_key.hpp`
+26. `stdlib/primitives/pairing_points.hpp`
+27. `commitment_schemes/triple_ipa/triple_ipa.hpp` (ECCVM opening proof, used by the Chonk verifiers)
+28. `commitment_schemes/triple_ipa/triple_ipa_claim.hpp`
 
 ### ECCVM Prover
 29. `eccvm/eccvm_prover.hpp`
@@ -95,7 +95,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `sumcheck/partial_evaluation.test.cpp` | Partial evaluation of polynomials |
 | `sumcheck/row_disabling_polynomial.test.cpp` | Disabling mechanism for rows containing randomness |
 | `polynomials/gate_separator.test.cpp` | pow_beta polynomial operations |
-| `stdlib/primitives/padding_indicator_array/*.test.cpp` | Padding indicator array generation |
+| `ultra_honk/zk_boundary.test.cpp` | Correctness at the ZK masking boundaries (MegaZK) |
 
 ### PCS Tests
 | File | Description |
@@ -106,6 +106,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.test.cpp` | SmallSubgroupIPA tests |
 | `commitment_schemes_recursion/shplemini.test.cpp` | Recursive Shplemini tests |
 | `commitment_schemes_recursion/shplonk.test.cpp` | Recursive Shplonk tests |
+| `commitment_schemes/triple_ipa/triple_ipa.test.cpp` | TripleIPA tests |
+| `commitment_schemes_recursion/triple_ipa_recursive.test.cpp` | Recursive TripleIPA tests |
 
 ### Native Verifier Tests
 | File | Description |
@@ -164,5 +166,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 - `commitment_schemes/gemini/README.md` - Gemini multilinear-to-univariate reduction
 - `commitment_schemes/kzg/README.md` - KZG commitment scheme
 - `commitment_schemes/small_subgroup_ipa/README.md` - SmallSubgroupIPA documentation
+- `commitment_schemes/triple_ipa/PROTOCOL.md` - TripleIPA and batched Chonk verification
 - `chonk/README.md` - Chonk architecture and verification flow
 - `chonk/batched_honk_translator/README.md` - Joint MegaZK + Translator sumcheck/PCS protocol

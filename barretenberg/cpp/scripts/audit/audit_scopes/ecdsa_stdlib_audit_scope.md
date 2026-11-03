@@ -1,7 +1,7 @@
-# ECDSA Audit Scope: Module
+# External Audit Scope: ECDSA
 
 Repository: https://github.com/AztecProtocol/aztec-packages-private
-Commit hash: Most recent commit on branch 'next'
+Commit hash: set when the audit starts. File list checked against `a18e6e7` (branch `v6`).
 
 ## Files to Audit
 **Note:** all paths are relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -22,7 +22,7 @@ The files 1. to 4. above contain our implementation of the ECDSA verification al
 
 Files 3. and 4. implement ECDSA verification, while 1. and 2. expose usage of the algorithm to Noir.
 
-Files 5. to 6. contain our native implementation of:
+Files 5 and 6 contain our native implementation of:
 - ECDSA signature algorithm
 - ECDSA verification algorithm
 - ECDSA public key recovery algorithm
@@ -42,7 +42,8 @@ The hashers module provides uniform wrapper interfaces around different hash fun
 3. `stdlib/encryption/ecdsa/ecdsa_tests_data.hpp`
 4. `crypto/hmac/hmac.test.cpp`
 5. `crypto/ecdsa/ecdsa.test.cpp`
-5. `crypto/ecdsa/hashers.test.cpp`
+6. `crypto/ecdsa/ecdsa_tests_data.hpp`
+7. `crypto/hashers/hashers.test.cpp`
 
 ## Security Mechanisms
 
