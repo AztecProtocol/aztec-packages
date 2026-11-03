@@ -9,8 +9,11 @@ const {
   historicalVersions,
   llmsRoutes,
   networkSection,
+  startHere,
+  startHereLinks,
   syncVersionsFile,
 } = require("../network_docs");
+const { llmsSiteUrl } = require("../site_url");
 const { versionLabel } = require("../release_names");
 const { aztecNrApiFolder } = require("../utils/aztecNrApi.mjs");
 
@@ -95,6 +98,47 @@ describe("Aztec.nr API folders", () => {
       const index = path.join(__dirname, "../../static/aztec-nr-api", folder, "noir_aztec/index.html");
       assert.ok(fs.existsSync(index), `${version} links into aztec-nr-api/${folder}/, which does not exist`);
     }
+  });
+});
+
+describe("Start here", () => {
+  const urls = (production, siteUrl) =>
+    Object.fromEntries(startHereLinks(docsInstances(shared, shared, production), siteUrl).map((l) => [l.title, l.url]));
+
+  it("links the version production serves at each root", () => {
+    const links = urls(true, "https://docs.aztec.network");
+    assert.strictEqual(links["Running a full node"], "https://docs.aztec.network/operate/operators/setup/running_a_node.md");
+    assert.strictEqual(links["Testing contracts"], "https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts.md");
+    assert.strictEqual(links["Aztec.nr API reference"], "https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt");
+  });
+
+  it("follows a preview's host and layout, where the networks' operator docs are at /operate/alpha", () => {
+    const siteUrl = llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "https://preview.example/" });
+    const links = urls(false, siteUrl);
+    assert.strictEqual(links["Running a full node"], "https://preview.example/operate/alpha/operators/setup/running_a_node.md");
+    assert.strictEqual(links["Getting started"], "https://preview.example/developers/getting_started_on_local_network.md");
+  });
+
+  it("drops the API entries when no network reads a version", () => {
+    assert.strictEqual(urls(true, "https://x")["TypeScript API reference"], "https://x/typescript-api/mainnet/llms.txt");
+    const none = startHereLinks(docsInstances({}, {}, false), "https://x").map((l) => l.title);
+    assert.ok(!none.includes("Aztec.nr API reference") && none.includes("Getting started"));
+  });
+
+  it("renders one link line per entry and the docs each network reads", () => {
+    const section = startHere(docsInstances(shared, shared, true), "https://x");
+    assert.match(section, /^## Start here\n/);
+    assert.match(section, /^- \[Testing contracts\]\(https:\/\/x\/developers\/docs\/aztec-nr\/testing_contracts\.md\): test a contract with `aztec test`/m);
+    assert.match(section, /^- \*\*mainnet and testnet\*\*: developer docs v6\.0\.0 at `\/developers\/`/m);
+  });
+});
+
+describe("llmsSiteUrl", () => {
+  it("uses the deploy URL only in a deploy preview that has one", () => {
+    assert.strictEqual(llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "https://p.example" }), "https://p.example");
+    assert.strictEqual(llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "" }), "https://docs.aztec.network");
+    assert.strictEqual(llmsSiteUrl({ CONTEXT: "production", DEPLOY_PRIME_URL: "https://p.example" }), "https://docs.aztec.network");
+    assert.strictEqual(llmsSiteUrl({}), "https://docs.aztec.network");
   });
 });
 

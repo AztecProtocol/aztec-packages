@@ -8,7 +8,8 @@
 #   check_source_urls.sh
 #   check_source_urls.sh --self-test
 #
-# Not read: the generated API references, the URL snapshots and yarn.lock. Not resolved: tag
+# Not read: the URL snapshots and yarn.lock. The committed API references are read: their URLs come
+# from upstream doc comments, which only a redirect can fix. Not resolved: tag
 # pages, /search and /aztec-nr-api/next/ (built only in previews). A URL finished at build or run
 # time (a `${...}` template after the host, or a macro such as #release_version) is counted as
 # deferred.
@@ -25,7 +26,7 @@ url_re='https?://docs\.aztec\.network[^][:space:]"<>(){}|\`'"'"'\\]*'
 ignored_re='^/((developers|operate)/tags(/|$)|search/?$|aztec-nr-api/next(/|$))'
 # The version macros src/preprocess/include_version.js substitutes.
 macro_re='#(release_(version|network|name|label)|include_(aztec|devnet|testnet|mainnet|foundation)_version(_without_prefix)?|include_version_without_prefix)([^A-Za-z0-9_]|$)'
-excludes=(':(exclude)static/aztec-nr-api' ':(exclude)static/typescript-api' ':(exclude)snapshots' ':(exclude)yarn.lock')
+excludes=(':(exclude)snapshots' ':(exclude)yarn.lock')
 
 # Prints ok, unresolved, deferred or ignored for one URL.
 function classify {

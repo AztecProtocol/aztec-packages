@@ -28,6 +28,13 @@
   ignore = "./scripts/netlify-ignore-build.sh preview"
   command = "./scripts/netlify-build.sh"
 
+# Names the docs index on every response (RFC 8288 `describedby`), for agents that read headers
+# before content; pages also link it in their body.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Link = '</llms.txt>; rel="describedby"'
+
 # =============================================================================
 # ACTIVE REDIRECTS: Core Navigation
 # =============================================================================
@@ -332,6 +339,11 @@
 
 [[redirects]]
     from = "/guides/privacy_considerations"
+    to = "/developers/docs/resources/considerations/privacy_considerations"
+
+# The Aztec.nr API reference links this path from its doc comments.
+[[redirects]]
+    from = "/developers/resources/considerations/privacy_considerations"
     to = "/developers/docs/resources/considerations/privacy_considerations"
 
 [[redirects]]
@@ -821,6 +833,11 @@
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/how_to_define_functions"
     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+
+# The Aztec.nr API reference links this path; the splat below would send it to a page that does not exist.
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/storage"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/advanced/*"

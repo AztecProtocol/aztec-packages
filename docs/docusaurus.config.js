@@ -18,6 +18,7 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const {
+  apiReferenceDirs,
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
@@ -159,7 +160,7 @@ const productAreaRules = [
   },
 ];
 
-const SITE_URL = "https://docs.aztec.network";
+const { SITE_URL } = require("./src/site_url");
 const SITE_TITLE = "Aztec Documentation";
 const SITE_DESCRIPTION =
   "Build unstoppable private apps on Aztec, the decentralized Ethereum L2 with fully programmable privacy.";
@@ -426,7 +427,18 @@ const config = {
           // built version is kept instead, each in a section named for the
           // networks that read it; cut versions no network reads are excluded.
           includeVersionedDocs: true,
-          beforeDefaultRehypePlugins: [require("./src/rehype_drop_hash_links.js")],
+          beforeDefaultRehypePlugins: [
+            require("./src/rehype_drop_hash_links.js"),
+            require("./src/rehype_code_blocks.js"),
+            [
+              require("./src/rehype_api_links.js"),
+              {
+                dirs: apiReferenceDirs(developerDocs)
+                  .filter(({ kind }) => kind === "aztec-nr")
+                  .map(({ dir }) => dir),
+              },
+            ],
+          ],
           routeRules: [
             ...llmsInstances.flatMap((l) => l.routeRules),
             ...productAreaRules,

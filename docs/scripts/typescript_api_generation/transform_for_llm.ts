@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { isDocumentedPackage, npmName } from "./packages.js";
 
 // TypeDoc kind constants
 const KIND = {
@@ -64,7 +65,7 @@ interface PackageMetadata {
   functions: string[];
   types: string[];
   enums: string[];
-  externalDependencies: string[];  // Other @aztec/* packages referenced
+  externalDependencies: string[];  // Other documented packages referenced
 }
 
 // Track external type references during processing
@@ -78,7 +79,7 @@ function recordExternalRef(type: TypeDocType | undefined): void {
 
   // Check if this is a reference type with package info
   if (type.type === "reference") {
-    if (type.package && type.package.startsWith("@aztec/") && type.name) {
+    if (type.package && isDocumentedPackage(type.package) && type.name) {
       externalRefs.set(type.name, type.package);
     }
     // Also check typeArguments
@@ -1162,6 +1163,7 @@ interface PackageConfig {
 }
 
 interface ConfigFile {
+  npm_scope: string;
   packages: {
     client_sdks: PackageConfig[];
     core_libraries: PackageConfig[];
@@ -1277,7 +1279,7 @@ async function generateSummary(
   ];
   for (const pkg of allPackages) {
     if (pkg.status === "active") {
-      packageDescriptions.set(`@aztec/${pkg.name}`, pkg.description);
+      packageDescriptions.set(npmName(pkg.name, config), pkg.description);
     }
   }
 
@@ -1330,7 +1332,7 @@ async function generateSummary(
 
   // Helper to render a package entry
   function renderPackageEntry(pkg: PackageConfig, meta: PackageMetadata | undefined): void {
-    const fullName = `@aztec/${pkg.name}`;
+    const fullName = npmName(pkg.name, config);
     lines.push(`**${fullName}** - ${pkg.description}`);
 
     // Add detailed feature list if available
@@ -1366,7 +1368,7 @@ async function generateSummary(
     lines.push("### Client SDKs");
     lines.push("");
     for (const pkg of clientSdks) {
-      const fullName = `@aztec/${pkg.name}`;
+      const fullName = npmName(pkg.name, config);
       const meta = metadataByPackage.get(fullName);
       renderPackageEntry(pkg, meta);
     }
@@ -1378,7 +1380,7 @@ async function generateSummary(
     lines.push("### Core Libraries");
     lines.push("");
     for (const pkg of coreLibs) {
-      const fullName = `@aztec/${pkg.name}`;
+      const fullName = npmName(pkg.name, config);
       const meta = metadataByPackage.get(fullName);
       renderPackageEntry(pkg, meta);
     }
@@ -1414,8 +1416,8 @@ async function generateSummary(
     lines.push("## Package Dependencies");
     lines.push("");
     for (const [pkg, deps] of Array.from(dependencies.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
-      const shortPkg = pkg.replace("@aztec/", "");
-      const shortDeps = deps.map(d => d.replace("@aztec/", "")).join(", ");
+      const shortPkg = pkg.replace(`${config.npm_scope}/`, "");
+      const shortDeps = deps.map(d => d.replace(`${config.npm_scope}/`, "")).join(", ");
       lines.push(`${shortPkg} → ${shortDeps}`);
     }
     lines.push("");
@@ -1443,6 +1445,7 @@ function parseArgs(args: string[]): {
   metadataDir?: string;
   metadataOutput?: string;
   configPath?: string;
+  npmPackage?: string;
 } {
   if (args.includes("--generate-summary")) {
     // Summary generation mode
@@ -1469,10 +1472,13 @@ function parseArgs(args: string[]): {
   // Transform mode (default)
   // Parse optional --metadata-output flag
   let metadataOutput: string | undefined;
+  let npmPackage: string | undefined;
   const filteredArgs: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--metadata-output" && args[i + 1]) {
       metadataOutput = args[++i];
+    } else if (args[i] === "--npm-name" && args[i + 1]) {
+      npmPackage = args[++i];
     } else {
       filteredArgs.push(args[i]);
     }
@@ -1487,6 +1493,7 @@ function parseArgs(args: string[]): {
     outputPath: filteredArgs[1],
     version: filteredArgs[2],
     metadataOutput,
+    npmPackage,
   };
 }
 
@@ -1512,7 +1519,7 @@ async function main() {
 
   // Transform mode
   if (!parsed.inputPath || !parsed.outputPath) {
-    console.error("Usage: npx tsx transform_for_llm.ts <input.json> <output.md> [version] [--metadata-output <path>]");
+    console.error("Usage: npx tsx transform_for_llm.ts <input.json> <output.md> [version] --npm-name <name> [--metadata-output <path>]");
     console.error("       npx tsx transform_for_llm.ts --generate-summary --metadata-dir <dir> --config <config.json> --output <output.txt> [--version <version>]");
     process.exit(1);
   }
@@ -1559,9 +1566,16 @@ async function main() {
   // invalid npm package identifiers. The file path matches the actual package name.
   const packageName = path.basename(inputPath, ".json");
 
+  // The name the package's package.json declares must be the one config.json documents it under.
+  const expected = npmName(packageName.toLowerCase());
+  if (parsed.npmPackage !== expected) {
+    console.error(`Error: ${packageName} is published as ${parsed.npmPackage ?? "(no --npm-name)"}, but config.json documents ${expected}; update npm_scope`);
+    process.exit(1);
+  }
+
   // Transform
   console.log(`Transforming: ${packageName}`);
-  const output = transformPackage(inputJson, `@aztec/${packageName.toLowerCase()}`, version);
+  const output = transformPackage(inputJson, expected, version);
 
   // Ensure output directory exists
   const outputDir = path.dirname(outputPath);
