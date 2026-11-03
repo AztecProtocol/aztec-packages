@@ -224,6 +224,8 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   private readonly respawn: boolean;
   private readonly ipcPath: string;
   private readonly logPath?: string;
+  /** Node kills a Windows child outright for any signal it is sent. */
+  readonly interruptible = process.platform !== "win32";
 
   private constructor(private readonly options: SpawnedProcessBackendOptions) {
     this.respawn = options.respawn ?? false;
@@ -275,11 +277,21 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     return await incarnation.client.call(input);
   }
 
-  sendProcessSignal(signal: NodeJS.Signals): void {
+  /** Signals the live child, if any; returns whether the signal was delivered. */
+  sendProcessSignal(signal: NodeJS.Signals): boolean {
     const child = this.current?.child;
     if (child && child.exitCode === null && child.signalCode === null) {
-      child.kill(signal);
+      return child.kill(signal);
     }
+    return false;
+  }
+
+  /**
+   * Sends SIGURG to the live child. A server opts in by handling it; for one that does not, the
+   * signal's default action is to be ignored, so the child carries on.
+   */
+  interrupt(): boolean {
+    return this.interruptible && this.sendProcessSignal("SIGURG");
   }
 
   async destroy(): Promise<void> {

@@ -55,11 +55,12 @@ type Pending = {
   reject: (err: Error) => void;
 };
 
-function awaitReady(worker: WorkerHandle, what: string): Promise<void> {
+/** Resolves with the worker's `ready` message. */
+function awaitReady(worker: WorkerHandle, what: string): Promise<any> {
   return new Promise((resolve, reject) => {
     worker.onMessage((msg) => {
       if (msg?.type === "ready") {
-        resolve();
+        resolve(msg);
       } else if (msg?.type === "init-error") {
         reject(new Error(`${what}: ${msg.message}`));
       }
@@ -310,11 +311,31 @@ function createMemory(
 export class WasmFfiBackend implements IpcClientAsync {
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
+  /** The module's interrupt word, shared with the main worker. Kept out of reach of callers. */
+  #interruptFlag: Int32Array | undefined;
 
   private constructor(
     private readonly engine: WasmFfiEngine | undefined,
     private readonly worker: WorkerHandle | undefined,
   ) {}
+
+  /**
+   * True in worker mode for a module that exports a usable interrupt flag over a shared memory.
+   * In direct mode a call blocks the only thread that could set the flag.
+   */
+  get interruptible(): boolean {
+    return this.#interruptFlag !== undefined;
+  }
+
+  /** Sets the module's interrupt flag; the module decides what stops and how the flag is cleared. */
+  interrupt(): boolean {
+    const flag = this.#interruptFlag;
+    if (!flag) {
+      return false;
+    }
+    Atomics.store(flag, 0, 1);
+    return true;
+  }
 
   static async create(
     opts: WasmFfiBackendOptions,
@@ -348,7 +369,8 @@ export class WasmFfiBackend implements IpcClientAsync {
         entry: opts.entry,
       },
     });
-    await ready;
+    const { interruptFlag } = await ready;
+    backend.#interruptFlag = interruptFlag instanceof Int32Array ? interruptFlag : undefined;
     return backend;
   }
 
@@ -400,6 +422,7 @@ export class WasmFfiBackend implements IpcClientAsync {
   }
 
   async destroy(): Promise<void> {
+    this.#interruptFlag = undefined;
     if (this.engine) {
       await this.engine.destroy();
       return;

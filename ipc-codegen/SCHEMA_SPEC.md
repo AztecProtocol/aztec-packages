@@ -239,6 +239,20 @@ module, which also expects a wasi reactor (`_initialize`, WASI imports,
 wasi-threads `thread-spawn` for a threads build) and finds the entry by its
 `_ipc_ffi_entry` suffix when not told its name.
 
+A service may also let a caller stop a long call. Linked in, it exports
+
+```c
+void* <svc>_ipc_ffi_interrupt_flag(void);
+```
+
+returning the address of a naturally aligned 32-bit word that the caller sets
+to 1 from another thread; in wasm that is an `Atomics.store` on the module's
+memory, so only a shared memory (a threads build) makes the service
+interruptible. A spawned server process is sent `SIGURG` instead; a server that
+does not handle it ignores it, since that is the signal's default action. The
+generators emit neither: the service defines what it stops and how the request
+is cleared, typically with a command of its own schema (bb: `ClearInterrupt`).
+
 ## Schema versioning
 
 A SHA-256 hash of the schema can be computed and embedded in generated code for

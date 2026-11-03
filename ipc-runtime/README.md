@@ -235,6 +235,16 @@ shared memory even for one thread), WASI is served by a small shim (clock,
 random, stdout/stderr to the logger, environ). The module must be a plain WASI
 reactor: an import beyond WASI and wasi-threads fails the load, naming it.
 
+`IpcClientAsync` carries an optional interrupt capability: `interrupt()` asks
+the service to stop the work in hand and returns whether the request was
+delivered, and `interruptible` says whether it can reach a running call.
+`SpawnedProcessBackend` sends the child `SIGURG` (not on Windows, where node
+kills a child for any signal). `WasmFfiBackend` in worker mode stores to the
+word named by the module's optional `<svc>_ipc_ffi_interrupt_flag` export when
+its memory is shared; direct mode, a module without the export and an unshared
+memory are not interruptible. What stops and how the request is cleared is up
+to the service (`ipc-codegen/SCHEMA_SPEC.md`, FFI entry).
+
 ### Zig (`zig/`)
 
 `Server.fromPath(path)` / `Client.fromPath(path)` over the same C ABI; the
