@@ -153,23 +153,24 @@
     status = 301
 
 # Logo files replaced by img/brand/; other sites embed the old URLs.
+# Netlify matches the encoded request path, so spaces are written as %20.
 [[redirects]]
     from = "/img/Aztec_Symbol_Dark.png"
     to = "/img/brand/favicon.png"
     status = 301
 
 [[redirects]]
-    from = "/img/Aztec Symbol_Light.png"
+    from = "/img/Aztec%20Symbol_Light.png"
     to = "/img/brand/aztec-symbol-paper.svg"
     status = 301
 
 [[redirects]]
-    from = "/img/Aztec Wordmark_Dark.svg"
+    from = "/img/Aztec%20Wordmark_Dark.svg"
     to = "/img/brand/aztec-wordmark-ink.svg"
     status = 301
 
 [[redirects]]
-    from = "/img/Aztec Wordmark_Light.svg"
+    from = "/img/Aztec%20Wordmark_Light.svg"
     to = "/img/brand/aztec-wordmark-paper.svg"
     status = 301
 
