@@ -428,7 +428,7 @@ If you need to access admin endpoints, use `docker exec`:
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -H 'x-api-key: [ADMIN_API_KEY]' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 
 The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; pass it with the `x-api-key` header (or `Authorization: Bearer [ADMIN_API_KEY]`). See [admin API key authentication](../reference/changelog/v4.md#admin-api-key-authentication).
