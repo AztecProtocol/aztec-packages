@@ -670,11 +670,11 @@ On a new branch from the branch the cut merged into:
 
 ```bash
 cd docs && ./scripts/refresh_url_snapshot.sh
-git diff -- snapshots/published-urls.txt
-git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/published-urls.txt
+git diff -- snapshots/
+git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/
 ```
 
-Apart from the header's date, the diff only adds URLs. Pushing it is the owner's call.
+Apart from the header's date, the diff only adds URLs and the static files this release serves (`published-static.txt`). Pushing it is the owner's call.
 
 ## Key Points
 

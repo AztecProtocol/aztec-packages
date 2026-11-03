@@ -8,9 +8,13 @@
 #   resolves_generated <path>    a file every build writes: sitemap, llms files, markdown twins
 #   matches_any_redirect <path>  a netlify.toml [[redirects]] `from` pattern
 #   resolves_url_path <path>     any of the above
+#
+# A <path> is the request path as a client sends it: percent-encoded (url_encode_path). Netlify
+# matches redirects against those bytes, so `from = "/a b.png"` never matches; the file resolvers
+# do not decode it.
 
 DOCS_ROOT="${DOCS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-NETLIFY_TOML="$DOCS_ROOT/netlify.toml"
+NETLIFY_TOML="${NETLIFY_TOML:-$DOCS_ROOT/netlify.toml}"
 
 function docs_routes_init {
   # Where production serves each docs version, from the map docusaurus.config.js
@@ -40,35 +44,91 @@ const [developer] = docsInstances(require("./developer_version_config.json"), re
 for (const folder of new Set(Object.values(aztecNrApiFolders(developer)))) console.log(folder);
 ') || { echo "ERROR: could not read the API reference folders" >&2; return 1; }
 
+  docs_routes_init_redirects
+}
+
+function docs_routes_init_redirects {
+  [[ -r "$NETLIFY_TOML" ]] || { echo "ERROR: cannot read $NETLIFY_TOML" >&2; return 1; }
+  # A multi-line string's body can hold a line that reads as a `from` key, and only a full TOML
+  # lexer could tell, so such a file is refused rather than read.
+  if grep -qE "\"\"\"|'''" "$NETLIFY_TOML"; then
+    echo "ERROR: $NETLIFY_TOML holds a multi-line string (\"\"\" or '''); write the value on one line" >&2
+    return 1
+  fi
   REDIRECT_FROMS=()
-  while IFS= read -r line; do REDIRECT_FROMS+=("$line"); done < <(grep -E '^[[:space:]]*from[[:space:]]*=' "$NETLIFY_TOML" \
-    | sed -E 's/^[[:space:]]*from[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+  local line
+  while IFS= read -r line; do REDIRECT_FROMS+=("$line"); done < <(redirect_froms "$NETLIFY_TOML")
 
   REDIRECT_REGEXES=()
   local from
-  for from in "${REDIRECT_FROMS[@]}"; do
+  for from in ${REDIRECT_FROMS[@]+"${REDIRECT_FROMS[@]}"}; do
     REDIRECT_REGEXES+=("$(from_to_regex "$from")")
   done
 }
 
-# Convert a netlify `from` pattern into an extended-regex.
-# Netlify supports two path placeholders:
-#   *        — splat, matches any remaining path (including slashes)
-#   :name    — named segment, matches one path segment (no slashes)
+# Prints the `from` of each [[redirects]] table. Any other table header ends one, its own
+# subtables ([redirects.headers]) included, whose keys are not redirects. Only a one-line basic
+# string without escapes is read: a rule in another form is missed, which can only fail a check.
+# Assumes no multi-line strings (docs_routes_init_redirects refuses them).
+function redirect_froms {
+  awk '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*\[/ {
+      header = $0
+      sub(/#.*/, "", header)
+      gsub(/[[:space:]]/, "", header)
+      in_redirect = (header == "[[redirects]]")
+      next
+    }
+    in_redirect && /^[[:space:]]*from[[:space:]]*=[[:space:]]*"[^"\\]*"[[:space:]]*(#.*)?$/ {
+      value = $0
+      sub(/^[^"]*"/, "", value)
+      print substr(value, 1, index(value, "\"") - 1)
+    }
+  ' "$1"
+}
+
+# Converts a netlify `from` into an extended regex, segment by segment, as the redirect engine
+# reads it: a `*` segment matches zero or more segments, a `:<name>` segment exactly one; a `*`
+# or `:` anywhere else is literal. Trailing slashes are dropped from the pattern, and the path may
+# end in one. A `from` without a leading slash also matches with one.
 function from_to_regex {
-  local pattern="$1"
-  # Replace :name placeholders with a sentinel that won't collide with regex metachars. The
-  # sentinel byte comes from bash: BSD sed has no \x escapes in a replacement.
-  pattern=$(echo "$pattern" | sed -E "s@:[A-Za-z_][A-Za-z0-9_]*@"$'\x01'"@g")
-  # Escape regex metachars except * and our sentinel
-  pattern=$(echo "$pattern" | sed -E 's/[][\\.^$+?{}()|]/\\&/g')
-  pattern="${pattern//\*/.*}"
-  pattern="${pattern//$'\x01'/[^/]+}"
-  # Anchor; permit absent leading slash since some entries omit it
-  if [[ "$pattern" != /* && "$pattern" != \\.* ]]; then
-    pattern="/?$pattern"
-  fi
-  echo "^${pattern}$"
+  local from="$1" rooted=1 escaped re="" seg segs=()
+  [[ "$from" == /* ]] || rooted=0
+  from="${from#/}"
+  while [[ "$from" == */ ]]; do from="${from%/}"; done
+  escaped=$(printf '%s' "$from" | sed -E 's/[][\\.^$+?{}()|*]/\\&/g')
+  [[ -z "$escaped" ]] || IFS=/ read -r -a segs <<<"$escaped"
+  # The ${a[@]+...} form: bash 3.2 (macOS) treats an empty array as unset under `set -u`.
+  for seg in ${segs[@]+"${segs[@]}"}; do
+    if [[ "$seg" == '\*' ]]; then
+      re+='(/.*)?'
+    elif [[ "$seg" == :?* ]]; then
+      re+='/[^/]+'
+    else
+      re+="/$seg"
+    fi
+  done
+  ((rooted)) || re="/?${re#/}"
+  echo "^${re}/?\$"
+}
+
+# Percent-encodes a path the way a browser requests it (the WHATWG URL path percent-encode set,
+# as Node's URL implements it), plus % # ? \, which a file name can only be requested through.
+# Hex is uppercase: Netlify compares bytes, so %c3 and %C3 differ.
+function url_encode_path {
+  local LC_ALL=C s="$1" out="" c i
+  for ((i = 0; i < ${#s}; i++)); do
+    c=${s:i:1}
+    case "$c" in
+      [-A-Za-z0-9/._~!\$\&\'\(\)*+,\;=:@\[\]\|]) out+=$c ;;
+      *)
+        printf -v c '%%%02X' "'$c"
+        out+=$c
+        ;;
+    esac
+  done
+  printf '%s\n' "$out"
 }
 
 # Matches redirect sources only; validate_redirect_targets.sh checks non-wildcard targets.

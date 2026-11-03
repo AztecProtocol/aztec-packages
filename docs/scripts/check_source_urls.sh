@@ -146,7 +146,7 @@ function self_test {
 
   local re
   re=$(from_to_regex "/self-test/:section/*")
-  if ! [[ "/self-test/a/b/c" =~ $re ]] || [[ "/self-test/a" =~ $re ]]; then
+  if ! [[ "/self-test/a/b/c" =~ $re && "/self-test/a" =~ $re ]] || [[ "/self-test" =~ $re || "/self-test/" =~ $re ]]; then
     echo "self-test: from_to_regex mishandles a :name placeholder" >&2
     rc=1
   fi
