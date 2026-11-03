@@ -1302,7 +1302,7 @@ the destination, so none of its changes is ever carried.
 unversioned path (`/developers`, `/operate`): the copied version config's `mainnet` version,
 or `testnet`'s when it names no `mainnet` (`rootVersion` in `docusaurus.config.js`), point the
 tree's entry in the root `context7.json` `folders` at the new snapshot. Any other cut, an rc
-or a testnet release ahead of mainnet, leaves the file alone:
+no network reads or a testnet release ahead of mainnet, leaves the file alone:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$DEST_ROOT"
