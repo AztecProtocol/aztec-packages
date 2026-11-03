@@ -476,7 +476,7 @@ writes `docs/docs-operate/operators/reference/node-api-reference.md` (generated:
 hand-edit). The network snapshot (Step 11) includes it.
 
 It warns about methods missing from `METHOD_GROUPS` in
-`docs/scripts/node_api_reference_generation/generate_node_api_reference.mts`, which it
+`docs/scripts/node_api_reference_generation/node_api_reference_document.mts`, which it
 renders under "Other methods". Add each to its group and rerun; the destination needs the
 same edit (a shared source repair, Step 17).
 
