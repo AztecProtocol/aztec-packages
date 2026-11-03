@@ -258,7 +258,7 @@ Replace the contents of `ValueNotEqual/ValueNotEqual_contract/src/main.nr` with:
 The scaffolded `ValueNotEqual/ValueNotEqual_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
 
 ```rust
-// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts for examples.
 ```
 :::
 

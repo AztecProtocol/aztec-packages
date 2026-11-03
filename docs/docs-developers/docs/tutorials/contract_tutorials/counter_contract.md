@@ -66,7 +66,7 @@ This defines a contract called `Counter`.
 The scaffolded `counter_test/src/lib.nr` imports the default contract name (`Main`) we just renamed to `Counter`, so it now fails to compile. Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
 
 ```rust
-// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts for examples.
 ```
 :::
 

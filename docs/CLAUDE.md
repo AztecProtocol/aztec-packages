@@ -332,6 +332,7 @@ The description should:
 - ✅ Broken markdown formatting
 - ✅ Headings using Title Case instead of sentence case (see "Heading Capitalization")
 - ✅ Em-dashes (`—`) in prose (see "Formatting Conventions")
+- ✅ Full node or sequencer hardware figures written into a page: import `operators/_node_hardware.mdx` (one per docs version) instead, outside any `<IfChoice>`, whose content is missing from the server-rendered page and its markdown twin
 - ✅ Missing alt text for images
 - ✅ Security implications of commands or configurations
 
