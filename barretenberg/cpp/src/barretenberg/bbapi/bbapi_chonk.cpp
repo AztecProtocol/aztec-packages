@@ -5,6 +5,7 @@
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -16,6 +17,8 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+
+#include <exception>
 
 #ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 #include <algorithm>
@@ -49,6 +52,43 @@ ChonkPrecomputedVkPolicy to_chonk_vk_policy(VkPolicy policy)
     throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
 }
 
+void release_chonk_session(BBApiRequest& request) noexcept
+{
+    request.ivc_in_progress.reset();
+    request.loaded_circuit_name.clear();
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
+    request.loaded_circuit_kind = CircuitKind::None;
+}
+
+/**
+ * Arms interrupt points for one Chonk proving command, and releases the session if the command exits by an exception:
+ * a command that fails partway leaves a half-loaded circuit or a half-folded accumulator that cannot be resumed, and a
+ * later command must not build on it. A destructor that sees more uncaught exceptions than at entry is unwinding.
+ */
+class ChonkCommandScope {
+  public:
+    explicit ChonkCommandScope(BBApiRequest& request) noexcept
+        : request_(request)
+        , exceptions_at_entry_(std::uncaught_exceptions())
+    {}
+    ~ChonkCommandScope()
+    {
+        if (std::uncaught_exceptions() > exceptions_at_entry_) {
+            release_chonk_session(request_);
+        }
+    }
+    ChonkCommandScope(const ChonkCommandScope&) = delete;
+    ChonkCommandScope(ChonkCommandScope&&) = delete;
+    ChonkCommandScope& operator=(const ChonkCommandScope&) = delete;
+    ChonkCommandScope& operator=(ChonkCommandScope&&) = delete;
+
+  private:
+    BBApiRequest& request_;
+    int exceptions_at_entry_;
+    InterruptScope armed_;
+};
+
 } // namespace
 
 // BB_NO_EXCEPTIONS rewrites catch blocks away; handlers must not depend on catch bindings.
@@ -73,14 +113,10 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-    request.ivc_in_progress = std::make_shared<ChonkStepProcessor>(std::move(kinds));
-
     // Clear any stale loaded-circuit state from a previous session so that
     // ChonkAccumulate cannot silently reuse a circuit loaded before this ChonkStart.
-    request.loaded_circuit_name.clear();
-    request.loaded_circuit_constraints.reset();
-    request.loaded_circuit_vk.clear();
-    request.loaded_circuit_kind = CircuitKind::App;
+    release_chonk_session(request);
+    request.ivc_in_progress = std::make_shared<ChonkStepProcessor>(std::move(kinds));
 
     return Response{};
 }
@@ -88,6 +124,10 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    const ChonkCommandScope scope(request);
+    // Ahead of the session checks: a command queued behind an interrupted one finds its session already released and
+    // must still report the interruption.
+    interrupt_point("load:command_entry");
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
@@ -105,6 +145,8 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
 ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    const ChonkCommandScope scope(request);
+    interrupt_point("construct:command_entry");
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
@@ -139,6 +181,8 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    const ChonkCommandScope scope(request);
+    interrupt_point("prove:command_entry");
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
@@ -152,6 +196,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 
     auto proof = request.ivc_in_progress->prove();
     auto vk_and_hash = request.ivc_in_progress->get_hiding_kernel_vk_and_hash();
+    interrupt_point("prove:self_verify");
 
     // Sanity-check the freshly produced proof in-process. A separate `bb verify` call would
     // re-load VK/proof/SRS and surface failures far from the proving site.
@@ -164,6 +209,13 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     request.ivc_in_progress.reset();
 
     return Response{ .proof = std::move(proof) };
+}
+
+ClearInterrupt::Response ClearInterrupt::execute(BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    release_chonk_session(request);
+    return { .interrupted = InterruptFlag::clear() };
 }
 
 ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&

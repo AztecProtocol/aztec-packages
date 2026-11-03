@@ -175,6 +175,12 @@
         "proof": "ChonkProof"
       }
     },
+    "ClearInterrupt": {
+      "request": {},
+      "response": {
+        "interrupted": "bool"
+      }
+    },
     "ChonkVerify": {
       "request": {
         "proof": "ChonkProof",

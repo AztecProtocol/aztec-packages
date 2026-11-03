@@ -1,5 +1,6 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/chonk_pinned_flows.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/log.hpp"
@@ -20,22 +21,6 @@ namespace {
 class ChonkPinnedIvcInputsTest : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-
-    static std::filesystem::path find_repo_root()
-    {
-        if (const char* env = std::getenv("AZTEC_REPO_ROOT"); env != nullptr && *env != '\0') {
-            return std::filesystem::path{ env };
-        }
-        return std::filesystem::weakly_canonical(std::filesystem::current_path() / "../../..");
-    }
-
-    static std::filesystem::path pinned_inputs_root()
-    {
-        if (const char* env = std::getenv("CHONK_PINNED_IVC_INPUTS_DIR"); env != nullptr && *env != '\0') {
-            return std::filesystem::path{ env };
-        }
-        return find_repo_root() / "barretenberg/cpp/chonk-pinned-flows";
-    }
 
     static std::vector<std::filesystem::path> find_flow_dirs(const std::filesystem::path& inputs_root)
     {
@@ -120,7 +105,7 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
 
 TEST_F(ChonkPinnedIvcInputsTest, AllPinnedFlows)
 {
-    const auto inputs_root = pinned_inputs_root();
+    const auto inputs_root = bb::bbapi::testing::pinned_flows_root();
     auto flows = find_flow_dirs(inputs_root);
     ASSERT_FALSE(flows.empty()) << "no pinned Chonk flows under " << inputs_root
                                 << ". Run `barretenberg/cpp/scripts/chonk_inputs.sh download` first.";

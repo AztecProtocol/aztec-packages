@@ -131,6 +131,29 @@ struct ChonkProve {
 };
 
 /**
+ * @struct ClearInterrupt
+ * @brief Clears the interrupt flag and releases any Chonk session.
+ * @details The server runs commands in order, so this answers only after every command sent before it has finished.
+ * `interrupted` is false when the flag was clear: an interrupt signal still in flight lands later, and the host sends
+ * this again until it sees true.
+ */
+struct ClearInterrupt {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClearInterrupt";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClearInterruptResponse";
+
+        /** @brief Whether the flag was set. */
+        bool interrupted = false;
+        SERIALIZATION_FIELDS(interrupted);
+        bool operator==(const Response&) const = default;
+    };
+    Response execute(BBApiRequest& request) &&;
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    bool operator==(const ClearInterrupt&) const = default;
+};
+
+/**
  * @struct ChonkVerify
  * @brief Verify a Chonk proof with its verification key.
  *
