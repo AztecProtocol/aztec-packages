@@ -55,16 +55,23 @@ function docs_routes_init_redirects {
 
   REDIRECT_REGEXES=()
   local from
-  for from in "${REDIRECT_FROMS[@]}"; do
+  for from in ${REDIRECT_FROMS[@]+"${REDIRECT_FROMS[@]}"}; do
     REDIRECT_REGEXES+=("$(from_to_regex "$from")")
   done
 }
 
 # Prints the `from` of each [[redirects]] table. Any other table header ends one, its own
-# subtables ([redirects.headers]) included, whose keys are not redirects. A `from` this cannot
-# read exactly (single quotes, escapes) is dropped: a missed rule only fails a check.
+# subtables ([redirects.headers]) included, whose keys are not redirects. Only a one-line basic
+# string without escapes is read, and lines inside a multi-line string are skipped: a rule in any
+# other form is missed, which can only fail a check, never pass one.
 function redirect_froms {
   awk '
+    {
+      line = $0
+      quotes = gsub(/"""|'"'''"'/, "", line)
+      if (in_multiline) { if (quotes % 2) in_multiline = 0; next }
+      if (quotes % 2) { in_multiline = 1; next }
+    }
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*\[/ {
       header = $0
@@ -73,10 +80,9 @@ function redirect_froms {
       in_redirect = (header == "[[redirects]]")
       next
     }
-    in_redirect && /^[[:space:]]*from[[:space:]]*=[[:space:]]*"/ {
+    in_redirect && /^[[:space:]]*from[[:space:]]*=[[:space:]]*"[^"\\]*"[[:space:]]*(#.*)?$/ {
       value = $0
-      sub(/^[[:space:]]*from[[:space:]]*=[[:space:]]*"/, "", value)
-      if (index(value, "\\") || !index(value, "\"")) next
+      sub(/^[^"]*"/, "", value)
       print substr(value, 1, index(value, "\"") - 1)
     }
   ' "$1"
@@ -93,7 +99,8 @@ function from_to_regex {
   while [[ "$from" == */ ]]; do from="${from%/}"; done
   escaped=$(printf '%s' "$from" | sed -E 's/[][\\.^$+?{}()|*]/\\&/g')
   [[ -z "$escaped" ]] || IFS=/ read -r -a segs <<<"$escaped"
-  for seg in "${segs[@]}"; do
+  # The ${a[@]+...} form: bash 3.2 (macOS) treats an empty array as unset under `set -u`.
+  for seg in ${segs[@]+"${segs[@]}"}; do
     if [[ "$seg" == '\*' ]]; then
       re+='(/.*)?'
     elif [[ "$seg" == :?* ]]; then

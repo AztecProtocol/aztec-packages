@@ -23,19 +23,21 @@ MANIFEST="$DOCS_ROOT/snapshots/published-static.txt"
 generated_re='^(aztec-nr-api|typescript-api)(/|$)'
 
 # Prints sorted static/ paths (relative to static/) from `git ls-files <args>`, generated trees
-# dropped. A name holding a newline cannot be listed, so it fails.
+# dropped. A name the one-per-line inventory cannot hold (a newline, a leading `#`, only
+# whitespace) fails rather than drop out of the comparison. Errexit is off inside $(...), so every
+# caller propagates failures by hand.
 function git_static_names {
   local list name
   list=$(mktemp)
   # shellcheck disable=SC2064 # expand now: the trap outlives this local
   trap "rm -f '$list'" RETURN
-  git -C "$DOCS_ROOT" ls-files -z "$@" -- static >"$list"
+  git -C "$DOCS_ROOT" ls-files -z "$@" -- static >"$list" || return 2
   while IFS= read -r -d '' name; do
-    if [[ "$name" == *$'\n'* ]]; then
-      printf 'check_static_redirects: a static file name holds a newline: %q\n' "$name" >&2
+    name=${name#static/}
+    if [[ "$name" == *$'\n'* || "$name" == '#'* || ! "$name" =~ [^[:space:]] ]]; then
+      printf 'check_static_redirects: the inventory cannot list static/%q; rename it\n' "$name" >&2
       return 2
     fi
-    name=${name#static/}
     [[ "$name" =~ $generated_re ]] || printf '%s\n' "$name"
   done <"$list" | LC_ALL=C sort -u
 }
@@ -43,8 +45,8 @@ function git_static_names {
 # Tracked files that are still in the working tree: an unstaged deletion counts as removed.
 function served_static {
   local tracked deleted
-  tracked=$(git_static_names)
-  deleted=$(git_static_names --deleted)
+  tracked=$(git_static_names) || return
+  deleted=$(git_static_names --deleted) || return
   LC_ALL=C comm -23 <(printf '%s' "${tracked:+$tracked$'\n'}") <(printf '%s' "${deleted:+$deleted$'\n'}")
 }
 
@@ -55,8 +57,8 @@ function listed_static {
 
 function check {
   local served listed removed unlisted path url failed=0 redirected=0
-  served=$(served_static)
-  listed=$(listed_static)
+  served=$(served_static) || return
+  listed=$(listed_static) || return
   if [[ -z "$served" || -z "$listed" ]]; then
     echo "check_static_redirects: no served static files or an empty inventory, so nothing was checked" >&2
     return 2
@@ -80,7 +82,7 @@ function check {
 
 function update {
   local served kept tmp added
-  served=$(served_static)
+  served=$(served_static) || return
   [[ -n "$served" ]] || { echo "check_static_redirects: no served static files" >&2; return 2; }
   [[ -r "$MANIFEST" ]] || { echo "check_static_redirects: cannot read $MANIFEST" >&2; return 2; }
   kept=$(grep -v -e '^#' -e '^[[:space:]]*$' "$MANIFEST" || true)
@@ -120,6 +122,8 @@ function self_test {
     "hdr.svg|[[headers]]\nfor = \"/*\"\n[headers.values]\nfrom = \"/hdr.svg\"|fail"
     "sub.svg|[[redirects]]\nfrom = \"/real\"\nto = \"/x\"\n[redirects.headers]\nfrom = \"/sub.svg\"|fail"
     "subq.svg|[[redirects]]\nfrom = \"/real2\"\nto = \"/x\"\n[ redirects . query ] # q\nfrom = \"/subq.svg\"|fail"
+    "ml.svg|[[redirects]]\nfrom = \"\"\"\nfrom = \"/ml.svg\"\n\"\"\"\nto = \"/x\"|fail"
+    "mlto.svg|[[redirects]]\nfrom = \"/real3\"\nto = '''\nfrom = \"/mlto.svg\"\n'''|fail"
     "aztec-nr-api/mainnet/gone.html||ignored"
   )
   local fixture file rules verdict expected="" listed="" toml=""
@@ -172,6 +176,19 @@ function self_test {
     st=0
     check >/dev/null 2>&1 || st=$?
     [[ "$st" == 2 ]] || { echo "self-test: an empty inventory exited $st, not 2" >&2; exit 1; }
+
+    # Names the one-per-line inventory cannot hold must stop the check, not shrink its input.
+    printf 'img/present.svg\n' >"$MANIFEST"
+    local odd
+    for odd in '#x.svg' ' ' $'a\nb.png'; do
+      : >"$tmp/static/$odd"
+      git -C "$tmp" add "static/$odd"
+      st=0
+      check >/dev/null 2>&1 || st=$?
+      [[ "$st" == 2 ]] || { printf 'self-test: a file named %q exited %s, not 2\n' "$odd" "$st" >&2; exit 1; }
+      git -C "$tmp" rm -q --cached "static/$odd"
+      rm "$tmp/static/$odd"
+    done
     st=0
     (NETLIFY_TOML="$tmp/missing.toml" docs_routes_init_redirects) 2>/dev/null || st=$?
     [[ "$st" != 0 ]] || { echo "self-test: a missing netlify.toml initialized" >&2; exit 1; }
