@@ -199,9 +199,13 @@ export class WasmInstanceHost {
     const exported = (this.instance.exports as Record<string, WebAssembly.ExportValue>)[
       `${this.servicePrefix}${INTERRUPT_FLAG_SUFFIX}`
     ];
-    // Typed ArrayBuffer by the DOM lib even when shared.
-    const buffer = this.memory.buffer as ArrayBufferLike;
-    if (typeof exported !== "function" || !(buffer instanceof SharedArrayBuffer)) {
+    const buffer = this.memory.buffer;
+    // The tag, not `instanceof`: the SharedArrayBuffer global is absent from pages without
+    // cross-origin isolation.
+    if (
+      typeof exported !== "function" ||
+      Object.prototype.toString.call(buffer) !== "[object SharedArrayBuffer]"
+    ) {
       return undefined;
     }
     const address = (exported as WasmFn)() >>> 0;

@@ -55,8 +55,11 @@ type Pending = {
   reject: (err: Error) => void;
 };
 
+/** What the main worker reports once its instance is up; thread workers send only `type`. */
+type ReadyMessage = { type: "ready"; interruptFlag?: Int32Array };
+
 /** Resolves with the worker's `ready` message. */
-function awaitReady(worker: WorkerHandle, what: string): Promise<any> {
+function awaitReady(worker: WorkerHandle, what: string): Promise<ReadyMessage> {
   return new Promise((resolve, reject) => {
     worker.onMessage((msg) => {
       if (msg?.type === "ready") {
