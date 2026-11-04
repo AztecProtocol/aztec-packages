@@ -361,7 +361,9 @@ async function readUntilInterruptCleared(api: Barretenberg): Promise<FenceOutcom
           return 'cleared';
         }
       } catch (error) {
-        // bb answers ClearInterrupt with an error only when it does not know the command.
+        // bb answers ClearInterrupt with an error only when it does not know the command: every bb that speaks this
+        // protocol dispatches through ipc-codegen's generated table, whose miss replies "unknown command: <name>"
+        // (`cpp_codegen.ts`), so an older binary ends the fence here at once instead of at the deadline.
         return error instanceof BbError ? 'unsupported' : 'transport-failed';
       }
       await new Promise(resolve => setTimeout(resolve, FENCE_RETRY_MS));
