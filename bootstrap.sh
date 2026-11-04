@@ -1052,6 +1052,8 @@ case "$cmd" in
     # barretenberg/ts compiles the generated @aztec-foundation/bb.js-api against ipc-runtime's built dest/, which
     # nothing under barretenberg/ builds.
     ipc-runtime/bootstrap.sh build
+    # barretenberg/sol compiles with l1-contracts' pinned solc (its foundry.toml), which only l1-contracts' build fetches.
+    l1-contracts/bootstrap.sh download_solc
     barretenberg/bootstrap.sh ci
     ;;
 
