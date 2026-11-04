@@ -1,6 +1,6 @@
 # Docker (Docker-in-Docker) (docker-in-docker)
 
-**FORKED HERE TO SUPPORT NOBLE**
+**FORKED HERE TO SUPPORT NOBLE.** This is a copy of the upstream `ghcr.io/devcontainers/features/docker-in-docker` feature, version 2.10.2 (`devcontainer-feature.json`), with Ubuntu noble added to the supported distros. `.devcontainer/dev/devcontainer.json` uses it as a local feature.
 
 Create child containers _inside_ a container, independent from the host's docker instance. Installs Docker extension in the container along with needed CLIs.
 
@@ -8,7 +8,7 @@ Create child containers _inside_ a container, independent from the host's docker
 
 ```json
 "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "./docker-in-docker": {}
 }
 ```
 
