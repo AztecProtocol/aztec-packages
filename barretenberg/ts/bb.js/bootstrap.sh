@@ -47,10 +47,12 @@ function test_cmds {
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.js$ ]] && continue
     [[ "$test" == "barretenberg/chonk_pinned_inputs.test.js" ]] && continue
+    [[ "$test" == "barretenberg/chonk_interrupt.test.js" ]] && continue
 
     echo "$hash barretenberg/ts/bb.js/scripts/run_test.sh $test"
   done
   echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh barretenberg/chonk_pinned_inputs.test.js"
+  echo "$hash:CPUS=8:MEM=16g:TIMEOUT=10m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh barretenberg/chonk_interrupt.test.js"
 }
 
 function bench_cmds {
