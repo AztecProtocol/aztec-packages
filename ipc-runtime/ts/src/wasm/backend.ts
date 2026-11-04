@@ -183,7 +183,7 @@ export class WasmFfiEngine {
     const importsMemory = WebAssembly.Module.imports(module).some(
       (i) => i.kind === "memory",
     );
-    const shared = memory.buffer instanceof SharedArrayBuffer;
+    const shared = isShared(memory.buffer);
     const threads =
       importsMemory && shared && platform.sharedMemoryAvailable()
         ? wantThreads
@@ -221,7 +221,7 @@ export class WasmFfiEngine {
     // host.memory is the one the module actually uses, which is its own when it exports one.
     logger(
       `wasm: ${threads} thread(s), memory ${host.memory.buffer.byteLength >> 16} pages initial, ` +
-        `shared=${host.memory.buffer instanceof SharedArrayBuffer}, ` +
+        `shared=${isShared(host.memory.buffer)}, ` +
         `${importsMemory ? "imported" : "owned by the module"}`,
     );
     return new WasmFfiEngine(host, threadWorkers, host.memory, threads);
@@ -238,6 +238,16 @@ export class WasmFfiEngine {
   async destroy(): Promise<void> {
     await this.threadWorkers?.destroy();
   }
+}
+
+/**
+ * Reads the buffer's tag: the SharedArrayBuffer global is absent where a page is not
+ * cross-origin isolated.
+ */
+function isShared(buffer: ArrayBufferLike): boolean {
+  return (
+    Object.prototype.toString.call(buffer) === "[object SharedArrayBuffer]"
+  );
 }
 
 /**
