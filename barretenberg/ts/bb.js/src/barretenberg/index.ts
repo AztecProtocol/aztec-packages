@@ -109,6 +109,11 @@ export class Barretenberg extends AsyncApi {
     await this.srsInitGrumpkinSrs({ pointsBuf: grumpkinCrs.getG1Data(), numPoints: grumpkinCrs.numPoints });
   }
 
+  /**
+   * The number of SRS points to load when the caller sets no `srsSize`: `2 ** 18` on an iPhone or an
+   * iPad, else `2 ** 19`. A Web Worker cannot tell an iPad or a desktop-mode iPhone from a Mac, so a
+   * Web Worker on those devices must set `srsSize: 2 ** 18`.
+   */
   getDefaultSrsSize(): number {
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
     return isIos() ? IOS_BB_CRS_SIZE : DEFAULT_BB_CRS_SIZE;
