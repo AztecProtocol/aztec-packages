@@ -52,13 +52,18 @@ ChonkPrecomputedVkPolicy to_chonk_vk_policy(VkPolicy policy)
     throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
 }
 
-void release_chonk_session(BBApiRequest& request) noexcept
+void release_loaded_circuit(BBApiRequest& request) noexcept
 {
-    request.ivc_in_progress.reset();
     request.loaded_circuit_name.clear();
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
     request.loaded_circuit_kind = CircuitKind::None;
+}
+
+void release_chonk_session(BBApiRequest& request) noexcept
+{
+    request.ivc_in_progress.reset();
+    release_loaded_circuit(request);
 }
 
 /**
@@ -163,10 +168,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     auto loaded_vk = std::move(request.loaded_circuit_vk);
     auto circuit_name = std::move(request.loaded_circuit_name);
     const CircuitKind loaded_kind = request.loaded_circuit_kind;
-    request.loaded_circuit_constraints.reset();
-    request.loaded_circuit_vk.clear();
-    request.loaded_circuit_name.clear();
-    request.loaded_circuit_kind = CircuitKind::App;
+    release_loaded_circuit(request);
 
     request.ivc_in_progress->process_step({ .name = std::move(circuit_name),
                                             .program = std::move(program),
