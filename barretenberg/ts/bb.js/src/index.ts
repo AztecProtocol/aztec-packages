@@ -10,6 +10,7 @@ export {
   flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  type AztecClientProveOptions,
   type AztecClientProveResult,
   type UltraHonkBackendOptions,
   type VerifierTarget,
