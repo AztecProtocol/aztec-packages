@@ -60,6 +60,8 @@ Configure once: `cmake --preset clang20-assert`. All commands below are from `ba
    - Build: `cmake --build --preset clang20-assert --target vm2_tests`. Run from `barretenberg/cpp/build`: `./bin/vm2_tests --gtest_filter="*test_name*"`.
 3. **`bb-avm-sim`** — Simulation-only IPC server that TS drives.
    - Build: `cmake --build --preset clang20-assert --target bb-avm-sim`. For TS: from `barretenberg/cpp/`, run `(cd ../ts && ./bootstrap.sh build_bb_avm_sim)` then bootstrap `yarn-project` (see yarn-project/CLAUDE.md).
+4. **`bb-avm-sim.wasm`**: the same service in-process, the `@aztec-foundation/bb-avm-sim` package's wasm backend. It serves `SimulateWithHints` only, since it has no route to world state or contract data yet.
+   - Build: `cmake --preset wasm && cmake --build --preset wasm` (also builds `avm_ffi_tests`). Test: `SINGLE_THREADED=1 scripts/wasmtime.sh build-wasm/bin/avm_ffi_tests`, and natively `./build/bin/avm_ffi_tests`.
 
 ## AVM and TypeScript
 
