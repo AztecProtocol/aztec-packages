@@ -137,6 +137,16 @@ function largestCircuit(flow: PinnedFlow): number {
   );
 }
 
+/**
+ * Fails a precondition on scheduling: an abort fired on a reply must reach bb while the next command runs, which only a
+ * stall of this process longer than that command breaks, not a fault in bb or bb.js.
+ */
+function expectTimely(holds: boolean, what: string) {
+  if (!holds) {
+    throw new Error(`timing precondition: ${what}; the test process stalled longer than the targeted command`);
+  }
+}
+
 describe.each(INTERRUPTIBLE_BACKENDS)('aborting a Chonk proof on $label', ({ backend }) => {
   const logs: string[] = [];
   let api: Barretenberg;
@@ -217,7 +227,11 @@ describe.each(INTERRUPTIBLE_BACKENDS)('aborting a Chonk proof on $label', ({ bac
         .finally(() => (settled = true));
       await expect(guardAfterAbort(controller.signal, proving)).rejects.toBe(reason);
 
-      expect(atAbort?.settled).toBe(false);
+      expectTimely(atAbort?.settled === false, 'the abort landed after prove() settled');
+      expectTimely(
+        atAbort?.inFlight?.reply !== `${inFlight}Response`,
+        `${inFlight} finished before the abort reached bb`,
+      );
       expect(atAbort?.inFlight).toMatchObject({
         command: inFlight,
         reply: 'BbErrorResponse',
