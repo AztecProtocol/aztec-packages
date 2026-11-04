@@ -96,7 +96,7 @@ class ChonkInterrupt : public ::testing::Test {
 
 } // namespace
 
-// Folding, decider, batch merge, the prove phases, and the commitment and sumcheck kernels, on mock circuits. The
+// Folding, decider, batch merge, the prove phases, and Honk commitments and sumcheck rounds, on mock circuits. The
 // ACIR path is swept through bbapi on a pinned flow (bbapi_interrupt.test.cpp).
 TEST_F(ChonkInterrupt, SweepThenProve)
 {

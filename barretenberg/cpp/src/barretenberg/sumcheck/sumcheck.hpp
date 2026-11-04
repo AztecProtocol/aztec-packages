@@ -420,7 +420,7 @@ template <typename Flavor> class SumcheckProver {
         }();
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
-            interrupt_point("kernel:sumcheck_round");
+            interrupt_point("honk:sumcheck_round");
 
             // Write the round univariate to the transcript
             auto round_univariate =
@@ -537,7 +537,7 @@ template <typename Flavor> class SumcheckProver {
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
-            interrupt_point("kernel:sumcheck_round");
+            interrupt_point("honk:sumcheck_round");
 
             // Computes the round univariate in two parts: first the contribution necessary to hide the polynomial and
             // account for having randomness at the end of the trace and then the contribution from the full
