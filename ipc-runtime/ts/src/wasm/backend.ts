@@ -373,7 +373,10 @@ export class WasmFfiBackend implements IpcClientAsync {
       },
     });
     const { interruptFlag } = await ready;
-    backend.#interruptFlag = interruptFlag instanceof Int32Array ? interruptFlag : undefined;
+    // The tag, not `instanceof`: the message is deserialized in the realm that owns the worker port, which is not
+    // this module's when it runs in a vm context (a test runner's sandbox).
+    backend.#interruptFlag =
+      Object.prototype.toString.call(interruptFlag) === "[object Int32Array]" ? interruptFlag : undefined;
     return backend;
   }
 
