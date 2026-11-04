@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Decoder } from 'msgpackr';
 import { ungzip } from 'pako';
-import { AztecClientBackend, BackendType, Barretenberg } from '../dest/node/index.js';
+import { AztecClientBackend, BackendType, Barretenberg } from '../bb.js/dest/node/index.js';
 
 const flowDir = process.argv[2];
 const threads = Number(process.argv[3]);
