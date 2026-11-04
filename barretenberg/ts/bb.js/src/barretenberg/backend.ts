@@ -309,7 +309,7 @@ export const INTERRUPTED_MESSAGE = 'bb: interrupted';
  */
 const FENCE_DEADLINE_MS = 1000;
 
-/** Spacing of a fence's reads: adds at most this to an abort, and bounds a fence at 100 reads. */
+/** Spacing of a fence's reads: adds about this, plus timer slack, to an abort, and bounds a fence at 100 reads. */
 const FENCE_RETRY_MS = 10;
 
 /**
@@ -414,7 +414,8 @@ export class AztecClientBackend {
    * Proves a Chonk transaction from one witness and one precomputed VK per circuit.
    *
    * `prove()` calls on one {@link Barretenberg} run one after another. With `options.signal`, an abort rejects with
-   * `signal.reason` once bb has stopped and the instance is ready for the next proof:
+   * `signal.reason` once bb has stopped and cleared the interrupt, or failed to confirm it in time (the instance then
+   * reads {@link Barretenberg.interruptible} false):
    * - before the call, or while an earlier `prove()` on the instance runs: nothing is sent to bb;
    * - while bb proves, on an {@link Barretenberg.interruptible} instance: bb stops the command it is running;
    * - otherwise, and during the verification and compression that follow: the command in hand finishes and no

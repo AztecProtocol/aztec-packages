@@ -79,8 +79,10 @@ await proving; // rejects with controller.signal.reason
 When `api.interruptible` is true (native bb as a spawned process, except on Windows, and the multithreaded wasm
 module in a worker), bb stops the command it is running at its next checkpoint and fails the rest of the proof.
 `prove()` settles once bb has confirmed the interrupt is cleared, so the same instance, with its CRS, is ready for the
-next proof. Elsewhere (the direct `Wasm` backend, the single-thread module, native bb on Windows), the command in hand
-finishes and no further one is issued.
+next proof. If bb does not confirm in time, `prove()` settles anyway and `interruptible` reads false from then on; an
+interrupt that arrives after that can fail the next proof once with bb's interruption error. Elsewhere (the direct
+`Wasm` backend, the single-thread module, native bb on Windows), the command in hand finishes and no further one is
+issued.
 
 | When `abort()` happens | `prove()` |
 |---|---|
