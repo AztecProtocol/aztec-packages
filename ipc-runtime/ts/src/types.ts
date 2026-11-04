@@ -5,6 +5,13 @@
 export interface IpcClientAsync {
   call(input: Uint8Array): Promise<Uint8Array>;
   destroy(): Promise<void>;
+  /** Whether `interrupt()` can reach the service while a call is running. Absent means false. */
+  readonly interruptible?: boolean;
+  /**
+   * Asks the service to stop the work in hand. Returns whether the request was delivered, not
+   * whether anything stopped: the service defines what it stops and how the request is cleared.
+   */
+  interrupt?(): boolean;
 }
 
 /**
