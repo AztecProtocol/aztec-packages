@@ -324,6 +324,11 @@ function isInterruption(error: unknown): boolean {
   return error instanceof BbError && error.message === INTERRUPTED_MESSAGE;
 }
 
+/** Resolves after one macrotask: a direct wasm call answers synchronously, so only then can a timer or an event run. */
+function nextMacrotask(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 /** Waits for `turn`, or rejects with the signal's reason as soon as it aborts. */
 function waitForTurn(turn: Promise<void>, signal?: AbortSignal): Promise<void> {
   if (!signal) {
@@ -451,7 +456,12 @@ export class AztecClientBackend {
         // The abort can land after the turn passed and before this resumes.
         signal?.throwIfAborted();
       }
-      return await this.proveInTurn(witnessBuf, vksBuf, signal, options?.compress);
+      const result = await this.proveInTurn(witnessBuf, vksBuf, signal, options?.compress);
+      // Nothing is awaited between this check and settling, so an abort that lands before prove() settles rejects it.
+      if (signal?.aborted) {
+        await this.abandon(signal, [], false);
+      }
+      return result;
     } finally {
       release();
     }
@@ -496,10 +506,9 @@ export class AztecClientBackend {
       commands.push(() => this.api.chonkAccumulate({ witness: witnessBuf[i] || new Uint8Array(0) }));
     }
     commands.push(() => this.api.chonkProve({}));
+    const oneAtATime = signal !== undefined && !this.api.interruptible;
     const proveResult = (
-      signal && !this.api.interruptible
-        ? await this.runOneAtATime(commands, signal)
-        : await this.runPipelined(commands, signal)
+      oneAtATime ? await this.runOneAtATime(commands, signal) : await this.runPipelined(commands, signal)
     ) as ChonkProveResponse;
 
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
@@ -514,20 +523,45 @@ export class AztecClientBackend {
     const proofFields = flattenChonkProofFields(proveResult.proof);
 
     // bb does not interrupt verification or compression: an abort lets the one running finish and skips the rest.
-    // This first check catches an abort fired from a promise continuation since the commands were checked.
-    await this.abandonIfAborted(signal);
     // Verify using native proof directly to avoid redundant encode/decode cycle
-    if (!(await this.verifyNative(proveResult.proof, hidingKernelVk))) {
+    const verified = await this.unlessAborted(signal, oneAtATime, () =>
+      this.verifyNative(proveResult.proof, hidingKernelVk),
+    );
+    if (!verified) {
       throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
 
-    await this.abandonIfAborted(signal);
     const compressedProof = compress
-      ? (await this.api.chonkCompressProof({ proof: proveResult.proof })).compressedProof
+      ? await this.unlessAborted(
+          signal,
+          oneAtATime,
+          async () => (await this.api.chonkCompressProof({ proof: proveResult.proof })).compressedProof,
+        )
       : undefined;
 
-    await this.abandonIfAborted(signal);
+    if (oneAtATime) {
+      // Lets an abort raised during a synchronous last step land before prove() checks the signal.
+      await nextMacrotask();
+    }
     return { proofFields, proof, vk: hidingKernelVk, compressedProof };
+  }
+
+  /**
+   * Runs a step that follows proving unless the proof was aborted. The check and the call share one synchronous run,
+   * so no abort lands between them; when bb's calls answer synchronously, a macrotask passes first.
+   */
+  private async unlessAborted<T>(
+    signal: AbortSignal | undefined,
+    oneAtATime: boolean,
+    step: () => Promise<T>,
+  ): Promise<T> {
+    if (oneAtATime) {
+      await nextMacrotask();
+    }
+    if (signal?.aborted) {
+      return await this.abandon(signal, [], false);
+    }
+    return await step();
   }
 
   /**
@@ -581,9 +615,7 @@ export class AztecClientBackend {
     let result: unknown;
     for (let i = 0; i < commands.length; i++) {
       if (i > 0) {
-        // A direct wasm call answers synchronously, so without a macrotask an abort from a timer or an event could not
-        // land between commands.
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await nextMacrotask();
       }
       if (signal.aborted) {
         return await this.abandon(signal, [], false);
@@ -612,12 +644,6 @@ export class AztecClientBackend {
       await this.clearInterruptOnce();
     }
     throw failures[0];
-  }
-
-  private async abandonIfAborted(signal?: AbortSignal): Promise<void> {
-    if (signal?.aborted) {
-      await this.abandon(signal, [], false);
-    }
   }
 
   /**

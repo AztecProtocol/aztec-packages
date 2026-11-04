@@ -219,9 +219,10 @@ const nextMacrotask = () => new Promise(resolve => setTimeout(resolve, 0));
 const never = <T>() => new Promise<T>(() => {});
 
 /**
- * A real Barretenberg whose Chonk commands are answered by a model of bb, in issue order, one per `answer()`. Its
- * transport takes an interrupt as the wasm one does, setting the flag at once; while the flag is set, the commands bb
- * arms fail with the interruption, and `clearInterrupt` reports and clears it.
+ * A real Barretenberg whose Chonk commands are answered by a model of bb, in issue order, one per `answer()`, or as
+ * they are issued when `synchronous`, as a direct wasm call answers. Its transport takes an interrupt as the wasm one
+ * does, setting the flag at once; while the flag is set, the commands bb arms fail with the interruption, and
+ * `clearInterrupt` reports and clears it.
  */
 class FakeBb {
   readonly issued: string[] = [];
@@ -230,8 +231,10 @@ class FakeBb {
   /** One-time failures by command name, taking precedence over the flag. */
   readonly failures = new Map<string, unknown>();
   readonly api: Barretenberg;
+  readonly synchronous: boolean;
   interrupts = 0;
   flag = false;
+  onIssue?: (command: string) => void;
   readClear: () => Promise<{ interrupted: boolean }> = () => {
     const interrupted = this.flag;
     this.flag = false;
@@ -239,7 +242,8 @@ class FakeBb {
   };
   private readonly queue: (() => void)[] = [];
 
-  constructor({ interruptible = true } = {}) {
+  constructor({ interruptible = true, synchronous = false } = {}) {
+    this.synchronous = synchronous;
     const transport: IpcClientAsync = {
       call: () => Promise.reject(new Error('unexpected call')),
       destroy: () => Promise.resolve(),
@@ -294,7 +298,8 @@ class FakeBb {
     return () =>
       new Promise((resolve, reject) => {
         this.issued.push(name);
-        this.queue.push(() => {
+        this.onIssue?.(name);
+        const answer = () => {
           if (this.failures.has(name)) {
             reject(this.failures.get(name));
             this.failures.delete(name);
@@ -303,7 +308,12 @@ class FakeBb {
           } else {
             resolve(result());
           }
-        });
+        };
+        if (this.synchronous) {
+          answer();
+        } else {
+          this.queue.push(answer);
+        }
       });
   }
 }
@@ -584,4 +594,63 @@ describe('AztecClientBackend.prove with an AbortSignal', () => {
     await expect(second).rejects.toBe(again.signal.reason);
     expect(bb.logs.filter(line => line.includes('cannot stop a running command'))).toHaveLength(1);
   });
+
+  it.each([
+    { during: 'chonkProve', issued: PIPELINE },
+    { during: 'chonkVerify', issued: [...PIPELINE, 'chonkVerify'] },
+    { during: 'chonkCompressProof', issued: [...PIPELINE, 'chonkVerify', 'chonkCompressProof'] },
+  ])(
+    'on a backend that answers synchronously, an abort from a timer set during $during skips what follows',
+    async ({ during, issued }) => {
+      const bb = new FakeBb({ interruptible: false, synchronous: true });
+      const controller = new AbortController();
+      const reason = new Error('cancelled');
+      // A timer set while a direct wasm call blocks the thread fires only once the event loop runs again.
+      bb.onIssue = command => {
+        if (command === during) {
+          setTimeout(() => controller.abort(reason), 0);
+        }
+      };
+      await expect(proveTwoCircuits(bb, { signal: controller.signal, compress: true })).rejects.toBe(reason);
+      expect(bb.issued).toEqual([...issued, 'clearInterrupt']);
+    },
+  );
+
+  it('fulfils only if no abort came before it settled, wherever among the last steps the abort lands', async () => {
+    const outcomes = new Set<string>();
+    for (let abortAt = 0; abortAt < ABORT_SWEEP; abortAt++) {
+      const bb = new FakeBb();
+      const controller = new AbortController();
+      let tick = 0;
+      let observedAt: number | undefined;
+      const proving = proveTwoCircuits(bb, { signal: controller.signal, compress: true });
+      void proving.then(
+        () => (observedAt = tick),
+        () => {},
+      );
+      await bb.answer(PIPELINE.length + 1);
+      // Answers the compression, the last step, then counts microtasks in step with prove()'s own continuations.
+      const answered = bb.answer();
+      for (tick = 0; tick < 2 * ABORT_SWEEP; tick++) {
+        if (tick === abortAt) {
+          controller.abort();
+        }
+        await Promise.resolve();
+      }
+      await answered;
+      const [result] = await Promise.allSettled([proving]);
+      outcomes.add(result.status);
+      if (result.status === 'fulfilled') {
+        // A fulfilment is seen one microtask after it settles, so at most the one microtask holding the abort can
+        // come between them.
+        expect(observedAt).toBeLessThanOrEqual(abortAt);
+      } else {
+        expect(result.reason).toBe(controller.signal.reason);
+      }
+    }
+    expect([...outcomes].sort()).toEqual(['fulfilled', 'rejected']);
+  });
 });
+
+/** Microtask positions an abort is tried at: well past the few between the last answer and prove() settling. */
+const ABORT_SWEEP = 20;
