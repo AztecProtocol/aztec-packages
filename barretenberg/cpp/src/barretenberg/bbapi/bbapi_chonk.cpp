@@ -62,9 +62,8 @@ void release_chonk_session(BBApiRequest& request) noexcept
 }
 
 /**
- * Arms interrupt points for one Chonk proving command, and releases the session if the command exits by an exception:
- * a command that fails partway leaves a half-loaded circuit or a half-folded accumulator that cannot be resumed, and a
- * later command must not build on it. A destructor that sees more uncaught exceptions than at entry is unwinding.
+ * Arms interrupt points for one Chonk proving command and releases the session if the command throws: a half-loaded
+ * circuit or half-folded accumulator cannot be resumed, so no later command may build on it.
  */
 class ChonkCommandScope {
   public:
