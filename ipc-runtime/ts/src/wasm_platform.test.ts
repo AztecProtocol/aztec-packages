@@ -16,7 +16,7 @@ for (const [device, userAgent, maxTouchPoints, pages] of [
   ["an iPad", IPAD, 5, 2 ** 14],
   ["a Mac user agent with touch points", MAC, 5, 2 ** 14],
   ["a Mac", MAC, 0, 2 ** 16],
-  ["a worker (no touch points) on a Mac", MAC, undefined, 2 ** 16],
+  ["a worker (no touch points) on an iPad or a Mac", MAC, undefined, 2 ** 16],
 ] as const) {
   test(`${device} gets a maximum of ${pages} memory pages`, () => {
     Object.defineProperty(globalThis, "navigator", {

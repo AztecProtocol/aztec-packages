@@ -16,7 +16,10 @@ export interface WasmPlatform extends ModuleLoadPlatform {
   hardwareConcurrency(): number;
   /** Threads need a shared memory; browsers only allow one under COOP/COEP. */
   sharedMemoryAvailable(): boolean;
-  /** Upper bound on linear memory (64 KiB pages) to ask for when the caller sets none. */
+  /**
+   * Upper bound on linear memory (64 KiB pages) to ask for when the caller sets none. The backend
+   * reads it on the thread that creates it: in a worker, an iPad reads as a Mac (see `isIos`).
+   */
   maximumMemoryPages?(): number;
 }
 
