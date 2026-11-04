@@ -1,6 +1,6 @@
 # Keccak
-This module implements **Keccak-256** based on the **Keccak-f[1600]** permutation.
-It uses **capacity = 512 bits**, **rate = 1088 bits** (1600=rate+capacity) and the **Keccak domain suffix `0x01`** (not the SHA-3 `0x06`).
+This module implements Keccak-256 (rate 1088 bits, capacity 512 bits, domain suffix `0x01` as used by Ethereum, not the SHA-3 suffix `0x06`) on top of the Keccak-f[1600] permutation.
+The code is vendored from ethash (see the file headers for the license). `keccak.hpp` declares the API, and `keccakf1600.cpp` holds the permutation.
 This module includes:
 - Keccak-f[1600] permutation (`ethash_keccakf1600`) over a 1600-bit state (25 lanes of 64-bits each).
 - A Keccak-256 hash function (`ethash_keccak256`).
@@ -15,7 +15,7 @@ This module includes:
 
 **Keccak-f[1600] Permutation** (24 Rounds)
 
-Operates on a 1600-bit state (which is 25 lanes of 64 bits each). The state is represented as a 5×5 matrix of 64-bit lanes `A[x,y]` for `x,y ∈ {0,1,2,3,4}`, where `state[5*y + x]` corresponds to lane `A[x,y]`.
+Operates on a 1600-bit state (which is 25 lanes of 64 bits each). All lanes are 64-bit little-endian words. The state is represented as a 5×5 matrix of 64-bit lanes `A[x,y]` for `x,y ∈ {0,1,2,3,4}`, where `state[5*y + x]` corresponds to lane `A[x,y]`.
 
 Each round applies the following five steps. All indices are taken modulo 5.
 
@@ -29,7 +29,10 @@ Each round applies the following five steps. All indices are taken modulo 5.
 
 1. Initialize a 1600-bit state to zero.
 2. Absorb the input message in 136-byte blocks (136 bytes = 1088-bit rate), XORing each block into the state and applying Keccak-f[1600] after every full block.
-3. Apply padding using Keccak pad10*1 with suffix `0x01`. That is, append byte `0x01` after the final message byte, pad with zeros to the last bit of the 136-byte block, set the final bit to `1`. All lanes are 64-bit little-endian words.
+3. Apply padding using Keccak pad10*1 with suffix `0x01`:
+   1. Append byte `0x01` after the final message byte.
+   2. Append zero bytes to fill the 136-byte block.
+   3. OR `0x80` into the last byte of the block.
 4. Apply a final Keccak-f[1600] permutation.
 5. Output the first 32 bytes of state.
 
@@ -41,3 +44,5 @@ Test vectors generated using the keccak reference implementation (https://github
 - Input state: random
 
 For testing Keccak-256, we use commonly used test vectors for ASCII messages "" and "abc".
+
+Tests: `keccak.test.cpp` (`misc_keccak.permutation_test`, `misc_keccak.keccak256_test`).

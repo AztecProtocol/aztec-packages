@@ -5,10 +5,11 @@ The `UltraCircuitBuilder` and `MegaCircuitBuilder` builders provide the interfac
 ## Table of Contents
 
 - [Class Hierarchy](#class-hierarchy)
-- [Wires, Selectors & Blocks](#wires-selectors--blocks)
+- [Wires, Selectors, Blocks & Tags](#wires-selectors-blocks--tags)
   - [Wires, Variables & Witnesses](#wires-variables--witnesses)
   - [Selectors](#selectors)
   - [Blocks](#blocks)
+  - [Tags and the multiset-equality check](#tags-and-the-multiset-equality-check)
 - [Arithmetization & Custom Gates](#arithmetization--custom-gates)
   - [Core Arithmetic Constraint](#core-arithmetic-constraint)
   - [Custom Gates](#custom-gates)
@@ -26,6 +27,8 @@ CircuitBuilderBase<FF>
             └── MegaCircuitBuilder
 ```
 
+`UltraCircuitBuilder` and `MegaCircuitBuilder` are aliases for the class templates `UltraCircuitBuilder_<UltraExecutionTraceBlocks>` (`ultra_circuit_builder.hpp`) and `MegaCircuitBuilder_<bb::fr>` (`mega_circuit_builder.hpp`). `MegaCircuitBuilder_<FF>` derives from `UltraCircuitBuilder_<MegaExecutionTraceBlocks>`.
+
 - **CircuitBuilderBase**: Core variable management, copy constraints, public inputs
 - **UltraCircuitBuilder**: Implements the Ultra arithmetization. Includes (custom) gates for
     - Arithmetic operations (width-4)
@@ -38,7 +41,7 @@ CircuitBuilderBase<FF>
     - DataBus (efficient mechanism for inter-circuit communication in Aztec)
     - Deferred ECC operations (used to defer expensive EC operations to the ECCVM for Goblin)
 
-The `MegaCircuitBuilder` is purpose built to construct circuits representing transactions on Aztec and is always used in conjunction with **Goblin**—a protocol for efficiently proving elliptic curve operations by deferring them to specialized components (see ECCVM, Translator, Merge).
+The `MegaCircuitBuilder` constructs circuits representing transactions on Aztec and is always used in conjunction with **Goblin**—a protocol for efficiently proving elliptic curve operations by deferring them to specialized components (see ECCVM, Translator, Merge).
 
 The `UltraCircuitBuilder` is used for everything else, e.g. in the Barretenberg-as-noir-backend for non-Aztec use cases and in Aztec rollup circuits (which don't utilize Goblin).
 
@@ -53,7 +56,7 @@ uint32_t idx = builder.add_variable(fr(42));  // returns index into variables ve
 fr value = builder.get_variable(idx);         // retrieves the value
 ```
 
-It is instructive to note that `get_variable` uses one additional layer of indirection: Instead of simply returning `variables[idx]`, it returns `variables[real_variable_index[idx]]`, where `real_variable_index` is a map on and into the variables vector indices. This mechanism is used to represent copy constraints in the circuit. Two witnesses are considered to be copy-constrained if and only if they have the same "real_variable_index".
+`get_variable` uses one additional layer of indirection: Instead of returning `variables[idx]`, it returns `variables[real_variable_index[idx]]`, where `real_variable_index` is a map on and into the variables vector indices. This mechanism is used to represent copy constraints in the circuit. Two witnesses are considered to be copy-constrained if and only if they have the same "real_variable_index".
 
 It is sufficient but not necessary for two wire entries to share a witness index to be copy constrained, since two distinct witness indices can map to the same "real variable index". This latter case would occur for example in the following snippet:
 
@@ -69,7 +72,7 @@ builder.assert_equal(idx_a, idx_b);
 
 **Selectors** are per-row values that configure constraint behavior. They fall into two categories:
 
-**Gate selectors** enable specific relations at a given row. With the exception of `q_arith`, these are boolean (0 or 1):
+**Gate selectors** enable specific relations at a given row. With the exception of `q_arith` and `q_bilinear_batched_eq`, these are boolean (0 or 1):
 
 | Selector | Relation |
 |----------|----------|
@@ -77,6 +80,7 @@ builder.assert_equal(idx_a, idx_b);
 | `q_delta_range` | Delta range constraint |
 | `q_elliptic` | Elliptic curve operations |
 | `q_memory` | RAM/ROM memory operations |
+| `q_nnf` | Non-native field operations |
 | `q_lookup` | Lookup gate |
 | `q_poseidon2_external` | Poseidon2 external rounds |
 | `q_poseidon2_internal` | Poseidon2 internal rounds (Ultra) |
@@ -85,6 +89,7 @@ builder.assert_equal(idx_a, idx_b);
 | `q_poseidon2_quad_internal` | Poseidon2 K=4 internal rows (Mega) |
 | `q_poseidon2_quad_internal_terminal` | Poseidon2 quad-to-standard boundary (Mega) |
 | `q_busread` | Databus read (Mega only) |
+| `q_bilinear_batched_eq` | Bilinear or batched-eq gate (Mega only; values 0, 1, 2) |
 
 Note: no selector exists for gates representing deferred ECC operations in the Mega builder. However, there is a selector in the Mega circuit itself for deferred ECC ops: `lagrange_ecc_op`. This is not stored in the builder; the selector is populated later, in `trace_to_polynomials.cpp`, as it can be efficiently derived once the builder phase has completed.
 
@@ -96,9 +101,11 @@ Note: no selector exists for gates representing deferred ECC operations in the M
 | `q_1`, `q_2`, `q_3`, `q_4` | Linear coefficients for each wire |
 | `q_c` | Constant term |
 
+The builder names the linear selectors `q_1`, `q_2`, `q_3`, `q_4`; the flavor names the same columns `q_l`, `q_r`, `q_o`, `q_4`.
+
 ### Blocks
 
-The execution trace is constructed in the form of **blocks** (`ExecutionTraceBlock`), one for each gate type. Each block tracks the wires, the non-gate selectors, and a single gate selector corresponding to its gate type (since by definition all other gate selectors are strictly zero in each block). The full execution trace consists of the concatenation of these blocks and is thus "sorted" by gate type. The primary benefit is that the polynomials constructed to represent the execution trace in the proving system inherit this structure which allows for efficient storage in memory and other performance optimizations.
+The execution trace is constructed in the form of **blocks** (`ExecutionTraceBlock`), one for each gate type. Each block tracks the wires, the non-gate selectors, and the gate selector(s) of the gate kind(s) placed in it (usually one; all other gate selectors are zero in the block). In Mega, `arithmetic` holds the arithmetic and bilinear/batched-eq gate kinds, and `poseidon2` holds five gate kinds. The full execution trace consists of the concatenation of these blocks and is thus "sorted" by gate type. The primary benefit is that the polynomials constructed to represent the execution trace in the proving system inherit this structure which allows for efficient storage in memory and other performance optimizations.
 
 **Ultra blocks:**
 - `pub_inputs` — Public inputs (no gate selector)
@@ -128,7 +135,7 @@ Note: The `pub_inputs` block is the only one which does not correspond to a part
 ### Tags and the multiset-equality check
 Tags are a mechanism to enforce multiset-equality checks. Tags are stored in `std::vector<uint32_t> real_variable_tags`; in particular, every `real_variable` has a tag. Real variables that are _not_ used in any non-trivial multiset-equality check are given the `DEFAULT_TAG == 0`. All other tags signify "one side" of a multiset-equality check.
 
-Let $T$ be the set of all real variables (indices) with tag $t$ and $S$ be the set of all real variables with tag $s$. The constraint that $T = S$ as multisets is enforced by adding a transposition $s \leftrightarrow t$ to to `_tau`, the "permutation over tags". (`DEFAULT_TAG` is sent to itself under this permutation.) In other words, `_tau` is a permutation on the set of tags; it has order two, meaning it is the product of disjoint transpositions. Each transposition witnesses a multiset-equality check.
+Let $T$ be the set of all real variables (indices) with tag $t$ and $S$ be the set of all real variables with tag $s$. The constraint that $T = S$ as multisets is enforced by adding a transposition $s \leftrightarrow t$ to `_tau`, the "permutation over tags". (`DEFAULT_TAG` is sent to itself under this permutation.) In other words, `_tau` is a permutation on the set of tags; it has order two, meaning it is the product of disjoint transpositions. Each transposition witnesses a multiset-equality check.
 
 There are two types of tags that occur in Barretenberg.
 * For any "regular" (i.e., non-derived) witness, having a non-trivial tag $t$ corresponds to a (small) range constraint.
@@ -155,7 +162,7 @@ By setting selector values appropriately, this supports addition, multiplication
 | `q_arith = 0` | Gate disabled |
 | `q_arith = 1` | Standard arithmetic gate (equation above) |
 | `q_arith = 2` | Standard gate + adds `w_4_shift` (fourth wire from next row) as linear term. Enables chaining the output of one gate into the next. |
-| `q_arith = 3` | Disables multiplication (`q_m · w_l · w_r` term removed). Enables a secondary "mini addition gate": `w_l + w_4 - w_l_shift + q_m = 0`, where `q_m` is repurposed as an additive constant. Useful for cascading additions. |
+| `q_arith = 3` | Linear part of the standard gate plus `2 · w_4_shift` (no `q_m · w_l · w_r` product term), and a secondary "mini addition gate": `w_l + w_4 - w_l_shift + q_m = 0`, where `q_m` is repurposed as an additive constant. Useful for cascading additions. |
 
 ### Custom Gates
 
@@ -166,11 +173,12 @@ Beyond basic arithmetic, specialized gates provide efficient constraints for var
 | **Arithmetic** | `ArithmeticRelation` | Width-4 arithmetic with extended modes (see above) |
 | **Delta Range** | `DeltaRangeConstraintRelation` | Efficient range constraints |
 | **Elliptic** | `EllipticRelation` | EC point addition/doubling on Grumpkin |
-| **Poseidon2** | `Poseidon2ExternalRelation`, `Poseidon2InternalRelation` (Ultra), `Poseidon2InitialExternalRelation`, `Poseidon2QuadInternalRelation` (Mega) | Optimized hash function rounds |
+| **Poseidon2** | `Poseidon2ExternalRelation`, `Poseidon2InternalRelation` (Ultra), `Poseidon2InitialExternalRelation`, `Poseidon2TransitionEntryRelation`, `Poseidon2QuadInternalRelation`, `Poseidon2QuadInternalTerminalRelation` (Mega) | Optimized hash function rounds |
 | **Lookup** | `LogDerivLookupRelation` | Table-based lookups (plookup) |
 | **Memory** | `MemoryRelation` | ROM reads, RAM read/write consistency |
 | **Non-native field** | `NonNativeFieldRelation` | Arithmetic over non-native fields via limb decomposition |
-| **Databus** (Mega) | `DatabusLookupRelation` | Reads from kernel/app calldata and return data vectors |
+| **Bilinear / batched-eq** (Mega) | `BilinearOrBatchedEqCheckRelation` | Two products sharing `w_l`, or two independent linear equalities |
+| **Databus** (Mega) | `SingleBusLookupRelation` (one instance per bus column) | Reads from kernel/app calldata and return data vectors |
 | **ECC Op Queue** (Mega) | `EccOpQueueRelation` | Deferred ECC operations for Goblin |
 
 ## Public Inputs
@@ -190,7 +198,7 @@ Public witnesses are stored in the `variables` vector like all other witnesses b
 ## Circuit Finalization
 
 Before a circuit can be proven, it must be **finalized** via `finalize_circuit()`. Finalization performs necessary preprocessing steps:
-- Add a small number of arbitrary valid gates to ensure all polynomials in the proving system will have at least one non-zero coefficient
+- Check that lookup table ids are positive and unique
 - Deduplicate and apply non-native field arithmetic constraints
 - Setup constraints for RAM/ROM set equality checks
 - Apply range constraints
@@ -206,16 +214,16 @@ Mega is used in the context of client-side proving of Aztec transactions and for
 
 For large amounts of public data shared between multiple circuits (common in Aztec transactions), MegaCircuitBuilder provides the **DataBus**—a more efficient mechanism where prover cost scales with the number of *reads* rather than total data size.
 
-Mega supports lookup-style reads on five bus vectors:
+Mega supports lookup-style reads on seven bus vectors (`NUM_BUS_COLUMNS = MAX_APPS_PER_KERNEL + 2`; `MAX_APPS_PER_KERNEL` = 5 in `constants.hpp`):
 - `kernel_calldata`: Input from the previous kernel's return data
-- `app_calldata[0..2]`: Inputs from up to three app circuits' return data
+- `app_calldata[0..MAX_APPS_PER_KERNEL-1]`: Inputs from up to five app circuits' return data
 - `returndata`: Output data
 
 See `databus.hpp` in this directory for implementation details.
 
 ### Deferred ("Goblinized") elliptic curve (EC) operations
 
-Performing operations on EC points in circuit is generally expensive since it involves emulating non-native field arithmetic. Mega allows for the deferral of such operations to the purpose built ECCVM, which is defined over Grumpkin (BN254's cycle curve) and can thus perform them much more efficiently. The responsibility of the Mega builder is simply to track and store EC operations in a format that can later be consumed by the ECCVM (and other Goblin components).
+Performing operations on EC points in circuit is generally expensive since it involves emulating non-native field arithmetic. Mega allows for the deferral of such operations to the ECCVM, which is defined over Grumpkin (BN254's cycle curve) and can thus perform them much more efficiently. The responsibility of the Mega builder is to track and store EC operations in a format that can later be consumed by the ECCVM (and other Goblin components).
 
 Such operations are queued via methods like:
 

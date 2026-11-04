@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `multi_field.fuzzer.cpp` is created to detect bugs in the native field implementations. In a nutshell, it starts a series of VMs executing arbitrary field operation with a particular field type. After execution of each VM we check that internal state is correct according to an oracle internal state, where the same operations are implemented on top of unsigned integers.
+`multi_field.fuzzer.cpp` runs random sequences of field operations on BN254, secp256k1 and secp256r1 `fq`/`fr`. It compares each result with a `uint256_t` reference model.
 
 ## Supported Field Types
 
@@ -18,53 +18,37 @@ The fuzzer tests the following field types:
   - `fq` (base field)
   - `fr` (scalar field)
 
-## Execution Flow
+## Input Format
 
-1. **Phase Reading**: Reads phase headers directly from input data
-2. **Field Selection**: Validates and normalizes field type and step count
-3. **VM Execution**: Creates appropriate FieldVM instance and executes instructions
-4. **State Management**: Maintains state between phases for continuity
-5. **Error Detection**: Checks internal state consistency after each phase
-6. **Debug Information**: Provides detailed error reporting when failures occur
+The input is a sequence of phases. Each phase is a 2-byte header followed by FieldVM instructions (`ecc/fields/field.fuzzer.hpp`). The header holds the field type (taken mod 6) and the step count (taken mod 64; 0 becomes 1).
 
-## Key Features
+State carries across phases. Before a phase runs, the previous state is reduced into the new field's modulus (`import_state_with_reduction`).
 
-### State Continuity
-- Each phase can import state from the previous phase
-- State is reduced to field modulus to ensure validity
-- Cross-field state transitions are handled safely
+## Inversion Fuzzer
 
-### Error Detection
-- Internal state consistency checks after each phase
-- Detailed debug output for failed phases
-- Graceful handling of malformed input data
-
-### Performance Optimizations
-- Streaming execution without pre-parsing
-- Minimal memory allocations
-- Early termination on errors
+`invert_differential.fuzzer.cpp` (target `ecc_invert_differential_fuzzer`) uses the same FieldVM driver. It checks the Bernstein–Yang inverse (native `Native5x64` and WASM `Wasm9x29` kernels) against Fermat inversion on BN254 `fq`/`fr`.
 
 ## Usage
 
 ### Building
+
+The `fuzzing` preset requires clang-20 (the preset sets `CC`/`CXX`).
+
 ```bash
-# Build with fuzzing support
-cmake --preset fuzzing && cd build-fuzzing && cmake --build . --parallel --target ecc_multi_field_fuzzer
+cmake --preset fuzzing && cd build-fuzzing && cmake --build . --parallel --target ecc_multi_field_fuzzer ecc_invert_differential_fuzzer
 ```
 
 ### Running
+
+Run from `build-fuzzing`. libFuzzer refuses to start if the corpus directory does not exist. Without limits it runs until it finds a crash, on every core.
+
 ```bash
-./bin/ecc_multi_field_fuzzer
+mkdir -p corpus
+./bin/ecc_multi_field_fuzzer corpus/ -max_total_time=60 -runs=100000 -workers=1 -jobs=1
 ```
+
 ## Debugging
 
-When the fuzzer detects a failure:
+On a mismatch the fuzzer prints the field type, step count and first 64 instruction bytes. It then re-runs the phase in a debug VM and returns non-zero either way. It asserts only on a confirmed discrepancy.
 
-1. **Error Information**: Field type, step count, and instruction data are logged
-2. **Debug VM**: A debug VM instance is created to provide detailed analysis
-3. **State Verification**: Initial state import is verified
-4. **Reproduction**: Failed inputs can be reproduced for analysis
-
-## Integration
-
-This fuzzer should be integrated into the broader security testing framework and is referenced in the main security documentation (`security/Tooling.md`).
+See [cpp/docs/Fuzzing.md](../../../../docs/Fuzzing.md) for fuzzing presets and coverage, and [security/Tooling.md](../../../../../security/Tooling.md) for the security tooling overview.

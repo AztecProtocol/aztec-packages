@@ -5,27 +5,32 @@ Computes $\text{MSM}(\vec{s}, \vec{P}) = \sum_{i=0}^{n-1} s_i \cdot P_i$ over BN
 Two implementations live behind one facade:
 
 - **Round-parallel rewrite** (`scalar_multiplication_fast.{hpp,cpp}` + `pippenger_*.hpp`) — the default.
-- **Legacy** (`legacy::MSM` in `scalar_multiplication.{hpp,cpp}`, byte-identical to the pre-rewrite code) — selected by
-  setting the `BB_MSM_LEGACY` env var. Scheduled for removal once the rewrite has soaked.
+- **Legacy** (`legacy::MSM` in `scalar_multiplication.{hpp,cpp}`) — selected when the `BB_MSM_LEGACY` env var is set.
+  Deprecated.
 
 ## Entry points
 
 | Facade call | Routes to | Safety |
 |---|---|---|
-| `pippenger(scalars, points, handle_edge_cases=true)` | `pippenger_fast` | ✓ safe |
-| `pippenger_unsafe(scalars, points)` | `pippenger_round_parallel` | ⚠ requires linearly independent points |
+| `pippenger(scalars, points, handle_edge_cases=true)` | `pippenger_fast` | safe |
+| `pippenger_unsafe(scalars, points)` | `pippenger_round_parallel` | unsafe: requires linearly independent points |
 | `MSM<Curve>::msm(...)` | `MSM_fast<Curve>::msm` | per `handle_edge_cases` flag |
 | `MSM<Curve>::batch_multi_scalar_mul(...)` | `MSM_fast<Curve>::batch_multi_scalar_mul` | per `handle_edge_cases` flag |
 
-"Unsafe" means the batched-affine path assumes no two points added pairwise are equal, inverse, or infinity.
-Bucket collisions of equal/inverse points make the shared Montgomery inversion hit zero. Use the safe path
-(Jacobian arithmetic throughout, `pippenger_round_parallel_jacobian_fast`) for caller-controlled points;
-SRS points are linearly independent so commitments use the unsafe path. The `dedup_hint` flag opts an MSM
-into the duplicate-scalar pre-pass (Phase A below); hints are set by provers on duplicate-heavy polynomials
-(Honk wires, `z_perm`).
+Safety:
+
+- "Unsafe" means the batched-affine path assumes no two points added pairwise are equal, inverse, or infinity.
+- Bucket collisions of equal or inverse points make the shared Montgomery inversion hit zero.
+- Use the safe path for caller-controlled points. It uses Jacobian arithmetic throughout
+  (`pippenger_round_parallel_jacobian_fast`).
+- SRS points are linearly independent, so commitments use the unsafe path.
+
+The `dedup_info` argument (see `scalar_multiplication.hpp`) opts an MSM into the duplicate-scalar pre-pass
+(Phase A below): 0 = off, 1 = hinted with no count, ≥2 = a caller-measured duplicate count. Provers set it on
+duplicate-heavy polynomials (Honk wires, `z_perm`). Internally the rewrite turns it into the `dedup_hint` flag.
 
 Inputs smaller than `MIN_PTS_PER_THREAD_FOR_PIPPENGER (24)` points per worker bypass everything and run
-multi-threaded Straus (`pippenger_fallbacks.hpp`).
+multi-threaded Straus (`pippenger_fallbacks.hpp`), a simultaneous multi-scalar method that is faster for small inputs.
 
 ## Round-parallel algorithm
 
@@ -38,13 +43,13 @@ end; into a scratch buffer for GLV) and record each scalar's MSB. The MSB histog
 `effective_num_bits` (window count tracks the largest *actual* scalar, not the field width) and the
 zero count (small active counts bail to the Straus fallback).
 
-**GLV split.** For `n ≤ GLV_SMALL_N_THRESHOLD` (2^13 native / 2^16 WASM) or when the batch driver supplies a
+**GLV split.** GLV (Gallant–Lambert–Vanstone) uses the curve endomorphism φ to halve scalar width. For `n ≤ GLV_SMALL_N_THRESHOLD` (2^13 native / 2^16 WASM) or when the batch driver supplies a
 pre-doubled table, each scalar splits as `k = k1 − λ·k2` giving `2n` half-width (128-bit) working scalars
 against `[P, φP]` pairs — half the windows for double the points.
 
 **Per batch of windows:**
 
-1. **Digit extraction** — Constantine-style carry-less signed-Booth recoding (`pippenger_constantine.hpp`,
+1. **Digit extraction** — Constantine-style (reference 3) carry-less signed-Booth recoding (`pippenger_constantine.hpp`,
    SIMD ×4). Each (scalar, window) yields a signed digit in `[-2^(c-1), 2^(c-1)]`; per-(task, window)
    histograms count digit magnitudes.
 2. **Bucket histogram** — in-place exclusive prefix sums turn per-task counts into scatter cursors.
@@ -60,12 +65,12 @@ against `[P, φP]` pairs — half the windows for double the points.
    independent affine additions through one Montgomery inversion per `BATCH_CAPACITY (256)` pairs. Surviving
    per-bucket partials land in a dense per-(task, window) array.
    **6b: cross-task reduce** — re-partition by bucket range, merge the ≤ T partials per bucket, then
-   `recursive_affine_bucket_reduce_strided` (Mitschabaude-style, ZPrize 2022) computes each window's
+   `recursive_affine_bucket_reduce_strided` (Mitschabaude-style, ZPrize 2022, reference 4) computes each window's
    `Σ_d d·B_d` with batched affine adds/doubles shared across all windows in the batch.
 7. **Window combine** — Horner walk high → low window: double `c` times, add the window sum.
 
-This stage split is why bucket counts are cheap here: Stage 6b (the only per-bucket-cost stage) measures
-1-3% of MSM wall clock, while every extra *window* costs a full pass of Stages 1+4+6a over all n points.
+This stage split is why bucket counts are cheap here. Stage 6b is the only stage whose cost scales with buckets,
+and it measures 1-3% of MSM wall clock. Every extra *window* costs a full pass of Stages 1+4+6a over all n points.
 The window-size model in `choose_window_bits` encodes exactly that trade
 (`cost = rounds · (4·n + 12·buckets)` — coefficients scaled by 4 so the bucket:point ratio 12/4 = 3 stays integer).
 
@@ -122,9 +127,10 @@ scalar_multiplication/
 ## Benchmarks
 
 `pippenger_bench` covers single MSMs (2^10..2^20, including the GLV small-N region), sparsity/duplicate
-profiles, batch commits, and Chonk-shaped batch scenarios. Run on the remote bencher
-(`scripts/benchmark_remote.sh pippenger_bench`); per-stage timing is visible through the `BB_BENCH`
-stage markers (`MSM::Stage*`).
+profiles, batch commits, and Chonk-shaped batch scenarios. Run it on the remote bencher from `barretenberg/cpp`:
+`./scripts/benchmark_remote.sh pippenger_bench`. The script needs the bencher SSH env vars `BB_SSH_KEY`,
+`BB_SSH_INSTANCE` and `BB_SSH_CPP_PATH`. Per-stage timing is visible through the `BB_BENCH` stage markers
+(`MSM_fast::Stage*`, `MSM_fast::Phase*`).
 
 ## References
 

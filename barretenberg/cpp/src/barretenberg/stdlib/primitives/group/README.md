@@ -12,7 +12,7 @@
 ## Class Members
 
 - **`_x`, `_y`** (`field_t`) - Point coordinates in the base field
-- **`_is_infinity`** (`bool_t`) - Flag indicating whether the point is at infinity
+- **`_is_infinity`** (`bool_t`) - Flag indicating whether the point is at infinity. The `cycle_group(x, y)` constructor derives it from `x² + 5y² == 0` (`cycle_group.cpp`), which holds only for `(0, 0)`.
 - **`context`** (`Builder*`) - Circuit builder context
 
 ## Core Methods
@@ -50,7 +50,7 @@ The `batch_mul` method uses the Straus MSM algorithm and automatically selects t
   4. Subtract accumulated offset generators
 - **Cost**: ~29 plookup operations + ~29 point additions per scalar mul
 - **Primary application**: Efficient Pedersen hashing
-- See `plookup_tables/README.md` for details about how lookups are performed
+- See [plookup_tables/README.md](../../../stdlib_circuit_builders/plookup_tables/README.md) for details about how lookups are performed
 
 ### Variable-Base MSM (ROM Arrays)
 **When**: Everything else
@@ -73,7 +73,7 @@ The `batch_mul` method uses the Straus MSM algorithm and automatically selects t
   3. Subtract accumulated offset generators
 - **Cost**: 1 gate per ROM lookup + point additions + point doublings
 - **Flexibility**: Handles arbitrary base points determined at runtime
-- See `memory/README.md` for details about how ROM tables work
+- See [memory/README.md](../memory/README.md) for details about how ROM tables work
 
 ### Common Elements
 

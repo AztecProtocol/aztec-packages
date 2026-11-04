@@ -7,16 +7,18 @@ $\newcommand{\windex}[1]{\textcolor{grey}{#1}}$
 
 ### Purpose
 
-`biggroup` represents group elements on non-native elliptic curves (secp256k1, secp256r1, etc.) where the curve's base field is different from BN254's scalar field. Coordinates are represented as `bigfield` elements (non-native field arithmetic), making elliptic curve operations significantly more expensive than native `cycle_group` operations.
+`biggroup` represents group elements on non-native elliptic curves (secp256k1, secp256r1, etc.) where the curve's base field is different from BN254's scalar field. Coordinates are represented as `bigfield` elements (non-native field arithmetic), so elliptic curve operations cost more than native `cycle_group` operations.
 
 ### Use Cases in Barretenberg
 
 - **ECDSA Verification:** Signature verification for secp256k1 and secp256r1 curves
 - **Recursive Verification:** Verifying SNARK proofs from within BN254 circuits
 
+In Mega circuits, recursive verification uses `goblin_element` (`biggroup_goblin.hpp`) instead. It defers BN254 group operations to the ECC op queue, which the ECCVM and Translator circuits prove. See [Ultra vs Mega Arithmetization](../field/CODEC_README.md#ultra-vs-mega-arithmetization).
+
 ### Representation
 
-- `x`, `y` (`bigfield_t`) - Point coordinates as non-native field elements, each represented with four binary-basis limbs and one prime-basis limb
+- `_x`, `_y` (`Fq`, a `bigfield`) - Point coordinates as non-native field elements, each represented with four binary-basis limbs and one prime-basis limb
 - `_is_infinity` (`bool_t`) - Flag indicating whether the point is at infinity
 
 ### Core Methods
@@ -25,7 +27,7 @@ $\newcommand{\windex}[1]{\textcolor{grey}{#1}}$
 
 - `operator+` / `operator-` - Point addition/subtraction with infinity handling and non-native field arithmetic
 - `dbl()` - Point doubling
-- `operator*(scalar)` - Scalar multiplication using wNAF (windowed non-adjacent form)
+- `operator*(scalar)` - Scalar multiplication; calls `scalar_mul`, which calls `batch_mul` (NAF, signed binary)
 - `checked_unconditional_add()` - Addition without conditional logic for infinity cases
 - `checked_unconditional_subtract()` - Subtraction without conditional logic for infinity cases
 - `chain_add_start()` - Initializes a chain addition sequence
@@ -35,8 +37,9 @@ $\newcommand{\windex}[1]{\textcolor{grey}{#1}}$
 
 #### Multi-Scalar Multiplication
 
-- `batch_mul(points, scalars)` - Optimized MSM using Straus algorithm with wNAF representation
-- `secp256k1_ecdsa_mul(pubkey, u1, u2)` - Specialized function to compute `(u1 * G + u2 * P)` for ECDSA verification
+- `batch_mul(points, scalars)` - Optimized MSM using the Straus algorithm with NAF (signed binary) digits
+- `secp256k1_ecdsa_mul(pubkey, u1, u2)` - Specialized function to compute `(u1 * G + u2 * P)` for secp256k1 ECDSA verification (wNAF with endomorphism)
+- `secp256r1_ecdsa_mul(pubkey, u1, u2)` - Specialized function to compute `(u1 * G + u2 * P)` for secp256r1 ECDSA verification (see [secp256r1 ECDSA](#msm-for-secp256r1-ecdsa-verification))
 - `compute_secp256k1_endo_wnaf(scalar)` - Computes wNAF representation of a scalar with endomorphism for secp256k1
 - `compute_naf(scalar)` - Computes standard NAF representation of a scalar (no endomorphism)
 
@@ -92,14 +95,7 @@ $$
 \end{aligned}
 $$
 
-Note that our wNAF form uses only (positive and negative) odd multiples of $P$ so as to avoid handling conditional logic in the circuit for 0 values. Each group element in the above table is represented as a point on the elliptic curve: $Q = (x, y)$ such that $x, y \in \mathbb{F}_q$. In our case, $\mathbb{F}_q$ is either the base field of BN254 or secp256k1 (or secp256r1). Since the native field used in our circuits is the scalar field $\mathbb{F}_r$ of BN254, $x$ and $y$ are non-native field elements and are represented as two `bigfield` elements, i.e., each of $x$ and $y$ consists of four binary-basis limbs and one prime-basis limb:
-
-$$
-\begin{aligned}
-x &\equiv (x_0, x_1, x_2, x_3, x_p) & & \in \mathbb{F}_r^5, \\
-y &\equiv (y_0, y_1, y_2, y_3, y_p) & & \in \mathbb{F}_r^5.
-\end{aligned}
-$$
+Note that our wNAF form uses only (positive and negative) odd multiples of $P$ so as to avoid handling conditional logic in the circuit for 0 values. Each group element in the above table is represented as a point on the elliptic curve: $Q = (x, y)$ such that $x, y \in \mathbb{F}_q$. In our case, $\mathbb{F}_q$ is either the base field of BN254 or secp256k1 (or secp256r1). Since the native field used in our circuits is the scalar field $\mathbb{F}_r$ of BN254, $x$ and $y$ are `bigfield` elements: four binary-basis limbs and one prime-basis limb each, so 5 elements of $\mathbb{F}_r$ per coordinate (see [bigfield](../bigfield/README.md)).
 
 Thus, when generating lookup tables, each element $Q$ in the table is represented as a tuple of 10 native field elements. Since we only support tables with one key and two values, we need 5 tables to represent the group element $Q$:
 
@@ -154,7 +150,7 @@ Refer to the [ROM table documentation](../memory/README.md) for details on how R
 
 ## Optimized Scalar Multiplication for ECDSA
 
-We use an optimized batch multi-scalar multiplication (MSM) algorithm for computing $(a \cdot G + b \cdot P)$ where $G$ is the group generator (fixed) and $P$ is a point on the secp256k1 curve (variable) and $(a, b) \in \mathbb{F}_r$ are scalars. The algorithm uses the Strauss' method along with wNAF representation of scalars and precomputed ROM and lookup tables for efficient computation.
+We use an optimized batch multi-scalar multiplication (MSM) algorithm for computing $(a \cdot G + b \cdot P)$ where $G$ is the group generator (fixed) and $P$ is a point on the secp256k1 curve (variable) and $(a, b) \in \mathbb{F}_n$ are scalars ($n$ is the secp256k1 group order). The algorithm uses the Straus method along with wNAF representation of scalars and precomputed ROM and lookup tables for efficient computation.
 
 ### wNAF with Stagger
 
@@ -204,7 +200,7 @@ a &:= \left(\sum_{i=0}^{n-1} b_i \cdot \windex{2^{wi}} \right) \cdot \windex{2^t
 \tag{1}
 $$
 
-One important detail here is that the raw wNAF value $e_i \in \{0, 1, \dots, 2^{w-1}\}$ along with a sign bit $\pi_i \in \{0, 1\}$ is used to represent the wNAF slices. The sign bit indicates whether the corresponding wNAF slice is positive or negative. To convert the raw wNAF value and sign bit to the signed-odd representation for our implementation, we use the following formula:
+One important detail here is that the raw wNAF value $e_i \in \{0, 1, \dots, 2^{w-1} - 1\}$ along with a sign bit $\pi_i \in \{0, 1\}$ is used to represent the wNAF slices. The sign bit indicates whether the corresponding wNAF slice is positive or negative. To convert the raw wNAF value and sign bit to the signed-odd representation for our implementation, we use the following formula:
 
 $$
 \begin{aligned}
@@ -361,7 +357,7 @@ $$
 \end{aligned}
 $$
 
-Notice that the terms $e'_{i, \textsf{negative}}$ and $c'_{\textsf{negative}}$ are similar to $e'_i$ and $c'$ respectively, except that the sign bits are flipped. Thus, we can use the same circuit logic to reconstruct both $a$ and $-a_{\textsf{negative}}$ from their wNAF representations with appropriate sign bit handling.
+Notice that the terms $e'_{i, \textsf{negative}}$ and $c'_{\textsf{negative}}$ are similar to $e'_i$ and $c'$ respectively, except that the sign bits are flipped. Thus, we can use the same circuit logic to reconstruct both $a$ and $-a_{\textsf{negative}}$ from their wNAF representations with appropriate sign bit handling. The code builds the adjusted bias correction for the negative part as `negative_constant_wnaf_offset` (`biggroup_nafs.hpp`).
 
 ### MSM for ECDSA Verification
 
@@ -371,7 +367,7 @@ $$
 A = u_1 \cdot G + u_2 \cdot Q
 $$
 
-where $G \in \mathbb{G}$ is the generator point of the secp256k1 curve, $Q \in \mathbb{G}$ is the public key point, and $u_1, u_2 \in \mathbb{F}_r$ are scalars derived from the message hash and signature. Both $G$ and $Q$ are known points on the curve, and we can use fixed-base lookup tables for $G$ and variable-base lookup tables for $Q$. Specifically for $G$, we use 8-bit (fixed) lookup tables of the form:
+where $G \in \mathbb{G}$ is the generator point of the secp256k1 curve, $Q \in \mathbb{G}$ is the public key point, and $u_1, u_2 \in \mathbb{F}_n$ are scalars derived from the message hash and signature. Both $G$ and $Q$ are known points on the curve, and we can use fixed-base lookup tables for $G$ and variable-base lookup tables for $Q$. Specifically for $G$, we use 8-bit (fixed) lookup tables of the form:
 
 $$
 \begin{aligned}
@@ -489,7 +485,7 @@ S_1 =&\ \windex{2^0} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{viol
 \end{aligned}
 $$
 
-We can see a pattern here that the wNAF slices can be grouped based on their bit positions and use Montgomery ladder steps of size 6 to compute the MSM efficiently. This pattern is the reason for our choice of stagger bits for the scalars. If we did not use this particular choice of stagger bits, we would not be able to group the wNAF slices in a montgomery ladder pattern as shown above. The reason montgomery ladder is efficient because it uses lesser field reductions compared to a naive double-and-add approach, resulting in fewer constrains. We can compute the MSM using the following sequence of operations.
+We can see a pattern here that the wNAF slices can be grouped based on their bit positions and use `multiple_montgomery_ladder` calls of 3 points each to compute the MSM efficiently. This pattern is the reason for our choice of stagger bits for the scalars. If we did not use this particular choice of stagger bits, we would not be able to group the wNAF slices in a montgomery ladder pattern as shown above. The Montgomery ladder is efficient because it uses fewer field reductions than a naive double-and-add approach, so it needs fewer constraints. We can compute the MSM using the following sequence of operations.
 
 $$
 \begin{aligned}
@@ -551,9 +547,9 @@ where $\mathcal{Q}, \ \mathcal{Q}_{\lambda}$ and $\mathcal{G}, \ \mathcal{G}_{\l
 $$
 \begin{aligned}
 A = \textsf{acc} +
-\mathcal{Q}[\textcolor{red}{c_f}] +
-\mathcal{Q}_{\lambda}[\textcolor{red}{c_{f'}}] +
-\mathcal{G}_{\lambda}[\textcolor{red}{c_{v'}}].
+\mathcal{G}[\textcolor{red}{c_f}] +
+\mathcal{G}_{\lambda}[\textcolor{red}{c_{f'}}] +
+\mathcal{Q}_{\lambda}[\textcolor{red}{c_{v'}}].
 \end{aligned}
 $$
 
@@ -568,11 +564,20 @@ A \leftarrow&\ A + \textcolor{orange}{\mathfrak{s}_{f}} \cdot G +
 \end{aligned}
 $$
 
-Since our scalars are at most 128 bits long after endomorphism, we can represent the fixed-base scalars using at most 16 wNAF slices (as the window size is $w = 8$) and the variable-base scalars using at most 32 wNAF slices (as the window size is $w = 4$). We choose to represent the scalar $v \in \mathbb{F}_r$ using 33 wNAF slices instead of 32 to because we initialise the accumulator with the extra slice $\textcolor{yellow}{v_4}$ at the start of the MSM computation. This allows us to use a uniform pattern of Montgomery ladder steps of size 6 throughout the MSM computation. In total, we perform 16 rounds each consisting of 2 Montgomery ladder steps of size 6, resulting in a total of 32 ladder steps to compute the MSM.
+Since our scalars are at most 128 bits long after endomorphism, we can represent the fixed-base scalars using at most 16 wNAF slices (as the window size is $w = 8$) and the variable-base scalars using at most 32 wNAF slices (as the window size is $w = 4$). We choose to represent the scalar $v \in \mathbb{F}_r$ using 33 wNAF slices instead of 32 because we initialise the accumulator with the extra slice $\textcolor{yellow}{v_4}$ at the start of the MSM computation. This allows us to use a uniform pattern throughout the MSM computation. In total, we perform 16 rounds. Each round does 2 doublings and then 2 `multiple_montgomery_ladder` calls of 3 points each, for a total of 32 ladder steps.
+
+### MSM for secp256r1 ECDSA Verification
+
+secp256r1 has no efficient endomorphism, so `secp256r1_ecdsa_mul` (`biggroup_secp256r1.hpp`) computes $u_1 \cdot G + u_2 \cdot Q$ with two different strategies:
+
+- $u_1 \cdot G$ (fixed base): `secp256r1_fixed_base_mul` slices $u_1$ into 8-bit windows. Each window reads a precomputed table of $k \cdot 2^{8i} \cdot G + \textsf{offset}_i$ (`plookup_tables/secp256r1_fixed_base.hpp`). There are no doublings: one table read per window (32 windows), 31 chain-adds, then one offset subtraction.
+- $u_2 \cdot Q$ (variable base): "fake GLV". The prover supplies a hint $T_2$, claimed to equal $u_2 \cdot Q$, and integers $(\alpha_2, \beta_2)$ from a half-GCD of $(n, u_2)$ with $\beta_2 \cdot u_2 \equiv \alpha_2 \pmod n$ and $|\alpha_2|, |\beta_2| < 2^{128}$. The circuit range-constrains $\alpha_2$ and $|\beta_2|$ to 128 bits, asserts $\beta_2 \neq 0$, checks the congruence, and checks $\alpha_2 \cdot Q - \beta_2 \cdot T_2 = \mathcal{O}$ as a 128-bit 2-MSM with the generic `batch_mul` below (called with `with_edgecases = false`, so the two points are not masked).
+
+The fake-GLV path cannot handle $u_2 \in \{0, \pm 1\}$. In that case the function computes with $u_2 = 2$ and returns the flag `u2_is_acceptable = false` in `Secp256r1EcdsaMulResult`.
 
 ## Generic Batch MSM
 
-For simplicity, we describe the generic batch MSM algorithm (Strauss' algorithm) using the NAF signed digit representation of scalars. This is used for the scalar multiplication of points in circuits for the bn254 and secp256r1 curves (though it can work for other 256-bit curves as well).
+For simplicity, we describe the generic batch MSM algorithm (Straus' algorithm) using the NAF signed digit representation of scalars. This is used for the scalar multiplication of points in circuits for the bn254 curve, and for the variable-base 2-MSM in the secp256r1 ECDSA path (it can work for other 256-bit curves as well).
 
 ### Signed Digit Representation
 
@@ -610,7 +615,7 @@ $$
 
 Note that the positive and negative parts are both non-negative and can be computed in a circuit without any conditional logic.
 
-### Strauss MSM with NAF
+### Straus MSM with NAF
 
 Given scalars $a_1, a_2, \dots, a_m \in \mathbb{F}_r$ and group elements $P_1, P_2, \dots, P_m \in \mathbb{G}$, the multi-scalar multiplication (MSM) is defined as:
 
@@ -618,7 +623,7 @@ $$
 A = \sum_{j=1}^{m} a_j \cdot P_j
 $$
 
-In the Strauss MSM algorithm using NAF representation, we decompose each scalar $a_j$ into its NAF slices as follows:
+In the Straus MSM algorithm using NAF representation, we decompose each scalar $a_j$ into its NAF slices as follows:
 
 $$
 \begin{aligned}
@@ -743,7 +748,7 @@ $$
    - If $\mathfrak{s}_j = 1$, we subtract the corresponding group element $P_j$ from the accumulator $R$.
    - If $\mathfrak{s}_j = 0$, we do nothing.
 
-Thus, the final result of the Strauss MSM using NAF representation is given by:
+Thus, the final result of the Straus MSM using NAF representation is given by:
 
 $$
 A = R - \sum_{j=1}^{m} \mathfrak{s}_j \cdot \textcolor{olive}{P_j}.
@@ -751,19 +756,21 @@ $$
 
 #### Handling Points at Infinity
 
-In the above Strauss MSM algorithm using NAF representation, if any of the group elements $P_j$ is the point at infinity (denoted as $\mathcal{O}$), we replace the pair $(\textcolor{olive}{P_j}, a_j)$ with $(\textcolor{olive}{G}, 0)$ in the input. This ensures that the contribution of that point to the MSM is effectively nullified, as multiplying any point by zero results in the point at infinity. Here, $\textcolor{olive}{G}$ is the generator point on the curve. This substitution allows us to maintain the structure of the MSM algorithm without introducing special cases for points at infinity.
+In the above Straus MSM algorithm using NAF representation, if any of the group elements $P_j$ is the point at infinity (denoted as $\mathcal{O}$), we replace the pair $(\textcolor{olive}{P_j}, a_j)$ with $(\textcolor{olive}{G}, 0)$ in the input. This ensures that the contribution of that point to the MSM is effectively nullified, as multiplying any point by zero results in the point at infinity. Here, $\textcolor{olive}{G}$ is the generator point on the curve. This substitution allows us to maintain the structure of the MSM algorithm without introducing special cases for points at infinity.
 
-Once we replace all points at infinity with $(\textcolor{olive}{G}, 0)$, we can proceed with the Strauss MSM algorithm as described above. However, when we construct the ROM tables, one of the entries can lead to a point at infinity if the group elements are linearly dependent. For instance, given distinct points $\textcolor{olive}{P_1}, \textcolor{olive}{P_2}, \textcolor{olive}{P_3}, \textcolor{olive}{P_4}, \textcolor{olive}{P_5} \in \mathbb{G}$, if we have $\textcolor{olive}{P_5} = (\textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4})$, then the entry at index $1$ in the ROM table will be the point at infinity. Our circuit implementation does not allow for such cases and will throw an error asserting that the $x$-coordinates of two points being added are equal (which happens when adding a point to its negation). Therefore, it is crucial to ensure that the input points are linearly independent to avoid points at infinity in the ROM tables. To achieve this, we can perform a pre-processing step on the input points to add a small random multiple of the generator point to each input point.
+Once we replace all points at infinity with $(\textcolor{olive}{G}, 0)$, we can proceed with the Straus MSM algorithm as described above. However, when we construct the ROM tables, one of the entries can lead to a point at infinity if the group elements are linearly dependent. For instance, given distinct points $\textcolor{olive}{P_1}, \textcolor{olive}{P_2}, \textcolor{olive}{P_3}, \textcolor{olive}{P_4}, \textcolor{olive}{P_5} \in \mathbb{G}$, if we have $\textcolor{olive}{P_5} = (\textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4})$, then the entry at index $1$ in the ROM table will be the point at infinity. Our circuit implementation does not allow for such cases and will throw an error asserting that the $x$-coordinates of two points being added are equal (which happens when adding a point to its negation). When `with_edgecases` is set (the default for `batch_mul`), `mask_points` (`biggroup_edgecase_handling.hpp`) breaks such dependencies by masking each input point:
 
 $$
 \begin{aligned}
-\textcolor{olive}{P_j} &\leftarrow \textcolor{olive}{P_j} + 2^{j} \cdot \delta \cdot \textcolor{olive}{G} \\
+\textcolor{olive}{P_j} &\leftarrow \textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{G_{\textsf{mask}}} \\
 \end{aligned}
 $$
 
-where $\delta$ is a verifier-chosen, 128-bit random scalar in $\mathbb{F}_r$. This randomization helps in breaking any linear dependencies among the points, thereby preventing the occurrence of points at infinity in the ROM tables during the MSM computation. The reason we need to use a verifier-chosen scalar is to ensure that a malicious prover cannot manipulate input points to create linear dependencies that could lead to inability to generate valid proofs. We choose powers of 2 multiples of $\delta$ to ensure that the randomization does not add significant overhead to the recursive circuit. Specifically, we need to compute $\delta \cdot \textcolor{olive}{G}$ just once, and then we can obtain $2^{j} \cdot \delta \cdot \textcolor{olive}{G}$ by performing $j$ doublings, which is efficient in terms of circuit complexity. This approach effectively mitigates the risk of points at infinity while keeping the overhead manageable.
+where $\textcolor{olive}{G_{\textsf{mask}}}$ is a random curve point that the prover supplies as a free witness. The circuit constrains it only to lie on the curve and not be the point at infinity. Each masked point is also asserted not to be the point at infinity. The multiples $2^{j} \cdot \textcolor{olive}{G_{\textsf{mask}}}$ cost one doubling each.
 
-Even after randomization, we can still encounter points at infinity while accumulating the outputs of the ROM lookups for the first two NAF columns. For example, suppose the NAF slices for for a 5-point MSM in the first two rounds are as follows:
+The security argument is about completeness, not soundness. An honest prover samples $\textcolor{olive}{G_{\textsf{mask}}}$ uniformly, so a ROM table entry is at infinity with negligible probability. A malicious prover who picks a degenerate $\textcolor{olive}{G_{\textsf{mask}}}$ cannot produce a valid proof: the constraints propagate every intermediate value, so hitting a special case makes the MSM output wrong and the proof fails.
+
+Even after randomization, we can still encounter points at infinity while accumulating the outputs of the ROM lookups for the first two NAF columns. For example, suppose the NAF slices for a 5-point MSM in the first two rounds are as follows:
 
 $$
 \begin{aligned}
@@ -792,7 +799,7 @@ R &= 2 \cdot \textcolor{violet}{Q_{1}} + \textcolor{violet}{Q_{2}} =
 \end{aligned}
 $$
 
-Our Montmogomery ladder implementation requires that the two points being added have distinct $x$-coordinates, which is not the case here since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$. So an honest prover would fail to generate a valid proof. To prevent this, we can add a random offset generator to the first column output before adding it to the accumulator:
+Our Montgomery ladder implementation requires that the two points being added have distinct $x$-coordinates, which is not the case here since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$. So an honest prover would fail to generate a valid proof. To prevent this, we can add a random offset generator to the first column output before adding it to the accumulator:
 
 $$
 \begin{aligned}
@@ -802,14 +809,14 @@ $$
 
 Adding this offset generator ensures that the two points being added have distinct $x$-coordinates during the addition operation in the Montgomery ladder.
 
-> Note that we do not choose the offset generator to be dependent on the random scalar $\delta$ used for point randomization. This is safe when we are masking the points with random multiples of the generator, as a malicious prover cannot control the randomization applied to the masked points. However, this could be a vulnerability if the input points were not masked, as a malicious prover could potentially exploit knowledge of the offset generator to create points at infinity. In our usage of the `batch_mul` implementation in the recursive circuit, we always mask the input points, so using a fixed offset generator is secure. When using `scalar_mul` to aggregate pairing points in the recursive verifier, we do not apply masking to the input point. However, since the pairing points themselves are derived using verifier-chosen randomness, there is no risk of a malicious prover exploiting the offset generator in this context.
+> Note: $\windex{G_{\textsf{offset}}}$ is deterministic (`compute_offset_generators`) and independent of the masking point $\textcolor{olive}{G_{\textsf{mask}}}$. A prover who knows it could try to construct inputs that hit the point at infinity. As with masking, that breaks only the prover's own proof: every point addition and ladder step constrains the two x-coordinates to differ (`assert_is_not_equal`), so a trace in which two added points share an x-coordinate is unsatisfiable. `scalar_mul` (used to aggregate pairing points in the recursive verifier) calls `batch_mul` with `with_edgecases = false`, so its input point is not masked. The pairing points are derived using verifier-chosen randomness, so nobody can steer them onto the offset generator's edge cases.
 
 In summary, the modified MSM computation becomes:
 
 $$
 \begin{aligned}
-A &= \sum_{j=1}^{m} a_j \cdot (\textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{\delta G}) - \left(\sum_{j=1}^{m} 2^{j} \cdot a_j \right) \cdot \textcolor{olive}{\delta G} \\
-&= \sum_{j=1}^{m} a_j \cdot \underbrace{(\textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{\delta G})}_{=: \ \textcolor{olive}{P'_j}} - \underbrace{\left(\sum_{j=1}^{m} \frac{2^{j} \cdot a_j}{2^{m+1}} \right)}_{=: \ a_{m+1}} \cdot \underbrace{(2^{m+1} \cdot \textcolor{olive}{\delta G})}_{=: \ \textcolor{olive}{P'_{m+1}}} \\
+A &= \sum_{j=1}^{m} a_j \cdot (\textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{G_{\textsf{mask}}}) - \left(\sum_{j=1}^{m} 2^{j} \cdot a_j \right) \cdot \textcolor{olive}{G_{\textsf{mask}}} \\
+&= \sum_{j=1}^{m} a_j \cdot \underbrace{(\textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{G_{\textsf{mask}}})}_{=: \ \textcolor{olive}{P'_j}} + \underbrace{\left(-\sum_{j=1}^{m} \frac{2^{j} \cdot a_j}{2^{m+1}} \right)}_{=: \ a_{m+1}} \cdot \underbrace{(2^{m+1} \cdot \textcolor{olive}{G_{\textsf{mask}}})}_{=: \ \textcolor{olive}{P'_{m+1}}} \\
 &= \sum_{j=1}^{m+1} a_j \cdot \textcolor{olive}{P'_j}
 \end{aligned}
 $$
@@ -833,7 +840,7 @@ Thus, we need to subtract the term $\windex{2^{n-1}} \cdot \windex{G_{\textsf{of
 
 #### Multiple Montgomery Ladder
 
-We will now illustrate how the `multiple_montgomery_ladder` function computes the result using an example with three accumulators $A, B, C$. Let $Q$ be the accumulator:
+We will now illustrate how the `multiple_montgomery_ladder` function computes the result using an example with three points $A, B, C$ added into accumulator $Q$:
 
 $$
 Q.\textsf{multiple\_montgomery\_ladder}([A, B, C])
@@ -841,7 +848,7 @@ Q.\textsf{multiple\_montgomery\_ladder}([A, B, C])
 2 \cdot \overbrace{(2 \cdot \underbrace{(2 \cdot Q + A)}_{R_0} + B)}^{R_1} + C
 $$
 
-Lets compute the first term as a single montgomery ladder step:
+Let us compute the first term as a single montgomery ladder step:
 
 $$
 R_0 = 2 \cdot Q + A = (Q + A) + Q
@@ -907,7 +914,7 @@ $$
 \end{aligned}
 $$
 
-The coordinates of the resulting point $R_1 = (x_4, y_4)$ are computed as:
+The coordinates of the resulting point $R_0 = (x_4, y_4)$ are computed as:
 
 $$
 x_4 = \lambda_2^2 - x_3 - x_q
@@ -1030,7 +1037,7 @@ $$
 \end{aligned}
 $$
 
-Clearly, we see a pattern of reusing previously computed values in the composite y-coordinates to minimize non-native field reductions. Finally, we compute the coordinates of the resulting point $(R_1 + C) + R_1 \equiv (x_4^{(2)}, y_4^{(2)})$:
+The composite y-coordinates reuse previously computed values, which saves non-native field reductions. Finally, we compute the coordinates of the resulting point $(R_1 + C) + R_1 \equiv (x_4^{(2)}, y_4^{(2)})$:
 
 $$
 x_4^{(2)} = \lambda_2^{(2)} \cdot \lambda_2^{(2)} - x_3^{(2)} - x_4^{(1)}
@@ -1039,15 +1046,15 @@ $$
 $$
 \begin{aligned}
 y_4^{(2)} &= \lambda_2^{(2)} \cdot (x_4^{(1)} - x_4^{(2)}) - y_4^{(1)} \\
-&= \lambda_2^{(2)} \cdot (x_4^{(2)} - x_4^{(1)}) + \lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + \lambda_2 \cdot (x_q - x_4) - y_q
+&= \lambda_2^{(2)} \cdot (x_4^{(1)} - x_4^{(2)}) + \lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + \lambda_2 \cdot (x_q - x_4) - y_q
 \\[5pt]
 &= \ \textcolor{skyblue}{\small
 \textsf{madd}(
     [\textcolor{pink}{\lambda_2^{(2)}}, \textcolor{pink}{\lambda_2^{(1)}}, \textcolor{pink}{\lambda_2}], \
-    [\textcolor{pink}{(x_4^{(2)} - x_4^{(1)})}, \textcolor{pink}{(x_4^{(1)} - x_4)}, \textcolor{pink}{(x_q - x_4)}], \
+    [\textcolor{pink}{(x_4^{(1)} - x_4^{(2)})}, \textcolor{pink}{(x_4^{(1)} - x_4)}, \textcolor{pink}{(x_q - x_4)}], \
     [\textcolor{pink}{-y_q}]
 )}.
 \end{aligned}
 $$
 
-In total, we end up using only 4 non-native field reductions (each non-native field reduction implies one non-native field multiplication operation) for each accumulator, compared to 6 non-native field reductions if we had computed each addition and doubling separately with explicit y-coordinate calculations. This demonstrates the efficiency of the `multiple_montgomery_ladder` approach in minimizing expensive field operations while correctly computing the final result.
+In total, we end up using only 4 non-native field reductions (each non-native field reduction implies one non-native field multiplication operation) for each accumulator, compared to 6 non-native field reductions if we had computed each addition and doubling separately with explicit y-coordinate calculations.
