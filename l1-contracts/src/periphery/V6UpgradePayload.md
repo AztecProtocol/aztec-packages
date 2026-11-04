@@ -50,34 +50,51 @@ applies to the outgoing rollup's flushes from the moment the payload executes.
 ## What it deliberately does not do
 
 - **No reward-distributor migration.** The distributor resolves the canonical rollup live off the
-  registry, so its implicit pool follows v6 the moment `Registry.addRollup` executes.
-- **No protocol fee margin or recipient.** The rollup launches with margin `0` and a placeholder
-  recipient. Both are `onlyOwner` and now need their own proposal. **Set the recipient before, or
-  in the same payload as, any non-zero margin**, or the fee tranche goes to an unrecoverable
-  address on every claim.
-- **It does not retire the outgoing rollup.** Its ownership must NOT be renounced: the old
-  `FlushRewarder` keeps unclaimed debt and must stay callable, and `updateStakingQueueConfig` is the
-  only way to recover a wedged entry queue.
+  registry, so its implicit pool follows v6 the moment action 7 (`Registry.addRollup`) executes.
+  Balances earmarked to other addresses, including the reservation for the outgoing rollup, stay
+  with their recipients and are not part of what v6 inherits.
+- **No protocol fee margin or recipient.** The rollup launches with `protocolFeeMarginBps = 0` and
+  `protocolFeeRecipient` set to a placeholder address. Both are `onlyOwner`, so setting them needs a
+  governance proposal. **Set the recipient before, or in the same payload as, any non-zero
+  margin**, or the fee tranche goes to an unrecoverable address on every claim. The first margin
+  increase is exempt from the 30-day cooldown but capped at 5000 bps by the ×3/2 step on the fee
+  multiplier.
+- **It does not retire the outgoing rollup.** Do NOT renounce its ownership:
+  - the old `FlushRewarder` keeps its unclaimed `debt` and must stay callable for `claimRewards()`;
+  - `updateStakingQueueConfig` is the only way to recover a rollup whose entry queue is wedged, and
+    it is `onlyOwner`.
+
+  Mainnet's outgoing rollup is `isBootstrapped = true`, so its queue still flushes at
+  1 validator/epoch from zero and it remains restartable. Renouncing ownership removes that
+  fallback.
 
 ## What to check before signalling or voting
 
 ```bash
-cast call <payload> "PREDECESSOR()(address)"        # must equal the CURRENT canonical rollup
-cast call $REG "getCanonicalRollup()(address)"
-cast call <payload> "getActions()((address,bytes)[])"  # guard must be present, and first
-cast call <rollup> "owner()(address)"                  # governance, from construction
-cast call <slasher> "GOVERNANCE()(address)"            # governance -- NOT the deploy key
-cast call <payload> "PROOF_OF_POSSESSION_GAS_LIMIT()(uint64)"  # 300000; 0 means no cap action
-cast call <gse> "proofOfPossessionGasLimit()(uint64)"          # the cap it replaces, 250000 today
+REG=0x35b22e09Ee0390539439E24f06Da43D83f90e298   # mainnet registry
+cast call <payload> "PREDECESSOR()(address)" --rpc-url $RPC        # must equal the CURRENT canonical rollup
+cast call $REG "getCanonicalRollup()(address)" --rpc-url $RPC
+cast call <payload> "getActions()((address,bytes)[])" --rpc-url $RPC  # guard must be present, and first
+cast call <rollup> "owner()(address)" --rpc-url $RPC                  # governance, from construction
+SLASHER=$(cast call <rollup> "getSlasher()(address)" --rpc-url $RPC)
+cast call $SLASHER "GOVERNANCE()(address)" --rpc-url $RPC             # governance -- NOT the deploy key
+cast call <payload> "PROOF_OF_POSSESSION_GAS_LIMIT()(uint64)" --rpc-url $RPC  # 300000; 0 means no cap action
+GSE=$(cast call <rollup> "getGSE()(address)" --rpc-url $RPC)
+cast call $GSE "proofOfPossessionGasLimit()(uint64)" --rpc-url $RPC          # the cap it replaces, 250000 today
 ```
 
-A registration payload without that guard is the hazard the guard exists to remove.
+A registration payload without that guard is the hazard the guard exists to remove: registration is
+append-only with last-write-wins and `execute` is permissionless. So an accepted-but-abandoned
+payload can be executed by anyone later and demote whatever replaced it. The demotion is permanent,
+because neither the registry nor the GSE re-admits a rollup it already holds.
 
 ## Known limits, stated rather than discovered
 
-- **Once any other registration executes, this payload is dead.** Intended — voters re-approve
+- **Once any other registration executes, this payload is dead.** It can never execute, even if its
+  proposal was accepted and is still inside its grace period. Intended — voters re-approve
   "v6 succeeds X" explicitly rather than letting execution order decide — but it means a patched
-  replacement needs a fresh deploy and a full governance cycle, not a quick swap.
+  replacement needs a fresh deploy and a full governance cycle, not a quick swap. The fresh payload
+  picks up the new canonical rollup as its `PREDECESSOR`.
 - **Existing earmarks are left alone.** v6 inherits the implicit pool, `balance -
   totalEarmarkedBalance`, and whatever is earmarked to other addresses at execution stays
   earmarked to them. Earmarks are keyed by address, so a recipient that stops being canonical can

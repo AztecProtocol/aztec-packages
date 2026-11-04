@@ -1,158 +1,129 @@
 # L1 Contracts
 
-This directory contains the Ethereum smart contracts for progressing the state of the Rollup.
+The Ethereum (L1) Solidity contracts of the Aztec rollup: the rollup itself, its message bridges, staking, governance and the deploy scripts.
 
-## Installation
+## Prerequisites
 
-You can install foundry as https://book.getfoundry.sh/ or by running the `./bootstrap.sh` script.
-
-Alternatively you can use docker instead, it will handle installations and run tests. Simply run `docker build .` from the `l1-contracts` folder.
+- Foundry v1.4.1, the version CI uses (`build-images/src/Dockerfile`). Install it with `foundryup --install v1.4.1`.
+- Node.js and yarn, for solhint.
+- A noir-projects build. Run `./bootstrap.sh` in `noir-projects/` first: the build copies the rollup verifier from `noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol`.
 
 ## Structure
 
-The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 categories:
+- `src/core`: the `Rollup`, its message bridges (`Inbox`, `Outbox`, `FeeJuicePortal`), slashing, the escape hatch and the reward booster. The `Rollup` stores the rollup state. It accepts checkpoint proposals signed by the committee, and epoch proofs checked by the Honk verifier.
+- `src/governance`: `Governance`, the governance proposer, `Registry`, the Governance Staking Escrow (GSE), `RewardDistributor` and `CoinIssuer`.
+- `src/periphery`: contracts outside the core protocol: upgrade and slash payloads, `FlushRewarder`, `DateGatedRelayer`.
+- `src/shared`: BN254, signature and time libraries that the other folders share.
+- `src/mock`: test-only contracts: `MockVerifier`, `TestERC20`, the staking and fee asset handlers, `MultiAdder`, and coverage mocks.
+- `script/`: Foundry deploy and governance scripts.
+- `test/`: Foundry tests. Checkpoint fixtures are in `test/fixtures/` (see [`test/fixtures/README.md`](test/fixtures/README.md)).
+- `l1-artifacts/`: the TypeScript package of ABIs and bytecode (see [`l1-artifacts/README.md`](l1-artifacts/README.md)).
 
-- `core` contains the required contracts, the bare minimum.
-- `governance` contains the contracts for the governance system.
-- `mock` contains stubs, for now an always true verifier.
-- `periphery` stuff that is nice to have, convenience contracts and functions belong in here.
-
-## Running tests
-
-The tests are located in the `test` folder, and execute two consecutive L2Blocks. The blocks and the values they are checked against is generated using the block builder tests (there also is a typescript test in `l2-block-publisher.test.ts` that tests E2E). The tests are currently limited in functionality as it is mainly decoding happening, but will expand over time to include L1 <-> L2 communication and cross chain applications.
-
-As mentioned earlier, you can also use docker. If you rerun `docker build .` after changing the contracts, it will use a cache for most values, and rerun your tests in a few seconds.
-
-## Formatting
-
-We use `forge fmt` to format. But follow a few general guidelines beyond the standard:
-
-- use `_` prefix for function arguments, e.g.,
-  - Don't `function transfer(address to, uint256 amount);`
-  - Do `function transfer(address _to, uint256 _amount);`
-- use `_` prefix for `internal` and `private` functions.
-
-## Gas Reports
-
-You can run `./bootstrap.sh gas_report` to generate a detailed gas report for the current state and update the gas_report.md file.
-
-If you want something more manageble you should be using the `./boostrap.sh gas_benchmark` which will give you some "happy path" gas numbers for set with and without validators in a format that might be slightly simpler to figure out. The values outputted from this can also be seen over time at https://aztecprotocol.github.io/benchmark-page-data/dev/l1-gas-bench/.
-
-When running CI or tests with `./bootstrap.sh test`, the script will automatically check if gas usage has changed by running `./bootstrap.sh gas_report check`. If gas usage has changed, the test will fail and show a diff of the changes.
-
-If the changes in gas usage are expected and desired:
-
-1. Review the diff shown in the output
-2. Run `./bootstrap.sh gas_report` to update the gas report file
-3. Commit the updated gas_report.md file
-
-NOTE: Our gas reporting excludes certain tests due to Forge limitations:
-
-- FeeRollupTest and MinimalFeeModelTest test suites are excluded
-- testInvalidBlobHash and testInvalidBlobProof test cases are excluded
-
-This is related to [this Foundry issue](https://github.com/foundry-rs/foundry/issues/10074).
-
-This means that we don't report gas for blob validation (currently 50k gas per blob, and we use 3 blobs per propose in production).
-
-If you want to run gas reports directly with `forge`, you must use the environment variable `FORGE_GAS_REPORT=true` instead of the `--gas-report` flag. The `./bootstrap.sh gas_report` command does this for you automatically.
-
-## Contracts:
-
-The contracts are in a very early stage, and don't worry about gas costs right now. Instead they prioritize development velocity.
-
-### Decoder
-
-Job: Extract values from `L2Block`
-
-The decoder is a core rollup contract which takes the `L2Block` bytes and computes/extracts values required to:
-
-1. keep track of the state
-1. perform proof verification
-
-If the structure of the `L2Block` changes, so should the decoder!
-
-### Rollup
-
-Job: Keep track of state and perform state transitions.
-
-It is the job of the rollup contract to store the state of the rollup and progress it when receiving a new L2 block that is built on top of the current state.
-
-Currently not running any proofs _nor_ access control so blocks can be submitted by anyone and can be complete garbage.
-
----
-
-# Branching Tree Technique
-
-For writing tests we will be using the [Branching Tree Technique](https://www.youtube.com/watch?v=0-EmbNVgFA4).
-The approach is simple, for a function that is to be tested (all functions) you should write a `.tree` file first.
-Then the tree file can be used to generate a solidity tests file using [Bulloak](https://github.com/alexfertel/bulloak) by running the `scaffold` command.
+## Build
 
 ```bash
-bulloak scaffold -w **/*.tree
+./bootstrap.sh
 ```
 
-To check that the tests are following the expected format, you can run the `check` command.
+This regenerates `src/core/libraries/ConstantsGen.sol`, fetches solc 0.8.30 and the libraries in `lib/`, builds the contracts, copies the verifier from noir-projects into `generated/HonkVerifier.sol`, and builds `l1-artifacts/`. It exits with an error if the noir-projects verifier does not exist.
+
+A plain `forge build` of the whole project fails until `generated/HonkVerifier.sol` exists, because `DeployRollupLib.sol` imports it.
+
+## Test
 
 ```bash
-bulloak check **/*.tree
+forge test
 ```
 
-We assume that you already have `bulloak` installed, if not you can install it as `cargo install bulloak`.
-Also, we suggest using [Ascii Tree Generator](https://marketplace.visualstudio.com/items?itemName=aprilandjan.ascii-tree-generator), since the pipes can be a bit of a pain otherwise.
+CI runs `./bootstrap.sh test`, which runs, in parallel:
 
-For examples, see the tests for the registry.
+- `solhint --config ./.solhint.json "src/**/*.sol"`
+- `forge fmt --check`
+- `scripts/check_contract_sizes.sh`
+- a check that `generated/HonkVerifier.sol` matches the noir-projects verifier
+- `forge test`
+- the `MerkleCheck` tests with `--ffi`
+- `scripts/test_rollup_upgrade.sh`
 
----
+CI uses the repo default EVM version, `prague`. Some measurement READMEs need a newer Foundry for `--evm-version amsterdam`; CI does not run those variants.
 
-# Linter
+The mainnet fork tests skip, or use a committed fixture, unless an RPC URL is set:
 
-We use an extended version of solhint (https://github.com/LHerskind/solhint) to include custom rules. These custom rules relate to how errors should be named, using custom errors instead of reverts etc, see `.solhint.json` for more specifics about the rules.
+| Test | Environment variable |
+|---|---|
+| `test/fork/FlushGasFloorMainnetFork.t.sol` | `MAINNET_FORK_RPC` |
+| `test/fork/MainnetV6PopGasLimit.t.sol` | `MAINNET_FORK_RPC_URL` |
+| `test/fork/MainnetReductionCalculator.t.sol` | `MAINNET_ATP_FIXTURE_RPC_URL` (when set, the test rewrites `test/fixtures/mainnet_atp_reduction_calculator.json`) |
 
-The linter is the only node module we need which is the reason behind not going full yarn-project on it.
+Coverage: run `./bootstrap.sh coverage -h` for the options.
 
-To run the linter, simply run:
+## Formatting and style
+
+Format with `forge fmt`. Lint with `yarn lint` (solhint 5.1.0, rules in `.solhint.json`). CI runs both checks. Solhint enforces most naming rules and the order of contract members.
+
+Also follow these rules:
+
+- Prefix function arguments with `_`: `function transfer(address _to, uint256 _amount);`.
+- Prefix `internal` and `private` function names with `_`, except in libraries.
+- Do not prefix storage variables with `_`.
+- Write `constant` and `immutable` names in `CAPITAL_CASE`.
+- Always give the size of an integer: `uint256`, not `uint`.
+- Use named imports: `import {IERC20} from "./IERC20.sol";`, not `import "./IERC20.sol";`.
+- Name the interface when you override: `override(IRollup)`.
+- Use custom errors from `Errors.sol` with `require(cond, Errors.X())`. Do not use string reasons.
+- Write NatSpec for every function. Use `@notice` for what a user must know and `@dev` for implementation detail.
+
+## Gas reports
+
+None of these reports is checked in CI. Regenerate the one you affect and commit it with your change.
+
+| Command | Writes | Covers |
+|---|---|---|
+| `./bootstrap.sh gas_report` | `gas_report.json` | `RollupTest`, except `testInvalidBlobHash` and `testInvalidBlobProof` |
+| `./bootstrap.sh gas_benchmark` | `gas_benchmark.md`, `gas_benchmark_results.json` | happy-path gas with and without validators, from `test/benchmark/happy.t.sol` |
+| `./bootstrap.sh partial_epoch_proof_gas_report` | `partial_epoch_proof_gas_report.md`, `partial_epoch_proof_gas_report.json` | epoch proof submission for 1 to 32 checkpoints, from the `PartialEpochProof*GasReportTest` contracts in `test/benchmark/happy.t.sol` |
+
+Pass `check` (for example `./bootstrap.sh gas_report check`) to print the diff against the committed file and fail if it changed.
+
+The gas benchmark numbers over time are at https://aztecprotocol.github.io/benchmark-page-data/dev/l1-gas-bench/.
+
+The gas report leaves out `testInvalidBlobHash` and `testInvalidBlobProof` because of [this Foundry issue](https://github.com/foundry-rs/foundry/issues/10074). So it reports no gas for blob validation (currently 50k gas per blob, and production uses 3 blobs per propose).
+
+To run a gas report directly with `forge`, set `FORGE_GAS_REPORT=true` instead of passing `--gas-report`. The `./bootstrap.sh` commands do this for you.
+
+## Test trees (optional)
+
+Some tests use the [Branching Tree Technique](https://www.youtube.com/watch?v=0-EmbNVgFA4): a `.tree` file describes the cases, and [Bulloak](https://github.com/alexfertel/bulloak) generates or checks the Solidity test file. For examples, see `test/governance/registry/*.tree`. CI does not run bulloak.
 
 ```bash
-yarn lint
+cargo install bulloak
+bulloak scaffold -w **/*.tree   # generate test files
+bulloak check **/*.tree         # check the tests match the trees
 ```
 
-If the output is something to the tune of:
+The [Ascii Tree Generator](https://marketplace.visualstudio.com/items?itemName=aprilandjan.ascii-tree-generator) VS Code extension helps you draw the trees.
+
+## Slither (optional)
+
+Slither does not run in CI. To run it locally:
 
 ```bash
-$ solhint --config ./.solhint.json "src/**/*.sol"
-[solhint] Warning: Rule 'custom-errors' doesn't exist
-[solhint] Warning: Rule 'private-func-leading-underscore' doesn't exist
-[solhint] Warning: Rule 'private-vars-no-leading-underscore' doesn't exist
-[solhint] Warning: Rule 'func-param-name-leading-underscore' doesn't exist
-[solhint] Warning: Rule 'strict-override' doesn't exist
+pip3 install slither-analyzer==0.10.0 slitherin==0.5.0
+yarn slither   # writes slither_output.md
 ```
 
-It is likely that it is a old cached version of the linter that is being used, you can update it as:
+The `naming-convention` detector is off, because solhint enforces the naming rules.
 
-```bash
-yarn add https://github.com/LHerskind/solhint\#master
-```
+## Other docs in this directory
 
----
+- [`script/deploy/V6_UPGRADE_RUNBOOK.md`](script/deploy/V6_UPGRADE_RUNBOOK.md): deploy the v6 rollup and take it through governance.
+- [`src/periphery/V6UpgradePayload.md`](src/periphery/V6UpgradePayload.md): what the v6 upgrade payload does and does not do.
+- [`test/shared/bn254-pop-gas/README.md`](test/shared/bn254-pop-gas/README.md): BLS proof-of-possession gas measurements.
+- [`test/staking/flush-gas-floor/README.md`](test/staking/flush-gas-floor/README.md): the entry-queue flush gas floor.
 
-# Slither & Slitherin
+## Consuming these contracts
 
-We use slither as an automatic way to find blunders and common vulnerabilities in our contracts. It is not part of the docker image due to its slowness, but it can be run using the following command to generate a markdown file with the results:
-
-```bash
-yarn slither
-```
-
-When this command is run in CI, it will fail if the markdown file generated in docker don't match the one in the repository.
-
-We assume that you already have slither installed. You can install it with `pip3 install slither-analyzer==0.10.0 slitherin==0.5.0`. It is kept out of the bootstrap script as it is not a requirement for people who just want to run tests or are uninterested in the contracts.
-
-> We are not running the `naming-convention` detector because we have our own rules for naming which is enforced by the linter.
-
-# Consuming these contracts
-
-Here are sample repos on how to consume these contracts from
+Sample repos that consume these contracts:
 
 - [foundry](https://github.com/just-mitch/hello_aztec_foundry)
 - [hardhat](https://github.com/just-mitch/hardhat-aztec-example)
