@@ -247,6 +247,11 @@ export class WasmFfiEngine {
 /**
  * The module's declared maximum is not visible from JS: instantiating with a larger `maximum`
  * fails with a LinkError naming it, so probe downward until the import links.
+ *
+ * The probes link against throwaway memories. Instantiating runs the module's start function, and
+ * a shared-memory module's start (wasm-ld's `__wasm_init_memory`) initializes its memory for the
+ * first instance only: a later instance on the same memory gets no TLS block, so its thread_locals
+ * sit at the bottom of memory, inside the stack. The instance that serves calls must be the first.
  */
 function createMemory(
   module: WebAssembly.Module,
@@ -260,9 +265,9 @@ function createMemory(
   let max = Math.max(initial, maximum);
   let flippedShared = false;
   for (;;) {
-    let memory: WebAssembly.Memory;
+    let probe: WebAssembly.Memory;
     try {
-      memory = new WebAssembly.Memory({ initial, maximum: max, shared });
+      probe = new WebAssembly.Memory({ initial, maximum: max, shared });
     } catch (e) {
       // The engine could not reserve that much address space (e.g. mobile browsers).
       if (max > initial) {
@@ -272,23 +277,21 @@ function createMemory(
       throw e;
     }
     if (!imported) {
-      return memory;
+      return probe;
     }
     try {
-      // A dry instantiation only to validate the memory import. V8 checks that every import
-      // module exists before it validates any single import, so stub every function import;
-      // the only errors left are then about the memory itself.
+      // V8 checks that every import module exists before it validates any single import, so stub
+      // every function import; the only errors left are then about the memory itself.
       const stubs: Record<string, Record<string, WebAssembly.ImportValue>> = {};
       for (const imp of WebAssembly.Module.imports(module)) {
         stubs[imp.module] ??= {};
         if (imp.kind === "memory") {
-          stubs[imp.module][imp.name] = memory;
+          stubs[imp.module][imp.name] = probe;
         } else if (imp.kind === "function") {
           stubs[imp.module][imp.name] = () => 0;
         }
       }
       new WebAssembly.Instance(module, stubs);
-      return memory;
     } catch (e) {
       const message = e instanceof WebAssembly.LinkError ? String(e) : "";
       if (message.includes("maximum") && max > initial) {
@@ -302,7 +305,16 @@ function createMemory(
         shared = !shared;
         continue;
       }
-      return memory;
+    }
+    try {
+      return new WebAssembly.Memory({ initial, maximum: max, shared });
+    } catch (e) {
+      // The probe may still hold its reservation; a smaller maximum still links.
+      if (max > initial) {
+        max = Math.max(initial, Math.floor(max / 2));
+        continue;
+      }
+      throw e;
     }
   }
 }

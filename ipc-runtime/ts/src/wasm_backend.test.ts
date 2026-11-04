@@ -34,11 +34,14 @@ const i32Const = (n: number) => [0x41, ...sleb(n)];
 const STORE = [0x36, 0x02, 0x00];
 const ATOMIC_LOAD = [0xfe, 0x10, 0x02, 0x00];
 const ATOMIC_STORE = [0xfe, 0x17, 0x02, 0x00];
+const ATOMIC_CMPXCHG = [0xfe, 0x48, 0x02, 0x00];
 
 /** The word the module's entry waits on: its thread or the host sets it. */
 const WORD = 1024;
 /** What the module's thread writes. */
 const THREAD_VALUE = 42;
+/** The word a `startOnce` module's start function claims, as wasm-ld's `__wasm_init_memory` does. */
+const START_WORD = 2048;
 
 /**
  * A module whose entry spins until WORD is nonzero and returns the word as 4 bytes, so a call
@@ -46,19 +49,24 @@ const THREAD_VALUE = 42;
  * - `spawn`: the entry first spawns one wasi thread, which stores THREAD_VALUE.
  * - `exportFlag`: exports `ipc_ffi_interrupt_flag`, naming WORD as the interrupt flag.
  * - `shared`: declares its memory shared (the default), as a threads build does.
+ * - `startOnce`: a start function marks its own instance initialized only if it is the first to
+ *   claim START_WORD on the memory, and the entry returns 2 on a marked instance, 1 otherwise.
  */
 function buildWaitingModule(
-  opts: { spawn?: boolean; exportFlag?: boolean; shared?: boolean } = {},
+  opts: { spawn?: boolean; exportFlag?: boolean; shared?: boolean; startOnce?: boolean } = {},
 ): WebAssembly.Module {
-  // Function indices: the imported thread-spawn is 0, then the five defined below.
-  const [SPAWN, ENTRY, ALLOC, FREE, THREAD_START, FLAG] = [0, 1, 2, 3, 4, 5];
+  // Function indices: the imported thread-spawn is 0, then the six defined below.
+  const [SPAWN, ENTRY, ALLOC, FREE, THREAD_START, FLAG, START] = [0, 1, 2, 3, 4, 5, 6];
+  // Global indices: the bump pointer, then whether this instance's start claimed the memory.
+  const [BUMP, INITIALIZED] = [0, 1];
   const types = section(1, [
-    5,
+    6,
     ...[0x60, 1, I32, 1, I32], // (i32) -> i32: thread-spawn, alloc
     ...[0x60, 4, I32, I32, I32, I32, 0], // entry
     ...[0x60, 1, I32, 0], // free
     ...[0x60, 2, I32, I32, 0], // wasi_thread_start
     ...[0x60, 0, 1, I32], // ipc_ffi_interrupt_flag
+    ...[0x60, 0, 0], // start
   ]);
   const imports = section(2, [
     2,
@@ -66,9 +74,9 @@ function buildWaitingModule(
     ...[...str("env"), ...str("memory"), 0x02, opts.shared === false ? 0x01 : 0x03, ...leb(4), ...leb(16)],
     ...[...str("wasi"), ...str("thread-spawn"), 0x00, 0],
   ]);
-  const functions = section(3, [5, 1, 0, 2, 3, 4]);
-  // The bump allocator's next free offset, past WORD.
-  const globals = section(6, [1, I32, 0x01, ...i32Const(4096), 0x0b]);
+  const functions = section(3, [6, 1, 0, 2, 3, 4, 5]);
+  // The bump allocator's next free offset, past WORD and START_WORD; then INITIALIZED.
+  const globals = section(6, [2, I32, 0x01, ...i32Const(4096), 0x0b, I32, 0x01, ...i32Const(0), 0x0b]);
   const exported = [
     [...str("ipc_ffi_entry"), 0x00, ENTRY],
     [...str("ipc_ffi_alloc"), 0x00, ALLOC],
@@ -77,12 +85,15 @@ function buildWaitingModule(
     ...(opts.exportFlag ? [[...str("ipc_ffi_interrupt_flag"), 0x00, FLAG]] : []),
   ];
   const exports = section(7, [exported.length, ...exported.flat()]);
+  const start = opts.startOnce ? section(8, [START]) : [];
   const code = section(10, [
-    5,
+    6,
     // entry(in, len, outPtr, outLenPtr): wait for the word, return it as 4 bytes.
     ...body(
       [1, 1, I32],
       [
+        // *WORD = INITIALIZED + 1
+        ...(opts.startOnce ? [...i32Const(WORD), 0x23, INITIALIZED, ...i32Const(1), 0x6a, ...ATOMIC_STORE] : []),
         ...(opts.spawn ? [...i32Const(0), 0x10, SPAWN, 0x1a] : []), // drop(thread-spawn(0))
         ...[0x03, 0x40, ...i32Const(WORD), ...ATOMIC_LOAD, 0x45, 0x0d, 0, 0x0b], // loop while *WORD == 0
         ...[...i32Const(4), 0x10, ALLOC, 0x21, 4], // out = alloc(4)
@@ -92,13 +103,21 @@ function buildWaitingModule(
       ],
     ),
     // alloc(n): return the bump pointer, then advance it.
-    ...body([0], [0x23, 0, 0x23, 0, 0x20, 0, 0x6a, 0x24, 0]),
+    ...body([0], [0x23, BUMP, 0x23, BUMP, 0x20, 0, 0x6a, 0x24, BUMP]),
     // free(p): nothing to do.
     ...body([0], []),
     // wasi_thread_start(tid, arg): *WORD = THREAD_VALUE.
     ...body([0], [...i32Const(WORD), ...i32Const(THREAD_VALUE), ...ATOMIC_STORE]),
     // ipc_ffi_interrupt_flag(): WORD.
     ...body([0], i32Const(WORD)),
+    // start(): if cmpxchg(*START_WORD, 0, 1) == 0, INITIALIZED = 1.
+    ...body(
+      [0],
+      [
+        ...[...i32Const(START_WORD), ...i32Const(0), ...i32Const(1), ...ATOMIC_CMPXCHG, 0x45],
+        ...[0x04, 0x40, ...i32Const(1), 0x24, INITIALIZED, 0x0b],
+      ],
+    ),
   ]);
   return new WebAssembly.Module(
     new Uint8Array([
@@ -108,6 +127,7 @@ function buildWaitingModule(
       ...functions,
       ...globals,
       ...exports,
+      ...start,
       ...code,
     ]),
   );
@@ -167,6 +187,24 @@ test("interrupt() sets the flag of a module running a call on its worker", async
   }
   assert.equal(backend.interruptible, false, "destroy drops the flag");
   assert.equal(backend.interrupt(), false);
+});
+
+test("the instance serving calls is the first to run its start function on the memory", async () => {
+  for (const worker of [true, false]) {
+    const log: string[] = [];
+    const backend = await createWasmFfiBackend({
+      module: buildWaitingModule({ startOnce: true }),
+      threads: 1,
+      worker,
+      memory: { initial: 4, maximum: 16 },
+      logger: (message) => log.push(message),
+    });
+    try {
+      assert.equal(replyWord(await within(backend.call(Uint8Array.of(0)), 10_000, log)), 2, `worker: ${worker}`);
+    } finally {
+      await backend.destroy();
+    }
+  }
 });
 
 test("a backend is not interruptible without the export, a shared memory, or a worker", async () => {
