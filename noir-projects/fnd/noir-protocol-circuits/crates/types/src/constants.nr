@@ -1306,6 +1306,8 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
 // worktodo comment here where 6 is
 pub global PROOF_TYPE_HN_FINAL: u32 = 7;
 pub global PROOF_TYPE_CHONK: u32 = 8;
+// Experimental Mega app BN254 MSM assertion. Requires complete Chonk verification.
+pub global PROOF_TYPE_BN254_MSM: u32 = 9;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;
