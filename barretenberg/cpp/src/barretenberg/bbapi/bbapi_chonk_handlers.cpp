@@ -63,6 +63,12 @@ void handle_chonk_prove(BBApiRequest& ctx, wire::BbChonkProve&& /*cmd*/, Respond
     respond.ok({ .proof = chonk_proof_to_wire(r.proof) });
 }
 
+void handle_chonk_stop(BBApiRequest& ctx, wire::BbChonkStop&& /*cmd*/, Responder<wire::BbChonkStopResponse> respond)
+{
+    auto r = ChonkStop{}.execute(ctx);
+    respond.ok({ .interrupted = r.interrupted });
+}
+
 void handle_chonk_verify(BBApiRequest& ctx, wire::BbChonkVerify&& cmd, Responder<wire::BbChonkVerifyResponse> respond)
 {
     auto r = ChonkVerify{ .proof = chonk_proof_from_wire(std::move(cmd.proof)), .vk = std::move(cmd.vk) }.execute(ctx);

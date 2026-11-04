@@ -5,6 +5,7 @@
  */
 
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
@@ -83,6 +84,7 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial, bool has_duplicates_hint = false) const
     {
         BB_BENCH_NAME("CommitmentKey::commit");
+        interrupt_point("honk:commit");
         std::span<const Commitment> point_table = get_monomial_points();
         size_t consumed_srs = polynomial.start_index + polynomial.size();
         if (consumed_srs > get_monomial_size()) {
@@ -110,6 +112,7 @@ template <class Curve> class CommitmentKey {
                                          std::span<const uint32_t> dedup_infos = {}) const
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
+        interrupt_point("honk:batch_commit");
 
         std::vector<PolynomialSpan<Fr>> scalar_spans;
         scalar_spans.reserve(polynomials.size());
