@@ -1049,6 +1049,9 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
+    # barretenberg/ts compiles the generated @aztec-foundation/bb.js-api against ipc-runtime's built dest/, which
+    # nothing under barretenberg/ builds.
+    ipc-runtime/bootstrap.sh build
     barretenberg/bootstrap.sh ci
     ;;
 
