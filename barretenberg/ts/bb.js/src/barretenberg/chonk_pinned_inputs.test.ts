@@ -1,79 +1,22 @@
-import { Decoder } from 'msgpackr';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { ungzip } from 'pako';
+import { basename } from 'node:path';
 
-import { AztecClientBackend, BackendType, Barretenberg, CircuitKind } from '../index.js';
-
-interface RawStep {
-  bytecode: Buffer;
-  witness: Buffer;
-  vk: Buffer;
-  functionName: string;
-  kind: CircuitKind;
-}
+import { AztecClientBackend, BackendType, Barretenberg } from '../index.js';
+import {
+  type PinnedFlow,
+  discoverFlows,
+  ensurePinnedInputsRoot,
+  loadPinnedFlow,
+  localBbPath,
+} from './testing/pinned_flows.js';
 
 const TEST_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_WASM_FLOW_LIMIT = 1;
-function findRepoRoot(): string {
-  if (process.env.AZTEC_REPO_ROOT) {
-    return process.env.AZTEC_REPO_ROOT;
-  }
-  // Identify the repo root by walking up to the directory containing barretenberg/cpp, so resolution is
-  // independent of the depth the test is invoked from (e.g. barretenberg/ts vs barretenberg/ts/bb.js).
-  let dir = process.cwd();
-  while (dir !== dirname(dir)) {
-    if (existsSync(join(dir, 'barretenberg/cpp'))) {
-      return dir;
-    }
-    dir = dirname(dir);
-  }
-  return resolve(process.cwd(), '../../..');
-}
-
-function ensurePinnedInputsRoot(): string {
-  const explicit = process.env.CHONK_PINNED_IVC_INPUTS_DIR;
-  if (explicit) {
-    return explicit;
-  }
-
-  const repoRoot = findRepoRoot();
-  return join(repoRoot, 'barretenberg/cpp/chonk-pinned-flows');
-}
-
-function discoverFlows(root: string): string[] {
-  if (!existsSync(root)) {
-    return [];
-  }
-  return readdirSync(root)
-    .map(name => join(root, name))
-    .filter(path => statSync(path).isDirectory() && existsSync(join(path, 'ivc-inputs.msgpack')))
-    .sort();
-}
-
 function selectFlows(flows: string[]): string[] {
   const filter = process.env.CHONK_PINNED_IVC_FLOW;
   const filtered = filter ? flows.filter(flow => basename(flow).includes(filter)) : flows;
   const limit = Number(process.env.CHONK_PINNED_IVC_FLOW_LIMIT);
   return Number.isInteger(limit) && limit > 0 ? filtered.slice(0, limit) : filtered;
 }
-
-function loadPinnedFlow(flowDir: string) {
-  const buf = readFileSync(join(flowDir, 'ivc-inputs.msgpack'));
-  const steps = new Decoder({ useRecords: false }).unpack(buf) as RawStep[];
-  if (steps.length === 0) {
-    throw new Error(`No execution steps in ${join(flowDir, 'ivc-inputs.msgpack')}`);
-  }
-  return {
-    bytecodes: steps.map(step => ungzip(step.bytecode)),
-    witnesses: steps.map(step => ungzip(step.witness)),
-    vks: steps.map(step => new Uint8Array(step.vk)),
-    names: steps.map(step => step.functionName),
-    kinds: steps.map(step => step.kind),
-  };
-}
-
-type PinnedFlow = ReturnType<typeof loadPinnedFlow>;
 
 function getWasmFlowLimit(): number {
   const parsed = Number(process.env.CHONK_PINNED_IVC_WASM_FLOW_LIMIT ?? DEFAULT_WASM_FLOW_LIMIT);
@@ -104,9 +47,7 @@ describe('Chonk pinned IVC inputs through bb.js', () => {
   let bbPath: string | undefined;
 
   beforeAll(() => {
-    const repoRoot = findRepoRoot();
-    const defaultBbPath = join(repoRoot, 'barretenberg/cpp/build/bin/bb');
-    bbPath = process.env.BB_BINARY_PATH ?? (existsSync(defaultBbPath) ? defaultBbPath : undefined);
+    bbPath = localBbPath();
     const pinnedRoot = ensurePinnedInputsRoot();
     const discoveredFlows = discoverFlows(pinnedRoot);
     if (discoveredFlows.length === 0) {
