@@ -288,11 +288,6 @@ template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
 
-#ifdef STARKNET_GARAGA_FLAVORS
-template class UltraVerifier_<UltraStarknetFlavor, DefaultIO>;
-template class UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>;
-#endif
-
 // ===== RECURSIVE FLAVOR INSTANTIATIONS =====
 
 // UltraRecursiveFlavor with DefaultIO

@@ -16,20 +16,11 @@ template <typename Flavor_, typename IO_> struct VKTestParams {
     using IO = IO_;
 };
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using TestTypes =
-    testing::Types<VKTestParams<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
-                   VKTestParams<UltraFlavor, stdlib::recursion::honk::RollupIO>,
-                   VKTestParams<UltraKeccakFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
-                   VKTestParams<UltraStarknetFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
-                   VKTestParams<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>>;
-#else
 using TestTypes =
     testing::Types<VKTestParams<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
                    VKTestParams<UltraFlavor, stdlib::recursion::honk::RollupIO>,
                    VKTestParams<UltraKeccakFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>,
                    VKTestParams<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>>;
-#endif
 
 template <typename Params> class NativeVerificationKeyTests : public ::testing::Test {
   public:

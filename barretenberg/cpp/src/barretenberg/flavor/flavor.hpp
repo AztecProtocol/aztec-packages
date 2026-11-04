@@ -35,10 +35,6 @@ class UltraFlavor;
 class UltraZKFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
-#ifdef STARKNET_GARAGA_FLAVORS
-class UltraStarknetFlavor;
-class UltraStarknetZKFlavor;
-#endif
 class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;

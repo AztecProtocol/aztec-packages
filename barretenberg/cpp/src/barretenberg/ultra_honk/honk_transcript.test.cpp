@@ -18,19 +18,8 @@
 
 using namespace bb;
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = ::testing::Types<UltraFlavor,
-                                     UltraKeccakFlavor,
-                                     UltraStarknetFlavor,
-                                     UltraStarknetZKFlavor,
-                                     UltraZKFlavor,
-                                     UltraKeccakZKFlavor,
-                                     MegaFlavor,
-                                     MegaZKFlavor>;
-#else
 using FlavorTypes =
     ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraZKFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
-#endif
 
 template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
   public:

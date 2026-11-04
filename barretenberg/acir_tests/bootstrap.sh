@@ -196,8 +196,6 @@ function test_cmds {
   echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof --disable_zk"
 
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash keccak"
-  # If starknet enabled:
-  #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"
   # Test rollup verification (rollup uses --ipa_accumulation)
   echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof --ipa_accumulation"
   # Test root-rollup verification: outer circuit verifies two RollupHonk proofs and closes the IPA

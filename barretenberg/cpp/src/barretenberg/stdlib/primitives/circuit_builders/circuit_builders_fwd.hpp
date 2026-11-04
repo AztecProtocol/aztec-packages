@@ -67,7 +67,4 @@ namespace avm2 {
 class AvmRecursiveFlavor;
 }
 
-#ifdef STARKNET_GARAGA_FLAVORS
-class UltraStarknetFlavor;
-#endif
 } // namespace bb
