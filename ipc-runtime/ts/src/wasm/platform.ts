@@ -20,6 +20,22 @@ export interface WasmPlatform extends ModuleLoadPlatform {
   maximumMemoryPages?(): number;
 }
 
+/**
+ * Whether this runs on an iPhone or an iPad. iPadOS Safari and an iPhone that requests the desktop
+ * website send a Mac user agent, and only their touch points tell them from a Mac. A worker has no
+ * `maxTouchPoints`, so there those two devices read as a Mac.
+ */
+export function isIos(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  const { userAgent, maxTouchPoints } = navigator;
+  return (
+    /iPad|iPhone/.test(userAgent) ||
+    (/Macintosh/.test(userAgent) && maxTouchPoints > 1)
+  );
+}
+
 /** The worker's view of its parent (node `parentPort` or a browser worker global). */
 export interface WorkerSide {
   onMessage(handler: (message: any) => void): void;
