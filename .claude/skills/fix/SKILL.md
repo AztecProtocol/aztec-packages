@@ -8,6 +8,8 @@ argument-hint: <issue-numbers, e.g. A-690 A-691 A-692>
 
 Given a list of Linear issue numbers, analyze each one against the codebase, then implement fixes and create draft PRs.
 
+Requires a Linear MCP server named `linear-server` in your user-level Claude Code config. The repo does not configure one.
+
 ## Phase 1: Triage (main context)
 
 For each issue number provided:
@@ -29,24 +31,23 @@ For each issue number provided:
 
 Work through each confirmed issue **sequentially** in the main checkout:
 
-1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `next` using the issue's `gitBranchName` from Linear (or the component's merge train, see CLAUDE.md). For a fix scoped to the v5 release line, branch from `v5-next` instead.
+1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `next` using the issue's `gitBranchName` from Linear (or the component's merge train, see CLAUDE.md). For a fix scoped to a release line, branch from that line instead (`v6`, `v5-next`). Take `<base>` from the base-branch table in `CLAUDE.md`.
    ```
    git stash
-   git checkout -B <gitBranchName> origin/next
+   git checkout -B <gitBranchName> origin/<base>
    ```
 
 2. **Implement the fix**: Edit the relevant files.
 
-3. **Build**: Run `yarn build` from `yarn-project` to verify the fix compiles.
+3. **Build**: Build the component you touched to verify the fix compiles: `make bb-cpp-native`, `make l1-contracts`, `make noir-projects-fnd`, or `make labs-yarn-project` for labs changes.
 
 4. **Commit**: Stage only the changed files and commit with a descriptive message.
    - Message format: `fix: <short description> (A-XXX)`
-   - Include `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
 
-5. **Push & PR**: Push the branch and create a draft PR. Use `--base v5-next` for v5-scoped fixes.
+5. **Push & PR**: Push the branch and create a draft PR. Use the same `<base>` as the branch.
    ```
    git push -u origin <gitBranchName>
-   gh pr create --draft --base next --title "fix: ..." --body "..."
+   gh pr create --draft --base <base> --title "fix: ..." --body "..."
    ```
    - The PR body should reference the Linear issue (e.g. `Fixes A-XXX`).
 

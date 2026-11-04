@@ -1,347 +1,105 @@
 # Barretenberg IPC Module
 
-Modern C++ inter-process communication (IPC) library providing unified abstractions over multiple transport mechanisms. Designed for high-performance request/response patterns between processes.
+This module is the bb-local IPC library, namespace `bb::ipc`. It is a fork of
+the standalone [ipc-runtime](../../../../../ipc-runtime/README.md) library,
+which the `avm`, `cdb` and `wsdb` services use. The two code trees have
+diverged; this README describes the `bb::ipc` code only.
 
-## Overview
+Users of `bb::ipc`:
 
-The IPC module provides:
-- **Abstract interfaces** (`IpcClient`, `IpcServer`) for transport-independent code
-- **Unix domain sockets** transport for simplicity and broad compatibility
-- **Shared memory** transport for ultra-low latency (sub-microsecond)
-- **Factory pattern** for easy instantiation
-- **Multi-client support** with dynamic capacity (sockets) or fixed capacity (shared memory)
-- **Built-in server loop** with graceful shutdown support
+- The `bb msgpack` server (`api/api_msgpack.cpp`): a path ending in `.shm` selects the SHM transport, `.sock` selects the socket transport.
+- The Node.js module's msgpack client (`nodejs_module/msgpack_client/`).
+- The IPC benchmark (`benchmark/ipc_bench/`).
 
-## Architecture
+## Transports
 
-```
-┌─────────────────────────────────────────────────┐
-│           Abstract Interfaces                    │
-│    IpcClient            IpcServer                │
-│    - connect()          - listen()               │
-│    - send()             - wait_for_data()        │
-│    - recv()             - receive() / release()  │
-│    - close()            - send() / close()       │
-│                         - run(handler)           │
-└──────────────┬─────────────────┬────────────────┘
-               │                 │
-       ┌───────┴────────┐ ┌──────┴──────────┐
-       │ Socket         │ │ Shared Memory   │
-       │ Implementation │ │ Implementation  │
-       └────────────────┘ └─────────────────┘
-```
+| Transport | Server factory | Client factory | Clients |
+|-----------|----------------|----------------|---------|
+| Unix domain socket (`SocketServer` / `SocketClient`) | `IpcServer::create_socket(socket_path, max_clients)` | `IpcClient::create_socket(socket_path)` | Many; the client table grows on demand |
+| SHM, SPSC (`ShmServer` / `ShmClient`) | `IpcServer::create_shm(base_name, request_ring_size = 1MB, response_ring_size = 1MB)` | `IpcClient::create_shm(base_name)` | One (1:1) |
+| SHM, MPSC (`MpscShmServer` / `MpscShmClient`) | `IpcServer::create_mpsc_shm(base_name, max_clients, request_ring_size = 1MB, response_ring_size = 1MB)` | `IpcClient::create_mpsc_shm(base_name, client_id)` | Up to `max_clients`; each client passes its own `client_id` |
 
-### Transport Implementations
+Sockets work on one machine only (no TCP). Use them when the client count is
+dynamic. Use SHM when latency matters and the client count is fixed.
 
-#### 1. Unix Domain Sockets (`SocketClient` / `SocketServer`)
-
-**Architecture:**
-- Standard POSIX socket API with epoll for multi-client handling
-- Direct implementation (no wrapper layers)
-- Dynamic client capacity with O(1) client lookup
-- Requires system calls for each message
-
-**Use when:**
-- Simplicity and compatibility are priorities
-- Latency requirements are moderate (5-15 µs)
-- Need unlimited dynamic client capacity
-- Running in environments without shared memory support
-
-**Example:**
-```cpp
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
-
-// Server process
-auto server = IpcServer::create_socket("/tmp/my.sock", 10);  // max 10 initial clients
-server->listen();
-
-server->run([](int client_id, std::span<const uint8_t> request) {
-    // Process request, return response
-    std::vector<uint8_t> response = process(request);
-    return response;
-});
-
-// Client process
-auto client = IpcClient::create_socket("/tmp/my.sock");
-client->connect();
-
-std::vector<uint8_t> request = {...};
-client->send(request.data(), request.size());
-
-std::vector<uint8_t> response(1024);
-ssize_t n = client->recv(response.data(), response.size());
-```
-
-#### 2. Shared Memory (`ShmClient` / `ShmServer`)
-
-**Architecture:**
-- Lock-free SPSC/MPSC ring buffers (see `shm/README.md` for details)
-- Requests: MPSC (multi-producer single-consumer) ring
-- Responses: Dedicated SPSC ring per client
-- Adaptive spin + futex for efficient blocking
-- Fixed client capacity (set at server creation)
-
-**Use when:**
-- Ultra-low latency is critical (0.3-1 µs hot, 3-6 µs cold)
-- Number of clients is known and fixed
-- Linux/POSIX shared memory available
-- Zero-copy message passing desired
-
-**Example:**
-```cpp
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
-
-// Server process
-auto server = IpcServer::create_shm("my_shm", 4);  // exactly 4 clients
-server->listen();
-
-server->run([](int client_id, std::span<const uint8_t> request) {
-    std::vector<uint8_t> response = process(request);
-    return response;
-});
-
-// Client process (run 4 instances)
-auto client = IpcClient::create_shm("my_shm", 4);
-client->connect();  // Atomically claims client_id 0, 1, 2, or 3
-
-std::vector<uint8_t> request = {...};
-client->send(request.data(), request.size());
-
-std::vector<uint8_t> response(1024);
-ssize_t n = client->recv(response.data(), response.size());
-```
-
-## API Reference
-
-### IpcClient Interface
-
-```cpp
-class IpcClient {
-public:
-    virtual ~IpcClient() = default;
-
-    // Connect to server
-    virtual bool connect() = 0;
-
-    // Send request to server
-    virtual bool send(const void* data, size_t len, uint64_t timeout_ns = 0) = 0;
-
-    // Receive response from server
-    virtual ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns = 0) = 0;
-
-    // Close connection
-    virtual void close() = 0;
-
-    // Factory methods
-    static std::unique_ptr<IpcClient> create_socket(const std::string& socket_path);
-    static std::unique_ptr<IpcClient> create_shm(const std::string& base_name, size_t max_clients);
-};
-```
-
-### IpcServer Interface
+## Server
 
 ```cpp
 class IpcServer {
 public:
     using Handler = std::function<std::vector<uint8_t>(int client_id, std::span<const uint8_t> request)>;
 
-    virtual ~IpcServer() = default;
-
-    // Start listening for connections
     virtual bool listen() = 0;
-
-    // Wait for data from any client (spins then blocks, returns client_id)
-    virtual int wait_for_data(uint64_t spin_ns) = 0;
-
-    // Receive next message (blocks until complete, zero-copy for SHM)
+    virtual int wait_for_data(uint64_t timeout_ns) = 0;   // returns a client_id, or < 0
     virtual std::span<const uint8_t> receive(int client_id) = 0;
-
-    // Release/consume the received message
     virtual void release(int client_id, size_t message_size) = 0;
-
-    // Send to specific client
     virtual bool send(int client_id, const void* data, size_t len) = 0;
-
-    // Close server
     virtual void close() = 0;
-
-    // High-level event loop with handler (uses peek/release internally)
-    virtual void run(Handler handler);
-
-    // Factory methods
-    static std::unique_ptr<IpcServer> create_socket(const std::string& socket_path, int max_clients);
-    static std::unique_ptr<IpcServer> create_shm(const std::string& base_name, size_t max_clients,
-                                                  size_t request_ring_size = 1MB, size_t response_ring_size = 1MB);
+    virtual void request_shutdown();   // sets the shutdown flag and wakes waiters
+    virtual int accept();              // socket servers accept new clients; default no-op
+    virtual void run(const Handler& handler);
+    // factories: see the table above
 };
 ```
 
-The receive/release pattern ensures:
-- **Zero-copy for SHM**: `receive()` returns a span pointing directly into the ring buffer
-- **No message loss**: Both implementations guarantee complete messages; incomplete = corruption
-- **Explicit lifecycle**: Messages are only consumed when `release()` is explicitly called with size
-- **Semantic equivalence**: Both socket and SHM implementations block until complete message available
+`run()` loops until shutdown is requested. Each iteration calls `accept()`,
+waits up to 100 ms with `wait_for_data`, receives one request, calls the
+handler, sends the response if it is non-empty, and releases the request.
 
-### Graceful Shutdown
-
-The server's `run()` method supports graceful shutdown via exception:
+To stop the loop from a handler, throw `ShutdownRequested(response)`. `run()`
+releases the request, sends `response` if it is non-empty, and returns, so
+destructors run normally:
 
 ```cpp
 #include "barretenberg/ipc/ipc_server.hpp"
 
+auto server = bb::ipc::IpcServer::create_socket("/tmp/my.sock", 10);
+server->listen();
 server->run([](int client_id, std::span<const uint8_t> request) {
     if (is_shutdown_request(request)) {
-        std::vector<uint8_t> goodbye = encode_goodbye();
-        throw ShutdownRequested(goodbye);  // Sends response, then exits cleanly
+        throw bb::ipc::ShutdownRequested(encode_goodbye());
     }
-    return process_normal_request(request);
+    return process(request);
 });
-// Destructors run here, cleaning up all resources
 ```
 
-## Performance Comparison
-
-### Latency (Round-trip time)
-
-| Transport      | Hot Path       | Cold Path    | Notes                          |
-|----------------|----------------|--------------|--------------------------------|
-| Sockets        | 6-15 µs        | 10-20 µs     | Requires syscalls per message  |
-| Shared Memory  | 0.3-1 µs       | 3-6 µs       | Zero-copy, adaptive spin+futex |
-
-### Throughput
-
-| Transport      | Single Client  | Multi-Client (3) | Notes                    |
-|----------------|----------------|------------------|--------------------------|
-| Sockets        | ~150K msgs/s   | ~120K msgs/s     | Epoll scales well        |
-| Shared Memory  | ~1M msgs/s     | ~700K msgs/s     | Lock-free, per-client queues |
-
-*Benchmarks measured on AMD Ryzen 9 5950X, small messages (<1KB)*
-
-## Implementation Details
-
-### Socket Transport
-
-**SocketClient:**
-- Direct socket file descriptor management
-- RAII cleanup (close on destruction)
-- Blocking I/O with optional timeout
-- Length-prefixed messages (4-byte header)
-
-**SocketServer:**
-- Epoll for efficient multi-client event handling
-- Dynamic client table (grows on demand)
-- O(1) fd→client_id lookup via `std::unordered_map`
-- Automatic cleanup on client disconnect
-
-### Shared Memory Transport
-
-**ShmClient:**
-- Atomically claims client ID from shared counter
-- Connects to MPSC ring (producer role) for requests
-- Connects to dedicated SPSC ring (consumer role) for responses
-- Length-prefixed messages (4-byte header) matching socket behavior
-
-**ShmServer:**
-- Creates MPSC consumer for receiving requests from all clients
-- Pre-creates SPSC rings for each client's responses
-- Round-robin polling across client rings
-- Shared doorbell futex for efficient wakeup
-
-For deep dive into shared memory ring buffer architecture, see [`shm/README.md`](shm/README.md).
-
-## Build Integration
-
-The IPC module is included in Barretenberg's main CMake build:
-
-```cmake
-# CMakeLists.txt
-add_library(ipc
-    ipc_client.cpp
-    ipc_server.cpp
-    socket_client.cpp
-    socket_server.cpp
-    # shm implementations are header-only
-)
-
-target_link_libraries(ipc
-    PRIVATE pthread  # For futex operations
-    PRIVATE rt       # For shm_open/shm_unlink
-)
-```
-
-## Testing
-
-Run IPC tests with:
-
-```bash
-# From barretenberg/cpp
-cd build-no-avm
-ninja ipc_bench  # Performance benchmarks
-./bin/ipc_bench
-```
-
-The benchmark compares socket vs shared memory performance with single and multiple clients.
-
-## Best Practices
-
-### Choosing a Transport
-
-**Use sockets when:**
-- You need dynamic client capacity
-- Compatibility and simplicity are priorities
-- Moderate latency (10-15 µs) is acceptable
-- You're crossing network boundaries (with TCP sockets)
-
-**Use shared memory when:**
-- Ultra-low latency (<1 µs) is critical
-- Number of clients is known and fixed
-- Running on same machine with POSIX shared memory
-- You want zero-copy message passing
-
-### Error Handling
-
-All operations return bool (success) or -1 (error) for easy checking:
+## Client
 
 ```cpp
-if (!client->connect()) {
-    // Handle connection failure
-}
-
-if (!client->send(data, len)) {
-    // Handle send failure
-}
-
-ssize_t n = client->recv(buffer, size);
-if (n < 0) {
-    // Handle receive failure/timeout
-}
+class IpcClient {
+public:
+    virtual bool connect() = 0;
+    virtual bool send(const void* data, size_t len, uint64_t timeout_ns) = 0;   // sockets ignore it; SHM: 0 = non-blocking
+    virtual std::span<const uint8_t> receive(uint64_t timeout_ns) = 0;          // empty on error/timeout; same timeout rule
+    virtual void release(size_t message_size) = 0;
+    virtual void close() = 0;
+    // factories: see the table above
+};
 ```
 
-### Resource Management
-
-Both transports use RAII for automatic cleanup:
+`receive()` returns a span that stays valid until `release()` or the next
+`receive()`. For SHM it points into the ring buffer (zero-copy); for sockets it
+points into an internal buffer. Always follow it with `release(span.size())`.
+The SHM transports cast `timeout_ns` to `uint32_t`, so the longest wait is about 4.29 s:
 
 ```cpp
-{
-    auto server = IpcServer::create_socket("/tmp/my.sock", 10);
-    server->listen();
-    // Use server...
-}  // Destructor closes connections and cleans up resources
+#include "barretenberg/ipc/ipc_client.hpp"
+
+auto client = bb::ipc::IpcClient::create_socket("/tmp/my.sock");
+if (!client->connect()) { /* handle failure */ }
+
+std::vector<uint8_t> request = encode_request();
+if (!client->send(request.data(), request.size(), /*timeout_ns=*/1'000'000'000)) { /* handle failure */ }
+
+auto response = client->receive(/*timeout_ns=*/1'000'000'000);
+if (response.empty()) { /* handle failure or timeout */ }
+handle(response);
+client->release(response.size());
 ```
 
-For shared memory, the server should explicitly unlink on clean shutdown:
+## Message framing
 
-```cpp
-auto server = IpcServer::create_shm("my_shm", 4);
-server->listen();
-server->run(handler);
-// Destructor automatically calls unlink to remove shared memory objects
-```
-
-### Message Framing
-
-Both transports use 4-byte length prefixes for messages:
+Both transports prefix each message with a 4-byte little-endian length:
 
 ```
 ┌────────────┬──────────────────┐
@@ -350,40 +108,57 @@ Both transports use 4-byte length prefixes for messages:
 └────────────┴──────────────────┘
 ```
 
-This is handled automatically by the implementations.
+The implementations add and strip it; callers see whole payloads, never partial ones.
 
-### Threading Model
+## Implementation notes
 
-- **Socket server:** Single-threaded event loop with epoll
+- **SocketServer**: epoll on Linux, kqueue on macOS. The client table grows on
+  demand, with an `fd -> client_id` `std::unordered_map` for lookup. Clients are
+  cleaned up on disconnect.
+- **SocketClient**: owns its socket fd and closes it on destruction.
+- **ShmServer**: one SPSC request ring and one SPSC response ring.
+- **MpscShmServer**: an MPSC consumer for requests (one SPSC ring per client)
+  and a separate SPSC response ring per client. The consumer polls the client
+  rings round-robin and sleeps on a shared doorbell futex.
+- SHM servers unlink their shared-memory objects on `close()` and on
+  destruction.
+
+The ring buffers are described in [`shm/README.md`](shm/README.md).
+
+## Threading model
+
+- **Socket server:** Single-threaded event loop
 - **Socket client:** Thread-safe (each client is independent)
 - **Shared memory server:** Single-threaded consumer (by design)
 - **Shared memory client:** Lock-free producer (multiple clients can send concurrently)
 
 ## Limitations
 
-### Sockets
-- System call overhead (cannot eliminate)
-- Buffer copying on send (recv is internal buffer, minimal copy)
-- File descriptor limits (ulimit)
+- Linux (futex) and macOS (`os_sync_wait_on_address`) only.
+- Sockets: one syscall per message, a buffer copy on send, and the usual file
+  descriptor limits (`ulimit`).
+- SHM: client capacity and ring sizes are fixed at server creation. Any process
+  that can open the shared-memory objects can read and write them.
 
-### Shared Memory
-- Fixed client capacity (must specify at creation)
-- Linux-specific (uses futex, though portable to other POSIX systems)
-- Requires cleanup of /dev/shm objects (automatic on destruction)
-- No security boundaries (all clients can access all memory)
+## Build and test
 
-## Future Enhancements
+The module builds as `barretenberg_module(ipc common)` (`CMakeLists.txt`). From
+`barretenberg/cpp`:
 
-Potential improvements for future versions:
+```bash
+cmake --preset default
+cmake --build build --target ipc_tests ipc_bench
+./build/bin/ipc_tests
+./build/bin/ipc_bench
+```
 
-- [ ] Zero-copy socket option (SCM_RIGHTS / vmsplice)
-- [ ] Configurable ring buffer sizes for shared memory
-- [ ] Metrics/telemetry API (latency histograms, throughput)
-- [ ] Windows named pipes support
-- [ ] Cross-platform shared memory abstraction (Windows shared memory objects)
+`ipc_bench` compares socket and SHM performance with one and several clients.
+`grind_ipc.sh [jobs]` runs `ShmTest.SingleClientSmallRingHighVolume` from
+`build/bin/ipc_tests` in a loop until a run fails or you press Ctrl-C (default
+128 parallel jobs).
 
 ## See Also
 
-- [`shm/README.md`](shm/README.md) - Deep dive into lock-free ring buffer implementation
-- [`shm.test.cpp`](shm.test.cpp) - Comprehensive test suite
-- Benchmarks in `barretenberg/cpp/build-no-avm/bin/ipc_bench`
+- [`shm/README.md`](shm/README.md) - the lock-free ring buffers
+- [`shm.test.cpp`](shm.test.cpp) - tests
+- [ipc-runtime](../../../../../ipc-runtime/README.md) - the maintained standalone library

@@ -8,7 +8,7 @@ Build from this directory:
 
 The Zig project depends on the repo-local `ipc-runtime/zig` package and a
 `zig_msgpack` copy vendored at `vendor/zig-msgpack`. Binaries are written to
-`zig-out/bin/`.
+`zig-out/bin/`. Requires Zig ≥ 0.14 (`build.zig.zon`).
 
 Run locally:
 

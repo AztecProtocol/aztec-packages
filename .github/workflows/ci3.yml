@@ -31,7 +31,7 @@ jobs:
   #
   #            Standard PR)                      Merge Queue
   #                  |                                 |
-  #      |  1x AMD64 EC2 Spot  |           |  [ 4x AMD64 EC2 Spot ]  |
+  #      |  1x AMD64 EC2 Spot  |           |  [ 1x AMD64 EC2 Spot ]  |
   #                                        |  [ 1x ARM64 EC2 Spot ]  |
   #                                                    |
   #                                           Filters out "accidental"

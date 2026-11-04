@@ -7,8 +7,10 @@ Build from this directory:
 ```
 
 The package consumes `@aztec-foundation/ipc-runtime` via a repo-relative `file:`
-dependency. The bootstrap builds `ipc-runtime/ts` before installing this
-example so the file-linked package contains compiled output.
+dependency. Build ipc-runtime first (`cd ../../../ipc-runtime && ./bootstrap.sh`).
+This bootstrap links its `ts/dest` via `file:` and does not build it. The
+bootstrap runs `npm install` (needs network) and type-checks with
+`tsc --noEmit`; the scripts run through `tsx`.
 
 Run locally:
 
