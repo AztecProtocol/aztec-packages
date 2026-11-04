@@ -2,7 +2,18 @@
 
 ## Introduction
 
-For each sub-trace defined in a .pil file, one can optionally add so-called "skippable" condition which allows to improve performance on prover side whenever the "skippable" condition is satisfied. It basically skips some accumulation computation in sumcheck protocol to all sub-relations pertaining to the sub-trace. Here a "sub-trace" can be virtual or not, i.e., each virtual sub-trace has their own skippable condition (which might be the same though). More on how to define a valid "skippable" condition in the next section. We emphasize that the "skippable" mechanism does not change the behavior of the verifier and therefore does not present any security risk about soundness, i.e., it does not help a malicious prover to prove a wrong statement even if the "skippable" condition is too relaxed. What can however happen is that the verification fails when it should not (perfect completeness is not guaranteed anymore if we wrongly skip).
+A `#[skippable_if]` condition lets the prover skip a sub-trace's sumcheck contributions on rows where the condition holds. It applies to all sub-relations of the sub-trace. A sub-trace can be virtual or not. Each virtual sub-trace has its own skippable condition (which might be the same as another's).
+
+The verifier does not change, so a wrong condition cannot break soundness: it does not help a malicious prover prove a wrong statement. It can break completeness: an honest proof may fail to verify if the prover skips wrongly. The next sections explain how to choose a valid condition.
+
+Declare the condition in a namespace with `#[skippable_if]` followed by `<expr> = 0;`. For example, `bitwise.pil` has:
+
+```
+#[skippable_if]
+sel = 0;
+```
+
+bb-pilcom generates the relation's `skip()` function from it (for example, `generated/relations/bitwise.hpp`).
 
 ## Explanations
 
@@ -33,7 +44,7 @@ for every even i ($Col_i$ denotes the ith row element of $Col$).
 Then, each "merged value" is evaluated in your sub-relation.
 Note that $ColMerged_i$ is more or less random except when $Col_i$ and $Col_{i+1}$ are zeros.
 Assume that for a given sub-relation all $ColMerged_i$ are "random" except for the term satisfying the skippable condition. Then it will evaluate to zero and can be effectively skipped. (Assuming the strong definition of skippable where the skippable condition can nullify a sub-relation no matter what are the other values.)
-Now, one can leverage on the fact that we are using our witness generator to use the skippable in a more generous manner by taking advantage of columns that are guaranteed to be zero whenever the skippable condition is true and that this specific column being zero nullifies a sub-relation (in other words the column entry is a multiplicative factor of the sub-relation).
+If tracegen guarantees that a column is zero whenever the condition holds, and that column is a factor of a sub-relation, the condition also covers that sub-relation.
 Let us take an example of a subtrace with two subrelations over columns $a$, $b$, $c$:
 
 $$
@@ -64,7 +75,7 @@ If the skippable mechanism were not simultaneous over the two rows then the firs
 
 As an example from memory.pil:
 
-$(1 - precomputed.firstRow) * (1 - sel) * sel' = 0;$
+`(1 - precomputed.first_row - sel) * sel' = 0;`
 
 Even if "precomputed.first_row" becomes randomized, we can rely on $sel'$ to nullify this sub-relation. Therefore, $sel == 0$ is a valid skippable condition.
 
@@ -72,11 +83,11 @@ Even if "precomputed.first_row" becomes randomized, we can rely on $sel'$ to nul
 
 Our trace generation always create some contiguous trace, i.e., as soon as a row is inactive ($sel == 0), the next row is inactive. We can leverage this property when working with the skippable condition.
 
-Example from bitwise.pil:
+Example from calldata.pil (skippable condition $sel = 0$):
 
-$(op_{id'} - op_{id}) * (1 - last) = 0;$
+`(1 - LATCH_CONDITION) * (context_id - context_id') = 0;`
 
-We know that our trace generation will fill $op_{id} == 0$ on inactive rows and we can deduce from trace continuity that $op_{id'} == 0$ and therefore this relation will be nullified whenever the skippable condition $sel == 0$ holds.
+We know that our trace generation will fill `context_id == 0` on inactive rows and we can deduce from trace continuity that `context_id' == 0` and therefore this relation will be nullified whenever the skippable condition $sel == 0$ holds.
 
 ## TLDR
 
