@@ -85,6 +85,10 @@ sidebar_position: ${SIDEBAR_POSITION}
 This is an auto-generated reference. For tutorials and guides, see the [Aztec.js Guide](./index.md).
 :::
 
+:::tip Looking up one name?
+Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/#api_ref_version/llms.txt).
+:::
+
 EOF
 
 # Append markdown content (skip first line which is duplicate title)

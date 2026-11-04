@@ -1,14 +1,14 @@
-import {
-  createAztecNodeClient,
-  waitForNode,
-  waitForTx,
-} from "@aztec-labs/aztec.js/node";
+import { createAztecNodeClient, waitForNode } from "@aztec-labs/aztec.js/node";
+// docs:start:no_wait_deploy_imports
+import { NO_WAIT } from "@aztec-labs/aztec.js/contracts";
+import { waitForTx } from "@aztec-labs/aztec.js/node";
+// docs:end:no_wait_deploy_imports
 import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing";
 import { TokenContract, type Transfer } from "@aztec-labs/noir-contracts.js/Token";
 import { SponsoredFPCContract } from "@aztec-labs/noir-contracts.js/SponsoredFPC";
 import { Fr } from "@aztec-labs/aztec.js/fields";
-import { NO_WAIT, BatchCall, Contract } from "@aztec-labs/aztec.js/contracts";
+import { BatchCall, Contract } from "@aztec-labs/aztec.js/contracts";
 import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee/testing";
 import { getContractInstanceFromInstantiationParams } from "@aztec-labs/stdlib/contract";
 import { PublicKeys } from "@aztec-labs/stdlib/keys";

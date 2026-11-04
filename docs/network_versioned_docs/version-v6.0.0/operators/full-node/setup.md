@@ -89,6 +89,8 @@ networks:
     name: aztec
 ```
 
+For testnet, change `--network mainnet` to `--network testnet` and use Sepolia L1 endpoints.
+
 :::warning Security: Admin Port Not Exposed
 The admin port (8880) is intentionally **not exposed** to the host machine for security reasons. The admin API provides sensitive operations like configuration changes and database rollbacks that should never be accessible from outside the container.
 
