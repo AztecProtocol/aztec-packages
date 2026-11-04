@@ -1,6 +1,5 @@
 import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync } from '@aztec-foundation/ipc-runtime';
-import { isIos } from '@aztec-foundation/ipc-runtime/wasm';
 
 import { BackendOptions, BackendType } from '../backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../backends/node/index.js';
@@ -110,8 +109,17 @@ export class Barretenberg extends AsyncApi {
   }
 
   getDefaultSrsSize(): number {
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
-    return isIos() ? IOS_BB_CRS_SIZE : DEFAULT_BB_CRS_SIZE;
+    // Use `self` instead of `window` so this check also works inside Web Workers.
+    if (
+      typeof self !== 'undefined' &&
+      typeof self.navigator !== 'undefined' &&
+      /iPad|iPhone/.test(self.navigator.userAgent)
+    ) {
+      return IOS_BB_CRS_SIZE;
+    }
+    return DEFAULT_BB_CRS_SIZE;
   }
 
   async acirGetCircuitSizes(
