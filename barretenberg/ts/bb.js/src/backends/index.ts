@@ -16,21 +16,13 @@ export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
   threads?: number;
 
-  /**
-   * @description Initial and Maximum memory to be alloted to the backend worker. A Web Worker cannot
-   * tell an iPad or a desktop-mode iPhone from a Mac, so a Web Worker on those devices must set
-   * `maximum: 2 ** 14`.
-   */
+  /** @description Initial and Maximum memory to be alloted to the backend worker */
   memory?: { initial?: number; maximum?: number };
 
   /** @description Path to download CRS files */
   crsPath?: string;
 
-  /**
-   * @description Number of G1 points to download when initializing the CRS/SRS for WASM backends.
-   * Defaults to `Barretenberg.getDefaultSrsSize()`. A Web Worker on an iPad or a desktop-mode iPhone
-   * must set `2 ** 18`.
-   */
+  /** @description Number of G1 points to download when initializing the CRS/SRS for WASM backends */
   srsSize?: number;
 
   /**
