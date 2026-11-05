@@ -13,10 +13,10 @@ it("finds a page's line from its path, and moves only its dev-docs links onto th
 
   const page =
     "[a](/operate/operators/setup) [b](/developers/docs/x#y) <a href=\"/operate/operators\">c</a> " +
-    "[d](/participate/x) [e](https://docs.aztec.network/operate/x) [f](/developers-v6/x)";
+    "[d](/participate/x) [e](https://example.com/operate/x) [f](/developers-v6/x)";
   assert.strictEqual(
     lineLinks(page, line),
     "[a](/operate-v6/operators/setup) [b](/developers-v6/docs/x#y) <a href=\"/operate-v6/operators\">c</a> " +
-      "[d](/participate/x) [e](https://docs.aztec.network/operate/x) [f](/developers-v6/x)",
+      "[d](/participate/x) [e](https://example.com/operate/x) [f](/developers-v6/x)",
   );
 });
