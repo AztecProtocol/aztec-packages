@@ -16,7 +16,7 @@ import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 
 const require = createRequire(import.meta.url);
-const { apiReferenceDirs, docsInstances } = require("../src/network_docs.js");
+const { SCOPED_API_INDEX, apiReferenceDirs, docsInstances } = require("../src/network_docs.js");
 const { fencedLines } = require("../src/markdown_fences.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 
@@ -169,7 +169,7 @@ export function main(buildDir, env = process.env) {
       continue;
     }
     const started = process.hrtime.bigint();
-    const banner = `Aztec.nr API reference, ${version} (${networks.join(" and ")}). Index: ${llmsSiteUrl(env)}/${dir}/llms.txt`;
+    const banner = `Aztec.nr API reference, ${version} (${networks.join(" and ")}). Index: ${llmsSiteUrl(env)}/${dir}/${SCOPED_API_INDEX}`;
     let pages = 0;
     let bytes = 0;
     for (const file of htmlFiles(root)) {
