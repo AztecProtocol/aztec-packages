@@ -482,7 +482,9 @@ Never fetch with `--shallow-exclude=<previous release>`: the merge base is usual
 from it, so it is cut off and the range lists both sides back to the boundary (v6.0.0
 against `v6.0.0-rc.3`: 166/166 commits instead of 57/2). This fetch needs no previous
 release, so it also works when that is not a Labs tag. The separate history checkout and
-a failed count check work as in `/release-docs` Step 12.
+a failed count check work as in `/release-docs` Step 12. So do hand backports: one adapted
+to its line (`v6`) is not patch-equivalent, so `--cherry-pick` keeps it on both sides;
+judge it against `$AZTEC_NODE_DIR`, the tag.
 
 `>` commits are in the destination's pin but not in the release. Start with the operator
 pages the second log names (aztec-node held the docs until they moved here, so a code

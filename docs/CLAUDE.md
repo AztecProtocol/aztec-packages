@@ -63,7 +63,8 @@ The aztec-node (Labs) code the docs quote is the commit `aztec-node.json` pins, 
 - Move the pin with `node scripts/aztec_node.mts pin <tag>` (a release or nightly tag), never by hand; then set `@aztec-foundation/l1-artifacts` to the version `check` names, run `yarn install`, and commit `aztec-node.json` with `package.json` and `yarn.lock`.
 - `pin` needs `gh` logged in: it records the sha256 of each noir release archive in `noirArchives` once `gh attestation verify` proves noir's publish workflow built it, and `provision` refuses a nargo archive whose sha256 differs. Never edit `noirArchives` to get past a mismatch: it means the release archive changed after the pin.
 - Tools that need nargo, bb or the aztec CLI use the pinned published ones: `node scripts/aztec_node.mts provision nargo bb cli`, then `eval "$(node scripts/aztec_node.mts env)"` exports `NARGO`, `BB`, `AZTEC` and the versions. Never run nargo inside `docs/` or the checkout: it takes `docs/Nargo.toml` as its workspace.
-- A release cut moves the pin to the release tag in its own worktree only (`/release-docs`, `/release-network-docs`); the dev docs keep their pin.
+- The dev docs stay on aztec-node's v6 line until they carry a separate v7 line: move their pin to the newest `v6.*` nightly, never to a v7 tag (`main` carries v7 from 2026-11-04). A v6.x release is cut from the dev docs' pages and examples, so it works only while they are v6 content. Then check that the recorded commit is on `v6`: `gh api "repos/aztec-labs-eng/aztec-node/compare/v6...$(node -p 'require("./aztec-node.json").commit')" --jq .status` prints `behind` or `identical`.
+- A release cut moves the pin to the release tag in its own worktree only (`/release-docs`, `/release-network-docs`); v6.x releases are cut from their tags on aztec-node's `v6` branch. The dev docs keep their pin.
 
 ### Preprocessing Environment Variables
 
@@ -77,7 +78,7 @@ The preprocessing system uses these environment variables:
 | `DEVNET_TAG`   | Version for devnet builds                               | from `developer_version_config.json` |
 | `TESTNET_TAG`  | Version for testnet builds                              | from `developer_version_config.json` |
 | `MAINNET_TAG`  | Version for mainnet builds                              | from `developer_version_config.json` |
-| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`     | `next`                               |
+| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`     | `ref` in `aztec-node.json`           |
 
 ### Preprocessing Macros
 
@@ -96,7 +97,7 @@ The preprocessing system uses these environment variables:
 
 **Legacy macros:**
 
-- `#include_aztec_version` - Uses `COMMIT_TAG` (a Labs version, never a ref into aztec-packages)
+- `#include_aztec_version` - Uses `COMMIT_TAG`, else the pin's `ref` (a Labs version, never a ref into aztec-packages; `@aztec-foundation/*` versions use `#include_foundation_version_without_prefix`)
 - `#include_devnet_version`, `#include_testnet_version`, `#include_mainnet_version` - Version-specific macros
 
 **`#include_code` paths**: Snippet paths may point into `docs/node_modules` (e.g. `docs/node_modules/@aztec-foundation/l1-artifacts/...`). For those snippets the generated source link resolves to the installed package's own version tag, NOT `COMMIT_TAG` - only the package's tag is guaranteed to match the extracted snippet line-for-line (see `src/preprocess/include_code.js`).

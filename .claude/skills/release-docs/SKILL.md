@@ -48,7 +48,9 @@ paste the key into the conversation or onto a command line.
   `BB` once provisioned). In the cut that is the release tag's.
 - **The cut runs in its own worktree** (`$CUT`), created from the destination commit; it
   moves the cut's pin to the Labs tag. The destination checkout is not touched until Step 17,
-  and its pin never moves: the destination's dev docs keep following their own pin.
+  and its pin never moves: the destination's dev docs keep following their own pin, a v6
+  nightly until the docs carry a separate v7 line (`docs/CLAUDE.md`). A v6.x cut pins its
+  tag on aztec-node's `v6` branch (Step 12).
 - **Release inputs**, recorded in the commit that lands the cut (Step 17):
 
   | Input | Source |
@@ -501,13 +503,14 @@ aztec-node has neither ref: replace both fetches with one dated by that tag here
 git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$(git -C "$DEST_ROOT" log -1 --format=%cI v<old_version>)" origin tag "$LABS_TAG"
 ```
 
-1. **Triage existing TBD items.** Not every item under `## TBD` belongs to this release.
-   For each entry decide whether it:
+1. **Triage existing TBD and Unreleased items.** Not every item under `## TBD` belongs to
+   this release, and an item under `## Unreleased (...)` can ship early in a release line
+   by hand backport. For each entry decide whether it:
 
    - shipped in this release → move it under the new `## <new_version>` heading;
    - targets a future major → move it under `## Unreleased (v<next_major>)` (create it
      between `## TBD` and the new version heading);
-   - is still TBD → leave it.
+   - is still TBD, or still unreleased → leave it.
 
    Present the proposed triage to the user for confirmation before rearranging.
 
@@ -520,7 +523,12 @@ git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$(git -C "$DEST_ROOT" log -1 --f
    ```
 
    An item whose commit is not an ancestor of the tag has not shipped, even if it is on
-   aztec-node `main`: leave it under `## TBD`. In one rehearsal 4 of 21 items failed this
+   aztec-node `main`: leave it where it is. The exception is a hand backport. aztec-node
+   backports between `main` and a release line (`v6`) by hand, so the commit that shipped
+   is not the one the entry describes. A merged backport PR is only a lead
+   (`gh pr list --repo aztec-labs-eng/aztec-node --base v6 --state merged --search '<title words>'`):
+   test its merge commit (`gh pr view <n> --repo aztec-labs-eng/aztec-node --json mergeCommit -q .mergeCommit.oid`)
+   the same way, or use the syntax test below. In one rehearsal 4 of 21 items failed this
    test. A commit outside the fetched history prints `fatal: Not a valid commit name`
    before `NOT-in-tag`: that is unknown, not absent. Ask GitHub instead, which needs no
    history: `gh api "repos/aztec-labs-eng/aztec-node/compare/<commit>...$LABS_TAG" --jq .status`
@@ -835,11 +843,11 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
   sort | uniq -c
 ```
 
-- The first grep must print nothing. Without `COMMIT_TAG`, `#include_aztec_version`
-  resolves to `next` (a ref `aztec-labs-eng/aztec-nr` lacks, and not an npm dist-tag) and
-  `#include_version_without_prefix` to `latest` (an older nightly at the v6 rehearsal,
-  wire-incompatible with the rc). The build validates neither. Both spacings of
-  `tag = "next"` occur, hence the pattern.
+- The first grep must print nothing. A hit is a hand-written moving version: `next` (a ref
+  `aztec-labs-eng/aztec-nr` lacks, and not an npm dist-tag) or `latest` (an older nightly
+  at the v6 rehearsal, wire-incompatible with the rc). The macros no longer produce them:
+  without `COMMIT_TAG` they take the pin's `ref`, the tag in the cut. The build validates
+  neither. Both spacings of `tag = "next"` occur, hence the pattern.
 - The second lists every link, clone and Nargo `git` dependency into this repository with
   its ref and the start of its path (a clone's path is in the page's next `cd`). Hits under
   `processed-docs/docs-participate/` and `processed-docs/docs/` are unversioned and never
@@ -972,7 +980,13 @@ git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-onl
 ```
 
 Skip this step when the two refs name the same commit. `--cherry-pick` drops commits that
-reached both sides as ports. The history goes into a checkout of its own, fetched afresh
+reached both sides as patch-equivalent ports. A hand backport adapted to its line is not
+patch-equivalent and shows on both sides: judge it against `$AZTEC_NODE_DIR`, the tag. A
+destination pinned to a v7 nightly would list every v7 commit since `v6` left `main` as
+`>`, and once `docs/examples/` use v7-only APIs Step 15 fails for a v6.x cut and stops: no
+snapshot edit can fix the examples. That is why the dev pin stays on a v6 nightly
+(`docs/CLAUDE.md`); if the destination's pin is a v7 tag, stop and report before cutting.
+The history goes into a checkout of its own, fetched afresh
 down to the refs' merge base, which GitHub names without local history; fetching it into
 `$AZTEC_NODE_DIR` instead keeps that checkout's earlier shallow boundaries (the merge base
 goes missing) and shortens the history Step 8 fetched. The check compares the merge base
