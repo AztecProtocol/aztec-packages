@@ -343,7 +343,12 @@ export class WasmFfiBackend implements IpcClientAsync {
       module,
       options: {
         threads: opts.threads,
-        memory: opts.memory,
+        memory: {
+          ...opts.memory,
+          // The worker cannot tell an iPad from a Mac: its navigator has no maxTouchPoints.
+          maximum:
+            opts.memory?.maximum ?? bound.platform.maximumMemoryPages?.(),
+        },
         env: opts.env,
         entry: opts.entry,
       },
