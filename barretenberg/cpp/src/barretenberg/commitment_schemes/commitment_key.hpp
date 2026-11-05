@@ -4,6 +4,7 @@
  * @brief Provides interfaces for different 'CommitmentKey' classes.
  */
 
+#include "barretenberg/commitment_schemes/msm_backend.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_span.hpp"
@@ -37,11 +38,25 @@ template <class Curve> class CommitmentKey {
 
   protected:
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
+    // Computes the multi-scalar multiplications behind `commit` and `batch_commit`. Shared between
+    // copies of the key and never reassigned; defaults to the CPU Pippenger.
+    std::shared_ptr<const MsmBackend<Curve>> msm_backend = std::make_shared<CpuMsmBackend<Curve>>();
+    // The SRS prepared by `msm_backend`; views the points owned by `srs`.
+    FixedBases<Curve> bases;
 
   public:
     size_t srs_size = 0;
 
     CommitmentKey() = default;
+
+    /**
+     * @brief Construct an uninitialized CommitmentKey that computes its MSMs with `backend`.
+     */
+    explicit CommitmentKey(std::shared_ptr<const MsmBackend<Curve>> backend)
+        : msm_backend(std::move(backend))
+    {
+        BB_ASSERT(msm_backend != nullptr, "CommitmentKey requires an MSM backend");
+    }
 
     static constexpr size_t round_up_to_even(size_t n) { return (n + 1) & ~size_t{ 1 }; }
 
@@ -55,7 +70,25 @@ template <class Curve> class CommitmentKey {
     CommitmentKey(const size_t num_points)
         : srs(srs::get_crs_factory<Curve>()->get_crs(round_up_to_even(num_points)))
         , srs_size(round_up_to_even(num_points))
-    {}
+    {
+        bases = msm_backend->prepare_bases(srs->get_monomial_points());
+    }
+
+    /**
+     * @brief Construct a CommitmentKey from existing SRS that computes its MSMs with `backend`.
+     *
+     * @param num_points As in the constructor above.
+     * @param backend The MSM implementation used by `commit` and `batch_commit`. Pass the same
+     * backend to several keys to share its state (for example a device context).
+     */
+    CommitmentKey(const size_t num_points, std::shared_ptr<const MsmBackend<Curve>> backend)
+        : srs(srs::get_crs_factory<Curve>()->get_crs(round_up_to_even(num_points)))
+        , msm_backend(std::move(backend))
+        , srs_size(round_up_to_even(num_points))
+    {
+        BB_ASSERT(msm_backend != nullptr, "CommitmentKey requires an MSM backend");
+        bases = msm_backend->prepare_bases(srs->get_monomial_points());
+    }
     /**
      * @brief Checks the commitment key is properly initialized.
      *
@@ -83,15 +116,15 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial, bool has_duplicates_hint = false) const
     {
         BB_BENCH_NAME("CommitmentKey::commit");
-        std::span<const Commitment> point_table = get_monomial_points();
+        const size_t monomial_size = get_monomial_size();
         size_t consumed_srs = polynomial.start_index + polynomial.size();
-        if (consumed_srs > get_monomial_size()) {
+        if (consumed_srs > monomial_size) {
             throw_or_abort(format("Attempting to commit to a polynomial that needs ",
                                   consumed_srs,
                                   " points with an SRS of size ",
-                                  get_monomial_size()));
+                                  monomial_size));
         }
-        return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table, has_duplicates_hint);
+        return msm_backend->commit(bases, polynomial, has_duplicates_hint);
     };
     /**
      * @brief Batch commitment to multiple polynomials
@@ -111,23 +144,22 @@ template <class Curve> class CommitmentKey {
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
 
+        const size_t monomial_size = get_monomial_size();
         std::vector<PolynomialSpan<Fr>> scalar_spans;
         scalar_spans.reserve(polynomials.size());
 
         for (auto& polynomial : polynomials) {
             const size_t consumed_srs = polynomial.start_index() + polynomial.size();
-            if (consumed_srs > get_monomial_size()) {
+            if (consumed_srs > monomial_size) {
                 throw_or_abort(format("Attempting to commit to a polynomial that needs ",
                                       consumed_srs,
                                       " points with an SRS of size ",
-                                      get_monomial_size()));
+                                      monomial_size));
             }
             scalar_spans.emplace_back(polynomial.start_index(), polynomial.coeffs());
         }
 
-        auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, dedup_infos);
-        return std::vector<Commitment>(results.begin(), results.end());
+        return msm_backend->batch_commit(bases, scalar_spans, dedup_infos);
     };
 
     // helper builder struct for constructing a batch to commit at once

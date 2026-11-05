@@ -1,4 +1,5 @@
 #include "flavor.hpp"
+#include "barretenberg/commitment_schemes/msm_backend_factory.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 
@@ -87,7 +88,7 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_po
 }
 
 AvmFlavor::ProvingKey::ProvingKey()
-    : commitment_key(circuit_size) {
+    : commitment_key(circuit_size, make_msm_backend<AvmFlavorSettings::Curve>()) {
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };

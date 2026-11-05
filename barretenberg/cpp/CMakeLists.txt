@@ -60,6 +60,8 @@ option(ENABLE_PIC "Builds with position independent code" OFF)
 option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
 option(ENABLE_WASM_BENCH "Enable BB_BENCH benchmarking support in WASM builds (dev only, not for releases)" OFF)
 option(AVM "enable building of vm2 module and bb-avm" ON)
+option(GPU_MSM "Build the CUDA MSM backend; the AVM prover then computes its commitments on the GPU" OFF)
+set(GPU_MSM_CUDA_ARCH "native" CACHE STRING "nvcc -arch value for the CUDA MSM backend")
 option(BB_LITE "Exclude server-side subsystems: ipc, vm2_wsdb, cdb, avm" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
