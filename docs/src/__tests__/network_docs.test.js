@@ -18,7 +18,7 @@ const {
 const { llmsSiteUrl } = require("../site_url");
 const { versionLabel } = require("../release_names");
 const { aztecNrApiFolder } = require("../utils/aztecNrApi.mjs");
-const { lineDocsPath } = require("../utils/docsLine.mjs");
+const { lineDocsPath, lineNavbarProps } = require("../utils/docsLine.mjs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
@@ -131,6 +131,29 @@ describe("dev lines", () => {
     assert.strictEqual(lineDocsPath("/operate", "v6"), "/operate-v6");
     for (const p of ["/developers-v6/overview", "/developersx", "/networks", "/participate/x", "https://example.com/developers/x"])
       assert.strictEqual(lineDocsPath(p, "v6"), p);
+  });
+
+  it("point a line's navbar items at the line, a dropdown's children before the dropdown sees them", () => {
+    assert.deepStrictEqual(lineNavbarProps({ type: "docSidebar", docsPluginId: "developer", sidebarId: "sidebar" }, "v6"), {
+      type: "docSidebar",
+      docsPluginId: "developer-v6",
+      sidebarId: "sidebar",
+    });
+    const participate = { type: "doc", docsPluginId: "participate", docId: "index" };
+    assert.deepStrictEqual(lineNavbarProps(participate, "v6"), participate);
+    const resources = {
+      type: "dropdown",
+      items: [
+        { type: "html", value: "<span>Other Docs</span>" },
+        { to: "/developers/ai_tooling", label: "AI Tooling" },
+        { to: "https://github.com/AztecProtocol/aztec-starter", label: "Aztec Starter repo" },
+      ],
+    };
+    assert.deepStrictEqual(lineNavbarProps(resources, "v6").items, [
+      resources.items[0],
+      { to: "/developers-v6/ai_tooling", label: "AI Tooling" },
+      resources.items[2],
+    ]);
   });
 });
 
