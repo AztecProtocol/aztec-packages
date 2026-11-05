@@ -376,7 +376,8 @@ page usually lands after the tag, so check the destination commit:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
-major=$(jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json" | cut -d. -f1)
+major=$({ jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
+  jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"; } | cut -d. -f1)
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
