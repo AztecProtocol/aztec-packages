@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
 const { releaseNameFor, versionLabel } = require("../release_names");
-const { lineApiFolders } = require("../network_docs");
+const { lineApiFolders, networkApiFolder } = require("../network_docs");
 const { lineOf, readPin } = require("./line");
 
 // Load version defaults from config file (source of truth for version→type mapping)
@@ -128,10 +128,10 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown", r
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
-  // API ref paths
-  const apiRefVersion = releaseType === "testnet" ? "testnet"
-                      : releaseType === "mainnet" ? "mainnet"
-                      : "next";
+  // A testnet on mainnet's version has no folder of its own: the build serves that version's
+  // reference under mainnet/ only.
+  const apiRefVersion = networkApiFolder(developerVersionConfig, releaseType)
+                      ?? (releaseType === "testnet" || releaseType === "mainnet" ? releaseType : "next");
 
   // Step 1: Process conditional blocks FIRST (before version substitution)
   // This allows conditionals to contain version macros

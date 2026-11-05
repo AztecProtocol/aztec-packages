@@ -10,6 +10,7 @@ const {
   lineApiFolder,
   lineInstances,
   llmsRoutes,
+  networkApiFolder,
   networkSection,
   startHere,
   startHereLinks,
@@ -94,6 +95,12 @@ describe("Aztec.nr API folders", () => {
       "v5.2.0": "mainnet",
       "v6.0.0-rc.3": "testnet",
     });
+  });
+
+  it("give each network the folder of its version, shared when the networks share one", () => {
+    const folders = (config) => ["mainnet", "testnet", "devnet"].map((type) => networkApiFolder(config, type));
+    assert.deepStrictEqual(folders(shared), ["mainnet", "mainnet", undefined]);
+    assert.deepStrictEqual(folders(split), ["mainnet", "testnet", undefined]);
   });
 
   it("send the API page of every released version to a folder that exists, whatever its label", () => {

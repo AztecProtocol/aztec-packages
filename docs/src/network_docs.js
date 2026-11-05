@@ -140,6 +140,19 @@ function lineApiFolders(developerConfig, lines) {
 }
 
 /**
+ * The API reference folder a network's docs link: the one `apiReferenceDirs` serves for the version
+ * that network reads, so networks on one version share it.
+ *
+ * @param {Record<string, string>} developerConfig release type → version
+ * @param {string} network a release type
+ * @returns {string | undefined} undefined for a release type no network maps (nightly, devnet)
+ */
+function networkApiFolder(developerConfig, network) {
+  const version = NETWORKS.includes(network) && developerConfig[network];
+  return version ? aztecNrApiFolders(docsInstances(developerConfig, {}, true)[0])[version] : undefined;
+}
+
+/**
  * The API reference folders of each docs version a network reads, one per kind, in the folder
  * aztecNrApiFolders names (the TypeScript reference is published per network the same way).
  *
@@ -363,6 +376,7 @@ module.exports = {
   lineApiFolders,
   lineInstances,
   llmsRoutes,
+  networkApiFolder,
   networkSection,
   scopedApiIndexes,
   startHere,

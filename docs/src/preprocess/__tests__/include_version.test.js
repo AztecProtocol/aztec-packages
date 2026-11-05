@@ -187,11 +187,17 @@ describe("preprocessIncludeVersion", () => {
 
   describe("#api_ref_version macro", () => {
     // Only testnet and mainnet API references are published; other builds use the generated next/.
+    // A network links the folder the build serves for its version, which it shares with any network
+    // on the same version.
+    const { apiReferenceDirs, docsInstances } = require("../../network_docs");
+    const config = require("../../../developer_version_config.json");
+    const served = (network) =>
+      apiReferenceDirs(docsInstances(config, {}, true)[0]).find((d) => d.networks.includes(network)).folder;
     const testCases = [
       ["nightly", "next"],
       ["devnet", "next"],
-      ["testnet", "testnet"],
-      ["mainnet", "mainnet"],
+      ["testnet", served("testnet")],
+      ["mainnet", served("mainnet")],
     ];
 
     testCases.forEach(([releaseType, expected]) => {
