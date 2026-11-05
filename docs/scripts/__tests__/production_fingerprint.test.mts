@@ -18,7 +18,7 @@ function build(bundle: string, href: string) {
       `<script>window.chunk="runtime~main.${bundle}.js"</script><main><a href=${href}>Next</a></main>`,
   );
   write("developers/page.md", "# Page\n");
-  write("sitemap.xml", "<urlset><url><loc>https://docs.aztec.network/developers/page</loc></url></urlset>");
+  write("sitemap.xml", "<urlset><url><loc>https://example.com/developers/page</loc></url></urlset>");
   const fragment = { url: "/developers/page", filters: { docusaurus_tag: ["docs-developer-v6.0.0"] } };
   write("pagefind/fragment/en_1.pf_fragment", zlib.gzipSync(Buffer.from(`pagefind_dcd${JSON.stringify(fragment)}`)));
   return dir;
