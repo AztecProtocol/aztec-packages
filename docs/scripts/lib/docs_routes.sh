@@ -54,7 +54,7 @@ for (const index of scopedApiIndexes(developer, "static")) console.log(index);
 
 # A scoped API index the build writes, so it is never under static/ (docs_routes_init_api_indexes).
 function resolves_api_index {
-  grep -qxF "${1#/}" <<<"$API_INDEXES"
+  grep -qxF -- "${1#/}" <<<"$API_INDEXES"
 }
 
 function docs_routes_init_redirects {

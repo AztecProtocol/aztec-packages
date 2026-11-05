@@ -113,6 +113,8 @@ const builtApiReferenceDirs = (instance, staticDir) =>
 
 /**
  * The scoped indexes the build writes, as paths under the site root (`typescript-api/mainnet/llms.txt`).
+ * append_api_docs_to_llms.js skips a folder with no markdown, so an entry can be missing from
+ * build/; check_agent_readiness.mts fails that build.
  *
  * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
  * @param {string} staticDir the docs `static/` directory
