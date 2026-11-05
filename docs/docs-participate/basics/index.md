@@ -11,7 +11,7 @@ This section covers the fundamental concepts you need to understand how Aztec wo
 ## What You'll Learn
 
 ### [Addresses](/participate/basics/addresses)
-Every account on Aztec has an address, but they work differently from Ethereum addresses. Learn how Aztec's privacy-first design creates addresses that can receive funds even before the account exists.
+Every account on Aztec has an address, but they work differently from Ethereum addresses. Learn how Aztec's private-by-design accounts create addresses that can receive funds even before the account exists.
 
 ### [Wallets](/participate/basics/wallets)
 Discover the wallets available for Aztec, how they differ from traditional crypto wallets, and what hardware wallet support looks like.

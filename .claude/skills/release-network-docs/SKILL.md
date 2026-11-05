@@ -338,7 +338,7 @@ It writes `docs/docs-operate/operators/reference/node-api-reference.md` from the
 interfaces and Zod schemas in the checkout's `yarn-project/stdlib/src/interfaces/` at the
 tag, reading TypeScript source directly with `docs/node_modules/typescript` (no build).
 Verify the method totals it prints. It warns about methods missing from `METHOD_GROUPS` in
-`docs/scripts/node_api_reference_generation/generate_node_api_reference.mts`, which it
+`docs/scripts/node_api_reference_generation/node_api_reference_document.mts`, which it
 renders under "Other methods": add each to its group and rerun; the destination needs the
 same edit (a shared source repair, Step 10).
 
@@ -376,7 +376,8 @@ page usually lands after the tag, so check the destination commit:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
-major=$(jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json" | cut -d. -f1)
+major=$({ jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
+  jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"; } | cut -d. -f1)
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
@@ -391,6 +392,16 @@ destination's.
 **Owner approval required.** If any check fails, stop and report which: the page lands on
 the destination first (`/updating-changelog`), through a PR the owner opens and merges,
 and the cut restarts from Step 2 (the destination has moved).
+
+### Step 5d: Name a New Release Line
+
+`docs/release_names.json` maps a major version to the name its release line ships under
+(`{"6": "Tierra"}`). The version dropdown, the version badges and the `#release_name` and
+`#release_label` macros read it. If `$LABS_TAG` starts a major the file does not name, ask
+the owner for the line's name (never invent one) and add the entry before Step 6
+preprocesses; without it the dropdown and the snapshot show the bare version. A line name
+labels the docs only: networks stay Alpha and Testnet, and CLI, env and Docker values stay
+`mainnet` and `testnet`.
 
 ### Step 6: Preprocess, Check and Build
 
@@ -586,7 +597,7 @@ Sort every listed path into exactly one class:
    `git rm` stages the deletions; they are never passed to `git add` below.
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
-   destination's pin too (Steps 4, 5 and 6; edits to existing snapshots). Carry them as
+   destination's pin too (Steps 4, 5, 5d and 6; edits to existing snapshots). Carry them as
    reviewed hunks; read the patch before applying it:
 
    ```bash
@@ -601,6 +612,21 @@ Sort every listed path into exactly one class:
 A destination commit cherry-picked into the cut also shows in this list: it is already on
 the destination, so none of its changes is ever carried.
 
+**Context7.** If the cut's version is now the one production serves at `/operate`: the
+copied `network_version_config.json`'s `mainnet` version, or `testnet`'s when it names no
+`mainnet` (`rootVersion` in `docusaurus.config.js`), point the network tree's entry in the
+root `context7.json` `folders` at the new snapshot. Any other cut, a testnet release ahead of
+mainnet, leaves the file alone:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$DEST_ROOT"
+if jq -e --arg v "$LABS_TAG" '(.mainnet // .testnet) == $v' docs/network_version_config.json >/dev/null; then
+  jq --arg p docs/network_versioned_docs/version- --arg v "$LABS_TAG" \
+    '.folders |= map(if startswith($p) then $p + $v else . end)' context7.json >"$STATE/context7.json" &&
+    mv "$STATE/context7.json" context7.json
+fi
+```
+
 Commit on the destination, naming the release inputs; the commit runs only if `git add`
 succeeds:
 
@@ -608,7 +634,7 @@ succeeds:
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 pin=$(node "$CUT/docs/scripts/aztec_node.mts" env) || exit 1
 eval "$pin"
-git -C "$DEST_ROOT" add -- <the existing paths of classes 1 and 2> &&
+git -C "$DEST_ROOT" add -- context7.json <the existing paths of classes 1 and 2> &&
 git -C "$DEST_ROOT" commit -F - <<EOF
 docs: cut $LABS_TAG network docs (<release_type>)
 
@@ -662,11 +688,11 @@ On a new branch from the branch the cut merged into:
 
 ```bash
 cd docs && ./scripts/refresh_url_snapshot.sh
-git diff -- snapshots/published-urls.txt
-git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/published-urls.txt
+git diff -- snapshots/
+git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/
 ```
 
-Apart from the header's date, the diff only adds URLs. Pushing it is the owner's call.
+Apart from the header's date, the diff only adds URLs and the static files this release serves (`published-static.txt`). Pushing it is the owner's call.
 
 ## Key Points
 

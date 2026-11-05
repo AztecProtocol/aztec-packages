@@ -168,7 +168,6 @@ footgun
 functionelector
 funder
 fusaka
-Garaga
 GASLEFT
 gasleft
 genric
@@ -486,3 +485,4 @@ Zcash
 zcash
 zkpassport
 Zybil
+Tierra

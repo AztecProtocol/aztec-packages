@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="1200" height="560" role="img" aria-labelledby="t d">
+<title id="t">Aztec private side and public side</title>
+<desc id="d">On the private side, the Private Execution Environment in the user's wallet manages keys, executes private functions and generates proofs. It sends the proof and side effects to the public side, where decentralized sequencers order transactions into rollup blocks proven by the Aztec VM and publish block data to the data availability layer.</desc>
+<style>
+svg { font-family: Geist, Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+text { fill: #fff9f2; }
+.muted { fill: #b6b8b0; }
+.faint { fill: #93958a; }
+.title { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
+.heading { font-size: 22px; font-weight: 600; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+.card-title { font-size: 14px; font-weight: 600; }
+.body { font-size: 12.5px; }
+.small { font-size: 11.5px; }
+.tiny { font-size: 11px; }
+.quote { font-size: 14px; }
+.badge-text { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+.private-title { fill: #c9caff; }
+.public-title { fill: #9ccbff; }
+.eth-title { fill: #d9ff66; }
+.panel-private { fill: #231b38; stroke: #4a3d6e; stroke-width: 1.5; }
+.panel-public { fill: #162a3e; stroke: #2f4f6e; stroke-width: 1.5; }
+.panel-eth { fill: #282d16; stroke: #626554; stroke-width: 1.5; }
+.card { fill: #1f240c; stroke: #626554; stroke-width: 1.5; }
+.inner { fill: #141900; stroke: #626554; stroke-width: 1; }
+.badge-private { fill: #a5a7fe; }
+.badge-private-text { fill: #2a1240; }
+.badge-public { fill: #5babff; }
+.badge-public-text { fill: #0f2a44; }
+.badge-eth { fill: #c8fa00; }
+.badge-eth-text { fill: #141900; }
+.node-public { fill: #20405f; stroke: #376799; stroke-width: 1.5; }
+.node-private { fill: #332a5c; stroke: #6f6fd1; stroke-width: 1.5; }
+.line { stroke: #fff9f2; stroke-width: 1.5; fill: none; }
+.arrow { stroke: #fff9f2; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+.arrowhead { fill: #fff9f2; }
+.connector { stroke: #626554; stroke-width: 1.5; fill: none; }
+.divider { stroke: #626554; stroke-width: 1.5; stroke-dasharray: 6 6; }
+.burst { fill: #c8fa00; opacity: 0.55; }
+.spent { opacity: 0.45; }
+.cross { stroke: #fff9f2; stroke-width: 2; }
+.mid { text-anchor: middle; }
+</style>
+<defs>
+  <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+  </marker>
+</defs>
+<rect x="20" y="20" width="480" height="520" rx="20" class="panel-private"/>
+<text x="260" y="68" class="title private-title mid">PRIVATE SIDE</text>
+<text x="260" y="92" class="body muted mid">Runs on the user's device</text>
+<rect x="34" y="288" width="128" height="64" rx="10" class="card"/>
+<text x="98" y="316" class="card-title mid">User</text>
+<text x="98" y="334" class="card-title mid">authorization</text>
+<line x1="250" y1="320" x2="168" y2="320" class="arrow"/>
+<text x="209" y="296" class="tiny muted mid">Requests</text>
+<text x="209" y="310" class="tiny muted mid">authorizations</text>
+<rect x="250" y="150" width="230" height="330" rx="14" class="inner"/>
+<text x="365" y="502" class="small faint mid">Wallet</text>
+<rect x="268" y="170" width="194" height="56" rx="10" class="badge-private"/>
+<text x="365" y="193" class="badge-text badge-private-text mid">PRIVATE EXECUTION</text>
+<text x="365" y="211" class="badge-text badge-private-text mid">ENVIRONMENT (PXE)</text>
+<rect x="268" y="244" width="194" height="214" rx="10" class="card"/>
+<text x="282" y="270" class="body muted">Manages encryption keys and</text>
+<text x="282" y="287" class="body muted">the private database.</text>
+<text x="282" y="321" class="body muted">In particular, it:</text>
+<text x="282" y="338" class="body muted">1. Executes private functions</text>
+<text x="282" y="355" class="body muted">2. Generates proofs of</text>
+<text x="282" y="372" class="body muted">    correct execution</text>
+<line x1="700" y1="185" x2="486" y2="185" class="arrow"/>
+<rect x="520" y="150" width="160" height="68" rx="10" class="card"/>
+<text x="600" y="172" class="small muted mid">Queries the node for</text>
+<text x="600" y="187" class="small muted mid">information about new</text>
+<text x="600" y="202" class="small muted mid">blocks and transactions</text>
+<line x1="480" y1="330" x2="694" y2="330" class="arrow"/>
+<rect x="520" y="262" width="160" height="136" rx="10" class="card"/>
+<text x="600" y="286" class="card-title mid">Outputs transaction</text>
+<text x="600" y="306" class="small muted mid">client-side proof,</text>
+<text x="600" y="321" class="small muted mid">side effects (encrypted</text>
+<text x="600" y="336" class="small muted mid">notes and nullifiers),</text>
+<text x="600" y="351" class="small muted mid">public functions to be</text>
+<text x="600" y="366" class="small muted mid">executed</text>
+<rect x="700" y="20" width="480" height="520" rx="20" class="panel-public"/>
+<text x="940" y="68" class="title public-title mid">PUBLIC SIDE</text>
+<text x="940" y="92" class="body muted mid">Runs on the Aztec network</text>
+<rect x="740" y="160" width="130" height="60" rx="10" class="card"/>
+<text x="805" y="195" class="card-title mid">Mempool</text>
+<text x="805" y="240" class="small faint mid">Managed by decentralized</text>
+<text x="805" y="254" class="small faint mid">sequencers</text>
+<line x1="870" y1="190" x2="954" y2="190" class="arrow"/>
+<rect x="960" y="160" width="170" height="60" rx="10" class="card"/>
+<text x="1045" y="184" class="card-title mid">Rollup block</text>
+<text x="1045" y="203" class="tiny faint mid">Proven by the Aztec VM</text>
+<line x1="1045" y1="220" x2="1045" y2="386" class="arrow"/>
+<text x="1058" y="290" class="tiny muted">Block hash and</text>
+<text x="1058" y="305" class="tiny muted">all data needed</text>
+<text x="1058" y="320" class="tiny muted">to reproduce</text>
+<text x="1058" y="335" class="tiny muted">public state</text>
+<rect x="930" y="392" width="230" height="110" rx="10" class="card"/>
+<text x="1045" y="418" class="card-title mid">Data availability layer</text>
+<text x="1045" y="440" class="small muted mid">Information about blocks and</text>
+<text x="1045" y="455" class="small muted mid">transactions, including</text>
+<text x="1045" y="470" class="small muted mid">note commitments</text>
+</svg>

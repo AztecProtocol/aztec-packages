@@ -1,61 +1,195 @@
 /* Hero Section */
 .hero {
-  padding: 4rem 2rem;
-  text-align: center;
-  max-width: 900px;
-  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  margin: 1rem 0 2.5rem;
+  padding: 4.5rem 3rem;
+  border-radius: 24px;
+  background: var(--aztec-gradient-mono);
+  color: var(--aztec-ink);
+}
+
+[data-theme="dark"] .hero {
+  background:
+    radial-gradient(
+      120% 140% at 100% 0%,
+      color-mix(in srgb, var(--aztec-gray-dark) 50%, transparent) 0%,
+      color-mix(in srgb, var(--aztec-gray-dark) 20%, transparent) 38%,
+      transparent 68%
+    ),
+    var(--aztec-ink);
+  color: var(--aztec-paper);
+}
+
+.heroSymbol {
+  position: absolute;
+  right: -4rem;
+  top: 50%;
+  width: 24rem;
+  height: 24rem;
+  transform: translateY(-50%);
+  color: var(--aztec-ink);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .heroSymbol {
+  color: var(--aztec-gray-light);
+  opacity: 0.14;
 }
 
 .heroContent {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
+  align-items: flex-start;
+  gap: 1.25rem;
+  max-width: 820px;
+}
+
+.heroEyebrow {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
 }
 
 .heroTitle {
-  font-size: 3rem;
-  font-weight: 700;
+  font-family: var(--aztec-font-display);
+  font-weight: 400;
+  font-size: 3.5rem;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
 
 .heroSubtitle {
-  font-size: 1.25rem;
-  color: var(--ifm-color-emphasis-700);
+  font-size: 1.2rem;
   margin: 0;
-  max-width: 600px;
+  max-width: 620px;
   line-height: 1.6;
+  opacity: 0.88;
 }
 
 .heroButtons {
   display: flex;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   flex-wrap: wrap;
-  justify-content: center;
 }
 
 .primaryButton {
-  background-color: var(--ifm-color-primary) !important;
-  border-color: var(--ifm-color-primary) !important;
+  background-color: var(--aztec-ink) !important;
+  border-color: var(--aztec-ink) !important;
+  color: var(--aztec-paper) !important;
 }
 
 [data-theme="dark"] .primaryButton {
-  background-color: #a9cc1f !important;
-  border-color: #a9cc1f !important;
-  color: #1a1400 !important;
+  background-color: var(--aztec-lime) !important;
+  border-color: var(--aztec-lime) !important;
+  color: var(--aztec-ink) !important;
 }
 
 .secondaryButton {
   background-color: transparent !important;
-  border: 2px solid var(--ifm-color-primary) !important;
-  color: var(--ifm-color-primary) !important;
+  border: 2px solid var(--aztec-ink) !important;
+  color: var(--aztec-ink) !important;
+}
+
+.secondaryButton:hover {
+  background-color: color-mix(in srgb, var(--aztec-ink) 8%, transparent) !important;
 }
 
 [data-theme="dark"] .secondaryButton {
-  border-color: #a9cc1f !important;
-  color: #a9cc1f !important;
+  border-color: var(--aztec-paper) !important;
+  color: var(--aztec-paper) !important;
+}
+
+[data-theme="dark"] .secondaryButton:hover {
+  background-color: color-mix(in srgb, var(--aztec-paper) 10%, transparent) !important;
+}
+
+/* Pillar Cards (why build on Aztec) */
+.pillarCardLink {
+  text-decoration: none !important;
+  color: inherit !important;
+  display: block;
+}
+
+.pillarCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  padding: 1.75rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 16px;
+  background: var(--aztec-card-bg);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pillarCard:hover {
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(20, 25, 0, 0.08);
+}
+
+[data-theme="dark"] .pillarCard:hover {
+  box-shadow: 0 8px 20px rgba(200, 250, 0, 0.1);
+}
+
+.pillarIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  background: var(--aztec-ink);
+  color: var(--aztec-lime);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+[data-theme="dark"] .pillarIndex {
+  background: var(--aztec-lime);
+  color: var(--aztec-ink);
+}
+
+.pillarTitle {
+  font-family: var(--aztec-font-display);
+  font-weight: 400;
+  font-size: 1.4rem;
+  margin: 0.25rem 0 0;
+  line-height: 1.2;
+}
+
+.pillarDescription {
+  font-size: 0.95rem;
+  color: var(--ifm-color-emphasis-700);
+  margin: 0;
+  line-height: 1.55;
+  flex: 1;
+}
+
+.pillarAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ifm-link-color);
+}
+
+.pillarAction svg {
+  transition: transform 0.2s ease;
+}
+
+.pillarCard:hover .pillarAction svg {
+  transform: translateX(4px);
 }
 
 /* Product Cards */
@@ -71,7 +205,8 @@
   gap: 1.25rem;
   padding: 1.5rem;
   border: 1px solid var(--ifm-color-emphasis-200);
-  background: var(--ifm-background-surface-color);
+  border-radius: 16px;
+  background: var(--aztec-card-bg);
   transition: all 0.2s ease;
   height: 100%;
 }
@@ -79,11 +214,7 @@
 .productCard:hover {
   border-color: var(--ifm-color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="dark"] .productCard:hover {
-  border-color: #a9cc1f;
+  box-shadow: 0 4px 12px rgba(20, 25, 0, 0.1);
 }
 
 .productCardIcon {
@@ -101,10 +232,6 @@
   width: 28px;
   height: 28px;
   color: var(--ifm-color-primary);
-}
-
-[data-theme="dark"] .productCardIcon svg {
-  color: #a9cc1f;
 }
 
 .productCardContent {
@@ -147,10 +274,6 @@
   color: var(--ifm-color-primary);
 }
 
-[data-theme="dark"] .productCard:hover .productCardArrow {
-  color: #a9cc1f;
-}
-
 /* Feature Cards */
 .featureCardLink {
   text-decoration: none !important;
@@ -161,13 +284,14 @@
 .featureCard {
   padding: 1.5rem;
   border: 1px solid var(--ifm-color-emphasis-200);
-  background: var(--ifm-background-surface-color);
+  border-radius: 16px;
+  background: var(--aztec-card-bg);
   height: 100%;
   transition: all 0.2s ease;
 }
 
 .featureCard:hover {
-  border-color: var(--ifm-color-emphasis-400);
+  border-color: var(--ifm-color-primary);
 }
 
 .featureCardIcon {
@@ -178,10 +302,6 @@
   justify-content: center;
   margin-bottom: 1rem;
   color: var(--ifm-color-primary);
-}
-
-[data-theme="dark"] .featureCardIcon {
-  color: #a9cc1f;
 }
 
 .featureCardIcon svg {
@@ -215,17 +335,14 @@
   gap: 1rem;
   padding: 1rem 1.25rem;
   border: 1px solid var(--ifm-color-emphasis-200);
-  background: var(--ifm-background-surface-color);
+  border-radius: 12px;
+  background: var(--aztec-card-bg);
   transition: all 0.2s ease;
 }
 
 .quickLink:hover {
   border-color: var(--ifm-color-primary);
   background: var(--ifm-color-emphasis-100);
-}
-
-[data-theme="dark"] .quickLink:hover {
-  border-color: #a9cc1f;
 }
 
 .quickLinkIcon {
@@ -236,10 +353,6 @@
   align-items: center;
   justify-content: center;
   color: var(--ifm-color-primary);
-}
-
-[data-theme="dark"] .quickLinkIcon {
-  color: #a9cc1f;
 }
 
 .quickLinkIcon svg {
@@ -275,10 +388,6 @@
   color: var(--ifm-color-primary);
 }
 
-[data-theme="dark"] .quickLink:hover .quickLinkArrow {
-  color: #a9cc1f;
-}
-
 /* Section Styles */
 .section {
   padding: 2rem 0;
@@ -300,6 +409,12 @@
   gap: 1.5rem;
 }
 
+.pillarGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
 .featureGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -313,13 +428,19 @@
 }
 
 .sectionHeading {
-  margin-top: 10px;
+  margin-top: 2.5rem;
 }
 
 /* Responsive */
 @media (max-width: 996px) {
   .heroTitle {
-    font-size: 2.5rem;
+    font-size: 2.75rem;
+  }
+
+  .heroSymbol {
+    width: 18rem;
+    height: 18rem;
+    right: -6rem;
   }
 
   .productGrid {
@@ -334,14 +455,23 @@
 @media (max-width: 768px) {
   .hero {
     padding: 3rem 1.5rem;
+    border-radius: 16px;
   }
 
   .heroTitle {
-    font-size: 2rem;
+    font-size: 2.25rem;
   }
 
   .heroSubtitle {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
+  }
+
+  .heroSymbol {
+    display: none;
+  }
+
+  .pillarGrid {
+    grid-template-columns: 1fr;
   }
 
   .featureGrid {

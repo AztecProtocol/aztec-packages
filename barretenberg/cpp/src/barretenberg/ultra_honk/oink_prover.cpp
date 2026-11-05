@@ -368,10 +368,6 @@ void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instan
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
-template class OinkProver<UltraStarknetFlavor>;
-template class OinkProver<UltraStarknetZKFlavor>;
-#endif
 template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;

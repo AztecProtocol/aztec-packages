@@ -2,9 +2,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/constants.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
-
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -200,10 +197,6 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
-template class TraceToPolynomials<UltraStarknetFlavor>;
-template class TraceToPolynomials<UltraStarknetZKFlavor>;
-#endif
 template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;

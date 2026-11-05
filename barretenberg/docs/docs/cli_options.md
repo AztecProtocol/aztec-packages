@@ -45,8 +45,6 @@ You can also set it via the `BB_VERIFIER_TARGET` environment variable.
 | `noir-recursive-no-zk` | poseidon2 | no | no | Noir recursion without privacy, such as aggregating proofs of already-private transactions. |
 | `noir-rollup` | poseidon2 | yes | IPA | Targeting the Aztec rollup verifier. Enables IPA (Inner Product Argument) proof aggregation across recursive steps. |
 | `noir-rollup-no-zk` | poseidon2 | no | IPA | Rollup verification without privacy. |
-| `starknet` | starknet | yes | no | *Reserved for future use.* Starknet verification via the [Garaga](https://garaga.gitbook.io/garaga) library. Disabled in default builds. |
-| `starknet-no-zk` | starknet | no | no | *Reserved for future use.* |
 
 :::tip[Working with Solidity]
 

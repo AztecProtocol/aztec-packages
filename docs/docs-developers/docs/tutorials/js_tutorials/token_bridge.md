@@ -204,7 +204,7 @@ The bridge will also need to burn NFTs when users withdraw back to L1:
 The scaffolded `nft_test/src/lib.nr` imports the default contract name (`Main`), which no longer exists, so it fails to compile with "Could not resolve 'Main'". Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
 
 ```rust
-// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts for examples.
 ```
 :::
 
@@ -322,7 +322,7 @@ Both `claim` and `exit` are `#[external("private")]`, which means the bridging p
 The scaffolded `nft_bridge_test/src/lib.nr` imports the default contract name (`Main`), which no longer exists, so it fails to compile with "Could not resolve 'Main'". Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
 
 ```rust
-// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts for examples.
 ```
 :::
 

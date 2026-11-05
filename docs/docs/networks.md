@@ -1,8 +1,8 @@
 ---
 title: Networks
-keywords: [Aztec, Networks, Alpha, Testnet, Mainnet]
+keywords: [Aztec, Networks, Alpha, Testnet, Mainnet, Tierra]
 id: networks
-description: "Connect to Aztec Networks: Alpha (Mainnet) and Testnet, choose the right network for your use case, and find the version each network is running."
+description: "Connect to Aztec networks: Alpha (Mainnet) and Testnet, both on the Tierra (v6) release line, with endpoints, contract addresses, and version guidance."
 ---
 
 # Aztec networks overview
@@ -11,11 +11,21 @@ The Aztec Protocol operates across multiple networks, each serving specific purp
 
 Not sure which network or version to pin against? Jump to the [Network selection guide](#network-selection-guide). For release channels and what is coming next, see [Versions and releases](#versions-and-releases).
 
+:::info Networks, release lines, and versions
+Three different things have names, and they stay separate:
+
+- **Networks** are where you deploy: **Alpha** (the live mainnet, on Ethereum mainnet) and **Testnet** (on Sepolia).
+- **Release lines** are what a network runs. The v6 line is named **Aztec Tierra**, so every `6.x` release is Tierra, and both Alpha and Testnet run it today.
+- **Versions** are what you pin: semantic versions such as `6.0.0`.
+
+Use the network name for where something is deployed, the release name for what the protocol can do, and the version number wherever software is pinned. CLI and configuration values stay `mainnet` and `testnet`; the release name never appears in `--network`, env files, or Docker tags.
+:::
+
 ## Network technical information
 
 | Parameter           | Alpha (Mainnet)                                                                                          | Testnet                                                                                                  |
 | ------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Version**         | `6.0.0` | `6.0.0` |
+| **Version**         | `6.0.0` (Tierra) | `6.0.0` (Tierra) |
 | **L1 Chain ID**     | `1` (Mainnet)                                                                                            | `11155111` (Sepolia)                                                                                     |
 | **Rollup Version**  | `2070860440` | `679261766` |
 | **RPC Endpoint**    | `https://aztec-mainnet.drpc.org`                                                                         | `https://aztec-testnet.drpc.org`                                                                  |

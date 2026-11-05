@@ -85,6 +85,10 @@ sidebar_position: ${SIDEBAR_POSITION}
 This is an auto-generated reference. For tutorials and guides, see the [Aztec.js Guide](./index.md).
 :::
 
+:::tip Looking up one name?
+Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/#api_ref_version/llms.txt).
+:::
+
 EOF
 
 # Append markdown content (skip first line which is duplicate title)
@@ -151,7 +155,20 @@ update_version() {
     return 1
   fi
 
-  cp "$TEMP_WITH_FRONTMATTER" "$target_dir/$OUTPUT_FILE"
+  if [[ "$version" == "current" ]]; then
+    cp "$TEMP_WITH_FRONTMATTER" "$target_dir/$OUTPUT_FILE"
+  else
+    # Versioned copies skip preprocessing, so resolve #api_ref_version here as the build would.
+    local api_ref
+    api_ref=$(node -e 'const c = require(process.argv[1]), v = process.argv[2];
+      process.stdout.write(c.mainnet === v ? "mainnet" : c.testnet === v ? "testnet" : "")' \
+      "$DOCS_ROOT/developer_version_config.json" "$version")
+    if [[ -z "$api_ref" ]]; then
+      echo "  Warning: $version is neither the mainnet nor the testnet version, so its API reference folder is unknown"
+      return 1
+    fi
+    sed "s|#api_ref_version|$api_ref|g" "$TEMP_WITH_FRONTMATTER" > "$target_dir/$OUTPUT_FILE"
+  fi
   echo "  ✓ Updated $version"
   return 0
 }

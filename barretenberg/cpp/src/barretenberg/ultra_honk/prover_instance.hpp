@@ -1,7 +1,5 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"

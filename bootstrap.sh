@@ -1032,8 +1032,11 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
-    # bb.js lint resolves @aztec-foundation/ipc-runtime through its built dest/.
+    # bb.js formatting only runs yarn in the barretenberg/ts workspace: it needs that workspace installed and the
+    # generated @aztec-foundation/bb.js-api compiled (build_bb_js_api_ts does both), and its lint resolves
+    # @aztec-foundation/ipc-runtime through ipc-runtime's built dest/.
     ipc-runtime/bootstrap.sh build
+    barretenberg/ts/bootstrap.sh build_bb_js_api_ts
     barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
@@ -1046,6 +1049,11 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
+    # barretenberg/ts compiles the generated @aztec-foundation/bb.js-api against ipc-runtime's built dest/, which
+    # nothing under barretenberg/ builds.
+    ipc-runtime/bootstrap.sh build
+    # barretenberg/sol compiles with l1-contracts' pinned solc (its foundry.toml), which only l1-contracts' build fetches.
+    l1-contracts/bootstrap.sh download_solc
     barretenberg/bootstrap.sh ci
     ;;
 

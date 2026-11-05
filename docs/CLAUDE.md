@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-You are working with the **Aztec Protocol Documentation** - a comprehensive documentation site built with Docusaurus 3 for a privacy-centric zkRollup solution for Ethereum. Your role includes both technical development tasks and ensuring all documentation meets quality standards for accuracy, clarity, and usability.
+You are working with the **Aztec Protocol Documentation** - a comprehensive documentation site built with Docusaurus 3 for Aztec, the decentralized Ethereum L2 for building unstoppable private apps. Your role includes both technical development tasks and ensuring all documentation meets quality standards for accuracy, clarity, and usability.
 
 ## Development Commands
 
@@ -88,6 +88,8 @@ The preprocessing system uses these environment variables:
   - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet` → `MAINNET_TAG`
 - `#release_network` - Resolves to the network name for CLI `--network` flag:
   - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet` → `mainnet`
+- `#release_name` - Resolves to the release line name for the current version (`Tierra` for any `6.x`, from `release_names.json`); falls back to the version for an unnamed line
+- `#release_label` - Resolves to the full docs label, e.g. `Tierra (v6.0.0)`
 
 **Foundation macro:**
 
@@ -171,6 +173,7 @@ Uses Docusaurus multi-instance versioning with separate version tracks:
 - **Developer docs**: Version config in `developer_version_config.json`, stored in `developer_versioned_docs/`
 - **Network docs**: Version config in `network_version_config.json`, stored in `network_versioned_docs/`
 - Both config files map release types to version strings (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
+- `release_names.json` maps a major version to its release line name (`{"6": "Tierra"}`); `src/release_names.js` turns that into the dropdown and badge labels (`Tierra (v6.0.0)`) and the `#release_name` macro. Name a new line by adding one entry. Labels follow "Networks, release lines, and versions" under Terminology
 - `docusaurus.config.js` auto-generates `*_versions.json` from these configs (filtered to versions with existing directories, plus any extra unmapped directories)
 - Use `scripts/update_docs_versions.sh` to update configs and reconcile: `./scripts/update_docs_versions.sh network mainnet v4.2.0`
 - Each docs instance has its own version dropdown in the navbar
@@ -268,6 +271,8 @@ When adding new TypeScript examples:
 
 Use these terms consistently throughout:
 
+- **Positioning** - Aztec is the decentralized Ethereum L2 for building unstoppable private apps, with fully programmable privacy. Describe apps as private by design: private functions run and are proven on the user's device
+- **Networks, release lines, and versions** - Three separate names. Networks are where code is deployed: **Alpha** (the mainnet) and **Testnet**. Release lines are what a network runs, one name per major version: the v6 line is **Tierra** ("the Tierra (v6) release line", "Aztec Tierra"). Versions are the semver strings code pins (`6.0.0`). A release line name never stands for a network ("deploy to Alpha", not "deploy to Tierra") and never appears in CLI, env, or Docker values, which stay `mainnet` and `testnet`
 - **[Aztec Protocol]** - Always capitalize and use full name on first mention
 - **[PXE]** - Always capitalize and use full name (Private eXecution Environment) on first mention
 - **Wallet vs Account** - Never use `wallet.address`. A wallet is software that holds multiple accounts; accounts have addresses, not wallets. Use `account.address`, `sender.address`, `alice.address`, etc. instead
@@ -328,6 +333,7 @@ The description should:
 - ✅ Broken markdown formatting
 - ✅ Headings using Title Case instead of sentence case (see "Heading Capitalization")
 - ✅ Em-dashes (`—`) in prose (see "Formatting Conventions")
+- ✅ Full node or sequencer hardware figures written into a page: import `operators/_node_hardware.mdx` (one per docs version) instead, outside any `<IfChoice>`, whose content is missing from the server-rendered page and its markdown twin
 - ✅ Missing alt text for images
 - ✅ Security implications of commands or configurations
 
@@ -394,5 +400,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-10-30
-Version: 1.10
+Last updated: 2026-11-02
+Version: 1.11

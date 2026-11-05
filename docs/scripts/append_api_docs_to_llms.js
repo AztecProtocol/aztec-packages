@@ -6,28 +6,17 @@
 
 const fs = require("fs");
 const path = require("path");
-const { docsInstances, networkSection } = require("../src/network_docs.js");
+const { apiReferenceDirs, docsInstances, networkSection, startHere } = require("../src/network_docs.js");
+const { llmsSiteUrl } = require("../src/site_url.js");
+const { DIRECTIVE } = require("./inject_md_directive.js");
+const { npmName } = require("./typescript_api_generation/packages.js");
+const TS_PACKAGES = require("./typescript_api_generation/config.json").packages;
 
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
 
-// Site URL used to build absolute links for the API reference sections. Read
-// from docusaurus.config.js so it tracks the configured domain. Trailing slash
-// stripped so it can be concatenated with leading-slash paths.
-function loadSiteUrl() {
-  try {
-    const config = fs.readFileSync(
-      path.join(__dirname, "..", "docusaurus.config.js"),
-      "utf-8",
-    );
-    const match = config.match(/^\s*url:\s*["']([^"']+)["']/m);
-    if (match) return match[1].replace(/\/$/, "");
-  } catch {
-    // fall through to default
-  }
-  return "https://docs.aztec.network";
-}
-const SITE_URL = loadSiteUrl();
+// The origin of every absolute link in the llms files: the deploy URL in a deploy preview.
+const SITE_URL = llmsSiteUrl(process.env);
 
 const [developerDocs, operatorDocs] = docsInstances(
   require("../developer_version_config.json"),
@@ -35,84 +24,18 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production",
 );
 
-// One API reference set per docs version a network reads. The static folders
-// are named per release type, so a shared version uses its first network's.
-const API_DIRS = [];
-for (const { version, networks } of developerDocs.versions) {
-  if (!networks.length) continue;
-  const scope = `${networks.join(" and ")}, ${version}`;
-  if (fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${networks[0]}`))) {
-    API_DIRS.push({
-      name: "Aztec.nr API Reference",
-      dir: `aztec-nr-api/${networks[0]}`,
-      description: `Auto-generated API documentation for Aztec.nr (${scope})`,
-      format: "html",
-    });
-  }
-  if (fs.existsSync(path.join(STATIC_DIR, `typescript-api/${networks[0]}`))) {
-    API_DIRS.push({
-      name: "TypeScript API Reference",
-      dir: `typescript-api/${networks[0]}`,
-      description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`,
-      format: "markdown",
-    });
-  }
-}
+// One API reference set per docs version a network reads, read from the build, where
+// aztec_nr_api_markdown.mjs and split_typescript_api.mjs have added their pages.
+const API_DIRS = apiReferenceDirs(developerDocs)
+  .filter(({ dir }) => fs.existsSync(path.join(STATIC_DIR, dir)))
+  .map(({ kind, dir, version, networks }) => {
+    const scope = `${networks.join(" and ")}, ${version}`;
+    return kind === "aztec-nr"
+      ? { name: "Aztec.nr API Reference", dir, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
+      : { name: "TypeScript API Reference", dir, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: BUILD_DIR, format: "markdown" };
+  });
 if (!developerDocs.versions.some((v) => v.networks.length)) {
   console.warn("Warning: No network version found for API docs");
-}
-
-/**
- * Extract text content from HTML, stripping tags and normalizing whitespace.
- * Only extracts content from <main> element to avoid redundant navigation.
- */
-function htmlToText(html) {
-  // Extract only the <main> content to avoid sidebar/navigation redundancy
-  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  const content = mainMatch ? mainMatch[1] : html;
-
-  return (
-    content
-      // Remove the breadcrumb div (first div with navigation links)
-      .replace(/<div><a[^>]*>aztec-nr<\/a>[\s\S]*?<\/div>/i, "")
-      // Remove script and style elements entirely
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      // Remove HTML comments
-      .replace(/<!--[\s\S]*?-->/g, "")
-      // Convert headers to markdown
-      .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n")
-      .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n")
-      .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n")
-      .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, "\n#### $1\n")
-      // Convert code blocks
-      .replace(
-        /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
-        "\n```\n$1\n```\n",
-      )
-      .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`")
-      // Convert links - extract href and text
-      .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
-      // Convert lists
-      .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n")
-      // Convert paragraphs
-      .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n$1\n")
-      // Convert line breaks
-      .replace(/<br\s*\/?>/gi, "\n")
-      // Remove remaining HTML tags
-      .replace(/<[^>]+>/g, "")
-      // Decode common HTML entities
-      .replace(/&nbsp;/g, " ")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      // Normalize whitespace
-      .replace(/\n{3,}/g, "\n\n")
-      .replace(/[ \t]+/g, " ")
-      .trim()
-  );
 }
 
 /**
@@ -138,10 +61,36 @@ function findFiles(dir, ext, files = []) {
 }
 
 /**
- * Recursively find all HTML files in a directory.
+ * The TypeScript scoped index body: how packages are named and imported, a link to every name a
+ * client SDK exports (its split_typescript_api.mjs page), and one link per core library.
  */
-function findHtmlFiles(dir) {
-  return findFiles(dir, ".html");
+function typescriptIndex(dirPath, dir) {
+  const url = (file) => `${SITE_URL}/${dir}/${file}`;
+  const present = (pkgs) => pkgs.filter((p) => p.status === "active" && fs.existsSync(path.join(dirPath, `${p.name}.md`)));
+  // A package file generated before the rename names the old scope in its title and imports.
+  const whole = (pkg) => {
+    const title = fs.readFileSync(path.join(dirPath, `${pkg.name}.md`), "utf-8").split("\n", 1)[0].replace(/^# /, "");
+    const stale = title === npmName(pkg.name) ? "" : ` (it still names the package \`${title}\`)`;
+    return `[Whole package](${url(`${pkg.name}.md`)})${stale}`;
+  };
+  const lines = [
+    `Packages are published as \`${npmName("<name>")}\`, and most have no root export: import from the subpath that exports a name, as [aztec.js](${SITE_URL}/developers/docs/aztec-js.md) shows. Each name links its own page, with every declaration of that name; a package link is the whole package in one file.`,
+    "",
+    "## Client SDKs",
+    "",
+  ];
+  for (const pkg of present(TS_PACKAGES.client_sdks)) {
+    const names = fs.existsSync(path.join(dirPath, pkg.name))
+      ? fs.readdirSync(path.join(dirPath, pkg.name)).filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3)).sort()
+      : [];
+    lines.push(`### ${npmName(pkg.name)}`, "", `${pkg.description}. ${whole(pkg)}`, "");
+    lines.push(...names.map((name) => `- [${name}](${url(`${pkg.name}/${name}.md`)})`), "");
+  }
+  lines.push("## Core libraries", "", `Each name in these packages also has its own page, \`/${dir}/<package>/<Name>.md\` on this site.`, "");
+  for (const pkg of present(TS_PACKAGES.core_libraries)) {
+    lines.push(`- ${npmName(pkg.name)}: ${pkg.description}. ${whole(pkg)}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -284,8 +233,8 @@ function findMarkdownFiles(dir) {
  * page links the llms-txt plugin emits are root-relative. Both resolve on the
  * deployed site.
  */
-function getUrlPath(filePath, staticDir) {
-  const relativePath = path.relative(staticDir, filePath);
+function getUrlPath(filePath, rootDir) {
+  const relativePath = path.relative(rootDir, filePath);
   // Convert to URL path format
   return SITE_URL + "/" + relativePath.replace(/\\/g, "/");
 }
@@ -318,20 +267,20 @@ function sortByImportance(files) {
   });
 }
 
+const FULL_TXT_LINK = "For the complete documentation as a single file";
+const AI_TOOLING_POINTER = "**Setting up an AI agent?**";
+
 /**
  * Insert a link to llms-full.txt after the H1 title block.
  *
  * The llms.txt spec opens with a single H1, optionally followed by a blockquote
  * summary, before any other content. We insert the link after that block so it
  * is the first thing an agent reads while preserving the single-H1 structure.
- * Idempotent: a second pass over content that already has the link is a no-op.
+ * The size tells an agent whether the file fits its context before it fetches it.
  */
-function insertFullTxtLink(content) {
-  const link = `For the complete documentation as a single file, see [llms-full.txt](${SITE_URL}/llms-full.txt).`;
-  // Match the exact link line, not a bare "/llms-full.txt" substring, so an
-  // unrelated mention of that path in the generated content can't suppress
-  // insertion. Keeps the function a no-op only on its own prior output.
-  if (content.includes(link)) return content;
+function insertFullTxtLink(content, bytes) {
+  const size = bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.ceil(bytes / 1e3)} KB`;
+  const link = `${FULL_TXT_LINK} (${size}), see [llms-full.txt](${SITE_URL}/llms-full.txt).`;
 
   const lines = content.split("\n");
   const h1Index = lines.findIndex((line) => /^# /.test(line));
@@ -362,7 +311,7 @@ function insertFullTxtLink(content) {
  * always short-circuit and the pointer would never be inserted.
  */
 function insertAiToolingPointer(content) {
-  const sentinel = "**Setting up an AI agent?**";
+  const sentinel = AI_TOOLING_POINTER;
   const url = `${SITE_URL}/developers/ai_tooling`;
   const pointer = `${sentinel} Read the [AI Tooling guide](${url}) first for recommended CLAUDE.md/AGENTS.md instructions and common-mistake guidance (use the \`aztec\` CLI, not \`nargo\` or \`bb\` directly).`;
   if (content.includes(sentinel)) return content;
@@ -406,17 +355,34 @@ function stripFrom(content, ...sentinels) {
   return cut === -1 ? content : content.slice(0, cut);
 }
 
-// The section ends at the next H2: networkSection demotes the page's headings.
-const NETWORK_SECTION = /^## Networks and versions\n[\s\S]*?(?=^## )/m;
+// Each section this script adds ends at the next H2 or at the end of the file: networkSection
+// demotes the page's headings, and the network section is the last one left after stripFrom.
+const sectionPattern = (heading) => new RegExp(`^## ${heading}\\n[\\s\\S]*?(?=^## |(?![\\s\\S]))`, "m");
+const ADDED_SECTIONS = [sectionPattern("Start here"), sectionPattern("Networks and versions")];
 
-/** Inserts the network section before the index's first H2. */
-function insertNetworkSection(index) {
-  const page = fs.readFileSync(path.join(BUILD_DIR, "networks.md"), "utf-8");
-  const section = networkSection([developerDocs, operatorDocs], page, SITE_URL);
+/** The lines this script inserts at the top, so a re-run replaces rather than repeats them. */
+function stripAddedLines(content) {
+  return content
+    .split("\n")
+    .filter((line) => !line.startsWith(FULL_TXT_LINK) && !line.startsWith(AI_TOOLING_POINTER))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+/**
+ * A page's markdown twin without the llms.txt directive, which inject_md_directive.js adds after
+ * the first run of this script: the llms files read the same on every run.
+ */
+const readTwin = (file) => fs.readFileSync(file, "utf-8").replace(`${DIRECTIVE}\n\n`, "");
+
+/** Inserts Start here before the index's first H2, and the network section after its last. */
+function addSections(index) {
+  const instances = [developerDocs, operatorDocs];
+  const page = readTwin(path.join(BUILD_DIR, "networks.md"));
+  const start = startHere(instances, SITE_URL);
   const at = index.search(/^## /m);
-  return at === -1
-    ? `${index}\n${section}`
-    : `${index.slice(0, at)}${section}\n${index.slice(at)}`;
+  const withStart = at === -1 ? `${index.trimEnd()}\n\n${start}` : `${index.slice(0, at)}${start}\n${index.slice(at)}`;
+  return `${withStart.trimEnd()}\n\n${networkSection(instances, page, SITE_URL)}`;
 }
 
 /**
@@ -438,7 +404,7 @@ function pagesContent(index) {
       missing.push(file);
       continue;
     }
-    const markdown = fs.readFileSync(file, "utf-8").trim();
+    const markdown = readTwin(file).trim();
     const route = link[1] === "/index" ? "/" : link[1];
     const label = section ? `\nSection: ${section}` : "";
     pages.push(`Source: ${SITE_URL}${route}${label}\n\n${markdown}`);
@@ -468,21 +434,13 @@ function main() {
   // Drop any sections a previous run of this script added so re-running it
   // replaces rather than duplicates them (the top-of-file insertions below are
   // separately idempotent).
-  const index = stripFrom(
-    fs.readFileSync(llmsTxtPath, "utf-8"),
-    "\n\n## API Reference\n\n",
-    "\n\n## Optional\n\n",
-  ).replace(NETWORK_SECTION, "");
+  const index = ADDED_SECTIONS.reduce(
+    (content, section) => content.replace(section, ""),
+    stripAddedLines(stripFrom(fs.readFileSync(llmsTxtPath, "utf-8"), "\n\n## API Reference\n\n", "\n\n## Optional\n\n")),
+  ).trimEnd() + "\n";
 
-  let llmsTxtContent = insertNetworkSection(index);
+  let llmsTxtContent = addSections(index).trimEnd();
   const llmsFullTxtContent = `${llmsTxtContent}\n\n---\n\n# Full Documentation Content\n\n${pagesContent(index)}`;
-
-  // Point readers at the single-file dump up front. It sits right after the H1
-  // title (and its optional blockquote summary) so an agent sees it before any
-  // section, but stays out of the H1 to keep a single top-level heading.
-  llmsTxtContent = insertFullTxtLink(llmsTxtContent);
-  // Then steer agents to the AI Tooling guide (setup + common-mistake guidance).
-  llmsTxtContent = insertAiToolingPointer(llmsTxtContent);
 
   let totalFiles = 0;
   let sectionsAdded = 0;
@@ -494,7 +452,14 @@ function main() {
   // docs, so they are always appended (see write logic below).
   let communitySection =
     "\n\n## Optional\n\n" +
-    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n";
+    "- [Aztec website](https://aztec.network): Aztec Network home page.\n" +
+    "- [Noir language documentation](https://noir-lang.org/docs): The language Aztec smart contracts are written in, documented separately.\n" +
+    "- [Aztec starter repository](https://github.com/AztecProtocol/aztec-starter): Template project for a new Aztec app.\n" +
+    "- [Aztec MCP server](https://github.com/AztecProtocol/mcp-server): Code search, doc search, and example discovery for AI coding tools.\n" +
+    "- [Aztec on GitHub](https://github.com/AztecProtocol): Source code, examples, and community resources.\n" +
+    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n" +
+    "- [Community forum](https://forum.aztec.network): Protocol discussion and governance proposals.\n" +
+    "- [Discord](https://discord.com/invite/JtqzkdeQ6G): Developer and operator support channels.\n";
   let fullContentSection = "\n\n---\n\n## API Reference Documentation\n\n";
 
   // Hub-and-spoke (the pattern used by Cloudflare/Next/Svelte): the root
@@ -504,7 +469,7 @@ function main() {
   const apiReferenceLinks = [];
 
   for (const apiDir of API_DIRS) {
-    const dirPath = path.join(STATIC_DIR, apiDir.dir);
+    const dirPath = path.join(apiDir.root, apiDir.dir);
 
     if (!fs.existsSync(dirPath)) {
       console.log(`Skipping ${apiDir.name}: directory not found`);
@@ -512,13 +477,12 @@ function main() {
     }
 
     const isMarkdown = apiDir.format === "markdown";
+    // A TypeScript package's whole file, not its split pages, which repeat it.
     const files = isMarkdown
-      ? findMarkdownFiles(dirPath).sort()
-      : sortByImportance(findHtmlFiles(dirPath));
-    const ext = isMarkdown ? ".md" : ".html";
-    console.log(
-      `Found ${files.length} ${isMarkdown ? "markdown" : "HTML"} files in ${apiDir.dir}`,
-    );
+      ? fs.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().map((f) => path.join(dirPath, f))
+      : sortByImportance(findMarkdownFiles(dirPath));
+    const ext = ".md";
+    console.log(`Found ${files.length} markdown files in ${apiDir.dir}`);
 
     if (files.length === 0) {
       continue;
@@ -533,29 +497,14 @@ function main() {
     let scopedDoc = `# ${apiDir.name}\n\n> ${apiDir.description}\n\n`;
 
     if (isMarkdown) {
-      // Include the generated llm-summary.txt (package overview). It carries its
-      // own heading hierarchy starting at H1; demote by one level so it nests
-      // under this scoped file's H1 (which is the only top-level heading).
-      const summaryPath = path.join(dirPath, "llm-summary.txt");
-      if (fs.existsSync(summaryPath)) {
-        const summary = fs
-          .readFileSync(summaryPath, "utf-8")
-          .replace(/^(#{1,5}) /gm, "#$1 ");
-        scopedDoc += summary + "\n\n";
-      }
-      scopedDoc += "## Package reference files\n\n";
-      for (const file of files) {
-        const urlPath = getUrlPath(file, STATIC_DIR);
-        const fileName = path.basename(file, ext);
-        scopedDoc += `- [${fileName}](${urlPath})\n`;
-      }
+      scopedDoc += typescriptIndex(dirPath, apiDir.dir);
     } else {
       // Module-index TOC. One entry per module (every subdirectory with an
       // index.html), with its first-paragraph docstring as description, plus
       // the names of exported structs, traits, and functions. The item names
       // are what makes specific types (e.g. SingleUseClaim) findable: an agent
       // searching this index for the name lands on the owning module, then
-      // follows the link to the rustdoc page.
+      // follows the link to the module page.
       const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
         const rel = path.relative(dirPath, f);
         const parts = rel.split(path.sep);
@@ -576,11 +525,13 @@ function main() {
 
       moduleIndexes.sort();
 
-      scopedDoc += `## Module index\n\nEach entry lists the module's exported structs, traits, and functions; follow the link to the rustdoc page for full signatures and docs.\n\n`;
+      scopedDoc +=
+        "## Module index\n\n" +
+        "Each entry links the module's page and names its exported structs, traits and functions. Every page is markdown, and an item's page sits beside its module's `index.md`: `struct.<Name>.md`, `trait.<Name>.md`, `fn.<name>.md`, `type.<Name>.md`, `global.<NAME>.md`.\n\n";
 
       let itemNameCount = 0;
       for (const file of moduleIndexes) {
-        const urlPath = getUrlPath(file, STATIC_DIR);
+        const urlPath = getUrlPath(file, apiDir.root).replace(/\.html$/, ".md");
         const moduleName = moduleNameFromPath(file, dirPath);
         const summary = extractModuleSummary(file);
         const items = extractModuleItems(file);
@@ -599,7 +550,7 @@ function main() {
       }
 
       console.log(
-        `  Emitted ${moduleIndexes.length} module-index entries (${itemNameCount} item names, from ${files.length} HTML files)`,
+        `  Emitted ${moduleIndexes.length} module-index entries (${itemNameCount} item names, from ${files.length} markdown files)`,
       );
 
       // Fail loud if extraction collapsed (e.g. nargo changed its HTML and the
@@ -646,11 +597,11 @@ function main() {
     for (const file of files) {
       try {
         const raw = fs.readFileSync(file, "utf-8");
-        const text = isMarkdown ? raw.trim() : htmlToText(raw);
+        const text = raw.trim();
 
         if (text.length > 100) {
           // Only include if there's meaningful content
-          const urlPath = getUrlPath(file, STATIC_DIR);
+          const urlPath = getUrlPath(file, apiDir.root);
           fullContentSection += `### ${urlPath}\n\n`;
           fullContentSection += text + "\n\n---\n\n";
           totalFiles++;
@@ -672,11 +623,16 @@ function main() {
       "\n";
   }
 
+  const fullText = sectionsAdded === 0 ? llmsFullTxtContent : llmsFullTxtContent + fullContentSection;
+  // The full-file link (with its size) and the AI Tooling pointer go right after
+  // the H1 title block, so an agent reads them before any section.
+  llmsTxtContent = insertAiToolingPointer(insertFullTxtLink(llmsTxtContent, Buffer.byteLength(fullText)));
+
   if (sectionsAdded === 0) {
     // No API docs on disk: still append the Optional section so the
     // awesome-aztec link survives builds that skip API generation.
     fs.writeFileSync(llmsTxtPath, llmsTxtContent + communitySection);
-    fs.writeFileSync(llmsFullTxtPath, llmsFullTxtContent);
+    fs.writeFileSync(llmsFullTxtPath, fullText);
     console.log("No API docs found on disk — appended Optional only");
     return;
   }
@@ -689,7 +645,7 @@ function main() {
   );
 
   // Append to llms-full.txt
-  fs.writeFileSync(llmsFullTxtPath, llmsFullTxtContent + fullContentSection);
+  fs.writeFileSync(llmsFullTxtPath, fullText);
   console.log(`Updated llms-full.txt with ${totalFiles} API reference files`);
 }
 

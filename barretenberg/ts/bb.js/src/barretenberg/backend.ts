@@ -22,9 +22,7 @@ export type VerifierTarget =
   | 'noir-recursive' // Recursive verification in Noir circuits (poseidon2, ZK enabled)
   | 'noir-recursive-no-zk' // Recursive verification without ZK
   | 'noir-rollup' // Rollup circuits with IPA accumulation (poseidon2, ZK enabled)
-  | 'noir-rollup-no-zk' // Rollup circuits without ZK
-  | 'starknet' // Starknet verification via Garaga (ZK enabled)
-  | 'starknet-no-zk'; // Starknet without zero-knowledge
+  | 'noir-rollup-no-zk'; // Rollup circuits without ZK
 
 /**
  * Options for the UltraHonkBackend.
@@ -49,10 +47,6 @@ export type UltraHonkBackendOptions = {
   keccak?: boolean;
   /** @deprecated Use verifierTarget: 'evm' instead */
   keccakZK?: boolean;
-  /** @deprecated Use verifierTarget: 'starknet-no-zk' instead */
-  starknet?: boolean;
-  /** @deprecated Use verifierTarget: 'starknet' instead */
-  starknetZK?: boolean;
 };
 
 function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
@@ -63,12 +57,9 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
 } {
   // Check for conflicting options - verifierTarget should not be combined with legacy options
   if (options?.verifierTarget) {
-    const legacyOptions = [options.keccak, options.keccakZK, options.starknet, options.starknetZK].filter(Boolean);
+    const legacyOptions = [options.keccak, options.keccakZK].filter(Boolean);
     if (legacyOptions.length > 0) {
-      throw new Error(
-        'Cannot use verifierTarget with legacy options (keccak, keccakZK, starknet, starknetZK). ' +
-          'Use verifierTarget alone.',
-      );
+      throw new Error('Cannot use verifierTarget with legacy options (keccak, keccakZK). Use verifierTarget alone.');
     }
 
     switch (options.verifierTarget) {
@@ -104,33 +95,14 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
           disableZk: true,
           optimizedSolidityVerifier: false,
         };
-      case 'starknet':
-        return {
-          ipaAccumulation: false,
-          oracleHashType: 'starknet',
-          disableZk: false,
-          optimizedSolidityVerifier: false,
-        };
-      case 'starknet-no-zk':
-        return {
-          ipaAccumulation: false,
-          oracleHashType: 'starknet',
-          disableZk: true,
-          optimizedSolidityVerifier: false,
-        };
     }
   }
 
   // Legacy options support (deprecated)
   return {
     ipaAccumulation: false,
-    oracleHashType:
-      options?.keccak || options?.keccakZK
-        ? 'keccak'
-        : options?.starknet || options?.starknetZK
-          ? 'starknet'
-          : 'poseidon2',
-    disableZk: options?.keccak || options?.starknet ? true : false,
+    oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : 'poseidon2',
+    disableZk: options?.keccak ? true : false,
     optimizedSolidityVerifier: false,
   };
 }

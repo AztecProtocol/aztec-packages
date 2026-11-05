@@ -3,7 +3,7 @@ title: Compiling Contracts
 tags: [contracts]
 sidebar_position: 2
 description: Compile your Aztec smart contracts into deployable artifacts using aztec command.
-references: ["labs/yarn-project/aztec/src/cli/cmds/compile.ts", "labs/noir-projects/aztec-nr/aztec/src/macros/calls_generation/*"]
+references: ["labs/yarn-project/aztec/src/cli/cmds/compile.ts", "labs/yarn-project/aztec/scripts/aztec.sh", "labs/noir-projects/aztec-nr/aztec/src/macros/calls_generation/*"]
 ---
 
 This guide shows you how to compile your Aztec contracts into artifacts ready for deployment and interaction.
@@ -56,6 +56,16 @@ contract MyContract {
 :::warning
 Do not import generated interfaces from the same project as the source contract to avoid circular references.
 :::
+
+## Test your contract
+
+Run your contract's tests with the `aztec` CLI, not `nargo test`:
+
+```bash
+aztec test
+```
+
+`aztec test` compiles the workspace first (a no-op when nothing changed), starts the TXE test environment that `TestEnvironment` connects to, and runs the workspace's `#[test]` functions through `nargo test`. To write tests, see [Testing contracts](./testing_contracts.md).
 
 ## Next steps
 

@@ -7,8 +7,8 @@ import styles from "./styles.module.css";
 
 export default function HomeBreadcrumbItem() {
   const homeHref = useBaseUrl("/");
-  const lightLogoSrc = useBaseUrl("img/Aztec Symbol_Light.png");
-  const darkLogoSrc = useBaseUrl("img/Aztec_Symbol_Dark.png");
+  const lightLogoSrc = useBaseUrl("img/brand/aztec-symbol-paper.svg");
+  const darkLogoSrc = useBaseUrl("img/brand/aztec-symbol-ink.svg");
   return (
     <li className="breadcrumbs__item" itemProp="itemListElement">
       <Link

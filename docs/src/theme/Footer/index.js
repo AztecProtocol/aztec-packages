@@ -98,7 +98,10 @@ export default function FooterWrapper(props) {
           
           {/* Left side - Email subscription */}
           <div className={styles.footerLeft}>
-            <h3 className={styles.footerTitle}>Build the future with Aztec</h3>
+            <h3 className={styles.footerTitle}>Build freely. Stay private.</h3>
+            <p className={styles.footerLede}>
+              Get the latest on building unstoppable private apps on Aztec.
+            </p>
             
             {isSubscribed ? (
               <div className={styles.successMessage}>
@@ -216,7 +219,7 @@ export default function FooterWrapper(props) {
         {/* Bottom copyright - using original Docusaurus styling */}
         <div className="footer__bottom text--center">
           <div className="footer__copyright">
-            © {new Date().getFullYear()} Aztec Labs. Built with privacy in mind.
+            © {new Date().getFullYear()} Aztec Labs. Freedom to move unseen.
           </div>
         </div>
       </div>

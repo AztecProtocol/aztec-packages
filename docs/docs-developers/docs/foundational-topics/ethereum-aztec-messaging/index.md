@@ -12,7 +12,7 @@ references: ["labs/noir-projects/aztec-nr/aztec/src/messaging.nr"]
 
 import Image from "@theme/IdealImage";
 
-In Aztec, _portals_ facilitate communication between L1 and L2. Unlike typical L2 solutions that rely on synchronous communication, Aztec's privacy-first design and the way transactions are processed (kernel proofs built on historical data) make direct calls between L1 and L2 impossible while maintaining privacy. Portals solve this by acting as bridges for asynchronous message passing, transmitting messages from public functions in L1 to private functions in L2 and vice versa.
+In Aztec, _portals_ facilitate communication between L1 and L2. Unlike typical L2 solutions that rely on synchronous communication, Aztec's private-by-design architecture and the way transactions are processed (kernel proofs built on historical data) make direct calls between L1 and L2 impossible while maintaining privacy. Portals solve this by acting as bridges for asynchronous message passing, transmitting messages from public functions in L1 to private functions in L2 and vice versa.
 
 ## Objective
 

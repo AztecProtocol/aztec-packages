@@ -6,6 +6,8 @@ description: A comprehensive guide on how to run a full node on the Aztec networ
 references: ["labs/yarn-project/aztec/src/cli/cmds/start_node.ts"]
 ---
 
+import NodeHardware from "../_node_hardware.mdx";
+
 ## Overview
 
 This guide covers the steps required to run a full node on Aztec using Docker Compose.
@@ -16,10 +18,7 @@ You should run your own full node if you want to interact with the network in th
 
 ### Minimum Hardware Requirements
 
-- 8 core / 16 vCPU (released in 2015 or later)
-- 16 GB RAM
-- 1 TB NVMe SSD
-- 25 Mbps network connection
+<NodeHardware />
 
 These requirements are subject to change as the network throughput increases.
 
@@ -138,7 +137,7 @@ Check the current sync status:
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
 -d '{"jsonrpc":"2.0","method":"aztec_getChainTips","params":[],"id":67}' \
-http://localhost:8080 | jq -r ".result.proven.number"
+http://localhost:8080 | jq -r ".result.proven.block.number"
 ```
 
 Compare the output with block explorers (see [Networks page](/networks) for explorer links).

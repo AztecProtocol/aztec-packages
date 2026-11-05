@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="207.161" height="207.161" viewBox="0 0 207.161 207.161" fill="none">
+<title>Aztec</title>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M103.581 0L207.161 103.581L103.581 207.161L0 103.581L103.581 0ZM103.581 25.896L181.266 103.581L103.581 181.267L25.8951 103.581L103.581 25.896ZM155.371 103.579L103.581 51.7883L51.7903 103.579L103.581 155.369L155.371 103.579ZM129.476 103.579L103.581 77.6843L77.6854 103.579L103.581 129.475L129.476 103.579Z" fill="url(#aztec-symbol-gradient)"/>
+<defs>
+<linearGradient id="aztec-symbol-gradient" x1="686.942" y1="675.069" x2="381.322" y2="-139.904" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFF9F2"/>
+<stop offset="0.326923" stop-color="#F8F1E7"/>
+<stop offset="0.721154" stop-color="#E3FF9B"/>
+<stop offset="1" stop-color="#9DF201"/>
+</linearGradient>
+</defs>
+</svg>

@@ -232,6 +232,11 @@ This is an advanced pattern. For most use cases, deploy the contract directly an
 
 Use `NO_WAIT` to get the transaction hash immediately and track deployment:
 
+```typescript
+import { NO_WAIT } from "@aztec-labs/aztec.js/contracts";
+import { waitForTx } from "@aztec-labs/aztec.js/node";
+```
+
 ```typescript title="no_wait_deploy" showLineNumbers 
 // Use NO_WAIT to get the transaction hash immediately and track deployment
 const { txHash } = await TokenContract.deploy(

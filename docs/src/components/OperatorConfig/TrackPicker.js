@@ -8,7 +8,7 @@ const AXIS_META = {
     label: 'Network',
     options: [
       { value: 'testnet', label: 'Testnet (Sepolia)' },
-      { value: 'mainnet', label: 'Mainnet (alpha)' },
+      { value: 'mainnet', label: 'Alpha (Mainnet)' },
     ],
   },
   stakeMode: {

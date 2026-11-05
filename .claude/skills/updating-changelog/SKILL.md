@@ -1,6 +1,6 @@
 ---
 name: updating-changelog
-description: Updates changelog documentation for contract developers and node operators by analyzing branch changes relative to 'next'. Use when preparing a PR, updating migration notes, documenting breaking changes, or when asked to update changelog/release notes.
+description: Updates changelog documentation for contract developers and node operators from aztec-node's own operator changelog and the branch changes relative to 'next'. Use when preparing a PR, updating migration notes, documenting breaking changes, or when asked to update changelog/release notes.
 ---
 
 # Updating Changelog
@@ -10,6 +10,12 @@ at the commit `docs/aztec-node.json` pins, read through a checkout of it that
 `node docs/scripts/aztec_node.mts fetch` keeps (`$AZTEC_NODE_DIR`, default
 `docs/.aztec-node/tree`; its version and its changes are read there, never in the `labs/`
 submodule), plus this repository's own code (`l1-contracts/`, `barretenberg/`, …).
+
+aztec-node records operator-facing changes as they land, in `CHANGELOG-OPERATORS.md` at its
+root. It keeps one copy per release line, on that line's branch, so the checkout holds the copy
+for the line the pin names. Those entries are the operator changelog's source: this skill moves
+them here and re-heads them under the release, rather than reconstructing them from the diff.
+The diff is still read, as the check on what the file missed.
 
 ## Steps
 
@@ -21,11 +27,16 @@ The version is the Labs release the docs' pin names, read from the checkout:
 cd "$(git rev-parse --show-toplevel)"
 node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
 eval "$pin"
-jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"
+jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
+  jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"
 ```
 
-`6.0.0` → edit `v6.md`. The release-please manifest at the repository root versions the
-Foundation tree, whose numbers are unrelated to Labs': never take the version from it.
+`6.0.0` → edit `v6.md`. aztec-node renamed its manifest, so read whichever name the pinned
+commit carries; both live in the checkout. It keeps one branch per release line — `v6` ships
+the 6.x line, `main` the next major — and the pin names a commit on one of them, so the version
+this reports is the line being documented. The release-please manifest at this repository's
+root versions the Foundation tree instead, whose numbers are unrelated to Labs': never take
+the version from it.
 
 Documenting one aztec-node PR (source 3 below) takes the major from the PR's line instead,
 since the pin can lag it: `baseRefName` `main` is the major `main` carries (v7 from
@@ -76,6 +87,7 @@ lives:
    node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
    eval "$pin"
    git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
+   git -C "$AZTEC_NODE_DIR" diff "$old" "$new" -- CHANGELOG-OPERATORS.md
    git -C "$AZTEC_NODE_DIR" diff --stat "$old" "$new"
    git -C "$AZTEC_NODE_DIR" diff "$old" "$new" -- yarn-project/ noir-projects/ <other paths>
    gh api "repos/aztec-labs-eng/aztec-node/compare/$old...$new" \
@@ -83,6 +95,23 @@ lives:
    gh api "repos/aztec-labs-eng/aztec-node/compare/$old...$new" \
      --jq '.commits[].commit.message | select(test("!:"))'
    ```
+
+   The lines that diff adds to `CHANGELOG-OPERATORS.md` are the operator entries for this pin
+   move, written by whoever made each change. Take them as they stand: the author knew what
+   breaks. A pin whose `$old` predates the file has nothing to diff, so read the section whole
+   instead:
+
+   ```bash
+   git -C "$AZTEC_NODE_DIR" show "$new:CHANGELOG-OPERATORS.md"
+   ```
+
+   Both commands come back empty for a pin either side of which predates the file; the commit
+   scan is then the only source, as it was before.
+
+   Everything below is the check on what that file missed. The entry is a convention rather
+   than something CI enforces, so a PR that renamed a flag without writing one still has to be
+   documented. When the diff turns up such a change, say so: the entry is missing in aztec-node
+   too, and the next person to read that file will not know the change happened.
 
    aztec-node marks breaking changes only with the conventional-commit `!` (`feat!:`,
    `feat(txe)!:`), never a `BREAKING CHANGE:` trailer. The second command prints every
@@ -104,6 +133,11 @@ lives:
    gh pr diff <PR_NUMBER> --repo aztec-labs-eng/aztec-node
    ```
 
+   When the PR touches `CHANGELOG-OPERATORS.md`, that entry is what to document, and the branch
+   the PR targets names the release line it belongs to. When it changes something operators
+   configure and carries no entry, the entry is missing there: say so, so it can be added before
+   the pin moves and the change has to be reconstructed from the diff alone.
+
 **Categorize changes:**
 
 - Breaking changes (API modifications, removals, renames)
@@ -115,6 +149,12 @@ lives:
 
 Present draft entries for review BEFORE editing files. Match the formatting conventions by
 reading existing entries in each file.
+
+An operator entry that came from `CHANGELOG-OPERATORS.md` has already been written and
+reviewed. Carry the wording across and change only what the move requires: where the heading
+sits in the release, and links that pointed at an unreleased version. Rewriting it to taste
+drops what the author knew about the failure mode, and leaves two descriptions of one change
+that no one will notice have drifted apart.
 
 ### 4. Edit Documentation
 
@@ -147,6 +187,9 @@ Explanation of what changed.
 ## Node Operator Changelog Format
 
 **File:** `docs/docs-operate/operators/reference/changelog/v{major}.md`
+
+`CHANGELOG-OPERATORS.md` in aztec-node is written in these same shapes, so an entry taken from
+it usually needs no reformatting.
 
 **Breaking changes:**
 ````markdown

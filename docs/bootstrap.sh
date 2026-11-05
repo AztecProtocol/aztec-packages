@@ -128,6 +128,10 @@ function check {
   node --test scripts/__tests__/*.test.mts
   python3 -I scripts/check_netlify_toml.py --self-test
   python3 -I scripts/check_netlify_toml.py netlify.toml
+  ./scripts/check_source_urls.sh --self-test
+  ./scripts/check_source_urls.sh
+  ./scripts/check_static_redirects.sh --self-test
+  ./scripts/check_static_redirects.sh
   ./scripts/check_skills.sh --self-test
   ./scripts/check_skills.sh
   ./scripts/check_warnings.sh --self-test

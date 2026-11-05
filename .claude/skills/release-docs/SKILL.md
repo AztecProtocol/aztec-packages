@@ -412,6 +412,14 @@ directory yet makes every docusaurus command fail, `docs:version` included:
 Step 11 writes it with `scripts/update_docs_versions.sh` once the directory exists; the
 network config follows the same rule.
 
+**Release line name:** `docs/release_names.json` maps a major version to the name its
+release line ships under (`{"6": "Tierra"}`). The version dropdown, the version badges and
+the `#release_name` and `#release_label` macros read it. A release in a major the file
+already names needs nothing here. A release that starts a new major needs its line's name:
+ask the owner for it (never invent one) and add the entry now, before Step 11 preprocesses,
+or the snapshot and the dropdown show the bare version. A line name labels the docs only:
+networks stay Alpha and Testnet, and CLI, env and Docker values stay `mainnet` and `testnet`.
+
 ### Step 6: Generate API Reference Docs
 
 ```bash
@@ -470,7 +478,7 @@ writes `docs/docs-operate/operators/reference/node-api-reference.md` (generated:
 hand-edit). The network snapshot (Step 11) includes it.
 
 It warns about methods missing from `METHOD_GROUPS` in
-`docs/scripts/node_api_reference_generation/generate_node_api_reference.mts`, which it
+`docs/scripts/node_api_reference_generation/node_api_reference_document.mts`, which it
 renders under "Other methods". Add each to its group and rerun; the destination needs the
 same edit (a shared source repair, Step 17).
 
@@ -790,15 +798,17 @@ of a major the page usually lands after the tag.
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
-major=$(jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json" | cut -d. -f1)
+major=$({ jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
+  jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"; } | cut -d. -f1)
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
 git -C "$DEST_ROOT" show "$DEST:docs/sidebars-operate.js" | grep -n "changelog/v$major"
 ```
 
-The major is the Labs version from the checkout's
-`$AZTEC_NODE_DIR/.release-please-manifest.json`; the root manifest versions the Foundation.
+The major is the Labs version, read from the manifest in the checkout; the root manifest
+versions the Foundation. aztec-node renamed that file, so the command reads whichever name the
+pinned commit carries.
 All three must hold:
 
 1. The page exists (a major with several releases may use a minor-qualified name such as
@@ -1280,8 +1290,9 @@ Sort every listed path into exactly one class:
    `git rm` stages the deletions; they are never passed to `git add` below.
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
-   destination's pin too (source fixes from Steps 8, 8b, 10 and 15, edits to existing
-   snapshots). Carry them as reviewed hunks; the cut shares this repository's objects, so
+   destination's pin too (source fixes from Steps 8, 8b, 10 and 15, a new
+   `release_names.json` entry from Step 5, edits to existing snapshots). Carry them as
+   reviewed hunks; the cut shares this repository's objects, so
    `-3` can merge them:
 
    ```bash
@@ -1301,6 +1312,22 @@ Sort every listed path into exactly one class:
 A destination commit cherry-picked into the cut also shows in this list: it is already on
 the destination, so none of its changes is ever carried.
 
+**Context7.** If the cut's version is now the one production serves at that tree's
+unversioned path (`/developers`, `/operate`): the copied version config's `mainnet` version,
+or `testnet`'s when it names no `mainnet` (`rootVersion` in `docusaurus.config.js`), point the
+tree's entry in the root `context7.json` `folders` at the new snapshot. Any other cut, an rc
+no network reads or a testnet release ahead of mainnet, leaves the file alone:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$DEST_ROOT"
+for tree in developer network; do
+  jq -e --arg v "$LABS_TAG" '(.mainnet // .testnet) == $v' "docs/${tree}_version_config.json" >/dev/null || continue
+  jq --arg p "docs/${tree}_versioned_docs/version-" --arg v "$LABS_TAG" \
+    '.folders |= map(if startswith($p) then $p + $v else . end)' context7.json >"$STATE/context7.json" &&
+    mv "$STATE/context7.json" context7.json
+done
+```
+
 Commit on the destination, naming the release inputs; the commit runs only if `git add`
 succeeds:
 
@@ -1308,7 +1335,7 @@ succeeds:
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 pin=$(node "$CUT/docs/scripts/aztec_node.mts" env) || exit 1
 eval "$pin"
-git -C "$DEST_ROOT" add -- <the existing paths of classes 1 and 2> &&
+git -C "$DEST_ROOT" add -- context7.json <the existing paths of classes 1 and 2> &&
 git -C "$DEST_ROOT" commit -F - <<EOF
 docs: cut $LABS_TAG docs (<release_type>)
 
@@ -1364,11 +1391,11 @@ On a new branch from the branch the cut merged into:
 
 ```bash
 cd docs && ./scripts/refresh_url_snapshot.sh
-git diff -- snapshots/published-urls.txt
-git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/published-urls.txt
+git diff -- snapshots/
+git commit -m "docs: refresh the published URL snapshot after v<new_version>" -- snapshots/
 ```
 
-Apart from the header's date, the diff only adds URLs. Pushing it is the owner's call.
+Apart from the header's date, the diff only adds URLs and the static files this release serves (`published-static.txt`). Pushing it is the owner's call.
 
 ## Key Points
 

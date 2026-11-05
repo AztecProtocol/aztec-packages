@@ -181,6 +181,7 @@ Never commit mnemonics to version control or share them over insecure channels.
 
 Each publisher account needs ETH to pay for L1 gas when submitting proposals. You must maintain at least **0.1 ETH** in each publisher account.
 
+**On testnet**, get Sepolia ETH from a Sepolia faucet.
 
 **Check publisher balances:**
 
