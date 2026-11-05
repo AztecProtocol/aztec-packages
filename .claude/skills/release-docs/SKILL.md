@@ -178,11 +178,13 @@ reports in Step 1, and run Step 11b's `update_docs_versions.sh` once per type.
 #### 2a. The Labs tag must exist
 
 ```bash
-git ls-remote --exit-code --tags https://github.com/aztec-labs-eng/aztec-node.git refs/tags/v<new_version>
+git ls-remote --exit-code --tags https://github.com/aztec-labs-eng/aztec-node.git \
+  "refs/tags/v<new_version>" "refs/tags/v<new_version>^{}"
 ```
 
 **Abort if it exits non-zero**: the release has not been tagged. Ask aztec-node's remote,
-never this repository, whose `v6…` tags are unrelated.
+never this repository, whose `v6…` tags are unrelated. A release tag prints its commit; an
+annotated tag (nightlies are) prints the tag object and, on its `^{}` line, the commit.
 
 #### 2b. Record the destination
 
@@ -282,7 +284,9 @@ the line to the tag (`aztec_node.mts --line $LINE pin`, which also installs the 
 l1-artifacts), replaces `docs-developers/`, `docs-operate/` and both sidebars with the
 line's, and copies the line's pin over `docs/aztec-node.json`. That promotion commit is
 release-only (Step 17). `fetch` then checks main's checkout out at that pin and reports the
-same drift as `pin` below.
+same drift as `pin` below. The promotion commit already carries the pin, so the pin commit
+below has something to commit only when l1-artifacts drifted; otherwise `PINNED` is the
+promotion commit.
 
 `pin` checks the tag's commit out into `$AZTEC_NODE_DIR` (a shallow clone without
 aztec-node's own `docs/`), writes the commit and the tag's `BB_VERSION` and `NOIR_VERSION`
@@ -304,7 +308,8 @@ node -e '
 yarn install
 node scripts/aztec_node.mts provision nargo bb
 node scripts/aztec_node.mts check
-git add aztec-node.json package.json yarn.lock && git commit -m "docs: pin aztec-node $LABS_TAG"
+git add aztec-node.json package.json yarn.lock &&
+  { git diff --cached --quiet || git commit -m "docs: pin aztec-node $LABS_TAG"; }
 echo "PINNED=$(git rev-parse HEAD)" >>"$STATE/env.sh"
 ```
 
@@ -367,7 +372,7 @@ All of these must hold; stop at the first that does not:
   file, the pin's bb and noir equal the tag's `BB_VERSION` and `NOIR_VERSION`, and
   `docs/package.json`'s l1-artifacts equals `BB_VERSION`.
 - `AZTEC_NODE_REF` is `v<new_version>` and `AZTEC_NODE_COMMIT` is the commit 2a's
-  `ls-remote` printed. `NARGO` and `BB` are set (`env` exports them only once provisioned at
+  `ls-remote` printed (its `^{}` line for an annotated tag). `NARGO` and `BB` are set (`env` exports them only once provisioned at
   the pinned versions) and print `nargo version = $NOIR_VERSION` and `$BB_VERSION`.
 - The installed l1-artifacts version equals `BB_VERSION`.
 - `examples: ok`: the cut's examples (`$EXAMPLES`) are `DOCS_COMMIT`'s.
@@ -613,16 +618,17 @@ aztec-node marks breaking changes only with the conventional-commit `!`, never a
 body of port commits (`chore: port … from monorepo`), which list the breaking commits they
 carry: read those bodies too.
 
-**2. Locate candidate usages.** For each triple, grep the cut's source docs:
+**2. Locate candidate usages.** For each triple, grep the cut's source docs and the examples
+its pages quote (`$EXAMPLES`):
 
 ```bash
-cd ~/.cache/aztec-docs-cut/<cut>/worktree/docs
-grep -rn "<old_symbol>" docs-developers/ docs-operate/ docs-participate/ docs/ examples/
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
+grep -rn "<old_symbol>" docs-developers/ docs-operate/ docs-participate/ docs/ "${EXAMPLES#docs/}/"
 ```
 
 Prioritize surfaces with no compiler gate: hand-written code blocks (most of them in
 `docs-developers/docs/aztec-nr/` and `docs-operate/`), prose that names functions or flags,
-and install or CLI commands. A hit in an `#include_code` target or `docs/examples/` usually
+and install or CLI commands. A hit in an `#include_code` target or the examples usually
 means the build already fails; treat those as cross-checks.
 
 **3. Adjudicate every candidate; do not fix from grep hits alone.** A symbol grep is noisy
@@ -835,21 +841,24 @@ of a major the page usually lands after the tag.
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 major=$({ jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
   jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"; } | cut -d. -f1)
-git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
+src=docs${LINE:+/lines/$LINE}
+git -C "$DEST_ROOT" show "$DEST:$src/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
-git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
-git -C "$DEST_ROOT" show "$DEST:docs/sidebars-operate.js" | grep -n "changelog/v$major"
+git -C "$DEST_ROOT" show "$DEST:$src/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
+git -C "$DEST_ROOT" show "$DEST:$src/sidebars-operate.js" | grep -n "changelog/v$major"
 ```
 
 The major is the Labs version, read from the manifest in the checkout; the root manifest
 versions the Foundation. aztec-node renamed that file, so the command reads whichever name the
-pinned commit carries.
+pinned commit carries. A line cut checks the line's copy (`$src`), which it promoted.
 All three must hold:
 
 1. The page exists (a major with several releases may use a minor-qualified name such as
    `v5.2.md`; check that name).
 2. `index.md` has a `### ` entry for this release's major (and minor, once the series has
-   more than one); an rc or patch is covered by its minor's entry.
+   more than one); an rc or patch is covered by its minor's entry, and a nightly by its
+   major's page. A minor release such as `6.1.0` needs its `### [v6.1.x]` entry landed
+   first.
 3. `docs/sidebars-operate.js` lists the page; an unlisted page is published but has no
    nav entry.
 

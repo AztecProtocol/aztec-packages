@@ -240,14 +240,17 @@ node -e '
 '
 yarn install
 node scripts/aztec_node.mts check && echo "pin: ok"
-git add aztec-node.json package.json yarn.lock && git commit -m "docs: pin aztec-node $LABS_TAG"
+git add aztec-node.json package.json yarn.lock &&
+  { git diff --cached --quiet || git commit -m "docs: pin aztec-node $LABS_TAG"; }
 echo "PINNED=$(git rev-parse HEAD)" >>"$STATE/env.sh"
 git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" && echo "examples: ok"
 ```
 
 `check` must print `pin: ok` (the checkout is the tag's commit and clean, and the pin's bb
 and `docs/package.json`'s l1-artifacts equal the tag's `BB_VERSION`), and `examples: ok`
-must follow. Never initialize `labs/` in the cut and run no root `make` target there. The
+must follow. A line cut's promotion commit already carries the pin, so the pin commit has
+something to commit only when l1-artifacts drifted; otherwise `PINNED` is the promotion
+commit. Never initialize `labs/` in the cut and run no root `make` target there. The
 release inputs (`docs/docs-operate/`, `docs/sidebars-operate.js`) are the destination's
 content; `docs/docs/networks.md` and the existing snapshots are the destination's live
 copies, which Step 10 copies back.
@@ -403,16 +406,19 @@ page usually lands after the tag, so check the destination commit:
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 major=$({ jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
   jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"; } | cut -d. -f1)
-git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
+src=docs${LINE:+/lines/$LINE}
+git -C "$DEST_ROOT" show "$DEST:$src/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
-git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
-git -C "$DEST_ROOT" show "$DEST:docs/sidebars-operate.js" | grep -n "changelog/v$major"
+git -C "$DEST_ROOT" show "$DEST:$src/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
+git -C "$DEST_ROOT" show "$DEST:$src/sidebars-operate.js" | grep -n "changelog/v$major"
 ```
 
 The page exists (or its minor-qualified name, such as `v5.2.md`), `index.md` has a `### `
-entry for this release's major (and minor, once the series has more than one), and the
-sidebar lists the page. The cut started from the destination, so its copy is the
-destination's.
+entry for this release's major (and minor, once the series has more than one; a nightly is
+covered by its major's page, and a minor release such as `6.1.0` needs its `### [v6.1.x]`
+entry landed first), and the sidebar lists the page. The cut started from the destination,
+so its copy is the destination's; a line cut checks the line's copy (`$src`), which it
+promoted.
 
 **Owner approval required.** If any check fails, stop and report which: the page lands on
 the destination first (`/updating-changelog`), through a PR the owner opens and merges,
