@@ -438,7 +438,8 @@ async function provisionL1Artifacts(o: Options, pin: Pin, log: (s: string) => vo
   if (packageVersion(dir) === version) return;
   const bytes = await npmTarball(o, L1_ARTIFACTS, version, log);
   fs.mkdirSync(stateDir(o), { recursive: true });
-  // Unpacked beside its destination, so a failure leaves the previous package and the swap is a rename.
+  // Unpacked beside its destination, so a failed download or extraction leaves the previous package
+  // and the swap is a rename; an interrupted swap leaves none, which check reports and fetch repairs.
   const tmp = fs.mkdtempSync(path.join(stateDir(o), "l1-artifacts-"));
   try {
     fs.writeFileSync(path.join(tmp, "package.tgz"), bytes);

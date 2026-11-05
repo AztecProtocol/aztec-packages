@@ -35,11 +35,12 @@ function aztecNodeDir(rootDir, line) {
   );
 }
 
-// Checked once per process before the first labs/ snippet is read: an edited, untracked or stale
-// file would render code the linked commit does not have.
+// Checked once per process and pin before the first labs/ snippet is read: an edited, untracked or
+// stale file would render code the linked commit does not have. Main's override may name a line's
+// checkout, so a directory checked against one pin is not checked against another.
 const checkedCheckouts = new Set();
 function checkAztecNode(rootDir, line) {
-  const key = `${rootDir}\0${aztecNodeDir(rootDir, line)}`;
+  const key = `${rootDir}\0${line?.name ?? ""}\0${aztecNodeDir(rootDir, line)}`;
   if (checkedCheckouts.has(key)) return;
   const tool = path.join(rootDir, "docs", "scripts", "aztec_node.mts");
   try {

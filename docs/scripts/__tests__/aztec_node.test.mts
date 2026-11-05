@@ -466,11 +466,18 @@ test("a line refuses another major's tag before any network access", async () =>
 
 test("l1-artifacts installs for a line only, from a tarball matching its registry integrity", async () => {
   const lo = withLine();
+  const refused = (e: unknown) => e instanceof PinError && /does not match its registry integrity/.test(String(e.message));
   serveL1Artifacts("1.1.0", true);
-  await assert.rejects(provision(lo, f.pinB, ["l1-artifacts"]), (e) => e instanceof PinError && /does not match its registry integrity/.test(e.message));
+  await assert.rejects(provision(lo, f.pinB, ["l1-artifacts"]), refused);
   assert.ok(!fs.existsSync(path.join(lo.docsDir, ".aztec-node/l1-artifacts")));
   fetchTree(lo, f.pinB);
   assert.match(problems(lo, f.pinB).join(), /holds @aztec-foundation\/l1-artifacts nothing, not the pinned 1\.1\.0/);
+
+  // A refused upgrade keeps the installed package.
+  serveL1Artifacts("1.0.0-rc.1");
+  await provision(lo, f.pinA, ["l1-artifacts"]);
+  await assert.rejects(provision(lo, f.pinB, ["l1-artifacts"]), refused);
+  assert.equal(l1ArtifactsVersion(lo), "1.0.0-rc.1");
   await assert.rejects(provision(f.o, f.pinA, ["l1-artifacts"]), (e) => e instanceof PinError && /line only/.test(e.message));
 });
 

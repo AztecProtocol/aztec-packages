@@ -1,7 +1,7 @@
 // Prints what a production build serves as sorted lines, so two builds compare with diff: a hash of
 // each page's HTML and markdown twin, the llms files, the sitemap paths, and the search index with
-// its pages per tag. Any theme code change renames the bundles, so the HTML is hashed without them;
-// its text, links and structured data stay.
+// its pages per tag. Any theme code change renames the bundles, so the HTML is hashed without its
+// scripts and their content hashes; its text, links, canonical URLs and structured data stay.
 //
 //   node scripts/production_fingerprint.mts <build-dir>
 import { createHash } from "node:crypto";
@@ -13,12 +13,9 @@ import { sitemapPaths } from "./check_search_index.mts";
 
 const sha256 = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex");
 
-/** `html` without `<link>` tags, `<script src>` tags and the content hashes in bundle names. */
+/** `html` without `<script src>` tags and the content hashes in bundle names. */
 export const normalizeHtml = (html: string) =>
-  html
-    .replace(/<script\b[^>]*\bsrc=[^>]*>\s*<\/script>/g, "")
-    .replace(/<link\b[^>]*>/g, "")
-    .replace(/\.[0-9a-f]{8}\.(js|css)\b/g, ".$1");
+  html.replace(/<script\b[^>]*\bsrc=[^>]*>\s*<\/script>/g, "").replace(/\.[0-9a-f]{8}\.(js|css)\b/g, ".$1");
 
 function* files(root: string, rel = ""): Generator<string> {
   for (const entry of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {

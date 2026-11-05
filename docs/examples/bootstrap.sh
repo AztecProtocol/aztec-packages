@@ -13,7 +13,20 @@ unset AZTEC_NODE_DIR
 # Nargo.toml and examples are staged outside the repository in a copy that mirrors docs/, with the
 # line's .aztec-node (checkout and toolchain) and l1-artifacts linked in where docs/ has its own.
 # DOCS_ROOT is where the examples build; DOCS_PATH is their source's path in the repository.
-DOCS_LINE= STAGE=
+DOCS_LINE= STAGE= DOCS_ROOT=
+
+# Safety net: ensure all TS example yarn.lock files are empty on exit.
+# Both validate-ts and execute-examples (via Docker volume mount) can populate
+# these files, and their per-project cleanup may not run if processes are killed.
+# Set before staging, so a failed copy also removes the stage.
+function on_exit {
+  if [ -n "$DOCS_ROOT" ]; then
+    for lf in "$DOCS_ROOT"/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done
+  fi
+  if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
+}
+trap on_exit EXIT
+
 aztec_node=(node "$REPO_ROOT/docs/scripts/aztec_node.mts")
 if [ "$cmd" = --line ]; then
   DOCS_LINE=${1:?usage: examples/bootstrap.sh --line <line> [cmd]}
@@ -22,8 +35,8 @@ if [ "$cmd" = --line ]; then
   [ -n "$cmd" ] && shift
   export DOCS_PATH=docs/lines/$DOCS_LINE
   line_root=$REPO_ROOT/$DOCS_PATH
-  if [ ! -f "$line_root/aztec-node.json" ]; then
-    echo_stderr "No line $DOCS_LINE: $DOCS_PATH/aztec-node.json does not exist."
+  if [[ ! "$DOCS_LINE" =~ ^v[0-9]+$ ]] || [ ! -f "$line_root/aztec-node.json" ]; then
+    echo_stderr "No line $DOCS_LINE: a line is a docs/lines/v<major>/ directory holding an aztec-node.json."
     exit 1
   fi
   aztec_node+=(--line "$DOCS_LINE")
@@ -39,15 +52,6 @@ if [ "$cmd" = --line ]; then
 else
   export DOCS_PATH=docs DOCS_ROOT=$REPO_ROOT/docs
 fi
-
-# Safety net: ensure all TS example yarn.lock files are empty on exit.
-# Both validate-ts and execute-examples (via Docker volume mount) can populate
-# these files, and their per-project cleanup may not run if processes are killed.
-function on_exit {
-  for lf in "$DOCS_ROOT"/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done
-  if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
-}
-trap on_exit EXIT
 
 # The pin names the aztec-node commit and every toolchain version, so it keys the examples.
 hash=$(cache_content_hash .rebuild_patterns)

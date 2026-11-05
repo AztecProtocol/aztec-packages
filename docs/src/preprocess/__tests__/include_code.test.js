@@ -140,6 +140,24 @@ describe("include_code", () => {
     await assert.rejects(preprocessIncludeCode(include("docs/lines/v1/examples/a.ts"), "page.md", root.rootDir), /is line v1's, but this page is main's/);
   });
 
+  it("checks a line's checkout even after main's check passed on the same directory", async () => {
+    const line = path.join(root.rootDir, "docs/lines/v1");
+    const tree = path.join(line, ".aztec-node/tree");
+    fs.mkdirSync(path.dirname(tree), { recursive: true });
+    execFileSync("git", ["clone", "-q", root.tree, tree]); // main's commit, while the line pins another
+    const pin = JSON.parse(fs.readFileSync(path.join(root.rootDir, "docs/aztec-node.json"), "utf8"));
+    const toolchain = { ...pin.toolchain, aztec: "1.1.0" };
+    write(path.join(line, "aztec-node.json"), JSON.stringify({ ...pin, ref: "v1.1.0", commit: "f".repeat(40), toolchain }));
+    write(path.join(line, ".aztec-node/l1-artifacts/package.json"), '{"version":"1.0.0"}');
+    process.env.AZTEC_NODE_DIR = tree;
+
+    await preprocessIncludeCode(page, "page.md", root.rootDir);
+    await assert.rejects(
+      preprocessIncludeCode(page, path.join(line, "docs-developers/page.md"), root.rootDir),
+      /not the pinned f{40}/,
+    );
+  });
+
   it("links l1-artifacts snippets to aztec-packages at the installed version", () => {
     write(path.join(root.rootDir, "docs/node_modules/@aztec-foundation/l1-artifacts/package.json"), '{"version":"6.0.0-rc.6"}');
     assert.deepStrictEqual(
