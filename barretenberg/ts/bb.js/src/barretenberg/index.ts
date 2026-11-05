@@ -16,6 +16,7 @@ export {
   flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  INTERRUPTED_MESSAGE,
   type AztecClientProveOptions,
   type AztecClientProveResult,
   type UltraHonkBackendOptions,

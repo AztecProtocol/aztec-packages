@@ -10,6 +10,8 @@ export {
   flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  /** The message of the `BbError` bb answers a Chonk command with once an interrupt stopped it. */
+  INTERRUPTED_MESSAGE,
   type AztecClientProveOptions,
   type AztecClientProveResult,
   type UltraHonkBackendOptions,
