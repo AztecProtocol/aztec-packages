@@ -7,6 +7,7 @@ const {
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
+  lineApiFolder,
   llmsRoutes,
   networkSection,
   startHere,
@@ -31,6 +32,10 @@ describe("networks on different versions", () => {
       ],
       excludeRoutes: ["/developers/v4.2.0/**"],
     });
+  });
+
+  it("gives a dev line the API folder of the network on its major, and none without one", () => {
+    assert.deepStrictEqual([5, 6, 7].map((major) => lineApiFolder(split, major)), ["mainnet", "testnet", undefined]);
   });
 
   it("names the cut versions no network reads", () => {

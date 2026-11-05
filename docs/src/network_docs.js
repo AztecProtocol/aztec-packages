@@ -79,6 +79,20 @@ const aztecNrApiFolders = (instance) =>
   );
 
 /**
+ * The Aztec.nr API reference folder a dev line's pages link: the folder of the docs version a
+ * network reads with the line's major.
+ *
+ * @param {Record<string, string>} developerConfig release type → version
+ * @param {number} major the line's major
+ * @returns {string | undefined} undefined when no network runs that major
+ */
+function lineApiFolder(developerConfig, major) {
+  const folders = aztecNrApiFolders(docsInstances(developerConfig, {}, true)[0]);
+  const version = Object.keys(folders).find((v) => v.startsWith(`v${major}.`));
+  return version && folders[version];
+}
+
+/**
  * The API reference folders of each docs version a network reads, one per kind, in the folder
  * aztecNrApiFolders names (the TypeScript reference is published per network the same way).
  *
@@ -271,6 +285,7 @@ module.exports = {
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
+  lineApiFolder,
   llmsRoutes,
   networkSection,
   startHere,

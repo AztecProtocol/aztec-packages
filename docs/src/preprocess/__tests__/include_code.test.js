@@ -110,6 +110,36 @@ describe("include_code", () => {
     });
   });
 
+  it("renders a line page from its line's checkout, pin and l1-artifacts, and refuses main's files", async () => {
+    const line = path.join(root.rootDir, "docs/lines/v1");
+    const tree = path.join(line, ".aztec-node/tree");
+    write(path.join(tree, "labs-aztec-toolchain/bootstrap.sh"), "BB_VERSION=1.1.0\nNOIR_VERSION=0.1.0\n");
+    write(path.join(tree, "noir-projects/a.nr"), "// docs:start:x\nfn line() {}\n// docs:end:x\n");
+    git(tree, "init", "-q");
+    git(tree, "add", "-A");
+    git(tree, "commit", "-q", "-m", "line");
+    const commit = git(tree, "rev-parse", "HEAD");
+    const toolchain = { aztec: "1.1.0", bb: "1.1.0", noir: "0.1.0", l1Artifacts: "1.1.0" };
+    const pin = JSON.parse(fs.readFileSync(path.join(root.rootDir, "docs/aztec-node.json"), "utf8"));
+    write(path.join(line, "aztec-node.json"), JSON.stringify({ ...pin, ref: "v1.1.0", commit, toolchain }));
+    write(path.join(line, ".aztec-node/l1-artifacts/package.json"), '{"version":"1.1.0"}');
+    process.env.AZTEC_NODE_DIR = root.tree; // main's checkout: a line page never reads it
+
+    const linePage = path.join(line, "docs-developers/page.md");
+    const { content } = await preprocessIncludeCode(page, linePage, root.rootDir);
+    assert.match(content, /fn line\(\)/);
+    assert.ok(content.includes(`https://github.com/aztec-labs-eng/aztec-node/blob/${commit}/noir-projects/a.nr#L1-L3`));
+    assert.match((await preprocessIncludeCode(page, "page.md", root.rootDir)).content, /fn pinned\(\)/);
+    assert.deepStrictEqual(
+      resolveSnippetSource("docs/lines/v1/.aztec-node/l1-artifacts/src/a.sol", root.rootDir),
+      { repoUrl: "https://github.com/AztecProtocol/aztec-packages", ref: "v1.1.0", displayPath: "src/a.sol" },
+    );
+
+    const include = (file) => `#include_code x /${file} typescript\n`;
+    await assert.rejects(preprocessIncludeCode(include("docs/examples/a.ts"), linePage, root.rootDir), /docs\/examples\/a\.ts is main's, but this page is line v1's/);
+    await assert.rejects(preprocessIncludeCode(include("docs/lines/v1/examples/a.ts"), "page.md", root.rootDir), /is line v1's, but this page is main's/);
+  });
+
   it("links l1-artifacts snippets to aztec-packages at the installed version", () => {
     write(path.join(root.rootDir, "docs/node_modules/@aztec-foundation/l1-artifacts/package.json"), '{"version":"6.0.0-rc.6"}');
     assert.deepStrictEqual(
