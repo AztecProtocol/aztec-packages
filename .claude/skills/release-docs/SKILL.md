@@ -237,8 +237,9 @@ docs_env() {
 }
 aztec_cli() {
   [ -x $CUT/docs/.aztec-node/cli/node_modules/.bin/aztec ] || { echo "no release CLI: run Step 3" >&2; return 1; }
-  env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME \\
-    -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN HOME=$CLI_HOME PATH=\$CLI_PATH:\$PATH "\$@"
+  env -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN HOME=$CLI_HOME NARGO_HOME=$CLI_HOME/.nargo AZTEC_HOME=$CLI_HOME/.aztec \\
+    XDG_CONFIG_HOME=$CLI_HOME/.config XDG_DATA_HOME=$CLI_HOME/.local/share XDG_CACHE_HOME=$CLI_HOME/.cache \\
+    PATH=\$CLI_PATH:\$PATH "\$@"
 }
 EOF
 ```
@@ -1117,8 +1118,16 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
    pin=$(node docs/scripts/aztec_node.mts env) || exit 1
    eval "$pin"
-   env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u NARGO -u AZTEC_HOME \
-     HOME="$CLI_HOME" NON_INTERACTIVE=1 bash <(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION")
+   need=$(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION/versions" | sed -n 's/^node: //p')
+   NODE_BIN=<the bin directory of a Node at least $need>
+   have=$("$NODE_BIN/node" --version | cut -c2-)
+   [ -n "$need" ] && [ "$(printf '%s\n' "$need" "$have" | sort -V | head -n1)" = "$need" ] \
+     || { echo "the installer needs Node ${need:-?}; $NODE_BIN has $have" >&2; exit 1; }
+   printf 'NODE_BIN=%q\nINSTALLER_PATH=$INSTALLER_PATH:$NODE_BIN\n' "$NODE_BIN" >>"$STATE/env.sh"
+   INSTALLER_PATH=$INSTALLER_PATH:$NODE_BIN
+   env -u NARGO HOME="$CLI_HOME" NARGO_HOME="$CLI_HOME/.nargo" AZTEC_HOME="$CLI_HOME/.aztec" \
+     XDG_CONFIG_HOME="$CLI_HOME/.config" XDG_DATA_HOME="$CLI_HOME/.local/share" XDG_CACHE_HOME="$CLI_HOME/.cache" \
+     PATH="$NODE_BIN:$PATH" NON_INTERACTIVE=1 bash <(curl -fsSL "https://install.aztec.network/$AZTEC_VERSION")
    CLI_PATH=$INSTALLER_PATH aztec_cli aztec --version
    foundry=$(sed -n 's/^ENV FOUNDRY_VERSION=v//p' "$AZTEC_NODE_DIR/build-images/src/Dockerfile")
    for tool in anvil forge cast; do
@@ -1129,11 +1138,21 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    . "$STATE/network.env"
    ```
 
+   The installer requires the Node its `versions` file names (`node: 26.12.0` for v6.1
+   nightlies; check, never assume). `NODE_BIN` is any directory holding at least that Node,
+   such as an nvm version's `bin`. It goes first on `PATH` for the installer and, through
+   `INSTALLER_PATH` (appended to `env.sh`), for every release command of this step, so the
+   machine's default Node stays as it is: never run `nvm alias default`. The installer
+   cannot change it either: it looks for nvm under `$HOME`, which is `$CLI_HOME`, and
+   without a new enough Node it stops with `Minimum Node.js version … not found`.
+
    The CLI must report `AZTEC_VERSION`. The installer runs with `HOME` set to `$CLI_HOME`,
-   so its node, foundry, nargo and shell-profile edits stay out of the real home. Clearing
-   `NARGO_HOME` and `AZTEC_HOME` keeps noirup and the toolchain under that home too (with
-   `NARGO_HOME` set, noirup lands in the real home and the install fails), and clearing
-   `NARGO` stops the installer from copying that binary in as the release's nargo.
+   so its node, foundry, nargo and shell-profile edits stay out of the real home. It also
+   gets `NARGO_HOME`, `AZTEC_HOME` and the XDG directories inside `$CLI_HOME`, set rather
+   than inherited: noirup's own installer writes to `$NARGO_HOME`, and the release
+   installer then runs `$HOME/.nargo/bin/noirup`, so a `NARGO_HOME` from the real shell
+   rewrites the real home's noirup and fails the install. Clearing `NARGO` stops the
+   installer from copying that binary in as the release's nargo.
    `NON_INTERACTIVE=1` skips the prompt and the closing `exec $SHELL`. foundryup refuses to
    install while any `anvil` runs on the host (`'anvil' is currently running`): wait for it
    to exit, and never stop another run's anvil. The release's L1 deployment needs the
@@ -1167,6 +1186,27 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    `$AZTEC_NODE_URL` in place of its `localhost` URLs. Record drift: renamed commands,
    changed flags, stale addresses, different output.
 
+   - **On the release's publication day**, a fresh project that `yarn init` gives Yarn 4
+     refuses the release's packages for their first day (`All versions satisfying … are
+     quarantined`). Record that against every page that hits it without the
+     publication-day tip `token_bridge.md` carries. Then, in that walk project only, add
+     the tip's scoped pre-approval, limited to the tag's own packages, to its `.yarnrc.yml`:
+
+     ```yaml
+     npmPreapprovedPackages:
+       - "@aztec-labs/*@<new_version>"
+     ```
+
+     Yarn matches each entry as a package glob plus a version range, so this admits
+     nothing else. Never turn the gate off (`npmMinimalAgeGate: 0`,
+     `YARN_NPM_MINIMAL_AGE_GATE`), and never edit the repository's `.yarnrc.yml`.
+   - **A line cut's tutorials whose project is the line's examples** (they clone this
+     repository and build under `docs/lines/<line>/examples/`) may not build there: nargo
+     takes `docs/Nargo.toml` as the workspace, as `examples/bootstrap.sh --line` notes.
+     Walk each one as written first, and record every failure with its doc line. Only then
+     run its commands in a copy of the `DOCS_LINE_STAGE` stage of item 4, to check the code
+     itself; a pass there never clears the as-written failure.
+
 4. **Build and run the Aztec.js examples at the tag**, in the cut, against the local network:
 
    ```bash
@@ -1175,15 +1215,15 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    examples/bootstrap.sh compile
    PATH="$CLI_HOME/.aztec/current/internal-bin:$PATH" examples/bootstrap.sh compile-solidity
    TXE_PORT=<a port claimed in ~/.agents/ports.md> examples/bootstrap.sh test-contracts
-   docs_env examples/ts/aztecjs_runner/run.sh
+   PATH="$NODE_BIN:$PATH" docs_env examples/ts/aztecjs_runner/run.sh
    ```
 
    `examples/bootstrap.sh` provisions the tag's nargo, bb and CLI and fetches its commit into
    `$CUT/docs/.aztec-node/tree` (Release model), so the circuit and contracts compile and the
    TXE tests run at the tag (`recursive_verification` reads the circuit's artifact);
    `compile-solidity` builds the artifacts `example_swap` imports, with the forge item 1
-   checked. `run.sh` installs the tag's packages into each example and runs it
-   against `$AZTEC_NODE_URL`. The examples are the destination's: a failure here means the
+   checked. `run.sh` installs the tag's packages into each example and runs it, on the
+   installer's Node, against `$AZTEC_NODE_URL`. The examples are the destination's: a failure here means the
    snapshot quotes code that does not work at the release. Report it with the example and
    the error. Never edit `docs/examples/` in the cut (Step 17 refuses it): a fix that also
    holds at the destination's pin lands on `next` first, and the cut restarts.
@@ -1199,7 +1239,7 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    examples/bootstrap.sh --line "$LINE" compile
    PATH="$CLI_HOME/.aztec/current/internal-bin:$PATH" examples/bootstrap.sh --line "$LINE" compile-solidity
    TXE_PORT=<a port claimed in ~/.agents/ports.md> examples/bootstrap.sh --line "$LINE" test-contracts
-   docs_env "$DOCS_LINE_STAGE/examples/ts/aztecjs_runner/run.sh"
+   PATH="$NODE_BIN:$PATH" docs_env "$DOCS_LINE_STAGE/examples/ts/aztecjs_runner/run.sh"
    ```
 
    The line's pin is the tag (Step 2c), so these run at the tag like main's. Never edit

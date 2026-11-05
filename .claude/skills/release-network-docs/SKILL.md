@@ -191,8 +191,9 @@ docs_env() {
 }
 aztec_cli() {
   [ -x $CUT/docs/.aztec-node/cli/node_modules/.bin/aztec ] || { echo "no release CLI: run Step 5b" >&2; return 1; }
-  env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME \\
-    -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN HOME=$CLI_HOME PATH=\$CLI_PATH:\$PATH "\$@"
+  env -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN HOME=$CLI_HOME NARGO_HOME=$CLI_HOME/.nargo AZTEC_HOME=$CLI_HOME/.aztec \\
+    XDG_CONFIG_HOME=$CLI_HOME/.config XDG_DATA_HOME=$CLI_HOME/.local/share XDG_CACHE_HOME=$CLI_HOME/.cache \\
+    PATH=\$CLI_PATH:\$PATH "\$@"
 }
 EOF
 ```
