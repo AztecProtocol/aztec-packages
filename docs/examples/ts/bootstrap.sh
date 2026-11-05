@@ -5,7 +5,11 @@ source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
-export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
+# The docs tree to validate, set by examples/bootstrap.sh: docs/, or a line's stage outside the
+# repository (which is why this runs from docs/examples/ts and moves there only after the ci3 setup).
+export DOCS_ROOT=${DOCS_ROOT:-$REPO_ROOT/docs} DOCS_PATH=${DOCS_PATH:-docs}
+export ARTIFACTS_DIR="$DOCS_ROOT/target"
+cd "$DOCS_ROOT/examples/ts"
 : "${AZTEC:?the pinned aztec CLI is not exported: run docs/examples/bootstrap.sh validate-ts}"
 
 # Each project starts from an empty yarn.lock that its own install fills. ci3 exports CI=0, which
@@ -172,11 +176,11 @@ validate_project() {
         yarn add -D "typescript@^5.3.3"
 
         # Create tsconfig.json from template
-        if [ ! -f "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" ]; then
-            echo_stderr "ERROR: tsconfig template not found at '$REPO_ROOT/docs/examples/ts/tsconfig.template.json'"
+        if [ ! -f "$DOCS_ROOT/examples/ts/tsconfig.template.json" ]; then
+            echo_stderr "ERROR: tsconfig template not found at '$DOCS_ROOT/examples/ts/tsconfig.template.json'"
             return 1
         fi
-        cp "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" tsconfig.json
+        cp "$DOCS_ROOT/examples/ts/tsconfig.template.json" tsconfig.json
 
         # Type check
         echo_stderr "Type checking '${project_name}'..."
@@ -209,7 +213,7 @@ get_all_projects() {
 if [ "${CI:-0}" != "0" ]; then
     for lockfile in */yarn.lock; do
         [ -f "$lockfile" ] || continue
-        if [ -n "$(git show HEAD:"docs/examples/ts/$lockfile" 2>/dev/null)" ]; then
+        if [ -n "$(git -C "$REPO_ROOT" show HEAD:"$DOCS_PATH/examples/ts/$lockfile" 2>/dev/null)" ]; then
             echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
             echo_stderr "       Run: > $lockfile && git add $lockfile"
             exit 1

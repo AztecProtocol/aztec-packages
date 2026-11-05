@@ -203,6 +203,37 @@ describe("preprocessIncludeVersion", () => {
     });
   });
 
+  describe("on a line page", () => {
+    const config = require("../../../developer_version_config.json");
+    const major = Number(config.mainnet.match(/^v(\d+)\./)[1]);
+    let rootDir;
+    beforeEach(() => {
+      rootDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "include-version-"));
+      for (const line of [`v${major}`, "v999"]) {
+        const pin = { ref: `${line}.1.0-nightly.20260101`, toolchain: { l1Artifacts: `${line.slice(1)}.1.0` } };
+        fs.mkdirSync(path.join(rootDir, "docs/lines", line), { recursive: true });
+        fs.writeFileSync(path.join(rootDir, "docs/lines", line, "aztec-node.json"), JSON.stringify(pin));
+      }
+    });
+    afterEach(() => fs.rmSync(rootDir, { recursive: true, force: true }));
+    const page = (line) => path.join(rootDir, "docs/lines", line, "docs-developers/page.md");
+
+    it("takes its versions from the line's pin and its API folder from the network on its major", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", COMMIT_TAG: "v9.9.9" });
+      const { content } = await preprocessIncludeVersion(
+        "#include_aztec_version #include_foundation_version #api_ref_version",
+        page(`v${major}`),
+        rootDir,
+      );
+      assert.strictEqual(content, `v${major}.1.0-nightly.20260101 v${major}.1.0 mainnet`);
+    });
+
+    it("fails closed on #api_ref_version when no network runs the line's major", async () => {
+      await assert.rejects(preprocessIncludeVersion("#api_ref_version", page("v999"), rootDir), /no network runs v999.*retire the line/);
+      assert.strictEqual((await preprocessIncludeVersion("#include_aztec_version", page("v999"), rootDir)).content, "v999.1.0-nightly.20260101");
+    });
+  });
+
   describe("integration", () => {
     it("processes conditionals before version macros", async () => {
       setEnv({ RELEASE_TYPE: "devnet", DEVNET_TAG: "3.0.0-devnet.5" });

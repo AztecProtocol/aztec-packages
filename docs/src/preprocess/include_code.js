@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { lineOf, readPin } = require("./line");
 
 // Snippets included from an installed npm package must not link to the local
 // node_modules path: the source link instead points at the repo and tag the
@@ -15,31 +16,35 @@ const { execFileSync } = require("child_process");
 // release rather than the docs release.
 const PUBLISHED_SNIPPET_SOURCES = [
   {
-    pathPrefix: "docs/node_modules/@aztec-foundation/l1-artifacts/",
+    // Main's installed devDependency, or a line's copy (`aztec_node.mts --line <line> provision l1-artifacts`).
+    pathPrefix: /^docs\/(?:node_modules\/@aztec-foundation|lines\/v\d+\/\.aztec-node)\/l1-artifacts\//,
     repoUrl: "https://github.com/AztecProtocol/aztec-packages",
   },
 ];
 
-// labs/<path> snippets are read from the checkout of the commit docs/aztec-node.json pins
+// labs/<path> snippets are read from the checkout of the commit the page's pin names
 // (docs/scripts/aztec_node.mts), never from the labs/ submodule, and link to that commit.
 const LABS_PREFIX = "labs/";
 
-function aztecNodeDir(rootDir) {
+// AZTEC_NODE_DIR names main's checkout; a line always reads its own.
+function aztecNodeDir(rootDir, line) {
+  if (line) return path.join(line.root, ".aztec-node", "tree");
   return (
     process.env.AZTEC_NODE_DIR ||
     path.join(rootDir, "docs", ".aztec-node", "tree")
   );
 }
 
-// Checked once per process before the first labs/ snippet is read: an edited, untracked or stale
-// file would render code the linked commit does not have.
+// Checked once per process and pin before the first labs/ snippet is read: an edited, untracked or
+// stale file would render code the linked commit does not have. Main's override may name a line's
+// checkout, so a directory checked against one pin is not checked against another.
 const checkedCheckouts = new Set();
-function checkAztecNode(rootDir) {
-  const key = `${rootDir}\0${aztecNodeDir(rootDir)}`;
+function checkAztecNode(rootDir, line) {
+  const key = `${rootDir}\0${line?.name ?? ""}\0${aztecNodeDir(rootDir, line)}`;
   if (checkedCheckouts.has(key)) return;
   const tool = path.join(rootDir, "docs", "scripts", "aztec_node.mts");
   try {
-    execFileSync(process.execPath, [tool, "check"], {
+    execFileSync(process.execPath, [tool, ...(line ? ["--line", line.name] : []), "check"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -51,21 +56,26 @@ function checkAztecNode(rootDir) {
   checkedCheckouts.add(key);
 }
 
-function pinnedCommit(rootDir) {
-  return JSON.parse(
-    fs.readFileSync(path.join(rootDir, "docs", "aztec-node.json"), "utf8"),
-  ).commit;
-}
-
-function snippetFilePath(relativeCodeFilePath, rootDir) {
+function snippetFilePath(relativeCodeFilePath, rootDir, line) {
   if (!relativeCodeFilePath.startsWith(LABS_PREFIX)) {
     return path.join(rootDir, relativeCodeFilePath);
   }
-  checkAztecNode(rootDir);
+  checkAztecNode(rootDir, line);
   return path.join(
-    aztecNodeDir(rootDir),
+    aztecNodeDir(rootDir, line),
     relativeCodeFilePath.slice(LABS_PREFIX.length),
   );
+}
+
+// Main's examples and l1-artifacts, and each line's files, have a copy per line: a page quoting
+// another line's copy would show code its readers do not run.
+const MAIN_ONLY = /^docs\/(?:examples|node_modules\/@aztec-foundation\/l1-artifacts)\//;
+function checkSnippetLine(relativeCodeFilePath, rootDir, line) {
+  const owner = lineOf(relativeCodeFilePath, rootDir);
+  if (!owner && !MAIN_ONLY.test(relativeCodeFilePath)) return;
+  if (owner?.name === line?.name) return;
+  const whose = (l) => (l ? `line ${l.name}'s` : "main's");
+  throw new Error(`${relativeCodeFilePath} is ${whose(owner)}, but this page is ${whose(line)}: quote the page's own copy`);
 }
 
 // This repository's own files (docs/examples/...) link to the aztec-packages commit being built:
@@ -92,34 +102,30 @@ function docsCommit(rootDir) {
   return headCommits.get(rootDir);
 }
 
-function resolveSnippetSource(relativeCodeFilePath, rootDir) {
-  const published = PUBLISHED_SNIPPET_SOURCES.find((source) =>
-    relativeCodeFilePath.startsWith(source.pathPrefix),
-  );
-  if (!published) {
-    if (relativeCodeFilePath.startsWith(LABS_PREFIX)) {
-      return {
-        repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
-        ref: pinnedCommit(rootDir),
-        displayPath: relativeCodeFilePath.slice(LABS_PREFIX.length),
-      };
-    }
+function resolveSnippetSource(relativeCodeFilePath, rootDir, line = null) {
+  for (const { pathPrefix, repoUrl } of PUBLISHED_SNIPPET_SOURCES) {
+    const prefix = pathPrefix.exec(relativeCodeFilePath)?.[0];
+    if (!prefix) continue;
+    const { version } = JSON.parse(
+      fs.readFileSync(path.join(rootDir, prefix, "package.json"), "utf8"),
+    );
     return {
-      repoUrl: "https://github.com/AztecProtocol/aztec-packages",
-      ref: docsCommit(rootDir),
-      displayPath: relativeCodeFilePath,
+      repoUrl,
+      ref: `v${version}`,
+      displayPath: relativeCodeFilePath.slice(prefix.length),
     };
   }
-  const { version } = JSON.parse(
-    fs.readFileSync(
-      path.join(rootDir, published.pathPrefix, "package.json"),
-      "utf8",
-    ),
-  );
+  if (relativeCodeFilePath.startsWith(LABS_PREFIX)) {
+    return {
+      repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
+      ref: readPin(rootDir, line).commit,
+      displayPath: relativeCodeFilePath.slice(LABS_PREFIX.length),
+    };
+  }
   return {
-    repoUrl: published.repoUrl,
-    ref: `v${version}`,
-    displayPath: relativeCodeFilePath.slice(published.pathPrefix.length),
+    repoUrl: "https://github.com/AztecProtocol/aztec-packages",
+    ref: docsCommit(rootDir),
+    displayPath: relativeCodeFilePath,
   };
 }
 
@@ -342,6 +348,7 @@ const regex =
   /^(?!<!--.*)(?=.*#include_code\s+(\S+)\s+(\S+)\s+(\S+)(?:[ ]+(\S+))?).*$/gm;
 
 async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
+  const line = lineOf(filePath, rootDir);
   // Process each include tag in the current markdown file
   let updatedContent = markdownContent;
   let matchesFound = false;
@@ -371,9 +378,10 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
         .resolve(rootDir, codeFilePath)
         .replace(/^\//, "");
 
+      checkSnippetLine(relativeCodeFilePath, rootDir, line);
       // Extract the code snippet between the specified comments
       const [codeSnippet, startLine, endLine] = extractCodeSnippet(
-        snippetFilePath(relativeCodeFilePath, rootDir),
+        snippetFilePath(relativeCodeFilePath, rootDir, line),
         identifier,
         filePath,
       );
@@ -381,6 +389,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
       const { repoUrl, ref, displayPath } = resolveSnippetSource(
         relativeCodeFilePath,
         rootDir,
+        line,
       );
       const urlText = `${displayPath}#L${startLine}-L${endLine}`;
       const url = `${repoUrl}/blob/${ref}/${urlText}`;
