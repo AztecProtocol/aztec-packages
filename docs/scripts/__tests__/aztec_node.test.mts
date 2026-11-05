@@ -13,9 +13,12 @@ import {
   type Pin,
   PinError,
   envLines,
+  fetchPinned,
   fetchTree,
   integrityMatches,
+  lineOptions,
   noirArchiveUrl,
+  pinAndCheck,
   pinFile,
   pinTag,
   platform,
@@ -147,13 +150,38 @@ function makeFixture(): Fixture {
     toolchain: { aztec: "1.1.0-nightly.20260101", bb: "1.1.0", noir: "0.9.1", l1Artifacts: "1.1.0" },
     noirArchives: archivesOf("0.9.1"),
   };
-  return { root, o: { docsDir, repository: remote, noirReleases: releases }, remote, a, b, pinA, pinB };
+  return { root, o: { docsDir, repository: remote, noirReleases: releases, npmRegistry: releases }, remote, a, b, pinA, pinB };
 }
+
+// Serves l1-artifacts <version>'s registry entry and tarball; `tampered` serves other bytes under the same integrity.
+function serveL1Artifacts(version: string, tampered = false) {
+  const dir = fs.mkdtempSync(path.join(f.root, "l1-artifacts-"));
+  write(path.join(dir, "package/package.json"), JSON.stringify({ name: "@aztec-foundation/l1-artifacts", version }));
+  write(path.join(dir, "package/l1-contracts/src/Rollup.sol"), `// ${version}\n`);
+  execFileSync("tar", ["-czf", path.join(dir, "l1.tgz"), "-C", dir, "package"]);
+  const bytes = fs.readFileSync(path.join(dir, "l1.tgz"));
+  const tarball = `/l1-artifacts-${version}.tgz`;
+  routes.set(tarball, tampered ? new TextEncoder().encode("tampered") : bytes);
+  const dist = { tarball: `${releases}${tarball}`, integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}` };
+  routes.set(`/@aztec-foundation/l1-artifacts/${version}`, new TextEncoder().encode(JSON.stringify({ dist })));
+}
+
+// A v1 line pinned to the nightly beside main docs pinned to the release, so their l1-artifacts differ.
+function withLine(): Options {
+  const lo = lineOptions(f.o, "v1");
+  write(pinFile(f.o), JSON.stringify(f.pinA));
+  write(pinFile(lo), JSON.stringify(f.pinB));
+  return lo;
+}
+
+const l1ArtifactsVersion = (o: Options) =>
+  JSON.parse(fs.readFileSync(path.join(o.docsDir, ".aztec-node/l1-artifacts/package.json"), "utf8")).version;
 
 let f: Fixture;
 let savedPath: string | undefined;
 beforeEach(() => {
   delete process.env.AZTEC_NODE_DIR;
+  delete process.env.CONTEXT;
   savedPath = process.env.PATH;
   f = makeFixture();
   routes = new Map(archives);
@@ -405,6 +433,57 @@ test("env quotes every value for the shell and omits unprovisioned binaries", as
   assert.equal(cliAt("1.0.0", "1.0.0"), true);
   await provision(o, f.pinA, ["cli"]);
   assert.ok(fs.existsSync(manifest("aztec")));
+});
+
+test("fetch gives each line its own checkout and l1-artifacts, and skips the lines in production", async () => {
+  const lo = withLine();
+  serveL1Artifacts("1.1.0");
+  process.env.CONTEXT = "production";
+  assert.deepEqual(await fetchPinned(f.o), []);
+  assert.ok(!fs.existsSync(path.join(lo.docsDir, ".aztec-node")));
+  delete process.env.CONTEXT;
+
+  // AZTEC_NODE_DIR moves main's checkout only.
+  process.env.AZTEC_NODE_DIR = path.join(f.root, "main-tree");
+  assert.deepEqual(await fetchPinned(f.o), []);
+  assert.equal(head(f.o), f.a);
+  assert.equal(treeDir(lo), path.join(lo.docsDir, ".aztec-node/tree"));
+  assert.equal(head(lo), f.b);
+  assert.equal(l1ArtifactsVersion(lo), "1.1.0"); // while docs/package.json pins 1.0.0-rc.1 for main
+  assert.ok(envLines(lo, f.pinB).includes(`export AZTEC_NODE_DIR='${treeDir(lo)}'`));
+});
+
+test("a line refuses another major's tag before any network access", async () => {
+  const lo = withLine();
+  const v2 = { ...f.pinB, ref: "v2.0.0", toolchain: { ...f.pinB.toolchain, aztec: "2.0.0" } };
+  const refused = (e: unknown) => e instanceof PinError && /ref must be a v1\.\* tag/.test(e.message);
+  assert.throws(() => validatePin(v2, lo), refused);
+  validatePin(v2, f.o);
+  await assert.rejects(pinTag(lo, "v2.0.0"), refused); // the remote has no v2.0.0, so the refusal came first
+  write(pinFile(lo), JSON.stringify(v2));
+  await assert.rejects(fetchPinned(f.o), refused);
+});
+
+test("l1-artifacts installs for a line only, from a tarball matching its registry integrity", async () => {
+  const lo = withLine();
+  serveL1Artifacts("1.1.0", true);
+  await assert.rejects(provision(lo, f.pinB, ["l1-artifacts"]), (e) => e instanceof PinError && /does not match its registry integrity/.test(e.message));
+  assert.ok(!fs.existsSync(path.join(lo.docsDir, ".aztec-node/l1-artifacts")));
+  fetchTree(lo, f.pinB);
+  assert.match(problems(lo, f.pinB).join(), /holds @aztec-foundation\/l1-artifacts nothing, not the pinned 1\.1\.0/);
+  await assert.rejects(provision(f.o, f.pinA, ["l1-artifacts"]), (e) => e instanceof PinError && /line only/.test(e.message));
+});
+
+test("pin on a line installs the new l1-artifacts before it checks, so a bb change passes", async () => {
+  usingGh();
+  const lo = withLine();
+  serveL1Artifacts("1.0.0-rc.1");
+  serveL1Artifacts("1.1.0");
+  assert.deepEqual(await pinAndCheck(lo, "v1.0.0"), []);
+  assert.equal(l1ArtifactsVersion(lo), "1.0.0-rc.1");
+  assert.deepEqual(await pinAndCheck(lo, "v1.1.0-nightly.20260101"), []);
+  assert.equal(l1ArtifactsVersion(lo), "1.1.0");
+  assert.deepEqual(readPin(lo), f.pinB);
 });
 
 test("registry integrity and platform names", () => {

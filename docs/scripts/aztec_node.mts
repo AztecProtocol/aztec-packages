@@ -1,12 +1,13 @@
 // The aztec-node code the docs quote, pinned in docs/aztec-node.json: snippets, reference checks and
 // generators read a checkout of the pinned commit, never the labs/ submodule, so the foundation's
-// labs gitlink can move without touching the docs.
+// labs gitlink can move without touching the docs. A line (docs/lines/<line>/, following aztec-node's
+// <line> branch) has its own pin and state, selected with --line <line>.
 //
-//   node scripts/aztec_node.mts fetch            check out the pinned commit (no network when current)
-//   node scripts/aztec_node.mts check            fail on any drift between the pin, the checkout and docs
-//   node scripts/aztec_node.mts pin <tag>        move the pin to an aztec-node release or nightly tag (needs gh)
-//   node scripts/aztec_node.mts provision <nargo|bb|cli>...   install the pinned published toolchain
-//   node scripts/aztec_node.mts env              print the pin as shell exports, for eval
+//   node scripts/aztec_node.mts [--line <line>] fetch    check out the pinned commit (no network when current); without --line, every line's too outside production
+//   node scripts/aztec_node.mts [--line <line>] check    fail on any drift between the pin, the checkout and docs
+//   node scripts/aztec_node.mts [--line <line>] pin <tag>     move the pin to an aztec-node release or nightly tag (needs gh)
+//   node scripts/aztec_node.mts [--line <line>] provision <nargo|bb|cli|l1-artifacts>...   install the pinned published toolchain (l1-artifacts: a line only)
+//   node scripts/aztec_node.mts [--line <line>] env      print the pin as shell exports, for eval
 //
 // .mts because docs/package.json declares no module type: a .ts file with ESM syntax makes every run
 // print MODULE_TYPELESS_PACKAGE_JSON.
@@ -54,26 +55,50 @@ export type Pin = {
 };
 
 export type Options = {
+  /** The directory holding the pin and its gitignored `.aztec-node/` state: docs/, or a line root. */
   docsDir: string;
-  // Only tests point these elsewhere; the CLI always uses the canonical repository and noir's releases.
+  /** docs/, whose package.json carries the yarn settings; defaults to `docsDir`. */
+  packageDir?: string;
+  /** Set for a line root: the aztec-node branch it follows (`v6`), also the only major it accepts. */
+  line?: string;
+  // Only tests point these elsewhere; the CLI always uses the canonical repository, noir's releases and npm.
   repository?: string;
   noirReleases?: string;
+  npmRegistry?: string;
 };
 
 export class PinError extends Error {}
 
 const docsDirOf = (o: Options) => path.resolve(o.docsDir);
+const packageDirOf = (o: Options) => path.resolve(o.packageDir ?? o.docsDir);
+const LINE = /^v\d+$/;
+
+/** The lines under docs/lines/: each directory named for an aztec-node branch that holds a pin. */
+export function lineNames(o: Options): string[] {
+  const dir = path.join(packageDirOf(o), "lines");
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((l) => LINE.test(l) && fs.existsSync(path.join(dir, l, "aztec-node.json"))).sort();
+}
+
+export const lineOptions = (o: Options, line: string): Options => ({
+  ...o,
+  docsDir: path.join(packageDirOf(o), "lines", line),
+  packageDir: packageDirOf(o),
+  line,
+});
 export const pinFile = (o: Options) => path.join(docsDirOf(o), "aztec-node.json");
 export const stateDir = (o: Options) => path.join(docsDirOf(o), ".aztec-node");
-// Readers run from different directories, so a relative override would name different trees.
+// Readers run from different directories, so a relative override would name different trees. The
+// override names main's checkout: a line reading it would quote main's code.
 export function treeDir(o: Options): string {
-  const dir = process.env.AZTEC_NODE_DIR;
+  const dir = o.line ? undefined : process.env.AZTEC_NODE_DIR;
   if (!dir) return path.join(stateDir(o), "tree");
   if (!path.isAbsolute(dir)) throw new PinError(`AZTEC_NODE_DIR must be an absolute path, not ${dir}`);
   return dir;
 }
 const binDir = (o: Options) => path.join(stateDir(o), "bin");
 const cliDir = (o: Options) => path.join(stateDir(o), "cli");
+const l1ArtifactsDir = (o: Options) => path.join(stateDir(o), "l1-artifacts");
 // The CLIs the docs run and document, published at the pin's aztec version.
 const CLI_PACKAGES = ["@aztec-labs/aztec", "@aztec-labs/cli-wallet"];
 const cliManifest = (o: Options, pkg: string) => path.join(cliDir(o), "node_modules", pkg, "package.json");
@@ -93,12 +118,17 @@ function tryGit(cwd: string, args: string[]): string | undefined {
   }
 }
 
+// Offline, so CI enforces it: another major's tag is on another branch, whose code the line must not quote.
+const majorProblems = (o: Options, ref: string): string[] =>
+  o.line && !ref.startsWith(`${o.line}.`) ? [`ref must be a ${o.line}.* tag: the ${o.line} line follows aztec-node's ${o.line} branch`] : [];
+
 /** The malformed fields other than noirArchives, which a pin being written does not have yet. */
 function fieldProblems(p: Partial<Pin> | undefined, o: Options): string[] {
   const problems: string[] = [];
   const repository = o.repository ?? REPOSITORY;
   if (p?.repository !== repository) problems.push(`repository must be ${repository}`);
   if (typeof p?.ref !== "string" || !TAG.test(p.ref)) problems.push("ref must be a tag like v6.0.0 or v6.1.0-nightly.20261029");
+  else problems.push(...majorProblems(o, p.ref));
   if (typeof p?.commit !== "string" || !COMMIT.test(p.commit)) problems.push("commit must be 40 lowercase hex characters");
   for (const key of ["aztec", "bb", "noir", "l1Artifacts"] as const) {
     const v = p?.toolchain?.[key];
@@ -224,6 +254,12 @@ export function problems(o: Options, pin: Pin): string[] {
   if (noir !== pin.toolchain.noir) out.push(`toolchain.noir is ${pin.toolchain.noir}, but ${pin.ref} pins NOIR_VERSION=${noir}: set it to ${noir}`);
   if (pin.toolchain.aztec !== pin.ref.slice(1)) out.push(`toolchain.aztec must be ${pin.ref.slice(1)}, the version ${pin.ref} publishes`);
   if (pin.toolchain.l1Artifacts !== pin.toolchain.bb) out.push(`toolchain.l1Artifacts must equal toolchain.bb (${pin.toolchain.bb}): aztec-node pins both to BB_VERSION`);
+  if (o.line) {
+    const held = packageVersion(l1ArtifactsDir(o));
+    if (held !== pin.toolchain.l1Artifacts)
+      out.push(`${l1ArtifactsDir(o)} holds ${L1_ARTIFACTS} ${held ?? "nothing"}, not the pinned ${pin.toolchain.l1Artifacts}: run \`node scripts/aztec_node.mts --line ${o.line} provision l1-artifacts\` in docs/`);
+    return out;
+  }
   const pkg = JSON.parse(fs.readFileSync(path.join(docsDirOf(o), "package.json"), "utf8"));
   const installed = pkg.devDependencies?.[L1_ARTIFACTS] ?? pkg.dependencies?.[L1_ARTIFACTS];
   if (installed !== pin.toolchain.l1Artifacts)
@@ -236,6 +272,8 @@ export function problems(o: Options, pin: Pin): string[] {
  * digest of each noir archive gh attests. Writes the pin only after every downloaded archive verifies.
  */
 export async function pinTag(o: Options, tag: string, log: (s: string) => void = () => {}): Promise<Pin> {
+  const [wrongMajor] = majorProblems(o, tag);
+  if (wrongMajor) throw new PinError(wrongMajor);
   const repository = o.repository ?? REPOSITORY;
   const commit = remoteTagCommit(repository, tag);
   const draft = { repository, ref: tag, commit, toolchain: { aztec: tag.slice(1), bb: "0.0.0", noir: "0.0.0", l1Artifacts: "0.0.0" } };
@@ -338,6 +376,15 @@ async function download(url: string): Promise<Uint8Array> {
   return bytes;
 }
 
+/** A package's tarball from the npm registry, refused unless it matches the registry's integrity. */
+async function npmTarball(o: Options, name: string, version: string, log: (s: string) => void): Promise<Uint8Array> {
+  const meta = JSON.parse(new TextDecoder().decode(await download(`${o.npmRegistry ?? NPM_REGISTRY}/${name}/${version}`)));
+  log(`installing ${name} ${version}`);
+  const bytes = await download(meta.dist.tarball);
+  if (!integrityMatches(bytes, meta.dist.integrity)) throw new PinError(`${meta.dist.tarball} does not match its registry integrity`);
+  return bytes;
+}
+
 const versionOf = (binary: string) => execFileSync(binary, ["--version"], { encoding: "utf8" });
 const reportsVersion = { nargo: (out: string, v: string) => out.split("\n").includes(`nargo version = ${v}`), bb: (out: string, v: string) => out.trim() === v };
 
@@ -358,7 +405,7 @@ function provisionCli(o: Options, pin: Pin, log: (s: string) => void): void {
   const dir = cliDir(o);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
-  const { packageManager } = JSON.parse(fs.readFileSync(path.join(docsDirOf(o), "package.json"), "utf8"));
+  const { packageManager } = JSON.parse(fs.readFileSync(path.join(packageDirOf(o), "package.json"), "utf8"));
   const dependencies = Object.fromEntries(CLI_PACKAGES.map((pkg) => [pkg, version]));
   const manifest = { name: "aztec-node-cli", private: true, packageManager, dependencies };
   fs.writeFileSync(path.join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -375,7 +422,37 @@ function provisionCli(o: Options, pin: Pin, log: (s: string) => void): void {
   if (!cliIsAt(o, version)) throw new PinError(`${dir} does not hold ${CLI_PACKAGES.join(" and ")} at ${version}`);
 }
 
-/** Installs each tool at the pinned version into .aztec-node/bin (or cli/), skipping those already there. */
+function packageVersion(dir: string): string | undefined {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).version;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Unpacks a line's l1-artifacts at its pin into .aztec-node/l1-artifacts; main's is docs/package.json's devDependency. */
+async function provisionL1Artifacts(o: Options, pin: Pin, log: (s: string) => void): Promise<void> {
+  if (!o.line) throw new PinError(`l1-artifacts is provisioned for a line only: the main docs install ${L1_ARTIFACTS} with yarn`);
+  const version = pin.toolchain.l1Artifacts;
+  const dir = l1ArtifactsDir(o);
+  if (packageVersion(dir) === version) return;
+  const bytes = await npmTarball(o, L1_ARTIFACTS, version, log);
+  fs.mkdirSync(stateDir(o), { recursive: true });
+  // Unpacked beside its destination, so a failure leaves the previous package and the swap is a rename.
+  const tmp = fs.mkdtempSync(path.join(stateDir(o), "l1-artifacts-"));
+  try {
+    fs.writeFileSync(path.join(tmp, "package.tgz"), bytes);
+    execFileSync("tar", ["-xzf", path.join(tmp, "package.tgz"), "-C", tmp]);
+    const unpacked = path.join(tmp, "package");
+    if (packageVersion(unpacked) !== version) throw new PinError(`the ${L1_ARTIFACTS} ${version} tarball holds ${packageVersion(unpacked)}`);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.renameSync(unpacked, dir);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/** Installs each tool at the pinned version into .aztec-node/bin (or cli/, l1-artifacts/), skipping those already there. */
 export async function provision(o: Options, pin: Pin, tools: string[], log: (s: string) => void = () => {}): Promise<void> {
   const bin = binDir(o);
   fs.mkdirSync(bin, { recursive: true });
@@ -384,7 +461,11 @@ export async function provision(o: Options, pin: Pin, tools: string[], log: (s: 
       provisionCli(o, pin, log);
       continue;
     }
-    if (tool !== "nargo" && tool !== "bb") throw new PinError(`cannot provision ${tool}: only nargo, bb and cli`);
+    if (tool === "l1-artifacts") {
+      await provisionL1Artifacts(o, pin, log);
+      continue;
+    }
+    if (tool !== "nargo" && tool !== "bb") throw new PinError(`cannot provision ${tool}: only nargo, bb, cli and l1-artifacts`);
     const version = tool === "nargo" ? pin.toolchain.noir : pin.toolchain.bb;
     const target = platform().rust;
     // Checked before the installed-binary shortcut, so a platform without a digest fails the same everywhere.
@@ -397,12 +478,7 @@ export async function provision(o: Options, pin: Pin, tools: string[], log: (s: 
     try {
       const archive = path.join(tmp, "archive.tgz");
       if (tool === "bb") {
-        const name = `@aztec-foundation/bb-${platform().npm}`;
-        const meta = JSON.parse(new TextDecoder().decode(await download(`${NPM_REGISTRY}/${name}/${version}`)));
-        log(`installing bb ${version} from ${name}`);
-        const bytes = await download(meta.dist.tarball);
-        if (!integrityMatches(bytes, meta.dist.integrity)) throw new PinError(`${meta.dist.tarball} does not match its registry integrity`);
-        fs.writeFileSync(archive, bytes);
+        fs.writeFileSync(archive, await npmTarball(o, `@aztec-foundation/bb-${platform().npm}`, version, log));
         execFileSync("tar", ["-xzf", archive, "-C", tmp, "package/bin/bb"]);
         fs.copyFileSync(path.join(tmp, "package/bin/bb"), binary);
       } else {
@@ -447,29 +523,55 @@ export function envLines(o: Options, pin: Pin): string[] {
   return vars.map(([k, v]) => `export ${k}=${shellQuote(v)}`);
 }
 
+/**
+ * `fetch`: checks the pinned commit out, with a line's l1-artifacts so a cold build can render its
+ * snippets, and returns the problems `check` would report. For main it then fetches every line,
+ * except under CONTEXT=production: production serves no dev docs.
+ */
+export async function fetchPinned(o: Options, log: (s: string) => void = () => {}): Promise<string[]> {
+  const pin = readPin(o);
+  fetchTree(o, pin, log);
+  if (o.line) await provision(o, pin, ["l1-artifacts"], log);
+  const found = problems(o, pin);
+  if (!o.line && process.env.CONTEXT !== "production")
+    for (const line of lineNames(o)) found.push(...(await fetchPinned(lineOptions(o, line), log)));
+  return found;
+}
+
+/** `pin <tag>`: moves the pin, then installs a line's l1-artifacts before checking, so a bb change can pass. */
+export async function pinAndCheck(o: Options, tag: string, log: (s: string) => void = () => {}): Promise<string[]> {
+  const pin = await pinTag(o, tag, log);
+  log(`pinned ${pin.ref} (${pin.commit}): aztec ${pin.toolchain.aztec}, bb ${pin.toolchain.bb}, noir ${pin.toolchain.noir}`);
+  if (o.line) await provision(o, pin, ["l1-artifacts"], log);
+  return problems(o, pin);
+}
+
 async function main(argv: string[]): Promise<number> {
-  const o: Options = { docsDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..") };
+  const docs: Options = { docsDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..") };
+  let o = docs;
+  if (argv[0] === "--line") {
+    const line = argv[1] ?? "";
+    if (!lineNames(docs).includes(line)) {
+      console.error(`aztec-node pin: no line ${line}; the lines are the directories docs/lines/<line>/ with an aztec-node.json: ${lineNames(docs).join(", ") || "none"}`);
+      return 2;
+    }
+    o = lineOptions(docs, line);
+    argv = argv.slice(2);
+  }
   const log = (s: string) => console.error(s);
   const [cmd, ...args] = argv;
-  const report = (pin: Pin) => {
-    const found = problems(o, pin);
+  const report = (found: string[]) => {
     for (const p of found) console.error(`aztec-node pin: ${p}`);
     return found.length ? 1 : 0;
   };
   switch (cmd) {
-    case "fetch": {
-      const pin = readPin(o);
-      fetchTree(o, pin, log);
-      return report(pin);
-    }
+    case "fetch":
+      return report(await fetchPinned(o, log));
     case "check":
-      return report(readPin(o));
-    case "pin": {
+      return report(problems(o, readPin(o)));
+    case "pin":
       if (args.length !== 1) break;
-      const pin = await pinTag(o, args[0], log);
-      log(`pinned ${pin.ref} (${pin.commit}): aztec ${pin.toolchain.aztec}, bb ${pin.toolchain.bb}, noir ${pin.toolchain.noir}`);
-      return report(pin);
-    }
+      return report(await pinAndCheck(o, args[0], log));
     case "provision": {
       if (!args.length) break;
       await provision(o, readPin(o), args, log);
@@ -477,12 +579,13 @@ async function main(argv: string[]): Promise<number> {
     }
     case "env": {
       const pin = readPin(o);
-      if (report(pin)) return 1;
+      if (report(problems(o, pin))) return 1;
       console.log(envLines(o, pin).join("\n"));
       return 0;
     }
   }
-  console.error(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(4, 9).map((l) => l.slice(3)).join("\n"));
+  const usage = fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").filter((l) => l.startsWith("//   node "));
+  console.error(usage.map((l) => l.slice(3)).join("\n"));
   return 2;
 }
 
