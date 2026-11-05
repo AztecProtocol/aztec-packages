@@ -790,15 +790,17 @@ of a major the page usually lands after the tag.
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
-major=$(jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json" | cut -d. -f1)
+major=$({ jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
+  jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"; } | cut -d. -f1)
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/v$major.md" >/dev/null \
   && echo "page present" || echo "MISSING: v$major.md"
 git -C "$DEST_ROOT" show "$DEST:docs/docs-operate/operators/reference/changelog/index.md" | grep -n '^### ' | head -3
 git -C "$DEST_ROOT" show "$DEST:docs/sidebars-operate.js" | grep -n "changelog/v$major"
 ```
 
-The major is the Labs version from the checkout's
-`$AZTEC_NODE_DIR/.release-please-manifest.json`; the root manifest versions the Foundation.
+The major is the Labs version, read from the manifest in the checkout; the root manifest
+versions the Foundation. aztec-node renamed that file, so the command reads whichever name the
+pinned commit carries.
 All three must hold:
 
 1. The page exists (a major with several releases may use a minor-qualified name such as
