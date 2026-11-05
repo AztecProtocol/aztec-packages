@@ -282,7 +282,7 @@ CUT=$CUT scripts/promote_line.sh "$LINE" "$LABS_TAG" &&
 `promote_line.sh` refuses, before writing anything, unless it runs in `$CUT`, `docs/` is
 clean, and the tag has the line's major. Then it pins the line to the tag
 (`aztec_node.mts --line $LINE pin`, which also installs the line's l1-artifacts), and
-refuses, restoring the line, unless the pinned commit is on aztec-node's `$LINE` branch.
+refuses, restoring the line's pin, unless the pinned commit is on aztec-node's `$LINE` branch.
 Only then does it replace `docs-developers/`, `docs-operate/` and both sidebars with the
 line's, and copy the line's pin over `docs/aztec-node.json`. That promotion commit is
 release-only (Step 17). `fetch` then checks main's checkout out at that pin and reports the

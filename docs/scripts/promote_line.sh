@@ -9,7 +9,7 @@
 #
 # It refuses, before writing anything, unless it runs in the worktree $CUT names (the cut's env.sh),
 # docs/ is clean, and the tag has the line's major. After pinning, it refuses unless the pinned commit
-# is on aztec-node's <line> branch. A refusal after the pin restores the line and leaves the main
+# is on aztec-node's <line> branch. A refusal after the pin restores the line's pin and leaves the main
 # paths untouched.
 set -euo pipefail
 
@@ -18,7 +18,7 @@ fail() {
   exit 1
 }
 unpin() {
-  git -C "$root" checkout -q -- "docs/lines/$line"
+  git -C "$root" checkout -q -- "docs/lines/$line/aztec-node.json"
   fail "$@"
 }
 [ $# -eq 2 ] || { echo "usage: CUT=<cut worktree> $0 <line> <tag>" >&2; exit 2; }
