@@ -98,6 +98,29 @@ function apiReferenceDirs(instance) {
     );
 }
 
+// The scoped index append_api_docs_to_llms.js writes into each built API reference folder. It
+// exists only in build/, so checks that read static/ must accept it by name.
+const SCOPED_API_INDEX = "llms.txt";
+
+/**
+ * The apiReferenceDirs entries the build indexes: those whose folder exists under `static/`.
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string} staticDir the docs `static/` directory
+ */
+const builtApiReferenceDirs = (instance, staticDir) =>
+  apiReferenceDirs(instance).filter(({ dir }) => fs.existsSync(path.join(staticDir, dir)));
+
+/**
+ * The scoped indexes the build writes, as paths under the site root (`typescript-api/mainnet/llms.txt`).
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string} staticDir the docs `static/` directory
+ * @returns {string[]}
+ */
+const scopedApiIndexes = (instance, staticDir) =>
+  builtApiReferenceDirs(instance, staticDir).map(({ dir }) => `${dir}/${SCOPED_API_INDEX}`);
+
 const sectionName = (title, { version, networks }) =>
   `${title}: ${networks.length ? `${versionLabel(version)} on ${networks.join(" and ")}` : "unreleased"}`;
 
@@ -267,12 +290,15 @@ function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
 }
 
 module.exports = {
+  SCOPED_API_INDEX,
   apiReferenceDirs,
   aztecNrApiFolders,
+  builtApiReferenceDirs,
   docsInstances,
   historicalVersions,
   llmsRoutes,
   networkSection,
+  scopedApiIndexes,
   startHere,
   startHereLinks,
   syncVersionsFile,
