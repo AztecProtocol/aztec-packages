@@ -7,6 +7,8 @@ import { createServer, type Server } from 'http';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
+import { serveLocalCrs } from './local_crs.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -75,6 +77,7 @@ program
     const capturedLogs: string[] = [];
     const browser = await chromium.launch();
     const context = await browser.newContext();
+    await serveLocalCrs(context);
     const page = await context.newPage();
 
     // Capture console messages (this is what CI benchmark scripts rely on)
@@ -132,7 +135,8 @@ program
   .description('Generate a proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the path to the ACIR artifact json file', './target/acir.json')
   .option('-w, --witness-path <path>', 'Specify the path to the gzip encoded ACIR witness', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath }) => {
+  .option('-s, --srs-size <points>', 'CRS points to prove with, for a circuit larger than the bb.js default', Number)
+  .action(async ({ bytecodePath, witnessPath, srsSize }) => {
     const acir = readBytecodeFile(bytecodePath);
     const witness = readWitnessFile(witnessPath);
     const threads = Math.min(os.cpus().length, 16);
@@ -147,6 +151,7 @@ program
       const browser = await browserType.launch();
 
       const context = await browser.newContext();
+      await serveLocalCrs(context);
       const provingPage = await context.newPage();
 
       if (program.opts().verbose) {
@@ -175,11 +180,11 @@ program
       } = await provingPage.evaluate(
         async (args: any) => {
           // Convert the input data to Uint8Arrays within the browser context
-          const [acir, witnessData, threads] = args;
+          const [acir, witnessData, threads, srsSize] = args;
           const witnessUint8Array = new Uint8Array(witnessData);
 
           // Call the desired function and return the result
-          const { proofData, verificationKey } = await (window as any).prove(acir, witnessUint8Array, threads);
+          const { proofData, verificationKey } = await (window as any).prove(acir, witnessUint8Array, threads, srsSize);
 
           return {
             publicInputs: proofData.publicInputs,
@@ -187,7 +192,7 @@ program
             verificationKey: Array.from(verificationKey),
           };
         },
-        [acir, Array.from(witness), threads],
+        [acir, Array.from(witness), threads, srsSize],
       );
       await provingPage.close();
 
@@ -254,6 +259,7 @@ program
       const browser = await browserType.launch();
 
       const context = await browser.newContext();
+      await serveLocalCrs(context);
       const provingPage = await context.newPage();
 
       if (program.opts().verbose) {
@@ -389,7 +395,7 @@ process.on('SIGTERM', () => {
     cleanup();
     process.exit(0);
   } catch (error) {
-    console.error('Failed to start test server:', error);
+    console.error('Test failed:', error);
     cleanup();
     process.exit(1);
   }
