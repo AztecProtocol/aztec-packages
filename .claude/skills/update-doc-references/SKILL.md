@@ -154,7 +154,8 @@ snapshot, a checkout or `labs/`:
 Then run `docs/scripts/check_doc_references.sh` and, for the v6 line,
 `docs/scripts/check_doc_references.sh docs/lines/v6`, which check `labs/` references in each
 line's checkout (run `node docs/scripts/aztec_node.mts fetch` first; each must print `All
-referenced paths exist.`), and, from `docs/`, `yarn spellcheck`. An aztec-node PR newer
+referenced paths exist.`), and, from `docs/`, `yarn preprocess && yarn spellcheck` (a v6
+page is spellchecked through its preprocessed copy). An aztec-node PR newer
 than the pin is not in the checkout yet, so an edit that quotes its code (a new
 `#include_code` marker, a moved file in `references`) fails until the pin includes it:
 make such edits together with the pin move, or report them, rather than editing them to
