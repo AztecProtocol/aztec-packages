@@ -39,7 +39,7 @@ root versions the Foundation tree instead, whose numbers are unrelated to Labs':
 the version from it.
 
 Documenting one aztec-node PR (source 3 below) takes the major from the PR's line instead,
-since the pin can lag it: `baseRefName` `main` is the major `main` carries (v7 from
+since the pin can lag it or sit on the other line: `baseRefName` `main` is the major `main` carries (v7 from
 2026-11-04), `v6` is v6.
 
 **Target files:**

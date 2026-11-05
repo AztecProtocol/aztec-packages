@@ -48,9 +48,9 @@ paste the key into the conversation or onto a command line.
   `BB` once provisioned). In the cut that is the release tag's.
 - **The cut runs in its own worktree** (`$CUT`), created from the destination commit; it
   moves the cut's pin to the Labs tag. The destination checkout is not touched until Step 17,
-  and its pin never moves: the destination's dev docs keep following their own pin, on
-  aztec-node `main`. A v6.x cut pins its tag on aztec-node's `v6` branch, so the cut and
-  the destination can sit on different lines (Step 12).
+  and its pin never moves: the destination's dev docs keep following their own pin, a v6
+  nightly until the docs carry a separate v7 line (`docs/CLAUDE.md`). A v6.x cut pins its
+  tag on aztec-node's `v6` branch (Step 12).
 - **Release inputs**, recorded in the commit that lands the cut (Step 17):
 
   | Input | Source |
@@ -982,9 +982,11 @@ git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-onl
 Skip this step when the two refs name the same commit. `--cherry-pick` drops commits that
 reached both sides as patch-equivalent ports. A hand backport adapted to its line is not
 patch-equivalent and shows on both sides: judge it against `$AZTEC_NODE_DIR`, the tag. A
-v6.x cut against a destination pinned to a v7 nightly lists every v7 commit since `v6`
-left `main` as `>`. When `docs/examples/` already use v7-only APIs, Step 15 fails for the
-cut and stops: no snapshot edit can fix the examples. The history goes into a checkout of its own, fetched afresh
+destination pinned to a v7 nightly would list every v7 commit since `v6` left `main` as
+`>`, and once `docs/examples/` use v7-only APIs Step 15 fails for a v6.x cut and stops: no
+snapshot edit can fix the examples. That is why the dev pin stays on a v6 nightly
+(`docs/CLAUDE.md`); if the destination's pin is a v7 tag, stop and report before cutting.
+The history goes into a checkout of its own, fetched afresh
 down to the refs' merge base, which GitHub names without local history; fetching it into
 `$AZTEC_NODE_DIR` instead keeps that checkout's earlier shallow boundaries (the merge base
 goes missing) and shortens the history Step 8 fetched. The check compares the merge base
