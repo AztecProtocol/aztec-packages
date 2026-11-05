@@ -18,6 +18,7 @@ const {
 const { llmsSiteUrl } = require("../site_url");
 const { versionLabel } = require("../release_names");
 const { aztecNrApiFolder } = require("../utils/aztecNrApi.mjs");
+const { lineDocsPath } = require("../utils/docsLine.mjs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
@@ -123,6 +124,13 @@ describe("dev lines", () => {
     assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer", lines), "next");
     assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders, "developer", lines), "mainnet");
     assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders), "mainnet");
+  });
+
+  it("move a line's navigation into the dev docs onto the line, and nothing else", () => {
+    assert.strictEqual(lineDocsPath("/developers/docs/aztec-js", "v6"), "/developers-v6/docs/aztec-js");
+    assert.strictEqual(lineDocsPath("/operate", "v6"), "/operate-v6");
+    for (const p of ["/developers-v6/overview", "/developersx", "/networks", "/participate/x", "https://example.com/developers/x"])
+      assert.strictEqual(lineDocsPath(p, "v6"), p);
   });
 });
 

@@ -8,7 +8,7 @@
 //   node scripts/aztec_node.mts [--line <line>] pin <tag>     move the pin to an aztec-node release or nightly tag (needs gh)
 //   node scripts/aztec_node.mts [--line <line>] provision <nargo|bb|cli|l1-artifacts>...   install the pinned published toolchain (l1-artifacts: a line only)
 //   node scripts/aztec_node.mts [--line <line>] env      print the pin as shell exports, for eval
-//   node scripts/aztec_node.mts lines    print the line names, one per line
+//   node scripts/aztec_node.mts lines    print the line names, one per line; none in production
 //
 // .mts because docs/package.json declares no module type: a .ts file with ESM syntax makes every run
 // print MODULE_TYPELESS_PACKAGE_JSON.
@@ -80,6 +80,9 @@ export function lineNames(o: Options): string[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter((l) => LINE.test(l) && fs.existsSync(path.join(dir, l, "aztec-node.json"))).sort();
 }
+
+/** The lines this build serves: none in production, which never reads a line. */
+export const builtLines = (o: Options): string[] => (process.env.CONTEXT === "production" ? [] : lineNames(o));
 
 export const lineOptions = (o: Options, line: string): Options => ({
   ...o,
@@ -535,8 +538,7 @@ export async function fetchPinned(o: Options, log: (s: string) => void = () => {
   fetchTree(o, pin, log);
   if (o.line) await provision(o, pin, ["l1-artifacts"], log);
   const found = problems(o, pin);
-  if (!o.line && process.env.CONTEXT !== "production")
-    for (const line of lineNames(o)) found.push(...(await fetchPinned(lineOptions(o, line), log)));
+  if (!o.line) for (const line of builtLines(o)) found.push(...(await fetchPinned(lineOptions(o, line), log)));
   return found;
 }
 
@@ -569,7 +571,7 @@ async function main(argv: string[]): Promise<number> {
   switch (cmd) {
     case "lines":
       if (o.line || args.length) break;
-      for (const line of lineNames(docs)) console.log(line);
+      for (const line of builtLines(docs)) console.log(line);
       return 0;
     case "fetch":
       return report(await fetchPinned(o, log));

@@ -1,5 +1,5 @@
 import { useActivePlugin } from "@docusaurus/plugin-content-docs/client";
-import { lineOfPlugin } from "./docsLine.mjs";
+import { lineDocsPath, lineOfPlugin } from "./docsLine.mjs";
 
 /**
  * The route base of a docs section as the current page should link it: `/<base>-<line>` on a dev
@@ -10,5 +10,5 @@ import { lineOfPlugin } from "./docsLine.mjs";
  */
 export default function useDocsBase(base) {
   const line = lineOfPlugin(useActivePlugin()?.pluginId);
-  return line ? `/${base}-${line}` : `/${base}`;
+  return line ? lineDocsPath(`/${base}`, line) : `/${base}`;
 }
