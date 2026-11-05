@@ -6,7 +6,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { apiReferenceDirs, docsInstances, networkSection, startHere } = require("../src/network_docs.js");
+const { SCOPED_API_INDEX, builtApiReferenceDirs, docsInstances, networkSection, startHere } = require("../src/network_docs.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 const { DIRECTIVE } = require("./inject_md_directive.js");
 const { npmName } = require("./typescript_api_generation/packages.js");
@@ -26,8 +26,7 @@ const [developerDocs, operatorDocs] = docsInstances(
 
 // One API reference set per docs version a network reads, read from the build, where
 // aztec_nr_api_markdown.mjs and split_typescript_api.mjs have added their pages.
-const API_DIRS = apiReferenceDirs(developerDocs)
-  .filter(({ dir }) => fs.existsSync(path.join(STATIC_DIR, dir)))
+const API_DIRS = builtApiReferenceDirs(developerDocs, STATIC_DIR)
   .map(({ kind, dir, version, networks }) => {
     const scope = `${networks.join(" and ")}, ${version}`;
     return kind === "aztec-nr"
@@ -572,7 +571,7 @@ function main() {
 
     // Write the scoped index alongside the API docs in the build output
     // (build/<apiDir.dir>/llms.txt, served at SITE_URL/<apiDir.dir>/llms.txt).
-    const scopedPath = path.join(BUILD_DIR, apiDir.dir, "llms.txt");
+    const scopedPath = path.join(BUILD_DIR, apiDir.dir, SCOPED_API_INDEX);
     try {
       fs.mkdirSync(path.dirname(scopedPath), { recursive: true });
       if (fs.existsSync(scopedPath)) {
@@ -585,7 +584,7 @@ function main() {
         `  Wrote scoped index ${path.relative(BUILD_DIR, scopedPath)}`,
       );
       apiReferenceLinks.push(
-        `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/llms.txt): ${apiDir.description}`,
+        `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/${SCOPED_API_INDEX}): ${apiDir.description}`,
       );
     } catch (err) {
       console.error(

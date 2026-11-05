@@ -10,6 +10,7 @@ import {
 
 export type { WasmModuleSource } from "./module_source.js";
 export type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
+export { isIos } from "./platform.js";
 export type { WasmFfiBackendOptions, WasmFfiBinding, WasmFfiOptions };
 export {
   MAX_THREADS,
