@@ -173,6 +173,11 @@ grep -rlE '#if\((devnet|testnet|mainnet|nightly)\)' docs/docs-developers/ docs/d
 Then set each other type's `<TAG_VAR>` in `docs_env` (2b) to the version its network
 reports in Step 1, and run Step 11b's `update_docs_versions.sh` once per type.
 
+A version both networks read serves its API reference from `mainnet/`, but Step 6 and
+`#api_ref_version` use the rendered type's folder, so a shared snapshot rendered as testnet
+fails Step 13's agent readiness check. Until that is supported, offer the owner a mainnet
+rendering only.
+
 ### Step 2: Prepare the Cut Worktree
 
 #### 2a. The Labs tag must exist
