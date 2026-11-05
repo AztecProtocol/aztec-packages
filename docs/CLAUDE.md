@@ -97,6 +97,7 @@ The preprocessing system uses these environment variables:
 | `TESTNET_TAG`  | Version for testnet builds                              | from `developer_version_config.json` |
 | `MAINNET_TAG`  | Version for mainnet builds                              | from `developer_version_config.json` |
 | `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`     | `ref` in `aztec-node.json`           |
+| `KEEP_DEVELOPER_VERSIONS` | `1` when the release leaves the developer docs' versions alone (a network-only cut, `/release-network-docs`): `#api_ref_version` then names the folder `developer_version_config.json` serves now, not the one it serves once `RELEASE_TYPE` reads the version being built | unset |
 
 ### Preprocessing Macros
 

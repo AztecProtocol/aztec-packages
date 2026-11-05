@@ -187,7 +187,8 @@ CLI_PATH=$CUT/docs/.aztec-node/cli/node_modules/.bin:$CUT/docs/.aztec-node/bin:$
 docs_env() {
   local pin; pin=\$(node "$CUT/docs/scripts/aztec_node.mts" env) || return 1
   eval "\$pin"
-  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT "\$@"
+  COMMIT_TAG=$LABS_TAG RELEASE_TYPE=<release_type> <TAG_VAR>=<new_version> <OTHER_TAG_VARS> DOCS_COMMIT=$DOCS_COMMIT \\
+    KEEP_DEVELOPER_VERSIONS=1 "\$@"
 }
 aztec_cli() {
   [ -x $CUT/docs/.aztec-node/cli/node_modules/.bin/aztec ] || { echo "no release CLI: run Step 5b" >&2; return 1; }
@@ -200,7 +201,10 @@ EOF
 
 `<TAG_VAR>` is `MAINNET_TAG` or `TESTNET_TAG`, and its value has no `v`; `<OTHER_TAG_VARS>`
 sets the other type's tag to the version its network runs, or is empty. `COMMIT_TAG`
-keeps its `v` (the preprocessor emits it as a git ref). `docs_env` checks the cut's pin
+keeps its `v` (the preprocessor emits it as a git ref). `KEEP_DEVELOPER_VERSIONS=1` is
+required: this cut leaves the developer docs' versions alone, so their API reference links
+must name the folders the build serves now. Without it the dev pages can link a folder this
+build does not serve, and agent readiness fails the build. `docs_env` checks the cut's pin
 and checkout and exports the pin's versions before running a docs command; it fails when
 they disagree. `AZTEC_NODE_DIR` keeps the cut's checkout outside the worktree, as
 `/release-docs` Step 2b explains. `LINE` names the line a line cut promotes (empty

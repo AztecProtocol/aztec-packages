@@ -128,9 +128,14 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown", r
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
-  // A testnet on mainnet's version has no folder of its own: the build serves that version's
-  // reference under mainnet/ only.
-  const apiRefVersion = networkApiFolder(developerVersionConfig, releaseType)
+  // The folder the build serves once this release type reads the version being built: a release
+  // cut freezes these links into its snapshot before it maps that version. A testnet on mainnet's
+  // version has no folder of its own. A release that leaves the developer docs alone (a network-only
+  // cut) keeps their versions, so its build links folders it serves.
+  const developerVersions = process.env.KEEP_DEVELOPER_VERSIONS === "1"
+    ? developerVersionConfig
+    : { ...developerVersionConfig, [releaseType]: `v${stripV(releaseVersion)}` };
+  const apiRefVersion = networkApiFolder(developerVersions, releaseType)
                       ?? (releaseType === "testnet" || releaseType === "mainnet" ? releaseType : "next");
 
   // Step 1: Process conditional blocks FIRST (before version substitution)
