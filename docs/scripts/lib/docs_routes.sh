@@ -6,6 +6,8 @@
 #   resolves_locally <path>      a page of the docs version production serves at that path
 #   resolves_static <path>       a file under static/, with Netlify pretty URLs
 #   resolves_generated <path>    a file every build writes: sitemap, llms files, markdown twins
+#   resolves_api_index <path>    a scoped API index the build writes (docs_routes_init_api_indexes
+#                                alone sets this one up)
 #   matches_any_redirect <path>  a netlify.toml [[redirects]] `from` pattern
 #   resolves_url_path <path>     any of the above
 #
@@ -36,15 +38,23 @@ for (const [instance, versionsFile] of [[developer, "developer_versions.json"], 
 }
 ') || { echo "ERROR: could not read the docs version map" >&2; return 1; }
 
-  # The API reference folders production builds a scoped llms.txt for: one per developer docs
-  # version a network reads (append_api_docs_to_llms.js).
-  API_FOLDERS=$(cd "$DOCS_ROOT" && node -e '
-const { aztecNrApiFolders, docsInstances } = require("./src/network_docs");
-const [developer] = docsInstances(require("./developer_version_config.json"), require("./network_version_config.json"), true);
-for (const folder of new Set(Object.values(aztecNrApiFolders(developer)))) console.log(folder);
-') || { echo "ERROR: could not read the API reference folders" >&2; return 1; }
-
+  docs_routes_init_api_indexes || return 1
   docs_routes_init_redirects
+}
+
+# The scoped API indexes the build writes (scopedApiIndexes, the list append_api_docs_to_llms.js
+# writes): one path under the site root per line.
+function docs_routes_init_api_indexes {
+  API_INDEXES=$(cd "$DOCS_ROOT" && node -e '
+const { docsInstances, scopedApiIndexes } = require("./src/network_docs");
+const [developer] = docsInstances(require("./developer_version_config.json"), require("./network_version_config.json"), true);
+for (const index of scopedApiIndexes(developer, "static")) console.log(index);
+') || { echo "ERROR: could not read the scoped API indexes" >&2; return 1; }
+}
+
+# A scoped API index the build writes, so it is never under static/ (docs_routes_init_api_indexes).
+function resolves_api_index {
+  grep -qxF -- "${1#/}" <<<"$API_INDEXES"
 }
 
 function docs_routes_init_redirects {
@@ -293,16 +303,11 @@ function is_historical_version_path {
 }
 
 function resolves_generated {
-  local p="$1" folder
+  local p="$1"
   case "$p" in
     /sitemap.xml | /llms.txt | /llms-full.txt | /index.md) return 0 ;;
   esac
-  if [[ "$p" =~ ^/(aztec-nr-api|typescript-api)/([^/]+)/llms\.txt$ ]]; then
-    folder="${BASH_REMATCH[2]}"
-    [[ -d "$DOCS_ROOT/static/${BASH_REMATCH[1]}/$folder" ]] || return 1
-    grep -qxF "$folder" <<<"$API_FOLDERS"
-    return
-  fi
+  resolves_api_index "$p" && return 0
   # The markdown twin of a docs page: <route>.md.
   [[ "$p" == *.md && "$p" != /.md ]] || return 1
   is_historical_version_path "$p" && return 1

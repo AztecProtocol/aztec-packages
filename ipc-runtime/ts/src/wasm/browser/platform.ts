@@ -1,4 +1,9 @@
-import type { WasmPlatform, WorkerHandle, WorkerSide } from "../platform.js";
+import {
+  type WasmPlatform,
+  type WorkerHandle,
+  type WorkerSide,
+  isIos,
+} from "../platform.js";
 
 /** The parent's handle on a browser `Worker`. */
 export function browserWorkerHandle(worker: Worker): WorkerHandle {
@@ -26,10 +31,7 @@ export const browserPlatform: WasmPlatform = {
       true,
   // iOS browsers kill a page well before it reaches the 4 GiB a wasm memory may declare; asking
   // for a 1 GiB maximum keeps the reservation within what they grant.
-  maximumMemoryPages: () =>
-    typeof navigator !== "undefined" && /iPad|iPhone/.test(navigator.userAgent)
-      ? 2 ** 14
-      : 2 ** 16,
+  maximumMemoryPages: () => (isIos() ? 2 ** 14 : 2 ** 16),
 };
 
 /** The worker's side of a browser `Worker` channel. */

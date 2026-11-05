@@ -7,7 +7,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { apiReferenceDirs, docsInstances } = require("../src/network_docs.js");
+const { SCOPED_API_INDEX, apiReferenceDirs, docsInstances } = require("../src/network_docs.js");
 const { fencedLines } = require("../src/markdown_fences.js");
 const { llmsSiteUrl } = require("../src/site_url.js");
 const { documentedPackages, npmName } = require("./typescript_api_generation/packages.js");
@@ -81,7 +81,7 @@ export function main(buildDir, env = process.env) {
       failed = true;
       continue;
     }
-    const index = `${llmsSiteUrl(env)}/${dir}/llms.txt`;
+    const index = `${llmsSiteUrl(env)}/${dir}/${SCOPED_API_INDEX}`;
     let packages = 0;
     let pages = 0;
     for (const { name: pkg } of documentedPackages()) {
