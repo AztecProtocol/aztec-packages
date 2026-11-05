@@ -153,3 +153,54 @@ test("a backend terminates a main worker that fails to start", async () => {
   await assert.rejects(createWasmFfiBackend({ module, createMainWorker: () => worker }), /no entry/);
   assert.equal(terminated, true);
 });
+
+/**
+ * A threads module that records whether its instance initialized the shared memory. Its start
+ * function claims a flag at address 0, as wasm-ld's `__wasm_init_memory` does to initialize a
+ * shared memory once: the first instance on the memory sets up its data and the main thread's TLS,
+ * and later instances (the module's threads) skip that. The entry returns 1 if this instance won.
+ *
+ *   (module
+ *     (import "env" "memory" (memory 4 16 shared))
+ *     (global $initialized_here (mut i32) (i32.const 0))
+ *     (global $next (mut i32) (i32.const 4096))
+ *     (func $start
+ *       (if (i32.eqz (i32.atomic.rmw.cmpxchg (i32.const 0) (i32.const 0) (i32.const 1)))
+ *         (then (global.set $initialized_here (i32.const 1)))))
+ *     (start $start)
+ *     (func $alloc (export "ipc_ffi_alloc") (param $n i32) (result i32)
+ *       (global.get $next)
+ *       (global.set $next (i32.add (global.get $next) (i32.and (i32.add (local.get $n) (i32.const 15)) (i32.const -16)))))
+ *     (func (export "ipc_ffi_free") (param i32))
+ *     (func (export "ipc_ffi_entry") (param $in i32) (param $len i32) (param $out i32) (param $out_len i32)
+ *       (local $reply i32)
+ *       (local.set $reply (call $alloc (i32.const 4)))
+ *       (i32.store (local.get $reply) (global.get $initialized_here))
+ *       (i32.store (local.get $out) (local.get $reply))
+ *       (i32.store (local.get $out_len) (i32.const 4))))
+ */
+const FIRST_INSTANCE = Buffer.from(
+  "AGFzbQEAAAABFARgAABgAX8Bf2ABfwBgBH9/f38AAhABA2VudgZtZW1vcnkCAwQQAwUEAAECAwYMAn8BQQALfwFBgCALBzADDWlwY19mZmlfYWxsb2MAAQxpcGNfZmZpX2ZyZWUAAg1pcGNfZmZpX2VudHJ5AAMIAQAKSwQUAEEAQQBBAf5IAgBFBEBBASQACwsRACMBIwEgAEEPakFwcWokAQsCAAsfAQF/QQQQASEEIAQjADYCACACIAQ2AgAgA0EENgIACw==",
+  "base64",
+);
+
+for (const worker of [false, true]) {
+  test(`the main instance ${worker ? "on a worker" : "on the calling thread"} is the one that initializes its shared memory`, async () => {
+    const backend = await createWasmFfiBackend({
+      module: new WebAssembly.Module(FIRST_INSTANCE),
+      worker,
+      threads: 2,
+      memory: { initial: 4, maximum: 16 },
+    });
+    try {
+      const reply = await backend.call(Uint8Array.of(0));
+      assert.equal(
+        new DataView(reply.buffer, reply.byteOffset).getUint32(0, true),
+        1,
+        "another instance initialized the memory first, so the main thread's TLS is never set up",
+      );
+    } finally {
+      await backend.destroy();
+    }
+  });
+}

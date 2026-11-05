@@ -284,7 +284,6 @@ function createMemory(
         }
       }
       new WebAssembly.Instance(module, stubs);
-      return memory;
     } catch (e) {
       const message = e instanceof WebAssembly.LinkError ? String(e) : "";
       if (message.includes("maximum") && max > initial) {
@@ -299,6 +298,20 @@ function createMemory(
         continue;
       }
       return memory;
+    }
+    // The dry instance ran the module's start function on this memory. On a shared memory that
+    // claims the memory's one-time initialization (wasm-ld's `__wasm_init_memory`), which sets up
+    // the main thread's TLS in that instance alone: the real main instance would be left with none,
+    // its thread-locals at address 0 and C++ exceptions uncatchable by type. Hand it a memory no
+    // instance has started on.
+    try {
+      return new WebAssembly.Memory({ initial, maximum: max, shared });
+    } catch (e) {
+      if (max > initial) {
+        max = Math.max(initial, Math.floor(max / 2));
+        continue;
+      }
+      throw e;
     }
   }
 }
