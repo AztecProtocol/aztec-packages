@@ -31,7 +31,8 @@ if [ "$cmd" = --line ]; then
   mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
   STAGE=$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/aztec-docs-$DOCS_LINE.XXXXXX")
   cp -R "$line_root/Nargo.toml" "$line_root/examples" "$REPO_ROOT/docs/.yarnrc.yml" "$STAGE/"
-  mkdir -p "$line_root/.aztec-node/l1-artifacts" "$STAGE/node_modules/@aztec-foundation"
+  # The links may dangle until pin_toolchain fetches the line.
+  mkdir -p "$STAGE/node_modules/@aztec-foundation"
   ln -s "$line_root/.aztec-node" "$STAGE/.aztec-node"
   ln -s "$line_root/.aztec-node/l1-artifacts" "$STAGE/node_modules/@aztec-foundation/l1-artifacts"
   export DOCS_ROOT=$STAGE

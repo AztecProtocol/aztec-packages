@@ -29,7 +29,7 @@ source "$SCRIPT_DIR/lib/aztec_node.sh"
 
 DOCS_DIR="${1:-docs}"
 LINE=
-[[ "$DOCS_DIR" =~ ^docs/lines/(v[0-9]+)/?$ ]] && LINE=${BASH_REMATCH[1]}
+[[ "$DOCS_DIR" =~ (^|/)docs/lines/(v[0-9]+)/?$ ]] && LINE=${BASH_REMATCH[2]}
 
 # labs/ references name aztec-node files at the pinned commit, so they are tested in its checkout;
 # the check refuses untracked files there, which would pass for deleted ones.
