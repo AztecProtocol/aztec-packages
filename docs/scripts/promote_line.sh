@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
-# Promotes a dev line (docs/lines/<line>/) into the main paths of a release cut, at the cut's Step 2
-# (release-docs, release-network-docs): it pins the line to the release tag, then replaces
-# docs-developers/, docs-operate/ and both sidebars with the line's, and docs/aztec-node.json with the
-# line's pin. Every later step reads the line's pages through the main paths. Their snippets keep
-# quoting docs/lines/<line>/, which include_code allows while both pins name one commit.
+# Promotes a dev line (docs/lines/<line>/) into a release cut's main paths, pinned to the release tag.
+# Only a cut's worktree ($CUT, from its env.sh) may run it: it rewrites main's pages. The promoted
+# pages keep quoting docs/lines/<line>/ snippets, which include_code allows while both pins name one
+# commit.
 #
 #   CUT=<cut worktree> docs/scripts/promote_line.sh <line> <tag>
-#
-# It refuses, before writing anything, unless it runs in the worktree $CUT names (the cut's env.sh),
-# docs/ is clean, and the tag has the line's major. After pinning, it refuses unless the pinned commit
-# is on aztec-node's <line> branch. A refusal after the pin restores the line's pin and leaves the main
-# paths untouched.
 set -euo pipefail
 
 fail() {
