@@ -34,7 +34,7 @@ This section describes the design pattern using the `private-fee-juice` package'
 
 Two different salt values show up in this flow; it's worth naming them up front so they don't get confused:
 
-- **Deployment salt.** Used to derive the FPC's contract address. Once a community agrees on the bytecode and this salt, everyone can derive the same address locally without an onchain deployment tx. The convention for the `private-fee-juice` `PrivateFPC` is `Fr.ZERO` (see [Recommended salt](#recommended-salt-0)).
+- **Deployment salt.** Used to derive the FPC's contract address. Once a community agrees on the bytecode and this salt, everyone can derive the same address locally without an onchain deployment tx. The canonical value for the `private-fee-juice` `PrivateFPC` is `1` (see [Recommended salt](#recommended-salt-1)).
 - **Bridge salt.** A random value the user chooses per L1 deposit. Combined with the user's Aztec address, it derives the _bridge secret_ (`secret = poseidon2([salt, claimer], DOM_SEP__FPC_BRIDGE_SECRET)`), whose hash is passed as the `secretHash` on the L1 deposit. Only the user knows the preimage, so only the user can later produce the `secret` that `FeeJuice.claim` requires to consume the L1-to-L2 message.
 
 `PrivateFPC.mint(amount, salt, leaf_index)` and `PrivateFPC.mint_and_pay_fee(amount, salt, leaf_index)` take the **bridge** salt (along with the leaf index and the user's claimer address, which is `msg_sender`) to reconstruct the Fee Juice claim nullifier and verify the bridge was consumed.
@@ -70,9 +70,9 @@ Fee payments add one extra observable: the transaction's fee payer address, set 
 
 This is the whole point of a fully private FPC. Because you don't have to deploy it on L2, there is no race to "be the deployer": the only thing that matters is that everyone agrees on the address.
 
-## Recommended salt: `0`
+## Recommended salt: `1`
 
-Two parties derive the same contract address if and only if they use the same compiled artifact and the same deployment salt. For any fully private FPC, using a common salt maximizes the shared privacy set. The community convention for the `private-fee-juice` `PrivateFPC` is `Fr.ZERO`.
+Two parties derive the same contract address if and only if they use the same compiled artifact and the same deployment salt. For any fully private FPC, using a common salt maximizes the shared privacy set. The canonical salt for the `private-fee-juice` `PrivateFPC` is `1` (`Fr.ONE`).
 
 This is a convention, not a protocol-enforced default. It is up to each developer to pass the salt when registering the contract with their PXE, just as they choose any other deployment parameter. Following the convention means your users' private fee payments join the same privacy set as every other app that follows it.
 
