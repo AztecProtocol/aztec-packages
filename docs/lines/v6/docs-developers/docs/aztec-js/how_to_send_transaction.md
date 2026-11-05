@@ -3,7 +3,7 @@ title: Sending Transactions
 sidebar_position: 4
 description: Send transactions to Aztec contracts using Aztec.js with various options and error handling
 tags: [transactions, contracts, aztec.js]
-references: ["docs/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/aztec.js/src/contract/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/aztec.js/src/contract/*"]
 ---
 
 This guide shows you how to send transactions to smart contracts on Aztec.
@@ -24,11 +24,11 @@ import { General } from '@site/src/components/Snippets/general_snippets';
 
 After connecting to a contract:
 
-#include_code connect_to_contract /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code connect_to_contract /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 Call a function and wait for it to be mined:
 
-#include_code basic_send_transaction /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code basic_send_transaction /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 The `from` field specifies which account sends the transaction. If that account has Fee Juice, it pays for the transaction automatically. For other fee payment options, see [paying fees](./how_to_pay_fees.md).
 
@@ -42,7 +42,7 @@ When using `EmbeddedWallet`, calling `send()` triggers a **simulation** step bef
 
 This means a simple `.send()` is all most apps need. You can adjust the gas padding if desired:
 
-#include_code set_gas_padding /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code set_gas_padding /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::note
 Public authwits still need to be set explicitly before the transaction, as they require a separate onchain transaction. See [Using Authentication Witnesses](./how_to_use_authwit.md) for details.
@@ -52,13 +52,13 @@ Public authwits still need to be set explicitly before the transaction, as they 
 
 Use the `NO_WAIT` option to get the transaction hash immediately without waiting for inclusion:
 
-#include_code no_wait_transaction /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code no_wait_transaction /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Send batch transactions
 
 Execute multiple calls atomically using `BatchCall`:
 
-#include_code batch_call /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code batch_call /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::warning
 All calls in a batch must succeed or the entire batch reverts. Use batch transactions when you need atomic execution of multiple operations.
@@ -68,7 +68,7 @@ All calls in a batch must succeed or the entire batch reverts. Use batch transac
 
 After sending a transaction without waiting, you can query its receipt using the node:
 
-#include_code query_tx_status /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code query_tx_status /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 `getTxReceipt` always resolves to one of three lifecycle variants of the `TxReceipt` union, depending on where the transaction is in its lifecycle:
 

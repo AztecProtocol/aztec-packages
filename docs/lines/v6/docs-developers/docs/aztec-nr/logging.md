@@ -3,7 +3,7 @@ title: Logging from Contracts
 sidebar_position: 4
 tags: [contracts, logging, debugging, aztec.nr]
 description: Add log statements to your Aztec contracts and control log verbosity in tests and local networks.
-references: ["docs/examples/contracts/logging_example/src/main.nr", "labs/noir-projects/aztec-nr/aztec/src/logging.nr"]
+references: ["docs/lines/v6/examples/contracts/logging_example/src/main.nr", "labs/noir-projects/aztec-nr/aztec/src/logging.nr"]
 ---
 
 Aztec contracts can emit log messages at seven severity levels. Private function logs appear immediately during local simulation in the Private eXecution Environment (PXE), while public function logs are collected and displayed in test mode.
@@ -17,7 +17,7 @@ Aztec contracts can emit log messages at seven severity levels. Private function
 
 Logging functions live under `aztec::oracle::logging`. Import the specific functions you need:
 
-#include_code logging_imports /docs/examples/contracts/logging_example/src/main.nr rust
+#include_code logging_imports /docs/lines/v6/examples/contracts/logging_example/src/main.nr rust
 
 Or import only what you need:
 
@@ -47,24 +47,24 @@ When you set `LOG_LEVEL=info`, you see `fatal`, `error`, `warn`, and `info` mess
 
 Here is an example using all seven levels:
 
-#include_code log_all_levels /docs/examples/contracts/logging_example/src/main.nr rust
+#include_code log_all_levels /docs/lines/v6/examples/contracts/logging_example/src/main.nr rust
 
 ## Simple log messages
 
 Each level has a function that accepts a plain string with no format arguments:
 
-#include_code log_simple /docs/examples/contracts/logging_example/src/main.nr rust
+#include_code log_simple /docs/lines/v6/examples/contracts/logging_example/src/main.nr rust
 
 ## Log messages with format arguments
 
 Each level also has a `_format` variant that accepts a format string and an array of `Field` values. Use `{0}`, `{1}`, etc. to insert individual arguments by index, or `{}` to print the entire array:
 
-#include_code log_format_patterns /docs/examples/contracts/logging_example/src/main.nr rust
+#include_code log_format_patterns /docs/lines/v6/examples/contracts/logging_example/src/main.nr rust
 
 :::note
 Format arguments must be `Field` values. Use `.to_field()` to convert addresses and other types:
 
-#include_code log_address /docs/examples/contracts/logging_example/src/main.nr rust
+#include_code log_address /docs/lines/v6/examples/contracts/logging_example/src/main.nr rust
 :::
 
 ## Viewing logs
@@ -162,7 +162,7 @@ Private and public functions handle logging differently:
 
 The logging API is the same in public functions:
 
-#include_code log_public /docs/examples/contracts/logging_example/src/main.nr rust
+#include_code log_public /docs/lines/v6/examples/contracts/logging_example/src/main.nr rust
 
 ### Accessing logs programmatically
 

@@ -3,7 +3,7 @@ title: Deploying Contracts
 tags: [contracts, deployment]
 sidebar_position: 3
 description: Deploy smart contracts to Aztec using generated TypeScript classes.
-references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts", "labs/yarn-project/aztec.js/src/contract/deploy_method.ts", "labs/yarn-project/aztec.js/src/deployment/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts", "labs/yarn-project/aztec.js/src/contract/deploy_method.ts", "labs/yarn-project/aztec.js/src/deployment/*"]
 ---
 
 This guide shows you how to deploy compiled contracts to Aztec using the generated TypeScript interfaces.
@@ -52,11 +52,11 @@ In the examples below, `wallet` refers to a `Wallet` instance that manages keys 
 
 How you deploy depends on how you pay for it. When paying using an account's fee juice (like a test account on the local network):
 
-#include_code deploy_basic_local /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code deploy_basic_local /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 On testnet, your account likely won't have Fee Juice. Instead, pay fees using the [Sponsored Fee Payment Contract method](./how_to_pay_fees.md):
 
-#include_code deploy_sponsored_fpc_contract /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code deploy_sponsored_fpc_contract /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 Here's a complete example from the test suite:
 
@@ -68,7 +68,7 @@ Here's a complete example from the test suite:
 
 By default, the deployment's salt is random, but you can specify it (for example, if you want to get a deterministic address):
 
-#include_code deploy_custom_salt /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code deploy_custom_salt /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ### Deploy universally
 
@@ -84,7 +84,7 @@ Universal deployment excludes the sender from address computation, allowing the 
 
 Deploy without running the constructor:
 
-#include_code skip_initialization /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code skip_initialization /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ### Deploy with a specific initializer
 
@@ -108,7 +108,7 @@ This is useful for contracts that support multiple initialization patterns, such
 
 ### Get address before deployment
 
-#include_code calculate_address_before_deploy /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code calculate_address_before_deploy /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::warning
 This is an advanced pattern. For most use cases, deploy the contract directly and get the address from the deployed instance.
@@ -120,13 +120,13 @@ This is an advanced pattern. For most use cases, deploy the contract directly an
 
 Use `NO_WAIT` to get the transaction hash immediately and track deployment:
 
-#include_code no_wait_deploy_imports /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code no_wait_deploy_imports /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
-#include_code no_wait_deploy /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code no_wait_deploy /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 For most use cases, simply await the deployment to get the contract directly:
 
-#include_code deploy_contract /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code deploy_contract /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 ## Deploy multiple contracts
 
@@ -140,11 +140,11 @@ Here's an example deploying a `TokenContract` with constructor arguments for adm
 
 When one contract depends on another, deploy them sequentially and pass the first contract's address:
 
-#include_code deploy_with_dependencies /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code deploy_with_dependencies /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ### Deploy contracts in parallel
 
-#include_code parallel_deploy /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code parallel_deploy /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::tip[Parallel deployment considerations]
 Parallel deployment is faster, but transactions from the same account share a nonce sequence. The wallet handles nonce assignment automatically, but if one deployment fails, subsequent deployments may also fail due to nonce gaps. For reliable parallel deployments:
@@ -200,7 +200,7 @@ If you call a public function on an unpublished contract, the transaction will f
 
 ### Verify contract is callable
 
-#include_code verify_contract_callable /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code verify_contract_callable /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Register deployed contracts
 
@@ -208,12 +208,12 @@ If you call a public function on an unpublished contract, the transaction will f
 
 If a contract was deployed by another account:
 
-#include_code register_external_contract /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code register_external_contract /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::warning
 You need the exact deployment parameters (salt, initialization hash, etc.) to correctly register an externally deployed contract. If you don't have access to the contract instance, you can reconstruct it:
 
-#include_code reconstruct_contract_instance /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code reconstruct_contract_instance /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::
 

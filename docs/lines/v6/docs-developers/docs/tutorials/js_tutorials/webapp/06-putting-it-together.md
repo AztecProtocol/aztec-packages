@@ -2,7 +2,7 @@
 title: "6. Putting It Together"
 sidebar_position: 7
 description: "Wire all components into a complete Pod Racing webapp and run it"
-references: ["docs/examples/webapp-tutorial/src/main.tsx", "docs/examples/webapp-tutorial/src/App.tsx"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/main.tsx", "docs/lines/v6/examples/webapp-tutorial/src/App.tsx"]
 ---
 
 # Putting It Together
@@ -13,7 +13,7 @@ In this final section, you wire all the components together into a working app a
 
 Open `src/main.tsx`:
 
-#include_code main /docs/examples/webapp-tutorial/src/main.tsx typescript
+#include_code main /docs/lines/v6/examples/webapp-tutorial/src/main.tsx typescript
 
 ## App component
 
@@ -25,11 +25,11 @@ Open `src/App.tsx`. The app is structured as a simple state machine with three p
 
 ### Imports
 
-#include_code app-imports /docs/examples/webapp-tutorial/src/App.tsx typescript
+#include_code app-imports /docs/lines/v6/examples/webapp-tutorial/src/App.tsx typescript
 
 ### State
 
-#include_code app-state /docs/examples/webapp-tutorial/src/App.tsx typescript
+#include_code app-state /docs/lines/v6/examples/webapp-tutorial/src/App.tsx typescript
 
 ### Event handlers
 
@@ -38,13 +38,13 @@ Each handler transitions the app to the next phase:
 - `handleWalletConnected` — receives the wallet instance from the `WalletConnect` component. For embedded wallets it reads the connected account directly; for extension wallets it fetches the account list. Then it transitions from `connect` to `lobby`.
 - `handleGameJoined` — receives the typed contract instance and game ID from the `GameLobby` component, and transitions from `lobby` to `playing`.
 
-#include_code app-handlers /docs/examples/webapp-tutorial/src/App.tsx typescript
+#include_code app-handlers /docs/lines/v6/examples/webapp-tutorial/src/App.tsx typescript
 
 ### Render
 
 The render function conditionally displays components based on the current phase. Props flow downward: `network` goes to `WalletConnect`, `wallet` and `account` go to `GameLobby`, `contract`, `gameId`, and `currentRound` go to `GameBoard`. Each child component calls back to the parent via the event handlers above when its phase is complete.
 
-#include_code app-render /docs/examples/webapp-tutorial/src/App.tsx typescript
+#include_code app-render /docs/lines/v6/examples/webapp-tutorial/src/App.tsx typescript
 
 ## Running the app
 

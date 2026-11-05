@@ -3,7 +3,7 @@ title: Data Packing and Serialization
 sidebar_position: 7
 tags: [contracts, storage, gas, optimization]
 description: Understand Serialize, Deserialize, and Packable traits, when each is used, how to write custom packing, and the cost implications.
-references: ["docs/examples/contracts/packing_example/src/types.nr"]
+references: ["docs/lines/v6/examples/contracts/packing_example/src/types.nr"]
 ---
 
 Aztec contracts use two separate encoding schemes to convert structs into `Field` arrays. This page tells you which one to reach for and when.
@@ -48,7 +48,7 @@ There are two cases.
 
 When a note's members are already `Field`-sized, deriving is enough:
 
-#include_code field_like_note /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code field_like_note /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 `Eq` is a Noir standard trait for equality comparisons (see [Noir's `Eq` trait](https://noir-lang.org/docs/language/traits)). `#[note]` does not require it, but deriving it is idiomatic because it enables `assert_eq` in tests and note-equality checks. `Serialize` and `Deserialize` are similarly optional here, and useful when a note type crosses a function boundary.
 
@@ -56,7 +56,7 @@ This is how the built-in note types work too: [`AddressNote`](pathname:///aztec-
 
 When a note has members smaller than a `Field` (`bool`, `u8`, `u32`, `u64`), you can skip the `Packable` derive and write a custom implementation that packs multiple values into a single `Field`:
 
-#include_code card_note /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code card_note /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 Derived `Packable` would give `CardNote` an `N = 2`; the custom impl halves that to `N = 1`. Smaller `N` means fewer inputs to the note hash, which directly reduces the gate count of private functions.
 
@@ -72,7 +72,7 @@ Primitive types (`bool`, `u8` through `u128`, `Field`, `AztecAddress`) already i
 
 When all members are already `Field`-sized (`Field`, `AztecAddress`, and types built from them), deriving is sufficient:
 
-#include_code derived_packable /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code derived_packable /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 For [`PublicMutable<T>`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicMutable), each element of the packed `[Field; N]` array maps directly to one `SLOAD` on read and one `SSTORE` on write, so a smaller `N` is a direct gas saving. [`PublicImmutable<T>`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicImmutable) and [`DelayedPublicMutable<T>`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.DelayedPublicMutable) have additional overhead on top (see [Cost impact](#cost-impact) below), but also benefit from a smaller `N`.
 
@@ -94,7 +94,7 @@ struct GameState {
 }
 ```
 
-#include_code game_state_manual_packable /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code game_state_manual_packable /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 `N = 1` means every storage read or write uses one `SLOAD` / `SSTORE` instead of three. The rest of this section walks through how the implementation was built.
 
@@ -125,7 +125,7 @@ This prime is ~253.58 bits (slightly less than 2^254), so not every 254-bit valu
 
 `2.pow_32(k)` computes `2^k`, which is equivalent to a left shift by `k` bits for integer-valued `Field`s. Add the shifted values together to concatenate them inside a single `Field`:
 
-#include_code game_state_pack /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code game_state_pack /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 The bit layout you choose is arbitrary; the only requirement is that `pack` and `unpack` agree. The example above places `score` (a `u32`) at the lowest bits because a truncating cast (`packed[0] as u32`) then extracts it for free, with no subtraction or division. When you have a member whose width matches a standard `uN` type, putting it in the lowest position makes `unpack` cleaner. The remaining members can be placed in any order above it.
 
@@ -133,25 +133,25 @@ The bit layout you choose is arbitrary; the only requirement is that `pack` and 
 
 Extract values from lowest bits first, to match how we packed them, subtracting each extracted value before extracting the next:
 
-#include_code game_state_unpack /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code game_state_unpack /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 ### Step 4: Write roundtrip tests
 
 Always test that `unpack(pack(x)) == x` for boundary values:
 
-#include_code game_state_tests /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code game_state_tests /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 ## More custom Packable examples
 
 ### Packing two u32 values into one Field
 
-#include_code card_custom_packable /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code card_custom_packable /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 With derived `Packable`, `Card` would have `N = 2`. The manual implementation achieves `N = 1`, halving the storage cost.
 
 ### Packing mixed-width integers
 
-#include_code mixed_width_packable /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code mixed_width_packable /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 A `u128` and a `u64` pack into a single `Field` (128 + 64 = 192 bits, well within the 253-bit safe limit), while the `AztecAddress` occupies a full `Field` on its own. This reduces `N` from 3 to 2.
 
@@ -159,7 +159,7 @@ A `u128` and a `u64` pack into a single `Field` (128 + 64 = 192 bits, well withi
 
 Always test custom `Packable` implementations at boundary values:
 
-#include_code pack_unpack_tests /docs/examples/contracts/packing_example/src/types.nr rust
+#include_code pack_unpack_tests /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
 
 ## Cost impact
 

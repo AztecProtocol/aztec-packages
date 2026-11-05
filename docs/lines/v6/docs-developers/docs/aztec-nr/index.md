@@ -3,7 +3,7 @@ title: Overview
 sidebar_position: 0
 tags: [aztec.nr, smart contracts]
 description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
-references: ["docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import DocCardList from "@theme/DocCardList";
@@ -52,11 +52,11 @@ aztec = { git="https://github.com/aztec-labs-eng/aztec-nr/", tag="#include_aztec
 
 Update your `my_project_contract/src/main.nr` contract file to use the Aztec.nr macros for writing contracts.
 
-#include_code setup /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code setup /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 and import dependencies from the Aztec.nr library.
 
-#include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code imports /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 :::info
 

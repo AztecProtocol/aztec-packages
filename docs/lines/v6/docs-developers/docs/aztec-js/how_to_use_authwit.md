@@ -3,7 +3,7 @@ title: Using Authentication Witnesses
 tags: [accounts, authwit]
 sidebar_position: 6
 description: Step-by-step guide to implementing authentication witnesses in Aztec.js for delegated transactions.
-references: ["docs/examples/ts/aztecjs_authwit/index.ts", "labs/yarn-project/aztec.js/src/utils/authwit.ts", "labs/yarn-project/aztec.js/src/wallet/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_authwit/index.ts", "labs/yarn-project/aztec.js/src/utils/authwit.ts", "labs/yarn-project/aztec.js/src/wallet/*"]
 ---
 
 This guide shows you how to create and use authentication witnesses (authwits) to authorize other accounts to perform actions on your behalf.
@@ -50,7 +50,7 @@ Private authwits authorize actions in the private domain. The authorization is i
 
 Let's say Alice wants to allow Bob to transfer tokens from her account. Alice is the **authorizer** (she owns the tokens) and Bob is the **caller** (he will execute the transfer):
 
-#include_code private_authwit /docs/examples/ts/aztecjs_authwit/index.ts typescript
+#include_code private_authwit /docs/lines/v6/examples/ts/aztecjs_authwit/index.ts typescript
 
 :::tip
 The nonce prevents replay attacks. When `from` and `msg_sender` are the same (self-transfer), set the nonce to `0`.
@@ -60,13 +60,13 @@ The nonce prevents replay attacks. When `from` and `msg_sender` are the same (se
 
 Public authwits require a transaction to store the authorization in the `AuthRegistry` contract before the authorized action can be executed:
 
-#include_code public_authwit /docs/examples/ts/aztecjs_authwit/index.ts typescript
+#include_code public_authwit /docs/lines/v6/examples/ts/aztecjs_authwit/index.ts typescript
 
 ## Create arbitrary message authwits
 
 Use this when authorizing arbitrary data rather than a specific contract function call:
 
-#include_code arbitrary_authwit /docs/examples/ts/aztecjs_authwit/index.ts typescript
+#include_code arbitrary_authwit /docs/lines/v6/examples/ts/aztecjs_authwit/index.ts typescript
 
 The `consumer` is the contract address that will verify this authwit.
 
@@ -74,7 +74,7 @@ The `consumer` is the contract address that will verify this authwit.
 
 Public authwits can be revoked by setting `authorized` to `false`:
 
-#include_code revoke_authwit /docs/examples/ts/aztecjs_authwit/index.ts typescript
+#include_code revoke_authwit /docs/lines/v6/examples/ts/aztecjs_authwit/index.ts typescript
 
 ## Next steps
 

@@ -3,7 +3,7 @@ title: Testing Smart Contracts
 tags: [contracts, tests]
 sidebar_position: 8
 description: Learn how to write and run tests for your Aztec smart contracts using Aztec.js and a local network.
-references: ["docs/examples/ts/aztecjs_testing/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_testing/index.ts", "docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
 ---
 
 This guide covers how to test Aztec smart contracts by connecting to a local network, deploying contracts, and verifying their behavior.
@@ -18,7 +18,7 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 
 Connect to your local Aztec network and create an embedded wallet:
 
-#include_code connect_to_network /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code connect_to_network /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
 
@@ -26,19 +26,19 @@ The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles tr
 
 The local network comes with pre-funded accounts. Load them into your wallet:
 
-#include_code load_test_accounts /docs/examples/ts/aztecjs_testing/index.ts typescript
+#include_code load_test_accounts /docs/lines/v6/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Deploying contracts in tests
 
 Deploy contracts using the generated contract class:
 
-#include_code deploy_test_contract /docs/examples/ts/aztecjs_testing/index.ts typescript
+#include_code deploy_test_contract /docs/lines/v6/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Verifying contract state
 
 Use `.simulate()` to read contract state without creating a transaction:
 
-#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code simulate_function /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 Simulations are free (no gas cost) and return the function's result directly. Use them for:
 
@@ -50,7 +50,7 @@ Simulations are free (no gas cost) and return the function's result directly. Us
 
 Send transactions and wait for confirmation:
 
-#include_code send_transaction /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code send_transaction /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 The `send()` method returns when the transaction is included in a block.
 
@@ -58,13 +58,13 @@ The `send()` method returns when the transaction is included in a block.
 
 Here's a complete test example showing the typical structure with setup, test cases, and assertions:
 
-#include_code complete_test_example /docs/examples/ts/aztecjs_testing/index.ts typescript
+#include_code complete_test_example /docs/lines/v6/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Testing failure cases
 
 Test that invalid operations revert as expected:
 
-#include_code test_revert_case /docs/examples/ts/aztecjs_testing/index.ts typescript
+#include_code test_revert_case /docs/lines/v6/examples/ts/aztecjs_testing/index.ts typescript
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
 

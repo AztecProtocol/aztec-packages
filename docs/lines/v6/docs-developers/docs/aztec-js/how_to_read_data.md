@@ -3,7 +3,7 @@ title: Reading Contract Data
 tags: [functions, simulation, events, logs]
 sidebar_position: 5
 description: How to read data from contracts including simulating functions, reading logs, and retrieving events.
-references: ["docs/examples/ts/aztecjs_connection/index.ts", "docs/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts", "labs/yarn-project/aztec.js/src/contract/contract_function_interaction.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts", "labs/yarn-project/aztec.js/src/contract/contract_function_interaction.ts"]
 ---
 
 This guide shows you how to read data from Aztec contracts in TypeScript, including simulating function calls, reading raw logs, and retrieving typed events.
@@ -19,7 +19,7 @@ import { General } from '@site/src/components/Snippets/general_snippets';
 
 The `simulate` method executes a contract function locally and returns its result. It works with private, public, and utility functions. No transaction is created and no gas is spent.
 
-#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code simulate_function /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 The `from` option specifies which account context to use for the simulation. This is required for all simulations. For private functions, it determines which account's private state is accessed. For public functions, it sets the `msg_sender` context.
 
@@ -38,7 +38,7 @@ const { result: [value1, value2] } = await contract.methods
 
 Set `includeMetadata: true` to get additional information about the simulation:
 
-#include_code simulate_with_metadata /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code simulate_with_metadata /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `gasUsed` (the raw gas the simulation consumed, with `totalGas` and `teardownGas`). Derive your own gas limits from `gasUsed` if you want to declare them explicitly; otherwise the wallet fills in the network's per-tx admission limits.
 
@@ -46,7 +46,7 @@ The result includes `result` (the function return value), `stats` (execution sta
 
 When simulating private functions, the caller must have access to any private state being read. The PXE only has visibility into notes belonging to registered accounts.
 
-#include_code simulate_private_access /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code simulate_private_access /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 If the caller doesn't have access to another address's notes, the simulation will fail with an error.
 
@@ -75,11 +75,11 @@ Contracts emit data in two forms you can read:
 
 Raw public logs are carried on each block's transaction effects. Fetch a block with `includeTransactions: true` and read `body.txEffects[*].publicLogs`:
 
-#include_code read_public_logs /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code read_public_logs /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 You can scope this to a single transaction (by locating its block and matching its tx hash) or to a block range (by reading each block's tx effects):
 
-#include_code read_logs_by_filter /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code read_logs_by_filter /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Reading events
 
@@ -89,7 +89,7 @@ Events provide typed access to contract emissions. The event metadata from your 
 
 Use the `getPublicEvents` helper to retrieve typed public events:
 
-#include_code import_get_public_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code import_get_public_events /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 #include_code get_public_events labs/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts typescript
 
@@ -109,7 +109,7 @@ Each returned event includes both the decoded `event` data and `metadata` (block
 
 Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivateEvents()` to retrieve them:
 
-#include_code import_private_event_types /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code import_private_event_types /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.
 
@@ -134,7 +134,7 @@ collectedEvents.forEach((ev) => {
 
 To continuously monitor for new events, poll at regular intervals while tracking the last processed block:
 
-#include_code poll_for_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code poll_for_events /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 For private events, use the same pattern with `wallet.getPrivateEvents()` and update the `fromBlock` in your filter accordingly.
 

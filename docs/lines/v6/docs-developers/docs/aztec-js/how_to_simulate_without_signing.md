@@ -3,7 +3,7 @@ title: Simulate without signing prompts
 tags: [simulation, authwit, wallet]
 sidebar_position: 6
 description: How to call .simulate() on a view function or estimate gas without prompting the user to sign authentication witnesses.
-references: ["docs/examples/ts/aztecjs_kernelless_simulation/index.ts", "labs/yarn-project/aztec.js/src/contract/interaction_options.ts", "labs/yarn-project/aztec.js/src/authorization/call_authorization_request.ts", "labs/yarn-project/wallets/src/embedded/embedded_wallet.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts", "labs/yarn-project/aztec.js/src/contract/interaction_options.ts", "labs/yarn-project/aztec.js/src/authorization/call_authorization_request.ts", "labs/yarn-project/wallets/src/embedded/embedded_wallet.ts"]
 ---
 
 You want to call `.simulate()` from an app and not have the user's wallet pop up a signing prompt. This page covers the symptoms that lead to that prompt, why the obvious workarounds do not work, and the right fix.
@@ -44,7 +44,7 @@ For a normal `.simulate()` you do not need to pass overrides yourself. The defau
 - For a transaction whose real fee path uses a fee payment contract (FPC) with private side effects (the FPC emits notes during fee payment), include that FPC in the simulation's fee options so gas estimation accounts for the FPC's side effects. Kernelless still applies; the gas number stays accurate.
 - If you have a stale call site that uses `from: AztecAddress.ZERO` plus a no-op fee payment method as a workaround, replace it with a real `from` (or `NO_FROM`) and drop the no-op fee contract.
 
-#include_code simulate-view-without-signing /docs/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
+#include_code simulate-view-without-signing /docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
 
 If you genuinely need to construct your own `SimulationOverrides` (for example, to combine a contract-instance swap with a `fastForwardContractUpdate` for upgrade testing), you can pass them through `.simulate()`:
 
@@ -85,15 +85,15 @@ The example below uses the canonical contract-mediated pattern: Alice calls `Cro
 
 Run the simulation and filter the offchain effects by the `CallAuthorizationRequest` selector:
 
-#include_code simulate-and-collect-effects /docs/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
+#include_code simulate-and-collect-effects /docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
 
 Decode each effect into a `CallAuthorizationRequest`. The `innerHash` field is the piece the authorizing account needs to sign:
 
-#include_code decode-call-authorization /docs/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
+#include_code decode-call-authorization /docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
 
 Build a real authentication witness from each inner hash and send the transaction with the collected witnesses attached:
 
-#include_code build-authwits-and-send /docs/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
+#include_code build-authwits-and-send /docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
 
 The app does not need to know which calls require authwits ahead of time. The simulation discovers them; the wallet signs them at send time.
 

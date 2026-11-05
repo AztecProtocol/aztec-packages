@@ -2,7 +2,7 @@
 title: "4. Contract Interaction & Gameplay"
 sidebar_position: 4
 description: "Deploy and call the Pod Racing contract from the webapp, handle game lobby and private gameplay"
-references: ["docs/examples/webapp-tutorial/src/components/GameLobby.tsx", "docs/examples/webapp-tutorial/src/components/GameBoard.tsx", "docs/examples/webapp-tutorial/src/components/GameStatus.tsx"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/components/GameLobby.tsx", "docs/lines/v6/examples/webapp-tutorial/src/components/GameBoard.tsx", "docs/lines/v6/examples/webapp-tutorial/src/components/GameStatus.tsx"]
 ---
 
 # Contract Interaction & Gameplay
@@ -39,17 +39,17 @@ The lobby handles two-player coordination. Player 1 deploys a new contract and c
 
 Open `src/components/GameLobby.tsx`:
 
-#include_code game-lobby-imports /docs/examples/webapp-tutorial/src/components/GameLobby.tsx typescript
+#include_code game-lobby-imports /docs/lines/v6/examples/webapp-tutorial/src/components/GameLobby.tsx typescript
 
 ### Creating a game
 
-#include_code handle-create /docs/examples/webapp-tutorial/src/components/GameLobby.tsx typescript
+#include_code handle-create /docs/lines/v6/examples/webapp-tutorial/src/components/GameLobby.tsx typescript
 
 This deploys a fresh contract and creates a game in a single flow. The contract address is displayed so the creator can copy and share it with an opponent.
 
 ### Joining a game
 
-#include_code handle-join /docs/examples/webapp-tutorial/src/components/GameLobby.tsx typescript
+#include_code handle-join /docs/lines/v6/examples/webapp-tutorial/src/components/GameLobby.tsx typescript
 
 The opponent pastes the contract address and game ID to join. Under the hood, this calls `attachToContract` to register the contract with the joiner's PXE, then sends a `join_game` transaction.
 
@@ -59,7 +59,7 @@ Open [`src/components/GameBoard.tsx`](https://github.com/aztec-labs-eng/aztec-no
 
 ### Submitting a round (private transaction)
 
-#include_code submit-round /docs/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
+#include_code submit-round /docs/lines/v6/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
 
 When the `playRound` helper sends the transaction (via `.send()`), the following happens under the hood:
 1. PXE executes the private function locally, creating a `GameRoundNote`
@@ -71,7 +71,7 @@ When the `playRound` helper sends the transaction (via `.send()`), the following
 
 After all 3 rounds, the game has two more phases:
 
-#include_code finish-and-finalize /docs/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
+#include_code finish-and-finalize /docs/lines/v6/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
 
 - **`finish_game`**: A private function that reads all your `GameRoundNote`s, sums up totals per track, and publishes the aggregated scores. This is the "reveal" — your per-round choices stay hidden, but your final totals become public.
 - **`finalize_game`**: A public function that compares both players' totals track by track and declares the winner (best of 5 tracks). Can only be called after the game's block deadline.
@@ -82,7 +82,7 @@ Why two separate phases? Both players must call `finish_game` before anyone can 
 
 Open `src/components/GameStatus.tsx`:
 
-#include_code game-status-component /docs/examples/webapp-tutorial/src/components/GameStatus.tsx typescript
+#include_code game-status-component /docs/lines/v6/examples/webapp-tutorial/src/components/GameStatus.tsx typescript
 
 ## Why opponents can't see your allocations
 

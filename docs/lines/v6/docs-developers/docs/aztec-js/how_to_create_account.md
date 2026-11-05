@@ -3,7 +3,7 @@ title: Creating Accounts
 tags: [accounts]
 sidebar_position: 2
 description: Step-by-step guide to creating and deploying new user accounts in Aztec.js applications.
-references: ["docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/accounts/src/schnorr/*", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/accounts/src/schnorr/*", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts"]
 ---
 
 This guide shows you how to create and deploy a new account on Aztec.
@@ -23,7 +23,7 @@ yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/wallet
 
 Using the [`wallet` from the connection guide](./how_to_connect_to_local_network.md), call `createSchnorrAccount` to create a new account with a random secret, salt, and signing key:
 
-#include_code create_account /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code create_account /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 The secret derives the account's encryption keys, the signing key authenticates its transactions, and the salt ensures address uniqueness. The signing key is provided independently and is not derived from the secret: it is an ownership key, so keep it separate from the encryption secret that your PXE holds.
 
@@ -39,7 +39,7 @@ New accounts must be deployed before they can send transactions. Deployment requ
 
 If your account doesn't have Fee Juice, use the [Sponsored FPC](./how_to_pay_fees.md#sponsored-fpc):
 
-#include_code deploy_account_sponsored_fpc /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code deploy_account_sponsored_fpc /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 :::info
 See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
@@ -51,11 +51,11 @@ If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridg
 
 Create a new Schnorr account for this path:
 
-#include_code create_fee_juice_account /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code create_fee_juice_account /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 Claim the bridged Fee Juice and deploy in one step:
 
-#include_code bridge_fee_juice_claim /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code bridge_fee_juice_claim /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 If the account already has Fee Juice on L2 (for example, from a faucet or a previously claimed bridge), no special payment method is needed — just call `send({ from: NO_FROM })` and Fee Juice is used automatically.
 
@@ -65,7 +65,7 @@ The `from: NO_FROM` signals that this transaction should be executed without acc
 
 Confirm the account was deployed successfully. Substitute the account variable for whichever path you used above (`newAccount` for the Sponsored FPC path, `feeJuiceAccount` for the Fee Juice path):
 
-#include_code verify_account_deployment /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code verify_account_deployment /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 ## Next steps
 

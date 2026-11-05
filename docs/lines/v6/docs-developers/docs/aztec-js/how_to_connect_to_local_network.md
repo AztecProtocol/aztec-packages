@@ -3,7 +3,7 @@ title: Connect to Local Network
 tags: [local_network, connection, wallet]
 sidebar_position: 1
 description: Connect your application to the Aztec local network and interact with accounts.
-references: ["docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
 ---
 
 This guide shows you how to connect your application to the Aztec local network and interact with the network.
@@ -24,7 +24,7 @@ yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accoun
 
 Create a node client and EmbeddedWallet to interact with the local network:
 
-#include_code connect_to_network /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code connect_to_network /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 :::note About EmbeddedWallet
 `EmbeddedWallet` is a simplified wallet for local development that implements the same `Wallet` interface used in production. It handles key management, transaction signing, and proof generation in-process without external dependencies.
@@ -38,13 +38,13 @@ Create a node client and EmbeddedWallet to interact with the local network:
 
 Get node information to confirm your connection:
 
-#include_code verify_connection /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code verify_connection /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 ### Load pre-funded accounts
 
 The local network has accounts pre-funded with fee juice to pay for gas. Register them in your wallet:
 
-#include_code load_accounts /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code load_accounts /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 These accounts are pre-funded with fee juice (the native gas token) at genesis, so you can immediately send transactions without needing to bridge funds from L1.
 
@@ -52,7 +52,7 @@ These accounts are pre-funded with fee juice (the native gas token) at genesis, 
 
 Verify that an account has fee juice for transactions:
 
-#include_code check_fee_juice /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code check_fee_juice /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 ## Next steps
 

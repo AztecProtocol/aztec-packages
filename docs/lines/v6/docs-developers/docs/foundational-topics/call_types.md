@@ -210,7 +210,7 @@ There are two main ways to execute an Aztec contract function using the `aztec.j
 
 This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
-#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code simulate_function docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 :::warning
 No correctness is guaranteed on the result of `simulate`! Correct execution is entirely optional and left up to the client that handles this request.

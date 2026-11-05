@@ -2,7 +2,7 @@
 title: Counter contract
 description: Code-along tutorial for creating a simple counter contract on Aztec.
 sidebar_position: 0
-references: ["docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -56,7 +56,7 @@ balance_set = { git="https://github.com/aztec-labs-eng/aztec-nr/", tag="#include
 Go to `counter_contract/src/main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
-#include_code setup /docs/examples/contracts/counter_contract/src/main.nr raw
+#include_code setup /docs/lines/v6/examples/contracts/counter_contract/src/main.nr raw
 }
 ```
 
@@ -82,7 +82,7 @@ pub contract Counter {
 }
 ```
 
-#include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code imports /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 - `macros::{functions::{external, initializer}, storage::storage}`
   Imports the macros needed to define function types (`external`, `initializer`) and the `storage` macro for declaring contract storage structures.
@@ -106,7 +106,7 @@ pub contract Counter {
 
 Add this below the imports. It declares the storage variables for our contract. We use an `Owned` state variable wrapping a `BalanceSet` to manage private balances for each owner.
 
-#include_code storage_struct /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code storage_struct /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 ## Keep the counter private
 
@@ -114,7 +114,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. We name it `constructor` here, but the name is arbitrary; it is the `#[initializer]` decorator that marks it to run once when the contract is deployed. Write this:
 
-#include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code constructor /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 This function accesses the counters from storage. It adds the `initial_value` to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery::onchain_constrained())` to ensure the note is delivered onchain.
 
@@ -124,7 +124,7 @@ We have annotated this and other functions with `#[external("private")]` which a
 
 Now let's implement an `increment` function to increase the counter.
 
-#include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code increment /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 The `increment` function works similarly to the `constructor`. It logs a debug message, then adds 1 to the `owner`'s counter and delivers the note onchain.
 
@@ -132,7 +132,7 @@ The `increment` function works similarly to the `constructor`. It logs a debug m
 
 The last thing we need to implement is a function to retrieve a counter value.
 
-#include_code get_counter /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code get_counter /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 This is a `utility` function used to obtain the counter value outside of a transaction. We access the `owner`'s balance from the `counters` storage variable using `at(owner)`, then call `balance_of()` to retrieve the current count. This yields a private counter that only the owner can decrypt.
 

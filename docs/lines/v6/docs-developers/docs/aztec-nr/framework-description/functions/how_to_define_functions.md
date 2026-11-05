@@ -3,7 +3,7 @@ title: How to Define Functions
 sidebar_position: 1
 tags: [functions, smart-contracts]
 description: Define different types of functions in your Aztec contracts for private, public, and utility execution.
-references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr", "docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 ## Overview
@@ -33,7 +33,7 @@ This guide shows you how to define different types of functions in your Aztec co
 
 Use `#[external("private")]` to create functions that execute privately on user devices. For example:
 
-#include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code increment /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../state_variables.md#delayedpublicmutable).
 
@@ -41,7 +41,7 @@ Private functions run in a private context, can access private state, and can re
 
 Use `#[external("public")]` to create functions that execute on the sequencer:
 
-#include_code mint_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code mint_public /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 Public functions operate on public state, similar to EVM contracts. They can write to private storage, but any data written from a public function is publicly visible.
 
@@ -51,7 +51,7 @@ Create offchain query functions using the `#[external("utility")]` annotation wi
 
 Utility functions are unconstrained functions that applications call to perform auxiliary tasks, like querying contract state or processing offchain messages. Their execution is never proven, so no guarantees are made on the correctness of their results. They can also be called from other utility functions and from private functions. See [utility calls](../calling_contracts.md#utility-calls). Public functions cannot call them. Example:
 
-#include_code get_counter /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code get_counter /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 Use `aztec.js` `simulate` to execute utility functions and read their return values. For details, see [Call Types](../../../foundational-topics/call_types.md#simulate).
 
@@ -74,7 +74,7 @@ View functions cannot modify contract state. They're akin to Ethereum's `view` f
 
 Create contract-only functions using the `#[only_self]` annotation:
 
-#include_code _assert_is_owner /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code _assert_is_owner /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 Only-self functions are only callable by the same contract, which is useful when a private function enqueues a public call that should only be callable internally.
 
@@ -82,7 +82,7 @@ Only-self functions are only callable by the same contract, which is useful when
 
 Create constructor-like functions using the `#[initializer]` annotation:
 
-#include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
+#include_code constructor /docs/lines/v6/examples/contracts/counter_contract/src/main.nr rust
 
 ### Use multiple initializers
 

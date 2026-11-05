@@ -2,7 +2,7 @@
 title: "3. Network & Wallet"
 sidebar_position: 3
 description: "Connect to Aztec using an embedded wallet for local dev or the wallet SDK for browser extensions"
-references: ["docs/examples/webapp-tutorial/src/config.ts", "docs/examples/webapp-tutorial/src/embedded-wallet.ts", "docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/fees.ts", "docs/examples/webapp-tutorial/src/components/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/config.ts", "docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts", "docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts", "docs/lines/v6/examples/webapp-tutorial/src/fees.ts", "docs/lines/v6/examples/webapp-tutorial/src/components/*"]
 ---
 
 # Network & Wallet
@@ -25,7 +25,7 @@ The relationship is straightforward: PXE handles everything private (notes, keys
 
 Open `src/config.ts`. This determines which Aztec node to connect to and provides a helper for creating an in-browser PXE:
 
-#include_code config /docs/examples/webapp-tutorial/src/config.ts typescript
+#include_code config /docs/lines/v6/examples/webapp-tutorial/src/config.ts typescript
 
 `createLocalPXE` sets up PXE in three steps:
 
@@ -50,11 +50,11 @@ Open `src/embedded-wallet.ts`:
 
 ### Imports
 
-#include_code embedded-wallet-imports /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
+#include_code embedded-wallet-imports /docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
 ### Initialization
 
-#include_code initialize /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
+#include_code initialize /docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
 The `initialize` factory calls the inherited `create()` method, which sets up an in-browser PXE and account storage. It then registers the SponsoredFPC contract with PXE so that fee payment works out of the box.
 
@@ -62,7 +62,7 @@ The `initialize` factory calls the inherited `create()` method, which sets up an
 
 The local network ships with test accounts that are funded at genesis. They are initializerless Schnorr accounts, so you can use them immediately without deploying an account contract. The inherited `createSchnorrInitializerlessAccount` registers the account with PXE and persists it in the wallet database. You select one by index (0, 1, 2, etc.).
 
-#include_code connect-test-account /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
+#include_code connect-test-account /docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
 ### Fee payment
 
@@ -72,13 +72,13 @@ Every Aztec transaction must pay a fee (similar to gas on Ethereum). Rather than
 SponsoredFPC only works on the local network. Production Aztec networks deployed to Ethereum mainnet require an alternative fee payment strategy.
 :::
 
-#include_code fee-options /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
+#include_code fee-options /docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
 ### Full class
 
 The complete `EmbeddedWallet` — most of the heavy lifting (simulation, proving, gas estimation) is inherited from the official wallet:
 
-#include_code embedded-wallet-class /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
+#include_code embedded-wallet-class /docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
 ## Wallet SDK (browser extension)
 
@@ -126,7 +126,7 @@ Your app needs to find which wallet extensions the user has installed. The SDK d
 
 The `discoverWallets` function starts this process and calls your `onUpdate` callback each time a new wallet extension responds. You use the resulting list to show users a "pick your wallet" UI.
 
-#include_code discover-wallets /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code discover-wallets /docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 ### Step 2: Connect and verify
 
@@ -138,7 +138,7 @@ To guard against man-in-the-middle attacks (where a malicious script intercepts 
 
 After the user confirms the emojis match, calling `confirm()` completes the handshake and returns a `Wallet` instance connected to the extension.
 
-#include_code connect-wallet /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code connect-wallet /docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 ## Fee payment helpers
 
@@ -146,11 +146,11 @@ Both wallet modes need access to the SponsoredFPC contract. **SponsoredFPC** (Fe
 
 Open `src/fees.ts`:
 
-#include_code get-sponsored-fpc /docs/examples/webapp-tutorial/src/fees.ts typescript
+#include_code get-sponsored-fpc /docs/lines/v6/examples/webapp-tutorial/src/fees.ts typescript
 
 PXE needs the SponsoredFPC artifact registered so it can include fee payment logic when constructing transaction proofs. Without this registration, PXE wouldn't know how to interact with the fee contract:
 
-#include_code register-fpc /docs/examples/webapp-tutorial/src/fees.ts typescript
+#include_code register-fpc /docs/lines/v6/examples/webapp-tutorial/src/fees.ts typescript
 
 ## Components
 
@@ -160,7 +160,7 @@ With the wallet logic in place, three UI components wire it together.
 
 Lets the user choose between "Local" (embedded wallet) and "Browser Wallet" (wallet extension). Calls `onNetworkChange` with the selected `NetworkType`, which determines which wallet mode the app uses.
 
-#include_code network-picker /docs/examples/webapp-tutorial/src/components/NetworkPicker.tsx typescript
+#include_code network-picker /docs/lines/v6/examples/webapp-tutorial/src/components/NetworkPicker.tsx typescript
 
 ### Wallet connect (`src/components/WalletConnect.tsx`)
 
@@ -168,15 +168,15 @@ Handles both wallet modes in a single component. For local networks it shows the
 
 Open `src/components/WalletConnect.tsx`:
 
-#include_code wallet-connect-imports /docs/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
+#include_code wallet-connect-imports /docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
 
-#include_code wallet-connect-component /docs/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
+#include_code wallet-connect-component /docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
 
 ### Account info (`src/components/AccountInfo.tsx`)
 
 Displays the connected account's address. Takes the wallet as a prop.
 
-#include_code account-info /docs/examples/webapp-tutorial/src/components/AccountInfo.tsx typescript
+#include_code account-info /docs/lines/v6/examples/webapp-tutorial/src/components/AccountInfo.tsx typescript
 
 ## Next steps
 

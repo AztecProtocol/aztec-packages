@@ -2,7 +2,7 @@
 title: "3. PXE Integration"
 description: Running the Private eXecution Environment in a browser extension and extending BaseWallet
 sidebar_position: 3
-references: ["docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # PXE Integration
@@ -24,7 +24,7 @@ The PXE is stateful and long-running, which is why the extension uses an offscre
 
 The offscreen document initializes PXE lazily on first use with deduplication to prevent multiple initializations:
 
-#include_code pxe-instance docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code pxe-instance docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 Key configuration:
 - `rollupAddress` - The L1 rollup contract address, read from the node, that identifies the rollup instance the PXE tracks
@@ -42,7 +42,7 @@ The extension has two wallet-related classes with distinct responsibilities:
 
 The `OffscreenWallet` extends `BaseWallet` from the wallet SDK:
 
-#include_code wallet-instance docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code wallet-instance docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 By extending `BaseWallet`, you inherit:
 - `sendTx()` - Transaction submission with proof generation
@@ -62,7 +62,7 @@ You implement:
 
 The key override is `completeFeeOptions()`, which lazily registers the SponsoredFPC contract on first use:
 
-#include_code complete-fee-options docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code complete-fee-options docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 This ensures that by default:
 1. If the payload already has a `feePayer` (e.g., during account deployment), the wallet respects it
@@ -77,7 +77,7 @@ The `SponsoredFeePaymentMethod` creates an execution payload that:
 
 The offscreen document receives messages from the background via a persistent port. When the background connects with `chrome.runtime.connect({ name: 'offscreen' })`, the offscreen stores the port and listens for messages. Each message includes a `messageId` for request/response correlation:
 
-#include_code message-handler docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code message-handler docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 Each message type maps to a handler:
 - `INIT_PXE` - Ensures PXE is ready
@@ -93,7 +93,7 @@ Each message type maps to a handler:
 
 For wallet methods from dApps, the handler dispatches based on method name. The handler uses `WalletSchema` to parse incoming JSON arguments back into proper Aztec types (`AztecAddress`, `Fr`, `ExecutionPayload`, etc.), and `jsonStringify` to serialize results before returning through Chrome messaging:
 
-#include_code wallet-method-handler docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code wallet-method-handler docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 This generic dispatch means any method on the `BaseWallet` interface (e.g., `getAccounts`, `sendTx`, `simulateTx`, `createAuthWit`, `getChainInfo`) is automatically available to dApps through the wallet SDK protocol.
 

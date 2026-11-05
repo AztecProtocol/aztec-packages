@@ -2,7 +2,7 @@
 title: "2. Wallet Extension Integration"
 sidebar_position: 2
 description: "Build an Aztec wallet extension: handle discovery, manage sessions, route messages, and extend BaseWallet"
-references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "labs/yarn-project/wallet-sdk/src/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet extension integration
@@ -60,7 +60,7 @@ The SDK provides four optional callbacks at different protocol stages. The tutor
 
 Called when a dApp broadcasts a discovery request. You decide whether to show an approval UI or auto-approve:
 
-#include_code callbacks /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code callbacks /docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 Key responsibilities:
 - **Stale session cleanup**: terminate sessions from the same tab (handles page refresh)
@@ -81,13 +81,13 @@ Called after ECDH key exchange completes. The session has a `verificationHash` f
 
 Called when a dApp sends an encrypted wallet method call. Messages arriving before emoji verification are queued and flushed after the user confirms:
 
-#include_code on-wallet-message /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code on-wallet-message /docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 ## Message routing
 
 The core routing logic decides which methods need user approval:
 
-#include_code approval-check /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code approval-check /docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 The approval matrix:
 
@@ -124,13 +124,13 @@ await handler.sendResponse(session.sessionId, {
 
 For auto-executing methods, forward to the offscreen document and return the result:
 
-#include_code send-to-offscreen /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code send-to-offscreen /docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 ## Extending BaseWallet
 
 The offscreen document hosts your wallet implementation. Extend `BaseWallet` to get `sendTx`, `simulateTx`, `batch`, and other methods for free:
 
-#include_code wallet-instance /docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code wallet-instance /docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 ### What you must implement
 
@@ -163,7 +163,7 @@ The offscreen document hosts your wallet implementation. Extend `BaseWallet` to 
 
 The offscreen document handles all wallet methods dynamically using `WalletSchema` for type-safe argument parsing:
 
-#include_code wallet-method-handler /docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code wallet-method-handler /docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 ## Session lifecycle
 

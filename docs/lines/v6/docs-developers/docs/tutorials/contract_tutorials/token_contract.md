@@ -3,7 +3,7 @@ title: Private Token Contract
 sidebar_position: 1
 tags: [privacy, tokens, intermediate]
 description: Build a privacy-preserving token for employee mental health benefits that keeps spending habits confidential.
-references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/ts/bob_token_contract/index.ts"]
+references: ["docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr", "docs/lines/v6/examples/ts/bob_token_contract/index.ts"]
 ---
 
 ## The Privacy Challenge: Mental Health Benefits at Giggle
@@ -52,7 +52,7 @@ yarn add @aztec-labs/aztec.js@#include_aztec_version @aztec-labs/accounts@#inclu
 The `aztec new` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
-#include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
+#include_code start /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr raw
     // We'll build the mental health token here
 }
 ```
@@ -81,7 +81,7 @@ aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_a
 Since we're here, let's import more specific stuff from this library:
 
 ```rust
-#include_code imports /docs/examples/contracts/bob_token_contract/src/main.nr raw
+#include_code imports /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr raw
 }
 ```
 
@@ -118,7 +118,7 @@ Let's start with the public components that Giggle will use to mint and track in
 First, define the storage for our BOB tokens:
 
 ```rust
-#include_code public_storage /docs/examples/contracts/bob_token_contract/src/main.nr raw
+#include_code public_storage /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr raw
 }
 ```
 
@@ -140,7 +140,7 @@ While employees want privacy when spending, having public balances during mintin
 
 When deploying the contract, we need to set Giggle as the owner:
 
-#include_code setup /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code setup /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 The `#[initializer]` decorator ensures this runs once during deployment. Only Giggle's address will have the power to mint new BOB tokens for employees.
 
@@ -148,7 +148,7 @@ The `#[initializer]` decorator ensures this runs once during deployment. Only Gi
 
 Giggle needs a way to allocate mental health tokens to employees:
 
-#include_code mint_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code mint_public /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 This public minting function:
 
@@ -164,7 +164,7 @@ Imagine Giggle allocating 100 BOB tokens to each employee at the start of the ye
 
 While most transfers will be private, we'll add public transfers for cases where transparency is desired:
 
-#include_code transfer_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code transfer_public /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 This might be used when:
 
@@ -176,7 +176,7 @@ This might be used when:
 
 In case Giggle's mental health program administration changes:
 
-#include_code transfer_ownership /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code transfer_ownership /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 ## Your First Deployment - Let's See It Work
 
@@ -207,9 +207,9 @@ aztec start --local-network
 Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alice, then transfer 10 of those to Bob's Clinic publicly... for now. Let's go:
 
 ```typescript
-#include_code imports /docs/examples/ts/bob_token_contract/index.ts raw
+#include_code imports /docs/lines/v6/examples/ts/bob_token_contract/index.ts raw
 
-#include_code checkpoint_1 /docs/examples/ts/bob_token_contract/index.ts raw
+#include_code checkpoint_1 /docs/lines/v6/examples/ts/bob_token_contract/index.ts raw
 }
 
 main().catch(console.error);
@@ -300,7 +300,7 @@ pub contract BobToken {
 
 We need to update the contract storage to have private balances as well:
 
-#include_code storage /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code storage /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 The `private_balances` use `BalanceSet` which manages encrypted notes automatically.
 
@@ -308,11 +308,11 @@ The `private_balances` use `BalanceSet` which manages encrypted notes automatica
 
 Great, now our contract knows about private balances. Let's implement a method to allow users to move their publicly minted tokens there:
 
-#include_code public_to_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code public_to_private /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 And the helper function:
 
-#include_code _deduct_public_balance /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code _deduct_public_balance /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 By calling `public_to_private` we're telling the network "deduct this amount from my balance" while simultaneously creating a Note with that balance in privateland.
 
@@ -320,7 +320,7 @@ By calling `public_to_private` we're telling the network "deduct this amount fro
 
 Now for the crucial privacy feature - transferring BOB tokens in privacy. This is actually pretty simple:
 
-#include_code transfer_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code transfer_private /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 This function simply nullifies the sender's notes, while adding them to the recipient.
 
@@ -338,7 +338,7 @@ When an employee uses 50 BOB tokens at Bob's clinic, this private transfer ensur
 
 Employees can check their BOB token balances without hitting the network by using utility unconstrained functions:
 
-#include_code check_balances /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code check_balances /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 ## Part 3: Securing Private Minting
 
@@ -367,11 +367,11 @@ We want Giggle to mint BOB tokens directly to employees' private balances (for m
 
 Let's use a clever pattern where private functions enqueue public validation checks. First we make a little helper function in public. Remember, public functions always run _after_ private functions, since private functions run client-side.
 
-#include_code _assert_is_owner /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code _assert_is_owner /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 Now we can add a secure private minting function. It looks pretty easy, and it is, since the whole thing will revert if the public function fails:
 
-#include_code mint_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code mint_private /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 This pattern ensures:
 
@@ -384,7 +384,7 @@ This pattern ensures:
 
 For the sake of completeness, let's also have a function that brings the tokens back to publicland:
 
-#include_code private_to_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+#include_code private_to_public /docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr rust
 
 Now you've made changes to your contract, you need to recompile your contract.
 
@@ -413,7 +413,7 @@ Let's stop being lazy and add a nice little "log" function that just spits out e
 
 ```typescript
 // at the top of your file
-#include_code get_balances /docs/examples/ts/bob_token_contract/index.ts raw
+#include_code get_balances /docs/lines/v6/examples/ts/bob_token_contract/index.ts raw
 ```
 
 Looks ugly but it does what it says: prints Alice's and Bob's balances. This will make it easier to see our contract working.
@@ -423,7 +423,7 @@ Now let's add some more stuff to our `index.ts`:
 ```typescript
 async function main() {
     // ...etc
-#include_code checkpoint_2 /docs/examples/ts/bob_token_contract/index.ts raw
+#include_code checkpoint_2 /docs/lines/v6/examples/ts/bob_token_contract/index.ts raw
 ```
 
 The flow is something like:

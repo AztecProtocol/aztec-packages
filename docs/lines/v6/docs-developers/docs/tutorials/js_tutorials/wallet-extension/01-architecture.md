@@ -2,7 +2,7 @@
 title: "1. Extension Architecture"
 description: Understanding Chrome extension architecture for Aztec wallets - service workers, offscreen documents, and message passing
 sidebar_position: 1
-references: ["docs/examples/webapp-tutorial/test-extension/src/content-script.ts", "docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "docs/examples/webapp-tutorial/test-extension/src/config.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/content-script.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/config.ts"]
 ---
 
 # Extension Architecture
@@ -49,7 +49,7 @@ Offscreen documents:
 
 The content script runs in the context of every web page. Its only job is to relay messages:
 
-#include_code content-script docs/examples/webapp-tutorial/test-extension/src/content-script.ts typescript
+#include_code content-script docs/lines/v6/examples/webapp-tutorial/test-extension/src/content-script.ts typescript
 
 It uses the `ContentScriptConnectionHandler` from the wallet SDK, which:
 - Listens for messages from the page (dApp)
@@ -60,7 +60,7 @@ It uses the `ContentScriptConnectionHandler` from the wallet SDK, which:
 
 The service worker handles the wallet SDK protocol and coordinates between components:
 
-#include_code offscreen-management docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code offscreen-management docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 Key responsibilities:
 - **Protocol handling** - Discovery, key exchange, session management
@@ -72,7 +72,7 @@ Key responsibilities:
 
 The offscreen document is where the heavy lifting happens:
 
-#include_code pxe-instance docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code pxe-instance docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 It hosts:
 - **PXE instance** - The Private eXecution Environment
@@ -162,7 +162,7 @@ Key points:
 
 Constants are centralized in `config.ts`:
 
-#include_code wallet-config docs/examples/webapp-tutorial/test-extension/src/config.ts typescript
+#include_code wallet-config docs/lines/v6/examples/webapp-tutorial/test-extension/src/config.ts typescript
 
 This keeps configuration in one place and provides typed message constants.
 

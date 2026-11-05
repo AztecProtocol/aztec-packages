@@ -2,7 +2,7 @@
 title: "2. Wallet Protocol"
 description: Implementing the Aztec wallet SDK protocol - discovery, ECDH key exchange, and secure messaging
 sidebar_position: 2
-references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "labs/yarn-project/wallet-sdk/src/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet Protocol
@@ -46,7 +46,7 @@ chrome.runtime.sendMessage({
 
 The background service worker handles it:
 
-#include_code callbacks docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code callbacks docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 Key points:
 - Each discovery becomes a "pending discovery" awaiting user approval
@@ -57,7 +57,7 @@ Key points:
 
 When the user clicks "Connect" in the popup:
 
-#include_code popup-messages docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code popup-messages docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 The `handler.approveDiscovery()` call:
 1. Marks the discovery as approved
@@ -170,7 +170,7 @@ const needsApproval =
 
 For methods that don't need approval, the extension forwards directly to offscreen via a persistent port. The port uses `messageId`-based request/response correlation with a 5-minute timeout and automatic retry if the offscreen document is torn down by Chrome:
 
-#include_code send-to-offscreen docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code send-to-offscreen docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 For methods that need approval, the extension stores them as pending and waits for user action:
 
@@ -193,7 +193,7 @@ updateBadge();
 
 The transport bridges Chrome's messaging APIs:
 
-#include_code transport docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code transport docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 Key points:
 - `sendToTab` uses `chrome.tabs.sendMessage` to reach content scripts

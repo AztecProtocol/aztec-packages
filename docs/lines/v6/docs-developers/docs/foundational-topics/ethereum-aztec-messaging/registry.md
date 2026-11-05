@@ -12,7 +12,7 @@ The Registry is a contract deployed on L1 that tracks canonical and historical r
 
 Retrieves the number of versions that have been deployed.
 
-#include_code registry_number_of_versions docs/node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol solidity
+#include_code registry_number_of_versions docs/lines/v6/.aztec-node/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name        | Description                                    |
 | ----------- | ---------------------------------------------- |
@@ -22,7 +22,7 @@ Retrieves the number of versions that have been deployed.
 
 Retrieves the current rollup contract.
 
-#include_code registry_get_canonical_rollup docs/node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol solidity
+#include_code registry_get_canonical_rollup docs/lines/v6/.aztec-node/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name        | Description        |
 | ----------- | ------------------ |
@@ -32,7 +32,7 @@ Retrieves the current rollup contract.
 
 Retrieves the rollup contract for a specific version.
 
-#include_code registry_get_rollup docs/node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol solidity
+#include_code registry_get_rollup docs/lines/v6/.aztec-node/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name        | Description                          |
 | ----------- | ------------------------------------ |

@@ -2,7 +2,7 @@
 title: "1. dApp Integration"
 sidebar_position: 1
 description: "Connect your dApp to Aztec wallet extensions: discovery, secure channels, capabilities, and wallet usage"
-references: ["docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/components/WalletConnect.tsx", "labs/yarn-project/wallet-sdk/src/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts", "docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
 # dApp integration
@@ -30,7 +30,7 @@ import type { Wallet, AppCapabilities, GrantedAccountsCapability } from '@aztec-
 
 Wallet discovery broadcasts a request via `window.postMessage`. Any installed Aztec wallet extension that the user has approved responds with its info.
 
-#include_code discover-wallets /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code discover-wallets /docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 `WalletManager.configure()` accepts options to filter extensions:
 
@@ -63,7 +63,7 @@ Discovery requires user action in the wallet extension. The wallet won't reveal 
 
 Once the user picks a wallet, establish an encrypted channel using ECDH key exchange:
 
-#include_code connect-wallet /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code connect-wallet /docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 `establishSecureChannel()` performs the ECDH P-256 key exchange and returns a `PendingConnection` with:
 - `verificationHash`: hex string that both sides compute independently
@@ -107,7 +107,7 @@ After connecting, your dApp should declare the permissions it needs using `reque
 
 The `AppCapabilities` manifest describes your dApp's identity and the permissions it requires. Each capability type maps to a set of wallet operations. For example, `accounts` lets you read account addresses, `transaction` lets you send transactions, and `simulation` lets you simulate without sending. The wallet may grant all, some, or none of the requested capabilities.
 
-#include_code app-capabilities /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code app-capabilities /docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 ### Capability types
 
@@ -212,13 +212,13 @@ const unsubscribe = provider.onDisconnect(handleUnexpectedDisconnect);
 
 Here's the full connection flow in a React component:
 
-#include_code remote-connect /docs/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
+#include_code remote-connect /docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
 
 ## State types
 
 For tracking wallet discovery state in your app:
 
-#include_code wallet-sdk-types /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code wallet-sdk-types /docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 ## Next steps
 

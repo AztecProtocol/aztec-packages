@@ -2,7 +2,7 @@
 title: Deploying a Token Contract
 sidebar_position: 0
 description: A tutorial going through how to deploy a token contract to the local network using typescript.
-references: ["docs/examples/ts/aztecjs_getting_started/index.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -68,7 +68,7 @@ Keep this terminal running throughout the tutorial.
 
 Create an `index.ts` file in the root of your project with the following code. This connects to the local network and imports test accounts (Alice and Bob):
 
-#include_code setup /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code setup /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 **Step 3: Verify the script runs**
 
@@ -86,23 +86,23 @@ Now that we have our accounts loaded, let's deploy a pre-compiled token contract
 
 Add the following to `index.ts` to import the contract and deploy it with Alice as the admin:
 
-#include_code deploy /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code deploy /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 ## Mint and transfer
 
 Let's go ahead and have Alice mint herself some tokens, in private:
 
-#include_code mint /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code mint /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 Let's check both Alice's and Bob's balances now:
 
-#include_code check_balances /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code check_balances /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 Alice should have 100 tokens, while Bob has none yet.
 
 Great! Let's have Alice transfer some tokens to Bob, also in private:
 
-#include_code transfer /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code transfer /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 Bob should now see 10 tokens in his balance.
 
@@ -110,11 +110,11 @@ Bob should now see 10 tokens in his balance.
 
 Say that Alice is nice and wants to set Bob as a minter. Even though it's a public function, it can be called in a similar way:
 
-#include_code set_minter /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code set_minter /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 Bob is now the minter, so he can mint some tokens to himself:
 
-#include_code bob_mints /docs/examples/ts/aztecjs_getting_started/index.ts typescript
+#include_code bob_mints /docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts typescript
 
 :::info
 

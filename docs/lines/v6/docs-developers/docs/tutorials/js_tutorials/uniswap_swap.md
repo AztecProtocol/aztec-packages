@@ -2,7 +2,7 @@
 title: "Cross-Chain Token Swap (L1 <> L2)"
 sidebar_position: 2
 description: "Build a cross-chain token swap that exits L2, swaps on L1, and deposits the output back to L2 using Aztec's messaging protocol."
-references: ["docs/examples/contracts/example_uniswap/*", "docs/examples/solidity/example_swap/*", "docs/examples/ts/example_swap/*"]
+references: ["docs/lines/v6/examples/contracts/example_uniswap/*", "docs/lines/v6/examples/solidity/example_swap/*", "docs/lines/v6/examples/ts/example_swap/*"]
 ---
 
 ## Why Build a Cross-Chain Swap?
@@ -142,7 +142,7 @@ Neither message alone is sufficient. If only the token exit existed, anyone obse
 
 The token portal handles depositing tokens from L1 to L2 and withdrawing from L2 to L1. This is a simplified version for tutorial purposes -- for a deeper look at how portals work, see the [token bridge tutorial](./token_bridge.md).
 
-#include_code example_token_portal /docs/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
+#include_code example_token_portal /docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
 
 Key functions:
 
@@ -154,9 +154,9 @@ The [registry](../../aztec-nr/framework-description/ethereum_aztec_messaging.md)
 
 Each cross-chain message includes a **content hash** -- a `sha256` digest of the function selector and its parameters that uniquely identifies the message. The content hash is computed with `Hash.sha256ToField(abi.encodeWithSignature(...))`, where `abi.encodeWithSignature` prepends a 4-byte function selector (keccak256 of the function signature, per Solidity convention). This makes each message type unique, preventing a deposit message from being confused with a withdrawal message.
 
-#include_code deposit_to_aztec_public /docs/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
+#include_code deposit_to_aztec_public /docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
 
-#include_code withdraw /docs/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
+#include_code withdraw /docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
 
 ## Part 2: Uniswap Portal (Solidity)
 
@@ -166,15 +166,15 @@ The uniswap portal orchestrates the swap on L1. It consumes two L2→L1 messages
 This tutorial uses a mock 1:1 swap instead of a real Uniswap V3 router. The portal must be pre-funded with output tokens. The important part is the **message-passing pattern**, not the swap itself.
 :::
 
-#include_code example_uniswap_portal /docs/examples/solidity/example_swap/ExampleUniswapPortal.sol solidity
+#include_code example_uniswap_portal /docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol solidity
 
 The public swap function consumes two messages and deposits the output:
 
-#include_code swap_public /docs/examples/solidity/example_swap/ExampleUniswapPortal.sol solidity
+#include_code swap_public /docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol solidity
 
 The private swap follows the same pattern but deposits output tokens privately:
 
-#include_code swap_private /docs/examples/solidity/example_swap/ExampleUniswapPortal.sol solidity
+#include_code swap_private /docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol solidity
 
 ### Compile Solidity Contracts
 
@@ -195,7 +195,7 @@ The L2 contract handles the user-facing logic: transferring input tokens, callin
 
 The contract stores the portal address and imports the `Token` and `TokenBridge` contracts:
 
-#include_code example_uniswap_setup /docs/examples/contracts/example_uniswap/src/main.nr rust
+#include_code example_uniswap_setup /docs/lines/v6/examples/contracts/example_uniswap/src/main.nr rust
 
 ### Public Swap
 
@@ -205,13 +205,13 @@ The public swap transfers tokens from the sender to the contract, exits them to 
 Aztec uses [**authorization witnesses** (authwit)](../../aztec-nr/framework-description/authentication_witnesses.md) instead of the ERC20 approve/transferFrom pattern. The contract computes the hash of the exact action it wants to perform, sets that hash as authorized, then immediately performs the action. This gives fine-grained control - the authorization is for a specific action, not a blanket approval. Since we authorize and spend in the same transaction, replay attacks are impossible.
 :::
 
-#include_code swap_public /docs/examples/contracts/example_uniswap/src/main.nr rust
+#include_code swap_public /docs/lines/v6/examples/contracts/example_uniswap/src/main.nr rust
 
 ### Private Swap
 
 The private swap is similar but uses `transfer_to_public` (private to public transfer) and [`enqueue_self`](../../aztec-nr/framework-description/calling_contracts.md) instead of `call_self`. Because `swap_private` is a private function and `_approve_bridge_and_exit_input_asset_to_L1` is public, it cannot be called synchronously -- private functions execute before public functions in a transaction. `enqueue_self` schedules the public call to run in the public phase of the same transaction:
 
-#include_code swap_private /docs/examples/contracts/example_uniswap/src/main.nr rust
+#include_code swap_private /docs/lines/v6/examples/contracts/example_uniswap/src/main.nr rust
 
 :::note Why no recipient parameter?
 In `swap_private`, the recipient is the person that provides the secret used to generate the hash for the L1 to L2 message. This preserves privacy: revealing a recipient address to L1 would compromise the caller's identity. The output tokens are deposited privately to L2, where only the secret holder can claim them.
@@ -221,7 +221,7 @@ In `swap_private`, the recipient is the person that provides the secret used to 
 
 Both flows share this internal function that approves the bridge to burn tokens and exits them to L1:
 
-#include_code approve_bridge_and_exit /docs/examples/contracts/example_uniswap/src/main.nr rust
+#include_code approve_bridge_and_exit /docs/lines/v6/examples/contracts/example_uniswap/src/main.nr rust
 
 :::note Portal Address Validation
 The portal address checks are a **safety mechanism**. If either portal is zero (not configured), the funds would be permanently lost. Always validate external addresses before sending irreversible messages.
@@ -237,9 +237,9 @@ These content hashes form the **cross-chain contract interface**. The L2 contrac
 
 This is how L1 verifies that L2 actually authorized the swap - not by trusting a signature, but by independently computing what the message should contain. The hashes must match exactly between L2 (Noir) and L1 (Solidity):
 
-#include_code swap_public_content_hash /docs/examples/contracts/example_uniswap/src/util.nr rust
+#include_code swap_public_content_hash /docs/lines/v6/examples/contracts/example_uniswap/src/util.nr rust
 
-#include_code swap_private_content_hash /docs/examples/contracts/example_uniswap/src/util.nr rust
+#include_code swap_private_content_hash /docs/lines/v6/examples/contracts/example_uniswap/src/util.nr rust
 
 ### Compile and Generate Bindings
 
@@ -281,35 +281,35 @@ npm install \
 
 Now you can tie everything together in a TypeScript script. Start by setting up clients and deploying all contracts:
 
-#include_code setup /docs/examples/ts/example_swap/index.ts typescript
+#include_code setup /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Deploy L1 Contracts
 
 Deploy two ERC20 tokens, two token portals, and the uniswap portal:
 
-#include_code deploy_l1 /docs/examples/ts/example_swap/index.ts typescript
+#include_code deploy_l1 /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Deploy L2 Contracts
 
 Deploy L2 tokens (using `TokenContract` from `@aztec-labs/noir-contracts.js`), bridges, and the uniswap contract:
 
-#include_code deploy_l2 /docs/examples/ts/example_swap/index.ts typescript
+#include_code deploy_l2 /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Initialize and Fund
 
 Initialize all portals and mint tokens:
 
-#include_code initialize /docs/examples/ts/example_swap/index.ts typescript
+#include_code initialize /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 Fund the user with input tokens and pre-fund the uniswap portal with output tokens:
 
-#include_code fund /docs/examples/ts/example_swap/index.ts typescript
+#include_code fund /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Deposit to L2
 
 Bridge WETH from L1 to L2:
 
-#include_code deposit_to_l2 /docs/examples/ts/example_swap/index.ts typescript
+#include_code deposit_to_l2 /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 :::tip Why use a secret hash?
 When depositing from L1 to L2, we use a secret/secret-hash pattern: generate a random secret on the client, send only the hash to L1 (in the deposit transaction), then later reveal the secret on L2 to claim the tokens. This prevents **front-running attacks**: a malicious sequencer (the node that orders and processes L2 transactions) cannot observe the L1 deposit and claim the tokens themselves because they don't know the secret. Only someone who knows the preimage can claim.
@@ -317,41 +317,41 @@ When depositing from L1 to L2, we use a secret/secret-hash pattern: generate a r
 
 Before claiming, we need to mine a couple of L2 blocks. An L1-to-L2 message is not available the moment it is sent -- the rollup only includes it in an L2 block once it is at least 12 seconds old, and it becomes consumable as soon as that block lands. We use a helper that deploys throwaway contracts to force these blocks:
 
-#include_code mine_blocks /docs/examples/ts/example_swap/index.ts typescript
+#include_code mine_blocks /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 Claim the deposited tokens on L2:
 
-#include_code claim_on_l2 /docs/examples/ts/example_swap/index.ts typescript
+#include_code claim_on_l2 /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Execute the Swap
 
 Initiate the swap on L2:
 
-#include_code public_swap /docs/examples/ts/example_swap/index.ts typescript
+#include_code public_swap /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Waiting for Block Proofs
 
 L2→L1 messages can only be consumed on L1 after the L2 block containing them has been **proven**. Aztec batches blocks into [**epochs**](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) and generates ZK proofs for each epoch. The proof confirms that the L2 state transition (including our swap messages) actually happened according to the protocol rules. Until the proof is submitted to L1, the messages exist but cannot be trusted.
 
-#include_code wait_for_proof /docs/examples/ts/example_swap/index.ts typescript
+#include_code wait_for_proof /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 The [outbox](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) stores L2→L1 messages in a Merkle tree. To consume a message, you must provide the **epoch** (which proof batch contains the message), the **leaf index** (position in the message tree), and the **sibling path** (Merkle proof showing the message is in the tree). These parameters are computed offchain by observing L2 blocks.
 
 First, read the rollup version from the portal and compute the content hash and message leaf for the token bridge exit message:
 
-#include_code consume_l1_messages_setup /docs/examples/ts/example_swap/index.ts typescript
+#include_code consume_l1_messages_setup /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 Next, compute Merkle membership witnesses for both L2→L1 messages -- the sibling path (proof of inclusion) for each. We also compute the swap intent message leaf using the same encoding as the Solidity portal:
 
-#include_code consume_l1_messages_witnesses /docs/examples/ts/example_swap/index.ts typescript
+#include_code consume_l1_messages_witnesses /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 Next, call `swapPublic` on the L1 uniswap portal, passing both message proofs. The portal verifies both messages against the outbox, performs the mock swap, and deposits the output tokens back to L2:
 
-#include_code consume_l1_messages_execute /docs/examples/ts/example_swap/index.ts typescript
+#include_code consume_l1_messages_execute /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 Finally, claim the output DAI on L2:
 
-#include_code claim_output /docs/examples/ts/example_swap/index.ts typescript
+#include_code claim_output /docs/lines/v6/examples/ts/example_swap/index.ts typescript
 
 ### Run It
 

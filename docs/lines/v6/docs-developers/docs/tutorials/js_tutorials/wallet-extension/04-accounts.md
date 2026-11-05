@@ -2,7 +2,7 @@
 title: "4. Account Management"
 description: Key derivation, encrypted storage, and SchnorrAccountContract for Aztec wallet accounts
 sidebar_position: 4
-references: ["docs/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts", "docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # Account Management
@@ -70,7 +70,7 @@ The "lazy" import defers loading the Noir artifact until needed.
 
 Account creation is handled by the `ExtensionWalletManager` utility class:
 
-#include_code create-new-account docs/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts typescript
+#include_code create-new-account docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts typescript
 
 Breaking this down:
 
@@ -85,7 +85,7 @@ Note that PXE (Private eXecution Environment) registration happens separately - 
 
 Keys are encrypted using PBKDF2 + AES-GCM with a non-extractable `CryptoKey`:
 
-#include_code derive-master-key docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
+#include_code derive-master-key docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
 
 Key derivation parameters:
 - **600,000 iterations** - OWASP 2023 recommendation for SHA-256, slows brute-force attacks
@@ -95,7 +95,7 @@ Key derivation parameters:
 
 Encryption and decryption use the derived `CryptoKey` directly - the raw password string is never stored or passed around:
 
-#include_code encrypt-decrypt docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
+#include_code encrypt-decrypt docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
 
 Each account gets a unique random IV for AES-GCM. The stored data includes:
 - `encrypted` - The encrypted secret (base64)
@@ -105,7 +105,7 @@ Each account gets a unique random IV for AES-GCM. The stored data includes:
 
 The offscreen document cannot access `chrome.storage` directly, so all storage operations are proxied through the background script via Chrome messaging:
 
-#include_code account-operations docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
+#include_code account-operations docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
 
 The stored account structure:
 
@@ -124,7 +124,7 @@ interface StoredAccount {
 
 Instead of storing a password hash (vulnerable to rainbow tables), the wallet uses an encrypt-then-verify approach: derive a `CryptoKey` via PBKDF2 with a random salt, encrypt a known plaintext, and verify by attempting to decrypt it:
 
-#include_code password-management docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
+#include_code password-management docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts typescript
 
 This provides:
 - `setupPassword()` - Derives a master key, encrypts a known plaintext for future verification, returns the `CryptoKey`
@@ -137,7 +137,7 @@ The caller caches the `CryptoKey` in memory and discards the password string imm
 
 When the user unlocks the wallet, the extension verifies the password, derives the master `CryptoKey`, initializes PXE, and registers all stored accounts:
 
-#include_code load-accounts docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code load-accounts docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 Each account:
 1. Has its secret decrypted using the master `CryptoKey`
@@ -149,7 +149,7 @@ Each account:
 
 Accounts must be deployed before they can receive notes or initiate transactions:
 
-#include_code deploy-account docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code deploy-account docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 The deployment:
 1. Gets the cached master `CryptoKey` (wallet must be unlocked)

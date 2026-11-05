@@ -2,7 +2,7 @@
 title: "2. Project Setup"
 sidebar_position: 2
 description: "Understand the webapp project structure, Vite configuration, and environment setup"
-references: ["docs/examples/webapp-tutorial/vite.config.ts", "docs/examples/webapp-tutorial/package.json"]
+references: ["docs/lines/v6/examples/webapp-tutorial/vite.config.ts", "docs/lines/v6/examples/webapp-tutorial/package.json"]
 ---
 
 # Project Setup
@@ -45,7 +45,7 @@ webapp-tutorial/
 
 Aztec uses WASM modules that require `SharedArrayBuffer`, which needs specific HTTP headers. Open `vite.config.ts`:
 
-#include_code vite-config /docs/examples/webapp-tutorial/vite.config.ts typescript
+#include_code vite-config /docs/lines/v6/examples/webapp-tutorial/vite.config.ts typescript
 
 Why each piece is needed:
 - **COOP/COEP headers**: Enable `SharedArrayBuffer` for multithreaded WASM (barretenberg proving)

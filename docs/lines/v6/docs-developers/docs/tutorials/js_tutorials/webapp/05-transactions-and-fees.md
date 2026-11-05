@@ -2,7 +2,7 @@
 title: "5. Transactions & Fees"
 sidebar_position: 6
 description: "Learn about the Aztec transaction lifecycle and fee payment with SponsoredFPC"
-references: ["docs/examples/webapp-tutorial/src/components/TxStatus.tsx", "docs/examples/webapp-tutorial/src/fees.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/components/TxStatus.tsx", "docs/lines/v6/examples/webapp-tutorial/src/fees.ts"]
 ---
 
 # Transactions & Fees
@@ -27,7 +27,7 @@ When you call `.send()` on a contract method, it handles the entire lifecycle au
 
 Open `src/components/TxStatus.tsx`:
 
-#include_code tx-status-component /docs/examples/webapp-tutorial/src/components/TxStatus.tsx typescript
+#include_code tx-status-component /docs/lines/v6/examples/webapp-tutorial/src/components/TxStatus.tsx typescript
 
 Integrate with contract calls:
 
@@ -53,7 +53,7 @@ Every Aztec transaction requires fee payment, similar to gas on Ethereum. Withou
 
 ### How it works
 
-#include_code get-sponsored-fpc /docs/examples/webapp-tutorial/src/fees.ts typescript
+#include_code get-sponsored-fpc /docs/lines/v6/examples/webapp-tutorial/src/fees.ts typescript
 
 `SPONSORED_FPC_SALT` is a fixed constant so that the SponsoredFPC contract is deployed at a deterministic, well-known address across all networks (local network and beyond). Your app can always compute where it lives without querying a registry.
 
@@ -61,13 +61,13 @@ Every Aztec transaction requires fee payment, similar to gas on Ethereum. Withou
 
 PXE needs the SponsoredFPC contract artifact registered so it can include fee payment logic when constructing transaction proofs. Without registration, PXE wouldn't know how to interact with the fee contract.
 
-#include_code register-fpc /docs/examples/webapp-tutorial/src/fees.ts typescript
+#include_code register-fpc /docs/lines/v6/examples/webapp-tutorial/src/fees.ts typescript
 
 ### Manual fee payment
 
 For explicit control:
 
-#include_code create-fee-payment /docs/examples/webapp-tutorial/src/fees.ts typescript
+#include_code create-fee-payment /docs/lines/v6/examples/webapp-tutorial/src/fees.ts typescript
 
 ```typescript
 const paymentMethod = await createSponsoredFeePayment();

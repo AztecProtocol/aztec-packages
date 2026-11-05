@@ -2,7 +2,7 @@
 title: "6. Approval UI"
 description: Building React popups for connection and transaction approval in Aztec wallet extensions
 sidebar_position: 6
-references: ["docs/examples/webapp-tutorial/test-extension/src/popup/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/*"]
 ---
 
 # Approval UI
@@ -50,7 +50,7 @@ The HTML loads the compiled JavaScript:
 
 The popup is split into focused components. The top-level `popup.tsx` acts as an orchestrator with a state machine that routes between views: setup, lock, main, create-account, approvals, session-verification, and settings.
 
-#include_code main-app docs/examples/webapp-tutorial/test-extension/src/popup/popup.tsx typescript
+#include_code main-app docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/popup.tsx typescript
 
 Key features:
 - **Persistent port** to background for real-time push updates (no polling)
@@ -62,7 +62,7 @@ Key features:
 
 The popup sends messages to the background script:
 
-#include_code send-message docs/examples/webapp-tutorial/test-extension/src/popup/helpers.ts typescript
+#include_code send-message docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/helpers.ts typescript
 
 The popup targets the background explicitly with `target: MessageTarget.BACKGROUND` to distinguish from content script messages.
 
@@ -70,7 +70,7 @@ The popup targets the background explicitly with `target: MessageTarget.BACKGROU
 
 The main page shows the active account and provides key actions:
 
-#include_code main-page docs/examples/webapp-tutorial/test-extension/src/popup/MainScreen.tsx typescript
+#include_code main-page docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/MainScreen.tsx typescript
 
 Features:
 - Active account with alias and truncated address
@@ -82,7 +82,7 @@ Features:
 
 When a dApp requests connection, the wallet shows the approval UI:
 
-#include_code connection-approval docs/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx typescript
+#include_code connection-approval docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx typescript
 
 The approval shows:
 - Origin URL (the dApp's domain)
@@ -95,7 +95,7 @@ The wallet also includes emoji verification for secure channel confirmation — 
 
 Transaction approvals show more detail:
 
-#include_code transaction-approval docs/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx typescript
+#include_code transaction-approval docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx typescript
 
 The popup displays:
 - Origin and method type (sendTx, simulateTx, etc.)
@@ -107,7 +107,7 @@ The popup displays:
 
 Utility for address truncation:
 
-#include_code helpers docs/examples/webapp-tutorial/test-extension/src/popup/helpers.ts typescript
+#include_code helpers docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/helpers.ts typescript
 
 ## Styling
 

@@ -2,7 +2,7 @@
 title: "Building a Webapp on Aztec"
 sidebar_position: 0
 description: "Build a Pod Racing game webapp with Vite, React, and Aztec — featuring private state, wallet connections, and zero-knowledge proofs."
-references: ["docs/examples/webapp-tutorial/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/*"]
 ---
 
 # Building a Webapp on Aztec

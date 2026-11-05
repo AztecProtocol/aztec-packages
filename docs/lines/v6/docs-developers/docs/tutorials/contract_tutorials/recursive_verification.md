@@ -1,7 +1,7 @@
 ---
 title: "Verify Noir Proofs in Aztec Contracts"
 description: "Learn to generate offchain ZK proofs with Noir and verify them onchain in Aztec private smart contracts"
-references: ["docs/examples/circuits/hello_circuit/*", "docs/examples/contracts/recursive_verification_contract/*", "docs/examples/ts/recursive_verification/*"]
+references: ["docs/lines/v6/examples/circuits/hello_circuit/*", "docs/lines/v6/examples/contracts/recursive_verification_contract/*", "docs/lines/v6/examples/ts/recursive_verification/*"]
 ---
 
 ## Overview
@@ -126,7 +126,7 @@ circuit/
 
 Replace the contents of `circuit/src/main.nr` with:
 
-#include_code circuit /docs/examples/circuits/hello_circuit/src/main.nr rust
+#include_code circuit /docs/lines/v6/examples/circuits/hello_circuit/src/main.nr rust
 
 This is intentionally minimal to focus on the verification pattern. In production, you would replace `assert(x != y)` with meaningful computations like:
 
@@ -156,7 +156,7 @@ For example, you could create a zkpassport proof demonstrating that you are over
 
 Update `circuit/Nargo.toml` (see [Noir crates and packages](https://noir-lang.org/docs/project_structure/crates_and_packages) for more details):
 
-#include_code circuit_nargo_toml /docs/examples/circuits/hello_circuit/Nargo.toml toml
+#include_code circuit_nargo_toml /docs/lines/v6/examples/circuits/hello_circuit/Nargo.toml toml
 
 **Note**: This is a vanilla Noir circuit, not an Aztec contract. It has `type = "bin"` (binary) and no Aztec dependencies. The circuit is compiled with `nargo`, not `aztec compile`. This distinction is important—you can verify proofs from _any_ Noir circuit inside Aztec contracts.
 
@@ -252,7 +252,7 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 Replace the contents of `ValueNotEqual/ValueNotEqual_contract/src/main.nr` with:
 
-#include_code full_contract /docs/examples/contracts/recursive_verification_contract/src/main.nr rust
+#include_code full_contract /docs/lines/v6/examples/contracts/recursive_verification_contract/src/main.nr rust
 
 :::note Clear the scaffold's placeholder test
 The scaffolded `ValueNotEqual/ValueNotEqual_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
@@ -471,7 +471,7 @@ Create `scripts/generate_data.ts`:
 
 ```js
 import circuitJson from "../circuit/target/hello_circuit.json" with { type: "json" };
-#include_code generate_data /docs/examples/ts/recursive_verification/scripts/generate_data.ts raw
+#include_code generate_data /docs/lines/v6/examples/ts/recursive_verification/scripts/generate_data.ts raw
 ```
 
 ### Understanding the Proof Generation Pipeline
@@ -592,7 +592,7 @@ The deployment script connects to the Aztec network, creates an account, deploys
 
 Create `index.ts`:
 
-#include_code run_recursion /docs/examples/ts/recursive_verification/index.ts typescript
+#include_code run_recursion /docs/lines/v6/examples/ts/recursive_verification/index.ts typescript
 
 ### Understanding the Deployment Script
 
@@ -635,7 +635,7 @@ This single line triggers a complex flow:
 
 Create `scripts/sponsored_fpc.ts`:
 
-#include_code sponsored_fpc /docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts typescript
+#include_code sponsored_fpc /docs/lines/v6/examples/ts/recursive_verification/scripts/sponsored_fpc.ts typescript
 
 This utility computes the address of the pre-deployed sponsored FPC contract. The salt ensures we get the same address every time. For more information about fee payment options, see [Paying Fees](../../aztec-js/how_to_pay_fees.md).
 

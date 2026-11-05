@@ -3,7 +3,7 @@ title: Contract Structure
 sidebar_position: 1
 tags: [contracts]
 description: Learn the fundamental structure of Aztec smart contracts including the contract keyword, directory layout, and how contracts manage state and functions.
-references: ["docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 High-level structure of how Aztec smart contracts including the different components.

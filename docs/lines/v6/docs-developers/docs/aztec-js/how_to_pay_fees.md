@@ -3,7 +3,7 @@ title: Paying Fees
 tags: [fees, transactions, accounts, mana, gas]
 sidebar_position: 7
 description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
-references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts", "labs/yarn-project/aztec.js/src/fee/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts", "labs/yarn-project/aztec.js/src/fee/*"]
 ---
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
@@ -41,7 +41,7 @@ When using `EmbeddedWallet`, gas is estimated automatically on every `send()` ca
 
 Before sending a transaction, you can read the mana it will consume by simulating with `includeMetadata: true` and reading `gasUsed` from the result:
 
-#include_code estimate_mana /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code estimate_mana /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 The `gasUsed` object contains the raw gas the simulation consumed:
 
@@ -54,7 +54,7 @@ It is up to you to derive the gas limits you declare from this raw usage (typica
 
 To calculate the expected fee from the padded gas, use the `computeFee` method with current network fees:
 
-#include_code compute_fee_from_estimate /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code compute_fee_from_estimate /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::tip
 Pad the raw `gasUsed` yourself to leave a safety margin. Multiplying by `1.1` adds 10%; use higher padding for transactions with variable gas costs. The wallet rejects any declared limit above the network's per-tx admission limit.
@@ -64,11 +64,11 @@ Pad the raw `gasUsed` yourself to leave a safety margin. Multiplying by `1.1` ad
 
 After a transaction is mined, you can retrieve the fee paid from the receipt:
 
-#include_code get_fee_from_receipt /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code get_fee_from_receipt /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 The `transactionFee` field is a `bigint` representing the total fee paid in the fee token (Fee Juice). You can also check execution status:
 
-#include_code check_receipt_status /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code check_receipt_status /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Pay with Fee Juice
 
@@ -76,7 +76,7 @@ Fee Juice is the native fee token on Aztec.
 
 If your account has Fee Juice (for example, from a faucet), is [deployed](./how_to_create_account.md), and is registered in your wallet, it will be used automatically to pay for the fee of the transaction:
 
-#include_code pay_with_fee_juice /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code pay_with_fee_juice /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Use Fee Payment Contracts
 
@@ -98,7 +98,7 @@ The Sponsored FPC pays fees unconditionally, enabling free transactions. It is a
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 
-#include_code deploy_sponsored_fpc_contract /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code deploy_sponsored_fpc_contract /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 Here's a simpler example from the test suite:
 
@@ -170,15 +170,15 @@ Fee Juice is non-transferable on L2, but you can bridge it from L1, claim it on 
 
 `aztec.js` provides helpers to simplify the process:
 
-#include_code bridge_fee_juice_setup /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code bridge_fee_juice_setup /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `aztec_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
 
-#include_code bridge_fee_juice_execute /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code bridge_fee_juice_execute /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 After this transaction is minted on L1 and a few blocks pass, you can claim the message on L2 and use it directly to pay for fees:
 
-#include_code bridge_fee_juice_claim /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code bridge_fee_juice_claim /docs/lines/v6/examples/ts/aztecjs_connection/index.ts typescript
 
 ## Configure gas settings
 
@@ -199,11 +199,11 @@ The fee limit is calculated as `gasLimits × maxFeesPerGas` for each dimension.
 
 Set custom gas limits by importing from `stdlib`:
 
-#include_code custom_gas_settings /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code custom_gas_settings /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 Then pass the settings when sending:
 
-#include_code send_with_gas_settings /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code send_with_gas_settings /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 Note that `gasLimits` and `teardownGasLimits` use `daGas`/`l2Gas` field names, while `maxFeesPerGas` and `maxPriorityFeesPerGas` use `feePerDaGas`/`feePerL2Gas`.
 
@@ -213,7 +213,7 @@ Note that `gasLimits` and `teardownGasLimits` use `daGas`/`l2Gas` field names, w
 When using `EmbeddedWallet`, gas estimation happens automatically on every `send()`; you don't need to declare gas limits at all. Reading `gasUsed` from a `simulate({ includeMetadata: true })` result is useful when you want to preview costs before sending, or to set explicit limits with a custom wallet implementation.
 :::
 
-#include_code auto_gas_estimation /docs/examples/ts/aztecjs_advanced/index.ts typescript
+#include_code auto_gas_estimation /docs/lines/v6/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::tip
 Gas estimation runs a simulation first to determine actual gas usage, then adds padding for safety. This works with all payment methods, including FPCs.

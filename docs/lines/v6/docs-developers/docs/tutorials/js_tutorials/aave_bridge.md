@@ -3,7 +3,7 @@ title: "Deposit to Aave from Aztec"
 sidebar_position: 2
 description: "Build a cross-chain DeFi integration that deposits tokens into Aave from Aztec L2 and claims yield back."
 tags: [defi, cross-chain, messaging, portals, advanced]
-references: ["docs/examples/contracts/aave_bridge/src/main.nr", "docs/examples/solidity/aave_bridge/AavePortal.sol", "docs/examples/ts/aave_bridge/index.ts"]
+references: ["docs/lines/v6/examples/contracts/aave_bridge/src/main.nr", "docs/lines/v6/examples/solidity/aave_bridge/AavePortal.sol", "docs/lines/v6/examples/ts/aave_bridge/index.ts"]
 ---
 
 ## Why DeFi from Aztec?
@@ -217,14 +217,14 @@ token = { git="https://github.com/aztec-labs-eng/aztec-node", tag = "#include_az
 
 The bridge stores two things: the L2 token address and the L1 portal address. First, create the config module at `contracts/aztec/aave_bridge/aave_bridge_contract/src/config.nr`:
 
-#include_code config /docs/examples/contracts/aave_bridge/src/config.nr rust
+#include_code config /docs/lines/v6/examples/contracts/aave_bridge/src/config.nr rust
 
 Then replace `contracts/aztec/aave_bridge/aave_bridge_contract/src/main.nr`:
 
 <!-- wrapped in a code block to add a "}" at the end -->
 
 ```rust
-#include_code bridge_setup /docs/examples/contracts/aave_bridge/src/main.nr raw
+#include_code bridge_setup /docs/lines/v6/examples/contracts/aave_bridge/src/main.nr raw
 }
 ```
 
@@ -236,9 +236,9 @@ The code above shows the contract opening — imports, storage, constructor, and
 
 Add the following functions inside the `AaveBridge` contract body (before the closing `}`). `claim_public` consumes an L1→L2 message and mints tokens. `exit_to_l1_public` burns tokens and sends an L2→L1 message:
 
-#include_code claim_public /docs/examples/contracts/aave_bridge/src/main.nr rust
+#include_code claim_public /docs/lines/v6/examples/contracts/aave_bridge/src/main.nr rust
 
-#include_code exit_to_l1_public /docs/examples/contracts/aave_bridge/src/main.nr rust
+#include_code exit_to_l1_public /docs/lines/v6/examples/contracts/aave_bridge/src/main.nr rust
 
 The `authwit_nonce` parameter supports [authentication witnesses](../../aztec-js/how_to_use_authwit.md). When the caller is the token owner (`msg.sender`), pass `0` — no authorization witness is needed. If a third party calls this function on behalf of the owner, they must provide a valid nonce from an authwit the owner previously created.
 
@@ -246,9 +246,9 @@ The `authwit_nonce` parameter supports [authentication witnesses](../../aztec-js
 
 Still inside the contract body, add the private variants. They work the same way but use private token operations. The recipient's address is hidden when claiming privately:
 
-#include_code claim_private /docs/examples/contracts/aave_bridge/src/main.nr rust
+#include_code claim_private /docs/lines/v6/examples/contracts/aave_bridge/src/main.nr rust
 
-#include_code exit_to_l1_private /docs/examples/contracts/aave_bridge/src/main.nr rust
+#include_code exit_to_l1_private /docs/lines/v6/examples/contracts/aave_bridge/src/main.nr rust
 
 :::info Content Hash Matching
 
@@ -291,7 +291,7 @@ Create the following mock contracts in `contracts/`.
 ```solidity
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-#include_code mock_erc20 /docs/examples/solidity/aave_bridge/MockERC20.sol raw
+#include_code mock_erc20 /docs/lines/v6/examples/solidity/aave_bridge/MockERC20.sol raw
 ```
 
 `contracts/MockAToken.sol` — Aave's yield-bearing token mock:
@@ -299,7 +299,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 ```solidity
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-#include_code mock_atoken /docs/examples/solidity/aave_bridge/MockAToken.sol raw
+#include_code mock_atoken /docs/lines/v6/examples/solidity/aave_bridge/MockAToken.sol raw
 ```
 
 `contracts/MockAavePool.sol` — simplified Aave lending pool that returns a configurable yield:
@@ -310,7 +310,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {MockERC20} from "./MockERC20.sol";
 import {MockAToken} from "./MockAToken.sol";
 
-#include_code mock_aave_pool /docs/examples/solidity/aave_bridge/MockAavePool.sol raw
+#include_code mock_aave_pool /docs/lines/v6/examples/solidity/aave_bridge/MockAavePool.sol raw
 ```
 
 ### AavePortal Contract
@@ -331,7 +331,7 @@ import {DataStructures} from "@aztec-foundation/l1-artifacts/l1-contracts/src/co
 import {Hash} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/crypto/Hash.sol";
 import {Epoch} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/TimeLib.sol";
 
-#include_code portal_setup /docs/examples/solidity/aave_bridge/AavePortal.sol raw
+#include_code portal_setup /docs/lines/v6/examples/solidity/aave_bridge/AavePortal.sol raw
 }
 ```
 
@@ -341,15 +341,15 @@ Like the L2 contract, the code above shows the contract opening — imports, sta
 
 The portal has three key functions. First, `depositToAave` consumes an L2→L1 message (proving the user burned tokens on L2) and deposits the underlying tokens into Aave:
 
-#include_code portal_deposit_to_aave /docs/examples/solidity/aave_bridge/AavePortal.sol solidity
+#include_code portal_deposit_to_aave /docs/lines/v6/examples/solidity/aave_bridge/AavePortal.sol solidity
 
 Then, `claimFromAavePublic` withdraws from Aave (including any yield earned) and sends an L1→L2 message so the user can mint tokens on L2:
 
-#include_code portal_claim_public /docs/examples/solidity/aave_bridge/AavePortal.sol solidity
+#include_code portal_claim_public /docs/lines/v6/examples/solidity/aave_bridge/AavePortal.sol solidity
 
 There's also a private variant that lets the user claim without revealing their L2 address:
 
-#include_code portal_claim_private /docs/examples/solidity/aave_bridge/AavePortal.sol solidity
+#include_code portal_claim_private /docs/lines/v6/examples/solidity/aave_bridge/AavePortal.sol solidity
 
 ### Compile
 
@@ -390,7 +390,7 @@ import MockAavePool from "../artifacts/contracts/MockAavePool.sol/MockAavePool.j
 import { TokenContract } from "@aztec-labs/noir-contracts.js/Token";
 import { AaveBridgeContract } from "../contracts/aztec/artifacts/AaveBridge.js";
 
-#include_code setup /docs/examples/ts/aave_bridge/index.ts raw
+#include_code setup /docs/lines/v6/examples/ts/aave_bridge/index.ts raw
 ```
 
 :::note About EmbeddedWallet
@@ -403,15 +403,15 @@ import { AaveBridgeContract } from "../contracts/aztec/artifacts/AaveBridge.js";
 The deployment snippet below comes from the example project, which builds its Solidity with Foundry. Hardhat artifacts store the bytecode as a plain string, so with `npx hardhat compile` use `MockERC20.bytecode` (and likewise for `MockAToken`, `MockAavePool` and `AavePortal`) instead of `.bytecode.object`.
 :::
 
-#include_code deploy_l1 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code deploy_l1 /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 ### Deploy L2 Contracts
 
-#include_code deploy_l2 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code deploy_l2 /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 ### Initialize
 
-#include_code initialize /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code initialize /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 ### Fund the User
 
@@ -422,7 +422,7 @@ For this tutorial, you need tokens in two places:
 
 For simplicity, mint directly to both:
 
-#include_code fund_user /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code fund_user /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 ### Deposit to Aave (L2 → L1)
 
@@ -432,15 +432,15 @@ Now for the main flow. Burn tokens on L2 and send a message to L1.
 The `recipient` in `exit_to_l1_public` is the L1 address that receives the withdrawal message. Since the AavePortal contract needs to deposit the tokens into Aave, the portal itself is the recipient. Setting `caller_on_l1` to `EthAddress.ZERO` means anyone can relay the message on L1 — there's no access restriction on who calls `depositToAave`.
 :::
 
-#include_code deposit_to_aave /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code deposit_to_aave /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 Compute the membership witness to prove the message on L1:
 
-#include_code get_deposit_witness /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code get_deposit_witness /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 Execute the deposit on L1:
 
-#include_code execute_deposit_l1 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code execute_deposit_l1 /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 ### Claim from Aave with Yield (L1 → L2)
 
@@ -448,23 +448,23 @@ Before withdrawing from Aave, generate a random secret and compute its hash. The
 
 Withdraw from Aave on L1 and send the message to L2. The mock pool returns 10% yield:
 
-#include_code claim_from_aave_l1 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code claim_from_aave_l1 /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 Extract the message leaf index:
 
-#include_code get_claim_leaf_index /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code get_claim_leaf_index /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
 
-#include_code mine_blocks /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code mine_blocks /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 Claim the tokens (with yield) on L2:
 
-#include_code claim_on_l2 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code claim_on_l2 /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 ### Verify
 
-#include_code verify /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code verify /docs/lines/v6/examples/ts/aave_bridge/index.ts typescript
 
 Run the full flow:
 

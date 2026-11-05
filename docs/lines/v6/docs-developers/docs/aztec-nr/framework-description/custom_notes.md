@@ -52,7 +52,7 @@ address_note = { git="https://github.com/aztec-labs-eng/aztec-nr", tag="#include
 
 Define your custom note with the `#[note]` macro:
 
-#include_code nft_note_struct /docs/examples/contracts/nft/src/nft.nr rust
+#include_code nft_note_struct /docs/lines/v6/examples/contracts/nft/src/nft.nr rust
 
 The `#[note]` macro generates the following for your struct:
 
@@ -99,13 +99,13 @@ struct Storage<Context> {
 
 ### Inserting notes
 
-#include_code mint /docs/examples/contracts/nft/src/main.nr rust
+#include_code mint /docs/lines/v6/examples/contracts/nft/src/main.nr rust
 
 ### Reading and removing notes
 
 Use `pop_notes` to read and nullify notes atomically. This is the recommended pattern for most use cases:
 
-#include_code burn /docs/examples/contracts/nft/src/main.nr rust
+#include_code burn /docs/lines/v6/examples/contracts/nft/src/main.nr rust
 
 :::warning
 There's also a `get_notes` function that reads without nullifying, but use it with caution - the returned notes may have already been spent in another transaction.
