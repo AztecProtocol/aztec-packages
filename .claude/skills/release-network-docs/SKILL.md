@@ -63,9 +63,14 @@ The rules of `/release-docs` (its "Release model" section) apply unchanged:
   same name are unrelated Foundation commits.
 - Toolchain and package versions come from the pin (`node docs/scripts/aztec_node.mts env`).
 - The cut runs in its own worktree (`$CUT`) created from the destination commit and moves
-  the cut's pin to the Labs tag; the destination, and its pin, are not touched until Step 10.
-- A release build links `docs/examples/` snippets to this repository at `DOCS_COMMIT`, the
-  destination's base on `origin/next`, and the cut never changes `docs/examples/`.
+  the cut's pin to the Labs tag; the destination, and its pins, are not touched until Step 10.
+- A release whose major has a dev line (`docs/lines/v<major>/`: a v6.x release while
+  `docs/lines/v6/` exists) is a **line cut**: Step 2c promotes the line into the cut's main
+  paths (`docs/scripts/promote_line.sh`), and every later step reads the line's operator
+  pages and pin there (`docs/CLAUDE.md`, "Two dev lines: change both").
+- A release build links example snippets (`$EXAMPLES`: `docs/examples/`, or a line cut's
+  `docs/lines/<line>/examples/`) to this repository at `DOCS_COMMIT`, the destination's base
+  on `origin/next`, and the cut never changes them.
 - State lives in `~/.cache/aztec-docs-cut/<cut>/`, whose `env.sh` every
   command block from Step 2 on sources. `<cut>` is `network-v<new_version>`, or another
   name (`dryrun-network-v<new_version>`) for a rehearsal or a second cut of the same
@@ -147,9 +152,16 @@ git diff --quiet --ignore-submodules=all && git diff --cached --quiet --ignore-s
   || { echo "commit or discard the changes first" >&2; exit 1; }
 git fetch origin next
 DOCS_COMMIT=$(git merge-base HEAD origin/next)
-git diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
-  || { echo "docs/examples differs from origin/next: land those changes on next first" >&2; exit 1; }
 LABS_TAG=v<new_version>
+major=${LABS_TAG#v} major=${major%%.*}
+LINE= EXAMPLES=docs/examples PINFILE=docs/aztec-node.json
+if [ -f "docs/lines/v$major/aztec-node.json" ]; then
+  LINE=v$major EXAMPLES=docs/lines/v$major/examples PINFILE=docs/lines/v$major/aztec-node.json
+fi
+node -p "require('./$PINFILE').ref" | grep -q "^v$major\." \
+  || { echo "no dev docs follow v$major: neither main's pin nor a line (docs/lines/v$major/)" >&2; exit 1; }
+git diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" \
+  || { echo "$EXAMPLES differs from origin/next: land those changes on next first" >&2; exit 1; }
 CUT_ID=<cut>
 STATE=$HOME/.cache/aztec-docs-cut/$CUT_ID
 ! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" && mkdir -p "${STATE%/*}" && mkdir "$STATE" \
@@ -166,7 +178,9 @@ CLI_HOME=$CLI_HOME
 DEST_ROOT=$(pwd)
 DEST=$(git rev-parse HEAD)
 DEST_BRANCH=$(printf %q "$(git branch --show-current)")
-DEST_PIN_REF=$(node -p 'require("./docs/aztec-node.json").ref')
+LINE=$LINE
+EXAMPLES=$EXAMPLES
+DEST_PIN_REF=$(node -p "require('./$PINFILE').ref")
 DOCS_COMMIT=$DOCS_COMMIT
 export AZTEC_NODE_DIR=$STATE/aztec-node
 CLI_PATH=$CUT/docs/.aztec-node/cli/node_modules/.bin:$CUT/docs/.aztec-node/bin:$STATE/aztec-node/aztec-up/bin/0.0.1
@@ -188,7 +202,8 @@ sets the other type's tag to the version its network runs, or is empty. `COMMIT_
 keeps its `v` (the preprocessor emits it as a git ref). `docs_env` checks the cut's pin
 and checkout and exports the pin's versions before running a docs command; it fails when
 they disagree. `AZTEC_NODE_DIR` keeps the cut's checkout outside the worktree, as
-`/release-docs` Step 2b explains.
+`/release-docs` Step 2b explains. `LINE` names the line a line cut promotes (empty
+otherwise), and `DEST_PIN_REF` is the pin of the pages the cut starts from.
 
 #### 2c. Create the worktree and move its pin to the tag
 
@@ -196,6 +211,16 @@ they disagree. `AZTEC_NODE_DIR` keeps the cut's checkout outside the worktree, a
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" worktree add -b "docs-cut/$CUT_ID" "$CUT" "$DEST"
 cd "$CUT/docs" && node scripts/aztec_node.mts pin "$LABS_TAG"
+```
+
+**A line cut** (`$LINE` set) promotes the line instead of running that `pin`, as
+`/release-docs` Step 2c explains:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
+CUT=$CUT scripts/promote_line.sh "$LINE" "$LABS_TAG" &&
+  git -C "$CUT" add -- docs && git -C "$CUT" commit -q -m "docs: promote the $LINE line at $LABS_TAG" &&
+  node scripts/aztec_node.mts fetch
 ```
 
 `pin` checks the tag out into `$AZTEC_NODE_DIR`, writes its commit and toolchain into
@@ -217,7 +242,7 @@ yarn install
 node scripts/aztec_node.mts check && echo "pin: ok"
 git add aztec-node.json package.json yarn.lock && git commit -m "docs: pin aztec-node $LABS_TAG"
 echo "PINNED=$(git rev-parse HEAD)" >>"$STATE/env.sh"
-git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples && echo "examples: ok"
+git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" && echo "examples: ok"
 ```
 
 `check` must print `pin: ok` (the checkout is the tag's commit and clean, and the pin's bb
@@ -423,7 +448,8 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
   gets the tag in the snapshot.
 - Classify every hit of the last command by path, as `/release-docs` Step 11 does: Labs
   code (`noir-projects/`, `yarn-project/`) names aztec-node at the tag in the snapshot,
-  `docs/examples` names `DOCS_COMMIT`, Foundation code (`l1-contracts/`, `barretenberg/`)
+  the examples (`docs/examples`, or a line cut's `docs/lines/<line>/examples`) name
+  `DOCS_COMMIT`, Foundation code (`l1-contracts/`, `barretenberg/`)
   takes `#include_foundation_version`, and anything else `v<l1-artifacts version>` or
   `next`.
 
@@ -481,7 +507,8 @@ git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-onl
 Never fetch with `--shallow-exclude=<previous release>`: the merge base is usually reachable
 from it, so it is cut off and the range lists both sides back to the boundary (v6.0.0
 against `v6.0.0-rc.3`: 166/166 commits instead of 57/2). This fetch needs no previous
-release, so it also works when that is not a Labs tag. The separate history checkout and
+release, so it also works when that is not a Labs tag. In a line cut `DEST_PIN_REF` is the
+line's pin, so both refs are on one aztec-node branch. The separate history checkout and
 a failed count check work as in `/release-docs` Step 12. So do hand backports: one adapted
 to its line (`v6`) is not patch-equivalent, so `--cherry-pick` keeps it on both sides;
 judge it against `$AZTEC_NODE_DIR`, the tag.
@@ -572,10 +599,13 @@ fixed goes to the owner.
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
 cd "$CUT" && git add -- docs && git commit -m "docs: cut $LABS_TAG network docs"
-git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
-  || { echo "the cut changed docs/examples: land the change on next and restart the cut" >&2; exit 1; }
+git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" \
+  || { echo "the cut changed $EXAMPLES: land the change on next and restart the cut" >&2; exit 1; }
 git -C "$CUT" diff --name-status "$PINNED" HEAD -- docs
 ```
+
+A line cut's promotion commit precedes `$PINNED`, so the list never shows it: it stays in
+the cut.
 
 Sort every listed path into exactly one class:
 
@@ -605,8 +635,22 @@ Sort every listed path into exactly one class:
    git -C "$DEST_ROOT" apply -3 "$STATE/shared-repairs.patch"
    ```
 
-3. **Release-only changes** stay in the cut: the pin commit (`docs/aztec-node.json`,
-   `docs/package.json`, `docs/yarn.lock`), the regenerated `node-api-reference.md` and
+   In a line cut the cut's `docs-operate/` and `sidebars-operate.js` are the line's, so
+   their repairs belong to the destination's `docs/lines/$LINE/`:
+
+   ```bash
+   git -C "$CUT" diff --relative=docs "$PINNED" HEAD -- <file>... >"$STATE/line-repairs.patch"
+   git -C "$DEST_ROOT" apply -3 --directory="docs/lines/$LINE" "$STATE/line-repairs.patch"
+   ```
+
+   An operator-changelog entry for the release also goes into main's copy
+   (`docs/docs-operate/`), since operators of the next major upgrade from it
+   (`docs/CLAUDE.md`): apply the same hunks there and resolve by hand where main's copy
+   differs. Other repairs reach main's pages only when the behaviour they describe is the same
+   at main's pin.
+
+3. **Release-only changes** stay in the cut: the promotion and pin commits
+   (`docs/aztec-node.json`, `docs/package.json`, `docs/yarn.lock`, a line's pin), the regenerated `node-api-reference.md` and
    `cli-reference.md` sources, and source edits only the release needs (Steps 6 and 7a).
 
 A destination commit cherry-picked into the cut also shows in this list: it is already on

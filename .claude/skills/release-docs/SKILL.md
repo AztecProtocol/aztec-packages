@@ -48,9 +48,14 @@ paste the key into the conversation or onto a command line.
   `BB` once provisioned). In the cut that is the release tag's.
 - **The cut runs in its own worktree** (`$CUT`), created from the destination commit; it
   moves the cut's pin to the Labs tag. The destination checkout is not touched until Step 17,
-  and its pin never moves: the destination's dev docs keep following their own pin, a v6
-  nightly until the docs carry a separate v7 line (`docs/CLAUDE.md`). A v6.x cut pins its
-  tag on aztec-node's `v6` branch (Step 12).
+  and its pins never move: the destination's dev docs keep following their own
+  (`docs/CLAUDE.md`, "Two dev lines: change both").
+- **A line cut.** A release whose major has a dev line (`docs/lines/v<major>/`: a v6.x
+  release while `docs/lines/v6/` exists) is cut from that line, on its tag on aztec-node's
+  `v<major>` branch. Step 2c promotes the line into the cut's main paths
+  (`docs/scripts/promote_line.sh`), so every later step reads the line's pages and pin
+  there; its examples stay in `docs/lines/v<major>/examples/` (`$EXAMPLES`), which its pages
+  quote. Any other release is cut from main's pages.
 - **Release inputs**, recorded in the commit that lands the cut (Step 17):
 
   | Input | Source |
@@ -62,15 +67,17 @@ paste the key into the conversation or onto a command line.
   | Destination | the branch and commit the cut started from |
 
 - **Snippet links.** Snippets under `labs/` link to aztec-node at the pinned commit; snippets
-  from `docs/examples/` link to this repository at `DOCS_COMMIT`, which a release build
-  requires (`include_code.js` refuses to preprocess a `RELEASE_TYPE` other than `nightly`
-  without it). The cut never changes `docs/examples/`, so those links show the lines the
+  from the examples (`$EXAMPLES`: `docs/examples/`, or a line cut's
+  `docs/lines/<line>/examples/`) link to this repository at `DOCS_COMMIT`, which a release
+  build requires (`include_code.js` refuses to preprocess a `RELEASE_TYPE` other than
+  `nightly` without it). The cut never changes them, so those links show the lines the
   snapshot quotes.
 - **Examples build from the pin.** `docs/examples/bootstrap.sh` builds them with the pin's
   published toolchain against the default checkout, `docs/.aztec-node/tree`, which their
   Nargo.toml path dependencies name; it ignores `AZTEC_NODE_DIR`. In the cut that is a
   second checkout of the tag's commit, so the examples the snapshot quotes build and run
-  at the tag (Step 15).
+  at the tag (Step 15). A line cut builds the line's examples in a staged copy instead
+  (`examples/bootstrap.sh --line <line>`).
 - **State** lives in `~/.cache/aztec-docs-cut/<cut>/`: `env.sh` (sourced by every
   command block from Step 2 on, since shell state does not carry over between commands),
   the worktree, the CLI's home, the local network and logs. `<cut>` is `v<new_version>`;
@@ -188,9 +195,16 @@ git diff --quiet --ignore-submodules=all && git diff --cached --quiet --ignore-s
   || { echo "commit or discard the changes first" >&2; exit 1; }
 git fetch origin next
 DOCS_COMMIT=$(git merge-base HEAD origin/next)
-git diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
-  || { echo "docs/examples differs from origin/next: land those changes on next first" >&2; exit 1; }
 LABS_TAG=v<new_version>
+major=${LABS_TAG#v} major=${major%%.*}
+LINE= EXAMPLES=docs/examples PINFILE=docs/aztec-node.json
+if [ -f "docs/lines/v$major/aztec-node.json" ]; then
+  LINE=v$major EXAMPLES=docs/lines/v$major/examples PINFILE=docs/lines/v$major/aztec-node.json
+fi
+node -p "require('./$PINFILE').ref" | grep -q "^v$major\." \
+  || { echo "no dev docs follow v$major: neither main's pin nor a line (docs/lines/v$major/)" >&2; exit 1; }
+git diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" \
+  || { echo "$EXAMPLES differs from origin/next: land those changes on next first" >&2; exit 1; }
 CUT_ID=<cut>
 STATE=$HOME/.cache/aztec-docs-cut/$CUT_ID
 ! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" && mkdir -p "${STATE%/*}" && mkdir "$STATE" \
@@ -207,7 +221,9 @@ CLI_HOME=$CLI_HOME
 DEST_ROOT=$(pwd)
 DEST=$(git rev-parse HEAD)
 DEST_BRANCH=$(printf %q "$(git branch --show-current)")
-DEST_PIN_REF=$(node -p 'require("./docs/aztec-node.json").ref')
+LINE=$LINE
+EXAMPLES=$EXAMPLES
+DEST_PIN_REF=$(node -p "require('./$PINFILE').ref")
 DOCS_COMMIT=$DOCS_COMMIT
 export AZTEC_NODE_DIR=$STATE/aztec-node
 CLI_PATH=$CUT/docs/.aztec-node/cli/node_modules/.bin:$CUT/docs/.aztec-node/bin:$STATE/aztec-node/aztec-up/bin/0.0.1
@@ -235,8 +251,10 @@ own home, and `CLI_PATH` first on `PATH`; Step 15 sets `CLI_PATH=$INSTALLER_PATH
 the installer's layout instead. `COMMIT_TAG` keeps its `v`: `#include_aztec_version` emits it as a git ref, and
 `#include_version_without_prefix` falls back to `latest` when it lacks one.
 
-`DOCS_COMMIT` is the destination's base on `origin/next`, and the check above proves the
-destination's `docs/examples/` equals it, so links to it resolve and show the snapshot's
+`LINE` names the dev line a line cut promotes, and is empty for a cut of main's pages;
+`DEST_PIN_REF` is the pin of the pages the cut starts from. `DOCS_COMMIT` is the
+destination's base on `origin/next`, and the check above proves the destination's examples
+(`$EXAMPLES`) equal it, so links to it resolve and show the snapshot's
 lines. `AZTEC_NODE_DIR` puts the cut's checkout outside the worktree: nargo run anywhere
 under `docs/` takes `docs/Nargo.toml` as its workspace, and nothing run in the checkout
 (2d, Step 6) may see it.
@@ -248,6 +266,23 @@ under `docs/` takes `docs/Nargo.toml` as its workspace, and nothing run in the c
 git -C "$DEST_ROOT" worktree add -b "docs-cut/$CUT_ID" "$CUT" "$DEST"
 cd "$CUT/docs" && node scripts/aztec_node.mts pin "$LABS_TAG"
 ```
+
+**A line cut** (`$LINE` set) promotes the line instead of running that `pin`:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
+CUT=$CUT scripts/promote_line.sh "$LINE" "$LABS_TAG" &&
+  git -C "$CUT" add -- docs && git -C "$CUT" commit -q -m "docs: promote the $LINE line at $LABS_TAG" &&
+  node scripts/aztec_node.mts fetch
+```
+
+`promote_line.sh` refuses, before writing anything, unless it runs in `$CUT`, `docs/` is
+clean, and the tag has the line's major and is on aztec-node's `$LINE` branch. Then it pins
+the line to the tag (`aztec_node.mts --line $LINE pin`, which also installs the line's
+l1-artifacts), replaces `docs-developers/`, `docs-operate/` and both sidebars with the
+line's, and copies the line's pin over `docs/aztec-node.json`. That promotion commit is
+release-only (Step 17). `fetch` then checks main's checkout out at that pin and reports the
+same drift as `pin` below.
 
 `pin` checks the tag's commit out into `$AZTEC_NODE_DIR` (a shallow clone without
 aztec-node's own `docs/`), writes the commit and the tag's `BB_VERSION` and `NOIR_VERSION`
@@ -323,7 +358,7 @@ yet run by a cut): `cd "$AZTEC_NODE_DIR" && env -u root -u ci3 AZTEC_TOOLCHAIN_F
 node scripts/aztec_node.mts check && echo "pin: ok"
 docs_env sh -c 'echo "$AZTEC_NODE_REF $AZTEC_NODE_COMMIT DOCS_COMMIT=$DOCS_COMMIT"; "$NARGO" --version; "$BB" --version'
 node -p 'require("./node_modules/@aztec-foundation/l1-artifacts/package.json").version'
-git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples && echo "examples: ok"
+git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" && echo "examples: ok"
 ```
 
 All of these must hold; stop at the first that does not:
@@ -335,7 +370,7 @@ All of these must hold; stop at the first that does not:
   `ls-remote` printed. `NARGO` and `BB` are set (`env` exports them only once provisioned at
   the pinned versions) and print `nargo version = $NOIR_VERSION` and `$BB_VERSION`.
 - The installed l1-artifacts version equals `BB_VERSION`.
-- `examples: ok`: the cut's `docs/examples/` is `DOCS_COMMIT`'s.
+- `examples: ok`: the cut's examples (`$EXAMPLES`) are `DOCS_COMMIT`'s.
 
 ### Unversioned root pages
 
@@ -829,7 +864,7 @@ only into the cut.
 `docs:version` snapshots `processed-docs/` (the resolved tree the docs plugins serve),
 not the raw `docs-*` source, so preprocess first with every release variable. Snippets
 under `labs/` resolve against the cut's checkout (the tag) and the rest against the cut's
-`docs/examples/` (`DOCS_COMMIT`'s). A snippet whose file or marker the tag lacks fails
+examples (`$EXAMPLES`, `DOCS_COMMIT`'s). A snippet whose file or marker the tag lacks fails
 preprocessing: its page quotes code newer than the release. Edit that page in the cut for
 the release (a release-only change, Step 17), or stop and ask the owner when it documents
 a feature the release lacks.
@@ -857,7 +892,7 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
   version (as at `v6.0.0-rc.1`), yet this repository's tag of that name holds no Labs code.
   - Under `noir-projects/` or `yarn-project/`: Labs code, so in the snapshot it names
     aztec-node (`https://github.com/aztec-labs-eng/aztec-node`) at the tag.
-  - Under `docs/examples`: this repository's examples, which the snapshot quotes at
+  - Under `docs/examples` (a line cut's `docs/lines/<line>/examples`): this repository's examples, which the snapshot quotes at
     `DOCS_COMMIT`. Clone steps are the usual hit: the source clones aztec-packages `next`,
     and the snapshot's clone must check out `DOCS_COMMIT` after cloning (fix the snapshot
     after 11b, not the source).
@@ -875,11 +910,12 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 docs_env sh -c 'echo "aztec-node: $AZTEC_NODE_COMMIT  aztec-packages: $DOCS_COMMIT"'
 grep -rhoE 'github\.com/aztec-labs-eng/aztec-node/blob/[^/)"]+' processed-docs/ | sort | uniq -c
-grep -rhoE 'github\.com/AztecProtocol/aztec-packages/blob/[^/)"]+/docs/examples' processed-docs/ | sort | uniq -c
+grep -rhoE 'github\.com/AztecProtocol/aztec-packages/blob/[^/)"]+/docs/(lines/[^/]+/)?examples' processed-docs/ | sort | uniq -c
 ```
 
-Every aztec-node link must name `AZTEC_NODE_COMMIT` and every `docs/examples` link
-`DOCS_COMMIT`. `include_code.js` writes snippet links with exactly those commits, so any
+Every aztec-node link must name `AZTEC_NODE_COMMIT` and every examples link
+`DOCS_COMMIT`; in a line cut, the promoted pages' example links name
+`docs/lines/$LINE/examples`. `include_code.js` writes snippet links with exactly those commits, so any
 other ref is a hand-written link: give a moving ref (`main`, `next`) the tag in the
 snapshot after 11b.
 
@@ -981,12 +1017,9 @@ git -C "$AZTEC_NODE_HISTORY" log --oneline --left-right --cherry-pick --name-onl
 
 Skip this step when the two refs name the same commit. `--cherry-pick` drops commits that
 reached both sides as patch-equivalent ports. A hand backport adapted to its line is not
-patch-equivalent and shows on both sides: judge it against `$AZTEC_NODE_DIR`, the tag. A
-destination pinned to a v7 nightly would list every v7 commit since `v6` left `main` as
-`>`, and once `docs/examples/` use v7-only APIs Step 15 fails for a v6.x cut and stops: no
-snapshot edit can fix the examples. That is why the dev pin stays on a v6 nightly
-(`docs/CLAUDE.md`); if the destination's pin is a v7 tag, stop and report before cutting.
-The history goes into a checkout of its own, fetched afresh
+patch-equivalent and shows on both sides: judge it against `$AZTEC_NODE_DIR`, the tag.
+`DEST_PIN_REF` is the pin of the pages the cut started from, the line's in a line cut, so
+both refs are on one aztec-node branch. The history goes into a checkout of its own, fetched afresh
 down to the refs' merge base, which GitHub names without local history; fetching it into
 `$AZTEC_NODE_DIR` instead keeps that checkout's earlier shallow boundaries (the merge base
 goes missing) and shortens the history Step 8 fetched. The check compares the merge base
@@ -1146,6 +1179,23 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
    the error. Never edit `docs/examples/` in the cut (Step 17 refuses it): a fix that also
    holds at the destination's pin lands on `next` first, and the cut restarts.
 
+   **A line cut** builds and runs the line's examples instead, in a staged copy that
+   `DOCS_LINE_STAGE` keeps across the commands (`examples/bootstrap.sh --line` stages one
+   outside the repository, since nargo would take `docs/Nargo.toml` as the workspace):
+
+   ```bash
+   . ~/.cache/aztec-docs-cut/<cut>/env.sh && . "$STATE/network.env" && cd "$CUT/docs"
+   export DOCS_LINE_STAGE=$STATE/line-examples
+   examples/bootstrap.sh --line "$LINE" compile-circuits
+   examples/bootstrap.sh --line "$LINE" compile
+   PATH="$CLI_HOME/.aztec/current/internal-bin:$PATH" examples/bootstrap.sh --line "$LINE" compile-solidity
+   TXE_PORT=<a port claimed in ~/.agents/ports.md> examples/bootstrap.sh --line "$LINE" test-contracts
+   docs_env "$DOCS_LINE_STAGE/examples/ts/aztecjs_runner/run.sh"
+   ```
+
+   The line's pin is the tag (Step 2c), so these run at the tag like main's. Never edit
+   `docs/lines/$LINE/examples/` in the cut either: its fixes land on `next` first.
+
 5. **Stop the network**, which kills only its process group and releases its ports:
 
    ```bash
@@ -1254,18 +1304,21 @@ Repeat it for `operate` and `<old_network_version>`.
 ### Step 17: Carry the Results Back to the Destination
 
 First check that the destination's `docs/` has not moved since Step 2b, then record the
-cut on its branch, check that it left `docs/examples/` as `DOCS_COMMIT` has it (the
-snapshot's example links name that commit), and list every change the cut made after its
-pin commit (Step 2c):
+cut on its branch, check that it left the examples (`$EXAMPLES`) as `DOCS_COMMIT` has them
+(the snapshot's example links name that commit), and list every change the cut made after
+its pin commit (Step 2c):
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
 cd "$CUT" && git add -- docs && git commit -m "docs: cut $LABS_TAG"
-git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- docs/examples \
-  || { echo "the cut changed docs/examples: land the change on next and restart the cut" >&2; exit 1; }
+git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" \
+  || { echo "the cut changed $EXAMPLES: land the change on next and restart the cut" >&2; exit 1; }
 git -C "$CUT" diff --name-status "$PINNED" HEAD -- docs
 ```
+
+A line cut's promotion commit precedes `$PINNED`, so the list never shows it: it stays in
+the cut.
 
 Sort every listed path into exactly one class:
 
@@ -1305,8 +1358,23 @@ Sort every listed path into exactly one class:
    Read the patch before applying it. Never copy a source directory wholesale: the cut's
    copy carries release-only edits.
 
-3. **Release-only changes** stay in the cut: the pin commit (`docs/aztec-node.json`,
-   `docs/package.json`, `docs/yarn.lock`), generated source pages (`aztec_js_reference.md`,
+   In a line cut the cut's `docs-developers/`, `docs-operate/` and sidebars are the line's
+   pages, so their repairs belong to the destination's `docs/lines/$LINE/`. Write their
+   patch relative to `docs/` and apply it under the line:
+
+   ```bash
+   git -C "$CUT" diff --relative=docs "$PINNED" HEAD -- <file>... >"$STATE/line-repairs.patch"
+   git -C "$DEST_ROOT" apply -3 --directory="docs/lines/$LINE" "$STATE/line-repairs.patch"
+   ```
+
+   A release's migration-notes and operator-changelog entries (Steps 8 and 10b) also go into
+   main's copies, since readers of the next major upgrade from this release
+   (`docs/CLAUDE.md`): apply the same hunks to `docs/docs-developers/` and
+   `docs/docs-operate/`, resolving by hand where main's copy differs. Other repairs reach
+   main's pages only when the code they describe is the same at main's pin (the same rule).
+
+3. **Release-only changes** stay in the cut: the promotion and pin commits
+   (`docs/aztec-node.json`, `docs/package.json`, `docs/yarn.lock`, a line's pin), generated source pages (`aztec_js_reference.md`,
    the CLI references, `node-api-reference.md`), and source edits that only the release
    needs (Steps 8b, 11 and 12). The destination keeps its own pin and the pages generated
    from it.
