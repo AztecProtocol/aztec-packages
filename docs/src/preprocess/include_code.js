@@ -74,6 +74,9 @@ function checkSnippetLine(relativeCodeFilePath, rootDir, line) {
   const owner = lineOf(relativeCodeFilePath, rootDir);
   if (!owner && !MAIN_ONLY.test(relativeCodeFilePath)) return;
   if (owner?.name === line?.name) return;
+  // Pins naming one commit quote the same code: a line cut (scripts/promote_line.sh) serves the
+  // line's pages from main's paths under the line's pin, and they keep quoting the line's files.
+  if (readPin(rootDir, owner).commit === readPin(rootDir, line).commit) return;
   const whose = (l) => (l ? `line ${l.name}'s` : "main's");
   throw new Error(`${relativeCodeFilePath} is ${whose(owner)}, but this page is ${whose(line)}: quote the page's own copy`);
 }
