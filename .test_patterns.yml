@@ -1,13 +1,12 @@
-# Describes tests that we either:
-#   - Outright skip.
-#   - Run and alert owners on failure.
-# To outright skip a test add a "skip: true" property.
-# Only do this for tests that are currently expected to fail constantly and the noise is unbearable!
-# Otherwise, tests must have owner(s). Owners are identified by their Slack id, (profile, three dots, copy member id).
-# If there is no owner for failed test the build will fail, regardless of if it matches in this file.
-# When a failing test matches one or more of the "regex" properties below,
-# a message is sent to slack channel #aztec3-ci tagging the owners.
-# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
+# Describes how CI treats the tests whose command matches an entry's "regex".
+# If an optional error_regex is provided, the test's output must also match for the entry to apply.
+#   skip: true       Outright skip the test.
+#                    Only do this for tests that are currently expected to fail constantly and the noise is unbearable!
+#   retry: true      Retry a failing test once; a pass on the retry is a flake and does not fail the build.
+#                    A failing test that matches no entry with retry: true fails the build.
+#   notify_on: [...] The events that post to Slack: flake, fail, or both. Default: [flake].
+#   channel: "#..."  The Slack channel those posts go to. Default: #aztec3-ci.
+#   owners: [...]    Who those posts tag. Owners are identified by their Slack id, (profile, three dots, copy member id).
 
 names:
   - alex: &alex "U05QWV669JB"
@@ -40,6 +39,7 @@ tests:
   # barretenberg
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
     error_regex: "Aborted.*core dumped"
+    retry: true
     owners:
       - *sergei
 
@@ -47,15 +47,18 @@ tests:
   # Something to do with how I run the tests now. Think these are fine in nextest.
   - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
     skip: true
+    retry: true
     owners:
       - *charlie
   - regex: "noir_lsp-.* requests::"
     skip: true
+    retry: true
     owners:
       - *charlie
   # Sometimes see this on ARM. But not when run on it's own...
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
+    retry: true
     owners:
       - *charlie
 
@@ -65,11 +68,13 @@ tests:
   # 18:04:38 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
   - regex: "noir/scripts/run_test.sh calibration.* arb_program_freqs_in_expected_range"
     error_regex: "panicked at tooling/ast_fuzzer/tests/calibration.rs"
+    retry: true
     owners:
       - *tom
 
   - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::"
     error_regex: "Failed to solve brillig function"
+    retry: true
     owners:
       - *nico
 
@@ -77,78 +82,96 @@ tests:
   # inputs missing/stale. http://ci.aztec-labs.com/d7647a841ee811a0
   - regex: "bbapi/chonk_pinned_inputs.test"
     skip: true
+    retry: true
     owners:
       - *palla
 
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
+    retry: true
     owners:
       - *palla
   # bricked in new version of anvil added to build image (foundry 1.4.1).
   - regex: "src/composed/uniswap_trade_on_l1_from_l2.test.ts"
     skip: true
+    retry: true
     owners:
       - *alex
   - regex: "src/single-node/fees/private_payments"
+    retry: true
     owners:
       - *palla
   - regex: "src/automine/token/access_control"
     error_regex: "HttpRequestError: HTTP request failed."
+    retry: true
     owners:
       - *charlie
   - regex: "src/single-node/cross-chain/l1_to_l2"
+    retry: true
     owners:
       - *palla
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
+    retry: true
     owners:
       - *palla
 
   - regex: "kv-store/.*store\\.test"
     error_regex: "guards against too many cursors"
+    retry: true
     owners:
       - *palla
   - regex: "slasher/src/slasher_client.test.ts"
     error_regex: "ContractFunctionExecutionError: The contract function"
+    retry: true
     owners:
       - *mitch
   - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Received number of calls: 1"
+    retry: true
     owners:
       - *palla
   - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Failed to commit transaction: InitialBlockNumberNotSequentialError: Cannot insert new block"
+    retry: true
     owners:
       - *palla
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    retry: true
     owners:
       - *palla
   - regex: "sequencer-client/src/publisher/l1_publisher.integration.test.ts"
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+    retry: true
     owners:
       - *palla
 
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
+    retry: true
     owners:
       - *saleel
 
   - regex: "amm_flow.sh"
+    retry: true
     owners:
       - *grego
 
   # Slack testing.
   - regex: "nonsense to match"
     error_regex: "something else"
+    retry: true
     owners:
       - *charlie
 
   - regex: "src/single-node/l1-reorgs/blocks.parallel.test.ts"
+    retry: true
     owners:
       - *palla
 
   - regex: "src/single-node/l1-reorgs/messages.parallel.test.ts"
+    retry: true
     owners:
       - *palla
 
@@ -157,6 +180,7 @@ tests:
   # txs still propagating over gossip spill into the next checkpoint. Flaky until the sequencer waits
   # for the last block's tx window.
   - regex: "src/multi-node/block-production/redistribution.parallel.test.ts.*redistributes checkpoint budget"
+    retry: true
     owners:
       - *palla
 
@@ -165,31 +189,37 @@ tests:
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
   - regex: "src/p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
+    retry: true
     owners:
       - *palla
 
   - regex: "src/single-node/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
+    retry: true
     owners:
       - *palla
 
   - regex: "src/multi-node/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
+    retry: true
     owners:
       - *palla
 
   - regex: "src/automine/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
+    retry: true
     owners:
       - *palla
 
   - regex: "p2p/src/client/test/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
+    retry: true
     owners:
       - *palla
 
   - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
+    retry: true
     owners:
       - *palla
 
@@ -198,11 +228,13 @@ tests:
   # via the bb.js NativeUnixSocket backend introduced in #21564). The serial sub-tests pass.
   - regex: "tx_stats_bench"
     error_regex: "tx_stats_bench\\.test\\.ts:[0-9]+:[0-9]+"
+    retry: true
     owners:
       - *charlie
 
   - regex: "src/e2e_token_bridge_tutorial.test.ts"
     error_regex: "Error: Unable to find low leaf for block"
+    retry: true
     owners:
       - *leila
 
@@ -213,16 +245,19 @@ tests:
   # timeout or a viem WaitForTransactionReceiptTimeoutError (http://ci.aztec-labs.com/1643e817d7242e0e).
   - regex: "src/composed/e2e_token_bridge_tutorial_test.test.ts"
     error_regex: "Exceeded timeout of [0-9]+ ms for a test|WaitForTransactionReceiptTimeoutError: Timed out while waiting for transaction"
+    retry: true
     owners:
       - *palla
 
   - regex: "src/single-node/block-building/block_building.test.ts"
     error_regex: "✕ processes txs until hitting timetable"
+    retry: true
     owners:
       - *palla
 
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
+    retry: true
     owners:
       - *mike
 
@@ -233,6 +268,7 @@ tests:
   # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
   - regex: "src/multi-node/slashing/attested_invalid_proposal.parallel.test.ts"
     error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
+    retry: true
     owners:
       - *palla
 
@@ -240,6 +276,7 @@ tests:
   # Build-cache flake: module not found during Jest startup
   - regex: "src/single-node/sequencer/gov_proposal.parallel.test.ts"
     error_regex: "Cannot find module '@aztec/sequencer-client/config'"
+    retry: true
     owners:
       - *palla
 
@@ -248,17 +285,20 @@ tests:
   # Jest has torn down the module env (ERR_VM_MODULE_NOT_MODULE). Test itself passes.
   - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
     error_regex: "a file after the Jest environment has been torn down"
+    retry: true
     owners:
       - *palla
 
   # http://ci.aztec-labs.com/153f5dcbb0f3799c
   - regex: "src/automine/effects/offchain_payment.parallel.test.ts"
     error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
+    retry: true
     owners:
       - *martin
 
   - regex: "run_test.sh simple tx_stats_bench"
     error_regex: "✕ verifies transactions at 10 TPS"
+    retry: true
     owners:
       - *palla
 
@@ -267,6 +307,7 @@ tests:
   # the test's wait timeout — same family as #23501.
   - regex: "src/multi-node/slashing/equivocation_offenses.test.ts.*duplicate proposals"
     error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
+    retry: true
     owners:
       - *palla
 
@@ -277,5 +318,6 @@ tests:
   # accepted. Scoped to that end-state-mismatch signature; not a logic regression.
   - regex: "validator-client/src/validator.integration.test.ts"
     error_regex: "✕ rejects block that would exceed checkpoint mana limit"
+    retry: true
     owners:
       - *palla
