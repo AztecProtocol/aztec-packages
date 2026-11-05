@@ -280,10 +280,11 @@ CUT=$CUT scripts/promote_line.sh "$LINE" "$LABS_TAG" &&
 ```
 
 `promote_line.sh` refuses, before writing anything, unless it runs in `$CUT`, `docs/` is
-clean, and the tag has the line's major and is on aztec-node's `$LINE` branch. Then it pins
-the line to the tag (`aztec_node.mts --line $LINE pin`, which also installs the line's
-l1-artifacts), replaces `docs-developers/`, `docs-operate/` and both sidebars with the
-line's, and copies the line's pin over `docs/aztec-node.json`. That promotion commit is
+clean, and the tag has the line's major. Then it pins the line to the tag
+(`aztec_node.mts --line $LINE pin`, which also installs the line's l1-artifacts), and
+refuses, restoring the line, unless the pinned commit is on aztec-node's `$LINE` branch.
+Only then does it replace `docs-developers/`, `docs-operate/` and both sidebars with the
+line's, and copy the line's pin over `docs/aztec-node.json`. That promotion commit is
 release-only (Step 17). `fetch` then checks main's checkout out at that pin and reports the
 same drift as `pin` below. The promotion commit already carries the pin, so the pin commit
 below has something to commit only when l1-artifacts drifted; otherwise `PINNED` is the

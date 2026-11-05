@@ -8,13 +8,18 @@
 #   CUT=<cut worktree> docs/scripts/promote_line.sh <line> <tag>
 #
 # It refuses, before writing anything, unless it runs in the worktree $CUT names (the cut's env.sh),
-# docs/ is clean, the tag has the line's major, and the tag is on aztec-node's <line> branch. A failed
-# pin leaves the main paths untouched.
+# docs/ is clean, and the tag has the line's major. After pinning, it refuses unless the pinned commit
+# is on aztec-node's <line> branch. A refusal after the pin restores the line and leaves the main
+# paths untouched.
 set -euo pipefail
 
 fail() {
   echo "promote_line: $*" >&2
   exit 1
+}
+unpin() {
+  git -C "$root" checkout -q -- "docs/lines/$line"
+  fail "$@"
 }
 [ $# -eq 2 ] || { echo "usage: CUT=<cut worktree> $0 <line> <tag>" >&2; exit 2; }
 line=$1 tag=$2
@@ -29,14 +34,16 @@ line_root=$docs/lines/$line
   fail "this is $root, not the cut worktree: run it from the cut, with the cut's env.sh sourced (\$CUT)"
 [ -z "$(git -C "$root" status --porcelain -- docs)" ] || fail "docs/ has uncommitted changes: commit or discard them first"
 [[ "$tag" =~ ^v${major}\. ]] || fail "$tag is not a v$major release, and line $line takes only v$major tags"
-repo=$(node -p 'new URL(require(process.argv[1]).repository).pathname.slice(1)' "$line_root/aztec-node.json")
-status=$(gh api "repos/$repo/compare/$line...$tag" --jq .status) || fail "cannot compare $tag with $repo's $line branch"
+
+node "$docs/scripts/aztec_node.mts" --line "$line" pin "$tag" || unpin "pinning line $line to $tag failed; the main paths are untouched"
+# The commit the pin recorded, not the tag, which can move after the pin resolves it; and the
+# repository the pin enforces, not the one the line named before.
+read -r repo commit < <(node -p 'const p = require(process.argv[1]); new URL(p.repository).pathname.slice(1) + " " + p.commit' "$line_root/aztec-node.json")
+status=$(gh api "repos/$repo/compare/$line...$commit" --jq .status) || unpin "cannot compare $tag ($commit) with $repo's $line branch"
 case "$status" in
   behind | identical) ;;
-  *) fail "$tag is not on $repo's $line branch (compare $line...$tag: $status)" ;;
+  *) unpin "$tag ($commit) is not on $repo's $line branch (compare $line...$commit: $status)" ;;
 esac
-
-node "$docs/scripts/aztec_node.mts" --line "$line" pin "$tag" || fail "pinning line $line to $tag failed; the main paths are untouched"
 
 for tree in docs-developers docs-operate; do
   rm -rf "${docs:?}/$tree"
