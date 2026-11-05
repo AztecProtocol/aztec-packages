@@ -19,12 +19,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXAMPLES_DIR="$(dirname "$SCRIPT_DIR")"
 source "$EXAMPLES_DIR/lib.sh"
-# Derive repo root from known path (docs/examples/ts/aztecjs_runner) to avoid
-# git safe.directory failures when running inside Docker containers.
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+# The docs tree from this script's known path (<docs>/examples/ts/aztecjs_runner), not git, which
+# fails safe.directory inside Docker; a line's stage (examples/bootstrap.sh --line) mirrors docs/.
+DOCS_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 export AZTEC_NODE_URL="${AZTEC_NODE_URL:-http://localhost:8080}"
 # In the compose run the host's CLI path does not exist, so the default names it inside the mount.
-AZTEC="${AZTEC:-$REPO_ROOT/docs/.aztec-node/cli/node_modules/.bin/aztec}"
+AZTEC="${AZTEC:-$DOCS_ROOT/.aztec-node/cli/node_modules/.bin/aztec}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -81,7 +81,7 @@ setup_project() {
     contract_count="$(yq eval '.contracts | length' config.yaml 2>/dev/null || echo "0")"
 
     if [ "$contract_count" -gt 0 ]; then
-        local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
+        local ARTIFACTS_DIR="$DOCS_ROOT/target"
 
         while IFS= read -r contract_name; do
             local artifact="$ARTIFACTS_DIR/${contract_name}.json"
