@@ -8,6 +8,8 @@ Aztec contract standards define shared interfaces and behaviors for common oncha
 
 The standards described in this section are maintained by the Aztec Foundation in the [`aztec-standards` repository](https://github.com/AztecProtocol/aztec-standards). Each standard is identified by an **Aztec Improvement Proposal (AIP)** number that mirrors its Ethereum counterpart where applicable (AIP-20 corresponds to ERC-20, AIP-721 to ERC-721, AIP-4626 to ERC-4626).
 
+The contracts' compiled artifacts and TypeScript wrappers are published on npm as [`@aztec-foundation/aztec-standards`](https://www.npmjs.com/package/@aztec-foundation/aztec-standards).
+
 Because Aztec contracts have both private and public execution contexts, the standards are more involved than their Ethereum equivalents. Transfers can move value between private notes and public balances, and many operations require coordination between encrypted state and transparent state within a single transaction.
 
 :::note
