@@ -82,6 +82,7 @@
       "./docs-developers/**/{*.md,*.md?}",
       "./docs-operate/**/{*.md,*.md?}",
       "./docs-participate/**/{*.md,*.md?}",
+      "./lines/*/docs-*/**/{*.md,*.md?}",
       "./developer_versioned_docs/**/{*.md,*.md?}",
       "./network_versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",

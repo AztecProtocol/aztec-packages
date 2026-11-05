@@ -8,6 +8,7 @@
 //   node scripts/aztec_node.mts [--line <line>] pin <tag>     move the pin to an aztec-node release or nightly tag (needs gh)
 //   node scripts/aztec_node.mts [--line <line>] provision <nargo|bb|cli|l1-artifacts>...   install the pinned published toolchain (l1-artifacts: a line only)
 //   node scripts/aztec_node.mts [--line <line>] env      print the pin as shell exports, for eval
+//   node scripts/aztec_node.mts lines    print the line names, one per line
 //
 // .mts because docs/package.json declares no module type: a .ts file with ESM syntax makes every run
 // print MODULE_TYPELESS_PACKAGE_JSON.
@@ -566,6 +567,10 @@ async function main(argv: string[]): Promise<number> {
     return found.length ? 1 : 0;
   };
   switch (cmd) {
+    case "lines":
+      if (o.line || args.length) break;
+      for (const line of lineNames(docs)) console.log(line);
+      return 0;
     case "fetch":
       return report(await fetchPinned(o, log));
     case "check":

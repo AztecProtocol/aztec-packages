@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
 const { releaseNameFor, versionLabel } = require("../release_names");
-const { lineApiFolder } = require("../network_docs");
+const { lineApiFolders } = require("../network_docs");
 const { lineOf, readPin } = require("./line");
 
 // Load version defaults from config file (source of truth for version→type mapping)
@@ -79,16 +79,7 @@ function foundationVersion() {
   return `v${JSON.parse(fs.readFileSync(pkg, "utf8")).version}`;
 }
 
-// A line's API links read the reference a network on its major publishes; another major's would
-// document a different API.
-function lineApiRefVersion(line) {
-  const folder = lineApiFolder(developerVersionConfig, line.major);
-  if (!folder)
-    throw new Error(
-      `no network runs v${line.major}, so line ${line.name} has no published API reference: retire the line (git rm -r docs/lines/${line.name}) or keep a reference for it`,
-    );
-  return folder;
-}
+const lineApiRefVersion = (line) => lineApiFolders(developerVersionConfig, [line.name])[line.name];
 
 function pinnedAztecNodeRef() {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "../../aztec-node.json"), "utf8")).ref;

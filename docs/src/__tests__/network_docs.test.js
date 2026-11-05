@@ -8,6 +8,7 @@ const {
   docsInstances,
   historicalVersions,
   lineApiFolder,
+  lineInstances,
   llmsRoutes,
   networkSection,
   startHere,
@@ -103,6 +104,25 @@ describe("Aztec.nr API folders", () => {
       const index = path.join(__dirname, "../../static/aztec-nr-api", folder, "noir_aztec/index.html");
       assert.ok(fs.existsSync(index), `${version} links into aztec-nr-api/${folder}/, which does not exist`);
     }
+  });
+});
+
+describe("dev lines", () => {
+  it("serve each line's developer and operator pages under their own base outside production only", () => {
+    assert.deepStrictEqual(lineInstances(["v6"], true), []);
+    assert.deepStrictEqual(lineInstances(["v6"], false), [
+      { line: "v6", id: "developer-v6", source: "lines/v6/docs-developers", routeBasePath: "developers-v6", sidebar: "lines/v6/sidebars-developer.js" },
+      { line: "v6", id: "network-v6", source: "lines/v6/docs-operate", routeBasePath: "operate-v6", sidebar: "lines/v6/sidebars-operate.js" },
+    ]);
+  });
+
+  it("send a line's API page to its line's folder, and every other page where it went before", () => {
+    const folders = { "v6.0.0": "mainnet" };
+    const lines = { v6: "mainnet" };
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer-v6", lines), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer", lines), "next");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders, "developer", lines), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders), "mainnet");
   });
 });
 
