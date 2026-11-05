@@ -2,135 +2,129 @@
 // Copyright 2026 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Test, StdUtils} from "forge-std/Test.sol";
+// solhint-disable func-name-mixedcase
+// solhint-disable comprehensive-interface
+
+import {Test} from "forge-std/Test.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {RegistryReductionCalculator} from "@aztec/periphery/RegistryReductionCalculator.sol";
 import {ZeroRegistryRewardsPayload} from "@aztec/periphery/ZeroRegistryRewardsPayload.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
+import {StubGSE, StubRollup} from "./ZeroRegistryRewardsPayload.t.sol";
 
-contract InvariantRollupStub {
-  address public owner;
-  address public getGSE;
-  address public sequencerRewardCalculator;
+/**
+ * @notice Drives the payload's calculator through random sequences of calls by accounts other than governance
+ *         (writing, removing, transferring and renouncing), interleaved with the one execution of the payload's
+ *         actions by governance.
+ */
+contract ZeroRegistryRewardsPayloadHandler is Test {
+  ZeroRegistryRewardsPayload internal immutable PAYLOAD;
+  RegistryReductionCalculator internal immutable CALCULATOR;
+  address internal immutable ROLLUP;
+  address internal immutable GOVERNANCE;
 
-  constructor(address _owner, address _gse) {
-    owner = _owner;
-    getGSE = _gse;
-  }
-
-  function setSequencerRewardCalculator(address _calc) external {
-    require(msg.sender == owner, "Rollup: not owner");
-    sequencerRewardCalculator = _calc;
-  }
-}
-
-contract InvariantGSEStub {
-  function getWithdrawer(address) external pure returns (address) {
-    return address(0);
-  }
-}
-
-contract ZeroRegistryPayloadHandler is StdUtils {
-  InvariantGSEStub public immutable gse;
-  InvariantRollupStub public immutable rollup;
-  address public immutable governance;
-  ZeroRegistryRewardsPayload public payload;
-
-  address[] internal _knownRegistries;
   bool public executed;
+  mapping(bytes32 action => uint256 count) public calls;
 
-  constructor() {
-    governance = makeAddr("governance");
-    gse = new InvariantGSEStub();
-    rollup = new InvariantRollupStub(governance, address(gse));
+  constructor(ZeroRegistryRewardsPayload _payload, address _rollup, address _governance) {
+    PAYLOAD = _payload;
+    CALCULATOR = _payload.CALCULATOR();
+    ROLLUP = _rollup;
+    GOVERNANCE = _governance;
   }
 
-  function setupPayload(uint8 rawN, uint256 seed) public {
-    uint8 n = uint8(bound(rawN, 1, 50));
-    address[] memory regs = new address[](n);
-    for (uint8 i = 0; i < n; i++) {
-      regs[i] = address(uint160(uint256(keccak256(abi.encode(seed, i))) % (type(uint160).max - 1) + 1));
-      for (uint8 j = 0; j < i; j++) {
-        if (regs[j] == regs[i]) regs[i] = address(uint160(regs[i]) + 1);
-      }
+  function _notGovernance(address _caller) internal view returns (address) {
+    return _caller == GOVERNANCE ? address(uint160(_caller) ^ 1) : _caller;
+  }
+
+  function strangerSets(address _caller, address _registry, uint96 _reward) external {
+    calls["strangerSets"]++;
+    vm.prank(_notGovernance(_caller));
+    try CALCULATOR.setRegistryReward(_registry, _reward) {} catch {}
+  }
+
+  function strangerRemoves(address _caller, uint256 _index) external {
+    calls["strangerRemoves"]++;
+    address registry = PAYLOAD.registries(bound(_index, 0, PAYLOAD.registryCount() - 1));
+    vm.prank(_notGovernance(_caller));
+    try CALCULATOR.removeRegistryReward(registry) {} catch {}
+  }
+
+  function strangerTransfers(address _caller, address _to) external {
+    calls["strangerTransfers"]++;
+    vm.prank(_notGovernance(_caller));
+    try CALCULATOR.transferOwnership(_to) {} catch {}
+  }
+
+  function strangerRenounces(address _caller) external {
+    calls["strangerRenounces"]++;
+    vm.prank(_notGovernance(_caller));
+    try CALCULATOR.renounceOwnership() {} catch {}
+  }
+
+  /// @notice Governance executes the proposal once, as `Governance.execute` would: every action must succeed.
+  function governanceExecutes() external {
+    if (executed) {
+      return;
     }
-    payload = new ZeroRegistryRewardsPayload(IInstance(address(rollup)), regs);
-    delete _knownRegistries;
-    for (uint8 i = 0; i < n; i++) _knownRegistries.push(regs[i]);
-    executed = false;
-  }
-
-  function executePayload() public {
-    if (address(payload) == address(0)) return;
-    IPayload.Action[] memory actions = payload.getActions();
-    vm.startPrank(governance);
+    calls["governanceExecutes"]++;
+    vm.mockCall(ROLLUP, abi.encodeWithSelector(IRollupCore.setSequencerRewardCalculator.selector), "");
+    IPayload.Action[] memory actions = PAYLOAD.getActions();
     for (uint256 i = 0; i < actions.length; i++) {
+      vm.prank(GOVERNANCE);
       (bool ok,) = actions[i].target.call(actions[i].data);
-      require(ok, "action execution failed");
+      require(ok, "action reverted");
     }
-    vm.stopPrank();
     executed = true;
   }
-
-  function knownCount() external view returns (uint256) {
-    return _knownRegistries.length;
-  }
-
-  function getKnownRegistry(uint256 i) external view returns (address) {
-    return _knownRegistries[i];
-  }
 }
 
-contract ZeroRegistryRewardsPayloadInvariant is Test {
-  ZeroRegistryPayloadHandler internal handler;
+contract ZeroRegistryRewardsPayloadInvariantTest is Test {
+  address internal governance = makeAddr("governance");
+  address internal rollup;
+  ZeroRegistryRewardsPayload internal payload;
+  ZeroRegistryRewardsPayloadHandler internal handler;
+  bytes32 internal actionsHash;
+  uint256 internal registryCount;
 
   function setUp() public {
-    handler = new ZeroRegistryPayloadHandler();
-    handler.setupPayload(5, 42);
+    rollup = address(new StubRollup(governance, address(new StubGSE())));
+    address[] memory list = new address[](3);
+    list[0] = 0x667d2641cb96734f386adA6A9afCF07B1815fB8b;
+    list[1] = 0xD938bE4A2cB41105Bc2FbE707dca124A2e5d0c80;
+    list[2] = makeAddr("third registry");
+    payload = new ZeroRegistryRewardsPayload(IInstance(rollup), list);
+    registryCount = list.length;
+    actionsHash = keccak256(abi.encode(payload.getActions()));
 
+    handler = new ZeroRegistryRewardsPayloadHandler(payload, rollup, governance);
     targetContract(address(handler));
-    bytes4[] memory selectors = new bytes4[](2);
-    selectors[0] = ZeroRegistryPayloadHandler.setupPayload.selector;
-    selectors[1] = ZeroRegistryPayloadHandler.executePayload.selector;
-    targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
   }
 
-  function invariant_ownershipImmutable() public view {
-    ZeroRegistryRewardsPayload p = handler.payload();
-    if (address(p) == address(0)) return;
-
-    assertEq(p.CALCULATOR().owner(), handler.governance(), "I-5: calculator owner != governance");
+  /// @notice No sequence of calls by anyone but governance moves the calculator's ownership.
+  function invariant_theCalculatorStaysWithGovernance() external view {
+    assertEq(payload.CALCULATOR().owner(), governance, "calculator ownership moved");
   }
 
-  function invariant_actionCountStable() public view {
-    ZeroRegistryRewardsPayload p = handler.payload();
-    if (address(p) == address(0)) return;
-
-    assertEq(p.getActions().length, handler.knownCount() + 1, "action count mismatch");
+  /// @notice What voters approve cannot change after deployment: the list and the actions are fixed.
+  function invariant_theProposalIsFixed() external view {
+    assertEq(payload.registryCount(), registryCount, "registry count changed");
+    assertEq(keccak256(abi.encode(payload.getActions())), actionsHash, "actions changed");
   }
 
-  function invariant_calculatorLinkedAfterExecute() public view {
-    if (!handler.executed()) return;
-
-    assertEq(
-      handler.rollup().sequencerRewardCalculator(),
-      address(handler.payload().CALCULATOR()),
-      "calculator not linked after execute"
-    );
-  }
-
-  function invariant_allRegistriesZeroedAfterExecute() public view {
-    if (!handler.executed()) return;
-
-    uint256 count = handler.knownCount();
-    RegistryReductionCalculator calc = handler.payload().CALCULATOR();
-    for (uint256 i = 0; i < count; i++) {
-      address reg = handler.getKnownRegistry(i);
-      (bool exists, uint96 reward) = calc.getRegistryReward(reg);
-      assertTrue(exists, "registry must be configured in calculator");
-      assertEq(reward, 0, "registry reward must be zeroed");
+  /// @notice Before execution no listed registry has an entry; after it every listed registry is at zero. Calls by
+  ///         anyone else change neither.
+  function invariant_listedRegistriesAreUntouchedOrZero() external view {
+    RegistryReductionCalculator calc = payload.CALCULATOR();
+    for (uint256 i = 0; i < registryCount; i++) {
+      (bool exists, uint96 reward) = calc.getRegistryReward(payload.registries(i));
+      if (handler.executed()) {
+        assertTrue(exists, "a listed registry has no entry after execution");
+        assertEq(reward, 0, "a listed registry earns something");
+      } else {
+        assertFalse(exists, "a listed registry was configured before execution");
+      }
     }
   }
 }
