@@ -38,3 +38,4 @@ static/aztec-nr-api/next
 
 # aztec-node checkout and binaries pinned by aztec-node.json (scripts/aztec_node.mts)
 /.aztec-node
+/lines/*/.aztec-node
