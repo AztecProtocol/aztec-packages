@@ -67,7 +67,7 @@ Note that you cannot use the macros (`#include_aztec_version` and `#include_code
 The way docs builds work is the following:
 
 - Netlify builds this directory (`netlify.toml`). A push to `next` that changes `docs/` publishes docs.aztec.network about 15 minutes later; a push that changes nothing under `docs/` publishes nothing. A pull request that changes `docs/` gets a deploy preview. See [Publishing](#publishing).
-- Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function and the markdown edge function.
+- Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function, the markdown edge function and the migration notes range edge function (`migration_notes.md?from=&to=`, read from the `migration_notes.json` index the build writes).
 - [The main CI workflow](../.github/workflows/ci3.yml) runs the docs reference and sync checks on every pull request. The docs build and tests (`make docs docs-tests`) run in full CI, for example with the `ci-full` label.
 
 The preprocessing macros use environment variables to determine version numbers. For nightly builds, set `NIGHTLY_TAG` (or `COMMIT_TAG` for backwards compatibility):
