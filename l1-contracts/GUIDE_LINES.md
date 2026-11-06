@@ -1,24 +1,24 @@
 # Smart Contract Guideline
-In the following, there will be guidelines for the process of writing readable, maintainable and secure contract code. We try to cover the entire process: 
-- before writing the code, 
-- while writing, 
+In the following, there will be guidelines for the process of writing readable, maintainable and secure contract code. We try to cover the entire process:
+- before writing the code,
+- while writing,
 - when optimizing
-- when reviewing. 
+- when reviewing.
 
-In general the language of choice will be Solidity for our L1 contracts, so most of the specific style rules will be having that in mind, but the process for writing it can be adapted slightly for vyper, and will have an extension when Aztec.nr contracts are more mature. 
+In general the language of choice will be Solidity for our L1 contracts, so most of the specific style rules will be having that in mind, but the process for writing it can be adapted slightly for vyper, and will have an extension when Aztec.nr contracts are more mature.
 
 ![](https://media.tenor.com/ry_sCXk6wH0AAAAC/pirates-caribbean-code.gif)
 
 ## Outline
 When you plan to build a system, or write a contract to extend an existing one. This should be the go-to approach.
-1. Write a specification. 
+1. Write a specification.
     - Define how the system is planned to work, what trade-offs are made and why. Do this without writing an implementation! The spec should have a "TL;DR" or similar so people can quickly skim to see what you want to do and why.
 2. Write a reference implementation of the spec, focus on readability
     - Solidity contracts especially can be a pain in the neck to read if an implementation is optimized heavily.
 3. Write extensive test for individual functions, integrations and scenarios
 4. Add fuzz-testing when the bases are covered
 5. Review reference implementation
-6. Fix any issues that have been revealed by the review 
+6. Fix any issues that have been revealed by the review
 7. Create an optimized implementation
 
 # 1. Writing a spec
@@ -38,16 +38,16 @@ The spec should outline the dependencies of the contract (other protocols and to
 2. Makes it more clear what types of actions the accounting needs to support, and if any are missing.
 
 ## 2. Writing a reference implementation
-A reference implementation is a practical instantiation of the spec that should strive to maximize readability. 
+A reference implementation is a practical instantiation of the spec that should strive to maximize readability.
 It should make it very clear what the purpose is, and how it achieves its goal, meaning that no heavy optimizations should be made. The reference is simply to be used as a good way to understand the code, and to build tests for. To make assessing the coverage of the code easier, ternary operators should be avoid, e.g., instead of `a > b ? a : b` please use explicit `if-else` branching.
 Having a reference implementation, that can later be optimized, should also make it easier for auditors and external parties to give a first look at the protocol, e.g., if there is a flaw in the business logic, it should be possible to catch at this point.
 
 ## 3. Writing tests
-Test to cover all the user intended flows should be written, as well as tests for failure cases and less intended flows. 
+Test to cover all the user intended flows should be written, as well as tests for failure cases and less intended flows.
 
 To make the test useful for reviewers, a small comment describing it in easily understandable language should  be added.
 
-When the tests have been written, coverage should be ~100%. If not, put focus on the parts that are missing, is there some possible behavior that we have not thought about or what is the reasoning behind the missing coverage. 
+When the tests have been written, coverage should be ~100%. If not, put focus on the parts that are missing, is there some possible behavior that we have not thought about or what is the reasoning behind the missing coverage.
 
 ### 3.1 Happy Paths
 A happy path is a series of actions that we expect users to do, or be part of, e.g., users using the protocol as expected.
@@ -64,12 +64,12 @@ For actions with user-controlled input amounts or where inner values depend on t
 ## 5. Review reference implementation
 For every issue found, create a `github` issue. These should be grouped in one of the following groups `informational, low, medium, high`. Issues should be separate, but if the same problem have been spotted multiple places, e.g., off-by one for both deposit and withdraw, it can be grouped into one `issue`.
 
-When reviewing, consult the references to have checklists to go through. 
+When reviewing, consult the references to have checklists to go through.
 
 Also, is the contract planned to be used behind a proxy or directly? If behind a proxy, is there are deployment script that will initialize it, and does the upgrade mechanism work or is something missing.
 
 ## 6. Handle issues
-For each of the `github` issue that have been created by the review, either a PR should be made that addresses the issue or it should be acknowledged. 
+For each of the `github` issue that have been created by the review, either a PR should be made that addresses the issue or it should be acknowledged.
 
 ## 7. Create optimized implementation
 Before writing the optimized implementation, the tests should be extended to the point where no test is lacking. Also, all tests should pass for both sets.
@@ -77,10 +77,10 @@ Before writing the optimized implementation, the tests should be extended to the
 ### 7.1 Good places to start
 - Variable packing
 - Cached variables (if read from storage multiple times, cache the value and use it)
-- Unchecked math for increment in values where it is known that it will never overflow. 
+- Unchecked math for increment in values where it is known that it will never overflow.
 
 ### 7.2 Gas-comparison for reference / optimized
-For each of the changes that are made, please add an estimate on the gas savings. If gas is saved and it doesn't significantly increase the code-size or heavily degrades the readability 
+For each of the changes that are made, please add an estimate on the gas savings. If gas is saved and it doesn't significantly increase the code-size or heavily degrades the readability
 
 ## Reviews
 There is a couple of different angles when reviewing smart contracts:
@@ -116,27 +116,27 @@ We generally strive to adhere to the [soliditylang guidelines](https://docs.soli
 
 ### Natspec
 
-Natspec should be written for all functions (`internal` mainly for clarity). Use the `@notice` tag for general explanation of the function that a user should be able to understand and `@dev` for more developer specific information. 
+Natspec should be written for all functions (`internal` mainly for clarity). Use the `@notice` tag for general explanation of the function that a user should be able to understand and `@dev` for more developer specific information.
 
 ```solidity
   /**
    * @notice Inserts a new message into the Inbox
    * @dev Emits `MessageSent` with data for easy access by the sequencer
    * @param _recipient - The recipient of the message
-   * @param _content - The content of the message (application specific)
-   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
+   * @param _publicContentHash - Hash of the public content of the message
+   * @param _privateContentHash - Hash of the private content of the message
    * @return Hash of the sent message.
    */
   function sendL2Message(
     DataStructures.L2Actor memory _recipient,
-    bytes32 _content,
-    bytes32 _secretHash
+    bytes32 _publicContentHash,
+    bytes32 _privateContentHash
   ) external override(IInbox) returns (bytes32) {
 ```
 
 ### Solhint configuration
 
-Many of these guidelines are enforced by solhint, with additions in https://github.com/LHerskind/solhint. 
+Many of these guidelines are enforced by solhint, with additions in https://github.com/LHerskind/solhint.
 
 ```json
 {

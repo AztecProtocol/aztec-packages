@@ -50,8 +50,7 @@ contract TokenPortalTest is Test {
   uint256 internal amount = 100;
   uint256 internal mintAmount = 1 ether;
   // this hash is just a random 32 byte string
-  bytes32 internal secretHashForL2MessageConsumption =
-    0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
+  bytes32 internal privateContentHash = 0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
 
   // params for withdraw:
   address internal recipient = address(0xdead);
@@ -86,8 +85,8 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
-      content: Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", amount)),
-      secretHash: secretHashForL2MessageConsumption,
+      publicContentHash: Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", amount)),
+      privateContentHash: privateContentHash,
       index: _index
     });
   }
@@ -102,8 +101,8 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
-      content: Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)),
-      secretHash: secretHashForL2MessageConsumption,
+      publicContentHash: Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)),
+      privateContentHash: privateContentHash,
       index: _index
     });
   }
@@ -128,7 +127,7 @@ contract TokenPortalTest is Test {
     // event we will get
 
     // Perform op
-    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPrivate(amount, secretHashForL2MessageConsumption);
+    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPrivate(amount, privateContentHash);
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
     assertEq(index, expectedIndex, "returned index and calculated index should match");
@@ -155,7 +154,7 @@ contract TokenPortalTest is Test {
     emit IInbox.MessageSent(expectedLeaf, expectedInboxRollingHash, 1, expectedMessage);
 
     // Perform op
-    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
+    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPublic(to, amount, privateContentHash);
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
     assertEq(index, expectedIndex, "returned index and calculated index should match");
