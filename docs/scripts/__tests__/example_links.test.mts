@@ -65,14 +65,15 @@ test("exampleLinkProblems flags aztec-node docs, other refs, other lines and mis
 });
 
 test("dev pages link the examples of their own line at #docs_commit", () => {
-  const pages = execFileSync(
-    "git",
-    ["-C", repoRoot, "ls-files", "--", "docs/docs", "docs/docs-developers", "docs/docs-operate", "docs/docs-participate", "docs/lines/*/docs-developers/*", "docs/lines/*/docs-operate/*"],
-    { encoding: "utf8" },
-  )
-    .split("\n")
-    .filter((f) => /\.mdx?$/.test(f));
-  assert.ok(pages.length > 100, `found only ${pages.length} pages`);
+  // A pathspec with a wildcard must match the whole path, so a line root needs its trailing `/*`.
+  const roots = ["docs/docs", "docs/docs-developers", "docs/docs-operate", "docs/docs-participate", "docs/lines/*/docs-developers/*", "docs/lines/*/docs-operate/*"];
+  const pages = roots.flatMap((root) => {
+    const found = execFileSync("git", ["-C", repoRoot, "ls-files", "--", root], { encoding: "utf8" })
+      .split("\n")
+      .filter((f) => /\.mdx?$/.test(f));
+    assert.ok(found.length > 0, `no pages under ${root}`);
+    return found;
+  });
   const problems = pages.flatMap((page) => exampleLinkProblems(repoRoot, page, fs.readFileSync(path.join(repoRoot, page), "utf8")));
   assert.deepEqual(problems, []);
 });
