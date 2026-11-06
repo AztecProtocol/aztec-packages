@@ -37,12 +37,22 @@ clean "$AZTEC" init
 "$retry" 'clean "$AZTEC" compile'
 clean "$AZTEC" codegen target -o src/artifacts
 
-# The page as the site renders it, so its version macros resolve to this line's pin.
+# The page as the site renders it, so its version macros resolve to this line's pin. Its script is
+# this example's `full` region, extracted the way the site's include does; the page must include
+# exactly that region, or the test would pass on a script readers never see.
 node -e '
 const fs = require("fs");
 const path = require("path");
-const [includeVersion, page, root, out] = process.argv.slice(1);
-require(includeVersion).preprocessIncludeVersion(fs.readFileSync(page, "utf8"), page, root).then(({ content }) => {
+const [preprocess, page, root, example, out] = process.argv.slice(1);
+const { preprocessIncludeVersion } = require(path.join(preprocess, "include_version.js"));
+const { extractCodeSnippet } = require(path.join(preprocess, "include_code.js"));
+const source = fs.readFileSync(page, "utf8");
+const include = `#include_code full /${path.relative(root, example)} typescript`;
+const includes = source.split("\n").filter((line) => line.trim() === include).length;
+if (includes !== 1) throw new Error(`${page}: expected one "${include}" line, found ${includes}`);
+fs.mkdirSync(path.join(out, "src"), { recursive: true });
+fs.writeFileSync(path.join(out, "src", "index.ts"), `${extractCodeSnippet(example, "full")[0]}\n`);
+preprocessIncludeVersion(source, page, root).then(({ content }) => {
   for (const name of ["package.json", "tsconfig.json"]) {
     const blocks = [...content.matchAll(new RegExp("^```json title=\"" + name.replace(".", "\\.") + "\"\\n([\\s\\S]*?)^```$", "gm"))];
     if (blocks.length !== 1) throw new Error(`${page}: expected one ${name} block, found ${blocks.length}`);
@@ -52,11 +62,7 @@ require(includeVersion).preprocessIncludeVersion(fs.readFileSync(page, "utf8"), 
     fs.writeFileSync(path.join(out, name), body);
   }
 });
-' "$repo_root/docs/src/preprocess/include_version.js" "$page" "$repo_root" "$project"
-
-mkdir -p "$project/src"
-awk '/docs:end:full/ { exit } on { print } /docs:start:full/ { on = 1 }' "$script_dir/index.ts" >"$project/src/index.ts"
-[ -s "$project/src/index.ts" ] || { echo "No docs:start:full region in $script_dir/index.ts" >&2; exit 1; }
+' "$repo_root/docs/src/preprocess" "$page" "$repo_root" "$script_dir/index.ts" "$project"
 
 "$retry" 'clean npm install --ignore-scripts --no-audit --no-fund'
 clean ./node_modules/.bin/tsc --noEmit

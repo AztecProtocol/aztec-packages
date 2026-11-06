@@ -1,13 +1,7 @@
-# Configuration for first_full_project example
-# The TypeScript half of "Your first full project": deploy and call the Counter that `aztec init` creates
-
-# examples/contracts/counter_contract has the same ABI as the `aztec init` Counter
+# examples/contracts/counter_contract has the same ABI as the Counter `aztec init` creates.
 contracts:
   - counter_contract-Counter
 
-# Dependencies:
-#   - @aztec-labs/* and @aztec-foundation/* packages install at the versions docs/aztec-node.json pins
-#   - Use npm:package-name for external npm packages
 dependencies:
   - "@aztec-labs/aztec.js"
   - "@aztec-labs/accounts"

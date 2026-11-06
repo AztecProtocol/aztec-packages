@@ -88,7 +88,7 @@ The script asserts that the transaction created exactly one note hash, so the no
 
 ## Prove and verify
 
-Execute the circuit with noir_js, then prove and verify the result with bb.js. The storage slot comes from the contract's generated storage layout:
+Execute the circuit with noir_js, then prove and verify the result with bb.js. The script imports the circuit's artifact from where `nargo compile` wrote it, so point that import at your circuit's `target/` folder. The storage slot comes from the contract's generated storage layout:
 
 #include_code prove /docs/lines/v6/examples/ts/note_hash_proof/index.ts typescript
 

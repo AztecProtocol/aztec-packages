@@ -1,7 +1,5 @@
-import circuit from "../../../target/note_hash_proof.json" with { type: "json" };
-import assert from "node:assert";
-
 // docs:start:create_note
+import assert from "node:assert";
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing";
 import { Fr } from "@aztec-labs/aztec.js/fields";
 import { createAztecNodeClient, waitForNode } from "@aztec-labs/aztec.js/node";
@@ -57,6 +55,8 @@ const noteNonce = await computeNoteHashNonce(txEffect.nullifiers[0], 0);
 // docs:start:prove
 import { Barretenberg, UltraHonkBackend } from "@aztec-foundation/bb.js";
 import { Noir } from "@aztec-foundation/noir-noir_js";
+// The artifact `nargo compile` wrote for the circuit.
+import circuit from "../../../target/note_hash_proof.json" with { type: "json" };
 
 const inputs = {
   settled_note_hash: settledNoteHash.toString(),

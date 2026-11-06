@@ -1,13 +1,13 @@
+// docs:start:circuit
 use aztec::{
     note::note_interface::NoteHash,
     protocol::{address::AztecAddress, hash::{compute_siloed_note_hash, compute_unique_note_hash}, traits::FromField},
 };
 use uint_note::UintNote;
 
-// docs:start:circuit
 /// Proves knowledge of the randomness, storage slot and nonce that make a `UintNote` of `value`, owned by `owner` in
-/// `contract_address`, hash to `settled_note_hash`. It does not prove that the hash is in the note hash tree, nor
-/// that the note is unspent: the verifier checks those against the chain.
+/// `contract_address`, hash to `settled_note_hash`. The verifier must check that the hash is in the note hash tree
+/// itself. Whether the note is unspent cannot be shown this way: its nullifier needs the owner's nullifier key.
 fn main(
     settled_note_hash: pub Field,
     contract_address: pub Field,

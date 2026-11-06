@@ -102,10 +102,10 @@ The contract keeps the game simple, so two gaps remain:
 
 Add a public `forfeit_game(game_id)` function that lets a player concede before the game ends:
 
-1. Check that the caller is one of the two players and that the game is not finalized.
+1. Check that player 2 has joined, that the caller is one of the two players, and that the game is not finalized.
 2. Credit the other player in `win_history` and mark the game as finalized.
 3. Write a test that forfeits a game, then checks `win_history` with `utils::wins`.
-4. Write a `should_fail_with` test for a caller who is not a player.
+4. Write `should_fail_with` tests for a caller who is not a player and for a game player 2 has not joined.
 
 Run `aztec test` until all tests pass.
 

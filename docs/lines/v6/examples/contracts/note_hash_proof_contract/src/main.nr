@@ -5,21 +5,17 @@ pub contract NoteHashProof {
     use aztec::{
         macros::{functions::external, storage::storage},
         messages::delivery::MessageDelivery,
-        note::{
-            lifecycle::NewNote,
-            note_interface::{NoteHash, NoteType},
-            note_viewer_options::NoteViewerOptions,
-            NoteMessage,
-        },
+        note::{lifecycle::NewNote, note_interface::{NoteHash, NoteType}, NoteMessage},
         oracle::notes::notify_created_note,
         protocol::{address::AztecAddress, traits::Packable},
-        state_vars::{Owned, PrivateSet, StateVariable},
+        state_vars::{Owned, StateVariable},
     };
+    use balance_set::BalanceSet;
     use uint_note::UintNote;
 
     #[storage]
     struct Storage<Context> {
-        notes: Owned<PrivateSet<UintNote, Context>, Context>,
+        notes: Owned<BalanceSet<Context>, Context>,
     }
 
     // docs:start:create_note
@@ -60,13 +56,6 @@ pub contract NoteHashProof {
     /// The sum of `owner`'s note values that the caller's PXE holds.
     #[external("utility")]
     unconstrained fn balance_of(owner: AztecAddress) -> u128 {
-        let notes = self.storage.notes.at(owner).view_notes(NoteViewerOptions::new());
-        let mut total: u128 = 0;
-        for i in 0..notes.max_len() {
-            if i < notes.len() {
-                total += notes.get_unchecked(i).value;
-            }
-        }
-        total
+        self.storage.notes.at(owner).balance_of()
     }
 }
