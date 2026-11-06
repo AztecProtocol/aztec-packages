@@ -7,7 +7,7 @@ references: ["docs/lines/v6/examples/contracts/note_hash_proof_contract/src/main
 
 ## Overview
 
-A private note appears onchain only as a note hash. In this tutorial, you create a note whose randomness you choose, then prove outside Aztec, with a Noir circuit, that you know the contents behind that hash. A service that cannot read your notes can check the proof, for example to confirm that you received a payment of a given value.
+A private note appears onchain only as a note hash. In this tutorial, you create a note whose randomness you choose, then prove outside Aztec, with a Noir circuit, that you know the contents behind that hash. A service that cannot read your notes can check the proof, but what it shows depends on the contract that created the note (see [What the proof shows](#what-the-proof-shows)).
 
 You build three parts:
 
@@ -30,6 +30,7 @@ Read this before you use the pattern:
 - **It does not prove** that the note hash is in the note hash tree. The verifier must look the hash up on the chain itself.
 - **It does not prove** that the note is unspent. Only the owner's PXE can compute the note's nullifier, so a verifier cannot check this.
 - **It does not prove** that the prover is the owner. Anyone who knows the randomness can produce the proof, which is why the randomness must stay secret.
+- **It does not prove** how the note came to exist. A note means only what the contract's rules for creating notes allow: this tutorial's `create_note` lets any caller create a note of any value for itself, so a proof about it shows knowledge of a note, not a payment.
 
 ## The contract
 
@@ -41,7 +42,7 @@ The function:
 
 1. Computes the note hash with `UintNote`'s own `compute_note_hash`
 2. Tells the PXE about the new note (`notify_created_note`) and adds its hash to the transaction (`push_note_hash`)
-3. Delivers the note to its owner with `MessageDelivery::onchain_constrained()`, so the owner's PXE stores it and can spend it later
+3. Delivers the note to its owner with `MessageDelivery::onchain_constrained()`, so the owner's PXE finds and stores it (the script reads it back with `balance_of`)
 
 The randomness is a private argument, so it never appears onchain. Two rules apply to it:
 
