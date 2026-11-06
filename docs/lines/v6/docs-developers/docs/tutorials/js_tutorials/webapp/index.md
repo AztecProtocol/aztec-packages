@@ -86,7 +86,7 @@ cd docs/examples/webapp-tutorial
 
 ## Completed example
 
-The full working example including the contract source is available at [`docs/examples/webapp-tutorial/`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial).
+The full working example including the contract source is available at [`docs/lines/v6/examples/webapp-tutorial/`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/lines/v6/examples/webapp-tutorial).
 
 The example also includes a **functional wallet extension** (`test-extension/`) that can deploy accounts and send real transactions using SponsoredFPC for fee payment. See the [Network & Wallet](./03-network-and-wallet.md#testing-with-the-tutorial-wallet-extension) section for setup instructions.
 

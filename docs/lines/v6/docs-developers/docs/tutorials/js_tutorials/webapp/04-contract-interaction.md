@@ -13,7 +13,7 @@ Now that you have a wallet, you can deploy the Pod Racing contract and interact 
 
 Before your PXE (Private eXecution Environment) can interact with a contract, it needs two pieces of information: the **artifact** (the compiled contract bytecode and ABI) and the **instance** (the deployed address and constructor parameters). Without these, PXE cannot construct proofs or route transactions to the correct contract.
 
-Open [`src/contract.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/src/contract.ts). This file imports the generated `PodRacingContract` class from the compiled artifacts and wraps each contract method in a simple async function that the UI components call. The key functions are described below.
+Open [`src/contract.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/lines/v6/examples/webapp-tutorial/src/contract.ts). This file imports the generated `PodRacingContract` class from the compiled artifacts and wraps each contract method in a simple async function that the UI components call. The key functions are described below.
 
 ### Deploying a new contract
 
@@ -55,7 +55,7 @@ The opponent pastes the contract address and game ID to join. Under the hood, th
 
 ## The game board component
 
-Open [`src/components/GameBoard.tsx`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/src/components/GameBoard.tsx). The board lets you allocate points across 5 tracks each round. There is a constraint: your total points per round must sum to less than 10 (i.e., at most 9 points). This forces strategic trade-offs — you can't dominate every track.
+Open [`src/components/GameBoard.tsx`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/lines/v6/examples/webapp-tutorial/src/components/GameBoard.tsx). The board lets you allocate points across 5 tracks each round. There is a constraint: your total points per round must sum to less than 10 (i.e., at most 9 points). This forces strategic trade-offs — you can't dominate every track.
 
 ### Submitting a round (private transaction)
 

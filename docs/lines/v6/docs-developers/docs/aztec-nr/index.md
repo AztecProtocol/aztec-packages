@@ -60,7 +60,7 @@ and import dependencies from the Aztec.nr library.
 
 :::info
 
-You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/aztec-labs-eng/aztec-node/blob/#include_aztec_version/docs/examples/contracts/counter_contract/src/main.nr).
+You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/AztecProtocol/aztec-packages/blob/#docs_commit/docs/lines/v6/examples/contracts/counter_contract/src/main.nr).
 
 :::
 
