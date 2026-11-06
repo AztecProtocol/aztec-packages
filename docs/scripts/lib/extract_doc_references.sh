@@ -14,8 +14,8 @@ extract_references_mapping() {
   local docs_dir="$1"
   local output_file="$2"
 
-  # Clear output file
-  > "$output_file"
+  # Not a bare `> file`: zsh runs that as `cat > file`, which blocks on an open stdin.
+  : >"$output_file"
 
   # Scan docs-developers, docs-operate, and docs-participate subdirectories
   for docs_subdir in docs-developers docs-operate docs-participate; do
@@ -76,65 +76,27 @@ _extract_from_directory() {
   done >> "$output_file"
 }
 
-# Get unique reference files from a mapping file
+# Print `<reference> -> <doc>, <doc>` for each reference that names a changed path: the path itself,
+# or a directory holding it (`<dir>/*` or `<dir>`). One line per reference, sorted.
 # Arguments:
-#   $1 - mapping_file: Path to the mapping file
-get_unique_references() {
+#   $1 - mapping_file: from extract_references_mapping ("ref_file|doc_file")
+#   $2 - changed_file: changed paths from the repository root, one per line
+changed_references() {
   local mapping_file="$1"
-  cut -d'|' -f1 "$mapping_file" | sort -u
-}
+  local changed_file="$2"
 
-# Find which docs reference a given file pattern
-# Arguments:
-#   $1 - mapping_file: Path to the mapping file
-#   $2 - pattern: The file pattern to search for
-find_docs_for_reference() {
-  local mapping_file="$1"
-  local pattern="$2"
-  grep -F "$pattern" "$mapping_file" | cut -d'|' -f2 | sort -u
-}
-
-# Build associative arrays for file-to-docs and docs-to-files mappings
-# Arguments:
-#   $1 - mapping_file: Path to the mapping file
-#   $2 - changed_files: Newline-separated list of changed files
-# Sets global variables:
-#   FILE_TO_DOCS_MAP - associative array
-#   DOC_TO_FILES_MAP - associative array
-#   CHANGED_REFERENCES - newline-separated list of changed reference files
-build_change_mappings() {
-  local mapping_file="$1"
-  local changed_files="$2"
-
-  # Initialize global associative arrays
-  declare -gA FILE_TO_DOCS_MAP
-  declare -gA DOC_TO_FILES_MAP
-  CHANGED_REFERENCES=""
-
-  local reference_files=$(get_unique_references "$mapping_file")
-
-  while IFS= read -r ref_file; do
-    [[ -z "$ref_file" ]] && continue
-    local match_pattern="${ref_file%/\*}"
-
-    if echo "$changed_files" | grep -qF "$match_pattern"; then
-      CHANGED_REFERENCES="${CHANGED_REFERENCES}${ref_file}\n"
-
-      while IFS='|' read -r src_file doc_file; do
-        if [[ "$src_file" == "$ref_file" ]]; then
-          if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]:-}" ]]; then
-            FILE_TO_DOCS_MAP[$ref_file]="${FILE_TO_DOCS_MAP[$ref_file]}|${doc_file}"
-          else
-            FILE_TO_DOCS_MAP[$ref_file]="$doc_file"
-          fi
-
-          if [[ -n "${DOC_TO_FILES_MAP[$doc_file]:-}" ]]; then
-            DOC_TO_FILES_MAP[$doc_file]="${DOC_TO_FILES_MAP[$doc_file]}|${ref_file}"
-          else
-            DOC_TO_FILES_MAP[$doc_file]="$ref_file"
-          fi
-        fi
-      done < "$mapping_file"
-    fi
-  done <<< "$reference_files"
+  # FILENAME, not NR == FNR: an empty changed file would otherwise read the mapping as changes.
+  awk -F'|' -v changed_file="$changed_file" '
+    FILENAME == changed_file { changed[$0]; next }
+    {
+      dir = $1
+      sub(/\/\*$/, "", dir)
+      if (dir in changed) { print $1 "|" $2; next }
+      for (path in changed) if (index(path, dir "/") == 1) { print $1 "|" $2; next }
+    }
+  ' "$changed_file" "$mapping_file" | LC_ALL=C sort -u | awk -F'|' '
+    $1 != ref { if (NR > 1) print ""; ref = $1; printf "%s -> %s", ref, $2; next }
+    { printf ", %s", $2 }
+    END { if (NR) print "" }
+  '
 }
