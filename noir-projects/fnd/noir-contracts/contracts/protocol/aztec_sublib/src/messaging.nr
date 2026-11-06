@@ -1,5 +1,5 @@
 use crate::{
-    hash::{compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash},
+    hash::{compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_private_content_hash},
     oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness,
 };
 
@@ -11,18 +11,18 @@ pub fn process_l1_to_l2_message(
     portal_contract_address: EthAddress,
     chain_id: Field,
     version: Field,
-    content: Field,
-    secret: Field,
+    public_content_hash: Field,
+    private_content: Field,
     leaf_index: Field,
 ) -> Field {
-    let secret_hash = compute_secret_hash(secret);
+    let private_content_hash = compute_private_content_hash(private_content);
     let message_hash = compute_l1_to_l2_message_hash(
         portal_contract_address,
         chain_id,
         contract_address,
         version,
-        content,
-        secret_hash,
+        public_content_hash,
+        private_content_hash,
         leaf_index,
     );
 
@@ -30,10 +30,10 @@ pub fn process_l1_to_l2_message(
     // get from an oracle.
     // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
     let (_leaf_index, sibling_path) =
-        unsafe { get_l1_to_l2_membership_witness(contract_address, message_hash, secret) };
+        unsafe { get_l1_to_l2_membership_witness(contract_address, message_hash, private_content) };
 
     let root = root_from_sibling_path(message_hash, leaf_index, sibling_path);
     assert_eq(root, l1_to_l2_root, "Message not in state");
 
-    compute_l1_to_l2_message_nullifier(message_hash, secret)
+    compute_l1_to_l2_message_nullifier(message_hash, private_content)
 }
