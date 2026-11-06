@@ -25,7 +25,7 @@ If you want to develop and iterate quickly, start with the [local network guide]
 
 ## Prerequisites
 
-- <General.node_ver version="26.12.0" />
+- <General.node_ver version="24.15.0" />
 
 ## Install the Aztec toolchain
 

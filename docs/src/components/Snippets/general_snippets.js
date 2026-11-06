@@ -21,8 +21,8 @@ export const General = {
   ),
 
   // The minimum is the `node:` entry of install.aztec.network/<version>/versions, which the
-  // installer enforces: each docs version passes its own. Each text run is one string, so the
-  // markdown twin carries no React text separators.
+  // installer enforces: each page passes the one for the version it installs. Each text run is one
+  // string, so the markdown twin carries no React text separators.
   node_ver: ({ version }) => (
     <p>
       {`The Aztec installer requires Node.js ${version} or later. If you have an older version and `}
