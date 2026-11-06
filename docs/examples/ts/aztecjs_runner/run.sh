@@ -100,13 +100,15 @@ setup_project() {
     fi
 
     # Initialize yarn. `yarn init` also runs `git init` and writes the files below; the compose run is root, so anything
-    # it leaves in the checkout outlives the checkout's owner. Remove the nested repository, and the files it created.
-    local init_file created_files=()
+    # it leaves in the checkout outlives the checkout's owner. Remove the nested repository, and the files it created,
+    # even when it fails: its install step runs after it writes them.
+    local init_file created_files=() init_status=0
     for init_file in .gitignore .editorconfig .gitattributes README.md; do
         [ -e "$init_file" ] || created_files+=("$init_file")
     done
-    yarn init -y
+    yarn init -y || init_status=$?
     rm -rf .git ${created_files[@]+"${created_files[@]}"}
+    [ "$init_status" -eq 0 ] || return "$init_status"
     yarn config set nodeLinker node-modules
 
     # Set package type to module for ESM
