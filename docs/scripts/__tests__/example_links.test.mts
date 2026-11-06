@@ -65,8 +65,13 @@ test("exampleLinkProblems flags aztec-node docs, other refs, other lines and mis
 });
 
 test("dev pages link the examples of their own line at #docs_commit", () => {
-  // A pathspec with a wildcard must match the whole path, so a line root needs its trailing `/*`.
-  const roots = ["docs/docs", "docs/docs-developers", "docs/docs-operate", "docs/docs-participate", "docs/lines/*/docs-developers/*", "docs/lines/*/docs-operate/*"];
+  const roots = [
+    "docs/docs",
+    "docs/docs-developers",
+    "docs/docs-operate",
+    "docs/docs-participate",
+    ...line.lineNames(repoRoot).flatMap((l) => [`docs/lines/${l}/docs-developers`, `docs/lines/${l}/docs-operate`]),
+  ];
   const pages = roots.flatMap((root) => {
     const found = execFileSync("git", ["-C", repoRoot, "ls-files", "--", root], { encoding: "utf8" })
       .split("\n")
