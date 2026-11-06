@@ -70,7 +70,7 @@ Before starting, you should be familiar with:
 
 You'll also need:
 
-- Node.js 22+
+- Node.js, at the version [the Aztec installer requires](../../../../getting_started_on_local_network.md#prerequisites)
 - Chrome browser
 - A local Aztec network running (`aztec start --local-network`)
 - The [webapp-tutorial project set up](../webapp/index.md#clone-the-example) (for testing)

@@ -35,7 +35,7 @@ To see the whole flow before you start, watch this one-minute walkthrough (find 
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-- <General.node_ver />
+- <General.node_ver version="24.15.0" />
 
 ### macOS-specific requirements
 

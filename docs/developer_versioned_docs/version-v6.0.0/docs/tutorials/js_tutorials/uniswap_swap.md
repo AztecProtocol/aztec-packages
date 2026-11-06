@@ -16,7 +16,7 @@ This tutorial walks you through building a version of this flow. You will learn 
 Before starting this tutorial, you need:
 
 1. **Aztec local network** running at version v6.0.0 -- see [the local network guide](../../../getting_started_on_local_network.md) for setup instructions
-2. **Node.js** (v24+) and a package manager (yarn or npm)
+2. **Node.js**, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites), and a package manager (yarn or npm)
 3. **Familiarity with the token bridge tutorial** -- this tutorial builds on concepts from [Bridge Your NFT to Aztec](./token_bridge.md), especially portal contracts and cross-chain messaging
 
 :::tip Background Knowledge

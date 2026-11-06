@@ -20,13 +20,15 @@ export const General = {
     </p>
   ),
 
-  node_ver: () => (
+  // The minimum is the `node:` entry of install.aztec.network/<version>/versions, which the
+  // installer enforces: each docs version passes its own.
+  node_ver: ({ version }) => (
     <p>
-      Aztec libraries require Node.js version 24. If you have an older version
-      installed, the installer will try to upgrade via{" "}
-      <a href="https://github.com/nvm-sh/nvm">nvm</a> if available. If nvm is
-      not installed, you will need to upgrade Node.js manually (e.g.{" "}
-      <code>nvm install 24</code> after installing nvm).
+      The Aztec installer requires Node.js {version} or later. If you have an
+      older version and <a href="https://github.com/nvm-sh/nvm">nvm</a>, the
+      installer installs {version} with nvm and makes it nvm's default.
+      Without nvm, the installer stops: install nvm, then run{" "}
+      <code>nvm install {version}</code>.
     </p>
   ),
 
