@@ -349,16 +349,30 @@ the withdrawal delay and every page that states them, and diff
 against any human-owned deployment data, resolving discrepancies on chain and then with the
 owner.
 
-### Step 5: Review Operator Docs Content (Optional)
+### Step 5: Review Operator Docs Content
 
-Ask the user whether `docs/docs-operate/` needs content changes for the release:
+From v6.1.0 (`v6.1.0-rc.1` included), start from the Labs release notes. Collect them as
+`/release-docs` Step 7c does, with its rules, but take `<from_version>` from
+`network_version_config.json` alone (the cut has not changed it yet):
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
+core=${LABS_TAG#v} core=${core%%-*}
+[ "$(printf '%s\n' 6.1.0 "$core" | sort -V | head -n1)" = 6.1.0 ] || { echo "$LABS_TAG is before v6.1.0: no release notes"; exit 0; }
+jq -c . network_version_config.json
+rm -rf "$STATE/labs-notes" && node scripts/labs_release_notes.mts <from_version> "$LABS_TAG" "$STATE/labs-notes"
+```
+
+Take the operator entries: the operator rows of `/updating-changelog` Step 1's table. For each,
+decide whether `docs/docs-operate/` needs a change, and propose it to the user:
 
 - new or changed configuration options, environment variables or CLI flags
 - updated setup instructions or prerequisites
 - new or modified troubleshooting entries
 
-Apply them to the cut's `docs/docs-operate/`. Changes the destination also needs are
-shared source repairs (Step 10). If there are none, skip to Step 5a.
+Before v6.1.0, or without notes for the range, ask the user whether the operator docs need
+such changes. Apply the agreed ones to the cut's `docs/docs-operate/`. Changes the destination
+also needs are shared source repairs (Step 10). If there are none, go on to Step 5a.
 
 ### Step 5a: Regenerate Node API Reference
 
@@ -424,6 +438,10 @@ covered by its major's page, and a minor release such as `6.1.0` needs its `### 
 entry landed first), and the sidebar lists the page. The cut started from the destination,
 so its copy is the destination's; a line cut checks the line's copy (`$src`), which it
 promoted.
+
+From v6.1.0, the page must also cover the release notes (Step 5). Present the coverage table
+of `/updating-changelog` Step 3, with a row for every operator breaking entry: each is on the
+page or is dismissed with a reason.
 
 **Owner approval required.** If any check fails, stop and report which: the page lands on
 the destination first (`/updating-changelog`), through a PR the owner opens and merges,
@@ -534,6 +552,10 @@ variable, CLI flag, default or RPC method), grep
 `$AZTEC_NODE_DIR` (the tag). Fix the snapshot only: those fixes are release-only
 (Step 10). Present what was found, fixed and skipped. The generated references (Steps 5a
 and 5b) already come from the tag.
+
+From v6.1.0, grep the snapshot the same way for each operator entry of the release notes
+(Step 5): the new name, flag or default must appear, and the old one only where a page says
+that it changed.
 
 ### Step 8: Clean Up Old Network Version
 
@@ -689,6 +711,7 @@ succeeds:
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 pin=$(node "$CUT/docs/scripts/aztec_node.mts" env) || exit 1
 eval "$pin"
+notes=$(awk -F'\t' 'NR > 1 { printf "%s%s %s %s", sep, $1, $2, $5; sep = ", " }' "$STATE/labs-notes/index.tsv" 2>/dev/null)
 git -C "$DEST_ROOT" add -- context7.json <the existing paths of classes 1 and 2> &&
 git -C "$DEST_ROOT" commit -F - <<EOF
 docs: cut $LABS_TAG network docs (<release_type>)
@@ -698,6 +721,7 @@ Labs code: aztec-node $AZTEC_NODE_REF ($AZTEC_NODE_COMMIT) source (node API refe
 Foundation dependency: @aztec-foundation/l1-artifacts $L1_ARTIFACTS_VERSION
 Snippet links into this repository: $DOCS_COMMIT
 Destination: $DEST_BRANCH at $DEST
+Labs release notes: ${notes:-not read}
 EOF
 ```
 
@@ -713,7 +737,8 @@ scripts/check_warnings.sh "$STATE/destination-build.log"
 
 **Owner approval required.** Report `git -C "$DEST_ROOT" show --stat HEAD`, the classes
 with their paths, the release-only edits with the reason for each, the Step 7a findings,
-and anything left unresolved. Pushing the branch and opening a PR are the owner's call.
+the release notes' statuses with the coverage table (Steps 5 and 5c), and anything left
+unresolved. Pushing the branch and opening a PR are the owner's call.
 Merging it into `next` publishes docs.aztec.network about 15 minutes later, unversioned
 pages included, so merge only when the release may go live.
 
@@ -765,6 +790,9 @@ Apart from the header's date, the diff only adds URLs and the static files this 
   the final builds (Step 9) validate the snapshot.
 - **User confirmation required** before deleting old versioned docs and before content
   changes to the operator docs.
+- **Read the Labs release notes from v6.1.0** (Step 5) as an index, never as the source of
+  truth: every operator breaking entry ends on the changelog page or in a written dismissal
+  (Step 5c).
 - **Check the operator content against the tag** (Step 7a): the pages follow the
   destination's pin, which may be ahead of the release.
 - **Network version config only**: this skill changes `network_version_config.json` and

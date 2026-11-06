@@ -1,6 +1,6 @@
 ---
 name: updating-changelog
-description: Updates changelog documentation for contract developers and node operators from aztec-node's own operator changelog and the branch changes relative to 'next'. Use when preparing a PR, updating migration notes, documenting breaking changes, or when asked to update changelog/release notes.
+description: Updates changelog documentation for contract developers and node operators from aztec-node's own operator changelog, its GitHub release notes and the branch changes relative to 'next'. Use when preparing a PR, updating migration notes, documenting breaking changes, or when asked to update changelog/release notes.
 ---
 
 # Updating Changelog
@@ -73,9 +73,28 @@ be updated or the page ships unreachable:
   filename, without `.md`) to the changelog list. The sidebar enumerates these pages
   explicitly; an unlisted page is published but has no nav entry.
 
+**Routing the Labs release notes** (source 4 below, and the release skills). Route each entry
+by the section it sits in, into the target files above:
+
+| Section of the notes | Goes to |
+| --- | --- |
+| `Breaking changes`: **Aztec.nr**, **Aztec.js**, **Node API**, **CLI** (wallet and dev commands), **Protocol** | migration notes |
+| `For wallet / PXE developers` | migration notes, when a project on the previous version must change something |
+| `Breaking changes for node operators`, `When to switch on Mainnet`, **Node operators** under `Breaking changes`, `For node operators` (**Publishers and L1**, **BLS keys and staking**, **Provers**, **Operations**) | operator changelog |
+| **Where things live** | by the entry's tag: `[npm]` and `[Aztec.nr]` to the migration notes, `[Docker]` to the operator changelog |
+| `Security & correctness` | operator changelog, only when an operator must act |
+| `New in this release` | operator changelog (its new-features shape) when operators see it; never the migration notes |
+| `Protocol constants` | neither: `/release-docs` Step 9 checks them against the chain |
+| `Summary`, `Reference` | neither |
+
+These are v6.0.0's headings. Route a section the table does not name by who must act on each
+entry, and ask when that is unclear. The migration notes take what a project on the previous
+version must change, plus deprecations that still work; pure new features stay out. The
+operator changelog takes breaking changes, new features and changed defaults.
+
 ### 2. Analyze Branch Changes
 
-The base is `origin/next` (`git fetch origin next` first). Three sources, each read where it
+The base is `origin/next` (`git fetch origin next` first). Four sources, each read where it
 lives:
 
 1. **This repository's own changes** (Foundation code, and the docs already written; the
@@ -151,6 +170,27 @@ lives:
    configure and carries no entry, the entry is missing there: say so, so it can be added before
    the pin moves and the change has to be reconstructed from the diff alone.
 
+4. **The Labs release notes**, when this branch moves a line's pin to a release or rc tag of
+   v6.1.0 or later (`v6.1.0-rc.1` counts). They index what changed; `docs/CLAUDE.md` ("Labs
+   release notes") says how to treat them. The range starts at the newest released version in
+   the line's migration notes, not at the old pin, which can be a nightly. For main:
+
+   ```bash
+   cd "$(git rev-parse --show-toplevel)"
+   pinfile=docs/aztec-node.json notes=docs/docs-developers/docs/resources/migration_notes.md   # the v6 line's: under docs/lines/v6/
+   to=$(node -p "require('./$pinfile').ref") core=${to#v} core=${core%%-*}
+   [[ $to =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] && [ "$(printf '%s\n' 6.1.0 "$core" | sort -V | head -n1)" = 6.1.0 ] \
+     || { echo "$to: no release notes to read"; exit 0; }
+   from=v$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' "$notes" | cut -c4-)
+   out=$(mktemp -d) && node docs/scripts/labs_release_notes.mts "$from" "$to" "$out"
+   ```
+
+   It exits 2 when `$from` is not below `$to`: the line already released that version, and
+   there is nothing new to read. `$out/index.tsv` lists each release and rc tag in the range
+   that `$to` contains, with its status: `ok` (the notes are in `$out/<tag>.md`), `empty` or
+   `missing`. An intermediate tag without notes is normal. When `$to` has none, its notes may
+   still come: say so, and carry on from sources 2 and 3. Step 3 says how to draft from them.
+
 **Categorize changes:**
 
 - Breaking changes (API modifications, removals, renames)
@@ -168,6 +208,30 @@ reviewed. Carry the wording across and change only what the move requires: where
 sits in the release, and links that pointed at an unreleased version. Rewriting it to taste
 drops what the author knew about the failure mode, and leaves two descriptions of one change
 that no one will notice have drifted apart.
+
+**From the Labs release notes** (source 4), route each entry with the table in Step 1, and:
+
+- **Dedupe first.** The key is the PR the entry names, as `<repo>#<N>`
+  (`aztec-labs-eng/aztec-node#511`), or else its new symbol. Search the target file from
+  `## TBD` down to the previous release of the line: a release's notes can span its whole
+  range (v6.0.0's start at v5.2.0), so they repeat entries already filed under an rc heading.
+  An entry already under `## TBD` is filed; do not draft it again. Never edit a released entry.
+- **Operator entries**: an entry that `CHANGELOG-OPERATORS.md` also has keeps that file's
+  wording. The notes fill what the file lacks, and check it.
+- **Developer entries**: draft from the notes, then confirm each one in the code at the tag
+  (`$AZTEC_NODE_DIR`). The code wins; report a contradiction with both readings.
+- **Breaking or not**: cross-check the notes against the `!:` commits of source 2, and report
+  a disagreement instead of picking one.
+- **Coverage table**, presented with the drafts, one row per breaking entry of the notes:
+  `entry (tag · section · PR) | goes to (file · heading), or dismissed because | confirmed at the tag by`.
+  - An entry is breaking when its heading contains `Breaking` (`Breaking changes`,
+    `Breaking changes for node operators`). Once Labs marks entries one by one, the marker
+    decides instead.
+  - Every row ends in a file or a reason: already filed under an earlier heading, contradicted
+    by the code at the tag, or not in this line.
+  - The last column names the evidence: a path in the checkout, a `CHANGELOG-OPERATORS.md`
+    entry or a commit.
+  - Without notes (`missing` or `empty`) the table is empty, and sources 2 and 3 stand as before.
 
 ### 4. Edit Documentation
 
@@ -196,6 +260,15 @@ Explanation of what changed.
 **Impact**: Effect on existing code.
 
 **Component tags:** `[Aztec.nr]`, `[Aztec.js]`, `[PXE]`, `[Aztec Node]`, `[AVM]`, `[L1 Contracts]`, `[CLI]`
+
+**Citing the PR.** When the Labs release notes name the entry's PR, end the explanation with
+it: `([aztec-node#511](https://github.com/aztec-labs-eng/aztec-node/pull/511))`, or
+`([aztec-packages#N](https://github.com/AztecProtocol/aztec-packages/pull/N))` for work ported
+from this repository. Write the URL from the repository and the number; never copy the link
+from the notes, and cite no other repository. Cite only once the change is proven in the tag
+(`/release-docs` Step 8 item 1: the commit's ancestry, a backport's, or the new syntax at the
+tag). A ported PR's merge commit is never in aztec-node's history: prove it by the port commit
+or by the syntax.
 
 ## Node Operator Changelog Format
 
