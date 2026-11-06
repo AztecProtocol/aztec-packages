@@ -9,6 +9,7 @@ members = [
     "examples/contracts/recursive_verification_contract",
     "examples/contracts/example_uniswap",
     "examples/webapp-tutorial/contracts",
+    "examples/contracts/pod_racing_contract_test",
     "examples/contracts/aave_bridge",
     "examples/contracts/logging_example",
     "examples/contracts/logging_example_test",

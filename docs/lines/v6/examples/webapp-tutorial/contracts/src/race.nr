@@ -48,8 +48,9 @@ impl Race {
     }
 
     pub fn join(self, player2: AztecAddress) -> Race {
-        assert(!self.player1.eq(AztecAddress::zero()) & self.player2.eq(AztecAddress::zero()));
-        assert(!self.player1.eq(player2));
+        assert(!self.player1.eq(AztecAddress::zero()), "game does not exist");
+        assert(self.player2.eq(AztecAddress::zero()), "game is full");
+        assert(!self.player1.eq(player2), "cannot join your own game");
         Self {
             player1: self.player1,
             player2,
@@ -71,9 +72,9 @@ impl Race {
     }
 
     pub fn increment_player_round(self, player: AztecAddress, round: u8) -> Race {
-        assert(round < self.total_rounds + 1);
+        assert(round < self.total_rounds + 1, "no such round");
         let ret = if player.eq(self.player1) {
-            assert(round == self.player1_round + 1);
+            assert(round == self.player1_round + 1, "rounds must be played in order");
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
                 total_rounds: self.total_rounds,
@@ -87,7 +88,7 @@ impl Race {
                 end_block: self.end_block,
             })
         } else if player.eq(self.player2) {
-            assert(round == self.player2_round + 1);
+            assert(round == self.player2_round + 1, "rounds must be played in order");
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
                 total_rounds: self.total_rounds,
@@ -111,7 +112,8 @@ impl Race {
             assert(
                 self.player1_track1_final + self.player1_track2_final +
                 self.player1_track3_final + self.player1_track4_final +
-                self.player1_track5_final == 0
+                self.player1_track5_final == 0,
+                "scores already revealed",
             );
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
@@ -129,7 +131,8 @@ impl Race {
             assert(
                 self.player2_track1_final + self.player2_track2_final +
                 self.player2_track3_final + self.player2_track4_final +
-                self.player2_track5_final == 0
+                self.player2_track5_final == 0,
+                "scores already revealed",
             );
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
@@ -149,8 +152,17 @@ impl Race {
         ret.unwrap()
     }
 
+    /// A zero sum reads as "not revealed", so a player who put no points on any track cannot be told apart.
+    pub fn both_revealed(self) -> bool {
+        let player1_sum = self.player1_track1_final + self.player1_track2_final + self.player1_track3_final
+            + self.player1_track4_final + self.player1_track5_final;
+        let player2_sum = self.player2_track1_final + self.player2_track2_final + self.player2_track3_final
+            + self.player2_track4_final + self.player2_track5_final;
+        (player1_sum != 0) & (player2_sum != 0)
+    }
+
     pub fn calculate_winner(self, current_block_number: u32) -> AztecAddress {
-        assert(current_block_number > self.end_block);
+        assert(current_block_number > self.end_block, "game has not ended");
         let mut player1_wins = 0;
         let mut player2_wins = 0;
 
