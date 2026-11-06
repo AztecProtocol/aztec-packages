@@ -639,8 +639,8 @@ git -C "$AZTEC_NODE_DIR" fetch --shallow-since="$(git -C "$DEST_ROOT" log -1 --f
    ```
 
    From v6.1.0, also take the developer entries of the release notes (Step 7c), routed with
-   `/updating-changelog` Step 1's table, and draft them by its Step 3: dedupe by `<repo>#<N>`
-   from `## TBD` down to the previous release of this type, confirm each in the code at the
+   `/updating-changelog` Step 1's table, and draft them by its Step 3: dedupe against the whole
+   file by symbol or behaviour (the PR only finds candidates), confirm each in the code at the
    tag, and cite its PR (`/updating-changelog`, "Citing the PR"). An entry already under
    `## TBD` moves by item 1; do not draft it again.
 

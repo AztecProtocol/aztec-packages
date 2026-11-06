@@ -211,11 +211,12 @@ that no one will notice have drifted apart.
 
 **From the Labs release notes** (source 4), route each entry with the table in Step 1, and:
 
-- **Dedupe first.** The key is the PR the entry names, as `<repo>#<N>`
-  (`aztec-labs-eng/aztec-node#511`), or else its new symbol. Search the target file from
-  `## TBD` down to the previous release of the line: a release's notes can span its whole
-  range (v6.0.0's start at v5.2.0), so they repeat entries already filed under an rc heading.
-  An entry already under `## TBD` is filed; do not draft it again. Never edit a released entry.
+- **Dedupe first.** Search the whole target file: a release's notes can span its whole range
+  (v6.0.0's start at v5.2.0), so they repeat entries already filed under an earlier heading.
+  The PR the entry names (`<repo>#<N>`, such as `aztec-labs-eng/aztec-node#511`) finds
+  candidates, but one PR can carry several changes (v6.0.0's #157 has two entries), and older
+  entries cite no PR. So an entry is filed only when an existing one describes the same symbol
+  or behaviour. Do not draft a filed entry again, and never edit a released one.
 - **Operator entries**: an entry that `CHANGELOG-OPERATORS.md` also has keeps that file's
   wording. The notes fill what the file lacks, and check it.
 - **Developer entries**: draft from the notes, then confirm each one in the code at the tag

@@ -18,9 +18,8 @@ const release = (tag_name: string, body: string | null, extra: Record<string, un
   ...extra,
 });
 
-// What `gh api` prints for the script's --jq filters: tag names, one release object per line, and a
-// compare status per base...head. A path the stub does not know fails like a 404, GH_FAIL makes any
-// matching call fail like an outage, and GH_STATUS replaces every compare status.
+// The stub prints what `gh api` prints for the script's --jq filters: tag names, JSONL releases and
+// compare statuses.
 const TAGS = ["v7.0.0-rc.1", "v6.1.0", "v6.1.0-rc.2", "v6.1.0-rc.1", "v6.1.0-nightly.20261101", "v6.0.1", "v6.0.0", "v5.0.0-spartan.1"];
 const NOTES = "## Breaking changes\r\n\r\n- `[CLI]` removed ([#7](https://github.com/aztec-labs-eng/aztec-node/pull/7)) ✓\n";
 const RELEASES = [
