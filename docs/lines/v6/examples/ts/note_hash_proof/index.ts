@@ -38,7 +38,11 @@ assert.equal(balance, value);
 // docs:end:check_delivery
 
 // docs:start:find_note_hash
-import { computeNoteHashNonce } from "@aztec-labs/stdlib/hash";
+import {
+  computeNoteHashNonce,
+  computeUniqueNoteHash,
+  siloNoteHash,
+} from "@aztec-labs/stdlib/hash";
 
 const { txEffect } = await node.getTxReceipt(receipt.txHash, {
   includeTxEffect: true,
@@ -46,10 +50,30 @@ const { txEffect } = await node.getTxReceipt(receipt.txHash, {
 if (!txEffect) {
   throw new Error(`Transaction ${receipt.txHash} has no effect yet`);
 }
-// The nonce depends on the note's position among the transaction's note hashes; this transaction creates one note.
-assert.equal(txEffect.noteHashes.length, 1);
-const settledNoteHash = txEffect.noteHashes[0];
-const noteNonce = await computeNoteHashNonce(txEffect.nullifiers[0], 0);
+
+const { result: noteHash } = await contract.methods
+  .note_hash(alice.address, value, randomness)
+  .simulate({ from: alice.address });
+const siloedNoteHash = await siloNoteHash(contract.address, new Fr(noteHash));
+
+let found: { settledNoteHash: Fr; noteNonce: Fr } | undefined;
+for (const [index, settledNoteHash] of txEffect.noteHashes.entries()) {
+  const noteNonce = await computeNoteHashNonce(txEffect.nullifiers[0], index);
+  const uniqueNoteHash = await computeUniqueNoteHash(
+    noteNonce,
+    siloedNoteHash,
+  );
+  if (uniqueNoteHash.equals(settledNoteHash)) {
+    found = { settledNoteHash, noteNonce };
+    break;
+  }
+}
+if (!found) {
+  throw new Error(
+    `No note hash in transaction ${receipt.txHash} is the note's`,
+  );
+}
+const { settledNoteHash, noteNonce } = found;
 // docs:end:find_note_hash
 
 // docs:start:prove

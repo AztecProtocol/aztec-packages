@@ -80,11 +80,13 @@ The owner's PXE now holds the note:
 
 ## Find the note hash and nonce
 
-The settled note hash is in the transaction's effects. Its nonce comes from the transaction's first nullifier and the note's position among the transaction's note hashes:
+The settled note hash is in the transaction's effects, next to the hashes of every other note the transaction created. Constrained delivery, for example, also re-creates a note in the handshake registry. Each settled hash has a nonce that comes from the transaction's first nullifier and the hash's position, so the script finds the note's position the way the PXE does during [note discovery](../../foundational-topics/advanced/storage/note_discovery.md#the-sync-process): it silos the note's hash to the contract and compares it, under each position's nonce, with the hash settled there.
+
+The contract computes the note's hash with a utility function, which runs in your PXE and sends no transaction:
+
+#include_code note_hash /docs/lines/v6/examples/contracts/note_hash_proof_contract/src/main.nr rust
 
 #include_code find_note_hash /docs/lines/v6/examples/ts/note_hash_proof/index.ts typescript
-
-The script asserts that the transaction created exactly one note hash, so the note is at position 0. If your transaction creates more notes, find the position by recomputing each candidate, as the PXE does during [note discovery](../../foundational-topics/advanced/storage/note_discovery.md#the-sync-process).
 
 ## Prove and verify
 

@@ -53,6 +53,15 @@ pub contract NoteHashProof {
     }
     // docs:end:create_note
 
+    // docs:start:note_hash
+    /// The note hash `create_note` computes for these arguments, before the protocol silos it to this contract and
+    /// makes it unique.
+    #[external("utility")]
+    unconstrained fn note_hash(owner: AztecAddress, value: u128, randomness: Field) -> Field {
+        UintNote { value }.compute_note_hash(owner, self.storage.notes.get_storage_slot(), randomness)
+    }
+    // docs:end:note_hash
+
     /// The sum of `owner`'s note values that the caller's PXE holds.
     #[external("utility")]
     unconstrained fn balance_of(owner: AztecAddress) -> u128 {
