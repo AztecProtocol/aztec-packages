@@ -262,6 +262,56 @@ describe("preprocessIncludeVersion", () => {
     });
   });
 
+  describe("#docs_commit macro", () => {
+    const { execFileSync } = require("child_process");
+    const git = (cwd, ...args) =>
+      execFileSync("git", ["-C", cwd, "-c", "commit.gpgsign=false", "-c", "user.name=t", "-c", "user.email=t@t", ...args], {
+        encoding: "utf8",
+      }).trim();
+    let rootDir, head;
+    beforeEach(() => {
+      rootDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "docs-commit-"));
+      fs.mkdirSync(path.join(rootDir, "docs/lines/v6"), { recursive: true });
+      fs.writeFileSync(path.join(rootDir, "docs/lines/v6/aztec-node.json"), JSON.stringify({ ref: "v6.1.0-nightly.20260101" }));
+      git(rootDir, "init", "-q");
+      git(rootDir, "commit", "-q", "--allow-empty", "-m", "head");
+      head = git(rootDir, "rev-parse", "HEAD");
+      for (const k of ["DOCS_COMMIT", "RELEASE_TYPE", "COMMIT_TAG"]) delete process.env[k];
+    });
+    afterEach(() => fs.rmSync(rootDir, { recursive: true, force: true }));
+    const mainPage = () => path.join(rootDir, "docs/docs-developers/page.md");
+    const linePage = () => path.join(rootDir, "docs/lines/v6/docs-developers/page.md");
+    const render = async (text, page) => (await preprocessIncludeVersion(text, page, rootDir)).content;
+
+    it("names HEAD on main and line pages alike, else DOCS_COMMIT", async () => {
+      assert.strictEqual(await render("#docs_commit", mainPage()), head);
+      assert.strictEqual(await render("#docs_commit", linePage()), head);
+      setEnv({ DOCS_COMMIT: "abc123" });
+      assert.strictEqual(await render("#docs_commit", linePage()), "abc123");
+    });
+
+    it("fails a release build without DOCS_COMMIT only on pages that use it", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet" });
+      await assert.rejects(render("#docs_commit", mainPage()), /RELEASE_TYPE=mainnet needs DOCS_COMMIT/);
+      assert.match(await render("#include_aztec_version", mainPage()), /^v/);
+    });
+
+    // A cut promotes the line's pages into main's paths: they keep the line's example paths but take the
+    // release's versions, never the dev pin DOCS_COMMIT carries.
+    it("renders a promoted page's clone recipe with the release's versions and the line's paths", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", COMMIT_TAG: "v6.1.0", DOCS_COMMIT: "abc123" });
+      const recipe = "origin #docs_commit --branch #include_aztec_version docs/lines/v6/examples ./setup.sh #include_version_without_prefix";
+      assert.strictEqual(
+        await render(recipe, mainPage()),
+        "origin abc123 --branch v6.1.0 docs/lines/v6/examples ./setup.sh 6.1.0",
+      );
+      assert.strictEqual(
+        await render(recipe, linePage()),
+        "origin abc123 --branch v6.1.0-nightly.20260101 docs/lines/v6/examples ./setup.sh 6.1.0-nightly.20260101",
+      );
+    });
+  });
+
   describe("integration", () => {
     it("processes conditionals before version macros", async () => {
       setEnv({ RELEASE_TYPE: "devnet", DEVNET_TAG: "3.0.0-devnet.5" });
