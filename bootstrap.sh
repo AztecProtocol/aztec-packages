@@ -576,7 +576,7 @@ function release_bb_github {
   # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
   # Users can manually create releases in aztec-packages via the GitHub UI if needed.
   # A private release must never reach a GitHub publish: refuse here regardless of call path.
-  "$root/ci3-local/assert_public_release"
+  "$root/scripts/assert_public_release"
   local bb_repo="AztecProtocol/barretenberg"
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
@@ -679,7 +679,7 @@ function private_release {
 
   # Activate the CI service account (gcp_artifact_login activates the SA globally) and mint a
   # short-lived access token for npm auth against the AR npm repo.
-  ci3-local/gcp_artifact_login
+  scripts/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scopes to the internal npm registry; public deps still resolve from the default registry
