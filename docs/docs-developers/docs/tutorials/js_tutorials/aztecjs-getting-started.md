@@ -39,6 +39,16 @@ Let's also import the Aztec dependencies for this tutorial:
 yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/noir-contracts.js@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix
 ```
 
+:::tip Packages published in the last 24 hours
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+
+```yaml
+npmPreapprovedPackages:
+  - "@aztec-labs/*"
+  - "@aztec-foundation/*"
+```
+:::
+
 Aztec.js assumes your project is using ESM, so make sure you add `"type": "module"` to `package.json`. You probably also want at least a `start` script. For example:
 
 ```json

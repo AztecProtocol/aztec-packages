@@ -4,7 +4,7 @@ sidebar_position: 1
 description: Fungible token standard with private balances, partial-note transfers, and recursive note consumption.
 ---
 
-[Source](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract)
+[Source](https://github.com/AztecProtocol/aztec-standards/tree/main/src/token_contract)
 
 AIP-20 defines a fungible token with support for private balances (stored as notes in the note hash tree), public balances (stored in contract public storage), and a hybrid transfer path between the two.
 
@@ -22,13 +22,11 @@ struct Storage<Context> {
     total_supply: PublicMutable<u128, Context>,
     public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
     minter: PublicImmutable<AztecAddress, Context>,
-    upgrade_authority: PublicImmutable<AztecAddress, Context>,
-    asset: PublicImmutable<AztecAddress, Context>,
-    vault_offset: PublicImmutable<u128, Context>,
+    auth_contract: PublicImmutable<AztecAddress, Context>,
 }
 ```
 
-The `asset` and `vault_offset` fields exist to support the [AIP-4626 vault pattern](./aip-4626.md). A standalone AIP-20 token that is not used as a vault underlying asset does not need to populate these fields.
+`auth_contract` is an optional authorization hook from ARC-403, a draft extension. When it is not the zero address, every transfer and burn calls it before balances change. Vault state such as `asset` and `vault_offset` lives in the separate [AIP-4626 vault contract](./aip-4626.md), not in the token.
 
 ## Note count constants
 
@@ -41,7 +39,7 @@ global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
 The initial call attempts to settle the transfer with at most two notes. If that is not enough to cover the amount, the contract recurses into itself and tries up to eight notes per recursive call.
 
-A **placeholder address** is used in partial-note flows to signal that a transfer destination is not yet known at the time the sender initiates the operation. This distinguishes "recipient not yet determined" from "recipient is the zero address," and allows offchain indexers to detect [partial-note transfers](#partial-note-transfers) in event logs without decrypting the note contents:
+`Transfer` events use a **sentinel address** for the private side of a balance change, whose counterpart cannot be revealed: a public-to-private transfer emits `Transfer(from, PRIVATE_ADDRESS_MAGIC_VALUE, amount)`. As in ERC-20, the zero address marks where a mint comes from and where a burn goes:
 
 ```rust
 global PRIVATE_ADDRESS_MAGIC_VALUE: AztecAddress =
@@ -50,11 +48,11 @@ global PRIVATE_ADDRESS_MAGIC_VALUE: AztecAddress =
 
 ## Partial-note transfers
 
-AIP-20 supports partial-note (or "commitment-based") transfers. In Aztec, private functions execute on the user's device before the transaction reaches the network, so they cannot read public state (like a DEX order book or auction result). Partial notes solve this by splitting the operation: the sender privately locks funds into a commitment, and later a public function — which *can* read public state — completes the transfer to the correct recipient. This is what makes private DeFi composability possible.
+AIP-20 supports partial-note (or "commitment-based") transfers. In Aztec, private functions execute on the user's device before the transaction reaches the network, so they cannot read public state (like a DEX order book or auction result). Partial notes solve this by splitting the operation: the recipient privately creates a commitment to a note it will own, and a completer later fills in the amount, often from a public function that *can* read public state. This is what makes private DeFi composability possible.
 
-Concretely, the sender locks funds in a note whose destination address is not yet known. A completer — typically a contract acting as a relayer or settlement layer — later fills in the recipient and finalizes the note.
+Concretely, a commitment is owned by `to` and only `completer` can complete it. The completer, typically a contract acting as a relayer or settlement layer, completes it with `transfer_public_to_commitment`, `transfer_private_to_commitment` or `mint_to_commitment` and chooses the amount. Complete each commitment at most once.
 
-The sender calls `initialize_transfer_commitment` to create the commitment:
+The recipient (or a contract acting for it) calls `initialize_transfer_commitment` to create the commitment:
 
 ```rust
 #[external("private")]
@@ -64,9 +62,10 @@ fn initialize_transfer_commitment(to: AztecAddress, completer: AztecAddress) -> 
 }
 ```
 
-The returned `Field` is an opaque commitment to the destination and completer. A separate call then subtracts the balance and completes the note:
+The returned `Field` identifies the commitment. The completer can then fill it from a private balance: the call spends notes of `from`, returns any change to `from`, and completes the commitment with `amount`, which becomes public. `msg_sender` must be the completer, and the commitment must come from an earlier block:
 
 ```rust
+#[authorize_once("from", "_nonce")]
 #[external("private")]
 fn transfer_private_to_commitment(
     from: AztecAddress,
@@ -74,7 +73,7 @@ fn transfer_private_to_commitment(
     amount: u128,
     _nonce: Field,
 ) {
-    _validate_from_private::<4>(self.context, from);
+    self.internal._call_auth_private(from, amount);
 
     self.internal._decrease_private_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
 
@@ -82,12 +81,13 @@ fn transfer_private_to_commitment(
     PartialUintNote::from_field(commitment).complete_from_private(
         self.context,
         completer,
+        self.storage.private_balances.get_storage_slot(),
         amount,
     );
 }
 ```
 
-This two-step design is useful in DeFi protocols where the recipient of funds depends on some offchain or asynchronous computation.
+This two-step design is useful in DeFi protocols where the amount a user receives depends on public state or on some offchain or asynchronous computation.
 
 ## Recursive balance subtraction
 

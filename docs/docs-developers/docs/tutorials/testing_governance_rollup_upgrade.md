@@ -195,7 +195,7 @@ Advance Anvil's time to ensure the checkpoint is in the past when the proposal i
 
 ```bash
 # Get current timestamp and add 120 seconds
-CURRENT_TS=$(cast block latest --rpc-url $L1_RPC_URL --json | jq -r '.timestamp')
+CURRENT_TS=$(cast block latest --rpc-url $L1_RPC_URL -f timestamp)
 TARGET_TS=$((CURRENT_TS + 120))
 cast rpc anvil_setNextBlockTimestamp $TARGET_TS --rpc-url $L1_RPC_URL
 cast rpc anvil_mine 1 --rpc-url $L1_RPC_URL
@@ -204,7 +204,7 @@ cast rpc anvil_mine 1 --rpc-url $L1_RPC_URL
 Verify the time has advanced:
 
 ```bash
-NEW_TS=$(cast block latest --rpc-url $L1_RPC_URL --json | jq -r '.timestamp')
+NEW_TS=$(cast block latest --rpc-url $L1_RPC_URL -f timestamp)
 echo "New timestamp: $NEW_TS (should be > $CURRENT_TS)"
 ```
 
@@ -240,7 +240,7 @@ The proposal must transition from Pending to Active (votingDelay = 60 seconds):
 
 ```bash
 # Get current timestamp and add 120 seconds (buffer over 60s voting delay)
-CURRENT_TS=$(cast block latest --rpc-url $L1_RPC_URL --json | jq -r '.timestamp')
+CURRENT_TS=$(cast block latest --rpc-url $L1_RPC_URL -f timestamp)
 TARGET_TS=$((CURRENT_TS + 120))
 cast rpc anvil_setNextBlockTimestamp $TARGET_TS --rpc-url $L1_RPC_URL
 cast rpc anvil_mine 1 --rpc-url $L1_RPC_URL
@@ -279,7 +279,7 @@ Voting duration is 1 hour (3600s) and execution delay is 60 seconds:
 
 ```bash
 # Get current timestamp and add 3700 seconds (voting duration + execution delay + buffer)
-CURRENT_TS=$(cast block latest --rpc-url $L1_RPC_URL --json | jq -r '.timestamp')
+CURRENT_TS=$(cast block latest --rpc-url $L1_RPC_URL -f timestamp)
 TARGET_TS=$((CURRENT_TS + 3700))
 cast rpc anvil_setNextBlockTimestamp $TARGET_TS --rpc-url $L1_RPC_URL
 cast rpc anvil_mine 1 --rpc-url $L1_RPC_URL

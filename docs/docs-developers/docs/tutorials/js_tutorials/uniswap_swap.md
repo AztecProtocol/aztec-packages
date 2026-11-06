@@ -16,7 +16,7 @@ This tutorial walks you through building a version of this flow. You will learn 
 Before starting this tutorial, you need:
 
 1. **Aztec local network** running at version #include_aztec_version -- see [the local network guide](../../../getting_started_on_local_network.md) for setup instructions
-2. **Node.js** (v24+) and a package manager (yarn or npm)
+2. **Node.js**, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites), and a package manager (yarn or npm)
 3. **Familiarity with the token bridge tutorial** -- this tutorial builds on concepts from [Bridge Your NFT to Aztec](./token_bridge.md), especially portal contracts and cross-chain messaging
 
 :::tip Background Knowledge
@@ -39,12 +39,11 @@ The example code lives in the Aztec packages repository:
 ```bash
 git clone --depth 1 https://github.com/AztecProtocol/aztec-packages.git
 cd aztec-packages
-labs-patches/bootstrap.sh apply
-(cd docs && yarn install)
+(cd docs && yarn install && node scripts/aztec_node.mts fetch)
 cd docs/examples
 ```
 
-`labs-patches/bootstrap.sh apply` checks out the `labs/` submodule, whose `aztec-nr` and token contracts the Noir contract builds against. `yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
+`yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps. `node scripts/aztec_node.mts fetch` then checks out the aztec-node commit these docs pin into `docs/.aztec-node/tree`, whose `aztec-nr` and token contracts the Noir contract builds against.
 
 ### Project Structure
 
