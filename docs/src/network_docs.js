@@ -283,8 +283,8 @@ function networkSection(instances, networksPage, siteUrl) {
 }
 
 // The llms.txt "Start here" entries, one per task in the order a newcomer needs them. `docs` is
-// the instance whose page it is (`page`, its route under the version path); `api` an API
-// reference whose scoped llms.txt it is.
+// the instance whose page it is (`page`, its route under the version path, with an optional
+// `query`); `api` an API reference whose scoped llms.txt it is.
 const START_HERE = [
   { title: "Getting started", task: "install the toolchain and run a local network", docs: "developers", page: "getting_started_on_local_network" },
   { title: "Aztec.nr", task: "write a contract", docs: "developers", page: "docs/aztec-nr" },
@@ -301,6 +301,13 @@ const START_HERE = [
   { title: "Aztec.nr API reference", task: "look up an Aztec.nr struct, trait or function signature", api: "aztec-nr-api" },
   { title: "TypeScript API reference", task: "look up an aztec.js, accounts, wallet or PXE class, function or type", api: "typescript-api" },
   { title: "AI tooling", task: "set up a coding agent for Aztec", docs: "developers", page: "ai_tooling" },
+  {
+    title: "Migration notes for a version range",
+    task: "upgrade a project between versions. Set `from` to the version you are on and `to` to the target (default: the newest release these docs cover; `unreleased` adds notes not yet released). Returns every section after `from` up to and including `to`, oldest first, under a header naming the included versions; a bad range returns 400 with the reason",
+    docs: "developers",
+    page: "docs/resources/migration_notes",
+    query: "from=5.2.0&to=6.0.0",
+  },
 ];
 
 /**
@@ -314,11 +321,11 @@ function startHereLinks(instances, siteUrl) {
   const read = (instance) => instance.versions.find((v) => v.networks.length);
   const developer = instances.find((i) => i.routeBasePath === "developers");
   const folder = read(developer) && aztecNrApiFolders(developer)[read(developer).version];
-  return START_HERE.flatMap(({ title, task, docs, page, api }) => {
+  return START_HERE.flatMap(({ title, task, docs, page, query, api }) => {
     if (api) return folder ? [{ title, task, url: `${siteUrl}/${api}/${folder}/llms.txt` }] : [];
     const instance = instances.find((i) => i.routeBasePath === docs);
     const version = read(instance) ?? instance.versions[0];
-    return [{ title, task, url: `${siteUrl}${docsPath(docs, version.path)}/${page}.md` }];
+    return [{ title, task, url: `${siteUrl}${docsPath(docs, version.path)}/${page}.md${query ? `?${query}` : ""}` }];
   });
 }
 
