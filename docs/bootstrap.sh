@@ -9,7 +9,7 @@ repo_root=$(git rev-parse --show-toplevel)
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs $([ -d lines ] && echo lines) -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
 )
 # A release build renders its own versions and links this repository's files at DOCS_COMMIT, so it
@@ -20,8 +20,13 @@ hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" \
 
 # Every function that reads aztec-node code fetches and checks the pinned checkout first, on a cache
 # hit too, since later steps read it (scripts/aztec_node.mts; a no-op without network when current).
+# The fetch covers every dev line (docs/lines/<line>/), each with its own pin.
 function fetch_aztec_node {
   node scripts/aztec_node.mts fetch
+}
+
+function lines {
+  node scripts/aztec_node.mts lines
 }
 
 function build_docs {
@@ -48,6 +53,9 @@ function check_generated_refs {
   echo_header "check generated aztec.js reference"
   fetch_aztec_node
   ./scripts/aztecjs_reference_generation/update_docs.sh --check
+  for line in $(lines); do
+    ./scripts/aztecjs_reference_generation/update_docs.sh --line "$line" --check
+  done
 }
 
 function test_cmds {
@@ -137,6 +145,9 @@ function check {
   ./scripts/check_warnings.sh --self-test
   ./scripts/check_cli_defaults.sh
   ./scripts/check_doc_references.sh docs
+  for line in $(lines); do
+    ./scripts/check_doc_references.sh "docs/lines/$line"
+  done
 }
 
 function build_examples {
@@ -144,9 +155,18 @@ function build_examples {
   (cd examples && ./bootstrap.sh "$@")
 }
 
+# A dev line's examples compile and type-check here; they run against a network only at the line's cut.
+function build_line_examples {
+  for line in $(lines); do
+    echo_header "Building $line examples"
+    (cd examples && ./bootstrap.sh --line "$line")
+  done
+}
+
 case "$cmd" in
   "ci")
     build_examples
+    build_line_examples
     build_docs
     check_generated_refs
     test
@@ -155,6 +175,7 @@ case "$cmd" in
     ;;
   "")
     build_examples
+    build_line_examples
     build_docs
     check_generated_refs
     check_orphaned_urls

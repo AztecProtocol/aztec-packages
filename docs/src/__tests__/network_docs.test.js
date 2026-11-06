@@ -8,6 +8,7 @@ const {
   docsInstances,
   historicalVersions,
   lineApiFolder,
+  lineInstances,
   llmsRoutes,
   networkSection,
   startHere,
@@ -17,6 +18,7 @@ const {
 const { llmsSiteUrl } = require("../site_url");
 const { versionLabel } = require("../release_names");
 const { aztecNrApiFolder } = require("../utils/aztecNrApi.mjs");
+const { lineDocsPath, lineNavbarProps } = require("../utils/docsLine.mjs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
@@ -103,6 +105,55 @@ describe("Aztec.nr API folders", () => {
       const index = path.join(__dirname, "../../static/aztec-nr-api", folder, "noir_aztec/index.html");
       assert.ok(fs.existsSync(index), `${version} links into aztec-nr-api/${folder}/, which does not exist`);
     }
+  });
+});
+
+describe("dev lines", () => {
+  it("serve each line's developer and operator pages under their own base outside production only", () => {
+    assert.deepStrictEqual(lineInstances(["v6"], true), []);
+    assert.deepStrictEqual(lineInstances(["v6"], false), [
+      { line: "v6", id: "developer-v6", source: "lines/v6/docs-developers", routeBasePath: "developers-v6", sidebar: "lines/v6/sidebars-developer.js" },
+      { line: "v6", id: "network-v6", source: "lines/v6/docs-operate", routeBasePath: "operate-v6", sidebar: "lines/v6/sidebars-operate.js" },
+    ]);
+  });
+
+  it("send a line's API page to its line's folder, and every other page where it went before", () => {
+    const folders = { "v6.0.0": "mainnet" };
+    const lines = { v6: "mainnet" };
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer-v6", lines), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer", lines), "next");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders, "developer", lines), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders), "mainnet");
+  });
+
+  it("move a line's navigation into the dev docs onto the line, and nothing else", () => {
+    assert.strictEqual(lineDocsPath("/developers/docs/aztec-js", "v6"), "/developers-v6/docs/aztec-js");
+    assert.strictEqual(lineDocsPath("/operate", "v6"), "/operate-v6");
+    for (const p of ["/developers-v6/overview", "/developersx", "/networks", "/participate/x", "https://example.com/developers/x"])
+      assert.strictEqual(lineDocsPath(p, "v6"), p);
+  });
+
+  it("point a line's navbar items at the line, a dropdown's children before the dropdown sees them", () => {
+    assert.deepStrictEqual(lineNavbarProps({ type: "docSidebar", docsPluginId: "developer", sidebarId: "sidebar" }, "v6"), {
+      type: "docSidebar",
+      docsPluginId: "developer-v6",
+      sidebarId: "sidebar",
+    });
+    const participate = { type: "doc", docsPluginId: "participate", docId: "index" };
+    assert.deepStrictEqual(lineNavbarProps(participate, "v6"), participate);
+    const resources = {
+      type: "dropdown",
+      items: [
+        { type: "html", value: "<span>Other Docs</span>" },
+        { to: "/developers/ai_tooling", label: "AI Tooling" },
+        { to: "https://github.com/AztecProtocol/aztec-starter", label: "Aztec Starter repo" },
+      ],
+    };
+    assert.deepStrictEqual(lineNavbarProps(resources, "v6").items, [
+      resources.items[0],
+      { to: "/developers-v6/ai_tooling", label: "AI Tooling" },
+      resources.items[2],
+    ]);
   });
 });
 

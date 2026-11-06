@@ -1,0 +1,12 @@
+contracts:
+  - aave_bridge-AaveBridge
+
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"
+  - "@aztec-labs/stdlib"
+  - "@aztec-labs/foundation"
+  - "@aztec-labs/ethereum"
+  - "@aztec-labs/noir-contracts.js"
+  - "npm:@aztec/viem@2.38.2"

@@ -22,9 +22,12 @@ const {
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
+  lineApiFolders,
+  lineInstances,
   llmsRoutes,
   syncVersionsFile,
 } = require("./src/network_docs.js");
+const { lineNames } = require("./src/preprocess/line.js");
 const { versionLabel } = require("./src/release_names");
 
 // Version config files are the source of truth for type→version mappings.
@@ -42,6 +45,8 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production"
 );
 const developerApiFolders = aztecNrApiFolders(developerDocs);
+// The dev lines (docs/lines/<line>/) serve in previews only, each beside the dev docs.
+const lines = lineInstances(lineNames(path.join(__dirname, "..")), process.env.CONTEXT === "production");
 
 const NETWORK_LABELS = { mainnet: "Alpha", testnet: "Testnet" };
 // Docs versions track release lines, so each label carries the line name and
@@ -374,6 +379,20 @@ const config = {
         rehypePlugins,
       },
     ],
+    ...lines.map(({ line, id, source, routeBasePath, sidebar }) => [
+      "@docusaurus/plugin-content-docs",
+      {
+        id,
+        path: `processed-docs/${source}`,
+        routeBasePath,
+        sidebarPath: `./${sidebar}`,
+        editUrl: (params) =>
+          `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/${source}/` + params.docPath,
+        versions: { current: { label: `${line} dev`, noIndex: true, banner: "unreleased" } },
+        remarkPlugins,
+        rehypePlugins,
+      },
+    ]),
     // Participate docs instance - NOT versioned (educational content)
     [
       "@docusaurus/plugin-content-docs",
@@ -456,6 +475,7 @@ const config = {
             "/aztec-nr-api/**",
             "/typescript-api/**",
             ...llmsInstances.flatMap((l) => l.excludeRoutes),
+            ...lines.flatMap(({ routeBasePath }) => [`/${routeBasePath}`, `/${routeBasePath}/**`]),
           ],
         },
       },
@@ -484,6 +504,7 @@ const config = {
     websiteId: WEBSITE_ID,
     // Read by the Aztec.nr API page (src/utils/aztecNrApi.mjs); labels carry names, not networks.
     aztecNrApiFolders: developerApiFolders,
+    lineApiFolders: lineApiFolders(developerVersionConfig, [...new Set(lines.map(({ line }) => line))]),
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */

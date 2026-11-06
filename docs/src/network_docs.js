@@ -79,6 +79,32 @@ const aztecNrApiFolders = (instance) =>
   );
 
 /**
+ * The docs instances of the dev lines (docs/lines/<line>/), built outside production only: each
+ * line's developer and operator pages at /developers-<line> and /operate-<line>, as the docs plugins
+ * `developer-<line>` and `network-<line>` (src/utils/docsLine.mjs reads that id form).
+ *
+ * @param {string[]} lines the line names, like `v6`
+ * @param {boolean} production
+ * @returns {{line: string, id: string, source: string, routeBasePath: string, sidebar: string}[]}
+ *   `source` and `sidebar` are paths under docs/
+ */
+function lineInstances(lines, production) {
+  if (production) return [];
+  return lines.flatMap((line) =>
+    [
+      ["developer", "docs-developers", "developers", "sidebars-developer.js"],
+      ["network", "docs-operate", "operate", "sidebars-operate.js"],
+    ].map(([plugin, source, base, sidebar]) => ({
+      line,
+      id: `${plugin}-${line}`,
+      source: `lines/${line}/${source}`,
+      routeBasePath: `${base}-${line}`,
+      sidebar: `lines/${line}/${sidebar}`,
+    })),
+  );
+}
+
+/**
  * The Aztec.nr API reference folder a dev line's pages link: the folder of the docs version a
  * network reads with the line's major.
  *
@@ -90,6 +116,27 @@ function lineApiFolder(developerConfig, major) {
   const folders = aztecNrApiFolders(docsInstances(developerConfig, {}, true)[0]);
   const version = Object.keys(folders).find((v) => v.startsWith(`v${major}.`));
   return version && folders[version];
+}
+
+/**
+ * Each line's Aztec.nr API reference folder (`lineApiFolder`). Throws for a line no network runs:
+ * another major's reference documents a different API.
+ *
+ * @param {object} developerConfig developer_version_config.json
+ * @param {string[]} lines the line names, like `v6`
+ * @returns {Record<string, string>} line → folder
+ */
+function lineApiFolders(developerConfig, lines) {
+  return Object.fromEntries(
+    lines.map((line) => {
+      const folder = lineApiFolder(developerConfig, Number(line.slice(1)));
+      if (!folder)
+        throw new Error(
+          `no network runs ${line}, so line ${line} has no published API reference: retire the line (git rm -r docs/lines/${line}) or keep a reference for it`,
+        );
+      return [line, folder];
+    }),
+  );
 }
 
 /**
@@ -313,6 +360,8 @@ module.exports = {
   docsInstances,
   historicalVersions,
   lineApiFolder,
+  lineApiFolders,
+  lineInstances,
   llmsRoutes,
   networkSection,
   scopedApiIndexes,
