@@ -1,8 +1,6 @@
-// Serves `…/migration_notes.md?from=X&to=Y`: only the migration notes an upgrade from X to Y
-// crosses, cut from the section index the build writes beside each twin
-// (scripts/index_migration_notes.mjs). Without both parameters, or without an index, the request
-// falls through to the static twin, which is the full notes and carries no "Included versions"
-// header, so a reader can tell the two apart.
+// Serves `…/migration_notes.md?from=X&to=Y` from the section index the build writes beside each
+// twin (scripts/index_migration_notes.mjs); with neither parameter, or with no index, the static
+// twin (the full notes, with no "Included versions" header) is served instead.
 import { queryProblem, renderRange, selectRange } from "../../src/migration_ranges.mjs";
 
 const USAGE =
@@ -30,7 +28,10 @@ export default async (request) => {
   const problem = queryProblem(query);
   if (problem) return badRange(problem);
 
-  const index = await fetch(new URL(url.pathname.replace(/\.md$/, ".json"), url.origin));
+  // Assigned, never resolved as a reference: a path that starts with `//` would name another host.
+  const indexUrl = new URL(url.origin);
+  indexUrl.pathname = url.pathname.replace(/\.md$/, ".json");
+  const index = await fetch(indexUrl);
   if (!index.ok) return;
   const { sections } = await index.json();
   let selection;

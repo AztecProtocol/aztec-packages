@@ -11,7 +11,7 @@ const UNRELEASED = /^(tbd|unreleased)$/i;
  * every version. Build metadata (`+…`) is refused: no Aztec version carries it.
  *
  * @param {unknown} text
- * @returns {{text: string, unreleased: boolean, core: number[], pre: string[]} | null}
+ * @returns {{text: string, unreleased: boolean, core: bigint[], pre: string[]} | null}
  */
 export function parseVersion(text) {
   if (typeof text !== "string" || text.length > 64) return null;
@@ -22,7 +22,7 @@ export function parseVersion(text) {
   return {
     text: text.replace(/^v/i, ""),
     unreleased: false,
-    core: [m[1], m[2], m[3] ?? "0"].map(Number),
+    core: [m[1], m[2], m[3] ?? "0"].map(BigInt),
     pre,
   };
 }
@@ -32,12 +32,12 @@ const isNumeric = (id) => /^\d+$/.test(id);
 /** Semver precedence of two parsed versions: negative, zero or positive. */
 export function compareVersions(a, b) {
   if (a.unreleased || b.unreleased) return Number(a.unreleased) - Number(b.unreleased);
-  for (let i = 0; i < 3; i++) if (a.core[i] !== b.core[i]) return a.core[i] - b.core[i];
+  for (let i = 0; i < 3; i++) if (a.core[i] !== b.core[i]) return a.core[i] < b.core[i] ? -1 : 1;
   if (!a.pre.length || !b.pre.length) return b.pre.length - a.pre.length;
   for (let i = 0; i < Math.min(a.pre.length, b.pre.length); i++) {
     const [x, y] = [a.pre[i], b.pre[i]];
     if (x === y) continue;
-    if (isNumeric(x) && isNumeric(y)) return Number(x) - Number(y);
+    if (isNumeric(x) && isNumeric(y)) return BigInt(x) < BigInt(y) ? -1 : 1;
     if (isNumeric(x) !== isNumeric(y)) return isNumeric(x) ? -1 : 1;
     return x < y ? -1 : 1;
   }

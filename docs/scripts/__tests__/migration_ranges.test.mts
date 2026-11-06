@@ -51,6 +51,8 @@ test("versions order by semver precedence", () => {
   lt("3.0.0-devnet.4", "3.0.0-devnet.20251212");
   lt("4.0.0-devnet.2-patch.0", "4.1.0-rc.2");
   lt("6.0.0", "TBD");
+  lt("9007199254740992.0.0", "9007199254740993.0.0");
+  lt("1.0.0-9007199254740992", "1.0.0-9007199254740993");
   assert.equal(compareVersions(parseVersion("0.66")!, parseVersion("v0.66.0")!), 0);
   for (const bad of ["", "6", "6.0.0.0", "01.2.3", "6.0.0-01", "6.0.0+build", "x6.0.0", "6.0.0-", "6.0.0-rc..1", "6." + "1".repeat(63)]) {
     assert.equal(parseVersion(bad), null, bad);
@@ -63,6 +65,7 @@ test("a range holds the versions after from up to to, oldest first", () => {
     [main.sections, { from: "6.0.0-rc.1", to: "6.0.0" }, ["6.0.0-rc.3", "6.0.0"]],
     [main.sections, { from: "6.0.0-rc.2", to: "v6.0.0" }, ["6.0.0-rc.3", "6.0.0"]],
     [main.sections, { from: "5.1.0" }, ["5.2.0", "6.0.0-rc.1", "6.0.0-rc.3", "6.0.0"]],
+    [main.sections, { from: "5.1.0", to: "" }, ["5.2.0", "6.0.0-rc.1", "6.0.0-rc.3", "6.0.0"]],
     [main.sections, { from: "6.0.0", to: "unreleased" }, ["TBD"]],
     [snapshot, { from: "6.0.0-rc.3", to: "unreleased" }, ["6.0.0"]],
     [main.sections, { from: "6.0.0" }, []],
@@ -150,4 +153,8 @@ test("the edge function serves a range, refuses a bad one, and otherwise steps a
   assert.match(await reversed.text(), /from \(7\.0\.0\) is newer than to \(6\.0\.0\)[\s\S]*TBD, 6\.0\.0, 6\.0\.0-rc\.3/);
 
   assert.equal(await serve("?from=5.2.0", null), undefined);
+
+  fetched.length = 0;
+  await serveRange(new Request("https://docs.example//elsewhere.example/x/migration_notes.md?from=5.2.0"));
+  assert.deepEqual(fetched.map((u) => new URL(u).origin), ["https://docs.example"]);
 });

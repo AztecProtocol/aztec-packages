@@ -16,7 +16,7 @@ export function htmlToMarkdown(element: Element): string {
     const el = node as Element;
     const tagName = el.tagName.toLowerCase();
 
-    // Skip Docusaurus UI elements, and site controls placed inside the content (`data-copy-skip`)
+    // Skip Docusaurus UI elements
     if (
       el.hasAttribute('data-copy-skip') ||
       el.classList.contains('hash-link') ||
