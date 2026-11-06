@@ -77,8 +77,7 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
-  # The examples' test commands share one checkout and toolchain: install them before they run in parallel.
-  (cd examples && ./bootstrap.sh pin_toolchain)
+  (cd examples && ./bootstrap.sh pin_toolchains)
   test_cmds | parallelize
 }
 
