@@ -1,0 +1,14 @@
+# Configuration for aztecjs_multiple_wallets example
+# Two wallets, each with its own PXE: one account mints to another, which discovers the notes
+
+# No custom contracts needed - using pre-built contracts from @aztec-labs/noir-contracts.js
+contracts: []
+
+# Dependencies:
+#   - @aztec-labs/* and @aztec-foundation/* packages install at the versions docs/aztec-node.json pins
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"
+  - "@aztec-labs/noir-contracts.js"
