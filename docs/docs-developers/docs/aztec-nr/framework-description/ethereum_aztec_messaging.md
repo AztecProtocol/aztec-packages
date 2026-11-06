@@ -91,7 +91,7 @@ const witness = await aztecNode.getL2ToL1MembershipWitness(
 
 ## Example implementations
 
-- [Token Portal (L1)](https://github.com/aztec-labs-eng/aztec-node/blob/#include_aztec_version/docs/examples/solidity/example_swap/ExampleTokenPortal.sol)
+- [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/#docs_commit/docs/examples/solidity/example_swap/ExampleTokenPortal.sol)
 - [Token Bridge (L2)](https://github.com/aztec-labs-eng/aztec-node/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
 
 ## Next steps
