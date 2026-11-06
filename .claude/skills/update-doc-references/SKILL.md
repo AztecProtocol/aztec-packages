@@ -64,22 +64,25 @@ checkouts, and edit each copy whose checkout has it (Step 5): a `main` PR can fi
 shares, and a page that is wrong about code both lines have is wrong in both copies.
 
 When the change is a move of a pin rather than a PR (`node docs/scripts/aztec_node.mts
-[--line <line>] pin <tag>`), take it from the two pin commits, fetched into that line's
-checkout. A two-commit diff needs no history between them. For main:
+[--line <line>] pin <tag>`), the pages it reaches come from the line's two pin commits. Run
+this once per line whose pin moved, after `check` passes:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-pinfile=docs/aztec-node.json lineopt=   # the v6 line's: pinfile=docs/lines/v6/aztec-node.json lineopt="--line v6"
-old=$(git show "$(git merge-base origin/next HEAD):$pinfile" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
-new=$(node -p "require('./$pinfile').commit")
-node docs/scripts/aztec_node.mts $lineopt fetch && pin=$(node docs/scripts/aztec_node.mts $lineopt env) || exit 1
-eval "$pin"
-git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
-git -C "$AZTEC_NODE_DIR" diff --name-only "$old" "$new" | sed 's|^|labs/|'
-git -C "$AZTEC_NODE_DIR" diff "$old" "$new" -- <path without labs/>
+docs/scripts/pin_doc_references.sh   # the v6 line's: docs/scripts/pin_doc_references.sh --line v6
 ```
 
-The pin file also names the toolchain: when `bb`, `noir` or `l1Artifacts` moved, say so in
+It prints `<reference> -> <page>, <page>` for each `labs/` reference whose files differ
+between the line's pin at `git merge-base origin/next HEAD` and its pin now. Pass the old
+commit as an argument when the base is another (a release cut does). That list is Step 3's
+mapping. stderr names both commits and the checkout, so read one reference's change with:
+
+```bash
+git -C "$AZTEC_NODE_DIR" diff <old> <new> -- <reference without labs/ and /*>
+```
+
+`AZTEC_NODE_DIR` is the line's checkout: `eval "$(node docs/scripts/aztec_node.mts [--line
+v6] env)"` exports it. The pin file also names the toolchain: when `bb`, `noir` or `l1Artifacts` moved, say so in
 the report, since the examples and the Solidity snippets follow them.
 
 ### Step 3: Identify Affected Documentation
@@ -97,16 +100,14 @@ gh pr view <PR_NUMBER> --repo aztec-labs-eng/aztec-node --json files -q '.files[
   sed 's|^|labs/|' >"$changed"
 for root in docs docs/lines/*; do
   extract_references_mapping "$root" "$map"
-  awk -F'|' 'NR == FNR {changed[$0]; next}
-    {ref = $1; dir = sub(/\/\*$/, "/", ref)
-     for (f in changed) if (dir ? index(f, ref) == 1 : f == ref) print f " -> " $2}' \
-    "$changed" "$map" | sort -u
+  changed_references "$map" "$changed"
 done
 ```
 
-For a PR of this repository drop the `sed`; for a pin move write Step 2's `--name-only`
-list to `"$changed"` instead. Report any pair the prompt lists that this does not produce,
-and the reverse: the dispatcher's mapping is then stale.
+Each line is `<reference> -> <page>, <page>`, as `pin_doc_references.sh` prints for a pin
+move, which needs no other mapping. For a PR of this repository drop the `sed`. Report any
+pair the prompt lists that this does not produce, and the reverse: the dispatcher's mapping
+is then stale.
 
 ### Step 4: Analyze Changes
 
@@ -163,7 +164,11 @@ pass.
 
 ### Step 6: Commit on a Branch
 
-If changes were made, commit them on a branch from `next`:
+For a pin move, commit the edits on the branch that moves the pin, so they ship in its PR,
+naming each file as below; skip the new branch and Step 7, and list the pages you checked in
+that PR's description.
+
+Otherwise, if changes were made, commit them on a branch from `next`:
 
 ```bash
 git fetch origin next
