@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "hello_circuit"
+    "hello_circuit",
+    "note_hash_proof"
 ]

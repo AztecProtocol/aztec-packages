@@ -115,8 +115,8 @@ These resources help you understand Aztec concepts, read docs, or provide additi
 - **Markdown for any page** - Append `.md` to any page URL (for example `https://docs.aztec.network/developers/overview.md`), or request the normal URL with an `Accept: text/markdown` header, to get the page as clean markdown instead of HTML. This is the best format to hand to an agent.
 - **Reference repositories** - Point your AI tool at these repos for additional context:
   - [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages) - main monorepo, best general reference
-  - [AztecProtocol/aztec-starter](https://github.com/AztecProtocol/aztec-starter) - smaller starter project, easier for onboarding
-  - [AztecProtocol/aztec-examples](https://github.com/AztecProtocol/aztec-examples) - official contract examples
+  - [Deploying a token contract](./docs/tutorials/js_tutorials/aztecjs-getting-started.md) - deploy and call a contract from TypeScript, easier for onboarding
+  - [Custom notes](./docs/aztec-nr/framework-description/custom_notes.md) and [verifying Noir proofs in contracts](./docs/tutorials/contract_tutorials/recursive_verification.md) - worked contract examples
   - [noir-lang/noir](https://github.com/noir-lang/noir) - Noir language source of truth
   - [noir-lang/noir-examples](https://github.com/noir-lang/noir-examples) - common Noir patterns
   - [awesome-noir](https://github.com/noir-lang/awesome-noir) - community Noir resources

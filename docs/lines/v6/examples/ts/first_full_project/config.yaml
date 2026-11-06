@@ -1,0 +1,8 @@
+# examples/contracts/counter_contract has the same ABI as the Counter `aztec init` creates.
+contracts:
+  - counter_contract-Counter
+
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"

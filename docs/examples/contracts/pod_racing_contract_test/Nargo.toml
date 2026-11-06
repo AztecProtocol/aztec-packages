@@ -1,0 +1,9 @@
+[package]
+name = "pod_racing_contract_test"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "lib"
+
+[dependencies]
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }
+pod_racing_contract = { path = "../../webapp-tutorial/contracts" }
