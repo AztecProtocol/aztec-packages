@@ -99,8 +99,14 @@ setup_project() {
         ls -la artifacts/ 2>/dev/null || echo -e "${RED}  ERROR: artifacts/ directory does not exist after codegen${NC}"
     fi
 
-    # Initialize yarn
+    # Initialize yarn. `yarn init` also runs `git init` and writes the files below; the compose run is root, so anything
+    # it leaves in the checkout outlives the checkout's owner. Remove the nested repository, and the files it created.
+    local init_file created_files=()
+    for init_file in .gitignore .editorconfig .gitattributes README.md; do
+        [ -e "$init_file" ] || created_files+=("$init_file")
+    done
     yarn init -y
+    rm -rf .git ${created_files[@]+"${created_files[@]}"}
     yarn config set nodeLinker node-modules
 
     # Set package type to module for ESM
