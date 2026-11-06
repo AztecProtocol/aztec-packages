@@ -187,19 +187,47 @@ describe("preprocessIncludeVersion", () => {
 
   describe("#api_ref_version macro", () => {
     // Only testnet and mainnet API references are published; other builds use the generated next/.
+    // A network links the folder the build serves for its version, which it shares with any network
+    // on the same version.
+    const { apiReferenceDirs, docsInstances } = require("../../network_docs");
+    const config = require("../../../developer_version_config.json");
+    const served = (network) =>
+      apiReferenceDirs(docsInstances(config, {}, true)[0]).find((d) => d.networks.includes(network)).folder;
     const testCases = [
       ["nightly", "next"],
       ["devnet", "next"],
-      ["testnet", "testnet"],
-      ["mainnet", "mainnet"],
+      ["testnet", served("testnet")],
+      ["mainnet", served("mainnet")],
     ];
+
+    const TAGS = ["NIGHTLY_TAG", "DEVNET_TAG", "TESTNET_TAG", "MAINNET_TAG", "KEEP_DEVELOPER_VERSIONS"];
+    const apiRefVersion = async (vars) => {
+      for (const v of TAGS) delete process.env[v];
+      setEnv(vars);
+      return (await preprocessIncludeVersion("#api_ref_version", "test.md")).content;
+    };
 
     testCases.forEach(([releaseType, expected]) => {
       it(`resolves to ${expected} for ${releaseType}`, async () => {
-        setEnv({ RELEASE_TYPE: releaseType });
-        const { content } = await preprocessIncludeVersion("#api_ref_version", "test.md");
-        assert.strictEqual(content, expected);
+        assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: releaseType }), expected);
       });
+    });
+
+    // A release cut freezes these links into its snapshot before it maps the new version, so they
+    // name the folder the build serves once the release type reads the version being built.
+    it("names testnet's own folder for a testnet release on a version mainnet does not run", async () => {
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0" }), "testnet");
+    });
+
+    it("names mainnet's folder for a testnet release on mainnet's version", async () => {
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: config.mainnet }), "mainnet");
+    });
+
+    it("keeps the folder the developer versions serve now when the release does not change them", async () => {
+      assert.strictEqual(
+        await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0", KEEP_DEVELOPER_VERSIONS: "1" }),
+        served("testnet"),
+      );
     });
   });
 

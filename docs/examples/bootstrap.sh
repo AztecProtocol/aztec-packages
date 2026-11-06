@@ -40,15 +40,22 @@ if [ "$cmd" = --line ]; then
     exit 1
   fi
   aztec_node+=(--line "$DOCS_LINE")
-  # On disk rather than in /tmp: the contract artifacts are large.
-  mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
-  STAGE=$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/aztec-docs-$DOCS_LINE.XXXXXX")
-  cp -R "$line_root/Nargo.toml" "$line_root/examples" "$REPO_ROOT/docs/.yarnrc.yml" "$STAGE/"
+  # On disk rather than in /tmp: the contract artifacts are large. A release cut runs a line's
+  # examples one step at a time, so DOCS_LINE_STAGE names a stage it keeps across runs (and removes
+  # itself): later steps find what earlier ones compiled.
+  if [ -n "${DOCS_LINE_STAGE:-}" ]; then
+    stage=$DOCS_LINE_STAGE
+  else
+    mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
+    STAGE=$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/aztec-docs-$DOCS_LINE.XXXXXX")
+    stage=$STAGE
+  fi
+  mkdir -p "$stage/node_modules/@aztec-foundation"
+  cp -R "$line_root/Nargo.toml" "$line_root/examples" "$REPO_ROOT/docs/.yarnrc.yml" "$stage/"
   # The links may dangle until pin_toolchain fetches the line.
-  mkdir -p "$STAGE/node_modules/@aztec-foundation"
-  ln -s "$line_root/.aztec-node" "$STAGE/.aztec-node"
-  ln -s "$line_root/.aztec-node/l1-artifacts" "$STAGE/node_modules/@aztec-foundation/l1-artifacts"
-  export DOCS_ROOT=$STAGE
+  ln -sfn "$line_root/.aztec-node" "$stage/.aztec-node"
+  ln -sfn "$line_root/.aztec-node/l1-artifacts" "$stage/node_modules/@aztec-foundation/l1-artifacts"
+  export DOCS_ROOT=$stage
 else
   export DOCS_PATH=docs DOCS_ROOT=$REPO_ROOT/docs
 fi

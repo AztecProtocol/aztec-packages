@@ -140,6 +140,17 @@ describe("include_code", () => {
     await assert.rejects(preprocessIncludeCode(include("docs/lines/v1/examples/a.ts"), "page.md", root.rootDir), /is line v1's, but this page is main's/);
   });
 
+  it("lets main's pages quote a line's files while both pin one commit, as a promoted line cut does", async () => {
+    const line = path.join(root.rootDir, "docs/lines/v1");
+    write(path.join(line, "aztec-node.json"), fs.readFileSync(path.join(root.rootDir, "docs/aztec-node.json")));
+    write(path.join(line, "examples/a.ts"), "// docs:start:x\nconst promoted = 1;\n// docs:end:x\n");
+    process.env.DOCS_COMMIT = "def456";
+
+    const { content } = await preprocessIncludeCode("#include_code x /docs/lines/v1/examples/a.ts typescript\n", "page.md", root.rootDir);
+    assert.match(content, /const promoted = 1/);
+    assert.ok(content.includes("aztec-packages/blob/def456/docs/lines/v1/examples/a.ts#L1-L3"));
+  });
+
   it("checks a line's checkout even after main's check passed on the same directory", async () => {
     const line = path.join(root.rootDir, "docs/lines/v1");
     const tree = path.join(line, ".aztec-node/tree");

@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Two dev lines: change both
+
+The dev docs follow two aztec-node lines, and each developer and operator page has a copy per line. The root pages (`docs/docs/`), `docs-participate/`, the versioned snapshots and `static/` are shared.
+
+| Line | Follows | Pages and examples | Pin |
+| --- | --- | --- | --- |
+| main | aztec-node `main` | `docs-developers/`, `docs-operate/`, `sidebars-*.js`, `examples/` | `aztec-node.json` |
+| v6 | aztec-node `v6` | `lines/v6/docs-developers/`, `lines/v6/docs-operate/`, `lines/v6/sidebars-*.js`, `lines/v6/examples/` | `lines/v6/aztec-node.json` |
+
+- **A change goes into both lines.** Change one line only when the change is specific to it.
+- **Decide that from the code, not the PR.** Grep the symbol or behaviour you document in each line's checkout: `.aztec-node/tree` for main, `lines/v6/.aztec-node/tree` for v6. If it is the same in both, change both copies. If it differs or is missing in one, change only the line that has it, the way that line has it.
+  - A Labs PR's base branch (`main` or `v6`) only says which checkout to start with. A `main` PR can fix behaviour v6 shares, and a backport to `v6` still needs this check.
+  - A fix to wording, structure or a mistake that both copies share is never line-specific.
+- **Port with the line's paths.** The counterpart of `docs-developers/<page>` is `lines/v6/docs-developers/<page>`. In a v6 page, `#include_code` and `references:` paths into `docs/examples/` start with `docs/lines/v6/examples/`, and paths into `docs/node_modules/@aztec-foundation/l1-artifacts/` start with `docs/lines/v6/.aztec-node/l1-artifacts/`. `labs/` paths are the same in both and read each line's own checkout.
+- **Check both lines** with `yarn build` (a preview also serves v6 at `/developers-v6/` and `/operate-v6/`), `./bootstrap.sh check`, `examples/bootstrap.sh` and `examples/bootstrap.sh --line v6`.
+- **Migration notes and the operator changelog exist in both lines.** A v6.x entry goes into both, since v7 readers upgrade from the latest v6. A v7 entry goes into main only. Released entries are history in either line: never edit them.
+
 ## Overview
 
 You are working with the **Aztec Protocol Documentation** - a comprehensive documentation site built with Docusaurus 3 for Aztec, the decentralized Ethereum L2 for building unstoppable private apps. Your role includes both technical development tasks and ensuring all documentation meets quality standards for accuracy, clarity, and usability.
@@ -19,7 +36,7 @@ This project uses Yarn 4.13.0 as specified in the `packageManager` field of pack
 - `yarn build` - Build production site with full validation (includes clean, preprocess, spellcheck, and move steps)
   - It ends with the search index check: renaming or moving a page a search probe expects (`PROBES` in `scripts/check_search_index.mts`) fails the build until the probe lists the new path
 - `yarn serve` - Serve the built static site
-- `yarn spellcheck` - Run spell checking with cspell on markdown files
+- `yarn spellcheck` - Run spell checking with cspell on markdown files. A line's pages are checked only through their preprocessed copies, so run `yarn preprocess` first after editing one
 - `yarn clean` - Clean build artifacts and processed docs
 
 ### API Documentation Generation
@@ -63,8 +80,9 @@ The aztec-node (Labs) code the docs quote is the commit `aztec-node.json` pins, 
 - Move the pin with `node scripts/aztec_node.mts pin <tag>` (a release or nightly tag), never by hand; then set `@aztec-foundation/l1-artifacts` to the version `check` names, run `yarn install`, and commit `aztec-node.json` with `package.json` and `yarn.lock`.
 - `pin` needs `gh` logged in: it records the sha256 of each noir release archive in `noirArchives` once `gh attestation verify` proves noir's publish workflow built it, and `provision` refuses a nargo archive whose sha256 differs. Never edit `noirArchives` to get past a mismatch: it means the release archive changed after the pin.
 - Tools that need nargo, bb or the aztec CLI use the pinned published ones: `node scripts/aztec_node.mts provision nargo bb cli`, then `eval "$(node scripts/aztec_node.mts env)"` exports `NARGO`, `BB`, `AZTEC` and the versions. Never run nargo inside `docs/` or the checkout: it takes `docs/Nargo.toml` as its workspace.
-- The dev docs stay on aztec-node's v6 line until they carry a separate v7 line: move their pin to the newest `v6.*` nightly, never to a v7 tag (`main` carries v7 from 2026-11-04). A v6.x release is cut from the dev docs' pages and examples, so it works only while they are v6 content. Then check that the recorded commit is on `v6`: `gh api "repos/aztec-labs-eng/aztec-node/compare/v6...$(node -p 'require("./aztec-node.json").commit')" --jq .status` prints `behind` or `identical`.
-- A release cut moves the pin to the release tag in its own worktree only (`/release-docs`, `/release-network-docs`); v6.x releases are cut from their tags on aztec-node's `v6` branch. The dev docs keep their pin.
+- Each line's pin follows its own aztec-node branch (see "Two dev lines: change both"): `aztec-node.json` follows `main` (v7 from 2026-11-04), and `lines/<line>/aztec-node.json` follows `<line>`. Move a line's pin with `node scripts/aztec_node.mts --line <line> pin <tag>`: it installs the line's l1-artifacts into `lines/<line>/.aztec-node/`, so `package.json` does not change. A line's `pin` and `check` refuse a tag of another major. After moving any pin, check that the recorded commit is on its branch: `gh api "repos/aztec-labs-eng/aztec-node/compare/<branch>...<commit>" --jq .status` prints `behind` or `identical`.
+- A release cut moves the pins in its own worktree only (`/release-docs`, `/release-network-docs`); the dev docs keep theirs. A cut of a line's major (a v6.x release, from its tag on aztec-node's `v6` branch) first promotes the line into the main paths with `scripts/promote_line.sh`.
+- Retire a line with `git rm -r docs/lines/<line>` after its last release, or once no network runs its major: from then on, preprocessing fails on the line's API reference links.
 
 ### Preprocessing Environment Variables
 
@@ -79,6 +97,7 @@ The preprocessing system uses these environment variables:
 | `TESTNET_TAG`  | Version for testnet builds                              | from `developer_version_config.json` |
 | `MAINNET_TAG`  | Version for mainnet builds                              | from `developer_version_config.json` |
 | `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`     | `ref` in `aztec-node.json`           |
+| `KEEP_DEVELOPER_VERSIONS` | `1` when the release leaves the developer docs' versions alone (a network-only cut, `/release-network-docs`): `#api_ref_version` then names the folder `developer_version_config.json` serves now, not the one it serves once `RELEASE_TYPE` reads the version being built | unset |
 
 ### Preprocessing Macros
 
@@ -185,6 +204,8 @@ Uses Docusaurus multi-instance versioning with separate version tracks:
 The `examples/` directory contains runnable code examples that are included in documentation via `#include_code` markers. The examples pipeline has two stages:
 
 **Validation (type-checking)**: `examples/bootstrap.sh` compiles Noir circuits, Noir contracts, Solidity, and type-checks TypeScript examples. This runs on every PR.
+
+`examples/bootstrap.sh --line <line>` builds a line's examples the same way, in a copy staged outside the repository (nargo would take `docs/Nargo.toml` as the workspace). Run it whole: the stage is new every run, so a single step such as `validate-ts` finds no compiled contracts, unless `DOCS_LINE_STAGE=<dir>` keeps one stage across runs (a release cut does). A line's examples run against a network only at its release cut, never in CI.
 
 The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its version in `package.json` must equal `toolchain.l1Artifacts` in `aztec-node.json` (the pinned aztec-node's `BB_VERSION`); `node scripts/aztec_node.mts check` fails until both move together.
 
@@ -400,5 +421,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-11-02
-Version: 1.11
+Last updated: 2026-11-05
+Version: 1.12
