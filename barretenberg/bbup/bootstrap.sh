@@ -12,6 +12,7 @@ function test_cmds {
     echo -e "$hash barretenberg/bbup/run_test.sh install 0.72.1"
   fi
   echo -e "$hash barretenberg/bbup/run_test.sh install 0.77.1"
+  echo -e "$hash barretenberg/bbup/run_test.sh install v0.77.1"
   echo -e "$hash barretenberg/bbup/run_test.sh shell_config 0.77.1"
 }
 
