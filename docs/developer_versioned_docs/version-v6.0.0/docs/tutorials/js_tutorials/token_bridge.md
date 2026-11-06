@@ -28,13 +28,15 @@ Let's start simple. Since this is an Ethereum project, it's easier to just start
 
 ```bash
 git clone https://github.com/critesjosh/hardhat-aztec-example
+cd hardhat-aztec-example
+git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
 ```
 
-You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`.
+You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`. The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
 
 We want to add a few more dependencies now before we start. The starter needs four changes before it installs with yarn 4. They need yarn 4.14 or later (check with `yarn --version`): the `approvedGitRepositories` setting below arrived in 4.14, earlier 4.x releases reject the whole `.yarnrc.yml` because of it, and from 4.14 on yarn refuses any git dependency the setting does not list.
 
-First, from the `hardhat-aztec-example` directory (`cd hardhat-aztec-example`), tell yarn to install into `node_modules` (the starter's scripts and Hardhat expect a real `node_modules` tree) and allow the starter's one git dependency, `forge-std`. Create `.yarnrc.yml`:
+First, from the `hardhat-aztec-example` directory, tell yarn to install into `node_modules` (the starter's scripts and Hardhat expect a real `node_modules` tree) and allow the starter's one git dependency, `forge-std`. Create `.yarnrc.yml`:
 
 ```yaml
 nodeLinker: node-modules
