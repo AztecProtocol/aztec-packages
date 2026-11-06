@@ -21,14 +21,14 @@ export const General = {
   ),
 
   // The minimum is the `node:` entry of install.aztec.network/<version>/versions, which the
-  // installer enforces: each docs version passes its own.
+  // installer enforces: each docs version passes its own. Each text run is one string, so the
+  // markdown twin carries no React text separators.
   node_ver: ({ version }) => (
     <p>
-      The Aztec installer requires Node.js {version} or later. If you have an
-      older version and <a href="https://github.com/nvm-sh/nvm">nvm</a>, the
-      installer installs {version} with nvm and makes it nvm's default.
-      Without nvm, the installer stops: install nvm, then run{" "}
-      <code>nvm install {version}</code>.
+      {`The Aztec installer requires Node.js ${version} or later. If you have an older version and `}
+      <a href="https://github.com/nvm-sh/nvm">nvm</a>
+      {`, the installer installs ${version} with nvm and makes it nvm's default. Without nvm, the installer stops: install nvm, then run `}
+      <code>{`nvm install ${version}`}</code>.
     </p>
   ),
 
