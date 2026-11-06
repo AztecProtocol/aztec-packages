@@ -27,9 +27,9 @@
       "label": "Support"
     },
     {
-      "type": "link",
-      "label": "Aztec Starter Repository",
-      "href": "https://github.com/AztecProtocol/aztec-starter"
+      "type": "doc",
+      "id": "docs/tutorials/js_tutorials/aztecjs-getting-started",
+      "label": "Deploy from TypeScript"
     },
     {
       "type": "html",
