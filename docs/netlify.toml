@@ -36,6 +36,32 @@
     Link = '</llms.txt>; rel="describedby"'
 
 # =============================================================================
+# ACTIVE REDIRECTS: Section Landings
+# No docs instance serves a page at its root, so each root lands on the first
+# page of its sidebar.
+# =============================================================================
+[[redirects]]
+    from = "/developers"
+    to = "/developers/overview"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs"
+    to = "/developers/docs/foundational-topics"
+    status = 301
+
+[[redirects]]
+    from = "/operate"
+    to = "/operate/operators"
+    status = 301
+
+[[redirects]]
+    # Must precede /network/*, whose empty splat would send it to the bare /operate/.
+    from = "/network"
+    to = "/operate/operators"
+    status = 301
+
+# =============================================================================
 # ACTIVE REDIRECTS: Core Navigation
 # =============================================================================
 [[redirects]]
