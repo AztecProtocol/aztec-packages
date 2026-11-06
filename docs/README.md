@@ -635,7 +635,9 @@ Documentation pages can declare which source files they document via a `referenc
 
 2. **Validation**: During CI builds (`bootstrap.sh`), the system extracts all referenced paths from documentation frontmatter and fails the build if any of them no longer exist; update the `references` frontmatter in the affected doc.
 
-**Implementation**: The check is `scripts/check_doc_references.sh` (with `scripts/lib/extract_doc_references.sh` for frontmatter parsing), which runs as part of the docs CI pipeline.
+3. **Pin moves**: aztec-node changes reach the docs only when a line's pin moves, so the PR that moves it also updates the pages it reaches. `scripts/pin_doc_references.sh [--line <line>] [<old-commit>]` lists them as `<reference> -> <pages>`: every reference whose files differ between the old pin (by default the line's pin at `git merge-base origin/next HEAD`) and the new one. The `update-doc-references` skill under `.claude/skills/` takes that list.
+
+**Implementation**: The check is `scripts/check_doc_references.sh` (with `scripts/lib/extract_doc_references.sh` for frontmatter parsing), which runs as part of the docs CI pipeline. `scripts/pin_doc_references.sh` uses the same library.
 
 **Path Format**:
 
