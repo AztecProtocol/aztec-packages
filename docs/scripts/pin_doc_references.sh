@@ -23,7 +23,7 @@ source "$SCRIPT_DIR/lib/extract_doc_references.sh"
 source "$SCRIPT_DIR/lib/aztec_node.sh"
 
 function usage {
-  sed -n '2,/^set -e/p' "$0" | sed '$d; s/^# \{0,1\}//' >&2
+  sed -n '2,/^set -e/p' "$SCRIPT_DIR/pin_doc_references.sh" | sed '$d; s/^# \{0,1\}//' >&2
   exit 2
 }
 
@@ -70,8 +70,9 @@ git -C "$AZTEC_NODE_DIR" cat-file -e "$old^{commit}" 2>/dev/null ||
 changed=$(mktemp)
 mapping=$(mktemp)
 trap 'rm -f "$changed" "$mapping"' EXIT
-# --no-renames: a rename would list only the new path, and pages reference the old one.
-git -C "$AZTEC_NODE_DIR" -c core.quotePath=false diff --no-renames --name-only "$old" "$new" -- | sed 's|^|labs/|' >"$changed"
+# --no-renames: a rename would list only the new path, and pages reference the old one. -z: git
+# C-quotes a name holding `"` or `\` even with core.quotePath=false.
+git -C "$AZTEC_NODE_DIR" diff -z --no-renames --name-only "$old" "$new" -- | tr '\0' '\n' | sed 's|^|labs/|' >"$changed"
 extract_references_mapping "$DOCS_DIR" "$mapping"
 found=$(changed_references "$mapping" "$changed")
 [[ -z $found ]] || printf '%s\n' "$found"

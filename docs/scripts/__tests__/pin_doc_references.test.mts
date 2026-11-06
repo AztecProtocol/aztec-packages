@@ -58,8 +58,8 @@ before(() => {
   write(path.join(docs, "package.json"), JSON.stringify({ devDependencies: { "@aztec-foundation/l1-artifacts": "1.0.0" } }));
 
   [mainOld, mainNew] = upstream(path.join(base, "main"), [
-    { "yarn-project/a.ts": "1", "yarn-project/same.ts": "s", "yarn-project/dir/x.ts": "1", "yarn-project/old_name.ts": "renamed\n".repeat(20), "yarn-project/gone.ts": "g" },
-    { "yarn-project/a.ts": "2", "yarn-project/dir/x.ts": "2", "yarn-project/old_name.ts": null, "yarn-project/new_name.ts": "renamed\n".repeat(20), "yarn-project/gone.ts": null, "yarn-project/same.ts.orig": "o" },
+    { "yarn-project/a.ts": "1", "yarn-project/same.ts": "s", "yarn-project/dir/x.ts": "1", "yarn-project/old_name.ts": "renamed\n".repeat(20), "yarn-project/gone.ts": "g", 'yarn-project/q/a"b.ts': "1" },
+    { "yarn-project/a.ts": "2", "yarn-project/dir/x.ts": "2", "yarn-project/old_name.ts": null, "yarn-project/new_name.ts": "renamed\n".repeat(20), "yarn-project/gone.ts": null, "yarn-project/same.ts.orig": "o", 'yarn-project/q/a"b.ts': "2" },
   ]);
   const [lineOld, lineNew] = upstream(path.join(base, "v1"), [
     { "yarn-project/a.ts": "1", "yarn-project/v1.ts": "1" },
@@ -67,7 +67,7 @@ before(() => {
   ]);
 
   write(path.join(docs, "docs-developers/a.md"), page(["labs/yarn-project/a.ts", "labs/yarn-project/same.ts"]));
-  write(path.join(docs, "docs-developers/b.md"), "---\ntitle: b\nreferences:\n  [\n    \"labs/yarn-project/dir/*\",\n  ]\n---\n");
+  write(path.join(docs, "docs-developers/b.md"), "---\ntitle: b\nreferences:\n  [\n    \"labs/yarn-project/dir/*\",\n    \"labs/yarn-project/q/*\",\n  ]\n---\n");
   write(path.join(docs, "docs-developers/d.md"), page(["labs/yarn-project/same.ts", "labs/yarn-project/di/*", "docs/examples/x.ts"]));
   write(path.join(docs, "docs-developers/e.md"), page(["labs/yarn-project/a.ts"]));
   write(path.join(docs, "docs-operate/c.md"), page(["labs/yarn-project/old_name.ts", "labs/yarn-project/gone.ts"]));
@@ -100,6 +100,7 @@ const MAIN = [
   "labs/yarn-project/dir/* -> docs/docs-developers/b.md",
   "labs/yarn-project/gone.ts -> docs/docs-operate/c.md",
   "labs/yarn-project/old_name.ts -> docs/docs-operate/c.md",
+  "labs/yarn-project/q/* -> docs/docs-developers/b.md",
   "",
 ].join("\n");
 
