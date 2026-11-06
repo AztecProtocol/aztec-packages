@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { type TestContext, test } from "node:test";
 import { compareVersions, parseVersion, renderRange, selectRange } from "../../src/migration_ranges.mjs";
+import serveRange from "../../netlify/edge-functions/migration-notes-range.mjs";
 import { indexMigrationNotes, splitSections } from "../index_migration_notes.mjs";
 
 const docs = path.join(import.meta.dirname, "../..");
@@ -109,4 +110,44 @@ test("the index step writes a JSON index beside every migration notes twin", () 
   } finally {
     fs.rmSync(build, { recursive: true, force: true });
   }
+});
+
+test("the edge function serves a range, refuses a bad one, and otherwise steps aside", async (t: TestContext) => {
+  const page = "https://docs.example/developers/docs/resources/migration_notes";
+  const fetched: string[] = [];
+  let index: Response | null = null;
+  t.mock.method(globalThis, "fetch", async (url: URL) => {
+    fetched.push(String(url));
+    return index ?? new Response("Not Found", { status: 404 });
+  });
+  const serve = async (query: string, json: unknown = { sections: main.sections }) => {
+    fetched.length = 0;
+    index = json === null ? null : new Response(JSON.stringify(json));
+    return serveRange(new Request(`${page}.md${query}`));
+  };
+
+  assert.equal(await serve(""), undefined);
+  assert.deepEqual(fetched, []);
+
+  const ok = (await serve("?from=6.0.0-rc.1&to=6.0.0"))!;
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("content-type"), "text/markdown; charset=utf-8");
+  assert.equal(ok.headers.get("x-content-type-options"), "nosniff");
+  assert.deepEqual(fetched, [`${page}.json`]);
+  assert.deepEqual((await ok.text()).split("\n").slice(0, 3), [
+    "# Aztec migration notes: 6.0.0-rc.1 to 6.0.0",
+    `Source: ${page}`,
+    "Included versions: 6.0.0-rc.3, 6.0.0",
+  ]);
+
+  for (const query of ["?to=6.0.0", "?from=six", `?from=${"1".repeat(70)}`]) {
+    const bad = (await serve(query))!;
+    assert.equal(bad.status, 400, query);
+    assert.deepEqual(fetched, [], query);
+  }
+  const reversed = (await serve("?from=7.0.0"))!;
+  assert.equal(reversed.status, 400);
+  assert.match(await reversed.text(), /from \(7\.0\.0\) is newer than to \(6\.0\.0\)[\s\S]*TBD, 6\.0\.0, 6\.0\.0-rc\.3/);
+
+  assert.equal(await serve("?from=5.2.0", null), undefined);
 });

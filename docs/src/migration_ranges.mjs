@@ -45,6 +45,19 @@ export function compareVersions(a, b) {
 }
 
 /**
+ * What is wrong with a range query's syntax, or null. Needs no index, so the edge function checks it
+ * before reading one.
+ *
+ * @param {{from?: string | null, to?: string | null}} query
+ */
+export function queryProblem({ from, to }) {
+  if (!from) return "from is required";
+  if (!parseVersion(from)) return "from is not a version";
+  if (to && !parseVersion(to)) return "to is not a version";
+  return null;
+}
+
+/**
  * The sections a project crosses when it upgrades from `from` to `to`: every version v with
  * from < v ≤ to, oldest first. `to` defaults to the newest released section, so `TBD` is included
  * only when `to` is `unreleased`. Either end may be a version the page has no heading for.
@@ -55,12 +68,12 @@ export function compareVersions(a, b) {
  * @throws {RangeError} a message fit to show the requester
  */
 export function selectRange(sections, { from, to } = {}) {
-  if (!from) throw new RangeError("from is required");
+  const problem = queryProblem({ from, to });
+  if (problem) throw new RangeError(problem);
   const start = parseVersion(from);
-  if (!start) throw new RangeError("from is not a version");
   const newest = sections.find((s) => !parseVersion(s.version).unreleased);
   const end = to ? parseVersion(to) : newest && parseVersion(newest.version);
-  if (!end) throw new RangeError(to ? "to is not a version" : "this page has no released version");
+  if (!end) throw new RangeError("this page has no released version");
   if (compareVersions(start, end) > 0) throw new RangeError(`from (${start.text}) is newer than to (${end.text})`);
   const included = sections
     .filter((s) => {
