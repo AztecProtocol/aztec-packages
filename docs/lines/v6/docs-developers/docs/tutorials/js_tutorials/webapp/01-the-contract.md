@@ -2,7 +2,7 @@
 title: "1. The Contract"
 sidebar_position: 1
 description: "Walk through the Pod Racing smart contract, compile it, and deploy and interact with it via a TypeScript script"
-references: ["docs/lines/v6/examples/webapp-tutorial/contracts/src/*", "docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/contracts/Nargo.toml", "docs/lines/v6/examples/webapp-tutorial/contracts/src/*", "docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
 ---
 
 # The Contract
@@ -41,23 +41,13 @@ The core design principle is that **private functions** (`play_round`, `finish_g
 
 Open `contracts/Nargo.toml`. This configures the Noir compiler for the contract:
 
-```toml
-[package]
-name = "pod_racing_contract"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
-```
+#include_code nargo_toml /docs/lines/v6/examples/webapp-tutorial/contracts/Nargo.toml toml
 
 :::note
-The `aztec` dependency path assumes you're working within the `aztec-node` repository. If you're working outside it, use the git dependency instead:
+The `aztec` path points into the aztec-node checkout that these docs build against. In your own project, use the git dependency instead, with the tag matching your Aztec CLI version:
 ```toml
 aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
 ```
-Replace the tag with your Aztec version.
 :::
 
 ## GameRoundNote
