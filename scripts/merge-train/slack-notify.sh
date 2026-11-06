@@ -5,10 +5,6 @@ set -eu
 MODE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --dequeued)
-      MODE="dequeued"
-      shift
-      ;;
     --merged)
       MODE="merged"
       shift
@@ -47,12 +43,7 @@ TOPDIR=$(git rev-parse --show-toplevel)
 
 set -x
 
-if [[ "$MODE" == "dequeued" ]]; then
-  "$TOPDIR/ci3/slack_notify" \
-    "$(printf 'PR was removed from the %s merge queue: <%s|View PR>\n%s by %s (🤖)' "$REF_NAME" "$PR_URL" "$commit_title" "$commit_author")" \
-    "$channel"
-
-elif [[ "$MODE" == "merged" ]]; then
+if [[ "$MODE" == "merged" ]]; then
   merged_target="${TARGET_BRANCH:-$REF_NAME}"
   "$TOPDIR/ci3/slack_notify" "PR merged into $merged_target: <$PR_URL|$commit_title> by $commit_author" "$channel"
 
