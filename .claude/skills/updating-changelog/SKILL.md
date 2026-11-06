@@ -5,11 +5,15 @@ description: Updates changelog documentation for contract developers and node op
 
 # Updating Changelog
 
-The docs live in this repository's `docs/`. The code they describe is mostly aztec-node's,
-at the commit `docs/aztec-node.json` pins, read through a checkout of it that
-`node docs/scripts/aztec_node.mts fetch` keeps (`$AZTEC_NODE_DIR`, default
-`docs/.aztec-node/tree`; its version and its changes are read there, never in the `labs/`
-submodule), plus this repository's own code (`l1-contracts/`, `barretenberg/`, …).
+The docs live in this repository's `docs/`, in two lines that each have their own copy of
+every developer and operator page (`docs/CLAUDE.md`, "Two dev lines: change both"). The code
+they describe is mostly aztec-node's: main's pages follow aztec-node `main` at the commit
+`docs/aztec-node.json` pins, and the v6 line's (`docs/lines/v6/`) follow aztec-node `v6` at the
+commit `docs/lines/v6/aztec-node.json` pins. Each is read through its line's checkout, which
+`node docs/scripts/aztec_node.mts fetch` keeps (main's is `$AZTEC_NODE_DIR`, default
+`docs/.aztec-node/tree`; v6's is `docs/lines/v6/.aztec-node/tree`); versions and changes are
+read there, never in the `labs/` submodule. This repository's own code (`l1-contracts/`,
+`barretenberg/`, …) is the rest.
 
 aztec-node records operator-facing changes as they land, in `CHANGELOG-OPERATORS.md` at its
 root. It keeps one copy per release line, on that line's branch, so the checkout holds the copy
@@ -21,11 +25,13 @@ The diff is still read, as the check on what the file missed.
 
 ### 1. Determine Target Files
 
-The version is the Labs release the docs' pin names, read from the checkout:
+The version is the Labs release the line's pin names, read from its checkout. For main
+(for the v6 line, `lineopt="--line v6"`):
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
+lineopt=
+node docs/scripts/aztec_node.mts $lineopt fetch && pin=$(node docs/scripts/aztec_node.mts $lineopt env) || exit 1
 eval "$pin"
 jq -r '."."' "$AZTEC_NODE_DIR/.version-manifest.json" 2>/dev/null ||
   jq -r '."."' "$AZTEC_NODE_DIR/.release-please-manifest.json"
@@ -39,16 +45,21 @@ root versions the Foundation tree instead, whose numbers are unrelated to Labs':
 the version from it.
 
 Documenting one aztec-node PR (source 3 below) takes the major from the PR's line instead,
-since the pin can lag it or sit on the other line: `baseRefName` `main` is the major `main` carries (v7 from
+since a pin can lag it: `baseRefName` `main` is the major `main` carries (v7 from
 2026-11-04), `v6` is v6.
 
-**Target files:**
+**Which lines get the entry.** A v6.x entry goes into both lines, since v7 readers upgrade
+from the latest v6. A v7 entry goes into main only. Released entries are history in either
+line: never edit them.
+
+**Target files**, in each line that gets the entry (main's paths below; the v6 line's are the
+same under `docs/lines/v6/`):
 
 - Aztec contract developers: `docs/docs-developers/docs/resources/migration_notes.md`
 - Node operators and Ethereum contract developers: `docs/docs-operate/operators/reference/changelog/v{major}.md`
 
-When that file is new (the first entry of a major), two more files must be updated or
-the page ships unreachable:
+When that file is new (the first entry of a major), two more files of the same line must
+be updated or the page ships unreachable:
 
 - `docs/docs-operate/operators/reference/changelog/index.md`: add a
   `### [<version>](./<page>.md)` entry at the top of `## Version history`. The heading
@@ -76,15 +87,17 @@ lives:
    git diff origin/next...HEAD -- . ':!labs'
    ```
 
-2. **Labs code, when this branch moves the docs' pin** (`docs/aztec-node.json`, moved with
-   `node docs/scripts/aztec_node.mts pin <tag>`). Read the range in the checkout; both
-   commits must be in it, and a two-commit diff needs no history between them:
+2. **Labs code, when this branch moves a line's pin** (`docs/aztec-node.json` or
+   `docs/lines/<line>/aztec-node.json`, moved with `node docs/scripts/aztec_node.mts [--line
+   <line>] pin <tag>`). Read the range in that line's checkout; both commits must be in it,
+   and a two-commit diff needs no history between them. For main:
 
    ```bash
    cd "$(git rev-parse --show-toplevel)"
-   old=$(git show "$(git merge-base origin/next HEAD):docs/aztec-node.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
-   new=$(node -p 'require("./docs/aztec-node.json").commit')
-   node docs/scripts/aztec_node.mts fetch && pin=$(node docs/scripts/aztec_node.mts env) || exit 1
+   pinfile=docs/aztec-node.json lineopt=   # the v6 line's: pinfile=docs/lines/v6/aztec-node.json lineopt="--line v6"
+   old=$(git show "$(git merge-base origin/next HEAD):$pinfile" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit')
+   new=$(node -p "require('./$pinfile').commit")
+   node docs/scripts/aztec_node.mts $lineopt fetch && pin=$(node docs/scripts/aztec_node.mts $lineopt env) || exit 1
    eval "$pin"
    git -C "$AZTEC_NODE_DIR" fetch --depth 1 --no-tags origin "$old" "$new"
    git -C "$AZTEC_NODE_DIR" diff "$old" "$new" -- CHANGELOG-OPERATORS.md
@@ -158,8 +171,8 @@ that no one will notice have drifted apart.
 
 ### 4. Edit Documentation
 
-After approval, add entries to the appropriate files in this repository's `docs/` (never
-in the checkout or under `labs/`, and never a versioned snapshot).
+After approval, add entries to the appropriate files of each line that gets them, in this
+repository's `docs/` (never in a checkout or under `labs/`, and never a versioned snapshot).
 
 ## Migration Notes Format
 

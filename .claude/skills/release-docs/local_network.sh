@@ -6,9 +6,10 @@
 #   local_network.sh start <version> <state-dir>
 #   local_network.sh stop <state-dir>
 #
-# CLI_HOME is the HOME the network runs with, so nothing is written under the real home; CLI_PATH
-# (prepended to PATH) holds the release's aztec CLI and the tools it runs. start waits up to READY_TIMEOUT seconds (default 600) for the node to
-# report <version>, then writes <state-dir>/network.env (AZTEC_NODE_URL, ETHEREUM_HOST, the ports)
+# CLI_HOME is the HOME the network runs with, and holds its NARGO_HOME, AZTEC_HOME and XDG
+# directories, so nothing is written under the real home; CLI_PATH (prepended to PATH) holds the
+# release's aztec CLI and the Node and tools it runs. start waits up to READY_TIMEOUT seconds
+# (default 600) for the node to report <version>, then writes <state-dir>/network.env (AZTEC_NODE_URL, ETHEREUM_HOST, the ports)
 # for later commands to source; the log is <state-dir>/network.log.
 set -euo pipefail
 
@@ -119,9 +120,10 @@ function cmd_start {
     open STDOUT, ">>", $log or die "$log: $!";
     open STDERR, ">&", \*STDOUT;
     exec @ARGV or die "exec: $!";
-  ' "$state/network.log" env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u NARGO_HOME -u AZTEC_HOME \
-      -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN \
-      HOME="$CLI_HOME" PATH="$CLI_PATH:$PATH" \
+  ' "$state/network.log" env -u ANVIL_BIN -u FORGE_BIN -u CAST_BIN \
+      HOME="$CLI_HOME" NARGO_HOME="$CLI_HOME/.nargo" AZTEC_HOME="$CLI_HOME/.aztec" \
+      XDG_CONFIG_HOME="$CLI_HOME/.config" XDG_DATA_HOME="$CLI_HOME/.local/share" XDG_CACHE_HOME="$CLI_HOME/.cache" \
+      PATH="$CLI_PATH:$PATH" \
       ANVIL_PORT="${ports[2]}" DATA_DIRECTORY="$state/network-data" P2P_ENABLED=false \
       aztec start --local-network --port "${ports[0]}" --admin-port "${ports[1]}")
   with_registry repoint_rows "$run" "$pgid"

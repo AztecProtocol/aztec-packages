@@ -12,11 +12,13 @@ hash=$(
     $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs $([ -d lines ] && echo lines) -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
 )
-# A release build renders its own versions and links this repository's files at DOCS_COMMIT, so it
-# never shares a cache entry with a dev build.
+# Production serves neither the dev docs nor the lines, and a release build renders its own versions
+# and links this repository's files at DOCS_COMMIT: every variable that changes the output keys it.
 # cache_content_hash hashes blob ids without their names, so the docs tree id keys renamed pages.
 hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" \
-  "${COMMIT_TAG:-}" "${RELEASE_TYPE:-}" "${DOCS_COMMIT:-}")
+  "CONTEXT=${CONTEXT:-}" "COMMIT_TAG=${COMMIT_TAG:-}" "RELEASE_TYPE=${RELEASE_TYPE:-}" "DOCS_COMMIT=${DOCS_COMMIT:-}" \
+  "NIGHTLY_TAG=${NIGHTLY_TAG:-}" "DEVNET_TAG=${DEVNET_TAG:-}" "TESTNET_TAG=${TESTNET_TAG:-}" \
+  "MAINNET_TAG=${MAINNET_TAG:-}" "KEEP_DEVELOPER_VERSIONS=${KEEP_DEVELOPER_VERSIONS:-}")
 
 # Every function that reads aztec-node code fetches and checks the pinned checkout first, on a cache
 # hit too, since later steps read it (scripts/aztec_node.mts; a no-op without network when current).
