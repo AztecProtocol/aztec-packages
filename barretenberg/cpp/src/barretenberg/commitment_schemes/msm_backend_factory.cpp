@@ -4,7 +4,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 #ifdef BB_GPU_MSM
-#include "barretenberg/commitment_schemes/emulated_msm_backend.hpp"
+#include "barretenberg/commitment_schemes/gpu_msm_backend.hpp"
 #include "barretenberg/common/assert.hpp"
 #endif
 
@@ -14,7 +14,7 @@ template <class Curve> std::shared_ptr<const MsmBackend<Curve>> make_msm_backend
 {
 #ifdef BB_GPU_MSM
     BB_ASSERT(gpu_msm::cuda_available(), "this build uses the CUDA MSM backend but no CUDA device is available");
-    return std::make_shared<EmulatedMsmBackend<Curve>>(&gpu_msm::msm_batch_cuda, /*serialize_runs=*/true);
+    return std::make_shared<GpuMsmBackend<Curve>>(&gpu_msm::msm_batch_cuda, /*serialize_runs=*/true);
 #else
     return std::make_shared<CpuMsmBackend<Curve>>();
 #endif

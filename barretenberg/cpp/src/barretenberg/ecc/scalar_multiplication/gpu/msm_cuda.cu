@@ -1,5 +1,4 @@
-// Device translation unit for the batched GPU MSM core. Includes the same kernel source as the
-// CPU emulation (msm_kernels_impl.hpp) so there is exactly one copy of the mathematics on both paths.
+// Device translation unit for the batched GPU MSM core. Includes the kernel arithmetic (msm_kernels_impl.hpp).
 // This file needs nvcc and the CUDA toolkit's CUB headers. It is compiled by a dedicated nvcc command when the
 // GPU_MSM CMake option is on.
 //
@@ -39,19 +38,16 @@ namespace bb::gpu_msm {
 
 namespace {
 
-// Same supported range as msm_emul.cpp (see msm_emul.cpp for the rationale); duplicated here
-// because this is a separate host-side translation unit, not because the mathematics differs --
-// no field, point, digit, bucket or reduction arithmetic is reimplemented below, only this small
-// amount of host-side configuration logic.
+// Supported explicit window_bits range. 0 is not in this range -- it means "pick one automatically" -- and is
+// handled before this range is consulted. Any explicit value outside [kMinWindowBits, kMaxWindowBits] is a caller
+// mistake and is rejected loudly (see fail_window_bits below) rather than silently clamped or allowed to produce a
+// wrong result.
 constexpr uint32_t kMinWindowBits = 2;
 constexpr uint32_t kMaxWindowBits = 16;
 // The automatic choice stops here even for very large columns: above it the per-bucket reduction costs more
 // than the saved windows (measured on an RTX 4090: 13 bits beats the log2 rule's 14-16 by 15-25%).
 constexpr uint32_t kMaxAutoWindowBits = 13;
 
-// A locally-defined name for the success status, deliberately not named after any real CUDA
-// runtime symbol (cudaSuccess, cudaError*, ...): every checked status below is compared against
-// this bare value, never against a redeclared CUDA constant.
 constexpr cudaError_t kCudaOk = static_cast<cudaError_t>(0);
 
 [[noreturn]] void fail_window_bits(uint32_t window_bits)
@@ -96,11 +92,8 @@ uint32_t resolve_window_bits(uint32_t requested, uint64_t total_nonzero, uint64_
     return requested;
 }
 
-// Tracks every device allocation this invocation of msm_batch_cuda has made so far, so that the
-// diagnostic-and-terminate path (see die() below) can free all of them -- not just the one whose
-// allocation or use just failed -- before the process exits. free_all()'s cudaFree calls are
-// deliberately unchecked: they are only ever reached from that terminating path, which is the one
-// named exception to "every CUDA runtime call's status is checked".
+// Every device allocation made so far by this call to msm_batch_cuda, so die() can free all of them before the
+// process exits. free_all() does not check the cudaFree statuses because it only runs on that failure path.
 struct DeviceAllocs {
     std::vector<void*> ptrs;
     void add(void* p) { ptrs.push_back(p); }
@@ -416,22 +409,11 @@ bool cuda_available()
     return count > 0;
 }
 
-// Host-side driver: flattens the batch into one (point, scalar) pair per work item -- for column
-// i, exactly (points[columns[i].start + j], columns[i].scalars[j]) for j < columns[i].size, the
-// same as the emulation -- then for each window launches the three kernels above on the device to
-// extract digits, accumulate buckets and reduce them, entirely on the device. Once every window's
-// contribution is known for a column, kernels::combine_window_contributions and
-// kernels::kernel_finalize (shared, host-called here, exactly as criterion 15 of this ticket's
-// contract allows) produce its result. No step here, on the device or on the host, performs a
-// double-and-add over a scalar's full width or reimplements field/point/bucket arithmetic.
 namespace {
 
-// ---------------------------------------------------------------------------------------------
-// Repeated-scalar merge. Items of one column with an identical scalar contribute s * (P_i + P_j + ...), so
-// the points of such a run are added once, up front, instead of once per window per item. The merged point
-// replaces the first item's point and the other items' scalars are set to zero, which every later stage
-// already treats as "no contribution". Only scalars wider than one window are worth merging.
-// ---------------------------------------------------------------------------------------------
+// Repeated-scalar merge. The points of a run of identical scalars in one column are added once, up front,
+// and the other items' scalars are zeroed, which every later stage treats as no contribution. Only
+// scalars wider than one window are merged.
 
 // A run must be at least this long for the merge to repay its field inversion (the merged point is
 // converted back to affine) and its extra additions. Measured on recorded AVM columns: 2 to 4 perform the
@@ -755,7 +737,6 @@ HostBatch prepare_host_batch(std::span<const AffinePoint> points, std::span<cons
     // chunks, a parallel pass counts the non-zero scalars (and the highest set bit) per chunk, and a
     // second parallel pass writes only the non-zero (point, scalar) pairs at the chunk's prefix-summed
     // offset. Column and chunk order is preserved, so the compacted layout is deterministic.
-    // kernels::is_zero / kernels::highest_set_bit are the shared functions.
     struct Chunk {
         size_t column;
         uint64_t lo;
@@ -901,9 +882,6 @@ template <class F> std::vector<AffinePoint> msm_run_device(const HostBatch& batc
         return results;
     }
 
-    // --- device allocations: one buffer per flattened input/output array the kernels below
-    // read or write. Every successful allocation is recorded in `allocs` so die() can free it on
-    // any failure that follows.
     AffinePoint* d_work_points = nullptr;
     U256* d_work_scalars = nullptr;
     uint64_t* d_col_start = nullptr;
@@ -1085,7 +1063,6 @@ template <class F> std::vector<AffinePoint> msm_run_device(const HostBatch& batc
         allocs.add(raw);
     }
 
-    // --- copy host inputs to their device buffers, each checked. ---
     {
         cudaError_t status;
         status = cudaMemcpy(d_work_points, work_points.get(), work_items * sizeof(AffinePoint), cudaMemcpyHostToDevice);
@@ -1116,9 +1093,6 @@ template <class F> std::vector<AffinePoint> msm_run_device(const HostBatch& batc
                                   window_bits);
     }
 
-    // --- one group of windows at a time: digit extraction, bucket accumulation, bucket reduction, all
-    // on the device. Grid dimensions below are derived from work_items, num_buckets, num_columns and
-    // the group size -- the batch's own sizes, not a fixed single block or thread.
     const unsigned bucket_grid_x = static_cast<unsigned>((num_buckets + kThreadsPerBlock - 1) / kThreadsPerBlock);
     const unsigned segment_grid_x = (num_segments + kThreadsPerBlock - 1) / kThreadsPerBlock;
 
@@ -1232,8 +1206,6 @@ template <class F> std::vector<AffinePoint> msm_run_device(const HostBatch& batc
         }
     }
 
-    // --- combine each column's windows and convert to affine on the device, then bring the final
-    // per-column results back to the host. ---
     {
         cudaError_t status;
         const unsigned finalize_grid = static_cast<unsigned>((num_columns + kThreadsPerBlock - 1) / kThreadsPerBlock);
@@ -1253,11 +1225,6 @@ template <class F> std::vector<AffinePoint> msm_run_device(const HostBatch& batc
         }
     }
 
-    // --- free every allocation, checked (this is the ordinary success path, not the
-    // diagnostic-and-terminate path, so criterion 3 requires each cudaFree's status to be
-    // checked too). Every cudaFree below is issued unconditionally before any status is
-    // inspected, so by the time a failure could be reported, no allocation from this invocation
-    // is still live, regardless of outcome.
     {
         const cudaError_t f0 = cudaFree(d_work_points);
         const cudaError_t f1 = cudaFree(d_work_scalars);

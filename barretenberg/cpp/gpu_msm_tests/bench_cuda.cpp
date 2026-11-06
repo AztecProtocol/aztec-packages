@@ -1,7 +1,15 @@
-// Timing harness for msm_batch_cuda. Not a correctness gate: points are a pool of real curve points
-// tiled to the requested size, scalars follow an AVM-like shape. With --check the result is compared to
-// msm_batch_emul (only sensible for small sizes).
+// Timing harness for msm_batch_cuda. It needs a GPU, so it is a standalone program: CMake does not build it and CI
+// does not run it. It exists so the performance numbers in the GPU MSM README can be reproduced and tuning changes
+// (window_bits, the repeated-scalar merge, field arithmetic) can be measured in seconds, without proving a whole AVM
+// circuit.
 //
+// It is not a correctness test. Points are a pool of real curve points tiled to the requested size, and scalars follow
+// an AVM-like shape. With --check each result is also compared to a second run with the repeated-scalar merge off and
+// one window at a time, which catches window-group and merge bugs on large shapes. test_cuda is the check against
+// independently computed results.
+//
+// build: nvcc -O3 -std=c++20 -arch=sm_89 -I barretenberg/cpp/src \
+//            barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/gpu/msm_cuda.cu bench_cuda.cpp -o bench_cuda
 // usage: bench_cuda <pool_vector.txt> <log2_rows> <columns> [window_bits] [repeats] [--grumpkin] [--check]
 //        bench_cuda <pool_vector.txt> --dump-dir <dir> [window_bits] [repeats]   (columns recorded from a real proof)
 #include <algorithm>
@@ -17,10 +25,32 @@
 #include <vector>
 
 #include "barretenberg/ecc/scalar_multiplication/gpu/msm_core.hpp"
+#include "barretenberg/ecc/scalar_multiplication/gpu/msm_kernels_impl.hpp"
 
 using namespace bb::gpu_msm;
 
 namespace {
+// The pool holds canonical coordinates; the core takes Montgomery residues (R = 2^256).
+std::vector<AffinePoint> to_montgomery_points(const std::vector<AffinePoint>& points, Curve curve)
+{
+    std::vector<AffinePoint> out(points.size());
+    for (size_t i = 0; i < points.size(); i++) {
+        const AffinePoint& p = points[i];
+        if (p.infinity) {
+            out[i] = p;
+        } else if (curve == Curve::Grumpkin) {
+            out[i] = AffinePoint{ kernels::to_mont<kernels::GrumpkinBaseField>(p.x),
+                                  kernels::to_mont<kernels::GrumpkinBaseField>(p.y),
+                                  false };
+        } else {
+            out[i] = AffinePoint{ kernels::to_mont<kernels::Bn254BaseField>(p.x),
+                                  kernels::to_mont<kernels::Bn254BaseField>(p.y),
+                                  false };
+        }
+    }
+    return out;
+}
+
 U256 parse_u256(const std::string& s)
 {
     U256 v{};
@@ -282,6 +312,7 @@ int main(int argc, char** argv)
     for (uint64_t i = 0; i < points_needed; i++) {
         points[i] = pool[i % pool.size()];
     }
+    points = to_montgomery_points(points, config.curve);
     std::vector<std::vector<U256>> scalars(cols);
     std::vector<Column> columns(cols);
     uint64_t nonzero = 0;
@@ -317,12 +348,15 @@ int main(int argc, char** argv)
     std::printf("first=%.2f ms median=%.2f ms min=%.2f ms\n", ms.front(), sorted[sorted.size() / 2], sorted.front());
 
     if (check) {
-        const auto want = msm_batch_emul(points, columns, config);
+        CoreConfig reference_config = config;
+        reference_config.dedup_scalars = false;
+        reference_config.window_group = 1;
+        const auto want = msm_batch_cuda(points, columns, reference_config);
         bool ok = want.size() == got.size();
         for (size_t i = 0; ok && i < want.size(); i++) {
             ok = eq(want[i], got[i]);
         }
-        std::printf("check vs emulation: %s\n", ok ? "OK" : "MISMATCH");
+        std::printf("check vs merge-off, single-window run: %s\n", ok ? "OK" : "MISMATCH");
         return ok ? 0 : 1;
     }
     return 0;

@@ -35,11 +35,15 @@ template <class Curve> constexpr gpu_msm::Curve core_curve()
 template <class Curve> gpu_msm::U256 scalar_to_u256(const typename Curve::ScalarField& scalar);
 template <class Curve> typename Curve::ScalarField u256_to_scalar(const gpu_msm::U256& value);
 
-/// Affine point <-> gpu_msm::AffinePoint, with infinity handled explicitly.
+/**
+ * @brief Affine point <-> gpu_msm::AffinePoint, with infinity handled explicitly. The coordinates are
+ * barretenberg's stored Montgomery limbs (reduced to [0, p)), copied with no arithmetic, which is the form the
+ * core expects.
+ */
 template <class Curve> gpu_msm::AffinePoint point_to_affine(const typename Curve::AffineElement& point);
 template <class Curve> typename Curve::AffineElement affine_to_point(const gpu_msm::AffinePoint& point);
 
-/// Batch forms, used by the emulation backend to build/consume the core's batched call.
+/// Batch forms, used by the GPU backend to build/consume the core's batched call.
 template <class Curve> std::vector<gpu_msm::U256> scalars_to_u256(std::span<const typename Curve::ScalarField> scalars);
 /**
  * @brief Convert several scalar columns in one parallel pass into uninitialised buffers.

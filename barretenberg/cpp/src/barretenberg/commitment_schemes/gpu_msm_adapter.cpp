@@ -31,24 +31,6 @@ template <class Curve> typename Curve::ScalarField u256_to_scalar(const gpu_msm:
     return typename Curve::ScalarField(from_u256(value));
 }
 
-template <class Curve> gpu_msm::AffinePoint point_to_affine(const typename Curve::AffineElement& point)
-{
-    if (point.is_point_at_infinity()) {
-        return gpu_msm::AffinePoint{ gpu_msm::U256{}, gpu_msm::U256{}, true };
-    }
-    return gpu_msm::AffinePoint{ to_u256(uint256_t(point.x)), to_u256(uint256_t(point.y)), false };
-}
-
-template <class Curve> typename Curve::AffineElement affine_to_point(const gpu_msm::AffinePoint& point)
-{
-    using Element = typename Curve::AffineElement;
-    if (point.infinity) {
-        return Element::infinity();
-    }
-    using BaseField = typename Element::Fq;
-    return Element(BaseField(from_u256(point.x)), BaseField(from_u256(point.y)));
-}
-
 template <class Curve> std::vector<gpu_msm::U256> scalars_to_u256(std::span<const typename Curve::ScalarField> scalars)
 {
     std::vector<gpu_msm::U256> result(scalars.size());
@@ -94,6 +76,33 @@ std::vector<std::unique_ptr<gpu_msm::U256[]>> scalar_columns_to_u256(
     return buffers;
 }
 
+template <class Curve> gpu_msm::AffinePoint point_to_affine(const typename Curve::AffineElement& point)
+{
+    if (point.is_point_at_infinity()) {
+        return gpu_msm::AffinePoint{ gpu_msm::U256{}, gpu_msm::U256{}, true };
+    }
+    const auto x = point.x.reduce_once();
+    const auto y = point.y.reduce_once();
+    return gpu_msm::AffinePoint{ gpu_msm::U256{ { x.data[0], x.data[1], x.data[2], x.data[3] } },
+                                 gpu_msm::U256{ { y.data[0], y.data[1], y.data[2], y.data[3] } },
+                                 false };
+}
+
+template <class Curve> typename Curve::AffineElement affine_to_point(const gpu_msm::AffinePoint& point)
+{
+    using Element = typename Curve::AffineElement;
+    if (point.infinity) {
+        return Element::infinity();
+    }
+    typename Element::Fq x;
+    typename Element::Fq y;
+    for (size_t i = 0; i < 4; ++i) {
+        x.data[i] = point.x.limb[i];
+        y.data[i] = point.y.limb[i];
+    }
+    return Element(x, y);
+}
+
 template <class Curve>
 std::vector<gpu_msm::AffinePoint> points_to_affine(std::span<const typename Curve::AffineElement> points)
 {
@@ -123,11 +132,11 @@ std::vector<typename Curve::AffineElement> affine_to_points(std::span<const gpu_
 #define GPU_MSM_ADAPTER_INSTANTIATE(CURVE)                                                                             \
     template gpu_msm::U256 scalar_to_u256<CURVE>(const CURVE::ScalarField&);                                           \
     template CURVE::ScalarField u256_to_scalar<CURVE>(const gpu_msm::U256&);                                           \
-    template gpu_msm::AffinePoint point_to_affine<CURVE>(const CURVE::AffineElement&);                                 \
-    template CURVE::AffineElement affine_to_point<CURVE>(const gpu_msm::AffinePoint&);                                 \
     template std::vector<gpu_msm::U256> scalars_to_u256<CURVE>(std::span<const CURVE::ScalarField>);                   \
     template std::vector<std::unique_ptr<gpu_msm::U256[]>> scalar_columns_to_u256<CURVE>(                              \
         std::span<const std::span<const CURVE::ScalarField>>);                                                         \
+    template gpu_msm::AffinePoint point_to_affine<CURVE>(const CURVE::AffineElement&);                                 \
+    template CURVE::AffineElement affine_to_point<CURVE>(const gpu_msm::AffinePoint&);                                 \
     template std::vector<gpu_msm::AffinePoint> points_to_affine<CURVE>(std::span<const CURVE::AffineElement>);         \
     template std::vector<CURVE::AffineElement> affine_to_points<CURVE>(std::span<const gpu_msm::AffinePoint>);
 

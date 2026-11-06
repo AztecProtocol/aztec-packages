@@ -1,4 +1,4 @@
-#include "barretenberg/commitment_schemes/emulated_msm_backend.hpp"
+#include "barretenberg/commitment_schemes/gpu_msm_backend.hpp"
 
 #include "barretenberg/commitment_schemes/gpu_msm_adapter.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -47,7 +47,7 @@ template <class Curve> gpu_msm::CoreConfig core_config()
 }
 } // namespace
 
-template <class Curve> FixedBases<Curve> EmulatedMsmBackend<Curve>::prepare_bases(std::span<const Commitment> srs) const
+template <class Curve> FixedBases<Curve> GpuMsmBackend<Curve>::prepare_bases(std::span<const Commitment> srs) const
 {
     const std::lock_guard<std::mutex> lock(mutex_);
     if (resident_ != nullptr && agrees_with_resident<Curve>(resident_->points, srs)) {
@@ -67,8 +67,8 @@ template <class Curve> FixedBases<Curve> EmulatedMsmBackend<Curve>::prepare_base
 }
 
 template <class Curve>
-std::vector<gpu_msm::AffinePoint> EmulatedMsmBackend<Curve>::run_batch(std::span<const gpu_msm::AffinePoint> points,
-                                                                       std::span<const gpu_msm::Column> columns) const
+std::vector<gpu_msm::AffinePoint> GpuMsmBackend<Curve>::run_batch(std::span<const gpu_msm::AffinePoint> points,
+                                                                  std::span<const gpu_msm::Column> columns) const
 {
     if (!serialize_runs_) {
         return run_(points, columns, core_config<Curve>());
@@ -77,19 +77,19 @@ std::vector<gpu_msm::AffinePoint> EmulatedMsmBackend<Curve>::run_batch(std::span
     return run_(points, columns, core_config<Curve>());
 }
 
-template <class Curve> size_t EmulatedMsmBackend<Curve>::resident_size() const
+template <class Curve> size_t GpuMsmBackend<Curve>::resident_size() const
 {
     const std::lock_guard<std::mutex> lock(mutex_);
     return resident_ == nullptr ? 0 : resident_->points.size();
 }
 
 template <class Curve>
-typename EmulatedMsmBackend<Curve>::Commitment EmulatedMsmBackend<Curve>::commit(const FixedBases<Curve>& bases,
-                                                                                 PolynomialSpan<const Fr> polynomial,
-                                                                                 bool /*has_duplicates_hint*/) const
+typename GpuMsmBackend<Curve>::Commitment GpuMsmBackend<Curve>::commit(const FixedBases<Curve>& bases,
+                                                                       PolynomialSpan<const Fr> polynomial,
+                                                                       bool /*has_duplicates_hint*/) const
 {
     const auto* resident = static_cast<const ResidentPoints*>(bases.backend_state().get());
-    BB_ASSERT(resident != nullptr, "bases were not prepared by an EmulatedMsmBackend");
+    BB_ASSERT(resident != nullptr, "bases were not prepared by an GpuMsmBackend");
     BB_ASSERT_LTE(polynomial.start_index + polynomial.size(), bases.size(), "polynomial exceeds the prepared bases");
     const std::span<const Fr> input(polynomial.span);
     const auto scalars =
@@ -102,7 +102,7 @@ typename EmulatedMsmBackend<Curve>::Commitment EmulatedMsmBackend<Curve>::commit
 }
 
 template <class Curve>
-std::vector<typename EmulatedMsmBackend<Curve>::Commitment> EmulatedMsmBackend<Curve>::batch_commit(
+std::vector<typename GpuMsmBackend<Curve>::Commitment> GpuMsmBackend<Curve>::batch_commit(
     const FixedBases<Curve>& bases,
     std::span<PolynomialSpan<Fr>> scalar_spans,
     std::span<const uint32_t> /*dedup_infos*/) const
@@ -111,7 +111,7 @@ std::vector<typename EmulatedMsmBackend<Curve>::Commitment> EmulatedMsmBackend<C
         return {};
     }
     const auto* resident = static_cast<const ResidentPoints*>(bases.backend_state().get());
-    BB_ASSERT(resident != nullptr, "bases were not prepared by an EmulatedMsmBackend");
+    BB_ASSERT(resident != nullptr, "bases were not prepared by an GpuMsmBackend");
 
     std::vector<std::span<const Fr>> inputs;
     inputs.reserve(scalar_spans.size());
@@ -126,11 +126,12 @@ std::vector<typename EmulatedMsmBackend<Curve>::Commitment> EmulatedMsmBackend<C
         columns.push_back(gpu_msm::Column{ scalar_storage[i].get(), scalar_spans[i].start_index, inputs[i].size() });
     }
 
-    return gpu_msm_adapter::affine_to_points<Curve>(
-        run_batch(std::span<const gpu_msm::AffinePoint>(resident->points).first(bases.size()), columns));
+    const std::vector<gpu_msm::AffinePoint> results =
+        run_batch(std::span<const gpu_msm::AffinePoint>(resident->points).first(bases.size()), columns);
+    return gpu_msm_adapter::affine_to_points<Curve>(results);
 }
 
-template class EmulatedMsmBackend<curve::BN254>;
-template class EmulatedMsmBackend<curve::Grumpkin>;
+template class GpuMsmBackend<curve::BN254>;
+template class GpuMsmBackend<curve::Grumpkin>;
 
 } // namespace bb

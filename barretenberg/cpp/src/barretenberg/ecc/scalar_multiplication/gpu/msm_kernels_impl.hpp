@@ -1,17 +1,18 @@
 #pragma once
-// Portable short-Weierstrass (a = 0) kernel arithmetic for BN254 G1 and Grumpkin: 256-bit field and point operations,
-// written so this single source compiles both as ordinary C++ (for the CPU emulation, msm_emul.cpp) and as CUDA device
-// code (for msm_cuda.cu). No __int128, no exceptions, no heap allocation, no host-only library calls: everything here
-// is plain integer arithmetic over fixed-size local state, usable unchanged on a device. Operates on the
-// plain-data types from msm_core.hpp (U256, AffinePoint); no barretenberg field or group type appears anywhere in this
-// file.
+// Field and point arithmetic for the CUDA MSM kernels in msm_cuda.cu: 256-bit integer and Montgomery field
+// operations, Jacobian point addition and doubling, and the Pippenger bucket steps built on them. Supports BN254 G1
+// and Grumpkin (short Weierstrass, a = 0); the two differ only in the field constants.
+//
+// The code is plain integer arithmetic on fixed-size local state: no __int128, exceptions or heap allocation, and
+// no barretenberg field or group types. It works on the plain structs from msm_core.hpp (U256, AffinePoint), whose
+// coordinates are Montgomery residues. On the device, mac64, raw_add and raw_sub use PTX carry-chain instructions;
+// -DGPU_MSM_NO_PTX selects portable C++ for comparison.
 #include "barretenberg/ecc/scalar_multiplication/gpu/msm_core.hpp"
 
 #include <cstdint>
 
-// clang defines __CUDA__ and nvcc defines __CUDACC__ when compiling this translation unit as CUDA
-// source (see msm_cuda.cu); plain C++ translation units (msm_emul.cpp) define neither. In that case
-// the qualifiers below are a no-op and every function below is ordinary host C++.
+// GPU_MSM_HD ("host and device") marks a function that can be called from both kernels and host code, and always
+// inlines it. Compiled as CUDA it expands to `__host__ __device__ __forceinline__`; otherwise it is plain `inline`.
 #if defined(__CUDA__) || defined(__CUDACC__)
 #define GPU_MSM_HD __host__ __device__ __forceinline__
 #else
@@ -20,12 +21,9 @@
 
 namespace bb::gpu_msm::kernels {
 
-// ---------------------------------------------------------------------------------------------
-// 64-bit limb primitives. 64x64 -> 128-bit multiplication and multi-word carry propagation are
-// built from plain 64-bit operations (no __int128 extension, so this is portable to device code
-// and to any host compiler).
-// ---------------------------------------------------------------------------------------------
-
+// Portable carry and borrow helpers. sub_borrow64 and wide_mul64 are used only by the non-PTX paths of raw_sub and
+// mac64. add_carry64 is used by the non-PTX path of raw_add and also called directly by mont_reduce on every build.
+//
 // a + b + carry_in, carry_in in {0, 1}. Returns the low 64 bits; *carry_out in {0, 1}.
 GPU_MSM_HD uint64_t add_carry64(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t* carry_out)
 {
@@ -71,6 +69,19 @@ GPU_MSM_HD void wide_mul64(uint64_t a, uint64_t b, uint64_t* hi, uint64_t* lo)
 // primitive used to build schoolbook multiplication and Montgomery reduction below.
 GPU_MSM_HD uint64_t mac64(uint64_t a, uint64_t b, uint64_t c, uint64_t carry_in, uint64_t* carry_out)
 {
+#if defined(__CUDA_ARCH__) && !defined(GPU_MSM_NO_PTX)
+    // Device build: one 64-bit multiply-add with the hardware carry flag instead of 32-bit partial products.
+    uint64_t lo;
+    uint64_t hi;
+    asm("mad.lo.cc.u64 %0, %2, %3, %4;\n\t"
+        "madc.hi.u64 %1, %2, %3, 0;\n\t"
+        "add.cc.u64 %0, %0, %5;\n\t"
+        "addc.u64 %1, %1, 0;"
+        : "=&l"(lo), "=&l"(hi)
+        : "l"(b), "l"(c), "l"(a), "l"(carry_in));
+    *carry_out = hi;
+    return lo;
+#else
     uint64_t p_hi, p_lo;
     wide_mul64(b, c, &p_hi, &p_lo);
     uint64_t s1 = p_lo + a;
@@ -79,13 +90,10 @@ GPU_MSM_HD uint64_t mac64(uint64_t a, uint64_t b, uint64_t c, uint64_t carry_in,
     uint64_t c2 = (s2 < s1) ? 1ULL : 0ULL;
     *carry_out = p_hi + c1 + c2;
     return s2;
+#endif
 }
 
 constexpr int kLimbs = 4;
-
-// ---------------------------------------------------------------------------------------------
-// 256-bit raw (non-modular) helpers over U256 (little-endian limbs, limb[0] least significant).
-// ---------------------------------------------------------------------------------------------
 
 GPU_MSM_HD bool is_zero(const U256& a)
 {
@@ -110,6 +118,26 @@ GPU_MSM_HD bool is_geq(const U256& a, const U256& b)
 
 GPU_MSM_HD U256 raw_add(const U256& a, const U256& b, uint64_t* carry_out)
 {
+#if defined(__CUDA_ARCH__) && !defined(GPU_MSM_NO_PTX)
+    U256 r;
+    uint64_t carry;
+    asm("add.cc.u64 %0, %5, %9;\n\t"
+        "addc.cc.u64 %1, %6, %10;\n\t"
+        "addc.cc.u64 %2, %7, %11;\n\t"
+        "addc.cc.u64 %3, %8, %12;\n\t"
+        "addc.u64 %4, 0, 0;"
+        : "=&l"(r.limb[0]), "=&l"(r.limb[1]), "=&l"(r.limb[2]), "=&l"(r.limb[3]), "=&l"(carry)
+        : "l"(a.limb[0]),
+          "l"(a.limb[1]),
+          "l"(a.limb[2]),
+          "l"(a.limb[3]),
+          "l"(b.limb[0]),
+          "l"(b.limb[1]),
+          "l"(b.limb[2]),
+          "l"(b.limb[3]));
+    *carry_out = carry;
+    return r;
+#else
     U256 r{};
     uint64_t carry = 0;
     for (int i = 0; i < kLimbs; i++) {
@@ -117,10 +145,31 @@ GPU_MSM_HD U256 raw_add(const U256& a, const U256& b, uint64_t* carry_out)
     }
     *carry_out = carry;
     return r;
+#endif
 }
 
 GPU_MSM_HD U256 raw_sub(const U256& a, const U256& b, uint64_t* borrow_out)
 {
+#if defined(__CUDA_ARCH__) && !defined(GPU_MSM_NO_PTX)
+    U256 r;
+    uint64_t borrow;
+    asm("sub.cc.u64 %0, %5, %9;\n\t"
+        "subc.cc.u64 %1, %6, %10;\n\t"
+        "subc.cc.u64 %2, %7, %11;\n\t"
+        "subc.cc.u64 %3, %8, %12;\n\t"
+        "subc.u64 %4, 0, 0;"
+        : "=&l"(r.limb[0]), "=&l"(r.limb[1]), "=&l"(r.limb[2]), "=&l"(r.limb[3]), "=&l"(borrow)
+        : "l"(a.limb[0]),
+          "l"(a.limb[1]),
+          "l"(a.limb[2]),
+          "l"(a.limb[3]),
+          "l"(b.limb[0]),
+          "l"(b.limb[1]),
+          "l"(b.limb[2]),
+          "l"(b.limb[3]));
+    *borrow_out = borrow & 1ULL;
+    return r;
+#else
     U256 r{};
     uint64_t borrow = 0;
     for (int i = 0; i < kLimbs; i++) {
@@ -128,14 +177,11 @@ GPU_MSM_HD U256 raw_sub(const U256& a, const U256& b, uint64_t* borrow_out)
     }
     *borrow_out = borrow;
     return r;
+#endif
 }
 
-// ---------------------------------------------------------------------------------------------
-// Base-field parameters. The point arithmetic below is generic over a field tag `F` providing the
-// modulus p, p - 2 (the Fermat inversion exponent), R^2 mod p with R = 2^256, and -p^-1 mod 2^64.
-// BN254 G1 (y^2 = x^3 + 3) and Grumpkin (y^2 = x^3 - 17) both have a = 0 and never use b in the
-// formulas, so only these constants differ between the two curves.
-// ---------------------------------------------------------------------------------------------
+// BN254 G1 (y^2 = x^3 + 3) and Grumpkin (y^2 = x^3 - 17) both have a = 0 and never use b, so only these constants
+// differ.
 
 // BN254 base field Fq: p = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
 struct Bn254BaseField {
@@ -152,6 +198,11 @@ struct Bn254BaseField {
         return U256{ { 0xf32cfc5b538afa89ULL, 0xb5e71911d44501fbULL, 0x47ab1eff0a417ff6ULL, 0x06d89f71cab8351fULL } };
     }
     static GPU_MSM_HD uint64_t n0() { return 0x87d20782e4866389ULL; }
+    // R mod p: the number 1 in Montgomery form.
+    static GPU_MSM_HD U256 one_mont()
+    {
+        return U256{ { 0xd35d438dc58f0d9dULL, 0x0a78eb28f5c70b3dULL, 0x666ea36f7879462cULL, 0x0e0a77c19a07df2fULL } };
+    }
 };
 
 // Grumpkin base field, which is the BN254 scalar field Fr:
@@ -170,6 +221,10 @@ struct GrumpkinBaseField {
         return U256{ { 0x1bb8e645ae216da7ULL, 0x53fe3ab1e35c59e3ULL, 0x8c49833d53bb8085ULL, 0x0216d0b17f4e44a5ULL } };
     }
     static GPU_MSM_HD uint64_t n0() { return 0xc2e1f593efffffffULL; }
+    static GPU_MSM_HD U256 one_mont()
+    {
+        return U256{ { 0xac96341c4ffffffbULL, 0x36fc76959f60cd29ULL, 0x666ea36f7879462eULL, 0x0e0a77c19a07df2fULL } };
+    }
 };
 
 template <class F> GPU_MSM_HD U256 add_mod_p(const U256& a, const U256& b)
@@ -208,12 +263,6 @@ template <class F> GPU_MSM_HD U256 negate_mod_p(const U256& a)
     return sub_mod_p<F>(F::modulus(), a);
 }
 
-// ---------------------------------------------------------------------------------------------
-// Montgomery multiplication over Fq, 4x64-bit limbs: a full schoolbook multiply into 8 limbs
-// (mul4), followed by a separate Montgomery reduction pass (mont_reduce). No __int128 anywhere:
-// every multiply-accumulate step goes through mac64 above.
-// ---------------------------------------------------------------------------------------------
-
 GPU_MSM_HD void mul4(const U256& a, const U256& b, uint64_t out[8])
 {
     for (int i = 0; i < 8; i++) {
@@ -226,14 +275,8 @@ GPU_MSM_HD void mul4(const U256& a, const U256& b, uint64_t out[8])
             out[i + j] = mac64(out[i + j], a.limb[i], b.limb[j], carry, &c);
             carry = c;
         }
-        int pos = i + kLimbs;
-        uint64_t add_val = carry;
-        while (add_val != 0 && pos < 8) {
-            uint64_t old = out[pos];
-            out[pos] = old + add_val;
-            add_val = (out[pos] < old) ? 1ULL : 0ULL;
-            pos++;
-        }
+        // Row i has not touched limb i + kLimbs yet, so the row's final carry is stored directly.
+        out[i + kLimbs] = carry;
     }
 }
 
@@ -243,6 +286,9 @@ template <class F> GPU_MSM_HD U256 mont_reduce(uint64_t t[8])
 {
     const U256 p = F::modulus();
     const uint64_t n0 = F::n0();
+    // Each row's carry is added into limb i + kLimbs together with the one-bit overflow of the previous row's
+    // addition, so no data-dependent carry-propagation loop is needed.
+    uint64_t overflow = 0;
     for (int i = 0; i < kLimbs; i++) {
         uint64_t m = t[i] * n0; // mod 2^64 automatically (plain 64-bit multiply truncates).
         uint64_t carry = 0;
@@ -251,20 +297,18 @@ template <class F> GPU_MSM_HD U256 mont_reduce(uint64_t t[8])
             t[i + j] = mac64(t[i + j], m, p.limb[j], carry, &c);
             carry = c;
         }
-        int pos = i + kLimbs;
-        uint64_t add_val = carry;
-        while (add_val != 0 && pos < 8) {
-            uint64_t old = t[pos];
-            t[pos] = old + add_val;
-            add_val = (t[pos] < old) ? 1ULL : 0ULL;
-            pos++;
-        }
+        uint64_t c1;
+        uint64_t c2;
+        const uint64_t partial = add_carry64(t[i + kLimbs], carry, 0, &c1);
+        t[i + kLimbs] = add_carry64(partial, overflow, 0, &c2);
+        overflow = c1 + c2;
     }
     U256 out{};
     for (int i = 0; i < kLimbs; i++) {
         out.limb[i] = t[kLimbs + i];
     }
-    if (is_geq(out, p)) {
+    // The reduced value is below 2p; `overflow` set means it is at least 2^256, which is above p.
+    if (overflow != 0 || is_geq(out, p)) {
         uint64_t borrow;
         out = raw_sub(out, p, &borrow);
     }
@@ -290,12 +334,6 @@ template <class F> GPU_MSM_HD U256 to_mont(const U256& a)
     return mont_mul<F>(a, F::r_squared());
 }
 
-template <class F> GPU_MSM_HD U256 from_mont(const U256& a)
-{
-    const U256 one{ { 1, 0, 0, 0 } };
-    return mont_mul<F>(a, one);
-}
-
 // base_mont^exponent mod p, base_mont and the result in Montgomery form, by square-and-multiply
 // over all 256 bits of exponent (MSB to LSB; leading zero bits just cost a few wasted squarings
 // of the Montgomery representation of 1, which is harmless).
@@ -318,11 +356,6 @@ template <class F> GPU_MSM_HD U256 field_inverse(const U256& a_mont)
 {
     return mont_pow<F>(a_mont, F::modulus_minus_2());
 }
-
-// ---------------------------------------------------------------------------------------------
-// Jacobian points over the base field of the selected curve, Montgomery-form field elements. Both
-// supported curves have a = 0, so the doubling/addition formulas below use the a = 0 specialisation.
-// ---------------------------------------------------------------------------------------------
 
 struct JacobianPoint {
     U256 X;
@@ -347,8 +380,7 @@ template <class F> GPU_MSM_HD JacobianPoint affine_to_jacobian(const AffinePoint
     if (p.infinity) {
         return jac_identity<F>();
     }
-    const U256 one_mont = to_mont<F>(U256{ { 1, 0, 0, 0 } });
-    return JacobianPoint{ to_mont<F>(p.x), to_mont<F>(p.y), one_mont };
+    return JacobianPoint{ p.x, p.y, F::one_mont() };
 }
 
 // Jacobian doubling, EFD "dbl-2007-bl" specialised to a = 0.
@@ -431,8 +463,8 @@ GPU_MSM_HD int highest_set_bit(const U256& a)
 
 // Bucket-Pippenger digit extraction: returns the `window_bits`-wide digit of `scalar` covering
 // bits [window*window_bits, window*window_bits + window_bits), correct even when that range
-// straddles a 64-bit limb boundary. `window_bits` must be in (0, 64]; callers in this job keep it
-// within the documented supported range (2..16, see msm_emul.cpp). A digit of 0 means "this
+// straddles a 64-bit limb boundary. `window_bits` must be in (0, 64]; callers keep it
+// within the supported range (2..16, see msm_cuda.cu). A digit of 0 means "this
 // scalar contributes nothing to this window's buckets" -- bucket index 0 is never used.
 GPU_MSM_HD uint32_t scalar_window_digit(const U256& scalar, uint32_t window, uint32_t window_bits)
 {
@@ -589,23 +621,8 @@ template <class F> GPU_MSM_HD AffinePoint jacobian_to_affine(const JacobianPoint
     const U256 z_inv3 = mont_mul<F>(z_inv2, z_inv);
     const U256 x_mont = mont_mul<F>(p.X, z_inv2);
     const U256 y_mont = mont_mul<F>(p.Y, z_inv3);
-    return AffinePoint{ from_mont<F>(x_mont), from_mont<F>(y_mont), false };
+    return AffinePoint{ x_mont, y_mont, false };
 }
-
-// ---------------------------------------------------------------------------------------------
-// Bucket-Pippenger kernel entry points, shared by msm_emul.cpp's grid loop and by the device
-// kernel in msm_cuda.cu. One work item is one (column, scalar-index) pair. Per work item, per
-// window, a caller: (1) skips entirely if the scalar is zero (no digit extraction, no bucket
-// work -- this is where zero scalars cost nothing); (2) otherwise calls scalar_window_digit to
-// get that window's digit; (3) if the digit is non-zero, converts the item's point to Jacobian
-// (kernel_bucket_term) and folds it into that (column, window, digit) bucket via
-// kernel_accumulate. After every item in a window has been folded into its buckets,
-// reduce_window_buckets turns each column's buckets for that window into one contribution, and
-// once every window has been processed, combine_window_contributions folds a column's per-window
-// contributions into its final point, finalized to affine by kernel_finalize. No step above
-// performs a double-and-add over the scalar's full width: each item costs O(num_windows) digit
-// extractions and at most one point addition per window, not 256 doublings.
-// ---------------------------------------------------------------------------------------------
 
 template <class F> GPU_MSM_HD JacobianPoint kernel_bucket_term(const AffinePoint& point)
 {

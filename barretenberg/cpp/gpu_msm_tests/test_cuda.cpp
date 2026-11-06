@@ -1,4 +1,15 @@
-// Device gate test for the GPU MSM core: reads vector files and compares msm_batch_cuda to the expected results.
+// Correctness test for the CUDA kernels. It needs a GPU, so it is a standalone program: CMake does not build it and CI
+// does not run it.
+//
+// The kernels (msm_kernels_impl.hpp) have no CPU build, so this is their only independent check. It runs
+// msm_batch_cuda on the vector files in gpu_msm_tests/vectors/ and compares each result with the expected point in
+// the file. gen_vectors.py computes the expected points from known discrete logarithms, without any MSM code. The
+// vectors cover window-boundary scalars, repeated scalars with the merge on and off, window groups, pipelined
+// groups, batch vs single columns, an empty batch, and both BN254 and Grumpkin.
+//
+// build: nvcc -O3 -std=c++20 -arch=sm_89 -I barretenberg/cpp/src \
+//            barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/gpu/msm_cuda.cu test_cuda.cpp -o test_cuda
+// run:   ./test_cuda barretenberg/cpp/gpu_msm_tests/vectors/*.txt
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -9,6 +20,7 @@
 #include <vector>
 
 #include "barretenberg/ecc/scalar_multiplication/gpu/msm_core.hpp"
+#include "barretenberg/ecc/scalar_multiplication/gpu/msm_kernels_impl.hpp"
 
 using namespace bb::gpu_msm;
 
@@ -31,6 +43,26 @@ bool same(const AffinePoint& a, const AffinePoint& b)
         return a.infinity == b.infinity;
     }
     return eq(a.x, b.x) && eq(a.y, b.y);
+}
+
+// Vector files hold canonical coordinates; the core takes Montgomery residues (R = 2^256).
+template <class F> AffinePoint to_montgomery(const AffinePoint& p)
+{
+    if (p.infinity) {
+        return p;
+    }
+    return AffinePoint{ kernels::to_mont<F>(p.x), kernels::to_mont<F>(p.y), false };
+}
+
+std::vector<AffinePoint> to_montgomery(const std::vector<AffinePoint>& points, Curve curve)
+{
+    std::vector<AffinePoint> out;
+    out.reserve(points.size());
+    for (const auto& p : points) {
+        out.push_back(curve == Curve::Grumpkin ? to_montgomery<kernels::GrumpkinBaseField>(p)
+                                               : to_montgomery<kernels::Bn254BaseField>(p));
+    }
+    return out;
 }
 
 struct Vector {
@@ -109,6 +141,8 @@ int main(int argc, char** argv)
         const std::string base = path.substr(path.find_last_of('/') + 1);
         CoreConfig config;
         config.curve = base.rfind("grumpkin_", 0) == 0 ? Curve::Grumpkin : Curve::Bn254;
+        v.points = to_montgomery(v.points, config.curve);
+        v.expected = to_montgomery(v.expected, config.curve);
         const auto t0 = std::chrono::steady_clock::now();
         const auto got = msm_batch_cuda(v.points, v.columns, config);
         const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
@@ -165,7 +199,10 @@ int main(int argc, char** argv)
                 }
                 repeated_columns[i].scalars = repeated[i].data();
             }
-            const auto want = msm_batch_emul(v.points, repeated_columns, config);
+            CoreConfig reference_config = config;
+            reference_config.dedup_scalars = false;
+            reference_config.window_group = 1;
+            const auto want = msm_batch_cuda(v.points, repeated_columns, reference_config);
             for (const bool merge : { false, true }) {
                 CoreConfig merged = config;
                 merged.dedup_scalars = merge;
