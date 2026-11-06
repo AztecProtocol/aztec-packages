@@ -98,7 +98,7 @@ function self_test {
     "ok|$h/aztec-nr-api/mainnet/noir_aztec/|Index: $h/aztec-nr-api/mainnet/noir_aztec/"
     "ok|$h/sitemap.xml|Sitemap: $h/sitemap.xml"
     "ok|$h/aztec-nr-api/mainnet/llms.txt|- [Aztec.nr]($h/aztec-nr-api/mainnet/llms.txt): API index"
-    "unresolved|$h/aztec-nr-api/testnet/llms.txt|- [Aztec.nr]($h/aztec-nr-api/testnet/llms.txt): API index"
+    "unresolved|$h/aztec-nr-api/self_test_missing/llms.txt|No docs version serves this folder: [Aztec.nr]($h/aztec-nr-api/self_test_missing/llms.txt)"
     "unresolved|$h/-eaztec-nr-api/mainnet/llms.txt|Not a grep option: $h/-eaztec-nr-api/mainnet/llms.txt"
     "ok|$h/networks|{\"docs\": \"$h/networks\", \"n\": 1}"
     "ok|$h/scripts/aztec-monitoring.sh|curl -fsSLO '$h/scripts/aztec-monitoring.sh' && URL=$h/llms-full.txt;"
