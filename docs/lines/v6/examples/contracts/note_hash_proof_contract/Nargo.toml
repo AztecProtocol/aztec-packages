@@ -1,0 +1,7 @@
+[package]
+name = "note_hash_proof_contract"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }
+uint_note = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/uint-note" }

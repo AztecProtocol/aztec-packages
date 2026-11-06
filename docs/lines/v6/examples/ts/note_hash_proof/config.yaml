@@ -1,0 +1,18 @@
+# Configuration for note_hash_proof example
+# Creates a note with client-chosen randomness, then proves knowledge of its contents with a Noir circuit
+
+# Contract artifacts to import for codegen (names without .json extension)
+# These must already be compiled to docs/target/ directory
+contracts:
+  - note_hash_proof_contract-NoteHashProof
+
+# Dependencies:
+#   - @aztec-labs/* and @aztec-foundation/* packages install at the versions docs/aztec-node.json pins
+#   - Use npm:package-name or npm:package-name@range for external npm packages
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"
+  - "@aztec-labs/stdlib"
+  - "@aztec-foundation/bb.js"
+  - "@aztec-foundation/noir-noir_js"

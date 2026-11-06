@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "examples/circuits/hello_circuit",
+    "examples/circuits/note_hash_proof",
     "examples/contracts/counter_contract",
     "examples/contracts/counter_contract_test",
     "examples/contracts/bob_token_contract",
@@ -13,5 +14,6 @@ members = [
     "examples/contracts/aave_bridge",
     "examples/contracts/logging_example",
     "examples/contracts/logging_example_test",
-    "examples/contracts/packing_example"
+    "examples/contracts/packing_example",
+    "examples/contracts/note_hash_proof_contract"
 ]
