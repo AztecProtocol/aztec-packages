@@ -214,9 +214,11 @@ that no one will notice have drifted apart.
 - **Dedupe first.** Search the whole target file: a release's notes can span its whole range
   (v6.0.0's start at v5.2.0), so they repeat entries already filed under an earlier heading.
   The PR the entry names (`<repo>#<N>`, such as `aztec-labs-eng/aztec-node#511`) finds
-  candidates, but one PR can carry several changes (v6.0.0's #157 has two entries), and older
-  entries cite no PR. So an entry is filed only when an existing one describes the same symbol
-  or behaviour. Do not draft a filed entry again, and never edit a released one.
+  candidates, and so does the symbol. But one PR can carry several changes (v6.0.0's #157 has
+  two entries), older entries cite no PR, and one symbol can change twice
+  (`getBlockHashMembershipWitness` was renamed, then restricted). So an entry is filed only when
+  an existing one describes the same change: the same old and new syntax, behaviour or value.
+  Do not draft a filed entry again, and never edit a released one.
 - **Operator entries**: an entry that `CHANGELOG-OPERATORS.md` also has keeps that file's
   wording. The notes fill what the file lacks, and check it.
 - **Developer entries**: draft from the notes, then confirm each one in the code at the tag
