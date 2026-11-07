@@ -164,11 +164,12 @@ function test_cmds {
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
 
-  # bb.js browser tests. Isolate because server.
-  # Temporarily skipped due to flaky "Failed to fetch" errors in CI.
-  # local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  # echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
-  # echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  # bb.js browser tests. Isolate because server. The browser's CRS downloads are answered from the
+  # local CRS (headless-test/src/local_crs.ts), so they need no network.
+  # verify_honk_proof needs 2^20 points, past bb.js's default.
+  local browser_prefix="$tests_hash:ISOLATE=1:CPUS=8"
+  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome --srs-size $((2**20))"
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
