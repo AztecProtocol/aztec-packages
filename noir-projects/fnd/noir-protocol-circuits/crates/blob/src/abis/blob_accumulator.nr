@@ -48,17 +48,17 @@ pub struct BlobAccumulationInputs {
 * Not done here as BLS12_381_Fr doesn't implement serde and orphan rule prevents me from implementing it here.
 */
 pub struct BlobAccumulator {
-    // Hash of Cs (to link to L1 blob hashes) (BN254Fr).
+    /// Hash of Cs (to link to L1 blob hashes) (BN254Fr).
     pub blob_commitments_hash_acc: Field,
-    // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
+    /// Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub z_acc: Field,
-    // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y.
+    /// Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y.
     pub y_acc: BLS12_381_Fr,
-    // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
+    /// Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
     pub c_acc: BLSPoint,
-    // Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
+    /// Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
     pub gamma_acc: Field,
-    // gamma^i for current blob, used above.
+    /// gamma^i for current blob, used above.
     pub gamma_pow_acc: BLS12_381_Fr,
 }
 

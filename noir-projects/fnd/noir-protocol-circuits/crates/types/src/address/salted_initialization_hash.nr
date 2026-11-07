@@ -3,7 +3,7 @@ use crate::{
     hash::poseidon2_hash_with_separator, traits::ToField,
 };
 
-// Salted initialization hash. Used in the computation of a partial address.
+/// Salted initialization hash. Used in the computation of a partial address.
 #[derive(Eq)]
 pub struct SaltedInitializationHash {
     pub inner: Field,

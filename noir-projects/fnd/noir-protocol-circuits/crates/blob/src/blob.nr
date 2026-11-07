@@ -557,7 +557,7 @@ mod tests {
         assert(y.get_limbs() == expected_y);
     }
 
-    // Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
+    /// Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
     unconstrained fn compute_double_modulus() -> [u128; 3] {
         let two_p = [0x7b4805fffcb7fdfffffffe00000002, 0x4ea6533afa906673b0101343b00aa7, 0x00e7db];
         let NUM_LIMBS = 3; // must be >= 3

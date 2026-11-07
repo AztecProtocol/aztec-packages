@@ -1,7 +1,7 @@
 use crate::traits::{Deserialize, Empty, Serialize, ToField};
 use std::meta::derive;
 
-// Public keys hash. Used in the computation of an address.
+/// Public keys hash. Used in the computation of an address.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct PublicKeysHash {
     inner: Field,

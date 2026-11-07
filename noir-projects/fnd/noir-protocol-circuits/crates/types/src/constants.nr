@@ -61,14 +61,14 @@ pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
-// Cap on L1-to-L2 messages bundled into a single L2 block. One quarter of the per-checkpoint
-// cap, so four blocks at full bundles are the fewest that can drain a checkpoint's whole Inbox
-// allowance. It is a floor, not a ceiling: blocks end at arbitrary message prefixes, so a
-// checkpoint may spread the same allowance over any number of partially filled blocks.
+/// Cap on L1-to-L2 messages bundled into a single L2 block. One quarter of the per-checkpoint
+/// cap, so four blocks at full bundles are the fewest that can drain a checkpoint's whole Inbox
+/// allowance. It is a floor, not a ceiling: blocks end at arbitrary message prefixes, so a
+/// checkpoint may spread the same allowance over any number of partially filled blocks.
 pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 256;
-// Cap on L1-to-L2 messages consumed by a single checkpoint.
+/// Cap on L1-to-L2 messages consumed by a single checkpoint.
 pub global MAX_L1_TO_L2_MSGS_PER_CHECKPOINT: u32 = 1024;
-// Maximum number of subtrees a L2ToL1Msg unbalanced tree can have. Used when calculating the out hash of a tx.
+/// Maximum number of subtrees a L2ToL1Msg unbalanced tree can have. Used when calculating the out hash of a tx.
 pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
 
 // "PER TRANSACTION" CONSTANTS
@@ -135,8 +135,8 @@ pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
 pub global PRIVATE_KERNEL_RESET_TAIL_VK_INDEX: u32 = 31;
 pub global PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX: u32 = 37;
-// Upper bound (exclusive) of the generated reset-family VK-tree range; used by VK-index normalisation
-// to know when to stop family-base matching.
+/// Upper bound (exclusive) of the generated reset-family VK-tree range; used by VK-index normalisation
+/// to know when to stop family-base matching.
 pub global PRIVATE_KERNEL_RESET_BLOCK_END: u32 = 43;
 // Important: Do not define indexes between 23 and 42 except via the three reset families above.
 // Indices 43-64 are intentionally unallocated; add new non-reset kernel indices at 65+.
@@ -158,7 +158,7 @@ pub global INBOX_PARITY_1024_VK_INDEX: u32 = 76;
 pub global INBOX_PARITY_4_VK_INDEX: u32 = 77;
 pub global INBOX_PARITY_16_VK_INDEX: u32 = 78;
 
-// Maximum number of apps absorbed by a single private kernel iteration.
+/// Maximum number of apps absorbed by a single private kernel iteration.
 pub global MAX_APPS_PER_KERNEL: u32 = 5;
 
 // SIDE EFFECT RELATED CONSTANTS
@@ -194,10 +194,10 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
 pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
-// Cap on the number of L2 blocks a single checkpoint may contain, asserted in the checkpoint root circuit. It bounds
-// the epoch prover's worst case at `MAX_BLOCKS_PER_CHECKPOINT` block-root proofs plus one fewer block merges, which is
-// what makes fully empty blocks safe to allow at any position in a checkpoint. The value is one block per second over
-// the production slot length.
+/// Cap on the number of L2 blocks a single checkpoint may contain, asserted in the checkpoint root circuit. It bounds
+/// the epoch prover's worst case at `MAX_BLOCKS_PER_CHECKPOINT` block-root proofs plus one fewer block merges, which is
+/// what makes fully empty blocks safe to allow at any position in a checkpoint. The value is one block per second over
+/// the production slot length.
 pub global MAX_BLOCKS_PER_CHECKPOINT: u32 = 72;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The canonical genesis: an empty world state seeded with the protocol contracts' registration nullifiers, no
@@ -214,11 +214,11 @@ pub global EMPTY_EPOCH_OUT_HASH: Field =
 
 // CONTRACT CLASS CONSTANTS
 pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000; // Arbitrary.
-// Bytecode size for private functions is per function, not for the entire contract.
-// Note that private functions bytecode includes a mix of acir and brillig.
+/// Bytecode size for private functions is per function, not for the entire contract.
+/// Note that private functions bytecode includes a mix of acir and brillig.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000; // Arbitrary.
 
-// How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
+/// How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
 pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
     + 1 /* contract_class_id */
     + 1 /* artifact_metadata_hash */
@@ -241,27 +241,27 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x2dcffa53cd0e71da7b4a22677b3342bfc3b9043f5081bea58368ad008eaa6f37;
 
 // CANONICAL CONTRACT ADDRESSES
-// The maximum number of protocol contracts that can be supported.
-// Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
+/// The maximum number of protocol contracts that can be supported.
+/// Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
 pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
 // Address 0 is not a protocol contract.
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 
-// `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
-// contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
-// Padding items must be siloed with a contract address which cannot be deployed nor impersonated by any user,
-// because we don't want any malicious user to be able to push malicious state for actual contracts through this
-// padding feature.
-// It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
-// that anyone can freely change the state of the contract by adding padding side effects to their transactions.
-// The value was generated and checked in `constants_tests.nr`.
+/// `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
+/// contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
+/// Padding items must be siloed with a contract address which cannot be deployed nor impersonated by any user,
+/// because we don't want any malicious user to be able to push malicious state for actual contracts through this
+/// padding feature.
+/// It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
+/// that anyone can freely change the state of the contract by adding padding side effects to their transactions.
+/// The value was generated and checked in `constants_tests.nr`.
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(
     0x2b29b6b962034f217d620700c44845d2a3c7d208d7e23328286124f4c6eb11e3,
 );
 
-// NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree).
+/// NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree).
 pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
     21888242871839275222246405745257275088548364400416034343698204186575808495616,
 ); // This is `-1`.
@@ -271,11 +271,11 @@ pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_f
 pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field =
     0x1f61038721b052d5389449bf44f73c817146aedfab1ef13d37f16ce928df1fb7;
 
-// Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+/// Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 // TODO: document the fee_juice contract, documenting where all of the logic and constants live, because it's all over the place.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
 
-// Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+/// Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 // TODO: document the contract class registry contract, documenting where all of the logic and constants live, because it's all over the place.
 pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
 
@@ -476,8 +476,8 @@ pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 // TODO: Leila's considering moving this into a noir file within bb
-// The hiding kernel IO public inputs consist of pairing_inputs and table_commitments.
-// They are independent of the circuit's custom public inputs.
+/// The hiding kernel IO public inputs consist of pairing_inputs and table_commitments.
+/// They are independent of the circuit's custom public inputs.
 pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 28;
 pub global PAIRING_POINTS_SIZE: u32 = 8;
 pub global IPA_CLAIM_SIZE: u32 = 6;
@@ -647,13 +647,13 @@ pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verificatio
 pub global MEGA_APP_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaApp verification key
 pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaKernel verification key
 pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 119; // size of a MegaZK verification key
-// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+/// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
-// VK is composed of
-// - circuit size encoded as a fr field element (32 bytes)
-// - num of inputs encoded as a fr field element (32 bytes)
-// - 21 affine elements (curve base field fq) encoded as fr elements takes (21 * 4 * 32 bytes)
-// 21 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
+/// VK is composed of
+/// - circuit size encoded as a fr field element (32 bytes)
+/// - num of inputs encoded as a fr field element (32 bytes)
+/// - 21 affine elements (curve base field fq) encoded as fr elements takes (21 * 4 * 32 bytes)
+/// 21 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 
 // Setting limits for MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS
@@ -1134,8 +1134,8 @@ pub global AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_AV
 // End reverted
 pub global AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX + 1;
 
-// AVM's max public input column size (aka total number of rows). This is the length of column 0,
-// which is the longest column, and also the extent of the public_inputs `sel` selector.
+/// AVM's max public input column size (aka total number of rows). This is the length of column 0,
+/// which is the longest column, and also the extent of the public_inputs `sel` selector.
 pub global AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH: u32 = AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX + 1;
 pub global AVM_NUM_PUBLIC_INPUT_COLUMNS: u32 = 4;
 
@@ -1151,7 +1151,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH: u32 =
 pub global AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX + 1; // last: teardown calldata_hash
 
-// Combined size of the AVM's public input columns concatenated together
+/// Combined size of the AVM's public input columns concatenated together
 pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 = AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH
     + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH
     + AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH
@@ -1165,7 +1165,7 @@ pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 14532;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 1; // Arbitrary.
 pub global DA_GAS_PER_FIELD: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-// A tx always emits 3 fields: tx_start_marker, tx_hash, and tx_fee.
+/// A tx always emits 3 fields: tx_start_marker, tx_hash, and tx_fee.
 pub global TX_DA_GAS_OVERHEAD: u32 = 3 * DA_GAS_PER_FIELD;
 pub global MAX_TX_BLOB_DATA_SIZE_IN_FIELDS: u32 = 1 // tx start marker
     + 1 // tx hash
@@ -1180,10 +1180,10 @@ pub global MAX_TX_BLOB_DATA_SIZE_IN_FIELDS: u32 = 1 // tx start marker
 // Computed taking into account simulation time metrics.
 pub global PUBLIC_TX_L2_GAS_OVERHEAD: u32 = 540000;
 pub global PRIVATE_TX_L2_GAS_OVERHEAD: u32 = 440000;
-// base cost for a single public call
+/// base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
-// The maximum amount of l2 gas that the AVM can process safely.
+/// The maximum amount of l2 gas that the AVM can process safely.
 pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
 // The following limit assumes that a private only tx will always be cheaper than a tx with a full public component.
 pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PROCESSABLE_L2_GAS;
@@ -1191,8 +1191,8 @@ pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PRO
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
     BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
 
-// Some tree insertions incur an additional cost associated with
-// the new database entry to be stored by all network participants.
+/// Some tree insertions incur an additional cost associated with
+/// the new database entry to be stored by all network participants.
 pub global L2_GAS_DISTRIBUTED_STORAGE_PREMIUM: u32 = 1024;
 
 // AVM - misc constants
@@ -1284,7 +1284,7 @@ pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD; // length 
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_GAS_PER_FIELD;
-// Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
+/// Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
 pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD;
 
 // BLOB PREFIXES
@@ -1309,15 +1309,15 @@ pub global PROOF_TYPE_CHONK: u32 = 8;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;
-// AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1))
-// +1 due to the tree prefill
+/// AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1))
+/// +1 due to the tree prefill
 // TODO: Move inside BB noir constants lib
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
     0x13954b76f8ab76c38ab687731f802fc90e5d55e0592fa6f56d0a73024b3f8356;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
-// AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
-// +1 due to the tree prefill
+/// AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
+/// +1 due to the tree prefill
 pub global AVM_RETRIEVED_BYTECODES_TREE_HEIGHT: u32 = 5;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT: Field =
     0x0ff65ad321f05745d4c80e2e18e94241093d2e49017ff8cc151df4f207a43c12;
@@ -1326,15 +1326,15 @@ pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE: u32 = 1;
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
 pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;
 
-// The default update delay used when a contract does not explicitly specify one.
-// Note: This value should match MAX_TX_LIFETIME, because if no custom update delay is set during tx
-// execution, the `expiration_timestamp` for the contract updates will be computed using this value. And it should not
-// differ from the maximum allowed duration.
+/// The default update delay used when a contract does not explicitly specify one.
+/// Note: This value should match MAX_TX_LIFETIME, because if no custom update delay is set during tx
+/// execution, the `expiration_timestamp` for the contract updates will be computed using this value. And it should not
+/// differ from the maximum allowed duration.
 pub global DEFAULT_UPDATE_DELAY: u64 = MAX_TX_LIFETIME;
-// 10 minutes
+/// 10 minutes
 pub global MINIMUM_UPDATE_DELAY: u64 = 600;
 
-// Updates hold contract class id, which fit in 1 field.
+/// Updates hold contract class id, which fit in 1 field.
 pub global UPDATES_VALUE_SIZE: u32 = 1;
 pub global UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
 

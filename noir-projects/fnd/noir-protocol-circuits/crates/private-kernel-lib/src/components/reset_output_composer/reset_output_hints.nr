@@ -18,10 +18,10 @@ pub struct SquashedOutputArrayHints {
     pub kept_private_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX>,
 }
 
-// Splice-removes some transient notes, nullifiers, and private logs, from the previous kernel's
-// arrays of new note_hashes, nullifiers, and private logs.
-// transient_data_squashing_hints - dictates the selection of items that will get removed by this
-// iteration of the reset circuit.
+/// Splice-removes some transient notes, nullifiers, and private logs, from the previous kernel's
+/// arrays of new note_hashes, nullifiers, and private logs.
+/// transient_data_squashing_hints - dictates the selection of items that will get removed by this
+/// iteration of the reset circuit.
 pub unconstrained fn generate_squashed_output_array_hints<let TransientDataSquashingHintsLen: u32>(
     previous_kernel: PrivateKernelCircuitPublicInputs,
     transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen],

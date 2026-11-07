@@ -20578,7 +20578,7 @@ mod tests {
         arr_brp
     }
 
-    // x ^ i for i in 0..4096
+    /// x ^ i for i in 0..4096
     unconstrained fn compute_powers(x: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_BLOB] {
         let mut powers = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
         let mut current_power = BLS12_381_Fr::one();

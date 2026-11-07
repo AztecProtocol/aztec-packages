@@ -27,7 +27,7 @@ pub contract FeeJuice {
     use std::ops::Add;
 
     struct Storage<Context> {
-        // contract address --> public fee juice balance
+        /// contract address --> public fee juice balance
         balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
     }
 

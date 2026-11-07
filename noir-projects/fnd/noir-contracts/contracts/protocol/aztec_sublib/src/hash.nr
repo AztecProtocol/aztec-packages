@@ -47,12 +47,12 @@ pub fn compute_l1_to_l2_message_hash(
     sha256_to_field(hash_bytes)
 }
 
-// The nullifier of a l1 to l2 message is the hash of the message salted with the secret
+/// The nullifier of a l1 to l2 message is the hash of the message salted with the secret
 pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) -> Field {
     poseidon2_hash_with_separator([message_hash, secret], DOM_SEP__MESSAGE_NULLIFIER)
 }
 
-// Computes the hash of input arguments or return values for private functions, or for authwit creation.
+/// Computes the hash of input arguments or return values for private functions, or for authwit creation.
 pub fn hash_args<let N: u32>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
@@ -61,7 +61,7 @@ pub fn hash_args<let N: u32>(args: [Field; N]) -> Field {
     }
 }
 
-// Computes the hash of calldata for public functions.
+/// Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
     poseidon2_hash_with_separator(calldata, DOM_SEP__PUBLIC_CALLDATA)
 }

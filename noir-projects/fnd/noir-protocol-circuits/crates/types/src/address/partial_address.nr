@@ -7,7 +7,7 @@ use crate::{
 };
 use std::meta::derive;
 
-// Partial address
+/// Partial address
 #[derive(Deserialize, Eq, Serialize)]
 pub struct PartialAddress {
     pub inner: Field,

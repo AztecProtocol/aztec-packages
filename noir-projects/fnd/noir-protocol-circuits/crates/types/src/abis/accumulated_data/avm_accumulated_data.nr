@@ -13,15 +13,15 @@ use std::meta::derive;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct AvmAccumulatedData {
-    // The note hashes from private combining with those made in the AVM execution.
+    /// The note hashes from private combining with those made in the AVM execution.
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
-    // The nullifiers from private combining with those made in the AVM execution.
+    /// The nullifiers from private combining with those made in the AVM execution.
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    // The L2 to L1 messages from private combining with those made in the AVM execution.
+    /// The L2 to L1 messages from private combining with those made in the AVM execution.
     pub l2_to_l1_msgs: [Scoped<L2ToL1Message>; MAX_L2_TO_L1_MSGS_PER_TX],
-    // The public logs emitted from the AVM execution.
+    /// The public logs emitted from the AVM execution.
     pub public_logs: PublicLogs,
-    // The public data writes made in the AVM execution.
+    /// The public data writes made in the AVM execution.
     pub public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 

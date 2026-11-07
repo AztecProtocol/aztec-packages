@@ -18,19 +18,19 @@ pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
     pub state: StateReference,
 
-    // The hash of the sponge blob for this block, which commits to the tx effects added in this block.
-    // Note: it may also include tx effects from previous blocks within the same checkpoint.
-    // When proving tx effects from this block only, we must refer to the `sponge_blob_hash` in the previous block
-    // header to show that the effect was added after the previous block.
-    // The previous block header can be validated using a membership proof of the last leaf in `last_archive`.
+    /// The hash of the sponge blob for this block, which commits to the tx effects added in this block.
+    /// Note: it may also include tx effects from previous blocks within the same checkpoint.
+    /// When proving tx effects from this block only, we must refer to the `sponge_blob_hash` in the previous block
+    /// header to show that the effect was added after the previous block.
+    /// The previous block header can be validated using a membership proof of the last leaf in `last_archive`.
     pub sponge_blob_hash: Field,
 
-    // The root of a merkle tree with one leaf per tx in this block, where each leaf binds a tx hash to the full
-    // contents of that tx's effects (see `compute_tx_effects_tree_leaf`). Unlike `sponge_blob_hash`, this commits
-    // to the effects of this block only, and it allows proving "tx X was included in this block and produced effects
-    // E" with a single membership proof rather than a replay of the whole checkpoint's effects.
-    // The tree shape is unbalanced, but deterministic: it is a function of the number of txs in the block alone.
-    // An empty block has a root of 0.
+    /// The root of a merkle tree with one leaf per tx in this block, where each leaf binds a tx hash to the full
+    /// contents of that tx's effects (see `compute_tx_effects_tree_leaf`). Unlike `sponge_blob_hash`, this commits
+    /// to the effects of this block only, and it allows proving "tx X was included in this block and produced effects
+    /// E" with a single membership proof rather than a replay of the whole checkpoint's effects.
+    /// The tree shape is unbalanced, but deterministic: it is a function of the number of txs in the block alone.
+    /// An empty block has a root of 0.
     pub tx_effects_tree_root: Field,
 
     pub global_variables: GlobalVariables,

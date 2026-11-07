@@ -37,8 +37,8 @@ pub global ReadRequestActions: ReadRequestActionEnum =
 /// - `hint_index` is unused // Q: do we constrain it to be something in this case?
 #[derive(Eq)]
 pub struct ReadRequestAction {
-    // `action` only takes values from the enum { SKIP: 0, READ_AS_PENDING: 1, READ_AS_SETTLED: 2 }
-    // Note: any other values in [3,255] are treated as SKIP in `validate_pending_read_requests`.
+    /// `action` only takes values from the enum { SKIP: 0, READ_AS_PENDING: 1, READ_AS_SETTLED: 2 }
+    /// Note: any other values in [3,255] are treated as SKIP in `validate_pending_read_requests`.
     pub action: u8,
     pub hint_index: u32,
 }
@@ -49,7 +49,7 @@ impl Empty for ReadRequestAction {
     }
 }
 
-// Methods used in tests.
+/// Methods used in tests.
 impl ReadRequestAction {
     pub fn skip() -> Self {
         ReadRequestAction { action: ReadRequestActions.SKIP, hint_index: 0 }

@@ -152,8 +152,8 @@ pub fn compute_merkle_tree_nodes<let N: u32>(
 mod tests {
     use super::{compute_merkle_tree_nodes, MerkleTree};
 
-    // A trivial, collision-prone hasher that makes the absence of leaf/internal-node domain separation
-    // observable: each node is simply the sum of its two children.
+    /// A trivial, collision-prone hasher that makes the absence of leaf/internal-node domain separation
+    /// observable: each node is simply the sum of its two children.
     fn add_hasher(left: Field, right: Field) -> Field {
         left + right
     }

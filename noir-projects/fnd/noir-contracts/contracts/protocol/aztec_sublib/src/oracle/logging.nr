@@ -1,6 +1,6 @@
 //! Debug logging for protocol contracts, which log through their own oracle.
 
-// Matches the JS logger's debug level.
+/// Matches the JS logger's debug level.
 global DEBUG_LOG_LEVEL: u32 = 6;
 
 pub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {

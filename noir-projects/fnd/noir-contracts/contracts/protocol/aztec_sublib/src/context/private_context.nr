@@ -54,7 +54,7 @@ pub struct PrivateContext {
     pub public_teardown_call_request: PublicCallRequest,
     pub l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
 
-    // Header of a block whose state is used during private execution (not the block the transaction is included in).
+    /// Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub anchor_block_header: BlockHeader,
 
     pub private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
