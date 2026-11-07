@@ -50,6 +50,14 @@ function generate_cdb_package {
 # The bb API as a generated client package: typed AsyncApi/SyncApi over bb spawned as a
 # process (uds, shm) or run in-process as the wasm module (node and browsers). bb.js is
 # a consumer of this package, keeping only its facades and CRS handling.
+#
+# Generation installs the wasm builds the package ships, so they must be built first: threads
+# (node, cross-origin isolated browsers) and single-thread (browsers without SharedArrayBuffer).
+# Shipped uncompressed. npm tarballs are gzipped either way, so this costs nothing on install,
+# and it is the form a host's own compression and the browser's compiled-code cache both want:
+# only a real application/wasm response can be streamed straight into WebAssembly.compileStreaming
+# and cached. A consumer serving from a host that does not compress can point bb.js's wasmPath (or
+# BB_WASM_PATH) at a compressed copy instead; the loader recognises gzip.
 function generate_bb_js_api_package {
   local bbapi="$ROOT/barretenberg/cpp/src/barretenberg/bbapi"
   # bb.js keeps its historical API surface (poseidon2Hash, Poseidon2Hash), so the Bb
@@ -66,8 +74,8 @@ function generate_bb_js_api_package {
     --strip-type-prefix \
     --package-transports uds,shm,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
-    --package-wasm-module barretenberg.wasm \
-    --package-wasm-threads-module barretenberg-threads.wasm
+    --package-wasm-module "barretenberg.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" \
+    --package-wasm-threads-module "barretenberg-threads.wasm=$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm"
 }
 
 # bb-avm-sim, cdb and bb.js-api are gitignored workspaces declared in package.json, so
@@ -77,23 +85,6 @@ function generate_packages {
   generate_bb_avm_sim_package
   generate_cdb_package
   generate_bb_js_api_package
-}
-
-# The wasm builds the bb.js-api package ships: threads (node, cross-origin isolated
-# browsers) and single-thread (browsers without SharedArrayBuffer).
-#
-# Shipped uncompressed. npm tarballs are gzipped either way, so this costs nothing on install,
-# and it is the form a host's own compression and the browser's compiled-code cache both want:
-# only a real application/wasm response can be streamed straight into WebAssembly.compileStreaming
-# and cached. A consumer serving from a host that does not compress can point bb.js's wasmPath (or
-# BB_WASM_PATH) at a compressed copy instead; the loader recognises gzip.
-function copy_bb_js_api_wasm {
-  # Replace rather than add to: the package publishes everything under wasm/, so a module left
-  # from an earlier build would ship alongside the current one.
-  rm -rf bb.js-api/wasm
-  mkdir -p bb.js-api/wasm
-  cp "$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm" bb.js-api/wasm/barretenberg-threads.wasm
-  cp "$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" bb.js-api/wasm/barretenberg.wasm
 }
 
 function copy_bb_js_api_native {
@@ -121,8 +112,9 @@ function prepare_bb_js_api_arch_packages {
   yarn workspace "$BB_JS_API_PACKAGE" run prepare_arch_packages "$@"
 }
 
-# Generate + compile the package bb.js compiles against, without the wasm/binary artifacts
-# (enough for type-checking, formatting and lint). Not cached: it is a few seconds of tsc.
+# Generate + compile the package bb.js compiles against, without bb binaries (enough for
+# type-checking, formatting and lint). Generation installs the wasm modules, so they must be
+# built first. Not cached: it is a few seconds of tsc.
 function build_bb_js_api_ts {
   generate_packages
   npm_install_deps "$IPC_RUNTIME_PKG"
@@ -134,7 +126,6 @@ function build_bb_js_api_ts {
 function build_bb_js_api {
   echo_header "bb.js-api package build"
   build_bb_js_api_ts
-  copy_bb_js_api_wasm
   copy_bb_js_api_native
   prepare_bb_js_api_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/bb"
 }
@@ -310,7 +301,6 @@ function cross_copy_bb_js_api {
 # bb.js depends on bb.js-api, so it is published first, with its arch packages.
 function release_bb_js_api {
   generate_packages
-  copy_bb_js_api_wasm
   copy_bb_js_api_native
   copy_bb_js_api_cross
   npm_install_deps "$IPC_RUNTIME_PKG"
@@ -331,7 +321,7 @@ function release {
 }
 
 export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
-export -f generate_bb_js_api_package copy_bb_js_api_wasm copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
+export -f generate_bb_js_api_package copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
 export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
 
 case "$cmd" in

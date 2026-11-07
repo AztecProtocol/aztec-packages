@@ -174,12 +174,15 @@ function countingBinding(): WasmFfiBinding & { created: () => number } {
 }
 
 const threadedModule = () => buildModule({ shared: true, min: 4, max: 64 });
+/** What `threadedModule` declares for its memory import. */
+const threadedMemory = { initial: 4, maximum: 64, shared: true };
 
 test("creates no thread workers until the module spawns one, then one per thread", async () => {
   const binding = countingBinding();
   const engine = await WasmFfiEngine.create(
     {
       module: threadedModule(),
+      moduleMemory: threadedMemory,
       threads: 4,
       memory: { initial: 4, maximum: 64 },
     },
@@ -203,6 +206,7 @@ test("refuses to spawn when the engine runs single-threaded", async () => {
   const engine = await WasmFfiEngine.create(
     {
       module: threadedModule(),
+      moduleMemory: threadedMemory,
       threads: 1,
       memory: { initial: 4, maximum: 64 },
     },
@@ -223,6 +227,7 @@ test("follows the module's memory declaration rather than the request", async ()
   const engine = await WasmFfiEngine.create(
     {
       module: buildModule({ shared: false, min: 4, max: 64 }),
+      moduleMemory: { initial: 4, maximum: 64, shared: false },
       threads: 4,
       memory: { initial: 4, maximum: 64 },
     },
@@ -233,21 +238,55 @@ test("follows the module's memory declaration rather than the request", async ()
   await engine.destroy();
 });
 
-test("finds a maximum the module accepts when the caller asks for more", async () => {
-  // The module's declared maximum is not visible from JS, so an over-large request has to be
-  // narrowed by probing; 64 pages here against the engine's default ceiling.
+test("caps the memory at the module's declared maximum when the caller asks for more", async () => {
+  // 64 pages declared against the engine's default ceiling: a larger maximum would not link.
   const engine = await WasmFfiEngine.create(
-    { module: threadedModule(), threads: 2, memory: { initial: 4 } },
+    {
+      module: threadedModule(),
+      moduleMemory: threadedMemory,
+      threads: 2,
+      memory: { initial: 4 },
+    },
     countingBinding(),
   );
   assert.equal(engine.memory.buffer.byteLength, 4 * 64 * 1024);
+  assert.equal(engine.memory.grow(60), 4, "grows to the declared maximum");
+  assert.throws(() => engine.memory.grow(1), RangeError, "and no further");
   await engine.destroy();
+});
+
+test("needs the declared memory of a module that imports its memory", async () => {
+  await assert.rejects(
+    WasmFfiEngine.create(
+      { module: threadedModule(), threads: 2, memory: { initial: 4 } },
+      countingBinding(),
+    ),
+    /pass moduleMemory/,
+  );
+});
+
+test("says which declaration a memory was made for when the module declares another", async () => {
+  // Declared unshared, but the module imports a shared memory: a module run in place of a
+  // package's own, built differently.
+  await assert.rejects(
+    WasmFfiEngine.create(
+      {
+        module: threadedModule(),
+        moduleMemory: { initial: 4, maximum: 64, shared: false },
+        threads: 1,
+        memory: { initial: 4 },
+      },
+      countingBinding(),
+    ),
+    /declared import of \{"initial":4,"maximum":64,"shared":false\}/,
+  );
 });
 
 test("round-trips requests, growing the reused request buffer to fit", async () => {
   const engine = await WasmFfiEngine.create(
     {
       module: threadedModule(),
+      moduleMemory: threadedMemory,
       threads: 1,
       memory: { initial: 64, maximum: 64 },
     },
@@ -363,6 +402,7 @@ test("a module that reports a failure and exits raises it as an error", async ()
   const engine = await WasmFfiEngine.create(
     {
       module: buildAbortingModule("abort: not on the curve"),
+      moduleMemory: { initial: 1, maximum: 4, shared: false },
       threads: 1,
       memory: { initial: 1, maximum: 4 },
     },

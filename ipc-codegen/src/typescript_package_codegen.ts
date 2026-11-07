@@ -1,4 +1,12 @@
 import { toSnakeCase } from "./naming.ts";
+import type { WasmMemoryImport } from "./wasm_memory.ts";
+
+/** A wasm module the package ships: its file in wasm/ and the memory import it declares. */
+export interface PackageWasmModule {
+  name: string;
+  /** Undefined when the module owns its memory. */
+  memory?: WasmMemoryImport;
+}
 
 export interface TypeScriptPackageOptions {
   prefix: string;
@@ -8,13 +16,13 @@ export interface TypeScriptPackageOptions {
   ipcRuntimeDependency: string;
   ipcPathArgs: string[];
   transports: string[];
-  /** wasm transport: basename of the single-thread module shipped in the package's wasm/ directory. */
-  wasmModule?: string;
-  /** wasm transport: basename of the threads module shipped in the package's wasm/ directory. */
-  wasmThreadsModule?: string;
+  /** wasm transport: the single-thread module shipped in the package's wasm/ directory. */
+  wasmModule?: PackageWasmModule;
+  /** wasm transport: the threads module shipped in the package's wasm/ directory. */
+  wasmThreadsModule?: PackageWasmModule;
   /** wasm transport: wide-arithmetic builds of the two, run instead where the engine supports it. */
-  wasmWideModule?: string;
-  wasmWideThreadsModule?: string;
+  wasmWideModule?: PackageWasmModule;
+  wasmWideThreadsModule?: PackageWasmModule;
 }
 
 function className(prefix: string): string {
@@ -693,10 +701,14 @@ export class ${svc}Sync extends SyncApi {
   /** Platform-neutral part of the wasm transport: options, module selection, backend construction. */
   generateWasm(): string {
     const { prefix, packageName } = this.opts;
-    const moduleUrl = (name: string | undefined) =>
-      name ? `new URL('../wasm/${name}', import.meta.url)` : "undefined";
-    const wide = (key: string, name: string | undefined) =>
-      name ? `\n  ${key}: ${moduleUrl(name)},` : "";
+    const memoryLiteral = ({ initial, maximum, shared }: WasmMemoryImport) =>
+      `{ initial: ${initial}, ${maximum === undefined ? "" : `maximum: ${maximum}, `}shared: ${shared} }`;
+    const moduleEntry = (m: PackageWasmModule | undefined) =>
+      m
+        ? `{ url: new URL('../wasm/${m.name}', import.meta.url), memory: ${m.memory ? memoryLiteral(m.memory) : "undefined"} }`
+        : "undefined";
+    const wide = (key: string, m: PackageWasmModule | undefined) =>
+      m ? `\n  ${key}: ${moduleEntry(m)},` : "";
     // The module's FFI symbols carry the service name (see the FFI entry in SCHEMA_SPEC.md).
     const sym = prefix ? `${toSnakeCase(prefix)}_` : "";
     const ffiExports = `    entry: '${sym}ipc_ffi_entry',`;
@@ -726,7 +738,9 @@ export interface ${prefix}WasmOptions {
   memory?: { initial?: number; maximum?: number };
   /**
    * The module to run instead of the package's own: a URL or path, raw or gzipped bytes, a fetch
-   * Response, or an already compiled WebAssembly.Module. The package's own module is uncompressed,
+   * Response, or an already compiled WebAssembly.Module. It must declare the same memory as the
+   * package's module it stands in for (the threads or single-thread build, by thread count), whose
+   * declaration the package recorded when it was built. The package's own module is uncompressed,
    * so that a browser can stream it into compileStreaming and cache the compiled code; point this
    * at a gzipped copy when serving from a host that applies no compression of its own.
    */
@@ -746,16 +760,21 @@ export interface ${prefix}WasmOptions {
   unref?: boolean;
 }
 
-// This package's own modules, as URLs relative to its own files: only the package can express
-// these, which is why the choosing lives here and the deciding does not.
+// This package's own modules, as URLs relative to its own files (only the package can express
+// these, which is why the choosing lives here and the deciding does not), each with the memory
+// import it declares, read from the module when the package was generated.
 const MODULES = {
-  threads: ${moduleUrl(this.opts.wasmThreadsModule)},
-  single: ${moduleUrl(this.opts.wasmModule)},${wide("wideThreads", this.opts.wasmWideThreadsModule)}${wide("wideSingle", this.opts.wasmWideModule)}
+  threads: ${moduleEntry(this.opts.wasmThreadsModule)},
+  single: ${moduleEntry(this.opts.wasmModule)},${wide("wideThreads", this.opts.wasmWideThreadsModule)}${wide("wideSingle", this.opts.wasmWideModule)}
 };
+
+function packageModule(threads: number) {
+  return chooseWasmModule(MODULES, '${packageName}', threads);
+}
 
 /** The module to run for a thread count: the threads build above one thread, else single. */
 export function defaultWasmModule(threads: number): URL {
-  return chooseWasmModule(MODULES, '${packageName}', threads);
+  return packageModule(threads).url;
 }
 
 /** The thread count to run with: the host's parallelism by default, a request checked against it. */
@@ -770,8 +789,10 @@ export function resolveThreads(threads?: number): number {
  */
 export async function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
   const threads = resolveThreads(options.threads);
+  const own = packageModule(threads);
   const backend = await createWasmFfiBackend({
-    module: options.module ?? defaultWasmModule(threads),
+    module: options.module ?? own.url,
+    moduleMemory: own.memory,
     threads,
     memory: options.memory,
     env: options.env,
@@ -791,8 +812,10 @@ ${ffiExports}
  * including on a browser's main thread.
  */
 export async function createWasmBackendSync(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackendSync> {
+  const own = packageModule(1);
   const backend = await createWasmFfiBackendSync({
-    module: options.module ?? defaultWasmModule(1),
+    module: options.module ?? own.url,
+    moduleMemory: own.memory,
     threads: 1,
     memory: options.memory,
     env: options.env,
@@ -852,8 +875,6 @@ export function ${findBinary}(customPath?: string): string | null {
 export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
 `;
   }
-
-
 
   generateReadme(): string {
     const svc = className(this.opts.prefix);
