@@ -125,6 +125,7 @@ test("a worker-mode backend starts the threads its module spawns (node)", async 
   const log: string[] = [];
   const backend = await createWasmFfiBackend({
     module: buildSpawningModule(),
+    moduleMemory: { initial: 4, maximum: 16, shared: true },
     threads: 2,
     memory: { initial: 4, maximum: 16 },
     logger: (message) => log.push(message),
@@ -188,6 +189,7 @@ for (const worker of [false, true]) {
   test(`the main instance ${worker ? "on a worker" : "on the calling thread"} is the one that initializes its shared memory`, async () => {
     const backend = await createWasmFfiBackend({
       module: new WebAssembly.Module(FIRST_INSTANCE),
+      moduleMemory: { initial: 4, maximum: 16, shared: true },
       worker,
       threads: 2,
       memory: { initial: 4, maximum: 16 },

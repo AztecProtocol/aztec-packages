@@ -4,6 +4,7 @@ import {
   type WasmFfiBackendOptions,
   type WasmFfiBinding,
   type WasmFfiOptions,
+  type WasmMemoryImport,
   WasmFfiBackend,
   WasmFfiBackendSync,
 } from "./backend.js";
@@ -11,7 +12,12 @@ import {
 export type { WasmModuleSource } from "./module_source.js";
 export type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
 export { isIos } from "./platform.js";
-export type { WasmFfiBackendOptions, WasmFfiBinding, WasmFfiOptions };
+export type {
+  WasmFfiBackendOptions,
+  WasmFfiBinding,
+  WasmFfiOptions,
+  WasmMemoryImport,
+};
 export {
   MAX_THREADS,
   WasmFfiBackend,

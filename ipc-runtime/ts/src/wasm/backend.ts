@@ -3,14 +3,31 @@ import { WasmInstanceHost } from "./host.js";
 import { type WasmModuleSource, compileWasmModule } from "./module_source.js";
 import type { WasmPlatform, WorkerHandle } from "./platform.js";
 
+/** A module's memory import as declared, in 64 KiB pages. */
+export interface WasmMemoryImport {
+  initial: number;
+  /** Absent when the module declares no maximum. */
+  maximum?: number;
+  shared: boolean;
+}
+
 /** Options shared by every way of running an FFI-contract module. */
 export interface WasmFfiOptions {
   /** The module: a compiled `Module`, bytes (gzipped or not), a `Response`, or a URL/string. */
   module: WasmModuleSource;
   /** Threads to run with (1 = no worker threads). Default: the platform's parallelism, capped at 32. */
   threads?: number;
-  /** Linear memory bounds in 64 KiB pages; `shared` defaults to `threads > 1`. */
+  /**
+   * Linear memory bounds in 64 KiB pages. For a module that imports its memory, `moduleMemory`
+   * decides `shared` and bounds these; `shared` applies only to a module owning its memory.
+   */
   memory?: { initial?: number; maximum?: number; shared?: boolean };
+  /**
+   * The module's memory import as the module declares it. Required when the module imports its
+   * memory: JS can't read an import's limits, and the memory given must satisfy them. Generated
+   * packages read it from their modules when the package is built.
+   */
+  moduleMemory?: WasmMemoryImport;
   /** WASI environ for the module. `HARDWARE_CONCURRENCY` and `RAYON_NUM_THREADS` default to `threads`. */
   env?: Record<string, string>;
   logger?: (msg: string) => void;
@@ -165,24 +182,32 @@ export class WasmFfiEngine {
       1,
       Math.min(opts.threads ?? platform.hardwareConcurrency(), MAX_THREADS),
     );
-    const wantShared =
-      opts.memory?.shared ??
-      (wantThreads > 1 && platform.sharedMemoryAvailable());
-    const memory = createMemory(
-      module,
-      opts.memory?.initial ?? DEFAULT_INITIAL_PAGES,
-      opts.memory?.maximum ??
-        platform.maximumMemoryPages?.() ??
-        DEFAULT_MAXIMUM_PAGES,
-      wantShared,
-    );
-    // The module's declaration wins over the request: a threads build gets a shared memory even
-    // for one thread, and workers need a shared memory, so the thread count follows the memory.
     // A module that defines its own memory instead of importing one cannot be threaded at all —
     // every instance would get a memory of its own, with nothing shared between them.
     const importsMemory = WebAssembly.Module.imports(module).some(
       (i) => i.kind === "memory",
     );
+    if (importsMemory && !opts.moduleMemory) {
+      throw new Error(
+        "the module imports its memory: pass moduleMemory, its memory import as declared",
+      );
+    }
+    const initial = opts.memory?.initial ?? DEFAULT_INITIAL_PAGES;
+    const maximum =
+      opts.memory?.maximum ??
+      platform.maximumMemoryPages?.() ??
+      DEFAULT_MAXIMUM_PAGES;
+    // The module's declaration wins over the request: a threads build gets a shared memory even
+    // for one thread, and workers need a shared memory, so the thread count follows the memory.
+    const memory = opts.moduleMemory
+      ? createMemory(opts.moduleMemory, initial, maximum)
+      : new WebAssembly.Memory({
+          initial,
+          maximum,
+          shared:
+            opts.memory?.shared ??
+            (wantThreads > 1 && platform.sharedMemoryAvailable()),
+        });
     const shared = memory.buffer instanceof SharedArrayBuffer;
     const threads =
       importsMemory && shared && platform.sharedMemoryAvailable()
@@ -217,6 +242,14 @@ export class WasmFfiEngine {
       entry: opts.entry,
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
+    }).catch((e) => {
+      if (e instanceof WebAssembly.LinkError && opts.moduleMemory) {
+        throw new Error(
+          `${e.message}: the memory was made for a declared import of ${JSON.stringify(opts.moduleMemory)}, ` +
+            "and a module run in place of a package's own must declare the same memory",
+        );
+      }
+      throw e;
     });
     // host.memory is the one the module actually uses, which is its own when it exports one.
     logger(
@@ -241,74 +274,32 @@ export class WasmFfiEngine {
 }
 
 /**
- * The module's declared maximum is not visible from JS: instantiating with a larger `maximum`
- * fails with a LinkError naming it, so probe downward until the import links.
+ * A memory for the module's declared import: shared as declared, at least its initial size, and no
+ * larger than its maximum, so the import links. The requested maximum halves while the engine can't
+ * reserve that much address space (e.g. mobile browsers).
  */
 function createMemory(
-  module: WebAssembly.Module,
+  declared: WasmMemoryImport,
   initial: number,
   maximum: number,
-  shared: boolean,
 ): WebAssembly.Memory {
-  const imported = WebAssembly.Module.imports(module).find(
-    (i) => i.kind === "memory",
+  const min = Math.max(initial, declared.initial);
+  let max = Math.max(
+    min,
+    declared.maximum === undefined
+      ? maximum
+      : Math.min(maximum, declared.maximum),
   );
-  let max = Math.max(initial, maximum);
-  let flippedShared = false;
   for (;;) {
-    let memory: WebAssembly.Memory;
     try {
-      memory = new WebAssembly.Memory({ initial, maximum: max, shared });
+      return new WebAssembly.Memory({
+        initial: min,
+        maximum: max,
+        shared: declared.shared,
+      });
     } catch (e) {
-      // The engine could not reserve that much address space (e.g. mobile browsers).
-      if (max > initial) {
-        max = Math.max(initial, Math.floor(max / 2));
-        continue;
-      }
-      throw e;
-    }
-    if (!imported) {
-      return memory;
-    }
-    try {
-      // A dry instantiation only to validate the memory import. V8 checks that every import
-      // module exists before it validates any single import, so stub every function import;
-      // the only errors left are then about the memory itself.
-      const stubs: Record<string, Record<string, WebAssembly.ImportValue>> = {};
-      for (const imp of WebAssembly.Module.imports(module)) {
-        stubs[imp.module] ??= {};
-        if (imp.kind === "memory") {
-          stubs[imp.module][imp.name] = memory;
-        } else if (imp.kind === "function") {
-          stubs[imp.module][imp.name] = () => 0;
-        }
-      }
-      new WebAssembly.Instance(module, stubs);
-    } catch (e) {
-      const message = e instanceof WebAssembly.LinkError ? String(e) : "";
-      if (message.includes("maximum") && max > initial) {
-        max = Math.max(initial, Math.floor(max / 2));
-        continue;
-      }
-      // A threads build declares its memory shared even when it will run with one thread (and a
-      // single-thread build declares it unshared): follow the module's declaration.
-      if (message.includes("shared") && !flippedShared) {
-        flippedShared = true;
-        shared = !shared;
-        continue;
-      }
-      return memory;
-    }
-    // The dry instance ran the module's start function on this memory. On a shared memory that
-    // claims the memory's one-time initialization (wasm-ld's `__wasm_init_memory`), which sets up
-    // the main thread's TLS in that instance alone: the real main instance would be left with none,
-    // its thread-locals at address 0 and C++ exceptions uncatchable by type. Hand it a memory no
-    // instance has started on.
-    try {
-      return new WebAssembly.Memory({ initial, maximum: max, shared });
-    } catch (e) {
-      if (max > initial) {
-        max = Math.max(initial, Math.floor(max / 2));
+      if (max > min) {
+        max = Math.max(min, Math.floor(max / 2));
         continue;
       }
       throw e;
@@ -362,6 +353,7 @@ export class WasmFfiBackend implements IpcClientAsync {
           maximum:
             opts.memory?.maximum ?? bound.platform.maximumMemoryPages?.(),
         },
+        moduleMemory: opts.moduleMemory,
         env: opts.env,
         entry: opts.entry,
       },

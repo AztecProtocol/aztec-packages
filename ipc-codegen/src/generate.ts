@@ -17,6 +17,8 @@
 
 import { createHash } from "crypto";
 import {
+  copyFileSync,
+  existsSync,
   readFileSync,
   writeFileSync,
   renameSync,
@@ -45,6 +47,8 @@ import { RustCodegen } from "./rust_codegen.ts";
 import { ZigCodegen } from "./zig_codegen.ts";
 import { CppCodegen } from "./cpp_codegen.ts";
 import { toSnakeCase } from "./naming.ts";
+import { readMemoryImport } from "./wasm_memory.ts";
+import type { PackageWasmModule } from "./typescript_package_codegen.ts";
 
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -105,17 +109,18 @@ Optional:
   --package-transports <t> Comma-separated transports for --package (uds,shm,wasm)
   --package-ipc-path-args <args>
                            Comma-separated binary args for IPC path; use {path}
-  --package-wasm-module <file>
-                           wasm transport: the single-thread module, shipped in the
-                           package's wasm/ directory. Ship it uncompressed: only a
-                           real application/wasm response can be streamed into
-                           WebAssembly.compileStreaming and cached by the browser
-  --package-wasm-threads-module <file>
-                           wasm transport: the threads module, shipped in wasm/
-  --package-wasm-wide-module <file>, --package-wasm-wide-threads-module <file>
-                           wasm transport: wide-arithmetic builds of the two, shipped
-                           in wasm/ and run instead where the engine supports the
-                           proposal
+  --package-wasm-module <name>=<path>
+                           wasm transport: the single-thread module, built at <path>
+                           and installed as wasm/<name> in the package, with the
+                           memory import it declares recorded for the runtime. Ship
+                           it uncompressed: only a real application/wasm response
+                           can be streamed into WebAssembly.compileStreaming and
+                           cached by the browser
+  --package-wasm-threads-module <name>=<path>
+                           wasm transport: the threads module, likewise
+  --package-wasm-wide-module <name>=<path>, --package-wasm-wide-threads-module <name>=<path>
+                           wasm transport: wide-arithmetic builds of the two, likewise,
+                           run instead where the engine supports the proposal
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -438,6 +443,35 @@ function formatCpp(files: string[]) {
 // Generation
 // ---------------------------------------------------------------------------
 
+/**
+ * A `--package-wasm-*-module <name>=<path>` argument: the module built at <path>, to ship as
+ * wasm/<name>, with the memory import it declares.
+ */
+function packageWasmModule(
+  flag: string,
+  value: string,
+): (PackageWasmModule & { source: string }) | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const eq = value.indexOf("=");
+  const name = value.slice(0, eq);
+  if (eq <= 0 || name.includes("/")) {
+    console.error(
+      `${flag} takes <name>=<path to the built module>, got ${value}`,
+    );
+    process.exit(1);
+  }
+  const source = resolve(value.slice(eq + 1));
+  if (!existsSync(source)) {
+    console.error(
+      `${flag}: no module at ${source}; build it before generating the package`,
+    );
+    process.exit(1);
+  }
+  return { name, source, memory: readMemoryImport(readFileSync(source)) };
+}
+
 function generate(args: Args) {
   const absSchema = resolve(args.schema);
   const absOut = resolve(args.out);
@@ -546,6 +580,38 @@ function generate(args: Args) {
             );
             process.exit(1);
           }
+          // The modules are installed from their builds here, so the memory each declares (which JS
+          // can't read from a compiled module) is recorded from the very file the package ships.
+          const wasmModules = {
+            single: packageWasmModule(
+              "--package-wasm-module",
+              args.packageWasmModule,
+            ),
+            threads: packageWasmModule(
+              "--package-wasm-threads-module",
+              args.packageWasmThreadsModule,
+            ),
+            wideSingle: packageWasmModule(
+              "--package-wasm-wide-module",
+              args.packageWasmWideModule,
+            ),
+            wideThreads: packageWasmModule(
+              "--package-wasm-wide-threads-module",
+              args.packageWasmWideThreadsModule,
+            ),
+          };
+          if (wasm) {
+            // Replace rather than add to: the package publishes everything under wasm/, so a module
+            // left from an earlier generation would ship alongside these.
+            const wasmDir = join(packageDir, "wasm");
+            rmSync(wasmDir, { recursive: true, force: true });
+            mkdirSync(wasmDir, { recursive: true });
+            for (const m of Object.values(wasmModules)) {
+              if (m) {
+                copyFileSync(m.source, join(wasmDir, m.name));
+              }
+            }
+          }
           const packageGen = new TypeScriptPackageCodegen({
             prefix,
             packageName,
@@ -557,10 +623,10 @@ function generate(args: Args) {
               .split(",")
               .map((arg) => arg.trim())
               .filter(Boolean),
-            wasmModule: args.packageWasmModule || undefined,
-            wasmThreadsModule: args.packageWasmThreadsModule || undefined,
-            wasmWideModule: args.packageWasmWideModule || undefined,
-            wasmWideThreadsModule: args.packageWasmWideThreadsModule || undefined,
+            wasmModule: wasmModules.single,
+            wasmThreadsModule: wasmModules.threads,
+            wasmWideModule: wasmModules.wideSingle,
+            wasmWideThreadsModule: wasmModules.wideThreads,
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());

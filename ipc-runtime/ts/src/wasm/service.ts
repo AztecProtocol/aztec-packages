@@ -39,11 +39,11 @@ let wideArithmetic: boolean | undefined;
  * the single-thread build. Each stands in for the other when a package ships only one, and a
  * wide-arithmetic build replaces its counterpart where the engine supports the proposal.
  */
-export function chooseWasmModule(
-  modules: { single?: URL; threads?: URL; wideSingle?: URL; wideThreads?: URL },
+export function chooseWasmModule<M>(
+  modules: { single?: M; threads?: M; wideSingle?: M; wideThreads?: M },
   label: string,
   threads: number,
-): URL {
+): M {
   const wide =
     (modules.wideSingle || modules.wideThreads) &&
     (wideArithmetic ??= WebAssembly.validate(WIDE_PROBE));
