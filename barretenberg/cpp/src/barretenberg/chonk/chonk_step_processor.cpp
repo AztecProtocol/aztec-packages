@@ -1,4 +1,5 @@
 #include "barretenberg/chonk/chonk_step_processor.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -53,6 +54,7 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
         using VK = typename FlavorT::VerificationKey;
 
         const acir_format::ProgramMetadata metadata{ .ivc = ivc };
+        interrupt_point("construct:create_circuit");
         auto circuit = acir_format::create_circuit<circuit_for<K>>(step.program, metadata);
         // The circuit holds everything accumulation needs: free the constraint system and witness before
         // accumulating, which is when memory use peaks.
@@ -63,6 +65,7 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
             detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(step.name);
         }
 
+        interrupt_point("construct:resolve_vk");
         std::shared_ptr<VK> vk;
         if (policy == ChonkPrecomputedVkPolicy::RECOMPUTE) {
             vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
@@ -78,6 +81,7 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
                 }
             }
         }
+        interrupt_point("fold:step_accumulate");
         ivc->accumulate(circuit, Chonk::CircuitVerificationKey{ vk });
     });
 }

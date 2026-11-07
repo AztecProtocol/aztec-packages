@@ -3,6 +3,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/generated/bb_dispatch.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/log.hpp"
 #include <cstdint>
 #include <fstream>
@@ -15,9 +16,47 @@
 #if !defined(__wasm__) && !defined(_WIN32)
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
+#include <csignal>
 #endif
 
 namespace bb {
+
+#if !defined(__wasm__) && !defined(_WIN32)
+namespace {
+
+#ifdef BB_NO_EXCEPTIONS
+// interrupt_point() cannot stop a command without exceptions, so SIGURG stays ignored: a host's fence then never reads
+// an interrupt and stops interrupting this binary.
+void install_interrupt_signal_handler() {}
+#else
+void request_interrupt_on_signal(int /*signal*/)
+{
+    InterruptFlag::request();
+}
+
+/**
+ * @brief Makes SIGURG interrupt the running command.
+ * @details SIGURG is ignored by default, so a host can send it to a binary that predates this handler without killing
+ * it, and nothing else raises it: the kernel sends it only for socket out-of-band data, to a process that claimed the
+ * socket with F_SETOWN, which bb never does. A signal is not ordered with the transport (requests and responses can
+ * pass through shared memory with no system call), so the replies a host has seen do not tell it whether the signal
+ * has landed; it ends every interruption by sending ChonkStop until the answer is true. SA_RESTART restarts the
+ * server's blocking reads and writes that the signal lands in, rather than failing them with EINTR.
+ */
+void install_interrupt_signal_handler()
+{
+    struct sigaction action{};
+    action.sa_handler = request_interrupt_on_signal;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = SA_RESTART;
+    if (sigaction(SIGURG, &action, nullptr) != 0) {
+        std::cerr << "Warning: could not install the SIGURG handler; interrupts are unavailable" << '\n';
+    }
+}
+#endif
+
+} // namespace
+#endif
 
 int process_msgpack_commands(std::istream& input_stream)
 {
@@ -94,6 +133,7 @@ int execute_msgpack_run(const std::string& msgpack_input_file,
         // SIGBUS/SIGSEGV → close+exit, parent-death watch, SIGPIPE → EPIPE)
         // before listen(): SIGBUS can occur during init when SHM is exhausted.
         ipc::install_default_signal_handlers(*server);
+        install_interrupt_signal_handler();
         if (!server->listen()) {
             std::cerr << "Error: Could not start IPC server at " << input_path << '\n';
             return 1;

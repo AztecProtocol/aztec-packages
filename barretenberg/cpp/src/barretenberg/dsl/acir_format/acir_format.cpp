@@ -3,6 +3,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -107,6 +108,7 @@ void translate_opcodes(Translation_& translation,
                  "Each ACIR constraint must carry the index of the opcode it came from.");
     translate_or_reject<Label, RequiredKinds...>(translation, acir_constraints, [&](auto& target) {
         for (size_t i = 0; i < acir_constraints.size(); ++i) {
+            interrupt_point("construct:acir_opcode");
             create_gates(target, acir_constraints[i]);
             translation.gate_counter.track_diff(translation.gates_per_opcode, first_opcode_index(opcode_indices[i]));
         }
@@ -198,6 +200,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
     // the opcode, so the constraint is looked up by index rather than through the per-constraint callback.
     translate_or_reject<"acir::range_constraints">(translation, constraints.range_constraints, [&](auto& target) {
         for (size_t i = 0; i < constraints.range_constraints.size(); ++i) {
+            interrupt_point("construct:acir_range");
             const RangeConstraint& constraint = constraints.range_constraints[i];
             const size_t opcode_index = opcode_indices.range_constraints[i];
             std::string msg;
@@ -291,6 +294,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
     translate_or_reject<"acir::block_constraints">(translation, constraints.block_constraints, [&](auto& target) {
         for (const auto& [constraint, block_opcode_indices] :
              zip_view(constraints.block_constraints, opcode_indices.block_constraints)) {
+            interrupt_point("construct:acir_block");
             create_block_constraints(target, constraint);
             if (collect_gates_per_opcode) {
                 size_t avg_gates_per_opcode = gate_counter.compute_diff() / block_opcode_indices.size();
@@ -303,6 +307,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
 
     // RecursionConstraints
     BB_BENCH_ONLY_NAME("acir::recursion_constraints");
+    interrupt_point("construct:acir_recursion");
     const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
     HonkRecursionConstraintsOutput<Builder> output = create_recursion_constraints<Builder>(
         builder,

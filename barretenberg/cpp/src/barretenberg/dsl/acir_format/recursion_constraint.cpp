@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
@@ -43,6 +44,7 @@ HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
     // non-native-field gate. Kernels drop it and never carry these constraints.
     if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Nnf)) {
         for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
+            interrupt_point("construct:honk_recursion_constraint");
             HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
             if (constraint.proof_type == HONK_ZK) {

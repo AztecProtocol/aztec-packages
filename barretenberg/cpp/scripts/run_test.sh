@@ -10,7 +10,7 @@ test_filter=${2:?gtest filter required}
 
 cd $(dirname $0)/..
 
-if [[ "$test_bin" == "bbapi_tests" && "$test_filter" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" ]]; then
+if [[ "$test_bin" == "bbapi_tests" && ("$test_filter" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" || "$test_filter" == "ChonkInterruptPinned.Sweep") ]]; then
   scripts/chonk_inputs.sh download
 fi
 
