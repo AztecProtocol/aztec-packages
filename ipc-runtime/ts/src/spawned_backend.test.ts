@@ -92,6 +92,19 @@ test("spawns, round-trips calls, and destroys cleanly", async () => {
   assert.equal(processAlive(parseInt(pid, 10)), false);
 });
 
+test("interrupt() leaves a server that does not handle it alive and answering", { skip: process.platform === "win32" }, async () => {
+  const backend = await spawnPidEcho();
+  const pid = await callPid(backend);
+  assert.equal(backend.interruptible, true);
+  assert.equal(backend.interrupt(), true);
+  // Delivery is asynchronous; a server that died of the signal would be gone well within this.
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(processAlive(parseInt(pid, 10)), true);
+  assert.equal(await callPid(backend), pid);
+  await backend.destroy();
+  assert.equal(backend.interrupt(), false, "no live child after destroy");
+});
+
 test("without respawn, death rejects in-flight and later calls with a retryable exit error", async () => {
   const backend = await spawnPidEcho();
   const pid = parseInt(await callPid(backend), 10);

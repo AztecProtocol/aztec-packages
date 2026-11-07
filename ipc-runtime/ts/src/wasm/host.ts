@@ -25,6 +25,12 @@ export interface InstanceOptions {
 /** Every FFI entry export ends with this; the generated ones are prefixed by their service. */
 export const ENTRY_SUFFIX = "ipc_ffi_entry";
 
+/**
+ * Optional export beside the entry (same service prefix): returns the address of a 32-bit word that
+ * another thread sets to ask the running call to stop.
+ */
+export const INTERRUPT_FLAG_SUFFIX = "ipc_ffi_interrupt_flag";
+
 /** Allocator pairs tried after the entry's own `<service>_ipc_ffi_alloc`/`_free`. */
 export const FALLBACK_ALLOCATOR_EXPORTS: Array<[string, string]> = [["malloc", "free"]];
 
@@ -104,6 +110,7 @@ export class WasmInstanceHost {
     private readonly free: WasmFn,
     readonly logger: (msg: string) => void,
     private readonly stderr: StderrTail,
+    private readonly servicePrefix: string,
   ) {}
 
   static async instantiate(opts: InstanceOptions): Promise<WasmInstanceHost> {
@@ -178,7 +185,35 @@ export class WasmInstanceHost {
       exports[pair[1]] as WasmFn,
       logger,
       stderr,
+      prefix,
     );
+  }
+
+  /**
+   * A one-element view of the word the module's interrupt-flag export names, or undefined when the
+   * module has none or its address is unusable. Only a shared memory lets another thread store to
+   * it. The word is static data, and a shared buffer never detaches as memory grows, so the view
+   * stays valid for the instance's life.
+   */
+  interruptFlag(): Int32Array | undefined {
+    const exported = (this.instance.exports as Record<string, WebAssembly.ExportValue>)[
+      `${this.servicePrefix}${INTERRUPT_FLAG_SUFFIX}`
+    ];
+    const buffer = this.memory.buffer;
+    // The tag, not `instanceof`: the SharedArrayBuffer global is absent from pages without
+    // cross-origin isolation.
+    if (
+      typeof exported !== "function" ||
+      Object.prototype.toString.call(buffer) !== "[object SharedArrayBuffer]"
+    ) {
+      return undefined;
+    }
+    const address = (exported as WasmFn)() >>> 0;
+    if (address === 0 || address % 4 !== 0 || address + 4 > buffer.byteLength) {
+      this.logger(`wasm: ignoring unusable interrupt flag address ${address}`);
+      return undefined;
+    }
+    return new Int32Array(buffer, address, 1);
   }
 
   /** Call an arbitrary numeric export (used by thread workers for `wasi_thread_start`). */

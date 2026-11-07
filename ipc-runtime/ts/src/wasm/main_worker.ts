@@ -40,7 +40,11 @@ export function runMainWorker(
             },
             binding,
           );
-          side.postMessage({ type: "ready" });
+          // A view, not the Memory: the parent can store to the word but cannot grow the memory.
+          side.postMessage({
+            type: "ready",
+            interruptFlag: engine.host.interruptFlag(),
+          });
         } catch (e) {
           side.postMessage({
             type: "init-error",

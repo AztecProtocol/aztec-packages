@@ -49,17 +49,21 @@ export const MAX_THREADS = 32;
 const DEFAULT_INITIAL_PAGES = 64;
 const DEFAULT_MAXIMUM_PAGES = 65536;
 const FIRST_THREAD_ID = 2;
+const DESTROYED_MESSAGE = "wasm backend destroyed";
 
 type Pending = {
   resolve: (out: Uint8Array) => void;
   reject: (err: Error) => void;
 };
 
-function awaitReady(worker: WorkerHandle, what: string): Promise<void> {
+/** What the main worker reports once its instance is up; thread workers send only `type`. */
+type ReadyMessage = { type: "ready"; interruptFlag?: Int32Array };
+
+function awaitReady(worker: WorkerHandle, what: string): Promise<ReadyMessage> {
   return new Promise((resolve, reject) => {
     worker.onMessage((msg) => {
       if (msg?.type === "ready") {
-        resolve();
+        resolve(msg);
       } else if (msg?.type === "init-error") {
         reject(new Error(`${what}: ${msg.message}`));
       }
@@ -322,11 +326,32 @@ function createMemory(
 export class WasmFfiBackend implements IpcClientAsync {
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
+  private destroyed = false;
+  /** The module's interrupt word, shared with the main worker. Kept out of reach of callers. */
+  #interruptFlag: Int32Array | undefined;
 
   private constructor(
     private readonly engine: WasmFfiEngine | undefined,
     private readonly worker: WorkerHandle | undefined,
   ) {}
+
+  /**
+   * True in worker mode for a module that exports a usable interrupt flag over a shared memory.
+   * In direct mode a call blocks the only thread that could set the flag.
+   */
+  get interruptible(): boolean {
+    return this.#interruptFlag !== undefined;
+  }
+
+  /** Sets the module's interrupt flag; the module decides what stops and how the flag is cleared. */
+  interrupt(): boolean {
+    const flag = this.#interruptFlag;
+    if (!flag) {
+      return false;
+    }
+    Atomics.store(flag, 0, 1);
+    return true;
+  }
 
   static async create(
     opts: WasmFfiBackendOptions,
@@ -365,7 +390,11 @@ export class WasmFfiBackend implements IpcClientAsync {
         entry: opts.entry,
       },
     });
-    await ready;
+    const { interruptFlag } = await ready;
+    // The tag, not `instanceof`: the message is deserialized in the realm that owns the worker port, which is not
+    // this module's when it runs in a vm context (a test runner's sandbox).
+    backend.#interruptFlag =
+      Object.prototype.toString.call(interruptFlag) === "[object Int32Array]" ? interruptFlag : undefined;
     return backend;
   }
 
@@ -390,6 +419,10 @@ export class WasmFfiBackend implements IpcClientAsync {
   }
 
   call(input: Uint8Array): Promise<Uint8Array> {
+    // A terminated worker drops messages without an error, so a call it accepted would never settle.
+    if (this.destroyed) {
+      return Promise.reject(new Error(DESTROYED_MESSAGE));
+    }
     if (this.engine) {
       try {
         return Promise.resolve(this.engine.call(input));
@@ -417,6 +450,8 @@ export class WasmFfiBackend implements IpcClientAsync {
   }
 
   async destroy(): Promise<void> {
+    this.destroyed = true;
+    this.#interruptFlag = undefined;
     if (this.engine) {
       await this.engine.destroy();
       return;
@@ -433,7 +468,7 @@ export class WasmFfiBackend implements IpcClientAsync {
     await Promise.race([done, new Promise((r) => setTimeout(r, 2000))]);
     await worker.terminate();
     for (const p of this.pending.values()) {
-      p.reject(new Error("wasm backend destroyed"));
+      p.reject(new Error(DESTROYED_MESSAGE));
     }
     this.pending.clear();
   }
