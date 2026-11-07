@@ -353,7 +353,12 @@ export class WasmFfiBackend implements IpcClientAsync {
         entry: opts.entry,
       },
     });
-    await ready;
+    try {
+      await ready;
+    } catch (e) {
+      await worker.terminate();
+      throw e;
+    }
     return backend;
   }
 

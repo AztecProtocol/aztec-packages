@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWasmFfiBackend } from "./wasm/node/index.js";
+import type { WorkerHandle } from "./wasm/platform.js";
 
 const I32 = 0x7f;
 const leb = (n: number) => {
@@ -134,4 +135,21 @@ test("a worker-mode backend starts the threads its module spawns (node)", async 
   } finally {
     await backend.destroy();
   }
+});
+
+test("a backend terminates a main worker that fails to start", async () => {
+  const handlers: ((message: unknown) => void)[] = [];
+  let terminated = false;
+  const worker: WorkerHandle = {
+    postMessage: () => handlers.forEach((h) => h({ type: "init-error", message: "no entry" })),
+    onMessage: (handler) => handlers.push(handler),
+    onError: () => {},
+    terminate: async () => {
+      terminated = true;
+    },
+    unref: () => {},
+  };
+  const module = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 1, 0, 0, 0]);
+  await assert.rejects(createWasmFfiBackend({ module, createMainWorker: () => worker }), /no entry/);
+  assert.equal(terminated, true);
 });
