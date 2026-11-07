@@ -1,0 +1,234 @@
+% tensor_cube.tex
+% =====================================================================
+% The 3D bucket-membership tensor with one window slice $M^{(j)}$
+% highlighted, one specific bucket-column called out ($k = 3$, where
+% the sparse pattern lands 5 nonzeros), and the pair-tree reduction
+% of that bucket drawn IN PLACE — growing upward out of the slice
+% along the $j$ axis. Single self-contained figure.
+% Compile with `./build.sh` (or pdflatex tensor_cube.tex).
+% =====================================================================
+\documentclass[tikz,border=0pt]{standalone}
+\usepackage{tikz}
+\usepackage{tikz-3dplot}
+\usepackage{amsmath}
+\usetikzlibrary{calc,arrows.meta,positioning,backgrounds}
+
+% Dark-mode palette — deep navy background, light strokes, saturated
+% reds/golds for the highlighted bucket + tree.
+\definecolor{bgDark}      {RGB}{15,25,45}
+\definecolor{axisColor}   {RGB}{210,220,240}
+\definecolor{cubeEdge}    {RGB}{120,160,220}
+\definecolor{cubeFaint}   {RGB}{90,110,140}
+\definecolor{slicePlane}  {RGB}{130,175,230}
+\definecolor{oneCell}     {RGB}{220,110,110}
+\definecolor{oneCellEdge} {RGB}{255,160,160}
+\definecolor{fgText}      {RGB}{170,180,195}
+\definecolor{colhi}       {RGB}{70,25,35}
+\definecolor{colstroke}   {RGB}{255,130,130}
+\definecolor{nodeFill}    {RGB}{60,50,25}
+\definecolor{nodeEdge}    {RGB}{240,200,100}
+\definecolor{carryFill}   {RGB}{55,60,75}
+
+\tdplotsetmaincoords{68}{120}
+
+\begin{document}
+\begin{tikzpicture}[font=\normalsize, >={Latex[length=2.6mm, width=2.4mm]}]
+
+\begin{scope}[
+    tdplot_main_coords,
+    scale=1.0,
+    every node/.style={font=\small},
+    axis/.style       ={->, thick, axisColor, line cap=round},
+    edgeFront/.style  ={cubeEdge, semithick},
+    edgeBack/.style   ={cubeFaint, thin, dashed},
+    sliceEdge/.style  ={slicePlane, thick},
+    nonzeroCell/.style={fill=oneCell, draw=oneCellEdge, very thin, fill opacity=0.9},
+    hiCell/.style     ={fill=colstroke, draw=colstroke!70!black, very thin, fill opacity=0.95},
+]
+
+    \def\Ni{20}
+    \def\Nk{10}
+    \def\Nj{4}
+    \def\jSlice{1}
+    \def\khl{3}                  % bucket-column highlighted on the slice
+
+    \pgfmathtruncatemacro{\NiMinusOne}{\Ni-1}
+    \pgfmathtruncatemacro{\NkMinusOne}{\Nk-1}
+    \pgfmathtruncatemacro{\NjMinusOne}{\Nj-1}
+
+    % 5 of these (at i = 0, 3, 8, 11, 14) land in k = 3; those are the
+    % 5 leaves of the pair-tree drawn above the slice.
+    \def\sparsePattern{%
+        0/3, 1/8, 2/1, 3/3, 4/0, 5/7, 6/2, 7/9, 8/3, 9/6,%
+        10/1, 11/3, 12/7, 13/0, 14/3, 15/2, 16/8, 17/6, 18/9, 19/4}
+
+    % --- Cube wireframe (back face).
+    \draw[edgeBack]
+        (0,0,\Nj) -- (\Ni,0,\Nj) -- (\Ni,\Nk,\Nj) -- (0,\Nk,\Nj) -- cycle;
+    \foreach \xc/\yc in {0/0, \Ni/0, \Ni/\Nk, 0/\Nk}
+        \draw[edgeBack] (\xc,\yc,0) -- (\xc,\yc,\Nj);
+
+    % --- (j, k) grid on the i = 0 face.
+    \foreach \kk in {1,...,\NkMinusOne}
+        \draw[fgText, thin, densely dotted, opacity=0.55]
+            (0, \kk, 0) -- (0, \kk, \Nj);
+    \foreach \jj in {1,...,\NjMinusOne}
+        \draw[fgText, thin, densely dotted, opacity=0.55]
+            (0, 0, \jj) -- (0, \Nk, \jj);
+
+    % --- Highlighted slice $M^{(j)}$.
+    \fill[slicePlane, opacity=0.10]
+        (0,0,\jSlice) -- (\Ni,0,\jSlice) -- (\Ni,\Nk,\jSlice) -- (0,\Nk,\jSlice) -- cycle;
+    \draw[sliceEdge]
+        (0,0,\jSlice) -- (\Ni,0,\jSlice) -- (\Ni,\Nk,\jSlice) -- (0,\Nk,\jSlice) -- cycle;
+
+    \foreach \xc in {1,...,\NiMinusOne}
+        \draw[slicePlane, very thin, opacity=0.20] (\xc,0,\jSlice) -- (\xc,\Nk,\jSlice);
+    \foreach \yc in {1,...,\NkMinusOne}
+        \draw[slicePlane, very thin, opacity=0.20] (0,\yc,\jSlice) -- (\Ni,\yc,\jSlice);
+
+    % --- Highlighted bucket column k = khl on the slice.
+    \fill[colhi, opacity=0.55]
+        (0, \khl, \jSlice) -- (\Ni, \khl, \jSlice) --
+        (\Ni, \khl+1, \jSlice) -- (0, \khl+1, \jSlice) -- cycle;
+    \draw[colstroke, thick]
+        (0, \khl, \jSlice) -- (\Ni, \khl, \jSlice) --
+        (\Ni, \khl+1, \jSlice) -- (0, \khl+1, \jSlice) -- cycle;
+
+    % --- Off-column nonzero cells (default red, behind tree).
+    \foreach \ihit/\khit in \sparsePattern {
+        \pgfmathtruncatemacro{\isHi}{ifthenelse(\khit == \khl, 1, 0)}
+        \ifnum\isHi=0
+            \fill[nonzeroCell]
+                (\ihit,   \khit,   \jSlice) --
+                (\ihit+1, \khit,   \jSlice) --
+                (\ihit+1, \khit+1, \jSlice) --
+                (\ihit,   \khit+1, \jSlice) -- cycle;
+        \fi
+    }
+    % --- On-column nonzero cells (deeper red — they feed the tree).
+    \foreach \ihit/\khit in \sparsePattern {
+        \pgfmathtruncatemacro{\isHi}{ifthenelse(\khit == \khl, 1, 0)}
+        \ifnum\isHi=1
+            \fill[hiCell]
+                (\ihit,   \khit,   \jSlice) --
+                (\ihit+1, \khit,   \jSlice) --
+                (\ihit+1, \khit+1, \jSlice) --
+                (\ihit,   \khit+1, \jSlice) -- cycle;
+        \fi
+    }
+
+    % --- Cube front face (drawn on top of slice fill).
+    \draw[edgeFront]
+        (0,0,0) -- (\Ni,0,0) -- (\Ni,\Nk,0) -- (0,\Nk,0) -- cycle;
+
+    % =================================================================
+    % Pair-tree growing upward (along +j) out of the highlighted column.
+    % Leaves at j = zL0, climbing through three levels to a root at zL3.
+    % All nodes live at k = khl + 0.5 (centred in the column); the i
+    % coordinate of each interior node is the mid-point of the children.
+    % Carry (P_14) keeps its i position across levels.
+    % =================================================================
+    % Tree levels live well above the j-axis tip (j = Nj + 1 = 5), so the
+    % illustration sits above the cube and its label without intermixing.
+    \def\zLeaf{9.0}      % leaves
+    \def\zPair{10.2}
+    \def\zQuad{11.4}
+    \def\zRoot{12.6}     % root B_{j,k}
+
+    % Leaf i-positions = i centres of the 5 nonzeros in column khl.
+    \def\xA{0.5}  \def\xB{3.5}  \def\xC{8.5}  \def\xD{11.5} \def\xE{14.5}
+    \pgfmathsetmacro{\xAB}{(\xA+\xB)/2}   % level-1 pair (A,B) mid
+    \pgfmathsetmacro{\xCD}{(\xC+\xD)/2}   % level-1 pair (C,D) mid
+    \pgfmathsetmacro{\xABCD}{(\xAB+\xCD)/2} % level-2 pair (AB,CD) mid
+    \pgfmathsetmacro{\xRoot}{(\xABCD+\xE)/2} % level-3 root mid
+
+    \tikzset{
+        treeLeaf/.style ={circle, fill=oneCell, draw=oneCellEdge,
+                          inner sep=0pt, minimum size=4.2pt},
+        treeInode/.style={circle, fill=nodeFill, draw=nodeEdge, thick,
+                          inner sep=0pt, minimum size=4.6pt},
+        treeCarry/.style={circle, fill=carryFill, draw=nodeEdge, thick,
+                          dashed, inner sep=0pt, minimum size=4.2pt},
+        treeRoot/.style ={rectangle, rounded corners=2pt,
+                          fill=nodeFill, draw=nodeEdge, thick,
+                          text=axisColor, inner sep=3pt, font=\normalsize},
+        treeEdge/.style ={nodeEdge, semithick, -},
+        treeCarryEdge/.style={nodeEdge, semithick, dashed, -},
+        feedEdge/.style ={colstroke, semithick, dotted},
+    }
+
+    % Cell-to-leaf feeders (short dotted lines lifting each cell up).
+    \foreach \xc/\lbl in {\xA/$P_0$, \xB/$P_3$, \xC/$P_8$, \xD/$P_{11}$, \xE/$P_{14}$}
+        \draw[feedEdge] (\xc, \khl+0.5, \jSlice) -- (\xc, \khl+0.5, \zLeaf);
+
+    % Level 0 — leaves with labels (all placed above for consistency).
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_0$}]
+        (Ta) at (\xA, \khl+0.5, \zLeaf) {};
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_3$}]
+        (Tb) at (\xB, \khl+0.5, \zLeaf) {};
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_8$}]
+        (Tc) at (\xC, \khl+0.5, \zLeaf) {};
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_{11}$}]
+        (Td) at (\xD, \khl+0.5, \zLeaf) {};
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_{14}$}]
+        (Te) at (\xE, \khl+0.5, \zLeaf) {};
+
+    % Level 1.
+    \node[treeInode] (Tab)  at (\xAB, \khl+0.5, \zPair) {};
+    \node[treeInode] (Tcd)  at (\xCD, \khl+0.5, \zPair) {};
+    \node[treeCarry] (Te1)  at (\xE,  \khl+0.5, \zPair) {};
+    \draw[treeEdge]      (Ta) -- (Tab);  \draw[treeEdge] (Tb) -- (Tab);
+    \draw[treeEdge]      (Tc) -- (Tcd);  \draw[treeEdge] (Td) -- (Tcd);
+    \draw[treeCarryEdge] (Te) -- (Te1);
+
+    % Level 2.
+    \node[treeInode] (Tabcd) at (\xABCD, \khl+0.5, \zQuad) {};
+    \node[treeCarry] (Te2)   at (\xE,    \khl+0.5, \zQuad) {};
+    \draw[treeEdge]      (Tab) -- (Tabcd);
+    \draw[treeEdge]      (Tcd) -- (Tabcd);
+    \draw[treeCarryEdge] (Te1) -- (Te2);
+
+    % Level 3 — root $B_{j,k}$.
+    \node[treeRoot] (Troot) at (\xRoot, \khl+0.5, \zRoot) {$B_{j,k}$};
+    \draw[treeEdge] (Tabcd) -- (Troot);
+    \draw[treeEdge] (Te2)   -- (Troot);
+
+    % --- Axes (drawn last so they sit above the slice fill).
+    \draw[axis] (0,0,0) -- (\Ni+1.0, 0, 0) coordinate (iTip);
+    \draw[axis] (0,0,0) -- (0, \Nk+1.0, 0) coordinate (kTip);
+    \draw[axis] (0,0,0) -- (0, 0, \Nj+1.0) coordinate (jTip);
+
+    \node[font=\normalsize, text=axisColor, anchor=east, xshift=-4pt, inner sep=1.5pt]
+        at (iTip) {$i$ \footnotesize ($n$ inputs, $2^{16}$–$2^{20}$)};
+    \node[font=\normalsize, text=axisColor, anchor=west, xshift=4pt, inner sep=1.5pt]
+        at (jTip) {$j$ \footnotesize ($T$ windows, $\approx 17$)};
+    \node[font=\normalsize, text=axisColor, anchor=west, xshift=4pt, inner sep=1.5pt]
+        at (kTip) {$k$ \footnotesize ($B_W$ buckets, $\sim 2^{14}$)};
+
+    \node[font=\footnotesize, text=axisColor, anchor=north east]
+        at (-0.05, -0.05, 0) {$0$};
+
+    % --- Slice label.
+    \node[slicePlane, font=\normalsize, anchor=west]
+        (sliceLabel) at (-2.8, -1.2, \jSlice) {$M^{(j)}$};
+    \draw[slicePlane, semithick, opacity=0.55]
+        (sliceLabel.west) -- (0, 0, \jSlice);
+
+    % --- Bucket-column label.
+    \node[colstroke, font=\normalsize, anchor=north west]
+        at (\Ni+0.3, \khl+0.5, \jSlice) {$k = \khl$};
+
+\end{scope}
+
+% Dark background — drawn on the background layer so it sits behind
+% every other element while still covering the final bounding box.
+\begin{scope}[on background layer]
+  \fill[bgDark]
+    ([shift={(-10pt,-10pt)}]current bounding box.south west)
+    rectangle
+    ([shift={( 10pt, 10pt)}]current bounding box.north east);
+\end{scope}
+
+\end{tikzpicture}
+\end{document}
