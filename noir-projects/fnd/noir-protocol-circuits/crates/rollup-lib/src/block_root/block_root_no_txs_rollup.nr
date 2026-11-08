@@ -14,27 +14,27 @@ use types::{
 pub struct BlockRootNoTxsRollupPrivateInputs {
     pub(crate) previous_archive: AppendOnlyTreeSnapshot,
     pub(crate) previous_state: StateReference,
-    // This block has no txs, so there are no tx constants to carry the checkpoint constants. They are given as a free
-    // value here and pinned by the checkpoint root's previous-header check via the merge continuity of the states
-    // below.
+    /// This block has no txs, so there are no tx constants to carry the checkpoint constants. They are given as a free
+    /// value here and pinned by the checkpoint root's previous-header check via the merge continuity of the states
+    /// below.
     pub(crate) constants: CheckpointConstantData,
-    // The timestamp of this block. It's given as a free value here, but will be checked against the previous block's
-    // timestamp in the block merge or checkpoint root.
+    /// The timestamp of this block. It's given as a free value here, but will be checked against the previous block's
+    /// timestamp in the block merge or checkpoint root.
     pub(crate) timestamp: u64,
-    // Sponge blob this block starts from: `SpongeBlob::init()` for the checkpoint's first block, otherwise the sponge
-    // blob inherited from the previous block. Checked against `SpongeBlob::init()` in the checkpoint root for the
-    // leftmost block, and against the previous block's `end_sponge_blob` in the block merge otherwise.
+    /// Sponge blob this block starts from: `SpongeBlob::init()` for the checkpoint's first block, otherwise the sponge
+    /// blob inherited from the previous block. Checked against `SpongeBlob::init()` in the checkpoint root for the
+    /// leftmost block, and against the previous block's `end_sponge_blob` in the block merge otherwise.
     pub(crate) start_sponge_blob: SpongeBlob,
-    // Message sponge this block starts from: the empty sponge for the checkpoint's first block, otherwise the sponge
-    // inherited from the previous block. Checked against the empty sponge in the checkpoint root for the leftmost
-    // block, and against the previous block's `end_msg_sponge` in the block merge otherwise.
+    /// Message sponge this block starts from: the empty sponge for the checkpoint's first block, otherwise the sponge
+    /// inherited from the previous block. Checked against the empty sponge in the checkpoint root for the leftmost
+    /// block, and against the previous block's `end_msg_sponge` in the block merge otherwise.
     pub(crate) start_msg_sponge: L1ToL2MessageSponge,
 
-    // L1-to-L2 message bundle inserted by this block.
+    /// L1-to-L2 message bundle inserted by this block.
     pub(crate) message_bundle: L1ToL2MessageBundle,
-    // Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_state`).
+    /// Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_state`).
     pub(crate) l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
-    // Hint for inserting the new block hash to the last archive.
+    /// Hint for inserting the new block hash to the last archive.
     pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
 

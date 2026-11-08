@@ -10,7 +10,7 @@ pub struct PublicLogs {
 }
 
 impl PublicLogs {
-    // Builds a PublicLogs struct from payload and length. Performs no validation, it's expected that length is validated beforehand.
+    /// Builds a PublicLogs struct from payload and length. Performs no validation, it's expected that length is validated beforehand.
     pub fn new(payload: [Field; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH], length: u32) -> Self {
         Self { payload, length }
     }

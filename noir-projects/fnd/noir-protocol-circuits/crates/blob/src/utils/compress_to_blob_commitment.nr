@@ -28,7 +28,7 @@ pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) 
 }
 
 // TODO: Will be part of bigcurve's compression functionality
-// Given a point in BLS12-381, returns [is_compressed, is_infinity, is_greater] and the point's x coordinate
+/// Given a point in BLS12-381, returns [is_compressed, is_infinity, is_greater] and the point's x coordinate
 fn get_flags(point: BLSPoint) -> ([bool; 3], BLS12_381_Fq) {
     let x = point.x;
     let y = point.y;
@@ -40,8 +40,8 @@ fn get_flags(point: BLSPoint) -> ([bool; 3], BLS12_381_Fq) {
 }
 
 // TODO(MW): Will be part of bigcurve's compression functionality
-// Given [is_compressed, is_infinity, is_greater] and the point's most significant byte, returns that
-// byte with the flags set.
+/// Given [is_compressed, is_infinity, is_greater] and the point's most significant byte, returns that
+/// byte with the flags set.
 fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
     let mut flip = 0;
     // flags = [is_compressed, is_infinity, is_greater]
@@ -169,8 +169,8 @@ mod tests {
         let _ = compress_to_blob_commitment(point);
     }
 
-    // y of -2G plus the BLS12-381 field modulus, as 120-bit limbs. It is congruent to the canonical y
-    // but, as an integer, lies in [p, 2^381), so it still fits the limb range checks.
+    /// y of -2G plus the BLS12-381 field modulus, as 120-bit limbs. It is congruent to the canonical y
+    /// but, as an integer, lies in [p, 2^381), so it still fits the limb range checks.
     global NEG_2G_Y_PLUS_MODULUS: [u128; 4] = [
         0x12628959142e3b97777e6868ab82e,
         0x583e6099411cd725ec3fd00214ddf1,

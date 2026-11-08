@@ -23,11 +23,11 @@ pub struct TransientDataValidator<let NoteHashesLen: u32, let NullifiersLen: u32
     pub expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     pub expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
     pub split_counter: u32,
-    // Hints provided by the user to specify what to squash.
-    // These are not derived automatically in this function like other hints, because the user can choose to not squash
-    // a pair even if it's squashable. Sometimes the transient data might be useful in later iterations. For example, a
-    // note hash must be kept to be used for a note hash read request created in a later iteration, and can only be
-    // squashed after the read request is validated.
+    /// Hints provided by the user to specify what to squash.
+    /// These are not derived automatically in this function like other hints, because the user can choose to not squash
+    /// a pair even if it's squashable. Sometimes the transient data might be useful in later iterations. For example, a
+    /// note hash must be kept to be used for a note hash read request created in a later iteration, and can only be
+    /// squashed after the read request is validated.
     pub transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     pub derived_hints: DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen>,
 }

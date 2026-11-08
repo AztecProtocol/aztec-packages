@@ -3,15 +3,15 @@ use std::cmp::min;
 
 mod test;
 
-// This data structure is used by DelayedPublicMutable to represent a value that changes from `pre` to `post` at some timestamp
-// called the `timestamp_of_change`. The value can only be made to change by scheduling a change event at some future
-// timestamp after some minimum delay measured in seconds has elapsed. This means that at any given timestamp we know
-// both the current value and the smallest timestamp at which the value might change - this is called the
-// 'time horizon'.
+/// This data structure is used by DelayedPublicMutable to represent a value that changes from `pre` to `post` at some timestamp
+/// called the `timestamp_of_change`. The value can only be made to change by scheduling a change event at some future
+/// timestamp after some minimum delay measured in seconds has elapsed. This means that at any given timestamp we know
+/// both the current value and the smallest timestamp at which the value might change - this is called the
+/// 'time horizon'.
 pub struct ScheduledValueChange<T> {
     pub(crate) pre: T,
     pub(crate) post: T,
-    // Timestamp at which `post` value is used instead of `pre`
+    /// Timestamp at which `post` value is used instead of `pre`
     pub(crate) timestamp_of_change: u64,
 }
 
@@ -44,8 +44,8 @@ impl<T> ScheduledValueChange<T> {
         (self.post, self.timestamp_of_change)
     }
 
-    // Returns the previous value. This is the value that is current up until the timestamp of change. Note that this
-    // value might not be the current anymore since timestamp of change might have already passed.
+    /// Returns the previous value. This is the value that is current up until the timestamp of change. Note that this
+    /// value might not be the current anymore since timestamp of change might have already passed.
     pub fn get_previous(self) -> (T, u64) {
         (self.pre, self.timestamp_of_change)
     }

@@ -11,7 +11,7 @@ pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
 #[derive(Eq, Deserialize, Serialize)]
 pub struct PrivateLogData {
     pub log: Log<PRIVATE_LOG_SIZE_IN_FIELDS>,
-    // The counter of the note hash this log is for. 0 if it does not link to a note hash.
+    /// The counter of the note hash this log is for. 0 if it does not link to a note hash.
     pub note_hash_counter: u32,
 }
 

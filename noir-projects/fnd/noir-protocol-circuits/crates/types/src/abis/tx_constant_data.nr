@@ -4,8 +4,8 @@ use crate::{
 };
 use std::meta::derive;
 
-// Version of PrivateTxConstantData exposed by the tail circuits.
-// The protocol contracts are compressed down to a hash to minimize the number of public inputs.
+/// Version of PrivateTxConstantData exposed by the tail circuits.
+/// The protocol contracts are compressed down to a hash to minimize the number of public inputs.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxConstantData {
     pub anchor_block_header: BlockHeader,

@@ -148,10 +148,10 @@ pub struct FixtureBuilder {
     pub args_hash: Field,
     pub calldata_hash: Field,
     pub returns_hash: Field,
-    // The salt of the tx request this fixture is the first call of (see `to_tx_request`).
+    /// The salt of the tx request this fixture is the first call of (see `to_tx_request`).
     pub tx_request_salt: Field,
-    // The siloed protocol nullifier the fixture reports as its `protocol_nullifier` public input. Initialised from
-    // the fixture's own tx request; tests mutate it to simulate a call that disagrees with the transaction.
+    /// The siloed protocol nullifier the fixture reports as its `protocol_nullifier` public input. Initialised from
+    /// the fixture's own tx request; tests mutate it to simulate a call that disagrees with the transaction.
     pub protocol_nullifier: Field,
 
     // Private call.
@@ -264,7 +264,7 @@ impl FixtureBuilder {
         *self
     }
 
-    // contract_index should be the same as contract address.
+    /// contract_index should be the same as contract address.
     pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
         let function_data =

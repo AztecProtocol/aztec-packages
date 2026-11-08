@@ -130,18 +130,18 @@ pub fn validate_unsquashable_note_hash_nullifier_ordering(
     }
 }
 
-// Corresponds to the layout of the nullifiers array.
-// For each nullifier in the nullifiers array, it may or may not be nullifying a note
-// from this tx.
-// If it _is_ nullifying a note from this tx, then that note_hash will exist
-// somewhere in the new note_hashes array.
-// For each nullifier, this array gives the index of that note_hash in the new note_hashes array.
-//
-// note_hashes: [   C0, C1,    C2, C3, C4, C5, C6, C7]
-// nullifiers:  [N(C5),  N, N(C3),  N,  N,  0,  0,  0] <-- E.g. N(C5) is the nullifier pointing to C5.
-//
-// this:        [    5,   _,    3,  _,  _,  _,  _,  _] <-- the index of the linked note for each nullifier
-//
+/// Corresponds to the layout of the nullifiers array.
+/// For each nullifier in the nullifiers array, it may or may not be nullifying a note
+/// from this tx.
+/// If it _is_ nullifying a note from this tx, then that note_hash will exist
+/// somewhere in the new note_hashes array.
+/// For each nullifier, this array gives the index of that note_hash in the new note_hashes array.
+///
+/// note_hashes: [   C0, C1,    C2, C3, C4, C5, C6, C7]
+/// nullifiers:  [N(C5),  N, N(C3),  N,  N,  0,  0,  0] <-- E.g. N(C5) is the nullifier pointing to C5.
+///
+/// this:        [    5,   _,    3,  _,  _,  _,  _,  _] <-- the index of the linked note for each nullifier
+///
 unconstrained fn get_note_hash_index_for_each_nullifier(
     previous_kernel: PrivateKernelCircuitPublicInputs,
 ) -> [u32; MAX_NULLIFIERS_PER_TX] {

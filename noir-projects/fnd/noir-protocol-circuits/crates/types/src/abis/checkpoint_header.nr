@@ -14,22 +14,22 @@ pub struct CheckpointHeader {
     pub last_archive_root: Field,
     pub block_headers_hash: Field,
     pub blobs_hash: Field,
-    // Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint:
-    // the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
-    // commitment.
+    /// Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint:
+    /// the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
+    /// commitment.
     pub inbox_rolling_hash: Field,
-    // The root of the epoch out hash balanced tree. The out hash of the first checkpoint in the epoch is inserted at
-    // index 0, the second at index 1, and so on.
-    // Note: This is not necessarily the final epoch out hash. It includes only the out hashes of checkpoints up to and
-    // including the current checkpoint. Any subsequent checkpoints added to the same epoch are not reflected in this
-    // value.
+    /// The root of the epoch out hash balanced tree. The out hash of the first checkpoint in the epoch is inserted at
+    /// index 0, the second at index 1, and so on.
+    /// Note: This is not necessarily the final epoch out hash. It includes only the out hashes of checkpoints up to and
+    /// including the current checkpoint. Any subsequent checkpoints added to the same epoch are not reflected in this
+    /// value.
     pub epoch_out_hash: Field,
     pub slot_number: Field,
-    // The timestamp of the slot. All blocks in the checkpoint share the same timestamp, which must equal to this value.
+    /// The timestamp of the slot. All blocks in the checkpoint share the same timestamp, which must equal to this value.
     pub timestamp: u64,
     pub coinbase: EthAddress,
-    // This field is an optional arbitrary l2 address set by the block builder. It's unchecked, and allows
-    // off chain functionality between builders and tx submitters.
+    /// This field is an optional arbitrary l2 address set by the block builder. It's unchecked, and allows
+    /// off chain functionality between builders and tx submitters.
     pub fee_recipient: AztecAddress,
     pub gas_fees: GasFees,
     pub total_mana_used: Field,

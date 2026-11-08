@@ -9,12 +9,12 @@ use types::utils::arrays::assert_trailing_zeros;
 /// One `InboxParity` proof is produced per checkpoint. The prover picks the smallest ladder size
 /// `S ∈ {4, 16, 64, 256, 1024}` with `S >= num_msgs`, so a checkpoint with few messages proves a small circuit.
 pub struct InboxParityPrivateInputs<let S: u32> {
-    // The checkpoint's L1-to-L2 message leaves, padded with zeros beyond `num_msgs`.
+    /// The checkpoint's L1-to-L2 message leaves, padded with zeros beyond `num_msgs`.
     pub(crate) msgs: [Field; S],
-    // Number of real (non-padding) messages in `msgs`.
+    /// Number of real (non-padding) messages in `msgs`.
     pub(crate) num_msgs: u32,
-    // Rolling hash of the Inbox chain before this checkpoint's messages (the previous checkpoint's end value; genesis
-    // is zero).
+    /// Rolling hash of the Inbox chain before this checkpoint's messages (the previous checkpoint's end value; genesis
+    /// is zero).
     pub(crate) start_rolling_hash: Field,
     pub(crate) prover_id: Field,
 }
