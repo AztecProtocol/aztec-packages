@@ -478,6 +478,10 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 
 This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/aztec_node.mts check` holds equal to the pinned aztec-node's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to. `#include_foundation_version_without_prefix` renders the same version without the `v`, as npm wants it.
 
+### `#docs_commit`
+
+This macro will be replaced inline with the commit that `#include_code` snippets from this repository's files link to: `DOCS_COMMIT`, else `HEAD`. Use it for hand-written links into, and clones of, the docs examples (`docs/examples/`, or a line's `docs/lines/<line>/examples/`): `https://github.com/AztecProtocol/aztec-packages/blob/#docs_commit/docs/examples/...`. A line page names its own line's path. Like those snippets, it fails a build whose `RELEASE_TYPE` is set to anything but `nightly` without `DOCS_COMMIT`.
+
 ### `#include_testnet_version`
 
 This macro will be replaced inline with the provided testnet version. This value is sourced from the `TESTNET_TAG` environment variable when running `yarn build` (e.g. `TESTNET_TAG=0.87.5 yarn build`).

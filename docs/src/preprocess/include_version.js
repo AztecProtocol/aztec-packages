@@ -4,6 +4,7 @@ const { processConditionalBlocks } = require("./conditional_content");
 const { releaseNameFor, versionLabel } = require("../release_names");
 const { lineApiFolders, networkApiFolder } = require("../network_docs");
 const { lineOf, readPin } = require("./line");
+const { docsCommit } = require("./include_code");
 
 // Load version defaults from config file (source of truth for version→type mapping)
 const developerVersionConfig = require(path.join(__dirname, "../../developer_version_config.json"));
@@ -159,6 +160,9 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown", r
     `#release_name`,
     releaseNameFor(releaseVersion) || `v${releaseVersion}`,
   );
+  // The commit the page's snippet links into this repository name, so hand-written links and clones show the same files.
+  if (markdownContent.includes("#docs_commit"))
+    markdownContent = markdownContent.replaceAll("#docs_commit", docsCommit(rootDir));
   if (markdownContent.includes("#api_ref_version"))
     markdownContent = markdownContent.replaceAll(`#api_ref_version`, line ? lineApiRefVersion(line) : apiRefVersion);
   if (markdownContent.includes("#include_foundation_version")) {

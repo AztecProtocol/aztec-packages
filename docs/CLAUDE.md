@@ -122,6 +122,7 @@ The preprocessing system uses these environment variables:
 **Foundation macro:**
 
 - `#include_foundation_version` - `v<installed @aztec-foundation/l1-artifacts version>`; use it for links and Nargo dependencies into aztec-packages' own code (`l1-contracts/`, `barretenberg/`). `#include_foundation_version_without_prefix` drops the `v` (npm versions)
+- `#docs_commit` - the commit the page's `docs/examples/` snippet links name (`DOCS_COMMIT`, else `HEAD`); use it for hand-written links into and clones of the examples, with the page's own line's path (`docs/lines/v6/examples/` on a v6 page). aztec-node has no `docs/` since its #619, so never link the examples there
 
 **Legacy macros:**
 

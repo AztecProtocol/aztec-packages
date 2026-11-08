@@ -13,7 +13,7 @@ This is called "recursive" verification because the proof is verified inside an 
 :::
 
 :::tip Full Working Example
-The complete code for this tutorial is available in the [docs/examples](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples) directory. Clone it to follow along or use it as a reference.
+The complete code for this tutorial is in [`docs/examples/`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples): the circuit in [`circuits/hello_circuit`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/circuits/hello_circuit), the contract in [`contracts/recursive_verification_contract`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/contracts/recursive_verification_contract) and the scripts in [`ts/recursive_verification`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/ts/recursive_verification). Use it as a reference while you follow along.
 :::
 
 ## Prerequisites
@@ -679,7 +679,7 @@ The counter starts at 10 (set during deployment), and after successful proof ver
 
 ## Quick Reference
 
-If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples) in the main repository.
+If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples).
 
 ```bash
 # Install dependencies (after creating package.json and tsconfig.json)

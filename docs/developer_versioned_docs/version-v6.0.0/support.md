@@ -80,7 +80,7 @@ If something in the docs is wrong, outdated, or missing, please **[open an issue
 
 This includes typos and small text issues: please file them as issues rather than opening single-line PRs. A maintainer can fix several at once, which is faster to review than a stream of one-line pull requests.
 
-For larger restructures or new pages, open an issue first so a maintainer can confirm the direction before you write the change. Every docs page in this site has an "Edit this page" link at the bottom that takes you to the right file in [`docs-developers/`](https://github.com/aztec-labs-eng/aztec-node/tree/next/docs/docs-developers) once the direction is agreed.
+For larger restructures or new pages, open an issue first so a maintainer can confirm the direction before you write the change. Every docs page in this site has an "Edit this page" link at the bottom that takes you to the right file in [`docs-developers/`](https://github.com/AztecProtocol/aztec-packages/tree/next/docs/docs-developers) once the direction is agreed.
 
 ## Operator and node issues
 

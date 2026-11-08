@@ -72,7 +72,7 @@ When you select "Local" network, the app renders a two-player split-screen on a 
 
 ### With browser extension wallet
 
-1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension) for build and install instructions)
+1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/webapp-tutorial/test-extension) for build and install instructions)
 2. Run `yarn dev`
 3. Select "Browser Wallet" → connect via the wallet extension → verify emojis match
 4. Play the same flow as above (share the contract address with your opponent)
