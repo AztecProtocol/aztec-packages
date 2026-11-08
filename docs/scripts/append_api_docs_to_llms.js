@@ -456,7 +456,7 @@ function main() {
     "- [Aztec starter repository](https://github.com/AztecProtocol/aztec-starter): Template project for a new Aztec app.\n" +
     "- [Aztec MCP server](https://github.com/AztecProtocol/mcp-server): Code search, doc search, and example discovery for AI coding tools.\n" +
     "- [Aztec on GitHub](https://github.com/AztecProtocol): Source code, examples, and community resources.\n" +
-    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n" +
+    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Community list of third-party Aztec projects, tools and libraries, labelled with the Aztec version each targets where it depends on Aztec.\n" +
     "- [Community forum](https://forum.aztec.network): Protocol discussion and governance proposals.\n" +
     "- [Discord](https://discord.com/invite/JtqzkdeQ6G): Developer and operator support channels.\n";
   let fullContentSection = "\n\n---\n\n## API Reference Documentation\n\n";

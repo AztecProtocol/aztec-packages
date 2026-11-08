@@ -818,6 +818,11 @@ or transcribe one by hand:
 - The source page names the FPC by its `contracts:SponsoredFPC` alias, so Step 4 changes
   nothing there. Older snapshots hardcode `SPONSORED_FPC_ADDRESS` and do need it.
 - Update the install command and any hardcoded version.
+- When this cut maps testnet to a new version, set the page's `<General.node_ver version="…" />`
+  to the `node:` entry of `https://install.aztec.network/<new_version>/versions`, the
+  minimum the installer enforces. Both lines' copies install `#include_testnet_version`
+  from the shared `developer_version_config.json`, so this is a shared source repair for
+  both `docs-developers/` and `docs/lines/<line>/docs-developers/` (Step 17).
 - Review CLI commands, FPC registration, fee payment instructions and explorer links.
 - **Update every versioned snapshot, not just the source.** Testnet is one live network,
   so `NODE_URL` and `SPONSORED_FPC_ADDRESS` must be current in every
@@ -1003,6 +1008,28 @@ grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/ \
 
 Known hit: the operator changelog page of the major, whose rc-specific notices
 (`v6.0.0-rc.1 is Testnet only`) need the owner's call on whether they still hold.
+
+#### Node.js minimums
+
+Each `getting_started_on_*.md` passes `<General.node_ver version="…" />` the `node:` entry
+of `https://install.aztec.network/<v>/versions`, where `<v>` is the version its install
+command names. The installer enforces that minimum, and it differs by version (24.15.0 for
+6.0.0, 26.12.0 for the v6.1 nightlies). The snapshot's local network page installs the
+release but still carries the dev pin's minimum, so check both pages:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
+for p in developer_versioned_docs/version-$LABS_TAG/getting_started_on_*.md; do
+  v=$(sed -n 's/^VERSION=\([^ ]*\) .*/\1/p' "$p")
+  need=$(curl -fsSL "https://install.aztec.network/$v/versions" | sed -n 's/^node: //p')
+  [ -n "$need" ] && grep -qF "<General.node_ver version=\"$need\" />" "$p" \
+    || echo "$p installs ${v:-?}, which needs Node ${need:-?}"
+done
+```
+
+It prints nothing when every page matches. Fix a mismatch in the snapshot, a release-only
+change (Step 17): the source local network pages install their own line's pin, which the
+cut does not move at the destination.
 
 ### Step 12: Check the Content Against the Tag
 

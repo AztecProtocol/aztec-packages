@@ -51,7 +51,7 @@ You'll create:
 
 ## Prerequisites
 
-- [Aztec local network running at version v6.0.0](../../../getting_started_on_local_network.md) (includes Aztec CLI and Node.js v24+)
+- [Aztec local network running at version v6.0.0](../../../getting_started_on_local_network.md) (includes the Aztec CLI, and the Node.js version it requires)
 - [Hardhat](https://hardhat.org/getting-started) installed for Solidity compilation and deployment
 - Familiarity with the [Token Bridge tutorial](./token_bridge.md) (recommended)
 - Basic understanding of [cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)

@@ -336,7 +336,9 @@ grep -r "<old_address>" ~/.cache/aztec-docs-cut/<cut>/worktree/docs/
 Hits outside `docs/docs/networks.md` are shared source repairs (Step 10). When the public
 testnet RPC changes, `NODE_URL` in every
 `docs/developer_versioned_docs/version-*/getting_started_on_testnet.md` must follow
-(`/release-docs` Step 10).
+(`/release-docs` Step 10). Leave each page's `<General.node_ver version="…" />` as it is: it
+is the installer's minimum for the version the page installs, and this cut moves no install
+command (the source pages follow `developer_version_config.json`, which it leaves alone).
 
 Re-verify every figure against its source of truth before writing it; never carry a value
 forward or transcribe one by hand. Follow the "Re-verify every figure against its source of

@@ -20,7 +20,7 @@ The complete code for this tutorial is available in the [docs/examples](https://
 
 Before starting, ensure you have the following installed and configured:
 
-- Node.js (v22 or later)
+- Node.js, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites)
 - yarn package manager
 - Aztec CLI (version v6.0.0)
 - Nargo

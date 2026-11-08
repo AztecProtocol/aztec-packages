@@ -47,6 +47,16 @@ yarn config set nodeLinker node-modules
 yarn add @aztec-labs/aztec.js@#include_aztec_version @aztec-labs/accounts@#include_aztec_version @aztec-labs/kv-store@#include_aztec_version @aztec-labs/wallets@#include_aztec_version
 ```
 
+:::tip Packages published in the last 24 hours
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+
+```yaml
+npmPreapprovedPackages:
+  - "@aztec-labs/*"
+  - "@aztec-foundation/*"
+```
+:::
+
 ## Contract structure
 
 The `aztec new` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we have a proto-contract. Let's replace it with a simple starting point:

@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Prints every warning-like line in the given docs build/test logs as <log>:<line>: <text> and
-# exits 1 if there is any; empty output means the logs are clean. There is no allowlist: a hit is
-# fixed at its cause. ANSI colour codes and OSC-8 hyperlinks are stripped first: a code abutting
-# "warn" defeats the word boundary, and yarn's links repeat the error code inside their URL.
+# exits 1 if there is any; empty output means the logs are clean. A hit is fixed at its cause: the
+# one exception is a line `allowed` matches in full. ANSI colour codes and OSC-8 hyperlinks are
+# stripped first: a code abutting "warn" defeats the word boundary, and yarn's links repeat the
+# error code inside their URL.
 #
 #   check_warnings.sh <log>...
 #   check_warnings.sh --self-test
 set -euo pipefail
 
 pattern='\bwarn(ings?)?\b|deprecat|\[error\]|diagnostic|\bYN0(002|009|028|060|061|072|086)\b|failed with errors|(^|[[:space:]])\(!\) |browserslist|caniuse-lite|update available|issues found: [1-9]|broken (anchor|link)s?(: *[1-9]|[^s:]|$)'
+# llms.txt leaves out tag pages, cut versions and the dev line previews on purpose (excludeRoutes in
+# docusaurus.config.js), and the plugin reports how many as a warning on every build.
+allowed='\[WARNING\] \[docusaurus-plugin-llms-txt\] WARNING: Excluded [0-9]+ routes by current config'
 
 function scan {
   local hits=0 log clean matches rc line
@@ -20,6 +24,10 @@ function scan {
     fi
     rc=0
     matches=$(grep -n -i -E "$pattern" <<<"$clean") || rc=$?
+    [ "$rc" -le 1 ] || { echo "check_warnings: grep failed on $log" >&2; return 2; }
+    [ "$rc" = 1 ] && continue
+    rc=0
+    matches=$(grep -v -x -E "[0-9]+:$allowed" <<<"$matches") || rc=$?
     [ "$rc" -le 1 ] || { echo "check_warnings: grep failed on $log" >&2; return 2; }
     [ "$rc" = 1 ] && continue
     while IFS= read -r line; do printf '%s:%s\n' "$log" "$line"; done <<<"$matches"
@@ -52,6 +60,9 @@ function self_test {
     'runner	➤ YN0000: · Failed with errors in 0s 46ms'
     '(!) Some chunks are larger than 500 kB after minification. Consider:'
     $'runner\t(!) Some chunks are larger than 500 kB after minification.'
+    '[WARNING] [docusaurus-plugin-llms-txt] WARNING: Failed to read markdown file for /developers/x: build/developers/x.md'
+    '[WARNING] [docusaurus-plugin-llms-txt] WARNING: Excluded 3 routes by current config, 2 by error'
+    '[WARNING] [other-plugin] WARNING: Excluded 3 routes by current config'
   )
   local negatives=(
     'CSpell: Files checked: 412, Issues found: 0 in 0 files.'
@@ -61,6 +72,7 @@ function self_test {
     '✔ resolveSnippetSource (9.4ms)'
     'We were forewarned about the ceremony.'
     $'\x1b]8;;https://yarnpkg.com/advanced/error-codes#yn0060---incompatible_peer_dependency\x1b\\docs\x1b]8;;\x1b\\: Done in 2s'
+    $'\x1b[33m\x1b[1m[WARNING]\x1b[22m [docusaurus-plugin-llms-txt] WARNING: Excluded 744 routes by current config\x1b[39m'
   )
   local line
   for line in "${positives[@]}"; do
@@ -71,7 +83,12 @@ function self_test {
     printf '%s\n' "$line" >"$tmp/log"
     if ! scan "$tmp/log" >/dev/null; then echo "self-test: false hit: $line" >&2; rc=1; fi
   done
-  local st=0
+  local st=0 out
+  printf '%s\n' '[WARNING] [docusaurus-plugin-llms-txt] WARNING: Excluded 3 routes by current config' "${positives[0]}" >"$tmp/log"
+  out=$(scan "$tmp/log") || st=$?
+  [[ "$st" == 1 && "$out" == "$tmp/log:2:${positives[0]}" ]] ||
+    { echo "self-test: an allowed line hid or joined the hit after it: $out" >&2; rc=1; }
+  st=0
   scan "$tmp" >/dev/null 2>&1 || st=$?
   [ "$st" = 2 ] || { echo "self-test: a directory argument returned $st, not 2" >&2; rc=1; }
   [ "$rc" = 0 ] && echo "check_warnings self-test: ${#positives[@]} hits, ${#negatives[@]} clean"

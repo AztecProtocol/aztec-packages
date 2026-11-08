@@ -20,7 +20,7 @@ The complete code for this tutorial is available in the [docs/examples](https://
 
 Before starting, ensure you have the following installed and configured:
 
-- Node.js (v22 or later)
+- Node.js, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites)
 - yarn package manager
 - Aztec CLI (version #include_aztec_version)
 - Nargo
@@ -192,7 +192,7 @@ Expected output:
 
 ## Part 3: Writing the Aztec Contract
 
-The Aztec contract stores the verification key hash and verifies proofs submitted by users. When a valid proof is submitted, it increments a counter for the caller.
+The Aztec contract stores the verification key hash and verifies proofs submitted by users. When a valid proof is submitted, it increments the counter of the address the caller names.
 
 ### Why This Contract Design?
 
@@ -334,6 +334,10 @@ fn increment(
   - Verifies the proof against the VK and public inputs
   - Fails (reverts) if any check fails
 - Uses `enqueue_self._increment_public(owner)` to schedule a public function call
+
+:::warning The example does not authorize `owner`
+`increment` takes `owner` from the caller and never checks it, so anyone with a valid proof can increment any address's counter. That keeps this example about proof verification. For state that belongs to the caller, key it by `self.msg_sender()` instead of an argument.
+:::
 
 **Why `enqueue_self` instead of a direct call?**
 
