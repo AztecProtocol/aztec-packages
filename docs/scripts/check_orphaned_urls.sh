@@ -8,6 +8,9 @@ set -euo pipefail
 #   (a) the path still resolves to a doc file in the current build, OR
 #   (b) a [[redirects]] rule in netlify.toml matches it.
 #
+# Each docs instance root, and each folder its sidebar autogenerates, serves no
+# page and so is in no sitemap; it is checked the same way.
+#
 # Any URL that satisfies neither is reported as orphaned. This is the inverse
 # of validate_redirect_targets.sh: that script confirms redirect *targets* are
 # valid, this one confirms previously-published URLs are still reachable.
@@ -89,6 +92,29 @@ fi
 
 echo "  URLs in sitemap:  ${#SITEMAP_URLS[@]}"
 
+# Read from the literal routeBasePath/sidebarPath of each instance in docusaurus.config.js; the dev
+# lines (computed, preview-only) have neither. A cut version's root is left out:
+# validate_redirect_targets.sh rejects its landing as a target.
+INSTANCE_ROOTS=()
+while read -r base sidebar; do
+  prefix="${base#/}"
+  if [[ -z "$sidebar" ]]; then
+    INSTANCE_ROOTS+=("/$prefix")
+    continue
+  fi
+  while IFS= read -r dir; do INSTANCE_ROOTS+=("/${prefix:+$prefix/}$dir"); done < <(
+    sed -nE 's/^[[:space:]]*dirName:[[:space:]]*"([^"]+)".*/\1/p' "$DOCS_ROOT/$sidebar")
+done < <(awk '
+  match($0, /routeBasePath: "[^"]*"/) { base = substr($0, RSTART + 16, RLENGTH - 17); print base }
+  base != "" && match($0, /sidebarPath: "[^"]*"/) { s = substr($0, RSTART + 14, RLENGTH - 15); sub(/^\.\//, "", s); print base, s; base = "" }
+' "$DOCS_ROOT/docusaurus.config.js")
+if [[ ${#INSTANCE_ROOTS[@]} -eq 0 ]]; then
+  echo "ERROR: no docs instance routeBasePath found in docusaurus.config.js" >&2
+  exit 1
+fi
+echo "  Instance roots:   ${#INSTANCE_ROOTS[@]}"
+SITEMAP_URLS+=("${INSTANCE_ROOTS[@]}")
+
 echo "  Redirect rules:   ${#REDIRECT_FROMS[@]}"
 
 # Build ignore regex (alt-pattern)
@@ -138,7 +164,7 @@ echo "  Orphaned:         ${#ORPHANS[@]}"
 
 if [[ ${#ORPHANS[@]} -gt 0 ]]; then
   echo ""
-  echo "Orphaned URLs (published previously but no current route and no redirect):"
+  echo "Orphaned URLs (published previously or an instance root, but no current route and no redirect):"
   for u in "${ORPHANS[@]}"; do
     echo "  - $u"
   done
