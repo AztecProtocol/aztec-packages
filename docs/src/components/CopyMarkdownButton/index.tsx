@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useDoc, useDocsVersion } from '@docusaurus/plugin-content-docs/client';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import { buildAgentLinks } from '@site/src/utils/agentLinks';
+import { copyText } from '@site/src/utils/clipboard';
 import styles from './styles.module.css';
 import { htmlToMarkdown } from './htmlToMarkdown';
 
@@ -128,26 +129,11 @@ Source: ${sourceUrl}
 
 ${markdownContent}`;
 
-    try {
-      await navigator.clipboard.writeText(output);
+    if (await copyText(output)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      // Fallback for older browsers
-      const textarea = document.createElement('textarea');
-      textarea.value = output;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (e) {
-        console.error('Failed to copy:', e);
-      }
-      document.body.removeChild(textarea);
+    } else {
+      console.error('Failed to copy page content');
     }
   }, [metadata.title]);
 

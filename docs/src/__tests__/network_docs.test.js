@@ -173,6 +173,10 @@ describe("Start here", () => {
     assert.strictEqual(links["Running a full node"], "https://docs.aztec.network/operate/operators/setup/running_a_node.md");
     assert.strictEqual(links["Testing contracts"], "https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts.md");
     assert.strictEqual(links["Aztec.nr API reference"], "https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt");
+    assert.strictEqual(
+      links["Migration notes for a version range"],
+      "https://docs.aztec.network/developers/docs/resources/migration_notes.md?from=5.2.0&to=6.0.0",
+    );
   });
 
   it("follows a preview's host and layout, where the networks' operator docs are at /operate/alpha", () => {

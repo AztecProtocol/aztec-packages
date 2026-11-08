@@ -122,6 +122,7 @@ These resources help you understand Aztec concepts, read docs, or provide additi
   - [awesome-noir](https://github.com/noir-lang/awesome-noir) - community Noir resources
   - [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec) - community Aztec resources
 - **Copy docs into context** - The "Copy page" button at the top of each page copies the page as markdown. Its menu also opens the page in ChatGPT or Claude so you can ask questions about it, and links to the markdown version of the page.
+- **Migration notes for an upgrade** - Append `?from=[YOUR_VERSION]&to=[TARGET_VERSION]` to the migration notes markdown URL (for example `https://docs.aztec.network/developers/docs/resources/migration_notes.md?from=5.2.0&to=6.0.0`) to get only the notes an upgrade crosses: every version after `from`, up to and including `to`, oldest first. Leave out `to` to go up to the newest release these docs cover. The migration notes page has a panel that copies the same range.
 - **Context7** - [Context7](https://context7.com) is a generic MCP server. The Aztec index at [context7.com/aztecprotocol/aztec-packages](https://context7.com/aztecprotocol/aztec-packages) is scoped by [`context7.json`](https://github.com/AztecProtocol/aztec-packages/blob/next/context7.json) to the developer and operator docs of the version the networks run, and excludes the repository's build and CI infrastructure. Note that it may be less current than the MCP servers above.
 
 ## Aztec and Noir tool reference
