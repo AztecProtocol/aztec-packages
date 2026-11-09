@@ -11,6 +11,7 @@
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -211,40 +212,25 @@ void AvmProver::execute_pcs_rounds()
         return static_cast<size_t>(std::distance(polys.begin(), it));
     };
 
-    auto add_scaled_batched =
+    const auto add_scaled_batched =
         [](Polynomial& dst, const std::span<Polynomial>& sources, const std::span<FF>& scalars, const size_t skip_idx) {
-            const size_t num_slots = bb::get_num_cpus();
-            std::vector<Polynomial> batched_polys(num_slots);
-            for (auto& poly : batched_polys) {
-                poly = Polynomial(dst.size(), dst.virtual_size(), dst.start_index());
-            }
-
-            // Chunks are consumed dynamically via an atomic counter: faster threads naturally pick up
-            // more chunks while the slot they write to stays fixed for the life of their outer task.
-            std::atomic<size_t> next_poly(0);
-
-            // Accumulate polynomials: each thread picks up the next available polynomial
-            parallel_for(num_slots, [&](size_t slot_id) {
-                while (true) {
-                    const size_t poly_id = next_poly.fetch_add(1, std::memory_order_relaxed);
-                    if (poly_id >= sources.size()) {
-                        break;
-                    }
-                    if (poly_id == skip_idx) {
-                        continue;
-                    }
-
-                    const size_t start_idx = sources[poly_id].start_index();
-                    const size_t end_idx = sources[poly_id].end_index();
-                    for (size_t idx = start_idx; idx < end_idx; idx++) {
-                        batched_polys[slot_id].at(idx) += scalars[poly_id] * sources[poly_id][idx];
-                    }
+            BB_ASSERT_EQ(sources.size(), scalars.size());
+            std::vector<PolynomialSpan<const FF>> source_spans;
+            std::vector<FF> source_scalars;
+            source_spans.reserve(sources.size());
+            source_scalars.reserve(sources.size());
+            for (size_t poly_id = 0; poly_id < sources.size(); ++poly_id) {
+                const auto& source = sources[poly_id];
+                // The selected polynomial was moved into dst. Empty sources contribute nothing and may
+                // start outside dst's backing range, so omit them before the helper's range checks.
+                if (poly_id == skip_idx || source.is_empty()) {
+                    continue;
                 }
-            });
-
-            for (const auto& poly : batched_polys) {
-                dst += poly;
+                source_spans.emplace_back(static_cast<PolynomialSpan<const FF>>(source));
+                source_scalars.push_back(scalars[poly_id]);
             }
+            bb::add_scaled_batch(
+                dst, std::span<const PolynomialSpan<const FF>>(source_spans), std::span<const FF>(source_scalars));
         };
 
     // Batch to be shifted polys in their to_be_shifted form
@@ -269,7 +255,7 @@ void AvmProver::execute_pcs_rounds()
     // Assign the batched unshifted polynomial according to whether the largest poly was among the to be shifted polys
     // or not
     Polynomial batched_unshifted;
-    if (unshifted_polys[max_idx_unshifted].end_index() > batched_shifted.end_index()) {
+    if (unshifted_polys[max_idx_unshifted].end_index() >= batched_shifted.end_index()) {
         batched_unshifted = std::move(unshifted_polys[max_idx_unshifted]);
         batched_unshifted *= unshifted_challenges[max_idx_unshifted];
         batched_unshifted += batched_shifted;
