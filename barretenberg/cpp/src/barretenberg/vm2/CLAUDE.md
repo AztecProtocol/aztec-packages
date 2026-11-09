@@ -44,10 +44,10 @@ barretenberg/cpp/src/barretenberg/vm2/
 
 ## Git workflow
 
-**IMPORTANT:** For AVM work, use base branch `merge-train/avm`, not `master`.
+**IMPORTANT:** For AVM work, use base branch `next`, not `master`.
 
-- `git diff merge-train/avm...HEAD`
-- `git log merge-train/avm..HEAD`
+- `git diff origin/next...HEAD`
+- `git log origin/next..HEAD`
 
 ## Build and test
 

@@ -47,7 +47,7 @@ jobs:
         env:
           PUBLIC_BRANCH: public-v5-next
           UPSTREAM_BRANCH: v5-next
-        run: ./scripts/merge-train/sync-public-next.sh
+        run: ./scripts/public-next/sync.sh
 
       - name: Merge public-v5-next into v5-next
         env:
@@ -55,4 +55,4 @@ jobs:
           SOURCE_BRANCH: public-v5-next
           TARGET_BRANCH: v5-next
           CONFLICT_EXIT_CODE: 1
-        run: ./scripts/merge-train/merge-public-next.sh
+        run: ./scripts/public-next/merge.sh

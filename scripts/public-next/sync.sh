@@ -4,7 +4,7 @@
 #
 # $PUBLIC_BRANCH is a pure mirror of the public repo: it carries no private commits, so the sync is
 # a hard reset rather than a merge. Bringing upstream into the private $TARGET_BRANCH is a separate
-# step (merge-public-next.sh), run after this one.
+# step (scripts/public-next/merge.sh), run after this one.
 
 set -euo pipefail
 

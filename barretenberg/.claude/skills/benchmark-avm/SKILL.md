@@ -10,7 +10,7 @@ Run the **AVM full-proving** benchmark — the same one CI tracks on the benchma
 
 The benchmark is a jest test, `yarn-project/bb-prover/src/avm_proving_tests/avm_bulk.test.ts`. It does **full AVM proving** (not check-circuit — see the comment at the top of the test): it runs `bulkTest()` against the `AvmTest` contract through the real prover and records per-stage timings into a `TestExecutorMetrics`.
 
-## Setup — do this once per merge-train sync (minutes, not hours)
+## Setup — do this once per sync with `next` (minutes, not hours)
 
 The bulk test drives a real public-tx flow: it **simulates** the `AvmTest` contract against a live **world-state DB**, then **proves** with `bb-avm`. Since the world-state runs as a separate **IPC process** (`aztec-wsdb`) reached through two top-level components, `wsdb/` and `ipc-runtime/`, that are `portal:`-linked into yarn-project. A plain `./bootstrap.sh build yarn-project` does **not** wire these up (it serves cached artifacts), and the pinned `AvmTest` artifact and several `dest/` trees might go stale. The archaeology to discover all this is what turns a "quick bench" into hours; the recipe below is the distilled fast path. Run it from the repo root:
 
@@ -24,7 +24,7 @@ The bulk test drives a real public-tx flow: it **simulates** the `AvmTest` contr
 (cd ipc-runtime && ./bootstrap.sh)
 (cd wsdb && ./bootstrap.sh)
 
-# 3. Refresh the AVM test contract artifact. Merge-train changes to constants.nr / AVM opcodes make the
+# 3. Refresh the AVM test contract artifact. Changes on next to constants.nr / AVM opcodes make the
 #    pinned AvmTest bytecode revert immediately (see "reverts with 0 instructions" below). nargo + the
 #    avm-transpiler must already be built (they are after any recent noir/noir-projects build).
 (cd labs/noir-projects/noir-contracts && ./bootstrap.sh build avm_test_contract)
@@ -43,7 +43,7 @@ Fast triage when the bulk test fails during setup:
 
 | Symptom                                                                                                                                              | Cause                                                                                                                                                                                | Fix                                                                                                                                           |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TypeError: NativeWorldState is not a constructor` (or `BaseNativeWorldState`), thrown from `world-state/dest/native/native_world_state_instance.js` | Stale `world-state`/`@aztec/native` `dest/` — merge-train changed the native world-state API (`@aztec/native` no longer exports `NativeWorldState`) but the compiled JS is pre-merge | `yarn build` (step 4) to recompile `dest/`. A cached `./bootstrap.sh build yarn-project` will **not** fix this — it restores the stale build. |
+| `TypeError: NativeWorldState is not a constructor` (or `BaseNativeWorldState`), thrown from `world-state/dest/native/native_world_state_instance.js` | Stale `world-state`/`@aztec/native` `dest/` — a change on next changed the native world-state API (`@aztec/native` no longer exports `NativeWorldState`) but the compiled JS is pre-merge | `yarn build` (step 4) to recompile `dest/`. A cached `./bootstrap.sh build yarn-project` will **not** fix this — it restores the stale build. |
 | `Cannot find module '@aztec-labs/wsdb'` / `'@aztec-foundation/ipc-runtime'`                                                                                          | The portal deps aren't installed                                                                                                                                                     | steps 2 + `yarn install` (step 4)                                                                                                             |
 | Test **reverts**: `expect(result.revertCode.isOK()).toBe(true)` fails, log shows `Reverted code: Reverted` and `Total instructions executed: 0`      | Stale `AvmTest` artifact — pre-merge bytecode embeds old constants/gas vs the rebuilt bb-avm/simulator, so the call reverts at dispatch                                              | step 3 (recompile `avm_test_contract`) + `yarn workspace @aztec/noir-test-contracts.js generate` + `yarn build`                               |
 
@@ -114,7 +114,7 @@ jq -r '.[] | "\(.name)\t\(.value)"' /tmp/avm_legacy.bench.json | sort > /tmp/leg
 diff -y /tmp/legacy.tsv /tmp/new.tsv
 ```
 
-## Comparing across commits (e.g. before/after a merge-train merge)
+## Comparing across commits (e.g. before/after a merge)
 
 To attribute a regression to a specific commit, rebuild only `bb-avm` at each commit and run the same test — the TS harness, artifacts, and world-state stack stay put, so only the prover binary varies:
 

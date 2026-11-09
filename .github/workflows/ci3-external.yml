@@ -89,9 +89,8 @@ jobs:
           fi
           if [[ "$PR_BASE_REF" != "master" && \
                 "$PR_BASE_REF" != "staging" && \
-                "$PR_BASE_REF" != "next" && \
-                "$PR_BASE_REF" != merge-train/* ]]; then
-            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: $PR_BASE_REF."
+                "$PR_BASE_REF" != "next" ]]; then
+            echo "Error: External PRs can only target master, staging or next. Targeted: $PR_BASE_REF."
             exit 1
           fi
           if [ "$HAS_CI_LABEL" = false ]; then

@@ -23,12 +23,6 @@ function setup_environment {
     jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
     echo "GCP key stored"
   fi
-  # To allow full concurrency, we set instance postfix for merge-train PRs
-  if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
-    export INSTANCE_POSTFIX=${PR_COMMITS:-}
-    echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
-    echo "Instance postfix set to: $INSTANCE_POSTFIX"
-  fi
   # The SSH key is written only for the direct-SSH bootstrap path (CI_USE_SSH=1, set from
   # the CI_USE_SSH repo variable as an escape hatch if SSM breaks). SSM mode authenticates
   # to the build instance with an instance profile and needs no SSH credential at all, so

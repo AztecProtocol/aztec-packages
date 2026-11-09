@@ -1026,9 +1026,9 @@ case "$cmd" in
     ./bootstrap.sh release
     ;;
 
-  ##########################
-  # MERGE TRAIN CI SUBSETS #
-  ##########################
+  ###########################
+  # BARRETENBERG CI SUBSETS #
+  ###########################
   "ci-barretenberg-debug")
     # Nightly job: no fail-fast, so one red test does not hide the rest of the debug-build signal.
     export CI=1

@@ -37,4 +37,4 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BASE_BRANCH: public-v5-next
           HEAD_BRANCH: v5-next
-        run: ./scripts/merge-train/update-public-next-pr-body.sh
+        run: ./scripts/public-next/update-pr-body.sh

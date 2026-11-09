@@ -16,11 +16,8 @@ on:
   merge_group: {}
 
 concurrency:
-  # merge-train PRs: one run per commit — distinct commits run concurrently (each is a real
-  # train state to test), but duplicate events for the same commit (synchronize + the bot's
-  # label re-applies) collapse. Keying on head.sha instead of run_id is what collapses them;
-  # run_id is unique per run and never collapsed anything. Everything else: one run per branch.
-  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.head.sha) || github.event.merge_group.head_ref || github.ref_name }}
+  # One run per branch.
+  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -53,13 +50,6 @@ jobs:
       contents: read    # checkout/fetch with the default github.token
       pull-requests: read # merge_group mode looks up the source PR
     steps:
-      - name: Remove wakeup label
-        if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        # REST: `gh pr edit` needs a read:org-scoped token for its viewer query and fails silently.
-        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-wakeup-pr-after-merge" >/dev/null || true
-
       # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
       # stores the persisted github.token in a temp credentials file pulled in via includeIf, which
       # `git config --unset-all http....extraheader` cannot clear. Our runner-side pushes (ci3.sh
@@ -140,15 +130,6 @@ jobs:
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
-
-      # A merge-train failure is posted to the train's team channel; the script maps the branch to
-      # its channel and ignores the others. CI_LOG_ID is the build log, set by ci3/bootstrap_ec2.
-      - name: Notify merge-train failure
-        if: failure() && startsWith(github.event.pull_request.head.ref, 'merge-train/')
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          REF_NAME: ${{ github.event.pull_request.head.ref }}
-        run: ./scripts/merge-train/slack-notify.sh "${CI_LOG_ID:-}"
 
       - name: Post-Actions
         env:

@@ -43,7 +43,7 @@ jobs:
           git config user.email "tech@aztecprotocol.com"
 
       - name: Force-sync public-next to upstream
-        run: ./scripts/merge-train/sync-public-next.sh
+        run: ./scripts/public-next/sync.sh
 
       - name: Merge public-next into next
         env:
@@ -51,4 +51,4 @@ jobs:
           SOURCE_BRANCH: public-next
           TARGET_BRANCH: next
           CONFLICT_EXIT_CODE: 1
-        run: ./scripts/merge-train/merge-public-next.sh
+        run: ./scripts/public-next/merge.sh

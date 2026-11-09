@@ -17,7 +17,7 @@
     "labs"
   ],
   "rules": [
-    "Aztec releases are identified by semantic version tags (e.g. v5) and by network names (e.g. testnet, mainnet). Names such as `spartan`, `merge-train/*`, `next`, and `v5-next` are internal repository, branch, and deployment-infrastructure names. They are not release channels, SDK versions, or networks. Never tell a user to install, target, or migrate to one.",
+    "Aztec releases are identified by semantic version tags (e.g. v5) and by network names (e.g. testnet, mainnet). Names such as `spartan`, `next`, and `v5-next` are internal repository, branch, and deployment-infrastructure names. They are not release channels, SDK versions, or networks. Never tell a user to install, target, or migrate to one.",
     "The Aztec developer SDK / aztec-nr version used to write and compile contracts may differ from the node version an operator runs. Check https://docs.aztec.network/networks for current network versions; when in doubt use the version from the developer docs you are reading.",
     "Use the `aztec` CLI wrapper, not `nargo` or `bb` directly: `aztec compile` (not `nargo compile`) and `aztec test` (not `nargo test`). Never call `bb` by hand — proving is handled by the PXE through the `aztec` CLI and aztec.js."
   ]

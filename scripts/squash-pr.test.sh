@@ -2,7 +2,7 @@
 # End-to-end test for squash-pr.sh against a local bare "GitHub" and a shallow "runner" checkout,
 # with `gh` replaced by a stub that answers from a full clone of the same history.
 #
-# Run: scripts/merge-train/squash-pr.test.sh
+# Run: scripts/squash-pr.test.sh
 # Needs git and jq; makes no network calls.
 set -euo pipefail
 

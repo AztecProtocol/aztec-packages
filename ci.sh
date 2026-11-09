@@ -137,7 +137,7 @@ function multi_job_run {
   export DENOISE_WIDTH=32
   # Only the first job (the amd64 full build) runs the dedicated bench box and uploads;
   # the rest bench inline as a breakage check (see bootstrap.sh build_and_test). This
-  # de-races grind runs (e.g. merge-queue-heavy fires ~10 instances) that would otherwise
+  # de-races multi-instance runs (e.g. merge-queue, grind) that would otherwise
   # all upload to the same bench cache key.
   local bench_primary=${1%% *}
   export bench_primary
@@ -232,21 +232,6 @@ case "$cmd" in
     multi_job_run \
       'x1-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
-    ;;
-  merge-queue-heavy)
-    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan-v5 PRs.
-    multi_job_run \
-      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast'
-    ;;
-  merge-queue-ci)
-    # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
-    export DRY_RUN=1
-    export NO_CACHE=1
-    multi_job_run \
-      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast' \
-      "release amd64 ci-release v0.0.1-commit.$(git rev-parse --short HEAD)"
     ;;
   grind-test)
     full_cmd="$1"
