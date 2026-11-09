@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include "barretenberg/common/scalar_arithmetic.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <algorithm>
 #include <cstdint>
@@ -273,6 +274,9 @@ struct NativeMatrix {
 // "/ 2^BATCH" is an exact integer division.
 inline DivstepMatrix Native5x64::compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept
 {
+#if BB_EXPERIMENTAL_SCALAR_ARITHMETIC
+    return compute_divsteps_vartime<BATCH>(delta, f_lo, g_lo);
+#else
     i64 u = 1, v = 0, q = 0, r = 1;
     for (int i = 0; i < BATCH; ++i) {
         if (g_lo & 1) {
@@ -302,6 +306,7 @@ inline DivstepMatrix Native5x64::compute_divstep_matrix(i64& delta, u64 f_lo, u6
         }
     }
     return { u, v, q, r };
+#endif
 }
 
 inline void Native5x64::apply_divstep_matrix(const DivstepMatrix& m,

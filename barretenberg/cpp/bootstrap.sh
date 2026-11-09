@@ -7,7 +7,12 @@ if [ "${AVM:-1}" -eq "1" ]; then
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+case "${BB_EXPERIMENTAL_SCALAR_ARITHMETIC:-OFF}" in
+  1|ON|on|TRUE|true) export BB_EXPERIMENTAL_SCALAR_ARITHMETIC=ON ;;
+  0|OFF|off|FALSE|false) export BB_EXPERIMENTAL_SCALAR_ARITHMETIC=OFF ;;
+  *) echo "Invalid BB_EXPERIMENTAL_SCALAR_ARITHMETIC: expected ON or OFF" >&2; exit 1 ;;
+esac
+export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns) "$BB_EXPERIMENTAL_SCALAR_ARITHMETIC")
 export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.
@@ -91,7 +96,7 @@ function cmake_build {
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
     cmake_args+=(-DAVM_TRANSPILER_LIB=)
   fi
-  cmake --preset "$preset" "${cmake_args[@]}"
+  cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -148,7 +153,7 @@ function build_format_check {
 function build_native_objects {
   set -eu
   if ! cache_exists barretenberg-$native_preset-$hash.zst; then
-    cmake --preset "$native_preset"
+    cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets
   fi
@@ -179,7 +184,7 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
-  cmake --preset gcc -DSYNTAX_ONLY=1
+  cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
@@ -195,7 +200,7 @@ function build_windows_syntax_check_only {
   if cache_download barretenberg-windows-syntax-$hash.zst; then
     return
   fi
-  cmake --preset amd64-windows -DSYNTAX_ONLY=1
+  cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset amd64-windows -DSYNTAX_ONLY=1
   cmake --build --preset amd64-windows
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-amd64-windows/syntax-check-success.flag
@@ -208,9 +213,9 @@ function build_fuzzing_syntax_check_only {
   if cache_download barretenberg-fuzzing-$hash.zst; then
     return
   fi
-  cmake --preset fuzzing -DSYNTAX_ONLY=1
+  cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset fuzzing -DSYNTAX_ONLY=1
   cmake --build --preset fuzzing
-  cmake --preset fuzzing-avm -DSYNTAX_ONLY=1
+  cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset fuzzing-avm -DSYNTAX_ONLY=1
   cmake --build --preset fuzzing-avm
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-fuzzing/syntax-check-success.flag
@@ -227,7 +232,7 @@ function build_smt_verification {
   if ! dpkg -l python3-pip python3-venv m4 bison >/dev/null 2>&1; then
     sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
   fi
-  cmake --preset smt-verification
+  cmake -DBB_EXPERIMENTAL_SCALAR_ARITHMETIC="$BB_EXPERIMENTAL_SCALAR_ARITHMETIC" --preset smt-verification
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
   if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then

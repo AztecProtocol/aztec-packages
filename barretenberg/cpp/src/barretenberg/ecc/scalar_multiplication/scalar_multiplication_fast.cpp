@@ -4,6 +4,7 @@
 #include "./pippenger_constantine.hpp"
 #include "./pippenger_dedup.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/scalar_arithmetic.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -392,6 +393,12 @@ template <typename Curve> void tree_reduce_in_place_scalar(ThreadScratch<Curve>&
  */
 template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {
+#if BB_EXPERIMENTAL_SCALAR_ARITHMETIC
+    if constexpr (!bb::simd_available_v<typename Curve::BaseField::Params>) {
+        tree_reduce_in_place_scalar<Curve>(s, initial_len);
+        return;
+    }
+#endif
     size_t curr_len = initial_len;
 
     // The drain spans (lhs/rhs) are scratch shared with the Stage-6b reduction, which leaves a non-zero

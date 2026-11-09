@@ -1,4 +1,6 @@
 #pragma once
+
+#include "barretenberg/common/scalar_arithmetic.hpp"
 // clang-format off
 
 /*
@@ -991,4 +993,12 @@
         /* Output in (r12, r13, r14, r15) = (r[4], r[5], r[6], r[7]). */                                                \
         /* Since S < 2p < 2^255, the top limb r[7] < 2^63. Valid input for another MUL. */
 
+#endif
+
+#if BB_EXPERIMENTAL_SCALAR_ARITHMETIC && defined(__ADX__) && !defined(DISABLE_ADX)
+#include "asm_macros_short_carry.hpp"
+#undef MUL
+#undef SQR
+#define MUL(...) MUL_SHORT_CARRY(__VA_ARGS__)
+#define SQR(...) SQR_LOW_HALF_REDUCTION(__VA_ARGS__)
 #endif
