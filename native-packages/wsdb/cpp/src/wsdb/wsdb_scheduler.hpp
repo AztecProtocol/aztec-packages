@@ -20,10 +20,12 @@
  *
  * Threading: submit_* is called only on the reactor thread (arrival order);
  * work runs on the thread pool; completions re-pump under the lock. The inline
- * fast path runs work directly on the reactor thread when nothing is in flight
- * and no further request is pending — so a synchronous single-in-flight client
- * (e.g. an AVM sim) never queues. Lifetime is via shared_from_this so a
- * completion can safely outlive the reactor loop's return.
+ * read fast path runs reads directly on the reactor thread when nothing is in
+ * flight and no further request is pending — so sequential AVM lookups never
+ * queue. Writes always run on the pool so slow operations such as history
+ * pruning cannot block the reactor from receiving requests on other forks.
+ * Lifetime is via shared_from_this so a completion can safely outlive the
+ * reactor loop's return.
  */
 
 #include "common/thread_pool.hpp"
@@ -69,9 +71,6 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
     // A write on `fork`: exclusive on that fork. Called only on the reactor thread.
     void submit_write(uint64_t fork, std::function<void()> work)
     {
-        if (run_inline_if_idle(work)) {
-            return;
-        }
         std::lock_guard<std::mutex> lock(mtx_);
         Lane& lane = lanes_[fork];
         lane.pending.push_back({ true, std::move(work) });
@@ -90,7 +89,7 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
         int in_flight_mutating = 0; // of which, writes
     };
 
-    // Fully idle => run on the reactor thread, skipping the pool handoff AND the
+    // Fully idle => run a read on the reactor thread, skipping the pool handoff AND the
     // ordering bookkeeping. Safe because submit_* is reactor-only, so with
     // nothing in flight this request is alone and ordering is moot.
     bool run_inline_if_idle(std::function<void()>& work)
