@@ -82,7 +82,14 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_po
     for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
         // After the initial sumcheck round, the new size is CEIL(size/2).
         size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-        poly = Polynomial(desired_size, circuit_size / 2);
+        // The first fold overwrites [floor(start/2), ceil(end/2)). Avoid zeroing
+        // when that covers this entire allocation. Keep zero-filled leading holes
+        // (and the original empty-source behavior) for other backing ranges.
+        if (!full_poly.is_empty() && full_poly.start_index() < 2) {
+            poly = Polynomial(desired_size, circuit_size / 2, Polynomial::DontZeroMemory::FLAG);
+        } else {
+            poly = Polynomial(desired_size, circuit_size / 2);
+        }
     }
 }
 
