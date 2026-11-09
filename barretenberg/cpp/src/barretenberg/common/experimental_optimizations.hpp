@@ -5,6 +5,7 @@ namespace detail {
 
 extern bool experimental_optimizations_enabled;
 extern bool rollup_experimental_optimizations_enabled;
+extern bool avm_experimental_optimizations_enabled;
 
 } // namespace detail
 
@@ -21,6 +22,12 @@ inline bool experimental_optimizations_enabled() noexcept
 inline bool rollup_experimental_optimizations_enabled() noexcept
 {
     return detail::rollup_experimental_optimizations_enabled;
+}
+
+/** Return the frozen AVM first-fold and PCS optimisation selection after initialization. */
+inline bool avm_experimental_optimizations_enabled() noexcept
+{
+    return detail::avm_experimental_optimizations_enabled;
 }
 
 } // namespace bb

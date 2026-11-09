@@ -18,6 +18,7 @@ export function resolveExperimentalOptions(options: BackendOptions): BackendOpti
     ...options,
     experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1',
     rollupExperimentalOptimizations: env.ROLLUP_EXPERIMENTAL_OPTIMIZATIONS === '1',
+    avmExperimentalOptimizations: env.AVM_EXPERIMENTAL_OPTIMIZATIONS === '1',
   };
 }
 

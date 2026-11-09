@@ -29,7 +29,10 @@ describe.each([
   });
 });
 
-describe('frozen experimental configuration', () => {
+describe.each([
+  { group: 'BB', enabled: { experimentalOptimizations: true }, disabled: { experimentalOptimizations: false } },
+  { group: 'AVM', enabled: { avmExperimentalOptimizations: true }, disabled: { avmExperimentalOptimizations: false } },
+])('frozen $group experimental configuration', ({ enabled, disabled }) => {
   afterEach(async () => {
     await Barretenberg.destroySingleton();
     BarretenbergSync.destroySingleton();
@@ -37,28 +40,18 @@ describe('frozen experimental configuration', () => {
   });
 
   it('refuses to change an asynchronous singleton without losing the existing instance', async () => {
-    const instance = new Barretenberg(
-      { call: async () => new Uint8Array(), destroy: async () => {} },
-      { experimentalOptimizations: true },
-    );
+    const instance = new Barretenberg({ call: async () => new Uint8Array(), destroy: async () => {} }, enabled);
     jest.spyOn(Barretenberg, 'new').mockResolvedValue(instance);
-    await Barretenberg.initSingleton({ experimentalOptimizations: true });
-    await expect(Barretenberg.initSingleton({ experimentalOptimizations: false })).rejects.toThrow(
-      'already configured',
-    );
-    expect(await Barretenberg.initSingleton({ experimentalOptimizations: true })).toBe(instance);
+    await Barretenberg.initSingleton(enabled);
+    await expect(Barretenberg.initSingleton(disabled)).rejects.toThrow('already configured');
+    expect(await Barretenberg.initSingleton(enabled)).toBe(instance);
   });
 
   it('refuses to change a synchronous singleton without losing the existing instance', async () => {
-    const instance = new BarretenbergSync(
-      { call: () => new Uint8Array(), destroy: () => {} },
-      { experimentalOptimizations: true },
-    );
+    const instance = new BarretenbergSync({ call: () => new Uint8Array(), destroy: () => {} }, enabled);
     jest.spyOn(BarretenbergSync, 'new').mockResolvedValue(instance);
-    await BarretenbergSync.initSingleton({ experimentalOptimizations: true });
-    await expect(BarretenbergSync.initSingleton({ experimentalOptimizations: false })).rejects.toThrow(
-      'already configured',
-    );
-    expect(await BarretenbergSync.initSingleton({ experimentalOptimizations: true })).toBe(instance);
+    await BarretenbergSync.initSingleton(enabled);
+    await expect(BarretenbergSync.initSingleton(disabled)).rejects.toThrow('already configured');
+    expect(await BarretenbergSync.initSingleton(enabled)).toBe(instance);
   });
 });
