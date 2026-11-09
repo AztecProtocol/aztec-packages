@@ -9,6 +9,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/groups/affine_add_packed.hpp"
 #include "barretenberg/ecc/groups/element_impl.hpp"
+#include "barretenberg/ecc/scalar_multiplication/batch_affine_ifma.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include <algorithm>
@@ -277,6 +278,103 @@ template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_
     s.lhs.reset();
     s.rhs.reset();
 }
+
+#ifdef BB_MSM_IFMA
+// Pairs per IFMA drain. The queue (operands held limb-major for the vector kernel) lives in a per-thread heap buffer
+// rather than in the MSM arena, so the arena layout is the same with and without IFMA.
+inline constexpr size_t IFMA_BATCH_CAPACITY = 256;
+
+[[maybe_unused]] inline ifma::DrainBuffer<IFMA_BATCH_CAPACITY>& ifma_drain_buffer()
+{
+    static thread_local std::unique_ptr<ifma::DrainBuffer<IFMA_BATCH_CAPACITY>> thread_buffer;
+    if (!thread_buffer) {
+        thread_buffer = std::make_unique<ifma::DrainBuffer<IFMA_BATCH_CAPACITY>>();
+    }
+    return *thread_buffer;
+}
+
+/**
+ * @brief tree_reduce_in_place's level walk with the batch-affine drain run by the AVX-512 IFMA kernel
+ *        (`ifma::drain`). Identical pairing and compaction; only the drain arithmetic differs.
+ */
+template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s, size_t initial_len) noexcept
+{
+    using BaseField = typename Curve::BaseField;
+    using AffineElement = typename Curve::AffineElement;
+    auto& buf = ifma_drain_buffer();
+    AffineElement* pts = s.curr_pts.data();
+    size_t curr_len = initial_len;
+
+    while (true) {
+        size_t i = 0;
+        size_t next_len = 0;
+        size_t pair_count = 0;
+        bool made_pair = false;
+
+        while (i < curr_len) {
+            if (i + 1 < curr_len && s.curr_buckets[i] == s.curr_buckets[i + 1]) {
+                buf.push(pair_count, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+                s.curr_buckets[next_len] = s.curr_buckets[i];
+                buf.pair_dest[pair_count] = static_cast<uint32_t>(next_len);
+                ++next_len;
+                ++pair_count;
+                i += 2;
+                made_pair = true;
+
+                if (pair_count >= IFMA_BATCH_CAPACITY) {
+                    ifma::drain_to<BaseField>(buf, pair_count, pts);
+                    pair_count = 0;
+                }
+            } else {
+                pts[next_len] = pts[i];
+                s.curr_buckets[next_len] = s.curr_buckets[i];
+                ++next_len;
+                ++i;
+            }
+        }
+
+        if (pair_count > 0) {
+            ifma::drain_to<BaseField>(buf, pair_count, pts);
+        }
+
+        if (!made_pair) {
+            break;
+        }
+
+        curr_len = next_len;
+    }
+
+    s.result_len = curr_len;
+}
+
+/**
+ * @brief Stage 6b twin of batch_affine_add_indexed_scalar on the IFMA drain: (x, y)[dst] += (x, y)[src] for every
+ *        (dst, src) pair, one inversion per IFMA_BATCH_CAPACITY pairs.
+ *
+ * @details Same preconditions as the scalar kernel (distinct x per pair, distinct dst indices, dst set disjoint from
+ *          src set), so draining in chunks never reads a slot an earlier chunk wrote.
+ */
+template <typename BaseField>
+void batch_affine_add_indexed_ifma(BaseField* x,
+                                   BaseField* y,
+                                   const std::pair<uint32_t, uint32_t>* pairs,
+                                   size_t num_pairs) noexcept
+{
+    auto& buf = ifma_drain_buffer();
+    for (size_t base = 0; base < num_pairs; base += IFMA_BATCH_CAPACITY) {
+        const size_t n = std::min(IFMA_BATCH_CAPACITY, num_pairs - base);
+        const auto* chunk = pairs + base;
+        for (size_t k = 0; k < n; ++k) {
+            const auto [dst, src] = chunk[k];
+            buf.push(k, x[src], y[src], x[dst], y[dst]);
+        }
+        ifma::drain<BaseField>(buf, n, [&](size_t k, const BaseField& x3, const BaseField& y3) {
+            x[chunk[k].first] = x3;
+            y[chunk[k].first] = y3;
+        });
+    }
+}
+#endif
 
 template <typename Curve> inline void drain_batch_scalar(ThreadScratch<Curve>& s, size_t pair_count) noexcept
 {
