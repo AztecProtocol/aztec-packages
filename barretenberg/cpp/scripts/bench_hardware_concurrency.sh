@@ -18,6 +18,7 @@
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Use ci3 script base.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $REPO_ROOT/ci3/source
 source $REPO_ROOT/barretenberg/cpp/scripts/pinned_chonk_inputs.sh
 

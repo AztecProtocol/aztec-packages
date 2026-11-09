@@ -4,6 +4,7 @@
 # involved and `--provenance` links every package to this workflow run. Requires npm >= 11.5.1.
 #   usage: publish_npm_release <dir-of-tgz>
 # DRY_RUN=1 runs `npm publish --dry-run` instead.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Absolute: npm parses a relative "dir/name.tgz" as the GitHub shorthand owner/repo.

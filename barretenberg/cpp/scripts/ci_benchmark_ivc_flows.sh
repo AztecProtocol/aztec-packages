@@ -2,6 +2,7 @@
 # Performs the chonk private transaction proving benchmarks for our 'realistic apps'.
 # Downloads the pinned inputs itself when the requested flow is missing or stale.
 REPO_ROOT=$(git rev-parse --show-toplevel)
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source "$REPO_ROOT/ci3/source"
 source "$REPO_ROOT/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 

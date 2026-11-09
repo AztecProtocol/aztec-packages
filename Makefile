@@ -21,6 +21,12 @@ export DENOISE := 1
 
 ROOT := $(shell git rev-parse --show-toplevel)
 
+# Recipes call ci3 directly, so the submodules (ci3 among them) must be at their pins before any recipe
+# runs, including when make is started without bootstrap.sh. A no-op when they already are.
+ifneq ($(shell "$(ROOT)/bootstrap.sh" init >&2 && echo ok),ok)
+$(error ./bootstrap.sh init failed)
+endif
+
 # Core helper to run a shell command with colored, prefixed output
 # Usage: $(call run_command,label,directory,command)
 # Color is automatically computed from label hash by color_prefix script
@@ -70,7 +76,8 @@ fast-foundation: barretenberg bb-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
 		ci3-tests \
-		claude-tests
+		claude-tests \
+		scripts-tests
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
@@ -426,6 +433,14 @@ wsdb-tests: wsdb
 .PHONY: claude-tests
 claude-tests:
 	$(call test,$@,.claude)
+
+#==============================================================================
+# Repository scripts
+#==============================================================================
+
+.PHONY: scripts-tests
+scripts-tests:
+	$(call test,$@,scripts)
 
 # The ci3 scripts' own tests (redact, semver, cache, ...).
 .PHONY: ci3-tests

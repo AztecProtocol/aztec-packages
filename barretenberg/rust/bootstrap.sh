@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # The crate generates its own bindings, so the hash covers the schema and

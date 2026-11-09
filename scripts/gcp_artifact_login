@@ -5,6 +5,7 @@
 # .github/ci3.sh stores) so callers can mint access tokens for the AR npm repo. When
 # INTERNAL_DOCKER_REGISTRY is set (e.g. us-west1-docker.pkg.dev/<project>/<repo>), also registers
 # docker's gcloud credential helper for that registry host.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Ensure a service-account key is on disk, mirroring .github/ci3.sh's setup_environment.

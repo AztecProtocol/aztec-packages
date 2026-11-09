@@ -17,9 +17,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Check out the ci3 submodule
-        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the
-        # contract libraries. A no-op on refs from before ci3 became a submodule.
-        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3; fi
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the contract
+        # libraries. The others are marked update = none in this checkout, so `bootstrap.sh init`, which
+        # every script that sources ci3 runs, leaves them out too. A no-op on refs from before ci3 became
+        # a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3 && git config -f .gitmodules --name-only --get-regexp '\.path$' | sed 's/\.path$/.update/' | grep -vx submodule.ci3.update | xargs -I{} git config {} none; fi
 
       - name: Check if PR exists and create if needed
         env:

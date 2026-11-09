@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Compiles the protocol contracts.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
