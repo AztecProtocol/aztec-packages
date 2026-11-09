@@ -32,8 +32,8 @@ contract InboxTest is Test {
       recipient: DataStructures.L2Actor({
         actor: 0x1000000000000000000000000000000000000000000000000000000000000000, version: version
       }),
-      content: 0x2000000000000000000000000000000000000000000000000000000000000000,
-      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
+      publicContentHash: 0x2000000000000000000000000000000000000000000000000000000000000000,
+      privateContentHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
       index: 0x01
     });
   }
@@ -47,10 +47,10 @@ contract InboxTest is Test {
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
     _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
-    // ensure content fits in a field
-    _message.content = bytes32(uint256(_message.content) % Constants.P);
-    // ensure secret hash fits in a field
-    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
+    // ensure public content hash fits in a field
+    _message.publicContentHash = bytes32(uint256(_message.publicContentHash) % Constants.P);
+    // ensure private content hash fits in a field
+    _message.privateContentHash = bytes32(uint256(_message.privateContentHash) % Constants.P);
     // update version
     _message.recipient.version = version;
     // set leaf index
@@ -72,7 +72,7 @@ contract InboxTest is Test {
     emit IInbox.MessageSent(leaf, expectedInboxRollingHash, 1, message);
     // event we will get
     (bytes32 insertedLeaf, uint256 insertedIndex) =
-      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+      inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
 
     assertEq(insertedLeaf, leaf);
     assertEq(insertedIndex, globalLeafIndex);
@@ -83,9 +83,12 @@ contract InboxTest is Test {
 
   function testSendDuplicateL2Messages() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    (bytes32 leaf1, uint256 index1) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    (bytes32 leaf2, uint256 index2) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    (bytes32 leaf3, uint256 index3) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf1, uint256 index1) =
+      inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
+    (bytes32 leaf2, uint256 index2) =
+      inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
+    (bytes32 leaf3, uint256 index3) =
+      inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
 
     // All the leaves should be different since the index gets mixed in
     assertNotEq(leaf1, leaf2);
@@ -100,27 +103,29 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.recipient.actor = bytes32(Constants.P);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor));
-    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
   }
 
   function testRevertIfVersionMismatch() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.recipient.version = version + 1;
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__VersionMismatch.selector, message.recipient.version, version));
-    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
   }
 
-  function testRevertIfContentTooLarge() public {
+  function testRevertIfPublicContentHashTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.content = bytes32(Constants.P);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
-    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    message.publicContentHash = bytes32(Constants.P);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__PublicContentHashTooLarge.selector, message.publicContentHash));
+    inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
   }
 
-  function testRevertIfSecretHashTooLarge() public {
+  function testRevertIfPrivateContentHashTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.secretHash = bytes32(Constants.P);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash));
-    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    message.privateContentHash = bytes32(Constants.P);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Inbox__PrivateContentHashTooLarge.selector, message.privateContentHash)
+    );
+    inbox.sendL2Message(message.recipient, message.publicContentHash, message.privateContentHash);
   }
 }

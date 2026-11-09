@@ -170,15 +170,21 @@ impl PrivateContext {
     }
 
     /// Consumes a message sent from Ethereum (L1) to Aztec (L2). Used by fee_juice.
-    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
+    pub fn consume_l1_to_l2_message(
+        &mut self,
+        public_content_hash: Field,
+        private_content: Field,
+        sender: EthAddress,
+        leaf_index: Field,
+    ) {
         let nullifier = process_l1_to_l2_message(
             self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),
             sender,
             self.chain_id(),
             self.version(),
-            content,
-            secret,
+            public_content_hash,
+            private_content,
             leaf_index,
         );
 
