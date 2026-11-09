@@ -238,7 +238,9 @@ class AvmFlavor {
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
 
-        ProverPolynomials(ProvingKey& proving_key);
+        bool memory_optimizations = false;
+
+        ProverPolynomials(ProvingKey& proving_key, bool memory_optimizations = false);
         // For partially evaluated multivariates.
         // TODO(fcarreiro): Reconsider its place.
         ProverPolynomials(const ProverPolynomials& full_polynomials, size_t circuit_size);

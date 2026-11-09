@@ -4,7 +4,8 @@
 
 namespace bb::avm2 {
 
-AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
+AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key, bool memory_optimizations)
+    : memory_optimizations(memory_optimizations)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
         BB_ASSERT_DEBUG(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
@@ -78,14 +79,14 @@ void AvmFlavor::Transcript::serialize_full_transcript()
 }
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_polynomials, size_t circuit_size)
+    : memory_optimizations(full_polynomials.memory_optimizations)
 {
     for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
         // After the initial sumcheck round, the new size is CEIL(size/2).
         size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-        // The first fold overwrites [floor(start/2), ceil(end/2)). Avoid zeroing
-        // when that covers this entire allocation. Keep zero-filled leading holes
-        // (and the original empty-source behavior) for other backing ranges.
-        if (!full_poly.is_empty() && full_poly.start_index() < 2) {
+        // Only omit initialization for non-empty sources beginning in the first pair:
+        // the fold must write every allocated coefficient before it is read.
+        if (memory_optimizations && !full_poly.is_empty() && full_poly.start_index() < 2) {
             poly = Polynomial(desired_size, circuit_size / 2, Polynomial::DontZeroMemory::FLAG);
         } else {
             poly = Polynomial(desired_size, circuit_size / 2);

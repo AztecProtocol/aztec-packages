@@ -337,8 +337,13 @@ function test_cmds_native {
     echo "ROLLUP_EXPERIMENTAL_OPTIMIZATIONS must be 0 or 1" >&2
     return 1
   fi
-  local test_hash=$(hash_str "$hash" "BB_EXPERIMENTAL_OPTIMIZATIONS=$bb_experimental" "ROLLUP_EXPERIMENTAL_OPTIMIZATIONS=$rollup_experimental")
-  local experimental_env="BB_EXPERIMENTAL_OPTIMIZATIONS=$bb_experimental ROLLUP_EXPERIMENTAL_OPTIMIZATIONS=$rollup_experimental"
+  local avm_experimental=${AVM_EXPERIMENTAL_OPTIMIZATIONS-0}
+  if [[ "$avm_experimental" != 0 && "$avm_experimental" != 1 ]]; then
+    echo "AVM_EXPERIMENTAL_OPTIMIZATIONS must be 0 or 1" >&2
+    return 1
+  fi
+  local test_hash=$(hash_str "$hash" "BB_EXPERIMENTAL_OPTIMIZATIONS=$bb_experimental" "ROLLUP_EXPERIMENTAL_OPTIMIZATIONS=$rollup_experimental" "AVM_EXPERIMENTAL_OPTIMIZATIONS=$avm_experimental")
+  local experimental_env="BB_EXPERIMENTAL_OPTIMIZATIONS=$bb_experimental ROLLUP_EXPERIMENTAL_OPTIMIZATIONS=$rollup_experimental AVM_EXPERIMENTAL_OPTIMIZATIONS=$avm_experimental"
   if [ "$mode" = per_merge ]; then
     local flavor_codegen_hash
     flavor_codegen_hash=$(cache_content_hash scripts/flavor-codegen \

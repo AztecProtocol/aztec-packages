@@ -11,12 +11,21 @@ namespace bb::avm2 {
 class AvmProvingHelper {
   public:
     AvmProvingHelper() = default;
+
+    /** @brief Selects experimental first-fold and PCS memory optimizations for proving. */
+    explicit AvmProvingHelper(bool memory_optimizations)
+        : memory_optimizations(memory_optimizations)
+    {}
+
     using Proof = AvmProver::Proof;
     using VkData = std::vector<uint8_t>;
 
     Proof prove(tracegen::TraceContainer&& trace);
     bool check_circuit(tracegen::TraceContainer&& trace);
     bool verify(const Proof& proof, const PublicInputs& pi);
+
+  private:
+    bool memory_optimizations = false;
 };
 
 } // namespace bb::avm2

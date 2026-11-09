@@ -14,11 +14,19 @@ class AvmAPI : public AvmSimAPI {
 
     AvmAPI() = default;
 
+    /** @brief Selects experimental first-fold and PCS memory optimizations for proving. */
+    explicit AvmAPI(bool memory_optimizations)
+        : memory_optimizations(memory_optimizations)
+    {}
+
     // NOTE: The public inputs are NOT part of the proof.
     AvmProof prove(const ProvingInputs& inputs);
     bool check_circuit(const ProvingInputs& inputs);
     bool verify(const AvmProof& proof, const PublicInputs& pi);
     AvmVerificationKey get_verification_key();
+
+  private:
+    bool memory_optimizations = false;
 };
 
 } // namespace bb::avm2
