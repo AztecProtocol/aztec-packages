@@ -179,6 +179,15 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& operator*=(const Univariate& other)
     {
+#ifdef BB_FIELD_IFMA
+        if constexpr (use_ifma_v) {
+            if (field_ifma::available()) {
+                field_ifma::mul_assign_n<typename Fr::Params, LENGTH>(&evaluations[0].data[0],
+                                                                      &other.evaluations[0].data[0]);
+                return *this;
+            }
+        }
+#endif
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] *= other.evaluations[i];
         }
@@ -186,6 +195,14 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& self_sqr()
     {
+#ifdef BB_FIELD_IFMA
+        if constexpr (use_ifma_v) {
+            if (field_ifma::available()) {
+                field_ifma::sqr_assign_n<typename Fr::Params, LENGTH>(&evaluations[0].data[0]);
+                return *this;
+            }
+        }
+#endif
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i].self_sqr();
         }
@@ -245,6 +262,14 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& operator*=(const Fr& scalar)
     {
+#ifdef BB_FIELD_IFMA
+        if constexpr (use_ifma_v) {
+            if (field_ifma::available()) {
+                field_ifma::mul_assign_scalar_n<typename Fr::Params, LENGTH>(&evaluations[0].data[0], &scalar.data[0]);
+                return *this;
+            }
+        }
+#endif
         for (auto& eval : evaluations) {
             eval *= scalar;
         }

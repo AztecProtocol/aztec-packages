@@ -6,7 +6,9 @@
 
 #pragma once
 
-#if defined(__x86_64__) && !defined(__wasm__) && (defined(__clang__) || defined(__GNUC__))
+#include "barretenberg/common/ifma.hpp"
+
+#if BB_EXPERIMENTAL_IFMA && defined(__x86_64__) && !defined(__wasm__) && (defined(__clang__) || defined(__GNUC__))
 #define BB_MSM_IFMA 1
 #endif
 

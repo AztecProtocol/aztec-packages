@@ -45,6 +45,8 @@ include(cmake/disable-compiler-checks.cmake)
 
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
+option(BB_EXPERIMENTAL_IFMA "Enable experimental IFMA MSM and univariate arithmetic" OFF)
+add_compile_definitions(BB_EXPERIMENTAL_IFMA=$<BOOL:${BB_EXPERIMENTAL_IFMA}>)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)

@@ -4,13 +4,14 @@
 // registers carries a `target` attribute and is only entered after `available()` confirmed the CPU (and OS) support
 // it. WASM and non-x86 builds compile none of this; callers keep their scalar loop as the fallback.
 //
-// Every kernel returns the same field values as the scalar code it replaces (exact arithmetic). Computed outputs are
-// fully reduced into [0, p), values copied through unchanged keep their input form; both are valid representatives
-// for bb's coarse [0, 2p) form.
+// Field outputs are valid representatives in bb's coarse [0, 2p) form; individual kernels may return canonical
+// values or leave results loosely reduced.
 
 #pragma once
 
-#if defined(__x86_64__) && !defined(__wasm__) && (defined(__clang__) || defined(__GNUC__))
+#include "barretenberg/common/ifma.hpp"
+
+#if BB_EXPERIMENTAL_IFMA && defined(__x86_64__) && !defined(__wasm__) && (defined(__clang__) || defined(__GNUC__))
 #define BB_FIELD_IFMA 1
 #endif
 

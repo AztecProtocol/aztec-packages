@@ -16,6 +16,9 @@
 # encountered by the `barretenberg_module` function. There is probably a better way to do this,
 # especially if we want to exclude some of the header files being installed
 add_library(barretenberg_headers INTERFACE)
+target_compile_definitions(barretenberg_headers INTERFACE
+    BB_EXPERIMENTAL_IFMA=$<BOOL:${BB_EXPERIMENTAL_IFMA}>
+)
 target_sources(
     barretenberg_headers
     INTERFACE

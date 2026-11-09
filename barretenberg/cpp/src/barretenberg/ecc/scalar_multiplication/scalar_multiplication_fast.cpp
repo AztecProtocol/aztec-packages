@@ -284,7 +284,7 @@ template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_
 // rather than in the MSM arena, so the arena layout is the same with and without IFMA.
 inline constexpr size_t IFMA_BATCH_CAPACITY = 256;
 
-[[maybe_unused]] inline ifma::DrainBuffer<IFMA_BATCH_CAPACITY>& ifma_drain_buffer()
+inline ifma::DrainBuffer<IFMA_BATCH_CAPACITY>& ifma_drain_buffer()
 {
     static thread_local std::unique_ptr<ifma::DrainBuffer<IFMA_BATCH_CAPACITY>> thread_buffer;
     if (!thread_buffer) {
@@ -393,6 +393,15 @@ void batch_affine_add_indexed_ifma(BaseField* x,
  */
 template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {
+#ifdef BB_MSM_IFMA
+    if constexpr (!bb::simd_available_v<typename Curve::BaseField::Params> &&
+                  ifma::Consts<typename Curve::BaseField::Params>::supported) {
+        if (ifma::ifma_available()) {
+            tree_reduce_in_place_ifma<Curve>(s, initial_len);
+            return;
+        }
+    }
+#endif
     size_t curr_len = initial_len;
 
     // The drain spans (lhs/rhs) are scratch shared with the Stage-6b reduction, which leaves a non-zero
@@ -816,6 +825,15 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                 return;
             }
         }
+
+#ifdef BB_MSM_IFMA
+        if constexpr (ifma::Consts<BaseParams>::supported) {
+            if (ifma::ifma_available()) {
+                batch_affine_add_indexed_ifma(dense_x, dense_y, reals, count);
+                return;
+            }
+        }
+#endif
         bb::group_elements::batch_affine_add_indexed_scalar(s.dense_buckets, reals, count, inv_scratch);
     };
     auto batched_double = [&](size_t count) {
