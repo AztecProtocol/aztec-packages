@@ -20,6 +20,16 @@ constexpr size_t PARALLEL_FOR_MAX_NESTING = 2;
 void set_parallel_for_concurrency(size_t num_cores);
 size_t get_num_cpus();
 
+/**
+ * @brief Selects the process-wide experimental native thread pool before its first parallel job.
+ * @return False if the build does not support the requested pool or a different selection is already in use.
+ * Repeating the current selection is allowed. Configure during application initialization.
+ */
+[[nodiscard]] bool configure_experimental_thread_pool(bool enabled);
+
+/** @brief Returns whether the experimental native thread pool is selected. Does not initialize a pool. */
+bool experimental_thread_pool_enabled();
+
 // For algorithms that need to be divided amongst power of 2 threads.
 inline size_t get_num_cpus_pow2()
 {

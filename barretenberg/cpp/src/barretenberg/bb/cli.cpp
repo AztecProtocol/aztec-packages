@@ -415,6 +415,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(&app);
     add_debug_flag(&app);
     add_crs_path_option(&app);
+    bool experimental_thread_pool = false;
+    app.add_flag("--experimental-thread-pool",
+                 experimental_thread_pool,
+                 "Use experimental generation-tagged scheduling for native parallel jobs.")
+        ->envname("BB_EXPERIMENTAL_THREAD_POOL");
 
     /***************************************************************************************************************
      * Builtin flag: --version
@@ -827,6 +832,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
               flags.ipa_accumulation);
     }
 
+    if (!configure_experimental_thread_pool(experimental_thread_pool)) {
+        throw_or_abort("The requested thread pool is unavailable in this build or a different pool is already in use.");
+    }
+
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
@@ -839,6 +848,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     } else if (flags.verbose) {
         bb_log_level = LogLevel::VERBOSE;
     }
+    vinfo("Experimental thread pool: ", experimental_thread_pool_enabled() ? "enabled" : "disabled");
     slow_low_memory = flags.slow_low_memory;
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {

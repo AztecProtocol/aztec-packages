@@ -1,5 +1,6 @@
 #include "thread.hpp"
 #include "log.hpp"
+#include "parallel_for_tagged_atomic_pool.hpp"
 #include "throw_or_abort.hpp"
 #include <algorithm>
 #include <cstdlib>
@@ -21,7 +22,54 @@ uint32_t& get_num_cores_ref()
 } // namespace
 #endif
 
+#if !defined(NO_MULTITHREADING) && !defined(OMP_MULTITHREADING) && !defined(__wasm__)
+namespace {
+constexpr unsigned EXPERIMENTAL_POOL = 1;
+constexpr unsigned POOL_SELECTION_FROZEN = 2;
+std::atomic<unsigned> thread_pool_selection = 0;
+
+bool use_tagged_atomic_pool()
+{
+    auto selection = thread_pool_selection.load(std::memory_order_acquire);
+    while ((selection & POOL_SELECTION_FROZEN) == 0) {
+        if (thread_pool_selection.compare_exchange_weak(
+                selection, selection | POOL_SELECTION_FROZEN, std::memory_order_acq_rel, std::memory_order_acquire)) {
+            break;
+        }
+    }
+    return (selection & EXPERIMENTAL_POOL) != 0;
+}
+} // namespace
+#endif
+
 namespace bb {
+
+bool configure_experimental_thread_pool(bool enabled)
+{
+#if !defined(NO_MULTITHREADING) && !defined(OMP_MULTITHREADING) && !defined(__wasm__)
+    const unsigned desired = enabled ? EXPERIMENTAL_POOL : 0;
+    auto selection = thread_pool_selection.load(std::memory_order_acquire);
+    while ((selection & POOL_SELECTION_FROZEN) == 0) {
+        if (thread_pool_selection.compare_exchange_weak(
+                selection, desired, std::memory_order_acq_rel, std::memory_order_acquire)) {
+            return true;
+        }
+    }
+    return (selection & EXPERIMENTAL_POOL) == desired;
+#else
+    return !enabled;
+#endif
+}
+
+bool experimental_thread_pool_enabled()
+{
+#if !defined(NO_MULTITHREADING) && !defined(OMP_MULTITHREADING) && !defined(__wasm__)
+    return (thread_pool_selection.load(std::memory_order_acquire) & EXPERIMENTAL_POOL) != 0;
+#else
+    return false;
+#endif
+}
+
 void set_parallel_for_concurrency([[maybe_unused]] size_t num_cores)
 {
 #ifdef NO_MULTITHREADING
@@ -123,7 +171,14 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     // parallel_for_spawning(num_iterations, func);
     // parallel_for_moody(num_iterations, func);
     // parallel_for_atomic_pool(num_iterations, func);
-    parallel_for_mutex_pool(num_iterations, func);
+#ifndef __wasm__
+    if (use_tagged_atomic_pool()) {
+        parallel_for_tagged_atomic_pool(num_iterations, func);
+    } else
+#endif
+    {
+        parallel_for_mutex_pool(num_iterations, func);
+    }
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
