@@ -23,6 +23,7 @@
 #pragma once
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <algorithm>
 #include <cstdint>
 
 namespace bb::bernstein_yang {
@@ -39,6 +40,54 @@ using i64 = int64_t;
 struct DivstepMatrix {
     i64 u, v, q, r;
 };
+
+/** Computes a divstep matrix by batching trailing zeros and low-bit cancellation. Requires odd f_lo. */
+template <int BATCH> inline DivstepMatrix compute_divsteps_vartime(i64& delta, u64 f_lo, u64 g_lo) noexcept
+{
+    static_assert(BATCH > 0 && BATCH <= 62);
+    u64 u = 1, v = 0, q = 0, r = 1;
+    u64 f = f_lo, g = g_lo;
+    i64 eta = -delta;
+    int i = BATCH;
+    while (true) {
+        const int zeros = __builtin_ctzll(g | (~u64{ 0 } << i));
+        g >>= zeros;
+        u <<= zeros;
+        v <<= zeros;
+        eta -= zeros;
+        i -= zeros;
+        if (i == 0) {
+            break;
+        }
+        u64 m;
+        u64 w;
+        if (eta < 0) {
+            eta = -eta;
+            u64 tmp = f;
+            f = g;
+            g = 0 - tmp;
+            tmp = u;
+            u = q;
+            q = 0 - tmp;
+            tmp = v;
+            v = r;
+            r = 0 - tmp;
+            const int limit = static_cast<int>(std::min<i64>(eta + 1, i));
+            m = (~u64{ 0 } >> (64 - limit)) & 63U;
+            w = (f * g * (f * f - 2)) & m;
+        } else {
+            const int limit = static_cast<int>(std::min<i64>(eta + 1, i));
+            m = (~u64{ 0 } >> (64 - limit)) & 15U;
+            w = f + (((f + 1) & 4) << 1);
+            w = (0 - w * g) & m;
+        }
+        g += f * w;
+        q += u * w;
+        r += v * w;
+    }
+    delta = -eta;
+    return { static_cast<i64>(u), static_cast<i64>(v), static_cast<i64>(q), static_cast<i64>(r) };
+}
 
 // 5 × 64-bit limbs, top limb two's-complement signed.  Products via __int128.
 class Native5x64 {
