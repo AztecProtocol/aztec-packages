@@ -153,8 +153,11 @@ function buildModule(opts: {
   );
 }
 
-/** A binding that counts the workers it is asked for, so on-demand creation is observable. */
-function countingBinding(): WasmFfiBinding & { created: () => number } {
+/**
+ * A binding that counts the workers it is asked for, so when they are created is observable. With
+ * `failing`, every worker reports that it could not instantiate the module.
+ */
+function countingBinding(failing = false): WasmFfiBinding & { created: () => number } {
   let created = 0;
   return {
     platform: nodePlatform,
@@ -164,7 +167,9 @@ function countingBinding(): WasmFfiBinding & { created: () => number } {
       // The thread never starts: this module has no `wasi_thread_start`, and the test is about
       // when a worker is asked for, not what runs on it.
       return nodePlatform.createWorker(
-        new URL("./wasm_engine_stub.worker.js", import.meta.url),
+        failing
+          ? new URL("./wasm_engine_failing_stub.worker.js", import.meta.url)
+          : new URL("./wasm_engine_stub.worker.js", import.meta.url),
       );
     },
     createMainWorker: (): WorkerHandle => {
@@ -177,7 +182,9 @@ const threadedModule = () => buildModule({ shared: true, min: 4, max: 64 });
 /** What `threadedModule` declares for its memory import. */
 const threadedMemory = { initial: 4, maximum: 64, shared: true };
 
-test("creates no thread workers until the module spawns one, then one per thread", async () => {
+// A browser starts a worker created by a busy worker only once that worker's call returns, so the
+// threads a module spawns mid-call have to be running already.
+test("prestarts a worker for each thread but the main one, then creates more on demand", async () => {
   const binding = countingBinding();
   const engine = await WasmFfiEngine.create(
     {
@@ -188,17 +195,43 @@ test("creates no thread workers until the module spawns one, then one per thread
     },
     binding,
   );
-  assert.equal(engine.threads, 4);
-  assert.equal(binding.created(), 0, "nothing spawned before the module asks");
+  try {
+    assert.equal(engine.threads, 4);
+    assert.equal(binding.created(), 3, "threads - 1 workers, started before the engine is handed out");
 
-  const spawn = (arg: number) => engine.host.callExport("spawn_thread", arg);
-  assert.equal(spawn(0), 2, "first tid");
-  assert.equal(binding.created(), 1);
-  assert.equal(spawn(0), 3, "tids keep counting up");
-  assert.equal(spawn(0), 4);
-  assert.equal(binding.created(), 3, "one worker per spawned thread, no pool");
+    const spawn = (arg: number) => engine.host.callExport("spawn_thread", arg);
+    assert.equal(spawn(0), 2, "first tid");
+    assert.equal(spawn(0), 3, "tids keep counting up");
+    assert.equal(spawn(0), 4);
+    assert.equal(binding.created(), 3, "spawns run on the prestarted workers");
+    assert.equal(spawn(0), 5);
+    assert.equal(binding.created(), 4, "a spawn past them gets a new worker");
+  } finally {
+    await engine.destroy();
+  }
+});
 
-  await engine.destroy();
+test("a worker that fails to prestart leaves its thread to be created on demand", async () => {
+  const binding = countingBinding(true);
+  const log: string[] = [];
+  const engine = await WasmFfiEngine.create(
+    {
+      module: threadedModule(),
+      moduleMemory: threadedMemory,
+      threads: 2,
+      memory: { initial: 4, maximum: 64 },
+      logger: (message) => log.push(message),
+    },
+    binding,
+  );
+  try {
+    assert.equal(binding.created(), 1);
+    assert.match(log.join("\n"), /could not be prestarted: .*stub told to fail/);
+    assert.equal(engine.host.callExport("spawn_thread", 0), 2);
+    assert.equal(binding.created(), 2);
+  } finally {
+    await engine.destroy();
+  }
 });
 
 test("refuses to spawn when the engine runs single-threaded", async () => {

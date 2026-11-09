@@ -88,17 +88,25 @@ function awaitReady(worker: WorkerHandle, what: string): Promise<void> {
 }
 
 /**
- * One worker per wasi thread, created when the module spawns it and dropped when it exits.
+ * One worker per wasi thread, dropped when its thread exits.
  *
  * A worker runs a thread to completion inside `wasi_thread_start`, so it can serve exactly one
  * thread at a time; giving each its own worker is both the simplest arrangement and the only
  * correct one. The module decides how many threads it wants — typically a pool of its own, sized
  * from the thread count it was told — and this follows.
+ *
+ * Workers are started ahead of the module's requests (`prestart`) because a browser sets up a
+ * worker created by another worker on that parent's event loop, which is blocked for as long as the
+ * module runs: a thread spawned during a call would only start once the call returned. A worker
+ * already running needs only its `start` message, which a blocked parent still delivers.
  */
 class Threads {
   private readonly workers = new Map<number, WorkerHandle>();
+  /** Started workers with the module instantiated, waiting for a thread to run. */
+  private readonly idle: WorkerHandle[] = [];
   private nextTid = FIRST_THREAD_ID;
   private unrefed = false;
+  private destroyed = false;
 
   constructor(
     private readonly createWorker: () => WorkerHandle,
@@ -107,52 +115,95 @@ class Threads {
   ) {}
 
   /**
-   * wasi-threads `thread-spawn`: start the module's thread entry on a new worker and return its
-   * tid. The import is synchronous, so the worker boots while the caller carries on; its `init`
-   * and `start` messages are queued in order and the worker serializes them.
+   * Start `count` workers and wait until each has instantiated the module, so that as many threads
+   * spawned later start at once. A worker that fails to start is dropped, leaving its thread to be
+   * started on demand. Call it only after the main instance is instantiated: every instance runs
+   * the module's start function, and the first to do so on a shared memory claims its one-time
+   * initialization, the main thread's TLS included. Exited threads are not replaced: a module that
+   * spawns more threads than were prestarted (or restarts its pool) gets the extras on demand.
    */
-  spawn(startArg: number): number {
-    const tid = this.nextTid++;
-    let worker: WorkerHandle;
+  async prestart(count: number): Promise<void> {
+    await Promise.all(Array.from({ length: count }, () => this.startIdle()));
+  }
+
+  /** Start one worker into `idle`; one that fails is logged and dropped. */
+  private async startIdle(): Promise<void> {
+    let worker: WorkerHandle | undefined;
     try {
-      worker = this.createWorker();
+      worker = this.boot();
+      await awaitReady(worker, "wasm thread worker");
     } catch (e) {
-      this.logger(`wasm thread ${tid} could not be created: ${String(e)}`);
-      return -1;
+      this.logger(`wasm thread worker could not be prestarted: ${String(e)}`);
+      void worker?.terminate();
+      return;
     }
-    this.workers.set(tid, worker);
+    if (this.destroyed) {
+      void worker.terminate();
+    } else {
+      this.idle.push(worker);
+    }
+  }
+
+  /** A new worker, told to instantiate the module. */
+  private boot(): WorkerHandle {
+    const worker = this.createWorker();
     worker.onMessage((msg) => {
       if (msg?.type === "log") {
         this.logger(msg.message);
-      } else if (msg?.type === "thread-exit" || msg?.type === "init-error") {
+      }
+    });
+    worker.postMessage({ type: "init", ...this.init });
+    if (this.unrefed) {
+      worker.unref();
+    }
+    return worker;
+  }
+
+  /**
+   * wasi-threads `thread-spawn`: run the module's thread entry on a prestarted worker, or on a new
+   * one when none is left, and return its tid. The import is synchronous: a new worker boots while
+   * the caller carries on, and serializes its queued `init` and `start`.
+   */
+  spawn(startArg: number): number {
+    const tid = this.nextTid++;
+    let worker = this.idle.pop();
+    if (!worker) {
+      try {
+        worker = this.boot();
+      } catch (e) {
+        this.logger(`wasm thread ${tid} could not be created: ${String(e)}`);
+        return -1;
+      }
+    }
+    const running = worker;
+    this.workers.set(tid, running);
+    running.onMessage((msg) => {
+      if (msg?.type === "thread-exit" || msg?.type === "init-error") {
         if (msg.type === "init-error") {
           this.logger(`wasm thread ${tid} failed to start: ${msg.message}`);
         }
         this.workers.delete(tid);
-        void worker.terminate();
+        void running.terminate();
       }
     });
-    worker.onError((err) => {
+    running.onError((err) => {
       this.logger(`wasm thread ${tid}: ${String(err)}`);
       this.workers.delete(tid);
     });
-    worker.postMessage({ type: "init", ...this.init });
-    worker.postMessage({ type: "start", tid, startArg });
-    if (this.unrefed) {
-      worker.unref();
-    }
+    running.postMessage({ type: "start", tid, startArg });
     return tid;
   }
 
   unref(): void {
     this.unrefed = true;
-    for (const w of this.workers.values()) {
+    for (const w of [...this.workers.values(), ...this.idle]) {
       w.unref();
     }
   }
 
   async destroy(): Promise<void> {
-    const workers = [...this.workers.values()];
+    this.destroyed = true;
+    const workers = [...this.workers.values(), ...this.idle.splice(0)];
     this.workers.clear();
     await Promise.all(workers.map((w) => w.terminate()));
   }
@@ -218,8 +269,6 @@ export class WasmFfiEngine {
       RAYON_NUM_THREADS: String(threads),
       ...(opts.env ?? {}),
     };
-    // Threads are created when the module asks for them, so nothing is spawned here — and
-    // nothing at all if the module never spawns a thread.
     const threadWorkers =
       threads > 1
         ? new Threads(
@@ -251,6 +300,9 @@ export class WasmFfiEngine {
       }
       throw e;
     });
+    // The thread count the module is told (HARDWARE_CONCURRENCY) is one main thread and the rest
+    // spawned; a module spawning more starts the extras on demand.
+    await threadWorkers?.prestart(threads - 1);
     // host.memory is the one the module actually uses, which is its own when it exports one.
     logger(
       `wasm: ${threads} thread(s), memory ${host.memory.buffer.byteLength >> 16} pages initial, ` +
