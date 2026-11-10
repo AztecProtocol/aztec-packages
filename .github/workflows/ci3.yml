@@ -16,8 +16,9 @@ on:
   merge_group: {}
 
 concurrency:
-  # One run per branch.
-  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
+  # Pushes to next: one run per commit, so a later merge does not cancel the full run (and
+  # benchmarks) of the one before. Everything else: one run per branch.
+  group: ci3-${{ (github.event_name == 'push' && github.ref == 'refs/heads/next' && github.sha) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -139,15 +140,6 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: ./.github/ci3_success.sh
-
-      # Uses ci3/upload_benchmarks rather than github-action-benchmark: the action full-clones
-      # the multi-GB data repo per upload; the script does a shallow sparse clone instead.
-      - name: Upload benchmarks
-        if: env.BENCH_UPLOAD == '1'
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
 
   # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
   # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the

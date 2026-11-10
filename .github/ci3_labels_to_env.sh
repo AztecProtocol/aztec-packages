@@ -107,6 +107,10 @@ function main {
     ci_mode="skip"
   elif [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
     ci_mode="merge-queue"
+  elif [ "${GITHUB_EVENT_NAME:-}" == "push" ] && [ "${GITHUB_REF:-}" == "refs/heads/next" ]; then
+    # Every merge to next gets a full run: next has no merge queue, so this is what tests and
+    # benchmarks the code that landed, and fills the next sections of the CI and bench dashboards.
+    ci_mode="full"
   elif [ "$chonk_input_update" -eq 1 ]; then
     echo "WARNING: Skipping main CI because Chonk input refresh was requested; the update step will run after this step succeeds." >&2
     ci_mode="skip"
@@ -153,24 +157,11 @@ function main {
   # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
   # and publish the result; ci-fast never benches. For multi-instance runs (merge-queue fires
   # several) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
-  # rest to 0 so they bench inline as a breakage check without racing the upload. The
-  # destination (bench/next vs bench/prs) is BENCH_BRANCH below.
+  # rest to 0 so they bench inline as a breakage check without racing the upload. The bench
+  # box publishes to its run's dashboard section (CI_DASHBOARD: next, prs, ...).
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
     echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi
-
-  # Determine the branch label for benchmark publishing.
-  # Only merge-queue runs targeting "next" publish under "next" since those represent code about to land.
-  # Everything else (ci-full PRs, merge queues for other branches) publishes under "prs"
-  # to avoid polluting the main benchmark graphs.
-  local bench_branch
-  if [[ "$ci_mode" == "merge-queue" && "$target_branch" == "next" ]]; then
-    bench_branch="$target_branch"
-  else
-    bench_branch="prs"
-  fi
-  echo "BENCH_BRANCH=$bench_branch" >> $GITHUB_ENV
-  echo "Bench branch: $bench_branch"
 
   # Handle no-cache label
   if has_label "no-cache"; then
