@@ -4,6 +4,7 @@
 #include "./pippenger_constantine.hpp"
 #include "./pippenger_dedup.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -376,7 +377,8 @@ void batch_affine_add_indexed_ifma(BaseField* x,
 }
 #endif
 
-template <typename Curve> inline void drain_batch_scalar(ThreadScratch<Curve>& s, size_t pair_count) noexcept
+template <typename Curve>
+[[maybe_unused]] inline void drain_batch_scalar(ThreadScratch<Curve>& s, size_t pair_count) noexcept
 {
     using BaseField = typename Curve::BaseField;
     if (pair_count == 0) {
@@ -418,7 +420,8 @@ template <typename Curve> inline void drain_batch_scalar(ThreadScratch<Curve>& s
     }
 }
 
-template <typename Curve> void tree_reduce_in_place_scalar(ThreadScratch<Curve>& s, size_t initial_len) noexcept
+template <typename Curve>
+[[maybe_unused]] void tree_reduce_in_place_scalar(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {
     using BaseField = typename Curve::BaseField;
     constexpr size_t W = bb::VectorField<typename BaseField::Params>::SIZE;
@@ -490,6 +493,20 @@ template <typename Curve> void tree_reduce_in_place_scalar(ThreadScratch<Curve>&
  */
 template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {
+    if constexpr (!bb::simd_available_v<typename Curve::BaseField::Params>) {
+        if (bb::experimental_optimizations_enabled()) {
+#ifdef BB_MSM_IFMA
+            if constexpr (ifma::Consts<typename Curve::BaseField::Params>::supported) {
+                if (ifma::ifma_available()) {
+                    tree_reduce_in_place_ifma<Curve>(s, initial_len);
+                    return;
+                }
+            }
+#endif
+            tree_reduce_in_place_scalar<Curve>(s, initial_len);
+            return;
+        }
+    }
     size_t curr_len = initial_len;
 
     // The drain spans (lhs/rhs) are scratch shared with the Stage-6b reduction, which leaves a non-zero
@@ -913,6 +930,14 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                 return;
             }
         }
+#ifdef BB_MSM_IFMA
+        if constexpr (ifma::Consts<BaseParams>::supported) {
+            if (bb::experimental_optimizations_enabled() && ifma::ifma_available()) {
+                batch_affine_add_indexed_ifma(dense_x, dense_y, reals, count);
+                return;
+            }
+        }
+#endif
         bb::group_elements::batch_affine_add_indexed_scalar(s.dense_buckets, reals, count, inv_scratch);
     };
     auto batched_double = [&](size_t count) {

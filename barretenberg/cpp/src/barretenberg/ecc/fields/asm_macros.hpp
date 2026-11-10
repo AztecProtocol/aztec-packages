@@ -992,3 +992,7 @@
         /* Since S < 2p < 2^255, the top limb r[7] < 2^63. Valid input for another MUL. */
 
 #endif
+
+#if defined(__ADX__) && !defined(DISABLE_ADX)
+#include "asm_macros_short_carry.hpp"
+#endif

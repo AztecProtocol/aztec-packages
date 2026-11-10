@@ -10,6 +10,7 @@
  */
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 
 #include "barretenberg/bbapi/generated/bb_ffi.hpp"
 
@@ -24,6 +25,7 @@ namespace bb::bbapi {
 AsyncDispatchHandler& ipc_ffi_dispatcher()
 {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+    initialize_experimental_optimizations();
     static BBApiRequest request;
     static AsyncDispatchHandler handler = make_bb_handler(request);
     return handler;
