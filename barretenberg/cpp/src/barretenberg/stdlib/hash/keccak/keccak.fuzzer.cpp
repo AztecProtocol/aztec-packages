@@ -1,9 +1,9 @@
 #include "keccak.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <array>
-#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -78,9 +78,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     PRINT_STATE("Expected:       ", expected_state);
 
     // Compare outputs
-    assert(circuit_output_u == expected_state);
+    BB_ASSERT(circuit_output_u == expected_state);
 
     // Verify circuit correctness
-    assert(CircuitChecker::check(builder));
+    BB_ASSERT(CircuitChecker::check(builder));
     return 0;
 }
