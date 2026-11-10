@@ -115,14 +115,9 @@ test-extension/
 
 ## Quick Start
 
-If you want to try the completed wallet before reading the tutorial:
+If you want to try the completed wallet before reading the tutorial, set up the webapp example with its [prerequisites](../webapp/index.md#prerequisites) and [clone steps](../webapp/index.md#clone-the-example), then build the extension from its `webapp-tutorial` directory:
 
 ```bash
-git clone https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node
-git checkout #include_aztec_version
-cd docs/examples/webapp-tutorial
-./setup.sh
 node esbuild.extension.mjs
 ```
 

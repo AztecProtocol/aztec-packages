@@ -44,7 +44,7 @@ Open `contracts/Nargo.toml`. This configures the Noir compiler for the contract:
 #include_code nargo_toml /docs/examples/webapp-tutorial/contracts/Nargo.toml toml
 
 :::note
-The `aztec` path points into the aztec-node checkout that these docs build against. In your own project, use the git dependency instead, with the tag matching your Aztec CLI version:
+The `aztec` path points into the aztec-node checkout that the [clone steps](./index.md#clone-the-example) create. In your own project, use the git dependency instead, with the tag matching your Aztec CLI version:
 ```toml
 aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
 ```

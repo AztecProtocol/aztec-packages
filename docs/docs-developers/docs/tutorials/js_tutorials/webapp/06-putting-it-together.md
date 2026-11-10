@@ -106,7 +106,7 @@ Ensure SponsoredFPC is registered with PXE. The `EmbeddedWallet` does this autom
 
 ### Contract compilation fails
 
-Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location.
+Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location: in the example, the aztec-node checkout that the [clone steps](./index.md#clone-the-example) create.
 
 ## Next steps
 
