@@ -28,3 +28,37 @@ describe.each([
     expect(second).not.toBe(first);
   });
 });
+
+describe('frozen experimental configuration', () => {
+  afterEach(async () => {
+    await Barretenberg.destroySingleton();
+    BarretenbergSync.destroySingleton();
+    jest.restoreAllMocks();
+  });
+
+  it('refuses to change an asynchronous singleton without losing the existing instance', async () => {
+    const instance = new Barretenberg(
+      { call: async () => new Uint8Array(), destroy: async () => {} },
+      { experimentalOptimizations: true },
+    );
+    jest.spyOn(Barretenberg, 'new').mockResolvedValue(instance);
+    await Barretenberg.initSingleton({ experimentalOptimizations: true });
+    await expect(Barretenberg.initSingleton({ experimentalOptimizations: false })).rejects.toThrow(
+      'already configured',
+    );
+    expect(await Barretenberg.initSingleton({ experimentalOptimizations: true })).toBe(instance);
+  });
+
+  it('refuses to change a synchronous singleton without losing the existing instance', async () => {
+    const instance = new BarretenbergSync(
+      { call: () => new Uint8Array(), destroy: () => {} },
+      { experimentalOptimizations: true },
+    );
+    jest.spyOn(BarretenbergSync, 'new').mockResolvedValue(instance);
+    await BarretenbergSync.initSingleton({ experimentalOptimizations: true });
+    await expect(BarretenbergSync.initSingleton({ experimentalOptimizations: false })).rejects.toThrow(
+      'already configured',
+    );
+    expect(await BarretenbergSync.initSingleton({ experimentalOptimizations: true })).toBe(instance);
+  });
+});

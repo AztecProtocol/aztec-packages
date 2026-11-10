@@ -1,5 +1,7 @@
 #include "thread.hpp"
+#include "experimental_optimizations.hpp"
 #include "log.hpp"
+#include "parallel_for_tagged_atomic_pool.hpp"
 #include "throw_or_abort.hpp"
 #include <algorithm>
 #include <cstdlib>
@@ -123,7 +125,14 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     // parallel_for_spawning(num_iterations, func);
     // parallel_for_moody(num_iterations, func);
     // parallel_for_atomic_pool(num_iterations, func);
-    parallel_for_mutex_pool(num_iterations, func);
+#ifndef __wasm__
+    if (experimental_optimizations_enabled()) {
+        parallel_for_tagged_atomic_pool(num_iterations, func);
+    } else
+#endif
+    {
+        parallel_for_mutex_pool(num_iterations, func);
+    }
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
