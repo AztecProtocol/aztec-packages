@@ -167,6 +167,8 @@ function test_cmds {
   # bb.js browser tests. Isolate because server. The browser's CRS downloads are answered from the
   # local CRS (headless-test/src/local_crs.ts), so they need no network.
   # verify_honk_proof needs 2^20 points, past bb.js's default.
+  # Never disable these: they are CI's only coverage of bb.js in a browser, and bugs that only the
+  # browser hits have shipped while they were off. Fix a flake's cause instead.
   local browser_prefix="$tests_hash:ISOLATE=1:CPUS=8"
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome --srs-size $((2**20))"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
