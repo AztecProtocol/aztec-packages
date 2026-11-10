@@ -415,6 +415,8 @@ function provisionCli(o: Options, pin: Pin, log: (s: string) => void): void {
   fs.writeFileSync(path.join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   // An empty lockfile makes the directory its own project; without one, yarn takes it for an unlisted docs workspace.
   fs.writeFileSync(path.join(dir, "yarn.lock"), "");
+  // docs/.yarnrc.yml's packageExtensions settle the site's tree and match nothing here (YN0068 for each one).
+  fs.writeFileSync(path.join(dir, ".yarnrc.yml"), "packageExtensions:\n  onConflict: reset\n");
   log(`installing ${CLI_PACKAGES.join(", ")} ${version}`);
   try {
     execFileSync("yarn", ["install"], { cwd: dir, stdio: ["ignore", 2, 2], env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: "false" } });
