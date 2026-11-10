@@ -3,7 +3,7 @@ title: Data Packing and Serialization
 sidebar_position: 7
 tags: [contracts, storage, gas, optimization]
 description: Understand Serialize, Deserialize, and Packable traits, when each is used, how to write custom packing, and the cost implications.
-references: ["docs/lines/v6/examples/contracts/packing_example/src/types.nr"]
+references: ["docs/lines/v6/examples/contracts/packing_example/src/types.nr", "docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr"]
 ---
 
 Aztec contracts use two separate encoding schemes to convert structs into `Field` arrays. This page tells you which one to reach for and when.
@@ -137,9 +137,9 @@ Extract values from lowest bits first, to match how we packed them, subtracting 
 
 ### Step 4: Write roundtrip tests
 
-Always test that `unpack(pack(x)) == x` for boundary values:
+Always test that `unpack(pack(x)) == x` for boundary values. The tests go in the contract's test crate, not in the contract crate (see [Keep tests in the test crate](../testing_contracts.md#keep-tests-in-the-test-crate)), so the contract crate declares `pub mod types;` for the test crate to import the types:
 
-#include_code game_state_tests /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
+#include_code game_state_tests /docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr rust
 
 ## More custom Packable examples
 
@@ -159,7 +159,7 @@ A `u128` and a `u64` pack into a single `Field` (128 + 64 = 192 bits, well withi
 
 Always test custom `Packable` implementations at boundary values:
 
-#include_code pack_unpack_tests /docs/lines/v6/examples/contracts/packing_example/src/types.nr rust
+#include_code pack_unpack_tests /docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr rust
 
 ## Cost impact
 
