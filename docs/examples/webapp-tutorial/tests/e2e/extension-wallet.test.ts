@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import puppeteer, { type Browser, type Page } from 'puppeteer';
+import { hashToEmoji } from '@aztec-labs/wallet-sdk/crypto';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join, extname } from 'node:path';
@@ -24,6 +25,7 @@ describe('Extension wallet E2E', () => {
   let browser: Browser;
   let page: Page;
   let server: ReturnType<typeof createServer>;
+  let walletPage: Promise<Page> | undefined;
 
   beforeAll(async () => {
     if (!existsSync(join(DIST_DIR, 'index.html'))) {
@@ -96,27 +98,19 @@ describe('Extension wallet E2E', () => {
   });
 
   it(
-    'discovers the test extension wallet',
+    'discovers the test extension wallet once the user approves',
     async () => {
       await page.goto(APP_URL, { waitUntil: 'networkidle0' });
-
-      // Switch to remote
       await page.select('.network-picker select', 'remote');
 
-      // Wait for the test extension to be discovered
-      // The test extension auto-approves, so a connect button should appear
-      const walletButton = await page.waitForFunction(
-        () => {
-          const buttons = document.querySelectorAll('.extension-list button');
-          return buttons.length > 0 ? buttons[0] : null;
-        },
-        { timeout: 15_000 },
-      );
+      const discovery = await pendingFromApp('discoveries');
+      await sendToWallet({ type: 'approve-connection', requestId: discovery.requestId });
+
+      const walletButton = await page.waitForSelector('.extension-list button', { timeout: 15_000 });
       expect(walletButton).toBeTruthy();
 
-      // Button text should contain the wallet name
       const buttonText = await page.$eval('.extension-list button', (el) => el.textContent);
-      expect(buttonText).toContain('Aztec Test Wallet');
+      expect(buttonText).toContain('Aztec Tutorial Wallet');
     },
     30_000,
   );
@@ -124,27 +118,11 @@ describe('Extension wallet E2E', () => {
   it(
     'shows emoji verification after clicking connect',
     async () => {
-      await page.goto(APP_URL, { waitUntil: 'networkidle0' });
-      await page.select('.network-picker select', 'remote');
+      await connectToWallet();
 
-      // Wait for wallet to be discovered
-      await page.waitForFunction(
-        () => document.querySelectorAll('.extension-list button').length > 0,
-        { timeout: 15_000 },
-      );
-
-      // Click the wallet connect button
-      await page.click('.extension-list button');
-
-      // Wait for emoji verification to appear
-      const emojiGrid = await page.waitForSelector('.emoji-grid', { timeout: 10_000 });
-      expect(emojiGrid).toBeTruthy();
-
-      // Emoji grid should contain emojis
       const emojiText = await page.$eval('.emoji-grid', (el) => el.textContent);
       expect(emojiText!.length).toBeGreaterThan(0);
 
-      // Verify Connection heading should be visible
       const heading = await page.$eval('.emoji-verification h3', (el) => el.textContent);
       expect(heading).toBe('Verify Connection');
     },
@@ -152,46 +130,89 @@ describe('Extension wallet E2E', () => {
   );
 
   it(
-    'confirms connection after emoji verification',
+    'sends the capability request once the user confirms the emojis in the wallet',
     async () => {
-      await page.goto(APP_URL, { waitUntil: 'networkidle0' });
-      await page.select('.network-picker select', 'remote');
+      await connectToWallet();
+      const emojis = await page.$eval('.emoji-grid', (el) => el.textContent);
 
-      // Wait for wallet discovery
-      await page.waitForFunction(
-        () => document.querySelectorAll('.extension-list button').length > 0,
-        { timeout: 15_000 },
+      // The wallet queues the app's requests until the user confirms, in the wallet, the session
+      // whose emojis match the app's. Sessions from earlier page loads stay listed there.
+      const verification = await pendingFromApp(
+        'pendingSessionVerifications',
+        (v) => hashToEmoji(v.verificationHash!) === emojis,
       );
+      await sendToWallet({ type: 'confirm-session', sessionId: verification.sessionId });
 
-      // Connect to wallet
-      await page.click('.extension-list button');
-
-      // Wait for emoji verification
-      await page.waitForSelector('.emoji-verification', { timeout: 10_000 });
-
-      // Click confirm button
-      await page.click('.emoji-verification button');
-
-      // Wait for connection confirmation or transition
-      try {
-        await page.waitForFunction(
-          () => {
-            const status = document.querySelector('.status')?.textContent;
-            return status?.includes('Connected') || status?.includes('Error');
-          },
-          { timeout: 15_000 },
-        );
-
-        const status = await page.$eval('.status', (el) => el.textContent);
-        // The connection may succeed or fail depending on whether the full
-        // wallet protocol flow completes (the test extension only handles
-        // getRegisteredAccounts). Either outcome validates the discovery +
-        // key exchange + emoji verification flow works.
-        expect(status).toMatch(/Connected|Error|Confirming/);
-      } catch {
-        // Timeout is acceptable — the flow up to emoji verification is validated
-      }
+      // Granting needs an account in the wallet, which this suite does not create
+      const capabilities = await pendingFromApp(
+        'pendingCapabilities',
+        (c) => c.sessionId === verification.sessionId,
+      );
+      expect(capabilities.appMetadata?.name).toBe('Pod Racing');
     },
     30_000,
   );
+
+  /** Loads the app in remote mode, approves discovery, and clicks connect until the emojis show. */
+  async function connectToWallet(): Promise<void> {
+    await page.goto(APP_URL, { waitUntil: 'networkidle0' });
+    await page.select('.network-picker select', 'remote');
+    const discovery = await pendingFromApp('discoveries');
+    await sendToWallet({ type: 'approve-connection', requestId: discovery.requestId });
+    await page.waitForSelector('.extension-list button', { timeout: 15_000 });
+    await page.click('.extension-list button');
+    await page.waitForSelector('.emoji-grid', { timeout: 10_000 });
+  }
+
+  /**
+   * Sends a message to the wallet's background as its popup does. A fresh profile trusts no origin,
+   * so the wallet holds discovery, the session and the capability request for the user to approve
+   * in the popup; the tests send the popup's messages from the offscreen document instead, an
+   * extension page that is always open and has no window to take focus from the app.
+   */
+  async function sendToWallet(message: Record<string, unknown>): Promise<WalletResponse> {
+    // page() is null for a background_page target
+    walletPage ??= browser
+      .waitForTarget((t) => t.url().endsWith('/dist/offscreen.html'))
+      .then((t) => t.asPage());
+    const response = await (await walletPage).evaluate(
+      (m) =>
+        new Promise<WalletResponse>((resolve) =>
+          chrome.runtime.sendMessage({ ...m, target: 'background' }, resolve),
+        ),
+      message,
+    );
+    if (!response?.success) throw new Error(`Wallet rejected ${message.type}: ${response?.error}`);
+    return response;
+  }
+
+  /** Waits until the wallet holds a pending item of `kind` from the app's origin that `match` accepts. */
+  async function pendingFromApp(
+    kind: PendingKind,
+    match: (item: PendingItem) => boolean = () => true,
+  ): Promise<PendingItem> {
+    const deadline = Date.now() + 15_000;
+    for (;;) {
+      const { result } = await sendToWallet({ type: 'getPendingItems' });
+      const item = result[kind].find((i: PendingItem) => i.origin === APP_URL && match(i));
+      if (item) return item;
+      if (Date.now() > deadline) throw new Error(`The wallet holds no ${kind} from ${APP_URL}`);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
 });
+
+type PendingKind = 'discoveries' | 'pendingSessionVerifications' | 'pendingCapabilities';
+type PendingItem = {
+  origin: string;
+  requestId?: string;
+  sessionId?: string;
+  verificationHash?: string;
+  appMetadata?: { name: string };
+};
+type WalletResponse = { success: boolean; error?: string; result?: any };
+
+/** The extension API, present only inside the extension's own pages. */
+declare const chrome: {
+  runtime: { sendMessage(message: object, callback: (response: WalletResponse) => void): void };
+};
