@@ -1324,7 +1324,7 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
      ```bash
      . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
      for page in webapp/index.md uniswap_swap.md; do
-       docs_env docs/scripts/fresh_clone_test.sh \
+       PATH="$NODE_BIN:$CLI_HOME/.aztec/current/internal-bin:$PATH" docs_env docs/scripts/fresh_clone_test.sh \
          "docs/developer_versioned_docs/version-v<new_version>/docs/tutorials/js_tutorials/$page"
      done
      ```
