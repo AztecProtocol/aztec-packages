@@ -13,6 +13,7 @@
 set -euo pipefail
 
 own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
 source "$own_dir/pinned_chonk_inputs.sh"
 

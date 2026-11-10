@@ -123,7 +123,7 @@ BENCHMARK_DEFINE_F(PippengerBench, PippengerRoundParallelScaling)(benchmark::Sta
     }
 }
 
-// Legacy counterpart of the scaling sweep: byte-identical merge-train MSM
+// Legacy counterpart of the scaling sweep: the byte-identical pre-rewrite MSM
 // (legacy::pippenger_unsafe) over the same points/sizes, with the legacy stage markers
 // (MSM::build_point_schedule / sort_point_schedule / batch_accumulate_into_buckets /
 // accumulate_buckets) so its BB_BENCH breakdown maps onto the rewrite's stages.
@@ -178,7 +178,7 @@ namespace {
 //
 // Single-MSM pippenger_round_parallel across dyadic sizes 2^15..2^19 under two scalar
 // distributions, to A/B the thread-pool backend (new generation-counter pool vs the
-// merge-train pool) at the workload shapes that stress the round-parallel scaffolding
+// previous pool) at the workload shapes that stress the round-parallel scaffolding
 // and the dedup pre-pass.
 //
 //   Dense80   — 80% uniformly-random nonzero scalars, 20% zero. Exercises the main

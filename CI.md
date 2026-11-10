@@ -264,7 +264,7 @@ The following labels can be used to control CI behavior on pull requests:
 
 - **`ci-squash-and-merge`**: Automatically squashes all commits in your PR into a single commit. Add this label to trigger squashing. The label is automatically removed after squashing. Thanks to content-based caching (see below), subsequent CI runs will be skipped if the content hasn't changed.
 
-- **`ci-no-squash`**: Exempts the PR from the single-commit requirement. Use when multiple commits are intentional (e.g., merge-train PRs).
+- **`ci-no-squash`**: Exempts the PR from the single-commit requirement. Use when multiple commits are intentional.
 
 - **`ci-merge-queue`**: Simulates merge queue behavior on your PR, running the full test suite.
 
@@ -279,7 +279,7 @@ The following labels can be used to control CI behavior on pull requests:
 
 ### Squash Enforcement
 
-PRs targeting `next` must be squashed to a single commit unless labeled with `ci-no-squash`. PRs targeting other branches (like `merge-train/*`) are automatically exempt from this requirement.
+PRs targeting `next` must be squashed to a single commit unless labeled with `ci-no-squash`. PRs targeting other branches are automatically exempt from this requirement.
 
 ### Top-level Content-Based CI Caching
 

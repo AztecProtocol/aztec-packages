@@ -31,6 +31,12 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           persist-credentials: true
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the contract
+        # libraries. The others are marked update = none in this checkout, so `bootstrap.sh init`, which
+        # every script that sources ci3 runs, leaves them out too. A no-op on refs from before ci3 became
+        # a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3 && git config -f .gitmodules --name-only --get-regexp '\.path$' | sed 's/\.path$/.update/' | grep -vx submodule.ci3.update | xargs -I{} git config {} none; fi
 
       - name: Configure Git
         run: |
@@ -41,7 +47,7 @@ jobs:
         env:
           PUBLIC_BRANCH: public-v5-next
           UPSTREAM_BRANCH: v5-next
-        run: ./scripts/merge-train/sync-public-next.sh
+        run: ./scripts/public-next/sync.sh
 
       - name: Merge public-v5-next into v5-next
         env:
@@ -49,4 +55,4 @@ jobs:
           SOURCE_BRANCH: public-v5-next
           TARGET_BRANCH: v5-next
           CONFLICT_EXIT_CODE: 1
-        run: ./scripts/merge-train/merge-public-next.sh
+        run: ./scripts/public-next/merge.sh

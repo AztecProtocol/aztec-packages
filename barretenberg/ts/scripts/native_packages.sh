@@ -7,6 +7,7 @@
 #   verify <bb|bb-avm>                 every staged binary must be byte-identical to the one
 #                                      in barretenberg/cpp/build-release/*.tar.gz
 set -euo pipefail
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 cd "$(dirname "$0")/.."
 cpp=$(pwd)/../cpp

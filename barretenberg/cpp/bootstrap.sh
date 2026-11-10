@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
@@ -494,7 +495,7 @@ function release {
   # A private release publishes only to the internal Artifact Registry; refuse a GitHub publish
   # here regardless of call path (this function is not on the private dispatch path, but the guard
   # makes a leak impossible rather than merely unreached).
-  "$root/ci3/assert_public_release"
+  "$root/scripts/assert_public_release"
   # The GitHub release assets are the legacy channel: the same binaries ship as npm packages
   # (@aztec-foundation/bb, @aztec-foundation/bb-avm and their platform packages) and bbup
   # installs from npm first. Kept while older bbup versions and the static libraries need it.

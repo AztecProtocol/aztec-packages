@@ -7,6 +7,7 @@
 # echo_example/. Service consumers invoke ipc-codegen from their own build
 # scripts with their own schema inputs.
 
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(cache_content_hash .rebuild_patterns)

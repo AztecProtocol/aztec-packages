@@ -33,6 +33,12 @@ jobs:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the contract
+        # libraries. The others are marked update = none in this checkout, so `bootstrap.sh init`, which
+        # every script that sources ci3 runs, leaves them out too. A no-op on refs from before ci3 became
+        # a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3 && git config -f .gitmodules --name-only --get-regexp '\.path$' | sed 's/\.path$/.update/' | grep -vx submodule.ci3.update | xargs -I{} git config {} none; fi
 
       # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
@@ -83,9 +89,8 @@ jobs:
           fi
           if [[ "$PR_BASE_REF" != "master" && \
                 "$PR_BASE_REF" != "staging" && \
-                "$PR_BASE_REF" != "next" && \
-                "$PR_BASE_REF" != merge-train/* ]]; then
-            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: $PR_BASE_REF."
+                "$PR_BASE_REF" != "next" ]]; then
+            echo "Error: External PRs can only target master, staging or next. Targeted: $PR_BASE_REF."
             exit 1
           fi
           if [ "$HAS_CI_LABEL" = false ]; then

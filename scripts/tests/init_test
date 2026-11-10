@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Tests what `./bootstrap.sh init` decides for itself, with this repository's bootstrap.sh, against a
+# throwaway superproject whose submodules come from local repositories (no network). What git does
+# once it updates (fetching, refusing to overwrite local changes, ...) is git's, and not tested here.
+set -euo pipefail
+
+bootstrap_src="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bootstrap.sh"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# Local submodule urls are refused by default (protocol.file.allow); init itself must not need any
+# configuration, so allow it through the environment for every git call in this test.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=protocol.file.allow GIT_CONFIG_VALUE_0=always
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+unset root ci3
+
+fails=0
+pass() { echo "PASS: $1"; }
+fail() { echo "FAIL: $1${2:+ ($2)}"; fails=$((fails + 1)); }
+
+# A remote with one commit per argument.
+function make_remote {
+  local name=$1
+  shift
+  git init -q --bare -b main "$work/$name.git"
+  git -C "$work/$name.git" config uploadpack.allowReachableSHA1InWant true
+  git clone -q "$work/$name.git" "$work/$name-src" 2>/dev/null
+  for v in "$@"; do
+    echo "$v" > "$work/$name-src/file"
+    git -C "$work/$name-src" add file && git -C "$work/$name-src" commit -qm "$v"
+    git -C "$work/$name-src" push -q origin HEAD:main
+  done
+}
+make_remote ci3 c1 c2
+make_remote other o1 o2
+make_remote skipped s1
+c1=$(git -C "$work/ci3-src" rev-parse HEAD~1) c2=$(git -C "$work/ci3-src" rev-parse HEAD)
+o2=$(git -C "$work/other-src" rev-parse HEAD)
+
+# The superproject. B pins ci3 at c1 and other at o1; C moves both. skipped is marked update = none,
+# as this repository's labs/ is.
+src="$work/super-src"
+git init -q -b main "$src"
+cp "$bootstrap_src" "$src/bootstrap.sh"
+for name in ci3 other skipped; do
+  git -C "$src" submodule add -q "file://$work/$name.git" "$name" 2>/dev/null
+done
+git -C "$src" config -f .gitmodules submodule.skipped.update none
+git -C "$src/ci3" checkout -q "$c1" && git -C "$src/other" checkout -q HEAD~1
+git -C "$src" add -A && git -C "$src" commit -qm B && git -C "$src" tag B
+git -C "$src/ci3" checkout -q "$c2" && git -C "$src/other" checkout -q "$o2"
+git -C "$src" add -A && git -C "$src" commit -qm C && git -C "$src" tag C
+
+# A fresh clone at a commit, without submodules: what a developer gets.
+function clone_at {
+  git clone -q --no-recurse-submodules "$src" "$work/$1"
+  git -C "$work/$1" checkout -q "$2"
+  echo "$work/$1"
+}
+head_of() { [ -e "$1/.git" ] && git -C "$1" rev-parse HEAD || echo none; }
+# Runs init in $1; sets rc, and out/err to its stdout/stderr.
+function init_in {
+  rc=0
+  (cd "$1" && ./bootstrap.sh init >"$work/out" 2>"$work/err") || rc=$?
+  out=$(cat "$work/out") err=$(cat "$work/err")
+}
+
+# A fresh clone gets its submodules, except update = none, and init stops before the rest of
+# bootstrap.sh (which would fail here: no ci3/source, no toolchains). Nothing on stdout: entry points
+# run inside pipelines whose stdout is data.
+d=$(clone_at fresh C)
+init_in "$d"
+if [ $rc -eq 0 ] && [ "$(head_of "$d/ci3")" = "$c2" ] && [ "$(head_of "$d/other")" = "$o2" ] &&
+  [ "$(head_of "$d/skipped")" = none ] && [ -z "$out" ]; then
+  pass "fresh clone: submodules fetched, update = none skipped, stops early, nothing on stdout"
+else
+  fail "fresh clone: submodules fetched, update = none skipped, stops early, nothing on stdout" \
+    "rc=$rc ci3=$(head_of "$d/ci3") other=$(head_of "$d/other") skipped=$(head_of "$d/skipped") out='$out' err='$err'"
+fi
+
+# Everything in place: the update does not run, so init is silent and needs no remote.
+for r in ci3 other; do mv "$work/$r.git" "$work/$r.git.away"; done
+init_in "$d"
+for r in ci3 other; do mv "$work/$r.git.away" "$work/$r.git"; done
+[ $rc -eq 0 ] && [ -z "$out$err" ] && pass "everything in place: silent, no network" \
+  || fail "everything in place: silent, no network" "rc=$rc out='$out' err='$err'"
+
+# Entry points start in parallel (make runs the project bootstraps at once). `git submodule update`
+# rewrites submodule config even with nothing to do, so parallel runs raced on its lock and some
+# failed; with everything in place they must not run it.
+failed=0
+pids=()
+for _ in $(seq 32); do (cd "$d" && ./bootstrap.sh init >/dev/null 2>>"$work/parallel.err") & pids+=($!); done
+for p in "${pids[@]}"; do wait "$p" || failed=$((failed + 1)); done
+[ $failed -eq 0 ] && pass "32 parallel inits with everything in place all succeed" \
+  || fail "32 parallel inits with everything in place all succeed" "$failed failed: $(sort -u "$work/parallel.err" | head -2 | tr '\n' ' ')"
+
+# An update = none submodule that something else keeps ahead of its pin, as labs-patches does with
+# labs/: init neither touches it nor runs the update because of it.
+git -C "$d" submodule update --init --checkout -q skipped 2>/dev/null
+echo patched > "$d/skipped/file" && git -C "$d/skipped" commit -qam "a patch on top"
+patched=$(head_of "$d/skipped")
+init_in "$d"
+[ $rc -eq 0 ] && [ "$(head_of "$d/skipped")" = "$patched" ] && [ -z "$out$err" ] \
+  && pass "an update = none submodule kept ahead of its pin is left alone, silently" \
+  || fail "an update = none submodule kept ahead of its pin is left alone, silently" "rc=$rc err='$err'"
+
+# Nor is anything inside it: labs/ has submodules of its own, which its own bootstrap.sh prepares, so
+# one not checked out there must not make every init run the update (which skips labs/ anyway). The
+# update rewrites the superproject's config even with nothing to do, so an unchanged config shows it
+# did not run.
+make_remote inner i1
+git -C "$d/skipped" submodule add -q "file://$work/inner.git" inner 2>/dev/null
+git -C "$d/skipped" commit -qm "a submodule of its own"
+git -C "$d/skipped" submodule deinit -q -f inner
+config_before=$(stat -c %y "$d/.git/config")
+init_in "$d"
+[ $rc -eq 0 ] && [ "$(stat -c %y "$d/.git/config")" = "$config_before" ] && [ -z "$out$err" ] \
+  && pass "a submodule inside an update = none submodule does not trigger an update" \
+  || fail "a submodule inside an update = none submodule does not trigger an update" "rc=$rc err='$err'"
+
+# A submodule opted out locally, to work in it, behind its new pin: not a reason to update.
+d=$(clone_at opted_out B)
+init_in "$d"
+git -C "$d" config submodule.ci3.update none
+git -C "$d" checkout -q C
+git -C "$d/other" checkout -q "$o2"
+init_in "$d"
+[ $rc -eq 0 ] && [ "$(head_of "$d/ci3")" = "$c1" ] && [ -z "$out$err" ] \
+  && pass "a locally opted-out submodule behind its pin does not trigger an update" \
+  || fail "a locally opted-out submodule behind its pin does not trigger an update" "rc=$rc ci3=$(head_of "$d/ci3") err='$err'"
+
+# Run from an unrelated directory: init finds the repository from bootstrap.sh's own location.
+d=$(clone_at elsewhere C)
+(cd "$work" && "$d/bootstrap.sh" init 2>/dev/null)
+[ "$(head_of "$d/ci3")" = "$c2" ] && pass "works from any working directory" || fail "works from any working directory"
+
+# A failed update fails init, so no script goes on with missing or stale submodules.
+d=$(clone_at failing C)
+mv "$work/other.git" "$work/other.git.away"
+init_in "$d"
+mv "$work/other.git.away" "$work/other.git"
+[ $rc -ne 0 ] && [[ "$err" == *other.git* ]] && [ -z "$out" ] && pass "a failed update fails init" \
+  || fail "a failed update fails init" "rc=$rc err='$err'"
+
+if [ $fails -ne 0 ]; then
+  echo "$fails test(s) failed."
+  exit 1
+fi
+echo "All tests passed."

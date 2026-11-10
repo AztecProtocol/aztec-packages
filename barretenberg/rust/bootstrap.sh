@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # The crate generates its own bindings, so the hash covers the schema and
@@ -70,7 +71,7 @@ function release {
   echo_header "barretenberg-rs release"
 
   # crates.io is a public channel: a private release must never reach it, regardless of call path.
-  "$root/ci3/assert_public_release"
+  "$root/scripts/assert_public_release"
 
   local version=${REF_NAME#v}
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 

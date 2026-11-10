@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Every script that sources ci3 must run `bootstrap.sh init` before it does, and stop if it fails, so
+# that it works on a fresh clone and after a pull that moves the ci3 pin, and never runs a stale ci3.
+# The root bootstrap.sh, which implements init, updates the submodules itself.
+#
+# This applies to every such script, not only to the ones people run directly: scripts are also
+# started by other scripts that do not source ci3, by composite actions, by TypeScript tests and by
+# globs, so whether a given script is the first to touch ci3 cannot be read off reliably. When ci3
+# is already in place, the prep is a no-op of a few milliseconds.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+ci3_source_re='^[[:space:]]*(NO_CD=1[[:space:]]+)?(source|\.)[[:space:]].*ci3/source'
+
+missing=()
+count=0
+while IFS= read -r f; do
+  count=$((count + 1))
+  # grep -m1 rather than `| head -1`: head exiting early SIGPIPEs grep, which pipefail turns into
+  # a silent exit.
+  first_source=$(grep -m1 -n -E "$ci3_source_re" "$f" | cut -d: -f1)
+  required='bootstrap.sh" init || exit 1'
+  [ "$f" == bootstrap.sh ] && required='submodule update --init'
+  first_prep=$(grep -m1 -n -F "$required" "$f" | cut -d: -f1 || true)
+  if [ -z "$first_prep" ] || [ "$first_prep" -gt "$first_source" ]; then
+    missing+=("$f")
+  fi
+done < <(git grep -l -E "$ci3_source_re" -- . ':!ci3' ':!*.md')
+
+if [ ${#missing[@]} -ne 0 ]; then
+  echo "These scripts source ci3 without running bootstrap.sh init first:"
+  printf '  %s\n' "${missing[@]}"
+  echo 'Add this line before the line that sources ci3:'
+  echo '  "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1'
+  exit 1
+fi
+echo "All $count scripts that source ci3 run bootstrap.sh init first."

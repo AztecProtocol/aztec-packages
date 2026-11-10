@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {
@@ -37,7 +38,7 @@ function handle_squash_merge {
   # failure from aborting the merge; squash-pr.sh's single-commit guard prevents looping regardless.
   gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-squash-and-merge" || true
   # Squash the PR commits into one (no-op when the branch is already a single commit).
-  ./scripts/merge-train/squash-pr.sh \
+  ./scripts/squash-pr.sh \
     "${PR_NUMBER}" \
     "${PR_HEAD_REF}" \
     "${PR_BASE_REF}"
