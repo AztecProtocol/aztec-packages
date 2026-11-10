@@ -544,6 +544,20 @@ a failed count check work as in `/release-docs` Step 12. So do hand backports: o
 to its line (`v6`) is not patch-equivalent, so `--cherry-pick` keeps it on both sides;
 judge it against `$AZTEC_NODE_DIR`, the tag.
 
+Then list the pages whose `references` changed between the two pins. The old pin is the
+destination's (the line's in a line cut); the script reads the cut's main paths:
+
+```bash
+. ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
+old=$(git -C "$DEST_ROOT" show "$DEST:docs/${LINE:+lines/$LINE/}aztec-node.json" |
+  node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit') &&
+  docs/scripts/pin_doc_references.sh "$old"
+```
+
+Take its `docs/docs-operate/<page>` entries. For each, read its references' diff and decide
+as the `update-doc-references` skill's Step 4 does, against the snapshot copy
+`docs/network_versioned_docs/version-v<new_version>/<page>`; fix it under the rule below.
+
 `>` commits are in the destination's pin but not in the release. Start with the operator
 pages the second log names (aztec-node held the docs until they moved here, so a code
 change and its doc edit landed in one commit) and revert those hunks in the snapshot,

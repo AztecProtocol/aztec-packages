@@ -1149,10 +1149,25 @@ instead of 57/2). Then:
    add, rename or change a public API. Grep the new snapshot for each symbol.
 2. **`<` commits are in the release only.** Step 8b's sweep covers their breaking changes;
    check that every `!:` one was swept.
-3. **Adjudicate every hit against `$AZTEC_NODE_DIR`**, the tag, as in Step 8b item 3. Fix
+3. **Pages whose `references` changed between the two pins.** The old pin is the
+   destination's (the line's in a line cut); the script reads the cut's main paths:
+
+   ```bash
+   . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
+   old=$(git -C "$DEST_ROOT" show "$DEST:docs/${LINE:+lines/$LINE/}aztec-node.json" |
+     node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit') &&
+     docs/scripts/pin_doc_references.sh "$old"
+   ```
+
+   For each listed page, read its references' diff and decide as the
+   `update-doc-references` skill's Step 4 does, against the page's snapshot copy:
+   `docs/docs-developers/<page>` is `docs/developer_versioned_docs/version-v<new_version>/<page>`,
+   `docs/docs-operate/<page>` is `docs/network_versioned_docs/version-v<new_version>/<page>`.
+   A `docs/docs-participate/` page has no snapshot and follows the destination's pin: skip it.
+4. **Adjudicate every hit against `$AZTEC_NODE_DIR`**, the tag, as in Step 8b item 3. Fix
    the snapshot only: the source follows the destination's pin, so these fixes are
    release-only (Step 17).
-4. Present what was found, fixed and skipped, for user confirmation.
+5. Present what was found, fixed and skipped, for user confirmation.
 
 ### Step 13: Build and Fix Issues
 
