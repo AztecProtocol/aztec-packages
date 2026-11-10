@@ -2,6 +2,7 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/interrupt.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -160,6 +161,7 @@ void Chonk::accumulate_hiding_kernel(HidingKernelCircuit& circuit,
         throw_or_abort("Chonk::accumulate_hiding_kernel must be the final circuit in the IVC stack");
     }
 
+    interrupt_point("fold:hiding_kernel_instance");
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
 
@@ -189,6 +191,7 @@ HonkProof Chonk::instance_to_accumulator(typename InstanceFlavor::CircuitBuilder
     using PI = ProverInstance_<InstanceFlavor>;
     BB_ASSERT(vk != nullptr, "Chonk::accumulate_and_fold - VK expected for the provided circuit");
 
+    interrupt_point("fold:instance");
     auto prover_instance = std::make_shared<PI>(circuit);
 #ifndef NDEBUG
     debug_incoming_circuit<InstanceFlavor>(circuit, prover_instance, vk);
@@ -199,6 +202,7 @@ HonkProof Chonk::instance_to_accumulator(typename InstanceFlavor::CircuitBuilder
     // Run sumcheck on the incoming instance; the folding prover caches the resulting claim. The claims of the whole
     // group are batched together once, when the group's last circuit is accumulated (see prove_multilinear_batching).
     vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
+    interrupt_point("fold:accumulate_instance");
     return folding_prover->template accumulate_instance<InstanceFlavor>(prover_instance, vk);
 }
 
@@ -258,6 +262,7 @@ template <IsChonkCircuit Circuit> void Chonk::accumulate_and_fold(Circuit& circu
     // If a kernel follows, the circuit just folded was the last of that kernel's group: produce the batching
     // proof the kernel will recursively verify.
     if (following_kind == CircuitKind::Kernel || following_kind == CircuitKind::HidingKernel) {
+        interrupt_point("fold:multilinear_batching");
         prove_multilinear_batching();
     }
 
@@ -314,6 +319,7 @@ template <IsChonkCircuit Circuit> void Chonk::accumulate(Circuit& circuit, const
         // final accumulator (the output of the hiding kernel's batching). Both proofs are recursively verified
         // in the hiding kernel.
         if (following_kind == CircuitKind::HidingKernel) {
+            interrupt_point("fold:decider");
             DeciderProver decider(prover_accumulation_transcript);
             decider_proof = decider.construct_proof(prover_accumulator);
 #ifndef NDEBUG
@@ -322,6 +328,7 @@ template <IsChonkCircuit Circuit> void Chonk::accumulate(Circuit& circuit, const
             // The decider proof is the last use of the final accumulator's polynomials.
             prover_accumulator.non_shifted_polynomial = ProverAccumulator::Polynomial{};
             prover_accumulator.shifted_polynomial = ProverAccumulator::Polynomial{};
+            interrupt_point("fold:batch_merge");
             goblin.prove_batch_merge();
         }
     }
@@ -386,20 +393,24 @@ ChonkProof Chonk::prove()
     goblin.transcript = transcript;
 
     // Phase 1: MegaZK Oink on the shared transcript.
+    interrupt_point("prove:mega_zk_oink");
     BatchedHonkTranslatorProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
     auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
 
     // Phase 2: Merge proof on the shared transcript (fixed append — hiding kernel's subtable).
+    interrupt_point("prove:merge");
     auto merge_proof = goblin.prove_merge(transcript);
     info("Goblin: num ultra ops = ", goblin.op_queue->get_ultra_ops_count());
 
     // Phase 3: ECCVM proof on the shared transcript.
+    interrupt_point("prove:eccvm");
     vinfo("prove eccvm...");
     goblin.prove_eccvm();
     vinfo("finished eccvm proving.");
 
     // Phase 4: Build translator proving key from ECCVM-derived challenges. The key copies the circuit into its
     // polynomials, so the circuit builder is released before proving.
+    interrupt_point("prove:translator_key");
     auto translator_key = [&] {
         TranslatorCircuitBuilder translator_builder(
             goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue);
@@ -407,6 +418,7 @@ ChonkProof Chonk::prove()
     }();
 
     // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
+    interrupt_point("prove:joint");
     vinfo("prove translator and joint...");
     auto joint_proof = batched_prover.prove(translator_key);
     vinfo("finished translator and joint proving.");

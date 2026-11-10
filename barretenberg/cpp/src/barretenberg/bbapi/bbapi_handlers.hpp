@@ -40,6 +40,7 @@ void handle_chonk_accumulate(BBApiRequest& ctx,
                              wire::BbChonkAccumulate&& cmd,
                              Responder<wire::BbChonkAccumulateResponse> respond);
 void handle_chonk_prove(BBApiRequest& ctx, wire::BbChonkProve&& cmd, Responder<wire::BbChonkProveResponse> respond);
+void handle_chonk_stop(BBApiRequest& ctx, wire::BbChonkStop&& cmd, Responder<wire::BbChonkStopResponse> respond);
 void handle_chonk_verify(BBApiRequest& ctx, wire::BbChonkVerify&& cmd, Responder<wire::BbChonkVerifyResponse> respond);
 void handle_chonk_verify_from_fields(BBApiRequest& ctx,
                                      wire::BbChonkVerifyFromFields&& cmd,

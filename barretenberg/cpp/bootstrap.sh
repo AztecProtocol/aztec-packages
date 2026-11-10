@@ -345,7 +345,7 @@ function test_cmds_native {
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
       grep -v 'DISABLED_' | \
       while read -r test; do
-        if [[ "$test" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" ]]; then
+        if [[ "$test" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" || "$test" == "ChonkInterruptPinned.Sweep" ]]; then
           continue
         fi
         if runs_nightly_only "$test"; then
@@ -360,7 +360,7 @@ function test_cmds_native {
         local prefix=$hash
         # Heavy provers get more cores/memory so they finish within the default per-test timeout;
         # these circuits parallelize, so more cores lowers wall-time.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest|ChonkInterrupt\.SweepThenProve) ]]; then
           # IPARecursiveTests fails with 2 threads.
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
@@ -370,6 +370,8 @@ function test_cmds_native {
 
   if [ "$mode" != nightly ]; then
     echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+    # One interrupted run and one full proof per interrupt site of one flow: ~3 min and ~0.5 GiB at 8 CPUs locally.
+    echo "$hash:CPUS=8:MEM=4g:TIMEOUT=10m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkInterruptPinned.Sweep"
     echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
     echo "$hash bash barretenberg/cpp/scripts/tests/chonk_inputs_test.sh"
   fi
@@ -399,6 +401,9 @@ function test_cmds_asan {
     local filter=${asan_tests[$bin_name]}
     echo -e "$prefix${asan_timeouts[$bin_name]:-} barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
   done
+  # Unwinding out of accumulation and proving under ASAN. The full sweep (17 injections) takes ~5 min at 16 CPUs; 4
+  # injections spread over the run take ~3 min at 4 CPUs locally.
+  echo -e "$prefix:TIMEOUT=900s BB_INTERRUPT_SWEEP_LIMIT=4 barretenberg/cpp/build-asan-fast/bin/chonk_tests --gtest_filter=ChonkInterrupt.SweepThenProve"
 }
 
 function test_cmds_smt {
