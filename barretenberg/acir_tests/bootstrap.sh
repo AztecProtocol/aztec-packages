@@ -172,6 +172,8 @@ function test_cmds {
   local browser_prefix="$tests_hash:ISOLATE=1:CPUS=8"
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome --srs-size $((2**20))"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  # A page that is not cross-origin isolated has no SharedArrayBuffer, so bb.js runs single-threaded.
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome --no-cross-origin-isolation"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.

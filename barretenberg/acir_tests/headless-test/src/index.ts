@@ -15,6 +15,8 @@ const __dirname = dirname(__filename);
 const { BROWSER } = process.env;
 let server: Server | null = null;
 let PORT = 0; // Will be set when server starts
+// Without cross-origin isolation a page has no SharedArrayBuffer, so bb.js runs its single-thread wasm.
+let crossOriginIsolation = true;
 
 if (!['chrome', 'firefox', 'webkit'].includes(BROWSER || '')) {
   throw new Error("BROWSER environment variable is not set. Set it to 'chrome', 'firefox', or 'webkit'.");
@@ -136,7 +138,9 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the path to the ACIR artifact json file', './target/acir.json')
   .option('-w, --witness-path <path>', 'Specify the path to the gzip encoded ACIR witness', './target/witness.gz')
   .option('-s, --srs-size <points>', 'CRS points to prove with, for a circuit larger than the bb.js default', Number)
-  .action(async ({ bytecodePath, witnessPath, srsSize }) => {
+  .option('--no-cross-origin-isolation', 'serve the page without COOP/COEP, so bb.js runs single-threaded')
+  .action(async ({ bytecodePath, witnessPath, srsSize, crossOriginIsolation: isolate }) => {
+    crossOriginIsolation = isolate;
     const acir = readBytecodeFile(bytecodePath);
     const witness = readWitnessFile(witnessPath);
     const threads = Math.min(os.cpus().length, 16);
@@ -159,6 +163,10 @@ program
       }
 
       await provingPage.goto(`http://localhost:${PORT}`, { waitUntil: 'networkidle' });
+      const isolated = await provingPage.evaluate(() => self.crossOriginIsolated);
+      if (isolated !== crossOriginIsolation) {
+        throw new Error(`the page is ${isolated ? '' : 'not '}cross-origin isolated, contrary to what the test asks`);
+      }
 
       // Wait for module to load and install globals (poll for window.prove)
       await provingPage.evaluate(async () => {
@@ -310,8 +318,10 @@ function startTestServer(): Promise<number> {
 
     server = createServer((req, res) => {
       // Set COOP/COEP headers for SharedArrayBuffer support
-      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-      res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+      if (crossOriginIsolation) {
+        res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+        res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+      }
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cache-Control', 'no-store');
 

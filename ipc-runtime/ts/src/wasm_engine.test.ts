@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { WasmFfiEngine } from "./wasm/backend.js";
 import type { WasmFfiBinding, WorkerHandle } from "./wasm/node/index.js";
@@ -9,13 +10,13 @@ import { nodePlatform } from "./wasm/node/platform.js";
  * It imports a memory and wasi-threads, and implements the FFI contract with a bump allocator and
  * an entry that echoes the request back as the response.
  */
-function buildModule(opts: {
+function moduleBytes(opts: {
   shared: boolean;
   min: number;
   max: number;
   /** Define and export a memory instead of importing one, the way a Rust cdylib does. */
   ownMemory?: boolean;
-}): WebAssembly.Module {
+}): Uint8Array<ArrayBuffer> {
   const leb = (n: number) => {
     const out = [];
     do {
@@ -132,26 +133,27 @@ function buildModule(opts: {
     ...body([0], []),
   ]);
 
-  return new WebAssembly.Module(
-    new Uint8Array([
-      0x00,
-      0x61,
-      0x73,
-      0x6d,
-      0x01,
-      0x00,
-      0x00,
-      0x00,
-      ...types,
-      ...imports,
-      ...functions,
-      ...memories,
-      ...globals,
-      ...exports,
-      ...code,
-    ]),
-  );
+  return new Uint8Array([
+    0x00,
+    0x61,
+    0x73,
+    0x6d,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    ...types,
+    ...imports,
+    ...functions,
+    ...memories,
+    ...globals,
+    ...exports,
+    ...code,
+  ]);
 }
+
+const buildModule = (opts: Parameters<typeof moduleBytes>[0]) =>
+  new WebAssembly.Module(moduleBytes(opts));
 
 /**
  * A binding that counts the workers it is asked for, so when they are created is observable. With
@@ -270,6 +272,38 @@ test("follows the module's memory declaration rather than the request", async ()
   assert.equal(engine.memory.buffer instanceof SharedArrayBuffer, false);
   assert.equal(engine.threads, 1);
   await engine.destroy();
+});
+
+test("constructs where the SharedArrayBuffer global is absent, as in a page that is not cross-origin isolated", () => {
+  // The flag hides the global in the child's context, as a browser does for such a page.
+  const child = `
+    import { WasmFfiEngine } from ${JSON.stringify(new URL("./wasm/backend.js", import.meta.url).href)};
+    import { nodePlatform } from ${JSON.stringify(new URL("./wasm/node/platform.js", import.meta.url).href)};
+    const refuse = () => { throw new Error("no workers here"); };
+    const engine = await WasmFfiEngine.create(
+      {
+        module: Buffer.from(process.env.MODULE, "base64"),
+        moduleMemory: { initial: 4, maximum: 64, shared: false },
+        threads: 1,
+        memory: { initial: 4, maximum: 64 },
+      },
+      { platform: nodePlatform, createThreadWorker: refuse, createMainWorker: refuse },
+    );
+    process.stdout.write(typeof SharedArrayBuffer + " " + engine.threads);
+    await engine.destroy();
+  `;
+  const output = execFileSync(
+    process.execPath,
+    ["--enable-sharedarraybuffer-per-context", "--input-type=module", "-e", child],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        MODULE: Buffer.from(moduleBytes({ shared: false, min: 4, max: 64 })).toString("base64"),
+      },
+    },
+  );
+  assert.equal(output, "undefined 1");
 });
 
 test("caps the memory at the module's declared maximum when the caller asks for more", async () => {
