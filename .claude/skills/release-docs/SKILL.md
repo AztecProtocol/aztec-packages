@@ -211,8 +211,8 @@ if [ -f "docs/lines/v$major/aztec-node.json" ]; then
 fi
 node -p "require('./$PINFILE').ref" | grep -q "^v$major\." \
   || { echo "no dev docs follow v$major: neither main's pin nor a line (docs/lines/v$major/)" >&2; exit 1; }
-git diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" \
-  || { echo "$EXAMPLES differs from origin/next: land those changes on next first" >&2; exit 1; }
+git diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" "${EXAMPLES%/examples}/Nargo.toml" \
+  || { echo "$EXAMPLES or its Nargo.toml differs from origin/next: land those changes on next first" >&2; exit 1; }
 CUT_ID=<cut>
 STATE=$HOME/.cache/aztec-docs-cut/$CUT_ID
 ! git show-ref --verify -q "refs/heads/docs-cut/$CUT_ID" && mkdir -p "${STATE%/*}" && mkdir "$STATE" \
@@ -264,7 +264,8 @@ the installer's layout instead. `COMMIT_TAG` keeps its `v`: `#include_aztec_vers
 `DEST_PIN_REF` is the pin of the pages the cut starts from. `DOCS_COMMIT` is the
 destination's base on `origin/next`, and the check above proves the destination's examples
 (`$EXAMPLES`) equal it, so links to it resolve and show the snapshot's
-lines. `AZTEC_NODE_DIR` puts the cut's checkout outside the worktree: nargo run anywhere
+lines. The tutorials' clone blocks fetch those examples at it with their `Nargo.toml`, so the
+check covers that file too. `AZTEC_NODE_DIR` puts the cut's checkout outside the worktree: nargo run anywhere
 under `docs/` takes `docs/Nargo.toml` as its workspace, and nothing run in the checkout
 (2d, Step 6) may see it.
 
@@ -962,7 +963,7 @@ a feature the release lacks.
 docs_env yarn preprocess
 grep -rcE 'tag *= *"next"|@next\b|@latest|VERSION=latest|aztec\.network/latest' \
   processed-docs/docs-developers/docs/tutorials/ | grep -v ':0$'
-grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"#?]+){0,2}|/?", *tag *= *"[^"]+"(, *directory *= *"[^/"]+(/[^/"]+)?)?)|git clone [^`]*AztecProtocol/aztec-packages' processed-docs/ |
+grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"#?]+){0,2}|/?", *tag *= *"[^"]+"(, *directory *= *"[^/"]+(/[^/"]+)?)?)|git clone [^`]*AztecProtocol/aztec-packages|(origin|checkout) [0-9a-f]{40}$' processed-docs/ |
   sort | uniq -c
 ```
 
@@ -981,9 +982,10 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
   - Under `noir-projects/` or `yarn-project/`: Labs code, so in the snapshot it names
     aztec-node (`https://github.com/aztec-labs-eng/aztec-node`) at the tag.
   - Under `docs/examples` (a line cut's `docs/lines/<line>/examples`): this repository's examples, which the snapshot quotes at
-    `DOCS_COMMIT`. Clone steps are the usual hit: the source clones aztec-packages `next`,
-    and the snapshot's clone must check out `DOCS_COMMIT` after cloning (fix the snapshot
-    after 11b, not the source).
+    `DOCS_COMMIT`. A `Clone the example` block fetches and checks out `#docs_commit`, which
+    renders `DOCS_COMMIT`: its `origin <commit>` and `checkout <commit>` hits name it and need
+    no fix. A `git clone` of aztec-packages is hand-written: the snapshot's clone must check
+    out `DOCS_COMMIT` (fix the snapshot after 11b, not the source).
   - Under `l1-contracts/` or `barretenberg/`: Foundation code, whose ref is
     `#include_foundation_version` (`v<l1-artifacts version>`).
   - Anything else: `v<l1-artifacts version>` or `next`. `master` resolves only through
@@ -998,7 +1000,7 @@ grep -rhoE 'github\.com/AztecProtocol/aztec-packages(/(blob|tree)/[^/)"]+(/[^/)"
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
 docs_env sh -c 'echo "aztec-node: $AZTEC_NODE_COMMIT  aztec-packages: $DOCS_COMMIT"'
 grep -rhoE 'github\.com/aztec-labs-eng/aztec-node/blob/[^/)"]+' processed-docs/ | sort | uniq -c
-grep -rhoE 'github\.com/AztecProtocol/aztec-packages/blob/[^/)"]+/docs/(lines/[^/]+/)?examples' processed-docs/ | sort | uniq -c
+grep -rhoE 'github\.com/AztecProtocol/aztec-packages/(blob|tree)/[^/)"]+/docs/(lines/[^/]+/)?examples' processed-docs/ | sort | uniq -c
 ```
 
 Every aztec-node link must name `AZTEC_NODE_COMMIT` and every examples link
@@ -1315,12 +1317,21 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
      Yarn matches each entry as a package glob plus a version range, so this admits
      nothing else. Never turn the gate off (`npmMinimalAgeGate: 0`,
      `YARN_NPM_MINIMAL_AGE_GATE`), and never edit the repository's `.yarnrc.yml`.
-   - **A line cut's tutorials whose project is the line's examples** (they clone this
-     repository and build under `docs/lines/<line>/examples/`) may not build there: nargo
-     takes `docs/Nargo.toml` as the workspace, as `examples/bootstrap.sh --line` notes.
-     Walk each one as written first, and record every failure with its doc line. Only then
-     run its commands in a copy of the `DOCS_LINE_STAGE` stage of item 4, to check the code
-     itself; a pass there never clears the as-written failure.
+   - **The tutorials that clone the examples** (`webapp/index.md` and `uniswap_swap.md`; the
+     wallet extension tutorial uses the webapp's block): run each snapshot page's
+     `Clone the example` block in an empty folder, with the build the page goes on to:
+
+     ```bash
+     . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
+     for page in webapp/index.md uniswap_swap.md; do
+       docs_env docs/scripts/fresh_clone_test.sh \
+         "docs/developer_versioned_docs/version-v<new_version>/docs/tutorials/js_tutorials/$page"
+     done
+     ```
+
+     It fetches `DOCS_COMMIT` from this repository and aztec-node at the tag, and fails
+     unless that checkout is the tag's commit. Record a failure with its doc line; then walk
+     the rest of each tutorial as written.
 
 4. **Build and run the Aztec.js examples at the tag**, in the cut, against the local network:
 
@@ -1476,8 +1487,8 @@ its pin commit (Step 2c):
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 git -C "$DEST_ROOT" diff --quiet "$DEST" -- docs || { echo "destination docs/ moved: restart the cut" >&2; exit 1; }
 cd "$CUT" && git add -- docs && git commit -m "docs: cut $LABS_TAG"
-git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" \
-  || { echo "the cut changed $EXAMPLES: land the change on next and restart the cut" >&2; exit 1; }
+git -C "$CUT" diff --quiet "$DOCS_COMMIT" HEAD -- "$EXAMPLES" "${EXAMPLES%/examples}/Nargo.toml" \
+  || { echo "the cut changed $EXAMPLES or its Nargo.toml: land the change on next and restart the cut" >&2; exit 1; }
 git -C "$CUT" diff --name-status "$PINNED" HEAD -- docs
 ```
 
