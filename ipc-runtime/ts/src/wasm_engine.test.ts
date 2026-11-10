@@ -184,7 +184,7 @@ const threadedMemory = { initial: 4, maximum: 64, shared: true };
 
 // A browser starts a worker created by a busy worker only once that worker's call returns, so the
 // threads a module spawns mid-call have to be running already.
-test("prestarts a worker for each thread but the main one, then creates more on demand", async () => {
+test("prestarts a worker per thread the module is told it has, then creates more on demand", async () => {
   const binding = countingBinding();
   const engine = await WasmFfiEngine.create(
     {
@@ -197,15 +197,16 @@ test("prestarts a worker for each thread but the main one, then creates more on 
   );
   try {
     assert.equal(engine.threads, 4);
-    assert.equal(binding.created(), 3, "threads - 1 workers, started before the engine is handed out");
+    assert.equal(binding.created(), 4, "one worker per thread, started before the engine is handed out");
 
     const spawn = (arg: number) => engine.host.callExport("spawn_thread", arg);
     assert.equal(spawn(0), 2, "first tid");
     assert.equal(spawn(0), 3, "tids keep counting up");
     assert.equal(spawn(0), 4);
-    assert.equal(binding.created(), 3, "spawns run on the prestarted workers");
     assert.equal(spawn(0), 5);
-    assert.equal(binding.created(), 4, "a spawn past them gets a new worker");
+    assert.equal(binding.created(), 4, "spawns run on the prestarted workers");
+    assert.equal(spawn(0), 6);
+    assert.equal(binding.created(), 5, "a spawn past them gets a new worker");
   } finally {
     await engine.destroy();
   }
@@ -225,10 +226,10 @@ test("a worker that fails to prestart leaves its thread to be created on demand"
     binding,
   );
   try {
-    assert.equal(binding.created(), 1);
+    assert.equal(binding.created(), 2);
     assert.match(log.join("\n"), /could not be prestarted: .*stub told to fail/);
     assert.equal(engine.host.callExport("spawn_thread", 0), 2);
-    assert.equal(binding.created(), 2);
+    assert.equal(binding.created(), 3);
   } finally {
     await engine.destroy();
   }

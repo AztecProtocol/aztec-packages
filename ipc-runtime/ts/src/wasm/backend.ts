@@ -300,9 +300,11 @@ export class WasmFfiEngine {
       }
       throw e;
     });
-    // The thread count the module is told (HARDWARE_CONCURRENCY) is one main thread and the rest
-    // spawned; a module spawning more starts the extras on demand.
-    await threadWorkers?.prestart(threads - 1);
+    // As many as the thread count the module is told: bb spawns HARDWARE_CONCURRENCY - 1 and keeps
+    // the main thread working, but rayon spawns RAYON_NUM_THREADS workers besides the caller, and
+    // its build_global waits until all of them run, which in a browser would wait forever on one
+    // started only after the call. A module spawning more gets the extras on demand.
+    await threadWorkers?.prestart(threads);
     // host.memory is the one the module actually uses, which is its own when it exports one.
     logger(
       `wasm: ${threads} thread(s), memory ${host.memory.buffer.byteLength >> 16} pages initial, ` +
