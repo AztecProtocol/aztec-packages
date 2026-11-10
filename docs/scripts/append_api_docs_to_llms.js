@@ -453,7 +453,7 @@ function main() {
     "\n\n## Optional\n\n" +
     "- [Aztec website](https://aztec.network): Aztec Network home page.\n" +
     "- [Noir language documentation](https://noir-lang.org/docs): The language Aztec smart contracts are written in, documented separately.\n" +
-    "- [Aztec starter repository](https://github.com/AztecProtocol/aztec-starter): Template project for a new Aztec app.\n" +
+    "- [Aztec.js getting started](https://docs.aztec.network/developers/docs/tutorials/js_tutorials/aztecjs-getting-started): Deploy and call a contract from TypeScript.\n" +
     "- [Aztec MCP server](https://github.com/AztecProtocol/mcp-server): Code search, doc search, and example discovery for AI coding tools.\n" +
     "- [Aztec on GitHub](https://github.com/AztecProtocol): Source code, examples, and community resources.\n" +
     "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Community list of third-party Aztec projects, tools and libraries, labelled with the Aztec version each targets where it depends on Aztec.\n" +

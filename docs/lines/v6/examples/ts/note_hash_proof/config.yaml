@@ -1,0 +1,10 @@
+contracts:
+  - note_hash_proof_contract-NoteHashProof
+
+dependencies:
+  - "@aztec-labs/aztec.js"
+  - "@aztec-labs/accounts"
+  - "@aztec-labs/wallets"
+  - "@aztec-labs/stdlib"
+  - "@aztec-foundation/bb.js"
+  - "@aztec-foundation/noir-noir_js"

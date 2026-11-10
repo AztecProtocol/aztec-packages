@@ -92,6 +92,23 @@ As Aztec has native account abstraction, accounts do not automatically have a si
 
 Noir is a zero-knowledge domain specific language used for writing smart contracts for the Aztec network. It is also possible to write circuits with Noir that can be verified on or offchain. For more in-depth docs into the features of Noir, go to the [Noir website](https://noir-lang.org/).
 
+## Coming from Ethereum
+
+If you know Solidity, this table maps what you use today to its Aztec counterpart:
+
+| Concept | Ethereum | Aztec |
+| --- | --- | --- |
+| Contract language | Solidity | Noir, with the Aztec.nr framework |
+| Public state | `mapping(address => uint256)` | `Map<AztecAddress, PublicMutable<u64, Context>, Context>` |
+| Private state | None: all contract state is public | [Notes](./docs/foundational-topics/state_management.md), encrypted to their owner and stored by the owner's PXE |
+| Caller | `msg.sender` | `self.msg_sender()` |
+| Public function | `function f() public` | `#[external("public")]`, runs on the network |
+| Private function | None | `#[external("private")]`, runs and is proven on the user's device |
+| Hidden moves, revealed later | Commit a hash, then reveal the value and salt | Keep each move in a private note, then reveal with a function you write (see the [Pod Racing tutorial](./docs/tutorials/js_tutorials/webapp/01-the-contract.md)) |
+| Accounts | EOAs, with optional smart accounts | Every account is a [contract](./docs/foundational-topics/accounts/index.md) |
+| Fees | ETH per unit of gas | [Fee Juice per unit of mana](./docs/foundational-topics/fees.md); a fee-paying contract (FPC) can pay instead, like a paymaster |
+| Client library | ethers or viem, talking to a node | [Aztec.js](./docs/aztec-js/index.md), talking to a wallet that runs a PXE |
+
 :::tip Need help?
 If something does not work, or you are not sure where to ask, see the [support guide](./support.md). It explains the right channel for questions, bug reports, feature requests, and security disclosures.
 :::

@@ -110,7 +110,7 @@ Make sure the `aztec` CLI is installed and matches your package versions. Run `a
 
 ## Next steps
 
-You now have a working Aztec webapp. From here you could:
+You now have a working Aztec webapp. Next, [test the contract](./07-testing-the-contract.md) with Noir unit tests in the TXE. From here you could also:
 
 - Add more game features (tournaments, betting, leaderboards)
 - Deploy your own contract with custom game logic

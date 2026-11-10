@@ -79,6 +79,8 @@ await wallet.registerSender(senderAddress);
 
 Notes sent to yourself are always discoverable — the PXE automatically adds all local accounts as implicit senders.
 
+For a runnable example with two wallets, see [Using multiple wallets](../../../aztec-js/how_to_use_multiple_wallets.md).
+
 ### The sync process
 
 The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility function into every contract. This function is invoked by the PXE during note syncing to orchestrate discovery via oracles; manual execution is forbidden by the PXE to prevent inconsistencies. The process works as follows:
