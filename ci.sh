@@ -149,7 +149,7 @@ function multi_job_run {
     # under pipefail and bootstrap_ec2 handles spot-eviction retry internally (exec), so
     # piping through add_timestamps preserves its exit code. DENOISE_DISPLAY_NAME keeps
     # the parent log's "Executing:" line free of the pipe.
-    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 BENCH_UPLOAD=$bench_upload \
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1${INSTANCE_NAME_SUFFIX:-} ARCH=$2 BENCH_UPLOAD=$bench_upload \
       DENOISE_DISPLAY_NAME="bootstrap_ec2 './bootstrap.sh $3'" \
       exec denoise "bootstrap_ec2 './bootstrap.sh $3' 2>&1 | add_timestamps"
   }
@@ -192,7 +192,7 @@ case "$cmd" in
     # set it globally) keeps bootstrap_ec2's exit code through add_timestamps — the
     # launching build instance waits on this fatally.
     ( set -o pipefail
-      AWS_INSTANCE=m6a.metal JOB_ID=x-bench INSTANCE_POSTFIX=x-bench \
+      AWS_INSTANCE=m6a.metal JOB_ID=x-bench INSTANCE_POSTFIX=x-bench${INSTANCE_NAME_SUFFIX:-} \
         bootstrap_ec2 "./bootstrap.sh ci-bench" 2>&1 | add_timestamps )
     ;;
   socket-fix)
@@ -419,10 +419,6 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench)
-    cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
-    ;;
-
   help|"")
     print_usage
     ;;
