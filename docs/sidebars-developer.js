@@ -31,11 +31,6 @@ const sidebars = {
       label: "Support",
     },
     {
-      type: "doc",
-      id: "docs/tutorials/js_tutorials/first_full_project",
-      label: "Your First Full Project",
-    },
-    {
       type: "html",
       value: '<span class="sidebar-title">Docs</span>',
       className: "sidebar-title",

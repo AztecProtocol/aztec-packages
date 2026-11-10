@@ -27,11 +27,6 @@
       "label": "Support"
     },
     {
-      "type": "doc",
-      "id": "docs/tutorials/js_tutorials/aztecjs-getting-started",
-      "label": "Deploy from TypeScript"
-    },
-    {
       "type": "html",
       "value": "<span class=\"sidebar-title\">Docs</span>",
       "className": "sidebar-title"
