@@ -3,7 +3,7 @@ title: "Deposit to Aave from Aztec"
 sidebar_position: 2
 description: "Build a cross-chain DeFi integration that deposits tokens into Aave from Aztec L2 and claims yield back."
 tags: [defi, cross-chain, messaging, portals, advanced]
-references: ["docs/examples/contracts/aave_bridge/src/main.nr", "docs/examples/solidity/aave_bridge/AavePortal.sol", "docs/examples/ts/aave_bridge/index.ts"]
+references: ["docs/examples/contracts/aave_bridge/src/main.nr", "docs/examples/ts/aave_bridge/contracts/AavePortal.sol", "docs/examples/ts/aave_bridge/scripts/index.ts"]
 ---
 
 ## Why DeFi from Aztec?
@@ -52,7 +52,7 @@ You'll create:
 ## Prerequisites
 
 - [Aztec local network running at version #include_aztec_version](../../../getting_started_on_local_network.md) (includes the Aztec CLI, and the Node.js version it requires)
-- [Hardhat](https://hardhat.org/getting-started) installed for Solidity compilation and deployment
+- Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack)
 - Familiarity with the [Token Bridge tutorial](./token_bridge.md) (recommended)
 - Basic understanding of [cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)
 
@@ -104,29 +104,65 @@ sequenceDiagram
 
 ## Project Setup
 
-Start with the Hardhat + Aztec template. This provides a pre-configured Hardhat project with Aztec dependencies and Solidity compilation settings:
-
-:::note
-
-This template is a community-maintained starter. If the repository is unavailable, you can set up a Hardhat project manually and add the `@aztec/*` Solidity remappings from the [cross-chain messaging docs](../../foundational-topics/ethereum-aztec-messaging/index.md).
-
-:::
+The Ethereum side is a [Hardhat](https://hardhat.org) project, and the Aztec contract goes in its `contracts/aztec` folder. Create the project folder:
 
 ```bash
-git clone https://github.com/critesjosh/hardhat-aztec-example
-cd hardhat-aztec-example
-git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
+mkdir aztec-aave-bridge
+cd aztec-aave-bridge
 ```
 
-The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
+Create `package.json`:
 
-Before adding dependencies, make the starter install with yarn 4: create the `.yarnrc.yml`, swap `@aztec/l1-contracts` for `@aztec-foundation/l1-artifacts`, point the `postinstall` remappings at the new package, and add the root `remappings.txt`. These are the first three steps of the [Token Bridge tutorial's project setup](./token_bridge.md#project-setup); without them `yarn add` fails on the starter's git dependencies and `npx hardhat compile` cannot resolve the `@aztec/*` imports.
+```json title="package.json"
+{
+  "name": "aztec-aave-bridge",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.13.0"
+}
+```
+
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder, runs no install scripts from your dependencies, and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
+
+```yaml title=".yarnrc.yml"
+nodeLinker: node-modules
+enableScripts: false
+npmMinimalAgeGate: 7d
+npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
+```
+
+Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:
+
+```bash
+yarn add hardhat@3.21.2 @aztec-foundation/l1-artifacts@#include_foundation_version_without_prefix @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix @aztec-labs/stdlib@#include_version_without_prefix @aztec-labs/foundation@#include_version_without_prefix @aztec-labs/ethereum@#include_version_without_prefix @aztec-labs/noir-contracts.js@#include_version_without_prefix @aztec/viem@2.38.2 tsx@4.23.15
+```
+
+Yarn notes that it skipped the build scripts of a few dependencies (`YN0004`). They ship prebuilt binaries, so this tutorial needs none of those scripts.
+
+The portal's Aztec interfaces come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network. Hardhat applies none of your remappings to files inside `node_modules`, so link those sources into the project:
+
+```bash
+ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
+```
+
+Create `hardhat.config.ts`:
+
+#include_code hardhat_config /docs/examples/ts/aave_bridge/hardhat.config.ts typescript
+
+Create `remappings.txt`. It resolves the `@oz/` and `@aztec/` imports, in your contracts and in the l1-contracts sources, through that link:
+
+#include_code remappings /docs/examples/ts/aave_bridge/remappings.txt text
 
 When complete, your project will have this structure:
 
 ```
-hardhat-aztec-example/
-  contracts/                     # Solidity contracts (Hardhat default)
+aztec-aave-bridge/
+  package.json
+  .yarnrc.yml
+  hardhat.config.ts
+  remappings.txt
+  l1-contracts -> node_modules/@aztec-foundation/l1-artifacts/l1-contracts
+  contracts/                     # Solidity contracts
     MockERC20.sol
     MockAToken.sol
     MockAavePool.sol
@@ -141,15 +177,10 @@ hardhat-aztec-example/
       aave_bridge_test/
         Nargo.toml
         src/lib.nr
+    artifacts/                   # Generated by aztec codegen
   scripts/
     index.ts                     # Integration script
-  artifacts/                     # Generated by aztec codegen
-```
-
-Add the Aztec dependencies:
-
-```bash
-yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix @aztec-labs/stdlib@#include_version_without_prefix @aztec-labs/foundation@#include_version_without_prefix @aztec-labs/ethereum@#include_version_without_prefix @aztec-labs/noir-contracts.js@#include_version_without_prefix @aztec/viem@2.38.2 tsx
+  artifacts/                     # Generated by npx hardhat compile
 ```
 
 Start the local network in another terminal:
@@ -277,6 +308,12 @@ The integration script imports `TokenContract` from `@aztec-labs/noir-contracts.
 
 ## Part 2: The Ethereum Side
 
+Go back to the project root:
+
+```bash
+cd ../../..
+```
+
 ### Mock Aave Contracts
 
 For local testing, you'll use simplified mocks of Aave's lending pool. The mock pool accepts deposits and returns them with a configurable yield — 10% in this tutorial (1000 basis points, where 10000 bps = 100%).
@@ -291,30 +328,15 @@ Create the following mock contracts in `contracts/`.
 
 `contracts/MockERC20.sol` — a minimal ERC20 with public minting:
 
-```solidity
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-#include_code mock_erc20 /docs/examples/solidity/aave_bridge/MockERC20.sol raw
-```
+#include_code mock_erc20 /docs/examples/ts/aave_bridge/contracts/MockERC20.sol solidity
 
 `contracts/MockAToken.sol` — Aave's yield-bearing token mock:
 
-```solidity
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-#include_code mock_atoken /docs/examples/solidity/aave_bridge/MockAToken.sol raw
-```
+#include_code mock_atoken /docs/examples/ts/aave_bridge/contracts/MockAToken.sol solidity
 
 `contracts/MockAavePool.sol` — simplified Aave lending pool that returns a configurable yield:
 
-```solidity
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {MockERC20} from "./MockERC20.sol";
-import {MockAToken} from "./MockAToken.sol";
-
-#include_code mock_aave_pool /docs/examples/solidity/aave_bridge/MockAavePool.sol raw
-```
+#include_code mock_aave_pool /docs/examples/ts/aave_bridge/contracts/MockAavePool.sol solidity
 
 ### AavePortal Contract
 
@@ -323,18 +345,7 @@ The portal is where the magic happens. It bridges Aztec's cross-chain messages w
 <!-- wrapped in a code block to add a "}" at the end -->
 
 ```solidity
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-import {IRegistry} from "@aztec-foundation/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol";
-import {IInbox} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/interfaces/IRollup.sol";
-import {DataStructures} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/crypto/Hash.sol";
-import {Epoch} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/TimeLib.sol";
-
-#include_code portal_setup /docs/examples/solidity/aave_bridge/AavePortal.sol raw
+#include_code portal_setup /docs/examples/ts/aave_bridge/contracts/AavePortal.sol raw
 }
 ```
 
@@ -344,21 +355,23 @@ Like the L2 contract, the code above shows the contract opening — imports, sta
 
 The portal has three key functions. First, `depositToAave` consumes an L2→L1 message (proving the user burned tokens on L2) and deposits the underlying tokens into Aave:
 
-#include_code portal_deposit_to_aave /docs/examples/solidity/aave_bridge/AavePortal.sol solidity
+#include_code portal_deposit_to_aave /docs/examples/ts/aave_bridge/contracts/AavePortal.sol solidity
 
 Then, `claimFromAavePublic` withdraws from Aave (including any yield earned) and sends an L1→L2 message so the user can mint tokens on L2:
 
-#include_code portal_claim_public /docs/examples/solidity/aave_bridge/AavePortal.sol solidity
+#include_code portal_claim_public /docs/examples/ts/aave_bridge/contracts/AavePortal.sol solidity
 
 There's also a private variant that lets the user claim without revealing their L2 address:
 
-#include_code portal_claim_private /docs/examples/solidity/aave_bridge/AavePortal.sol solidity
+#include_code portal_claim_private /docs/examples/ts/aave_bridge/contracts/AavePortal.sol solidity
 
 ### Compile
 
 ```bash
 npx hardhat compile
 ```
+
+The compiler warns about EIP-1153 transient storage in `TransientSlot.sol`. That warning is expected: the file is OpenZeppelin code bundled with l1-contracts, which the portal reaches through the `IRollup` interface.
 
 :::note Solidity Artifact Paths
 Hardhat compiles Solidity contracts to `artifacts/contracts/` by default. The integration script imports ABIs from this location (e.g., `../artifacts/contracts/AavePortal.sol/AavePortal.json`).
@@ -370,31 +383,7 @@ Create `scripts/index.ts` to run the full flow. This script deploys all contract
 
 ### Setup
 
-```typescript
-import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing";
-import { AztecAddress, EthAddress } from "@aztec-labs/aztec.js/addresses";
-import { SetPublicAuthwitContractInteraction } from "@aztec-labs/aztec.js/authorization";
-import { Fr } from "@aztec-labs/aztec.js/fields";
-import { createAztecNodeClient, waitForNode } from "@aztec-labs/aztec.js/node";
-import { createExtendedL1Client } from "@aztec-labs/ethereum/client";
-import { deployL1Contract } from "@aztec-labs/ethereum/deploy-l1-contract";
-import { sha256ToField } from "@aztec-labs/foundation/crypto/sha256";
-import {
-  computeL2ToL1MessageHash,
-  computeSecretHash,
-} from "@aztec-labs/stdlib/hash";
-import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
-import { decodeEventLog, pad, toFunctionSelector } from "@aztec/viem";
-import { foundry } from "@aztec/viem/chains";
-import AavePortal from "../artifacts/contracts/AavePortal.sol/AavePortal.json" with { type: "json" };
-import MockERC20 from "../artifacts/contracts/MockERC20.sol/MockERC20.json" with { type: "json" };
-import MockAToken from "../artifacts/contracts/MockAToken.sol/MockAToken.json" with { type: "json" };
-import MockAavePool from "../artifacts/contracts/MockAavePool.sol/MockAavePool.json" with { type: "json" };
-import { TokenContract } from "@aztec-labs/noir-contracts.js/Token";
-import { AaveBridgeContract } from "../contracts/aztec/artifacts/AaveBridge.js";
-
-#include_code setup /docs/examples/ts/aave_bridge/index.ts raw
-```
+#include_code setup /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 :::note About EmbeddedWallet
 `EmbeddedWallet` is a simplified wallet for local development. It handles key management, transaction signing, and proof generation in-process. Code written against `EmbeddedWallet` works with any `Wallet` implementation, so your application logic transfers directly to production.
@@ -402,19 +391,15 @@ import { AaveBridgeContract } from "../contracts/aztec/artifacts/AaveBridge.js";
 
 ### Deploy L1 Contracts
 
-:::note Hardhat artifacts
-The deployment snippet below comes from the example project, which builds its Solidity with Foundry. Hardhat artifacts store the bytecode as a plain string, so with `npx hardhat compile` use `MockERC20.bytecode` (and likewise for `MockAToken`, `MockAavePool` and `AavePortal`) instead of `.bytecode.object`.
-:::
-
-#include_code deploy_l1 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code deploy_l1 /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 ### Deploy L2 Contracts
 
-#include_code deploy_l2 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code deploy_l2 /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 ### Initialize
 
-#include_code initialize /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code initialize /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 ### Fund the User
 
@@ -425,7 +410,7 @@ For this tutorial, you need tokens in two places:
 
 For simplicity, mint directly to both:
 
-#include_code fund_user /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code fund_user /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 ### Deposit to Aave (L2 → L1)
 
@@ -435,15 +420,15 @@ Now for the main flow. Burn tokens on L2 and send a message to L1.
 The `recipient` in `exit_to_l1_public` is the L1 address that receives the withdrawal message. Since the AavePortal contract needs to deposit the tokens into Aave, the portal itself is the recipient. Setting `caller_on_l1` to `EthAddress.ZERO` means anyone can relay the message on L1 — there's no access restriction on who calls `depositToAave`.
 :::
 
-#include_code deposit_to_aave /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code deposit_to_aave /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 Compute the membership witness to prove the message on L1:
 
-#include_code get_deposit_witness /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code get_deposit_witness /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 Execute the deposit on L1:
 
-#include_code execute_deposit_l1 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code execute_deposit_l1 /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 ### Claim from Aave with Yield (L1 → L2)
 
@@ -451,23 +436,23 @@ Before withdrawing from Aave, generate a random secret and compute its hash. The
 
 Withdraw from Aave on L1 and send the message to L2. The mock pool returns 10% yield:
 
-#include_code claim_from_aave_l1 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code claim_from_aave_l1 /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 Extract the message leaf index:
 
-#include_code get_claim_leaf_index /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code get_claim_leaf_index /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
 
-#include_code mine_blocks /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code mine_blocks /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 Claim the tokens (with yield) on L2:
 
-#include_code claim_on_l2 /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code claim_on_l2 /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 ### Verify
 
-#include_code verify /docs/examples/ts/aave_bridge/index.ts typescript
+#include_code verify /docs/examples/ts/aave_bridge/scripts/index.ts typescript
 
 Run the full flow:
 

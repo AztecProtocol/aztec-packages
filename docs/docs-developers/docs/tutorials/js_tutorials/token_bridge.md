@@ -2,7 +2,7 @@
 title: "Bridge Your NFT to Aztec"
 sidebar_position: 1
 description: "Build a private NFT bridge between Ethereum and Aztec using custom notes, PrivateSet, and cross-chain messaging portals."
-references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/solidity/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
+references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
 ---
 
 ## Why Bridge an NFT?
@@ -24,61 +24,56 @@ This tutorial focuses on the L2 side to keep things manageable. You'll learn the
 
 ## Project Setup
 
-Let's start simple. Since this is an Ethereum project, it's easier to just start with Hardhat:
+The Ethereum side of the bridge is a [Hardhat](https://hardhat.org) project, and the Aztec contracts go in its `contracts/aztec` folder. You need Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack).
+
+Create the project folder:
 
 ```bash
-git clone https://github.com/critesjosh/hardhat-aztec-example
-cd hardhat-aztec-example
-git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
+mkdir aztec-nft-bridge
+cd aztec-nft-bridge
 ```
 
-You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`. The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
+Create `package.json`:
 
-We want to add a few more dependencies now before we start. The starter needs four changes before it installs with yarn 4.
+```json title="package.json"
+{
+  "name": "aztec-nft-bridge",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.13.0"
+}
+```
 
-First, from the `hardhat-aztec-example` directory, tell yarn to install into `node_modules` (the starter's scripts and Hardhat expect a real `node_modules` tree) and allow the starter's one git dependency, `forge-std`. Create `.yarnrc.yml`:
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder, runs no install scripts from your dependencies, and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
 
-```yaml
+```yaml title=".yarnrc.yml"
 nodeLinker: node-modules
-
-approvedGitRepositories:
-  - "https://github.com/foundry-rs/forge-std.git"
+enableScripts: false
+npmMinimalAgeGate: 7d
+npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
 ```
 
-Second, replace the starter's `@aztec/l1-contracts` git dependency, whose repository is no longer updated, with the `@aztec-foundation/l1-artifacts` npm package. Its `postinstall` writes Solidity remappings for that package, so point it at the new one too:
+Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:
 
 ```bash
-npm pkg delete dependencies.@aztec/l1-contracts devDependencies.@aztec/l1-contracts
-npm pkg set "dependencies.@aztec-foundation/l1-artifacts=#include_foundation_version_without_prefix"
-npm pkg set scripts.postinstall="node -e \"require('fs').writeFileSync('node_modules/@aztec-foundation/l1-artifacts/remappings.txt', '@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/\\n@aztec/=l1-contracts/src/\\n@aztec-blob-lib/=l1-contracts/src/mock/libraries/\\n@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/\\n')\""
+yarn add hardhat@3.21.2 @aztec-foundation/l1-artifacts@#include_foundation_version_without_prefix @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/stdlib@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix @aztec-labs/ethereum@#include_version_without_prefix @aztec-labs/foundation@#include_version_without_prefix @aztec/viem@2.38.2 tsx@4.23.15
 ```
 
-Hardhat resolves the `@aztec/...` imports inside the package's own Solidity sources through that `remappings.txt`, so the `postinstall` has to run after every install.
+Yarn notes that it skipped the build scripts of a few dependencies (`YN0004`). They ship prebuilt binaries, so this tutorial needs none of those scripts.
 
-Third, map your own contracts' imports in a `remappings.txt` at the project root:
-
-```text
-@oz/=node_modules/@openzeppelin/contracts/
-@aztec/=node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/
-```
-
-Finally, add the Aztec packages:
+The interfaces the portal imports later in this tutorial come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network. Hardhat applies none of your remappings to files inside `node_modules`, so link those sources into the project:
 
 ```bash
-yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/stdlib@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix @aztec-labs/ethereum@#include_version_without_prefix @aztec-labs/foundation@#include_version_without_prefix @aztec/viem@2.38.2 tsx
+ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
 ```
 
-:::tip Packages published in the last 24 hours
-Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+Create `hardhat.config.ts`:
 
-```yaml
-npmPreapprovedPackages:
-  - "@aztec-labs/*"
-  - "@aztec-foundation/*"
-```
-:::
+#include_code hardhat_config /docs/examples/ts/token_bridge/hardhat.config.ts typescript
 
-The interfaces the portal imports later in this tutorial come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network.
+Create `remappings.txt`. It resolves the `@oz/` and `@aztec/` imports, in your contracts and in the l1-contracts sources, through that link:
+
+#include_code remappings /docs/examples/ts/token_bridge/remappings.txt text
 
 Now start the local network in another terminal:
 
@@ -353,26 +348,18 @@ Now build the L1 contracts. You need:
 - A simple ERC721 NFT contract (the "CryptoPunk")
 - A portal contract that locks/unlocks NFTs and communicates with Aztec
 
-### Install Dependencies
+### Create a Simple NFT
 
-Aztec's contracts are already in your `package.json`. You just need to add the OpenZeppelin contracts that provide the default ERC721 implementation:
+Go back to the project root and create `contracts/SimpleNFT.sol`:
 
 ```bash
 cd ../../..
-yarn add @openzeppelin/contracts
-```
-
-### Create a Simple NFT
-
-Delete the "Counter" contracts that show up by default in `contracts` and create `contracts/SimpleNFT.sol`:
-
-```bash
 touch contracts/SimpleNFT.sol
 ```
 
-Create a minimal NFT contract sufficient for demonstrating bridging:
+Create a minimal NFT contract sufficient for demonstrating bridging. Its ERC721 implementation is the OpenZeppelin one bundled with l1-contracts, which `remappings.txt` maps to `@oz/`:
 
-#include_code simple_nft /docs/examples/solidity/nft_bridge/SimpleNFT.sol solidity
+#include_code simple_nft /docs/examples/ts/token_bridge/contracts/SimpleNFT.sol solidity
 
 ### Create the NFT Portal
 
@@ -385,7 +372,7 @@ touch contracts/NFTPortal.sol
 Initialize it with Aztec's registry, which holds the canonical contracts for Aztec-related contracts, including the Inbox and Outbox. These are the message-passing contracts—Aztec sequencers read any messages on these contracts.
 
 ```solidity
-#include_code portal_setup /docs/examples/solidity/nft_bridge/NFTPortal.sol raw
+#include_code portal_setup /docs/examples/ts/token_bridge/contracts/NFTPortal.sol raw
 }
 ```
 
@@ -393,7 +380,7 @@ The core logic is similar to the L2 logic. `depositToAztec` calls the `Inbox` ca
 
 Add these two functions with explanatory comments:
 
-#include_code portal_deposit_and_withdraw /docs/examples/solidity/nft_bridge/NFTPortal.sol solidity
+#include_code portal_deposit_and_withdraw /docs/examples/ts/token_bridge/contracts/NFTPortal.sol solidity
 
 The portal handles two flows:
 
@@ -408,15 +395,16 @@ Let's make sure everything compiles:
 npx hardhat compile
 ```
 
-You should see successful compilation of both contracts!
+You should see successful compilation of both contracts! The compiler also warns about EIP-1153 transient storage in `TransientSlot.sol`. That warning is expected: the file is OpenZeppelin code bundled with l1-contracts, which your portal reaches through the `IRollup` interface.
 
 ## Part 4: Compiling, Deploying, and Testing
 
 Now deploy everything and test the full flow. This will help you understand how everything fits together.
 
-Delete the placeholders in `scripts` and create `index.ts`:
+Create `scripts/index.ts`:
 
 ```bash
+mkdir -p scripts
 touch scripts/index.ts
 ```
 
@@ -436,32 +424,19 @@ This section assumes you're working locally using the local network. For the tes
 
 First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
 
-#include_code setup /docs/examples/ts/token_bridge/index.ts typescript
-
-:::warning Adjust the artifact imports for this project's layout
-The snippet above comes from the monorepo's runnable example, and its artifact imports point at that repo's layout. In the Hardhat project used in this tutorial, replace the four artifact imports with:
-
-```typescript
-import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json" with { type: "json" };
-import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
-import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
-import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
-```
-
-`npx hardhat compile` writes the Solidity artifacts to `artifacts/contracts/`, and the `aztec codegen` commands from earlier wrote the TypeScript bindings to `contracts/aztec/artifacts/`. Hardhat artifacts also store the bytecode as a plain string, so in the deployment snippet below use `SimpleNFT.bytecode` and `NFTPortal.bytecode` instead of `.bytecode.object`.
-:::
+#include_code setup /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
 
-#include_code deploy_l1_contracts /docs/examples/ts/token_bridge/index.ts typescript
+#include_code deploy_l1_contracts /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 Now deploy the L2 contracts. Thanks to the TypeScript bindings generated with `aztec codegen`, deployment is straightforward:
 
-#include_code deploy_l2_contracts /docs/examples/ts/token_bridge/index.ts typescript
+#include_code deploy_l2_contracts /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 Now that you have the L2 bridge's contract address, initialize the L1 bridge:
 
-#include_code initialize_portal /docs/examples/ts/token_bridge/index.ts typescript
+#include_code initialize_portal /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 The L2 contracts were already initialized when you deployed them, but you still need to:
 
@@ -470,7 +445,7 @@ The L2 contracts were already initialized when you deployed them, but you still 
 
 Complete these initialization steps:
 
-#include_code initialize_l2_bridge /docs/examples/ts/token_bridge/index.ts typescript
+#include_code initialize_l2_bridge /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 This completes the setup. It's a lot of configuration, but you're dealing with four contracts across two chains.
 
@@ -478,41 +453,41 @@ This completes the setup. It's a lot of configuration, but you're dealing with f
 
 Now for the main flow. Mint a CryptoPunk on L1, deposit it to Aztec, and claim it on Aztec. Put everything in the same script. To mint, call the L1 contract with `mint`, which will mint `tokenId = 0`:
 
-#include_code mint_nft_l1 /docs/examples/ts/token_bridge/index.ts typescript
+#include_code mint_nft_l1 /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 To bridge, first approve the portal address to transfer the NFT, then transfer it by calling `depositToAztec`:
 
-#include_code deposit_to_aztec /docs/examples/ts/token_bridge/index.ts typescript
+#include_code deposit_to_aztec /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 The `Inbox` contract will emit an important log: `MessageSent(hash, inboxRollingHash, bucketSeq, message);`. The `message.index` field is the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
 
 Use viem to extract this information:
 
-#include_code get_message_leaf_index /docs/examples/ts/token_bridge/index.ts typescript
+#include_code get_message_leaf_index /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, a message can only be claimed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it, so expect 12 to 30 seconds of latency. If you called `claim` on the L2 contract immediately, it would return "no message available".
 
 On a local network blocks are only produced when transactions are submitted, so add a utility function that forces a couple of blocks (it deploys a contract with a random salt):
 
-#include_code mine_blocks /docs/examples/ts/token_bridge/index.ts typescript
+#include_code mine_blocks /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 Now claim the message on L2:
 
-#include_code claim_on_l2 /docs/examples/ts/token_bridge/index.ts typescript
+#include_code claim_on_l2 /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 ### L2 → L1 Flow
 
 Great! You can expand the L2 contract to add features like NFT transfers. For now, exit the NFT on L2 and redeem it on L1. Mine two blocks because of `DelayedMutable`:
 
-#include_code exit_from_l2 /docs/examples/ts/token_bridge/index.ts typescript
+#include_code exit_from_l2 /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use `node.getL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
 
-#include_code get_withdrawal_witness /docs/examples/ts/token_bridge/index.ts typescript
+#include_code get_withdrawal_witness /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 With this information, call the L1 contract and use the index and the sibling path to claim the L1 NFT:
 
-#include_code withdraw_on_l1 /docs/examples/ts/token_bridge/index.ts typescript
+#include_code withdraw_on_l1 /docs/examples/ts/token_bridge/scripts/index.ts typescript
 
 You can now try the whole flow with:
 
