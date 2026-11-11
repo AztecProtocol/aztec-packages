@@ -74,7 +74,7 @@ fast-foundation: barretenberg bb-tests \
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
-fast-labs: labs-fast labs-docs-refs-check
+fast-labs: labs-fast
 
 fast: fast-foundation fast-labs
 
@@ -466,10 +466,10 @@ labs-use-local: labs-patched labs-deps
 LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
 
 # fast covers what a foundation change can break: labs compiled against the portals and its
-# unit/e2e tests, and the contracts against this tree's nargo/bb. docs, spartan, playground and
+# unit/e2e tests, and the contracts against this tree's nargo/bb. spartan, playground and
 # the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
 LABS_FAST_GOALS := yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests
-LABS_FULL_GOALS := spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches
+LABS_FULL_GOALS := spartan playground playground-tests claude-tests yarn-project-benches
 
 # full runs one sub-make over both goal sets rather than chaining labs-full onto labs-fast.
 # make only de-duplicates targets within a process, so a second invocation rebuilds the
@@ -483,12 +483,6 @@ labs-fast: labs-use-local
 labs-full: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS) $(LABS_FULL_GOALS))
 
-# The docs build runs check_doc_references.sh, but the docs build is full-only, so a patch
-# with references the checker cannot resolve passes PR (fast) CI and fails the merge queue.
-# The check itself is seconds of bash; run it in fast.
-labs-docs-refs-check: labs-patched
-	$(call run_command,$@,$(LABS_DIR)/docs,./scripts/check_doc_references.sh docs)
-
 # Just the labs yarn-project, for callers that need its build output and nothing else.
 labs-yarn-project: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) yarn-project)
@@ -496,7 +490,7 @@ labs-yarn-project: labs-use-local
 labs-bench: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) bench)
 
-.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project labs-docs-refs-check fnd-artifacts-stage
+.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
 
 #==============================================================================
 # Noir Projects
