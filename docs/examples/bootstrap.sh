@@ -228,14 +228,14 @@ function validate-webapp-tutorial {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
       [ -f package.json.bak ] && mv package.json.bak package.json
-      rm -rf node_modules .yarn yarn.lock .yarnrc.yml 2>/dev/null || true
+      rm -rf node_modules .yarn yarn.lock 2>/dev/null || true
       return $exit_code
     }
     trap cleanup EXIT
 
     # Start from a fresh node_modules / lock so we don't reuse state from
     # a previous run that may have been interrupted mid-cleanup.
-    rm -rf node_modules .yarn .yarnrc.yml yarn.lock
+    rm -rf node_modules .yarn yarn.lock
 
     # The tutorial's own setup installs the published packages a reader gets, at the pinned version.
     # It starts from an empty lockfile, which the --immutable yarn 4 turns on under CI would refuse.

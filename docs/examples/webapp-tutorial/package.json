@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "packageManager": "yarn@4.13.0",
   "scripts": {
     "clean": "rm -rf ../../target src/artifacts/*.json src/artifacts/*.ts dist",
     "compile": "cd ../.. && ${AZTEC:-aztec} compile --package pod_racing_contract --force && mkdir -p examples/webapp-tutorial/src/artifacts && cp target/pod_racing_contract-PodRacing.json examples/webapp-tutorial/src/artifacts",

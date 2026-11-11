@@ -37,21 +37,30 @@ Without privacy, your opponent could see your point allocations as you play and 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/), at the version [the Aztec installer requires](../../../../getting_started_on_local_network.md#prerequisites)
-- The Aztec CLI installed (`aztec` command available)
+- Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack)
+- git 2.35 or later
+- The Aztec CLI at version #include_version_without_prefix (`aztec --version` prints it)
 - A local Aztec network running (`aztec start --local-network`)
 - Basic familiarity with React and TypeScript
 
 ## Clone the example
 
-The tutorial walks through a complete working example. Clone it first, then follow along:
+The tutorial walks through a complete working example. Fetch it at the commit this page quotes, with the aztec-nr it builds against, then follow along:
 
-```bash
-git clone https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node
-git checkout #include_aztec_version
+```bash title="Clone the example"
+git init -q aztec-docs && cd aztec-docs
+git remote add origin https://github.com/AztecProtocol/aztec-packages.git
+git sparse-checkout set --no-cone /docs/Nargo.toml /docs/examples/
+git fetch --depth 1 --filter=blob:none origin #docs_commit
+git -c advice.detachedHead=false checkout #docs_commit
+git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --branch #include_aztec_version \
+  https://github.com/aztec-labs-eng/aztec-node.git docs/.aztec-node/tree
+git -C docs/.aztec-node/tree sparse-checkout set noir-projects
 cd docs/examples/webapp-tutorial
-./setup.sh
+./setup.sh #include_version_without_prefix
 ```
+
+This checks out the docs examples with their Noir workspace (`docs/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/`, the workspace root. `setup.sh` writes the Aztec version into `package.json` and installs the dependencies.
 
 ## Architecture
 

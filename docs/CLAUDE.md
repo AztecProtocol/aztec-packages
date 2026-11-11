@@ -224,6 +224,8 @@ The Solidity examples compile against the l1-contracts sources shipped in the `@
 
 The examples build with the pin's published toolchain, the same code the snippets quote: `examples/bootstrap.sh` provisions nargo, bb and the aztec CLI (`@aztec-labs/aztec`) at the pinned versions, the contracts' Nargo path dependencies point into the default checkout (`.aztec-node/tree`; an `AZTEC_NODE_DIR` override never applies to them), and the TS examples install `@aztec-labs/*` at `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION` from npm.
 
+Tutorials that build an example where it sits (webapp, wallet extension, uniswap) fetch it with a `Clone the example` block: a sparse fetch of this repository at `#docs_commit` that takes the page's line's `examples/` and `Nargo.toml` and leaves out the other line's (nargo takes the topmost `Nargo.toml` as the workspace), then aztec-node's `noir-projects` at `#include_aztec_version` into that line's `.aztec-node/tree`. Its versions come from the page's macros, never from the pin file it checks out: in a release cut, `DOCS_COMMIT` still holds the dev pin. `scripts/fresh_clone_test.sh <page>` runs the block as rendered in an empty folder and builds the example.
+
 **Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
 
 - **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
