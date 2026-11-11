@@ -109,7 +109,7 @@ inline void configure_heap_for_low_memory()
 /**
  * @brief An uninitialized byte buffer for large, short-lived scratch, such as a multi-scalar multiplication's arena.
  * @details After configure_heap_for_low_memory() the buffer is an anonymous mapping of its own, unmapped when it is
- * destroyed; otherwise it comes from operator new as before. On glibc the pinned 1 MiB mmap threshold already maps
+ * destroyed; otherwise it comes from operator new. On glibc the pinned 1 MiB mmap threshold already maps
  * such buffers. Apple's libmalloc instead keeps freed large regions in its large cache, where they stay in the process
  * footprint and malloc_zone_pressure_relief does not reclaim them; mapping the buffer directly bypasses that cache
  * (MallocLargeCache=0 in the environment is the out-of-process equivalent, which a sandboxed process cannot set). Heap

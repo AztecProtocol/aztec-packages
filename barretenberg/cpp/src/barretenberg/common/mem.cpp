@@ -1,4 +1,5 @@
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
 
 #if defined(__APPLE__) && !defined(TRACY_MEMORY)
 
@@ -131,12 +132,17 @@ void* allocate(size_t size)
     if (void* mapped = try_map(size); mapped != nullptr) {
         return mapped;
     }
-    // operator new must return a non-null pointer for a zero size.
-    void* ptr = std::malloc(size == 0 ? 1 : size); // NOLINT(cppcoreguidelines-no-malloc)
-    if (ptr == nullptr) {
-        throw std::bad_alloc();
+    for (;;) {
+        // operator new must return a non-null pointer for a zero size.
+        if (void* ptr = std::malloc(size == 0 ? 1 : size)) { // NOLINT(cppcoreguidelines-no-malloc)
+            return ptr;
+        }
+        auto handler = std::get_new_handler();
+        if (handler == nullptr) {
+            THROW std::bad_alloc();
+        }
+        handler();
     }
-    return ptr;
 }
 
 // Over-aligned types (bb::field is alignas(32), so every std::vector of field elements comes through here) use the
@@ -149,11 +155,17 @@ void* allocate_aligned(size_t size, size_t alignment)
             return mapped;
         }
     }
-    void* ptr = nullptr;
-    if (posix_memalign(&ptr, std::max(alignment, sizeof(void*)), size == 0 ? 1 : size) != 0) {
-        throw std::bad_alloc();
+    for (;;) {
+        void* ptr = nullptr;
+        if (posix_memalign(&ptr, std::max(alignment, sizeof(void*)), size == 0 ? 1 : size) == 0) {
+            return ptr;
+        }
+        auto handler = std::get_new_handler();
+        if (handler == nullptr) {
+            THROW std::bad_alloc();
+        }
+        handler();
     }
-    return ptr;
 }
 
 void deallocate(void* ptr) noexcept

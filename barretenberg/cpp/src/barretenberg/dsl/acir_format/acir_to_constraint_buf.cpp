@@ -359,7 +359,7 @@ class MsgpackCursor {
     }
 
     /**
-     * @brief Unpack the next value into `zone`. STR and BIN payloads are copied into the zone, so the object stays
+     * @brief Unpack the next value into `zone`. STR and BIN bytes are copied into the zone, so the object stays
      * valid until the zone is cleared, whatever happens to the buffer.
      */
     msgpack::object next(msgpack::zone& zone, std::string_view what)
@@ -436,35 +436,56 @@ class MsgpackCursor {
  * @param field_names The struct's fields in declaration order.
  * @param on_field Called with the field index for each present field. It must consume the field's value from the
  * cursor. Fields the struct does not declare are skipped.
+ * @param required_fields Required prefix of field_names for arrays and string-keyed maps. Tagged maps allow omissions.
  */
-template <typename OnField>
+template <size_t N, typename OnField>
 void for_each_struct_field(MsgpackCursor& cursor,
                            msgpack::zone& zone,
-                           std::span<const std::string_view> field_names,
+                           const std::array<std::string_view, N>& field_names,
                            std::string_view struct_name,
-                           OnField&& on_field)
+                           OnField&& on_field,
+                           size_t required_fields = N)
 {
     const auto header = cursor.read_container(struct_name);
+    std::array<bool, N> seen{};
+    bool tagged_fields = false;
     for (uint32_t position = 0; position < header.count; ++position) {
         size_t field = field_names.size();
         if (header.kind == MsgpackCursor::Container::ARRAY) {
             field = position;
         } else {
             const msgpack::object key = cursor.next(zone, std::string(struct_name) + " field key");
-            if (key.type == msgpack::type::POSITIVE_INTEGER) {
+            if (position == 0) {
+                tagged_fields = key.type == msgpack::type::POSITIVE_INTEGER;
+            }
+            if (tagged_fields && key.type == msgpack::type::POSITIVE_INTEGER && key.via.u64 <= UINT8_MAX) {
                 field = key.via.u64 < field_names.size() ? static_cast<size_t>(key.via.u64) : field_names.size();
-            } else if (key.type == msgpack::type::STR) {
+            } else if (!tagged_fields && key.type == msgpack::type::STR) {
                 const std::string_view name(key.via.str.ptr, key.via.str.size);
                 field = static_cast<size_t>(std::ranges::find(field_names, name) - field_names.begin());
             } else {
-                MsgpackCursor::fail("expected an integer or string field key in " + std::string(struct_name));
+                MsgpackCursor::fail("expected " + std::string(tagged_fields ? "u8" : "string") + " field key in " +
+                                    std::string(struct_name));
             }
             zone.clear();
         }
         if (field < field_names.size()) {
+            if (header.kind == MsgpackCursor::Container::MAP && !tagged_fields && seen[field]) {
+                cursor.skip(field_names[field]);
+                continue;
+            }
+            seen[field] = true;
             on_field(field);
         } else {
             cursor.skip(std::string(struct_name) + " field");
+        }
+    }
+    if (!tagged_fields) {
+        for (size_t field = 0; field < required_fields; ++field) {
+            if (!seen[field]) {
+                MsgpackCursor::fail("missing field '" + std::string(field_names[field]) + "' in " +
+                                    std::string(struct_name));
+            }
         }
     }
 }
@@ -490,57 +511,41 @@ struct CircuitHeader {
  * @details The vectors are filled by push_back, so each holds up to twice its final size. The slack is a few MiB for a
  * kernel and would otherwise stay resident through circuit construction.
  */
-void release_growth_slack(AcirFormat& af)
+void shrink_constraint_vectors(auto& constraints)
 {
     auto shrink = [](auto&... vectors) { (vectors.shrink_to_fit(), ...); };
-    shrink(af.public_inputs,
-           af.logic_constraints,
-           af.range_constraints,
-           af.aes128_constraints,
-           af.sha256_compression,
-           af.ecdsa_k1_constraints,
-           af.ecdsa_r1_constraints,
-           af.blake2s_constraints,
-           af.blake3_constraints,
-           af.keccak_permutations,
-           af.poseidon2_constraints,
-           af.multi_scalar_mul_constraints,
-           af.ec_add_constraints,
-           af.honk_recursion_constraints,
-           af.avm_recursion_constraints,
-           af.hn_recursion_constraints,
-           af.chonk_recursion_constraints,
-           af.quad_constraints,
-           af.big_quad_constraints,
-           af.bilinear_constraints,
-           af.batched_eq_check_constraints,
-           af.block_constraints);
-    auto& indices = af.original_opcode_indices;
-    shrink(indices.logic_constraints,
-           indices.range_constraints,
-           indices.aes128_constraints,
-           indices.sha256_compression,
-           indices.ecdsa_k1_constraints,
-           indices.ecdsa_r1_constraints,
-           indices.blake2s_constraints,
-           indices.blake3_constraints,
-           indices.keccak_permutations,
-           indices.poseidon2_constraints,
-           indices.multi_scalar_mul_constraints,
-           indices.ec_add_constraints,
-           indices.honk_recursion_constraints,
-           indices.avm_recursion_constraints,
-           indices.hn_recursion_constraints,
-           indices.chonk_recursion_constraints,
-           indices.quad_constraints,
-           indices.big_quad_constraints,
-           indices.bilinear_constraints,
-           indices.batched_eq_check_constraints,
-           indices.block_constraints);
+    shrink(constraints.logic_constraints,
+           constraints.range_constraints,
+           constraints.aes128_constraints,
+           constraints.sha256_compression,
+           constraints.ecdsa_k1_constraints,
+           constraints.ecdsa_r1_constraints,
+           constraints.blake2s_constraints,
+           constraints.blake3_constraints,
+           constraints.keccak_permutations,
+           constraints.poseidon2_constraints,
+           constraints.multi_scalar_mul_constraints,
+           constraints.ec_add_constraints,
+           constraints.honk_recursion_constraints,
+           constraints.avm_recursion_constraints,
+           constraints.hn_recursion_constraints,
+           constraints.chonk_recursion_constraints,
+           constraints.quad_constraints,
+           constraints.big_quad_constraints,
+           constraints.bilinear_constraints,
+           constraints.batched_eq_check_constraints,
+           constraints.block_constraints);
+}
+
+void release_growth_slack(AcirFormat& af)
+{
+    af.public_inputs.shrink_to_fit();
+    shrink_constraint_vectors(af);
+    shrink_constraint_vectors(af.original_opcode_indices);
 }
 
 /**
- * @brief circuit_serde_to_acir_format with the opcodes supplied one at a time instead of from `circuit.opcodes`.
+ * @brief Convert a streamed circuit into constraints.
  *
  * @param stream_circuit Called once with a visitor, which it must call with (index, opcode) for each opcode in order,
  * and must then return the circuit header. The opcode only needs to live for the duration of the call. The header is
@@ -623,7 +628,7 @@ AcirFormat circuit_serde_to_acir_format_impl(StreamCircuit&& stream_circuit, boo
 
 } // namespace
 
-std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::string_view what)
+std::span<const char> msgpack_bytes(const std::vector<uint8_t>& buf, std::string_view what)
 {
     BB_ASSERT(!buf.empty(), std::string(what) + ": buffer is empty");
     const uint8_t FORMAT_MSGPACK = 2;
@@ -633,14 +638,13 @@ std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::stri
     BB_ASSERT(format_marker == FORMAT_MSGPACK || format_marker == FORMAT_MSGPACK_COMPACT ||
                   format_marker == FORMAT_MSGPACK_TAGGED,
               std::string(what) + ": expected msgpack format marker (2, 3 or 4), got " + std::to_string(format_marker));
-    std::span<const char> payload(reinterpret_cast<const char*>(buf.data()) + 1, buf.size() - 1);
+    std::span<const char> bytes(reinterpret_cast<const char*>(buf.data()) + 1, buf.size() - 1);
     if (format_marker == FORMAT_MSGPACK_COMPACT) {
-        BB_ASSERT(!payload.empty() &&
-                      ((static_cast<uint8_t>(payload[0]) & 0xf0) == 0x90 || static_cast<uint8_t>(payload[0]) == 0xdc ||
-                       static_cast<uint8_t>(payload[0]) == 0xdd),
+        BB_ASSERT(!bytes.empty() && ((static_cast<uint8_t>(bytes[0]) & 0xf0) == 0x90 ||
+                                     static_cast<uint8_t>(bytes[0]) == 0xdc || static_cast<uint8_t>(bytes[0]) == 0xdd),
                   std::string(what) + ": expected ARRAY type at the root of msgpack-compact data");
     }
-    return payload;
+    return bytes;
 }
 
 AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
@@ -662,8 +666,8 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
     // The program is read as a ProgramWithoutBrillig (ignoring the Brillig parts, so that new Brillig opcodes do not
     // break Barretenberg), in a single pass over the bytes in wire order. Nothing but the opcode being converted is
     // ever materialised as a msgpack object; the Brillig bytecode is skipped without being decoded.
-    const std::span<const char> payload = msgpack_payload(buf, "circuit_buf_to_acir_format");
-    MsgpackCursor cursor(payload.data(), payload.size());
+    const std::span<const char> bytes = msgpack_bytes(buf, "circuit_buf_to_acir_format");
+    MsgpackCursor cursor(bytes.data(), bytes.size());
     msgpack::zone zone;
 
     AcirFormat af = circuit_serde_to_acir_format_impl(
@@ -671,38 +675,44 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
             CircuitHeader header;
             bool has_functions = false;
             bool has_opcodes = false;
-            for_each_struct_field(cursor, zone, PROGRAM_FIELDS, "ProgramWithoutBrillig", [&](size_t field) {
-                if (field != 0) {
-                    cursor.skip("unconstrained_functions");
-                    return;
-                }
-                has_functions = true;
-                const auto functions = cursor.read_array("functions");
-                BB_ASSERT_EQ(
-                    functions.count, 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
-                for_each_struct_field(cursor, zone, CIRCUIT_FIELDS, "Circuit", [&](size_t circuit_field) {
-                    switch (circuit_field) {
-                    case CIRCUIT_OPCODES: {
-                        has_opcodes = true;
-                        header.num_opcodes = cursor.read_array("opcodes").count;
-                        Acir::Opcode opcode;
-                        for (size_t i = 0; i < header.num_opcodes; ++i) {
-                            cursor.read_into(zone, opcode, "Opcode");
-                            visit(i, opcode);
+            for_each_struct_field(
+                cursor,
+                zone,
+                PROGRAM_FIELDS,
+                "ProgramWithoutBrillig",
+                [&](size_t field) {
+                    if (field != 0) {
+                        cursor.skip("unconstrained_functions");
+                        return;
+                    }
+                    has_functions = true;
+                    const auto functions = cursor.read_array("functions");
+                    BB_ASSERT_EQ(
+                        functions.count, 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
+                    for_each_struct_field(cursor, zone, CIRCUIT_FIELDS, "Circuit", [&](size_t circuit_field) {
+                        switch (circuit_field) {
+                        case CIRCUIT_OPCODES: {
+                            has_opcodes = true;
+                            header.num_opcodes = cursor.read_array("opcodes").count;
+                            Acir::Opcode opcode;
+                            for (size_t i = 0; i < header.num_opcodes; ++i) {
+                                cursor.read_into(zone, opcode, "Opcode");
+                                visit(i, opcode);
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case CIRCUIT_PUBLIC_PARAMETERS:
-                        cursor.read_into(zone, header.public_parameters, "Circuit::public_parameters");
-                        break;
-                    case CIRCUIT_RETURN_VALUES:
-                        cursor.read_into(zone, header.return_values, "Circuit::return_values");
-                        break;
-                    default:
-                        cursor.skip(CIRCUIT_FIELDS[circuit_field]);
-                    }
-                });
-            });
+                        case CIRCUIT_PUBLIC_PARAMETERS:
+                            cursor.read_into(zone, header.public_parameters, "Circuit::public_parameters");
+                            break;
+                        case CIRCUIT_RETURN_VALUES:
+                            cursor.read_into(zone, header.return_values, "Circuit::return_values");
+                            break;
+                        default:
+                            cursor.skip(CIRCUIT_FIELDS[circuit_field]);
+                        }
+                    });
+                },
+                /*required_fields=*/1);
             if (!has_functions) {
                 MsgpackCursor::fail("circuit_buf_to_acir_format: missing field 'functions' in ProgramWithoutBrillig");
             }
@@ -737,8 +747,8 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
     // The buffer returned by Noir is a WitnessStack holding a single WitnessMap. Its entries are read one at a time in
     // wire order, which is increasing witness index for a map serialized from a BTreeMap; any other order is restored
     // below so the result matches witness_map_to_witness_vector on the fully deserialized map.
-    const std::span<const char> payload = msgpack_payload(buf, "witness_buf_to_witness_vector");
-    MsgpackCursor cursor(payload.data(), payload.size());
+    const std::span<const char> bytes = msgpack_bytes(buf, "witness_buf_to_witness_vector");
+    MsgpackCursor cursor(bytes.data(), bytes.size());
     msgpack::zone zone;
 
     std::vector<std::pair<uint32_t, bb::fr>> entries;

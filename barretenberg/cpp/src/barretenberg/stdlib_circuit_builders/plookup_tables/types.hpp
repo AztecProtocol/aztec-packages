@@ -244,8 +244,7 @@ struct MultiTable {
  * for the log-derivative lookup argument: a lookup gate is created from an entry, and the row holding it has to be
  * found. The map is an open-addressing index over the table's own columns: each slot holds a row number (plus one; 0
  * is empty), and a probe compares the candidate row's columns with the entry, so the map stores no keys of its own.
- * It lives for the whole circuit construction, where an unordered_map of 3-field keys over the Keccak tables was
- * 7 MiB; this is 8 bytes per table row.
+ * It lives throughout circuit construction and uses a power-of-two array with at least two slots per table row.
  */
 struct LookupHashTable {
     using FF = bb::fr;
@@ -352,7 +351,7 @@ struct BasicTable {
     std::vector<bb::fr> column_2;
     std::vector<bb::fr> column_3;
     // The table row each lookup gate on this table reads, in gate creation order; all the read-count construction
-    // needs. (A 128-byte LookupEntry per gate was 15 MiB on a Keccak-heavy circuit.)
+    // needs.
     std::vector<uint32_t> lookup_gate_rows;
 
     // Map from a table entry to its index in the table; filled when the table is created, used by create_lookup_gate.

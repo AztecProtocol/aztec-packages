@@ -88,7 +88,7 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
  *
  * @param what Names the caller in error messages.
  */
-std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::string_view what);
+std::span<const char> msgpack_bytes(const std::vector<uint8_t>& buf, std::string_view what);
 
 /**
  * @brief Deserialize `buf` containing msgpack-compact format data into a whole msgpack object tree.
@@ -101,8 +101,8 @@ std::span<const char> msgpack_payload(const std::vector<uint8_t>& buf, std::stri
 template <typename T>
 T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack)
 {
-    const std::span<const char> payload = msgpack_payload(buf, "deserialize_msgpack_compact");
-    auto oh = msgpack::unpack(payload.data(), payload.size());
+    const std::span<const char> bytes = msgpack_bytes(buf, "deserialize_msgpack_compact");
+    auto oh = msgpack::unpack(bytes.data(), bytes.size());
     return decode_msgpack(oh.get());
 }
 
