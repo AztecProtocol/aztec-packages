@@ -2,7 +2,7 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-version="3.2"
+version="3.3"
 arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
