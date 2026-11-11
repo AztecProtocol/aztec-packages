@@ -2,6 +2,7 @@
 #include <array>
 #include <cstring>
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace {
 // Keeps the allocations below observable, so the compiler cannot pair and elide them.
@@ -20,6 +21,42 @@ void* touched_malloc(size_t bytes)
     return ptr;
 }
 } // namespace
+
+TEST(HeapConfigurationDeathTest, AllocationFailureRetriesThroughNewHandler)
+{
+#if defined(__APPLE__) && !defined(TRACY_MEMORY)
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    for (bool low_memory : { false, true }) {
+        for (bool aligned : { false, true }) {
+            EXPECT_EXIT(
+                {
+                    if (low_memory) {
+                        bb::configure_heap_for_low_memory();
+                    }
+                    std::set_new_handler([] {
+                        static bool retried = false;
+                        if (std::exchange(retried, true)) {
+                            std::_Exit(73);
+                        }
+                    });
+                    volatile size_t bytes = std::numeric_limits<size_t>::max() - 4095;
+                    if (aligned) {
+                        void* ptr = ::operator new(bytes, std::align_val_t{ 32 });
+                        ::operator delete(ptr, std::align_val_t{ 32 });
+                    } else {
+                        void* ptr = ::operator new(bytes);
+                        ::operator delete(ptr);
+                    }
+                    std::_Exit(1);
+                },
+                ::testing::ExitedWithCode(73),
+                "");
+        }
+    }
+#else
+    GTEST_SKIP() << "Apple allocation replacement only";
+#endif
+}
 
 /**
  * @brief After configure_heap_for_low_memory, freeing a large mapped buffer does not move later buffers onto the heap.

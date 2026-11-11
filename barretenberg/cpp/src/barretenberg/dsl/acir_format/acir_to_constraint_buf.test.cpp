@@ -169,6 +169,82 @@ TEST(AcirToConstraintBuf, MapLayoutsMatchCircuitConversion)
     }
 }
 
+TEST(AcirToConstraintBuf, RequiredCircuitFieldsAreRejectedWhenMissing)
+{
+    const auto circuit = mixed_circuit();
+    const std::array<const char*, 6> names{ "function_name",     "opcodes",       "private_parameters",
+                                            "public_parameters", "return_values", "assert_messages" };
+    for (size_t missing = 0; missing < names.size(); ++missing) {
+        msgpack::sbuffer sbuf;
+        msgpack::packer<msgpack::sbuffer> packer(sbuf);
+        packer.pack_array(1);
+        packer.pack_array(1);
+        packer.pack_map(names.size() - 1);
+        const auto field = [&](size_t index, const auto& value) {
+            if (index != missing) {
+                packer.pack(std::string(names[index]));
+                packer.pack(value);
+            }
+        };
+        field(0, circuit.function_name);
+        field(1, circuit.opcodes);
+        field(2, circuit.private_parameters);
+        field(3, circuit.public_parameters);
+        field(4, circuit.return_values);
+        field(5, circuit.assert_messages);
+        std::vector<uint8_t> bytes{ 0x03 };
+        bytes.insert(bytes.end(), sbuf.data(), sbuf.data() + sbuf.size());
+        EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(bytes), true), "missing field");
+    }
+}
+
+TEST(AcirToConstraintBuf, TaggedCircuitFieldsMayBeOmitted)
+{
+    const auto circuit = mixed_circuit();
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+    packer.pack_map(1);
+    packer.pack(0);
+    packer.pack_array(1);
+    packer.pack_map(3);
+    packer.pack(1);
+    packer.pack(circuit.opcodes);
+    packer.pack(3);
+    packer.pack(circuit.public_parameters);
+    packer.pack(4);
+    packer.pack(circuit.return_values);
+    std::vector<uint8_t> bytes{ 0x04 };
+    bytes.insert(bytes.end(), sbuf.data(), sbuf.data() + sbuf.size());
+
+    EXPECT_EQ(circuit_buf_to_acir_format(std::move(bytes), true), circuit_serde_to_acir_format(circuit, true));
+}
+
+TEST(AcirToConstraintBuf, CircuitArraysRequireAllDeclaredFields)
+{
+    const auto circuit = mixed_circuit();
+    for (uint32_t count = 0; count < 6; ++count) {
+        msgpack::sbuffer sbuf;
+        msgpack::packer<msgpack::sbuffer> packer(sbuf);
+        packer.pack_array(1);
+        packer.pack_array(1);
+        packer.pack_array(count);
+        const auto field = [&](size_t index, const auto& value) {
+            if (index < count) {
+                packer.pack(value);
+            }
+        };
+        field(0, circuit.function_name);
+        field(1, circuit.opcodes);
+        field(2, circuit.private_parameters);
+        field(3, circuit.public_parameters);
+        field(4, circuit.return_values);
+        field(5, circuit.assert_messages);
+        std::vector<uint8_t> bytes{ 0x03 };
+        bytes.insert(bytes.end(), sbuf.data(), sbuf.data() + sbuf.size());
+        EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(bytes), true), "missing field");
+    }
+}
+
 TEST(AcirToConstraintBuf, MissingOpcodesFieldIsRejected)
 {
     msgpack::sbuffer sbuf;
