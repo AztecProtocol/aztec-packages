@@ -213,7 +213,7 @@ template <typename Tile, size_t ChunkShift = 8> class TileChunks {
 /**
  * @brief Dedup table of one selector column's values: each distinct value is stored once and gates store its id.
  * @details Selector values are circuit structure drawn from a small set (0, ±1, small integers, ACIR coefficients), so
- * a uint32 id per gate replaces a 32-byte field element. Id 0 is always zero, so a zero-initialized tile reads as all
+ * gates store a uint32 id into the column's value table. Id 0 is always zero, so a zero-initialized tile reads as all
  * selectors zero. Values live in chunked storage so the references Selector::operator[] returns stay valid as the table
  * grows;
  * the index is open-addressed over ids and hashes the reduced value, matching field equality.

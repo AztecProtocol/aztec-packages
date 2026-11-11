@@ -101,8 +101,7 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
     }
 
     // Phase 1.5: serial scatter of the copy-cycle nodes, in block, row, wire order so the nodes of each variable's
-    // cycle stay in trace order. The wires are read again rather than buffered as (variable, node) pairs in phase 1:
-    // that buffer was twice the size of the node array itself, at the moment the circuit's memory peaks.
+    // cycle stay in trace order. Reading wires directly avoids an intermediate array of (variable, node) pairs.
     {
         BB_BENCH_NAME("fill_copy_cycles");
         std::vector<uint32_t> cursors(copy_cycles.offsets.begin(), copy_cycles.offsets.end() - 1);
