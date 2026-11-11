@@ -11,7 +11,7 @@ import {IGSE} from "@aztec/governance/GSE.sol";
 import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {MAX_SEQUENCER_REWARD_PER_CHECKPOINT} from "@aztec/core/libraries/rollup/SequencerRewardCalculatorLib.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 import {
   IPremiumATP,
   IPremiumATPFactory,

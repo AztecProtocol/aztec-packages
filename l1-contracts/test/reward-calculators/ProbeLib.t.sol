@@ -6,8 +6,8 @@ pragma solidity >=0.8.27;
 // solhint-disable comprehensive-interface
 
 import {Test} from "forge-std/Test.sol";
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
-import {ProbeLib} from "@test/reward-calculators/ProbeLib.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
+import {ProbeLib} from "@aztec/periphery/libraries/ProbeLib.sol";
 import {
   MockATP,
   MockATPStaker,

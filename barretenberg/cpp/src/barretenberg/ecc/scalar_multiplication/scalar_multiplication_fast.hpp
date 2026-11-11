@@ -154,7 +154,9 @@ template <typename Curve> class MSM_fast {
      * each MSM_fast picks its own range via `scalars[m].start_index` and `scalars[m].size()`.
      * MSM_fast `m` computes Σ_i scalars[m][i] * points[scalars[m].start_index + i].
      *
-     * Independent MSMs run sequentially (each MSM_fast is itself round-parallel internally).
+     * Large members run sequentially, each round-parallel across the whole pool. Small members,
+     * and wide balanced batches of large members, run concurrently, one single-threaded member
+     * per worker.
      * This matches the legacy interface but the parallelisation strategy is different:
      * the legacy implementation work-balanced points across threads spanning multiple
      * MSMs; round-parallel parallelises within each MSM_fast, so one MSM_fast at a time uses the
@@ -162,7 +164,14 @@ template <typename Curve> class MSM_fast {
      * 2^20), this is faster because per-MSM_fast threading dominates over inter-MSM_fast stealing.
      *
      * @param points      Shared point set (SRS prefix). Every MSM_fast indexes into this span.
-     * @param scalars     Per-MSM_fast scalars carrying the start offset into `points`.
+     * @param scalars     Per-MSM_fast scalars carrying the start offset into `points`. Precondition
+     *                    (unchecked): the spans must not overlap. Non-GLV members convert their
+     *                    scalars out of Montgomery form in place and restore them before return,
+     *                    and members may run concurrently (wide batches of large members, and
+     *                    the small-member pool), so overlapping spans race and can produce wrong
+     *                    commitments or leave the shared scalars corrupted. Committing a
+     *                    polynomial together with its shifted view, or the same polynomial
+     *                    twice, violates this.
      * @param dedup_hints Optional per-MSM_fast dedup opt-ins (parallel to `scalars`): a
      *                    non-zero entry opts that MSM_fast's input scalars into the
      *                    duplicate-cluster pre-pass. Empty span means no dedup anywhere.

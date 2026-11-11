@@ -103,6 +103,9 @@ template <class Curve> class CommitmentKey {
      * @brief Batch commitment to multiple polynomials
      * @details Uses batch_multi_scalar_mul for more efficient processing when committing to multiple polynomials.
      *          The input polynomials are not const because batch_mul modifies them and then restores them back.
+     *          Precondition (unchecked): the polynomials must not share memory, e.g. a polynomial and its
+     *          shifted view, or the same polynomial twice. Members can be committed concurrently, and
+     *          overlapping coefficients would be converted in place by two MSMs at once.
      *
      * @param polynomials vector of polynomial spans to commit to
      * @param has_duplicates_hints optional per-polynomial hints (parallel to polynomials):

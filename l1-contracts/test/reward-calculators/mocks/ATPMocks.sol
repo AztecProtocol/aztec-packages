@@ -6,7 +6,7 @@ pragma solidity >=0.8.27;
 // solhint-disable no-complex-fallback
 // solhint-disable payable-fallback
 
-import {IATP, IATPStaker} from "@test/reward-calculators/IATP.sol";
+import {IATP, IATPStaker} from "@aztec/periphery/interfaces/IATP.sol";
 import {Clones} from "@oz/proxy/Clones.sol";
 import {ERC1967Proxy} from "@oz/proxy/ERC1967/ERC1967Proxy.sol";
 
