@@ -450,7 +450,6 @@ labs-use-local: labs-patched labs-deps
 	$(call run_command,$@,$(LABS_DIR),./labs-aztec-toolchain/bootstrap.sh use-local $(ROOT) \
 	  && $(ROOT)/scripts/labs_fnd_hashes.sh \
 	  && (cd yarn-project && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
-	  && (cd docs && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
 	  && $(ROOT)/labs-patches/bootstrap.sh commit-use-local)
 
 # ci3 takes the repo root from an inherited $$root, so the submodule's make must not see
@@ -458,7 +457,7 @@ labs-use-local: labs-patched labs-deps
 # engine runs them from this root: TEST_CMD_PREFIX (a labs patch) cds into the submodule
 # and clears the inherited root so its ci3 re-derives it there.
 # aztec-up, release-image, and the docker-compose based tests (the compose, web3signer and
-# ha e2e flavours, the playground browser tests, the docs examples run) package or mount
+# ha e2e flavours, the playground browser tests) package or mount
 # the labs tree on its own (verdaccio publish, docker build context, a compose volume of
 # the checkout) where the use-local portals do not resolve, so they are left to the labs
 # repo's own CI: the targets are not run and the test commands are skipped.
