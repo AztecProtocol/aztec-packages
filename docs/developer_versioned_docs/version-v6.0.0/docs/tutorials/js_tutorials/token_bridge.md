@@ -2,7 +2,7 @@
 title: "Bridge Your NFT to Aztec"
 sidebar_position: 1
 description: "Build a private NFT bridge between Ethereum and Aztec using custom notes, PrivateSet, and cross-chain messaging portals."
-references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/solidity/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
+references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
 ---
 
 ## Why Bridge an NFT?
@@ -24,61 +24,70 @@ This tutorial focuses on the L2 side to keep things manageable. You'll learn the
 
 ## Project Setup
 
-Let's start simple. Since this is an Ethereum project, it's easier to just start with Hardhat:
+The Ethereum side of the bridge is a [Hardhat](https://hardhat.org) project, and the Aztec contracts go in its `contracts/aztec` folder. You need Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack).
+
+Create the project folder:
 
 ```bash
-git clone https://github.com/critesjosh/hardhat-aztec-example
-cd hardhat-aztec-example
-git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
+mkdir aztec-nft-bridge
+cd aztec-nft-bridge
 ```
 
-You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`. The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
+Create `package.json`:
 
-We want to add a few more dependencies now before we start. The starter needs four changes before it installs with yarn 4. They need yarn 4.14 or later (check with `yarn --version`): the `approvedGitRepositories` setting below arrived in 4.14, earlier 4.x releases reject the whole `.yarnrc.yml` because of it, and from 4.14 on yarn refuses any git dependency the setting does not list.
+```json title="package.json"
+{
+  "name": "aztec-nft-bridge",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.13.0"
+}
+```
 
-First, from the `hardhat-aztec-example` directory, tell yarn to install into `node_modules` (the starter's scripts and Hardhat expect a real `node_modules` tree) and allow the starter's one git dependency, `forge-std`. Create `.yarnrc.yml`:
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder, runs no install scripts from your dependencies, and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
 
-```yaml
+```yaml title=".yarnrc.yml"
 nodeLinker: node-modules
-
-approvedGitRepositories:
-  - "https://github.com/foundry-rs/forge-std.git"
+enableScripts: false
+npmMinimalAgeGate: 7d
+npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
 ```
 
-Second, replace the starter's `@aztec/l1-contracts` git dependency, whose repository is no longer updated, with the `@aztec-foundation/l1-artifacts` npm package. Its `postinstall` writes Solidity remappings for that package, so point it at the new one too:
+Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:
 
 ```bash
-npm pkg delete dependencies.@aztec/l1-contracts devDependencies.@aztec/l1-contracts
-npm pkg set "dependencies.@aztec-foundation/l1-artifacts=6.0.0"
-npm pkg set scripts.postinstall="node -e \"require('fs').writeFileSync('node_modules/@aztec-foundation/l1-artifacts/remappings.txt', '@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/\\n@aztec/=l1-contracts/src/\\n@aztec-blob-lib/=l1-contracts/src/mock/libraries/\\n@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/\\n')\""
+yarn add hardhat@3.21.2 @aztec-foundation/l1-artifacts@6.0.0 @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/stdlib@6.0.0 @aztec-labs/wallets@6.0.0 @aztec-labs/ethereum@6.0.0 @aztec-labs/foundation@6.0.0 @aztec/viem@2.38.2 tsx@4.23.15
 ```
 
-Hardhat resolves the `@aztec/...` imports inside the package's own Solidity sources through that `remappings.txt`, so the `postinstall` has to run after every install.
+Yarn notes that it skipped the build scripts of a few dependencies (`YN0004`). They ship prebuilt binaries, so this tutorial needs none of those scripts.
 
-Third, map your own contracts' imports in a `remappings.txt` at the project root:
-
-```text
-@oz/=node_modules/@openzeppelin/contracts/
-@aztec/=node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/
-```
-
-Finally, add the Aztec packages:
+The interfaces the portal imports later in this tutorial come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network. Hardhat applies none of your remappings to files inside `node_modules`, so link those sources into the project:
 
 ```bash
-yarn add @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/stdlib@6.0.0 @aztec-labs/wallets@6.0.0 @aztec-labs/ethereum@6.0.0 @aztec-labs/foundation@6.0.0 @aztec/viem@2.38.2 tsx
+ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
 ```
 
-:::tip Packages published in the last 24 hours
-From 4.15, yarn refuses packages younger than a day by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+Create `hardhat.config.ts`:
 
-```yaml
-npmPreapprovedPackages:
-  - "@aztec-labs/*"
-  - "@aztec-foundation/*"
+```typescript title="hardhat.config.ts"
+import { defineConfig } from "hardhat/config";
+
+export default defineConfig({
+  solidity: {
+    version: "0.8.30",
+    settings: { evmVersion: "prague", optimizer: { enabled: true } },
+  },
+});
 ```
-:::
 
-The interfaces the portal imports later in this tutorial come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network.
+Create `remappings.txt`. It resolves the `@oz/` and `@aztec/` imports, in your contracts and in the l1-contracts sources, through that link:
+
+```text title="remappings.txt"
+@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/
+@aztec/=l1-contracts/src/
+@aztec-blob-lib/=l1-contracts/src/core/libraries/rollup/
+@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/
+```
 
 Now start the local network in another terminal:
 
@@ -516,26 +525,19 @@ Now build the L1 contracts. You need:
 - A simple ERC721 NFT contract (the "CryptoPunk")
 - A portal contract that locks/unlocks NFTs and communicates with Aztec
 
-### Install Dependencies
+### Create a Simple NFT
 
-Aztec's contracts are already in your `package.json`. You just need to add the OpenZeppelin contracts that provide the default ERC721 implementation:
+Go back to the project root and create `contracts/SimpleNFT.sol`:
 
 ```bash
 cd ../../..
-yarn add @openzeppelin/contracts
-```
-
-### Create a Simple NFT
-
-Delete the "Counter" contracts that show up by default in `contracts` and create `contracts/SimpleNFT.sol`:
-
-```bash
 touch contracts/SimpleNFT.sol
 ```
 
-Create a minimal NFT contract sufficient for demonstrating bridging:
+Create a minimal NFT contract sufficient for demonstrating bridging. Its ERC721 implementation is the OpenZeppelin one bundled with l1-contracts, which `remappings.txt` maps to `@oz/`:
 
 ```solidity title="simple_nft" showLineNumbers 
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
 import {ERC721} from "@oz/token/ERC721/ERC721.sol";
@@ -552,7 +554,7 @@ contract SimpleNFT is ERC721 {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/nft_bridge/SimpleNFT.sol#L2-L18" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/nft_bridge/SimpleNFT.sol#L2-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/nft_bridge/SimpleNFT.sol#L1-L18" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/nft_bridge/SimpleNFT.sol#L1-L18</a></sub></sup>
 
 
 ### Create the NFT Portal
@@ -566,6 +568,9 @@ touch contracts/NFTPortal.sol
 Initialize it with Aztec's registry, which holds the canonical contracts for Aztec-related contracts, including the Inbox and Outbox. These are the message-passing contracts—Aztec sequencers read any messages on these contracts.
 
 ```solidity
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity >=0.8.27;
+
 import {IERC721} from "@oz/token/ERC721/IERC721.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -654,15 +659,16 @@ Let's make sure everything compiles:
 npx hardhat compile
 ```
 
-You should see successful compilation of both contracts! Hardhat also prints three warnings about the Aztec L1 contracts your portal imports: transient storage in OpenZeppelin's `TransientSlot.sol`, and `Governance` and `GSE` exceeding the 24576-byte contract size limit. They come from compiling those sources without the optimizer, and this tutorial deploys none of them, so you can ignore them.
+You should see successful compilation of both contracts! The compiler also warns about EIP-1153 transient storage in `TransientSlot.sol`. That warning is expected: the file is OpenZeppelin code bundled with l1-contracts, which your portal reaches through the `IRollup` interface.
 
 ## Part 4: Compiling, Deploying, and Testing
 
 Now deploy everything and test the full flow. This will help you understand how everything fits together.
 
-Delete the placeholders in `scripts` and create `index.ts`:
+Create `scripts/index.ts`:
 
 ```bash
+mkdir -p scripts
 touch scripts/index.ts
 ```
 
@@ -697,10 +703,10 @@ import {
 import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
-import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
-import SimpleNFT from "../../../target/solidity/nft_bridge/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
-import { NFTBridgeContract } from "./artifacts/NFTBridge.js";
-import { NFTPunkContract } from "./artifacts/NFTPunk.js";
+import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json" with { type: "json" };
+import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
+import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
+import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
 
 // Setup L1 client using anvil's default mnemonic (same as e2e tests)
 const MNEMONIC = "test test test test test test test test test test test junk";
@@ -727,19 +733,6 @@ const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 > <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L1-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L1-L42</a></sub></sup>
 
 
-:::warning Adjust the artifact imports for this project's layout
-The snippet above comes from the monorepo's runnable example, and its artifact imports point at that repo's layout. In the Hardhat project used in this tutorial, replace the four artifact imports with:
-
-```typescript
-import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json" with { type: "json" };
-import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
-import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
-import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
-```
-
-`npx hardhat compile` writes the Solidity artifacts to `artifacts/contracts/`, and the `aztec codegen` commands from earlier wrote the TypeScript bindings to `contracts/aztec/artifacts/`. Hardhat artifacts also store the bytecode as a plain string, so in the deployment snippet below use `SimpleNFT.bytecode` and `NFTPortal.bytecode` instead of `.bytecode.object`.
-:::
-
 You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
 
 ```typescript title="deploy_l1_contracts" showLineNumbers 
@@ -748,13 +741,13 @@ console.log("Deploying L1 contracts...\n");
 const { address: nftAddress } = await deployL1Contract(
   l1Client,
   SimpleNFT.abi,
-  SimpleNFT.bytecode.object as `0x${string}`,
+  SimpleNFT.bytecode as `0x${string}`,
 );
 
 const { address: portalAddress } = await deployL1Contract(
   l1Client,
   NFTPortal.abi,
-  NFTPortal.bytecode.object as `0x${string}`,
+  NFTPortal.bytecode as `0x${string}`,
 );
 
 console.log(`SimpleNFT: ${nftAddress}`);
