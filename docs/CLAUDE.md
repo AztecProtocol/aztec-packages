@@ -216,7 +216,9 @@ The `examples/` directory contains runnable code examples that are included in d
 
 **Validation (type-checking)**: `examples/bootstrap.sh` compiles Noir circuits, Noir contracts, Solidity, and type-checks TypeScript examples. This runs on every PR.
 
-`examples/bootstrap.sh --line <line>` builds a line's examples the same way, in a copy staged outside the repository (nargo would take `docs/Nargo.toml` as the workspace). Run it whole: the stage is new every run, so a single step such as `validate-ts` finds no compiled contracts, unless `DOCS_LINE_STAGE=<dir>` keeps one stage across runs (a release cut does). A line's examples run against a network only at its release cut, never in CI.
+`examples/bootstrap.sh --line <line>` builds a line's examples the same way, in a copy staged outside the repository (nargo would take `docs/Nargo.toml` as the workspace). Run it whole: the stage is new every run, so a single step such as `validate-ts` finds no compiled contracts, unless `DOCS_LINE_STAGE=<dir>` keeps one stage across runs (a release cut does). CI runs each line's Noir tests under TXE (`--line <line> test-contracts`, which compiles the line's contracts first) and its fresh-folder test (`test-first-project`), but a line's TypeScript examples run against a network only at its release cut.
+
+`test-first-project` (main and each line) builds the "Your first full project" page's project in an empty folder: `aztec init`, the page's `package.json` and `tsconfig.json` blocks as the site renders them, the example's `full` region, `npm install`, a type check. A change to those blocks, to that region, or to how `include_version.js` renders the page is tested there, not by `validate-ts`.
 
 The Solidity examples compile against the l1-contracts sources shipped in the `@aztec-foundation/l1-artifacts` devDependency (see `examples/solidity/foundry.toml`). Its version in `package.json` must equal `toolchain.l1Artifacts` in `aztec-node.json` (the pinned aztec-node's `BB_VERSION`); `node scripts/aztec_node.mts check` fails until both move together.
 

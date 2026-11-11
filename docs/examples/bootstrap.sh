@@ -307,6 +307,16 @@ function test-contracts {
   pin_toolchain
   local test_packages=()
   local member
+  # TXE deploys contracts from target/, which main's build fills but a line's new stage does not.
+  if [ -n "$DOCS_LINE" ]; then
+    local contracts=()
+    for member in $(sed -n -E 's/^ *"examples\/([^"]+)",?$/\1/p' "$DOCS_ROOT/Nargo.toml"); do
+      if grep -q '^type = "contract"' "$DOCS_ROOT/examples/$member/Nargo.toml"; then
+        contracts+=("$member")
+      fi
+    done
+    compile "${contracts[@]}"
+  fi
   for member in $(sed -n -E 's/^ *"(examples\/[^"]+)",?$/\1/p' "$DOCS_ROOT/Nargo.toml"); do
     if grep -rqs '#\[test' "$DOCS_ROOT/$member/src"; then
       test_packages+=("$(sed -n -E 's/^name *= *"([^"]+)".*/\1/p' "$DOCS_ROOT/$member/Nargo.toml")")
@@ -350,6 +360,24 @@ function test-contracts {
   )
 }
 
+# Builds the "Your first full project" page's project in an empty folder with this line's pin. The test reads
+# the line's page and example from the repository, not from the stage.
+function test-first-project {
+  echo_header "Testing the first full project from an empty folder"
+  pin_toolchain
+  "$REPO_ROOT/$DOCS_PATH/examples/ts/first_full_project/fresh_folder_test.sh"
+}
+
+# Every line's checkout and toolchain, installed before test commands that share them run in parallel.
+function pin_toolchains {
+  pin_toolchain
+  local line
+  for line in $("${aztec_node[@]}" lines); do
+    "${aztec_node[@]}" --line "$line" fetch
+    "${aztec_node[@]}" --line "$line" provision nargo bb cli
+  done
+}
+
 function test_cmds {
   # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
   # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
@@ -357,11 +385,24 @@ function test_cmds {
   echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
+  # The fresh-folder test also renders its page with the site's preprocessing.
+  local render=("^docs/src/" "^docs/developer_version_config.json" "^docs/release_names.json")
+  local page="^docs/docs-developers/docs/tutorials/js_tutorials/first_full_project.md"
+  echo "$(cache_content_hash .rebuild_patterns "$page" "${render[@]}"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
+  # A line's TXE needs a port of its own: the test commands run in parallel.
+  local line line_hash i=0
+  for line in $("${aztec_node[@]}" lines); do
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/")
+    echo "$line_hash:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${render[@]}")
+    echo "$line_hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
+    i=$((i + 1))
+  done
 }
 
 function test {
   echo_header "docs examples test"
-  pin_toolchain
+  pin_toolchains
   test_cmds | filter_test_cmds | parallelize
 }
 
