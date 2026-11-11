@@ -3,9 +3,8 @@
  * @file bbapi_wire_convert.hpp
  * @brief Wire <-> domain conversion helpers for the bbapi handlers.
  *
- * All conversions are field-by-field: each handler in bbapi_handlers.cpp
- * builds the domain command struct from the wire fields, calls execute(),
- * and builds the wire response from the domain response fields.
+ * All conversions are field-by-field, from the wire fields to the domain
+ * types a handler works with, and back for its response.
  *
  * Wire field types (Fr / Fq / Uint256 / … — nominal bin32 aliases) and
  * domain field types (`bb::fr`, `bb::fq`, `uint256_t`, …) share a 32-byte

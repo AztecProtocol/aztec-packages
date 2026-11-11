@@ -1,12 +1,10 @@
-#include "barretenberg/bbapi/generated/bb_ffi.hpp"
-#include "barretenberg/bbapi/generated/bb_types.hpp"
-#include "barretenberg/bbapi/generated/ipc_codegen/msgpack_adaptor.hpp"
-#include "barretenberg/bbapi/generated/ipc_codegen/msgpack_include.hpp"
+#include "barretenberg/bbapi/ffi_test_dispatch.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/factories/grumpkin_srs_gen.hpp"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 // SRS ingress is tested through the FFI entry, the dispatch every client (bb.js, the IPC server,
@@ -19,22 +17,9 @@ using namespace bb::bbapi;
 
 namespace {
 
-/** Runs a command through the FFI entry and returns the response's type name. */
-template <typename Cmd> std::string dispatch(const char* name, const Cmd& cmd)
+std::string dispatch(const auto& cmd)
 {
-    msgpack::sbuffer buf;
-    msgpack::packer<msgpack::sbuffer> pk(buf);
-    pk.pack_array(1);
-    pk.pack_array(2);
-    pk.pack(std::string(name));
-    pk.pack(cmd);
-
-    uint8_t* out = nullptr;
-    size_t out_len = 0;
-    bb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
-    auto oh = msgpack::unpack(reinterpret_cast<const char*>(out), out_len);
-    bb_ipc_ffi_free(out);
-    return oh.get().via.array.ptr[0].as<std::string>();
+    return ffi_test::ffi_call(cmd).type;
 }
 
 const std::string GRUMPKIN_OK = "BbSrsInitGrumpkinSrsResponse";
@@ -45,7 +30,7 @@ std::string init_grumpkin(const std::vector<curve::Grumpkin::AffineElement>& poi
     wire::BbSrsInitGrumpkinSrs cmd;
     cmd.points_buf = to_buffer(points);
     cmd.num_points = num_points;
-    return dispatch("BbSrsInitGrumpkinSrs", cmd);
+    return dispatch(cmd);
 }
 
 } // namespace
@@ -87,7 +72,12 @@ TEST(GrumpkinSrsIngress, RejectsInvalidPointCounts)
     const auto points = srs::generate_grumpkin_srs(srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS);
     for (uint32_t count : { 0U, static_cast<uint32_t>(srs::GRUMPKIN_G1_NUM_POINTS + 1) }) {
         SCOPED_TRACE(count);
-        EXPECT_EQ(init_grumpkin(points, count), ERROR);
+        wire::BbSrsInitGrumpkinSrs cmd;
+        cmd.points_buf = to_buffer(points);
+        cmd.num_points = count;
+        auto response = ffi_test::ffi_call(cmd);
+        ASSERT_TRUE(response.is_error());
+        EXPECT_THAT(response.error_message(), ::testing::HasSubstr("outside the pinned Grumpkin CRS"));
     }
 }
 
@@ -97,7 +87,7 @@ TEST(Bn254SrsIngress, RejectsG2PointAtInfinity)
     cmd.points_buf = to_buffer(std::vector<g1::affine_element>{ srs::BN254_G1_FIRST_ELEMENT });
     cmd.num_points = 1;
     cmd.g2_point = to_buffer(g2::affine_element::infinity());
-    EXPECT_EQ(dispatch("BbSrsInitSrs", cmd), ERROR);
+    EXPECT_EQ(dispatch(cmd), ERROR);
 }
 
 #endif

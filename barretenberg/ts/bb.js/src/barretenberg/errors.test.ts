@@ -3,7 +3,7 @@ import { BbError } from '@aztec-foundation/bb.js-api';
 import { BackendType, Barretenberg } from './index.js';
 
 /**
- * A failure bb reports with BBAPI_ERROR: an off-curve point, rejected before any work is done.
+ * A failure bb reports as an error response: an off-curve point, rejected before any work is done.
  * The handler returns an error response, so the reply is an error frame on every backend.
  */
 function reportedFailure(api: Barretenberg) {

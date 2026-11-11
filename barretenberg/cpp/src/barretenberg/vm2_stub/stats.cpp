@@ -1,5 +1,5 @@
 // Stub implementations of bb::avm2::Stats. Linked into binaries that don't pull in vm2_sim
-// (e.g. lightweight `bb` and WASM builds), so callers like bbapi_avm.cpp resolve symbols in
+// (e.g. lightweight `bb` and WASM builds), so callers like the AVM handlers in bbapi_handlers.cpp resolve symbols in
 // every build mode. The stub no-ops because AVM proving cannot run on these targets anyway.
 
 #include "barretenberg/vm2/tooling/stats.hpp"
