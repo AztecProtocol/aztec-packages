@@ -9,9 +9,12 @@ Notes for self.
 
 ## Experimental memory optimizations
 
-`AVM_EXPERIMENTAL_OPTIMIZATIONS=1 bb-avm avm_prove` enables both first-fold
-allocation without zero initialization (when the fold overwrites the allocation)
-and direct PCS accumulation without per-CPU polynomial accumulators. The setting
+`AVM_EXPERIMENTAL_OPTIMIZATIONS=1 bb-avm avm_prove` enables first-fold allocation
+without zero initialization (when the fold overwrites the allocation), direct PCS
+accumulation without per-CPU polynomial accumulators, and a 2 GiB aggregate arena
+allowance for concurrent small MSMs in native AVM commitment batches. The baseline,
+other proving callers, and WASM retain the 32 MiB allowance. The allowance is per
+batch and does not bound total prover memory. The setting
 is read once before work starts and defaults to OFF. Native file and byte proving
 APIs use the cached selection by default. bb.js passes its
 `avmExperimentalOptimizations` option into the backend environment before startup.

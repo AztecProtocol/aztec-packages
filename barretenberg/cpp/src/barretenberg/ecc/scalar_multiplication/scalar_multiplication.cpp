@@ -688,7 +688,8 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<const typename Curve::AffineElement> points,
     std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
     bool handle_edge_cases,
-    std::span<const uint32_t> dedup_infos) noexcept
+    std::span<const uint32_t> dedup_infos,
+    MsmBatchOptions options) noexcept
 {
     if (use_legacy_msm()) {
         // Adapt the rewrite's (single shared points + per-MSM PolynomialSpan) shape to the
@@ -706,7 +707,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         }
         return legacy::MSM<Curve>::batch_multi_scalar_mul(legacy_points, legacy_scalars, handle_edge_cases);
     }
-    return MSM_fast<Curve>::batch_multi_scalar_mul(points, scalars, handle_edge_cases, dedup_infos);
+    return MSM_fast<Curve>::batch_multi_scalar_mul(points, scalars, handle_edge_cases, dedup_infos, options);
 }
 
 template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,

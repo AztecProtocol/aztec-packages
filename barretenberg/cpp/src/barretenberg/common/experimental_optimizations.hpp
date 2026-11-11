@@ -24,7 +24,7 @@ inline bool rollup_experimental_optimizations_enabled() noexcept
     return detail::rollup_experimental_optimizations_enabled;
 }
 
-/** Return the frozen AVM first-fold and PCS optimisation selection after initialization. */
+/** Return the frozen AVM optimisation selection after initialization. */
 inline bool avm_experimental_optimizations_enabled() noexcept
 {
     return detail::avm_experimental_optimizations_enabled;

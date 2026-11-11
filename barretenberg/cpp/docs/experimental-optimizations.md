@@ -39,10 +39,17 @@ discarding the running instance. Destroy and recreate the backend to change it.
 
 ## AVM selection
 
-`AVM_EXPERIMENTAL_OPTIMIZATIONS=1` enables both first-fold buffer initialization
-skipping and direct PCS coefficient accumulation. It defaults to OFF independently
-of the BB setting. Both settings are validated and frozen together. The BB setting
-also affects AVM's shared arithmetic and native thread pool.
+`AVM_EXPERIMENTAL_OPTIMIZATIONS=1` enables first-fold buffer initialization
+skipping, direct PCS coefficient accumulation, and a larger native workspace
+allowance for concurrent small MSMs in AVM commitment batches. It defaults to OFF
+independently of the BB setting. Both settings are validated and frozen together.
+The BB setting also affects AVM's shared arithmetic and native thread pool.
+
+The aggregate small-MSM arena allowance rises from 32 MiB to 2 GiB only for opted-in
+native AVM batches. The selection travels with each batch; other callers and WASM
+retain 32 MiB. Individual MSM window/layout budgets are unchanged. This is a
+per-batch target, not a process-wide memory limit; at least one worker is allowed
+even when its arena exceeds the target. Concurrent proofs have separate allowances.
 
 bb.js exposes `avmExperimentalOptimizations` with the same option precedence and
 backend environment transport as `experimentalOptimizations`. AVM proving through

@@ -522,7 +522,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
      *        num_threads=1) mixed with boundary-size and large members that stay on the
      *        sequential shared-arena path.
      */
-    void test_batch_multi_scalar_mul_small_member_dispatch()
+    void test_batch_multi_scalar_mul_small_member_dispatch(scalar_multiplication::MsmBatchOptions options = {})
     {
         std::vector<size_t> sizes;
         for (size_t k = 0; k < 24; ++k) {
@@ -580,7 +580,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
 
         std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            dispatch_generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
+            dispatch_generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos, options);
 
         for (size_t k = 0; k < num_msms; ++k) {
             EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";
@@ -1946,6 +1946,10 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSmallMemberDispatch)
 {
     this->test_batch_multi_scalar_mul_small_member_dispatch();
 }
+TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulLargeWorkspace)
+{
+    this->test_batch_multi_scalar_mul_small_member_dispatch({ .large_workspace = true });
+}
 TYPED_TEST(ScalarMultiplicationTest, MSM)
 {
     this->test_msm();
@@ -2359,4 +2363,32 @@ TEST(ScalarMultiplication, SmallInputsExplicit)
     grumpkin::g1::element expected = (points[0] * scalars[0]) + (points[1] * scalars[1]);
 
     EXPECT_EQ(result, grumpkin::g1::affine_element(expected));
+}
+
+TEST(MsmBatchOptionsTest, BoundsWorkersByMemoryAndAvailableWork)
+{
+    using bb::scalar_multiplication::MsmBatchOptions;
+    constexpr size_t arena_bytes = 8ULL * 1024ULL * 1024ULL;
+    const MsmBatchOptions baseline;
+    const MsmBatchOptions large{ .large_workspace = true };
+    EXPECT_EQ(baseline.num_workers(64, 100, arena_bytes), 4);
+#ifdef __wasm__
+    EXPECT_EQ(large.num_workers(64, 100, arena_bytes), 4);
+#else
+    EXPECT_EQ(large.num_workers(64, 100, arena_bytes), 64);
+#endif
+    EXPECT_EQ(large.num_workers(2, 100, arena_bytes), 2);
+    EXPECT_EQ(large.num_workers(64, 3, arena_bytes), 3);
+    EXPECT_EQ(baseline.num_workers(64, 100, arena_bytes), 4);
+}
+
+TEST(MsmBatchOptionsTest, HandlesEmptyAndOversizedArenas)
+{
+    using bb::scalar_multiplication::MsmBatchOptions;
+    for (const MsmBatchOptions options : { MsmBatchOptions{}, MsmBatchOptions{ .large_workspace = true } }) {
+        EXPECT_EQ(options.num_workers(64, 10, 0), 10);
+        EXPECT_EQ(options.num_workers(1, 100, 8ULL * 1024ULL * 1024ULL), 1);
+        EXPECT_EQ(options.num_workers(64, 100, 3ULL * 1024ULL * 1024ULL * 1024ULL), 1);
+        EXPECT_EQ(options.num_workers(64, 0, 8ULL * 1024ULL * 1024ULL), 0);
+    }
 }

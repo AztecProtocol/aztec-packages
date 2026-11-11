@@ -12,7 +12,7 @@ class AvmProvingHelper {
   public:
     AvmProvingHelper() = default;
 
-    /** @brief Selects experimental first-fold and PCS memory optimizations for proving. */
+    /** @brief Selects experimental first-fold, PCS accumulation, and native MSM workspace policies for proving. */
     explicit AvmProvingHelper(bool memory_optimizations)
         : memory_optimizations(memory_optimizations)
     {}

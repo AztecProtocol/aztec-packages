@@ -81,7 +81,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
         }
     }
 
-    void test_batch_commit()
+    void test_batch_commit(scalar_multiplication::MsmBatchOptions msm_options = {})
     {
         constexpr size_t n = 16;
         CK ck(n);
@@ -93,7 +93,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
         }
 
         RefVector<Polynomial> poly_refs(polys);
-        auto batch_commitments = ck.batch_commit(poly_refs);
+        auto batch_commitments = ck.batch_commit(poly_refs, {}, msm_options);
 
         EXPECT_EQ(batch_commitments.size(), polys.size());
 
@@ -242,6 +242,10 @@ TYPED_TEST(CommitmentKeyTest, NonDyadicSrsSize)
 TYPED_TEST(CommitmentKeyTest, BatchCommit)
 {
     TestFixture::test_batch_commit();
+}
+TYPED_TEST(CommitmentKeyTest, BatchCommitLargeWorkspace)
+{
+    TestFixture::test_batch_commit({ .large_workspace = true });
 }
 TYPED_TEST(CommitmentKeyTest, CommitWithStartIndex)
 {
