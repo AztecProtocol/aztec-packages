@@ -26,11 +26,12 @@ This tutorial focuses on the L2 side to keep things manageable. You'll learn the
 
 The Ethereum side of the bridge is a [Hardhat](https://hardhat.org) project, and the Aztec contracts go in its `contracts/aztec` folder. You need Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack).
 
-Create the project folder:
+Create the project folder, with an empty `yarn.lock` so Yarn treats it as a project of its own even inside another one:
 
 ```bash
 mkdir aztec-nft-bridge
 cd aztec-nft-bridge
+touch yarn.lock
 ```
 
 Create `package.json`:

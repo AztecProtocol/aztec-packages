@@ -106,11 +106,12 @@ sequenceDiagram
 
 The Ethereum side is a [Hardhat](https://hardhat.org) project, and the Aztec contract goes in its `contracts/aztec` folder.
 
-Create the project folder:
+Create the project folder, with an empty `yarn.lock` so Yarn treats it as a project of its own even inside another one:
 
 ```bash
 mkdir aztec-aave-bridge
 cd aztec-aave-bridge
+touch yarn.lock
 ```
 
 Create `package.json`:
