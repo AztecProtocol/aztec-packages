@@ -127,20 +127,43 @@ template <std::size_t N> inline std::array<bb::fr, N> fr_array_from_wire(const s
 }
 
 // ---------------------------------------------------------------------------
-// Curve point conversions. Wire types follow a uniform {Fr x, Fr y} shape.
-// Domain types use the curve-specific affine_element. The default
-// affine_element msgpack adapter packs as a 2-field map {x: bin32, y: bin32},
-// matching the wire encoding, so field-by-field conversion is safe.
+// Curve point conversions. Wire points are {x, y} (each coordinate an Fq2 pair
+// for BN254 G2). The point at infinity is all-ones in every coordinate, as
+// affine_element's msgpack encoding writes it; any other coordinate must be a
+// canonical field element.
 // ---------------------------------------------------------------------------
+
+inline constexpr std::array<uint8_t, 32> WIRE_INFINITY_COORDINATE = [] {
+    std::array<uint8_t, 32> r{};
+    r.fill(0xff);
+    return r;
+}();
+
+template <typename WirePoint, typename WireCoordinate, typename Point> inline WirePoint point_to_wire(const Point& d)
+{
+    if (d.is_point_at_infinity()) {
+        return { .x = WireCoordinate{ WIRE_INFINITY_COORDINATE }, .y = WireCoordinate{ WIRE_INFINITY_COORDINATE } };
+    }
+    return { .x = field_to_wire_as<WireCoordinate>(d.x), .y = field_to_wire_as<WireCoordinate>(d.y) };
+}
+
+template <typename Point, typename WirePoint> inline Point point_from_wire(const WirePoint& w)
+{
+    using Coordinate = std::remove_cvref_t<decltype(std::declval<Point>().x)>;
+    if (wire_bytes(w.x) == WIRE_INFINITY_COORDINATE && wire_bytes(w.y) == WIRE_INFINITY_COORDINATE) {
+        return Point::infinity();
+    }
+    return { field_from_wire<Coordinate>(w.x), field_from_wire<Coordinate>(w.y) };
+}
 
 inline wire::GrumpkinPoint grumpkin_point_to_wire(const grumpkin::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<Fr>(d.x), .y = field_to_wire_as<Fr>(d.y) };
+    return point_to_wire<wire::GrumpkinPoint, Fr>(d);
 }
 
 inline grumpkin::g1::affine_element grumpkin_point_from_wire(const wire::GrumpkinPoint& w)
 {
-    return { field_from_wire<grumpkin::fq>(w.x), field_from_wire<grumpkin::fq>(w.y) };
+    return point_from_wire<grumpkin::g1::affine_element>(w);
 }
 
 inline std::vector<wire::GrumpkinPoint> grumpkin_point_vec_to_wire(const std::vector<grumpkin::g1::affine_element>& d)
@@ -165,12 +188,12 @@ inline std::vector<grumpkin::g1::affine_element> grumpkin_point_vec_from_wire(co
 
 inline wire::Bn254G1Point bn254_g1_point_to_wire(const bb::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<Fq>(d.x), .y = field_to_wire_as<Fq>(d.y) };
+    return point_to_wire<wire::Bn254G1Point, Fq>(d);
 }
 
 inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point& w)
 {
-    return { field_from_wire<bb::fq>(w.x), field_from_wire<bb::fq>(w.y) };
+    return point_from_wire<bb::g1::affine_element>(w);
 }
 
 // Fq2 = { c0: bb::fq, c1: bb::fq }; wire Fq2 is two fq bin32 aliases.
@@ -186,32 +209,42 @@ inline bb::fq2 fq2_from_wire(const std::array<Fq, 2>& w)
 
 inline wire::Bn254G2Point bn254_g2_point_to_wire(const bb::g2::affine_element& d)
 {
+    if (d.is_point_at_infinity()) {
+        const Fq all_ones{ WIRE_INFINITY_COORDINATE };
+        return { .x = { all_ones, all_ones }, .y = { all_ones, all_ones } };
+    }
     return { .x = fq2_to_wire(d.x), .y = fq2_to_wire(d.y) };
 }
 
 inline bb::g2::affine_element bn254_g2_point_from_wire(const wire::Bn254G2Point& w)
 {
+    auto is_all_ones = [](const std::array<Fq, 2>& c) {
+        return wire_bytes(c[0]) == WIRE_INFINITY_COORDINATE && wire_bytes(c[1]) == WIRE_INFINITY_COORDINATE;
+    };
+    if (is_all_ones(w.x) && is_all_ones(w.y)) {
+        return bb::g2::affine_element::infinity();
+    }
     return { fq2_from_wire(w.x), fq2_from_wire(w.y) };
 }
 
 inline wire::Secp256k1Point secp256k1_point_to_wire(const secp256k1::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<Secp256k1Fq>(d.x), .y = field_to_wire_as<Secp256k1Fq>(d.y) };
+    return point_to_wire<wire::Secp256k1Point, Secp256k1Fq>(d);
 }
 
 inline secp256k1::g1::affine_element secp256k1_point_from_wire(const wire::Secp256k1Point& w)
 {
-    return { field_from_wire<secp256k1::fq>(w.x), field_from_wire<secp256k1::fq>(w.y) };
+    return point_from_wire<secp256k1::g1::affine_element>(w);
 }
 
 inline wire::Secp256r1Point secp256r1_point_to_wire(const secp256r1::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<Secp256r1Fq>(d.x), .y = field_to_wire_as<Secp256r1Fq>(d.y) };
+    return point_to_wire<wire::Secp256r1Point, Secp256r1Fq>(d);
 }
 
 inline secp256r1::g1::affine_element secp256r1_point_from_wire(const wire::Secp256r1Point& w)
 {
-    return { field_from_wire<secp256r1::fq>(w.x), field_from_wire<secp256r1::fq>(w.y) };
+    return point_from_wire<secp256r1::g1::affine_element>(w);
 }
 
 // ---------------------------------------------------------------------------

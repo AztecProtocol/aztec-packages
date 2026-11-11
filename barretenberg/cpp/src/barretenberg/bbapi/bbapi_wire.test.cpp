@@ -112,12 +112,12 @@ TEST(BBApiDispatch, UndecodableRequestsGetErrorResponses)
         pk.pack(std::string("data"));
         pk.pack(5);
     });
-    // A 32-byte field sent with 3 bytes.
+    // A 32-byte field sent with 33 bytes.
     auto wrong_length = frame([](auto& pk) {
         pk.pack(std::string("BbBn254FrSqrt"));
         pk.pack_map(1);
         pk.pack(std::string("input"));
-        pk.pack(std::vector<uint8_t>{ 1, 2, 3 });
+        pk.pack(std::vector<uint8_t>(33, 1));
     });
     // Truncated mid-frame.
     auto truncated = std::vector<uint8_t>(wrong_type.begin(), wrong_type.end() - 2);
