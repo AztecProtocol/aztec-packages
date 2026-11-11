@@ -9,7 +9,7 @@
 #   check_warnings.sh --self-test
 set -euo pipefail
 
-pattern='\bwarn(ings?)?\b|deprecat|\[error\]|diagnostic|\bYN0(002|009|028|060|061|072|086)\b|failed with errors|(^|[[:space:]])\(!\) |browserslist|caniuse-lite|update available|issues found: [1-9]|broken (anchor|link)s?(: *[1-9]|[^s:]|$)'
+pattern='\bwarn(ings?)?\b|deprecat|\[error\]|diagnostic|\bYN0(002|009|028|060|061|068|069|072|086)\b|failed with errors|(^|[[:space:]])\(!\) |browserslist|caniuse-lite|update available|issues found: [1-9]|broken (anchor|link)s?(: *[1-9]|[^s:]|$)'
 # llms.txt leaves out tag pages, cut versions and the dev line previews on purpose (excludeRoutes in
 # docusaurus.config.js), and the plugin reports how many as a warning on every build.
 allowed='\[WARNING\] \[docusaurus-plugin-llms-txt\] WARNING: Excluded [0-9]+ routes by current config'
@@ -52,6 +52,8 @@ function self_test {
     '[ERROR] Unable to build website for locale en.'
     'CSpell: Files checked: 412, Issues found: 3 in 2 files.'
     '➤ YN0002: │ docs@workspace:. doesn'"'"'t provide react-dom (p1a2b3), requested by @x/y.'
+    '➤ YN0068: │ file-loader ➤ peerDependenciesMeta ➤ webpack ➤ optional: No matching package in the dependency tree; you may not need this rule anymore.'
+    '➤ YN0069: │ ts-node ➤ peerDependenciesMeta ➤ @types/node ➤ optional: This rule seems redundant when applied on the original package; the extension may have been applied upstream.'
     'Minifier: 2 diagnostics in docs/aztec-nr.html'
     'npm warn exec 2 packages are looking for funding'
     '  - Broken links: 10'
