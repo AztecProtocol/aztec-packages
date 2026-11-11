@@ -621,7 +621,7 @@ template <typename Curve> class ShplonkVerifier_ {
  *
  */
 template <typename Fr>
-static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplonk_batching_challenge,
+inline std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplonk_batching_challenge,
                                                                  const size_t virtual_log_n,
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)

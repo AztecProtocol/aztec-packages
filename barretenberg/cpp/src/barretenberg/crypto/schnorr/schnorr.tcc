@@ -51,7 +51,7 @@ template <typename Fq> static inline Fq compute_schnorr_challenge_dst()
  * @return e as a bb::fr element
  */
 template <typename G1>
-static typename G1::Fq schnorr_generate_challenge(const typename G1::Fq& message_field,
+inline typename G1::Fq schnorr_generate_challenge(const typename G1::Fq& message_field,
                                                   const typename G1::affine_element& pubkey,
                                                   const typename G1::affine_element& R)
 {
