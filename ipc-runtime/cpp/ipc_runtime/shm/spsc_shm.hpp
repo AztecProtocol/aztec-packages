@@ -39,13 +39,25 @@ struct alignas(SPSC_CACHELINE) SpscCtrl {
 
     // Immutable capacity information
     alignas(SPSC_CACHELINE) uint64_t capacity; // power of two
-    alignas(SPSC_CACHELINE) uint64_t mask;     // capacity - 1
+    // Bumped by wakeup_all() (from either side, any process) before it wakes the
+    // futexes, so a blocked wait can tell a requested wakeup (which ends it) from a
+    // stale or spurious futex return (which does not). Lives in capacity's padding,
+    // so the layout is unchanged; rarely written, so it adds no hot-path sharing.
+    std::atomic<uint32_t> wake_gen;
+    alignas(SPSC_CACHELINE) uint64_t mask; // capacity - 1
 
     // uint8_t buffer[capacity] follows in memory...
 };
 
 static_assert(alignof(SpscCtrl) == SPSC_CACHELINE, "SpscCtrl alignment");
 static_assert(sizeof(SpscCtrl) % SPSC_CACHELINE == 0, "SpscCtrl size multiple of cache line");
+// Four lines (producer, consumer, capacity + wake_gen, mask): peers built from different revisions must agree.
+static_assert(sizeof(SpscCtrl) == 4 * SPSC_CACHELINE, "SpscCtrl layout changed");
+static_assert(offsetof(SpscCtrl, mask) == 3 * SPSC_CACHELINE, "SpscCtrl layout changed");
+static_assert(offsetof(SpscCtrl, capacity) == 2 * SPSC_CACHELINE, "SpscCtrl layout changed");
+static_assert(offsetof(SpscCtrl, wake_gen) == offsetof(SpscCtrl, capacity) + sizeof(uint64_t),
+              "SpscCtrl layout changed");
+static_assert(std::atomic<uint32_t>::is_always_lock_free, "wake_gen is shared across processes");
 
 /**
  * @brief Lock-free single-producer single-consumer shared memory ring buffer
@@ -168,6 +180,9 @@ class SpscShm {
   private:
     // Private constructor for create/connect factories
     SpscShm(int fd, size_t map_len, SpscCtrl* ctrl, uint8_t* buf);
+
+    template <typename Ready>
+    bool block_until(std::atomic<uint64_t>& word, std::atomic<bool>& blocked, uint64_t timeout_ns, Ready ready);
 
     int fd_ = -1;
     size_t map_len_ = 0;
