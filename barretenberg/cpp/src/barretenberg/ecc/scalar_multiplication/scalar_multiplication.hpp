@@ -463,7 +463,8 @@ template <typename Curve> class MSM {
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<const AffineElement> points,
                                                              std::span<PolynomialSpan<ScalarField>> scalars,
                                                              bool handle_edge_cases = true,
-                                                             std::span<const uint32_t> dedup_infos = {});
+                                                             std::span<const uint32_t> dedup_infos = {},
+                                                             MsmBatchOptions options = {});
 };
 
 extern template class MSM<curve::BN254>;
