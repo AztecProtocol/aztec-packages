@@ -58,8 +58,7 @@ codegen_dir() {
     if is_hardhat_project "${1:-.}"; then echo contracts/aztec/artifacts; else echo artifacts; fi
 }
 
-# write_tsconfig <template>: the project's tsconfig.json, type-checking its entry point, its bindings
-# and, in a Hardhat project, the config the reader writes.
+# write_tsconfig <template>
 write_tsconfig() {
     local include=("$(project_entry)" "$(codegen_dir)/**/*.ts")
     if is_hardhat_project; then include+=(hardhat.config.ts); fi
@@ -78,7 +77,7 @@ hardhat_compile() {
     npx hardhat compile
 }
 
-# Removes what hardhat_compile and codegen leave in a Hardhat project, beside every project's files.
+# An example's contracts/aztec holds only generated bindings: its Noir sources live in docs/examples/contracts.
 clean_hardhat_project() {
     if [ -L l1-contracts ]; then rm l1-contracts; fi
     rm -rf cache contracts/aztec

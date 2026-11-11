@@ -205,7 +205,7 @@ validate_project() {
 }
 export -f validate_project
 
-# Collect all projects with index.ts and config.yaml
+# Collect all projects with an entry point and config.yaml
 get_all_projects() {
     for dir in */; do
         if [ -d "$dir" ]; then
