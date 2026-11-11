@@ -9,6 +9,8 @@ Each example directory contains:
 - `config.yaml` - Specifies dependencies and any custom contract artifacts needed
 - `yarn.lock` - Empty file to prevent yarn from using parent monorepo's yarn.lock
 
+The bridge tutorials' examples (`token_bridge`, `aave_bridge`) are Hardhat projects in the reader's layout instead: `scripts/index.ts`, `contracts/*.sol`, `hardhat.config.ts` and `remappings.txt`. For them, validation and the runner install with dependency scripts off, link `l1-contracts` to the `@aztec-foundation/l1-artifacts` sources the remappings name, run `npx hardhat compile`, and write the Aztec bindings to `contracts/aztec/artifacts/`.
+
 ## Validation: Type Checking
 
 The `bootstrap.sh` script validates all examples by:

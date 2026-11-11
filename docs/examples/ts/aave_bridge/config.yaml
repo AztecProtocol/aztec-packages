@@ -9,4 +9,6 @@ dependencies:
   - "@aztec-labs/foundation"
   - "@aztec-labs/ethereum"
   - "@aztec-labs/noir-contracts.js"
+  - "@aztec-foundation/l1-artifacts"
   - "npm:@aztec/viem@2.38.2"
+  - "npm:hardhat@3.21.2"

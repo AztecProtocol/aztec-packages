@@ -1,3 +1,4 @@
+// docs:start:mock_aave_pool
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
@@ -6,7 +7,6 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {MockAToken} from "./MockAToken.sol";
 
-// docs:start:mock_aave_pool
 /// @notice A simplified mock of Aave V3's lending pool for tutorial purposes.
 /// Supports supply and withdraw with a configurable yield in basis points.
 contract MockAavePool {

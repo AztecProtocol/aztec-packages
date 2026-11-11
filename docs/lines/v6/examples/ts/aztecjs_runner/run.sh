@@ -75,6 +75,7 @@ setup_project() {
 
     # Clean up any previous setup (include codegenCache.json so codegen re-generates artifacts/)
     rm -rf node_modules .yarn package.json tsconfig.json artifacts codegenCache.json 2>/dev/null || true
+    if is_hardhat_project; then clean_hardhat_project; fi
 
     # Run codegen for custom contracts if specified in config.yaml
     local contract_count
@@ -91,12 +92,12 @@ setup_project() {
                 return 1
             fi
             echo -e "  Generating TS interface for ${contract_name}..."
-            "$AZTEC" codegen "$artifact" -o artifacts
+            "$AZTEC" codegen "$artifact" -o "$(codegen_dir)"
         done < <(yq eval '.contracts[]' config.yaml)
 
         # Verify codegen produced the expected files
         echo -e "  Generated artifacts:"
-        ls -la artifacts/ 2>/dev/null || echo -e "${RED}  ERROR: artifacts/ directory does not exist after codegen${NC}"
+        ls -la "$(codegen_dir)/" 2>/dev/null || echo -e "${RED}  ERROR: $(codegen_dir)/ does not exist after codegen${NC}"
     fi
 
     # Initialize yarn. `yarn init` also runs `git init` and writes the files below; the compose run is root, so anything
@@ -110,6 +111,7 @@ setup_project() {
     rm -rf .git ${created_files[@]+"${created_files[@]}"}
     [ "$init_status" -eq 0 ] || return "$init_status"
     yarn config set nodeLinker node-modules
+    if is_hardhat_project; then yarn config set enableScripts false; fi
 
     # Set package type to module for ESM
     node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
@@ -128,6 +130,8 @@ setup_project() {
 
     # Copy tsconfig
     cp "$EXAMPLES_DIR/tsconfig.template.json" tsconfig.json
+
+    if is_hardhat_project; then hardhat_compile; fi
 
     echo -e "${GREEN}✓ $project_name ready${NC}"
 }
@@ -161,7 +165,7 @@ run_project() {
     local max_retries=5
 
     for attempt in $(seq 1 $max_retries); do
-        if npx tsx index.ts; then
+        if npx tsx "$(project_entry)"; then
             local end_time=$(date +%s)
             local duration=$((end_time - start_time))
             echo ""
@@ -197,6 +201,7 @@ cleanup_project() {
            "$project_dir/artifacts" \
            "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
+    if is_hardhat_project "$project_dir"; then (cd "$project_dir" && clean_hardhat_project); fi
     # Keep yarn.lock empty
     > "$project_dir/yarn.lock"
 }

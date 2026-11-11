@@ -16,4 +16,6 @@ dependencies:
   - "@aztec-labs/stdlib"
   - "@aztec-labs/foundation"
   - "@aztec-labs/ethereum"
+  - "@aztec-foundation/l1-artifacts"
   - "npm:@aztec/viem@2.38.2"
+  - "npm:hardhat@3.21.2"

@@ -1,0 +1,6 @@
+# docs:start:remappings
+@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/
+@aztec/=l1-contracts/src/
+@aztec-blob-lib/=l1-contracts/src/core/libraries/rollup/
+@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/
+# docs:end:remappings

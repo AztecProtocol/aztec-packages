@@ -1,3 +1,4 @@
+// docs:start:setup
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing";
 import { AztecAddress, EthAddress } from "@aztec-labs/aztec.js/addresses";
 import { SetPublicAuthwitContractInteraction } from "@aztec-labs/aztec.js/authorization";
@@ -13,14 +14,13 @@ import {
 import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { decodeEventLog, pad, toFunctionSelector } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
-import AavePortal from "../../../target/solidity/aave_bridge/AavePortal.sol/AavePortal.json" with { type: "json" };
-import MockERC20 from "../../../target/solidity/aave_bridge/MockERC20.sol/MockERC20.json" with { type: "json" };
-import MockAToken from "../../../target/solidity/aave_bridge/MockAToken.sol/MockAToken.json" with { type: "json" };
-import MockAavePool from "../../../target/solidity/aave_bridge/MockAavePool.sol/MockAavePool.json" with { type: "json" };
+import AavePortal from "../artifacts/contracts/AavePortal.sol/AavePortal.json" with { type: "json" };
+import MockERC20 from "../artifacts/contracts/MockERC20.sol/MockERC20.json" with { type: "json" };
+import MockAToken from "../artifacts/contracts/MockAToken.sol/MockAToken.json" with { type: "json" };
+import MockAavePool from "../artifacts/contracts/MockAavePool.sol/MockAavePool.json" with { type: "json" };
 import { TokenContract } from "@aztec-labs/noir-contracts.js/Token";
-import { AaveBridgeContract } from "./artifacts/AaveBridge.js";
+import { AaveBridgeContract } from "../contracts/aztec/artifacts/AaveBridge.js";
 
-// docs:start:setup
 // Setup L1 client using anvil's default mnemonic
 const MNEMONIC = "test test test test test test test test test test test junk";
 const l1Client = createExtendedL1Client(
@@ -56,7 +56,7 @@ console.log("Deploying L1 contracts...\n");
 const { address: underlyingAddress } = await deployL1Contract(
   l1Client,
   MockERC20.abi,
-  MockERC20.bytecode.object as `0x${string}`,
+  MockERC20.bytecode as `0x${string}`,
   ["Mock DAI", "mDAI"],
 );
 
@@ -64,7 +64,7 @@ const { address: underlyingAddress } = await deployL1Contract(
 const { address: aTokenAddress } = await deployL1Contract(
   l1Client,
   MockAToken.abi,
-  MockAToken.bytecode.object as `0x${string}`,
+  MockAToken.bytecode as `0x${string}`,
   ["Aave Mock DAI", "amDAI"],
 );
 
@@ -72,7 +72,7 @@ const { address: aTokenAddress } = await deployL1Contract(
 const { address: poolAddress } = await deployL1Contract(
   l1Client,
   MockAavePool.abi,
-  MockAavePool.bytecode.object as `0x${string}`,
+  MockAavePool.bytecode as `0x${string}`,
   [underlyingAddress.toString(), aTokenAddress.toString(), 1000n],
 );
 
@@ -80,7 +80,7 @@ const { address: poolAddress } = await deployL1Contract(
 const { address: portalAddress } = await deployL1Contract(
   l1Client,
   AavePortal.abi,
-  AavePortal.bytecode.object as `0x${string}`,
+  AavePortal.bytecode as `0x${string}`,
 );
 
 console.log(`MockERC20 (DAI): ${underlyingAddress}`);

@@ -43,3 +43,43 @@ parse_dependencies() {
         fi
     done < <(yq eval '.dependencies[]' "$config_file")
 }
+
+# The bridge tutorials' examples are Hardhat projects in the reader's layout: the entry point is
+# scripts/index.ts, and Hardhat owns artifacts/, so codegen writes to contracts/aztec/artifacts/.
+is_hardhat_project() {
+    [ -f "${1:-.}/hardhat.config.ts" ]
+}
+
+project_entry() {
+    if is_hardhat_project "${1:-.}"; then echo scripts/index.ts; else echo index.ts; fi
+}
+
+codegen_dir() {
+    if is_hardhat_project "${1:-.}"; then echo contracts/aztec/artifacts; else echo artifacts; fi
+}
+
+# write_tsconfig <template>: the project's tsconfig.json, type-checking its entry point, its bindings
+# and, in a Hardhat project, the config the reader writes.
+write_tsconfig() {
+    local include=("$(project_entry)" "$(codegen_dir)/**/*.ts")
+    if is_hardhat_project; then include+=(hardhat.config.ts); fi
+    jq '.include = $ARGS.positional' "$1" --args "${include[@]}" > tsconfig.json
+}
+
+# hardhat_compile: run in a Hardhat project after its install. l1-artifacts ships no remappings and
+# Hardhat applies the project's to no file under node_modules, so remappings.txt reaches the
+# package's own sources through an l1-contracts link at the project root.
+hardhat_compile() {
+    if [ -e l1-contracts ] && [ ! -L l1-contracts ]; then
+        echo "ERROR: $PWD/l1-contracts is not the link to the l1-artifacts package" >&2
+        return 1
+    fi
+    ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
+    npx hardhat compile
+}
+
+# Removes what hardhat_compile and codegen leave in a Hardhat project, beside every project's files.
+clean_hardhat_project() {
+    if [ -L l1-contracts ]; then rm l1-contracts; fi
+    rm -rf cache contracts/aztec
+}
