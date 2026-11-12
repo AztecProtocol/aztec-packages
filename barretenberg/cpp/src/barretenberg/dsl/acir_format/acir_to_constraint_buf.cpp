@@ -773,7 +773,7 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
                     MsgpackCursor::fail("witness_buf_to_witness_vector: expected "
                                         "a map for WitnessMap");
                 }
-                entries.reserve(map.count);
+                entries.reserve(std::min<size_t>(map.count, (bytes.size() - cursor.offset()) / 2));
                 Witnesses::Witness witness{};
                 std::vector<uint8_t> value;
                 for (uint32_t entry = 0; entry < map.count; ++entry) {
