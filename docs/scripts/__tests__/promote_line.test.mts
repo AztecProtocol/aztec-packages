@@ -120,11 +120,16 @@ test("a line cut serves the line's pages and its tag's pin from the main paths",
 });
 
 test("a release tagged on its own release branch, forked from the line, is promoted, with its fork and its own commits listed", () => {
-  const r = promote("v6.0.1", {}, onRelease);
-  assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(snapshot(docs), snapshot(path.join(docs, "lines/v6")));
-  assert.match(r.stdout, new RegExp(`release/6\\.0\\.1, which forks from v6 at ${FORK} \\(2026-10-21T11:37:06Z\\)`));
-  assert.match(r.stdout, /^ {2}dddddddddd chore: bump toolchain pins to 6\.0\.1$/m);
+  // Forked before the line's head moved (diverged), or at the head itself (ahead).
+  for (const status of ["diverged", "ahead"]) {
+    git(root, "reset", "-q", "--hard");
+    const v6 = onRelease[`${API}/compare/v6...${PINNED}`] as object;
+    const r = promote("v6.0.1", {}, { ...onRelease, [`${API}/compare/v6...${PINNED}`]: { ...v6, status } });
+    assert.equal(r.status, 0, `${status}: ${r.stderr}`);
+    assert.deepEqual(snapshot(docs), snapshot(path.join(docs, "lines/v6")), status);
+    assert.match(r.stdout, new RegExp(`release/6\\.0\\.1, which forks from v6 at ${FORK} \\(2026-10-21T11:37:06Z\\)`), status);
+    assert.match(r.stdout, /^ {2}dddddddddd chore: bump toolchain pins to 6\.0\.1$/m, status);
+  }
 });
 
 test("a wrong worktree, a dirty docs/, another major, a pinned commit on neither the line nor its own release branch and a failed pin leave the main paths and the line untouched", () => {
