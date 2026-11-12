@@ -288,6 +288,25 @@
         "proof": "ChonkProof"
       }
     },
+    "AztecContractClass": {
+      "request": {
+        "artifact": "bytes"
+      },
+      "response": {
+        "artifact_hash": "fr",
+        "private_functions_root": "fr",
+        "public_bytecode_commitment": "fr",
+        "id": "fr"
+      }
+    },
+    "AztecProtocolGenesisNullifiers": {
+      "request": {
+        "artifacts": "bytes[]"
+      },
+      "response": {
+        "nullifiers": "fr[]"
+      }
+    },
     "Poseidon2Hash": {
       "request": {
         "inputs": "fr[]"
