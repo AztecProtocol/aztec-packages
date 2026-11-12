@@ -9,12 +9,19 @@
 
 namespace bb::bbapi {
 
+struct AztecPrivateFunction {
+    uint32_t selector;
+    fr vk_hash;
+};
+
 /** @brief A contract class and the preimage of its id. */
 struct AztecContractClass {
     fr artifact_hash;
     fr private_functions_root;
     fr public_bytecode_commitment;
     fr id;
+    /** The leaves of the private functions tree, sorted by selector. */
+    std::vector<AztecPrivateFunction> private_functions;
 };
 
 /**
