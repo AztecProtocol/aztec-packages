@@ -1,8 +1,8 @@
 // AVX-512 IFMA batch-affine drain for the native Stage-6a tree reduce.
 //
-// x86-64 only and runtime-dispatched: the build targets a baseline ISA, so every function that touches 512-bit
-// registers carries a `target` attribute and is only entered after `ifma_available()` confirmed the CPU (and OS)
-// support it. WASM and non-x86 builds compile none of this.
+// These kernels compile only on x86-64. Each function that uses 512-bit registers has a `target` attribute,
+// so the rest of the build can use a baseline ISA. Callers must check `ifma_available()` for CPU and OS support
+// before entering a kernel. WASM and non-x86 builds use scalar code.
 
 #pragma once
 
@@ -44,10 +44,10 @@ inline bool ifma_available() noexcept
 /**
  * @brief Field elements as 5 limbs of 52 bits, 8 lanes per register (one lane per independent element).
  *
- * @details The Montgomery multiplication below uses R = 2^256, i.e. bb's own Montgomery domain: four 52-bit
- *          reduction steps followed by one 48-bit step. Values are kept loosely reduced. The bounds quoted in this file
- *          are in units of p and rely on p < 0.19 * 2^256 (both BN254 fields), which gives
- *          mont_mul(a, b) < 0.19 * a * b / p + p; every value stays far below the 2^260 the limbs can hold.
+ * @details Montgomery multiplication uses bb's Montgomery domain, R = 2^256, with four 52-bit reduction steps
+ *          followed by one 48-bit step. Values stay loosely reduced. Bounds in this file are in units of p and
+ *          require p < 0.19 * 2^256, as both BN254 fields satisfy. This gives mont_mul(a, b) < 0.19 * a * b / p + p.
+ *          Every value stays below the limbs' capacity of 2^260.
  */
 template <typename Params> struct Consts {
     static constexpr uint64_t M52 = (uint64_t{ 1 } << 52) - 1;
@@ -283,16 +283,15 @@ template <size_t CAP> struct DrainBuffer {
 };
 
 /**
- * @brief Batch affine addition with one shared inversion: sink(k, x3, y3) receives lhs[k] + rhs[k] for each of the n
- *        pairs queued in `buf`.
+ * @brief Add the n affine pairs queued in `buf` with one shared inversion.
+ *        sink(k, x3, y3) receives lhs[k] + rhs[k].
  *
- * @details The pairs are spread over 8 independent Montgomery prefix chains, one per lane: pair k belongs to lane k % 8
- *          at step k / 8. The forward pass forms dx and the running prefix products, the 8 chain products are inverted
- *          with scalar Montgomery batching around one field inversion, and the backward pass peels off each 1 / dx and
- *          finishes the affine addition. The backward pass has enough independent work per step to hide the latency
- *          of its two chained multiplications, so more chains do not pay. Every output coordinate is fully reduced
- *          into [0, p). The caller guarantees lhs.x != rhs.x for every pair (so no dx is zero), as for the scalar
- *          drain.
+ * @details The kernel distributes pairs over eight independent Montgomery prefix chains, one per lane.
+ *          Pair k belongs to lane k % 8 at step k / 8. The forward pass computes dx and the prefix products.
+ *          Scalar Montgomery batching inverts the eight chain products with one field inversion.
+ *          The backward pass recovers each 1 / dx and completes the affine addition. Independent work within
+ *          each step hides the latency of its two chained multiplications. Every output coordinate is in [0, p).
+ *          The caller must guarantee lhs.x != rhs.x for every pair, so no dx is zero, as in the scalar drain.
  */
 template <typename BaseField, size_t CAP, typename Sink>
 BB_IFMA_TARGET void drain_vector(DrainBuffer<CAP>& buf, size_t n, Sink&& sink)
@@ -331,7 +330,6 @@ BB_IFMA_TARGET void drain_vector(DrainBuffer<CAP>& buf, size_t n, Sink&& sink)
         acc = mont_mul<Params>(acc, dx);
     }
 
-    // Invert the 8 chain products.
     store64(canonical<Params>(acc), lanes[0], lanes[1], lanes[2], lanes[3]);
     {
         std::array<BaseField, 8> lane;

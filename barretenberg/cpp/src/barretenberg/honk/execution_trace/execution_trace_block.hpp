@@ -187,11 +187,9 @@ inline constexpr std::array NON_GATE_SELECTORS{
 };
 
 /**
- * @brief Gate tiles stored in chunks of geometrically growing size.
- * @details Chunk `c` holds `FIRST_CHUNK_TILES << c` tiles. Appending allocates the next chunk when the last one is full
- * and never relocates existing tiles, unlike a std::vector whose regrowth copies every tile built so far; the
- * geometric sizes keep the allocation pattern (few, increasingly large blocks) and the memory footprint of a vector.
- * Tiles are value-initialized when appended.
+ * @brief Store gate tiles in a vector or, with experimental optimizations enabled, in growing chunks.
+ * @details Chunk `c` holds `FIRST_CHUNK_TILES << c` tiles. When the last chunk fills, appending allocates a new chunk
+ * with twice as many slots. Existing tiles keep their addresses. Appending value-initializes each new tile.
  */
 template <typename Tile> class TileStore {
   public:

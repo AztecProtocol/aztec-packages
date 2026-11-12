@@ -52,21 +52,21 @@ template <typename Done> bool spin_until(const Done& done)
 namespace bb::detail {
 
 /**
- * @brief A pool of persistent workers that run the iterations of one parallel_for at a time together with the calling
- * thread.
+ * @brief Persistent workers run one parallel_for job at a time alongside the calling thread.
  *
- * @details A job is published through `work_`, which packs a 32-bit job generation (high half) with the index of the
- * next unclaimed iteration (low half). Threads claim iterations by CAS on `work_`; a claim only succeeds while its
- * generation is current, so a thread that is late to a finished job can never claim an iteration of a newer one.
- * The bound checked before the CAS is read from `num_iterations_[generation % 2]`: the caller writes the next job's
- * bound into the other slot, so a late thread still reads its own job's bound. The slot of generation g is rewritten
- * (with release) only for generation g + 2, after generation g + 1 was published; a thread that acquires that value
- * is ordered after the publication and its CAS against generation g fails. `task_` and `job_stats_parent_` are only
- * read after a successful claim and only rewritten once every iteration of the current job has completed.
+ * @details The caller publishes jobs through `work_`. Its high 32 bits hold the job generation, and its low 32 bits
+ * hold the next unclaimed iteration. Threads claim iterations by CAS on `work_`. A claim succeeds only while its
+ * generation is current, so a thread arriving late to a finished job cannot claim an iteration of a newer job.
  *
- * Idle workers spin briefly on `work_` before sleeping on `wake_condition_`; the caller likewise spins on `completed_`
- * before sleeping on `done_condition_`. The sleeper counts and the published state are sequentially consistent so a
- * publisher either sees a sleeper (and notifies under the mutex) or the sleeper sees the new state before blocking.
+ * Before the CAS, threads read the bound from `num_iterations_[generation % 2]`. The caller writes the next job's
+ * bound into the other slot, preserving the current job's bound for late threads. It rewrites generation g's slot
+ * with release ordering only for generation g + 2, after publishing generation g + 1. A thread that acquires this
+ * value is ordered after that publication, so its CAS against generation g fails. Threads read `task_` and
+ * `job_stats_parent_` only after a successful claim. The caller rewrites them only after all iterations finish.
+ *
+ * Idle workers spin briefly on `work_` before sleeping on `wake_condition_`. The caller spins on `completed_` before
+ * sleeping on `done_condition_`. The sleeper counts and published state are sequentially consistent. Either the
+ * publisher sees a sleeper and notifies under the mutex, or the sleeper sees the new state before blocking.
  */
 class TaggedAtomicThreadPool::Impl {
   public:

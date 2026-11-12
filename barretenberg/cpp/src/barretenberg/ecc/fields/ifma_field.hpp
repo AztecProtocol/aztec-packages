@@ -1,12 +1,11 @@
 // AVX-512 IFMA kernels for prover hot loops over BN254-sized prime fields (8 elements per 512-bit register).
 //
-// x86-64 only and runtime-dispatched: the build targets a baseline ISA, so every function that touches 512-bit
-// registers carries a `target` attribute and is only entered after `available()` confirmed the CPU (and OS) support
-// it. WASM and non-x86 builds compile none of this; callers keep their scalar loop as the fallback.
+// These kernels compile only on x86-64. Each function that uses 512-bit registers has a `target` attribute,
+// so the rest of the build can use a baseline ISA. Callers must check `available()` for CPU and OS support
+// before entering a kernel. WASM and non-x86 builds use scalar code.
 //
-// Every kernel returns the same field values as the scalar code it replaces (exact arithmetic). Computed outputs are
-// fully reduced into [0, p), values copied through unchanged keep their input form; both are valid representatives
-// for bb's coarse [0, 2p) form.
+// Kernels return the same field values as the scalar code. Output bounds are documented per operation.
+// Values copied unchanged keep their input form.
 
 #pragma once
 
@@ -46,9 +45,9 @@ inline bool available() noexcept
 /**
  * @brief Field elements as 5 limbs of 52 bits, 8 lanes per register.
  *
- * @details Montgomery multiplication uses R = 2^256, i.e. bb's own Montgomery domain: four 52-bit reduction steps and
- *          one 48-bit step, so values move between bb and the kernels by re-limbing only. Values stay loosely reduced;
- *          the bounds quoted below are in units of p and rely on p < 0.19 * 2^256, which gives
+ * @details Montgomery multiplication uses bb's Montgomery domain, R = 2^256. Four 52-bit reduction steps and one
+ *          48-bit step let values move between bb and the kernels by changing only the limb layout. Values stay
+ *          loosely reduced. Bounds below are in units of p and require p < 0.19 * 2^256, which gives
  *          mont_mul(a, b) < 0.19 * a * b / p + p.
  */
 template <typename Params> struct Consts {
@@ -490,10 +489,10 @@ struct ScaledSource {
  * @brief dst[i] += sum over sources of scalar * src[i] for a tile of n <= MAX_TILE elements (n a multiple of 8), on raw
  *        4-limb elements in [0, 2p). Outputs are in [0, p).
  *
- * @details The tile is held in 52-bit form for the whole batch, so every dst element is converted once. Blocks of
- *          eight source elements that are all zero (selector columns) are skipped, as are the lanes of a block outside
- *          the source's range (masked loads, which also never touch memory outside it). Each block is reduced after
- *          every third term, keeping it below 2p + 3 * 2p < 9p as `canonical` needs.
+ * @details The kernel keeps the tile in 52-bit form for the whole batch and converts each dst element once.
+ *          It skips blocks of eight zero source elements, as found in selector columns. Masked loads skip lanes
+ *          outside the source's range without accessing memory outside it. Reduction after every third term keeps
+ *          each block below 2p + 3 * 2p < 9p, as `canonical` requires.
  */
 inline constexpr size_t MAX_TILE = 256;
 
@@ -515,7 +514,6 @@ BB_FIELD_IFMA_TARGET void add_scaled_batch_tile(uint64_t* dst,
         const V5 scalar = broadcast(src.scalar);
         for (size_t b = src.begin / 8; b * 8 < src.end; ++b) {
             const size_t lo = b * 8;
-            // Mask of the 64-bit words of the block's eight elements that lie in [begin, end).
             const size_t first = (src.begin > lo) ? src.begin - lo : 0;
             const size_t last = std::min<size_t>(8, src.end - lo);
             const uint32_t elements = ((1U << last) - 1U) & ~((1U << first) - 1U);
