@@ -13,6 +13,10 @@
     "uint256_t": "bin32"
   },
   "types": {
+    "AztecPrivateFunction": {
+      "selector": "u32",
+      "vk_hash": "fr"
+    },
     "AvmStat": {
       "name": "string",
       "value_ms": "u64"
@@ -296,7 +300,8 @@
         "artifact_hash": "fr",
         "private_functions_root": "fr",
         "public_bytecode_commitment": "fr",
-        "id": "fr"
+        "id": "fr",
+        "private_functions": "AztecPrivateFunction[]"
       }
     },
     "AztecProtocolGenesisNullifiers": {

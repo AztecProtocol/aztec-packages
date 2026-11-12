@@ -255,6 +255,7 @@ AztecContractClass compute_aztec_contract_class(std::string_view artifact_json)
     }
     std::ranges::sort(fns, {}, &ArtifactFunction::selector);
 
+    AztecContractClass klass;
     std::vector<uint8_t> public_bytecode;
     std::vector<fr> private_function_leaves;
     for (const auto& fn : fns) {
@@ -268,12 +269,13 @@ AztecContractClass compute_aztec_contract_class(std::string_view artifact_json)
             BBApiRequest request;
             auto vk_fields =
                 MegaAppVkAsFields{ .verification_key = base64_bytes(fn.abi->at("verification_key")) }.execute(request);
-            private_function_leaves.push_back(Poseidon2::hash(
-                { DOM_SEP__PRIVATE_FUNCTION_LEAF, fr(fn.selector), Poseidon2::hash(vk_fields.fields) }));
+            const fr vk_hash = Poseidon2::hash(vk_fields.fields);
+            klass.private_functions.push_back({ .selector = fn.selector, .vk_hash = vk_hash });
+            private_function_leaves.push_back(
+                Poseidon2::hash({ DOM_SEP__PRIVATE_FUNCTION_LEAF, fr(fn.selector), vk_hash }));
         }
     }
 
-    AztecContractClass klass;
     klass.private_functions_root =
         merkle_root(std::move(private_function_leaves),
                     FUNCTION_TREE_HEIGHT,
@@ -326,10 +328,15 @@ void handle_aztec_contract_class(BBApiRequest& /*ctx*/,
 {
     auto klass = compute_aztec_contract_class(
         std::string_view(reinterpret_cast<const char*>(cmd.artifact.data()), cmd.artifact.size()));
+    std::vector<wire::AztecPrivateFunction> private_functions;
+    for (const auto& fn : klass.private_functions) {
+        private_functions.push_back({ .selector = fn.selector, .vk_hash = fr_to_wire(fn.vk_hash) });
+    }
     respond.ok({ .artifact_hash = fr_to_wire(klass.artifact_hash),
                  .private_functions_root = fr_to_wire(klass.private_functions_root),
                  .public_bytecode_commitment = fr_to_wire(klass.public_bytecode_commitment),
-                 .id = fr_to_wire(klass.id) });
+                 .id = fr_to_wire(klass.id),
+                 .private_functions = private_functions });
 }
 
 void handle_aztec_protocol_genesis_nullifiers(BBApiRequest& /*ctx*/,
