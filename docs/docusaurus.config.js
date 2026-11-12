@@ -235,6 +235,8 @@ const config = {
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
+  onBrokenAnchors: "throw",
+  onDuplicateRoutes: "throw",
   favicon: "img/brand/favicon.png",
   headTags: [
     {
