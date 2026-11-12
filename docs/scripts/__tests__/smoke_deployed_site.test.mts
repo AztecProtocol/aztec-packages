@@ -87,6 +87,36 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   assert.deepEqual(elsewhere.hits, []);
 });
 
+test("a request that fails before any answer is retried once, and its line says so", async () => {
+  let answered = 0;
+  const { origin, hits } = await serve((o) => ({
+    ...netlifyRoutes(o),
+    "/commit.txt": (req, res) => (answered++ ? send(200, "text/plain; charset=UTF-8", `${SHA}\n`)(req, res) : req.socket.destroy()),
+  }));
+  const { code, out } = await run([origin, "--commit", SHA]);
+  assert.equal(code, 0, out);
+  assert.match(out, new RegExp(`^ok   B7 commit id: ${SHA} \\(retried /commit\\.txt: fetch failed\\)$`, "m"));
+  assert.equal(out.split("\n").filter((l) => l.includes("retried")).length, 1, out);
+  assert.equal(hits.filter((h) => h === "/commit.txt").length, 2);
+});
+
+test("a wrong answer fails at once, with no second request", async () => {
+  const { origin, hits } = await serve((o) => ({
+    ...netlifyRoutes(o),
+    "/developers/overview.md": send(503, "text/html", "busy"),
+    "/commit.txt": (_req, res) => {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("0".repeat(6 * 1024 * 1024));
+    },
+  }));
+  const { code, out } = await run([origin]);
+  assert.equal(code, 1);
+  assert.match(out, /^FAIL B3 markdown twin: \/developers\/overview\.md: expected 200, got 503$/m);
+  assert.match(out, /^FAIL B7 commit id: request failed: body over 5 MiB$/m);
+  assert.doesNotMatch(out, /retried/);
+  assert.deepEqual(["/developers/overview.md", "/commit.txt"].map((p) => hits.filter((h) => h === p).length), [1, 1]);
+});
+
 test("a redirect target that fails with its query, a soft 404, an oversized body and a commit mismatch fail; bad base URLs are refused", async () => {
   const { origin } = await serve((o) => ({
     ...netlifyRoutes(o),

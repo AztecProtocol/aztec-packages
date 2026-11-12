@@ -8,6 +8,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const TIMEOUT_MS = 20_000;
+const RETRY_PAUSE_MS = 2_000;
 const MAX_BYTES = 5 * 1024 * 1024;
 const COMMIT = /^[0-9a-f]{40}$/;
 const BROWSER_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
@@ -30,12 +31,29 @@ async function readCapped(res: Response): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-const getter = (base: URL): Get => async (pathAndQuery, accept = "*/*") => {
+const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** fetch's own failures: a network error (TypeError) or the timeout; anything the site answered is not one. */
+const unanswered = (error: unknown) => error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError");
+
+/** A GET that retries once, after a pause, a request that got no answer; each retry is recorded in `retried`. */
+const getter = (base: URL, retried: string[]): Get => async (pathAndQuery, accept = "*/*") => {
   const url = new URL(pathAndQuery, base);
-  // The signal also bounds reading the body.
-  const res = await fetch(url, { redirect: "manual", headers: { accept }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-  const body = await readCapped(res);
-  return { url, status: res.status, type: res.headers.get("content-type") ?? "", header: (n) => res.headers.get(n) ?? "", body };
+  const attempt = async (): Promise<Reply> => {
+    // The signal also bounds reading the body.
+    const res = await fetch(url, { redirect: "manual", headers: { accept }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const body = await readCapped(res);
+    return { url, status: res.status, type: res.headers.get("content-type") ?? "", header: (n) => res.headers.get(n) ?? "", body };
+  };
+  try {
+    return await attempt();
+  } catch (error) {
+    // The first request to a just-published edge function can outlast the timeout.
+    if (!unanswered(error)) throw error;
+    retried.push(`${pathAndQuery}: ${message(error)}`);
+    await new Promise((resolve) => setTimeout(resolve, RETRY_PAUSE_MS));
+    return attempt();
+  }
 };
 
 const isType = (reply: Reply, type: string) => reply.type.split(";")[0].trim().toLowerCase() === type;
@@ -170,20 +188,23 @@ export async function main(args: string[], log: (line: string) => void = console
     log("  <base-url>: a site root over http(s), such as https://docs.aztec.network or https://deploy-preview-<n>--aztec-docs-dev.netlify.app");
     return 2;
   }
-  const get = getter(base);
+  const retried: string[] = [];
+  const get = getter(base, retried);
   const state: { twin?: string; commit?: string } = { commit };
   let failed = 0;
   for (const check of CHECKS) {
+    retried.length = 0;
     let result: string[] | string;
     try {
       result = await check.run(get, state);
     } catch (error) {
-      result = [`request failed: ${error instanceof Error ? error.message : String(error)}`];
+      result = [`request failed: ${message(error)}`];
     }
-    if (typeof result === "string") log(`ok   ${check.id} ${check.name}: ${result}`);
+    const note = retried.length ? ` (retried ${retried.join("; ")})` : "";
+    if (typeof result === "string") log(`ok   ${check.id} ${check.name}: ${result}${note}`);
     else {
       failed++;
-      log(`FAIL ${check.id} ${check.name}: ${result.join("; ")}`);
+      log(`FAIL ${check.id} ${check.name}: ${result.join("; ")}${note}`);
     }
   }
   log(`deployed site ${base.origin}: ${CHECKS.length} checks, ${failed} failed`);
