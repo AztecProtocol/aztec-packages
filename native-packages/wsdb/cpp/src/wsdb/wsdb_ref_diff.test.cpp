@@ -417,23 +417,22 @@ class DiffRun {
     {
         // The genesis aztec-wsdb was started with: the protocol's tree heights, this run's initial sizes, the
         // protocol nullifiers and one public-data slot.
-        wire::WsdbInitGenesis genesis{
-            .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
-                             { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
-                             { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
-                             { .treeId = 3, .height = L1_TO_L2_MSG_TREE_HEIGHT },
-                             { .treeId = 4, .height = ARCHIVE_HEIGHT } },
-            .treePrefill = { { .treeId = 0, .size = sizes_.nullifier }, { .treeId = 2, .size = sizes_.public_data } },
-            .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
-                                       .value = bytes_of<wire::PublicDataValue>(fr(7)) } },
-            .prefilledNullifiers = {},
-            .genesisTimestamp = 0,
-            .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH)
-        };
+        wire::WsdbInit genesis{ .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
+                                                 { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
+                                                 { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
+                                                 { .treeId = 3, .height = L1_TO_L2_MSG_TREE_HEIGHT },
+                                                 { .treeId = 4, .height = ARCHIVE_HEIGHT } },
+                                .treePrefill = { { .treeId = 0, .size = sizes_.nullifier },
+                                                 { .treeId = 2, .size = sizes_.public_data } },
+                                .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
+                                                           .value = bytes_of<wire::PublicDataValue>(fr(7)) } },
+                                .prefilledNullifiers = {},
+                                .genesisTimestamp = 0,
+                                .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
         for (const auto& seed : world_state::genesis_protocol_nullifiers()) {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
-        auto request = encode_request("WsdbInitGenesis", genesis);
+        auto request = encode_request("WsdbInit", genesis);
         ASSERT_FALSE(parse(ref_.call(request)).is_error());
         slots_.push_back(fr(1000));
         both("WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{});

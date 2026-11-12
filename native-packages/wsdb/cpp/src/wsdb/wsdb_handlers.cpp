@@ -763,11 +763,9 @@ void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<
 }
 
 // aztec-wsdb opens its stores at its genesis when it is constructed, so it cannot take a genesis afterwards.
-void handle_init_genesis(WsdbRequest& /*ctx*/,
-                         wire::WsdbInitGenesis&& /*cmd*/,
-                         Responder<wire::WsdbInitGenesisResponse> respond)
+void handle_init(WsdbRequest& /*ctx*/, wire::WsdbInit&& /*cmd*/, Responder<wire::WsdbInitResponse> respond)
 {
-    respond.error("aztec-wsdb does not support InitGenesis: its genesis is fixed when the service is created");
+    respond.error("aztec-wsdb does not support Init: its genesis is fixed when the service is created");
 }
 
 } // namespace azteclabs::wsdb
