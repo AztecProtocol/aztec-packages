@@ -27,14 +27,15 @@ result. It does not commit.
 
 ## Prerequisites
 
-The measurement runs through the built client, so the tree must be built first:
+Barretenberg derives the protocol contracts' registration nullifiers from their built artifacts (bb.js), and the
+reference world state (wsdb-ref) measures the roots from them, so those must be built first:
 
 ```bash
-make labs-yarn-project
+make noir-projects-fnd bb-ts bb-wsdb-ref
 ```
 
-The script refuses to run against a build older than the protocol contract sources, rather than reporting stale
-numbers. It is fail-fast throughout: a missing dependency, a failed measurement, or a replacement that did not
+`--fixtures` still runs a labs test, so it also needs `make labs-yarn-project`. The script warns when the protocol
+contract sources are newer than their artifacts. It is fail-fast throughout: a missing dependency, a failed measurement, or a replacement that did not
 match is a hard error, because a half-applied regeneration leaves constants that disagree with each other.
 
 ## What it rewrites

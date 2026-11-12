@@ -53,8 +53,8 @@ bb_seeds_hpp=barretenberg/cpp/src/barretenberg/world_state_reference/genesis_pro
 cpp_constants=barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp
 sol_constants=l1-contracts/src/core/libraries/ConstantsGen.sol
 ts_constants=labs/yarn-project/constants/src/constants.gen.ts
-cli_entry=labs/yarn-project/aztec/dest/bin/index.js
 helper=noir-projects/fnd/scripts/genesis_constants.mjs
+artifacts=(noir-projects/fnd/noir-contracts/target/{contract_instance_registry_contract-ContractInstanceRegistry,contract_class_registry_contract-ContractClassRegistry,fee_juice_contract-FeeJuice}.json)
 
 function die { echo "regenerate-genesis-constants: $*" >&2; exit 1; }
 function phase { echo; echo "==> $*"; }
@@ -62,25 +62,30 @@ function phase { echo; echo "==> $*"; }
 phase "Preflight"
 [ -f "$constants_nr" ] || die "missing $constants_nr"
 [ -f "$helper" ] || die "missing $helper"
-[ -f "$cli_entry" ] || die "$cli_entry is not built. Run 'make labs-yarn-project' first."
+for artifact in "${artifacts[@]}"; do
+  [ -f "$artifact" ] || die "$artifact is not built. Run 'make noir-projects-fnd' first."
+done
+for package in bb.js-api wsdb-ref; do
+  [ -f "barretenberg/ts/$package/dest/index.js" ] ||
+    die "barretenberg/ts/$package is not built. Run 'make bb-ts bb-wsdb-ref' first."
+done
 if [ "$with_fixtures" = 1 ] && ! command -v anvil >/dev/null; then
   die "--fixtures needs anvil on PATH"
 fi
-# The measurement reflects the protocol contract artifacts the built client bundles, so a stale build yields stale
-# numbers. Warn rather than abort: mtimes are only a proxy, and the fnd precommit hook rewrites every protocol
-# contract .nr through `nargo fmt` on any commit that stages one, which moves their mtimes without changing content.
-newest_source=$(find noir-projects/fnd/noir-contracts/contracts/protocol -name '*.nr' -newer "$cli_entry" -print -quit)
+# The measurement reflects the built protocol contract artifacts, so a stale build yields stale numbers. Warn rather
+# than abort: mtimes are only a proxy, and the fnd precommit hook rewrites every protocol contract .nr through
+# `nargo fmt` on any commit that stages one, which moves their mtimes without changing content.
+newest_source=$(find noir-projects/fnd/noir-contracts/contracts/protocol -name '*.nr' -newer "${artifacts[0]}" -print -quit)
 if [ -n "$newest_source" ]; then
   echo "  warning: protocol contract sources are newer than the build ($newest_source)."
-  echo "           If you changed them, run 'make labs-yarn-project' first or the measurement below is stale."
+  echo "           If you changed them, run 'make noir-projects-fnd' first or the measurement below is stale."
 fi
 
 phase "Measure the canonical genesis"
 measurement_file=$(mktemp)
 trap 'rm -f "$measurement_file"' EXIT
-node "$cli_entry" compute-genesis-values | sed -n '/^{/,$p' >"$measurement_file" ||
-  die "compute-genesis-values failed"
-[ -s "$measurement_file" ] || die "compute-genesis-values produced no JSON"
+node "$helper" measure "$repo_root" "${artifacts[@]}" >"$measurement_file" || die "measuring the genesis failed"
+[ -s "$measurement_file" ] || die "measuring the genesis produced no JSON"
 
 phase "Validate"
 # Assigned separately so a helper failure aborts here; `eval "$(...)"` would swallow its exit status.
