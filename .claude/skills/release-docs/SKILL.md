@@ -1099,30 +1099,20 @@ records the pages the re-cut adds, once they are live.
 unshipped items there and the cut copies the file wholesale; in one rehearsal it carried
 ~4,000 characters about an unmerged oracle. Remove the whole `## TBD` section and any
 `## Unreleased (...)`, empty or not, from
-`developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`:
+`developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`.
+
+Then run the snapshot hygiene test, which `bootstrap.sh check` also runs on every PR:
 
 ```bash
-grep -n '^## ' developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md | head -3
+node --test scripts/__tests__/snapshot_hygiene.test.mts
 ```
 
-The first heading must be the new version. Then no macro and no moving Aztec version may
-survive in the snapshot:
-
-```bash
-grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#include_foundation_version|#release_version|#release_network|#include_code' \
-  developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
-```
-
-The only expected hits are third-party packages versioned on their own: at
-`v6.0.0-rc.3`, the MCP servers in `ai_tooling.md` (`@aztec/mcp-server@latest`,
-`noir-mcp-server@latest`). Fix every other hit.
-
-Hand-written blocks can still carry this repository's `labs/` prefix, which does not exist
-in an aztec-node checkout. Fix every hit:
-
-```bash
-grep -rn '\.\./labs/' developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
-```
+It names the file, line and rule of each leftover in every snapshot: a migration-notes file
+whose first section is not its version, a `## TBD` or `## Unreleased` section, an
+unexpanded macro, a moving version (`@next`, `@latest`, `VERSION=latest`, `tag = "next"`),
+or this repository's `labs/` prefix outside front matter, which does not exist in an
+aztec-node checkout. Fix every hit in the snapshot. A third-party package versioned on its
+own (the MCP servers in `ai_tooling.md`) goes into the test's `ALLOWED` list with its reason.
 
 #### Hardcoded version references
 

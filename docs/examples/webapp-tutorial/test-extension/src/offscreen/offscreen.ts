@@ -23,6 +23,7 @@ import type { AztecNode } from '@aztec-labs/aztec.js/node';
 import { createAztecNodeClient } from '@aztec-labs/aztec.js/node';
 import { getPXEConfig } from '@aztec-labs/pxe/config';
 import { createPXE } from '@aztec-labs/pxe/client/lazy';
+import { getContractClassFromArtifact } from '@aztec-labs/stdlib/contract';
 
 // ============================================================================
 // CRITICAL: Enable SharedArrayBuffer support for Barretenberg WASM
@@ -302,7 +303,6 @@ async function getWallet() {
 
       // The override below swaps the account's class for the stub's, which the PXE looks up among registered classes.
       await this.pxe.registerContractClass(stubArtifact);
-      const { getContractClassFromArtifact } = await import('@aztec-labs/stdlib/contract');
       const { id: stubClassId } = await getContractClassFromArtifact(stubArtifact);
       const accountInstance = await this.pxe.getContractInstance(from);
       if (!accountInstance) {
