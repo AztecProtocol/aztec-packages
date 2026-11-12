@@ -8,7 +8,10 @@
 #   - wsdb-ref.wasm, a WASI reactor (wasm builds), for the package's wasm transport;
 #   - wsdb_ref_napi.node, a Node-API addon over the entry (native builds), for its napi transport.
 set(WSDB_REF_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/wsdb_schema.jsonc)
-set(WSDB_REF_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+# Generated code is per build tree (each preset generates its own, so presets building at once never
+# share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
+file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+set(WSDB_REF_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(WSDB_REF_GEN_OUTPUTS
     ${WSDB_REF_GEN_DIR}/wsdb_dispatch.hpp
     ${WSDB_REF_GEN_DIR}/wsdb_ffi.cpp
@@ -41,7 +44,7 @@ add_custom_command(
 add_custom_target(wsdb_ref_generated DEPENDS ${WSDB_REF_GEN_OUTPUTS})
 
 # Explicit sources: the generated Node-API addon must stay out of the module (it needs napi.h), and
-# the generated FFI entry does not exist yet when a clean tree is configured.
+# the generated FFI entry is in the build tree, which the module's source glob does not cover.
 file(GLOB WSDB_REF_TESTS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.test.cpp)
 barretenberg_module_with_sources(
     wsdb_ref
