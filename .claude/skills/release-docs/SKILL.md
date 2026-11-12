@@ -1388,6 +1388,20 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
      It fetches `DOCS_COMMIT` from this repository and aztec-node at the tag, and fails
      unless that checkout is the tag's commit. Record a failure with its doc line; then walk
      the rest of each tutorial as written.
+   - **The tutorials with a transcript** (`docs/scripts/page_tests.mts`): run each snapshot
+     page's shell blocks, with the files its steps name, in an empty folder, before walking it:
+
+     ```bash
+     . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
+     pages=$(node docs/scripts/page_tests.mts pages test-page-transcript) || exit 1
+     for key in $pages; do
+       PATH="$NODE_BIN:$CLI_HOME/.aztec/current/internal-bin:$PATH" docs_env docs/scripts/page_transcript_test.sh \
+         "docs/developer_versioned_docs/version-v<new_version>/${key#docs-developers/}"
+     done
+     ```
+
+     A failure names the page line of the command that stopped. Walking each page as written
+     still covers its prose and what needs the running network.
 
 4. **Build and run the Aztec.js examples at the tag**, in the cut, against the local network:
 

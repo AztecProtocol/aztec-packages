@@ -23,6 +23,7 @@ Run this to create a new contract project:
 
 ```bash
 aztec new counter
+cd counter
 ```
 
 Your structure should look like this:

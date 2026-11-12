@@ -375,6 +375,11 @@ function test-fresh-clone {
   "$REPO_ROOT/docs/scripts/fresh_clone_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-fresh-clone <page>}"
 }
 
+function test-page-transcript {
+  pin_toolchain
+  "$REPO_ROOT/docs/scripts/page_transcript_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-page-transcript <page>}"
+}
+
 # Every line's checkout and toolchain, installed before test commands that share them run in parallel.
 function pin_toolchains {
   pin_toolchain
@@ -408,6 +413,13 @@ function test_cmds {
   for page in $clone_pages; do
     echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$page"
   done
+  # A transcript's reader runs in a session of its own, which the runner stops when the timeout
+  # signals its group: no ONLY_TERM_PARENT.
+  local transcripts transcript=("^docs/scripts/page_t" "${render[@]}")
+  transcripts=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-page-transcript) || return 1
+  for page in $transcripts; do
+    echo "$(cache_content_hash .rebuild_patterns "^docs/$page" "${transcript[@]}"):TIMEOUT=15m docs/examples/bootstrap.sh test-page-transcript docs/$page"
+  done
   # A line's TXE needs a port of its own: the test commands run in parallel.
   local line line_hash i=0
   for line in $lines; do
@@ -418,6 +430,10 @@ function test_cmds {
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${clone[@]}")
     for page in $clone_pages; do
       echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$page"
+    done
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${transcript[@]}")
+    for page in $transcripts; do
+      echo "$line_hash:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-page-transcript docs/lines/$line/$page"
     done
     i=$((i + 1))
   done
@@ -525,6 +541,9 @@ case "$cmd" in
     ;;
   test-fresh-clone)
     test-fresh-clone "$@"
+    ;;
+  test-page-transcript)
+    test-page-transcript "$@"
     ;;
   *)
     default_cmd_handler "$@"

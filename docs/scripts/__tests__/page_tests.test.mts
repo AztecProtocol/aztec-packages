@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { TRANSCRIPTS, UNTESTED, blocks, isShell } from "../page_tests.mts";
+import { blocks, isShell, type Step, TRANSCRIPTS, UNTESTED, uncovered, walk } from "../page_tests.mts";
 
 const docs = path.resolve(import.meta.dirname, "../..");
 const lines = ["", ...fs.readdirSync(path.join(docs, "lines")).map((l) => `lines/${l}/`)];
@@ -31,7 +32,55 @@ test("every tutorial or getting-started page with shell commands is run by a tes
   const unreasoned = Object.entries(UNTESTED).filter(([, why]) => !why.trim()).map(([k]) => k);
   assert.deepEqual(unreasoned, []);
 
+  // A spec's walk runs every shell block, so its page is not untested.
+  const run = Object.keys(UNTESTED).filter((k) => TRANSCRIPTS[k] && "steps" in TRANSCRIPTS[k]);
+  assert.deepEqual(run, [], "a transcript runs every shell block of these pages: remove them from UNTESTED");
+
   // The test commands run every transcript page on every line.
   const missing = byLine.flatMap(({ line, pages }) => Object.keys(TRANSCRIPTS).filter((k) => !pages.has(k)).map((k) => `${line}${k}`));
   assert.deepEqual(missing, [], "these TRANSCRIPTS pages have no shell block on that line");
+});
+
+// The dry walk of one spec over a line's raw page, and the lines of each copied file the page does not quote.
+function specErrors(line: string, key: string, steps: Step[]): string[] {
+  const page = fs.readFileSync(path.join(docs, line, key), "utf8");
+  const copies = steps.flatMap((s) => ("copy" in s ? [s.copy] : []));
+  return [
+    ...walk(blocks(page), steps).errors.map((e) => `${line}${key}:${e}`),
+    ...copies.flatMap((copy) => {
+      const rel = `docs/${line}examples/${copy}`;
+      const rows = uncovered(page, path.join(docs, line, "examples", copy), rel);
+      return rows.length ? [`${line}${key}: no region the page includes quotes ${rel} lines ${rows.join(", ")}`] : [];
+    }),
+  ];
+}
+
+test("every transcript spec walks its page on every line, and quotes each file it copies in full", () => {
+  const specs = Object.entries(TRANSCRIPTS).flatMap(([key, t]) => ("steps" in t ? [{ key, steps: t.steps }] : []));
+  assert.deepEqual(lines.flatMap((line) => specs.flatMap(({ key, steps }) => specErrors(line, key, steps))), []);
+});
+
+test("the walk follows page order and accounts for every shell block", () => {
+  const page = blocks("```bash\na\n```\n```toml\n[d]\nx = 1\n```\n```bash\nb\n```\n```rust\nfn main() {}\n```\n```bash\nc\n```");
+  const ok = walk(page, [{ run: "a" }, { merge: "x", into: "N.toml" }, { run: "b" }, { write: "fn main", to: "m.nr" }, { run: "c" }]);
+  assert.deepEqual(ok.errors, []);
+  assert.deepEqual(ok.bound.map((b) => b.block?.line), [1, 4, 8, 11, 14]);
+  assert.deepEqual(walk(page, [{ run: "a" }, { run: "c" }]).errors, ["8: shell block not run"]);
+  assert.deepEqual(walk(page, [{ run: "a" }, { run: "b" }]).errors, ["14: shell block not run"]);
+  assert.deepEqual(walk(page, [{ run: "b" }, { run: "a" }, { run: "c" }]).errors, ["1: shell block not run", '8: no run block after this line contains "a"']);
+  assert.deepEqual(walk(page, [{ run: "a" }, { run: "b" }, { run: "c" }, { copy: "x", to: "../y" }]).errors, ["../y: a target is relative, without .."]);
+});
+
+test("a copied file counts as quoted only where the page includes its regions", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "page-tests-"));
+  try {
+    const file = path.join(dir, "main.nr");
+    fs.writeFileSync(file, "// docs:start:a\nfn a() {}\n// docs:end:a\n\nuse b;\n// docs:start:c\nfn c() {\n}\n// docs:end:c\n}\n");
+    const page = (...names: string[]) => names.map((n) => `#include_code ${n} /x/main.nr rust`).join("\n");
+    assert.deepEqual(uncovered(page("a", "c"), file, "x/main.nr"), [5]);
+    assert.deepEqual(uncovered(page("a"), file, "x/main.nr"), [5, 7]);
+    assert.deepEqual(uncovered(page("a", "c"), file, "y/main.nr"), [2, 5, 7]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
