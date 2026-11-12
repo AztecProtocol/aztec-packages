@@ -145,7 +145,7 @@ inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockCon
             .block_id = Acir::BlockId{ .value = block_id },
             .op = mem_op_to_acir_mem_op(mem_op),
         };
-        opcodes.push_back(Acir::Opcode{ .value = acir_mem_op });
+        opcodes.emplace_back().value = acir_mem_op;
     }
 
     return opcodes;
