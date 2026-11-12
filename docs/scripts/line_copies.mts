@@ -17,10 +17,11 @@ import line from "../src/preprocess/line.js";
 export class LineCopyError extends Error {}
 
 const PAGES = ["docs-developers", "docs-operate"];
-// examples/ are compared byte-exact: their scripts name docs/examples literally in both lines.
+// Only pages get the path moves; the rest is compared byte-exact (the examples' scripts name docs/examples
+// literally in both lines).
 const ROOTS = [...PAGES, "examples", "sidebars-developer.js", "sidebars-operate.js", "Nargo.toml"];
 
-const isPage = (rel: string) => PAGES.some((root) => rel.startsWith(`${root}/`));
+const isPage = (rel: string) => /\.mdx?$/.test(rel) && PAGES.some((root) => rel.startsWith(`${root}/`));
 
 /** `text`, a main page, with its paths into the examples and l1-artifacts moved onto `lineName`'s copies. */
 export const toLine = (text: string, lineName: string) =>
@@ -54,7 +55,7 @@ const gitFiles = (dir: string, ...flags: string[]) =>
 // Untracked files count, so a new page fails before it is staged; ignored build output does not.
 const listFiles = (dir: string) => new Set(gitFiles(dir, "-co", "--exclude-standard").filter((rel) => fs.existsSync(path.join(dir, rel))));
 
-type Pair = { main?: string; copy?: string };
+type Pair = { main?: Buffer; copy?: Buffer };
 type State = { allowed: Map<string, string>; main: Set<string>; copy: Set<string> };
 
 function state(docsDir: string, lineName: string): State {
@@ -63,17 +64,19 @@ function state(docsDir: string, lineName: string): State {
 }
 
 function pairOf(docsDir: string, lineName: string, s: State, rel: string): Pair {
-  const main = s.main.has(rel) ? fs.readFileSync(path.join(docsDir, rel), "utf8") : undefined;
+  const main = s.main.has(rel) ? fs.readFileSync(path.join(docsDir, rel)) : undefined;
   return {
-    main: main !== undefined && isPage(rel) ? toLine(main, lineName) : main,
-    copy: s.copy.has(rel) ? fs.readFileSync(path.join(docsDir, "lines", lineName, rel), "utf8") : undefined,
+    main: main && isPage(rel) ? Buffer.from(toLine(main.toString("utf8"), lineName)) : main,
+    copy: s.copy.has(rel) ? fs.readFileSync(path.join(docsDir, "lines", lineName, rel)) : undefined,
   };
 }
 
+const same = ({ main, copy }: Pair) => (main && copy ? main.equals(copy) : main === copy);
+
 const clip = (s = "") => JSON.stringify(s.length > 100 ? `${s.slice(0, 100)}…` : s);
 
-function firstDifference({ main = "", copy = "" }: Pair, lineName: string): string {
-  const a = main.split("\n"), b = copy.split("\n");
+function firstDifference({ main, copy }: Pair, lineName: string): string {
+  const a = String(main).split("\n"), b = String(copy).split("\n");
   let i = 0;
   while (i < a.length && a[i] === b[i]) i++;
   return `first at line ${i + 1}: main (with ${lineName}'s paths) ${clip(a[i])}, ${lineName} ${clip(b[i])}`;
@@ -85,12 +88,11 @@ export function compare(docsDir: string, lineName: string): Finding[] {
   const findings: Finding[] = [];
   for (const rel of [...new Set([...s.main, ...s.copy, ...s.allowed.keys()])].sort()) {
     const pair = pairOf(docsDir, lineName, s, rel);
-    const equal = pair.main === pair.copy;
     if (s.allowed.has(rel)) {
-      if (equal) findings.push({ path: rel, kind: "stale", detail: `allowed, but the copies are ${pair.main === undefined ? "gone" : "equal"} now: remove it from the allow-list` });
+      if (same(pair)) findings.push({ path: rel, kind: "stale", detail: `allowed, but the copies are ${pair.main === undefined ? "gone" : "equal"} now: remove it from the allow-list` });
     } else if (pair.copy === undefined) findings.push({ path: rel, kind: "main only", detail: `no copy in ${lineName}` });
     else if (pair.main === undefined) findings.push({ path: rel, kind: `${lineName} only`, detail: "no copy in main" });
-    else if (!equal) findings.push({ path: rel, kind: "differs", detail: firstDifference(pair, lineName) });
+    else if (!same(pair)) findings.push({ path: rel, kind: "differs", detail: firstDifference(pair, lineName) });
   }
   return findings;
 }
@@ -109,7 +111,7 @@ function selector(lineName: string, paths: string[]): (rel: string) => boolean {
 const pinCommit = (dir: string) => JSON.parse(fs.readFileSync(path.join(dir, "aztec-node.json"), "utf8")).commit;
 
 // Why `write` may not replace or delete `dest`, or null. It only touches regular files whose content git
-// holds, inside the line through real directories, so it never loses unsaved work or escapes the line.
+// holds, through directories that resolve inside the line, so it never loses unsaved work or escapes it.
 function unsafe(docsDir: string, lineDir: string, rel: string, held: Set<string>): string | null {
   const dest = path.join(lineDir, rel);
   if (fs.lstatSync(path.join(docsDir, rel), { throwIfNoEntry: false })?.isSymbolicLink()) return "main's copy is a symlink";
@@ -130,6 +132,8 @@ function unsafe(docsDir: string, lineDir: string, rel: string, held: Set<string>
 export function write(docsDir: string, lineName: string, paths: string[] = []): string[] {
   const s = state(docsDir, lineName);
   const lineDir = path.join(docsDir, "lines", lineName);
+  for (const dir of [path.dirname(lineDir), lineDir])
+    if (fs.lstatSync(dir).isSymbolicLink()) throw new LineCopyError(`${path.relative(docsDir, dir)} is a symlink`);
   if (!paths.length && pinCommit(docsDir) !== pinCommit(lineDir))
     throw new LineCopyError(`main and ${lineName} pin different commits, so a difference may be deliberate: name the paths to copy`);
   const selected = selector(lineName, paths.length ? paths : ROOTS);
@@ -139,7 +143,7 @@ export function write(docsDir: string, lineName: string, paths: string[] = []): 
     .sort()
     .filter((rel) => selected(rel) && !s.allowed.has(rel))
     .map((rel) => ({ rel, pair: pairOf(docsDir, lineName, s, rel) }))
-    .filter(({ pair }) => pair.main !== pair.copy);
+    .filter(({ pair }) => !same(pair));
   const refused = todo.flatMap(({ rel }) => {
     const why = unsafe(docsDir, lineDir, rel, held);
     return why ? [`docs/lines/${lineName}/${rel}: ${why}`] : [];

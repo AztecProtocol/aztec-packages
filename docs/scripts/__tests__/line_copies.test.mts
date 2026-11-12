@@ -19,7 +19,6 @@ test("every line's copies equal main's after the path rewrite, except the allowe
   }
 });
 
-// A repository with main's tree and a v6 line, both pinned to one commit.
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "line-copies-"));
   const docs = path.join(root, "docs");
@@ -39,7 +38,7 @@ function fixture() {
   };
   const read = (rel: string) => fs.readFileSync(path.join(docs, rel), "utf8");
   const commit = () => git("add", "-A") && git("commit", "-qm", "fixture");
-  return { root, docs, put, both, read, pin, commit };
+  return { root, docs, put, both, read, pin, commit, git };
 }
 
 const kinds = (docs: string) => compare(docs, "v6").map((f) => `${f.path}: ${f.kind}`);
@@ -60,6 +59,10 @@ test("compare reports one-copy edits, one-sided files and stale allowances", () 
     both("examples/lib.sh", "# docs/examples stays byte-exact outside the pages\n");
     put("examples/main-only.sh", "x\n");
     put("examples/allowed-main-only.sh", "x\n");
+    put("examples/blob.bin", "");
+    fs.writeFileSync(path.join(docs, "examples/blob.bin"), Buffer.from([0x80]));
+    put("lines/v6/examples/blob.bin", "");
+    fs.writeFileSync(path.join(docs, "lines/v6/examples/blob.bin"), Buffer.from([0x81]));
     put("lines/v6/docs-operate/line-only.md", "x\n");
     both("docs-operate/deleted.md", "x\n");
     both("docs-developers/clone.md", "clone docs/Nargo.toml\n");
@@ -76,6 +79,7 @@ test("compare reports one-copy edits, one-sided files and stale allowances", () 
       "docs-operate/deleted.md: v6 only",
       "docs-operate/line-only.md: v6 only",
       "docs-operate/quotes-main.md: differs",
+      "examples/blob.bin: differs",
       "examples/main-only.sh: main only",
     ]);
     allow(docs, "docs-developers/clone.md the reason has no colon");
@@ -86,7 +90,7 @@ test("compare reports one-copy edits, one-sided files and stale allowances", () 
 });
 
 test("write copies main's files to the line except allowed ones, never over unsaved work", () => {
-  const { root, docs, put, both, read, pin, commit } = fixture();
+  const { root, docs, put, both, read, pin, commit, git } = fixture();
   try {
     both("docs-developers/edited.md", "old docs/examples/a.ts\n");
     put("docs-developers/edited.md", "new docs/examples/a.ts\n");
@@ -98,13 +102,19 @@ test("write copies main's files to the line except allowed ones, never over unsa
     both("docs-developers/clone.md", "clone\n");
     put("lines/v6/docs-developers/clone.md", "clone the line's own\n");
     allow(docs, "docs-developers/clone.md: the line clones its own workspace");
+    both("docs-operate/dirty.md", "x\n");
     commit();
     assert.throws(() => write(docs, "v6", ["../aztec-node.json"]), LineCopyError);
+    fs.symlinkSync("..", path.join(docs, "lines/v7"));
+    assert.throws(() => write(docs, "v7", ["docs-developers"]), /lines\/v7 is a symlink/);
 
+    put("docs-operate/dirty.md", "y\n");
+    put("lines/v6/docs-operate/dirty.md", "unsaved\n");
     put("lines/v6/docs-operate/draft.md", "unsaved\n");
-    assert.throws(() => write(docs, "v6"), /draft\.md: uncommitted[\s\S]*link\.ts: not a regular file/);
+    assert.throws(() => write(docs, "v6"), /dirty\.md: uncommitted[\s\S]*draft\.md: uncommitted[\s\S]*link\.ts: not a regular file/);
     assert.equal(read("lines/v6/examples/gone.ts"), "x\n", "a refused write changes nothing");
     assert.equal(fs.readFileSync(path.join(root, "outside.txt"), "utf8"), "kept\n");
+    git("checkout", "--", "docs/lines/v6/docs-operate/dirty.md");
     fs.rmSync(path.join(docs, "lines/v6/docs-operate/draft.md"));
     fs.rmSync(path.join(docs, "lines/v6/examples/link.ts"));
 
