@@ -6,7 +6,7 @@
 # Previews also serve each dev line (docs/lines/<line>/) at /developers-<line> and /operate-<line>,
 # which link a network's released reference; production fetches and builds no line.
 # A preview is the only build before a merge, so it also runs the unit tests and builds the
-# production layout, discarding that output. Every build writes its commit id to /commit.txt.
+# production layout, discarding that output.
 set -euo pipefail
 
 docs=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

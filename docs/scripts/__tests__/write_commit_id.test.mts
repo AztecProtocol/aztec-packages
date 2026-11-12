@@ -6,6 +6,7 @@ import path from "node:path";
 import { after, before, test } from "node:test";
 
 const script = path.resolve(import.meta.dirname, "../write_commit_id.sh");
+const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(GIT_|COMMIT_REF$)/.test(k)));
 let root: string;
 let repo: string;
 let head: string;
@@ -13,16 +14,15 @@ let head: string;
 before(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "write-commit-id-"));
   repo = path.join(root, "repo");
-  const quiet = ["-c", "commit.gpgsign=false", "-c", "user.name=t", "-c", "user.email=t@t"];
-  execFileSync("git", ["init", "-q", repo]);
-  execFileSync("git", ["-C", repo, ...quiet, "commit", "-q", "--allow-empty", "-m", "c"]);
-  head = execFileSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const git = (...args: string[]) => execFileSync("git", args, { env: clean, encoding: "utf8" }).trim();
+  git("init", "-q", repo);
+  git("-C", repo, "-c", "commit.gpgsign=false", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "c");
+  head = git("-C", repo, "rev-parse", "HEAD");
 });
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 function write(cwd: string, env: Record<string, string>) {
   const out = fs.mkdtempSync(path.join(root, "build-"));
-  const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(GIT_|COMMIT_REF$)/.test(k)));
   // The ceiling keeps git from finding a repository above the temporary directory.
   const run = spawnSync("bash", [script, out], { cwd, env: { ...clean, GIT_CEILING_DIRECTORIES: root, ...env }, encoding: "utf8" });
   const file = path.join(out, "commit.txt");
