@@ -87,22 +87,38 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   assert.deepEqual(elsewhere.hits, []);
 });
 
-test("a request that fails before any answer is retried once, and its line says so", async () => {
-  let answered = 0;
-  const { origin, hits } = await serve((o) => ({
-    ...netlifyRoutes(o),
-    "/commit.txt": (req, res) => (answered++ ? send(200, "text/plain; charset=UTF-8", `${SHA}\n`)(req, res) : req.socket.destroy()),
-  }));
+test("a request that gets no answer is retried once, and only its check's line says so", async () => {
+  const seen = new Set<string>();
+  const first = (key: string) => !seen.has(key) && Boolean(seen.add(key));
+  const { origin, hits } = await serve((o) => {
+    const routes = netlifyRoutes(o);
+    return {
+      ...routes,
+      "/developers/overview.md": (req, res) => (first("twin") ? req.socket.destroy() : routes["/developers/overview.md"](req, res)),
+      "/commit.txt": (req, res) => {
+        if (!first("commit")) return routes["/commit.txt"](req, res);
+        res.writeHead(200, { "content-type": "text/plain" });
+        res.write("f878");
+        setTimeout(() => req.socket.destroy(), 20);
+      },
+    };
+  });
   const { code, out } = await run([origin, "--commit", SHA]);
   assert.equal(code, 0, out);
-  assert.match(out, new RegExp(`^ok   B7 commit id: ${SHA} \\(retried /commit\\.txt: fetch failed\\)$`, "m"));
-  assert.equal(out.split("\n").filter((l) => l.includes("retried")).length, 1, out);
-  assert.equal(hits.filter((h) => h === "/commit.txt").length, 2);
+  assert.deepEqual(
+    out.split("\n").filter((l) => l.includes("retried")),
+    [
+      "ok   B3 markdown twin: /developers/overview.md (text/markdown; charset=UTF-8) (retried /developers/overview.md: fetch failed)",
+      `ok   B7 commit id: ${SHA} (retried /commit.txt: terminated)`,
+    ],
+  );
+  assert.deepEqual(["/developers/overview.md", "/commit.txt"].map((p) => hits.filter((h) => h === p).length), [2, 2]);
 });
 
 test("a wrong answer fails at once, with no second request", async () => {
   const { origin, hits } = await serve((o) => ({
     ...netlifyRoutes(o),
+    "/developers": send(503, "text/plain", "not gzip", { "content-encoding": "gzip" }),
     "/developers/overview.md": send(503, "text/html", "busy"),
     "/commit.txt": (_req, res) => {
       res.writeHead(200, { "content-type": "text/plain" });
@@ -111,10 +127,11 @@ test("a wrong answer fails at once, with no second request", async () => {
   }));
   const { code, out } = await run([origin]);
   assert.equal(code, 1);
+  assert.match(out, /^FAIL B1 plain redirect: request failed: terminated$/m);
   assert.match(out, /^FAIL B3 markdown twin: \/developers\/overview\.md: expected 200, got 503$/m);
   assert.match(out, /^FAIL B7 commit id: request failed: body over 5 MiB$/m);
   assert.doesNotMatch(out, /retried/);
-  assert.deepEqual(["/developers/overview.md", "/commit.txt"].map((p) => hits.filter((h) => h === p).length), [1, 1]);
+  assert.deepEqual(["/developers", "/developers/overview.md", "/commit.txt"].map((p) => hits.filter((h) => h === p).length), [1, 1, 1]);
 });
 
 test("a redirect target that fails with its query, a soft 404, an oversized body and a commit mismatch fail; bad base URLs are refused", async () => {

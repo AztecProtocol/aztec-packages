@@ -33,15 +33,23 @@ async function readCapped(res: Response): Promise<string> {
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** fetch's own failures: a network error (TypeError) or the timeout; anything the site answered is not one. */
-const unanswered = (error: unknown) => error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError");
+/**
+ * Whether `error` left nothing to judge: a timeout, a failure before any response, or the connection dropping
+ * mid-body. A body that arrived but is malformed (bad compression, over the cap) is an answer.
+ */
+const unanswered = (error: unknown, responded: boolean) =>
+  (error instanceof DOMException && error.name === "TimeoutError") ||
+  (error instanceof TypeError && (!responded || (error.cause as { code?: unknown } | undefined)?.code === "UND_ERR_SOCKET"));
 
 /** A GET that retries once, after a pause, a request that got no answer; each retry is recorded in `retried`. */
 const getter = (base: URL, retried: string[]): Get => async (pathAndQuery, accept = "*/*") => {
   const url = new URL(pathAndQuery, base);
+  let responded = false;
   const attempt = async (): Promise<Reply> => {
+    responded = false;
     // The signal also bounds reading the body.
     const res = await fetch(url, { redirect: "manual", headers: { accept }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    responded = true;
     const body = await readCapped(res);
     return { url, status: res.status, type: res.headers.get("content-type") ?? "", header: (n) => res.headers.get(n) ?? "", body };
   };
@@ -49,7 +57,7 @@ const getter = (base: URL, retried: string[]): Get => async (pathAndQuery, accep
     return await attempt();
   } catch (error) {
     // The first request to a just-published edge function can outlast the timeout.
-    if (!unanswered(error)) throw error;
+    if (!unanswered(error, responded)) throw error;
     retried.push(`${pathAndQuery}: ${message(error)}`);
     await new Promise((resolve) => setTimeout(resolve, RETRY_PAUSE_MS));
     return attempt();
