@@ -34,7 +34,7 @@ class MemBn254Crs : public Crs<curve::BN254> {
 
     ~MemBn254Crs() override { aligned_free(precomputed_g2_lines); }
 
-    std::span<Curve::AffineElement> get_monomial_points() override { return monomials_; }
+    std::span<const Curve::AffineElement> get_monomial_points() override { return monomials_; }
 
     size_t get_monomial_size() const override { return monomials_.size(); }
 

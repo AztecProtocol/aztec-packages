@@ -22,13 +22,17 @@ std::vector<g1::affine_element> canonical_bn254_chunk()
 
 } // namespace
 
-TEST(CrsIntegrity, Bn254CanonicalChunkVerifiesOnce)
+// The check is cached after the first success, so the points must not be writable through the CRS.
+static_assert(std::is_same_v<decltype(std::declval<Crs<curve::BN254>&>().get_monomial_points()),
+                             std::span<const g1::affine_element>>);
+static_assert(std::is_same_v<decltype(std::declval<Crs<curve::Grumpkin>&>().get_monomial_points()),
+                             std::span<const curve::Grumpkin::AffineElement>>);
+
+TEST(CrsIntegrity, Bn254CanonicalChunkVerifies)
 {
     MemBn254CrsFactory factory(canonical_bn254_chunk(), srs::get_bn254_g2_crs_element());
     auto crs = factory.get_crs(1);
     EXPECT_NO_THROW(crs->verify_points_integrity());
-    // Cached: the points are not re-checked after a successful check.
-    crs->get_monomial_points()[2] = crs->get_monomial_points()[0];
     EXPECT_NO_THROW(crs->verify_points_integrity());
 }
 
