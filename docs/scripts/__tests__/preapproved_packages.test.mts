@@ -25,9 +25,9 @@ function preapprovals(text: string): string[] {
   const entries: string[] = [];
   const rows = text.split("\n");
   for (let i = 0; i < rows.length; i++) {
-    const m = rows[i].match(/^\s*npmPreapprovedPackages:(.*)$/);
+    const m = rows[i].match(/^\s*(["']?)npmPreapprovedPackages\1\s*:(.*)$/);
     if (!m) continue;
-    const rest = m[1].replace(/\s+#.*$/, "").trim();
+    const rest = m[2].replace(/\s+#.*$/, "").trim();
     if (/^\[.*\]$/.test(rest)) entries.push(...rest.slice(1, -1).split(",").filter((e) => e.trim()).map(scalar));
     else if (rest) entries.push(UNREAD);
     else
@@ -54,11 +54,11 @@ function lists(text: string): string[] {
   const rows = text.split("\n");
   const out: string[] = [];
   rows.forEach((row, i) => {
-    const key = row.match(/^(\s*)npmPreapprovedPackages:/);
+    const key = row.match(/^(\s*)(["']?)npmPreapprovedPackages\2\s*:/);
     if (!key) return;
     let j = i + 1;
     for (; j < rows.length; j++) {
-      const next = rows[j].match(/^(\s*)([A-Za-z_][\w-]*:(\s|$)|```|~~~)/);
+      const next = rows[j].match(/^(\s*)(["']?[A-Za-z_][\w-]*["']?\s*:(\s|$)|```|~~~)/);
       if (next && next[1].length <= key[1].length) break;
     }
     out.push(rows.slice(i, j).join("\n"));
@@ -74,7 +74,8 @@ function firstPartyEntries(text: string) {
   for (const entry of entries) {
     const m = entry.match(SCOPES);
     if (m) out.push({ scope: `@aztec-${m[1]}`, version: m[2] });
-    else if (entry === UNREAD || FIRST_PARTY.test(entry)) out.push({ scope: "unread", version: entry });
+    // An alias (`*name`) stands for an entry written elsewhere, which this cannot follow.
+    else if (entry === UNREAD || entry.startsWith("*") || FIRST_PARTY.test(entry)) out.push({ scope: "unread", version: entry });
   }
   const named = lists(text).join("\n").match(new RegExp(FIRST_PARTY, "g"))?.length ?? 0;
   const read = entries.filter((e) => FIRST_PARTY.test(e)).length;
@@ -99,6 +100,8 @@ test("the reader takes every form of the list and flags one it cannot read", () 
   assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*@1" # day one\n\n  # and\n  - @aztec-foundation/*@2 # x\nnext: 1`), ["@aztec-labs/*@1", "@aztec-foundation/*@2"]);
   assert.deepEqual(read(`npmPreapprovedPackages: ['@aztec/*', "@aztec-labs/*@#v"] # x`), ["@aztec-labs/*@#v"]);
   assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*" # day one`), ["@aztec-labs/*@undefined"]);
+  assert.deepEqual(read(`"npmPreapprovedPackages": ["@aztec-labs/*"]`), ["@aztec-labs/*@undefined"]);
+  assert.deepEqual(read(`npmAuditExcludePackages:\n  - &first "@aztec-labs/*"\nnpmPreapprovedPackages:\n  - *first`), ["unread"]);
   for (const escape of [`: [\n  "@aztec-labs/*",\n]`, `:\n  [\n    "@aztec-labs/*"\n  ]`, `:\n  - >-\n    @aztec-labs/*`])
     assert.ok(read(`npmPreapprovedPackages${escape}\nnext: 1`).includes("unread"), escape);
 });
