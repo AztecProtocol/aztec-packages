@@ -18,7 +18,7 @@ const RULES: { name: string; pattern: RegExp; body?: true }[] = [
     name: "unexpanded macro",
     pattern: /#(?:include_code|include_\w*version\w*|release_(?:version|network|name|label)|docs_commit|api_ref_version|else|endif)\b|#(?:if|elif)\(/g,
   },
-  { name: "unreleased section", pattern: /^## (?:TBD|Unreleased)\b.*/g },
+  { name: "unreleased section", pattern: /^ {0,3}##[ \t]+(?:TBD|Unreleased)\b.*/g },
   { name: "moving version", pattern: /[\w@/.-]*@(?:next|latest)(?![\w-])|VERSION=latest\b|tag *= *"next"|aztec\.network\/latest\b/g },
   // A reader's aztec-node checkout has no labs/ prefix. Front matter is never rendered, so `references:` may keep it.
   { name: "labs/ path", pattern: /(?<![\w@-])labs\/\S*/g, body: true },
@@ -29,7 +29,7 @@ const RULES: { name: string; pattern: RegExp; body?: true }[] = [
  * `<file>:<line>: <rule>: <match>`. Allowed matches are left out and recorded in `seen`.
  */
 function hygieneProblems(file: string, text: string, seen = new Set<(typeof ALLOWED)[number]>()): string[] {
-  const lines = text.split("\n");
+  const lines = text.split(/\r?\n/);
   const frontMatterEnd = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
   const problems: string[] = [];
   lines.forEach((row, i) => {
@@ -42,11 +42,13 @@ function hygieneProblems(file: string, text: string, seen = new Set<(typeof ALLO
       }
     }
   });
-  // Step 8 of a release leaves unshipped notes above the release's own section.
+  // The source page keeps unshipped notes above the latest release, and a cut copies them.
   const version = file.match(/\/version-v([^/]+)\/(?:.+\/)?migration_notes\.md$/)?.[1];
   if (version) {
-    const at = lines.findIndex((row) => row.startsWith("## "));
-    if (lines[at] !== `## ${version}`) problems.push(`${file}:${at + 1}: first section is not ## ${version}: ${lines[at] ?? "none"}`);
+    const at = lines.findIndex((row) => /^ {0,3}##[ \t]/.test(row));
+    if (lines[at]?.replace(/^ *##[ \t]+/, "").trim() !== version) {
+      problems.push(`${file}:${at + 1}: first section is not ## ${version}: ${lines[at] ?? "none"}`);
+    }
   }
   return problems;
 }
@@ -91,7 +93,9 @@ test("hygieneProblems flags each leftover by line and rule", () => {
 test("a snapshot's migration notes start with its own version", () => {
   const file = "developer_versioned_docs/version-v1.0.0/docs/resources/migration_notes.md";
   assert.deepEqual(hygieneProblems(file, "intro\n## 1.0.0\n## 0.9.0"), []);
+  assert.deepEqual(hygieneProblems(file, "intro\r\n##  1.0.0\r\n## 0.9.0"), []);
   assert.deepEqual(hygieneProblems(file, "intro\n## 1.1.0\n## 1.0.0"), [`${file}:2: first section is not ## 1.0.0: ## 1.1.0`]);
+  assert.deepEqual(rules(file, " ## TBD\nunshipped\n## 1.0.0"), ["1 unreleased section", "1 first section is not ## 1.0.0"]);
 });
 
 test("every macro the preprocessor expands is flagged", () => {

@@ -24,7 +24,7 @@ function readRedirects(text: string): Redirect[] {
     else if (row === "" || row.startsWith("#")) return;
     else if (row.startsWith("[")) {
       // Any other spelling (quoted, dotted, single brackets) would declare rules this reader skips.
-      if (row.includes("redirects")) fail("unsupported redirect table");
+      if (row.replace(/#[^\]"']*$/, "").includes("redirects")) fail("unsupported redirect table");
       current = undefined;
     } else if (!current && /^["']?redirects\b/.test(row)) fail("unsupported redirects key");
     else if (current) {
@@ -38,8 +38,8 @@ function readRedirects(text: string): Redirect[] {
   return redirects;
 }
 
-// Netlify matches a path with or without its trailing slash.
-const route = (p: string) => p.replace(/(.)\/+$/, "$1");
+// Netlify matches a path with or without its trailing slash, and a target's query or anchor does not change the path.
+const route = (p: string) => p.replace(/[?#].*$/, "").replace(/(.)\/+$/, "$1");
 
 /** Rules Netlify can never apply, or that send a reader through a second redirect, as `netlify.toml:<line>: <why>`. */
 function redirectProblems(redirects: Redirect[]): string[] {
@@ -52,7 +52,7 @@ function redirectProblems(redirects: Redirect[]): string[] {
     else first.set(route(from), line);
   }
   for (const { line, to } of redirects) {
-    const target = to === undefined ? undefined : route(to.split("#")[0]);
+    const target = to === undefined ? undefined : route(to);
     if (target !== undefined && first.has(target)) {
       problems.push(`netlify.toml:${line}: to "${to}" is redirected again by line ${first.get(target)}: point at its final target`);
     }
@@ -70,7 +70,7 @@ test("readRedirects reads the file's subset and refuses anything else", () => {
     '  to = "/b"',
     "  status = 301",
     "",
-    "[[headers]]",
+    "[[headers]] # headers, not redirects",
     '  for = "/*"',
   ].join("\n");
   assert.deepEqual(readRedirects(text), [{ line: 3, from: "/a", to: "/b", status: 301 }]);
@@ -90,6 +90,7 @@ test("redirectProblems flags rules that never match, repeat or chain", () => {
     { line: 7, to: "/f" },
     { line: 8, from: "/g/", to: "/f" },
     { line: 9, from: "/i", to: "/b/" },
+    { line: 10, from: "/j", to: "/b?lang=en" },
   ];
   assert.deepEqual(redirectProblems(rules), [
     'netlify.toml:2: from "c" must start with /, or it never matches',
@@ -99,6 +100,7 @@ test("redirectProblems flags rules that never match, repeat or chain", () => {
     'netlify.toml:1: to "/b" is redirected again by line 4: point at its final target',
     'netlify.toml:5: to "/b#anchor" is redirected again by line 4: point at its final target',
     'netlify.toml:9: to "/b/" is redirected again by line 4: point at its final target',
+    'netlify.toml:10: to "/b?lang=en" is redirected again by line 4: point at its final target',
   ]);
 });
 
