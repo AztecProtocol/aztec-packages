@@ -42,13 +42,13 @@ struct PolyFixture {
             self_ref.at(i) = fr::random_element();
             other.at(i) = fr::random_element();
         }
-        std::memcpy(self.data(), self_ref.data(), N * sizeof(fr));
+        std::copy_n(self_ref.data(), N, self.data());
     }
 
     void reset_self(State& state)
     {
         state.PauseTiming();
-        std::memcpy(self.data(), self_ref.data(), N * sizeof(fr));
+        std::copy_n(self_ref.data(), N, self.data());
         state.ResumeTiming();
     }
 };
@@ -79,7 +79,7 @@ struct CorrectnessGuard {
         };
 
         // operator+=
-        std::memcpy(a_ref.data(), a.data(), M * sizeof(fr));
+        std::copy_n(a.data(), M, a_ref.data());
         a += PolynomialSpan<const fr>{ 0, { b.data(), M } };
         for (size_t i = 0; i < M; ++i) {
             a_ref.at(i) = a_ref.at(i) + b.at(i);
@@ -87,7 +87,7 @@ struct CorrectnessGuard {
         check("+=");
 
         // operator-=
-        std::memcpy(a_ref.data(), a.data(), M * sizeof(fr));
+        std::copy_n(a.data(), M, a_ref.data());
         a -= PolynomialSpan<const fr>{ 0, { b.data(), M } };
         for (size_t i = 0; i < M; ++i) {
             a_ref.at(i) = a_ref.at(i) - b.at(i);
@@ -95,7 +95,7 @@ struct CorrectnessGuard {
         check("-=");
 
         // operator*=
-        std::memcpy(a_ref.data(), a.data(), M * sizeof(fr));
+        std::copy_n(a.data(), M, a_ref.data());
         a *= s;
         for (size_t i = 0; i < M; ++i) {
             a_ref.at(i) = a_ref.at(i) * s;

@@ -5,7 +5,10 @@
 
 TEST(BinarySerialization, RejectsOversizedVectorsBeforeAllocation)
 {
-    const std::vector<uint8_t> oversized_length{ 255, 255, 255, 255 };
+    std::vector<uint8_t> oversized_length;
+    for (size_t i = 0; i < sizeof(uint32_t); ++i) {
+        oversized_length.push_back(255);
+    }
 
     ASSERT_THROW_OR_ABORT(from_buffer<std::vector<uint8_t>>(oversized_length),
                           "Serialized vector exceeds maximum allocation");
