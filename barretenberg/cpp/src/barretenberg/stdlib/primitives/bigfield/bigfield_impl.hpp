@@ -560,7 +560,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      *
      * Start by setting constant_to_add = p
      **/
-    // (limb_3_maximum_value < 2^256, so the shifted value fits in 256 + 3 * NUM_LIMB_BITS < 512 bits)
+    // limb_3_maximum_value is below 2^256, so shifting it requires at most 256 + 3 * NUM_LIMB_BITS < 512 bits.
     static_assert(256 + (NUM_LIMB_BITS * 3) < 512);
     uint512_t constant_to_add = [&] {
         if (!bb::experimental_optimizations_enabled()) {

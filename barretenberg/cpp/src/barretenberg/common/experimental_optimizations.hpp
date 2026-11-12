@@ -7,10 +7,10 @@ extern bool experimental_optimizations_enabled;
 
 } // namespace detail
 
-/** Read and freeze the process environment before starting BB work or worker threads. */
+/** Read and cache BB_EXPERIMENTAL_OPTIMIZATIONS before starting BB work or worker threads. */
 void initialize_experimental_optimizations();
 
-/** Return the frozen BB optimisation selection after initialization. */
+/** Return whether experimental optimizations are enabled. Call after initialization. */
 inline bool experimental_optimizations_enabled() noexcept
 {
     return detail::experimental_optimizations_enabled;

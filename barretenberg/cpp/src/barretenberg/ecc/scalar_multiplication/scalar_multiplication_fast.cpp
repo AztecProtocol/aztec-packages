@@ -281,8 +281,8 @@ template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_
 }
 
 #ifdef BB_MSM_IFMA
-// Pairs per IFMA drain. The queue (operands held limb-major for the vector kernel) lives in a per-thread heap buffer
-// rather than in the MSM arena, so the arena layout is the same with and without IFMA.
+// The queue holds operands in limb-major order in a per-thread heap buffer. Keeping it outside the MSM arena
+// preserves the arena layout when IFMA is enabled.
 inline constexpr size_t IFMA_BATCH_CAPACITY = 256;
 
 [[maybe_unused]] inline ifma::DrainBuffer<IFMA_BATCH_CAPACITY>& ifma_drain_buffer()
@@ -295,8 +295,7 @@ inline constexpr size_t IFMA_BATCH_CAPACITY = 256;
 }
 
 /**
- * @brief tree_reduce_in_place's level walk with the batch-affine drain run by the AVX-512 IFMA kernel
- *        (`ifma::drain`). Identical pairing and compaction; only the drain arithmetic differs.
+ * @brief Reduce the tree with tree_reduce_in_place's pairing and compaction, using `ifma::drain` for arithmetic.
  */
 template <typename Curve> void tree_reduce_in_place_ifma(ThreadScratch<Curve>& s, size_t initial_len) noexcept
 {

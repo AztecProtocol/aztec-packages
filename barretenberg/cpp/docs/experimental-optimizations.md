@@ -4,7 +4,7 @@ One binary contains the existing and experimental implementations. Set
 `BB_EXPERIMENTAL_OPTIMIZATIONS=1` before starting BB to enable the tagged atomic
 native thread pool, short-carry Montgomery arithmetic, batched inversion divsteps,
 fused scalar MSM drains, and supported IFMA MSM and univariate kernels. An unset
-variable or `0` selects the existing implementations. Other values are rejected.
+variable or `0` selects the existing implementations. BB rejects other values.
 
 IFMA requires the supported compiler, field, CPU instructions and OS register
 state. Eligible native MSM reductions use IFMA; other applicable reductions use
@@ -21,16 +21,16 @@ booleans without an initialization guard, mutex or atomic load.
 
 bb.js accepts `experimentalOptimizations` in backend initialization options.
 An explicit boolean overrides the Node environment; omitted settings use the Node
-environment or default to OFF in browsers. Settings are passed into the native
-child process or WASI environment before backend initialization. Each child
-process or WASM module owns its own selection. Native FFI configuration is shared
-by all callers in the process.
+environment or default to false in browsers. bb.js passes the settings into the
+native child process or WASI environment before backend initialization. Each
+child process or WASM module has its own setting. All callers in a process share
+the native FFI configuration.
 
 Run differential fuzzers in separate processes with the environment set to `0`
 and `1`, reusing the same corpus. Unsupported CPUs always retain the scalar
 fallback. Hardware-specific kernel tests skip execution when IFMA is unavailable.
 
-Singleton initialization snapshots resolved settings before attempting backend
-creation or fallback. Repeating initialization with omitted settings reuses the
+Singleton initialization saves the resolved settings before creating a backend
+or trying a fallback. Repeating initialization with omitted settings reuses the
 instance; explicitly requesting a different experimental setting fails without
 discarding the running instance. Destroy and recreate the backend to change it.

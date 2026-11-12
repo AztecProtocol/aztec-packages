@@ -17,8 +17,7 @@ namespace bb {
 
 #ifdef BB_FIELD_IFMA
 /**
- * @brief Whether element-wise products of a Univariate<Fr, length> go through the AVX-512 IFMA kernels: native fields
- *        the kernels support, for lengths where eight-lane registers pay off.
+ * @brief Whether the native field supports IFMA products and the univariate length is between 4 and 8 inclusive.
  */
 template <class Fr, size_t length> constexpr bool univariate_uses_ifma()
 {

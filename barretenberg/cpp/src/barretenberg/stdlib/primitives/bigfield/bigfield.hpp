@@ -682,7 +682,6 @@ template <typename Builder, typename T> class bigfield {
             return result;
         }
 
-        // The multiple of the modulus is a fixed value, so it is computed once
         static const uint512_t multiple_of_modulus =
             ((get_maximum_unreduced_value() / modulus_u512) + 1) * modulus_u512;
         static const uint256_t prime_basis_value = (multiple_of_modulus % uint512_t(field_t<Builder>::modulus)).lo;
@@ -832,7 +831,6 @@ template <typename Builder, typename T> class bigfield {
             return (uint512_t(1) << (maximum_product_bits >> 1)) - uint512_t(1);
         }
 
-        // The bound only depends on the moduli, so it is computed once
         static const uint512_t maximum_unreduced_value = compute_maximum_unreduced_value();
         return maximum_unreduced_value;
     }
@@ -908,9 +906,9 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * @brief Compute sum_i limbs[i] * 2^(i * NUM_LIMB_BITS) for limbs below 2^256
-     * @details Each shifted limb is assembled from two 256-bit shifts by compile-time amounts, which is cheaper than
-     * shifting 512-bit integers.
+     * @brief Compute sum_i limbs[i] * 2^(i * NUM_LIMB_BITS) for limbs below 2^256.
+     * @details With experimental optimizations enabled, assemble each shifted limb with two 256-bit shifts
+     * by compile-time amounts.
      */
     static uint512_t combine_limbs(const std::array<uint256_t, NUM_LIMBS>& limbs)
     {
@@ -948,7 +946,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * @brief Reduce a value modulo the target modulus, skipping the division when it is already reduced
+     * @brief Reduce a value modulo the target modulus.
      */
     static uint512_t reduce_value(const uint512_t& value)
     {
@@ -979,8 +977,6 @@ template <typename Builder, typename T> class bigfield {
         const auto quotient_max_bits = [](const uint1024_t& remainder_bound) {
             return static_cast<size_t>((remainder_bound / modulus_u512).get_msb() - 1);
         };
-        // The bounds for a single default remainder and for no remainder are fixed, so their bit lengths are computed
-        // once
         static const uint1024_t default_remainder_base = get_maximum_crt_product() - DEFAULT_MAXIMUM_REMAINDER;
         static const size_t default_remainder_bits = quotient_max_bits(default_remainder_base);
         static const size_t zero_remainder_bits = quotient_max_bits(get_maximum_crt_product());

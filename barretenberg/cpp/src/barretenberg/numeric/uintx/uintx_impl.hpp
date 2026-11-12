@@ -126,8 +126,8 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::operator*(const ui
 {
     const auto lolo = lo.mul_extended(other.lo);
 
-    // The cross terms only reach the top half, where they wrap; skip the ones with a zero factor (operands are often
-    // much narrower than the type, e.g. bigfield products of ~256-bit values held in a uint1024).
+    // Cross terms contribute only to the top half, so their high halves can be discarded. A zero high operand
+    // also makes its cross term zero, as with bigfield products of roughly 256-bit values stored in uint1024_t.
     if (!bb::experimental_optimizations_enabled()) {
         const auto lohi = lo.mul_extended(other.hi);
         const auto hilo = hi.mul_extended(other.lo);
@@ -254,9 +254,9 @@ template <class base_uint> std::pair<uintx<base_uint>, uintx<base_uint>> uintx<b
 
     if (b == uintx(BN254FQMODULUS256)) {
         if constexpr (base_uint::length() == 512) {
-            // For x < S = 2^576, mu = floor(S / p) gives an underestimate
-            // q = floor(x * mu / S) of x / p by at most one. Keep the full-width
-            // Barrett path below for larger operands; no caller bounds are assumed.
+            // For x < S = 2^576 and mu = floor(S / p), q = floor(x * mu / S) underestimates floor(x / p)
+            // by at most one. The check below enforces this bound on x. Larger operands use full-width Barrett
+            // reduction.
             if (bb::experimental_optimizations_enabled() && (hi >> 64) == base_uint(0)) {
                 static const base_uint reciprocal = (uintx(1) << 576).divmod_base(uintx(BN254FQMODULUS256)).first.lo;
                 const auto low_product = lo.mul_extended(reciprocal);
@@ -306,8 +306,8 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     constexpr size_t k = base_uint::length() - 1;
     // N.B. computation of redc_parameter requires division operation - if this cannot be precomputed (or amortized over
     // multiple reductions over the same modulus), barrett_reduction is much slower than divmod
-    // Work on a separate constant copy of the modulus: the template parameter object is not guaranteed to honour
-    // base_uint's alignment, and the arithmetic below may use aligned vector loads on it.
+    // The arithmetic below may use aligned vector loads. Copy the modulus into a base_uint constant because
+    // the template parameter object may not have base_uint's alignment.
     static constexpr base_uint modulus_value = modulus;
     static const uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus_value))).first;
 

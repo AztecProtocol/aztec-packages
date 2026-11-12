@@ -145,7 +145,6 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) 
     if (b > *this) {
         return { 0, *this };
     }
-    // Single-limb divisor: limb-wise long division is far cheaper than the bitwise shift-subtract loop below.
     if (!std::is_constant_evaluated() && bb::experimental_optimizations_enabled() &&
         (b.data[1] | b.data[2] | b.data[3]) == 0) {
         const auto [q, r] = divmod(b.data[0]);
@@ -219,8 +218,8 @@ constexpr std::pair<uint256_t, uint64_t> uint256_t::divmod(uint64_t b) const
         return { result.first, result.second.data[0] };
     }
     if (b <= 0xffffffffULL) {
-        // Schoolbook long division in base 2^32: each step divides a 64-bit intermediate (remainder << 32 | half-limb)
-        // by b, which only needs native 64-bit arithmetic.
+        // In base 2^32, each remainder is below b <= 2^32 - 1. Appending a half-limb therefore fits in 64 bits,
+        // so each division uses native 64-bit arithmetic.
         uint256_t quotient;
         uint64_t remainder = 0;
         for (int i = 3; i >= 0; --i) {
@@ -234,7 +233,7 @@ constexpr std::pair<uint256_t, uint64_t> uint256_t::divmod(uint64_t b) const
         }
         return { quotient, remainder };
     }
-    // Fallback to the bitwise division since wasm doesn't have native support for 128-bit instructions.
+    // Use bitwise division for larger divisors because WASM has no native 128-bit division.
     uint256_t quotient = 0;
     uint256_t remainder = *this;
     const uint256_t divisor_256(b);
