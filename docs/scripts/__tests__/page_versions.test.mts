@@ -21,9 +21,11 @@ function literals(text: string) {
   );
 }
 
+type Pin = { aztec: string; bb: string };
+
 // The versions an example installs: its config.yaml's `npm:name@version` entries, the first-party
 // scopes at its line's pin (examples/ts/lib.sh), and Yarn at docs/package.json's packageManager.
-function declared(config: string, pin: { aztec: string; bb: string }): Map<string, string> {
+function declared(config: string, pin: Pin): Map<string, string> {
   const out = new Map([["yarn", yarn]]);
   let inDeps = false;
   for (const row of config.split("\n")) {
@@ -55,29 +57,40 @@ test("the parsers read scoped, aliased and package-manager versions", () => {
   );
 });
 
-test("a version typed in a page equals the one the example it quotes installs", () => {
-  const wrong: string[] = [];
+// The versions one page types that an example it quotes declares, and those that differ.
+function compare(page: string, pin: Pin): { compared: number; wrong: string[] } {
+  const text = fs.readFileSync(path.join(docs, page), "utf8");
+  const projects = new Set([...text.matchAll(QUOTED)].map((m) => `${m[1]}examples/ts/${m[2]}`));
+  const typed = literals(text);
   let compared = 0;
-  for (const line of lines) {
-    const dev = path.join(docs, line, "docs-developers");
-    const pin = JSON.parse(fs.readFileSync(path.join(docs, line, "aztec-node.json"), "utf8")).toolchain;
-    for (const f of (fs.readdirSync(dev, { recursive: true }) as string[]).filter((f) => /\.mdx?$/.test(f))) {
-      const text = fs.readFileSync(path.join(dev, f), "utf8");
-      const page = path.join(line, "docs-developers", f);
-      const projects = new Set([...text.matchAll(QUOTED)].map((m) => `${m[1]}examples/ts/${m[2]}`));
-      for (const project of projects) {
-        const config = path.join(docs, project, "config.yaml");
-        assert.ok(fs.existsSync(config), `${page} quotes ${project}, which has no config.yaml`);
-        const versions = declared(fs.readFileSync(config, "utf8"), pin);
-        for (const { row, name, version } of literals(text)) {
-          const want = versions.get(name);
-          if (want === undefined) continue;
-          compared++;
-          if (version !== want) wrong.push(`${page}:${row}: ${name}@${version}, but ${project} installs ${want}`);
-        }
-      }
+  const wrong: string[] = [];
+  for (const project of projects) {
+    const config = path.join(docs, project, "config.yaml");
+    assert.ok(fs.existsSync(config), `${page} quotes ${project}, which has no config.yaml`);
+    const versions = declared(fs.readFileSync(config, "utf8"), pin);
+    for (const { row, name, version } of typed) {
+      const want = versions.get(name);
+      if (want === undefined) continue;
+      compared++;
+      if (version !== want) wrong.push(`${page}:${row}: ${name}@${version}, but ${project} installs ${want}`);
     }
   }
-  assert.deepEqual(wrong, []);
-  assert.ok(compared > 0, "no page types a version an example declares: the page or config parser no longer matches");
+  return { compared, wrong };
+}
+
+test("a version typed in a page equals the one the example it quotes installs", () => {
+  const results = lines.flatMap((line) => {
+    const pin = JSON.parse(fs.readFileSync(path.join(docs, line, "aztec-node.json"), "utf8")).toolchain;
+    const dev = path.join(line, "docs-developers");
+    const pages = (fs.readdirSync(path.join(docs, dev), { recursive: true }) as string[]).filter((f) => /\.mdx?$/.test(f));
+    return pages.map((f) => compare(path.join(dev, f), pin));
+  });
+  assert.deepEqual(
+    results.flatMap((r) => r.wrong),
+    [],
+  );
+  assert.ok(
+    results.some((r) => r.compared > 0),
+    "no page types a version an example declares: the page or config parser no longer matches",
+  );
 });
