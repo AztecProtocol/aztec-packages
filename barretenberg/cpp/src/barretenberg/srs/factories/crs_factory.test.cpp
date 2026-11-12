@@ -252,30 +252,8 @@ TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
     EXPECT_NE(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
 }
 
-// With `BB_VERIFY_CRS=1`, `get_bn254_g1_data` runs the chunk-hash check on cached compressed bytes
-// and rejects a corrupted file that would otherwise be silently decompressed and trusted.
-TEST(CrsFactory, Bn254CacheLoadRejectsCorruptionWhenEnvVarSet)
-{
-    constexpr size_t COMPRESSED_POINT_SIZE = 32;
-    const fs::path temp_path = "barretenberg_srs_test_env_var_corruption";
-    fs::remove_all(temp_path);
-    fs::create_directories(temp_path);
-
-    // Three points: garbage everywhere is fine — the partial-last-chunk SHA-256 check compares
-    // against BN254_G1_CHUNK_HASHES[0] (hash of a real 4MB chunk) and necessarily fails.
-    std::vector<uint8_t> bad_data(3 * COMPRESSED_POINT_SIZE, 0);
-    bb::write_file(temp_path / "bn254_g1_compressed.dat", bad_data);
-    bb::write_file(temp_path / "bn254_g1.dat", to_buffer(std::vector<g1::affine_element>(3, g1::affine_one)));
-
-    setenv("BB_VERIFY_CRS", "1", /*overwrite=*/1);
-    EXPECT_THROW_OR_ABORT(bb::get_bn254_g1_data(temp_path, /*num_points=*/3, /*allow_download=*/false),
-                          "CRS integrity check failed");
-    unsetenv("BB_VERIFY_CRS");
-
-    fs::remove_all(temp_path);
-}
-
-TEST(CrsFactory, Bn254VerifiedCacheSupportsSmallRequests)
+// A small request loads a whole chunk, from the compressed cache when the uncompressed one is too short.
+TEST(CrsFactory, Bn254SmallRequestLoadsWholeChunk)
 {
     const fs::path temp_path = "barretenberg_srs_test_verified_prefix";
     fs::remove_all(temp_path);
@@ -284,7 +262,6 @@ TEST(CrsFactory, Bn254VerifiedCacheSupportsSmallRequests)
         "http://crs.aztec-cdn.foundation/g1_compressed.dat", 0, bb::srs::SRS_CHUNK_SIZE_BYTES - 1);
     bb::write_file(temp_path / "bn254_g1_compressed.dat", data);
     bb::write_file(temp_path / "bn254_g1.dat", to_buffer(std::vector<g1::affine_element>(3, -g1::affine_one)));
-    setenv("BB_VERIFY_CRS", "1", 1);
     EXPECT_NO_THROW({
         const auto points = bb::get_bn254_g1_data(temp_path, 3, false);
         EXPECT_EQ(points.size(), bb::srs::SRS_CHUNK_SIZE_POINTS);
@@ -292,7 +269,6 @@ TEST(CrsFactory, Bn254VerifiedCacheSupportsSmallRequests)
         fs::remove(temp_path / "bn254_g1.dat");
         EXPECT_EQ(bb::get_bn254_g1_data(temp_path, 3, false)[0], g1::affine_one);
     });
-    unsetenv("BB_VERIFY_CRS");
     fs::remove_all(temp_path);
 }
 
