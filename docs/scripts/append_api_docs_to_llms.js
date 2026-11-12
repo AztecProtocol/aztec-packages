@@ -449,7 +449,7 @@ function main() {
   // shorter context is needed, so secondary community resources live there and
   // are ordered last. Community resources are independent of the generated API
   // docs, so they are always appended (see write logic below).
-  let communitySection =
+  const communitySection =
     "\n\n## Optional\n\n" +
     "- [Aztec website](https://aztec.network): Aztec Network home page.\n" +
     "- [Noir language documentation](https://noir-lang.org/docs): The language Aztec smart contracts are written in, documented separately.\n" +
@@ -480,7 +480,6 @@ function main() {
     const files = isMarkdown
       ? fs.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().map((f) => path.join(dirPath, f))
       : sortByImportance(findMarkdownFiles(dirPath));
-    const ext = ".md";
     console.log(`Found ${files.length} markdown files in ${apiDir.dir}`);
 
     if (files.length === 0) {

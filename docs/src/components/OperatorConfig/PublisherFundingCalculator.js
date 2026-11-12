@@ -71,7 +71,7 @@ const fmtGwei = (g) => {
 const safeHostname = (url) => {
   try {
     return new URL(url).hostname;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -117,7 +117,7 @@ function loadScanState(hostname) {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY_PREFIX + hostname);
     return raw ? JSON.parse(raw) : null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -125,7 +125,7 @@ function saveScanState(state) {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(STORAGE_KEY_PREFIX + state.hostname, JSON.stringify(state));
-  } catch (e) {
+  } catch {
     /* localStorage disabled, swallow */
   }
 }
@@ -243,7 +243,7 @@ function Calculator() {
         let logs;
         try {
           logs = await rpcCall(rpcUrl, 'eth_getLogs', params, 15000);
-        } catch (e) {
+        } catch {
           try {
             await new Promise((r) => setTimeout(r, 800));
             logs = await rpcCall(rpcUrl, 'eth_getLogs', params, 15000);

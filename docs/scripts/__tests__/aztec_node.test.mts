@@ -346,7 +346,7 @@ test("pin refuses a noir archive it cannot verify and keeps the previous pin", a
   const darwin = archivePath("0.9.1", "x86_64-apple-darwin");
   const hex = digestOf(archives.get(darwin) as Uint8Array).slice("sha256:".length);
   const cases: [string, () => void, RegExp][] = [
-    ["an unattested archive", () => attested.delete(hex), /could not verify noir-x86_64-apple-darwin\.tar\.gz[^]*no attestations found/],
+    ["an unattested archive", () => attested.delete(hex), /could not verify noir-x86_64-apple-darwin\.tar\.gz[\s\S]*no attestations found/],
     ["another platform's subject", () => attested.set(hex, { name: "noir-aarch64-apple-darwin.tar.gz" }), /none names noir-x86_64-apple-darwin/],
     ["another digest", () => attested.set(hex, { name: path.basename(darwin), digest: "0".repeat(64) }), /none names noir-x86_64-apple-darwin/],
     ["output that is not JSON", () => attested.set(hex, { raw: "verified!" }), /no JSON/],

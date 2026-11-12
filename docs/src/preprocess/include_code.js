@@ -181,7 +181,7 @@ function processHighlighting(codeSnippet, identifier) {
     return match ? match[0].length : 0;
   };
   let indention = 200;
-  let resultLines = [];
+  const resultLines = [];
 
   for (let line of lines) {
     mutated = false;
@@ -201,7 +201,7 @@ function processHighlighting(codeSnippet, identifier) {
   }
 
   let result = "";
-  for (let line of resultLines) {
+  for (const line of resultLines) {
     result +=
       (line.length > indention ? line.substring(indention) : line).trimEnd() +
       "\n";
@@ -220,7 +220,7 @@ function processHighlighting(codeSnippet, identifier) {
  * @returns the code snippet, and start and end line numbers which can later be used for creating a link to github source code.
  */
 function extractCodeSnippet(filePath, identifier) {
-  let fileContent = fs.readFileSync(filePath, "utf-8");
+  const fileContent = fs.readFileSync(filePath, "utf-8");
   let linesToRemove = [];
 
   const startRegex = /(?:\/\/|#)\s+docs:start:([a-zA-Z0-9-._:]+)/g; // `g` will iterate through the regex.exec loop
@@ -234,16 +234,16 @@ function extractCodeSnippet(filePath, identifier) {
     let matchFound = false;
     let matchedLineNum = null;
     let actualMatch = null;
-    let lines = fileContent.split("\n");
+    const lines = fileContent.split("\n");
     while ((match = regex.exec(fileContent))) {
       if (match !== null) {
         const identifiers = match[1].split(":");
-        let tempMatch = identifiers.includes(identifier) ? match : null;
+        const tempMatch = identifiers.includes(identifier) ? match : null;
 
         if (tempMatch === null) {
           // If it's not a match, we'll make a note that we should remove the matched text, because it's from some other identifier and should not appear in the snippet for this identifier.
           for (let i = 0; i < lines.length; i++) {
-            let line = lines[i];
+            const line = lines[i];
             if (line.trim() == match[0].trim()) {
               linesToRemove.push(i + 1); // lines are indexed from 1
             }
@@ -302,12 +302,12 @@ function extractCodeSnippet(filePath, identifier) {
   });
 
   // Remove lines which contain `docs:` comments for unrelated identifiers:
-  lines = lines.filter((l, i) => {
+  lines = lines.filter((_l, i) => {
     return !linesToRemove.includes(i + 1); // lines are indexed from 1
   });
 
   // Remove lines from the snippet which fall outside the `docs:start` and `docs:end` values.
-  lines = lines.filter((l, i) => {
+  lines = lines.filter((_l, i) => {
     return i + 1 > startLineNum && i + 1 < endLineNum - linesToRemove.length; // lines are indexed from 1
   });
 

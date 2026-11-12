@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const childProcess = require("child_process");
 
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
@@ -49,7 +48,7 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
 }
 
 async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
-  let writePromises = [];
+  const writePromises = [];
 
   if (Array.isArray(content)) {
     // It's a dir

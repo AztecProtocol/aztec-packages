@@ -123,7 +123,7 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
   // Build items and label based on current section
   let items = [];
   let dropdownLabel = 'Versions';
-  let dropdownTo = undefined;
+  let dropdownTo;
 
   if (currentSection === DEVELOPER_PLUGIN_ID) {
     // On developer pages: show only developer versions

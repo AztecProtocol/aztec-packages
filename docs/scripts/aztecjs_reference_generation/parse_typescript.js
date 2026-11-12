@@ -356,7 +356,7 @@ class TypeScriptParser {
       this.typeChecker = program.getTypeChecker();
       // Use the source file from the program (required for type checking)
       sourceFile = program.getSourceFile(filePath);
-    } catch (e) {
+    } catch {
       // If program creation fails, fall back to basic parsing without type checking
       this.typeChecker = null;
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
@@ -1031,7 +1031,7 @@ class TypeScriptParser {
           const returnType = this.typeChecker.getReturnTypeOfSignature(signature);
           type = this.typeChecker.typeToString(returnType);
         }
-      } catch (e) {
+      } catch {
         // Type inference failed, will use fallback
       }
     }
@@ -1195,7 +1195,7 @@ class TypeScriptParser {
       // Remove inline JSDoc comments that may appear in the type definition
       let signature = fullText.replace(/\/\*\*[\s\S]*?\*\//g, '');
       // Clean up extra whitespace
-      signature = signature.replace(/\n\s*\n/g, '\n').replace(/  +/g, ' ');
+      signature = signature.replace(/\n\s*\n/g, '\n').replace(/ {2,}/g, ' ');
       return signature.trim();
     }
 

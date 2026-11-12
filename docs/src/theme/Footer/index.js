@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Footer from '@theme-original/Footer';
 import Link from '@docusaurus/Link';
 import styles from './Footer.module.css';
 import { isValidEmail } from '@site/src/utils/emailValidation';
 import { analytics } from '@site/src/utils/analytics';
 
-export default function FooterWrapper(props) {
+export default function FooterWrapper(_props) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);

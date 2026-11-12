@@ -71,7 +71,7 @@ function isRateLimited(identifier, maxRequests = MAX_REQUESTS_PER_WINDOW) {
   return false;
 }
 
-exports.handler = async (event, context) => {
+exports.handler = async (event, _context) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {

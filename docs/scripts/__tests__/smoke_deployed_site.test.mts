@@ -32,7 +32,9 @@ function netlifyRoutes(origin: string): Record<string, Handler> {
 }
 
 const servers: http.Server[] = [];
-after(() => servers.forEach((s) => s.close().closeAllConnections()));
+after(() => {
+  for (const s of servers) s.close().closeAllConnections();
+});
 
 /** A loopback server answering `routes(origin)` and other paths with `fallback`; `hits` records each request. */
 async function serve(routes: (origin: string) => Record<string, Handler>, fallback = send(404, "text/html; charset=utf-8", "<h1 class=hero__title>Page Not Found</h1>")) {

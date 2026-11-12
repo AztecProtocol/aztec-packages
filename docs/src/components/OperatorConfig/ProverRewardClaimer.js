@@ -24,7 +24,7 @@ const isAddress = (s) => /^0x[0-9a-fA-F]{40}$/.test(s);
 const safeHostname = (url) => {
   try {
     return new URL(url).hostname;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -125,7 +125,7 @@ function Claimer() {
         let rewHex;
         try {
           rewHex = await ethCall(rpcUrl, rollup, data, 8000);
-        } catch (e) {
+        } catch {
           continue;
         }
         const rew = BigInt(rewHex || '0x0');

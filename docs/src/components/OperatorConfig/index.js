@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import BrowserOnly from '@docusaurus/BrowserOnly';
-import { useOperatorConfig, SECRET_FIELDS, MAX_SEQUENCER_COUNT } from './context';
+import { useOperatorConfig, MAX_SEQUENCER_COUNT } from './context';
 import styles from './styles.module.css';
 
 const FIELD_DEFS = [
