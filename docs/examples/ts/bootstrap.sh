@@ -147,6 +147,9 @@ validate_project() {
 
         # Setup yarn
         echo_stderr "Setting up yarn for '${project_name}'..."
+        # Corepack takes Yarn's version from the nearest package.json, and a line's stage has none above the
+        # projects: without this pin they install with Corepack's newest Yarn (4.18 skips dependency build scripts).
+        jq -n --arg pm "$(jq -r .packageManager "$REPO_ROOT/docs/package.json")" '{packageManager: $pm}' > package.json
         yarn init -y
         yarn config set nodeLinker node-modules
 
