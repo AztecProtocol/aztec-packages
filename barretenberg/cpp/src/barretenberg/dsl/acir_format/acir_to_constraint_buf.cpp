@@ -470,7 +470,11 @@ void for_each_struct_field(MsgpackCursor& cursor,
             zone.clear();
         }
         if (field < field_names.size()) {
-            if (header.kind == MsgpackCursor::Container::MAP && !tagged_fields && seen[field]) {
+            if (header.kind == MsgpackCursor::Container::MAP && seen[field]) {
+                if (tagged_fields) {
+                    MsgpackCursor::fail("duplicate field '" + std::string(field_names[field]) + "' in " +
+                                        std::string(struct_name));
+                }
                 cursor.skip(field_names[field]);
                 continue;
             }
