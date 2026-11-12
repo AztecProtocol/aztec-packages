@@ -126,6 +126,7 @@ Netlify (site `aztec-docs-dev`) runs `scripts/netlify-ignore-build.sh` first, an
 
 - **Production** (`next`): builds when `docs/` changed since the last production build that passed, and whenever that build cannot be identified (no build cache, a commit that is not in `next`'s history). It leaves out the dev docs (`CONTEXT=production`).
 - **Deploy previews**: build when the pull request changes `docs/`.
+- **Check a deploy**: `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` asks a deployed site for what only Netlify answers: a redirect, a wildcard redirect, a page's markdown twin and the markdown answer to `Accept: text/markdown`, a migration-notes range, a missing page and `/commit.txt`. It prints one line per check and needs no install. With `--commit`, `/commit.txt` must name that commit.
 
 Failed production deploys post to the `#docs-alert` Slack channel. These actions are for site owners, in the Netlify UI:
 
