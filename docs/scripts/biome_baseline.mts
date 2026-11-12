@@ -17,8 +17,13 @@ const BIOME_PACKAGE = "@biomejs/biome";
 // Where Biome reads a directive: at the start of a comment's text, after `//` (also trailing code),
 // after `/*` and any stars, or on a later line of a block comment after an optional `*`. Matching is
 // textual, so a string that looks like a directive is counted too, which fails safe. `-end` closes
-// a `-start` range and is not counted on its own.
-const DIRECTIVE = /(?:\/\/|\/\*+|^[ \t]*\**)[ \t]*(biome-ignore(?:-all|-start|-end)?)[ \t]+([^:\n]*?)[ \t]*:/gm;
+// a `-start` range and is not counted on its own. Biome trims any Unicode whitespace there, not
+// only spaces and tabs.
+const SPACE = String.raw`[\p{White_Space}--[\n\r\u2028\u2029]]`;
+const DIRECTIVE = new RegExp(
+  String.raw`(?:\/\/|\/\*+|^${SPACE}*\**)${SPACE}*(biome-ignore(?:-all|-start|-end)?)${SPACE}+([^:\n]*?)${SPACE}*:`,
+  "gmv",
+);
 const FULL_RULE = /^lint\/[a-zA-Z0-9]+\/[a-zA-Z0-9]+$/;
 
 /** The suppression directives in `source`, in order. */

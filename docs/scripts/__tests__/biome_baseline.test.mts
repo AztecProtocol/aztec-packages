@@ -14,10 +14,11 @@ test("directives are read wherever Biome reads them, with every rule they name, 
     `/** ${IGNORE} lint/a/d: jsdoc */`,
     "/**",
     " * Text first.",
-    ` * ${IGNORE} lint/a/e: a later line`,
+    `\u3000* ${IGNORE} lint/a/e: a later line indented with Unicode whitespace`,
     ` ${IGNORE} lint/a/f: a later line without a star */`,
     `{/* ${IGNORE}-start lint/e/f: a range */}`,
     `// ${IGNORE}-end lint/e/f: a range`,
+    `//\u00a0${IGNORE}\u2003lint/a/g: Unicode whitespace, which Biome trims too`,
     `/* Text first. ${IGNORE} lint/x/y: Biome ignores this one */`,
     `const s = "${IGNORE} lint/x/z: not at the start of a comment";`,
   ].join("\n");
@@ -29,6 +30,7 @@ test("directives are read wherever Biome reads them, with every rule they name, 
     { form: IGNORE, categories: ["lint/a/e"] },
     { form: IGNORE, categories: ["lint/a/f"] },
     { form: `${IGNORE}-start`, categories: ["lint/e/f"] },
+    { form: IGNORE, categories: ["lint/a/g"] },
   ]);
   assert.deepEqual(["lint/complexity/noExcessiveCognitiveComplexity", "lint/complexity", "lint"].map(isRule), [true, false, false]);
 });
