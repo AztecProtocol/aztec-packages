@@ -161,13 +161,16 @@ test("main passes a healthy build and names each regression it is for", () => {
   }
 });
 
-test("a layout with one version passes without a version menu, as the menu then renders as a plain link", () => {
+test("a layout with one version needs the plain navbar link the menu then renders as", () => {
   const b = fixtureBuild();
   fs.rmSync(path.join(b.dir, "developers/v5.2.0"), { recursive: true });
   fs.rmSync(path.join(b.dir, "operate/v5.2.0"), { recursive: true });
-  const shell = `<nav>${search}<a class="navbar__item navbar__link" href=/developers/overview>Tierra (v6.0.0)</a></nav>${footer}`;
-  b.write("/developers/overview", shell);
-  b.write("/operate/operators/solo-sequencer/configure-environment", `${shell}<pre><code>{{ETH_RPC}}</code></pre>`);
-  const { code, out } = run(b.dir, { ...model, cut: { developer: ["v6.0.0"], network: ["v6.0.0"] } });
-  assert.equal(code, 0, out);
+  const op = "/operate/operators/solo-sequencer/configure-environment";
+  const shell = (href: string) => `<nav>${search}<a class="navbar__item navbar__link" href=${href}>Tierra (v6.0.0)</a></nav>${footer}`;
+  b.write("/developers/overview", shell("/developers/overview"));
+  b.write(op, `${shell(op)}<pre><code>{{ETH_RPC}}</code></pre>`);
+  const single = { ...model, cut: { developer: ["v6.0.0"], network: ["v6.0.0"] } };
+  assert.equal(run(b.dir, single).code, 0, run(b.dir, single).out);
+  b.write(op, `${shell("/operate/v5.2.0/operators")}<pre><code>{{ETH_RPC}}</code></pre>`);
+  assert.match(run(b.dir, single).out, /version link on \/operate\/operators\/solo-sequencer\/configure-environment: none links this page/);
 });

@@ -89,6 +89,9 @@ export function dropdownLinks(html: string, url: string): string[] | null {
 export const codeBlockTexts = (html: string) =>
   [...html.matchAll(/<pre\b(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/pre>/gi)].map((m) => decode(m[1].replace(/<[^>]*>/g, "")));
 
+const navbarLinksTo = (html: string, url: string) =>
+  startTags(html, "a").some((a) => classList(a).includes("navbar__link") && attr(a, "href") === url);
+
 export const hasFooter = (html: string) => startTags(html, "footer").some((tag) => classList(tag).includes("footer"));
 
 export const hasSearchTrigger = (html: string) =>
@@ -137,9 +140,10 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
     if (root) {
       const links = dropdownLinks(root, s.rootUrl as string);
       const sorted = (l: string[]) => [...l].sort().join(" ");
-      // With one version the menu renders as a plain link, which offers nothing to check.
+      // With one version the menu renders as a plain navbar link to the page.
       if (!links) {
         if (s.urls.length > 1) problems.push(`version menu on ${s.rootUrl}: no menu offers this page`);
+        else if (!navbarLinksTo(root, s.rootUrl as string)) problems.push(`version link on ${s.rootUrl}: none links this page`);
       }
       else if (sorted(links) !== sorted(s.urls)) {
         problems.push(`version menu on ${s.rootUrl} links [${links.join(", ")}], expected [${s.urls.join(", ")}]`);
