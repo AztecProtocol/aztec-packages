@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
+import networkDocs from "../../src/network_docs.js";
 
 const toml = path.resolve(import.meta.dirname, "../../netlify.toml");
 
@@ -108,4 +109,20 @@ test("netlify.toml redirects all match, none repeats and none chains", () => {
   const redirects = readRedirects(fs.readFileSync(toml, "utf8"));
   assert.ok(redirects.length > 100, `read ${redirects.length} redirects`);
   assert.deepEqual(redirectProblems(redirects), []);
+});
+
+test("a network on another network's API reference folder redirects its own folder's URLs there", () => {
+  const config = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../developer_version_config.json"), "utf8"));
+  const redirects = readRedirects(fs.readFileSync(toml, "utf8"));
+  for (const network of Object.keys(config)) {
+    const folder = networkDocs.networkApiFolder(config, network);
+    if (!folder) continue;
+    for (const root of ["aztec-nr-api", "typescript-api"]) {
+      const from = `/${root}/${network}/*`;
+      const rule = redirects.find((r) => r.from === from);
+      if (folder === network) assert.equal(rule, undefined, `${from}: static/${root}/${network} serves ${network}, so the rule only catches its 404s`);
+      // A 302 that readRedirects lets through without `force`: the network's own folder wins again, uncached, once it returns.
+      else assert.deepEqual(rule && { to: rule.to, status: rule.status }, { to: `/${root}/${folder}/:splat`, status: 302 }, `${from} must redirect to ${folder}'s folder`);
+    }
+  }
 });

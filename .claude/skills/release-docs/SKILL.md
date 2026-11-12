@@ -1500,7 +1500,7 @@ this release type:
 Then check the cut:
 
 ```bash
-node --test scripts/__tests__/api_reference_folders.test.mts
+node --test scripts/__tests__/api_reference_folders.test.mts scripts/__tests__/netlify_redirects.test.mts
 ```
 
 #### Network/operator docs (mainnet and testnet only)
