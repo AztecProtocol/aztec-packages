@@ -10,6 +10,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_span.hpp"
+#include "barretenberg/common/scratch_array.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -41,10 +42,10 @@ using CyclicPermutation = std::vector<cycle_node>;
  * thousands per circuit).
  */
 struct CopyCycles {
-    std::vector<uint32_t> offsets; // size = num_cycles + 1
-    std::vector<cycle_node> nodes;
+    ScratchArray<uint32_t> offsets; // size = num_cycles + 1
+    ScratchArray<cycle_node> nodes;
 
-    size_t size() const { return offsets.empty() ? 0 : offsets.size() - 1; }
+    size_t size() const { return offsets.size() == 0 ? 0 : offsets.size() - 1; }
     std::span<const cycle_node> operator[](size_t i) const
     {
         return { nodes.data() + offsets[i], offsets[i + 1] - offsets[i] };
