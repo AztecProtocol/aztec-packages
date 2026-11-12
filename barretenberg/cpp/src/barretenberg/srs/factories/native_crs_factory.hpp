@@ -48,7 +48,7 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
 #endif
         if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));
-            // The load is rounded up to whole pinned chunks; a later request within it must not reload and re-verify.
+            // The load is rounded up to whole pinned chunks; a later request within it needs no reload.
             last_degree_ = mem_crs_->get_crs(degree)->get_monomial_size();
         }
         return mem_crs_->get_crs(degree);
@@ -78,7 +78,7 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
 #endif
         if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_unique<MemGrumpkinCrsFactory>(init_grumpkin_crs(path_, degree, allow_download_));
-            // The load is rounded up to whole pinned chunks; a later request within it must not reload and re-verify.
+            // The load is rounded up to whole pinned chunks; a later request within it needs no reload.
             last_degree_ = mem_crs_->get_crs(degree)->get_monomial_size();
         }
         return mem_crs_->get_crs(degree);

@@ -83,7 +83,8 @@ template <> class Crs<curve::Grumpkin> {
      */
     virtual Curve::AffineElement get_g1_identity() const = 0;
 
-    /** @brief Grumpkin points are checked when the CRS is constructed, because the IPA verifier reads them. */
+    /** @brief Nothing to do: Grumpkin points are checked when the CRS is constructed, as the IPA verifier reads them.
+     */
     virtual void verify_points_integrity() = 0;
 };
 

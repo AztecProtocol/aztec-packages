@@ -33,8 +33,6 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/srs/factories/bn254_crs_data.hpp"
-#include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 

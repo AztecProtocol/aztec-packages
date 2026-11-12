@@ -95,7 +95,7 @@ export class Barretenberg extends AsyncApi {
 
   async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
-    // bb installs only whole chunks of the BN254 SRS (SRS_CHUNK_SIZE_POINTS in bn254_g1_chunk_hashes.hpp).
+    // A verification key can only be computed from whole chunks of the BN254 SRS (SRS_CHUNK_SIZE_POINTS).
     const bn254Points = Math.ceil(srsSize / BN254_SRS_CHUNK_POINTS) * BN254_SRS_CHUNK_POINTS;
     const crs = await Crs.new(bn254Points, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(GRUMPKIN_SRS_POINTS, this.options.crsPath, this.options.logger);

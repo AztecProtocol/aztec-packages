@@ -12,7 +12,6 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
-#include "barretenberg/srs/factories/get_grumpkin_crs.hpp"
 #include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <span>
@@ -112,11 +111,10 @@ SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest&
                        std::to_string(required_size) + ")");
     }
 
-    // Every supplied point is installed, and checked against the pinned chunk hashes when the CRS is constructed,
-    // which accepts only whole chunks.
-    const size_t num_verified_points = points_buf.size() / sizeof(curve::Grumpkin::AffineElement);
-    std::vector<curve::Grumpkin::AffineElement> points(num_verified_points);
-    for (size_t i = 0; i < num_verified_points; ++i) {
+    // Every supplied point is installed. The CRS constructor checks them against the pinned chunk hashes.
+    const size_t num_supplied_points = points_buf.size() / sizeof(curve::Grumpkin::AffineElement);
+    std::vector<curve::Grumpkin::AffineElement> points(num_supplied_points);
+    for (size_t i = 0; i < num_supplied_points; ++i) {
         points[i] =
             from_buffer<curve::Grumpkin::AffineElement>(points_buf.data(), i * sizeof(curve::Grumpkin::AffineElement));
     }
