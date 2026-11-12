@@ -48,7 +48,7 @@ function sidebarIds(file: string): Set<string> {
     if (it.link?.type === "doc" && it.link.id) ids.add(it.link.id);
     if (it.items) walk(it.items);
   };
-  walk(require(file));
+  Object.values(require(file)).forEach(walk);
   return ids;
 }
 
