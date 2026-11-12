@@ -45,22 +45,22 @@ Without privacy, your opponent could see your point allocations as you play and 
 
 ## Clone the example
 
-The tutorial walks through a complete working example. Fetch it at the commit this page quotes, with the aztec-nr it builds against, then follow along:
+The tutorial walks through a complete working example. Fetch it at a commit with the code this page quotes, with the aztec-nr it builds against, then follow along:
 
 ```bash title="Clone the example"
 git init -q aztec-docs && cd aztec-docs
 git remote add origin https://github.com/AztecProtocol/aztec-packages.git
 git sparse-checkout set --no-cone /docs/lines/v6/Nargo.toml /docs/lines/v6/examples/
-git fetch --depth 1 --filter=blob:none origin c0643538fa9523cca55eab25f5befd31b4d115b8
-git -c advice.detachedHead=false checkout c0643538fa9523cca55eab25f5befd31b4d115b8
+git fetch --depth 1 --filter=blob:none origin 29f4e753989be31416d4371bbb8cbf31d1904b1f
+git -c advice.detachedHead=false checkout 29f4e753989be31416d4371bbb8cbf31d1904b1f
 git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --branch v6.0.0 \
   https://github.com/aztec-labs-eng/aztec-node.git docs/lines/v6/.aztec-node/tree
 git -C docs/lines/v6/.aztec-node/tree sparse-checkout set noir-projects
 cd docs/lines/v6/examples/webapp-tutorial
-./setup.sh 6.0.0
+./setup.sh 6.0.0 6.0.0
 ```
 
-This checks out the docs examples with their Noir workspace (`docs/lines/v6/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/lines/v6/`, the workspace root. A full clone of the repository does not build it: nargo would take the topmost `Nargo.toml`, `docs/Nargo.toml`, as the workspace. `setup.sh` writes the Aztec version into `package.json` and installs the dependencies.
+This checks out the docs examples with their Noir workspace (`docs/lines/v6/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/lines/v6/`, the workspace root. A full clone of the repository does not build it: nargo would take the topmost `Nargo.toml`, `docs/Nargo.toml`, as the workspace. `setup.sh` writes the Aztec version into `package.json` and both versions into `.yarnrc.yml`, which lets only those versions of the Aztec packages skip Yarn's 7-day age gate. Then it installs the dependencies.
 
 ## Architecture
 
@@ -95,7 +95,7 @@ This checks out the docs examples with their Noir workspace (`docs/lines/v6/Narg
 
 ## Completed example
 
-The full working example including the contract source is available at [`docs/lines/v6/examples/webapp-tutorial/`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial).
+The full working example including the contract source is available at [`docs/lines/v6/examples/webapp-tutorial/`](https://github.com/AztecProtocol/aztec-packages/tree/29f4e753989be31416d4371bbb8cbf31d1904b1f/docs/lines/v6/examples/webapp-tutorial).
 
 The example also includes a **functional wallet extension** (`test-extension/`) that can deploy accounts and send real transactions using SponsoredFPC for fee payment. See the [Network & Wallet](./03-network-and-wallet.md#testing-with-the-tutorial-wallet-extension) section for setup instructions.
 
