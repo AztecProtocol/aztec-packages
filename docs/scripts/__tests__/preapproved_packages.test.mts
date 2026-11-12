@@ -12,6 +12,8 @@ import { test } from "node:test";
 const docs = path.resolve(import.meta.dirname, "../..");
 const SCOPES = /^@aztec-(labs|foundation)\/\*(?:@(.*))?$/;
 const UNREAD = "<unread>";
+const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
+const SNAPSHOT = /^developer_versioned_docs\/version-v([^/]+)\//;
 const lines = ["", ...fs.readdirSync(path.join(docs, "lines")).map((l) => `lines/${l}/`)];
 
 // The entries of each npmPreapprovedPackages in a page's YAML blocks or a .yarnrc.yml: a one-line
@@ -83,14 +85,13 @@ function firstPartyEntries(text: string) {
   return out;
 }
 
-// By file: pages and the webapp tutorial's .yarnrc.yml in each line, and each released snapshot's pages.
+// Both lines' pages and each released snapshot's.
+const md = (f: string) => /\.mdx?$/.test(f);
+const pages = () => [...lines.flatMap((l) => files(path.join(docs, l, "docs-developers"), md)), ...files(path.join(docs, "developer_versioned_docs"), md)];
+
+// By file: the pages, and the webapp tutorial's .yarnrc.yml in each line.
 function firstParty() {
-  const pages = (f: string) => /\.mdx?$/.test(f);
-  const sources = lines.flatMap((l) => [
-    ...files(path.join(docs, l, "docs-developers"), pages),
-    path.join(docs, l, "examples/webapp-tutorial/.yarnrc.yml"),
-  ]);
-  return [...sources, ...files(path.join(docs, "developer_versioned_docs"), pages)].flatMap((file) =>
+  return [...pages(), ...lines.map((l) => path.join(docs, l, "examples/webapp-tutorial/.yarnrc.yml"))].flatMap((file) =>
     firstPartyEntries(fs.readFileSync(file, "utf8")).map((e) => ({ file: path.relative(docs, file), ...e })),
   );
 }
@@ -110,11 +111,11 @@ test("every page and the webapp tutorial pre-approve the first-party scopes only
   const found = firstParty();
   assert.ok(found.some((f) => f.file.endsWith("webapp-tutorial/.yarnrc.yml")), "the webapp tutorial's .yarnrc.yml has no first-party entry");
   const want = (file: string, scope: string) => {
-    const snapshot = file.match(/^developer_versioned_docs\/version-v([^/]+)\//)?.[1];
+    const snapshot = file.match(SNAPSHOT)?.[1];
     if (file.endsWith(".yarnrc.yml")) return scope === "@aztec-labs" ? "#include_aztec_version" : "#include_foundation_version";
     if (!snapshot) return scope === "@aztec-labs" ? "#include_version_without_prefix" : "#include_foundation_version_without_prefix";
     // A release renders both macros to versions; the Labs one is the snapshot's own.
-    return scope === "@aztec-labs" ? snapshot : /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
+    return scope === "@aztec-labs" ? snapshot : VERSION;
   };
   const wrong = found.filter(({ file, scope, version }) => {
     if (scope === "unread") return true;
@@ -139,11 +140,30 @@ test("setup.sh writes the versions it installs into the webapp tutorial's pre-ap
       assert.notEqual(usage.status, 0, `${line}setup.sh ran with one version`);
       const r = setup("6.1.0-nightly.1", "6.0.0-rc.1");
       assert.equal(r.status, 0, r.stderr);
-      const entries = preapprovals(fs.readFileSync(path.join(dir, ".yarnrc.yml"), "utf8")).filter((e) => SCOPES.test(e));
+      // Nothing else: the tutorial's dependency tree holds no other first-party package.
+      const entries = preapprovals(fs.readFileSync(path.join(dir, ".yarnrc.yml"), "utf8"));
       assert.deepEqual(entries.sort(), ["@aztec-foundation/*@6.0.0-rc.1", "@aztec-labs/*@6.1.0-nightly.1"], line);
       assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).dependencies["@aztec-labs/aztec.js"], "6.1.0-nightly.1");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   }
+});
+
+test("every page that passes setup.sh versions passes both, its own release's in a snapshot", () => {
+  const wrong: string[] = [];
+  for (const file of pages()) {
+    const rel = path.relative(docs, file);
+    const snapshot = rel.match(SNAPSHOT)?.[1];
+    for (const [, rest] of fs.readFileSync(file, "utf8").matchAll(/^\s*\.\/setup\.sh\b(.*)$/gm)) {
+      const args = rest.trim().split(/\s+/).filter(Boolean);
+      // Older snapshots clone a setup.sh that takes no versions.
+      if (snapshot && !args.length) continue;
+      const ok = snapshot
+        ? args.length === 2 && args[0] === snapshot && VERSION.test(args[1])
+        : args.join(" ") === "#include_version_without_prefix #include_foundation_version_without_prefix";
+      if (!ok) wrong.push(`${rel}: ./setup.sh ${args.join(" ")}`);
+    }
+  }
+  assert.deepEqual(wrong, []);
 });
