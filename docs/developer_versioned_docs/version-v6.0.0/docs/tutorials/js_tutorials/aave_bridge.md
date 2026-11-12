@@ -125,11 +125,10 @@ Create `package.json`:
 }
 ```
 
-Create `.yarnrc.yml`. It installs into a plain `node_modules` folder, runs no install scripts from your dependencies, and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
 
 ```yaml title=".yarnrc.yml"
 nodeLinker: node-modules
-enableScripts: false
 npmMinimalAgeGate: 7d
 npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
 ```
@@ -139,8 +138,6 @@ Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:
 ```bash
 yarn add hardhat@3.21.2 @aztec-foundation/l1-artifacts@6.0.0 @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/wallets@6.0.0 @aztec-labs/stdlib@6.0.0 @aztec-labs/foundation@6.0.0 @aztec-labs/ethereum@6.0.0 @aztec-labs/noir-contracts.js@6.0.0 @aztec/viem@2.38.2 tsx@4.23.15
 ```
-
-Yarn notes that it skipped the build scripts of a few dependencies (`YN0004`). They ship prebuilt binaries, so this tutorial needs none of those scripts.
 
 The portal's Aztec interfaces come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network. Hardhat applies none of your remappings to files inside `node_modules`, so link those sources into the project:
 

@@ -149,7 +149,6 @@ validate_project() {
         echo_stderr "Setting up yarn for '${project_name}'..."
         yarn init -y
         yarn config set nodeLinker node-modules
-        if is_hardhat_project; then yarn config set enableScripts false; fi
 
         # Set package type to module for ESM support
         node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"

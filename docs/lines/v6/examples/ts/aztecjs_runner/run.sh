@@ -111,7 +111,6 @@ setup_project() {
     rm -rf .git ${created_files[@]+"${created_files[@]}"}
     [ "$init_status" -eq 0 ] || return "$init_status"
     yarn config set nodeLinker node-modules
-    if is_hardhat_project; then yarn config set enableScripts false; fi
 
     # Set package type to module for ESM
     node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
