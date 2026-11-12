@@ -220,14 +220,16 @@ function validate-webapp-tutorial {
   (
     cd "$TUTORIAL_DIR"
 
-    # Backup package.json (the only tracked file we mutate). yarn.lock is
+    # Back up the tracked files setup.sh resolves. yarn.lock is
     # gitignored and reseeded on each run, so we don't back it up.
     cp package.json package.json.bak
+    cp .yarnrc.yml .yarnrc.yml.bak
 
     cleanup() {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
       [ -f package.json.bak ] && mv package.json.bak package.json
+      [ -f .yarnrc.yml.bak ] && mv .yarnrc.yml.bak .yarnrc.yml
       rm -rf node_modules .yarn yarn.lock 2>/dev/null || true
       return $exit_code
     }
@@ -244,7 +246,7 @@ function validate-webapp-tutorial {
     # the tutorial still get Chrome for `yarn test:e2e`.
     local skip_chrome=(PUPPETEER_SKIP_DOWNLOAD=1)
     [ "${WEBAPP_TESTS:-}" = e2e ] && skip_chrome=()
-    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false ./setup.sh "$AZTEC_VERSION"
+    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false ./setup.sh "$AZTEC_VERSION" "$BB_VERSION"
 
     # Copy compiled contract artifact and run codegen
     mkdir -p src/artifacts

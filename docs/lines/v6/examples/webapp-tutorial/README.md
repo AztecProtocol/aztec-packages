@@ -12,10 +12,10 @@ A sample Aztec webapp demonstrating wallet connection, contract deployment, and 
 
 ### 1. Install dependencies
 
-`setup.sh` writes the Aztec version into `package.json` and installs. Pass the version your Aztec CLI runs, without the leading `v`:
+`setup.sh` writes the versions into `package.json` and `.yarnrc.yml` and installs. Pass the two versions the tutorial names, without the leading `v`: the one your Aztec CLI runs, then the version of the `@aztec-foundation/*` packages it depends on:
 
 ```bash
-./setup.sh <version>
+./setup.sh <version> <foundation version>
 ```
 
 ### 2. Compile the contract
