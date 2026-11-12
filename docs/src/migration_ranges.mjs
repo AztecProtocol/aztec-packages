@@ -30,6 +30,7 @@ export function parseVersion(text) {
 const isNumeric = (id) => /^\d+$/.test(id);
 
 /** Semver precedence of two parsed versions: negative, zero or positive. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function compareVersions(a, b) {
   if (a.unreleased || b.unreleased) return Number(a.unreleased) - Number(b.unreleased);
   for (let i = 0; i < 3; i++) if (a.core[i] !== b.core[i]) return a.core[i] < b.core[i] ? -1 : 1;

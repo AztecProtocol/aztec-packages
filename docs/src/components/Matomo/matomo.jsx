@@ -4,8 +4,10 @@ import Link from "@docusaurus/Link";
 import { useLocation } from "@docusaurus/router";
 
 function getSiteId(env) {
+  // biome-ignore lint/suspicious/noDoubleEquals: baselined 2026-11-12: === could change behaviour where the operands differ in type
   if (env == "dev") {
     return "4";
+  // biome-ignore lint/suspicious/noDoubleEquals: baselined 2026-11-12: === could change behaviour where the operands differ in type
   } else if (env == "staging") {
     return "5";
   } else {
@@ -35,6 +37,7 @@ export default function useMatomo() {
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: baselined 2026-11-12: a changed dependency list would change when the hook runs
   useEffect(() => {
     pushInstruction("setTrackerUrl", trackerUrl);
     pushInstruction("setSiteId", getSiteId(env));
@@ -56,6 +59,7 @@ export default function useMatomo() {
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: baselined 2026-11-12: a changed dependency list would change when the hook runs
   useEffect(() => {
     pushInstruction("trackPageView");
   }, [location]);

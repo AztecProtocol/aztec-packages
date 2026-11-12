@@ -137,7 +137,7 @@ test("a wrong worktree, a dirty docs/, another major, a pinned commit on neither
   const cases: [string, () => ReturnType<typeof promote>, RegExp][] = [
     ["no cut", () => promote("v6.0.1", { CUT: undefined }), /not the cut worktree/],
     ["another worktree", () => promote("v6.0.1", { CUT: os.tmpdir() }), /not the cut worktree/],
-    ["dirty docs/", () => (write(path.join(docs, "docs-developers/docs/wip.md"), "wip\n"), promote("v6.0.1")), /uncommitted changes/],
+    ["dirty docs/", () => { write(path.join(docs, "docs-developers/docs/wip.md"), "wip\n"); return promote("v6.0.1"); }, /uncommitted changes/],
     ["another major", () => promote("v7.0.0"), /v7\.0\.0 is not a v6 release/],
     ["off every branch", () => promote("v6.0.1", {}, { [`${API}/compare/v6...${PINNED}`]: { status: "diverged" } }), new RegExp(`${PINNED}\\) is not on aztec-labs-eng/aztec-node's v6 branch .*diverged.*release/6\\.0\\.1`)],
     ["another release's branch", () => promote("v6.0.1", {}, { ...onRelease, [`${API}/compare/release/6.0.1...${PINNED}`]: { status: "diverged" } }), /neither .*v6 nor its release\/6\.0\.1 branch/],

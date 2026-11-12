@@ -107,6 +107,7 @@ function readPage(buildDir: string, url: string): string | null {
 }
 
 /** Problems with the build at `buildDir` for the layout `model` describes, one line each, then a summary. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function main(buildDir: string, model: Model, log: (line: string) => void = console.log): number {
   const started = performance.now();
   const problems: string[] = [];

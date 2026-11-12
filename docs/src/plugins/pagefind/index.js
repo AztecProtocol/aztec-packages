@@ -20,6 +20,7 @@ function* htmlFiles(dir) {
 module.exports = function pagefindPlugin(_context, { apiDirs }) {
   return {
     name: "pagefind",
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
     async postBuild({ outDir }) {
       const started = performance.now();
       const pagefind = await import("pagefind");

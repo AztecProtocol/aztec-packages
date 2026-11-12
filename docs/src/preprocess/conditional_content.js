@@ -27,6 +27,7 @@ const VALID_CONDITIONS = ["nightly", "devnet", "testnet", "mainnet"];
  * @param {string} filePath - Path to the file (for error messages)
  * @returns {{ branches: Array<{ condition: string | null, content: string }> }}
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function parseConditionalBlock(block, filePath) {
   const branches = [];
 
@@ -63,6 +64,7 @@ function parseConditionalBlock(block, filePath) {
   let lastIndex = 0;
   let match;
 
+  // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
   while ((match = directivePattern.exec(remaining)) !== null) {
     sections.push({ content: remaining.substring(lastIndex, match.index), directive: null, condition: null });
 
@@ -146,6 +148,7 @@ function processConditionalBlocks(content, releaseType, filePath = "unknown") {
   const matches = [];
   let match;
 
+  // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
   while ((match = blockPattern.exec(content)) !== null) {
     matches.push({ fullMatch: match[0], index: match.index });
   }

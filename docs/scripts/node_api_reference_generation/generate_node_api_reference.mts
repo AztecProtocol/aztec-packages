@@ -42,10 +42,13 @@ function parseArgs(): { yarnProject: string; output: string } {
 function extractJSDocComment(tag: { comment?: string | TS.NodeArray<TS.JSDocComment> }): string {
   if (!tag.comment) return '';
   if (typeof tag.comment === 'string') return tag.comment;
+  // biome-ignore lint/suspicious/noExplicitAny: baselined 2026-11-12: untyped external data
   return tag.comment.map((part: any) => part.text || '').join('');
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function extractJSDocFromNode(node: TS.Node): MethodJSDoc | undefined {
+  // biome-ignore lint/suspicious/noExplicitAny: baselined 2026-11-12: untyped external data
   const jsDocs = (node as any).jsDoc as TS.JSDoc[] | undefined;
   if (!jsDocs || jsDocs.length === 0) return undefined;
 
@@ -89,6 +92,7 @@ function parseInterfaceFile(filePath: string): {
   const sourceText = fs.readFileSync(filePath, 'utf-8');
   const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true);
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   function visit(node: TS.Node) {
     if (ts.isInterfaceDeclaration(node)) {
       for (const member of node.members) {
@@ -178,6 +182,7 @@ function parseSchemaObject(
  *   "z.function({ input: z.tuple([]), output: z.boolean() })"
  *   "z.function().args(z.number(), optional(z.boolean())).returns(z.void())"  // legacy
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function parseZodFunctionExpr(expr: string): { paramTypes: string[]; returnType: string } {
   // Normalize whitespace (multi-line expressions use \n + indentation)
   const normalized = expr.replace(/\s+/g, ' ').trim();
@@ -340,6 +345,7 @@ function splitTopLevelArgs(text: string): string[] {
 /**
  * Simplify a Zod type expression into a human-readable type string.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function simplifyZodType(expr: string): string {
   const e = expr.trim();
 
@@ -482,6 +488,7 @@ function simplifyZodType(expr: string): string {
 // Main
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function main(yarnProject: string, output: string) {
   const nodeInterfacePath = path.join(yarnProject, 'stdlib/src/interfaces/aztec-node.ts');
   const adminInterfacePath = path.join(yarnProject, 'stdlib/src/interfaces/aztec-node-admin.ts');

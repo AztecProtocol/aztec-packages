@@ -80,6 +80,7 @@ async function loadPagefind(bundleDir: string) {
   return { pagefind, close: () => server.close() };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function check(buildDir: string, docsDir: string) {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -92,6 +93,7 @@ async function check(buildDir: string, docsDir: string) {
     const search = async (query: string | null, tags?: string[], top?: number): Promise<Hit[]> => {
       const { results } = await pagefind.search(query, tags ? { filters: { docusaurus_tag: { any: tags } } } : {});
       const data = await Promise.all(results.slice(0, top).map((r: { data: () => Promise<unknown> }) => r.data()));
+      // biome-ignore lint/suspicious/noExplicitAny: baselined 2026-11-12: untyped external data
       return data.map((d: any) => ({ url: d.url, tags: d.filters.docusaurus_tag ?? [] }));
     };
 
