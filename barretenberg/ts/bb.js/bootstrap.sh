@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # We mix if we're a release into the hash, as releases have all architectures built.

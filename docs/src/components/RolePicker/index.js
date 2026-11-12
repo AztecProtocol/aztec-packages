@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "@docusaurus/Link";
+import useDocsBase from "@site/src/utils/useDocsBase";
 import styles from "./styles.module.css";
 
 const svgProps = {
@@ -73,7 +74,7 @@ const ROLES = [
       "No on-chain registration required",
     ],
     cta: "Read setup guide",
-    href: "/operate/operators/full-node/overview",
+    href: "operators/full-node/overview",
   },
   {
     id: "solo-sequencer",
@@ -94,7 +95,7 @@ const ROLES = [
       "Personalised commands: paste keys / RPCs once, every step auto-fills",
     ],
     cta: "Start guided setup",
-    href: "/operate/operators/solo-sequencer/",
+    href: "operators/solo-sequencer/",
   },
   {
     id: "provider",
@@ -115,7 +116,7 @@ const ROLES = [
       "Adds key-management and commission-tooling complexity",
     ],
     cta: "Start guided setup",
-    href: "/operate/operators/provider/",
+    href: "operators/provider/",
   },
   {
     id: "prover",
@@ -136,7 +137,7 @@ const ROLES = [
       "Earnings depend on epoch activity, gas, and prover-pool competition",
     ],
     cta: "Read setup guide",
-    href: "/operate/operators/prover/overview",
+    href: "operators/prover/overview",
   },
 ];
 
@@ -145,12 +146,13 @@ function badgeClass(kind) {
 }
 
 export default function RolePicker() {
+  const base = useDocsBase("operate");
   return (
     <div className={styles.grid}>
       {ROLES.map((role) => (
         <Link
           key={role.id}
-          to={role.href}
+          to={`${base}/${role.href}`}
           className={styles.card}
           aria-label={`${role.title}: ${role.cta}`}
         >

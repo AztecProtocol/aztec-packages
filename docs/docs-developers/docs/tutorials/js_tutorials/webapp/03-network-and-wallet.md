@@ -64,6 +64,8 @@ The local network ships with test accounts that are funded at genesis. They are 
 
 #include_code connect-test-account /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
+Test accounts exist only on the local network. To create and deploy a new account, as users do on other networks, see [Creating accounts](../../../aztec-js/how_to_create_account.md).
+
 ### Fee payment
 
 Every Aztec transaction must pay a fee (similar to gas on Ethereum). Rather than requiring users to hold fee tokens during development, the embedded wallet overrides `completeFeeOptions` to inject SponsoredFPC as the default fee payer for every transaction. Callers never need to pass fee options manually.

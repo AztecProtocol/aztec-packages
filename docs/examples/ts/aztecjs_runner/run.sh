@@ -19,12 +19,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXAMPLES_DIR="$(dirname "$SCRIPT_DIR")"
 source "$EXAMPLES_DIR/lib.sh"
-# Derive repo root from known path (docs/examples/ts/aztecjs_runner) to avoid
-# git safe.directory failures when running inside Docker containers.
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+# The docs tree from this script's known path (<docs>/examples/ts/aztecjs_runner), not git, which
+# fails safe.directory inside Docker; a line's stage (examples/bootstrap.sh --line) mirrors docs/.
+DOCS_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 export AZTEC_NODE_URL="${AZTEC_NODE_URL:-http://localhost:8080}"
 # In the compose run the host's CLI path does not exist, so the default names it inside the mount.
-AZTEC="${AZTEC:-$REPO_ROOT/docs/.aztec-node/cli/node_modules/.bin/aztec}"
+AZTEC="${AZTEC:-$DOCS_ROOT/.aztec-node/cli/node_modules/.bin/aztec}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -81,7 +81,7 @@ setup_project() {
     contract_count="$(yq eval '.contracts | length' config.yaml 2>/dev/null || echo "0")"
 
     if [ "$contract_count" -gt 0 ]; then
-        local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
+        local ARTIFACTS_DIR="$DOCS_ROOT/target"
 
         while IFS= read -r contract_name; do
             local artifact="$ARTIFACTS_DIR/${contract_name}.json"
@@ -99,8 +99,16 @@ setup_project() {
         ls -la artifacts/ 2>/dev/null || echo -e "${RED}  ERROR: artifacts/ directory does not exist after codegen${NC}"
     fi
 
-    # Initialize yarn
-    yarn init -y
+    # Initialize yarn. `yarn init` also runs `git init` and writes the files below; the compose run is root, so anything
+    # it leaves in the checkout outlives the checkout's owner. Remove the nested repository, and the files it created,
+    # even when it fails: its install step runs after it writes them.
+    local init_file created_files=() init_status=0
+    for init_file in .gitignore .editorconfig .gitattributes README.md; do
+        [ -e "$init_file" ] || created_files+=("$init_file")
+    done
+    yarn init -y || init_status=$?
+    rm -rf .git ${created_files[@]+"${created_files[@]}"}
+    [ "$init_status" -eq 0 ] || return "$init_status"
     yarn config set nodeLinker node-modules
 
     # Set package type to module for ESM
@@ -199,7 +207,7 @@ cleanup_project() {
 if [ $# -eq 0 ]; then
     # aave_bridge disabled: timing out on merge queue (~600s), blocked on proving block 64.
     # See http://ci.aztec-labs.com/aabf2c7e271636a0
-    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "recursive_verification")
+    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof")
 else
     EXAMPLES=()
     for arg in "$@"; do

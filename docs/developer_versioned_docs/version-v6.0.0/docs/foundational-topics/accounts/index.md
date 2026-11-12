@@ -36,7 +36,7 @@ Unlike Ethereum where account abstraction is implemented at the application laye
 1. **Every account is a smart contract** - There are no externally owned accounts (EOAs)
 2. **Unified experience** - All accounts have the same capabilities and flexibility
 3. **Protocol-level support** - The entire network is designed around smart contract accounts
-4. **Privacy-first design** - Account abstraction works seamlessly with Aztec's privacy features
+4. **Private by design** - Account abstraction works seamlessly with Aztec's privacy features
 
 ### Breaking the DoS Attack Problem
 

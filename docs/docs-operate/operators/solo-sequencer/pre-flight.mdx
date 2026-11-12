@@ -5,6 +5,8 @@ displayed_sidebar: operatorsSidebar
 references: ["labs/yarn-project/p2p/src/config.ts", "labs/yarn-project/aztec/src/cli/aztec_start_options.ts"]
 ---
 
+import NodeHardware from "../_node_hardware.mdx";
+
 # Pre-flight
 
 **Time:** ~2 minutes. Confirm you have everything before starting. Every item is required.
@@ -28,16 +30,15 @@ If any of these is uncertain, consider delegating instead.
 
 ## Hardware
 
+Each server needs:
+
+<NodeHardware />
+
+The CPU must be Skylake or newer: on x86 the node's cryptography library (barretenberg) is compiled with `-march=skylake`, so it uses instructions that older chips lack and fails on them (some 2015 CPUs are pre-Skylake). Co-hosting an L1 node needs more storage; see [Hardware spec](/operate/operators/concepts/hardware#co-hosting-an-l1-node).
+
 <IfChoice axis="topology" is="single">
 
-You need **one server** with:
-
-- **CPU:** 8 cores or 16 vCPU (Skylake or newer microarchitecture)
-- **RAM:** 8 GB minimum
-- **Storage:** 1 TB SSD, NVMe recommended (more if you co-host an L1 node; see [Hardware spec](/operate/operators/concepts/hardware#co-hosting-an-l1-node))
-- **Network:** 25 Mbps or faster, with a static public IP
-
-The CPU must be Skylake or newer: on x86 the node's cryptography library (barretenberg) is compiled with `-march=skylake`, so it uses instructions that older chips lack and fails on them (some 2015 CPUs are pre-Skylake). See [Hardware spec](/operate/operators/concepts/hardware).
+You need **one server** with a static public IP.
 
 A DappNode box that meets these specs can run the sequencer through the community-maintained Aztec package instead of the manual Docker setup; see [DappNode setup](./dappnode).
 
@@ -53,12 +54,9 @@ You configured **<Count />** attesters. Running more attester identities on the 
 
 In HA mode the **same attester identity** runs across multiple nodes for redundancy. The nodes coordinate via a shared PostgreSQL database that prevents double-signing. This is not the same as splitting N attesters across N nodes.
 
-You need **two servers** running the same attester identity, both with:
+You need **two servers** running the same attester identity, each meeting the spec above, with:
 
-- **CPU:** 8 cores or 16 vCPU each (Skylake or newer microarchitecture)
-- **RAM:** 8 GB each
-- **Storage:** 1 TB NVMe SSD each
-- **Network:** 25 Mbps each, both with static public IPs
+- **Network:** static public IPs on both
 - **Shared PostgreSQL** reachable by both nodes for HA coordination
 - **Private link:** the nodes need a low-latency path to the shared database. Same VPC or a Wireguard mesh works.
 

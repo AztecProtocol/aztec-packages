@@ -5,6 +5,7 @@
 # this file rather than holding their own copy of the hash. The hash file is
 # updated automatically by PR CI when an input update is requested.
 if [[ -z "${root:-}" ]]; then
+  "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
   NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
 fi
 

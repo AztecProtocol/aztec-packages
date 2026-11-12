@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Stress-grind the SHM ring test in parallel. Usage: grind_ipc.sh [jobs]
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd "$(dirname "$0")"

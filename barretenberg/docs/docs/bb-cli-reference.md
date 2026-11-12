@@ -31,7 +31,7 @@ sidebar_position: 1000
   - [bb write_vk](#bb-write_vk)
 ## bb
 
-Barretenberg Your favo(u)rite zkSNARK library written in C++, a perfectly good computer programming language. Aztec Virtual Machine (AVM): disabled AVM Transpiler: enabled Starknet Garaga Extensions: disabled
+Barretenberg Your favo(u)rite zkSNARK library written in C++, a perfectly good computer programming language. Aztec Virtual Machine (AVM): disabled AVM Transpiler: enabled
 
 **Usage:**
 ```bash

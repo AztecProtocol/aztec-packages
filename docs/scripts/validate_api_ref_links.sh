@@ -16,7 +16,7 @@ set -euo pipefail
 #   2. Version mismatches - link uses wrong API version for its docs directory (e.g., a devnet
 #      versioned doc linking to nightly API, or vice versa)
 #
-# Usage: validate_api_ref_links.sh
+# Usage: validate_api_ref_links.sh   (DOCS_ROOT overrides the docs/ directory it reads)
 #
 # Exit code: Always 0 (warnings only) to avoid breaking builds initially.
 
@@ -25,7 +25,7 @@ set -euo pipefail
 lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOCS_ROOT="$(dirname "$SCRIPT_DIR")"
+DOCS_ROOT="${DOCS_ROOT:-$(dirname "$SCRIPT_DIR")}"
 STATIC_API_DIR="$DOCS_ROOT/static/aztec-nr-api"
 TS_STATIC_API_DIR="$DOCS_ROOT/static/typescript-api"
 
@@ -33,6 +33,10 @@ if [[ ! -d "$STATIC_API_DIR" ]] && [[ ! -d "$TS_STATIC_API_DIR" ]]; then
   echo "WARNING: Neither static/aztec-nr-api/ nor static/typescript-api/ found. Skipping API ref link validation."
   exit 0
 fi
+
+# shellcheck source-path=SCRIPTDIR source=lib/docs_routes.sh
+source "$SCRIPT_DIR/lib/docs_routes.sh"
+docs_routes_init_api_indexes
 
 echo "Validating API reference links..."
 
@@ -262,7 +266,7 @@ process_link() {
     fi
   fi
 
-  if ! resolve_static_path "$link_path" >/dev/null; then
+  if ! resolve_static_path "$link_path" >/dev/null && ! resolves_api_index "/$link_path"; then
     BROKEN_COUNT=$((BROKEN_COUNT + 1))
     BROKEN_DETAILS+=("$rel_source:$line_num -> $link_path")
     echo "  BROKEN: $rel_source:$line_num"
@@ -329,6 +333,7 @@ process_ts_api_link() {
     if [[ "$expected_version" != "nightly" ]] && [[ -f "$TS_STATIC_API_DIR/nightly/$file_path" ]]; then
       return
     fi
+    resolves_api_index "/typescript-api/$expected_version/$file_path" && return
     BROKEN_COUNT=$((BROKEN_COUNT + 1))
     BROKEN_DETAILS+=("$rel_source:$line_num -> typescript-api/$expected_version/$file_path")
     echo "  BROKEN: $rel_source:$line_num"

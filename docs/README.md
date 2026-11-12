@@ -4,6 +4,24 @@ Documentation for the Aztec Network, built with Docusaurus
 
 You can view the latest successful build here: https://docs.aztec.network
 
+## Two dev lines
+
+The dev docs follow two aztec-node branches at once: `main` (v7) and `v6`, which keeps shipping v6.x releases. So each developer and operator page exists twice. The landing pages (`docs/`), `docs-participate/`, the versioned snapshots and `static/` are shared.
+
+| Line | Follows | Pages and examples | Pin |
+| --- | --- | --- | --- |
+| main | aztec-node `main` | `docs-developers/`, `docs-operate/`, `sidebars-*.js`, `examples/` | `aztec-node.json` |
+| v6 | aztec-node `v6` | `lines/v6/docs-developers/`, `lines/v6/docs-operate/`, `lines/v6/sidebars-*.js`, `lines/v6/examples/` | `lines/v6/aztec-node.json` |
+
+- Make each change in both lines, unless it is specific to one. Decide from the code: look the symbol or behaviour up in each line's checkout (`.aztec-node/tree` and `lines/v6/.aztec-node/tree`). If it is the same in both, change both pages; if not, change the line that has it. A fix to wording or to a mistake both copies share always goes into both.
+- In a v6 page, snippet and `references:` paths name the line's own files: `docs/lines/v6/examples/...` and `docs/lines/v6/.aztec-node/l1-artifacts/...`. `labs/` paths are the same in both lines and read each line's checkout. While the two pins differ, preprocessing refuses a page that quotes the other line's files.
+- Deploy previews serve the v6 line at `/developers-v6/` and `/operate-v6/`, marked noindex and left out of search, `llms.txt` and the sitemap. Production never builds it.
+- `./bootstrap.sh` checks each line's references and builds its examples (`examples/bootstrap.sh --line v6`). CI also runs each line's Noir tests under TXE (`--line v6 test-contracts`) and its fresh-folder test (`--line v6 test-first-project`). A line's TypeScript examples run against a network only at its release cut.
+- `test-first-project` runs `examples/ts/first_full_project/fresh_folder_test.sh`: it builds the "Your first full project" page's project in an empty folder from the page's own `package.json` and `tsconfig.json` blocks, rendered as the site renders them, and the example's `full` region, then type-checks it. Editing those blocks or that region is what it tests.
+- Migration notes and the operator changelog exist in both lines. A v6.x entry goes into both, since v7 readers upgrade from the latest v6; a v7 entry goes into main only.
+- A v6.x release cut promotes the v6 line into the main paths with `scripts/promote_line.sh` (see the release skills).
+- Retire a line with `git rm -r docs/lines/<line>` after its last release, or once no network runs its major.
+
 ## Docusaurus
 
 This website is built using [Docusaurus 3](https://docusaurus.io/), a modern static website generator.
@@ -50,7 +68,7 @@ Note that you cannot use the macros (`#include_aztec_version` and `#include_code
 The way docs builds work is the following:
 
 - Netlify builds this directory (`netlify.toml`). A push to `next` that changes `docs/` publishes docs.aztec.network about 15 minutes later; a push that changes nothing under `docs/` publishes nothing. A pull request that changes `docs/` gets a deploy preview. See [Publishing](#publishing).
-- Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function and the markdown edge function.
+- Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function, the markdown edge function and the migration notes range edge function (`migration_notes.md?from=&to=`, read from the `migration_notes.json` index the build writes).
 - [The main CI workflow](../.github/workflows/ci3.yml) runs the docs reference and sync checks on every pull request. The docs build and tests (`make docs docs-tests`) run in full CI, for example with the `ci-full` label.
 
 The preprocessing macros use environment variables to determine version numbers. For nightly builds, set `NIGHTLY_TAG` (or `COMMIT_TAG` for backwards compatibility):
@@ -221,13 +239,17 @@ node scripts/aztec_node.mts check            # fail on any drift between the pin
 node scripts/aztec_node.mts pin <tag>        # move the pin to an aztec-node release or nightly tag (needs gh)
 node scripts/aztec_node.mts provision nargo bb cli   # install the pinned nargo, bb and aztec CLI into .aztec-node/
 eval "$(node scripts/aztec_node.mts env)"    # export AZTEC_NODE_DIR, the versions, NARGO, BB and AZTEC
+node scripts/aztec_node.mts --line v6 <command>   # the same for a line, with its own pin and lines/v6/.aztec-node/
+node scripts/aztec_node.mts lines            # list the lines (none in production)
 ```
 
 - `yarn build`, `yarn start` and `./bootstrap.sh` fetch first, so a fresh clone needs nothing else. The checkout is a shallow clone without aztec-node's own `docs/`; `AZTEC_NODE_DIR` moves it elsewhere.
 - `#include_code` and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit (a tag can move; a commit cannot).
 - **Moving the pin:** run `pin <tag>`, then do what `check` asks (usually: set `@aztec-foundation/l1-artifacts` in `package.json` to the pinned `BB_VERSION` and run `yarn install`), and commit `aztec-node.json`, `package.json` and `yarn.lock` together. Snippets whose markers moved fail the build until the pages follow.
 - **Verified nargo:** `pin` needs the GitHub CLI, logged in. It downloads noir's release archive for each platform, has `gh attestation verify` check that noir's `publish-nargo.yml` workflow built it, and records its sha256 in `noirArchives`. `provision nargo` needs no `gh`: it refuses an archive whose sha256 differs from the pin, and a platform the pin has no sha256 for. Never edit `noirArchives` by hand; a mismatch means the release archive changed after the pin.
-- **Release cuts** move the pin to the release tag inside their own worktree, and the snapshot is generated from that; the dev docs keep their pin. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
+- **Which tag:** each line's pin follows its own aztec-node branch: `aztec-node.json` follows `main` (v7 from 2026-11-04), and `lines/<line>/aztec-node.json` follows `<line>`. A line's `pin` installs its l1-artifacts into `lines/<line>/.aztec-node/`, so `package.json` stays as it is, and its `pin` and `check` refuse a tag of another major. After moving a pin, check that the recorded commit is on its branch (from `docs/`): `gh api "repos/aztec-labs-eng/aztec-node/compare/<branch>...<commit>" --jq .status` prints `behind` or `identical`.
+- **Release cuts** move the pins inside their own worktree, and the snapshot is generated from that; the dev docs keep their pins. A v6.x release is cut from its tag on aztec-node's `v6` branch, after `scripts/promote_line.sh` moves the v6 line into the main paths. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
+- **Release notes:** from v6.1.0 the release skills read aztec-node's GitHub release notes for the tags they span. `node scripts/labs_release_notes.mts <from> <to> <outdir>` (needs `gh`) writes each body as `<tag>.md` and an `index.tsv` with each tag's status (`ok`, `empty`, `missing`) and `updated_at`. It takes the published releases and the release and rc tags in `(<from>, <to>]` that `<to>` contains, and does not parse the notes.
 - **Examples** build with the pinned published toolchain against the default checkout, which their Nargo.toml path dependencies name (`../../../.aztec-node/tree/...`), so `AZTEC_NODE_DIR` does not apply to them. The TS examples install `@aztec-labs/*` at the pinned `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION`.
 - Never run nargo inside `docs/` or the checkout: nargo takes `docs/Nargo.toml` as its workspace.
 
@@ -444,7 +466,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
 
 ### `#include_aztec_version`
 
-This macro will be replaced inline with `COMMIT_TAG`: the Labs release tag in a release cut, `next` otherwise. It is an aztec-node (Labs) version, never a ref into this repository; use `#include_foundation_version` for that.
+This macro will be replaced inline with `COMMIT_TAG`: the Labs release tag in a release cut, the pin's `ref` from `aztec-node.json` otherwise. It is an aztec-node (Labs) version, never a ref into this repository and never an `@aztec-foundation/*` version; use `#include_foundation_version` (or `#include_foundation_version_without_prefix`) for those.
 
 Alternatively, you can also use the `AztecPackagesVersion()` js function, which you need to import explicitly:
 
@@ -456,6 +478,10 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 ### `#include_foundation_version`
 
 This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/aztec_node.mts check` holds equal to the pinned aztec-node's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to. `#include_foundation_version_without_prefix` renders the same version without the `v`, as npm wants it.
+
+### `#docs_commit`
+
+This macro will be replaced inline with the commit that `#include_code` snippets from this repository's files link to: `DOCS_COMMIT`, else `HEAD`. Use it for hand-written links into, and clones of, the docs examples (`docs/examples/`, or a line's `docs/lines/<line>/examples/`): `https://github.com/AztecProtocol/aztec-packages/blob/#docs_commit/docs/examples/...`. A line page names its own line's path. Like those snippets, it fails a build whose `RELEASE_TYPE` is set to anything but `nightly` without `DOCS_COMMIT`.
 
 ### `#include_testnet_version`
 
@@ -615,7 +641,9 @@ Documentation pages can declare which source files they document via a `referenc
 
 2. **Validation**: During CI builds (`bootstrap.sh`), the system extracts all referenced paths from documentation frontmatter and fails the build if any of them no longer exist; update the `references` frontmatter in the affected doc.
 
-**Implementation**: The check is `scripts/check_doc_references.sh` (with `scripts/lib/extract_doc_references.sh` for frontmatter parsing), which runs as part of the docs CI pipeline.
+3. **Pin moves**: aztec-node changes reach the docs only when a line's pin moves, so the PR that moves it also updates the pages it reaches. `scripts/pin_doc_references.sh [--line <line>] [<old-commit>]` lists them as `<reference> -> <pages>`: every reference whose files differ between the old pin (by default the line's pin at `git merge-base origin/next HEAD`) and the new one. The `update-doc-references` skill under `.claude/skills/` takes that list.
+
+**Implementation**: The check is `scripts/check_doc_references.sh` (with `scripts/lib/extract_doc_references.sh` for frontmatter parsing), which runs as part of the docs CI pipeline. `scripts/pin_doc_references.sh` uses the same library.
 
 **Path Format**:
 

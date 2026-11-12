@@ -6,7 +6,7 @@ displayed_sidebar: participateSidebar
 
 # Participate in the Aztec Network
 
-Welcome to the Participate section. Here you'll find educational content about how the Aztec network operates, the $AZTEC token, and how governance works.
+Aztec is a decentralized Ethereum L2 where privacy is built into the network, not granted by it. Here you'll find educational content about how the network operates, the $AZTEC token, and how governance works.
 
 :::caution Alpha Network
 Aztec is currently in its **Alpha** phase, a live mainnet where bugs, including critical ones, are expected. Before using the network, read the [Alpha Network](/participate/alpha) page to understand current limitations, security expectations, and what to expect from rollup upgrades.

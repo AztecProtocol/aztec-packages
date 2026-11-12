@@ -2,7 +2,7 @@
 title: "1. The Contract"
 sidebar_position: 1
 description: "Walk through the Pod Racing smart contract, compile it, and deploy and interact with it via a TypeScript script"
-references: ["docs/examples/webapp-tutorial/contracts/src/*", "docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
+references: ["docs/examples/webapp-tutorial/contracts/Nargo.toml", "docs/examples/webapp-tutorial/contracts/src/*", "docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
 ---
 
 # The Contract
@@ -18,21 +18,22 @@ In this section, you walk through the Pod Racing smart contract, compile it, and
 Before looking at code, here is how the contract is structured.
 
 **Storage:**
-- `admin` — the address that deployed the contract
-- `races` — a public map from game ID to `Race` struct (the shared game state)
-- `progress` — a private map storing each player's per-round point allocations as encrypted notes
-- `win_history` — a public map tracking each player's lifetime win count
+- `admin`: the address that deployed the contract
+- `races`: a public map from game ID to `Race` struct (the shared game state)
+- `progress`: a private map storing each player's per-round point allocations as encrypted notes
+- `win_history`: a public map tracking each player's lifetime win count
+- `finalized`: a public map recording which games have been finalized, so a game's winner is credited once
 
 **Game lifecycle:**
-1. `create_game` — player 1 calls this to create a new `Race` in public storage, setting a block deadline
-2. `join_game` — player 2 joins, filling the second slot in the `Race`
-3. `play_round` (private) — each player submits a `GameRoundNote` containing their point allocation for one round; a public follow-up increments the round counter without revealing points
-4. `finish_game` (private) — reads all of your `GameRoundNote`s, sums totals per track, and publishes the aggregated scores publicly
-5. `finalize_game` (public) — compares both players' track totals, declares the winner (best of 5), and updates win history
+1. `create_game`: player 1 calls this to create a new `Race` in public storage, setting a block deadline
+2. `join_game`: player 2 joins, filling the second slot in the `Race`
+3. `play_round` (private): each player submits a `GameRoundNote` containing their point allocation for one round; a public follow-up increments the round counter without revealing points
+4. `finish_game` (private): reads all of your `GameRoundNote`s, sums totals per track, and publishes the aggregated scores publicly
+5. `finalize_game` (public): once both players have revealed, compares their track totals, declares the winner (best of 5), and updates win history, once per game
 
 **Key types:**
-- `GameRoundNote` — a private note storing one round's point allocation (5 track values), the round number, and the owner
-- `Race` — the public game state: both player addresses, round counters, final per-track scores, block deadline, and winner
+- `GameRoundNote`: a private note storing one round's point allocation (5 track values), the round number, and the owner
+- `Race`: the public game state: both player addresses, round counters, final per-track scores, block deadline, and winner
 
 The core design principle is that **private functions** (`play_round`, `finish_game`) hide your strategy, while **public functions** (`create_game`, `join_game`, `finalize_game`) coordinate shared state that both players can see.
 
@@ -40,23 +41,13 @@ The core design principle is that **private functions** (`play_round`, `finish_g
 
 Open `contracts/Nargo.toml`. This configures the Noir compiler for the contract:
 
-```toml
-[package]
-name = "pod_racing_contract"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
-```
+#include_code nargo_toml /docs/examples/webapp-tutorial/contracts/Nargo.toml toml
 
 :::note
-The `aztec` dependency path assumes you're working within the `aztec-node` repository. If you're working outside it, use the git dependency instead:
+The `aztec` path points into the aztec-node checkout that the [clone steps](./index.md#clone-the-example) create. In your own project, use the git dependency instead, with the tag matching your Aztec CLI version:
 ```toml
 aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
 ```
-Replace the tag with your Aztec version.
 :::
 
 ## GameRoundNote
@@ -98,7 +89,7 @@ Open `contracts/src/main.nr`. This is the main contract file that defines the ga
 
 #include_code storage /docs/examples/webapp-tutorial/contracts/src/main.nr rust
 
-The storage maps directly to the overview above: `admin` for the deployer, `races` for game state, `progress` for private round notes, and `win_history` for tracking wins.
+The storage maps directly to the overview above: `admin` for the deployer, `races` for game state, `progress` for private round notes, `win_history` for tracking wins, and `finalized` for games already settled.
 
 ### Creating and joining a game
 
@@ -124,7 +115,7 @@ Another private function. It reads all your `GameRoundNote`s, sums up totals per
 
 #include_code finalize-game /docs/examples/webapp-tutorial/contracts/src/main.nr rust
 
-A public function that compares both players' track totals, declares the winner (best of 5 tracks), and updates the win history. Can only be called after the game's block deadline has passed.
+A public function that compares both players' track totals, declares the winner (best of 5 tracks), and updates the win history. It requires that player 2 has joined, that both players have revealed, and that the game's block deadline has passed. It marks the game as finalized, so a second call fails instead of crediting the winner again.
 
 ## Compile the contract
 

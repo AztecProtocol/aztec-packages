@@ -1,0 +1,74 @@
+.panel {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 var(--ifm-spacing-vertical);
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  background: var(--ifm-color-emphasis-100);
+}
+
+.title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.field select {
+  font: inherit;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  padding: 0.25rem 0.4rem;
+  color: var(--ifm-font-color-base);
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+}
+
+.copy {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.35rem 0.8rem;
+  color: var(--ifm-color-emphasis-800);
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.copy:hover:not(:disabled) {
+  color: var(--ifm-link-color);
+  border-color: var(--ifm-link-color);
+}
+
+.copy:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.open {
+  font-size: 0.85rem;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.note:empty {
+  display: none;
+}

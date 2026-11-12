@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {
@@ -37,27 +38,12 @@ function handle_squash_merge {
   # failure from aborting the merge; squash-pr.sh's single-commit guard prevents looping regardless.
   gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-squash-and-merge" || true
   # Squash the PR commits into one (no-op when the branch is already a single commit).
-  ./scripts/merge-train/squash-pr.sh \
+  ./scripts/squash-pr.sh \
     "${PR_NUMBER}" \
     "${PR_HEAD_REF}" \
     "${PR_BASE_REF}"
   gh pr merge "${PR_NUMBER}" --auto -m || true
   echo "Squash and merge completed"
-}
-
-function handle_benchmarks {
-  if [ "${BENCH_UPLOAD:-0}" -eq 0 ]; then
-    return
-  fi
-  # Handle benchmarks download (internal only)
-  echo "Downloading benchmarks..."
-  if ./ci.sh gh-bench && [ -f "./bench-out/bench.json" ] && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
-    echo "Benchmarks downloaded successfully"
-    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
-  else
-    echo "No benchmarks to upload"
-    echo "BENCH_UPLOAD=0" >> $GITHUB_ENV
-  fi
 }
 
 function handle_chonk_input_update {
@@ -78,7 +64,6 @@ function main {
   fi
   save_cache "${github_repository}"
   handle_squash_merge "${github_repository}"
-  handle_benchmarks
   echo_header "Post-Actions Complete"
 }
 

@@ -51,7 +51,7 @@ You'll create:
 
 ## Prerequisites
 
-- [Aztec local network running at version #include_aztec_version](../../../getting_started_on_local_network.md) (includes Aztec CLI and Node.js v24+)
+- [Aztec local network running at version #include_aztec_version](../../../getting_started_on_local_network.md) (includes the Aztec CLI, and the Node.js version it requires)
 - [Hardhat](https://hardhat.org/getting-started) installed for Solidity compilation and deployment
 - Familiarity with the [Token Bridge tutorial](./token_bridge.md) (recommended)
 - Basic understanding of [cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)
@@ -115,7 +115,10 @@ This template is a community-maintained starter. If the repository is unavailabl
 ```bash
 git clone https://github.com/critesjosh/hardhat-aztec-example
 cd hardhat-aztec-example
+git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
 ```
+
+The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
 
 Before adding dependencies, make the starter install with yarn 4: create the `.yarnrc.yml`, swap `@aztec/l1-contracts` for `@aztec-foundation/l1-artifacts`, point the `postinstall` remappings at the new package, and add the root `remappings.txt`. These are the first three steps of the [Token Bridge tutorial's project setup](./token_bridge.md#project-setup); without them `yarn add` fails on the starter's git dependencies and `npx hardhat compile` cannot resolve the `@aztec/*` imports.
 

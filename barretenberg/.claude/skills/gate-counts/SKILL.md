@@ -157,7 +157,7 @@ still valid. Discard stderr (`2>/dev/null`) to keep output clean.
 - `-t, --verifier_target` — hash/ZK settings. Relevant values:
   `noir-recursive` (poseidon2, ZK; default-ish for recursive noir circuits),
   `noir-rollup` (IPA + poseidon2, ZK — required for rollup circuits),
-  plus `evm`, `starknet`, and `-no-zk` variants of each.
+  plus `evm` and `-no-zk` variants of each.
 - `--include_gates_per_opcode` — adds a per-opcode breakdown.
 
 ## Proof-Size Assertion Failures

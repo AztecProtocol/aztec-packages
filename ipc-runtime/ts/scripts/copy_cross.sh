@@ -7,6 +7,7 @@
 # cpp/CMakePresets.json's amd64-linux / arm64-linux / amd64-macos /
 # arm64-macos presets).
 set -e
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $(dirname $0)/..

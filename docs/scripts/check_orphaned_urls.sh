@@ -8,6 +8,9 @@ set -euo pipefail
 #   (a) the path still resolves to a doc file in the current build, OR
 #   (b) a [[redirects]] rule in netlify.toml matches it.
 #
+# Each docs instance root, and each folder its sidebar autogenerates, serves no
+# page and so is in no sitemap; it is checked the same way.
+#
 # Any URL that satisfies neither is reported as orphaned. This is the inverse
 # of validate_redirect_targets.sh: that script confirms redirect *targets* are
 # valid, this one confirms previously-published URLs are still reachable.
@@ -50,24 +53,9 @@ echo "Checking for orphaned URLs..."
 echo "  Baseline sitemap: $SITEMAP_SOURCE"
 echo "  netlify.toml:     $NETLIFY_TOML"
 
-# Where production serves each docs version, from the map docusaurus.config.js
-# builds its versions from: "<routeBasePath> <path> <version>" per line, "." for
-# the instance root. Cut versions no network reads are served at their name.
-SERVED=$(cd "$DOCS_ROOT" && node -e '
-const fs = require("fs");
-const { docsInstances } = require("./src/network_docs");
-const json = (f, empty) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf-8")) : empty);
-const [developer, operator] = docsInstances(
-  json("developer_version_config.json", {}),
-  json("network_version_config.json", {}),
-  true,
-);
-for (const [instance, versionsFile] of [[developer, "developer_versions.json"], [operator, "network_versions.json"]]) {
-  const mapped = instance.versions.map((v) => v.version);
-  for (const v of instance.versions) console.log(instance.routeBasePath, v.path || ".", v.version);
-  for (const v of json(versionsFile, []).filter((v) => !mapped.includes(v))) console.log(instance.routeBasePath, v, v);
-}
-') || { echo "ERROR: could not read the docs version map" >&2; exit 1; }
+# shellcheck source-path=SCRIPTDIR source=lib/docs_routes.sh
+source "$SCRIPT_DIR/lib/docs_routes.sh"
+docs_routes_init
 
 # Load baseline. Two supported formats:
 #   - XML sitemap (starts with <?xml or contains <urlset)
@@ -104,159 +92,30 @@ fi
 
 echo "  URLs in sitemap:  ${#SITEMAP_URLS[@]}"
 
-# Parse netlify.toml redirect `from` patterns, in declaration order.
-# (Netlify processes redirects top-to-bottom, first match wins.)
-REDIRECT_FROMS=()
-while IFS= read -r line; do REDIRECT_FROMS+=("$line"); done < <(grep -E '^[[:space:]]*from[[:space:]]*=' "$NETLIFY_TOML" \
-  | sed -E 's/^[[:space:]]*from[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+# Read from the literal routeBasePath/sidebarPath of each instance in docusaurus.config.js; the dev
+# lines (computed, preview-only) have neither. A cut version's root is left out:
+# validate_redirect_targets.sh rejects its landing as a target.
+INSTANCE_ROOTS=()
+while read -r base sidebar; do
+  prefix="${base#/}"
+  if [[ -z "$sidebar" ]]; then
+    INSTANCE_ROOTS+=("/$prefix")
+    continue
+  fi
+  while IFS= read -r dir; do INSTANCE_ROOTS+=("/${prefix:+$prefix/}$dir"); done < <(
+    sed -nE 's/^[[:space:]]*dirName:[[:space:]]*"([^"]+)".*/\1/p' "$DOCS_ROOT/$sidebar")
+done < <(awk '
+  match($0, /routeBasePath: "[^"]*"/) { base = substr($0, RSTART + 16, RLENGTH - 17); print base }
+  base != "" && match($0, /sidebarPath: "[^"]*"/) { s = substr($0, RSTART + 14, RLENGTH - 15); sub(/^\.\//, "", s); print base, s; base = "" }
+' "$DOCS_ROOT/docusaurus.config.js")
+if [[ ${#INSTANCE_ROOTS[@]} -eq 0 ]]; then
+  echo "ERROR: no docs instance routeBasePath found in docusaurus.config.js" >&2
+  exit 1
+fi
+echo "  Instance roots:   ${#INSTANCE_ROOTS[@]}"
+SITEMAP_URLS+=("${INSTANCE_ROOTS[@]}")
 
 echo "  Redirect rules:   ${#REDIRECT_FROMS[@]}"
-
-# Convert a netlify `from` pattern into an extended-regex.
-# Netlify supports two path placeholders:
-#   *        — splat, matches any remaining path (including slashes)
-#   :name    — named segment, matches one path segment (no slashes)
-from_to_regex() {
-  local pattern="$1"
-  # Replace :name placeholders with a sentinel that won't collide with regex metachars.
-  pattern=$(echo "$pattern" | sed -E 's@:[A-Za-z_][A-Za-z0-9_]*@\x01@g')
-  # Escape regex metachars except * and our sentinel
-  pattern=$(echo "$pattern" | sed -E 's/[][\\.^$+?{}()|]/\\&/g')
-  pattern="${pattern//\*/.*}"
-  pattern="${pattern//$'\x01'/[^/]+}"
-  # Anchor; permit absent leading slash since some entries omit it
-  if [[ "$pattern" != /* && "$pattern" != \\.* ]]; then
-    pattern="/?$pattern"
-  fi
-  echo "^${pattern}$"
-}
-
-# Pre-compute regexes once
-REDIRECT_REGEXES=()
-for from in "${REDIRECT_FROMS[@]}"; do
-  REDIRECT_REGEXES+=("$(from_to_regex "$from")")
-done
-
-# Note: this only confirms a redirect *rule* matches; it does NOT verify the
-# rule's substituted target itself resolves. A wildcard rule pointing to a
-# missing page will appear as "redirected" here but actually 404 in production.
-# validate_redirect_targets.sh is the complementary check for non-wildcard
-# targets; wildcard targets are not currently validated by either script.
-matches_any_redirect() {
-  local url_path="$1"
-  for re in "${REDIRECT_REGEXES[@]}"; do
-    if [[ "$url_path" =~ $re ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-# Local-file resolution. Mirrors validate_redirect_targets.sh check_file_or_id
-# but trimmed to the path families that appear in the sitemap.
-check_file_or_id() {
-  local base_dir="$1"
-  local sub_path="$2"
-
-  if [[ -z "$sub_path" ]]; then
-    [[ -f "$base_dir/index.md" || -f "$base_dir/index.mdx" ]] && return 0
-    return 1
-  fi
-
-  for ext in md mdx; do
-    [[ -f "$base_dir/${sub_path}.${ext}" ]] && return 0
-  done
-
-  if [[ -d "$base_dir/${sub_path}" ]]; then
-    for ext in md mdx; do
-      [[ -f "$base_dir/${sub_path}/index.${ext}" ]] && return 0
-    done
-  fi
-
-  # Docusaurus number-prefix and id frontmatter fallbacks
-  local parent_dir slug search_dir
-  if [[ "$sub_path" == */* ]]; then
-    parent_dir="${sub_path%/*}"
-    slug="${sub_path##*/}"
-    search_dir="$base_dir/$parent_dir"
-  else
-    parent_dir=""
-    slug="$sub_path"
-    search_dir="$base_dir"
-  fi
-
-  if [[ -d "$search_dir" ]]; then
-    local file file_id name
-    for file in "$search_dir"/*.md "$search_dir"/*.mdx; do
-      [[ -f "$file" ]] || continue
-      # Docusaurus drops a number prefix from the route: 01-the-contract.md serves the-contract.
-      name=${file##*/}
-      if [[ "${name%.*}" =~ ^[0-9]+[-_.](.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
-        return 0
-      fi
-      file_id=$(sed -n '/^---$/,/^---$/{s/^id:[[:space:]]*//p;}' "$file" | head -1)
-      [[ "$file_id" == "$slug" ]] && return 0
-    done
-  fi
-
-  return 1
-}
-
-# Resolves the rest of a /developers or /operate URL against the docs version
-# served at its longest matching path; the root falls back to the source tree
-# when no snapshot is mapped.
-resolves_in_instance() {
-  local base="$1" rest="$2" prefix=developer source=docs-developers
-  [[ "$base" == operate ]] && prefix=network source=docs-operate
-  local b p v root=""
-  while read -r b p v; do
-    [[ "$b" == "$base" ]] || continue
-    if [[ "$p" == . ]]; then
-      root=$v
-    elif [[ "$rest" == "$p" || "$rest" == "$p"/* ]]; then
-      rest=${rest#"$p"}
-      check_file_or_id "$DOCS_ROOT/${prefix}_versioned_docs/version-$v" "${rest#/}"
-      return
-    fi
-  done <<<"$SERVED"
-  if [[ -n "$root" && -d "$DOCS_ROOT/${prefix}_versioned_docs/version-$root" ]]; then
-    check_file_or_id "$DOCS_ROOT/${prefix}_versioned_docs/version-$root" "$rest"
-  else
-    check_file_or_id "$DOCS_ROOT/$source" "$rest"
-  fi
-}
-
-resolves_locally() {
-  local url_path="$1"
-
-  # Strip fragment / trailing slash
-  url_path="${url_path%%#*}"
-  url_path="${url_path%/}"
-  [[ -z "$url_path" ]] && url_path="/"
-
-  if [[ "$url_path" == "/" ]]; then
-    [[ -f "$DOCS_ROOT/docs/index.mdx" || -f "$DOCS_ROOT/docs/index.md" ]] && return 0
-    return 1
-  fi
-
-  local clean="${url_path#/}"
-
-  if [[ "$clean" =~ ^(developers|operate)(/(.*))?$ ]]; then
-    resolves_in_instance "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}"
-    return
-  fi
-  if [[ "$clean" == "participate" ]]; then
-    check_file_or_id "$DOCS_ROOT/docs-participate" "" && return 0
-    return 1
-  fi
-  if [[ "$clean" =~ ^participate/(.*) ]]; then
-    check_file_or_id "$DOCS_ROOT/docs-participate" "${BASH_REMATCH[1]}" && return 0
-    return 1
-  fi
-
-  # Root-level pages (e.g. /aztec_connect_sunset)
-  check_file_or_id "$DOCS_ROOT/docs" "$clean"
-}
 
 # Build ignore regex (alt-pattern)
 IFS=':' read -ra IGNORE_ARR <<< "$IGNORE_PATTERNS"
@@ -305,7 +164,7 @@ echo "  Orphaned:         ${#ORPHANS[@]}"
 
 if [[ ${#ORPHANS[@]} -gt 0 ]]; then
   echo ""
-  echo "Orphaned URLs (published previously but no current route and no redirect):"
+  echo "Orphaned URLs (published previously or an instance root, but no current route and no redirect):"
   for u in "${ORPHANS[@]}"; do
     echo "  - $u"
   done

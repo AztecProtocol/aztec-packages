@@ -4,6 +4,8 @@
 
 const fs = require("fs");
 const path = require("path");
+const { fencedLines } = require("./markdown_fences");
+const { versionLabel } = require("./release_names");
 
 const NETWORKS = ["mainnet", "testnet"];
 
@@ -61,13 +63,158 @@ function docsInstances(developerConfig, networkConfig, production) {
   ];
 }
 
+/**
+ * The Aztec.nr API reference folder (`static/aztec-nr-api/<folder>/`) of each docs version a
+ * network reads. The reference is published per network, so a version uses the first network
+ * that reads it, in NETWORKS order.
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance a docsInstances entry
+ * @returns {Record<string, string>} version → folder
+ */
+const aztecNrApiFolders = (instance) =>
+  Object.fromEntries(
+    instance.versions
+      .filter((v) => v.networks.length)
+      .map((v) => [v.version, v.networks[0]])
+  );
+
+/**
+ * The docs instances of the dev lines (docs/lines/<line>/), built outside production only: each
+ * line's developer and operator pages at /developers-<line> and /operate-<line>, as the docs plugins
+ * `developer-<line>` and `network-<line>` (src/utils/docsLine.mjs reads that id form).
+ *
+ * @param {string[]} lines the line names, like `v6`
+ * @param {boolean} production
+ * @returns {{line: string, id: string, source: string, routeBasePath: string, sidebar: string}[]}
+ *   `source` and `sidebar` are paths under docs/
+ */
+function lineInstances(lines, production) {
+  if (production) return [];
+  return lines.flatMap((line) =>
+    [
+      ["developer", "docs-developers", "developers", "sidebars-developer.js"],
+      ["network", "docs-operate", "operate", "sidebars-operate.js"],
+    ].map(([plugin, source, base, sidebar]) => ({
+      line,
+      id: `${plugin}-${line}`,
+      source: `lines/${line}/${source}`,
+      routeBasePath: `${base}-${line}`,
+      sidebar: `lines/${line}/${sidebar}`,
+    })),
+  );
+}
+
+/**
+ * The Aztec.nr API reference folder a dev line's pages link: the folder of the docs version a
+ * network reads with the line's major.
+ *
+ * @param {Record<string, string>} developerConfig release type → version
+ * @param {number} major the line's major
+ * @returns {string | undefined} undefined when no network runs that major
+ */
+function lineApiFolder(developerConfig, major) {
+  const folders = aztecNrApiFolders(docsInstances(developerConfig, {}, true)[0]);
+  const version = Object.keys(folders).find((v) => v.startsWith(`v${major}.`));
+  return version && folders[version];
+}
+
+/**
+ * Each line's Aztec.nr API reference folder (`lineApiFolder`). Throws for a line no network runs:
+ * another major's reference documents a different API.
+ *
+ * @param {object} developerConfig developer_version_config.json
+ * @param {string[]} lines the line names, like `v6`
+ * @returns {Record<string, string>} line → folder
+ */
+function lineApiFolders(developerConfig, lines) {
+  return Object.fromEntries(
+    lines.map((line) => {
+      const folder = lineApiFolder(developerConfig, Number(line.slice(1)));
+      if (!folder)
+        throw new Error(
+          `no network runs ${line}, so line ${line} has no published API reference: retire the line (git rm -r docs/lines/${line}) or keep a reference for it`,
+        );
+      return [line, folder];
+    }),
+  );
+}
+
+/**
+ * The API reference folder a network's docs link: the one `apiReferenceDirs` serves for the version
+ * that network reads, so networks on one version share it.
+ *
+ * @param {Record<string, string>} developerConfig release type → version
+ * @param {string} network a release type
+ * @returns {string | undefined} undefined for a release type no network maps (nightly, devnet)
+ */
+function networkApiFolder(developerConfig, network) {
+  const version = NETWORKS.includes(network) && developerConfig[network];
+  return version ? aztecNrApiFolders(docsInstances(developerConfig, {}, true)[0])[version] : undefined;
+}
+
+/**
+ * The API reference folders of each docs version a network reads, one per kind, in the folder
+ * aztecNrApiFolders names (the TypeScript reference is published per network the same way).
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @returns {{kind: "aztec-nr" | "typescript", dir: string, folder: string, version: string, networks: string[]}[]}
+ *   `dir` is the folder's path under `static/` and the site root
+ */
+function apiReferenceDirs(instance) {
+  const folders = aztecNrApiFolders(instance);
+  return instance.versions
+    .filter((v) => folders[v.version])
+    .flatMap(({ version, networks }) =>
+      [
+        ["aztec-nr", "aztec-nr-api"],
+        ["typescript", "typescript-api"],
+      ].map(([kind, root]) => ({ kind, dir: `${root}/${folders[version]}`, folder: folders[version], version, networks })),
+    );
+}
+
+// The scoped index append_api_docs_to_llms.js writes into each built API reference folder. It
+// exists only in build/, so checks that read static/ must accept it by name.
+const SCOPED_API_INDEX = "llms.txt";
+
+/**
+ * The apiReferenceDirs entries the build indexes: those whose folder exists under `static/`.
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string} staticDir the docs `static/` directory
+ */
+const builtApiReferenceDirs = (instance, staticDir) =>
+  apiReferenceDirs(instance).filter(({ dir }) => fs.existsSync(path.join(staticDir, dir)));
+
+/**
+ * The scoped indexes the build writes, as paths under the site root (`typescript-api/mainnet/llms.txt`).
+ * append_api_docs_to_llms.js skips a folder with no markdown, so an entry can be missing from
+ * build/; check_agent_readiness.mts fails that build.
+ *
+ * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string} staticDir the docs `static/` directory
+ * @returns {string[]}
+ */
+const scopedApiIndexes = (instance, staticDir) =>
+  builtApiReferenceDirs(instance, staticDir).map(({ dir }) => `${dir}/${SCOPED_API_INDEX}`);
+
 const sectionName = (title, { version, networks }) =>
-  `${title}: ${networks.length ? `${networks.join(" and ")} (${version})` : "unreleased"}`;
+  `${title}: ${networks.length ? `${versionLabel(version)} on ${networks.join(" and ")}` : "unreleased"}`;
+
+/**
+ * The cut versions of an instance that no network reads. Docusaurus serves
+ * them at their version name; they are historical, not current, docs.
+ *
+ * @param {{versions: {version: string}[]}} instance a docsInstances entry
+ * @param {string[]} cutVersions the instance's `*_versions.json`
+ * @returns {string[]}
+ */
+function historicalVersions({ versions }, cutVersions) {
+  return cutVersions.filter((cut) => !versions.some((v) => v.version === cut));
+}
 
 /**
  * llms-txt plugin options for one instance: a section per built version, named
- * for the networks that read it, and every cut version no network reads
- * excluded (Docusaurus serves those at their version name).
+ * for the networks that read it, and every historical version excluded.
  */
 function llmsRoutes(instance, cutVersions) {
   const { routeBasePath, versions } = instance;
@@ -77,9 +224,9 @@ function llmsRoutes(instance, cutVersions) {
       categoryName: sectionName(instance.title, v),
       ...(v.path && { depth: 2 }),
     })),
-    excludeRoutes: cutVersions
-      .filter((cut) => !versions.some((v) => v.version === cut))
-      .map((cut) => `${docsPath(routeBasePath, cut)}/**`),
+    excludeRoutes: historicalVersions(instance, cutVersions).map(
+      (cut) => `${docsPath(routeBasePath, cut)}/**`,
+    ),
   };
 }
 
@@ -118,15 +265,9 @@ function networkLines(instances) {
  * section's H2, so llms.txt keeps a single H1.
  */
 function networkSection(instances, networksPage, siteUrl) {
-  let fence = false;
-  const page = networksPage
-    .trim()
-    .split("\n")
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) fence = !fence;
-      return !fence && /^#{1,4} /.test(line) ? `##${line}` : line;
-    })
-    .join("\n");
+  const lines = networksPage.trim().split("\n");
+  const fenced = fencedLines(lines);
+  const page = lines.map((line, i) => (!fenced[i] && /^#{1,4} /.test(line) ? `##${line}` : line)).join("\n");
   return [
     "## Networks and versions",
     "",
@@ -137,6 +278,69 @@ function networkSection(instances, networksPage, siteUrl) {
     `Node URLs, chain IDs and contract addresses for each network, from [Networks](${siteUrl}/networks):`,
     "",
     page,
+    "",
+  ].join("\n");
+}
+
+// The llms.txt "Start here" entries, one per task in the order a newcomer needs them. `docs` is
+// the instance whose page it is (`page`, its route under the version path, with an optional
+// `query`); `api` an API reference whose scoped llms.txt it is.
+const START_HERE = [
+  { title: "Getting started", task: "install the toolchain and run a local network", docs: "developers", page: "getting_started_on_local_network" },
+  { title: "Aztec.nr", task: "write a contract", docs: "developers", page: "docs/aztec-nr" },
+  { title: "Compiling contracts", task: "compile a contract", docs: "developers", page: "docs/aztec-nr/compiling_contracts" },
+  { title: "Testing contracts", task: "test a contract with `aztec test` (not `nargo test`)", docs: "developers", page: "docs/aztec-nr/testing_contracts" },
+  { title: "aztec.js", task: "call contracts from TypeScript", docs: "developers", page: "docs/aztec-js" },
+  { title: "Connecting to a local network", task: "connect aztec.js to a node", docs: "developers", page: "docs/aztec-js/how_to_connect_to_local_network" },
+  { title: "Deploying contracts", task: "deploy a contract with aztec.js", docs: "developers", page: "docs/aztec-js/how_to_deploy_contract" },
+  { title: "Testing with aztec.js", task: "test an app end to end", docs: "developers", page: "docs/aztec-js/how_to_test" },
+  { title: "Counter contract tutorial", task: "build a first contract end to end", docs: "developers", page: "docs/tutorials/contract_tutorials/counter_contract" },
+  { title: "Getting started on testnet", task: "deploy to testnet", docs: "developers", page: "getting_started_on_testnet" },
+  { title: "Running a full node", task: "run a node", docs: "operate", page: "operators/setup/running_a_node" },
+  { title: "Hardware spec", task: "size a node, sequencer or prover", docs: "operate", page: "operators/concepts/hardware" },
+  { title: "Aztec.nr API reference", task: "look up an Aztec.nr struct, trait or function signature", api: "aztec-nr-api" },
+  { title: "TypeScript API reference", task: "look up an aztec.js, accounts, wallet or PXE class, function or type", api: "typescript-api" },
+  { title: "AI tooling", task: "set up a coding agent for Aztec", docs: "developers", page: "ai_tooling" },
+  {
+    title: "Migration notes for a version range",
+    task: "upgrade a project between versions. Set `from` to the version you are on and `to` to the target (default: the newest release these docs cover; `unreleased` adds notes not yet released). Returns every section after `from` up to and including `to`, oldest first, under a header naming the included versions; a bad range returns 400 with the reason",
+    docs: "developers",
+    page: "docs/resources/migration_notes",
+    query: "from=5.2.0&to=6.0.0",
+  },
+];
+
+/**
+ * The Start here links, each to the docs version the first public network reads (so a preview,
+ * which serves that version at `/operate/alpha`, links there). An API entry is dropped when no
+ * network reads a version.
+ *
+ * @returns {{title: string, task: string, url: string}[]}
+ */
+function startHereLinks(instances, siteUrl) {
+  const read = (instance) => instance.versions.find((v) => v.networks.length);
+  const developer = instances.find((i) => i.routeBasePath === "developers");
+  const folder = read(developer) && aztecNrApiFolders(developer)[read(developer).version];
+  return START_HERE.flatMap(({ title, task, docs, page, query, api }) => {
+    if (api) return folder ? [{ title, task, url: `${siteUrl}/${api}/${folder}/llms.txt` }] : [];
+    const instance = instances.find((i) => i.routeBasePath === docs);
+    const version = read(instance) ?? instance.versions[0];
+    return [{ title, task, url: `${siteUrl}${docsPath(docs, version.path)}/${page}.md${query ? `?${query}` : ""}` }];
+  });
+}
+
+/** The llms.txt "Start here" section: the task links, then which docs each network reads. */
+function startHere(instances, siteUrl) {
+  return [
+    "## Start here",
+    "",
+    "One link per task, to the docs the public networks read. Every docs page is also markdown: append `.md` to its URL.",
+    "",
+    ...startHereLinks(instances, siteUrl).map(({ title, task, url }) => `- [${title}](${url}): ${task}`),
+    "",
+    "Docs per network (node URLs, chain IDs and contract addresses are under Networks and versions, below):",
+    "",
+    ...networkLines(instances),
     "",
   ].join("\n");
 }
@@ -168,4 +372,21 @@ function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
   return config;
 }
 
-module.exports = { docsInstances, llmsRoutes, networkSection, syncVersionsFile };
+module.exports = {
+  SCOPED_API_INDEX,
+  apiReferenceDirs,
+  aztecNrApiFolders,
+  builtApiReferenceDirs,
+  docsInstances,
+  historicalVersions,
+  lineApiFolder,
+  lineApiFolders,
+  lineInstances,
+  llmsRoutes,
+  networkApiFolder,
+  networkSection,
+  scopedApiIndexes,
+  startHere,
+  startHereLinks,
+  syncVersionsFile,
+};

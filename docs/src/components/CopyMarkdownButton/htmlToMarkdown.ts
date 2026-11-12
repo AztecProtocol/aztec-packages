@@ -18,6 +18,7 @@ export function htmlToMarkdown(element: Element): string {
 
     // Skip Docusaurus UI elements
     if (
+      el.hasAttribute('data-copy-skip') ||
       el.classList.contains('hash-link') ||
       el.classList.contains('anchor') ||
       el.classList.contains('table-of-contents') ||

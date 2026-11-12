@@ -41,7 +41,7 @@ pub contract FeeJuice {
         comptime { FunctionSelector::from_signature("balance_of_public((Field))").to_field() };
 
     /// A helper implementing the core L1-to-L2 message claim logic shared by `claim` and `claim_and_end_setup`.
-    /// Computes the expected content hash, consumes the L1-to-L2 message (emitting a nullifier to prevent
+    /// Computes the expected public content hash, consumes the L1-to-L2 message (emitting a nullifier to prevent
     /// double-claiming), and enqueues a public call to `_increase_public_balance` to credit the recipient.
     #[contract_library_method]
     fn claim_helper(
@@ -51,14 +51,14 @@ pub contract FeeJuice {
         secret: Field,
         message_leaf_index: Field,
     ) {
-        let content_hash: Field = get_bridge_gas_msg_hash(to, amount);
+        let public_content_hash: Field = get_bridge_gas_msg_hash(to, amount);
         // The Inbox changes the sender's address to `FEE_JUICE_ADDRESS` if it's from the FeeJuicePortal.
         // This avoids the need to store the L1 address on L2 and prevents friction if the address changes.
         let portal_address: EthAddress = EthAddress::from_field(FEE_JUICE_ADDRESS.to_field());
         assert(!portal_address.is_zero());
 
         // Consume the L1-to-L2 message (verifies existence + emits nullifier to prevent replay).
-        context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
+        context.consume_l1_to_l2_message(public_content_hash, secret, portal_address, message_leaf_index);
 
         // Enqueue a public call to _increase_public_balance to credit the recipient.
         let serialized_params: [Field; 2] = [to.to_field(), amount.to_field()];

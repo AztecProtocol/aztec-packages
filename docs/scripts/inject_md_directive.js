@@ -87,4 +87,6 @@ function main() {
   );
 }
 
-main();
+module.exports = { DIRECTIVE };
+
+if (require.main === module) main();

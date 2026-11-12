@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
-source $ci3/source_refname
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
@@ -138,7 +137,7 @@ function multi_job_run {
   export DENOISE_WIDTH=32
   # Only the first job (the amd64 full build) runs the dedicated bench box and uploads;
   # the rest bench inline as a breakage check (see bootstrap.sh build_and_test). This
-  # de-races grind runs (e.g. merge-queue-heavy fires ~10 instances) that would otherwise
+  # de-races multi-instance runs (e.g. merge-queue, grind) that would otherwise
   # all upload to the same bench cache key.
   local bench_primary=${1%% *}
   export bench_primary
@@ -150,7 +149,7 @@ function multi_job_run {
     # under pipefail and bootstrap_ec2 handles spot-eviction retry internally (exec), so
     # piping through add_timestamps preserves its exit code. DENOISE_DISPLAY_NAME keeps
     # the parent log's "Executing:" line free of the pipe.
-    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 BENCH_UPLOAD=$bench_upload \
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1${INSTANCE_NAME_SUFFIX:-} ARCH=$2 BENCH_UPLOAD=$bench_upload \
       DENOISE_DISPLAY_NAME="bootstrap_ec2 './bootstrap.sh $3'" \
       exec denoise "bootstrap_ec2 './bootstrap.sh $3' 2>&1 | add_timestamps"
   }
@@ -193,7 +192,7 @@ case "$cmd" in
     # set it globally) keeps bootstrap_ec2's exit code through add_timestamps — the
     # launching build instance waits on this fatally.
     ( set -o pipefail
-      AWS_INSTANCE=m6a.metal JOB_ID=x-bench INSTANCE_POSTFIX=x-bench \
+      AWS_INSTANCE=m6a.metal JOB_ID=x-bench INSTANCE_POSTFIX=x-bench${INSTANCE_NAME_SUFFIX:-} \
         bootstrap_ec2 "./bootstrap.sh ci-bench" 2>&1 | add_timestamps )
     ;;
   socket-fix)
@@ -233,21 +232,6 @@ case "$cmd" in
     multi_job_run \
       'x1-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
-    ;;
-  merge-queue-heavy)
-    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan-v5 PRs.
-    multi_job_run \
-      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast'
-    ;;
-  merge-queue-ci)
-    # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
-    export DRY_RUN=1
-    export NO_CACHE=1
-    multi_job_run \
-      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
-      'a1-fast arm64 ci-fast' \
-      "release amd64 ci-release v0.0.1-commit.$(git rev-parse --short HEAD)"
     ;;
   grind-test)
     full_cmd="$1"
@@ -435,10 +419,6 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench)
-    cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
-    ;;
-
   help|"")
     print_usage
     ;;

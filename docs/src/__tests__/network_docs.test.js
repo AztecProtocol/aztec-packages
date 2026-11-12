@@ -3,7 +3,23 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { docsInstances, llmsRoutes, networkSection, syncVersionsFile } = require("../network_docs");
+const {
+  aztecNrApiFolders,
+  docsInstances,
+  historicalVersions,
+  lineApiFolder,
+  lineInstances,
+  llmsRoutes,
+  networkApiFolder,
+  networkSection,
+  startHere,
+  startHereLinks,
+  syncVersionsFile,
+} = require("../network_docs");
+const { llmsSiteUrl } = require("../site_url");
+const { versionLabel } = require("../release_names");
+const { aztecNrApiFolder } = require("../utils/aztecNrApi.mjs");
+const { lineDocsPath, lineNavbarProps } = require("../utils/docsLine.mjs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
@@ -14,11 +30,19 @@ describe("networks on different versions", () => {
   it("labels each version's pages and excludes versions no network reads", () => {
     assert.deepStrictEqual(llmsRoutes(developer, ["v5.2.0", "v6.0.0-rc.3", "v4.2.0"]), {
       routeRules: [
-        { route: "/developers/**", categoryName: "Developer docs: mainnet (v5.2.0)" },
-        { route: "/developers/testnet/**", categoryName: "Developer docs: testnet (v6.0.0-rc.3)", depth: 2 },
+        { route: "/developers/**", categoryName: "Developer docs: v5.2.0 on mainnet" },
+        { route: "/developers/testnet/**", categoryName: "Developer docs: Tierra (v6.0.0-rc.3) on testnet", depth: 2 },
       ],
       excludeRoutes: ["/developers/v4.2.0/**"],
     });
+  });
+
+  it("gives a dev line the API folder of the network on its major, and none without one", () => {
+    assert.deepStrictEqual([5, 6, 7].map((major) => lineApiFolder(split, major)), ["mainnet", "testnet", undefined]);
+  });
+
+  it("names the cut versions no network reads", () => {
+    assert.deepStrictEqual(historicalVersions(developer, ["v5.2.0", "v6.0.0-rc.3", "v4.2.0"]), ["v4.2.0"]);
   });
 
   it("states each network's version and docs paths", () => {
@@ -40,7 +64,7 @@ describe("networks on one version", () => {
 
   it("lists the shared docs once", () => {
     assert.deepStrictEqual(llmsRoutes(developer, ["v6.0.0", "v5.2.0"]), {
-      routeRules: [{ route: "/developers/**", categoryName: "Developer docs: mainnet and testnet (v6.0.0)" }],
+      routeRules: [{ route: "/developers/**", categoryName: "Developer docs: Tierra (v6.0.0) on mainnet and testnet" }],
       excludeRoutes: ["/developers/v5.2.0/**"],
     });
     const lines = networkSection([developer, operator], "", "https://x").match(/^- .*/gm);
@@ -56,11 +80,132 @@ describe("outside production", () => {
     assert.deepStrictEqual(
       llmsRoutes(operator, ["v5.2.0", "v6.0.0-rc.3"]).routeRules.map((r) => [r.route, r.categoryName]),
       [
-        ["/operate/alpha/**", "Operator docs: mainnet (v5.2.0)"],
-        ["/operate/testnet/**", "Operator docs: testnet (v6.0.0-rc.3)"],
+        ["/operate/alpha/**", "Operator docs: v5.2.0 on mainnet"],
+        ["/operate/testnet/**", "Operator docs: Tierra (v6.0.0-rc.3) on testnet"],
         ["/operate/**", "Operator docs: unreleased"],
       ],
     );
+  });
+});
+
+describe("Aztec.nr API folders", () => {
+  it("map each version a network reads to that network's folder, mainnet first", () => {
+    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(shared, shared, true)[0]), { "v6.0.0": "mainnet" });
+    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(split, split, true)[0]), {
+      "v5.2.0": "mainnet",
+      "v6.0.0-rc.3": "testnet",
+    });
+  });
+
+  it("give each network the folder of its version, shared when the networks share one", () => {
+    const folders = (config) => ["mainnet", "testnet", "devnet"].map((type) => networkApiFolder(config, type));
+    assert.deepStrictEqual(folders(shared), ["mainnet", "mainnet", undefined]);
+    assert.deepStrictEqual(folders(split), ["mainnet", "testnet", undefined]);
+  });
+
+  it("send the API page of every released version to a folder that exists, whatever its label", () => {
+    const config = require("../../developer_version_config.json");
+    const [developer] = docsInstances(config, config, true);
+    const folders = aztecNrApiFolders(developer);
+    for (const { version } of developer.versions) {
+      const folder = aztecNrApiFolder({ name: version, label: versionLabel(version) }, folders);
+      const index = path.join(__dirname, "../../static/aztec-nr-api", folder, "noir_aztec/index.html");
+      assert.ok(fs.existsSync(index), `${version} links into aztec-nr-api/${folder}/, which does not exist`);
+    }
+  });
+});
+
+describe("dev lines", () => {
+  it("serve each line's developer and operator pages under their own base outside production only", () => {
+    assert.deepStrictEqual(lineInstances(["v6"], true), []);
+    assert.deepStrictEqual(lineInstances(["v6"], false), [
+      { line: "v6", id: "developer-v6", source: "lines/v6/docs-developers", routeBasePath: "developers-v6", sidebar: "lines/v6/sidebars-developer.js" },
+      { line: "v6", id: "network-v6", source: "lines/v6/docs-operate", routeBasePath: "operate-v6", sidebar: "lines/v6/sidebars-operate.js" },
+    ]);
+  });
+
+  it("send a line's API page to its line's folder, and every other page where it went before", () => {
+    const folders = { "v6.0.0": "mainnet" };
+    const lines = { v6: "mainnet" };
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer-v6", lines), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer", lines), "next");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders, "developer", lines), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders), "mainnet");
+  });
+
+  it("move a line's navigation into the dev docs onto the line, and nothing else", () => {
+    assert.strictEqual(lineDocsPath("/developers/docs/aztec-js", "v6"), "/developers-v6/docs/aztec-js");
+    assert.strictEqual(lineDocsPath("/operate", "v6"), "/operate-v6");
+    for (const p of ["/developers-v6/overview", "/developersx", "/networks", "/participate/x", "https://example.com/developers/x"])
+      assert.strictEqual(lineDocsPath(p, "v6"), p);
+  });
+
+  it("point a line's navbar items at the line, a dropdown's children before the dropdown sees them", () => {
+    assert.deepStrictEqual(lineNavbarProps({ type: "docSidebar", docsPluginId: "developer", sidebarId: "sidebar" }, "v6"), {
+      type: "docSidebar",
+      docsPluginId: "developer-v6",
+      sidebarId: "sidebar",
+    });
+    const participate = { type: "doc", docsPluginId: "participate", docId: "index" };
+    assert.deepStrictEqual(lineNavbarProps(participate, "v6"), participate);
+    const resources = {
+      type: "dropdown",
+      items: [
+        { type: "html", value: "<span>Other Docs</span>" },
+        { to: "/developers/ai_tooling", label: "AI Tooling" },
+        { to: "https://github.com/AztecProtocol/aztec-starter", label: "Aztec Starter repo" },
+      ],
+    };
+    assert.deepStrictEqual(lineNavbarProps(resources, "v6").items, [
+      resources.items[0],
+      { to: "/developers-v6/ai_tooling", label: "AI Tooling" },
+      resources.items[2],
+    ]);
+  });
+});
+
+describe("Start here", () => {
+  const urls = (production, siteUrl) =>
+    Object.fromEntries(startHereLinks(docsInstances(shared, shared, production), siteUrl).map((l) => [l.title, l.url]));
+
+  it("links the version production serves at each root", () => {
+    const links = urls(true, "https://docs.aztec.network");
+    assert.strictEqual(links["Running a full node"], "https://docs.aztec.network/operate/operators/setup/running_a_node.md");
+    assert.strictEqual(links["Testing contracts"], "https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts.md");
+    assert.strictEqual(links["Aztec.nr API reference"], "https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt");
+    assert.strictEqual(
+      links["Migration notes for a version range"],
+      "https://docs.aztec.network/developers/docs/resources/migration_notes.md?from=5.2.0&to=6.0.0",
+    );
+  });
+
+  it("follows a preview's host and layout, where the networks' operator docs are at /operate/alpha", () => {
+    const siteUrl = llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "https://preview.example/" });
+    const links = urls(false, siteUrl);
+    assert.strictEqual(links["Running a full node"], "https://preview.example/operate/alpha/operators/setup/running_a_node.md");
+    assert.strictEqual(links["Getting started"], "https://preview.example/developers/getting_started_on_local_network.md");
+  });
+
+  it("drops the API entries when no network reads a version", () => {
+    assert.strictEqual(urls(true, "https://x")["TypeScript API reference"], "https://x/typescript-api/mainnet/llms.txt");
+    const none = startHereLinks(docsInstances({}, {}, false), "https://x").map((l) => l.title);
+    assert.ok(!none.includes("Aztec.nr API reference") && none.includes("Getting started"));
+  });
+
+  it("renders one link line per entry and the docs each network reads", () => {
+    const section = startHere(docsInstances(shared, shared, true), "https://x");
+    assert.match(section, /^## Start here\n/);
+    assert.match(section, /^- \[Testing contracts\]\(https:\/\/x\/developers\/docs\/aztec-nr\/testing_contracts\.md\): test a contract with `aztec test`/m);
+    assert.match(section, /^- \*\*mainnet and testnet\*\*: developer docs v6\.0\.0 at `\/developers\/`/m);
+  });
+});
+
+describe("llmsSiteUrl", () => {
+  it("uses the deploy URL only in a deploy preview that has one", () => {
+    assert.strictEqual(llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "https://p.example" }), "https://p.example");
+    assert.strictEqual(llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "" }), "https://docs.aztec.network");
+    assert.strictEqual(llmsSiteUrl({ CONTEXT: "production", DEPLOY_PRIME_URL: "https://p.example" }), "https://docs.aztec.network");
+    assert.strictEqual(llmsSiteUrl({}), "https://docs.aztec.network");
   });
 });
 

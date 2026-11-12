@@ -29,7 +29,7 @@ For each issue number provided:
 
 Work through each confirmed issue **sequentially** in the main checkout:
 
-1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `next` using the issue's `gitBranchName` from Linear (or the component's merge train, see CLAUDE.md). For a fix scoped to the v5 release line, branch from `v5-next` instead.
+1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `next` using the issue's `gitBranchName` from Linear. For a fix scoped to the v5 release line, branch from `v5-next` instead.
    ```
    git stash
    git checkout -B <gitBranchName> origin/next

@@ -3,6 +3,7 @@ set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source "$root/ci3/source"
 source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
