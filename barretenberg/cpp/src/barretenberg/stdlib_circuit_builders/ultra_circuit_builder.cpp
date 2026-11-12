@@ -13,15 +13,37 @@
 #include "barretenberg/honk/execution_trace/generated/mega_execution_trace_generated.hpp"
 #include "barretenberg/honk/execution_trace/generated/mega_kernel_execution_trace_generated.hpp"
 #include "barretenberg/honk/execution_trace/generated/mega_zk_execution_trace_generated.hpp"
+#include "bounded_range_sort.hpp"
 #include "rom_ram_logic.hpp"
+#include <type_traits>
 
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include <bit>
 #include <execution>
+#include <limits>
+#include <numeric>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace bb {
+
+namespace {
+// A small integer as a compile-time field element. Writing the integer where a field element is expected converts it
+// to Montgomery form, a field multiplication, every time the line runs.
+template <typename FF, int value> constexpr FF fe_constant = FF(value);
+
+// The sorted values of a range list are written to their new variables in chunks of at least this many values: a
+// value is a 32-byte copy, so smaller chunks would not repay a parallel dispatch.
+constexpr size_t SORTED_VALUES_MIN_CHUNK = size_t{ 1 } << 15;
+// The entries of a range list are resolved to real variables, and the values read, in chunks of at least this many
+// entries: each entry is a scattered read, so a chunk of this size outweighs a parallel dispatch.
+constexpr size_t RANGE_LIST_MIN_CHUNK = size_t{ 1 } << 13;
+// A range list is deduplicated through a bitmap over all variables when the bitmap has at most this many 64-bit words
+// per list entry, as scanning a word costs far less than an entry's share of a comparison sort; sparser lists are
+// sorted. Both give the same sorted set of real indices.
+constexpr size_t BITMAP_MAX_WORDS_PER_LIST_ENTRY = 16;
+} // namespace
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit()
 {
@@ -113,7 +135,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
                           .a_scaling = in.a_scaling,
                           .b_scaling = in.b_scaling,
                           .c_scaling = in.c_scaling,
-                          .d_scaling = 0,
+                          .d_scaling = fe_constant<FF, 0>,
                           .const_scaling = in.const_scaling });
 }
 
@@ -133,15 +155,16 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     // If include_next_gate_w_4 is true then we set q_arith = 2. In this case, the linear term in the ArithmeticRelation
     // is scaled by a factor of 2. We compensate here by scaling the quadratic term by 2 to achieve the constraint:
     //      2 * [q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c + w_4_shift] = 0
-    const FF mul_scaling = include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling;
-    blocks.arithmetic.template append_gate<GateKind::Arith>({ .wires = { in.a, in.b, in.c, in.d },
-                                                              .q_m = mul_scaling,
-                                                              .q_c = in.const_scaling,
-                                                              .q_1 = in.a_scaling,
-                                                              .q_2 = in.b_scaling,
-                                                              .q_3 = in.c_scaling,
-                                                              .q_4 = in.d_scaling,
-                                                              .gate_value = include_next_gate_w_4 ? 2 : 1 });
+    const FF mul_scaling = include_next_gate_w_4 ? in.mul_scaling * fe_constant<FF, 2> : in.mul_scaling;
+    blocks.arithmetic.template append_gate<GateKind::Arith>(
+        { .wires = { in.a, in.b, in.c, in.d },
+          .q_m = mul_scaling,
+          .q_c = in.const_scaling,
+          .q_1 = in.a_scaling,
+          .q_2 = in.b_scaling,
+          .q_3 = in.c_scaling,
+          .q_4 = in.d_scaling,
+          .gate_value = include_next_gate_w_4 ? fe_constant<FF, 2> : fe_constant<FF, 1> });
     this->increment_num_gates();
 }
 
@@ -158,13 +181,14 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
                                                                const bool include_next_gate_w_4)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.arithmetic.template append_gate<GateKind::Arith>({ .wires = { in.a, in.b, in.c, in.d },
-                                                              .q_c = in.const_scaling,
-                                                              .q_1 = in.a_scaling,
-                                                              .q_2 = in.b_scaling,
-                                                              .q_3 = in.c_scaling,
-                                                              .q_4 = in.d_scaling,
-                                                              .gate_value = include_next_gate_w_4 ? 2 : 1 });
+    blocks.arithmetic.template append_gate<GateKind::Arith>(
+        { .wires = { in.a, in.b, in.c, in.d },
+          .q_c = in.const_scaling,
+          .q_1 = in.a_scaling,
+          .q_2 = in.b_scaling,
+          .q_3 = in.c_scaling,
+          .q_4 = in.d_scaling,
+          .gate_value = include_next_gate_w_4 ? fe_constant<FF, 2> : fe_constant<FF, 1> });
     this->increment_num_gates();
 }
 
@@ -200,8 +224,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bilinear_batched_eq_gate(const
         row.q_2 = in.q_r;
         row.q_3 = in.q_o;
         row.q_4 = in.q_4;
-        row.q_5 = in.mode == BilinearBatchedEqMode::Bilinear ? in.q_5 : FF(0);
-        row.gate_value = in.mode == BilinearBatchedEqMode::Bilinear ? 1 : 2;
+        row.q_5 = in.mode == BilinearBatchedEqMode::Bilinear ? in.q_5 : fe_constant<FF, 0>;
+        row.gate_value = in.mode == BilinearBatchedEqMode::Bilinear ? fe_constant<FF, 1> : fe_constant<FF, 2>;
         block_for_row.template append_gate<GateKind::BilinearBatchedEq>(row);
     }
     this->increment_num_gates();
@@ -219,9 +243,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
 
     blocks.arithmetic.template append_gate<GateKind::Arith>(
         { .wires = { variable_index, variable_index, this->zero_idx(), this->zero_idx() },
-          .q_m = 1,
-          .q_1 = -1,
-          .gate_value = 1 });
+          .q_m = fe_constant<FF, 1>,
+          .q_1 = fe_constant<FF, -1>,
+          .gate_value = fe_constant<FF, 1> });
     this->increment_num_gates();
 }
 
@@ -242,7 +266,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
                                                               .q_1 = in.q_l,
                                                               .q_2 = in.q_r,
                                                               .q_3 = in.q_o,
-                                                              .gate_value = 1 });
+                                                              .gate_value = fe_constant<FF, 1> });
     this->increment_num_gates();
 }
 
@@ -272,7 +296,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
 
     // Convert bool to field element for the relation: +1 for addition, -1 for subtraction
     // The elliptic curve relation assumes q_sign² = 1 (see elliptic_relation.hpp)
-    const FF q_sign = in.is_addition ? FF(1) : FF(-1);
+    const FF q_sign = in.is_addition ? fe_constant<FF, 1> : fe_constant<FF, -1>;
 
     // Determine whether we can fuse this addition operation into the previous gate in the block
     bool can_fuse_into_previous_gate =
@@ -281,15 +305,16 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
 
     if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, q_sign);                            // set q_sign of previous gate
-        block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, 1); // set q_ecc of previous gate to 1
+        // set q_sign and q_ecc = 1 on the previous gate
+        block.q_1().set(block.size() - 1, q_sign);
+        block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, fe_constant<FF, 1>);
     } else {
         {
             auto& block_for_row = block;
             GateRowT row{};
             row.wires = { this->zero_idx(), in.x1, in.y1, this->zero_idx() };
             row.q_1 = q_sign;
-            row.gate_value = 1;
+            row.gate_value = fe_constant<FF, 1>;
             block_for_row.template append_gate<GateKind::Elliptic>(row);
         }
         this->increment_num_gates();
@@ -330,15 +355,16 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 
     // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {
-        block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, 1); // set q_ecc of previous gate to 1
-        block.q_m().set(block.size() - 1, 1); // set q_m (q_is_double) of previous gate to 1
+        // set q_ecc = 1 and q_m (q_is_double) = 1 on the previous gate
+        block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, fe_constant<FF, 1>);
+        block.q_m().set(block.size() - 1, fe_constant<FF, 1>);
     } else {
         {
             auto& block_for_row = block;
             GateRowT row{};
             row.wires = { this->zero_idx(), in.x1, in.y1, this->zero_idx() };
-            row.q_m = 1;
-            row.gate_value = 1;
+            row.q_m = fe_constant<FF, 1>;
+            row.gate_value = fe_constant<FF, 1>;
             block_for_row.template append_gate<GateKind::Elliptic>(row);
         }
         this->increment_num_gates();
@@ -364,8 +390,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.template append_gate<GateKind::Arith>(
         { .wires = { witness_index, this->zero_idx(), this->zero_idx(), this->zero_idx() },
           .q_c = -witness_value,
-          .q_1 = 1,
-          .gate_value = 1 });
+          .q_1 = fe_constant<FF, 1>,
+          .gate_value = fe_constant<FF, 1> });
     this->increment_num_gates();
 }
 
@@ -459,7 +485,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::append_lookup_gate(const uint32_t key
         auto& block_for_row = blocks.lookup;
         GateRowT row{};
         row.wires = { key_idx, val1_idx, val2_idx, this->zero_idx() };
-        row.gate_value = 1;
+        row.gate_value = fe_constant<FF, 1>;
         row.q_m = column_2_step_size;
         row.q_c = column_3_step_size;
         row.q_2 = column_1_step_size;
@@ -538,9 +564,9 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         read_data[ColumnIdx::C3].push_back(third_idx);
 
         // Step size coefficients: zero for last lookup (no next accumulator), negative step sizes otherwise
-        const FF col1_step = is_last_lookup ? FF(0) : -multi_table.column_1_step_sizes[i + 1];
-        const FF col2_step = is_last_lookup ? FF(0) : -multi_table.column_2_step_sizes[i + 1];
-        const FF col3_step = is_last_lookup ? FF(0) : -multi_table.column_3_step_sizes[i + 1];
+        const FF col1_step = is_last_lookup ? fe_constant<FF, 0> : -multi_table.column_1_step_sizes[i + 1];
+        const FF col2_step = is_last_lookup ? fe_constant<FF, 0> : -multi_table.column_2_step_sizes[i + 1];
+        const FF col3_step = is_last_lookup ? fe_constant<FF, 0> : -multi_table.column_3_step_sizes[i + 1];
 
         append_lookup_gate(first_idx,
                            second_idx,
@@ -601,7 +627,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     BB_ASSERT_GT(num_bits, 0U);
     BB_ASSERT_GTE(MAX_NUM_BITS_RANGE_CONSTRAINT, num_bits);
 
-    uint256_t val = (uint256_t)(this->get_variable(variable_index));
+    const uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
     // If the value is out of range, set the CircuitBuilder error to the given msg.
     if (val.get_msb() >= num_bits && !this->failed()) {
@@ -611,32 +637,42 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     // compute limb structure
     const uint64_t sublimb_mask = (1ULL << target_range_bitnum) - 1;
 
-    std::vector<uint64_t> sublimbs;
-    std::vector<uint32_t> sublimb_indices;
-
     const bool has_remainder_bits = (num_bits % target_range_bitnum != 0);
     const uint64_t num_limbs = (num_bits / target_range_bitnum) + has_remainder_bits;
     const uint64_t last_limb_size = num_bits - ((num_bits / target_range_bitnum) * target_range_bitnum);
     const uint64_t last_limb_range = ((uint64_t)1 << last_limb_size) - 1;
 
-    // extract limbs from the value
-    uint256_t accumulator = val;
-    for (size_t i = 0; i < num_limbs; ++i) {
-        sublimbs.push_back(accumulator.data[0] & sublimb_mask);
-        accumulator = accumulator >> target_range_bitnum;
-    }
+    // Limb j holds bits [j * target_range_bitnum, (j + 1) * target_range_bitnum) of the value; the full sublimb mask
+    // also applies to the remainder limb, whose smaller range is enforced by its range constraint.
+    const auto limb_value = [&](const uint64_t j) {
+        const uint64_t shift = j * target_range_bitnum;
+        const uint64_t word = shift / 64;
+        const uint64_t offset = shift % 64;
+        if (word >= 4) {
+            return uint64_t{ 0 };
+        }
+        uint64_t bits = val.data[word] >> offset;
+        if (offset != 0 && word + 1 < 4) {
+            bits |= val.data[word + 1] << (64 - offset);
+        }
+        return bits & sublimb_mask;
+    };
+
     // set the correct range constraint on each limb. note that when there are remainder bits, the last limb must be
     // constrained to a smaller range.
-    const size_t num_full_limbs = has_remainder_bits ? sublimbs.size() - 1 : sublimbs.size();
-    for (size_t i = 0; i < num_full_limbs; ++i) {
-        const auto limb_idx = this->add_variable(bb::fr(sublimbs[i]));
+    std::vector<uint32_t> sublimb_indices;
+    sublimb_indices.reserve(num_limbs);
+    RangeList* list = nullptr;
+    for (uint64_t j = 0; j < num_limbs; ++j) {
+        const uint64_t sublimb = limb_value(j);
+        const bool is_remainder_limb = has_remainder_bits && (j == num_limbs - 1);
+        const auto limb_idx = this->add_variable(bb::fr(sublimb));
         sublimb_indices.emplace_back(limb_idx);
-        create_small_range_constraint(limb_idx, sublimb_mask);
-    }
-    if (has_remainder_bits) {
-        const auto limb_idx = this->add_variable(bb::fr(sublimbs.back()));
-        sublimb_indices.emplace_back(limb_idx);
-        create_small_range_constraint(limb_idx, last_limb_range);
+        register_new_variable_range_constraint(limb_idx,
+                                               is_remainder_limb ? last_limb_range : sublimb_mask,
+                                               sublimb,
+                                               list,
+                                               "create_small_range_constraint");
     }
 
     // Prove that the limbs reconstruct the original value by processing limbs in groups of 3.
@@ -648,7 +684,21 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     // `leftovers` is the number of real limbs in the final triple (1, 2, or 3).
     const uint64_t leftovers = (num_limbs % 3) == 0 ? 3 : (num_limbs % 3);
 
-    accumulator = val;
+    // The gate scalings FF(uint256_t(1) << shift) for the limb positions of the default limb size, so that the common
+    // case does not convert them to Montgomery form on every call (see fe_constant).
+    static constexpr size_t MAX_DEFAULT_LIMBS =
+        (MAX_NUM_BITS_RANGE_CONSTRAINT + DEFAULT_PLOOKUP_RANGE_BITNUM - 1) / DEFAULT_PLOOKUP_RANGE_BITNUM;
+    static constexpr size_t NUM_DEFAULT_SCALINGS = 3 * ((MAX_DEFAULT_LIMBS + 2) / 3);
+    static constexpr std::array<FF, NUM_DEFAULT_SCALINGS> DEFAULT_SCALINGS = [] {
+        std::array<FF, NUM_DEFAULT_SCALINGS> scalings{};
+        for (size_t k = 0; k < NUM_DEFAULT_SCALINGS; ++k) {
+            scalings[k] = FF(uint256_t(1) << (DEFAULT_PLOOKUP_RANGE_BITNUM * k));
+        }
+        return scalings;
+    }();
+    const bool use_default_scalings =
+        (target_range_bitnum == DEFAULT_PLOOKUP_RANGE_BITNUM) && (3 * num_limb_triples <= NUM_DEFAULT_SCALINGS);
+
     uint32_t accumulator_idx = variable_index;
     // loop goes from `i = 0` to `num_limb_triples`, but some special case must be taken for the last triple (`i ==
     // num_limb_triples - 1`), hence some conditional logic.
@@ -661,12 +711,6 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
             !(i == (num_limb_triples - 1) && (leftovers < 3)),
         };
 
-        // The witness values of the 3 limbs in this triple (0 for padding positions).
-        const uint64_t round_sublimbs[3]{
-            real_limbs[0] ? sublimbs[3 * i] : 0,
-            real_limbs[1] ? sublimbs[3 * i + 1] : 0,
-            real_limbs[2] ? sublimbs[3 * i + 2] : 0,
-        };
         // The witnesss indices of the current 3 limbs (zero_idx for padding positions).
         const uint32_t new_limbs[3]{
             real_limbs[0] ? sublimb_indices[3 * i] : this->zero_idx(),
@@ -679,16 +723,14 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
             target_range_bitnum * (3 * i + 1),
             target_range_bitnum * (3 * i + 2),
         };
-        // Compute the new accumulator after subtracting this triple's contribution.
-        // After the final iteration, accumulator should be 0.
-        uint256_t new_accumulator = accumulator - (uint256_t(round_sublimbs[0]) << shifts[0]) -
-                                    (uint256_t(round_sublimbs[1]) << shifts[1]) -
-                                    (uint256_t(round_sublimbs[2]) << shifts[2]);
+        const auto scaling = [&](const size_t k) {
+            return use_default_scalings ? DEFAULT_SCALINGS[(3 * i) + k] : FF(uint256_t(1) << shifts[k]);
+        };
 
         // This `big_add_gate` has differing behavior depending on whether or not `i == num_limb_triples - 1`.
         // If `i != num_limb_triples - 1`, then the constraint will be limb[0]*2^shift[0] + limb[1]*2^shift[1] +
         // limb[2]*2^shift[2] - acc = new_accumulator (the last argument to `create_big_add_gate` is `true`, means the
-        // sum is w_4-shift, which will be the witness corresponding to what is currently `new_accumulator`.).
+        // sum is w_4-shift, which will be the witness corresponding to the new accumulator.).
         // If `i == num_limb_triples - 1`, then the last argument to `create_big_add_gate` is false, so the constraint
         // is limb[0]*2^shift[0] + limb[1]*2^shift[1] + limb[2]*2^shift[2] - acc = 0.
         //
@@ -701,16 +743,17 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
                 new_limbs[1],
                 new_limbs[2],
                 accumulator_idx,
-                uint256_t(1) << shifts[0],
-                uint256_t(1) << shifts[1],
-                uint256_t(1) << shifts[2],
-                -1,
-                0,
+                scaling(0),
+                scaling(1),
+                scaling(2),
+                fe_constant<FF, -1>,
+                fe_constant<FF, 0>,
             },
             (i != num_limb_triples - 1));
         if (i != num_limb_triples - 1) {
-            accumulator_idx = this->add_variable(fr(new_accumulator));
-            accumulator = new_accumulator;
+            // The accumulator after subtracting limbs 0..3i+2 is the value with those limbs' bits cleared.
+            const uint64_t consumed_bits = target_range_bitnum * (3 * i + 3);
+            accumulator_idx = this->add_variable(fr((val >> consumed_bits) << consumed_bits));
         }
     }
     return sublimb_indices;
@@ -721,19 +764,33 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
                                                                          const uint64_t target_range,
                                                                          std::string_view msg)
 {
-    // make sure `target_range` is not too big.
+    register_small_range_constraint(variable_index, target_range, RangeWitnessValue{}, msg);
+}
+
+template <typename ExecutionTrace>
+template <typename ValueSource>
+void UltraCircuitBuilder_<ExecutionTrace>::register_small_range_constraint(const uint32_t variable_index,
+                                                                           const uint64_t target_range,
+                                                                           ValueSource value_source,
+                                                                           std::string_view msg)
+{
+    // Keep the original public check in this body so its field temporaries do not span another helper call.
     BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
-    const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
+    const bool is_out_of_range = [&] {
+        if constexpr (std::is_same_v<ValueSource, RangeWitnessValue>) {
+            return uint256_t(this->get_variable(variable_index)).data[0] > target_range;
+        } else {
+            static_assert(std::is_same_v<ValueSource, uint64_t>);
+            return value_source > target_range;
+        }
+    }();
     if (is_out_of_range && !this->failed()) {
         this->failure(std::string(msg));
     }
-    if (range_lists.count(target_range) == 0) {
-        range_lists.insert({ target_range, create_range_list(target_range) });
-    }
+    auto& list = get_or_create_range_list(target_range);
     // The tag of `variable_index` is `DEFAULT_TAG` if it has never been range-constrained and a non-trivial value
     // otherwise.
     const auto existing_tag = this->real_variable_tags[this->real_variable_index[variable_index]];
-    auto& list = range_lists[target_range];
 
     // If the variable's tag matches the target range list's tag, do nothing; the variable has _already_ been
     // constrained to this exact range (i.e., `create_new_range_constraint(variable_index, target_range)` has already
@@ -781,7 +838,46 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
     BB_ASSERT(found_tag);
 }
 
+template <typename ExecutionTrace>
+typename UltraCircuitBuilder_<ExecutionTrace>::RangeList& UltraCircuitBuilder_<
+    ExecutionTrace>::get_or_create_range_list(const uint64_t target_range)
+{
+    auto list_it = range_lists.find(target_range);
+    if (list_it == range_lists.end()) {
+        list_it = range_lists.emplace(target_range, create_range_list(target_range)).first;
+    }
+    return list_it->second;
+}
+
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::register_new_variable_range_constraint(const uint32_t variable_index,
+                                                                                  const uint64_t target_range,
+                                                                                  const uint64_t value,
+                                                                                  RangeList*& list,
+                                                                                  std::string_view msg)
+{
+    BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
+    if (value > target_range && !this->failed()) {
+        this->failure(std::string(msg));
+    }
+    // std::map does not relocate its elements, so the cached list stays valid while other lists are inserted.
+    if (list == nullptr || list->target_range != target_range) {
+        list = &get_or_create_range_list(target_range);
+    }
+    BB_ASSERT_DEBUG(this->real_variable_index[variable_index] == variable_index);
+    BB_ASSERT_DEBUG(this->real_variable_tags[variable_index] == DEFAULT_TAG);
+    this->real_variable_tags[variable_index] = list->range_tag;
+    list->variable_indices.emplace_back(variable_index);
+}
+
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)
+{
+    VariableBitmap real_variables;
+    process_range_list(list, real_variables);
+}
+
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list, VariableBitmap& real_variables)
 {
     this->assert_valid_variables(list.variable_indices);
 
@@ -789,58 +885,181 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
     // replace witness-index in variable_indices with the corresponding real-variable-index i.e., if a copy constraint
     // has been applied on a variable after it was range constrained, this makes sure the indices in list point to the
-    // updated index in the range list so the set equivalence does not fail
-    for (uint32_t& x : list.variable_indices) {
-        x = this->real_variable_index[x];
-    }
-    // Sort `variable_indices` and remove duplicate witness indices to prevent the sorted list set size being wrong!
-    std::sort(list.variable_indices.begin(), list.variable_indices.end());
-    auto back_iterator = std::unique(list.variable_indices.begin(), list.variable_indices.end());
-    list.variable_indices.erase(back_iterator, list.variable_indices.end());
-
-    // Extract the values of each (real) variable into a list to be sorted (in the sense of the range/plookup-style
-    // argument).
+    // updated index in the range list so the set equivalence does not fail. The real indices are sorted and
+    // deduplicated, to prevent the sorted list set size being wrong, and the value of each (real) variable is extracted
+    // into a list to be sorted (in the sense of the range/plookup-style argument).
+    std::vector<uint32_t>& variable_indices = list.variable_indices;
+    const size_t list_size = variable_indices.size();
+    const auto list_chunks = range_sort::Chunks::of_min_size(list_size, RANGE_LIST_MIN_CHUNK);
+    const uint256_t target_range(list.target_range);
     std::vector<uint32_t> sorted_list;
-    sorted_list.reserve(list.variable_indices.size());
-    for (const auto variable_index : list.variable_indices) {
-        // note that `field_element` is < 32 bits as the corresponding witness has a non-trivial range-constraint.
-        const auto& field_element = this->get_variable(variable_index);
-        const uint32_t shrinked_value = static_cast<uint32_t>(field_element);
-        sorted_list.emplace_back(shrinked_value);
-    }
+    std::vector<uint8_t> chunk_values_in_range;
+    // Writes the value of a real variable to sorted_list[position]; returns whether it lies in the range.
+    const auto extract_value = [&](const size_t position, const uint32_t variable_index) {
+        // note that the value is < 32 bits as the corresponding witness has a non-trivial range-constraint. Convert
+        // once, then validate the full value.
+        const auto native_value = static_cast<uint256_t>(this->get_variable(variable_index));
+        sorted_list[position] = static_cast<uint32_t>(native_value.data[0]);
+        return native_value <= target_range;
+    };
 
+    const size_t num_variables = this->get_num_variables();
+    const size_t num_words = (num_variables + 63) / 64;
+    if (num_words > BITMAP_MAX_WORDS_PER_LIST_ENTRY * list_size) {
+        list_chunks.run([&](size_t /*chunk*/, const size_t begin, const size_t end) {
+            for (size_t i = begin; i < end; ++i) {
+                variable_indices[i] = this->real_variable_index[variable_indices[i]];
+            }
+        });
+        std::sort(variable_indices.begin(), variable_indices.end());
+        auto back_iterator = std::unique(variable_indices.begin(), variable_indices.end());
+        variable_indices.erase(back_iterator, variable_indices.end());
+
+        sorted_list.resize(variable_indices.size());
+        const auto value_chunks = range_sort::Chunks::of_min_size(variable_indices.size(), RANGE_LIST_MIN_CHUNK);
+        chunk_values_in_range.assign(value_chunks.count(), 1);
+        value_chunks.run([&](const size_t chunk, const size_t begin, const size_t end) {
+            bool in_range = true;
+            for (size_t i = begin; i < end; ++i) {
+                const bool value_in_range = extract_value(i, variable_indices[i]);
+                in_range = in_range && value_in_range;
+            }
+            chunk_values_in_range[chunk] = static_cast<uint8_t>(in_range);
+        });
+    } else {
+        // Mark the real indices in the bitmap, then read the set bits back in increasing order: the sorted,
+        // deduplicated real indices.
+        if (real_variables.size() < num_words) {
+            VariableBitmap(num_words).swap(real_variables);
+        }
+        std::vector<uint32_t> chunk_lowest(list_chunks.count(), std::numeric_limits<uint32_t>::max());
+        std::vector<uint32_t> chunk_highest(list_chunks.count(), 0);
+        list_chunks.run([&](const size_t chunk, const size_t begin, const size_t end) {
+            uint32_t lowest = std::numeric_limits<uint32_t>::max();
+            uint32_t highest = 0;
+            // Bits of consecutive entries in the same word are set with one atomic operation.
+            size_t word = 0;
+            uint64_t bits = 0;
+            for (size_t i = begin; i < end; ++i) {
+                const uint32_t real_index = this->real_variable_index[variable_indices[i]];
+                BB_ASSERT_DEBUG(real_index < num_variables);
+                lowest = std::min(lowest, real_index);
+                highest = std::max(highest, real_index);
+                if ((real_index >> 6) != word) {
+                    if (bits != 0) {
+                        real_variables[word].fetch_or(bits, std::memory_order_relaxed);
+                    }
+                    word = real_index >> 6;
+                    bits = 0;
+                }
+                bits |= uint64_t{ 1 } << (real_index & 63);
+            }
+            if (bits != 0) {
+                real_variables[word].fetch_or(bits, std::memory_order_relaxed);
+            }
+            chunk_lowest[chunk] = lowest;
+            chunk_highest[chunk] = highest;
+        });
+        const size_t first_word = *std::ranges::min_element(chunk_lowest) >> 6;
+        const size_t num_list_words = (*std::ranges::max_element(chunk_highest) >> 6) + 1 - first_word;
+        const auto word_chunks = range_sort::Chunks::with_count(num_list_words, list_chunks.count());
+        // chunk_offsets[c] is the position in the deduplicated list of the first real index in word chunk c.
+        std::vector<size_t> chunk_offsets(word_chunks.count() + 1, 0);
+        word_chunks.run([&](const size_t chunk, const size_t begin, const size_t end) {
+            size_t count = 0;
+            for (size_t w = first_word + begin; w < first_word + end; ++w) {
+                count += static_cast<size_t>(std::popcount(real_variables[w].load(std::memory_order_relaxed)));
+            }
+            chunk_offsets[chunk + 1] = count;
+        });
+        std::partial_sum(chunk_offsets.begin(), chunk_offsets.end(), chunk_offsets.begin());
+        const size_t num_real_variables = chunk_offsets.back();
+
+        sorted_list.resize(num_real_variables);
+        chunk_values_in_range.assign(word_chunks.count(), 1);
+        word_chunks.run([&](const size_t chunk, const size_t begin, const size_t end) {
+            size_t position = chunk_offsets[chunk];
+            bool in_range = true;
+            for (size_t w = first_word + begin; w < first_word + end; ++w) {
+                uint64_t bits = real_variables[w].load(std::memory_order_relaxed);
+                real_variables[w].store(0, std::memory_order_relaxed);
+                while (bits != 0) {
+                    const auto real_index =
+                        static_cast<uint32_t>((w << 6) + static_cast<size_t>(std::countr_zero(bits)));
+                    bits &= bits - 1;
+                    variable_indices[position] = real_index;
+                    const bool value_in_range = extract_value(position, real_index);
+                    in_range = in_range && value_in_range;
+                    ++position;
+                }
+            }
+            chunk_values_in_range[chunk] = static_cast<uint8_t>(in_range);
+        });
+        variable_indices.resize(num_real_variables);
+    }
+    const bool values_in_range =
+        std::ranges::all_of(chunk_values_in_range, [](const uint8_t in_range) { return in_range != 0; });
+
+    if (!values_in_range || !range_sort::try_counting_sort(sorted_list, list.target_range)) {
 #ifdef NO_PAR_ALGOS
-    std::sort(sorted_list.begin(), sorted_list.end());
+        std::sort(sorted_list.begin(), sorted_list.end());
 #else
-    std::sort(std::execution::par_unseq, sorted_list.begin(), sorted_list.end());
+        std::sort(std::execution::par_unseq, sorted_list.begin(), sorted_list.end());
 #endif
+    }
     // list must be padded to a multipe of 4 and larger than 4 (gate_width)
     constexpr size_t gate_width = NUM_WIRES;
-    size_t padding = (gate_width - (list.variable_indices.size() % gate_width)) % gate_width;
-
-    std::vector<uint32_t> indices;
-    indices.reserve(padding + sorted_list.size());
-
-    if (list.variable_indices.size() <= gate_width) {
+    const size_t num_values = sorted_list.size();
+    size_t padding = (gate_width - (num_values % gate_width)) % gate_width;
+    if (num_values <= gate_width) {
         padding += gate_width;
     }
-    for (size_t i = 0; i < padding; ++i) {
-        indices.emplace_back(this->zero_idx());
-    }
-    // tag the elements in the sorted_list to apply the multiset-equality check implicit in range-constraints.
-    for (const auto sorted_value : sorted_list) {
-        const uint32_t index = this->add_variable(fr(sorted_value));
-        assign_tag(index, list.tau_tag);
-        indices.emplace_back(index);
-    }
+    // tag the elements in the sorted_list to apply the multiset-equality check implicit in range-constraints: one new
+    // variable per sorted value, in order, each its own real variable carrying the tau tag. Equal values are adjacent
+    // in the sorted list, so each run within a chunk converts its value to a field element once.
+    const uint32_t first_sorted_index =
+        this->add_tagged_variables(num_values, list.tau_tag, [&](const std::span<FF> values) {
+            range_sort::Chunks::of_min_size(num_values, SORTED_VALUES_MIN_CHUNK)
+                .run([&](size_t /*chunk*/, const size_t begin, const size_t end) {
+                    if (begin == end) {
+                        return;
+                    }
+                    uint32_t run_value = sorted_list[begin];
+                    FF run_element(run_value);
+                    for (size_t i = begin; i < end; ++i) {
+                        if (sorted_list[i] != run_value) {
+                            run_value = sorted_list[i];
+                            run_element = FF(run_value);
+                        }
+                        values[i] = run_element;
+                    }
+                });
+        });
+    std::vector<uint32_t> indices(padding + num_values);
+    std::fill_n(indices.begin(), padding, this->zero_idx());
+    std::iota(indices.begin() + static_cast<std::ptrdiff_t>(padding), indices.end(), first_sorted_index);
     // constrain the _sorted_ list: starts at 0, ends at `target_range`, consecutive differences in {0, 1, 2, 3}.
     create_sort_constraint_with_edges(indices, 0, list.target_range);
 }
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_lists()
 {
+    VariableBitmap real_variables;
     for (auto& i : range_lists) {
-        process_range_list(i.second);
+        process_range_list(i.second, real_variables);
+    }
+}
+
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::append_delta_range_rows(const std::vector<uint32_t>& variable_indices)
+{
+    // The rows differ only in their wires.
+    GateRowT row{};
+    row.gate_value = fe_constant<FF, 1>;
+    for (size_t i = 0; i < variable_indices.size(); i += NUM_WIRES) {
+        this->increment_num_gates();
+        row.wires = { variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3] };
+        blocks.delta_range.template append_gate<GateKind::DeltaRange>(row);
     }
 }
 
@@ -851,19 +1070,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::enforce_small_deltas(const std::vecto
     BB_ASSERT_EQ(variable_indices.size() % gate_width, 0U);
     this->assert_valid_variables(variable_indices);
 
-    for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
-
-        this->increment_num_gates();
-        {
-            auto& block_for_row = blocks.delta_range;
-            GateRowT row{};
-            row.wires = {
-                variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]
-            };
-            row.gate_value = 1;
-            block_for_row.template append_gate<GateKind::DeltaRange>(row);
-        }
-    }
+    append_delta_range_rows(variable_indices);
     // dummy gate needed because of widget's check of next row
     create_unconstrained_gate(blocks.delta_range,
                               variable_indices[variable_indices.size() - 1],
@@ -910,19 +1117,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
 
     // enforce delta range relation for all rows (there are `variabe_indices.size() / gate_width`). note that there are
     // at least two rows.
-    for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
-
-        this->increment_num_gates();
-        {
-            auto& block_for_row = block;
-            GateRowT row{};
-            row.wires = {
-                variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]
-            };
-            row.gate_value = 1;
-            block_for_row.template append_gate<GateKind::DeltaRange>(row);
-        }
-    }
+    append_delta_range_rows(variable_indices);
 
     // the delta_range constraint has to have access to w_1-shift (it checks that w_1-shift - w_4 is in {0, 1, 2, 3}).
     // Therefore, we repeat the last element in an unconstrained gate.
@@ -963,15 +1158,15 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
     requires(ExecutionTrace::has_gate_kind(GateKind::Memory))
 {
     GateRowT row{};
-    row.gate_value = type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1;
+    row.gate_value = type == MEMORY_SELECTORS::MEM_NONE ? fe_constant<FF, 0> : fe_constant<FF, 1>;
     switch (type) {
     case MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK: {
         // Memory read gate used with the sorted list of memory reads.
         // Apply sorted memory read checks with the following additional check:
         // 1. Assert that if index field across two gates does not change, the value field does not change.
         // Used for ROM reads and RAM reads across write/read boundaries
-        row.q_1 = 1;
-        row.q_2 = 1;
+        row.q_1 = fe_constant<FF, 1>;
+        row.q_2 = fe_constant<FF, 1>;
         break;
     }
     case MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK: {
@@ -980,22 +1175,22 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
         // 2. Validate record computation (r = read_write_flag + index * \eta + \timestamp * \eta^2 + value * \eta^3)
         // 3. If adjacent index values across 2 gates does not change, and the next gate's read_write_flag is set to
         // 'read', validate adjacent values do not change Used for ROM reads and RAM reads across read/write boundaries
-        row.q_3 = 1;
+        row.q_3 = fe_constant<FF, 1>;
         break;
     }
     case MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK: {
         // For two adjacent RAM entries that share the same index, validate the timestamp value is monotonically
         // increasing
-        row.q_1 = 1;
-        row.q_4 = 1;
+        row.q_1 = fe_constant<FF, 1>;
+        row.q_4 = fe_constant<FF, 1>;
         break;
     }
     case MEMORY_SELECTORS::ROM_READ: {
         // Memory read gate for reading memory cells. Also used for the _initialization_ of ROM memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        row.q_1 = 1;
-        row.q_m = 1; // validate record witness is correctly computed
+        row.q_1 = fe_constant<FF, 1>;
+        row.q_m = fe_constant<FF, 1>; // validate record witness is correctly computed
         // read/write flag stored in q_c
         break;
     }
@@ -1003,8 +1198,8 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        row.q_1 = 1;
-        row.q_m = 1; // validate record witness is correctly computed
+        row.q_1 = fe_constant<FF, 1>;
+        row.q_m = fe_constant<FF, 1>; // validate record witness is correctly computed
         // read/write flag stored in q_c
         break;
     }
@@ -1012,9 +1207,9 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
         // Memory read gate for writing memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        row.q_1 = 1;
-        row.q_m = 1; // validate record witness is correctly computed
-        row.q_c = 1; // read/write flag stored in q_c
+        row.q_1 = fe_constant<FF, 1>;
+        row.q_m = fe_constant<FF, 1>; // validate record witness is correctly computed
+        row.q_c = fe_constant<FF, 1>; // read/write flag stored in q_c
         break;
     }
     case MEMORY_SELECTORS::ROM_LOGUP_TABLE: {
@@ -1022,7 +1217,7 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
         // (index, value, multiplicity, inverse) and contributes -m_i * inv to the LogUp sum.
         // Pattern: q_2 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
         // the q_memory-gated context (ROM_CONSISTENCY_CHECK shares q_2 but also sets q_1).
-        row.q_2 = 1;
+        row.q_2 = fe_constant<FF, 1>;
         break;
     }
     case MEMORY_SELECTORS::ROM_LOGUP_READ: {
@@ -1030,7 +1225,7 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
         // (index, value, +1, inverse) and contributes +inv to the LogUp sum.
         // Pattern: q_4 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
         // the q_memory-gated context (RAM_TIMESTAMP_CHECK shares q_4 but also sets q_1).
-        row.q_4 = 1;
+        row.q_4 = fe_constant<FF, 1>;
         break;
     }
     default: {
@@ -1069,31 +1264,31 @@ typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<Exe
     requires(ExecutionTrace::has_gate_kind(GateKind::Nnf))
 {
     GateRowT row{};
-    row.gate_value = type == NNF_SELECTORS::NNF_NONE ? 0 : 1;
+    row.gate_value = type == NNF_SELECTORS::NNF_NONE ? fe_constant<FF, 0> : fe_constant<FF, 1>;
     switch (type) {
     case NNF_SELECTORS::LIMB_ACCUMULATE_1: {
-        row.q_3 = 1;
-        row.q_4 = 1;
+        row.q_3 = fe_constant<FF, 1>;
+        row.q_4 = fe_constant<FF, 1>;
         break;
     }
     case NNF_SELECTORS::LIMB_ACCUMULATE_2: {
-        row.q_3 = 1;
-        row.q_m = 1;
+        row.q_3 = fe_constant<FF, 1>;
+        row.q_m = fe_constant<FF, 1>;
         break;
     }
     case NNF_SELECTORS::NON_NATIVE_FIELD_1: {
-        row.q_2 = 1;
-        row.q_3 = 1;
+        row.q_2 = fe_constant<FF, 1>;
+        row.q_3 = fe_constant<FF, 1>;
         break;
     }
     case NNF_SELECTORS::NON_NATIVE_FIELD_2: {
-        row.q_2 = 1;
-        row.q_4 = 1;
+        row.q_2 = fe_constant<FF, 1>;
+        row.q_4 = fe_constant<FF, 1>;
         break;
     }
     case NNF_SELECTORS::NON_NATIVE_FIELD_3: {
-        row.q_2 = 1;
-        row.q_m = 1;
+        row.q_2 = fe_constant<FF, 1>;
+        row.q_m = fe_constant<FF, 1>;
         break;
     }
     default: {
@@ -1127,32 +1322,38 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // If the value is larger than the range, we log the error in builder
-    const bool is_lo_out_of_range = (uint256_t(this->get_variable(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
+    const uint256_t lo_limb(this->get_variable(lo_idx));
+    const bool is_lo_out_of_range = (lo_limb >= (uint256_t(1) << lo_limb_bits));
     if (is_lo_out_of_range && !this->failed()) {
         this->failure(std::string(msg) + ": lo limb.");
     }
-    const bool is_hi_out_of_range = (uint256_t(this->get_variable(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
+    const uint256_t hi_limb(this->get_variable(hi_idx));
+    const bool is_hi_out_of_range = (hi_limb >= (uint256_t(1) << hi_limb_bits));
     if (is_hi_out_of_range && !this->failed()) {
         this->failure(std::string(msg) + ": hi limb.");
     }
 
+    // The five 14-bit sublimbs (bits [14k, 14k + 14)) of the low 70 bits of a limb. We can use the constant 2^14 - 1
+    // mask here: if a sublimb value exceeds its expected range, the witness fails the range check below.
+    const auto get_sublimb_values = [](const uint256_t& limb) {
+        constexpr uint64_t MAX_SUBLIMB_MASK = (1ULL << 14) - 1;
+        const uint64_t low = limb.data[0];
+        const uint64_t high = limb.data[1];
+        return std::array<uint64_t, 5>{ low & MAX_SUBLIMB_MASK,
+                                        (low >> 14) & MAX_SUBLIMB_MASK,
+                                        (low >> 28) & MAX_SUBLIMB_MASK,
+                                        (low >> 42) & MAX_SUBLIMB_MASK,
+                                        ((low >> 56) | (high << 8)) & MAX_SUBLIMB_MASK };
+    };
+
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
-    const auto get_sublimbs = [&](const uint32_t& limb_idx, const std::array<uint64_t, 5>& sublimb_masks) {
-        const uint256_t limb = this->get_variable(limb_idx);
-        // we can use constant 2^14 - 1 mask here. If the sublimb value exceeds the expected value then witness will
-        // fail the range check below
-        // We also use zero_idx to substitute variables that should be zero
-        constexpr uint256_t MAX_SUBLIMB_MASK = (uint256_t(1) << 14) - 1;
+    // We also use zero_idx to substitute variables that should be zero
+    const auto get_sublimbs = [&](const std::array<uint64_t, 5>& sublimb_values,
+                                  const std::array<uint64_t, 5>& sublimb_masks) {
         std::array<uint32_t, 5> sublimb_indices;
-        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(fr(limb & MAX_SUBLIMB_MASK)) : this->zero_idx();
-        sublimb_indices[1] =
-            sublimb_masks[1] != 0 ? this->add_variable(fr((limb >> 14) & MAX_SUBLIMB_MASK)) : this->zero_idx();
-        sublimb_indices[2] =
-            sublimb_masks[2] != 0 ? this->add_variable(fr((limb >> 28) & MAX_SUBLIMB_MASK)) : this->zero_idx();
-        sublimb_indices[3] =
-            sublimb_masks[3] != 0 ? this->add_variable(fr((limb >> 42) & MAX_SUBLIMB_MASK)) : this->zero_idx();
-        sublimb_indices[4] =
-            sublimb_masks[4] != 0 ? this->add_variable(fr((limb >> 56) & MAX_SUBLIMB_MASK)) : this->zero_idx();
+        for (size_t i = 0; i < 5; ++i) {
+            sublimb_indices[i] = sublimb_masks[i] != 0 ? this->add_variable(fr(sublimb_values[i])) : this->zero_idx();
+        }
         return sublimb_indices;
     };
 
@@ -1172,8 +1373,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 
     const auto lo_masks = get_limb_masks(lo_limb_bits);
     const auto hi_masks = get_limb_masks(hi_limb_bits);
-    const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
-    const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
+    const std::array<uint64_t, 5> lo_values = get_sublimb_values(lo_limb);
+    const std::array<uint64_t, 5> hi_values = get_sublimb_values(hi_limb);
+    const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_values, lo_masks);
+    const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_values, hi_masks);
 
     {
         auto row = nnf_selectors_row(NNF_SELECTORS::LIMB_ACCUMULATE_1);
@@ -1192,14 +1395,15 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     }
     this->increment_num_gates(3);
 
+    RangeList* list = nullptr;
     for (size_t i = 0; i < 5; i++) {
         if (lo_masks[i] != 0) {
-            create_small_range_constraint(
-                lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
+            register_new_variable_range_constraint(
+                lo_sublimbs[i], lo_masks[i], lo_values[i], list, "ultra_circuit_builder: sublimb of low too large");
         }
         if (hi_masks[i] != 0) {
-            create_small_range_constraint(
-                hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
+            register_new_variable_range_constraint(
+                hi_sublimbs[i], hi_masks[i], hi_values[i], list, "ultra_circuit_builder: sublimb of hi too large");
         }
     }
 };
@@ -1245,6 +1449,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     constexpr FF LIMB_RSHIFT = FF(1) / FF(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT_2 = FF(1) / FF(uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
+    constexpr FF MINUS_LIMB_SHIFT = -LIMB_SHIFT;
+    constexpr FF MINUS_LIMB_SHIFT_SQR = -LIMB_SHIFT.sqr();
 
     // lo_0 = (a0·b0 - r0) + (a1·b0 + a0·b1)·2^L
     FF lo_0 = (a0 * b0 - r0) + (a1 * b0 + a0 * b1) * LIMB_SHIFT;
@@ -1278,9 +1484,9 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                           lo_1_idx,
                           input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
                           input.neg_modulus[0] * LIMB_SHIFT,
-                          -LIMB_SHIFT,
-                          -LIMB_SHIFT.sqr(),
-                          0 },
+                          MINUS_LIMB_SHIFT,
+                          MINUS_LIMB_SHIFT_SQR,
+                          fe_constant<FF, 0> },
                         /*include_next_gate_w_4*/ true);
     // Gate 2: unconstrained gate to provide lo_0 via w_4_shift for gate 1
     create_unconstrained_gate(blocks.arithmetic, this->zero_idx(), this->zero_idx(), this->zero_idx(), lo_0_idx);
@@ -1367,9 +1573,9 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
             hi_1_idx,
             -input.neg_modulus[1] * LIMB_SHIFT - input.neg_modulus[0],
             -input.neg_modulus[0] * LIMB_SHIFT,
-            -1,
-            -1,
-            0,
+            fe_constant<FF, -1>,
+            fe_constant<FF, -1>,
+            fe_constant<FF, 0>,
         },
         /*include_next_gate_w_4*/ true);
 
@@ -1383,11 +1589,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         input.q[0],
         input.q[1],
         hi_2_idx,
-        -1,
+        fe_constant<FF, -1>,
         input.neg_modulus[3] * LIMB_RSHIFT + input.neg_modulus[2] * LIMB_RSHIFT_2,
         input.neg_modulus[2] * LIMB_RSHIFT + input.neg_modulus[1] * LIMB_RSHIFT_2,
         LIMB_RSHIFT_2,
-        0,
+        fe_constant<FF, 0>,
     });
 
     return std::array<uint32_t, 2>{ lo_1_idx, hi_3_idx };
@@ -1571,7 +1777,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
     // also scale each linear term by this factor of 2 so that the constraint is effectively:
     //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
-    const FF linear_term_scale_factor = 2;
+    constexpr FF linear_term_scale_factor = fe_constant<FF, 2>;
     {
         auto& block_for_row = block;
         GateRowT row{};
@@ -1580,7 +1786,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst0 * linear_term_scale_factor;
         row.q_2 = -x_mulconst0 * linear_term_scale_factor;
         row.q_3 = -y_mulconst0 * linear_term_scale_factor;
-        row.gate_value = 3;
+        row.gate_value = fe_constant<FF, 3>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1591,7 +1797,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst1;
         row.q_2 = -x_mulconst1;
         row.q_3 = -y_mulconst1;
-        row.gate_value = 2;
+        row.gate_value = fe_constant<FF, 2>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1602,8 +1808,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst2;
         row.q_1 = -x_mulconst2;
         row.q_2 = -y_mulconst2;
-        row.q_3 = 1;
-        row.gate_value = 1;
+        row.q_3 = fe_constant<FF, 1>;
+        row.gate_value = fe_constant<FF, 1>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1614,8 +1820,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst3;
         row.q_1 = -x_mulconst3;
         row.q_2 = -y_mulconst3;
-        row.q_3 = 1;
-        row.gate_value = 1;
+        row.q_3 = fe_constant<FF, 1>;
+        row.gate_value = fe_constant<FF, 1>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1705,7 +1911,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
     // also scale each linear term by this factor of 2 so that the constraint is effectively:
     //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
-    const FF linear_term_scale_factor = 2;
+    constexpr FF linear_term_scale_factor = fe_constant<FF, 2>;
     {
         auto& block_for_row = block;
         GateRowT row{};
@@ -1714,7 +1920,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst0 * linear_term_scale_factor;
         row.q_2 = -x_mulconst0 * linear_term_scale_factor;
         row.q_3 = y_mulconst0 * linear_term_scale_factor;
-        row.gate_value = 3;
+        row.gate_value = fe_constant<FF, 3>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1725,7 +1931,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst1;
         row.q_2 = -x_mulconst1;
         row.q_3 = y_mulconst1;
-        row.gate_value = 2;
+        row.gate_value = fe_constant<FF, 2>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1736,8 +1942,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst2;
         row.q_1 = -x_mulconst2;
         row.q_2 = y_mulconst2;
-        row.q_3 = 1;
-        row.gate_value = 1;
+        row.q_3 = fe_constant<FF, 1>;
+        row.gate_value = fe_constant<FF, 1>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1748,8 +1954,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         row.q_c = -addconst3;
         row.q_1 = -x_mulconst3;
         row.q_2 = y_mulconst3;
-        row.q_3 = 1;
-        row.gate_value = 1;
+        row.q_3 = fe_constant<FF, 1>;
+        row.gate_value = fe_constant<FF, 1>;
         block_for_row.template append_gate<GateKind::Arith>(row);
     }
 
@@ -1908,7 +2114,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
               .q_2 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1],
               .q_3 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2],
               .q_4 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3],
-              .gate_value = 1 });
+              .gate_value = fe_constant<FF, 1> });
         this->increment_num_gates();
     } else {
         throw_or_abort("create_poseidon2_external_gate base is Ultra-only (Mega overrides into its poseidon2 block)");
@@ -1929,7 +2135,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
             GateRowT row{};
             row.wires = { in.a, in.b, in.c, in.d };
             row.q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0];
-            row.gate_value = 1;
+            row.gate_value = fe_constant<FF, 1>;
             block_for_row.template append_gate<GateKind::Poseidon2Int>(row);
         }
         this->increment_num_gates();

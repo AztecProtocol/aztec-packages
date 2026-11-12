@@ -7,6 +7,7 @@
 
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
+#include <atomic>
 #include <deque>
 #include <optional>
 #include <unordered_set>
@@ -196,6 +197,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         UltraCircuitBuilderData::cached_partial_non_native_field_multiplication;
 
   private:
+    // One registration body for arbitrary witnesses and exact native sub-limbs. The empty source tag
+    // lets the public entry point delegate without preparing field temporaries or native-value arguments.
+    struct RangeWitnessValue {};
+    template <typename ValueSource>
+    void register_small_range_constraint(uint32_t variable_index,
+                                         uint64_t target_range,
+                                         ValueSource value_source,
+                                         std::string_view msg);
+
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     void append_lookup_gate(uint32_t key_idx,
                             uint32_t val1_idx,
@@ -207,6 +217,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                             const FF& column_2_step_size,
                             const FF& column_3_step_size)
         requires(ExecutionTrace::has_gate_kind(GateKind::Lookup));
+    RangeList& get_or_create_range_list(uint64_t target_range);
+    void register_new_variable_range_constraint(
+        uint32_t variable_index, uint64_t target_range, uint64_t value, RangeList*& list, std::string_view msg);
     std::deque<plookup::BasicTable> lookup_tables;
 
   public:
@@ -602,6 +615,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void process_range_list(RangeList& list);
     void process_range_lists();
 
+  private:
+    // One bit per variable; every bit is clear between range lists.
+    using VariableBitmap = std::vector<std::atomic<uint64_t>>;
+    // process_range_list with a bitmap that is kept, all clear, for the next list.
+    void process_range_list(RangeList& list, VariableBitmap& real_variables);
+    // One delta-range row per `NUM_WIRES` consecutive entries of `variable_indices`.
+    void append_delta_range_rows(const std::vector<uint32_t>& variable_indices);
+
+  public:
     /**
      * Custom Gate Selectors
      **/
