@@ -109,7 +109,7 @@
     to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
-    from = "guides/getting_started"
+    from = "/guides/getting_started"
     to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
@@ -141,8 +141,8 @@
     to = "/aztec_connect_sunset"
 
 [[redirects]]
-    from= "zk-money/userguide"
-    to= "/aztec_connect_sunset"
+    from = "/zk-money/userguide"
+    to = "/aztec_connect_sunset"
 
 [[redirects]]
     from = "/compliance"
