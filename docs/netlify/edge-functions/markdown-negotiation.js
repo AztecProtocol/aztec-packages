@@ -19,7 +19,7 @@ function toMarkdownPath(pathname) {
   return `${p}.md`;
 }
 
-export default async (request, context) => {
+export default async (request, _context) => {
   const accept = request.headers.get("accept") || "";
   if (!prefersMarkdown(accept)) return;
 

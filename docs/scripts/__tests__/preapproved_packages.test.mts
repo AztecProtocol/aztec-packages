@@ -19,6 +19,7 @@ const lines = ["", ...fs.readdirSync(path.join(docs, "lines")).map((l) => `lines
 // The entries of each npmPreapprovedPackages in a page's YAML blocks or a .yarnrc.yml: a one-line
 // list, or the `- …` items under the key, without YAML comments. A list in another form reads as one
 // UNREAD entry, which fails the check rather than escaping it.
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function preapprovals(text: string): string[] {
   const scalar = (raw: string) => {
     const quoted = raw.trim().match(/^(["'])(.*?)\1\s*(#.*)?$/);
@@ -103,6 +104,7 @@ test("the reader takes every form of the list and flags one it cannot read", () 
   assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*" # day one`), ["@aztec-labs/*@undefined"]);
   assert.deepEqual(read(`"npmPreapprovedPackages": ["@aztec-labs/*"]`), ["@aztec-labs/*@undefined"]);
   assert.deepEqual(read(`npmAuditExcludePackages:\n  - &first "@aztec-labs/*"\nnpmPreapprovedPackages:\n  - *first`), ["unread"]);
+  // biome-ignore lint/suspicious/noShadowRestrictedNames: baselined 2026-11-12: a local name that shadows the global on purpose
   for (const escape of [`: [\n  "@aztec-labs/*",\n]`, `:\n  [\n    "@aztec-labs/*"\n  ]`, `:\n  - >-\n    @aztec-labs/*`])
     assert.ok(read(`npmPreapprovedPackages${escape}\nnext: 1`).includes("unread"), escape);
 });

@@ -3,11 +3,14 @@
 
 const { themes } = require("prism-react-renderer");
 
+// biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 import math from "remark-math";
+// biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 import katex from "rehype-katex";
 
+// biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 const path = require("path");
 const macros = require("./src/katex-macros.js");

@@ -18,5 +18,3 @@ export interface MatomoTracker {
   trackGoal: (goalId: number, customRevenue?: number) => void;
   trackCustomDimension: (index: number, value: string) => void;
 }
-
-export {};

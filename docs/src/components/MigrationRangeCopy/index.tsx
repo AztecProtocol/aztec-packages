@@ -24,6 +24,7 @@ function formatSize(bytes: number): string {
   return `${size}, about ${tokens < 1000 ? tokens : `${Math.round(tokens / 1000)}k`} tokens`;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function Panel({ permalink }: { permalink: string }) {
   const id = useId();
   const markdownPath = markdownPathFor(permalink);
@@ -133,6 +134,7 @@ function Panel({ permalink }: { permalink: string }) {
  */
 export default function MigrationRangeCopy({ permalink }: { permalink: string }) {
   const [container, setContainer] = useState<HTMLElement | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: baselined 2026-11-12: a changed dependency list would change when the hook runs
   useEffect(() => {
     const content = document.querySelector('.theme-doc-markdown');
     if (!content) return;

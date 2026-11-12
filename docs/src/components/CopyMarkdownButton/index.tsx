@@ -78,6 +78,7 @@ const SparkIcon = () => (
   </svg>
 );
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export default function CopyMarkdownButton() {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);

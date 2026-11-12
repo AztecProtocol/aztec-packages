@@ -59,6 +59,7 @@ function toRows(results, versionPaths) {
 
 function Excerpt({ excerpt }) {
   return excerptParts(excerpt ?? "").map((part, i) =>
+    // biome-ignore lint/suspicious/noArrayIndexKey: baselined 2026-11-12: a different key would change how React reuses these elements
     part.mark ? <mark key={i}>{part.text}</mark> : <React.Fragment key={i}>{part.text}</React.Fragment>,
   );
 }
@@ -77,6 +78,8 @@ function SearchIcon({ className }) {
   );
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export default function SearchBar() {
   const tagsKey = useSearchTags().join(" ");
   const readVersion = /(?:^| )docs-developer-(\S+)/.exec(tagsKey)?.[1];
@@ -173,6 +176,7 @@ export default function SearchBar() {
       return undefined;
     }
     setPending(true);
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
     const timer = setTimeout(async () => {
       try {
         const module = await loadPagefind();
@@ -220,6 +224,7 @@ export default function SearchBar() {
     go(href);
   };
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   const onDialogKeyDown = (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -357,6 +362,7 @@ export default function SearchBar() {
                 <ul id={listId} role="listbox" className={styles.results} aria-label="Search results">
                   {rows.map((row, i) => (
                     <li
+                      // biome-ignore lint/suspicious/noArrayIndexKey: baselined 2026-11-12: a different key would change how React reuses these elements
                       key={`${row.href}-${i}`}
                       id={`${listId}-${i}`}
                       role="option"

@@ -86,7 +86,9 @@ test("expectedSections follows the layout model: production drops the dev docs a
 });
 
 const fixtures: string[] = [];
-after(() => fixtures.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
+after(() => {
+  for (const dir of fixtures) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 /** A minimal production-layout build that passes, so each test below breaks exactly one thing. */
 function fixtureBuild(): { dir: string; write: (url: string, html: string) => void } {

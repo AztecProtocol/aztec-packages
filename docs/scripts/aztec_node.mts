@@ -460,6 +460,7 @@ async function provisionL1Artifacts(o: Options, pin: Pin, log: (s: string) => vo
 }
 
 /** Installs each tool at the pinned version into .aztec-node/bin (or cli/, l1-artifacts/), skipping those already there. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export async function provision(o: Options, pin: Pin, tools: string[], log: (s: string) => void = () => {}): Promise<void> {
   const bin = binDir(o);
   fs.mkdirSync(bin, { recursive: true });
@@ -552,6 +553,7 @@ export async function pinAndCheck(o: Options, tag: string, log: (s: string) => v
   return problems(o, pin);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function main(argv: string[]): Promise<number> {
   const docs: Options = { docsDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..") };
   let o = docs;

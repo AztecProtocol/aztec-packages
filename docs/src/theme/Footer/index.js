@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+// biome-ignore lint/correctness/noUnusedImports: baselined 2026-11-12: importing the original footer may load its styles
 import Footer from '@theme-original/Footer';
 import Link from '@docusaurus/Link';
 import styles from './Footer.module.css';
 import { isValidEmail } from '@site/src/utils/emailValidation';
 import { analytics } from '@site/src/utils/analytics';
 
-export default function FooterWrapper(props) {
+export default function FooterWrapper(_props) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   const handleSubmit = async (e) => {
     e.preventDefault();
     
