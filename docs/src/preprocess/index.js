@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const childProcess = require("child_process");
 
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
@@ -48,8 +47,9 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   return Promise.all(contentUpdates);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
-  let writePromises = [];
+  const writePromises = [];
 
   if (Array.isArray(content)) {
     // It's a dir

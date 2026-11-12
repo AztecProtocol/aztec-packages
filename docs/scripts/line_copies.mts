@@ -83,6 +83,7 @@ function firstDifference({ main, copy }: Pair, lineName: string): string {
 }
 
 /** What differs between main and `lineName`, beyond its allow-list, and allow-list entries that no longer differ. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function compare(docsDir: string, lineName: string): Finding[] {
   const s = state(docsDir, lineName);
   const findings: Finding[] = [];

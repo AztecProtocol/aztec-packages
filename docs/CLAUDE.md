@@ -39,6 +39,7 @@ This project uses Yarn 4.13.0 as specified in the `packageManager` field of pack
 - `yarn serve` - Serve the built static site
 - `yarn spellcheck` - Run spell checking with cspell on markdown files. A line's pages are checked only through their preprocessed copies, so run `yarn preprocess` first after editing one
 - `yarn clean` - Clean build artifacts and processed docs
+- `yarn lint` - Lint the docs' own code (`scripts/`, `src/`, configs), as the preview build does first. `biome-baseline.json` counts every `biome-ignore` and may only shrink: `node scripts/biome_baseline.mts write` lowers it
 
 ### API Documentation Generation
 

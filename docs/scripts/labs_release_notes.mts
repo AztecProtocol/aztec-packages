@@ -27,6 +27,7 @@ function parse(tag: string): Version | undefined {
 }
 
 /** SemVer 2.0 precedence (§11): a release sorts after its prereleases, `6.1.0-nightly.1` before `6.1.0-rc.1`. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function compareVersions(a: Version, b: Version): number {
   for (let i = 0; i < 3; i++) if (a.core[i] !== b.core[i]) return a.core[i] - b.core[i];
   if (!a.pre.length || !b.pre.length) return b.pre.length - a.pre.length;

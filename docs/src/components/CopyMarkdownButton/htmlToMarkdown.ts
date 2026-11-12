@@ -3,7 +3,10 @@
  * Handles headings, code blocks, links, lists, and strips Docusaurus UI elements.
  */
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export function htmlToMarkdown(element: Element): string {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
   function processNode(node: Node, listDepth = 0, listType: 'ul' | 'ol' | null = null, listIndex = 0): string {
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent || '';

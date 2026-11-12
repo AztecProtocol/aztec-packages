@@ -5,8 +5,9 @@
 # references (static/aztec-nr-api/<network>) and drops the dev docs that link to the generated one.
 # Previews also serve each dev line (docs/lines/<line>/) at /developers-<line> and /operate-<line>,
 # which link a network's released reference; production fetches and builds no line.
-# A preview is the only build before a merge, so it also runs the unit tests, builds the
-# production layout (discarding that output) and opens a few built pages in a headless browser.
+# A preview is the only build before a merge, so it also lints the docs' own code, runs the unit
+# tests, builds the production layout (discarding that output) and opens a few built pages in a
+# headless browser.
 set -euo pipefail
 
 docs=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -29,6 +30,10 @@ function api_reference {
 rm -rf "$docs/static/aztec-nr-api/next"
 
 if [ "${CONTEXT:-}" = deploy-preview ]; then
+  echo "=== Lint ==="
+  start=$SECONDS
+  yarn lint
+  echo "Lint: $((SECONDS - start)) s"
   echo "=== Unit tests ==="
   yarn test
   # Before the preview build, whose `docusaurus clear` deletes this output.

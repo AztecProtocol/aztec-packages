@@ -19,7 +19,8 @@
     "spellcheck": "yarn cspell",
     "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
     "start": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn generate:aztec-nr-api && yarn docusaurus start --host ${HOST:-localhost}",
-    "test": "node --test src/preprocess/__tests__/*.test.js src/__tests__/*.test.js scripts/__tests__/*.test.mts",
+    "lint": "biome lint --error-on-warnings && node --test scripts/__tests__/biome_baseline.test.mts",
+    "test": "node --test src/preprocess/__tests__/*.test.js src/__tests__/*.test.js scripts/__tests__/*.test.mts scripts/__tests__/installed/*.test.mts",
     "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
   "dependencies": {
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@aztec-foundation/l1-artifacts": "6.0.0-rc.7",
+    "@biomejs/biome": "2.6.5",
     "@docusaurus/tsconfig": "3.10.2",
     "@tsconfig/docusaurus": "^1.0.7",
     "@types/react": "^18.3.31",
