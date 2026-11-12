@@ -990,6 +990,25 @@
 
 
 # =============================================================================
+# API REFERENCE FOLDERS
+# A docs version links the API reference folder of the first network that reads it
+# (aztecNrApiFolders in src/network_docs.js), so a network on another network's version has
+# no folder: its folder's URLs go to the one serving its version. 302 and no `force`, so the
+# network's own folder wins again, uncached, once it has one. Checked by
+# scripts/__tests__/{api_reference_folders,netlify_redirects}.test.mts.
+# =============================================================================
+
+[[redirects]]
+    from = "/aztec-nr-api/testnet/*"
+    to = "/aztec-nr-api/mainnet/:splat"
+    status = 302
+
+[[redirects]]
+    from = "/typescript-api/testnet/*"
+    to = "/typescript-api/mainnet/:splat"
+    status = 302
+
+# =============================================================================
 # ERROR CODES
 # Sequential error code redirects for user-friendly error references.
 # Each error code maps to a relevant documentation page.
