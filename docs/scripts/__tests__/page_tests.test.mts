@@ -3,23 +3,27 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { blocks, isShell, type Step, TRANSCRIPTS, UNTESTED, uncovered, walk } from "../page_tests.mts";
+import { blocks, isShell, type Step, TRANSCRIPTS, UNTESTED, uncovered, unread, walk } from "../page_tests.mts";
 
 const docs = path.resolve(import.meta.dirname, "../..");
 const lines = ["", ...fs.readdirSync(path.join(docs, "lines")).map((l) => `lines/${l}/`)];
 const IN_SCOPE = /^docs-developers\/(docs\/tutorials\/.+|getting_started_on_[^/]+)\.mdx?$/;
 
-// Line-relative keys of the in-scope pages of one line that hold a shell block.
-function shellPages(line: string): Set<string> {
-  const root = path.join(docs, line);
-  const dev = path.join(root, "docs-developers");
-  const keys = (fs.readdirSync(dev, { recursive: true }) as string[])
+// The line-relative keys of one line's in-scope pages, with their text.
+function inScope(line: string): { key: string; text: string }[] {
+  const dev = path.join(docs, line, "docs-developers");
+  return (fs.readdirSync(dev, { recursive: true }) as string[])
     .map((f) => `docs-developers/${f.split(path.sep).join("/")}`)
-    .filter((k) => IN_SCOPE.test(k));
-  return new Set(keys.filter((k) => blocks(fs.readFileSync(path.join(root, k), "utf8")).some(isShell)));
+    .filter((key) => IN_SCOPE.test(key))
+    .map((key) => ({ key, text: fs.readFileSync(path.join(docs, line, key), "utf8") }));
 }
 
+const shellPages = (line: string) => new Set(inScope(line).flatMap(({ key, text }) => (blocks(text).some(isShell) ? [key] : [])));
+
 test("every tutorial or getting-started page with shell commands is run by a test or listed as untested", () => {
+  const hidden = lines.flatMap((line) => inScope(line).flatMap(({ key, text }) => unread(text).map((n) => `${line}${key}:${n}`)));
+  assert.deepEqual(hidden, [], "the census reads only plain fenced blocks: write these as one");
+
   const byLine = lines.map((line) => ({ line, pages: shellPages(line) }));
   const everywhere = new Set(byLine.flatMap(({ pages }) => [...pages]));
 
@@ -83,4 +87,13 @@ test("a copied file counts as quoted only where the page includes its regions", 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a command block the census cannot read is found, and every shell info string counts", () => {
+  const page = "> ```bash\n> false\n> ```\n#include_code run /x/run.sh bash\n#include_code main /x/main.rs rust\n<CodeBlock language=\"bash\">false</CodeBlock>\n```bash\ntrue\n```";
+  assert.deepEqual(unread(page), [1, 3, 4, 6]);
+  assert.deepEqual(
+    blocks("```powershell\na\n```\n```terminal\nb\n```\n```text\nc\n```").map(isShell),
+    [true, true, false],
+  );
 });

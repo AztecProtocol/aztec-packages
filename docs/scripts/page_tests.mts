@@ -42,6 +42,8 @@ export const UNTESTED: Record<string, string> = {
   "docs-developers/docs/tutorials/js_tutorials/aave_bridge.md": "no transcript test yet",
   "docs-developers/docs/tutorials/js_tutorials/aztecjs-getting-started.md":
     "installs with Yarn's default PnP linker and its script needs a running network",
+  "docs-developers/docs/tutorials/js_tutorials/first_full_project.md":
+    "its runner types its own copy of the commands, so a changed command is not run; `npm start` needs a running network",
   "docs-developers/docs/tutorials/js_tutorials/token_bridge.md": "no transcript test yet",
   "docs-developers/docs/tutorials/js_tutorials/uniswap_swap.md":
     "the clone test does not run the npm install block; the network run needs a local network",
@@ -77,7 +79,16 @@ const fences = createRequire(import.meta.url)("../src/markdown_fences.js") as {
 /** The fenced code blocks of a markdown text, as src/markdown_fences.js finds them. */
 export const blocks = (text: string): Block[] => fences.fenceBlocks(text.split("\n"));
 
-export const isShell = (b: Block) => /^(bash|sh|shell|zsh|console)\b/.test(b.info);
+const SHELL = "bash|sh|shell|zsh|console|powershell|pwsh|terminal";
+
+export const isShell = (b: Block) => new RegExp(`^(${SHELL})\\b`).test(b.info);
+
+// Code blocks the site renders that `blocks` does not return: fenced inside a blockquote, a shell file
+// pulled in by #include_code, or a JSX <CodeBlock>.
+const UNREAD = new RegExp(`^\\s*(>\\s*)+(\`\`\`|~~~)|^\\s*#include_code\\s+\\S+\\s+\\S+\\s+(${SHELL})\\b|<CodeBlock\\b`);
+
+/** The 1-based lines of a markdown text holding a code block the census cannot read. */
+export const unread = (text: string): number[] => text.split("\n").flatMap((row, i) => (UNREAD.test(row) ? [i + 1] : []));
 
 const FITS = { run: isShell, write: (b: Block) => !isShell(b), merge: (b: Block) => /^toml\b/.test(b.info) };
 type Kind = keyof typeof FITS;
