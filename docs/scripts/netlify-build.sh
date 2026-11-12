@@ -5,8 +5,8 @@
 # references (static/aztec-nr-api/<network>) and drops the dev docs that link to the generated one.
 # Previews also serve each dev line (docs/lines/<line>/) at /developers-<line> and /operate-<line>,
 # which link a network's released reference; production fetches and builds no line.
-# A preview is the only build before a merge, so it also runs the unit tests and builds the
-# production layout, discarding that output.
+# A preview is the only build before a merge, so it also runs the unit tests, builds the
+# production layout (discarding that output) and opens a few built pages in a headless browser.
 set -euo pipefail
 
 docs=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -48,3 +48,14 @@ fi
 echo "=== Building the docs ==="
 yarn build
 "$docs/scripts/write_commit_id.sh" "$docs/build"
+
+if [ "${CONTEXT:-}" = deploy-preview ]; then
+  echo "=== Browser smoke test ==="
+  # Inside node_modules, which Netlify may restore between builds; `docusaurus clear` empties
+  # node_modules/.cache.
+  export PLAYWRIGHT_BROWSERS_PATH=0
+  start=$SECONDS
+  yarn playwright install --only-shell chromium
+  echo "Browser install: $((SECONDS - start)) s"
+  node "$docs/scripts/browser_smoke.mts" "$docs/build"
+fi
