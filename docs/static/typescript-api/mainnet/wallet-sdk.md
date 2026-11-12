@@ -1,4 +1,4 @@
-# @aztec/wallet-sdk
+# @aztec-labs/wallet-sdk
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   ExtensionProvider,
   ExtensionWallet,
   // ... and more
-} from '@aztec/wallet-sdk';
+} from '@aztec-labs/wallet-sdk';
 ```
 
 ## Classes
@@ -750,3 +750,22 @@ Type of wallet provider
 Message types for wallet SDK communication. All types are prefixed with 'aztec-wallet-' for namespacing.
 
 Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-discovery-response`, `aztec-wallet-key-exchange-request`, `aztec-wallet-key-exchange-response`, `aztec-wallet-ping`, `aztec-wallet-pong`, `aztec-wallet-secure-message`, `aztec-wallet-secure-response`, `aztec-wallet-session-disconnected`, `aztec-wallet-ready`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/aztec.js**
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `Wallet`, `WalletCapabilities`
+
+**@aztec-labs/entrypoints**
+- `ChainInfo`
+
+**@aztec-labs/foundation**
+- `Fr`, `Logger`
+
+**@aztec-labs/pxe**
+- `ContractNameResolver`, `PXE`
+
+**@aztec-labs/stdlib**
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `GasSettings`, `GasUsed`, `ManaUsageEstimate`, `MasterSecretKeys`, `SimulationOverrides`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`

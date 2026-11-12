@@ -1,4 +1,4 @@
-# @aztec/constants
+# @aztec-labs/constants
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   AVM_ACCUMULATED_DATA_LENGTH,
   // ... and more
-} from '@aztec/constants';
+} from '@aztec-labs/constants';
 ```
 
 ## Types

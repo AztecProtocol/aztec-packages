@@ -2,7 +2,7 @@
 title: "7. Testing"
 description: Loading the wallet extension in Chrome and testing with the Pod Racing dApp
 sidebar_position: 7
-references: ["docs/examples/webapp-tutorial/esbuild.extension.mjs", "docs/examples/webapp-tutorial/test-extension/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/esbuild.extension.mjs", "docs/lines/v6/examples/webapp-tutorial/test-extension/*"]
 ---
 
 # Testing the Wallet Extension
@@ -13,24 +13,9 @@ This final section covers loading your wallet extension in Chrome and testing it
 
 From the `webapp-tutorial` directory:
 
-:::warning Fix the wallet method handler in v6.0.0
-In v6.0.0, `test-extension/src/offscreen/offscreen.ts` fails every wallet call that returns nothing, so creating a game from the dApp fails with `"undefined" is not valid JSON` (raised by `registerContract`). Before building, change this line in `handleWalletMethod`:
-
-```typescript
-const jsonSafe = JSON.parse(jsonStringify(result));
-```
-
-to:
-
-```typescript
-const jsonSafe = result === undefined ? undefined : JSON.parse(jsonStringify(result));
-```
-:::
-
-
 ```bash
-# Install dependencies if needed
-yarn install
+# Install dependencies, if the clone steps have not already
+./setup.sh 6.0.0
 
 # Build the extension
 node esbuild.extension.mjs
@@ -79,10 +64,10 @@ If the deployment fails, the error appears above the "Deploy Account" button. Se
 
 ## Running the dApp
 
-In another terminal, start the webapp tutorial:
+In another terminal, start the webapp tutorial from the clone's root (`aztec-docs`):
 
 ```bash
-cd docs/examples/webapp-tutorial
+cd docs/lines/v6/examples/webapp-tutorial
 
 # Start the dev server
 yarn dev

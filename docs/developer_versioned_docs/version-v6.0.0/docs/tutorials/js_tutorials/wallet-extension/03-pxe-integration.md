@@ -2,7 +2,7 @@
 title: "3. PXE Integration"
 description: Running the Private eXecution Environment in a browser extension and extending BaseWallet
 sidebar_position: 3
-references: ["docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # PXE Integration
@@ -57,7 +57,7 @@ async function ensurePXE(nodeUrl: string = NODE_URL): Promise<{ pxe: PXE; node: 
   return pxeInitializing;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155</a></sub></sup>
 
 
 Key configuration:
@@ -300,7 +300,7 @@ async function getWallet() {
   return walletInstance;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382</a></sub></sup>
 
 
 By extending `BaseWallet`, you inherit:
@@ -349,7 +349,7 @@ protected async completeFeeOptions(config: any) {
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L232-L259" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L232-L259</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L232-L259" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L232-L259</a></sub></sup>
 
 
 This ensures that by default:
@@ -444,7 +444,7 @@ async function handleMessage(message: any): Promise<any> {
   }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L384-L462" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L384-L462</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L384-L462" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L384-L462</a></sub></sup>
 
 
 Each message type maps to a handler:
@@ -508,12 +508,13 @@ async function handleWalletMethod(method: string, args: any[]): Promise<any> {
   const result = await walletObj[method](...parsedArgs);
 
   // Serialize to JSON-safe format before returning through Chrome messaging
-  const jsonSafe = JSON.parse(jsonStringify(result));
+  // Methods like registerContract return nothing, and JSON.parse rejects what jsonStringify returns for undefined.
+  const jsonSafe = result === undefined ? undefined : JSON.parse(jsonStringify(result));
   log.debug('[offscreen] Wallet method completed:', method);
   return jsonSafe;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L524" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L524</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L525" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L525</a></sub></sup>
 
 
 This generic dispatch means any method on the `BaseWallet` interface (e.g., `getAccounts`, `sendTx`, `simulateTx`, `createAuthWit`, `getChainInfo`) is automatically available to dApps through the wallet SDK protocol.

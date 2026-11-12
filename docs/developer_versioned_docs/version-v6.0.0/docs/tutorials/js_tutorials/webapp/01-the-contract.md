@@ -2,7 +2,7 @@
 title: "1. The Contract"
 sidebar_position: 1
 description: "Walk through the Pod Racing smart contract, compile it, and deploy and interact with it via a TypeScript script"
-references: ["docs/examples/webapp-tutorial/contracts/src/*", "docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/contracts/Nargo.toml", "docs/lines/v6/examples/webapp-tutorial/contracts/src/*", "docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
 ---
 
 # The Contract
@@ -18,21 +18,22 @@ In this section, you walk through the Pod Racing smart contract, compile it, and
 Before looking at code, here is how the contract is structured.
 
 **Storage:**
-- `admin` — the address that deployed the contract
-- `races` — a public map from game ID to `Race` struct (the shared game state)
-- `progress` — a private map storing each player's per-round point allocations as encrypted notes
-- `win_history` — a public map tracking each player's lifetime win count
+- `admin`: the address that deployed the contract
+- `races`: a public map from game ID to `Race` struct (the shared game state)
+- `progress`: a private map storing each player's per-round point allocations as encrypted notes
+- `win_history`: a public map tracking each player's lifetime win count
+- `finalized`: a public map recording which games have been finalized, so a game's winner is credited once
 
 **Game lifecycle:**
-1. `create_game` — player 1 calls this to create a new `Race` in public storage, setting a block deadline
-2. `join_game` — player 2 joins, filling the second slot in the `Race`
-3. `play_round` (private) — each player submits a `GameRoundNote` containing their point allocation for one round; a public follow-up increments the round counter without revealing points
-4. `finish_game` (private) — reads all of your `GameRoundNote`s, sums totals per track, and publishes the aggregated scores publicly
-5. `finalize_game` (public) — compares both players' track totals, declares the winner (best of 5), and updates win history
+1. `create_game`: player 1 calls this to create a new `Race` in public storage, setting a block deadline
+2. `join_game`: player 2 joins, filling the second slot in the `Race`
+3. `play_round` (private): each player submits a `GameRoundNote` containing their point allocation for one round; a public follow-up increments the round counter without revealing points
+4. `finish_game` (private): reads all of your `GameRoundNote`s, sums totals per track, and publishes the aggregated scores publicly
+5. `finalize_game` (public): once both players have revealed, compares their track totals, declares the winner (best of 5), and updates win history, once per game
 
 **Key types:**
-- `GameRoundNote` — a private note storing one round's point allocation (5 track values), the round number, and the owner
-- `Race` — the public game state: both player addresses, round counters, final per-track scores, block deadline, and winner
+- `GameRoundNote`: a private note storing one round's point allocation (5 track values), the round number, and the owner
+- `Race`: the public game state: both player addresses, round counters, final per-track scores, block deadline, and winner
 
 The core design principle is that **private functions** (`play_round`, `finish_game`) hide your strategy, while **public functions** (`create_game`, `join_game`, `finalize_game`) coordinate shared state that both players can see.
 
@@ -40,7 +41,7 @@ The core design principle is that **private functions** (`play_round`, `finish_g
 
 Open `contracts/Nargo.toml`. This configures the Noir compiler for the contract:
 
-```toml
+```toml title="nargo_toml" showLineNumbers 
 [package]
 name = "pod_racing_contract"
 authors = [""]
@@ -48,15 +49,16 @@ compiler_version = ">=0.25.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/Nargo.toml#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/Nargo.toml#L1-L10</a></sub></sup>
+
 
 :::note
-The `aztec` dependency path assumes you're working within the `aztec-node` repository. If you're working outside it, use the git dependency instead:
+The `aztec` path points into the aztec-node checkout that the [clone steps](./index.md#clone-the-example) create. In your own project, use the git dependency instead, with the tag matching your Aztec CLI version:
 ```toml
 aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "v6.0.0", directory = "aztec" }
 ```
-Replace the tag with your Aztec version.
 :::
 
 ## GameRoundNote
@@ -87,7 +89,7 @@ impl GameRoundNote {
 
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/game_round_note.nr#L1-L24" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/game_round_note.nr#L1-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/game_round_note.nr#L1-L24" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/game_round_note.nr#L1-L24</a></sub></sup>
 
 
 The fields `track1` through `track5` store the points allocated to each track for that round. `round` identifies which round (1, 2, or 3) the note belongs to. `owner` is the player's address — only the owner's PXE (Private eXecution Environment) can decrypt and read this note.
@@ -161,8 +163,9 @@ impl Race {
     }
 
     pub fn join(self, player2: AztecAddress) -> Race {
-        assert(!self.player1.eq(AztecAddress::zero()) & self.player2.eq(AztecAddress::zero()));
-        assert(!self.player1.eq(player2));
+        assert(!self.player1.eq(AztecAddress::zero()), "game does not exist");
+        assert(self.player2.eq(AztecAddress::zero()), "game is full");
+        assert(!self.player1.eq(player2), "cannot join your own game");
         Self {
             player1: self.player1,
             player2,
@@ -184,9 +187,9 @@ impl Race {
     }
 
     pub fn increment_player_round(self, player: AztecAddress, round: u8) -> Race {
-        assert(round < self.total_rounds + 1);
+        assert(round < self.total_rounds + 1, "no such round");
         let ret = if player.eq(self.player1) {
-            assert(round == self.player1_round + 1);
+            assert(round == self.player1_round + 1, "rounds must be played in order");
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
                 total_rounds: self.total_rounds,
@@ -200,7 +203,7 @@ impl Race {
                 end_block: self.end_block,
             })
         } else if player.eq(self.player2) {
-            assert(round == self.player2_round + 1);
+            assert(round == self.player2_round + 1, "rounds must be played in order");
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
                 total_rounds: self.total_rounds,
@@ -224,7 +227,8 @@ impl Race {
             assert(
                 self.player1_track1_final + self.player1_track2_final +
                 self.player1_track3_final + self.player1_track4_final +
-                self.player1_track5_final == 0
+                self.player1_track5_final == 0,
+                "scores already revealed",
             );
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
@@ -242,7 +246,8 @@ impl Race {
             assert(
                 self.player2_track1_final + self.player2_track2_final +
                 self.player2_track3_final + self.player2_track4_final +
-                self.player2_track5_final == 0
+                self.player2_track5_final == 0,
+                "scores already revealed",
             );
             Option::some(Self {
                 player1: self.player1, player2: self.player2,
@@ -262,8 +267,17 @@ impl Race {
         ret.unwrap()
     }
 
+    /// A zero sum reads as "not revealed", so a player who put no points on any track cannot be told apart.
+    pub fn both_revealed(self) -> bool {
+        let player1_sum = self.player1_track1_final + self.player1_track2_final + self.player1_track3_final
+            + self.player1_track4_final + self.player1_track5_final;
+        let player2_sum = self.player2_track1_final + self.player2_track2_final + self.player2_track3_final
+            + self.player2_track4_final + self.player2_track5_final;
+        (player1_sum != 0) & (player2_sum != 0)
+    }
+
     pub fn calculate_winner(self, current_block_number: u32) -> AztecAddress {
-        assert(current_block_number > self.end_block);
+        assert(current_block_number > self.end_block, "game has not ended");
         let mut player1_wins = 0;
         let mut player2_wins = 0;
 
@@ -277,7 +291,7 @@ impl Race {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/race.nr#L1-L166" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/race.nr#L1-L166</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/race.nr#L1-L178" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/race.nr#L1-L178</a></sub></sup>
 
 
 The `Race` struct holds both player addresses, per-player round counters, the final aggregated scores for each track (filled in when a player calls `finish_game`), and a block deadline. The winner calculation compares track-by-track totals: whoever wins more of the 5 tracks wins the game.
@@ -295,19 +309,23 @@ struct Storage<Context> {
     races: Map<Field, PublicMutable<Race, Context>, Context>,
     progress: Map<Field, Owned<PrivateSet<GameRoundNote, Context>, Context>, Context>,
     win_history: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
+    finalized: Map<Field, PublicMutable<bool, Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/main.nr#L37-L45" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/main.nr#L37-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L37-L46" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L37-L46</a></sub></sup>
 
 
-The storage maps directly to the overview above: `admin` for the deployer, `races` for game state, `progress` for private round notes, and `win_history` for tracking wins.
+The storage maps directly to the overview above: `admin` for the deployer, `races` for game state, `progress` for private round notes, `win_history` for tracking wins, and `finalized` for games already settled.
 
 ### Creating and joining a game
 
 ```rust title="create-game" showLineNumbers 
 #[external("public")]
 fn create_game(game_id: Field) {
-    assert(self.storage.races.at(game_id).read().player1.eq(AztecAddress::zero()));
+    assert(
+        self.storage.races.at(game_id).read().player1.eq(AztecAddress::zero()),
+        "game already exists",
+    );
     let game = Race::new(
         self.msg_sender(),
         TOTAL_ROUNDS,
@@ -316,7 +334,7 @@ fn create_game(game_id: Field) {
     self.storage.races.at(game_id).write(game);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/main.nr#L53-L64" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/main.nr#L53-L64</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L54-L68" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L54-L68</a></sub></sup>
 
 
 ```rust title="join-game" showLineNumbers 
@@ -327,7 +345,7 @@ fn join_game(game_id: Field) {
     self.storage.races.at(game_id).write(joined_game);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/main.nr#L66-L73" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/main.nr#L66-L73</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L70-L77" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L70-L77</a></sub></sup>
 
 
 Both are public functions. `create_game` initializes a new `Race` with the caller as player 1 and sets a block deadline. `join_game` fills in player 2.
@@ -347,7 +365,7 @@ fn play_round(
     track4: u8,
     track5: u8,
 ) {
-    assert(track1 + track2 + track3 + track4 + track5 < 10);
+    assert(track1 + track2 + track3 + track4 + track5 < 10, "a round allows at most 9 points");
 
     let player = self.msg_sender();
 
@@ -366,7 +384,7 @@ fn play_round(
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/main.nr#L75-L106" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/main.nr#L75-L106</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L79-L110" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L79-L110</a></sub></sup>
 
 
 This is a **private function** — the point allocation remains hidden from the opponent. It creates a `GameRoundNote`, then enqueues a public call to `validate_and_play_round` to increment the round counter without revealing points.
@@ -407,7 +425,7 @@ fn finish_game(game_id: Field) {
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/main.nr#L115-L148" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/main.nr#L115-L148</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L119-L152" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L119-L152</a></sub></sup>
 
 
 Another private function. It reads all your `GameRoundNote`s, sums up totals per track, and publishes the aggregated scores to public state. Your per-round choices stay hidden, but your final totals become visible.
@@ -415,19 +433,24 @@ Another private function. It reads all your `GameRoundNote`s, sums up totals per
 ### Finalizing the game
 
 ```rust title="finalize-game" showLineNumbers 
-/// Determines the winner after both players have revealed and the game has expired.
+/// Determines the winner after both players have revealed and the game has expired. Each game is finalized once.
 #[external("public")]
 fn finalize_game(game_id: Field) {
     let game_in_progress = self.storage.races.at(game_id).read();
+    assert(!game_in_progress.player2.eq(AztecAddress::zero()), "game has not started");
+    assert(game_in_progress.both_revealed(), "both players must reveal");
+    assert(!self.storage.finalized.at(game_id).read(), "game already finalized");
+    self.storage.finalized.at(game_id).write(true);
+
     let winner = game_in_progress.calculate_winner(self.context.block_number());
     let previous_wins = self.storage.win_history.at(winner).read();
     self.storage.win_history.at(winner).write(previous_wins + 1);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/contracts/src/main.nr#L172-L181" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/contracts/src/main.nr#L172-L181</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L176-L190" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/contracts/src/main.nr#L176-L190</a></sub></sup>
 
 
-A public function that compares both players' track totals, declares the winner (best of 5 tracks), and updates the win history. Can only be called after the game's block deadline has passed.
+A public function that compares both players' track totals, declares the winner (best of 5 tracks), and updates the win history. It requires that player 2 has joined, that both players have revealed, and that the game's block deadline has passed. It marks the game as finalized, so a second call fails instead of crediting the winner again.
 
 ## Compile the contract
 
@@ -466,7 +489,7 @@ console.log(
   bob.address.toString(),
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L1-L18" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L1-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L1-L18" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L1-L18</a></sub></sup>
 
 
 This uses `EmbeddedWallet` from `@aztec-labs/wallets/embedded` — a ready-made embedded wallet that handles PXE creation and account management. `getInitialTestAccountsData` provides the local network's genesis-funded test accounts, created here as initializerless Schnorr accounts. The `{ ephemeral: true }` option means PXE state is not persisted between runs.
@@ -481,7 +504,7 @@ const { contract } = await PodRacingContract.deploy(wallet, alice.address).send(
 );
 console.log("Contract deployed at:", contract.address.toString());
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L20-L27" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L20-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L20-L27" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L20-L27</a></sub></sup>
 
 
 ### Create and join a game
@@ -494,7 +517,7 @@ console.log("Game created");
 await contract.methods.join_game(gameId).send({ from: bob.address });
 console.log("Bob joined the game");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L29-L36" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L29-L36</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L29-L36" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L29-L36</a></sub></sup>
 
 
 ### Play rounds
@@ -525,7 +548,7 @@ await contract.methods
   .send({ from: bob.address });
 console.log("All rounds played");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L38-L63" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L38-L63</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L38-L63" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L38-L63</a></sub></sup>
 
 
 Each `play_round` call is a private transaction — the point allocations are encrypted as notes. Alice and Bob each play 3 rounds.
@@ -540,7 +563,7 @@ console.log("Both players revealed scores");
 await contract.methods.finalize_game(gameId).send({ from: alice.address });
 console.log("Game finalized! Winner determined.");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L65-L72" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L65-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L65-L72" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/scripts/deploy-and-interact.ts#L65-L72</a></sub></sup>
 
 
 Both players call `finish_game` to reveal their aggregated scores, then either player calls `finalize_game` to determine the winner.

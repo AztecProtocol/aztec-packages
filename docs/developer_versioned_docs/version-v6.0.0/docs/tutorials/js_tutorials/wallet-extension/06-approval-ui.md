@@ -2,7 +2,7 @@
 title: "6. Approval UI"
 description: Building React popups for connection and transaction approval in Aztec wallet extensions
 sidebar_position: 6
-references: ["docs/examples/webapp-tutorial/test-extension/src/popup/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/*"]
 ---
 
 # Approval UI
@@ -480,7 +480,7 @@ function App() {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/popup/popup.tsx#L34-L463" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/popup/popup.tsx#L34-L463</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/popup.tsx#L34-L463" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/popup.tsx#L34-L463</a></sub></sup>
 
 
 Key features:
@@ -517,7 +517,7 @@ export function sendToBackground(message: any): Promise<any> {
   });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L4-L27" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L4-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L4-L27" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L4-L27</a></sub></sup>
 
 
 The popup targets the background explicitly with `target: MessageTarget.BACKGROUND` to distinguish from content script messages.
@@ -601,7 +601,7 @@ export function MainPage({ account, busy, onSwitcherOpen, onRefresh }: MainPageP
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/popup/MainScreen.tsx#L7-L81" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/popup/MainScreen.tsx#L7-L81</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/MainScreen.tsx#L7-L81" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/MainScreen.tsx#L7-L81</a></sub></sup>
 
 
 Features:
@@ -671,7 +671,7 @@ function ConnectionApproval({
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L142-L198" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L142-L198</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L142-L198" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L142-L198</a></sub></sup>
 
 
 The approval shows:
@@ -782,7 +782,7 @@ function TransactionApproval({
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L200-L296" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L200-L296</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L200-L296" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/ApprovalView.tsx#L200-L296</a></sub></sup>
 
 
 The popup displays:
@@ -821,14 +821,14 @@ export async function createAndActivateAccount(alias: string): Promise<void> {
   }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L75-L100" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L75-L100</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L75-L100" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/popup/helpers.ts#L75-L100</a></sub></sup>
 
 
 ## Styling
 
 The CSS provides a dark theme suited for wallet UIs:
 
-See the full stylesheet at [`popup/popup.css`](https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/popup/popup.css).
+See the full stylesheet at [`popup/popup.css`](https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/popup/popup.css).
 
 Key design choices:
 - Dark background (`#1a1a2e`) for modern look

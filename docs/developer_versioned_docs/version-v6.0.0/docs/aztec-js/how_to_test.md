@@ -3,7 +3,7 @@ title: Testing Smart Contracts
 tags: [contracts, tests]
 sidebar_position: 8
 description: Learn how to write and run tests for your Aztec smart contracts using Aztec.js and a local network.
-references: ["docs/examples/ts/aztecjs_testing/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_testing/index.ts", "docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
 ---
 
 This guide covers how to test Aztec smart contracts by connecting to a local network, deploying contracts, and verifying their behavior.
@@ -32,7 +32,7 @@ await waitForNode(node);
 // Create an EmbeddedWallet connected to the node
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
 
 
 The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
@@ -47,7 +47,7 @@ import { registerInitialLocalNetworkAccountsInWallet } from "@aztec-labs/wallets
 // wallet is the EmbeddedWallet from the setup section above
 const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_testing/index.ts#L117-L122" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L117-L122</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L117-L122" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L117-L122</a></sub></sup>
 
 
 ## Deploying contracts in tests
@@ -64,7 +64,7 @@ const { contract: testToken } = await TokenContract.deploy(
   18,
 ).send({ from: alice });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_testing/index.ts#L124-L133" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L124-L133</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L124-L133" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L124-L133</a></sub></sup>
 
 
 ## Verifying contract state
@@ -78,7 +78,7 @@ const { result: balance } = await token.methods
 
 console.log(`Alice's token balance: ${balance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L151-L157" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L151-L157</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L151-L157" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L151-L157</a></sub></sup>
 
 
 Simulations are free (no gas cost) and return the function's result directly. Use them for:
@@ -99,7 +99,7 @@ const { receipt } = await token.methods
 console.log(`Transaction mined in block ${receipt.blockNumber}`);
 console.log(`Transaction fee: ${receipt.transactionFee}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L142-L149" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L142-L149</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L142-L149" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L142-L149</a></sub></sup>
 
 
 The `send()` method returns when the transaction is included in a block.
@@ -223,7 +223,7 @@ async function runTests() {
 
 await runTests();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_testing/index.ts#L1-L115" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L1-L115</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L1-L115" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L1-L115</a></sub></sup>
 
 
 ## Testing failure cases
@@ -254,7 +254,7 @@ async function testRevertExample() {
 
 await testRevertExample();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_testing/index.ts#L135-L158" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L135-L158</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L135-L158" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_testing/index.ts#L135-L158</a></sub></sup>
 
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.

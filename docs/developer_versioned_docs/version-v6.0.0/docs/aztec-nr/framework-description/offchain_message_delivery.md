@@ -48,7 +48,7 @@ fn transfer_in_private_with_offchain_delivery(
     self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery::offchain());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314</a></sub></sup>
 
 
 Nothing else changes in the contract: the same notes and events are created, only their delivery mechanism differs.
@@ -169,7 +169,7 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43</a></sub></sup>
 
 
 `env.offchain_messages()` returns up to 64 messages, so drain it into batches of at most 16 when a test emits more messages than one `offchain_receive` call accepts.

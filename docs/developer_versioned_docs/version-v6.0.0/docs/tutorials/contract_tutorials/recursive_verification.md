@@ -1,7 +1,7 @@
 ---
 title: "Verify Noir Proofs in Aztec Contracts"
 description: "Learn to generate offchain ZK proofs with Noir and verify them onchain in Aztec private smart contracts"
-references: ["docs/examples/circuits/hello_circuit/*", "docs/examples/contracts/recursive_verification_contract/*", "docs/examples/ts/recursive_verification/*"]
+references: ["docs/lines/v6/examples/circuits/hello_circuit/*", "docs/lines/v6/examples/contracts/recursive_verification_contract/*", "docs/lines/v6/examples/ts/recursive_verification/*"]
 ---
 
 ## Overview
@@ -13,7 +13,7 @@ This is called "recursive" verification because the proof is verified inside an 
 :::
 
 :::tip Full Working Example
-The complete code for this tutorial is available in the [docs/examples](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples) directory. Clone it to follow along or use it as a reference.
+The complete code for this tutorial is in [`docs/lines/v6/examples/`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples): the circuit in [`circuits/hello_circuit`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/circuits/hello_circuit), the contract in [`contracts/recursive_verification_contract`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/recursive_verification_contract) and the scripts in [`ts/recursive_verification`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/recursive_verification). Use it as a reference while you follow along.
 :::
 
 ## Prerequisites
@@ -136,7 +136,7 @@ fn test_main() {
     main(1, 2);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/circuits/hello_circuit/src/main.nr#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/src/main.nr#L1-L10</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/circuits/hello_circuit/src/main.nr#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/circuits/hello_circuit/src/main.nr#L1-L10</a></sub></sup>
 
 
 This is intentionally minimal to focus on the verification pattern. In production, you would replace `assert(x != y)` with meaningful computations like:
@@ -175,7 +175,7 @@ authors = [""]
 
 [dependencies]
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/circuits/hello_circuit/Nargo.toml#L1-L8" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/circuits/hello_circuit/Nargo.toml#L1-L8</a></sub></sup>
 
 
 **Note**: This is a vanilla Noir circuit, not an Aztec contract. It has `type = "bin"` (binary) and no Aztec dependencies. The circuit is compiled with `nargo`, not `aztec compile`. This distinction is important—you can verify proofs from _any_ Noir circuit inside Aztec contracts.
@@ -212,7 +212,7 @@ Expected output:
 
 ## Part 3: Writing the Aztec Contract
 
-The Aztec contract stores the verification key hash and verifies proofs submitted by users. When a valid proof is submitted, it increments a counter for the caller.
+The Aztec contract stores the verification key hash and verifies proofs submitted by users. When a valid proof is submitted, it increments the counter of the address the caller names.
 
 ### Why This Contract Design?
 
@@ -336,7 +336,7 @@ pub contract ValueNotEqual {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L64" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L64</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/recursive_verification_contract/src/main.nr#L1-L64" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/recursive_verification_contract/src/main.nr#L1-L64</a></sub></sup>
 
 
 :::note Clear the scaffold's placeholder test
@@ -419,6 +419,10 @@ fn increment(
   - Verifies the proof against the VK and public inputs
   - Fails (reverts) if any check fails
 - Uses `enqueue_self._increment_public(owner)` to schedule a public function call
+
+:::warning The example does not authorize `owner`
+`increment` takes `owner` from the caller and never checks it, so anyone with a valid proof can increment any address's counter. That keeps this example about proof verification. For state that belongs to the caller, key it by `self.msg_sender()` instead of an argument.
+:::
 
 **Why `enqueue_self` instead of a direct call?**
 
@@ -872,7 +876,7 @@ main().catch((error) => {
   process.exit(1);
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/recursive_verification/index.ts#L1-L125" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/index.ts#L1-L125</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/recursive_verification/index.ts#L1-L125" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/recursive_verification/index.ts#L1-L125</a></sub></sup>
 
 
 ### Understanding the Deployment Script
@@ -932,7 +936,7 @@ export async function getSponsoredFPCInstance() {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16</a></sub></sup>
 
 
 This utility computes the address of the pre-deployed sponsored FPC contract. The salt ensures we get the same address every time. For more information about fee payment options, see [Paying Fees](../../aztec-js/how_to_pay_fees.md).
@@ -973,7 +977,7 @@ The counter starts at 10 (set during deployment), and after successful proof ver
 
 ## Quick Reference
 
-If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples) in the main repository.
+If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples).
 
 ```bash
 # Install dependencies (after creating package.json and tsconfig.json)

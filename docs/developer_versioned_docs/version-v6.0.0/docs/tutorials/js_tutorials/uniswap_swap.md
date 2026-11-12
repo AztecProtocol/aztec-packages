@@ -2,7 +2,7 @@
 title: "Cross-Chain Token Swap (L1 <> L2)"
 sidebar_position: 2
 description: "Build a cross-chain token swap that exits L2, swaps on L1, and deposits the output back to L2 using Aztec's messaging protocol."
-references: ["docs/examples/contracts/example_uniswap/*", "docs/examples/solidity/example_swap/*", "docs/examples/ts/example_swap/*"]
+references: ["docs/lines/v6/examples/contracts/example_uniswap/*", "docs/lines/v6/examples/solidity/example_swap/*", "docs/lines/v6/examples/ts/example_swap/*"]
 ---
 
 ## Why Build a Cross-Chain Swap?
@@ -16,7 +16,7 @@ This tutorial walks you through building a version of this flow. You will learn 
 Before starting this tutorial, you need:
 
 1. **Aztec local network** running at version v6.0.0 -- see [the local network guide](../../../getting_started_on_local_network.md) for setup instructions
-2. **Node.js**, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites), and a package manager (yarn or npm)
+2. **Node.js**, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites), with npm, and **git** 2.35 or later
 3. **Familiarity with the token bridge tutorial** -- this tutorial builds on concepts from [Bridge Your NFT to Aztec](./token_bridge.md), especially portal contracts and cross-chain messaging
 
 :::tip Background Knowledge
@@ -34,16 +34,22 @@ This tutorial walks you through three types of contracts (Solidity, Noir, TypeSc
 
 ### Clone the Example Code
 
-The example code lives in the aztec-node repository:
+The example code lives in the Aztec packages repository. Fetch it at the commit this page quotes, with the aztec-nr and L1 contracts it builds against:
 
-```bash
-git clone --depth 1 --branch v6.0.0 https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node
-(cd docs && yarn install)
-cd docs/examples
+```bash title="Clone the example"
+git init -q aztec-docs && cd aztec-docs
+git remote add origin https://github.com/AztecProtocol/aztec-packages.git
+git sparse-checkout set --no-cone /docs/lines/v6/Nargo.toml /docs/lines/v6/examples/
+git fetch --depth 1 --filter=blob:none origin c0643538fa9523cca55eab25f5befd31b4d115b8
+git -c advice.detachedHead=false checkout c0643538fa9523cca55eab25f5befd31b4d115b8
+git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --branch v6.0.0 \
+  https://github.com/aztec-labs-eng/aztec-node.git docs/lines/v6/.aztec-node/tree
+git -C docs/lines/v6/.aztec-node/tree sparse-checkout set noir-projects
+npm install --prefix docs/lines/v6 --no-save --ignore-scripts @aztec-foundation/l1-artifacts@6.0.0
+cd docs/lines/v6/examples
 ```
 
-`yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
+This checks out the docs examples with their Noir workspace (`docs/lines/v6/Nargo.toml`), and aztec-node's `noir-projects` at the version above, whose `aztec-nr` and token contracts the Noir contract builds against. It leaves out `docs/Nargo.toml`: nargo takes the topmost `Nargo.toml` as the workspace. `npm install` puts `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps, in `docs/lines/v6/node_modules`.
 
 ### Project Structure
 
@@ -178,7 +184,7 @@ contract ExampleTokenPortal {
         rollupVersion = rollup.getVersion();
     }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L4-L41" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L4-L41</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L4-L41" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L4-L41</a></sub></sup>
 
 
 Key functions:
@@ -207,7 +213,7 @@ function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     return inbox.sendL2Message(actor, contentHash, _secretHash);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59</a></sub></sup>
 
 
 ```solidity title="withdraw" showLineNumbers 
@@ -234,7 +240,7 @@ function withdraw(
     underlying.safeTransfer(_recipient, _amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95</a></sub></sup>
 
 
 ## Part 2: Uniswap Portal (Solidity)
@@ -278,7 +284,7 @@ contract ExampleUniswapPortal {
         rollupVersion = rollup.getVersion();
     }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleUniswapPortal.sol#L4-L37" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleUniswapPortal.sol#L4-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol#L4-L37" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol#L4-L37</a></sub></sup>
 
 
 The public swap function consumes two messages and deposits the output:
@@ -343,7 +349,7 @@ function swapPublic(
         .depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleUniswapPortal.sol#L39-L99" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleUniswapPortal.sol#L39-L99</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol#L39-L99" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol#L39-L99</a></sub></sup>
 
 
 The private swap follows the same pattern but deposits output tokens privately:
@@ -403,7 +409,7 @@ function swapPrivate(
     return ExampleTokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _secretHashForL1ToL2Message);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleUniswapPortal.sol#L101-L155" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleUniswapPortal.sol#L101-L155</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol#L101-L155" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleUniswapPortal.sol#L101-L155</a></sub></sup>
 
 
 ### Compile Solidity Contracts
@@ -415,7 +421,7 @@ cd solidity
 forge build --contracts example_swap --out ../../target/solidity/example_swap
 ```
 
-This writes JSON artifacts containing the ABI and bytecode to `docs/target/solidity/example_swap/`, where the TypeScript script imports them from to deploy contracts on L1. The imports resolve from the `@aztec-foundation/l1-artifacts` package that `yarn install` put in `docs/node_modules`.
+This writes JSON artifacts containing the ABI and bytecode to `docs/lines/v6/target/solidity/example_swap/`, where the TypeScript script imports them from to deploy contracts on L1. The imports resolve from the `@aztec-foundation/l1-artifacts` package that the clone steps put in `docs/lines/v6/node_modules`.
 
 ## Part 3: Uniswap Contract (Noir)
 
@@ -464,7 +470,7 @@ pub contract ExampleUniswap {
         self.storage.portal_address.initialize(portal_address);
     }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/example_uniswap/src/main.nr#L1-L39" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/example_uniswap/src/main.nr#L1-L39</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L1-L39" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L1-L39</a></sub></sup>
 
 
 ### Public Swap
@@ -556,7 +562,7 @@ fn swap_public(
     self.context.message_portal(self.storage.portal_address.read(), content_hash);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/example_uniswap/src/main.nr#L41-L121" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/example_uniswap/src/main.nr#L41-L121</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L41-L121" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L41-L121</a></sub></sup>
 
 
 ### Private Swap
@@ -625,7 +631,7 @@ fn swap_private(
     self.context.message_portal(self.storage.portal_address.read(), content_hash);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/example_uniswap/src/main.nr#L123-L184" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/example_uniswap/src/main.nr#L123-L184</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L123-L184" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L123-L184</a></sub></sup>
 
 
 :::note Why no recipient parameter?
@@ -671,7 +677,7 @@ fn _approve_bridge_and_exit_input_asset_to_L1(
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/example_uniswap/src/main.nr#L186-L220" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/example_uniswap/src/main.nr#L186-L220</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L186-L220" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/example_uniswap/src/main.nr#L186-L220</a></sub></sup>
 
 
 :::note Portal Address Validation
@@ -750,7 +756,7 @@ pub fn compute_swap_public_content_hash(
     sha256_to_field(hash_bytes)
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/example_uniswap/src/util.nr#L1-L62" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/example_uniswap/src/util.nr#L1-L62</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/example_uniswap/src/util.nr#L1-L62" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/example_uniswap/src/util.nr#L1-L62</a></sub></sup>
 
 
 ```rust title="swap_private_content_hash" showLineNumbers 
@@ -800,12 +806,12 @@ pub fn compute_swap_private_content_hash(
     sha256_to_field(hash_bytes)
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/example_uniswap/src/util.nr#L64-L110" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/example_uniswap/src/util.nr#L64-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/example_uniswap/src/util.nr#L64-L110" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/example_uniswap/src/util.nr#L64-L110</a></sub></sup>
 
 
 ### Compile and Generate Bindings
 
-From the `docs` directory (the Noir workspace root), compile the Noir contract and generate TypeScript bindings:
+From `docs/lines/v6` (the Noir workspace root), compile the Noir contract and generate TypeScript bindings:
 
 ```bash
 cd ../..
@@ -813,7 +819,7 @@ aztec compile --package example_uniswap
 aztec codegen target/example_uniswap-ExampleUniswap.json -o examples/ts/example_swap/artifacts
 ```
 
-Compile from the workspace root rather than inside the contract's directory: the artifact lands in `docs/target/`, and compiling from the root is what transpiles its public functions for the AVM. The `aztec codegen` command generates a TypeScript class (`ExampleUniswapContract`) from the compiled artifact, which you will use in the deployment script.
+Compile from the workspace root rather than inside the contract's directory: the artifact lands in `docs/lines/v6/target/`, and compiling from the root is what transpiles its public functions for the AVM. The `aztec codegen` command generates a TypeScript class (`ExampleUniswapContract`) from the compiled artifact, which you will use in the deployment script.
 
 :::note
 Before proceeding, make sure you have compiled both the Solidity contracts (Part 1-2) and the Noir contract (Part 3). The TypeScript script below imports compiled artifacts from both.
@@ -891,7 +897,7 @@ const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L1-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L1-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L1-L48" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L1-L48</a></sub></sup>
 
 
 ### Deploy L1 Contracts
@@ -942,7 +948,7 @@ console.log(`WETH Portal: ${wethPortalAddress}`);
 console.log(`DAI Portal: ${daiPortalAddress}`);
 console.log(`Uniswap Portal: ${uniswapPortalAddress}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L50-L93" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L50-L93</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L50-L93" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L50-L93</a></sub></sup>
 
 
 ### Deploy L2 Contracts
@@ -994,7 +1000,7 @@ console.log(`L2 WETH Bridge: ${l2WethBridge.address}`);
 console.log(`L2 DAI Bridge: ${l2DaiBridge.address}`);
 console.log(`L2 Uniswap: ${l2Uniswap.address}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L95-L139" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L95-L139</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L95-L139" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L95-L139</a></sub></sup>
 
 
 ### Initialize and Fund
@@ -1051,7 +1057,7 @@ await l1Client.waitForTransactionReceipt({ hash: initUniswapPortal });
 
 console.log("All contracts initialized\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L141-L190" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L141-L190</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L141-L190" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L141-L190</a></sub></sup>
 
 
 Fund the user with input tokens and pre-fund the uniswap portal with output tokens:
@@ -1084,7 +1090,7 @@ await l1Client.waitForTransactionReceipt({ hash: mintDaiHash });
 console.log(`Minted ${SWAP_AMOUNT} WETH to user`);
 console.log(`Pre-funded uniswap portal with ${SWAP_AMOUNT * 2n} DAI\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L192-L219" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L192-L219</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L192-L219" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L192-L219</a></sub></sup>
 
 
 ### Deposit to L2
@@ -1190,7 +1196,7 @@ if (messageSentLogs.length === 0) {
 const depositLeafIndex = new Fr(messageSentLogs[0].decoded.args.message.index);
 console.log(`Deposit message leaf index: ${depositLeafIndex}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L221-L319" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L221-L319</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L221-L319" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L221-L319</a></sub></sup>
 
 
 :::tip Why use a secret hash?
@@ -1213,7 +1219,7 @@ async function mine2Blocks(
   });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L321-L334" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L321-L334</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L321-L334" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L321-L334</a></sub></sup>
 
 
 Claim the deposited tokens on L2:
@@ -1238,7 +1244,7 @@ if (wethBalanceBefore !== SWAP_AMOUNT) {
 }
 console.log("✓ WETH claimed successfully on L2\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L336-L355" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L336-L355</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L336-L355" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L336-L355</a></sub></sup>
 
 
 ### Execute the Swap
@@ -1295,7 +1301,7 @@ if (wethAfterSwap !== 0n) {
 }
 console.log("✓ WETH transferred to bridge for swap\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L357-L406" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L357-L406</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L357-L406" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L357-L406</a></sub></sup>
 
 
 ### Waiting for Block Proofs
@@ -1327,7 +1333,7 @@ while (provenBlockNumber < swapReceipt.blockNumber!) {
 
 console.log("Block proven!\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L408-L432" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L408-L432</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L408-L432" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L408-L432</a></sub></sup>
 
 
 The [outbox](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) stores L2→L1 messages in a Merkle tree. To consume a message, you must provide the **epoch** (which proof batch contains the message), the **leaf index** (position in the message tree), and the **sibling path** (Merkle proof showing the message is in the tree). These parameters are computed offchain by observing L2 blocks.
@@ -1382,7 +1388,7 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L434-L481" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L434-L481</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L434-L481" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L434-L481</a></sub></sup>
 
 
 Next, compute Merkle membership witnesses for both L2→L1 messages -- the sibling path (proof of inclusion) for each. We also compute the swap intent message leaf using the same encoding as the Solidity portal:
@@ -1473,7 +1479,7 @@ const swapSiblingPath = swapWitness.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L483-L568" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L483-L568</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L483-L568" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L483-L568</a></sub></sup>
 
 
 Next, call `swapPublic` on the L1 uniswap portal, passing both message proofs. The portal verifies both messages against the outbox, performs the mock swap, and deposits the output tokens back to L2:
@@ -1510,7 +1516,7 @@ const l1SwapReceipt = await l1Client.waitForTransactionReceipt({
 });
 console.log(`L1 swap executed! Tx: ${l1SwapHash}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L570-L601" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L570-L601</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L570-L601" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L570-L601</a></sub></sup>
 
 
 Finally, claim the output DAI on L2:
@@ -1571,7 +1577,7 @@ if (daiBalance !== SWAP_AMOUNT) {
 }
 console.log("\n✓ All checks passed — public swap complete!\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/example_swap/index.ts#L603-L658" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L603-L658</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/example_swap/index.ts#L603-L658" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/example_swap/index.ts#L603-L658</a></sub></sup>
 
 
 ### Run It

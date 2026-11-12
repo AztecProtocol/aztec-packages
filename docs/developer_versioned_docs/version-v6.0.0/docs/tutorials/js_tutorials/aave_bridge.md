@@ -3,7 +3,7 @@ title: "Deposit to Aave from Aztec"
 sidebar_position: 2
 description: "Build a cross-chain DeFi integration that deposits tokens into Aave from Aztec L2 and claims yield back."
 tags: [defi, cross-chain, messaging, portals, advanced]
-references: ["docs/examples/contracts/aave_bridge/src/main.nr", "docs/examples/ts/aave_bridge/contracts/AavePortal.sol", "docs/examples/ts/aave_bridge/scripts/index.ts"]
+references: ["docs/lines/v6/examples/contracts/aave_bridge/src/main.nr", "docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol", "docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts"]
 ---
 
 ## Why DeFi from Aztec?
@@ -104,9 +104,7 @@ sequenceDiagram
 
 ## Project Setup
 
-The Ethereum side is a [Hardhat](https://hardhat.org) project, and the Aztec contract goes in its `contracts/aztec` folder.
-
-Create the project folder, with an empty `yarn.lock` so Yarn treats it as a project of its own even inside another one:
+The Ethereum side is a [Hardhat](https://hardhat.org) project, and the Aztec contract goes in its `contracts/aztec` folder. Create the project folder, with an empty `yarn.lock` so Yarn treats it as a project of its own even inside another one:
 
 ```bash
 mkdir aztec-aave-bridge
@@ -147,7 +145,7 @@ ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
 
 Create `hardhat.config.ts`:
 
-```typescript title="hardhat.config.ts"
+```typescript title="hardhat_config" showLineNumbers 
 import { defineConfig } from "hardhat/config";
 
 export default defineConfig({
@@ -157,15 +155,19 @@ export default defineConfig({
   },
 });
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/hardhat.config.ts#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/hardhat.config.ts#L1-L10</a></sub></sup>
+
 
 Create `remappings.txt`. It resolves the `@oz/` and `@aztec/` imports, in your contracts and in the l1-contracts sources, through that link:
 
-```text title="remappings.txt"
+```text title="remappings" showLineNumbers 
 @oz/=l1-contracts/lib/openzeppelin-contracts/contracts/
 @aztec/=l1-contracts/src/
 @aztec-blob-lib/=l1-contracts/src/core/libraries/rollup/
 @zkpassport/=l1-contracts/lib/circuits/src/solidity/src/
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/remappings.txt#L1-L6" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/remappings.txt#L1-L6</a></sub></sup>
+
 
 When complete, your project will have this structure:
 
@@ -278,7 +280,7 @@ pub struct Config {
     pub portal: EthAddress,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/aave_bridge/src/config.nr#L1-L13" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/aave_bridge/src/config.nr#L1-L13</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/aave_bridge/src/config.nr#L1-L13" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/aave_bridge/src/config.nr#L1-L13</a></sub></sup>
 
 
 Then replace `contracts/aztec/aave_bridge/aave_bridge_contract/src/main.nr`:
@@ -355,7 +357,7 @@ fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_inde
     self.call(Token::at(config.token).mint_to_public(to, amount));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/aave_bridge/src/main.nr#L42-L61" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/aave_bridge/src/main.nr#L42-L61</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L42-L61" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L42-L61</a></sub></sup>
 
 
 ```rust title="exit_to_l1_public" showLineNumbers 
@@ -378,7 +380,7 @@ fn exit_to_l1_public(
     self.call(Token::at(config.token).burn_public(self.msg_sender(), amount, authwit_nonce));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/aave_bridge/src/main.nr#L89-L108" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/aave_bridge/src/main.nr#L89-L108</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L89-L108" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L89-L108</a></sub></sup>
 
 
 The `authwit_nonce` parameter supports [authentication witnesses](../../aztec-js/how_to_use_authwit.md). When the caller is the token owner (`msg.sender`), pass `0` — no authorization witness is needed. If a third party calls this function on behalf of the owner, they must provide a valid nonce from an authwit the owner previously created.
@@ -412,7 +414,7 @@ fn claim_private(
     self.call(Token::at(config.token).mint_to_private(recipient, amount));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/aave_bridge/src/main.nr#L63-L87" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/aave_bridge/src/main.nr#L63-L87</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L63-L87" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L63-L87</a></sub></sup>
 
 
 ```rust title="exit_to_l1_private" showLineNumbers 
@@ -439,7 +441,7 @@ fn exit_to_l1_private(
     self.call(Token::at(token).burn_private(self.msg_sender(), amount, authwit_nonce));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/aave_bridge/src/main.nr#L110-L133" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/aave_bridge/src/main.nr#L110-L133</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L110-L133" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/aave_bridge/src/main.nr#L110-L133</a></sub></sup>
 
 
 :::info Content Hash Matching
@@ -486,7 +488,7 @@ Create the following mock contracts in `contracts/`.
 
 `contracts/MockERC20.sol` — a minimal ERC20 with public minting:
 
-```solidity
+```solidity title="mock_erc20" showLineNumbers 
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
@@ -500,10 +502,12 @@ contract MockERC20 is ERC20 {
     }
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/contracts/MockERC20.sol#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/contracts/MockERC20.sol#L1-L14</a></sub></sup>
+
 
 `contracts/MockAToken.sol` — Aave's yield-bearing token mock:
 
-```solidity
+```solidity title="mock_atoken" showLineNumbers 
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
@@ -521,10 +525,12 @@ contract MockAToken is ERC20 {
     }
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/contracts/MockAToken.sol#L1-L18" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/contracts/MockAToken.sol#L1-L18</a></sub></sup>
+
 
 `contracts/MockAavePool.sol` — simplified Aave lending pool that returns a configurable yield:
 
-```solidity
+```solidity title="mock_aave_pool" showLineNumbers 
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
@@ -581,6 +587,8 @@ contract MockAavePool {
     }
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/contracts/MockAavePool.sol#L1-L57" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/contracts/MockAavePool.sol#L1-L57</a></sub></sup>
+
 
 ### AavePortal Contract
 
@@ -682,7 +690,7 @@ function depositToAave(
     aavePool.supply(address(underlying), _amount, address(this), 0);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/aave_bridge/AavePortal.sol#L57-L89" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/aave_bridge/AavePortal.sol#L57-L89</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol#L57-L89" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol#L57-L89</a></sub></sup>
 
 
 Then, `claimFromAavePublic` withdraws from Aave (including any yield earned) and sends an L1→L2 message so the user can mint tokens on L2:
@@ -706,7 +714,7 @@ function claimFromAavePublic(uint256 _aTokenAmount, bytes32 _to, bytes32 _secret
     return (key, index);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/aave_bridge/AavePortal.sol#L91-L110" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/aave_bridge/AavePortal.sol#L91-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol#L91-L110" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol#L91-L110</a></sub></sup>
 
 
 There's also a private variant that lets the user claim without revealing their L2 address:
@@ -726,7 +734,7 @@ function claimFromAavePrivate(uint256 _aTokenAmount, bytes32 _secretHash) extern
     return (key, index);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/aave_bridge/AavePortal.sol#L112-L126" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/aave_bridge/AavePortal.sol#L112-L126</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol#L112-L126" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/contracts/AavePortal.sol#L112-L126</a></sub></sup>
 
 
 ### Compile
@@ -747,7 +755,7 @@ Create `scripts/index.ts` to run the full flow. This script deploys all contract
 
 ### Setup
 
-```typescript
+```typescript title="setup" showLineNumbers 
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing";
 import { AztecAddress, EthAddress } from "@aztec-labs/aztec.js/addresses";
 import { SetPublicAuthwitContractInteraction } from "@aztec-labs/aztec.js/authorization";
@@ -797,6 +805,8 @@ const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L1-L50" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L1-L50</a></sub></sup>
+
 
 :::note About EmbeddedWallet
 `EmbeddedWallet` is a simplified wallet for local development. It handles key management, transaction signing, and proof generation in-process. Code written against `EmbeddedWallet` works with any `Wallet` implementation, so your application logic transfers directly to production.
@@ -843,7 +853,7 @@ console.log(`MockAToken (aDAI): ${aTokenAddress}`);
 console.log(`MockAavePool: ${poolAddress}`);
 console.log(`AavePortal: ${portalAddress}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L52-L90" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L52-L90</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L52-L90" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L52-L90</a></sub></sup>
 
 
 ### Deploy L2 Contracts
@@ -870,7 +880,7 @@ const { contract: l2Bridge } = await AaveBridgeContract.deploy(
 console.log(`L2 Token: ${l2Token.address.toString()}`);
 console.log(`L2 Bridge: ${l2Bridge.address.toString()}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L92-L113" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L92-L113</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L92-L113" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L92-L113</a></sub></sup>
 
 
 ### Initialize
@@ -901,7 +911,7 @@ await l2Token.methods
 
 console.log("All contracts initialized\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L115-L140" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L115-L140</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L115-L140" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L115-L140</a></sub></sup>
 
 
 ### Fund the User
@@ -937,7 +947,7 @@ await l2Token.methods
 
 console.log(`User funded with ${depositAmount / 10n ** 18n} tokens on L2\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L142-L165" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L142-L165</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L142-L165" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L142-L165</a></sub></sup>
 
 
 ### Deposit to Aave (L2 → L1)
@@ -989,7 +999,7 @@ const { receipt: exitReceipt } = await l2Bridge.methods
 
 console.log(`Exit sent (block: ${exitReceipt.blockNumber})`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L192-L232" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L192-L232</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L192-L232" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L192-L232</a></sub></sup>
 
 
 Compute the membership witness to prove the message on L1:
@@ -1053,7 +1063,7 @@ const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L234-L292" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L234-L292</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L234-L292" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L234-L292</a></sub></sup>
 
 
 Execute the deposit on L1:
@@ -1079,7 +1089,7 @@ const depositToAaveHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: depositToAaveHash });
 console.log("Tokens deposited into Aave!\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L294-L314" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L294-L314</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L294-L314" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L294-L314</a></sub></sup>
 
 
 ### Claim from Aave with Yield (L1 → L2)
@@ -1114,7 +1124,7 @@ const claimReceipt = await l1Client.waitForTransactionReceipt({
 });
 console.log("Aave withdrawal complete, L1->L2 message sent");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L316-L341" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L316-L341</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L316-L341" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L316-L341</a></sub></sup>
 
 
 Extract the message leaf index:
@@ -1181,7 +1191,7 @@ const messageSentLogs = claimReceipt.logs
 const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.message.index);
 console.log(`Message leaf index: ${messageLeafIndex}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L343-L404" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L343-L404</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L343-L404" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L343-L404</a></sub></sup>
 
 
 On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
@@ -1210,7 +1220,7 @@ async function mine2Blocks(
   });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L167-L190" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L167-L190</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L167-L190" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L167-L190</a></sub></sup>
 
 
 Claim the tokens (with yield) on L2:
@@ -1232,7 +1242,7 @@ await l2Bridge.methods
   .send({ from: account.address });
 console.log("Tokens claimed on L2!\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L406-L422" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L406-L422</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L406-L422" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L406-L422</a></sub></sup>
 
 
 ### Verify
@@ -1259,7 +1269,7 @@ console.log(
   `\nYield earned successfully: ${finalBalance >= expectedFinal ? "YES" : "NO"}`,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aave_bridge/index.ts#L424-L445" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L424-L445</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L424-L445" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aave_bridge/scripts/index.ts#L424-L445</a></sub></sup>
 
 
 Run the full flow:

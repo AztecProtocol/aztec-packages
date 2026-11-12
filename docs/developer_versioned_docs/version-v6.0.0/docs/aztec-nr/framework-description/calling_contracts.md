@@ -41,7 +41,7 @@ The pattern is:
 ```rust title="private_call" showLineNumbers 
 let _ = self.call(Token::at(stable_coin).burn_private(from, amount, authwit_nonce));
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233</a></sub></sup>
 
 
 ### Public-to-public calls

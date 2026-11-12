@@ -3,7 +3,7 @@ title: Connect to Local Network
 tags: [local_network, connection, wallet]
 sidebar_position: 1
 description: Connect your application to the Aztec local network and interact with accounts.
-references: ["docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/accounts/src/testing/*"]
 ---
 
 This guide shows you how to connect your application to the Aztec local network and interact with the network.
@@ -38,7 +38,7 @@ await waitForNode(node);
 // Create an EmbeddedWallet connected to the node
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
 
 
 :::note About EmbeddedWallet
@@ -58,7 +58,7 @@ const nodeInfo = await node.getNodeInfo();
 console.log("Connected to local network version:", nodeInfo.nodeVersion);
 console.log("Chain ID:", nodeInfo.l1ChainId);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L16-L20" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L16-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L16-L20" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L16-L20</a></sub></sup>
 
 
 ### Load pre-funded accounts
@@ -82,7 +82,7 @@ const [aliceAddress, bobAddress] = await Promise.all(
 console.log(`Alice's address: ${aliceAddress.toString()}`);
 console.log(`Bob's address: ${bobAddress.toString()}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L22-L38" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L22-L38</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L22-L38" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L22-L38</a></sub></sup>
 
 
 These accounts are pre-funded with fee juice (the native gas token) at genesis, so you can immediately send transactions without needing to bridge funds from L1.
@@ -97,7 +97,7 @@ import { getFeeJuiceBalance } from "@aztec-labs/aztec.js/utils";
 const aliceBalance = await getFeeJuiceBalance(aliceAddress, node);
 console.log(`Alice's fee juice balance: ${aliceBalance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L40-L45" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L40-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L40-L45" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L40-L45</a></sub></sup>
 
 
 ## Next steps

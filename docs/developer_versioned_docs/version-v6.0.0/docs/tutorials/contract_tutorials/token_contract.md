@@ -3,7 +3,7 @@ title: Private Token Contract
 sidebar_position: 1
 tags: [privacy, tokens, intermediate]
 description: Build a privacy-preserving token for employee mental health benefits that keeps spending habits confidential.
-references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/ts/bob_token_contract/index.ts"]
+references: ["docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr", "docs/lines/v6/examples/ts/bob_token_contract/index.ts"]
 ---
 
 ## The Privacy Challenge: Mental Health Benefits at Giggle
@@ -46,6 +46,16 @@ yarn init -y
 yarn config set nodeLinker node-modules
 yarn add @aztec-labs/aztec.js@v6.0.0 @aztec-labs/accounts@v6.0.0 @aztec-labs/kv-store@v6.0.0 @aztec-labs/wallets@v6.0.0
 ```
+
+:::tip Packages published in the last 24 hours
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+
+```yaml
+npmPreapprovedPackages:
+  - "@aztec-labs/*"
+  - "@aztec-foundation/*"
+```
+:::
 
 ## Contract structure
 
@@ -163,7 +173,7 @@ fn setup() {
     self.storage.owner.write(self.msg_sender());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L32-L39" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L32-L39</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L32-L39" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L32-L39</a></sub></sup>
 
 
 The `#[initializer]` decorator ensures this runs once during deployment. Only Giggle's address will have the power to mint new BOB tokens for employees.
@@ -183,7 +193,7 @@ fn mint_public(employee: AztecAddress, amount: u64) {
     self.storage.public_balances.at(employee).write(current_balance + amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L41-L51" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L41-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L41-L51" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L41-L51</a></sub></sup>
 
 
 This public minting function:
@@ -215,7 +225,7 @@ fn transfer_public(to: AztecAddress, amount: u64) {
     self.storage.public_balances.at(to).write(recipient_balance + amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L53-L67" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L53-L67</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L53-L67" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L53-L67</a></sub></sup>
 
 
 This might be used when:
@@ -239,7 +249,7 @@ fn transfer_ownership(new_owner: AztecAddress) {
     self.storage.owner.write(new_owner);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L69-L79" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L69-L79</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L69-L79" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L69-L79</a></sub></sup>
 
 
 ## Your First Deployment - Let's See It Work
@@ -420,7 +430,7 @@ struct Storage<Context> {
     private_balances: Owned<BalanceSet<Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L19-L30" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L19-L30</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L19-L30" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L19-L30</a></sub></sup>
 
 
 The `private_balances` use `BalanceSet` which manages encrypted notes automatically.
@@ -441,7 +451,7 @@ fn public_to_private(amount: u64) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L81-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L81-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L81-L92" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L81-L92</a></sub></sup>
 
 
 And the helper function:
@@ -455,7 +465,7 @@ fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
     self.storage.public_balances.at(owner).write(balance - amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L94-L102" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L94-L102</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L94-L102" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L94-L102</a></sub></sup>
 
 
 By calling `public_to_private` we're telling the network "deduct this amount from my balance" while simultaneously creating a Note with that balance in privateland.
@@ -478,7 +488,7 @@ fn transfer_private(to: AztecAddress, amount: u64) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L104-L117" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L104-L117</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L104-L117" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L104-L117</a></sub></sup>
 
 
 This function simply nullifies the sender's notes, while adding them to the recipient.
@@ -508,7 +518,7 @@ unconstrained fn public_balance_of(owner: AztecAddress) -> pub u64 {
     self.storage.public_balances.at(owner).read()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L119-L129" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L119-L129</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L119-L129" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L119-L129</a></sub></sup>
 
 
 ## Part 3: Securing Private Minting
@@ -545,7 +555,7 @@ fn _assert_is_owner(address: AztecAddress) {
     assert_eq(address, self.storage.owner.read(), "Only Giggle can mint BOB tokens");
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L131-L137" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L131-L137</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L131-L137" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L131-L137</a></sub></sup>
 
 
 Now we can add a secure private minting function. It looks pretty easy, and it is, since the whole thing will revert if the public function fails:
@@ -562,7 +572,7 @@ fn mint_private(employee: AztecAddress, amount: u64) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L139-L150" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L139-L150</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L139-L150" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L139-L150</a></sub></sup>
 
 
 This pattern ensures:
@@ -595,7 +605,7 @@ fn _credit_public_balance(owner: AztecAddress, amount: u64) {
     self.storage.public_balances.at(owner).write(balance + amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L152-L170" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L152-L170</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L152-L170" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L152-L170</a></sub></sup>
 
 
 Now you've made changes to your contract, you need to recompile your contract.

@@ -2,7 +2,7 @@
 title: "Building a Webapp on Aztec"
 sidebar_position: 0
 description: "Build a Pod Racing game webapp with Vite, React, and Aztec — featuring private state, wallet connections, and zero-knowledge proofs."
-references: ["docs/examples/webapp-tutorial/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/*"]
 ---
 
 # Building a Webapp on Aztec
@@ -37,28 +37,30 @@ Without privacy, your opponent could see your point allocations as you play and 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/), at the version [the Aztec installer requires](../../../../getting_started_on_local_network.md#prerequisites)
-- The Aztec CLI installed (`aztec` command available)
+- Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack)
+- git 2.35 or later
+- The Aztec CLI at version 6.0.0 (`aztec --version` prints it)
 - A local Aztec network running (`aztec start --local-network`)
 - Basic familiarity with React and TypeScript
 
 ## Clone the example
 
-The tutorial walks through a complete working example. Clone it first, then follow along:
+The tutorial walks through a complete working example. Fetch it at the commit this page quotes, with the aztec-nr it builds against, then follow along:
 
-```bash
-git clone https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node
-git checkout v6.0.0
-cd docs/examples/webapp-tutorial
-touch yarn.lock
-./setup.sh
+```bash title="Clone the example"
+git init -q aztec-docs && cd aztec-docs
+git remote add origin https://github.com/AztecProtocol/aztec-packages.git
+git sparse-checkout set --no-cone /docs/lines/v6/Nargo.toml /docs/lines/v6/examples/
+git fetch --depth 1 --filter=blob:none origin c0643538fa9523cca55eab25f5befd31b4d115b8
+git -c advice.detachedHead=false checkout c0643538fa9523cca55eab25f5befd31b4d115b8
+git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --branch v6.0.0 \
+  https://github.com/aztec-labs-eng/aztec-node.git docs/lines/v6/.aztec-node/tree
+git -C docs/lines/v6/.aztec-node/tree sparse-checkout set noir-projects
+cd docs/lines/v6/examples/webapp-tutorial
+./setup.sh 6.0.0
 ```
 
-The empty `yarn.lock` tells yarn 4 that this directory is its own project rather than part of the `docs/` workspace. Without it, `./setup.sh` fails with "doesn't seem to be part of the project".
-
-:::warning Fix the test-account helpers in v6.0.0
-In the v6.0.0 example, `scripts/deploy-and-interact.ts` and `src/embedded-wallet.ts` create the test accounts with `createSchnorrAccount`. The local network funds its test accounts at genesis as *initializerless* Schnorr accounts, so those calls produce undeployed addresses and every transaction from them fails. Replace `createSchnorrAccount` with `createSchnorrInitializerlessAccount` in both files (same arguments) before running `yarn interact` or the browser app.
-:::
+This checks out the docs examples with their Noir workspace (`docs/lines/v6/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/lines/v6/`, the workspace root. A full clone of the repository does not build it: nargo would take the topmost `Nargo.toml`, `docs/Nargo.toml`, as the workspace. `setup.sh` writes the Aztec version into `package.json` and installs the dependencies.
 
 ## Architecture
 
@@ -93,7 +95,7 @@ In the v6.0.0 example, `scripts/deploy-and-interact.ts` and `src/embedded-wallet
 
 ## Completed example
 
-The full working example including the contract source is available at [`docs/examples/webapp-tutorial/`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial).
+The full working example including the contract source is available at [`docs/lines/v6/examples/webapp-tutorial/`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial).
 
 The example also includes a **functional wallet extension** (`test-extension/`) that can deploy accounts and send real transactions using SponsoredFPC for fee payment. See the [Network & Wallet](./03-network-and-wallet.md#testing-with-the-tutorial-wallet-extension) section for setup instructions.
 

@@ -1,4 +1,4 @@
-# @aztec/wallets
+# @aztec-labs/wallets
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   createFundedInitializerlessAccounts,
   registerInitialLocalNetworkAccountsInWallet,
   // ... and more
-} from '@aztec/wallets';
+} from '@aztec-labs/wallets';
 ```
 
 ## Classes
@@ -187,3 +187,28 @@ type EmbeddedWalletOptions = unknown
 type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions
 ```
 Options for the PXE instance created by the EmbeddedWallet.
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/accounts**
+- `InitialAccountData`
+
+**@aztec-labs/aztec.js**
+- `Account`, `AccountManager`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `WalletCapabilities`
+
+**@aztec-labs/entrypoints**
+- `ChainInfo`
+
+**@aztec-labs/foundation**
+- `Fq`, `Fr`, `LogFn`, `Logger`
+
+**@aztec-labs/pxe**
+- `PXE`, `PXEConfig`, `PXECreationOptions`
+
+**@aztec-labs/stdlib**
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `ContractOverrides`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `ManaUsageEstimate`, `MasterSecretKeys`, `TxExecutionRequest`, `TxProfileResult`, `UtilityExecutionResult`
+
+**@aztec-labs/wallet-sdk**
+- `CompleteFeeOptionsConfig`, `FeeOptions`, `SimulateViaEntrypointOptions`

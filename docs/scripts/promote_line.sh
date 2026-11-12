@@ -33,9 +33,33 @@ node "$docs/scripts/aztec_node.mts" --line "$line" pin "$tag" || unpin "pinning 
 # The commit the pin recorded, not the tag, which can move after the pin resolves it; and the
 # repository the pin enforces, not the one the line named before.
 read -r repo commit < <(node -p 'const p = require(process.argv[1]); new URL(p.repository).pathname.slice(1) + " " + p.commit' "$line_root/aztec-node.json")
-status=$(gh api "repos/$repo/compare/$line...$commit" --jq .status) || unpin "cannot compare $tag ($commit) with $repo's $line branch"
+compare() { gh api "repos/$repo/compare/$1...$2" --jq "$3"; }
+status=$(compare "$line" "$commit" .status) || unpin "cannot compare $tag ($commit) with $repo's $line branch"
 case "$status" in
   behind | identical) ;;
+  ahead | diverged)
+    # A release may be tagged on its own branch (v6.0.0 on release/6.0.0), cut at the line's head (ahead) or before
+    # the line moved on (diverged). Accept only the branch named for the tag's version, and only when the tag's own
+    # commits are on neither the line nor the default branch: the fork point alone cannot tell, since a line can
+    # leave the default branch after a release forks from it.
+    release=release/${tag#v}
+    rstatus=$(compare "$release" "$commit" .status) ||
+      unpin "$tag ($commit) is not on $repo's $line branch (compare $line...$commit: $status), nor on a $release branch"
+    [[ "$rstatus" = behind || "$rstatus" = identical ]] ||
+      unpin "$tag ($commit) is on neither $repo's $line nor its $release branch (compare $release...$commit: $rstatus)"
+    default=$(gh api "repos/$repo" --jq .default_branch) || unpin "cannot read $repo's default branch"
+    # The compare API lists at most 250 commits: refuse rather than check a truncated list.
+    own=$(compare "$line" "$commit" 'if .ahead_by == (.commits | length) then .commits[].sha else error("truncated") end') ||
+      unpin "cannot list $tag's commits that $line lacks"
+    off_default=$(compare "$default" "$commit" 'if .ahead_by == (.commits | length) then .commits[].sha else error("truncated") end') ||
+      unpin "cannot list $tag's commits that $default lacks"
+    shared=$(grep -Fxv -f <(printf '%s\n' "$off_default") <<<"$own" || true)
+    [ -z "$shared" ] || unpin "$release carries commits $default has ($(head -c 10 <<<"$shared")…): it is not a release branch of $line"
+    read -r fork forked < <(compare "$line" "$commit" '"\(.merge_base_commit.sha) \(.merge_base_commit.commit.committer.date)"') ||
+      unpin "cannot find where $release forks from $line"
+    echo "$tag is on $repo's $release, which forks from $line at $fork ($forked). The tag's commits not on $line:"
+    compare "$line" "$commit" '.commits[] | "  \(.sha[0:10]) \(.commit.message | split("\n")[0])"' || unpin "cannot list $tag's commits"
+    ;;
   *) unpin "$tag ($commit) is not on $repo's $line branch (compare $line...$commit: $status)" ;;
 esac
 

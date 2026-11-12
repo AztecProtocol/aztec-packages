@@ -3,7 +3,7 @@ title: How to Define Functions
 sidebar_position: 1
 tags: [functions, smart-contracts]
 description: Define different types of functions in your Aztec contracts for private, public, and utility execution.
-references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr", "docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 ## Overview
@@ -40,7 +40,7 @@ fn increment(owner: AztecAddress) {
     self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L36-L42</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L36-L42</a></sub></sup>
 
 
 Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../state_variables.md#delayedpublicmutable).
@@ -60,7 +60,7 @@ fn mint_public(employee: AztecAddress, amount: u64) {
     self.storage.public_balances.at(employee).write(current_balance + amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L41-L51" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L41-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L41-L51" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L41-L51</a></sub></sup>
 
 
 Public functions operate on public state, similar to EVM contracts. They can write to private storage, but any data written from a public function is publicly visible.
@@ -77,7 +77,7 @@ unconstrained fn get_counter(owner: AztecAddress) -> pub u128 {
     self.storage.counters.at(owner).balance_of()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L44-L49" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L44-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L44-L49" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L44-L49</a></sub></sup>
 
 
 Use `aztec.js` `simulate` to execute utility functions and read their return values. For details, see [Call Types](../../../foundational-topics/call_types.md#simulate).
@@ -108,7 +108,7 @@ fn _assert_is_owner(address: AztecAddress) {
     assert_eq(address, self.storage.owner.read(), "Only Giggle can mint BOB tokens");
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/bob_token_contract/src/main.nr#L131-L137" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L131-L137</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L131-L137" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/bob_token_contract/src/main.nr#L131-L137</a></sub></sup>
 
 
 Only-self functions are only callable by the same contract, which is useful when a private function enqueues a public call that should only be callable internally.
@@ -127,7 +127,7 @@ fn constructor(initial_value: u128, owner: AztecAddress) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L25-L34" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L25-L34</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L25-L34" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L25-L34</a></sub></sup>
 
 
 ### Use multiple initializers

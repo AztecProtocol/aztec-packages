@@ -13,7 +13,7 @@ The contracts' compiled artifacts and TypeScript wrappers are published on npm a
 Because Aztec contracts have both private and public execution contexts, the standards are more involved than their Ethereum equivalents. Transfers can move value between private notes and public balances, and many operations require coordination between encrypted state and transparent state within a single transaction.
 
 :::note
-The code examples in this section are taken from the [`aztec-standards` repository](https://github.com/AztecProtocol/aztec-standards/tree/v6.0.0) at `v6.0.0`. They differ from the reference contract implementations under `noir-projects/noir-contracts/contracts/` in the [aztec-node repository](https://github.com/aztec-labs-eng/aztec-node). When in doubt, consult the `aztec-standards` repository for the canonical standard interfaces. The repository marks these contracts as unaudited: do not use them in production or to secure assets of value.
+The code examples in this section are taken from the [`aztec-standards` repository](https://github.com/AztecProtocol/aztec-standards/tree/main) at `main`. They differ from the reference contract implementations under `noir-projects/noir-contracts/contracts/` in the [aztec-node repository](https://github.com/aztec-labs-eng/aztec-node). When in doubt, consult the `aztec-standards` repository for the canonical standard interfaces. The repository marks these contracts as unaudited: do not use them in production or to secure assets of value.
 :::
 
 ## Standards
