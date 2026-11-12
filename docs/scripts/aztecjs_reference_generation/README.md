@@ -36,17 +36,6 @@ ignoring the embedded generation timestamp. `docs/bootstrap.sh` runs it so a cha
 to `yarn-project/aztec.js/src` that alters the reference cannot land without the
 regenerated page.
 
-### Convenience Script (Testing - Custom Approach)
-
-```bash
-# Generate without deploying (outputs to current directory)
-cd scripts/aztecjs_reference_generation
-./generate_docs.sh
-
-# Generate with JSDoc validation
-./generate_docs.sh . --validate
-```
-
 ## Files
 
 ### Custom Approach Scripts
@@ -55,11 +44,7 @@ cd scripts/aztecjs_reference_generation
 
 - **`transform_to_markdown.py`** - Markdown transformer (~700 LOC)
 
-- **`generate_docs.sh`** - Convenience wrapper for testing
-
 - **`update_docs.sh`** - Deployment script for production
-
-- **`verify_docs.py`** - Verification tool
 
 ## Documentation Structure
 
@@ -100,10 +85,11 @@ this.options = {
 
 ## JSDoc Validation
 
-Enable validation to check JSDoc completeness:
+Enable validation to check JSDoc completeness (from this directory, against the pinned checkout):
 
 ```bash
-./generate_docs.sh . --validate
+node parse_typescript.js --source ../../.aztec-node/tree/yarn-project/aztec.js/src \
+  --output aztec_api_docs.json --validate --validation-report validation_report.json
 ```
 
 **Validation checks:**
@@ -113,14 +99,6 @@ Enable validation to check JSDoc completeness:
 - Missing `@returns` tags on functions with return values
 
 ## Testing
-
-### Verify Generated Output
-
-```bash
-# Generate and verify
-./generate_docs.sh
-python3 verify_docs.py aztec_api_reference.md
-```
 
 ### Script Options
 
@@ -147,14 +125,6 @@ Options:
 - `--input <path>` - Input JSON file
 - `--output <path>` - Output markdown file
 - `--title <string>` - Documentation title
-
-#### verify_docs.py
-
-```bash
-python3 verify_docs.py <markdown_file>
-```
-
-Returns exit code 0 if no errors, 1 if errors found.
 
 ### Generated Files
 
