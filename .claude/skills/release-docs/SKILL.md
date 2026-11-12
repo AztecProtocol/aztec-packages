@@ -295,7 +295,8 @@ For the latter it prints the fork point and the tag's commits the line lacks: St
 the pages against them.
 Only then does it replace `docs-developers/`, `docs-operate/` and both sidebars with the
 line's, and copy the line's pin over `docs/aztec-node.json`. That promotion commit is
-release-only (Step 17). `fetch` then checks main's checkout out at that pin and reports the
+release-only (Step 17). It also makes the line's allowed differences read as stale in the
+cut (`node scripts/line_copies.mts`): that check belongs to the destination (Step 17). `fetch` then checks main's checkout out at that pin and reports the
 same drift as `pin` below. The promotion commit already carries the pin, so the pin commit
 below has something to commit only when l1-artifacts drifted; otherwise `PINNED` is the
 promotion commit.
@@ -1623,6 +1624,10 @@ Sort every listed path into exactly one class:
    (`docs/CLAUDE.md`): apply the same hunks to `docs/docs-developers/` and
    `docs/docs-operate/`, resolving by hand where main's copy differs. Other repairs reach
    main's pages only when the code they describe is the same at main's pin (the same rule).
+   The destination's `./bootstrap.sh check` fails on every page whose line copy now differs
+   from main's (`node scripts/line_copies.mts` in `docs/` lists them): carry the repair to
+   main's page, or list the page in `docs/lines/$LINE/allowed-differences.txt` with the
+   reason main keeps its text.
 
 3. **Release-only changes** stay in the cut: the promotion and pin commits
    (`docs/aztec-node.json`, `docs/package.json`, `docs/yarn.lock`, a line's pin), generated source pages (`aztec_js_reference.md`,
