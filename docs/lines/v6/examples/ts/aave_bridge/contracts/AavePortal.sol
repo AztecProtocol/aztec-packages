@@ -1,3 +1,4 @@
+// docs:start:portal_setup
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
@@ -12,7 +13,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
-// docs:start:portal_setup
 interface IAavePool {
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
     function withdraw(address asset, uint256 amount, address to) external returns (uint256);

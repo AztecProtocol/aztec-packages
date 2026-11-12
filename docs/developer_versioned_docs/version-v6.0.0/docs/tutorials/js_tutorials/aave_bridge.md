@@ -3,7 +3,7 @@ title: "Deposit to Aave from Aztec"
 sidebar_position: 2
 description: "Build a cross-chain DeFi integration that deposits tokens into Aave from Aztec L2 and claims yield back."
 tags: [defi, cross-chain, messaging, portals, advanced]
-references: ["docs/examples/contracts/aave_bridge/src/main.nr", "docs/examples/solidity/aave_bridge/AavePortal.sol", "docs/examples/ts/aave_bridge/index.ts"]
+references: ["docs/examples/contracts/aave_bridge/src/main.nr", "docs/examples/ts/aave_bridge/contracts/AavePortal.sol", "docs/examples/ts/aave_bridge/scripts/index.ts"]
 ---
 
 ## Why DeFi from Aztec?
@@ -52,7 +52,7 @@ You'll create:
 ## Prerequisites
 
 - [Aztec local network running at version v6.0.0](../../../getting_started_on_local_network.md) (includes the Aztec CLI, and the Node.js version it requires)
-- [Hardhat](https://hardhat.org/getting-started) installed for Solidity compilation and deployment
+- Yarn 4, through Corepack: `npm install -g corepack && corepack enable` (Node.js 25 and later no longer include Corepack)
 - Familiarity with the [Token Bridge tutorial](./token_bridge.md) (recommended)
 - Basic understanding of [cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)
 
@@ -104,35 +104,79 @@ sequenceDiagram
 
 ## Project Setup
 
-Start with the Hardhat + Aztec template. This provides a pre-configured Hardhat project with Aztec dependencies and Solidity compilation settings:
+The Ethereum side is a [Hardhat](https://hardhat.org) project, and the Aztec contract goes in its `contracts/aztec` folder.
 
-:::note
-
-This template is a community-maintained starter. If the repository is unavailable, you can set up a Hardhat project manually and add the `@aztec/*` Solidity remappings from the [cross-chain messaging docs](../../foundational-topics/ethereum-aztec-messaging/index.md).
-
-:::
+Create the project folder, with an empty `yarn.lock` so Yarn treats it as a project of its own even inside another one:
 
 ```bash
-git clone https://github.com/critesjosh/hardhat-aztec-example
-cd hardhat-aztec-example
-git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
+mkdir aztec-aave-bridge
+cd aztec-aave-bridge
+touch yarn.lock
 ```
 
-The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
+Create `package.json`:
 
-Before adding dependencies, make the starter install with yarn 4 (4.14 or later): create the `.yarnrc.yml`, swap `@aztec/l1-contracts` for `@aztec-foundation/l1-artifacts`, point the `postinstall` remappings at the new package, and add the root `remappings.txt`. These are the first three steps of the [Token Bridge tutorial's project setup](./token_bridge.md#project-setup); without them `yarn add` fails on the starter's git dependencies and `npx hardhat compile` cannot resolve the `@aztec/*` imports.
+```json title="package.json"
+{
+  "name": "aztec-aave-bridge",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.13.0"
+}
+```
 
-Then delete the starter's `Counter` contracts. They import the old `@aztec/l1-contracts/src/...` paths, which the new remapping does not resolve, so `npx hardhat compile` fails on them:
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
+
+```yaml title=".yarnrc.yml"
+nodeLinker: node-modules
+npmMinimalAgeGate: 7d
+npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
+```
+
+Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:
 
 ```bash
-rm contracts/Counter.sol contracts/Counter.t.sol
+yarn add hardhat@3.21.2 @aztec-foundation/l1-artifacts@6.0.0 @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/wallets@6.0.0 @aztec-labs/stdlib@6.0.0 @aztec-labs/foundation@6.0.0 @aztec-labs/ethereum@6.0.0 @aztec-labs/noir-contracts.js@6.0.0 @aztec/viem@2.38.2 tsx@4.23.15
+```
+
+The portal's Aztec interfaces come from `@aztec-foundation/l1-artifacts`, so they match the contracts deployed by your running network. Hardhat applies none of your remappings to files inside `node_modules`, so link those sources into the project:
+
+```bash
+ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
+```
+
+Create `hardhat.config.ts`:
+
+```typescript title="hardhat.config.ts"
+import { defineConfig } from "hardhat/config";
+
+export default defineConfig({
+  solidity: {
+    version: "0.8.30",
+    settings: { evmVersion: "prague", optimizer: { enabled: true } },
+  },
+});
+```
+
+Create `remappings.txt`. It resolves the `@oz/` and `@aztec/` imports, in your contracts and in the l1-contracts sources, through that link:
+
+```text title="remappings.txt"
+@oz/=l1-contracts/lib/openzeppelin-contracts/contracts/
+@aztec/=l1-contracts/src/
+@aztec-blob-lib/=l1-contracts/src/core/libraries/rollup/
+@zkpassport/=l1-contracts/lib/circuits/src/solidity/src/
 ```
 
 When complete, your project will have this structure:
 
 ```
-hardhat-aztec-example/
-  contracts/                     # Solidity contracts (Hardhat default)
+aztec-aave-bridge/
+  package.json
+  .yarnrc.yml
+  hardhat.config.ts
+  remappings.txt
+  l1-contracts -> node_modules/@aztec-foundation/l1-artifacts/l1-contracts
+  contracts/                     # Solidity contracts
     MockERC20.sol
     MockAToken.sol
     MockAavePool.sol
@@ -147,15 +191,10 @@ hardhat-aztec-example/
       aave_bridge_test/
         Nargo.toml
         src/lib.nr
+    artifacts/                   # Generated by aztec codegen
   scripts/
     index.ts                     # Integration script
-  artifacts/                     # Generated by aztec codegen
-```
-
-Add the Aztec dependencies:
-
-```bash
-yarn add @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/wallets@6.0.0 @aztec-labs/stdlib@6.0.0 @aztec-labs/foundation@6.0.0 @aztec-labs/ethereum@6.0.0 @aztec-labs/noir-contracts.js@6.0.0 @aztec/viem@2.38.2 tsx
+  artifacts/                     # Generated by npx hardhat compile
 ```
 
 Start the local network in another terminal:
@@ -427,6 +466,12 @@ The integration script imports `TokenContract` from `@aztec-labs/noir-contracts.
 
 ## Part 2: The Ethereum Side
 
+Go back to the project root:
+
+```bash
+cd ../../..
+```
+
 ### Mock Aave Contracts
 
 For local testing, you'll use simplified mocks of Aave's lending pool. The mock pool accepts deposits and returns them with a configurable yield — 10% in this tutorial (1000 basis points, where 10000 bps = 100%).
@@ -445,7 +490,7 @@ Create the following mock contracts in `contracts/`.
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@oz/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
@@ -462,7 +507,7 @@ contract MockERC20 is ERC20 {
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@oz/token/ERC20/ERC20.sol";
 
 contract MockAToken is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
@@ -483,8 +528,8 @@ contract MockAToken is ERC20 {
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {MockAToken} from "./MockAToken.sol";
 
@@ -544,16 +589,19 @@ The portal is where the magic happens. It bridges Aztec's cross-chain messages w
 <!-- wrapped in a code block to add a "}" at the end -->
 
 ```solidity
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity >=0.8.27;
 
-import {IRegistry} from "@aztec-foundation/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol";
-import {IInbox} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/interfaces/IRollup.sol";
-import {DataStructures} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/crypto/Hash.sol";
-import {Epoch} from "@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/TimeLib.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 interface IAavePool {
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
@@ -687,6 +735,8 @@ function claimFromAavePrivate(uint256 _aTokenAmount, bytes32 _secretHash) extern
 npx hardhat compile
 ```
 
+The compiler warns about EIP-1153 transient storage in `TransientSlot.sol`. That warning is expected: the file is OpenZeppelin code bundled with l1-contracts, which the portal reaches through the `IRollup` interface.
+
 :::note Solidity Artifact Paths
 Hardhat compiles Solidity contracts to `artifacts/contracts/` by default. The integration script imports ABIs from this location (e.g., `../artifacts/contracts/AavePortal.sol/AavePortal.json`).
 :::
@@ -754,10 +804,6 @@ const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 
 ### Deploy L1 Contracts
 
-:::note Hardhat artifacts
-The deployment snippet below comes from the example project, which builds its Solidity with Foundry. Hardhat artifacts store the bytecode as a plain string, so with `npx hardhat compile` use `MockERC20.bytecode` (and likewise for `MockAToken`, `MockAavePool` and `AavePortal`) instead of `.bytecode.object`.
-:::
-
 ```typescript title="deploy_l1" showLineNumbers 
 console.log("Deploying L1 contracts...\n");
 
@@ -765,7 +811,7 @@ console.log("Deploying L1 contracts...\n");
 const { address: underlyingAddress } = await deployL1Contract(
   l1Client,
   MockERC20.abi,
-  MockERC20.bytecode.object as `0x${string}`,
+  MockERC20.bytecode as `0x${string}`,
   ["Mock DAI", "mDAI"],
 );
 
@@ -773,7 +819,7 @@ const { address: underlyingAddress } = await deployL1Contract(
 const { address: aTokenAddress } = await deployL1Contract(
   l1Client,
   MockAToken.abi,
-  MockAToken.bytecode.object as `0x${string}`,
+  MockAToken.bytecode as `0x${string}`,
   ["Aave Mock DAI", "amDAI"],
 );
 
@@ -781,7 +827,7 @@ const { address: aTokenAddress } = await deployL1Contract(
 const { address: poolAddress } = await deployL1Contract(
   l1Client,
   MockAavePool.abi,
-  MockAavePool.bytecode.object as `0x${string}`,
+  MockAavePool.bytecode as `0x${string}`,
   [underlyingAddress.toString(), aTokenAddress.toString(), 1000n],
 );
 
@@ -789,7 +835,7 @@ const { address: poolAddress } = await deployL1Contract(
 const { address: portalAddress } = await deployL1Contract(
   l1Client,
   AavePortal.abi,
-  AavePortal.bytecode.object as `0x${string}`,
+  AavePortal.bytecode as `0x${string}`,
 );
 
 console.log(`MockERC20 (DAI): ${underlyingAddress}`);

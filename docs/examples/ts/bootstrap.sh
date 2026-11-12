@@ -70,7 +70,8 @@ validate_config() {
     return 0
 }
 export -f validate_config
-export -f parse_dependencies
+export -f parse_dependencies is_hardhat_project project_entry codegen_dir write_tsconfig hardhat_compile \
+    clean_hardhat_project
 
 # Function to validate a single TS project
 # Must be exported for parallel execution
@@ -85,8 +86,10 @@ validate_project() {
         return 1
     fi
 
-    if [ ! -f "$project_name/index.ts" ]; then
-        echo_stderr "ERROR: No index.ts found in '${project_name}'"
+    local entry
+    entry=$(project_entry "$project_name")
+    if [ ! -f "$project_name/$entry" ]; then
+        echo_stderr "ERROR: No $entry found in '${project_name}'"
         return 1
     fi
 
@@ -117,6 +120,7 @@ validate_project() {
             rm -rf .git .gitignore .editorconfig .gitattributes README.md \
                    node_modules .yarn .yarnrc.yml codegenCache.json \
                    package.json tsconfig.json artifacts 2>/dev/null || true
+            if is_hardhat_project; then clean_hardhat_project; fi
             # Keep yarn.lock empty to prevent yarn from using parent monorepo's yarn.lock
             > yarn.lock
             return $exit_code
@@ -135,7 +139,7 @@ validate_project() {
             while IFS= read -r contract_name; do
                 local artifact="$ARTIFACTS_DIR/${contract_name}.json"
                 echo_stderr "  - ${contract_name}..."
-                "$AZTEC" codegen "$artifact" -o artifacts
+                "$AZTEC" codegen "$artifact" -o "$(codegen_dir)"
             done < <(yq eval '.contracts[]' config.yaml)
         else
             echo_stderr "No custom contracts for '${project_name}', skipping codegen..."
@@ -143,6 +147,9 @@ validate_project() {
 
         # Setup yarn
         echo_stderr "Setting up yarn for '${project_name}'..."
+        # Corepack takes Yarn's version from the nearest package.json, and a line's stage has none above the
+        # projects: without this pin they install with Corepack's newest Yarn (4.18 skips dependency build scripts).
+        jq -n --arg pm "$(jq -r .packageManager "$REPO_ROOT/docs/package.json")" '{packageManager: $pm}' > package.json
         yarn init -y
         yarn config set nodeLinker node-modules
 
@@ -181,7 +188,12 @@ validate_project() {
             echo_stderr "ERROR: tsconfig template not found at '$DOCS_ROOT/examples/ts/tsconfig.template.json'"
             return 1
         fi
-        cp "$DOCS_ROOT/examples/ts/tsconfig.template.json" tsconfig.json
+        write_tsconfig "$DOCS_ROOT/examples/ts/tsconfig.template.json"
+
+        if is_hardhat_project; then
+            echo_stderr "Compiling Solidity for '${project_name}'..."
+            hardhat_compile
+        fi
 
         # Type check
         echo_stderr "Type checking '${project_name}'..."
@@ -195,12 +207,12 @@ validate_project() {
 }
 export -f validate_project
 
-# Collect all projects with index.ts and config.yaml
+# Collect all projects with an entry point and config.yaml
 get_all_projects() {
     for dir in */; do
         if [ -d "$dir" ]; then
             local project_name="${dir%/}"
-            if [ -f "$project_name/index.ts" ] && [ -f "$project_name/config.yaml" ]; then
+            if [ -f "$project_name/$(project_entry "$project_name")" ] && [ -f "$project_name/config.yaml" ]; then
                 echo "$project_name"
             fi
         fi
@@ -232,7 +244,7 @@ case "$cmd" in
         projects=$(get_all_projects)
 
         if [ -z "$projects" ]; then
-            echo_stderr "WARNING: No projects found with index.ts and config.yaml"
+            echo_stderr "WARNING: No projects found with an entry point and config.yaml"
             exit 0
         fi
 
