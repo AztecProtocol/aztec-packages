@@ -51,8 +51,8 @@ yarn build
 
 if [ "${CONTEXT:-}" = deploy-preview ]; then
   echo "=== Browser smoke test ==="
-  # Inside node_modules, which Netlify restores between builds; `docusaurus clear` empties
-  # node_modules/.cache, Playwright's other candidate.
+  # Inside node_modules, which Netlify may restore between builds; `docusaurus clear` empties
+  # node_modules/.cache.
   export PLAYWRIGHT_BROWSERS_PATH=0
   start=$SECONDS
   yarn playwright install --only-shell chromium

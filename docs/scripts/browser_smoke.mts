@@ -1,8 +1,6 @@
-// Opens a few pages of a built docs site in headless Chromium and fails when what only runs in the
-// browser breaks: a page that crashes or never hydrates, the OperatorConfig panel and track choices
-// (they render nothing on the server, so no HTML check sees them), the search box, and the version
-// menu. Serves the build on loopback and blocks every other host, so analytics and CDNs cannot slow or
-// flake it. Deploy previews only (scripts/netlify-build.sh); production never installs the browser.
+// Checks in headless Chromium what renders only in the browser (OperatorConfig, search, the version
+// switch), so no HTML check can see it. Every host but the loopback copy of the build is blocked, so
+// analytics and CDNs cannot slow or flake it.
 //
 //   node scripts/browser_smoke.mts <build-dir>
 import fs from "node:fs";
@@ -29,11 +27,10 @@ async function serve(root: string): Promise<{ origin: string; close: () => void 
     const p = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     const base = path.join(root, p);
     const file = [base, `${base}.html`, path.join(base, "index.html")].find(
-      (f) => f.startsWith(root) && fs.statSync(f, { throwIfNoEntry: false })?.isFile(),
+      (f) => f.startsWith(root + path.sep) && fs.statSync(f, { throwIfNoEntry: false })?.isFile(),
     );
-    const status = file ? 200 : 404;
-    const body = fs.readFileSync(file ?? path.join(root, "404.html"));
-    res.writeHead(status, { "content-type": TYPES[path.extname(file ?? ".html")] ?? "application/octet-stream" }).end(body);
+    const served = file ?? path.join(root, "404.html");
+    res.writeHead(file ? 200 : 404, { "content-type": TYPES[path.extname(served)] ?? "application/octet-stream" }).end(fs.readFileSync(served));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   return { origin: `http://127.0.0.1:${(server.address() as { port: number }).port}`, close: () => server.close() };
@@ -43,7 +40,6 @@ type Smoke = { id: string; name: string; run: (open: (path: string) => Promise<P
 
 const firstLine = (error: unknown) => (error instanceof Error ? error.message : String(error)).split("\n")[0];
 
-/** Runs `action`, naming what was expected if it fails. */
 async function expect(what: string, action: Promise<unknown>): Promise<void> {
   try {
     await action;
@@ -101,7 +97,8 @@ export const SMOKES: Smoke[] = [
       const other = menu.locator('a.dropdown__link:not([href="/developers/overview"])').first();
       const href = await other.getAttribute("href");
       await expect("another version in the version menu", menu.hover().then(() => other.click()));
-      await expect(`the page at ${href}`, page.waitForURL(`**${href}`).then(() => page.locator("article h1").first().waitFor()));
+      // The URL changes before the destination renders: Docusaurus keeps the old page until its chunks load.
+      await expect(`the page at ${href}`, menu.locator(`a.dropdown__link--active[href="${href}"]`).waitFor({ state: "attached" }));
     },
   },
 ];
@@ -114,6 +111,12 @@ async function runSmoke(browser: Browser, origin: string, smoke: Smoke): Promise
   const open = async (p: string) => {
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(`${p}: ${firstLine(error)}`));
+    // A hydration mismatch React recovers from is only logged, and the page still reports hydrated.
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.text().startsWith("Docusaurus React Root onRecoverableError")) {
+        errors.push(`${p}: ${firstLine(message.text())}`);
+      }
+    });
     await expect(`${p} loading`, page.goto(origin + p));
     await expect(`${p} hydrating`, page.locator("html[data-has-hydrated=true]").waitFor());
     return page;
