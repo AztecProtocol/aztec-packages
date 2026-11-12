@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/aztec_nr_api_markdown.mjs build && node scripts/split_typescript_api.mjs build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/index_migration_notes.mjs && node scripts/inject_llms_directive.js && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_agent_readiness.mts build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_search_index.mts build",
+    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/aztec_nr_api_markdown.mjs build && node scripts/split_typescript_api.mjs build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/index_migration_notes.mjs && node scripts/inject_llms_directive.js && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_agent_readiness.mts build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_search_index.mts build && node scripts/check_built_site.mts build",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "check:orphaned-urls": "./scripts/check_orphaned_urls.sh",
