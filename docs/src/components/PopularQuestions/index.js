@@ -1,4 +1,3 @@
-import React from "react";
 import Link from "@docusaurus/Link";
 import useDocsBase from "@site/src/utils/useDocsBase";
 import styles from "./styles.module.css";

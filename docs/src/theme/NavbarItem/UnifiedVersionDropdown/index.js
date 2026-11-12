@@ -1,4 +1,3 @@
-import React from 'react';
 import { useLocation } from '@docusaurus/router';
 import {
   useActivePlugin,

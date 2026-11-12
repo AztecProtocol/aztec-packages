@@ -1,4 +1,3 @@
-import React from 'react';
 import Layout from '@theme-original/Layout';
 import NPSWidget from '@site/src/components/NPSWidget';
 

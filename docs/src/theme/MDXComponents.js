@@ -1,4 +1,3 @@
-import React from "react";
 import MDXComponents from "@theme-original/MDXComponents";
 import Version, { AztecPackagesVersion } from "@site/src/components/Version";
 import CodeBlock from "@theme/CodeBlock";
