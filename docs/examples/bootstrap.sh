@@ -296,6 +296,11 @@ function execute-examples {
     return 1
   fi
   pin_toolchain
+  # The runner runs as this user and downloads the CRS into this cache. Docker would create a
+  # missing bind-mount source as root, which the runner cannot write.
+  local crs="$HOME/.bb-crs"
+  mkdir -p "$crs"
+  [ -w "$crs" ] || { echo_stderr "$crs is not writable by $(id -un), and the examples runner caches the CRS there."; return 1; }
   local COMPOSE_DIR="$DOCS_ROOT/examples/ts"
   DOCS_UID=$(id -u) DOCS_GID=$(id -g) run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }

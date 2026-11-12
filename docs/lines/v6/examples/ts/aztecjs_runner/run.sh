@@ -245,7 +245,8 @@ PASSED=0
 FAILED=0
 FAILED_EXAMPLES=()
 
-# Setup and run leave files in the example directories; remove them however the run ends.
+# Setup and run leave files in the example directories; remove them on exit, on an error, or on TERM or
+# INT once the running command returns. A SIGKILL skips it.
 cleanup_all() {
     echo -e "${YELLOW}Cleaning up...${NC}"
     for example in "${EXAMPLES[@]}"; do
