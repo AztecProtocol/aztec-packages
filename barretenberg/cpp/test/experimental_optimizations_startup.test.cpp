@@ -11,4 +11,5 @@ TEST(ExperimentalOptimizationsStartup, UsesRequestedEnvironment)
         return value != nullptr && std::string_view(value) == "1";
     };
     EXPECT_EQ(bb::experimental_optimizations_enabled(), requested("BB_EXPERIMENTAL_OPTIMIZATIONS"));
+    EXPECT_EQ(bb::rollup_experimental_optimizations_enabled(), requested("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS"));
 }

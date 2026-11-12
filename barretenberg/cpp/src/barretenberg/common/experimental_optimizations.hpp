@@ -4,6 +4,7 @@ namespace bb {
 namespace detail {
 
 extern bool experimental_optimizations_enabled;
+extern bool rollup_experimental_optimizations_enabled;
 
 } // namespace detail
 
@@ -14,6 +15,12 @@ void initialize_experimental_optimizations();
 inline bool experimental_optimizations_enabled() noexcept
 {
     return detail::experimental_optimizations_enabled;
+}
+
+/** Return whether experimental rollup construction and IPA optimizations are enabled. Call after initialization. */
+inline bool rollup_experimental_optimizations_enabled() noexcept
+{
+    return detail::rollup_experimental_optimizations_enabled;
 }
 
 } // namespace bb

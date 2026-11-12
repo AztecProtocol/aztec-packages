@@ -34,3 +34,22 @@ Singleton initialization saves the resolved settings before creating a backend
 or trying a fallback. Repeating initialization with omitted settings reuses the
 instance; explicitly requesting a different experimental setting fails without
 discarding the running instance. Destroy and recreate the backend to change it.
+
+## Rollup optimisations
+
+`ROLLUP_EXPERIMENTAL_OPTIMIZATIONS=1` independently enables deferred native IPA
+openings, bounded SRS folding scratch, skipping unused non-ZK recursive mock proofs,
+curve witness preparation, lookup construction, range/selector construction, and
+parallel copy-cycle/selector copying. It defaults to off, accepts only `0` or `1`,
+and freezes with the other settings before workers start. The larger non-native
+construction and ACIR rewrite are not included.
+
+bb.js accepts `rollupExperimentalOptimizations` with the same environment override
+and singleton rules as `experimentalOptimizations`. None of these settings enables
+another group. Shared construction paths can also be exercised by client circuits;
+the flag names the selected optimization family rather than restricting circuit types.
+
+Compare each setting in separate processes. Circuit witnesses, gates, verification
+keys and proof validity must remain equivalent with the rollup flag on and off.
+Native IPA work overlaps circuit/proof construction when enabled and completes
+synchronously when disabled. Unsupported native-only paths retain their WASM fallback.

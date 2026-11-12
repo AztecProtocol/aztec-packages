@@ -16,6 +16,7 @@
  */
 
 #include "sha256.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -40,20 +41,46 @@ using namespace bb::plookup;
 template <typename Builder>
 SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const field_t<Builder>& input)
 {
-    using field_pt = field_t<Builder>;
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    sparse_witness_limbs result(input);
-    constexpr std::array<ColumnIdx, 8> columns{ ColumnIdx::C2, ColumnIdx::C2, ColumnIdx::C2, ColumnIdx::C2,
-                                                ColumnIdx::C3, ColumnIdx::C3, ColumnIdx::C3, ColumnIdx::C3 };
-    constexpr std::array<size_t, 8> rows{ 0, 1, 2, 3, 0, 1, 2, 3 };
-    const auto lookup =
-        plookup_read<Builder>::read_rows_from_table(MultiTableId::SHA256_WITNESS_INPUT, input, columns, rows);
+        using field_pt = field_t<Builder>;
 
-    result.sparse_limbs = std::array<field_pt, 4>{ lookup[0], lookup[1], lookup[2], lookup[3] };
-    result.rotated_limb_corrections = std::array<field_pt, 4>{ lookup[4], lookup[5], lookup[6], lookup[7] };
-    result.has_sparse_limbs = true;
+        sparse_witness_limbs result(input);
+        const auto lookup = plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, input);
 
-    return result;
+        result.sparse_limbs = std::array<field_pt, 4>{
+            lookup[ColumnIdx::C2][0],
+            lookup[ColumnIdx::C2][1],
+            lookup[ColumnIdx::C2][2],
+            lookup[ColumnIdx::C2][3],
+        };
+        result.rotated_limb_corrections = std::array<field_pt, 4>{
+            lookup[ColumnIdx::C3][0],
+            lookup[ColumnIdx::C3][1],
+            lookup[ColumnIdx::C3][2],
+            lookup[ColumnIdx::C3][3],
+        };
+        result.has_sparse_limbs = true;
+
+        return result;
+
+    } else {
+
+        using field_pt = field_t<Builder>;
+
+        sparse_witness_limbs result(input);
+        constexpr std::array<ColumnIdx, 8> columns{ ColumnIdx::C2, ColumnIdx::C2, ColumnIdx::C2, ColumnIdx::C2,
+                                                    ColumnIdx::C3, ColumnIdx::C3, ColumnIdx::C3, ColumnIdx::C3 };
+        constexpr std::array<size_t, 8> rows{ 0, 1, 2, 3, 0, 1, 2, 3 };
+        const auto lookup =
+            plookup_read<Builder>::read_rows_from_table(MultiTableId::SHA256_WITNESS_INPUT, input, columns, rows);
+
+        result.sparse_limbs = std::array<field_pt, 4>{ lookup[0], lookup[1], lookup[2], lookup[3] };
+        result.rotated_limb_corrections = std::array<field_pt, 4>{ lookup[4], lookup[5], lookup[6], lookup[7] };
+        result.has_sparse_limbs = true;
+
+        return result;
+    }
 }
 
 /**
@@ -232,31 +259,60 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const fi
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g)
 {
-    using field_pt = field_t<Builder>;
-    // Separates rotation contributions (0-3) from Choose encoding (0-6) in each base-28 digit
-    constexpr fr SPARSE_MULT = fr(7);
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    constexpr std::array<ColumnIdx, 3> columns{ ColumnIdx::C3, ColumnIdx::C2, ColumnIdx::C2 };
-    constexpr std::array<size_t, 3> rows{ 0, 0, 2 };
-    const auto lookup = plookup_read<Builder>::read_rows_from_table(SHA256_CH_INPUT, e.normal, columns, rows);
-    const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
+        using field_pt = field_t<Builder>;
+        // Separates rotation contributions (0-3) from Choose encoding (0-6) in each base-28 digit
+        constexpr fr SPARSE_MULT = fr(7);
 
-    field_pt rotation_result = lookup[0];
-    e.sparse = lookup[1];
-    field_pt sparse_L2 = lookup[2];
+        const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_CH_INPUT, e.normal);
+        const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
 
-    // Compute e + 7*Σ₁(e) in sparse form
-    field_pt xor_result = (rotation_result * SPARSE_MULT)
-                              .add_two(e.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
-                                       sparse_L2 * (rotation_coefficients[2] * SPARSE_MULT));
+        field_pt rotation_result = lookup[ColumnIdx::C3][0];
+        e.sparse = lookup[ColumnIdx::C2][0];
+        field_pt sparse_L2 = lookup[ColumnIdx::C2][2];
 
-    // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
-    field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
+        // Compute e + 7*Σ₁(e) in sparse form
+        field_pt xor_result = (rotation_result * SPARSE_MULT)
+                                  .add_two(e.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
+                                           sparse_L2 * (rotation_coefficients[2] * SPARSE_MULT));
 
-    // Normalize via lookup: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i
-    field_pt choose_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_OUTPUT, choose_result_sparse);
+        // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
+        field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
 
-    return choose_result;
+        // Normalize via lookup: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i
+        field_pt choose_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_OUTPUT, choose_result_sparse);
+
+        return choose_result;
+
+    } else {
+
+        using field_pt = field_t<Builder>;
+        // Separates rotation contributions (0-3) from Choose encoding (0-6) in each base-28 digit
+        constexpr fr SPARSE_MULT = fr(7);
+
+        constexpr std::array<ColumnIdx, 3> columns{ ColumnIdx::C3, ColumnIdx::C2, ColumnIdx::C2 };
+        constexpr std::array<size_t, 3> rows{ 0, 0, 2 };
+        const auto lookup = plookup_read<Builder>::read_rows_from_table(SHA256_CH_INPUT, e.normal, columns, rows);
+        const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
+
+        field_pt rotation_result = lookup[0];
+        e.sparse = lookup[1];
+        field_pt sparse_L2 = lookup[2];
+
+        // Compute e + 7*Σ₁(e) in sparse form
+        field_pt xor_result = (rotation_result * SPARSE_MULT)
+                                  .add_two(e.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
+                                           sparse_L2 * (rotation_coefficients[2] * SPARSE_MULT));
+
+        // Add 2f + 3g to get e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
+        field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
+
+        // Normalize via lookup: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i
+        field_pt choose_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_OUTPUT, choose_result_sparse);
+
+        return choose_result;
+    }
 }
 
 /**
@@ -279,32 +335,64 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c)
 {
-    using field_pt = field_t<Builder>;
-    // Separates rotation contributions (0-3) from Majority encoding (0-3) in each base-16 digit
-    constexpr fr SPARSE_MULT = fr(4);
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    constexpr std::array<ColumnIdx, 3> columns{ ColumnIdx::C3, ColumnIdx::C2, ColumnIdx::C2 };
-    constexpr std::array<size_t, 3> rows{ 0, 0, 1 };
-    const auto lookup = plookup_read<Builder>::read_rows_from_table(SHA256_MAJ_INPUT, a.normal, columns, rows);
-    const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
+        using field_pt = field_t<Builder>;
+        // Separates rotation contributions (0-3) from Majority encoding (0-3) in each base-16 digit
+        constexpr fr SPARSE_MULT = fr(4);
 
-    // first row of 3rd column gives accumulating sum of "non-trivial" wraps
-    field_pt rotation_result = lookup[0];
-    a.sparse = lookup[1];
-    field_pt sparse_L1_acc = lookup[2];
+        const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_MAJ_INPUT, a.normal);
+        const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
 
-    // Compute a + 4*Σ₀(a) in sparse form
-    field_pt xor_result = (rotation_result * SPARSE_MULT)
-                              .add_two(a.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
-                                       sparse_L1_acc * (rotation_coefficients[1] * SPARSE_MULT));
+        // first row of 3rd column gives accumulating sum of "non-trivial" wraps
+        field_pt rotation_result = lookup[ColumnIdx::C3][0];
+        a.sparse = lookup[ColumnIdx::C2][0];
+        field_pt sparse_L1_acc = lookup[ColumnIdx::C2][1];
 
-    // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
-    field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
+        // Compute a + 4*Σ₀(a) in sparse form
+        field_pt xor_result = (rotation_result * SPARSE_MULT)
+                                  .add_two(a.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
+                                           sparse_L1_acc * (rotation_coefficients[1] * SPARSE_MULT));
 
-    // Normalize via lookup: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i
-    field_pt majority_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_OUTPUT, majority_result_sparse);
+        // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
+        field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
 
-    return majority_result;
+        // Normalize via lookup: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i
+        field_pt majority_result =
+            plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_OUTPUT, majority_result_sparse);
+
+        return majority_result;
+
+    } else {
+
+        using field_pt = field_t<Builder>;
+        // Separates rotation contributions (0-3) from Majority encoding (0-3) in each base-16 digit
+        constexpr fr SPARSE_MULT = fr(4);
+
+        constexpr std::array<ColumnIdx, 3> columns{ ColumnIdx::C3, ColumnIdx::C2, ColumnIdx::C2 };
+        constexpr std::array<size_t, 3> rows{ 0, 0, 1 };
+        const auto lookup = plookup_read<Builder>::read_rows_from_table(SHA256_MAJ_INPUT, a.normal, columns, rows);
+        const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
+
+        // first row of 3rd column gives accumulating sum of "non-trivial" wraps
+        field_pt rotation_result = lookup[0];
+        a.sparse = lookup[1];
+        field_pt sparse_L1_acc = lookup[2];
+
+        // Compute a + 4*Σ₀(a) in sparse form
+        field_pt xor_result = (rotation_result * SPARSE_MULT)
+                                  .add_two(a.sparse * (rotation_coefficients[0] * SPARSE_MULT + fr(1)),
+                                           sparse_L1_acc * (rotation_coefficients[1] * SPARSE_MULT));
+
+        // Add b + c to get a + 4*Σ₀(a) + b + c (each digit in 0..15)
+        field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
+
+        // Normalize via lookup: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i
+        field_pt majority_result =
+            plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_OUTPUT, majority_result_sparse);
+
+        return majority_result;
+    }
 }
 
 /**

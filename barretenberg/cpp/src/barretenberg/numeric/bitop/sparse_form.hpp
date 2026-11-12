@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <array>
 #include <bit>
@@ -42,6 +43,11 @@ inline std::vector<uint64_t> slice_input(const uint256_t& input, const uint64_t 
  */
 inline uint64_t divmod_in_place(uint256_t& target, const uint64_t base)
 {
+    if (!bb::rollup_experimental_optimizations_enabled()) {
+        const uint64_t remainder = (target % base).data[0];
+        target /= base;
+        return remainder;
+    }
     if (std::has_single_bit(base)) {
         const uint64_t remainder = target.data[0] & (base - 1);
         target >>= static_cast<uint64_t>(std::countr_zero(base));
@@ -68,17 +74,35 @@ inline uint64_t divmod_in_place(uint256_t& target, const uint64_t base)
 inline std::vector<uint64_t> slice_input_using_variable_bases(const uint256_t& input,
                                                               const std::vector<uint64_t>& bases)
 {
-    uint256_t target = input;
-    std::vector<uint64_t> slices;
-    slices.reserve(bases.size());
-    for (size_t i = 0; i < bases.size(); ++i) {
-        BB_ASSERT(bases[i] > 0);
-        if (target >= bases[i] && i == bases.size() - 1) {
-            throw_or_abort(format("Last key slice greater than ", bases[i]));
+    if (!bb::rollup_experimental_optimizations_enabled()) {
+
+        uint256_t target = input;
+        std::vector<uint64_t> slices;
+        slices.reserve(bases.size());
+        for (size_t i = 0; i < bases.size(); ++i) {
+            BB_ASSERT(bases[i] > 0);
+            if (target >= bases[i] && i == bases.size() - 1) {
+                throw_or_abort(format("Last key slice greater than ", bases[i]));
+            }
+            slices.push_back((target % bases[i]).data[0]);
+            target /= bases[i];
         }
-        slices.push_back(divmod_in_place(target, bases[i]));
+        return slices;
+
+    } else {
+
+        uint256_t target = input;
+        std::vector<uint64_t> slices;
+        slices.reserve(bases.size());
+        for (size_t i = 0; i < bases.size(); ++i) {
+            BB_ASSERT(bases[i] > 0);
+            if (target >= bases[i] && i == bases.size() - 1) {
+                throw_or_abort(format("Last key slice greater than ", bases[i]));
+            }
+            slices.push_back(divmod_in_place(target, bases[i]));
+        }
+        return slices;
     }
-    return slices;
 }
 
 /**
@@ -101,6 +125,17 @@ template <uint64_t base, uint64_t num_slices> constexpr std::array<uint256_t, nu
  */
 template <uint64_t base> constexpr uint256_t map_into_sparse_form(const uint64_t input)
 {
+    if (std::is_constant_evaluated() || !bb::rollup_experimental_optimizations_enabled()) {
+        uint256_t out = 0UL;
+        constexpr auto base_powers = get_base_powers<base, 32>();
+        for (size_t i = 0; i < 32; ++i) {
+            if ((input >> i) & 1U) {
+                out += base_powers[i];
+            }
+        }
+        return out;
+    }
+
     uint256_t out = 0UL;
 
     constexpr auto base_powers = get_base_powers<base, 32>();

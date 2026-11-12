@@ -5,6 +5,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/deferred_value.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
@@ -425,7 +426,16 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             // Step 6.e, fused: G_vec_new[i] = u1·u2·G[i] + u1·G[i+q] + u2·G[i+2q] + G[i+3q].
             // Round challenges are 127-bit limbs (transcript split_challenge); batch_two_round_fold
             // BB_ASSERTs that precondition.
-            detail::two_round_fold_srs<Curve>(std::span<Commitment>{ G_vec_local.data(), 4 * quarter }, u1, u2);
+            if (bb::rollup_experimental_optimizations_enabled()) {
+                detail::two_round_fold_srs<Curve>(std::span<Commitment>{ G_vec_local.data(), 4 * quarter }, u1, u2);
+            } else {
+                auto G_folded = GroupElement::batch_two_round_fold(
+                    std::span<const Commitment>{ G_vec_local.data(), 4 * quarter }, u1, u2);
+                parallel_for_heuristic(
+                    quarter,
+                    [&](size_t idx) { G_vec_local[idx] = G_folded[idx]; },
+                    thread_heuristics::FF_COPY_COST * 2);
+            }
 
             round_size = quarter;
             round_idx += 2;
@@ -1289,6 +1299,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static std::pair<Polynomial<bb::fq>, bb::fq> sample_random_opening(numeric::RNG* engine = nullptr)
         requires Curve::is_stdlib_type
     {
+        if (!bb::rollup_experimental_optimizations_enabled()) {
+            Polynomial<bb::fq> poly(poly_length);
+            for (size_t i = 0; i < poly_length; ++i) {
+                poly.at(i) = bb::fq::random_element(engine);
+            }
+            return { std::move(poly), bb::fq::random_element(engine) };
+        }
+
         if (engine == nullptr) {
             engine = &numeric::get_randomness();
         }
@@ -1372,7 +1390,7 @@ template <size_t log_poly_length> struct IpaOpeningProofTask {
     {
         using NativeIPA = IPA<curve::Grumpkin, log_poly_length>;
         auto transcript = std::make_shared<NativeTranscript>();
-        if (commitment.has_value()) {
+        if (bb::rollup_experimental_optimizations_enabled() && commitment.has_value()) {
             NativeIPA::compute_opening_proof(ck, claim, *commitment, transcript);
         } else {
             NativeIPA::compute_opening_proof(ck, claim, transcript);
