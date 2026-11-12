@@ -99,7 +99,7 @@ function generate_wsdb_ref_package {
     --binary-name "$WSDB_REF_BINARY" \
     --package-napi-addon "$WSDB_REF_ADDON" \
     --package-napi-addon-env-var WSDB_REF_NAPI_PATH \
-    --package-wasm-module wsdb-ref.wasm
+    --package-wasm-module "wsdb-ref.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm"
 }
 
 # bb-avm-sim, cdb, bb.js-api and wsdb-ref are gitignored workspaces declared in package.json, so
@@ -186,13 +186,6 @@ function build_bb_js {
   (cd bb.js && ./bootstrap.sh)
 }
 
-# The single-thread module only: the reference world state runs no threads.
-function copy_wsdb_ref_wasm {
-  rm -rf wsdb-ref/wasm
-  mkdir -p wsdb-ref/wasm
-  cp "$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm" wsdb-ref/wasm/wsdb-ref.wasm
-}
-
 function copy_wsdb_ref_native {
   local target_dir="wsdb-ref/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
@@ -225,7 +218,6 @@ function prepare_wsdb_ref_arch_packages {
 function build_wsdb_ref {
   echo_header "wsdb-ref package build"
   generate_packages
-  copy_wsdb_ref_wasm
   copy_wsdb_ref_native
   npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$WSDB_REF_PACKAGE" build
@@ -385,7 +377,6 @@ function release_bb_avm_sim {
 
 function release_wsdb_ref {
   generate_packages
-  copy_wsdb_ref_wasm
   copy_wsdb_ref_native
   copy_wsdb_ref_cross
   npm_install_deps "$IPC_RUNTIME_PKG"
@@ -441,7 +432,7 @@ function release {
 export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
 export -f generate_bb_js_api_package copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
 export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
-export -f generate_wsdb_ref_package copy_wsdb_ref_wasm copy_wsdb_ref_native copy_wsdb_ref_cross prepare_wsdb_ref_arch_packages build_wsdb_ref cross_copy_wsdb_ref release_wsdb_ref
+export -f generate_wsdb_ref_package copy_wsdb_ref_native copy_wsdb_ref_cross prepare_wsdb_ref_arch_packages build_wsdb_ref cross_copy_wsdb_ref release_wsdb_ref
 
 case "$cmd" in
   "")
