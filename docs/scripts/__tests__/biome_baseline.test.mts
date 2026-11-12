@@ -6,17 +6,28 @@ import { BASELINE_FILE, type Baseline, countSuppressions, isRule, parseDirective
 // Built from parts, so this file holds no directive the count would find.
 const IGNORE = "biome-" + "ignore";
 
-test("directives are read from line, block and JSX comments, with every rule they name, but not range ends", () => {
+test("directives are read wherever Biome reads them, with every rule they name, but not range ends", () => {
   const source = [
-    `// ${IGNORE} lint/a/b: one`,
+    `// ${IGNORE} lint/a/b: line`,
+    `const x = 1; // ${IGNORE} lint/a/c: after code`,
     `/* ${IGNORE}-all lint/a/b lint/c/d: two rules */`,
+    `/** ${IGNORE} lint/a/d: jsdoc */`,
+    "/**",
+    " * Text first.",
+    ` * ${IGNORE} lint/a/e: a later line`,
+    ` ${IGNORE} lint/a/f: a later line without a star */`,
     `{/* ${IGNORE}-start lint/e/f: a range */}`,
     `// ${IGNORE}-end lint/e/f: a range`,
-    `const s = "${IGNORE} lint/x/y: not a comment";`,
+    `/* Text first. ${IGNORE} lint/x/y: Biome ignores this one */`,
+    `const s = "${IGNORE} lint/x/z: not at the start of a comment";`,
   ].join("\n");
   assert.deepEqual(parseDirectives(source), [
     { form: IGNORE, categories: ["lint/a/b"] },
+    { form: IGNORE, categories: ["lint/a/c"] },
     { form: `${IGNORE}-all`, categories: ["lint/a/b", "lint/c/d"] },
+    { form: IGNORE, categories: ["lint/a/d"] },
+    { form: IGNORE, categories: ["lint/a/e"] },
+    { form: IGNORE, categories: ["lint/a/f"] },
     { form: `${IGNORE}-start`, categories: ["lint/e/f"] },
   ]);
   assert.deepEqual(["lint/complexity/noExcessiveCognitiveComplexity", "lint/complexity", "lint"].map(isRule), [true, false, false]);

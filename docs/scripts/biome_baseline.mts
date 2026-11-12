@@ -1,6 +1,6 @@
 // biome-baseline.json counts the Biome suppression directives in the linted files, by form and
-// rule, for the exact Biome version package.json pins. Its test fails when a count rises, falls
-// without the manifest following, or the version moves, so suppressions can only shrink.
+// rule, for the exact Biome version package.json pins. Its test fails when the counts and the
+// manifest differ or the version moves, so a new suppression shows up as a manifest raise in review.
 // `node scripts/biome_baseline.mts write` regenerates the manifest from the tree.
 import fs from "node:fs";
 import path from "node:path";
@@ -14,8 +14,11 @@ export const DOCS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const BASELINE_FILE = path.join(DOCS, "biome-baseline.json");
 const BIOME_PACKAGE = "@biomejs/biome";
 
-// `-end` closes a `-start` range and is not counted on its own.
-const DIRECTIVE = /(?:\/\/|\/\*)\s*(biome-ignore(?:-all|-start|-end)?)\s+([^:\n]*?)\s*:/g;
+// Where Biome reads a directive: at the start of a comment's text, after `//` (also trailing code),
+// after `/*` and any stars, or on a later line of a block comment after an optional `*`. Matching is
+// textual, so a string that looks like a directive is counted too, which fails safe. `-end` closes
+// a `-start` range and is not counted on its own.
+const DIRECTIVE = /(?:\/\/|\/\*+|^[ \t]*\**)[ \t]*(biome-ignore(?:-all|-start|-end)?)[ \t]+([^:\n]*?)[ \t]*:/gm;
 const FULL_RULE = /^lint\/[a-zA-Z0-9]+\/[a-zA-Z0-9]+$/;
 
 /** The suppression directives in `source`, in order. */

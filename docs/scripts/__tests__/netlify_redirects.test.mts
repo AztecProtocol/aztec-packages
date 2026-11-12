@@ -22,7 +22,7 @@ function readRedirects(text: string): Redirect[] {
     const fail = (why: string) => {
       throw new Error(`netlify.toml:${i + 1}: ${why}, extend readRedirects: ${row}`);
     };
-    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
+    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: sets the current redirect as it is pushed, kept as written
     if (/^\[\[\s*redirects\s*\]\]\s*(#.*)?$/.test(row)) redirects.push((current = { line: i + 1 }));
     else if (row === "" || row.startsWith("#")) return;
     else if (row.startsWith("[")) {
