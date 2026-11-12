@@ -58,7 +58,7 @@ configure_file(${CMAKE_CURRENT_BINARY_DIR}/minimal_tx_fixture.hpp.tmp
     ${AVM_TEST_INCLUDE_DIR}/barretenberg/avm/minimal_tx_fixture.hpp COPYONLY)
 
 # The service as a library over the generated FFI entry, which the wasm reactor exports and the
-# tests call. The entry is generated at build time, so a clean tree's configure cannot glob it.
+# tests call. The entry is generated into the build tree, which the module's source glob does not cover.
 barretenberg_module_with_sources(
     avm_ffi
     SOURCE_FILES
