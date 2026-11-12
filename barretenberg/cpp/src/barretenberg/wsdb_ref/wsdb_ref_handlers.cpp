@@ -325,11 +325,11 @@ void handle_get_tree_info(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbGetTreeInfoResponse {
         auto id = tree_id_of(cmd.treeId);
-        auto info = ctx.world_state.get_tree_info(revision_of(cmd.revision), id);
+        auto info = ctx.world_state->get_tree_info(revision_of(cmd.revision), id);
         return { .treeId = cmd.treeId,
                  .root = from_fr<wire::Fr>(info.root),
                  .size = info.size,
-                 .depth = ctx.world_state.tree_height(id) };
+                 .depth = ctx.world_state->tree_height(id) };
     });
 }
 
@@ -338,7 +338,7 @@ void handle_get_state_reference(WsdbRefContext& ctx,
                                 Responder<wire::WsdbGetStateReferenceResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbGetStateReferenceResponse {
-        return { .state = state_to_wire(ctx.world_state.get_state_reference(revision_of(cmd.revision))) };
+        return { .state = state_to_wire(ctx.world_state->get_state_reference(revision_of(cmd.revision))) };
     });
 }
 
@@ -347,7 +347,7 @@ void handle_get_initial_state_reference(WsdbRefContext& ctx,
                                         Responder<wire::WsdbGetInitialStateReferenceResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbGetInitialStateReferenceResponse {
-        return { .state = state_to_wire(ctx.world_state.get_initial_state_reference()) };
+        return { .state = state_to_wire(ctx.world_state->get_initial_state_reference()) };
     });
 }
 
@@ -362,7 +362,7 @@ void handle_get_leaf_value(WsdbRefContext& ctx,
     serve(respond, [&]() -> wire::WsdbGetLeafValueResponse {
         auto id = tree_id_of(cmd.treeId);
         require_append_only(id, "get_leaf_value");
-        auto value = ctx.world_state.get_leaf_value(revision_of(cmd.revision), id, cmd.leafIndex);
+        auto value = ctx.world_state->get_leaf_value(revision_of(cmd.revision), id, cmd.leafIndex);
         return { .value = value.has_value() ? std::optional(from_fr<wire::Fr>(*value)) : std::nullopt };
     });
 }
@@ -372,8 +372,8 @@ void handle_get_public_data_leaf_value(WsdbRefContext& ctx,
                                        Responder<wire::WsdbGetPublicDataLeafValueResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbGetPublicDataLeafValueResponse {
-        auto leaf = leaf_or_null(ctx.world_state, cmd.revision.forkId, [&] {
-            return ctx.world_state.get_public_data_preimage(revision_of(cmd.revision), cmd.leafIndex);
+        auto leaf = leaf_or_null(*ctx.world_state, cmd.revision.forkId, [&] {
+            return ctx.world_state->get_public_data_preimage(revision_of(cmd.revision), cmd.leafIndex);
         });
         return { .value = leaf.has_value() ? std::optional(to_wire(leaf->leaf)) : std::nullopt };
     });
@@ -384,8 +384,8 @@ void handle_get_nullifier_leaf_value(WsdbRefContext& ctx,
                                      Responder<wire::WsdbGetNullifierLeafValueResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbGetNullifierLeafValueResponse {
-        auto leaf = leaf_or_null(ctx.world_state, cmd.revision.forkId, [&] {
-            return ctx.world_state.get_nullifier_preimage(revision_of(cmd.revision), cmd.leafIndex);
+        auto leaf = leaf_or_null(*ctx.world_state, cmd.revision.forkId, [&] {
+            return ctx.world_state->get_nullifier_preimage(revision_of(cmd.revision), cmd.leafIndex);
         });
         return { .value = leaf.has_value() ? std::optional(to_wire(leaf->leaf)) : std::nullopt };
     });
@@ -397,7 +397,7 @@ void handle_get_public_data_leaf_preimage(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbGetPublicDataLeafPreimageResponse {
         // As on a node, a slot past the tree's size is an error here, while the leaf-value read of it answers null.
-        auto leaf = ctx.world_state.get_public_data_preimage(revision_of(cmd.revision), cmd.leafIndex);
+        auto leaf = ctx.world_state->get_public_data_preimage(revision_of(cmd.revision), cmd.leafIndex);
         if (!leaf.has_value()) {
             throw std::runtime_error("Failed to find indexed leaf: no leaf at index " + std::to_string(cmd.leafIndex));
         }
@@ -411,7 +411,7 @@ void handle_get_nullifier_leaf_preimage(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbGetNullifierLeafPreimageResponse {
         // As on a node, a slot past the tree's size is an error here, while the leaf-value read of it answers null.
-        auto leaf = ctx.world_state.get_nullifier_preimage(revision_of(cmd.revision), cmd.leafIndex);
+        auto leaf = ctx.world_state->get_nullifier_preimage(revision_of(cmd.revision), cmd.leafIndex);
         if (!leaf.has_value()) {
             throw std::runtime_error("Failed to find indexed leaf: no leaf at index " + std::to_string(cmd.leafIndex));
         }
@@ -424,7 +424,7 @@ void handle_get_sibling_path(WsdbRefContext& ctx,
                              Responder<wire::WsdbGetSiblingPathResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbGetSiblingPathResponse {
-        return { .path = path_to_wire(ctx.world_state.get_sibling_path(
+        return { .path = path_to_wire(ctx.world_state->get_sibling_path(
                      revision_of(cmd.revision), tree_id_of(cmd.treeId), cmd.leafIndex)) };
     });
 }
@@ -434,7 +434,7 @@ void handle_get_block_numbers_for_leaf_indices(WsdbRefContext& ctx,
                                                Responder<wire::WsdbGetBlockNumbersForLeafIndicesResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbGetBlockNumbersForLeafIndicesResponse {
-        return { .blockNumbers = ctx.world_state.get_block_numbers_for_leaf_indices(
+        return { .blockNumbers = ctx.world_state->get_block_numbers_for_leaf_indices(
                      revision_of(cmd.revision), tree_id_of(cmd.treeId), cmd.leafIndices) };
     });
 }
@@ -451,7 +451,7 @@ void handle_find_leaf_indices(WsdbRefContext& ctx,
         auto id = tree_id_of(cmd.treeId);
         require_append_only(id, "find_leaf_indices");
         return { .indices = find_indices(
-                     ctx.world_state, revision_of(cmd.revision), id, frs_from_wire(cmd.leaves), cmd.startIndex) };
+                     *ctx.world_state, revision_of(cmd.revision), id, frs_from_wire(cmd.leaves), cmd.startIndex) };
     });
 }
 
@@ -463,7 +463,7 @@ void handle_find_public_data_leaf_indices(WsdbRefContext& ctx,
         auto keys = keys_of(all_from_wire<PublicDataLeafValue>(cmd.leaves));
         return {
             .indices = find_indices(
-                ctx.world_state, revision_of(cmd.revision), MerkleTreeId::PUBLIC_DATA_TREE, keys, cmd.startIndex)
+                *ctx.world_state, revision_of(cmd.revision), MerkleTreeId::PUBLIC_DATA_TREE, keys, cmd.startIndex)
         };
     });
 }
@@ -475,7 +475,7 @@ void handle_find_nullifier_leaf_indices(WsdbRefContext& ctx,
     serve(respond, [&]() -> wire::WsdbFindNullifierLeafIndicesResponse {
         auto keys = keys_of(all_from_wire<NullifierLeafValue>(cmd.leaves));
         return { .indices = find_indices(
-                     ctx.world_state, revision_of(cmd.revision), MerkleTreeId::NULLIFIER_TREE, keys, cmd.startIndex) };
+                     *ctx.world_state, revision_of(cmd.revision), MerkleTreeId::NULLIFIER_TREE, keys, cmd.startIndex) };
     });
 }
 
@@ -484,7 +484,7 @@ void handle_find_low_leaf(WsdbRefContext& ctx,
                           Responder<wire::WsdbFindLowLeafResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbFindLowLeafResponse {
-        auto low = ctx.world_state.find_low_leaf(revision_of(cmd.revision), tree_id_of(cmd.treeId), to_fr(cmd.key));
+        auto low = ctx.world_state->find_low_leaf(revision_of(cmd.revision), tree_id_of(cmd.treeId), to_fr(cmd.key));
         return { .alreadyPresent = low.is_already_present, .index = low.index };
     });
 }
@@ -496,7 +496,7 @@ void handle_find_sibling_paths(WsdbRefContext& ctx,
     serve(respond, [&]() -> wire::WsdbFindSiblingPathsResponse {
         auto id = tree_id_of(cmd.treeId);
         require_append_only(id, "find_sibling_paths");
-        return { .paths = find_paths(ctx.world_state, revision_of(cmd.revision), id, frs_from_wire(cmd.leaves)) };
+        return { .paths = find_paths(*ctx.world_state, revision_of(cmd.revision), id, frs_from_wire(cmd.leaves)) };
     });
 }
 
@@ -507,7 +507,7 @@ void handle_find_public_data_sibling_paths(WsdbRefContext& ctx,
     serve(respond, [&]() -> wire::WsdbFindPublicDataSiblingPathsResponse {
         auto keys = keys_of(all_from_wire<PublicDataLeafValue>(cmd.leaves));
         return { .paths =
-                     find_paths(ctx.world_state, revision_of(cmd.revision), MerkleTreeId::PUBLIC_DATA_TREE, keys) };
+                     find_paths(*ctx.world_state, revision_of(cmd.revision), MerkleTreeId::PUBLIC_DATA_TREE, keys) };
     });
 }
 
@@ -517,7 +517,7 @@ void handle_find_nullifier_sibling_paths(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbFindNullifierSiblingPathsResponse {
         auto keys = keys_of(all_from_wire<NullifierLeafValue>(cmd.leaves));
-        return { .paths = find_paths(ctx.world_state, revision_of(cmd.revision), MerkleTreeId::NULLIFIER_TREE, keys) };
+        return { .paths = find_paths(*ctx.world_state, revision_of(cmd.revision), MerkleTreeId::NULLIFIER_TREE, keys) };
     });
 }
 
@@ -531,7 +531,7 @@ void handle_append_leaves(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbAppendLeavesResponse {
         auto leaves = frs_from_wire(cmd.leaves);
-        ctx.world_state.append_leaves(cmd.forkId, tree_id_of(cmd.treeId), leaves);
+        ctx.world_state->append_leaves(cmd.forkId, tree_id_of(cmd.treeId), leaves);
         return {};
     });
 }
@@ -543,7 +543,7 @@ void handle_append_public_data_leaves(WsdbRefContext& ctx,
     // As on a node: a batch insertion without its witnesses.
     serve(respond, [&]() -> wire::WsdbAppendPublicDataLeavesResponse {
         auto leaves = all_from_wire<PublicDataLeafValue>(cmd.leaves);
-        ctx.world_state.batch_insert_public_data(cmd.forkId, leaves, 0);
+        ctx.world_state->batch_insert_public_data(cmd.forkId, leaves, 0);
         return {};
     });
 }
@@ -554,7 +554,7 @@ void handle_append_nullifier_leaves(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbAppendNullifierLeavesResponse {
         auto leaves = all_from_wire<NullifierLeafValue>(cmd.leaves);
-        ctx.world_state.batch_insert_nullifiers(cmd.forkId, leaves, 0);
+        ctx.world_state->batch_insert_nullifiers(cmd.forkId, leaves, 0);
         return {};
     });
 }
@@ -565,7 +565,7 @@ void handle_batch_insert_public_data(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbBatchInsertPublicDataResponse {
         auto leaves = all_from_wire<PublicDataLeafValue>(cmd.leaves);
-        auto result = ctx.world_state.batch_insert_public_data(cmd.forkId, leaves, cmd.subtreeDepth);
+        auto result = ctx.world_state->batch_insert_public_data(cmd.forkId, leaves, cmd.subtreeDepth);
         return { .result = batch_to_wire<wire::BatchInsertionResultPublicData,
                                          wire::SortedPublicDataLeaf,
                                          wire::PublicDataLeafUpdateWitnessData>(result) };
@@ -578,7 +578,7 @@ void handle_batch_insert_nullifier(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbBatchInsertNullifierResponse {
         auto leaves = all_from_wire<NullifierLeafValue>(cmd.leaves);
-        auto result = ctx.world_state.batch_insert_nullifiers(cmd.forkId, leaves, cmd.subtreeDepth);
+        auto result = ctx.world_state->batch_insert_nullifiers(cmd.forkId, leaves, cmd.subtreeDepth);
         return { .result = batch_to_wire<wire::BatchInsertionResultNullifier,
                                          wire::SortedNullifierLeaf,
                                          wire::NullifierLeafUpdateWitnessData>(result) };
@@ -591,7 +591,7 @@ void handle_sequential_insert_public_data(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbSequentialInsertPublicDataResponse {
         auto leaves = all_from_wire<PublicDataLeafValue>(cmd.leaves);
-        auto result = ctx.world_state.sequential_insert_public_data(cmd.forkId, leaves);
+        auto result = ctx.world_state->sequential_insert_public_data(cmd.forkId, leaves);
         return {
             .result =
                 sequential_to_wire<wire::SequentialInsertionResultPublicData, wire::PublicDataLeafUpdateWitnessData>(
@@ -606,7 +606,7 @@ void handle_sequential_insert_nullifier(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbSequentialInsertNullifierResponse {
         auto leaves = all_from_wire<NullifierLeafValue>(cmd.leaves);
-        auto result = ctx.world_state.sequential_insert_nullifiers(cmd.forkId, leaves);
+        auto result = ctx.world_state->sequential_insert_nullifiers(cmd.forkId, leaves);
         return { .result =
                      sequential_to_wire<wire::SequentialInsertionResultNullifier, wire::NullifierLeafUpdateWitnessData>(
                          result) };
@@ -618,7 +618,7 @@ void handle_update_archive(WsdbRefContext& ctx,
                            Responder<wire::WsdbUpdateArchiveResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbUpdateArchiveResponse {
-        ctx.world_state.update_archive(cmd.forkId, state_from_wire(cmd.blockStateRef), to_fr(cmd.blockHeaderHash));
+        ctx.world_state->update_archive(cmd.forkId, state_from_wire(cmd.blockStateRef), to_fr(cmd.blockHeaderHash));
         return {};
     });
 }
@@ -630,15 +630,15 @@ void handle_update_archive(WsdbRefContext& ctx,
 void handle_commit(WsdbRefContext& ctx, wire::WsdbCommit&& /*cmd*/, Responder<wire::WsdbCommitResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbCommitResponse {
-        ctx.world_state.commit();
-        return { .status = full_status(ctx.world_state) };
+        ctx.world_state->commit();
+        return { .status = full_status(*ctx.world_state) };
     });
 }
 
 void handle_rollback(WsdbRefContext& ctx, wire::WsdbRollback&& /*cmd*/, Responder<wire::WsdbRollbackResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbRollbackResponse {
-        ctx.world_state.rollback();
+        ctx.world_state->rollback();
         return {};
     });
 }
@@ -653,15 +653,15 @@ void handle_sync_block(WsdbRefContext& ctx, wire::WsdbSyncBlock&& cmd, Responder
         auto optional_fr = [](const std::optional<wire::Fr>& w) {
             return w.has_value() ? std::optional(to_fr(*w)) : std::nullopt;
         };
-        ctx.world_state.sync_block(state_from_wire(cmd.blockStateRef),
-                                   to_fr(cmd.blockHeaderHash),
-                                   note_hashes,
-                                   messages,
-                                   nullifiers,
-                                   public_data,
-                                   optional_fr(cmd.expectedArchiveRoot),
-                                   optional_fr(cmd.expectedPreviousArchiveRoot));
-        return { .status = full_status(ctx.world_state) };
+        ctx.world_state->sync_block(state_from_wire(cmd.blockStateRef),
+                                    to_fr(cmd.blockHeaderHash),
+                                    note_hashes,
+                                    messages,
+                                    nullifiers,
+                                    public_data,
+                                    optional_fr(cmd.expectedArchiveRoot),
+                                    optional_fr(cmd.expectedPreviousArchiveRoot));
+        return { .status = full_status(*ctx.world_state) };
     });
 }
 
@@ -671,7 +671,7 @@ void handle_create_fork(WsdbRefContext& ctx,
 {
     serve(respond, [&]() -> wire::WsdbCreateForkResponse {
         auto block = cmd.latest ? std::nullopt : std::optional<world_state::block_number_t>(cmd.blockNumber);
-        return { .forkId = ctx.world_state.create_fork(block) };
+        return { .forkId = ctx.world_state->create_fork(block) };
     });
 }
 
@@ -680,7 +680,7 @@ void handle_delete_fork(WsdbRefContext& ctx,
                         Responder<wire::WsdbDeleteForkResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbDeleteForkResponse {
-        ctx.world_state.delete_fork(cmd.forkId);
+        ctx.world_state->delete_fork(cmd.forkId);
         return {};
     });
 }
@@ -690,8 +690,8 @@ void handle_finalize_blocks(WsdbRefContext& ctx,
                             Responder<wire::WsdbFinalizeBlocksResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbFinalizeBlocksResponse {
-        ctx.world_state.finalize_blocks(cmd.toBlockNumber);
-        return { .status = summary_to_wire(ctx.world_state.status()) };
+        ctx.world_state->finalize_blocks(cmd.toBlockNumber);
+        return { .status = summary_to_wire(ctx.world_state->status()) };
     });
 }
 
@@ -700,8 +700,8 @@ void handle_unwind_blocks(WsdbRefContext& ctx,
                           Responder<wire::WsdbUnwindBlocksResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbUnwindBlocksResponse {
-        ctx.world_state.unwind_blocks(cmd.toBlockNumber);
-        return { .status = full_status(ctx.world_state) };
+        ctx.world_state->unwind_blocks(cmd.toBlockNumber);
+        return { .status = full_status(*ctx.world_state) };
     });
 }
 
@@ -710,8 +710,8 @@ void handle_remove_historical_blocks(WsdbRefContext& ctx,
                                      Responder<wire::WsdbRemoveHistoricalBlocksResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbRemoveHistoricalBlocksResponse {
-        ctx.world_state.remove_historical_blocks(cmd.toBlockNumber);
-        return { .status = full_status(ctx.world_state) };
+        ctx.world_state->remove_historical_blocks(cmd.toBlockNumber);
+        return { .status = full_status(*ctx.world_state) };
     });
 }
 
@@ -720,7 +720,7 @@ void handle_get_status(WsdbRefContext& ctx,
                        Responder<wire::WsdbGetStatusResponse> respond)
 {
     serve(respond,
-          [&]() -> wire::WsdbGetStatusResponse { return { .status = summary_to_wire(ctx.world_state.status()) }; });
+          [&]() -> wire::WsdbGetStatusResponse { return { .status = summary_to_wire(ctx.world_state->status()) }; });
 }
 
 // ---------------------------------------------------------------------------
@@ -732,7 +732,7 @@ void handle_create_checkpoint(WsdbRefContext& ctx,
                               Responder<wire::WsdbCreateCheckpointResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbCreateCheckpointResponse {
-        ctx.world_state.create_checkpoint(cmd.forkId);
+        ctx.world_state->create_checkpoint(cmd.forkId);
         return {};
     });
 }
@@ -742,7 +742,7 @@ void handle_commit_checkpoint(WsdbRefContext& ctx,
                               Responder<wire::WsdbCommitCheckpointResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbCommitCheckpointResponse {
-        ctx.world_state.commit_checkpoint(cmd.forkId);
+        ctx.world_state->commit_checkpoint(cmd.forkId);
         return {};
     });
 }
@@ -752,7 +752,7 @@ void handle_revert_checkpoint(WsdbRefContext& ctx,
                               Responder<wire::WsdbRevertCheckpointResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbRevertCheckpointResponse {
-        ctx.world_state.revert_checkpoint(cmd.forkId);
+        ctx.world_state->revert_checkpoint(cmd.forkId);
         return {};
     });
 }
@@ -762,7 +762,7 @@ void handle_commit_all_checkpoints(WsdbRefContext& ctx,
                                    Responder<wire::WsdbCommitAllCheckpointsResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbCommitAllCheckpointsResponse {
-        ctx.world_state.commit_all_checkpoints(cmd.forkId);
+        ctx.world_state->commit_all_checkpoints(cmd.forkId);
         return {};
     });
 }
@@ -772,7 +772,7 @@ void handle_revert_all_checkpoints(WsdbRefContext& ctx,
                                    Responder<wire::WsdbRevertAllCheckpointsResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbRevertAllCheckpointsResponse {
-        ctx.world_state.revert_all_checkpoints(cmd.forkId);
+        ctx.world_state->revert_all_checkpoints(cmd.forkId);
         return {};
     });
 }
@@ -788,11 +788,9 @@ void handle_copy_stores(WsdbRefContext& /*ctx*/,
     respond.error("CopyStores is not supported: wsdb-ref keeps its state in memory, with no stores to copy");
 }
 
-void handle_init_genesis(WsdbRefContext& ctx,
-                         wire::WsdbInitGenesis&& cmd,
-                         Responder<wire::WsdbInitGenesisResponse> respond)
+void handle_init(WsdbRefContext& ctx, wire::WsdbInit&& cmd, Responder<wire::WsdbInitResponse> respond)
 {
-    serve(respond, [&]() -> wire::WsdbInitGenesisResponse {
+    serve(respond, [&]() -> wire::WsdbInitResponse {
         GenesisConfig genesis;
         std::array<bool, 5> has_height{};
         for (const auto& [tree_id, height] : cmd.treeHeights) {
@@ -831,13 +829,17 @@ void handle_init_genesis(WsdbRefContext& ctx,
         }
         genesis.genesis_timestamp = cmd.genesisTimestamp;
         genesis.header_generator_point = FF(cmd.initialHeaderGeneratorPoint);
-        ctx.world_state.reset(genesis);
+        if (ctx.world_state.has_value()) {
+            ctx.world_state->reset(genesis);
+        } else {
+            ctx.world_state.emplace(genesis);
+        }
         return {};
     });
 }
 
 // The in-process FFI entry's context (generated/wsdb_ffi.hpp): one reference world state per loaded
-// module, at the canonical genesis until InitGenesis, shared by every call as over one transport connection.
+// module, created by Init, shared by every call as over one transport connection.
 AsyncDispatchHandler& ipc_ffi_dispatcher()
 {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
