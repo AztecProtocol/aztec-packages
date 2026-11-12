@@ -9,4 +9,8 @@
 */tsconfig.json
 */codegenCache.json
 */artifacts/
+# A Hardhat project's link to l1-artifacts' sources, its compile cache and its Aztec bindings.
+*/l1-contracts
+*/cache/
+*/contracts/aztec/
 joblog.txt

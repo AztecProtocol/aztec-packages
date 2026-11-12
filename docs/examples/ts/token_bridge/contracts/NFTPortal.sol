@@ -1,7 +1,7 @@
+// docs:start:portal_setup
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-// docs:start:portal_setup
 import {IERC721} from "@oz/token/ERC721/IERC721.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
