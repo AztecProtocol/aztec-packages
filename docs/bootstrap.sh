@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 repo_root=$(git rev-parse --show-toplevel)
@@ -9,19 +10,26 @@ repo_root=$(git rev-parse --show-toplevel)
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs $([ -d lines ] && echo lines) -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
 )
-# A release build renders its own versions and links this repository's files at DOCS_COMMIT, so it
-# never shares a cache entry with a dev build.
+# Production serves neither the dev docs nor the lines, and a release build renders its own versions
+# and links this repository's files at DOCS_COMMIT: every variable that changes the output keys it.
 # cache_content_hash hashes blob ids without their names, so the docs tree id keys renamed pages.
 hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" \
-  "${COMMIT_TAG:-}" "${RELEASE_TYPE:-}" "${DOCS_COMMIT:-}")
+  "CONTEXT=${CONTEXT:-}" "COMMIT_TAG=${COMMIT_TAG:-}" "RELEASE_TYPE=${RELEASE_TYPE:-}" "DOCS_COMMIT=${DOCS_COMMIT:-}" \
+  "NIGHTLY_TAG=${NIGHTLY_TAG:-}" "DEVNET_TAG=${DEVNET_TAG:-}" "TESTNET_TAG=${TESTNET_TAG:-}" \
+  "MAINNET_TAG=${MAINNET_TAG:-}" "KEEP_DEVELOPER_VERSIONS=${KEEP_DEVELOPER_VERSIONS:-}")
 
 # Every function that reads aztec-node code fetches and checks the pinned checkout first, on a cache
 # hit too, since later steps read it (scripts/aztec_node.mts; a no-op without network when current).
+# The fetch covers every dev line (docs/lines/<line>/), each with its own pin.
 function fetch_aztec_node {
   node scripts/aztec_node.mts fetch
+}
+
+function lines {
+  node scripts/aztec_node.mts lines
 }
 
 function build_docs {
@@ -48,6 +56,9 @@ function check_generated_refs {
   echo_header "check generated aztec.js reference"
   fetch_aztec_node
   ./scripts/aztecjs_reference_generation/update_docs.sh --check
+  for line in $(lines); do
+    ./scripts/aztecjs_reference_generation/update_docs.sh --line "$line" --check
+  done
 }
 
 function test_cmds {
@@ -66,8 +77,7 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
-  # The examples' test commands share one checkout and toolchain: install them before they run in parallel.
-  (cd examples && ./bootstrap.sh pin_toolchain)
+  (cd examples && ./bootstrap.sh pin_toolchains)
   test_cmds | parallelize
 }
 
@@ -128,11 +138,18 @@ function check {
   node --test scripts/__tests__/*.test.mts
   python3 -I scripts/check_netlify_toml.py --self-test
   python3 -I scripts/check_netlify_toml.py netlify.toml
+  ./scripts/check_source_urls.sh --self-test
+  ./scripts/check_source_urls.sh
+  ./scripts/check_static_redirects.sh --self-test
+  ./scripts/check_static_redirects.sh
   ./scripts/check_skills.sh --self-test
   ./scripts/check_skills.sh
   ./scripts/check_warnings.sh --self-test
   ./scripts/check_cli_defaults.sh
   ./scripts/check_doc_references.sh docs
+  for line in $(lines); do
+    ./scripts/check_doc_references.sh "docs/lines/$line"
+  done
 }
 
 function build_examples {
@@ -140,9 +157,18 @@ function build_examples {
   (cd examples && ./bootstrap.sh "$@")
 }
 
+# A dev line's examples compile and type-check here; they run against a network only at the line's cut.
+function build_line_examples {
+  for line in $(lines); do
+    echo_header "Building $line examples"
+    (cd examples && ./bootstrap.sh --line "$line")
+  done
+}
+
 case "$cmd" in
   "ci")
     build_examples
+    build_line_examples
     build_docs
     check_generated_refs
     test
@@ -151,6 +177,7 @@ case "$cmd" in
     ;;
   "")
     build_examples
+    build_line_examples
     build_docs
     check_generated_refs
     check_orphaned_urls

@@ -31,11 +31,6 @@ const sidebars = {
       label: "Support",
     },
     {
-      type: "link",
-      label: "Aztec Starter Repository",
-      href: "https://github.com/AztecProtocol/aztec-starter",
-    },
-    {
       type: "html",
       value: '<span class="sidebar-title">Docs</span>',
       className: "sidebar-title",

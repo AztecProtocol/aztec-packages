@@ -20,10 +20,12 @@ import Count from '@site/src/components/OperatorConfig/Count';
 import IfCount from '@site/src/components/OperatorConfig/IfCount';
 import { EthTotal, AztecTotal, PublisherFundingCalculator } from '@site/src/components/OperatorConfig/Computed';
 import ProverRewardClaimer from '@site/src/components/OperatorConfig/ProverRewardClaimer';
+import Diagram from '@site/src/components/Diagram';
 
 // https://docusaurus.io/docs/markdown-features/react#mdx-component-scope
 export default {
   ...MDXComponents,
+  Diagram,
   Version,
   AztecPackagesVersion,
   CodeBlock,

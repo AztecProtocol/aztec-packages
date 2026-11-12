@@ -1,6 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
+const { releaseNameFor, versionLabel } = require("../release_names");
+const { lineApiFolders, networkApiFolder } = require("../network_docs");
+const { lineOf, readPin } = require("./line");
+const { docsCommit } = require("./include_code");
 
 // Load version defaults from config file (source of truth for version→type mapping)
 const developerVersionConfig = require(path.join(__dirname, "../../developer_version_config.json"));
@@ -76,14 +80,24 @@ function foundationVersion() {
   return `v${JSON.parse(fs.readFileSync(pkg, "utf8")).version}`;
 }
 
+const lineApiRefVersion = (line) => lineApiFolders(developerVersionConfig, [line.name])[line.name];
+
+function pinnedAztecNodeRef() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "../../aztec-node.json"), "utf8")).ref;
+}
+
 /**
  * Preprocesses markdown content to replace version macros and conditional blocks.
  * @param {string} markdownContent - The markdown content to process
- * @param {string} filePath - Path to the file (for error messages)
+ * @param {string} filePath - Path to the file (for error messages, and the line it belongs to)
+ * @param {string} [rootDir] - The repository root; without it every page is main's
  * @returns {Promise<{content: string, isUpdated: boolean}>} - Processed content and update flag
  */
-async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
+async function preprocessIncludeVersion(markdownContent, filePath = "unknown", rootDir = undefined) {
   const originalContent = markdownContent;
+  // A line page names its own pin, whatever a release build sets for main's pages.
+  const line = lineOf(filePath, rootDir);
+  const linePin = line && readPin(rootDir, line);
 
   // Get environment variables, falling back to version config file defaults
   // COMMIT_TAG: kept for backwards compatibility with #include_aztec_version
@@ -94,8 +108,9 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const testnetTag = process.env.TESTNET_TAG || stripV(developerVersionConfig.testnet) || "0.0.0";
   const mainnetTag = process.env.MAINNET_TAG || stripV(developerVersionConfig.mainnet) || "0.0.0";
   const releaseType = process.env.RELEASE_TYPE || "mainnet";
-  // COMMIT_TAG kept for backwards compatibility
-  const commitTag = process.env.COMMIT_TAG || "next";
+  // Release cuts set COMMIT_TAG to the Labs tag; any other build names the pinned aztec-node tag,
+  // the code the pages quote.
+  const commitTag = linePin ? linePin.ref : process.env.COMMIT_TAG || pinnedAztecNodeRef();
 
   // Validate release type
   if (!VALID_RELEASE_TYPES.includes(releaseType)) {
@@ -114,10 +129,15 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
-  // API ref paths
-  const apiRefVersion = releaseType === "testnet" ? "testnet"
-                      : releaseType === "mainnet" ? "mainnet"
-                      : "next";
+  // The folder the build serves once this release type reads the version being built: a release
+  // cut freezes these links into its snapshot before it maps that version. A testnet on mainnet's
+  // version has no folder of its own. A release that leaves the developer docs alone (a network-only
+  // cut) keeps their versions, so its build links folders it serves.
+  const developerVersions = process.env.KEEP_DEVELOPER_VERSIONS === "1"
+    ? developerVersionConfig
+    : { ...developerVersionConfig, [releaseType]: `v${stripV(releaseVersion)}` };
+  const apiRefVersion = networkApiFolder(developerVersions, releaseType)
+                      ?? (releaseType === "testnet" || releaseType === "mainnet" ? releaseType : "next");
 
   // Step 1: Process conditional blocks FIRST (before version substitution)
   // This allows conditionals to contain version macros
@@ -130,9 +150,23 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   // Step 2: Replace new release-type-aware macros
   markdownContent = markdownContent.replaceAll(`#release_version`, releaseVersion);
   markdownContent = markdownContent.replaceAll(`#release_network`, releaseNetwork);
-  markdownContent = markdownContent.replaceAll(`#api_ref_version`, apiRefVersion);
+  // Release line name ("Tierra") and full label ("Tierra (v6.0.0)"); an unnamed
+  // line falls back to the version so prose never renders an empty word.
+  markdownContent = markdownContent.replaceAll(
+    `#release_label`,
+    versionLabel(releaseVersion),
+  );
+  markdownContent = markdownContent.replaceAll(
+    `#release_name`,
+    releaseNameFor(releaseVersion) || `v${releaseVersion}`,
+  );
+  // The commit the page's snippet links into this repository name, so hand-written links and clones show the same files.
+  if (markdownContent.includes("#docs_commit"))
+    markdownContent = markdownContent.replaceAll("#docs_commit", docsCommit(rootDir));
+  if (markdownContent.includes("#api_ref_version"))
+    markdownContent = markdownContent.replaceAll(`#api_ref_version`, line ? lineApiRefVersion(line) : apiRefVersion);
   if (markdownContent.includes("#include_foundation_version")) {
-    const foundation = foundationVersion();
+    const foundation = linePin ? `v${linePin.toolchain.l1Artifacts}` : foundationVersion();
     // The prefixless name first: the other macro is a prefix of it.
     markdownContent = markdownContent.replaceAll("#include_foundation_version_without_prefix", foundation.slice(1));
     markdownContent = markdownContent.replaceAll("#include_foundation_version", foundation);

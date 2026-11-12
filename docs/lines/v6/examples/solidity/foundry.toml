@@ -1,0 +1,16 @@
+[profile.default]
+src = '.'
+out = 'out'
+libs = [
+  '../../node_modules/@aztec-foundation/l1-artifacts/l1-contracts/lib',
+  '../../node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src',
+]
+solc = "0.8.30"
+evm_version = 'prague'
+optimizer = true
+
+remappings = [
+  "@oz/=../../node_modules/@aztec-foundation/l1-artifacts/l1-contracts/lib/openzeppelin-contracts/contracts/",
+  "@aztec/=../../node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/",
+  "@aztec-blob-lib/=../../node_modules/@aztec-foundation/l1-artifacts/l1-contracts/src/core/libraries/rollup/"
+]

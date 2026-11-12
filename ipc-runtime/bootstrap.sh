@@ -13,6 +13,7 @@
 #
 # Tests are skipped automatically when cross-compiling.
 
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(cache_content_hash .rebuild_patterns)
@@ -108,7 +109,7 @@ function release {
 
   # Private releases also run this function but publish only to the internal
   # npm registry; crates.io is public-only.
-  if "$root/ci3/assert_public_release" 2>/dev/null; then
+  if "$root/scripts/assert_public_release" 2>/dev/null; then
     release_crate $version
   fi
 }

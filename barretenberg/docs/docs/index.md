@@ -86,7 +86,7 @@ Barretenberg produces Solidity smart contracts meant to be used on several EVM n
 - BSC
 - And many others
 
-Several teams have been writing Barretenberg verifier implementations for other frameworks, for example [Starknet's Garaga](https://garaga.gitbook.io/garaga/deploy-your-snark-verifier-on-starknet/noir).
+Several teams have been writing Barretenberg verifier implementations for other frameworks, for example [Starknet's Garaga](https://garaga.gitbook.io/garaga/smart-contract-generators/noir).
 
 ## Use Cases
 

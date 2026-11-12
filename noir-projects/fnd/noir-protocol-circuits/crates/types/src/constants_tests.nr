@@ -22,7 +22,7 @@ use crate::{
         DOM_SEP__PUBLIC_DATA_MERKLE, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
         DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT,
         DOM_SEP__PUBLIC_TX_HASH, DOM_SEP__RETRIEVED_BYTECODES_MERKLE,
-        DOM_SEP__SALTED_INITIALIZATION_HASH, DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD,
+        DOM_SEP__SALTED_INITIALIZATION_HASH, DOM_SEP__PRIVATE_CONTENT_HASH, DOM_SEP__SIGNATURE_PAYLOAD,
         DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
         DOM_SEP__TSK_M, DOM_SEP__TX_EFFECT_CATEGORIES_HASH, DOM_SEP__TX_EFFECT_CATEGORY_HASH,
         DOM_SEP__TX_EFFECTS_TREE, DOM_SEP__TX_EFFECTS_TREE_LEAF, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
@@ -241,7 +241,7 @@ fn hashed_values_match_derived() {
         DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
         "private_initialization_nullifier",
     );
-    tester.assert_dom_sep_matches_derived(DOM_SEP__SECRET_HASH, "secret_hash");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__PRIVATE_CONTENT_HASH, "private_content_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SIGNATURE_PAYLOAD, "signature_payload");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOCK_HEADERS_HASH, "block_headers_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_HASHED_Y_LIMBS, "blob_hashed_y_limbs");

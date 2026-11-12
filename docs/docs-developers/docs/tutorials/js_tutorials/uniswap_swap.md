@@ -16,7 +16,7 @@ This tutorial walks you through building a version of this flow. You will learn 
 Before starting this tutorial, you need:
 
 1. **Aztec local network** running at version #include_aztec_version -- see [the local network guide](../../../getting_started_on_local_network.md) for setup instructions
-2. **Node.js** (v24+) and a package manager (yarn or npm)
+2. **Node.js**, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites), with npm, and **git** 2.35 or later
 3. **Familiarity with the token bridge tutorial** -- this tutorial builds on concepts from [Bridge Your NFT to Aztec](./token_bridge.md), especially portal contracts and cross-chain messaging
 
 :::tip Background Knowledge
@@ -34,17 +34,22 @@ This tutorial walks you through three types of contracts (Solidity, Noir, TypeSc
 
 ### Clone the Example Code
 
-The example code lives in the Aztec packages repository:
+The example code lives in the Aztec packages repository. Fetch it at the commit this page quotes, with the aztec-nr and L1 contracts it builds against:
 
-```bash
-git clone --depth 1 https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-packages
-labs-patches/bootstrap.sh apply
-(cd docs && yarn install)
+```bash title="Clone the example"
+git init -q aztec-docs && cd aztec-docs
+git remote add origin https://github.com/AztecProtocol/aztec-packages.git
+git sparse-checkout set --no-cone /docs/Nargo.toml /docs/examples/
+git fetch --depth 1 --filter=blob:none origin #docs_commit
+git -c advice.detachedHead=false checkout #docs_commit
+git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --branch #include_aztec_version \
+  https://github.com/aztec-labs-eng/aztec-node.git docs/.aztec-node/tree
+git -C docs/.aztec-node/tree sparse-checkout set noir-projects
+npm install --prefix docs --no-save --ignore-scripts @aztec-foundation/l1-artifacts@#include_foundation_version_without_prefix
 cd docs/examples
 ```
 
-`labs-patches/bootstrap.sh apply` checks out the `labs/` submodule, whose `aztec-nr` and token contracts the Noir contract builds against. `yarn install` in `docs/` installs `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps.
+This checks out the docs examples with their Noir workspace (`docs/Nargo.toml`), and aztec-node's `noir-projects` at the version above, whose `aztec-nr` and token contracts the Noir contract builds against. `npm install` puts `@aztec-foundation/l1-artifacts`, the L1 contract sources that `foundry.toml` maps, in `docs/node_modules`.
 
 ### Project Structure
 
@@ -185,7 +190,7 @@ cd solidity
 forge build --contracts example_swap --out ../../target/solidity/example_swap
 ```
 
-This writes JSON artifacts containing the ABI and bytecode to `docs/target/solidity/example_swap/`, where the TypeScript script imports them from to deploy contracts on L1. The imports resolve from the `@aztec-foundation/l1-artifacts` package that `yarn install` put in `docs/node_modules`.
+This writes JSON artifacts containing the ABI and bytecode to `docs/target/solidity/example_swap/`, where the TypeScript script imports them from to deploy contracts on L1. The imports resolve from the `@aztec-foundation/l1-artifacts` package that the clone steps put in `docs/node_modules`.
 
 ## Part 3: Uniswap Contract (Noir)
 
@@ -243,7 +248,7 @@ This is how L1 verifies that L2 actually authorized the swap - not by trusting a
 
 ### Compile and Generate Bindings
 
-From the `docs` directory (the Noir workspace root), compile the Noir contract and generate TypeScript bindings:
+From `docs` (the Noir workspace root), compile the Noir contract and generate TypeScript bindings:
 
 ```bash
 cd ../..

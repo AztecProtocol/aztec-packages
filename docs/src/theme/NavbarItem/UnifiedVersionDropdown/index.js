@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from '@docusaurus/router';
 import {
+  useActivePlugin,
   useVersions,
   useActiveDocContext,
   useDocsPreferredVersion,
@@ -9,6 +10,7 @@ import {
 import { useHistorySelector } from '@docusaurus/theme-common';
 import DropdownNavbarItem from '@theme/NavbarItem/DropdownNavbarItem';
 import DefaultNavbarItem from '@theme/NavbarItem/DefaultNavbarItem';
+import { lineOfPlugin } from '@site/src/utils/docsLine.mjs';
 
 // Plugin IDs for our two docs instances
 const DEVELOPER_PLUGIN_ID = 'developer';
@@ -88,9 +90,11 @@ function createSectionHeader(label) {
 
 export default function UnifiedVersionDropdown({ mobile, ...props }) {
   const { pathname } = useLocation();
+  const line = lineOfPlugin(useActivePlugin()?.pluginId);
 
-  // Hide dropdown on landing page, networks, and participate section (participate is not versioned)
-  if (pathname === '/' || pathname === '/networks' || pathname.startsWith('/participate')) {
+  // Hide dropdown on landing page, networks, participate section (participate is not versioned) and
+  // a dev line's pages, which have one version and would otherwise get the menus of both sections
+  if (line || pathname === '/' || pathname === '/networks' || pathname.startsWith('/participate')) {
     return null;
   }
 

@@ -20,7 +20,7 @@ The complete code for this tutorial is available in the [docs/examples](https://
 
 Before starting, ensure you have the following installed and configured:
 
-- Node.js (v22 or later)
+- Node.js, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites)
 - yarn package manager
 - Aztec CLI (version v6.0.0)
 - Nargo
@@ -343,7 +343,7 @@ pub contract ValueNotEqual {
 The scaffolded `ValueNotEqual/ValueNotEqual_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
 
 ```rust
-// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts for examples.
 ```
 :::
 

@@ -1181,19 +1181,21 @@ curl -X POST http://localhost:8080 \
 
 Administrative operations are exposed on port 8880 under the `aztecAdmin_` namespace.
 
+The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; pass it with the `x-api-key` header, as the examples below do, or as `Authorization: Bearer [ADMIN_API_KEY]`. See [admin API key authentication](./changelog/v4.md#admin-api-key-authentication).
+
 :::warning Security: Admin API Access
 For security reasons, the admin port (8880) should **not be exposed** to the host machine in Docker deployments. The examples below show both CLI and Docker methods:
 
 **CLI Method** (when running with `aztec start` directly):
 
 ```bash
-curl -X POST http://localhost:8880 ...
+curl -X POST http://localhost:8880 -H 'x-api-key: [ADMIN_API_KEY]' ...
 ```
 
 **Docker Method** (when running with Docker Compose):
 
 ```bash
-docker exec -it <container-name> curl -X POST http://localhost:8880 ...
+docker exec -it <container-name> curl -X POST http://localhost:8880 -H 'x-api-key: [ADMIN_API_KEY]' ...
 ```
 
 Replace `<container-name>` with your container name (e.g., `aztec-node`, `aztec-sequencer`, `prover-node`).
@@ -1212,6 +1214,7 @@ Retrieves the configuration of this node.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 
@@ -1220,6 +1223,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 
@@ -1238,6 +1242,7 @@ Updates the configuration of this node.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_setConfig","params":[{}],"id":1}'
 ```
 
@@ -1246,6 +1251,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_setConfig","params":[{}],"id":1}'
 ```
 
@@ -1262,6 +1268,7 @@ Pauses archiver and world state syncing.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSync","params":[],"id":1}'
 ```
 
@@ -1270,6 +1277,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSync","params":[],"id":1}'
 ```
 
@@ -1286,6 +1294,7 @@ Resumes archiver and world state syncing.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSync","params":[],"id":1}'
 ```
 
@@ -1294,6 +1303,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSync","params":[],"id":1}'
 ```
 
@@ -1311,6 +1321,7 @@ produced until  is called. Throws if no sequencer is running.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSequencer","params":[],"id":1}'
 ```
 
@@ -1319,6 +1330,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSequencer","params":[],"id":1}'
 ```
 
@@ -1335,6 +1347,7 @@ Resumes block production previously paused via .
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSequencer","params":[],"id":1}'
 ```
 
@@ -1343,6 +1356,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSequencer","params":[],"id":1}'
 ```
 
@@ -1363,6 +1377,7 @@ Pauses syncing and rolls back the database to the target L2 block number.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
@@ -1371,6 +1386,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
@@ -1389,6 +1405,7 @@ Pauses syncing, creates a backup of archiver and world-state databases, and uplo
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
 ```
 
@@ -1397,6 +1414,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
 ```
 
@@ -1415,6 +1433,7 @@ Returns all offenses applicable for the given round.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
@@ -1423,6 +1442,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
@@ -1454,6 +1474,7 @@ Notes:
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_reloadKeystore","params":[],"id":1}'
 ```
 
@@ -1462,6 +1483,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{"jsonrpc":"2.0","method":"aztecAdmin_reloadKeystore","params":[],"id":1}'
 ```
 

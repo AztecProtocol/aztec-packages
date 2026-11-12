@@ -54,6 +54,8 @@ The L1 contract defines three fixed slashing tiers that can be configured for di
 
 :::info Network Configuration
 On mainnet, **offenses are currently configured to slash 2,000 tokens for small offenses and 5,000 tokens for medium and large offenses (1% and 2.5% of the Activation Threshold - the minimum stake required to join the validator set)**. A validator is ejected when a slash would drop its stake below the rollup's local ejection threshold (190,000 tokens on mainnet, 95% of the Activation Threshold). A validator that joined at exactly the 200,000 token Activation Threshold is therefore ejected by the first slash that would push its total slashed amount above 10,000 tokens (5% of its stake). See [Ejection from the validator set](#ejection-from-the-validator-set) for details.
+
+On testnet, offenses are currently configured to slash 100,000 tokens for small offenses and 250,000 tokens for medium and large offenses. With testnet's local ejection threshold of 199,000 tokens, the first slash ejects a validator that joined at the 200,000 token Activation Threshold.
 :::
 
 ## Slashable offenses
@@ -180,11 +182,14 @@ SLASH_VALIDATORS_NEVER=0xabcd...,0xef01...
 
 Check your current slashing configuration:
 
+The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; pass it with the `x-api-key` header (or `Authorization: Bearer [ADMIN_API_KEY]`). See [admin API key authentication](../reference/changelog/v4.md#admin-api-key-authentication).
+
 **CLI Method**:
 
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{
     "jsonrpc":"2.0",
     "method":"aztecAdmin_getConfig",
@@ -197,6 +202,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
+  -H 'x-api-key: [ADMIN_API_KEY]' \
   -d '{
     "jsonrpc":"2.0",
     "method":"aztecAdmin_getConfig",
@@ -261,7 +267,7 @@ If a slash would drop a validator's stake below the rollup's **local ejection th
 
 **Local Ejection Threshold**: 190,000 tokens on mainnet (95% of the 200,000 token Activation Threshold). This is a per-rollup parameter, and other networks use different values (199,000 tokens on testnet).
 
-With mainnet's current slash amounts (2,000 tokens for small offenses, 5,000 for medium and large), a validator that joined at exactly the Activation Threshold is ejected by the first slash that would push its total slashed amount above 10,000 tokens (5% of its stake). A separate protocol-level ejection threshold (100,000 tokens, 50% of the Activation Threshold) applies to all stake withdrawals at the GSE level, but with current parameters the local ejection threshold is the one that triggers ejection from slashing.
+With mainnet's current slash amounts (2,000 tokens for small offenses, 5,000 for medium and large), a validator that joined at exactly the Activation Threshold is ejected by the first slash that would push its total slashed amount above 10,000 tokens (5% of its stake). With testnet's slash amounts (100,000 tokens for small offenses, 250,000 for medium and large), the first slash ejects such a validator. A separate protocol-level ejection threshold (100,000 tokens, 50% of the Activation Threshold) applies to all stake withdrawals at the GSE level, but with current parameters the local ejection threshold is the one that triggers ejection from slashing.
 
 ## Monitoring Slashing Activity
 
@@ -340,7 +346,7 @@ cast call [SLASHING_PROPOSER_ADDRESS] \
 
 **Solutions**:
 1. Your node sums each validator's penalties per epoch and votes for the highest L1 slash amount the sum reaches, or for no slash below the smallest one. The amounts are 2,000 and 5,000 tokens on mainnet (`2000000000000000000000` and `5000000000000000000000`) and 100,000 and 250,000 tokens on testnet (`100000000000000000000000` and `250000000000000000000000`).
-2. Verify your penalty configuration matches the default values shown in the Environment Variables section
+2. Check the penalties your node uses: the `slash...Penalty` fields of the `aztecAdmin_getConfig` response (see [Verify Your Configuration](#verify-your-configuration)). The `--network` flag sets them from the network configuration, and the node refuses to start with a conflicting `SLASH_*_PENALTY` environment variable unless `ALLOW_OVERRIDING_NETWORK_CONFIG` is `1` or `true`.
 
 ## Best Practices
 

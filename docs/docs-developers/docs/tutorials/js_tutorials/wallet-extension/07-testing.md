@@ -14,8 +14,8 @@ This final section covers loading your wallet extension in Chrome and testing it
 From the `webapp-tutorial` directory:
 
 ```bash
-# Install dependencies if needed
-yarn install
+# Install dependencies, if the clone steps have not already
+./setup.sh #include_version_without_prefix
 
 # Build the extension
 node esbuild.extension.mjs
@@ -64,7 +64,7 @@ If the deployment fails, the error appears above the "Deploy Account" button. Se
 
 ## Running the dApp
 
-In another terminal, start the webapp tutorial:
+In another terminal, start the webapp tutorial from the clone's root (`aztec-docs`):
 
 ```bash
 cd docs/examples/webapp-tutorial

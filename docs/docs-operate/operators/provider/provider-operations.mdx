@@ -79,12 +79,12 @@ Then tell the running node to reload the keystore from disk, which applies the n
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -H 'x-api-key: [ADMIN_API_KEY]' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_reloadKeystore","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_reloadKeystore","params":[],"id":1}'
 ```
 
 The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; it is reused across restarts because you set `DATA_DIRECTORY`. Pass it with the `x-api-key` header (or `Authorization: Bearer [ADMIN_API_KEY]`). See [admin API key authentication](../reference/changelog/v4.md#admin-api-key-authentication) for the key lifecycle and the opt-out flag.
 
-`nodeAdmin_reloadKeystore` re-reads the keystore directory and applies each validator's attester key, coinbase, and fee recipient. It does not reload L1 publisher signers, prover keys, or HA signer database connections; those still require a restart. See the [node API reference](../reference/node-api-reference.md#admin-api). Restarting the node also loads the new keystore, if you prefer:
+`aztecAdmin_reloadKeystore` re-reads the keystore directory and applies each validator's attester key, coinbase, and fee recipient. It does not reload L1 publisher signers, prover keys, or HA signer database connections; those still require a restart. See the [node API reference](../reference/node-api-reference.md#admin-api). Restarting the node also loads the new keystore, if you prefer:
 
 ```bash
 docker compose restart aztec-sequencer

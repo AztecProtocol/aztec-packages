@@ -9,6 +9,8 @@ const TUTORIAL_DIR = resolve(import.meta.dirname, '../..');
 const DIST_DIR = join(TUTORIAL_DIR, 'dist');
 const APP_PORT = 4173;
 const APP_URL = `http://localhost:${APP_PORT}`;
+const PLAYER_1 = '.players-container > .player-panel:nth-child(1)';
+const PLAYER_2 = '.players-container > .player-panel:nth-child(2)';
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -79,12 +81,12 @@ describe('Embedded wallet E2E', () => {
     server?.close();
   });
 
-  it('loads the app and shows wallet connect', async () => {
+  it('loads the app in two-player local mode', async () => {
     await page.goto(APP_URL, { waitUntil: 'networkidle0' });
 
-    // App should show the wallet connect section
-    const walletConnect = await page.waitForSelector('.wallet-connect');
-    expect(walletConnect).toBeTruthy();
+    // The local network gets the two-player split screen, one embedded wallet per player
+    const twoPlayer = await page.waitForSelector('.two-player-local');
+    expect(twoPlayer).toBeTruthy();
 
     // Network picker defaults to local
     const selectValue = await page.$eval('.network-picker select', (el) =>
@@ -93,51 +95,51 @@ describe('Embedded wallet E2E', () => {
     expect(selectValue).toBe('local');
   });
 
-  it('shows test account selector for local network', async () => {
+  it('lets player 2 connect only after player 1', async () => {
     await page.goto(APP_URL, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('.two-player-local');
 
-    // Local network should show the local connect section
-    const localConnect = await page.waitForSelector('.local-connect');
-    expect(localConnect).toBeTruthy();
-
-    // Should have the test account dropdown
-    const selectOptions = await page.$$eval('.local-connect select option', (opts) =>
-      opts.map((o) => (o as HTMLOptionElement).textContent),
+    const buttons = await page.$$eval(`${PLAYER_1} button, ${PLAYER_2} button`, (els) =>
+      els.map((b) => ({ text: b.textContent, disabled: (b as HTMLButtonElement).disabled })),
     );
-    expect(selectOptions).toEqual(['Account 1', 'Account 2', 'Account 3']);
-
-    // Connect button should be present
-    const button = await page.$eval('.local-connect button', (el) => el.textContent);
-    expect(button).toBe('Connect Test Account');
+    expect(buttons).toEqual([
+      { text: 'Connect Account #1', disabled: false },
+      { text: 'Connect Account #2', disabled: true },
+    ]);
   });
 
   it(
-    'connects test account when sandbox is running',
+    'connects player 1 test account when sandbox is running',
     async () => {
       await page.goto(APP_URL, { waitUntil: 'networkidle0' });
 
-      // Click "Connect Test Account"
-      await page.click('.local-connect button');
+      await page.click(`${PLAYER_1} button`);
 
-      // Wait for status to indicate PXE initialization
       await page.waitForFunction(
-        () => document.querySelector('.status')?.textContent?.includes('Initializing PXE'),
+        (sel) => document.querySelector(sel)?.textContent?.includes('Initializing PXE'),
         { timeout: 10_000 },
+        `${PLAYER_1} .player-status`,
       );
 
       // Wait for connection (this requires a running sandbox)
       try {
         await page.waitForFunction(
-          () => document.querySelector('.status')?.textContent?.includes('Connected!'),
+          (sel) => document.querySelector(sel)?.textContent?.includes('Connected!'),
           { timeout: 90_000 },
+          `${PLAYER_1} .player-status`,
         );
 
-        // Should transition to lobby
-        const lobby = await page.waitForSelector('.game-lobby', { timeout: 5_000 });
-        expect(lobby).toBeTruthy();
+        // Player 1 can now create the game, and player 2 can connect
+        const p1Action = await page.$eval(`${PLAYER_1} button`, (el) => el.textContent);
+        expect(p1Action).toBe('Deploy Contract & Create Game');
+        const p2Disabled = await page.$eval(
+          `${PLAYER_2} button`,
+          (el) => (el as HTMLButtonElement).disabled,
+        );
+        expect(p2Disabled).toBe(false);
       } catch {
         // If sandbox is not running, we expect an error status
-        const status = await page.$eval('.status', (el) => el.textContent);
+        const status = await page.$eval(`${PLAYER_1} .player-status`, (el) => el.textContent);
         console.log('Connection result (sandbox may not be running):', status);
         expect(status).toMatch(/Error|Connected/);
       }

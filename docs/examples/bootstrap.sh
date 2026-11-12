@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Get repo root for absolute paths
@@ -8,10 +9,57 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 # dependencies name the default checkout (docs/.aztec-node/tree), so an AZTEC_NODE_DIR override never applies.
 unset AZTEC_NODE_DIR
 
+# `--line <line> [cmd]` builds a dev line's examples (docs/lines/<line>/) with its pin instead of main's.
+# nargo takes the topmost Nargo.toml as its workspace, so a line cannot build under docs/: its
+# Nargo.toml and examples are staged outside the repository in a copy that mirrors docs/, with the
+# line's .aztec-node (checkout and toolchain) and l1-artifacts linked in where docs/ has its own.
+# DOCS_ROOT is where the examples build; DOCS_PATH is their source's path in the repository.
+DOCS_LINE= STAGE= DOCS_ROOT=
+
 # Safety net: ensure all TS example yarn.lock files are empty on exit.
 # Both validate-ts and execute-examples (via Docker volume mount) can populate
 # these files, and their per-project cleanup may not run if processes are killed.
-trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
+# Set before staging, so a failed copy also removes the stage.
+function on_exit {
+  if [ -n "$DOCS_ROOT" ]; then
+    for lf in "$DOCS_ROOT"/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done
+  fi
+  if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
+}
+trap on_exit EXIT
+
+aztec_node=(node "$REPO_ROOT/docs/scripts/aztec_node.mts")
+if [ "$cmd" = --line ]; then
+  DOCS_LINE=${1:?usage: examples/bootstrap.sh --line <line> [cmd]}
+  shift
+  cmd=${1:-}
+  [ -n "$cmd" ] && shift
+  export DOCS_PATH=docs/lines/$DOCS_LINE
+  line_root=$REPO_ROOT/$DOCS_PATH
+  if [[ ! "$DOCS_LINE" =~ ^v[0-9]+$ ]] || [ ! -f "$line_root/aztec-node.json" ]; then
+    echo_stderr "No line $DOCS_LINE: a line is a docs/lines/v<major>/ directory holding an aztec-node.json."
+    exit 1
+  fi
+  aztec_node+=(--line "$DOCS_LINE")
+  # On disk rather than in /tmp: the contract artifacts are large. A release cut runs a line's
+  # examples one step at a time, so DOCS_LINE_STAGE names a stage it keeps across runs (and removes
+  # itself): later steps find what earlier ones compiled.
+  if [ -n "${DOCS_LINE_STAGE:-}" ]; then
+    stage=$DOCS_LINE_STAGE
+  else
+    mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
+    STAGE=$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/aztec-docs-$DOCS_LINE.XXXXXX")
+    stage=$STAGE
+  fi
+  mkdir -p "$stage/node_modules/@aztec-foundation"
+  cp -R "$line_root/Nargo.toml" "$line_root/examples" "$REPO_ROOT/docs/.yarnrc.yml" "$stage/"
+  # The links may dangle until pin_toolchain fetches the line.
+  ln -sfn "$line_root/.aztec-node" "$stage/.aztec-node"
+  ln -sfn "$line_root/.aztec-node/l1-artifacts" "$stage/node_modules/@aztec-foundation/l1-artifacts"
+  export DOCS_ROOT=$stage
+else
+  export DOCS_PATH=docs DOCS_ROOT=$REPO_ROOT/docs
+fi
 
 # The pin names the aztec-node commit and every toolchain version, so it keys the examples.
 hash=$(cache_content_hash .rebuild_patterns)
@@ -19,10 +67,10 @@ hash=$(cache_content_hash .rebuild_patterns)
 # Fetches the pinned checkout, installs the pinned nargo, bb and aztec CLI, and exports NARGO, BB, AZTEC
 # and the versions. Each step is a local check when already current, so concurrent test commands only read.
 function pin_toolchain {
-  local tool="$REPO_ROOT/docs/scripts/aztec_node.mts" pin
-  node "$tool" fetch
-  node "$tool" provision nargo bb cli
-  pin=$(node "$tool" env)
+  local pin
+  "${aztec_node[@]}" fetch
+  "${aztec_node[@]}" provision nargo bb cli
+  pin=$("${aztec_node[@]}" env)
   eval "$pin"
 }
 
@@ -46,7 +94,7 @@ export -f compile_contract
 function compile-circuits {
   echo_header "Compiling vanilla Noir circuits"
   pin_toolchain
-  local CIRCUITS_DIR="$REPO_ROOT/docs/examples/circuits"
+  local CIRCUITS_DIR="$DOCS_ROOT/examples/circuits"
 
   if [ ! -d "$CIRCUITS_DIR" ]; then
     echo_stderr "No circuits directory found at $CIRCUITS_DIR"
@@ -66,7 +114,7 @@ function compile-circuits {
     local name=$(basename "$circuit")
     if [ -f "$circuit/Nargo.toml" ]; then
       echo_stderr "  Compiling $name..."
-      (cd "$REPO_ROOT/docs" && $NARGO compile --package "$name")
+      (cd "$DOCS_ROOT" && $NARGO compile --package "$name")
     fi
   done
 }
@@ -74,7 +122,7 @@ function compile-circuits {
 function compile {
   echo_header "Compiling example contracts"
   pin_toolchain
-  local CONTRACTS_DIR="$REPO_ROOT/docs/examples/contracts"
+  local CONTRACTS_DIR="$DOCS_ROOT/examples/contracts"
 
   if [ ! -d "$CONTRACTS_DIR" ]; then
     echo_stderr "No contracts directory found at $CONTRACTS_DIR"
@@ -102,21 +150,26 @@ function compile {
 
   # nargo resolves packages from the docs/ workspace, so it runs there.
   (
-    cd "$REPO_ROOT/docs"
+    cd "$DOCS_ROOT"
     parallel -j"${PARALLELISM:-4}" --halt now,fail=1 --line-buffer --tag compile_contract examples/{} ::: "${contracts[@]}"
   )
 }
 
 function compile-solidity {
   echo_header "Compiling Solidity examples"
-  local SOLIDITY_DIR="$REPO_ROOT/docs/examples/solidity"
-  local OUTPUT_DIR="$REPO_ROOT/docs/target/solidity"
+  local SOLIDITY_DIR="$DOCS_ROOT/examples/solidity"
+  local OUTPUT_DIR="$DOCS_ROOT/target/solidity"
 
   # The examples compile against the l1-contracts sources shipped in the
   # @aztec-foundation/l1-artifacts package (see foundry.toml), so docs' node_modules
   # must be populated. Unconditional so that a pin bump refreshes an
-  # existing node_modules instead of compiling against stale sources.
-  (cd "$REPO_ROOT/docs" && npm_install_deps)
+  # existing node_modules instead of compiling against stale sources. A line's
+  # copy is the one its fetch provisions, linked into the stage.
+  if [ -n "$DOCS_LINE" ]; then
+    "${aztec_node[@]}" fetch
+  else
+    (cd "$DOCS_ROOT" && npm_install_deps)
+  fi
 
   # Find all .sol files recursively
   local sol_files
@@ -152,14 +205,15 @@ function compile-solidity {
 function validate-ts {
   echo_header "Validating TypeScript examples"
   pin_toolchain
-  (cd ts && ./bootstrap.sh "$@")
+  # It validates the projects under $DOCS_ROOT/examples/ts.
+  (cd "$REPO_ROOT/docs/examples/ts" && ./bootstrap.sh "$@")
 }
 
 function validate-webapp-tutorial {
   echo_header "Validating webapp-tutorial build"
   pin_toolchain
-  local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
-  local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
+  local TUTORIAL_DIR="$DOCS_ROOT/examples/webapp-tutorial"
+  local ARTIFACTS_DIR="$DOCS_ROOT/target"
 
   compile webapp-tutorial/contracts
 
@@ -174,14 +228,14 @@ function validate-webapp-tutorial {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
       [ -f package.json.bak ] && mv package.json.bak package.json
-      rm -rf node_modules .yarn yarn.lock .yarnrc.yml 2>/dev/null || true
+      rm -rf node_modules .yarn yarn.lock 2>/dev/null || true
       return $exit_code
     }
     trap cleanup EXIT
 
     # Start from a fresh node_modules / lock so we don't reuse state from
     # a previous run that may have been interrupted mid-cleanup.
-    rm -rf node_modules .yarn .yarnrc.yml yarn.lock
+    rm -rf node_modules .yarn yarn.lock
 
     # The tutorial's own setup installs the published packages a reader gets, at the pinned version.
     # It starts from an empty lockfile, which the --immutable yarn 4 turns on under CI would refuse.
@@ -234,8 +288,13 @@ function validate-webapp-tutorial {
 
 function execute-examples {
   echo_header "Executing TypeScript documentation examples"
+  # The compose file mounts the repository and runs main's examples.
+  if [ -n "$DOCS_LINE" ]; then
+    echo_stderr "execute runs main's examples only: a line's run against a network at its cut."
+    return 1
+  fi
   pin_toolchain
-  local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
+  local COMPOSE_DIR="$DOCS_ROOT/examples/ts"
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
@@ -248,9 +307,19 @@ function test-contracts {
   pin_toolchain
   local test_packages=()
   local member
-  for member in $(sed -n -E 's/^ *"(examples\/[^"]+)",?$/\1/p' "$REPO_ROOT/docs/Nargo.toml"); do
-    if grep -rqs '#\[test' "$REPO_ROOT/docs/$member/src"; then
-      test_packages+=("$(sed -n -E 's/^name *= *"([^"]+)".*/\1/p' "$REPO_ROOT/docs/$member/Nargo.toml")")
+  # TXE deploys contracts from target/, which main's build fills but a line's new stage does not.
+  if [ -n "$DOCS_LINE" ]; then
+    local contracts=()
+    for member in $(sed -n -E 's/^ *"examples\/([^"]+)",?$/\1/p' "$DOCS_ROOT/Nargo.toml"); do
+      if grep -q '^type = "contract"' "$DOCS_ROOT/examples/$member/Nargo.toml"; then
+        contracts+=("$member")
+      fi
+    done
+    compile "${contracts[@]}"
+  fi
+  for member in $(sed -n -E 's/^ *"(examples\/[^"]+)",?$/\1/p' "$DOCS_ROOT/Nargo.toml"); do
+    if grep -rqs '#\[test' "$DOCS_ROOT/$member/src"; then
+      test_packages+=("$(sed -n -E 's/^name *= *"([^"]+)".*/\1/p' "$DOCS_ROOT/$member/Nargo.toml")")
     fi
   done
   local txe_port=${TXE_PORT:-14745}
@@ -282,13 +351,31 @@ function test-contracts {
 
     export RAYON_NUM_THREADS=1
     export NARGO_FOREIGN_CALL_TIMEOUT=300000
-    cd "$REPO_ROOT/docs"
+    cd "$DOCS_ROOT"
     for pkg in "${test_packages[@]}"; do
       echo_stderr "Running $pkg..."
       $NARGO test --skip-brillig-constraints-check \
         --oracle-resolver "http://127.0.0.1:$txe_port" --package "$pkg"
     done
   )
+}
+
+# Builds the "Your first full project" page's project in an empty folder with this line's pin. The test reads
+# the line's page and example from the repository, not from the stage.
+function test-first-project {
+  echo_header "Testing the first full project from an empty folder"
+  pin_toolchain
+  "$REPO_ROOT/$DOCS_PATH/examples/ts/first_full_project/fresh_folder_test.sh"
+}
+
+# Every line's checkout and toolchain, installed before test commands that share them run in parallel.
+function pin_toolchains {
+  pin_toolchain
+  local line
+  for line in $("${aztec_node[@]}" lines); do
+    "${aztec_node[@]}" --line "$line" fetch
+    "${aztec_node[@]}" --line "$line" provision nargo bb cli
+  done
 }
 
 function test_cmds {
@@ -298,11 +385,24 @@ function test_cmds {
   echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
+  # The fresh-folder test also renders its page with the site's preprocessing.
+  local render=("^docs/src/" "^docs/developer_version_config.json" "^docs/release_names.json")
+  local page="^docs/docs-developers/docs/tutorials/js_tutorials/first_full_project.md"
+  echo "$(cache_content_hash .rebuild_patterns "$page" "${render[@]}"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
+  # A line's TXE needs a port of its own: the test commands run in parallel.
+  local line line_hash i=0
+  for line in $("${aztec_node[@]}" lines); do
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/")
+    echo "$line_hash:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${render[@]}")
+    echo "$line_hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
+    i=$((i + 1))
+  done
 }
 
 function test {
   echo_header "docs examples test"
-  pin_toolchain
+  pin_toolchains
   test_cmds | filter_test_cmds | parallelize
 }
 

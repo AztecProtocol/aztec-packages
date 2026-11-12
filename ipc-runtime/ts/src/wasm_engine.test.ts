@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { WasmFfiEngine } from "./wasm/backend.js";
 import type { WasmFfiBinding, WorkerHandle } from "./wasm/node/index.js";
@@ -9,13 +10,13 @@ import { nodePlatform } from "./wasm/node/platform.js";
  * It imports a memory and wasi-threads, and implements the FFI contract with a bump allocator and
  * an entry that echoes the request back as the response.
  */
-function buildModule(opts: {
+function moduleBytes(opts: {
   shared: boolean;
   min: number;
   max: number;
   /** Define and export a memory instead of importing one, the way a Rust cdylib does. */
   ownMemory?: boolean;
-}): WebAssembly.Module {
+}): Uint8Array<ArrayBuffer> {
   const leb = (n: number) => {
     const out = [];
     do {
@@ -132,29 +133,33 @@ function buildModule(opts: {
     ...body([0], []),
   ]);
 
-  return new WebAssembly.Module(
-    new Uint8Array([
-      0x00,
-      0x61,
-      0x73,
-      0x6d,
-      0x01,
-      0x00,
-      0x00,
-      0x00,
-      ...types,
-      ...imports,
-      ...functions,
-      ...memories,
-      ...globals,
-      ...exports,
-      ...code,
-    ]),
-  );
+  return new Uint8Array([
+    0x00,
+    0x61,
+    0x73,
+    0x6d,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    ...types,
+    ...imports,
+    ...functions,
+    ...memories,
+    ...globals,
+    ...exports,
+    ...code,
+  ]);
 }
 
-/** A binding that counts the workers it is asked for, so on-demand creation is observable. */
-function countingBinding(): WasmFfiBinding & { created: () => number } {
+const buildModule = (opts: Parameters<typeof moduleBytes>[0]) =>
+  new WebAssembly.Module(moduleBytes(opts));
+
+/**
+ * A binding that counts the workers it is asked for, so when they are created is observable. With
+ * `failing`, every worker reports that it could not instantiate the module.
+ */
+function countingBinding(failing = false): WasmFfiBinding & { created: () => number } {
   let created = 0;
   return {
     platform: nodePlatform,
@@ -164,7 +169,9 @@ function countingBinding(): WasmFfiBinding & { created: () => number } {
       // The thread never starts: this module has no `wasi_thread_start`, and the test is about
       // when a worker is asked for, not what runs on it.
       return nodePlatform.createWorker(
-        new URL("./wasm_engine_stub.worker.js", import.meta.url),
+        failing
+          ? new URL("./wasm_engine_failing_stub.worker.js", import.meta.url)
+          : new URL("./wasm_engine_stub.worker.js", import.meta.url),
       );
     },
     createMainWorker: (): WorkerHandle => {
@@ -174,28 +181,60 @@ function countingBinding(): WasmFfiBinding & { created: () => number } {
 }
 
 const threadedModule = () => buildModule({ shared: true, min: 4, max: 64 });
+/** What `threadedModule` declares for its memory import. */
+const threadedMemory = { initial: 4, maximum: 64, shared: true };
 
-test("creates no thread workers until the module spawns one, then one per thread", async () => {
+// A browser starts a worker created by a busy worker only once that worker's call returns, so the
+// threads a module spawns mid-call have to be running already.
+test("prestarts a worker per thread the module is told it has, then creates more on demand", async () => {
   const binding = countingBinding();
   const engine = await WasmFfiEngine.create(
     {
       module: threadedModule(),
+      moduleMemory: threadedMemory,
       threads: 4,
       memory: { initial: 4, maximum: 64 },
     },
     binding,
   );
-  assert.equal(engine.threads, 4);
-  assert.equal(binding.created(), 0, "nothing spawned before the module asks");
+  try {
+    assert.equal(engine.threads, 4);
+    assert.equal(binding.created(), 4, "one worker per thread, started before the engine is handed out");
 
-  const spawn = (arg: number) => engine.host.callExport("spawn_thread", arg);
-  assert.equal(spawn(0), 2, "first tid");
-  assert.equal(binding.created(), 1);
-  assert.equal(spawn(0), 3, "tids keep counting up");
-  assert.equal(spawn(0), 4);
-  assert.equal(binding.created(), 3, "one worker per spawned thread, no pool");
+    const spawn = (arg: number) => engine.host.callExport("spawn_thread", arg);
+    assert.equal(spawn(0), 2, "first tid");
+    assert.equal(spawn(0), 3, "tids keep counting up");
+    assert.equal(spawn(0), 4);
+    assert.equal(spawn(0), 5);
+    assert.equal(binding.created(), 4, "spawns run on the prestarted workers");
+    assert.equal(spawn(0), 6);
+    assert.equal(binding.created(), 5, "a spawn past them gets a new worker");
+  } finally {
+    await engine.destroy();
+  }
+});
 
-  await engine.destroy();
+test("a worker that fails to prestart leaves its thread to be created on demand", async () => {
+  const binding = countingBinding(true);
+  const log: string[] = [];
+  const engine = await WasmFfiEngine.create(
+    {
+      module: threadedModule(),
+      moduleMemory: threadedMemory,
+      threads: 2,
+      memory: { initial: 4, maximum: 64 },
+      logger: (message) => log.push(message),
+    },
+    binding,
+  );
+  try {
+    assert.equal(binding.created(), 2);
+    assert.match(log.join("\n"), /could not be prestarted: .*stub told to fail/);
+    assert.equal(engine.host.callExport("spawn_thread", 0), 2);
+    assert.equal(binding.created(), 3);
+  } finally {
+    await engine.destroy();
+  }
 });
 
 test("refuses to spawn when the engine runs single-threaded", async () => {
@@ -203,6 +242,7 @@ test("refuses to spawn when the engine runs single-threaded", async () => {
   const engine = await WasmFfiEngine.create(
     {
       module: threadedModule(),
+      moduleMemory: threadedMemory,
       threads: 1,
       memory: { initial: 4, maximum: 64 },
     },
@@ -223,6 +263,7 @@ test("follows the module's memory declaration rather than the request", async ()
   const engine = await WasmFfiEngine.create(
     {
       module: buildModule({ shared: false, min: 4, max: 64 }),
+      moduleMemory: { initial: 4, maximum: 64, shared: false },
       threads: 4,
       memory: { initial: 4, maximum: 64 },
     },
@@ -233,21 +274,87 @@ test("follows the module's memory declaration rather than the request", async ()
   await engine.destroy();
 });
 
-test("finds a maximum the module accepts when the caller asks for more", async () => {
-  // The module's declared maximum is not visible from JS, so an over-large request has to be
-  // narrowed by probing; 64 pages here against the engine's default ceiling.
+test("constructs where the SharedArrayBuffer global is absent, as in a page that is not cross-origin isolated", () => {
+  // The flag hides the global in the child's context, as a browser does for such a page.
+  const child = `
+    import { WasmFfiEngine } from ${JSON.stringify(new URL("./wasm/backend.js", import.meta.url).href)};
+    import { nodePlatform } from ${JSON.stringify(new URL("./wasm/node/platform.js", import.meta.url).href)};
+    const refuse = () => { throw new Error("no workers here"); };
+    const engine = await WasmFfiEngine.create(
+      {
+        module: Buffer.from(process.env.MODULE, "base64"),
+        moduleMemory: { initial: 4, maximum: 64, shared: false },
+        threads: 1,
+        memory: { initial: 4, maximum: 64 },
+      },
+      { platform: nodePlatform, createThreadWorker: refuse, createMainWorker: refuse },
+    );
+    process.stdout.write(typeof SharedArrayBuffer + " " + engine.threads);
+    await engine.destroy();
+  `;
+  const output = execFileSync(
+    process.execPath,
+    ["--enable-sharedarraybuffer-per-context", "--input-type=module", "-e", child],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        MODULE: Buffer.from(moduleBytes({ shared: false, min: 4, max: 64 })).toString("base64"),
+      },
+    },
+  );
+  assert.equal(output, "undefined 1");
+});
+
+test("caps the memory at the module's declared maximum when the caller asks for more", async () => {
+  // 64 pages declared against the engine's default ceiling: a larger maximum would not link.
   const engine = await WasmFfiEngine.create(
-    { module: threadedModule(), threads: 2, memory: { initial: 4 } },
+    {
+      module: threadedModule(),
+      moduleMemory: threadedMemory,
+      threads: 2,
+      memory: { initial: 4 },
+    },
     countingBinding(),
   );
   assert.equal(engine.memory.buffer.byteLength, 4 * 64 * 1024);
+  assert.equal(engine.memory.grow(60), 4, "grows to the declared maximum");
+  assert.throws(() => engine.memory.grow(1), RangeError, "and no further");
   await engine.destroy();
+});
+
+test("needs the declared memory of a module that imports its memory", async () => {
+  await assert.rejects(
+    WasmFfiEngine.create(
+      { module: threadedModule(), threads: 2, memory: { initial: 4 } },
+      countingBinding(),
+    ),
+    /pass moduleMemory/,
+  );
+});
+
+test("says which declaration a memory was made for when the module declares another", async () => {
+  // Declared unshared, but the module imports a shared memory: a module run in place of a
+  // package's own, built differently.
+  await assert.rejects(
+    WasmFfiEngine.create(
+      {
+        module: threadedModule(),
+        moduleMemory: { initial: 4, maximum: 64, shared: false },
+        threads: 1,
+        memory: { initial: 4 },
+      },
+      countingBinding(),
+    ),
+    /declared import of \{"initial":4,"maximum":64,"shared":false\}/,
+  );
 });
 
 test("round-trips requests, growing the reused request buffer to fit", async () => {
   const engine = await WasmFfiEngine.create(
     {
       module: threadedModule(),
+      moduleMemory: threadedMemory,
       threads: 1,
       memory: { initial: 64, maximum: 64 },
     },
@@ -363,6 +470,7 @@ test("a module that reports a failure and exits raises it as an error", async ()
   const engine = await WasmFfiEngine.create(
     {
       module: buildAbortingModule("abort: not on the curve"),
+      moduleMemory: { initial: 1, maximum: 4, shared: false },
       threads: 1,
       memory: { initial: 1, maximum: 4 },
     },

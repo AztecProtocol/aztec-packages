@@ -396,10 +396,6 @@ void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
 template class ProverInstance_<UltraFlavor>;
 template class ProverInstance_<UltraZKFlavor>;
 template class ProverInstance_<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
-template class ProverInstance_<UltraStarknetFlavor>;
-template class ProverInstance_<UltraStarknetZKFlavor>;
-#endif
 template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;

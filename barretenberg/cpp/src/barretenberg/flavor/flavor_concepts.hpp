@@ -21,13 +21,8 @@ template <typename T> struct IsMultilinearBatchingRecursiveFlavorImpl : std::fal
 template <size_t NumClaims, typename Builder>
 struct IsMultilinearBatchingRecursiveFlavorImpl<MultilinearBatchingRecursiveFlavor_<NumClaims, Builder>> : std::true_type {};
 
-#ifdef STARKNET_GARAGA_FLAVORS
-template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor>;
-#else
 template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
-#endif
 template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor>;
 

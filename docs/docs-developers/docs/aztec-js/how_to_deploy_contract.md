@@ -120,6 +120,8 @@ This is an advanced pattern. For most use cases, deploy the contract directly an
 
 Use `NO_WAIT` to get the transaction hash immediately and track deployment:
 
+#include_code no_wait_deploy_imports /docs/examples/ts/aztecjs_advanced/index.ts typescript
+
 #include_code no_wait_deploy /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 For most use cases, simply await the deployment to get the contract directly:

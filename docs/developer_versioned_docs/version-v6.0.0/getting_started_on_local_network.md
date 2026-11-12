@@ -35,7 +35,7 @@ To see the whole flow before you start, watch this one-minute walkthrough (find 
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-- <General.node_ver />
+- <General.node_ver version="24.15.0" />
 
 ### macOS-specific requirements
 
@@ -275,6 +275,7 @@ Simulation result:  25n
 Want to build something cool on Aztec?
 
 - Check out the [Token Contract Tutorial](./docs/tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
+- Test your contracts with `aztec test`: see [Testing contracts](./docs/aztec-nr/testing_contracts.md)
 - Ready for a live network? Try [deploying on testnet](./getting_started_on_testnet.md)
 - Start on your own thing and check out the How To Guides to help you!
 

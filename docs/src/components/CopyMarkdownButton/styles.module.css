@@ -5,24 +5,57 @@
   z-index: 10;
 }
 
-.copyButton {
+/* The buttons sit over the first breadcrumb line; this spacer keeps breadcrumbs out from under them.
+   It must stay larger than the button group: about 8.4rem by 1.77rem with the label, 3.55rem by 1.8rem without. */
+:global(.theme-doc-breadcrumbs .breadcrumbs)::before {
+  content: '';
+  float: right;
+  width: 8.75rem;
+  height: 1.8rem;
+}
+
+.group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.copyButton,
+.menuToggle {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.35rem 0.7rem;
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--ifm-color-emphasis-700);
-  background: transparent;
+  background: var(--ifm-background-color);
   border: 1px solid var(--ifm-color-emphasis-300);
-  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
 }
 
-.copyButton:hover {
-  color: var(--ifm-color-primary);
-  border-color: var(--ifm-color-primary);
+.copyButton {
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px 0 0 6px;
+}
+
+.copyButton:only-child {
+  border-radius: 6px;
+}
+
+.menuToggle {
+  padding: 0.35rem 0.4rem;
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.copyButton:hover,
+.menuToggle:hover,
+.menuToggleOpen {
+  color: var(--ifm-link-color);
+  border-color: var(--ifm-link-color);
   background: var(--ifm-color-emphasis-100);
 }
 
@@ -31,9 +64,9 @@
 }
 
 .copyButton.copied {
-  color: #31a67b;
-  border-color: #31a67b;
-  background: rgba(49, 166, 123, 0.1);
+  color: var(--aztec-olive-dark);
+  border-color: var(--aztec-olive);
+  background: var(--aztec-lime-pale);
 }
 
 .icon {
@@ -42,8 +75,65 @@
   flex-shrink: 0;
 }
 
+.menuToggle .icon {
+  transition: transform 0.2s ease;
+}
+
+.menuToggleOpen .icon {
+  transform: rotate(180deg);
+}
+
 .label {
   white-space: nowrap;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  min-width: 15rem;
+  padding: 0.35rem;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(20, 25, 0, 0.12);
+  z-index: 20;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 7px;
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+.menuItem:hover {
+  background: var(--ifm-color-emphasis-100);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+.menuItem .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--ifm-link-color);
+}
+
+.menuItemTitle {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.menuItemHint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--ifm-color-emphasis-600);
+  line-height: 1.25;
 }
 
 /* Hide label on small screens */
@@ -55,22 +145,32 @@
   .copyButton {
     padding: 0.4rem;
   }
+
+  :global(.theme-doc-breadcrumbs .breadcrumbs)::before {
+    width: 4rem;
+  }
 }
 
-/* Dark mode adjustments */
-[data-theme='dark'] .copyButton {
+[data-theme='dark'] .copyButton,
+[data-theme='dark'] .menuToggle {
   color: var(--ifm-color-emphasis-600);
   border-color: var(--ifm-color-emphasis-400);
 }
 
-[data-theme='dark'] .copyButton:hover {
+[data-theme='dark'] .copyButton:hover,
+[data-theme='dark'] .menuToggle:hover,
+[data-theme='dark'] .menuToggleOpen {
   color: var(--ifm-link-color);
   border-color: var(--ifm-link-color);
-  background: rgba(169, 204, 31, 0.1);
+  background: color-mix(in srgb, var(--aztec-lime) 12%, transparent);
 }
 
 [data-theme='dark'] .copyButton.copied {
-  color: #69b799;
-  border-color: #69b799;
-  background: rgba(105, 183, 153, 0.15);
+  color: var(--aztec-lime);
+  border-color: var(--aztec-lime);
+  background: color-mix(in srgb, var(--aztec-lime) 16%, transparent);
+}
+
+[data-theme='dark'] .menu {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }

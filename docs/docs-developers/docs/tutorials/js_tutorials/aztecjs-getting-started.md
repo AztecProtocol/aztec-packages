@@ -1,6 +1,6 @@
 ---
 title: Deploying a Token Contract
-sidebar_position: 0
+sidebar_position: 0.5
 description: A tutorial going through how to deploy a token contract to the local network using typescript.
 references: ["docs/examples/ts/aztecjs_getting_started/index.ts"]
 ---
@@ -38,6 +38,16 @@ Let's also import the Aztec dependencies for this tutorial:
 ```sh
 yarn add @aztec-labs/aztec.js@#include_version_without_prefix @aztec-labs/accounts@#include_version_without_prefix @aztec-labs/noir-contracts.js@#include_version_without_prefix @aztec-labs/wallets@#include_version_without_prefix
 ```
+
+:::tip Packages published in the last 24 hours
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+
+```yaml
+npmPreapprovedPackages:
+  - "@aztec-labs/*"
+  - "@aztec-foundation/*"
+```
+:::
 
 Aztec.js assumes your project is using ESM, so make sure you add `"type": "module"` to `package.json`. You probably also want at least a `start` script. For example:
 
@@ -126,10 +136,12 @@ Have a look at the [contract source](https://github.com/aztec-labs-eng/aztec-nod
 
 The pre-compiled token contract used in this tutorial is Aztec's reference implementation. It covers the core operations you need to get started: minting, private transfers, and public balance management.
 
-For production applications, consider the **AIP-20 Token Standard** maintained by [DeFi Wonderland](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
+For more complete token features, consider the **AIP-20 Token Standard**, maintained by the Aztec Foundation in the [`aztec-standards` repository](https://github.com/AztecProtocol/aztec-standards/tree/main/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
 
-- **Commitment-based transfers** for DeFi protocols where the recipient is determined asynchronously
+- **Commitment-based transfers** for DeFi protocols where the amount is determined asynchronously
 - **Recursive note consumption** for handling large balances that span many notes
-- **Tokenized vault support (AIP-4626)** for yield-bearing tokens that issue shares against an underlying asset
+- **Tokenized vaults (AIP-4626)**, where a separate vault contract issues AIP-20 shares against an AIP-20 asset
+
+The repository marks these contracts as unaudited: do not use them in production or to secure assets of value.
 
 To learn how to write a token contract from scratch rather than deploying a pre-compiled one, see the [Private Token Contract tutorial](../contract_tutorials/token_contract.md). For the full specifications of all Aztec contract standards, see the [Aztec Contract Standards](../../aztec-nr/standards/index.md) reference.

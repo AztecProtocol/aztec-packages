@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "examples/circuits/hello_circuit",
+    "examples/circuits/note_hash_proof",
     "examples/contracts/counter_contract",
     "examples/contracts/counter_contract_test",
     "examples/contracts/bob_token_contract",
@@ -9,8 +10,11 @@ members = [
     "examples/contracts/recursive_verification_contract",
     "examples/contracts/example_uniswap",
     "examples/webapp-tutorial/contracts",
+    "examples/contracts/pod_racing_contract_test",
     "examples/contracts/aave_bridge",
     "examples/contracts/logging_example",
     "examples/contracts/logging_example_test",
-    "examples/contracts/packing_example"
+    "examples/contracts/packing_example",
+    "examples/contracts/packing_example_test",
+    "examples/contracts/note_hash_proof_contract"
 ]

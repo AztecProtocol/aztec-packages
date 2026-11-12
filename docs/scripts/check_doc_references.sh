@@ -9,7 +9,8 @@ set -euo pipefail
 # Usage: check_doc_references.sh [docs_dir]
 #
 # Arguments:
-#   docs_dir - (Optional) Documentation directory. Default: docs
+#   docs_dir - (Optional) Documentation directory, relative to the repository root. Default: docs.
+#              A line root (docs/lines/<line>) checks its labs/ references in the line's checkout.
 #
 # Reference Format:
 #   - Individual files: "yarn-project/stdlib/src/interfaces/aztec-node.ts"
@@ -27,10 +28,12 @@ source "$SCRIPT_DIR/lib/extract_doc_references.sh"
 source "$SCRIPT_DIR/lib/aztec_node.sh"
 
 DOCS_DIR="${1:-docs}"
+LINE=
+[[ "$DOCS_DIR" =~ (^|/)docs/lines/(v[0-9]+)/?$ ]] && LINE=${BASH_REMATCH[2]}
 
 # labs/ references name aztec-node files at the pinned commit, so they are tested in its checkout;
 # the check refuses untracked files there, which would pass for deleted ones.
-require_aztec_node
+require_aztec_node "$LINE"
 
 # Extract all reference file paths from markdown frontmatter
 # Expected format: references: ["path/from/repo/root/file.ts", "another/file.ts"]

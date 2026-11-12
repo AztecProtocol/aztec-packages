@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" role="img" aria-labelledby="t d">
+<title id="t">Public state versus private state on Aztec</title>
+<desc id="d">Public state is a data tree whose leaves are storage slots updated in place. Private state is a UTXO model: notes live in an append-only note hash tree, spending a note emits a nullifier into the nullifier tree, and new notes replace old ones.</desc>
+<style>
+svg { font-family: Geist, Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+text { fill: #141900; }
+.muted { fill: #4d4d3e; }
+.faint { fill: #5c5c4f; }
+.title { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
+.heading { font-size: 22px; font-weight: 600; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+.card-title { font-size: 14px; font-weight: 600; }
+.body { font-size: 12.5px; }
+.small { font-size: 11.5px; }
+.tiny { font-size: 11px; }
+.quote { font-size: 14px; }
+.badge-text { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+.private-title { fill: #461f65; }
+.public-title { fill: #376799; }
+.eth-title { fill: #506400; }
+.panel-private { fill: #ecebfc; stroke: #c9caf8; stroke-width: 1.5; }
+.panel-public { fill: #e4f0ff; stroke: #bcd8fb; stroke-width: 1.5; }
+.panel-eth { fill: #eefbc8; stroke: #c8e27a; stroke-width: 1.5; }
+.card { fill: #fff9f2; stroke: #d9d6c8; stroke-width: 1.5; }
+.inner { fill: #f8f1e7; stroke: #d9d6c8; stroke-width: 1; }
+.badge-private { fill: #461f65; }
+.badge-private-text { fill: #dcdcff; }
+.badge-public { fill: #376799; }
+.badge-public-text { fill: #dcecff; }
+.badge-eth { fill: #506400; }
+.badge-eth-text { fill: #e3ff9b; }
+.node-public { fill: #cfe3ff; stroke: #9cc4f7; stroke-width: 1.5; }
+.node-private { fill: #dcdcff; stroke: #b4b6fb; stroke-width: 1.5; }
+.line { stroke: #141900; stroke-width: 1.5; fill: none; }
+.arrow { stroke: #141900; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+.arrowhead { fill: #141900; }
+.connector { stroke: #c2c4b6; stroke-width: 1.5; fill: none; }
+.divider { stroke: #c2c4b6; stroke-width: 1.5; stroke-dasharray: 6 6; }
+.burst { fill: #c8fa00; opacity: 0.55; }
+.spent { opacity: 0.45; }
+.cross { stroke: #141900; stroke-width: 2; }
+.mid { text-anchor: middle; }
+</style>
+<defs>
+  <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+  </marker>
+</defs>
+<rect x="20" y="20" width="570" height="600" rx="20" class="panel-public"/>
+<text x="50" y="58" class="eyebrow public-title">PUBLIC STATE</text>
+<text x="50" y="88" class="heading">Public data tree</text>
+<rect x="50" y="110" width="510" height="480" rx="14" class="card"/>
+<line x1="305" y1="204" x2="305" y2="222.0" class="connector"/>
+<line x1="180" y1="222.0" x2="430" y2="222.0" class="connector"/>
+<line x1="180" y1="222.0" x2="180" y2="240" class="connector"/>
+<line x1="430" y1="222.0" x2="430" y2="240" class="connector"/>
+<line x1="180" y1="304" x2="180" y2="322.0" class="connector"/>
+<line x1="110" y1="322.0" x2="250" y2="322.0" class="connector"/>
+<line x1="110" y1="322.0" x2="110" y2="340" class="connector"/>
+<line x1="250" y1="322.0" x2="250" y2="340" class="connector"/>
+<line x1="430" y1="304" x2="430" y2="322.0" class="connector"/>
+<line x1="360" y1="322.0" x2="500" y2="322.0" class="connector"/>
+<line x1="360" y1="322.0" x2="360" y2="340" class="connector"/>
+<line x1="500" y1="322.0" x2="500" y2="340" class="connector"/>
+<rect x="273.0" y="140" width="64" height="64" rx="10" class="node-public"/>
+<rect x="148.0" y="240" width="64" height="64" rx="10" class="node-public"/>
+<rect x="398.0" y="240" width="64" height="64" rx="10" class="node-public"/>
+<rect x="78.0" y="340" width="64" height="64" rx="10" class="node-public"/>
+<rect x="218.0" y="340" width="64" height="64" rx="10" class="badge-public"/>
+<rect x="328.0" y="340" width="64" height="64" rx="10" class="node-public"/>
+<rect x="468.0" y="340" width="64" height="64" rx="10" class="node-public"/>
+<text x="250" y="377" class="small badge-public-text mid" style="font-weight:600">Slot 1</text>
+<line x1="250" y1="462" x2="250" y2="410" class="arrow"/>
+<text x="250" y="488" class="quote mid">“Please update this leaf”</text>
+<text x="305" y="548" class="small muted mid">Each leaf is a storage slot. Public functions</text>
+<text x="305" y="565" class="small muted mid">update values in place, visible to everyone.</text>
+<rect x="610" y="20" width="570" height="600" rx="20" class="panel-private"/>
+<text x="640" y="58" class="eyebrow private-title">PRIVATE STATE</text>
+<text x="640" y="88" class="heading">UTXO model</text>
+<rect x="640" y="110" width="510" height="480" rx="14" class="card"/>
+<text x="788" y="134" class="eyebrow faint mid">NOTE HASH TREE</text>
+<text x="1065" y="134" class="eyebrow faint mid">NULLIFIER TREE</text>
+<line x1="788" y1="202" x2="788" y2="219.0" class="connector"/>
+<line x1="716" y1="219.0" x2="860" y2="219.0" class="connector"/>
+<line x1="716" y1="219.0" x2="716" y2="236" class="connector"/>
+<line x1="860" y1="219.0" x2="860" y2="236" class="connector"/>
+<line x1="716" y1="292" x2="716" y2="309.0" class="connector"/>
+<line x1="680" y1="309.0" x2="752" y2="309.0" class="connector"/>
+<line x1="680" y1="309.0" x2="680" y2="326" class="connector"/>
+<line x1="752" y1="309.0" x2="752" y2="326" class="connector"/>
+<line x1="860" y1="292" x2="860" y2="309.0" class="connector"/>
+<line x1="824" y1="309.0" x2="896" y2="309.0" class="connector"/>
+<line x1="824" y1="309.0" x2="824" y2="326" class="connector"/>
+<line x1="896" y1="309.0" x2="896" y2="326" class="connector"/>
+<rect x="760.0" y="146" width="56" height="56" rx="10" class="node-private"/>
+<rect x="688.0" y="236" width="56" height="56" rx="10" class="node-private"/>
+<rect x="832.0" y="236" width="56" height="56" rx="10" class="node-private"/>
+<polygon points="896.0,308.0 905.8,317.3 919.0,314.2 922.9,327.1 935.8,331.0 932.7,344.2 942.0,354.0 932.7,363.8 935.8,377.0 922.9,380.9 919.0,393.8 905.8,390.7 896.0,400.0 886.2,390.7 873.0,393.8 869.1,380.9 856.2,377.0 859.3,363.8 850.0,354.0 859.3,344.2 856.2,331.0 869.1,327.1 873.0,314.2 886.2,317.3" class="burst"/>
+<rect x="652.0" y="326" width="56" height="56" rx="10" class="node-private spent"/>
+<rect x="724.0" y="326" width="56" height="56" rx="10" class="node-private"/>
+<rect x="796.0" y="326" width="56" height="56" rx="10" class="node-private"/>
+<rect x="868.0" y="326" width="56" height="56" rx="10" class="node-private"/>
+<text x="680" y="359" class="small muted mid spent" style="font-weight:600">Note 1</text>
+<line x1="660" y1="334" x2="700" y2="374" class="cross"/>
+<line x1="700" y1="334" x2="660" y2="374" class="cross"/>
+<text x="896" y="359" class="small mid" style="font-weight:600">Note 2</text>
+<line x1="965" y1="126" x2="965" y2="392" class="connector"/>
+<line x1="1065" y1="202" x2="1065" y2="236" class="connector"/>
+<line x1="1065" y1="292" x2="1065" y2="326" class="connector"/>
+<rect x="1037.0" y="146" width="56" height="56" rx="10" class="node-private"/>
+<rect x="1037.0" y="236" width="56" height="56" rx="10" class="node-private"/>
+<polygon points="1065.0,308.0 1074.8,317.3 1088.0,314.2 1091.9,327.1 1104.8,331.0 1101.7,344.2 1111.0,354.0 1101.7,363.8 1104.8,377.0 1091.9,380.9 1088.0,393.8 1074.8,390.7 1065.0,400.0 1055.2,390.7 1042.0,393.8 1038.1,380.9 1025.2,377.0 1028.3,363.8 1019.0,354.0 1028.3,344.2 1025.2,331.0 1038.1,327.1 1042.0,314.2 1055.2,317.3" class="burst"/>
+<rect x="1037.0" y="326" width="56" height="56" rx="10" class="node-private"/>
+<text x="1065" y="352" class="tiny mid" style="font-weight:600">Note 1</text>
+<text x="1065" y="366" class="tiny mid" style="font-weight:600">nullifier</text>
+<text x="895" y="450" class="quote mid">“A note exists. I prove its existence without</text>
+<text x="895" y="471" class="quote mid">revealing which note it is. Here is a nullifier so</text>
+<text x="895" y="492" class="quote mid">it cannot be spent again. Here is a new note to</text>
+<text x="895" y="513" class="quote mid">replace the old one.”</text>
+<text x="895" y="548" class="small muted mid">Notes are never edited. Spending one nullifies it</text>
+<text x="895" y="565" class="small muted mid">and creates new notes, so observers learn nothing.</text>
+</svg>

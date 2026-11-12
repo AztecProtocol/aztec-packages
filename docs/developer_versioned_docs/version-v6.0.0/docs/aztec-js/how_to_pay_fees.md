@@ -182,7 +182,7 @@ const { receipt: tx } = await bananaCoin.methods
 For transactions where the fee payment itself should be private, you can use a fully private FPC, one that holds Fee Juice claimed from L1 as an internal private balance, works on every network, and never needs an onchain deployment. See [Pay Fees Privately](./how_to_use_private_fee_juice.md) for how this pattern works and a walkthrough using a community-built example.
 
 :::tip Shared salt for privacy
-When multiple apps derive the same private FPC address (using the same artifact and salt), every private fee payment joins a single, larger privacy set. See [recommended salt](./how_to_use_private_fee_juice.md#recommended-salt-0) for details.
+When multiple apps derive the same private FPC address (using the same artifact and salt), every private fee payment joins a single, larger privacy set. See [recommended salt](./how_to_use_private_fee_juice.md#recommended-salt-1) for details.
 :::
 
 ### Third-party FPCs on testnet and mainnet

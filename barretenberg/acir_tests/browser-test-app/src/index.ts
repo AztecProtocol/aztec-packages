@@ -21,11 +21,12 @@ function installUltraHonkGlobals() {
     bytecode: string,
     witness: Uint8Array,
     threads?: number,
+    srsSize?: number,
   ): Promise<{ proofData: ProofData; verificationKey: Uint8Array }> {
     const { UltraHonkBackend } = await import('@aztec-foundation/bb.js');
 
     logger.debug('starting test...');
-    const bb = await Barretenberg.new({ threads, logger: bbLogger });
+    const bb = await Barretenberg.new({ threads, srsSize, logger: bbLogger });
     const backend = new UltraHonkBackend(bytecode, bb);
     const proofData = await backend.generateProof(witness);
 

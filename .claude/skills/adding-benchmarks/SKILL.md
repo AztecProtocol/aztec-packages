@@ -1,6 +1,6 @@
 ---
 name: adding-benchmarks
-description: Add new benchmarks to the CI pipeline. Guides through creating benchmark JSON files, integrating with bootstrap.sh, and ensuring proper CI upload via ci3.yml workflow.
+description: Add new benchmarks to the CI pipeline. Guides through creating benchmark JSON files, integrating with bootstrap.sh, and ensuring they are uploaded to the CI dashboard.
 ---
 
 # Adding Benchmarks
@@ -17,10 +17,10 @@ Use this skill when:
 Benchmarks flow through the system as follows:
 1. **Generation**: Each package produces `bench-out/*.bench.json` files
 2. **Aggregation**: `bench_merge` in root `bootstrap.sh` combines all files, prefixing names with the package path
-3. **Upload**: CI caches the merged JSON and GitHub Action uploads to the benchmark dashboard
-4. **Display**: Results appear at the dashboard with historical tracking
+3. **Upload**: on uploadable runs, the bench box appends the merged JSON to its run's series in S3 with `ci3/bench_upload`
+4. **Display**: Results appear on the CI dashboard with historical tracking (the last 100 runs)
 
-**Live dashboard:** https://aztecprotocol.github.io/benchmark-page-data/bench/?branch=next
+**Live dashboard:** https://ci.aztec-labs.com/bench/AztecProtocol/aztec-packages/next (PR runs: `.../prs`)
 
 ## How Benchmark Names Work
 
@@ -192,8 +192,9 @@ jq 'all(has("name") and has("value") and has("unit"))' bench-out/test.bench.json
 ## CI Details
 
 **Benchmarks upload when:**
-- PR has label: `ci-merge-queue`, `ci-full`, or `ci-full-no-test-cache` (publishes to target branch, i.e. `next` or a merge-train branch)
-- Running on merge queue (publishes with `next`)
+- A PR is merged to `next`: the push to `next` runs `full` CI (publishes to `next`)
+- PR has label: `ci-merge-queue`, `ci-full` or `ci-full-no-test-cache` (publishes to `prs`)
+- Running in a merge queue (publishes to the queue's target branch)
 
 **10-commit visibility window:** The dashboard only shows benchmarks that ran in the last 10 commits. If a benchmark stops running, it disappears after ~10 merges.
 

@@ -204,11 +204,11 @@ pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // prefunded public data and timestamp 0. Measured from a real world state and rewritten together by
 // `noir-projects/fnd/scripts/regenerate_genesis_constants.sh`; never edit one of them by hand.
 pub global GENESIS_NULLIFIER_TREE_ROOT: Field =
-    0x15c67f4d7495a669ed57c5a9468533c63ace43f86b787c52edabefec85e4afc0;
+    0x238a0a0523fa750b77e243f8d6f485f03e90f1319fe76f5876f4af3d88b3fa89;
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x199b52350e8f18eeb9cd455fd074bc6fa62ea6a8e3253e2c663aa4909bbd5718;
+    0x0a72ed6f85f785d34e0a09a57c971b1623bb579531f3b85325e1d60f8209b3b8;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4;
+    0x1fdfe7b76afd4dc9b9b6bd09f5fd6fb354f22cf7055ef1f11490b55a4e197291;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -828,8 +828,8 @@ pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
 pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
-/// Domain separator for L1 to L2 message secret hashes.
-pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+/// Domain separator for L1 to L2 message private content hashes.
+pub global DOM_SEP__PRIVATE_CONTENT_HASH: u32 = 1309912954;
 
 /// Domain separator for account contract payloads.
 ///

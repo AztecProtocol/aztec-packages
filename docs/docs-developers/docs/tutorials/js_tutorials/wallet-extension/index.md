@@ -70,7 +70,7 @@ Before starting, you should be familiar with:
 
 You'll also need:
 
-- Node.js 22+
+- Node.js, at the version [the Aztec installer requires](../../../../getting_started_on_local_network.md#prerequisites)
 - Chrome browser
 - A local Aztec network running (`aztec start --local-network`)
 - The [webapp-tutorial project set up](../webapp/index.md#clone-the-example) (for testing)
@@ -115,14 +115,9 @@ test-extension/
 
 ## Quick Start
 
-If you want to try the completed wallet before reading the tutorial:
+If you want to try the completed wallet before reading the tutorial, set up the webapp example with its [prerequisites](../webapp/index.md#prerequisites) and [clone steps](../webapp/index.md#clone-the-example), then build the extension from its `webapp-tutorial` directory:
 
 ```bash
-git clone https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node
-git checkout #include_aztec_version
-cd docs/examples/webapp-tutorial
-./setup.sh
 node esbuild.extension.mjs
 ```
 

@@ -43,6 +43,8 @@ function classifyPage(rel, html, apiDirs) {
     return { tag: "default", body: "main", weight: API_WEIGHT };
   }
   if (rel === "404.html" || /(^|\/)tags(\/|\.html$)/.test(rel)) return null;
+  // A dev line's preview pages (/developers-v6, /operate-v6) repeat the dev docs.
+  if (/^(developers|operate)-v\d+(\/|\.html$)/.test(rel)) return null;
   const tag = metaContent(html, "docusaurus_tag");
   return tag?.startsWith("docs-") ? { tag, body: "article" } : null;
 }

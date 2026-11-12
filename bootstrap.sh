@@ -159,6 +159,35 @@ function install_deps {
   fi
 }
 
+# Bring every submodule to the commit this repository pins, before anything sources ci3: fetch missing
+# ones, move stale ones. Git refuses rather than overwrite local changes; to work in a submodule
+# without this moving it, `git config submodule.<name>.update none`. stdout is kept clean: callers'
+# stdout is often data. `init` stops here, so scripts can prepare the checkout without the rest.
+# The update rewrites submodule config even when it has nothing to do, and entry points start in
+# parallel, so it only runs when a submodule is missing, off its pin or conflicted. That is read from
+# the pins in the index and each checkout's HEAD, which takes milliseconds where `git submodule status`
+# takes hundreds (it also scans every submodule for local changes). A submodule's own submodules come
+# with it: one missing makes the recursive update run, which brings them too.
+# Submodules marked update = none never count: the update skips them, and something else may keep them
+# off their pin (labs/, which labs-patches keeps ahead of it). The local config is enough to find them:
+# it is where people opt out, and the first update copies the marks from .gitmodules into it.
+function stale_submodules {
+  local dir=$1 skip path mode sha stage
+  skip=" $(git -C "$dir" config --get-regexp '^submodule\..*\.update$' '^none$' | sed -E 's/^submodule\.(.*)\.update none$/\1/' |
+    while read -r name; do git -C "$dir" config -f .gitmodules "submodule.$name.path"; done | tr '\n' ' ') "
+  git -C "$dir" ls-files -s | awk '$1 == 160000' | while read -r mode sha stage path; do
+    [[ "$skip" == *" $path "* ]] && continue
+    # In a missing submodule, rev-parse finds the superproject instead, whose HEAD is not the pin.
+    if [ "$stage" != 0 ] || [ "$(git -C "$dir/$path" rev-parse -q --verify HEAD 2>/dev/null)" != "$sha" ]; then
+      echo "$path"
+    fi
+  done
+}
+if [ -n "$(stale_submodules "$(dirname "${BASH_SOURCE[0]}")")" ]; then
+  git -C "$(dirname "${BASH_SOURCE[0]}")" submodule update --init --recursive --depth 1 --jobs 8 --quiet >&2 || exit 1
+fi
+[ "${1:-}" = "init" ] && exit 0
+
 # Special case for installing dependencies (can run on older bash).
 if [ "${1:-}" = "install_deps" ]; then
   set -euo pipefail
@@ -524,14 +553,15 @@ function bench_merge {
 
 }
 
-# Merge all component bench-out/*.bench.json into one and upload it to the
-# bench-<treehash> cache key, which the GA "Upload benchmarks" step then publishes.
-# Used both by `bench` (dedicated box) and by the inline benches-as-tests path.
+# Merge all component bench-out/*.bench.json into one and, on uploadable runs, append it to
+# this run's series on the CI dashboard (ci.aztec-labs.com/bench/<org>/<repo>/<section>).
 function bench_publish {
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+  if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
+    bench_upload bench-out/bench.json || echo_stderr "WARNING: bench_upload failed; the benches themselves passed."
+  fi
 }
 
 function bench {
@@ -570,7 +600,7 @@ function release_bb_github {
   # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
   # Users can manually create releases in aztec-packages via the GitHub UI if needed.
   # A private release must never reach a GitHub publish: refuse here regardless of call path.
-  "$root/ci3/assert_public_release"
+  "$root/scripts/assert_public_release"
   local bb_repo="AztecProtocol/barretenberg"
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
@@ -673,7 +703,7 @@ function private_release {
 
   # Activate the CI service account (gcp_artifact_login activates the SA globally) and mint a
   # short-lived access token for npm auth against the AR npm repo.
-  ci3/gcp_artifact_login
+  scripts/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scopes to the internal npm registry; public deps still resolve from the default registry
@@ -997,9 +1027,9 @@ case "$cmd" in
     ./bootstrap.sh release
     ;;
 
-  ##########################
-  # MERGE TRAIN CI SUBSETS #
-  ##########################
+  ###########################
+  # BARRETENBERG CI SUBSETS #
+  ###########################
   "ci-barretenberg-debug")
     # Nightly job: no fail-fast, so one red test does not hide the rest of the debug-build signal.
     export CI=1
@@ -1032,11 +1062,16 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
-    # bb.js lint resolves @aztec-foundation/ipc-runtime through its built dest/.
+    # bb.js formatting only runs yarn in the barretenberg/ts workspace: it needs that workspace installed and the
+    # generated @aztec-foundation/bb.js-api compiled (build_bb_js_api_ts does both), and its lint resolves
+    # @aztec-foundation/ipc-runtime through ipc-runtime's built dest/. Generating that package reads and
+    # installs bb's wasm builds, so bb is built first.
+    barretenberg/cpp/bootstrap.sh build
     ipc-runtime/bootstrap.sh build
+    barretenberg/ts/bootstrap.sh build_bb_js_api_ts
     barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
-    barretenberg/cpp/bootstrap.sh ci
+    barretenberg/cpp/bootstrap.sh test
     ;;
   "ci-barretenberg-full")
     export CI=1
@@ -1046,6 +1081,11 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
+    # barretenberg/ts compiles the generated @aztec-foundation/bb.js-api against ipc-runtime's built dest/, which
+    # nothing under barretenberg/ builds.
+    ipc-runtime/bootstrap.sh build
+    # barretenberg/sol compiles with l1-contracts' pinned solc (its foundry.toml), which only l1-contracts' build fetches.
+    l1-contracts/bootstrap.sh download_solc
     barretenberg/bootstrap.sh ci
     ;;
 

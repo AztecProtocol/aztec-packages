@@ -4,7 +4,7 @@ import { useOperatorConfig } from './context';
 
 const LABELS = {
   testnet: 'Testnet (Sepolia)',
-  mainnet: 'Mainnet (alpha)',
+  mainnet: 'Alpha (Mainnet)',
 };
 
 function NetworkNameInner() {

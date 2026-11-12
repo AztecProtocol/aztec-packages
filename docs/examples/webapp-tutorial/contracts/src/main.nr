@@ -15,7 +15,7 @@
 // - The player who wins 3+ tracks wins the game
 
 mod game_round_note;
-mod race;
+pub mod race;
 
 use aztec::macros::aztec;
 
@@ -41,6 +41,7 @@ pub contract PodRacing {
         races: Map<Field, PublicMutable<Race, Context>, Context>,
         progress: Map<Field, Owned<PrivateSet<GameRoundNote, Context>, Context>, Context>,
         win_history: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
+        finalized: Map<Field, PublicMutable<bool, Context>, Context>,
     }
     // docs:end:storage
 
@@ -53,7 +54,10 @@ pub contract PodRacing {
     // docs:start:create-game
     #[external("public")]
     fn create_game(game_id: Field) {
-        assert(self.storage.races.at(game_id).read().player1.eq(AztecAddress::zero()));
+        assert(
+            self.storage.races.at(game_id).read().player1.eq(AztecAddress::zero()),
+            "game already exists",
+        );
         let game = Race::new(
             self.msg_sender(),
             TOTAL_ROUNDS,
@@ -85,7 +89,7 @@ pub contract PodRacing {
         track4: u8,
         track5: u8,
     ) {
-        assert(track1 + track2 + track3 + track4 + track5 < 10);
+        assert(track1 + track2 + track3 + track4 + track5 < 10, "a round allows at most 9 points");
 
         let player = self.msg_sender();
 
@@ -170,10 +174,15 @@ pub contract PodRacing {
     }
 
     // docs:start:finalize-game
-    /// Determines the winner after both players have revealed and the game has expired.
+    /// Determines the winner after both players have revealed and the game has expired. Each game is finalized once.
     #[external("public")]
     fn finalize_game(game_id: Field) {
         let game_in_progress = self.storage.races.at(game_id).read();
+        assert(!game_in_progress.player2.eq(AztecAddress::zero()), "game has not started");
+        assert(game_in_progress.both_revealed(), "both players must reveal");
+        assert(!self.storage.finalized.at(game_id).read(), "game already finalized");
+        self.storage.finalized.at(game_id).write(true);
+
         let winner = game_in_progress.calculate_winner(self.context.block_number());
         let previous_wins = self.storage.win_history.at(winner).read();
         self.storage.win_history.at(winner).write(previous_wins + 1);

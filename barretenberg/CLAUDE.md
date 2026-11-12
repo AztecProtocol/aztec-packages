@@ -2,15 +2,15 @@ THE PROJECT ROOT IS AT ONE LEVEL ABOVE THIS FOLDER. Typically, the repository is
 
 # Git workflow for barretenberg
 
-Base branch is `merge-train/barretenberg`; see root `CLAUDE.md` under `<git_workflow>` for the full component→base mapping. The sections below are barretenberg-specific workflow commands.
+Base branch is `next`, as for the rest of the repository; see root `CLAUDE.md` under `<git_workflow>`. The sections below are barretenberg-specific workflow commands.
 
 ## Creating a new branch
 
 **Always fetch the latest changes before creating a new branch:**
 
 ```bash
-git fetch origin merge-train/barretenberg
-git checkout -b my-branch origin/merge-train/barretenberg
+git fetch origin next
+git checkout -b my-branch origin/next
 ```
 
 ## Rebasing your branch
@@ -18,8 +18,8 @@ git checkout -b my-branch origin/merge-train/barretenberg
 When your branch becomes out-of-date with the base branch, rebase (don't merge):
 
 ```bash
-git fetch origin merge-train/barretenberg
-git rebase origin/merge-train/barretenberg
+git fetch origin next
+git rebase origin/next
 git push -f  # Force push after rebase (only when necessary)
 ```
 
@@ -27,9 +27,9 @@ git push -f  # Force push after rebase (only when necessary)
 
 ## Common commands
 
-- `git diff origin/merge-train/barretenberg...HEAD` (not `git diff master...HEAD`)
-- `git log origin/merge-train/barretenberg..HEAD` (not `git log master..HEAD`)
-- `gh pr create --base merge-train/barretenberg` (target PRs to merge-train)
+- `git diff origin/next...HEAD` (not `git diff master...HEAD`)
+- `git log origin/next..HEAD` (not `git log master..HEAD`)
+- `gh pr create --base next`
 
 Barretenberg issues are tracked at `AztecProtocol/barretenberg` (separate repo), not `AztecProtocol/aztec-packages`. PRs go to `AztecProtocol/aztec-packages` but should reference issues from `AztecProtocol/barretenberg`.
 
@@ -40,7 +40,7 @@ Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstr
 
 Add GitHub labels to PRs to control what CI runs. Choose based on what changed:
 
-- **`ci-barretenberg`** — Barretenberg-only builds (default for `merge-train/barretenberg` branch). Core tests, no cross-compilation.
+- **`ci-barretenberg`** — Barretenberg-only builds. Core tests, no cross-compilation.
 - **`ci-barretenberg-full`** or **`ci-full`** — Full builds including cross-compilation (macOS, iOS, ARM64 Linux), SMT verification, ASAN, and GCC syntax checks. Use when changing CMake presets, bootstrap.sh, or build infrastructure.
 - **`ci-release-pr`** — Creates a test release tag for pre-release validation. Use when changing release packaging or publish workflows.
 

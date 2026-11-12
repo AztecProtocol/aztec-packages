@@ -159,10 +159,6 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
-template class UltraProver_<UltraStarknetFlavor>;
-template class UltraProver_<UltraStarknetZKFlavor>;
-#endif
 template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;

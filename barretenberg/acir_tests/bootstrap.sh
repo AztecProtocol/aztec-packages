@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 export CRS_PATH=$HOME/.bb-crs
@@ -164,11 +165,16 @@ function test_cmds {
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
 
-  # bb.js browser tests. Isolate because server.
-  # Temporarily skipped due to flaky "Failed to fetch" errors in CI.
-  # local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  # echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
-  # echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  # bb.js browser tests. Isolate because server. The browser's CRS downloads are answered from the
+  # local CRS (headless-test/src/local_crs.ts), so they need no network.
+  # verify_honk_proof needs 2^20 points, past bb.js's default.
+  # Never disable these: they are CI's only coverage of bb.js in a browser, and bugs that only the
+  # browser hits have shipped while they were off. Fix a flake's cause instead.
+  local browser_prefix="$tests_hash:ISOLATE=1:CPUS=8"
+  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome --srs-size $((2**20))"
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  # A page that is not cross-origin isolated has no SharedArrayBuffer, so bb.js runs single-threaded.
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome --no-cross-origin-isolation"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
@@ -196,8 +202,6 @@ function test_cmds {
   echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof --disable_zk"
 
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash keccak"
-  # If starknet enabled:
-  #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"
   # Test rollup verification (rollup uses --ipa_accumulation)
   echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof --ipa_accumulation"
   # Test root-rollup verification: outer circuit verifies two RollupHonk proofs and closes the IPA

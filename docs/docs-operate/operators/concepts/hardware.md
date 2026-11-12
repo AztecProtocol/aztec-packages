@@ -6,16 +6,13 @@ displayed_sidebar: operatorsSidebar
 references: ["labs/yarn-project/prover-client/src/proving_broker/config.ts"]
 ---
 
+import NodeHardware from "../_node_hardware.mdx";
+
 A single-screen view of what each role needs.
 
 ## Sequencer and full node (single machine)
 
-| Resource | Spec |
-|---|---|
-| CPU | 8 cores / 16 vCPU, **Skylake or newer** |
-| RAM | 8 GB |
-| Storage | 1 TB SSD (NVMe recommended) |
-| Network | 25 Mbps |
+<NodeHardware />
 
 These numbers are the same on testnet and mainnet: the node binary and its workload do not change with the network. What changes by network is the L1 node you connect to or co-host (see [Co-hosting an L1 node](#co-hosting-an-l1-node) below).
 

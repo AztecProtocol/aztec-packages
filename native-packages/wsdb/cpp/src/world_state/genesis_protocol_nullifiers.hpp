@@ -25,7 +25,7 @@ inline std::vector<fr> genesis_protocol_nullifiers()
         fr("0x0eb50b367fb754d3a7d1238bfc105cc9b391a02e187be69038876ae9a502e877"),
         fr("0x16f917edd8e333013e5bb0633f7f484725bd19403854d6112992dccef4961e32"),
         fr("0x1cea539e01abaa5db980e7ff52ef0d2a7772310306ac625783ae435756ee326d"),
-        fr("0x2c3a57c8d7c387652babd36c4d79ab03c0fe593e160315a4dc098f92caf592c3"),
+        fr("0x268b77cfa59397698ab19812d17573156d9a964fae96ab2d80929882f4a93837"),
     };
 }
 
@@ -40,17 +40,17 @@ inline std::vector<fr> genesis_protocol_nullifiers()
  */
 inline fr genesis_nullifier_tree_root()
 {
-    return fr("0x15c67f4d7495a669ed57c5a9468533c63ace43f86b787c52edabefec85e4afc0");
+    return fr("0x238a0a0523fa750b77e243f8d6f485f03e90f1319fe76f5876f4af3d88b3fa89");
 }
 
 inline fr genesis_block_header_hash()
 {
-    return fr("0x199b52350e8f18eeb9cd455fd074bc6fa62ea6a8e3253e2c663aa4909bbd5718");
+    return fr("0x0a72ed6f85f785d34e0a09a57c971b1623bb579531f3b85325e1d60f8209b3b8");
 }
 
 inline fr genesis_archive_root()
 {
-    return fr("0x29eb2c527f8d45276430363214e6c8d709ef3f657a3670ebac3179373d41e5c4");
+    return fr("0x1fdfe7b76afd4dc9b9b6bd09f5fd6fb354f22cf7055ef1f11490b55a4e197291");
 }
 
 } // namespace azteclabs::wsdb::world_state

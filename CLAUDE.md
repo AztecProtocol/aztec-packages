@@ -37,7 +37,7 @@ Porting a change between `next` and a release line (a "backport" or "forward por
 <git_workflow>
 
 <critical_never_assume_master>
-Never assume the base branch is `master` or `main`. Most branches target `next` or a `merge-train/*` branch, and defaulting to `master` produces incorrect diffs and broken PR comparisons. Determine the actual base before diffing or opening a PR.
+Never assume the base branch is `master` or `main`. Branches target `next`, and defaulting to `master` produces incorrect diffs and broken PR comparisons. Determine the actual base before diffing or opening a PR.
 
 If a PR is already open, that is authoritative:
 
@@ -45,15 +45,7 @@ If a PR is already open, that is authoritative:
 gh pr view --json baseRefName -q '.baseRefName'
 ```
 
-Otherwise infer from the component being worked in:
-
-| Component | Base branch |
-|---|---|
-| `barretenberg/**` | `merge-train/barretenberg` |
-| `barretenberg/cpp/src/barretenberg/vm2/**` | `merge-train/avm` |
-| everything else | `next` |
-
-The bases above target the `next` line; the v5 release line is `v5-next`. Never present `merge-train/*`, `next`, or `v5-next` to a user as something to install or migrate to — releases are version tags (e.g. v5) and networks are named (e.g. testnet).
+Otherwise the base is `next`, for every component; the v5 release line is `v5-next`. Never present `next` or `v5-next` to a user as something to install or migrate to — releases are version tags (e.g. v5) and networks are named (e.g. testnet).
 
 Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<base>..HEAD`. Always `git fetch` before creating branches so the base is not stale.
 </critical_never_assume_master>
@@ -86,10 +78,10 @@ State lives in `.git/modules/labs/labs-patches.state` (stamp of base + series, a
 <labs_build_tooling>
 How the labs submodule is built and tested against this tree (all foundation-owned):
 
-- `make labs-deps` builds what labs consumes from here (`bb-ts`, `bb-avm-sim`, `bb-cdb`, `wsdb`, `ipc-runtime`, `l1-contracts`, `constants-codegen`, `noir-projects-fnd`, `fnd-artifacts-stage`). `make labs-use-local` then runs `labs/labs-aztec-toolchain/bootstrap.sh use-local` (manifests → `portal:` to this tree), `scripts/labs_fnd_hashes.sh`, a lockfile refresh in `yarn-project` and `docs`, and `labs-patches/bootstrap.sh commit-use-local` (the marker commit). Never run that sequence by hand or commit its output; it is redone by every build.
+- `make labs-deps` builds what labs consumes from here (`bb-ts`, `bb-avm-sim`, `bb-cdb`, `wsdb`, `ipc-runtime`, `l1-contracts`, `constants-codegen`, `noir-projects-fnd`, `fnd-artifacts-stage`). `make labs-use-local` then runs `labs/labs-aztec-toolchain/bootstrap.sh use-local` (manifests → `portal:` to this tree), `scripts/labs_fnd_hashes.sh`, a lockfile refresh in `yarn-project`, and `labs-patches/bootstrap.sh commit-use-local` (the marker commit). Never run that sequence by hand or commit its output; it is redone by every build.
 - `make labs-fast` (= `fast-labs`): labs compiled against the portals with its unit/e2e tests, plus `aztec-nr`, `noir-contracts` and the contract snapshots against this tree's `nargo`/`bb` — what a foundation change can break. `make labs-full` adds `docs`, `spartan`, `playground`, the claude tooling tests and the benches; `make labs-yarn-project` builds only yarn-project; `make bench-labs` runs the labs benches on demand (they are not in the default `bench_cmds`).
-- Every labs `make` from here goes through `LABS_MAKE` = `scripts/labs_env.sh $(MAKE)`; run `scripts/labs_env.sh <cmd>` for any ad-hoc command inside `labs/`. It clears the inherited ci3 `root`/`ci3` (labs' ci3 must derive its own) and exports `TEST_CMD_PREFIX` (`cd labs && export root= ci3= && `, inserted by labs patch 0002's `ci3/prefix_test_cmds` so the foundation test engine, which runs from this root, can execute labs test lines) and `TEST_CMD_SKIP` from `labs-patches/test_cmd_skip` — the regex of labs tests that cannot run here because they mount or package only the labs checkout, where the portals do not resolve (the compose/web3signer/ha e2e flavours, the playground browser tests, the docs examples run). `scripts/labs_test_cmds.sh` collects labs test/bench commands for the engine with that environment.
-- Cache identity: `scripts/labs_fnd_hashes.sh` writes `labs/labs-aztec-toolchain/fnd-hashes` (`<component>=<content hash>` per provider, plus `optional=` naming the optional binaries this tree built). Labs patch 0003 makes the toolchain hash in foundation mode the content hash of that directory, so every labs build and test cache key follows the foundation tree, and a dirty provider disables labs caching. Patch 0001 portals the protocol artifacts packages; all three are queued for aztec-node.
+- Every labs `make` from here goes through `LABS_MAKE` = `scripts/labs_env.sh $(MAKE)`; run `scripts/labs_env.sh <cmd>` for any ad-hoc command inside `labs/`. It clears the inherited ci3 `root`/`ci3` (labs' ci3 must derive its own) and exports `TEST_CMD_PREFIX` (`cd labs && export root= ci3= && `, inserted by labs' `ci3/prefix_test_cmds` so the foundation test engine, which runs from this root, can execute labs test lines) and `TEST_CMD_SKIP` from `labs-patches/test_cmd_skip` — the regex of labs tests that cannot run here because they mount or package only the labs checkout, where the portals do not resolve (the compose/web3signer/ha e2e flavours, the playground browser tests). `scripts/labs_test_cmds.sh` collects labs test/bench commands for the engine with that environment.
+- Cache identity: `scripts/labs_fnd_hashes.sh` writes `labs/labs-aztec-toolchain/fnd-hashes` (`<component>=<content hash>` per provider, plus `optional=` naming the optional binaries this tree built). In foundation mode, labs' toolchain hash is the content hash of that directory, so every labs build and test cache key follows the foundation tree, and a dirty provider disables labs caching. use-local also portals the protocol artifacts packages.
 </labs_build_tooling>
 
 <standard_contract_repin>

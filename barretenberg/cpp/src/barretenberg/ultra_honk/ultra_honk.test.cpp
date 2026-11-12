@@ -11,16 +11,7 @@ using namespace bb;
 
 using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor,
-                                   UltraZKFlavor,
-                                   UltraKeccakFlavor,
-                                   UltraKeccakZKFlavor,
-                                   UltraStarknetFlavor,
-                                   UltraStarknetZKFlavor>;
-#else
 using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
-#endif
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 /**
  * @brief Check that size of a ultra honk proof matches the corresponding constant

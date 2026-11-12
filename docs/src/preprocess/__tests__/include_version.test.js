@@ -96,6 +96,32 @@ describe("preprocessIncludeVersion", () => {
     });
   });
 
+  describe("#release_name and #release_label macros", () => {
+    it("resolve to the release line name for a named major", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", MAINNET_TAG: "v6.0.0" });
+      const { content } = await preprocessIncludeVersion("#release_name / #release_label", "test.md");
+      assert.strictEqual(content, "Tierra / Tierra (v6.0.0)");
+    });
+
+    it("cover every minor of the line", async () => {
+      setEnv({ RELEASE_TYPE: "testnet", TESTNET_TAG: "6.3.1" });
+      const { content } = await preprocessIncludeVersion("#release_label", "test.md");
+      assert.strictEqual(content, "Tierra (v6.3.1)");
+    });
+
+    it("fall back to the version for an unnamed line", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", MAINNET_TAG: "v5.2.0" });
+      const { content } = await preprocessIncludeVersion("#release_name / #release_label", "test.md");
+      assert.strictEqual(content, "v5.2.0 / v5.2.0");
+    });
+
+    it("do not clobber #release_network", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", MAINNET_TAG: "v6.0.0" });
+      const { content } = await preprocessIncludeVersion("#release_network #release_name", "test.md");
+      assert.strictEqual(content, "mainnet Tierra");
+    });
+  });
+
   describe("legacy macros", () => {
     it("#include_aztec_version uses COMMIT_TAG", async () => {
       setEnv({ RELEASE_TYPE: "nightly", COMMIT_TAG: "v1.2.3" });
@@ -107,6 +133,17 @@ describe("preprocessIncludeVersion", () => {
       setEnv({ RELEASE_TYPE: "nightly", COMMIT_TAG: "v1.2.3" });
       const { content } = await preprocessIncludeVersion("#include_version_without_prefix", "test.md");
       assert.strictEqual(content, "1.2.3");
+    });
+
+    it("without COMMIT_TAG, names the pinned aztec-node tag, independent of NIGHTLY_TAG", async () => {
+      const { ref } = JSON.parse(fs.readFileSync(path.join(__dirname, "../../../aztec-node.json"), "utf8"));
+      setEnv({ RELEASE_TYPE: "nightly", NIGHTLY_TAG: "v9.9.9-nightly.1" });
+      delete process.env.COMMIT_TAG;
+      const { content } = await preprocessIncludeVersion(
+        "#include_aztec_version #include_version_without_prefix #release_version",
+        "test.md",
+      );
+      assert.strictEqual(content, `${ref} ${ref.slice(1)} 9.9.9-nightly.1`);
     });
 
     const versionMacros = [
@@ -150,19 +187,128 @@ describe("preprocessIncludeVersion", () => {
 
   describe("#api_ref_version macro", () => {
     // Only testnet and mainnet API references are published; other builds use the generated next/.
+    // A network links the folder the build serves for its version, which it shares with any network
+    // on the same version.
+    const { apiReferenceDirs, docsInstances } = require("../../network_docs");
+    const config = require("../../../developer_version_config.json");
+    const served = (network) =>
+      apiReferenceDirs(docsInstances(config, {}, true)[0]).find((d) => d.networks.includes(network)).folder;
     const testCases = [
       ["nightly", "next"],
       ["devnet", "next"],
-      ["testnet", "testnet"],
-      ["mainnet", "mainnet"],
+      ["testnet", served("testnet")],
+      ["mainnet", served("mainnet")],
     ];
+
+    const TAGS = ["NIGHTLY_TAG", "DEVNET_TAG", "TESTNET_TAG", "MAINNET_TAG", "KEEP_DEVELOPER_VERSIONS"];
+    const apiRefVersion = async (vars) => {
+      for (const v of TAGS) delete process.env[v];
+      setEnv(vars);
+      return (await preprocessIncludeVersion("#api_ref_version", "test.md")).content;
+    };
 
     testCases.forEach(([releaseType, expected]) => {
       it(`resolves to ${expected} for ${releaseType}`, async () => {
-        setEnv({ RELEASE_TYPE: releaseType });
-        const { content } = await preprocessIncludeVersion("#api_ref_version", "test.md");
-        assert.strictEqual(content, expected);
+        assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: releaseType }), expected);
       });
+    });
+
+    // A release cut freezes these links into its snapshot before it maps the new version, so they
+    // name the folder the build serves once the release type reads the version being built.
+    it("names testnet's own folder for a testnet release on a version mainnet does not run", async () => {
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0" }), "testnet");
+    });
+
+    it("names mainnet's folder for a testnet release on mainnet's version", async () => {
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: config.mainnet }), "mainnet");
+    });
+
+    it("keeps the folder the developer versions serve now when the release does not change them", async () => {
+      assert.strictEqual(
+        await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0", KEEP_DEVELOPER_VERSIONS: "1" }),
+        served("testnet"),
+      );
+    });
+  });
+
+  describe("on a line page", () => {
+    const config = require("../../../developer_version_config.json");
+    const major = Number(config.mainnet.match(/^v(\d+)\./)[1]);
+    let rootDir;
+    beforeEach(() => {
+      rootDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "include-version-"));
+      for (const line of [`v${major}`, "v999"]) {
+        const pin = { ref: `${line}.1.0-nightly.20260101`, toolchain: { l1Artifacts: `${line.slice(1)}.1.0` } };
+        fs.mkdirSync(path.join(rootDir, "docs/lines", line), { recursive: true });
+        fs.writeFileSync(path.join(rootDir, "docs/lines", line, "aztec-node.json"), JSON.stringify(pin));
+      }
+    });
+    afterEach(() => fs.rmSync(rootDir, { recursive: true, force: true }));
+    const page = (line) => path.join(rootDir, "docs/lines", line, "docs-developers/page.md");
+
+    it("takes its versions from the line's pin and its API folder from the network on its major", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", COMMIT_TAG: "v9.9.9" });
+      const { content } = await preprocessIncludeVersion(
+        "#include_aztec_version #include_foundation_version #api_ref_version",
+        page(`v${major}`),
+        rootDir,
+      );
+      assert.strictEqual(content, `v${major}.1.0-nightly.20260101 v${major}.1.0 mainnet`);
+    });
+
+    it("fails closed on #api_ref_version when no network runs the line's major", async () => {
+      await assert.rejects(preprocessIncludeVersion("#api_ref_version", page("v999"), rootDir), /no network runs v999.*retire the line/);
+      assert.strictEqual((await preprocessIncludeVersion("#include_aztec_version", page("v999"), rootDir)).content, "v999.1.0-nightly.20260101");
+    });
+  });
+
+  describe("#docs_commit macro", () => {
+    const { execFileSync } = require("child_process");
+    const git = (cwd, ...args) =>
+      execFileSync("git", ["-C", cwd, "-c", "commit.gpgsign=false", "-c", "user.name=t", "-c", "user.email=t@t", ...args], {
+        encoding: "utf8",
+      }).trim();
+    let rootDir, head;
+    beforeEach(() => {
+      rootDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "docs-commit-"));
+      fs.mkdirSync(path.join(rootDir, "docs/lines/v6"), { recursive: true });
+      fs.writeFileSync(path.join(rootDir, "docs/lines/v6/aztec-node.json"), JSON.stringify({ ref: "v6.1.0-nightly.20260101" }));
+      git(rootDir, "init", "-q");
+      git(rootDir, "commit", "-q", "--allow-empty", "-m", "head");
+      head = git(rootDir, "rev-parse", "HEAD");
+      for (const k of ["DOCS_COMMIT", "RELEASE_TYPE", "COMMIT_TAG"]) delete process.env[k];
+    });
+    afterEach(() => fs.rmSync(rootDir, { recursive: true, force: true }));
+    const mainPage = () => path.join(rootDir, "docs/docs-developers/page.md");
+    const linePage = () => path.join(rootDir, "docs/lines/v6/docs-developers/page.md");
+    const render = async (text, page) => (await preprocessIncludeVersion(text, page, rootDir)).content;
+
+    it("names HEAD on main and line pages alike, else DOCS_COMMIT", async () => {
+      assert.strictEqual(await render("#docs_commit", mainPage()), head);
+      assert.strictEqual(await render("#docs_commit", linePage()), head);
+      setEnv({ DOCS_COMMIT: "abc123" });
+      assert.strictEqual(await render("#docs_commit", linePage()), "abc123");
+    });
+
+    it("fails a release build without DOCS_COMMIT only on pages that use it", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet" });
+      await assert.rejects(render("#docs_commit", mainPage()), /RELEASE_TYPE=mainnet needs DOCS_COMMIT/);
+      assert.match(await render("#include_aztec_version", mainPage()), /^v/);
+    });
+
+    // A cut promotes the line's pages into main's paths: they keep the line's example paths but take the
+    // release's versions, never the dev pin DOCS_COMMIT carries.
+    it("renders a promoted page's clone recipe with the release's versions and the line's paths", async () => {
+      setEnv({ RELEASE_TYPE: "mainnet", COMMIT_TAG: "v6.1.0", DOCS_COMMIT: "abc123" });
+      const recipe = "origin #docs_commit --branch #include_aztec_version docs/lines/v6/examples ./setup.sh #include_version_without_prefix";
+      assert.strictEqual(
+        await render(recipe, mainPage()),
+        "origin abc123 --branch v6.1.0 docs/lines/v6/examples ./setup.sh 6.1.0",
+      );
+      assert.strictEqual(
+        await render(recipe, linePage()),
+        "origin abc123 --branch v6.1.0-nightly.20260101 docs/lines/v6/examples ./setup.sh 6.1.0-nightly.20260101",
+      );
     });
   });
 

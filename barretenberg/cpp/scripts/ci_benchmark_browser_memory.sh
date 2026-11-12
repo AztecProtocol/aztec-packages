@@ -3,6 +3,7 @@
 # This is used to get as realistic as possible memory usage for the proving of a private transaction in a browser setting.
 
 own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
 source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 cd "$own_dir/.."

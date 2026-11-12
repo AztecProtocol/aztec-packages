@@ -5,30 +5,29 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Determine version from the checked-out git tag (readers check out a release tag)
-VERSION="${1:-$(git describe --tags --exact-match 2>/dev/null || echo "")}"
-
-if [ -z "$VERSION" ]; then
-  echo "Error: Could not determine Aztec version from git tag."
-  echo "Usage: ./setup.sh <version>  (e.g., ./setup.sh 0.87.0)"
-  echo "Or check out a release tag first: git checkout <version>"
+# The Labs version the tutorial page names. This repository's own tags are Foundation versions, so the
+# checkout cannot supply it.
+VERSION="${1:-}"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "Usage: ./setup.sh <version>, the Aztec version the tutorial names (e.g. ./setup.sh 6.0.0), without a leading v." >&2
   exit 1
 fi
 
 echo "Resolving #include_aztec_version to $VERSION ..."
 
-node -e "
-  const fs = require('fs');
-  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  for (const section of ['dependencies', 'devDependencies']) {
+node -e '
+  const fs = require("fs");
+  const version = process.argv[1];
+  const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  for (const section of ["dependencies", "devDependencies"]) {
     for (const [name, ver] of Object.entries(pkg[section] || {})) {
-      if (ver === '#include_aztec_version') {
-        pkg[section][name] = '$VERSION';
+      if (ver === "#include_aztec_version") {
+        pkg[section][name] = version;
       }
     }
   }
-  fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-"
+  fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+' "$VERSION"
 
 echo "Installing dependencies..."
 # Without its own lockfile, yarn 4 treats this directory as part of the docs/ workspace and refuses to install.

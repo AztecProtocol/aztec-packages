@@ -42,6 +42,9 @@ describe("classifyPage", () => {
     assert.strictEqual(classifyPage("developers/tags.html", tagged, API_DIRS), null);
     assert.strictEqual(classifyPage("developers/v5.2.0/tags/aztec-js.html", tagged, API_DIRS), null);
     assert.strictEqual(classifyPage("404.html", docsPage("docs-root-current"), API_DIRS), null);
+    // Dev line previews (/developers-v6, /operate-v6) duplicate the dev docs.
+    assert.strictEqual(classifyPage("developers-v6/docs/aztec-js.html", docsPage("docs-developer-v6-current"), API_DIRS), null);
+    assert.strictEqual(classifyPage("operate-v6.html", docsPage("docs-network-v6-current"), API_DIRS), null);
     assert.strictEqual(classifyPage("search.html", docsPage("default"), API_DIRS), null);
     assert.strictEqual(classifyPage("google0123.html", "google-site-verification: google0123.html", API_DIRS), null);
   });

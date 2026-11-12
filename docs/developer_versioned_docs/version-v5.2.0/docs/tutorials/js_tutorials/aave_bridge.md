@@ -123,7 +123,10 @@ The package ships the L1 contract sources under `@aztec/l1-artifacts/l1-contract
 ```bash
 git clone https://github.com/critesjosh/hardhat-aztec-example
 cd hardhat-aztec-example
+git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
 ```
+
+The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
 
 When complete, your project will have this structure:
 

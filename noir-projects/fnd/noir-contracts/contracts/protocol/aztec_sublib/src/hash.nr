@@ -4,7 +4,7 @@ use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{
         DOM_SEP__FUNCTION_ARGS, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
-        DOM_SEP__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+        DOM_SEP__PRIVATE_CONTENT_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
     },
     hash::{poseidon2_hash_subarray, poseidon2_hash_with_separator, sha256_to_field},
     traits::ToField,
@@ -12,8 +12,8 @@ use crate::protocol::{
 
 pub use crate::protocol::hash::compute_siloed_nullifier;
 
-pub fn compute_secret_hash(secret: Field) -> Field {
-    poseidon2_hash_with_separator([secret], DOM_SEP__SECRET_HASH)
+pub fn compute_private_content_hash(private_content: Field) -> Field {
+    poseidon2_hash_with_separator([private_content], DOM_SEP__PRIVATE_CONTENT_HASH)
 }
 
 pub fn compute_l1_to_l2_message_hash(
@@ -21,8 +21,8 @@ pub fn compute_l1_to_l2_message_hash(
     chain_id: Field,
     recipient: AztecAddress,
     version: Field,
-    content: Field,
-    secret_hash: Field,
+    public_content_hash: Field,
+    private_content_hash: Field,
     leaf_index: Field,
 ) -> Field {
     let mut hash_bytes = [0 as u8; 224];
@@ -30,8 +30,8 @@ pub fn compute_l1_to_l2_message_hash(
     let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
     let recipient_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
     let version_bytes: [u8; 32] = version.to_be_bytes();
-    let content_bytes: [u8; 32] = content.to_be_bytes();
-    let secret_hash_bytes: [u8; 32] = secret_hash.to_be_bytes();
+    let public_content_hash_bytes: [u8; 32] = public_content_hash.to_be_bytes();
+    let private_content_hash_bytes: [u8; 32] = private_content_hash.to_be_bytes();
     let leaf_index_bytes: [u8; 32] = leaf_index.to_be_bytes();
 
     for i in 0..32 {
@@ -39,17 +39,17 @@ pub fn compute_l1_to_l2_message_hash(
         hash_bytes[i + 32] = chain_id_bytes[i];
         hash_bytes[i + 64] = recipient_bytes[i];
         hash_bytes[i + 96] = version_bytes[i];
-        hash_bytes[i + 128] = content_bytes[i];
-        hash_bytes[i + 160] = secret_hash_bytes[i];
+        hash_bytes[i + 128] = public_content_hash_bytes[i];
+        hash_bytes[i + 160] = private_content_hash_bytes[i];
         hash_bytes[i + 192] = leaf_index_bytes[i];
     }
 
     sha256_to_field(hash_bytes)
 }
 
-// The nullifier of a l1 to l2 message is the hash of the message salted with the secret
-pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) -> Field {
-    poseidon2_hash_with_separator([message_hash, secret], DOM_SEP__MESSAGE_NULLIFIER)
+// The nullifier of a l1 to l2 message is the hash of the message salted with the private content
+pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, private_content: Field) -> Field {
+    poseidon2_hash_with_separator([message_hash, private_content], DOM_SEP__MESSAGE_NULLIFIER)
 }
 
 // Computes the hash of input arguments or return values for private functions, or for authwit creation.

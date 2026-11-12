@@ -62,7 +62,7 @@ Run `curl ipv4.icanhazip.com`.
 :::
 
 :::warning Never expose port 8880
-Port 8880 is the **admin port** and provides unauthenticated access to node configuration. It is intentionally not mapped in the Docker Compose file in the next step.
+Port 8880 is the **admin port**: it reads and changes node configuration. It requires an API key by default, and it must still never be exposed. It is intentionally not mapped in the Docker Compose file in the next step.
 :::
 
 <details open>

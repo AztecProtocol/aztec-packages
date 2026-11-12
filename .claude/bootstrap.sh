@@ -2,6 +2,7 @@
 # Bootstrap + test entry for the .claude/ tooling directory. Mirrors the shape
 # used by ci3/bootstrap.sh: emits test commands via `test_cmds`, runs them via
 # `test`. Keeps hook scripts and their tests as a self-contained component.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Hash everything agents_symlink_test inspects, not just .claude/: the .codex mirrors and the root
