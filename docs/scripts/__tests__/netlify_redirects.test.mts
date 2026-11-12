@@ -19,7 +19,7 @@ function readRedirects(text: string): Redirect[] {
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   text.split("\n").forEach((raw, i) => {
     const row = raw.trim();
-    const fail = (why: string) => {
+    const fail: (why: string) => never = (why) => {
       throw new Error(`netlify.toml:${i + 1}: ${why}, extend readRedirects: ${row}`);
     };
     // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: sets the current redirect as it is pushed, kept as written

@@ -55,6 +55,9 @@ export type Pin = {
   noirArchives: Record<string, string>;
 };
 
+/** A pin read from disk or still being drafted, before `fieldProblems` checks its fields. */
+type Unchecked = Partial<Omit<Pin, "toolchain">> & { toolchain?: Partial<Pin["toolchain"]> };
+
 export type Options = {
   /** The directory holding the pin and its gitignored `.aztec-node/` state: docs/, or a line root. */
   docsDir: string;
@@ -127,7 +130,7 @@ const majorProblems = (o: Options, ref: string): string[] =>
   o.line && !ref.startsWith(`${o.line}.`) ? [`ref must be a ${o.line}.* tag: the ${o.line} line follows aztec-node's ${o.line} branch`] : [];
 
 /** The malformed fields other than noirArchives, which a pin being written does not have yet. */
-function fieldProblems(p: Partial<Pin> | undefined, o: Options): string[] {
+function fieldProblems(p: Unchecked | undefined, o: Options): string[] {
   const problems: string[] = [];
   const repository = o.repository ?? REPOSITORY;
   if (p?.repository !== repository) problems.push(`repository must be ${repository}`);
@@ -158,7 +161,7 @@ function throwIfMalformed(problems: string[], o: Options): void {
 
 /** Throws a PinError naming every malformed field; the fields reach git, URLs and the shell as arguments. */
 export function validatePin(pin: unknown, o: Options): Pin {
-  const p = pin as Partial<Pin> | undefined;
+  const p = pin as Unchecked | undefined;
   throwIfMalformed([...fieldProblems(p, o), ...archiveProblems(p?.noirArchives)], o);
   return p as Pin;
 }
