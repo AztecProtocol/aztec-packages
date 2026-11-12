@@ -52,6 +52,7 @@ class JSDocValidator {
     this.warnings = [];
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   validate(node, jsdoc, sourceFile) {
     const warnings = [];
 
@@ -372,6 +373,7 @@ class TypeScriptParser {
     const self = this;
 
     // Visit each node in the AST
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
     function visit(node) {
       // Handle re-exports (export { foo } from 'module')
       if (ts.isExportDeclaration(node)) {
@@ -533,6 +535,7 @@ class TypeScriptParser {
   /**
    * Recursively extract members from a type node
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   extractTypeMembersRecursive(typeNode, members, sourceFile) {
     if (ts.isTypeLiteralNode(typeNode)) {
       // Object type: { foo: string, bar: number }
@@ -599,6 +602,7 @@ class TypeScriptParser {
   /**
    * Parse a re-export declaration (export { foo, type Bar } from 'module')
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   parseReExport(node, sourceFile) {
     const exports = [];
 
@@ -862,6 +866,7 @@ class TypeScriptParser {
   /**
    * Extract JSDoc comment from a node
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   extractJSDoc(node, sourceFile) {
     const jsDocTags = ts.getJSDocTags(node);
     const jsDocComments = ts.getJSDocCommentsAndTags(node);
@@ -877,6 +882,7 @@ class TypeScriptParser {
           description = this.normalizeWhitespace(comment.comment);
         } else if (Array.isArray(comment.comment)) {
           // Handle array of comment segments (e.g., with @link tags)
+          // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
           description = this.normalizeWhitespace(comment.comment.map(segment => {
             if (typeof segment === 'string') {
               return segment;
@@ -906,6 +912,7 @@ class TypeScriptParser {
       if (typeof tag.comment === 'string') {
         tagComment = this.normalizeWhitespace(tag.comment);
       } else if (Array.isArray(tag.comment)) {
+        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
         tagComment = this.normalizeWhitespace(tag.comment.map(segment => {
           if (typeof segment === 'string') {
             return segment;
@@ -964,6 +971,7 @@ class TypeScriptParser {
   /**
    * Extract parameters from a function/method
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   extractParameters(node, jsdoc, sourceFile) {
     if (!node.parameters) {
       return [];
@@ -989,6 +997,7 @@ class TypeScriptParser {
               if (typeof doc.comment === 'string') {
                 description = this.normalizeWhitespace(doc.comment);
               } else if (Array.isArray(doc.comment)) {
+                // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
                 description = this.normalizeWhitespace(doc.comment.map(segment => {
                   if (typeof segment === 'string') {
                     return segment;
@@ -1065,6 +1074,7 @@ class TypeScriptParser {
    * - 1 parameter: name(param: Type)
    * - 2+ parameters: one per line
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   formatNormalizedSignature(node, sourceFile) {
     const printer = ts.createPrinter({ removeComments: true });
 
@@ -1208,6 +1218,7 @@ class TypeScriptParser {
 /**
  * Main execution
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function main() {
   const args = process.argv.slice(2);
 

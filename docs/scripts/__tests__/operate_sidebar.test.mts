@@ -38,6 +38,7 @@ function docId(rel: string, text: string): string {
 /** Every doc id a sidebars file lists: string items, doc and ref items, category links, shorthand categories. */
 function sidebarIds(file: string): Set<string> {
   const ids = new Set<string>();
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   const walk = (item: unknown): void => {
     if (Array.isArray(item)) return void item.forEach(walk);
     if (typeof item === "string") return void ids.add(item);

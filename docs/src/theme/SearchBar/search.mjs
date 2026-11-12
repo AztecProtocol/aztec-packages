@@ -54,6 +54,7 @@ export function excerptParts(excerpt) {
  * `/\host` as another origin, and drop tabs and newlines before parsing.
  */
 export const safeHref = (url) =>
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: baselined 2026-11-12: the pattern rejects control characters on purpose
   typeof url === "string" && /^\/(?![/\\])[^\u0000-\u001f\u007f]*$/.test(url) ? url : null;
 
 /** Static Aztec.nr API pages, outside the router. */

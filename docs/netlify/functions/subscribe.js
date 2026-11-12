@@ -71,6 +71,8 @@ function isRateLimited(identifier, maxRequests = MAX_REQUESTS_PER_WINDOW) {
   return false;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 exports.handler = async (event, _context) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {

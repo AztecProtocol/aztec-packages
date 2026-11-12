@@ -67,6 +67,8 @@ const SEL = {
   isRewardsClaimable: '0xfcb3f6ba',
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function Claimer() {
   const { values } = useOperatorConfig();
   const configRpc = (values && values.ETH_RPC) || '';
@@ -80,6 +82,7 @@ function Claimer() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: baselined 2026-11-12: a changed dependency list would change when the hook runs
   useEffect(() => {
     if (configRpc && !rpcUrl) setRpcUrl(configRpc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,6 +100,7 @@ function Claimer() {
   const proverOk = isAddress(prover);
   const canScan = rpcOk && rollupOk && proverOk && !scanning;
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   async function scan() {
     setScanning(true);
     setError(null);

@@ -1,3 +1,4 @@
+// biome-ignore-all lint/correctness/useHookAtTopLevel: baselined 2026-11-12: UnifiedVersionDropdown returns early before most of its hooks; splitting it into an outer and an inner component fixes every one
 import { useLocation } from '@docusaurus/router';
 import {
   useActivePlugin,
@@ -87,6 +88,8 @@ function createSectionHeader(label) {
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export default function UnifiedVersionDropdown({ mobile, ...props }) {
   const { pathname } = useLocation();
   const line = lineOfPlugin(useActivePlugin()?.pluginId);

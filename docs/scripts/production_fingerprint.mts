@@ -33,6 +33,7 @@ const UNSTABLE = /^pagefind\/(filter\/|pagefind-entry\.json$|pagefind\.[^/]+\.pf
 const fragmentTags = (bytes: Uint8Array): string[] =>
   JSON.parse(zlib.gunzipSync(bytes).subarray(12).toString("utf8")).filters?.docusaurus_tag ?? [];
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function fingerprint(buildDir: string): string[] {
   const lines: string[] = [];
   const tags = new Map<string, number>();

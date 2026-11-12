@@ -47,6 +47,7 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   return Promise.all(contentUpdates);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
   const writePromises = [];
 

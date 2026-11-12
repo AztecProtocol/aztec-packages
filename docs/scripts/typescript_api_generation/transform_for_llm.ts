@@ -74,6 +74,7 @@ const externalRefs = new Map<string, string>();
 /**
  * Records an external type reference if the type is from another package.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function recordExternalRef(type: TypeDocType | undefined): void {
   if (!type) return;
 
@@ -346,6 +347,7 @@ function simplifySource(sources?: TypeDocSource[]): string | undefined {
  * Converts a TypeDoc type to a readable string representation.
  * Also records external package references for cross-package documentation.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function typeToString(type?: TypeDocType): string {
   if (!type) {
     return "unknown";
@@ -365,6 +367,7 @@ function typeToString(type?: TypeDocType): string {
       return String(type.value);
 
     case "reference":
+      // biome-ignore lint/correctness/noSwitchDeclarations: baselined 2026-11-12: no other case clause reads this declaration
       let name = type.name || "unknown";
       if (type.typeArguments && type.typeArguments.length > 0) {
         const args = type.typeArguments.map(typeToString).join(", ");
@@ -605,6 +608,7 @@ function extractMembers(
         properties[member.name] = extractPropertyFromMember(member);
         break;
       case KIND.METHOD:
+        // biome-ignore lint/correctness/noSwitchDeclarations: baselined 2026-11-12: no other case clause reads this declaration
         const method = extractMethodFromMember(member);
         if (method) {
           methods[member.name] = method;
@@ -622,6 +626,7 @@ function extractMembers(
 /**
  * Extracts classes from TypeDoc children.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function extractClasses(children: TypeDocNode[]): Record<string, LLMClass> {
   const classes: Record<string, LLMClass> = {};
 
@@ -666,6 +671,7 @@ function extractClasses(children: TypeDocNode[]): Record<string, LLMClass> {
 /**
  * Extracts interfaces from TypeDoc children.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function extractInterfaces(children: TypeDocNode[]): Record<string, LLMInterface> {
   const interfaces: Record<string, LLMInterface> = {};
 
@@ -728,6 +734,7 @@ function extractFunctions(children: TypeDocNode[]): Record<string, LLMFunction> 
  * Extracts type aliases from TypeDoc children.
  * Filters out Zod schema types that are verbose and not useful for LLMs.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function extractTypes(children: TypeDocNode[]): Record<string, LLMType> {
   const types: Record<string, LLMType> = {};
 
@@ -785,6 +792,7 @@ function extractTypes(children: TypeDocNode[]): Record<string, LLMType> {
 /**
  * Extracts enums from TypeDoc children.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function extractEnums(children: TypeDocNode[]): Record<string, LLMEnum> {
   const enums: Record<string, LLMEnum> = {};
 
@@ -1023,6 +1031,8 @@ function extractMetadata(output: LLMOutput): PackageMetadata {
 /**
  * Generates markdown documentation from the LLM output.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function generateMarkdown(output: LLMOutput): string {
   const lines: string[] = [];
 
@@ -1227,6 +1237,8 @@ function categorizeType(name: string): string | null {
 /**
  * Generates the LLM summary file from metadata and config.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 async function generateSummary(
   metadataDir: string,
   configPath: string,
@@ -1331,6 +1343,7 @@ async function generateSummary(
   lines.push("");
 
   // Helper to render a package entry
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   function renderPackageEntry(pkg: PackageConfig, meta: PackageMetadata | undefined): void {
     const fullName = npmName(pkg.name, config);
     lines.push(`**${fullName}** - ${pkg.description}`);
@@ -1437,6 +1450,7 @@ async function generateSummary(
 }
 
 // Parse command line arguments
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function parseArgs(args: string[]): {
   mode: "transform" | "generate-summary";
   inputPath?: string;
@@ -1498,6 +1512,7 @@ function parseArgs(args: string[]): {
 }
 
 // CLI entry point
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function main() {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args);

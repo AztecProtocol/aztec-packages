@@ -16,11 +16,13 @@ type Redirect = { line: number; from?: string; to?: string; status?: number };
 function readRedirects(text: string): Redirect[] {
   const redirects: Redirect[] = [];
   let current: Redirect | undefined;
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   text.split("\n").forEach((raw, i) => {
     const row = raw.trim();
     const fail = (why: string) => {
       throw new Error(`netlify.toml:${i + 1}: ${why}, extend readRedirects: ${row}`);
     };
+    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
     if (/^\[\[\s*redirects\s*\]\]\s*(#.*)?$/.test(row)) redirects.push((current = { line: i + 1 }));
     else if (row === "" || row.startsWith("#")) return;
     else if (row.startsWith("[")) {

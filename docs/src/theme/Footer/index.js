@@ -1,4 +1,5 @@
 import { useState } from 'react';
+// biome-ignore lint/correctness/noUnusedImports: baselined 2026-11-12: importing the original footer may load its styles
 import Footer from '@theme-original/Footer';
 import Link from '@docusaurus/Link';
 import styles from './Footer.module.css';
@@ -12,6 +13,7 @@ export default function FooterWrapper(_props) {
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   const handleSubmit = async (e) => {
     e.preventDefault();
     

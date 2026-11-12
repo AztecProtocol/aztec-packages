@@ -54,6 +54,7 @@ const fmtEth = (eth) => {
   return eth.toExponential(2);
 };
 const fmtWeeks = (weeks) => {
+  // biome-ignore lint/suspicious/noGlobalIsFinite: baselined 2026-11-12: Number.isFinite drops the coercion this code may rely on
   if (!isFinite(weeks) || weeks <= 0) return 'n/a';
   if (weeks >= 104) return `${(weeks / 52).toFixed(1)} years`;
   if (weeks >= 52) return `~1 year`;
@@ -62,6 +63,7 @@ const fmtWeeks = (weeks) => {
   return `${(weeks * 7).toFixed(1)} days`;
 };
 const fmtGwei = (g) => {
+  // biome-ignore lint/suspicious/noGlobalIsFinite: baselined 2026-11-12: Number.isFinite drops the coercion this code may rely on
   if (!isFinite(g) || g <= 0) return 'n/a';
   if (g < 0.01) return g.toFixed(4);
   if (g < 1) return g.toFixed(3);
@@ -145,6 +147,8 @@ function scenariosFor(scanState) {
   return STATIC_SCENARIOS;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function Calculator() {
   const { sequencerCount, values } = useOperatorConfig();
   const configRpc = (values && values.ETH_RPC) || '';
@@ -163,6 +167,7 @@ function Calculator() {
   const cancelRef = useRef(false);
 
   // Seed the RPC field from the operator's pasted ETH_RPC config once, if present.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: baselined 2026-11-12: a changed dependency list would change when the hook runs
   useEffect(() => {
     if (configRpc && !rpcUrl) {
       setRpcUrl(configRpc);
@@ -202,6 +207,8 @@ function Calculator() {
   const scenarios = scenariosFor(scanState);
   const hostname = safeHostname(rpcUrl);
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
   async function runScan() {
     const host = safeHostname(rpcUrl);
     if (!host) return;

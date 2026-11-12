@@ -219,6 +219,7 @@ function Panel() {
               .filter((def) => !def.showWhen || def.showWhen({ track }))
               .map((def, i) =>
                 def._separator ? (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: baselined 2026-11-12: a different key would change how React reuses these elements
                   <hr key={`sep-${i}`} className={styles.sep} />
                 ) : (
                   <Field

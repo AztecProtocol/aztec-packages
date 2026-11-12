@@ -163,12 +163,14 @@ function extractModuleItems(htmlPath) {
   const sectionRegex =
     /<h2 id="(structs|traits|functions)">[^<]*<\/h2>\s*<ul class="item-list">([\s\S]*?)<\/ul>/g;
   let match;
+  // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
   while ((match = sectionRegex.exec(html)) !== null) {
     const kind = match[1];
     const body = match[2];
     const names = [];
     const itemRegex = /<div class="item-name">[\s\S]*?>([A-Za-z_][\w]*)<\/a>/g;
     let item;
+    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
     while ((item = itemRegex.exec(body)) !== null) {
       names.push(item[1]);
     }
@@ -420,6 +422,8 @@ function pagesContent(index) {
 /**
  * Main function to complete llms.txt and write llms-full.txt.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function main() {
   const llmsTxtPath = path.join(BUILD_DIR, "llms.txt");
   const llmsFullTxtPath = path.join(BUILD_DIR, "llms-full.txt");
@@ -503,6 +507,7 @@ function main() {
       // are what makes specific types (e.g. SingleUseClaim) findable: an agent
       // searching this index for the name lands on the owning module, then
       // follows the link to the module page.
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
       const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
         const rel = path.relative(dirPath, f);
         const parts = rel.split(path.sep);
