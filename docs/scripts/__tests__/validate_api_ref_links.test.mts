@@ -9,7 +9,7 @@ const docs = path.resolve(import.meta.dirname, "../..");
 const script = path.join(docs, "scripts/validate_api_ref_links.sh");
 
 // Mainnet and testnet read v1.0.0, so the build writes a scoped index into the mainnet API folders
-// only, although static/ has a testnet folder too.
+// only, although the fixture's static/ has a testnet folder too.
 const page = [
   "[index](pathname:///typescript-api/mainnet/llms.txt)",
   "[package](pathname:///typescript-api/mainnet/aztec.js.md)",
@@ -38,9 +38,18 @@ before(() => {
 });
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
-test("a scoped index the build writes resolves; a missing folder, file or index stays broken", () => {
-  const run = spawnSync("bash", [script], { env: { ...process.env, DOCS_ROOT: root }, encoding: "utf8" });
-  assert.equal(run.status, 0, run.stderr);
+const validate = () => spawnSync("bash", [script], { env: { ...process.env, DOCS_ROOT: root }, encoding: "utf8" });
+
+test("a scoped index the build writes resolves; a missing folder, file or index is broken and fails", () => {
+  const run = validate();
+  assert.equal(run.status, 1, run.stderr);
   const broken = [...run.stdout.matchAll(/BROKEN: (\S+)/g)].map((m) => m[1]);
   assert.deepEqual(broken, [4, 5, 6].map((line) => `developer_versioned_docs/version-v1.0.0/page.md:${line}`), run.stdout);
+});
+
+test("links that all resolve pass", () => {
+  fs.writeFileSync(path.join(root, "developer_versioned_docs/version-v1.0.0/page.md"), `${page.slice(0, 3).join("\n")}\n`);
+  const run = validate();
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.match(run.stdout, /Broken links: 0/);
 });
