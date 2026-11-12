@@ -1,5 +1,8 @@
 set(CDB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/cdb_schema.json)
-set(CDB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+# Generated code is per build tree (each preset generates its own, so presets building at once never
+# share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
+file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+set(CDB_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(CDB_GEN_OUTPUTS
     ${CDB_GEN_DIR}/cdb_client.hpp
     ${CDB_GEN_DIR}/cdb_types.hpp

@@ -1,11 +1,13 @@
 # Generate BB IPC wire types and server dispatch from bb_schema.json (the
 # checked-in wire contract). bb is the server; the clients are bb.js and
 # barretenberg-rs, generated from the same file, so no C++ client is emitted.
-# Every preset that compiles bbapi (WASM, fuzzing) consumes the generated dispatch header, so
-# codegen runs in all of them: the output lands in the source tree, and a preset that skipped it
-# would only build where another preset had generated it first.
+# Every preset that compiles bbapi (WASM, fuzzing) includes the generated dispatch header, so codegen
+# runs in all of them.
 set(BB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/bb_schema.json)
-set(BB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+# Generated code is per build tree (each preset generates its own, so presets building at once never
+# share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
+file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+set(BB_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 set(BB_GEN_OUTPUTS
     ${BB_GEN_DIR}/bb_dispatch.hpp
@@ -53,12 +55,8 @@ barretenberg_module(bbapi common chonk dsl crypto_poseidon2 crypto_pedersen_comm
 target_include_directories(bbapi_objects PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(bbapi_objects bb_ipc_generated)
-# The FFI entry is generated at build time, so the module's configure-time source glob misses it
-# on a clean tree; list it explicitly (skipping the duplicate once the glob does see it).
-get_target_property(BBAPI_SOURCES bbapi_objects SOURCES)
-if(NOT "${BB_GEN_DIR}/bb_ffi.cpp" IN_LIST BBAPI_SOURCES)
-    target_sources(bbapi_objects PRIVATE ${BB_GEN_DIR}/bb_ffi.cpp)
-endif()
+# The module's source glob covers only the source tree, so the generated FFI entry is listed here.
+target_sources(bbapi_objects PRIVATE ${BB_GEN_DIR}/bb_ffi.cpp)
 
 # bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references
 if(NOT WASM AND NOT FUZZING)
