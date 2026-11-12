@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <numeric>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -790,24 +791,27 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
                  "WitnessMap in WitnessStack");
     std::vector<uint8_t>().swap(buf);
 
+    std::vector<size_t> order;
     if (!sorted) {
-        // Match msgpack's std::map conversion, which assigns each entry in wire order: ordered by index, and the last
-        // of duplicate keys wins. The stable sort keeps duplicates in wire order.
-        std::ranges::stable_sort(entries, {}, &std::pair<uint32_t, bb::fr>::first);
-        size_t kept = 0;
-        for (const auto& entry : entries) {
-            if (kept > 0 && entries[kept - 1].first == entry.first) {
-                entries[kept - 1].second = entry.second;
-            } else {
-                entries[kept++] = entry;
-            }
-        }
-        entries.resize(kept);
+        // Some standard libraries allocate stable_sort's temporary buffer without extended alignment.
+        // Sort indices instead of field elements, retaining wire order for duplicate witness indices.
+        order.resize(entries.size());
+        std::iota(order.begin(), order.end(), size_t{ 0 });
+        std::ranges::sort(order, [&](size_t lhs, size_t rhs) {
+            return std::pair{ entries[lhs].first, lhs } < std::pair{ entries[rhs].first, rhs };
+        });
     }
 
     WitnessVector witness_vector;
-    witness_vector.reserve(entries.empty() ? 0 : entries.back().first + 1);
-    for (size_t index = 0; const auto& [witness_index, value] : entries) {
+    const size_t last_entry = entries.empty() ? 0 : (sorted ? entries.size() - 1 : order.back());
+    witness_vector.reserve(entries.empty() ? 0 : entries[last_entry].first + 1);
+    for (size_t position = 0, index = 0; position < entries.size(); ++position) {
+        const auto& [witness_index, value] = entries[sorted ? position : order[position]];
+        // Match msgpack's std::map conversion: the last occurrence of a witness index wins.
+        if (witness_index < index) {
+            witness_vector[witness_index] = value;
+            continue;
+        }
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned. To ensure that
         // witnesses sit at the correct indices in the `WitnessVector`, we fill any indices which do not exist within
         // the `WitnessMap` with the random values. We use random values instead of zero because unassigned witnesses

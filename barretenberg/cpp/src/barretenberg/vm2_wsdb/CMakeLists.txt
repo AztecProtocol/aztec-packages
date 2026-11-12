@@ -8,7 +8,10 @@
 # bb reads native-packages/wsdb/wsdb_schema.jsonc at configure/build time.
 if(TARGET vm2_sim)
     set(WSDB_SCHEMA ${CMAKE_SOURCE_DIR}/../../native-packages/wsdb/wsdb_schema.jsonc)
-    set(WSDB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+    # Generated code is per build tree (each preset generates its own, so presets building at once never
+    # share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
+    file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+    set(WSDB_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
     set(WSDB_GEN_OUTPUTS
         ${WSDB_GEN_DIR}/wsdb_client.hpp
         ${WSDB_GEN_DIR}/wsdb_types.hpp

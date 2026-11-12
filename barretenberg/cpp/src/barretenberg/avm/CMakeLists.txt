@@ -1,5 +1,8 @@
 set(AVM_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/avm_schema.json)
-set(AVM_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+# Generated code is per build tree (each preset generates its own, so presets building at once never
+# share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
+file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+set(AVM_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(AVM_GEN_OUTPUTS
     ${AVM_GEN_DIR}/avm_ipc_server.hpp
     ${AVM_GEN_DIR}/avm_types.hpp

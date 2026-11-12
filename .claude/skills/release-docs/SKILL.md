@@ -1305,9 +1305,9 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
 
    - **On the release's publication day**, a fresh project that `yarn init` gives Yarn 4
      refuses the release's packages for their first day (`All versions satisfying … are
-     quarantined`). Record that against every page that hits it without the
-     publication-day tip `token_bridge.md` carries. Then, in that walk project only, add
-     the tip's scoped pre-approval, limited to the tag's own packages, to its `.yarnrc.yml`:
+     quarantined`). Record that against every page that hits it and whose `.yarnrc.yml`
+     does not pre-approve the Aztec scopes, as the bridge tutorials' does. Then, in that walk
+     project only, add a scoped pre-approval, limited to the tag's own packages, to its `.yarnrc.yml`:
 
      ```yaml
      npmPreapprovedPackages:
