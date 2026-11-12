@@ -1,6 +1,7 @@
 #include "barretenberg/wsdb_ref/wsdb_ref_handlers.hpp"
 
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp"
 #include "barretenberg/wsdb_ref/generated/wsdb_ffi.hpp"
 
 #include <gtest/gtest.h>
@@ -48,6 +49,13 @@ template <typename Resp> Result<Resp> decode_response(const std::vector<uint8_t>
     return resp;
 }
 
+wire::Fr bytes_of_fr(const fr& value)
+{
+    wire::Fr w{};
+    fr::serialize_to_buffer(value, w.data());
+    return w;
+}
+
 /** Call a service through the generated in-process FFI entry: the path the napi and wasm transports take. */
 template <typename Resp> Result<Resp> call_ffi(const char* name, const auto& cmd, const char* expected)
 {
@@ -60,10 +68,42 @@ template <typename Resp> Result<Resp> call_ffi(const char* name, const auto& cmd
     return decode_response<Resp>(frame, expected);
 }
 
-/** Call a fresh service instance through the generated dispatch, independent of the FFI's shared state. */
+std::vector<wire::TreeHeight> protocol_tree_heights()
+{
+    return { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
+             { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
+             { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
+             { .treeId = 3, .height = L1_TO_L2_MSG_TREE_HEIGHT },
+             { .treeId = 4, .height = ARCHIVE_HEIGHT } };
+}
+
+/** The canonical genesis, built as a C++ caller of Init builds it: the protocol's tree heights and initial sizes and
+ * the protocol contracts' registration nullifiers. */
+wire::WsdbInit canonical_init()
+{
+    wire::WsdbInit init{ .treeHeights = protocol_tree_heights(),
+                         .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } },
+                         .prefilledPublicData = {},
+                         .prefilledNullifiers = {},
+                         .genesisTimestamp = 0,
+                         .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
+    for (const auto& nullifier : world_state::genesis_protocol_nullifiers()) {
+        init.prefilledNullifiers.push_back(bytes_of_fr(nullifier));
+    }
+    return init;
+}
+
+/** A fresh service instance at the canonical genesis, called through the generated dispatch, independent of the
+ * FFI's shared state. */
 struct Service {
     WsdbRefContext ctx;
     AsyncDispatchHandler handler = make_wsdb_handler(ctx);
+
+    Service()
+    {
+        auto init = call<wire::WsdbInitResponse>("WsdbInit", canonical_init(), "WsdbInitResponse");
+        EXPECT_TRUE(std::holds_alternative<wire::WsdbInitResponse>(init));
+    }
 
     template <typename Resp> Result<Resp> call(const char* name, const auto& cmd, const char* expected)
     {
@@ -102,10 +142,17 @@ fr fr_of(const auto& w)
     return fr::serialize_from_buffer(w.data());
 }
 
+/** Init the FFI entry's shared world state at the canonical genesis (a later Init restarts it). */
+void init_ffi()
+{
+    ok(call_ffi<wire::WsdbInitResponse>("WsdbInit", canonical_init(), "WsdbInitResponse"));
+}
+
 } // namespace
 
 TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
 {
+    init_ffi();
     auto archive =
         ok(call_ffi<wire::WsdbGetTreeInfoResponse>("WsdbGetTreeInfo",
                                                    wire::WsdbGetTreeInfo{ .treeId = 4, .revision = LATEST_COMMITTED },
@@ -137,6 +184,7 @@ TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
 
 TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
 {
+    init_ffi();
     msgpack::sbuffer buf;
     msgpack::packer<msgpack::sbuffer> pk(buf);
     pk.pack_array(1);
@@ -210,29 +258,20 @@ TEST(WsdbRef, ForksAndHistoryOverTheWire)
               std::string::npos);
 }
 
-std::vector<wire::TreeHeight> protocol_tree_heights()
-{
-    return { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
-             { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
-             { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
-             { .treeId = 3, .height = L1_TO_L2_MSG_TREE_HEIGHT },
-             { .treeId = 4, .height = ARCHIVE_HEIGHT } };
-}
-
-TEST(WsdbRef, InitGenesisSetsTreeHeightsAndInitialSizes)
+TEST(WsdbRef, InitSetsTreeHeightsAndInitialSizes)
 {
     Service service;
     auto heights = protocol_tree_heights();
     heights[1].height = 3;
-    ok(service.call<wire::WsdbInitGenesisResponse>(
-        "WsdbInitGenesis",
-        wire::WsdbInitGenesis{ .treeHeights = heights,
-                               .treePrefill = { { .treeId = 0, .size = 4 }, { .treeId = 2, .size = 8 } },
-                               .prefilledPublicData = {},
-                               .prefilledNullifiers = {},
-                               .genesisTimestamp = 0,
-                               .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
-        "WsdbInitGenesisResponse"));
+    ok(service.call<wire::WsdbInitResponse>(
+        "WsdbInit",
+        wire::WsdbInit{ .treeHeights = heights,
+                        .treePrefill = { { .treeId = 0, .size = 4 }, { .treeId = 2, .size = 8 } },
+                        .prefilledPublicData = {},
+                        .prefilledNullifiers = {},
+                        .genesisTimestamp = 0,
+                        .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
+        "WsdbInitResponse"));
     auto tree_info = [&](uint32_t tree_id) {
         return ok(service.call<wire::WsdbGetTreeInfoResponse>(
             "WsdbGetTreeInfo",
@@ -254,15 +293,14 @@ TEST(WsdbRef, InitGenesisSetsTreeHeightsAndInitialSizes)
     EXPECT_FALSE(std::holds_alternative<wire::WsdbAppendLeavesResponse>(append(1)));
 
     auto rejected = [&](std::vector<wire::TreeHeight> tree_heights, std::vector<wire::TreePrefill> prefill) {
-        return error_of(
-            service.call<wire::WsdbInitGenesisResponse>("WsdbInitGenesis",
-                                                        wire::WsdbInitGenesis{ .treeHeights = std::move(tree_heights),
-                                                                               .treePrefill = std::move(prefill),
-                                                                               .prefilledPublicData = {},
-                                                                               .prefilledNullifiers = {},
-                                                                               .genesisTimestamp = 0,
-                                                                               .initialHeaderGeneratorPoint = 0 },
-                                                        "WsdbInitGenesisResponse"));
+        return error_of(service.call<wire::WsdbInitResponse>("WsdbInit",
+                                                             wire::WsdbInit{ .treeHeights = std::move(tree_heights),
+                                                                             .treePrefill = std::move(prefill),
+                                                                             .prefilledPublicData = {},
+                                                                             .prefilledNullifiers = {},
+                                                                             .genesisTimestamp = 0,
+                                                                             .initialHeaderGeneratorPoint = 0 },
+                                                             "WsdbInitResponse"));
     };
     const std::vector<wire::TreePrefill> both = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } };
     EXPECT_NE(rejected({ heights.begin(), heights.end() - 1 }, both).find("each of the five trees"), std::string::npos);
@@ -274,7 +312,7 @@ TEST(WsdbRef, InitGenesisSetsTreeHeightsAndInitialSizes)
               std::string::npos);
 }
 
-TEST(WsdbRef, InitGenesisRestartsAtTheGivenGenesis)
+TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
 {
     Service service;
     auto nullifier_root = [&]() {
@@ -285,16 +323,16 @@ TEST(WsdbRef, InitGenesisRestartsAtTheGivenGenesis)
         return fr_of(info.root);
     };
     EXPECT_EQ(nullifier_root(), fr(GENESIS_NULLIFIER_TREE_ROOT));
-    ok(service.call<wire::WsdbInitGenesisResponse>(
-        "WsdbInitGenesis",
-        wire::WsdbInitGenesis{ .treeHeights = protocol_tree_heights(),
-                               .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } },
-                               .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
-                                                          .value = bytes_of<wire::PublicDataValue>(fr(5)) } },
-                               .prefilledNullifiers = {},
-                               .genesisTimestamp = 0,
-                               .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
-        "WsdbInitGenesisResponse"));
+    ok(service.call<wire::WsdbInitResponse>(
+        "WsdbInit",
+        wire::WsdbInit{ .treeHeights = protocol_tree_heights(),
+                        .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } },
+                        .prefilledPublicData = { { .slot = bytes_of<wire::PublicDataSlot>(fr(1000)),
+                                                   .value = bytes_of<wire::PublicDataValue>(fr(5)) } },
+                        .prefilledNullifiers = {},
+                        .genesisTimestamp = 0,
+                        .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
+        "WsdbInitResponse"));
     EXPECT_NE(nullifier_root(), fr(GENESIS_NULLIFIER_TREE_ROOT));
     auto slot = ok(service.call<wire::WsdbFindPublicDataLeafIndicesResponse>(
         "WsdbFindPublicDataLeafIndices",

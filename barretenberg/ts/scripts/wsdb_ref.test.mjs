@@ -4,7 +4,7 @@
 //
 // Every napi backend in a process shares one world state (node loads the addon once), so the
 // tests read the genesis through committed reads, which writes never change, and write only fresh
-// random keys.
+// random keys. Each service is sent Init first, with the test's own genesis.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -28,11 +28,31 @@ const constantsNr = readFileSync(
   join(root, 'noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr'),
   'utf8',
 );
-function protocolConstant(name) {
-  const match = constantsNr.match(new RegExp(`pub global ${name}: Field =\\s*(0x[0-9a-f]+);`));
+function protocolU32(name) {
+  const match = constantsNr.match(new RegExp(`pub global ${name}: u32 = (\\d+);`));
   assert.ok(match, `${name} not found in constants.nr`);
-  return BigInt(match[1]);
+  return Number(match[1]);
 }
+
+// The test's own genesis: protocol-sized trees with no prefilled leaves. The canonical genesis, with the protocol
+// contracts' nullifiers and the roots constants.nr records, is checked by wsdb-ref's C++ tests.
+const GENESIS = {
+  treeHeights: [
+    { treeId: 0, height: 42 },
+    { treeId: 1, height: 42 },
+    { treeId: 2, height: 40 },
+    { treeId: 3, height: 36 },
+    { treeId: 4, height: 30 },
+  ],
+  treePrefill: [
+    { treeId: 0, size: 128 },
+    { treeId: 2, size: 128 },
+  ],
+  prefilledPublicData: [],
+  prefilledNullifiers: [],
+  genesisTimestamp: 0,
+  initialHeaderGeneratorPoint: protocolU32('DOM_SEP__BLOCK_HEADER_HASH'),
+};
 
 const NULLIFIER_TREE = 0;
 const NOTE_HASH_TREE = 1;
@@ -46,24 +66,27 @@ const toBigInt = bytes => BigInt('0x' + Buffer.from(bytes).toString('hex'));
 const randomFr = () => new Uint8Array([0, ...randomBytes(31)]);
 
 let service;
+let genesisArchiveRoot;
 before(async () => {
   service = await WsdbService.create(options);
+  await service.init(GENESIS);
 });
 after(async () => {
   await service.destroy();
 });
 
-test('serves the canonical genesis', async () => {
+test('serves the genesis Init gave it', async () => {
   const nullifiers = await service.getTreeInfo({ treeId: NULLIFIER_TREE, revision: committed });
-  assert.equal(toBigInt(nullifiers.root), protocolConstant('GENESIS_NULLIFIER_TREE_ROOT'));
   assert.equal(nullifiers.size, 128);
+  assert.equal(nullifiers.depth, 42);
 
   const archive = await service.getTreeInfo({ treeId: ARCHIVE, revision: committed });
-  assert.equal(toBigInt(archive.root), protocolConstant('GENESIS_ARCHIVE_ROOT'));
   assert.equal(archive.size, 1);
+  assert.equal(archive.depth, 30);
+  genesisArchiveRoot = toBigInt(archive.root);
 
   const header = await service.getLeafValue({ treeId: ARCHIVE, revision: committed, leafIndex: 0 });
-  assert.equal(toBigInt(header.value), protocolConstant('GENESIS_BLOCK_HEADER_HASH'));
+  assert.ok(header.value, 'the genesis block header is in the archive');
 
   const { state } = await service.getInitialStateReference({});
   assert.deepEqual(state.map(t => t.treeId).sort(), [0, 1, 2, 3]);
@@ -126,12 +149,13 @@ test('forks are separate world states, and bad requests are errors, not crashes'
   assert.equal(info.size, 1);
 });
 
-test('the synchronous service reaches the same world state', async () => {
+test('the synchronous service, given the same Init, reaches the same genesis', async () => {
   // A synchronous process client is always over shared memory.
   const sync = await WsdbServiceSync.create({ backend: options.backend });
   try {
+    sync.init(GENESIS);
     const archive = sync.getTreeInfo({ treeId: ARCHIVE, revision: committed });
-    assert.equal(toBigInt(archive.root), protocolConstant('GENESIS_ARCHIVE_ROOT'));
+    assert.equal(toBigInt(archive.root), genesisArchiveRoot);
   } finally {
     sync.destroy();
   }

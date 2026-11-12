@@ -14,12 +14,14 @@
 #include "barretenberg/wsdb_ref/generated/wsdb_dispatch.hpp"
 #include "barretenberg/wsdb_ref/generated/wsdb_types.hpp"
 
+#include <optional>
+
 namespace bb::wsdb_ref {
 
-/** @brief The state a wsdb-ref service runs over: one reference world state, at the canonical genesis until
- * InitGenesis. */
+/** @brief The state a wsdb-ref service runs over: one reference world state, which Init creates (and a later
+ * Init replaces). Every other command assumes it exists. */
 struct WsdbRefContext {
-    world_state::ReferenceWorldState world_state;
+    std::optional<world_state::ReferenceWorldState> world_state;
 };
 
 // clang-format off
@@ -63,7 +65,7 @@ void handle_revert_checkpoint(WsdbRefContext& ctx, wire::WsdbRevertCheckpoint&& 
 void handle_commit_all_checkpoints(WsdbRefContext& ctx, wire::WsdbCommitAllCheckpoints&& cmd, Responder<wire::WsdbCommitAllCheckpointsResponse> respond);
 void handle_revert_all_checkpoints(WsdbRefContext& ctx, wire::WsdbRevertAllCheckpoints&& cmd, Responder<wire::WsdbRevertAllCheckpointsResponse> respond);
 void handle_copy_stores(WsdbRefContext& ctx, wire::WsdbCopyStores&& cmd, Responder<wire::WsdbCopyStoresResponse> respond);
-void handle_init_genesis(WsdbRefContext& ctx, wire::WsdbInitGenesis&& cmd, Responder<wire::WsdbInitGenesisResponse> respond);
+void handle_init(WsdbRefContext& ctx, wire::WsdbInit&& cmd, Responder<wire::WsdbInitResponse> respond);
 // clang-format on
 
 } // namespace bb::wsdb_ref

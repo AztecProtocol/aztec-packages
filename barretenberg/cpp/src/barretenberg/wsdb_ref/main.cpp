@@ -3,7 +3,7 @@
  * @brief The wsdb-ref binary: wsdb-ref served over IPC, for a client that runs its world state as a process.
  *
  * `wsdb-ref msgpack run --input <path>` serves one reference world state on a .sock or .shm path until a
- * shutdown signal. It starts at the canonical genesis; a client sends InitGenesis for another.
+ * shutdown signal. Its client sends Init first, with the genesis to start from.
  */
 #include "barretenberg/bb/deps/cli11.hpp"
 #include "barretenberg/common/log.hpp"
