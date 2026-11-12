@@ -46,29 +46,61 @@ const files = (dir: string, keep: (f: string) => boolean) =>
     ? (fs.readdirSync(dir, { recursive: true }) as string[]).filter((f) => !f.split(path.sep).includes("node_modules") && keep(f)).map((f) => path.join(dir, f))
     : [];
 
-// For each first-party entry, the version it names, by file: pages and the webapp tutorial's
-// .yarnrc.yml in each line, and each released snapshot's pages.
+const FIRST_PARTY = /@aztec-(labs|foundation)\//;
+
+// Each npmPreapprovedPackages key with the lines after it, up to a fence or the next key at its indent
+// or less: wherever a list's entries sit, they sit in here.
+function lists(text: string): string[] {
+  const rows = text.split("\n");
+  const out: string[] = [];
+  rows.forEach((row, i) => {
+    const key = row.match(/^(\s*)npmPreapprovedPackages:/);
+    if (!key) return;
+    let j = i + 1;
+    for (; j < rows.length; j++) {
+      const next = rows[j].match(/^(\s*)([A-Za-z_][\w-]*:(\s|$)|```|~~~)/);
+      if (next && next[1].length <= key[1].length) break;
+    }
+    out.push(rows.slice(i, j).join("\n"));
+  });
+  return out;
+}
+
+// The scope and version of each first-party entry in a file's pre-approvals, and an "unread" one for an
+// entry the reader cannot place or a first-party name in a list that no entry it read accounts for.
+function firstPartyEntries(text: string) {
+  const out: { scope: string; version: string | undefined }[] = [];
+  const entries = preapprovals(text);
+  for (const entry of entries) {
+    const m = entry.match(SCOPES);
+    if (m) out.push({ scope: `@aztec-${m[1]}`, version: m[2] });
+    else if (entry === UNREAD || FIRST_PARTY.test(entry)) out.push({ scope: "unread", version: entry });
+  }
+  const named = lists(text).join("\n").match(new RegExp(FIRST_PARTY, "g"))?.length ?? 0;
+  const read = entries.filter((e) => FIRST_PARTY.test(e)).length;
+  if (named !== read) out.push({ scope: "unread", version: `${named} first-party names in the lists, ${read} read` });
+  return out;
+}
+
+// By file: pages and the webapp tutorial's .yarnrc.yml in each line, and each released snapshot's pages.
 function firstParty() {
-  const found: { file: string; scope: string; version: string | undefined }[] = [];
   const pages = (f: string) => /\.mdx?$/.test(f);
   const sources = lines.flatMap((l) => [
     ...files(path.join(docs, l, "docs-developers"), pages),
     path.join(docs, l, "examples/webapp-tutorial/.yarnrc.yml"),
   ]);
-  for (const file of [...sources, ...files(path.join(docs, "developer_versioned_docs"), pages)])
-    for (const entry of preapprovals(fs.readFileSync(file, "utf8"))) {
-      const m = entry.match(SCOPES);
-      if (m) found.push({ file: path.relative(docs, file), scope: `@aztec-${m[1]}`, version: m[2] });
-      else if (entry === UNREAD || /@aztec-(labs|foundation)\//.test(entry)) found.push({ file: path.relative(docs, file), scope: "unread", version: entry });
-    }
-  return found;
+  return [...sources, ...files(path.join(docs, "developer_versioned_docs"), pages)].flatMap((file) =>
+    firstPartyEntries(fs.readFileSync(file, "utf8")).map((e) => ({ file: path.relative(docs, file), ...e })),
+  );
 }
 
 test("the reader takes every form of the list and flags one it cannot read", () => {
-  const read = (yaml: string) => preapprovals(yaml).filter((e) => e === UNREAD || /@aztec-(labs|foundation)\//.test(e));
-  assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*" # day one\n\n  # and\n  - @aztec-foundation/*@1.0.0 # x\nnext: 1`), ["@aztec-labs/*", "@aztec-foundation/*@1.0.0"]);
-  assert.deepEqual(read(`npmPreapprovedPackages: ['@aztec/*', "@aztec-labs/*@#include_aztec_version"] # x`), ["@aztec-labs/*@#include_aztec_version"]);
-  assert.deepEqual(read(`npmPreapprovedPackages: [\n  "@aztec-labs/*",\n]`), [UNREAD]);
+  const read = (yaml: string) => firstPartyEntries(yaml).map((e) => (e.scope === "unread" ? "unread" : `${e.scope}/*@${e.version}`));
+  assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*@1" # day one\n\n  # and\n  - @aztec-foundation/*@2 # x\nnext: 1`), ["@aztec-labs/*@1", "@aztec-foundation/*@2"]);
+  assert.deepEqual(read(`npmPreapprovedPackages: ['@aztec/*', "@aztec-labs/*@#v"] # x`), ["@aztec-labs/*@#v"]);
+  assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*" # day one`), ["@aztec-labs/*@undefined"]);
+  for (const escape of [`: [\n  "@aztec-labs/*",\n]`, `:\n  [\n    "@aztec-labs/*"\n  ]`, `:\n  - >-\n    @aztec-labs/*`])
+    assert.ok(read(`npmPreapprovedPackages${escape}\nnext: 1`).includes("unread"), escape);
 });
 
 test("every page and the webapp tutorial pre-approve the first-party scopes only at the versions they install", () => {
