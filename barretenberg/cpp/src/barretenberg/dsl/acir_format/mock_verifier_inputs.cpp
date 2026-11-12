@@ -1,13 +1,17 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
+
+#include <array>
 
 namespace acir_format {
 
@@ -225,21 +229,60 @@ HonkProof create_mock_avm_proof_without_pub_inputs()
     return proof;
 }
 
+namespace {
+
+/**
+ * @brief The random values from which construct_arbitrary_valid_honk_proof_and_vk builds its circuit
+ */
+struct ArbitraryCircuitRandomness {
+    std::array<fr, 3> gate_inputs{};
+    std::vector<fr> public_inputs;
+    Polynomial<fq> ipa_polynomial; // drawn only when the IO carries an IPA claim
+    fq ipa_challenge = fq::zero();
+};
+
+/**
+ * @brief Draw the random values of construct_arbitrary_valid_honk_proof_and_vk
+ * @details construct_arbitrary_valid_honk_proof_and_vk and discard_arbitrary_valid_honk_proof_randomness draw only
+ * through this function, so both leave the engine in the same state.
+ */
+template <typename IO>
+ArbitraryCircuitRandomness draw_arbitrary_circuit_randomness(const size_t acir_public_inputs_size, numeric::RNG* engine)
+{
+    ArbitraryCircuitRandomness randomness;
+    for (fr& value : randomness.gate_inputs) {
+        value = fr::random_element(engine);
+    }
+    randomness.public_inputs.reserve(acir_public_inputs_size);
+    for (size_t i = 0; i < acir_public_inputs_size; ++i) {
+        randomness.public_inputs.emplace_back(fr::random_element(engine));
+    }
+    if constexpr (IO::HasIPA) {
+        auto [polynomial, challenge] = IPA<stdlib::grumpkin<typename IO::Builder>>::sample_random_opening(engine);
+        randomness.ipa_polynomial = std::move(polynomial);
+        randomness.ipa_challenge = challenge;
+    }
+    return randomness;
+}
+
+} // namespace
+
 template <typename Flavor, typename IO>
 std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
-    const size_t acir_public_inputs_size)
+    const size_t acir_public_inputs_size, numeric::RNG* engine)
 {
     using ProverInstance = ProverInstance_<Flavor>;
     using InnerProver = bb::UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
 
+    const ArbitraryCircuitRandomness randomness =
+        draw_arbitrary_circuit_randomness<IO>(acir_public_inputs_size, engine);
+
     // Construct a circuit with a single gate
     Builder builder;
 
-    fr a = fr::random_element();
-    fr b = fr::random_element();
-    fr c = fr::random_element();
+    const auto& [a, b, c] = randomness.gate_inputs;
     fr d = a + b + c;
 
     uint32_t a_idx = builder.add_variable(a);
@@ -250,11 +293,15 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
 
     // Add the public inputs
-    for (size_t i = 0; i < acir_public_inputs_size; ++i) {
-        builder.add_public_variable(fr::random_element());
+    for (const fr& public_input : randomness.public_inputs) {
+        builder.add_public_variable(public_input);
     }
 
-    IO::add_default(builder);
+    if constexpr (IO::HasIPA) {
+        IO::add_default(builder, randomness.ipa_polynomial, randomness.ipa_challenge);
+    } else {
+        IO::add_default(builder);
+    }
 
     // prove the circuit constructed above
     // Create the decider proving key
@@ -265,6 +312,13 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     InnerProver prover(decider_pk, vk);
     auto honk_proof = prover.construct_proof();
     return std::pair(honk_proof, vk);
+}
+
+template <typename Flavor, typename IO>
+void discard_arbitrary_valid_honk_proof_randomness(const size_t acir_public_inputs_size, numeric::RNG* engine)
+    requires(!Flavor::HasZK)
+{
+    draw_arbitrary_circuit_randomness<IO>(acir_public_inputs_size, engine);
 }
 
 Goblin::MergeProof create_mock_merge_proof()
@@ -652,12 +706,19 @@ template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::
 
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
 construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-    const size_t);
+    const size_t, numeric::RNG*);
 template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>>
 construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-    const size_t);
+    const size_t, numeric::RNG*);
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
-construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t,
+                                                                                            numeric::RNG*);
+
+template void discard_arbitrary_valid_honk_proof_randomness<UltraFlavor,
+                                                            stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t, numeric::RNG*);
+template void discard_arbitrary_valid_honk_proof_randomness<UltraFlavor, stdlib::recursion::honk::RollupIO>(
+    const size_t, numeric::RNG*);
 
 template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaFlavor,
                                                              stdlib::recursion::honk::AppIO<MegaAppCircuitBuilder>>();

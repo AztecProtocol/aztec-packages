@@ -72,6 +72,17 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                     /*acir_public_inputs_size=*/input.public_inputs.size()));
         }
 
+        // Steps 2 and 3 read the proof and vk only in write vk mode or under a witness predicate, so skip constructing
+        // them otherwise. Later random draws become witness values, so make the same draws construction would; that
+        // is possible only without ZK, as a ZK prover draws masking values of its own.
+        if constexpr (!NativeFlavor::HasZK) {
+            if (predicate.is_constant()) {
+                discard_arbitrary_valid_honk_proof_randomness<NativeFlavor, StdlibIO>(
+                    /*acir_public_inputs_size=*/input.public_inputs.size());
+                return {};
+            }
+        }
+
         return construct_arbitrary_valid_honk_proof_and_vk<NativeFlavor, StdlibIO>(
             /*acir_public_inputs_size=*/input.public_inputs.size());
     }();
