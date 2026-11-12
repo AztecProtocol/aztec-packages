@@ -180,26 +180,24 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
     const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
     const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);
 
-    std::vector<fr> column_1_raw_values;
-    std::vector<fr> column_2_raw_values;
-    std::vector<fr> column_3_raw_values;
+    // Each column holds the raw slice values until they are accumulated in place below.
+    lookup[C1].resize(num_lookups);
+    lookup[C2].resize(num_lookups);
+    lookup[C3].resize(num_lookups);
+    lookup.lookup_entries.reserve(num_lookups);
 
     for (size_t i = 0; i < num_lookups; ++i) {
         // compute the value(s) corresponding to the key(s) using the i-th basic table query function
         const auto values = multi_table.get_table_values[i]({ key_a_slices[i], key_b_slices[i] });
         // store all query data in raw columns and key entry
-        column_1_raw_values.emplace_back(key_a_slices[i]);
-        column_2_raw_values.emplace_back(is_2_to_1_lookup ? key_b_slices[i] : values[0]);
-        column_3_raw_values.emplace_back(is_2_to_1_lookup ? values[0] : values[1]);
+        lookup[C1][i] = fr(key_a_slices[i]);
+        lookup[C2][i] = is_2_to_1_lookup ? key_b_slices[i] : values[0];
+        lookup[C3][i] = is_2_to_1_lookup ? values[0] : values[1];
 
         // Store the lookup entries for use in constructing the sorted table/lookup polynomials later on
         const BasicTable::LookupEntry lookup_entry{ { key_a_slices[i], key_b_slices[i] }, values };
         lookup.lookup_entries.emplace_back(lookup_entry);
     }
-
-    lookup[C1].resize(num_lookups);
-    lookup[C2].resize(num_lookups);
-    lookup[C3].resize(num_lookups);
 
     /**
      * A multi-table consists of multiple basic tables (say L = 6).
@@ -240,14 +238,10 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
      * For more details: see ./README.md
      *
      */
-    lookup[C1][num_lookups - 1] = column_1_raw_values[num_lookups - 1];
-    lookup[C2][num_lookups - 1] = column_2_raw_values[num_lookups - 1];
-    lookup[C3][num_lookups - 1] = column_3_raw_values[num_lookups - 1];
-
     for (size_t i = num_lookups - 1; i > 0; --i) {
-        lookup[C1][i - 1] = column_1_raw_values[i - 1] + lookup[C1][i] * multi_table.column_1_step_sizes[i];
-        lookup[C2][i - 1] = column_2_raw_values[i - 1] + lookup[C2][i] * multi_table.column_2_step_sizes[i];
-        lookup[C3][i - 1] = column_3_raw_values[i - 1] + lookup[C3][i] * multi_table.column_3_step_sizes[i];
+        lookup[C1][i - 1] = lookup[C1][i - 1] + lookup[C1][i] * multi_table.column_1_step_sizes[i];
+        lookup[C2][i - 1] = lookup[C2][i - 1] + lookup[C2][i] * multi_table.column_2_step_sizes[i];
+        lookup[C3][i - 1] = lookup[C3][i - 1] + lookup[C3][i] * multi_table.column_3_step_sizes[i];
     }
     return lookup;
 }

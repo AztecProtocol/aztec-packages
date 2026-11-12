@@ -431,9 +431,16 @@ template <typename Builder> void keccak<Builder>::chi(keccak_state& internal)
         }
         for (size_t x = 0; x < 5; ++x) {
             // Normalize lane outputs and assign to internal.state
+#ifndef __wasm__
+            const auto [value, msb] =
+                plookup_read<Builder>::read_first_and_last_from_table(KECCAK_CHI_OUTPUT, lane_outputs[x]);
+            internal.state[y * 5 + x] = value;
+            internal.state_msb[y * 5 + x] = msb;
+#else
             auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_CHI_OUTPUT, lane_outputs[x]);
             internal.state[y * 5 + x] = accumulators[ColumnIdx::C2][0];
             internal.state_msb[y * 5 + x] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
+#endif
         }
     }
 }
@@ -483,9 +490,15 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
     keccak_state internal;
     internal.context = ctx;
     for (size_t i = 0; i < state.size(); ++i) {
+#ifndef __wasm__
+        const auto [value, msb] = plookup_read<Builder>::read_first_and_last_from_table(KECCAK_FORMAT_INPUT, state[i]);
+        internal.state[i] = value;
+        internal.state_msb[i] = msb;
+#else
         const auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_FORMAT_INPUT, state[i]);
         internal.state[i] = accumulators[ColumnIdx::C2][0];
         internal.state_msb[i] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
+#endif
     }
     compute_twisted_state(internal);
     keccakf1600(internal);
