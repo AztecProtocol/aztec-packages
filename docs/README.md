@@ -126,6 +126,7 @@ Netlify (site `aztec-docs-dev`) runs `scripts/netlify-ignore-build.sh` first, an
 
 - **Production** (`next`): builds when `docs/` changed since the last production build that passed, and whenever that build cannot be identified (no build cache, a commit that is not in `next`'s history). It leaves out the dev docs (`CONTEXT=production`).
 - **Deploy previews**: build when the pull request changes `docs/`.
+- **Check a deploy**: `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` asks a deployed site for what only Netlify answers: a redirect, a wildcard redirect, a page's markdown twin and the markdown answer to `Accept: text/markdown`, a migration-notes range, a missing page and `/commit.txt`. It prints one line per check and needs no install. With `--commit`, `/commit.txt` must name that commit.
 
 Failed production deploys post to the `#docs-alert` Slack channel. These actions are for site owners, in the Netlify UI:
 
@@ -220,13 +221,15 @@ $ yarn build
 
 This command runs the preprocess command, generates static content into the `build` directory and can be served using any static contents hosting service.
 
+The build ends with checks of its own output. `scripts/check_built_site.mts` reads a few named pages of each docs version and dev line: the version menu, the operator pages' command template and recommended version, the search button and the footer. In production it also fails when the dev docs or a dev line is served. Most OperatorConfig parts render only in the browser, so it can check only their server-rendered fallbacks. When you rename a sample page, update `SAMPLE_PAGES` in the check, or the build fails. After a build, run it alone with `node scripts/check_built_site.mts build`, with the build's `CONTEXT`.
+
 ### Search
 
 Search is [Pagefind](https://pagefind.app), built by every `yarn build`. There is no search server, key or crawler, and each deploy preview searches its own pages.
 
 - **Index**: `src/plugins/pagefind/` runs after the Docusaurus build and writes `build/pagefind/`. It indexes every docs page under Docusaurus's own `docusaurus_tag` (for example `docs-developer-v6.0.0`), and the Aztec.nr API item pages of each network's version under `default`, ranked below the guides. The served HTML is not changed. The TypeScript API reference is markdown only, so it is not searchable.
 - **Search bar**: `src/theme/SearchBar/` opens with Ctrl+K (⌘K on macOS) and loads `/pagefind/pagefind.js` on first use. It searches the version being read in both the developer and the operator docs, plus the unversioned pages. On an unversioned page it uses the developer version the reader last picked in the version menu, else the latest. "All versions" removes the filter.
-- **Check**: `scripts/check_search_index.mts` runs last in `yarn build`. It fails the build when a `sitemap.xml` page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query's page is not in the top 10 for a served version. A probe page outside the top 3 only prints a warning. After a build, run it alone with `node scripts/check_search_index.mts build`, with the build's `CONTEXT`.
+- **Check**: `scripts/check_search_index.mts` runs at the end of `yarn build`. It fails the build when a `sitemap.xml` page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query's page is not in the top 10 for a served version. A probe page outside the top 3 only prints a warning. After a build, run it alone with `node scripts/check_search_index.mts build`, with the build's `CONTEXT`.
 - **Probes**: `PROBES` in the check names each query's expected page by URL suffix. When you rename or move a probed page, add its new path to the probe, or the build fails.
 
 ### aztec-node code: the pin
